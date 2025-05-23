@@ -1,0 +1,2486 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chunwoo 공사 현장</title>
+    <!-- 구글 웹폰트 Pretendard, Roboto -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Pretendard', 'Roboto', 'Noto Sans KR', sans-serif;
+            background: #f4f7fb;
+            margin: 0;
+        }
+        #main-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+            width: 100%;
+            height: 110px;
+            display: none; /* !important 제거 */
+        }
+        #main-content-area {
+            margin-top: 110px !important;
+            min-height: calc(100vh - 110px);
+            position: relative;
+            display: block !important;
+        }
+        /* 로그인 화면 스타일 */
+        #login-section {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(120deg, #1976d2 0%, #42a5f5 100%);
+        }
+        .login-box {
+            background: #fff;
+            padding: 2.5rem 2.5rem 2rem 2.5rem;
+            border-radius: 18px;
+            box-shadow: 0 8px 32px rgba(25, 118, 210, 0.12);
+            min-width: 340px;
+            max-width: 95vw;
+        }
+        .login-title {
+            font-size: 1.7rem;
+            font-weight: bold;
+            margin-bottom: 1.7rem;
+            text-align: center;
+            color: #1976d2;
+            letter-spacing: 1px;
+        }
+        .login-group {
+            margin-bottom: 1.3rem;
+        }
+        .login-group label {
+            display: block;
+            margin-bottom: 0.4rem;
+            color: #1976d2;
+            font-weight: 500;
+        }
+        .login-group input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1.5px solid #b6c7e3;
+            border-radius: 8px;
+            font-size: 1.05rem;
+            background: #f7fafd;
+            transition: border 0.2s;
+        }
+        .login-group input:focus {
+            border: 1.5px solid #1976d2;
+            outline: none;
+            background: #fff;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 0.9rem;
+            background: linear-gradient(90deg, #1976d2 60%, #42a5f5 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.15rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+        .login-btn:hover {
+            background: linear-gradient(90deg, #1565c0 60%, #1976d2 100%);
+            box-shadow: 0 4px 16px rgba(25, 118, 210, 0.13);
+        }
+        /* 캘린더 화면 스타일 */
+        #calendar-section {
+            display: none;
+            flex-direction: column;
+            min-height: 100vh;
+            background: #f4f7fb;
+        }
+        .calendar-header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            border-bottom: 3px solid #1976d2;
+            padding: 1.5rem 2.5rem 1rem 2.5rem;
+            background: #fff;
+            box-shadow: 0 2px 12px rgba(25, 118, 210, 0.04);
+        }
+        .calendar-title {
+            font-size: 2.2rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+            color: #1976d2;
+        }
+        .calendar-subtitle {
+            font-size: 1.25rem;
+            color: #333;
+            margin-top: 0.3rem;
+            font-weight: 500;
+        }
+        .calendar-date-box {
+            text-align: right;
+        }
+        .calendar-date-box .year {
+            font-size: 1.1rem;
+            color: #888;
+        }
+        .calendar-date-box .month {
+            font-size: 2.3rem;
+            font-weight: bold;
+            color: #1976d2;
+            margin-left: 0.2rem;
+        }
+        .calendar-date-box .en-month {
+            font-size: 1.15rem;
+            color: #1976d2;
+            margin-right: 0.5rem;
+            font-weight: 500;
+        }
+        #today-info {
+            font-size:1.1rem;
+            color:#1976d2;
+            text-align:right;
+            margin-bottom:0.2rem;
+            font-weight: 500;
+        }
+        /* 메인화면(공사현황) 레이아웃 원복 */
+        .calendar-main {
+            display: flex;
+            padding: 2.2rem 2.5rem 2.5rem 2.5rem;
+            gap: 2.2rem;
+            margin-top: 0;
+        }
+        .site-list {
+            min-width: 180px;
+            max-width: 220px;
+            width: auto;
+        }
+        .site-list-title {
+            font-weight: bold;
+            font-size: 1.13rem;
+            margin-bottom: 0.7rem;
+            border-bottom: 2px solid #1976d2;
+            padding-bottom: 0.4rem;
+            color: #1976d2;
+            letter-spacing: 0.5px;
+        }
+        .site-list-table {
+            width: 100%;
+        }
+        .site-list-table td, .site-list-table th {
+            border: 1px solid #e3eaf3;
+            padding: 0.3rem 0.7rem;
+            font-size: 1.01rem;
+            height: 2.1rem;
+            background: #fff;
+        }
+        .site-list-table th {
+            background: #f4f7fb;
+            font-weight: bold;
+            text-align: left;
+            color: #1976d2;
+        }
+        .calendar-table-wrap {
+            flex: 1;
+            overflow-x: auto;
+        }
+        .calendar-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(25, 118, 210, 0.07);
+            overflow: hidden;
+        }
+        .calendar-table th, .calendar-table td {
+            border: 1px solid #e3eaf3;
+            text-align: right;
+            vertical-align: top;
+            height: 70px;
+            padding: 0.4rem 0.7rem;
+            font-size: 1.07rem;
+            transition: background 0.18s, color 0.18s;
+        }
+        .calendar-table th {
+            background: #e3eaf3;
+            color: #1976d2;
+            font-weight: bold;
+            text-align: center;
+            font-size: 1.08rem;
+            letter-spacing: 0.5px;
+        }
+        .calendar-table td.sat {
+            background: #eaf4fb;
+            color: #1976d2;
+        }
+        .calendar-table td.sun {
+            background: #fbeaea;
+            color: #d32f2f;
+        }
+        .calendar-table td {
+            background: #fff;
+            color: #222;
+            cursor: pointer;
+        }
+        .calendar-table td:hover {
+            background: #e3eaf3;
+            color: #1976d2;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08) inset;
+        }
+        @media (max-width: 900px) {
+            .calendar-main {
+                flex-direction: column;
+                padding: 1.2rem;
+                gap: 1.2rem;
+            }
+            .calendar-header {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 1.2rem 1.2rem 0.7rem 1.2rem;
+            }
+        }
+        @media (max-width: 600px) {
+            .calendar-header, .calendar-main {
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+            }
+            .login-box {
+                padding: 1.2rem 0.7rem 1rem 0.7rem;
+            }
+        }
+        .top-box {
+            flex:1;
+            min-width:120px;
+            background: #fff;
+            border: 2px solid #e53935;
+            border-radius: 8px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.08rem;
+            font-weight: 600;
+            color: #1976d2;
+            margin: 0 0.1rem;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.04);
+            letter-spacing: 0.5px;
+            transition: box-shadow 0.2s, border 0.2s;
+            cursor: pointer;
+        }
+        .top-box:hover {
+            box-shadow: 0 4px 16px rgba(229,57,53,0.10);
+            border: 2.5px solid #1976d2;
+            color: #e53935;
+            background: #f4f7fb;
+        }
+        .modal-bg {
+            position: fixed;
+            left: 0; top: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.18);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-box {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(25, 118, 210, 0.18);
+            padding: 2.2rem 2.5rem 1.5rem 2.5rem;
+            min-width: 340px;
+            max-width: 90vw;
+            min-height: 180px;
+            position: relative;
+            animation: modalShow 0.2s;
+        }
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 0.7rem;
+        }
+        .modal-close {
+            position: absolute;
+            right: 1.2rem;
+            top: 1.2rem;
+            background: #e53935;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.4rem 1.1rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .modal-close:hover {
+            background: #1976d2;
+        }
+        @keyframes modalShow {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 900px) {
+            .modal-box { min-width: 220px; padding: 1.2rem 0.7rem 1rem 0.7rem; }
+        }
+        @media (max-width: 600px) {
+            .modal-bg { display: none !important; }
+        }
+        #site-detail-page {
+            position: fixed;
+            left: 0; top: 0; right: 0; bottom: 0;
+            background: #f4f7fb;
+            z-index: 2000;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            overflow-y: auto;
+        }
+        .site-detail-mobile-box {
+            background: #fff;
+            border-radius: 0 0 18px 18px;
+            box-shadow: 0 8px 32px rgba(25, 118, 210, 0.13);
+            padding: 1.5rem 1.2rem 2rem 1.2rem;
+            width: 100vw;
+            max-width: 480px;
+            margin-top: 0.5rem;
+        }
+        .site-detail-back {
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.5rem 1.2rem;
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .site-detail-back:hover {
+            background: #e53935;
+        }
+        @media (min-width: 901px) {
+            #site-detail-page { display: none !important; }
+        }
+        .site-detail-section {
+            background: #f7fafd;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.06);
+            padding: 1.2rem 1rem 1.2rem 1rem;
+            margin-bottom: 1.2rem;
+        }
+        .site-detail-section-title {
+            font-size: 1.08rem;
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 0.7rem;
+        }
+        .site-detail-row {
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+            margin-bottom: 0.8rem;
+        }
+        .site-detail-row label {
+            min-width: 80px;
+            font-weight: 500;
+            color: #1976d2;
+            font-size: 1rem;
+        }
+        .site-detail-row input {
+            flex: 1;
+            padding: 0.6rem 0.7rem;
+            border: 1.5px solid #b6c7e3;
+            border-radius: 7px;
+            font-size: 1rem;
+            background: #fff;
+            transition: border 0.2s;
+        }
+        .site-detail-row input:focus {
+            border: 1.5px solid #1976d2;
+            outline: none;
+        }
+        .estimate-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 0.7rem;
+        }
+        .estimate-table th, .estimate-table td {
+            border: 1px solid #e3eaf3;
+            padding: 0.5rem 0.6rem;
+            text-align: center;
+            font-size: 1rem;
+        }
+        .estimate-table th {
+            background: #e3eaf3;
+            color: #1976d2;
+            font-weight: bold;
+        }
+        .estimate-table td input {
+            width: 90%;
+            padding: 0.4rem 0.5rem;
+            border: 1px solid #b6c7e3;
+            border-radius: 6px;
+            font-size: 1rem;
+            background: #f7fafd;
+        }
+        .estimate-remove {
+            background: #e53935;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 0.3rem 0.7rem;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .estimate-remove:hover {
+            background: #1976d2;
+        }
+        .estimate-add {
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.5rem 1.2rem;
+            font-size: 1rem;
+            font-weight: 500;
+            margin-top: 0.2rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .estimate-add:hover {
+            background: #e53935;
+        }
+        #detail-progress {
+            width: 100%;
+            border: 1.5px solid #b6c7e3;
+            border-radius: 7px;
+            font-size: 1rem;
+            padding: 0.7rem;
+            background: #fff;
+            resize: vertical;
+        }
+        #detail-progress:focus {
+            border: 1.5px solid #1976d2;
+            outline: none;
+        }
+        @media (max-width: 600px) {
+            .site-detail-mobile-box {
+                padding: 0.7rem 0.2rem 1rem 0.2rem;
+            }
+            .site-detail-section {
+                padding: 0.7rem 0.3rem 0.7rem 0.3rem;
+            }
+        }
+        .site-detail-detailbtn {
+            background: #fff;
+            color: #1976d2;
+            border: 2px solid #1976d2;
+            border-radius: 6px;
+            padding: 0.5rem 1.2rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .site-detail-detailbtn:hover {
+            background: #1976d2;
+            color: #fff;
+        }
+        .file-list {
+            margin: 0.5rem 0 0.2rem 0;
+            font-size: 0.97rem;
+            color: #1976d2;
+        }
+        .file-list span {
+            display: inline-block;
+            background: #e3eaf3;
+            color: #1976d2;
+            border-radius: 5px;
+            padding: 0.2rem 0.7rem;
+            margin: 0.1rem 0.2rem 0.1rem 0;
+        }
+        .site-detail-save, .site-detail-load {
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.5rem 1.2rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .site-detail-save:hover, .site-detail-load:hover {
+            background: #e53935;
+        }
+        #project-detail-section {
+            left: 0; top: 0; right: 0; bottom: 0;
+            background: #f4f7fb;
+            z-index: 3000;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .project-detail-container {
+            display: flex;
+            gap: 40px;
+            width: 100%;
+            max-width: 1400px;
+            align-items: flex-start;
+        }
+        .project-info {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .project-list {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .project-list table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .project-list th, .project-list td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .project-list th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #1976d2;
+        }
+        .project-info h3 {
+            margin: 0 0 20px 0;
+            color: #1976d2;
+            font-size: 20px;
+        }
+        .info-item {
+            margin-bottom: 15px;
+        }
+        .info-item label {
+            display: block;
+            color: #666;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .info-item span {
+            display: block;
+            color: #333;
+            font-size: 16px;
+        }
+        .project-detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+        }
+        .project-detail-title {
+            font-size: 1.35rem;
+            font-weight: bold;
+            color: #1976d2;
+        }
+        .project-detail-back {
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.5rem 1.2rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .project-detail-back:hover {
+            background: #e53935;
+        }
+        .project-detail-section {
+            background: #f7fafd;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.06);
+            padding: 1.2rem 1rem 1.2rem 1rem;
+            margin-bottom: 1.2rem;
+        }
+        .project-detail-section-title {
+            font-size: 1.08rem;
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 0.7rem;
+        }
+        /* 현장 세부내역(좌우 레이아웃)에서만 리스트 영역 넓게 */
+        #project-detail-section .site-list,
+        #project-detail-section #site-list-panel {
+            min-width: 400px !important;
+            max-width: 540px !important;
+            width: 100% !important;
+        }
+        /* 현장 세부내역 입력 폼 라인 정렬 및 진행율 UI 개선 */
+        #project-detail-section .project-detail-row {
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+            margin-bottom: 0.8rem;
+        }
+        #project-detail-section .project-detail-row label:nth-child(1) {
+            min-width: 108px;
+            max-width: 108px;
+        }
+        #project-detail-section .project-detail-row input,
+        #project-detail-section .project-detail-row select,
+        #project-detail-section .project-detail-row textarea {
+            flex: 1;
+            padding: 0.6rem 0.7rem;
+            border: 1.5px solid #b6c7e3;
+            border-radius: 7px;
+            font-size: 1rem;
+            background: #fff;
+            transition: border 0.2s;
+            margin-left: 0;
+            box-sizing: border-box;
+        }
+        #project-detail-section .progress-status {
+            display: flex;
+            flex-direction: row;
+            gap: 0.5rem;
+            margin-bottom: 0;
+        }
+        #project-detail-section .progress-status-btn {
+            background: #e3eaf3;
+            color: #1976d2;
+            border: 1.5px solid #b6c7e3;
+            border-radius: 6px;
+            padding: 0.4rem 1.1rem;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s, border 0.2s;
+        }
+        #project-detail-section .progress-status-btn.active {
+            background: #1976d2;
+            color: #fff;
+            border: 1.5px solid #1976d2;
+        }
+        #project-detail-section .progress-percent-container {
+            margin-left: 0.7rem;
+            gap: 0.3rem;
+            display: flex;
+            align-items: center;
+        }
+        #pd-memo {
+            width: 100%;
+            border: 1.5px solid #b6c7e3;
+            border-radius: 7px;
+            font-size: 1rem;
+            padding: 0.7rem;
+            background: #fff;
+            resize: vertical;
+        }
+        #pd-memo:focus {
+            border: 1.5px solid #1976d2;
+            outline: none;
+        }
+        #pd-estimate-table th, #pd-estimate-table td {
+            border: 1px solid #e3eaf3;
+            padding: 0.5rem 0.6rem;
+            text-align: center;
+            font-size: 1rem;
+        }
+        #pd-estimate-table th {
+            background: #e3eaf3;
+            color: #1976d2;
+            font-weight: bold;
+        }
+        #pd-estimate-table td input {
+            width: 90%;
+            padding: 0.4rem 0.5rem;
+            border: 1px solid #b6c7e3;
+            border-radius: 6px;
+            font-size: 1rem;
+            background: #f7fafd;
+        }
+        .pd-estimate-remove {
+            background: #e53935;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 0.3rem 0.7rem;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .pd-estimate-remove:hover {
+            background: #1976d2;
+        }
+        @media (max-width: 600px) {
+            .project-detail-box {
+                padding: 0.7rem 0.2rem 1rem 0.2rem;
+            }
+            .project-detail-section {
+                padding: 0.7rem 0.3rem 0.7rem 0.3rem;
+            }
+        }
+        /* 협의하기(실시간 협업) 스타일 */
+        #collab-section {
+            left: 0; top: 0; right: 0; bottom: 0;
+            background: #f4f7fb;
+            z-index: 3000;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            overflow-y: auto;
+        }
+        .collab-box {
+            background: #fff;
+            border-radius: 0 0 18px 18px;
+            box-shadow: 0 8px 32px rgba(25, 118, 210, 0.13);
+            padding: 2.2rem 2.5rem 2rem 2.5rem;
+            width: 100vw;
+            max-width: 540px;
+            margin-top: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            min-height: 70vh;
+        }
+        .collab-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+        }
+        .collab-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #1976d2;
+        }
+        .collab-back {
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.5rem 1.2rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .collab-back:hover {
+            background: #e53935;
+        }
+        .collab-chat-area {
+            flex: 1;
+            background: #f7fafd;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.06);
+            padding: 1.2rem 1rem 1.2rem 1rem;
+            margin-bottom: 1.2rem;
+            overflow-y: auto;
+            min-height: 200px;
+            max-height: 350px;
+        }
+        .collab-msg {
+            margin-bottom: 1.1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+        .collab-msg-text {
+            background: #e3eaf3;
+            color: #222;
+            border-radius: 7px;
+            padding: 0.5rem 0.9rem;
+            font-size: 1rem;
+            max-width: 90%;
+            word-break: break-all;
+        }
+        .collab-msg-file {
+            margin-top: 0.2rem;
+        }
+        .collab-msg-file img, .collab-msg-file video {
+            max-width: 180px;
+            max-height: 120px;
+            border-radius: 7px;
+            margin-right: 0.5rem;
+            margin-bottom: 0.2rem;
+            display: inline-block;
+        }
+        .collab-form {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        #collab-input {
+            flex: 1;
+            padding: 0.7rem;
+            border: 1.5px solid #b6c7e3;
+            border-radius: 7px;
+            font-size: 1rem;
+            background: #fff;
+            transition: border 0.2s;
+        }
+        #collab-input:focus {
+            border: 1.5px solid #1976d2;
+            outline: none;
+        }
+        #collab-file {
+            font-size: 0.97rem;
+        }
+        .collab-send {
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.6rem 1.2rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .collab-send:hover {
+            background: #e53935;
+        }
+        /* 기성현황(기성금 관리) 스타일 */
+        #progress-section {
+            left: 0; top: 0; right: 0; bottom: 0;
+            background: #f4f7fb;
+            z-index: 3000;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            overflow-y: auto;
+        }
+        .progress-main {
+            display: flex;
+            gap: 2rem;
+            padding: 2rem;
+            width: 100vw;
+            max-width: 1200px;
+        }
+        .progress-left-panel, .progress-right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+        .progress-left-panel {
+            flex: 1 1 320px;
+            max-width: 350px;
+        }
+        .progress-right-panel {
+            flex: 2 1 600px;
+        }
+        .panel {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(25, 118, 210, 0.10);
+            padding: 1.5rem 1.2rem 1.2rem 1.2rem;
+        }
+        .panel-title {
+            font-size: 1.15rem;
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 1rem;
+            letter-spacing: 0.5px;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.3rem;
+            color: #1976d2;
+            font-weight: 500;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.7rem;
+            border: 1.5px solid #b6c7e3;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: #f7fafd;
+            transition: border 0.2s;
+        }
+        .form-group input:focus, .form-group select:focus {
+            border: 1.5px solid #1976d2;
+            outline: none;
+            background: #fff;
+        }
+        .form-actions {
+            text-align: right;
+        }
+        .form-actions button {
+            background: linear-gradient(90deg, #1976d2 60%, #42a5f5 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 0.7rem 1.5rem;
+            font-size: 1.05rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+        .form-actions button:hover {
+            background: linear-gradient(90deg, #1565c0 60%, #1976d2 100%);
+            box-shadow: 0 4px 16px rgba(25, 118, 210, 0.13);
+        }
+        .status-section {
+            display: flex;
+            gap: 1.5rem;
+        }
+        .status-box {
+            flex: 1;
+            background: #e3f2fd;
+            border-radius: 12px;
+            padding: 1.2rem 1rem;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+            border-left: 6px solid #1976d2;
+        }
+        .status-title {
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+        .status-box div {
+            font-size: 1.05rem;
+            margin-bottom: 0.2rem;
+        }
+        .monthly-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.07);
+            overflow: hidden;
+        }
+        .monthly-table th, .monthly-table td {
+            border: 1px solid #e0e0e0;
+            padding: 0.7rem 0.5rem;
+            text-align: center;
+            font-size: 1.02rem;
+        }
+        .monthly-table th {
+            background: #1976d2;
+            color: #fff;
+            font-weight: bold;
+        }
+        .monthly-table tr:nth-child(even) td {
+            background: #f4f7fb;
+        }
+        .today-box {
+            background: #fffde7;
+            border-radius: 12px;
+            padding: 1.2rem 1rem;
+            margin-top: 1rem;
+            box-shadow: 0 2px 8px rgba(188, 81, 0, 0.08);
+            border-left: 6px solid #bc5100;
+        }
+        .today-box .panel-title {
+            color: #bc5100;
+        }
+        @media (max-width: 1000px) {
+            .progress-main {
+                flex-direction: column;
+            }
+            .progress-right-panel {
+                width: 100%;
+            }
+        }
+        /* 현장 정보 팝업 스타일 */
+        .site-info-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 2000;
+            width: 300px;
+        }
+
+        .site-info-popup h3 {
+            margin: 0 0 15px 0;
+            color: #1976d2;
+            font-size: 18px;
+        }
+
+        .site-info-content {
+            margin-bottom: 20px;
+        }
+
+        .site-info-content p {
+            margin: 8px 0;
+            color: #333;
+        }
+
+        .site-info-popup .detail-btn {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            float: right;
+        }
+
+        .site-info-popup .detail-btn:hover {
+            background: #1565c0;
+        }
+
+        /* 캘린더 상단 버튼 스타일 */
+        .calendar-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 0 20px;
+            justify-content: flex-end;
+        }
+
+        .calendar-btn {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .calendar-btn.delete {
+            background: #e53935;
+        }
+
+        .calendar-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* 선택된 현장 스타일 */
+        .site-link.selected {
+            background: #e3f2fd;
+            border: 1px solid #1976d2;
+            border-radius: 4px;
+            padding: 2px 4px;
+        }
+        /* 진행율 스타일 수정 */
+        .progress-status {
+            display: flex;
+            flex-direction: row;
+            gap: 0.5rem;
+            margin-bottom: 0;
+        }
+
+        .progress-status-btn {
+            background: #e3eaf3;
+            color: #1976d2;
+            border: 1.5px solid #b6c7e3;
+            border-radius: 6px;
+            padding: 0.4rem 1.1rem;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s, border 0.2s;
+        }
+        .progress-status-btn.active {
+            background: #1976d2;
+            color: #fff;
+            border: 1.5px solid #1976d2;
+        }
+        .progress-percent-container {
+            margin-left: 0.7rem;
+            gap: 0.3rem;
+            display: flex;
+            align-items: center;
+        }
+        .donut-chart {
+            width: 60px;
+            height: 60px;
+            position: relative;
+            display: none;
+        }
+        .donut-chart svg {
+            width: 100%;
+            height: 100%;
+            transform: none;
+            display: block;
+        }
+        .donut-chart circle {
+            fill: none;
+            stroke-width: 8;
+        }
+        .donut-chart .background {
+            stroke: #e3eaf3;
+        }
+        .donut-chart .progress {
+            stroke: #ff9800;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.3s ease;
+        }
+        .donut-chart .percentage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #1976d2;
+        }
+
+        /* 현장별 리스트(좌측) 3개씩 보이고 스크롤 */
+        #site-list-panel > div {
+            margin-bottom: 1.2rem;
+        }
+        #site-list-panel .site-list-table {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+        #site-list-panel .site-list-table-wrap {
+            max-height: 140px;
+            overflow-y: auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.06);
+        }
+
+        /* 박스 시작 위치 정렬 */
+        #site-list-panel, .project-detail-box {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+        }
+        #site-list-panel {
+            min-width: 480px !important;
+            max-width: 540px !important;
+            width: 520px !important;
+            margin-right: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+        .project-detail-box {
+            flex: 2;
+            max-width: 700px;
+            min-width: 520px;
+            margin-left: 0 !important;
+            padding-left: 0 !important;
+        }
+        .project-detail-row label {
+            min-width: 120px;
+            max-width: 120px;
+            text-align: left;
+            margin-right: 0.7rem;
+            display: inline-block;
+        }
+        .project-detail-row input,
+        .project-detail-row select,
+        .project-detail-row textarea {
+            flex: 1;
+            margin-left: 0;
+            box-sizing: border-box;
+        }
+        .progress-percent-container {
+            margin-left: 0.7rem;
+            gap: 0.3rem;
+            display: flex;
+            align-items: center;
+        }
+        .site-list-box {
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.06);
+            padding: 1rem;
+            margin-bottom: 1.2rem;
+        }
+        .site-list-title {
+            font-weight: bold;
+            color: #1976d2;
+            font-size: 1.08rem;
+        }
+        .site-list-search-btn {
+            margin-left: auto;
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.4rem 1.1rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .site-list-box.inprogress-list {
+            height: 210px;
+            overflow-y: auto;
+        }
+        .site-list-box.planned-list {
+            height: 90px;
+            overflow-y: auto;
+        }
+        .site-list-box.done-list {
+            height: 90px;
+            overflow-y: auto;
+        }
+        /* 진행중 현장 LIST: 7행 고정 */
+        .inprogress-list .site-list-table-wrap {
+            height: 308px; /* 44px(헤더) + 6*44px(행) = 308px */
+            min-height: 308px;
+            max-height: 308px;
+            overflow-y: auto;
+        }
+
+        /* 예정/완료 현장 LIST: 3행 고정 */
+        .planned-list .site-list-table-wrap,
+        .done-list .site-list-table-wrap {
+            height: 176px; /* 44px(헤더) + 2*44px(행) = 176px */
+            min-height: 176px;
+            max-height: 176px;
+            overflow-y: auto;
+        }
+
+        /* 테이블 행 높이 고정 */
+        .site-list-table th,
+        .site-list-table td {
+            height: 44px;
+            vertical-align: middle;
+        }
+        .site-list-box {
+          display: flex;
+          flex-direction: column;
+          height: 210px; /* 진행중: 7행, 예정/완료: 90px(3행) */
+        }
+        .site-list-header {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 0.5rem;
+          flex-shrink: 0;
+        }
+        .site-list-table-wrap {
+          flex: 1 1 auto;
+          overflow-y: auto;
+        }
+
+        /* 현장 리스트 헤더 고정, 목록만 스크롤 */
+        .site-list-box {
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.06);
+            padding: 1rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .site-list-box.inprogress-list {
+            height: 210px;
+        }
+
+        .site-list-box.planned-list,
+        .site-list-box.done-list {
+            height: 90px;
+        }
+
+        .site-list-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .site-list-table-wrap {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        /* 현장세부사항 라벨 여백 2px 줄이기 */
+        #project-detail-section .project-detail-row label {
+            min-width: 108px;
+            max-width: 108px;
+            text-align: left;
+            margin-right: 0.7rem;
+            display: inline-block;
+        }
+
+        /* 현장 리스트 박스(진행중/예정/완료) 고정 크기 및 헤더 고정, 내용만 스크롤 */
+        .site-list-box {
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.06);
+            padding: 1rem;
+            margin-bottom: 1.2rem;
+        }
+        .site-list-box.inprogress-list { height: 308px; min-height: 308px; max-height: 308px; }
+        .site-list-box.planned-list,
+        .site-list-box.done-list { height: 176px; min-height: 176px; max-height: 176px; }
+
+        .site-list-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            flex-shrink: 0;
+        }
+        .site-list-table-wrap {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        .site-list-table th, .site-list-table td {
+            height: 44px;
+            vertical-align: middle;
+        }
+        .site-list-box {
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.06);
+            padding: 1rem 1rem 1rem 1rem;
+            margin-bottom: 1.2rem;
+            /* 고정 높이 */
+        }
+        .site-list-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.2rem;
+            border-bottom: 2px solid #e3eaf3;
+            background: transparent;
+            position: relative;
+            z-index: 2;
+        }
+        .site-list-title {
+            font-weight: bold;
+            color: #1976d2;
+            font-size: 1.08rem;
+            letter-spacing: 0.5px;
+        }
+        .site-list-search-btn {
+            margin-left: 0.5rem;
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.4rem 1.1rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .site-list-search-btn:hover {
+            background: #1565c0;
+        }
+        .site-list-table-wrap {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            min-height: 0;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: none;
+            margin-top: 0.2rem;
+        }
+        .site-list-box.inprogress-list { height: 308px; min-height: 308px; max-height: 308px; }
+        .site-list-box.planned-list,
+        .site-list-box.done-list { height: 176px; min-height: 176px; max-height: 176px; }
+        .site-list-table th, .site-list-table td {
+            height: 44px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <!-- 로그인 화면 -->
+    <section id="login-section">
+        <div class="login-box">
+            <div class="login-title">로그인</div>
+            <form id="loginForm">
+                <div class="login-group">
+                    <label for="username">아이디</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="login-group">
+                    <label for="password">비밀번호</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" class="login-btn">로그인</button>
+            </form>
+        </div>
+    </section>
+    <!-- 상단 헤더: 항상 고정 -->
+    <header id="main-header" style="background:#fff;z-index:100;position:relative;">
+        <div class="calendar-header">
+            <div style="display:flex;align-items:flex-end;">
+                <div>
+                    <div class="calendar-title">Chunwoo</div>
+                    <div class="calendar-subtitle">공사 현장</div>
+                </div>
+            </div>
+            <div style="flex:1;display:flex;gap:0.5rem;align-items:center;justify-content:center;max-width:60vw;min-width:400px;">
+                <div class="top-box" id="btn-main">공사현황</div>
+                <div class="top-box" id="btn-project-detail">현장세부내역</div>
+                <div class="top-box" id="btn-collab">협의하기</div>
+                <div class="top-box" id="btn-progress">기성현황</div>
+                <div class="top-box">거래처 현장 파악</div>
+            </div>
+            <div class="calendar-date-box">
+                <div id="today-info"></div>
+                <span class="year">2025</span>
+                <span class="en-month">May</span>
+                <span class="month">5</span>
+            </div>
+        </div>
+        <div style="height:6px;background:#1976d2;width:100%;margin-top:0.5rem;"></div>
+    </header>
+    <!-- 본문: 파란선 아래 영역만 전환 -->
+    <main id="main-content-area">
+        <!-- 공사현황(달력+현장리스트) -->
+        <section id="main-content" style="display:block;">
+            <div class="calendar-main">
+                <div class="site-list">
+                    <div class="site-list-title">진행중 현장 LIST</div>
+                    <table class="site-list-table" id="site-list-table">
+                        <tr><th style="width:2.5rem;"> </th><th>현장명</th></tr>
+                        <!-- JS로 현장 자동 삽입 -->
+                    </table>
+                </div>
+                <div class="calendar-table-wrap">
+                    <table class="calendar-table" id="calendar-table">
+                        <thead>
+                            <tr>
+                                <th>월<br>Monday</th>
+                                <th>화<br>Tuesday</th>
+                                <th>수<br>Wednesday</th>
+                                <th>목<br>Thursday</th>
+                                <th>금<br>Friday</th>
+                                <th style="color:#1976d2;">토<br>Saturday</th>
+                                <th style="color:#d32f2f;">일<br>Sunday</th>
+                            </tr>
+                        </thead>
+                        <tbody id="calendar-body">
+                            <!-- JS로 캘린더 자동 생성 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <!-- 현장 세부내역(좌우 레이아웃) -->
+        <section id="project-detail-section" style="display:none;">
+            <div style="display:flex;gap:2rem;align-items:flex-start;min-height:600px;">
+                <!-- 왼쪽: 현장별 LIST -->
+                <div id="site-list-panel" style="flex:1;min-width:400px;max-width:540px;background:#f4f7fb;border-radius:16px;padding:1.5rem 1rem 1.5rem 1rem;box-shadow:0 2px 12px rgba(25,118,210,0.07);height:100%;display:flex;flex-direction:column;gap:1.2rem;">
+                    <!-- 진행중 현장 LIST -->
+                    <div class="site-list-box inprogress-list">
+                        <div class="site-list-header">
+                            <span class="site-list-title">진행중 현장 LIST</span>
+                            <button class="site-list-search-btn">찾기</button>
+                        </div>
+                        <div class="site-list-table-wrap">
+                            <table class="site-list-table" id="site-list-table-inprogress"></table>
+                        </div>
+                    </div>
+                    <!-- 예정 현장 LIST -->
+                    <div class="site-list-box planned-list">
+                        <div class="site-list-header">
+                            <span class="site-list-title">예정 현장 LIST</span>
+                            <button class="site-list-search-btn" onclick="searchSiteList('planned')">찾기</button>
+                        </div>
+                        <div class="site-list-table-wrap">
+                            <table class="site-list-table" id="site-list-table-planned"></table>
+                        </div>
+                    </div>
+                    <!-- 완료 현장 LIST -->
+                    <div class="site-list-box done-list">
+                        <div class="site-list-header">
+                            <span class="site-list-title">완료 현장 LIST</span>
+                            <button class="site-list-search-btn" onclick="searchSiteList('done')">찾기</button>
+                        </div>
+                        <div class="site-list-table-wrap">
+                            <table class="site-list-table" id="site-list-table-done"></table>
+                        </div>
+                    </div>
+                </div>
+                <!-- 오른쪽: 현장 세부 사항 -->
+                <div class="project-detail-box" style="flex:2;max-width:540px;">
+                    <div class="project-detail-header">
+                        <div class="project-detail-title">현장 세부 사항</div>
+                        <button class="project-detail-back" onclick="showMainContent()">← 목록으로</button>
+                    </div>
+                    <form id="project-detail-form" onsubmit="return false;">
+                        <div class="project-detail-section">
+                            <div class="project-detail-row" style="gap:0.5rem;">
+                                <label>현장명</label>
+                                <input type="text" id="pd-name" required maxlength="20">
+                            </div>
+                            <div class="project-detail-row" style="gap:0.5rem;">
+                                <label>공사기간</label>
+                                <input type="date" id="pd-start-date" style="flex:1;max-width:150px;">
+                                <span style="margin: 0 0.5rem;">~</span>
+                                <input type="date" id="pd-end-date" style="flex:1;max-width:150px;">
+                            </div>
+                            <div class="project-detail-row">
+                                <label>현장 진행율</label>
+                                <select id="progress-status-select" style="flex:1;max-width:120px;">
+                                    <option value="예정">예정</option>
+                                    <option value="진행중">진행중</option>
+                                    <option value="완료">완료</option>
+                                </select>
+                                <div class="progress-percent-container" id="progress-percent-wrap" style="display:none;">
+                                    <input type="number" id="progress-percent" class="progress-percent-input" min="0" max="100" placeholder="진행율">
+                                    <button type="button" id="btn-progress-save" class="site-detail-save" style="padding:0.3rem 0.8rem;font-size:0.95rem;">저장</button>
+                                    <div class="donut-chart">
+                                        <svg viewBox="0 0 36 36">
+                                            <circle class="background" cx="18" cy="18" r="15.91549430918954"></circle>
+                                            <circle class="progress" cx="18" cy="18" r="15.91549430918954"></circle>
+                                        </svg>
+                                        <div class="percentage">0%</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="project-detail-row" style="gap:0.5rem;">
+                                <label>계약구분</label>
+                                <select id="pd-type" style="flex:1;max-width:100px;">
+                                    <option value="공사">공사</option>
+                                    <option value="납품">납품</option>
+                                    <option value="NONE">NONE</option>
+                                </select>
+                            </div>
+                            <div class="project-detail-row">
+                                <label>회사</label>
+                                <input type="text" id="pd-company">
+                            </div>
+                            <div class="project-detail-row">
+                                <label>시공팀</label>
+                                <input type="text" id="pd-team" placeholder="시공팀을 입력하세요">
+                            </div>
+                            <div class="project-detail-row">
+                                <label>현장소장</label>
+                                <input type="text" id="pd-manager">
+                            </div>
+                            <div class="project-detail-row">
+                                <label>현장주소</label>
+                                <input type="text" id="pd-address" placeholder="현장 주소를 입력하세요">
+                            </div>
+                            <div class="project-detail-row">
+                                <label>계약금액</label>
+                                <input type="text" id="pd-total" placeholder="계약금액 입력">
+                            </div>
+                            <div class="project-detail-row">
+                                <label>비고</label>
+                                <input type="text" id="pd-note">
+                            </div>
+                        </div>
+                        <div class="project-detail-section">
+                            <div class="project-detail-section-title">견적내역</div>
+                            <table class="estimate-table" id="pd-estimate-table">
+                                <thead>
+                                    <tr>
+                                        <th>항목</th>
+                                        <th>물량</th>
+                                        <th>단가</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pd-estimate-tbody">
+                                    <!-- JS로 행 추가/삭제 -->
+                                </tbody>
+                            </table>
+                            <button type="button" class="estimate-add" onclick="addPdEstimateRow()" style="display:none;">+ 행 추가</button>
+                        </div>
+                        <div class="project-detail-section">
+                            <div class="project-detail-section-title">메모/리스트</div>
+                            <textarea id="pd-memo" rows="3" placeholder="메모 또는 리스트를 입력하세요"></textarea>
+                        </div>
+                        <div style="display:flex;gap:0.7rem;justify-content:flex-end;">
+                            <button type="button" class="site-detail-save" id="btn-to-progress">기성현황</button>
+                            <button type="button" class="site-detail-save" id="btn-edit" onclick="toggleEditMode()">수정하기</button>
+                            <button type="button" class="site-detail-save" onclick="saveProjectDetail2()" style="display:none;" id="btn-save">등록하기</button>
+                            <button type="button" class="site-detail-load" onclick="resetProjectDetail()" style="display:none;" id="btn-cancel">취소</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+        <!-- 협의하기(실시간 채팅) -->
+        <section id="collab-section" style="display:none;">
+            <div class="collab-box">
+                <div class="collab-header">
+                    <div class="collab-title">협의하기 (실시간 의견/자료 공유)</div>
+                    <button class="collab-back" onclick="showMainContent()">← 목록으로</button>
+                </div>
+                <div class="collab-chat-area" id="collab-chat-area"></div>
+                <form id="collab-form" onsubmit="return false;" class="collab-form">
+                    <input type="text" id="collab-input" placeholder="메시지 입력" autocomplete="off">
+                    <input type="file" id="collab-file" accept="image/*,video/*" multiple>
+                    <button type="button" class="collab-send" onclick="sendCollabMsg()">전송</button>
+                </form>
+            </div>
+        </section>
+        <!-- 기성현황(기성금 관리) -->
+        <section id="progress-section" style="display:none;">
+            <div class="progress-main">
+                <div class="progress-left-panel">
+                    <div class="panel">
+                        <div class="panel-title">청구/지급 입력</div>
+                        <form id="progress-form" onsubmit="return false;">
+                            <div class="form-group">
+                                <label>현장명</label>
+                                <select id="progress-site" required>
+                                    <option value="">선택하세요</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>구분</label>
+                                <select id="progress-type" required>
+                                    <option value="청구">청구</option>
+                                    <option value="지급">지급</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>금액</label>
+                                <input type="text" id="progress-amount" required>
+                            </div>
+                            <div class="form-group">
+                                <label>날짜</label>
+                                <input type="date" id="progress-date" required>
+                            </div>
+                            <div class="form-group">
+                                <label>비고</label>
+                                <input type="text" id="progress-note">
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" onclick="saveProgress()">저장</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="progress-right-panel">
+                    <div class="panel">
+                        <div class="panel-title">월별 현황</div>
+                        <table class="monthly-table">
+                            <thead>
+                                <tr>
+                                    <th>현장명</th>
+                                    <th>계약금액</th>
+                                    <th>청구금액</th>
+                                    <th>지급금액</th>
+                                    <th>잔액</th>
+                                </tr>
+                            </thead>
+                            <tbody id="monthly-tbody">
+                                <!-- JS로 데이터 렌더링 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-title">TODAY</div>
+                        <div class="today-box">
+                            <div>오늘 청구 예정: <span id="today-claim">0</span>건</div>
+                            <div>오늘 지급 예정: <span id="today-payment">0</span>건</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script>
+        // 전역 변수 선언
+        const sites = [
+            { name: '현장A', start: '2025-05-01', end: '2025-05-20' },
+            { name: '현장B', start: '2025-04-25', end: '2025-05-10' },
+            { name: '현장C', start: '2025-05-15', end: '2025-06-05' },
+            { name: '현장D', start: '2025-06-01', end: '2025-06-30' }
+        ];
+        const calendarYear = 2025;
+        const calendarMonth = 5;
+        // 로그인 성공 시에만 한 번!
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            if(username === 'fire8803') {
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('main-header').style.display = 'block'; // ★ 이 부분!
+                document.getElementById('main-content-area').style.display = 'block';
+                showMainContent();
+            } else {
+                alert('아이디를 정확히 입력하세요.');
+            }
+        });
+
+        // 메뉴 전환 함수에서는 main-header의 display를 절대 건드리지 않는다!
+        function showSection(sectionId) {
+            const ids = ['main-content', 'project-detail-section', 'collab-section', 'progress-section'];
+            ids.forEach(id => {
+                document.getElementById(id).style.display = (id === sectionId) ? (id==='main-content'?'block':'flex') : 'none';
+            });
+        }
+        // 공사현황(달력) 진입
+        function showMainContent() {
+            showSection('main-content');
+            renderSiteList();
+            renderCalendar();
+        }
+        // 현장명 클릭 시 팝업 표시
+        function openModal(siteName) {
+            const site = sites.find(s => s.name === siteName);
+            if (site) {
+                showSiteInfo(site.name, site.start, site.end, '시공팀 A');
+            }
+        }
+        // 현장 세부내역 진입 함수 수정
+        function showProjectDetail(siteName) {
+            showSection('project-detail-section');
+            resetProjectDetail();
+            
+            const inputs = document.querySelectorAll('#project-detail-form input, #project-detail-form select, #project-detail-form textarea');
+            
+            if (siteName) {
+                // 조회/수정 모드
+                document.getElementById('pd-name').value = siteName;
+                loadProjectDetail(siteName);
+                
+                // 모든 입력란 비활성화, 진행율만 활성화
+                inputs.forEach(input => {
+                    input.readOnly = true;
+                    if(input.tagName === 'SELECT') input.disabled = true;
+                });
+                document.getElementById('progress-status-select').disabled = false;
+                document.getElementById('progress-percent').readOnly = false;
+                
+                // 버튼 상태
+                document.getElementById('btn-edit').style.display = 'block';
+                document.getElementById('btn-save').style.display = 'none';
+                document.getElementById('btn-cancel').style.display = 'none';
+                document.querySelector('.estimate-add').style.display = 'none';
+            } else {
+                // 신규등록/돌아가기 모드
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('pd-start-date').value = today;
+                document.getElementById('pd-end-date').value = today;
+                
+                // 모든 입력란 활성화
+                inputs.forEach(input => {
+                    input.readOnly = false;
+                    if(input.tagName === 'SELECT') input.disabled = false;
+                });
+                
+                // 버튼 상태
+                document.getElementById('btn-edit').style.display = 'none';
+                document.getElementById('btn-save').style.display = 'block';
+                document.getElementById('btn-cancel').style.display = 'block';
+                document.querySelector('.estimate-add').style.display = 'block';
+            }
+            
+            renderProjectList('');
+        }
+        // 협의하기 진입
+        function showCollab() {
+            showSection('collab-section');
+        }
+        // 기성현황 진입
+        function showProgress() {
+            showSection('progress-section');
+            updateProgressSiteList();
+            renderProgressList();
+        }
+        // 상단 메뉴 이벤트 연결
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('btn-main').onclick = showMainContent;
+            document.getElementById('btn-project-detail').onclick = function() {
+                showProjectDetail(); // siteName 없이 호출하여 새 등록 모드로 진입
+            };
+            document.getElementById('btn-collab').onclick = showCollab;
+            document.getElementById('btn-progress').onclick = showProgress;
+            document.getElementById('btn-to-progress').onclick = showProgress;
+        });
+
+        // 오늘 날짜 및 시간 표시
+        function updateTodayInfo() {
+            const now = new Date();
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            const date = now.getDate();
+            const day = days[now.getDay()];
+            const hour = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            const sec = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('today-info').textContent = `${year}년 ${month}월 ${date}일 (${day}) ${hour}:${min}:${sec}`;
+        }
+        setInterval(updateTodayInfo, 1000);
+        updateTodayInfo();
+
+        // 1000단위 콤마 표시 함수
+        function addComma(num) {
+            if(num===undefined||num===null||num==='') return '';
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+        function removeComma(str) {
+            return str.replace(/,/g, '');
+        }
+        // 총계약금액 입력란 콤마 처리
+        const totalInput = document.getElementById('pd-total');
+        totalInput.addEventListener('input', function(e) {
+            let val = removeComma(this.value);
+            if(val && !isNaN(val)) this.value = addComma(val);
+        });
+
+        // 견적내역 단가 입력란 콤마 처리
+        function addPdEstimateRow(item = '', qty = '', price = '') {
+            const tbody = document.getElementById('pd-estimate-tbody');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><input type="text" value="${item}"></td>
+                <td><input type="number" min="0" step="0.01" value="${qty}"></td>
+                <td><input type="text" class="price-input" value="${addComma(price)}"></td>
+                <td><button type="button" class="pd-estimate-remove" onclick="this.closest('tr').remove()">삭제</button></td>
+            `;
+            tbody.appendChild(tr);
+            // 단가 입력란 콤마 처리
+            const priceInput = tr.querySelector('.price-input');
+            priceInput.addEventListener('input', function() {
+                let val = removeComma(this.value);
+                if(val && !isNaN(val)) this.value = addComma(val);
+            });
+        }
+        // 최초 1행 추가
+        if(document.getElementById('pd-estimate-tbody')) addPdEstimateRow();
+
+        // 현장 세부 사항 저장/불러오기/리스트 관리
+        function getProjectList() {
+            return JSON.parse(localStorage.getItem('projectList')||'[]');
+        }
+        function setProjectList(list) {
+            localStorage.setItem('projectList', JSON.stringify(list));
+        }
+        // 현장 세부사항 저장 함수 수정
+        function saveProjectDetail2() {
+            const name = document.getElementById('pd-name').value;
+            if (!name) {
+                alert('현장명을 입력해주세요.');
+                return;
+            }
+            
+            const data = {
+                name: name,
+                startDate: document.getElementById('pd-start-date').value || new Date().toISOString().split('T')[0],
+                endDate: document.getElementById('pd-end-date').value || new Date().toISOString().split('T')[0],
+                type: document.getElementById('pd-type').value,
+                progressStatus: document.getElementById('progress-status-select').value || '예정',
+                progressPercent: document.getElementById('progress-percent').value,
+                company: document.getElementById('pd-company').value,
+                team: document.getElementById('pd-team').value,
+                manager: document.getElementById('pd-manager').value,
+                address: document.getElementById('pd-address').value,
+                total: removeComma(document.getElementById('pd-total').value),
+                note: document.getElementById('pd-note').value,
+                memo: document.getElementById('pd-memo').value,
+                estimate: []
+            };
+            
+            document.querySelectorAll('#pd-estimate-tbody tr').forEach(tr => {
+                const tds = tr.querySelectorAll('td input');
+                data.estimate.push({
+                    item: tds[0].value,
+                    qty: tds[1].value,
+                    price: removeComma(tds[2].value)
+                });
+            });
+            
+            let list = getProjectList();
+            const idx = list.findIndex(x => x.name === data.name);
+            if(idx >= 0) list[idx] = data;
+            else list.push(data);
+            setProjectList(list);
+            
+            alert('저장되었습니다!');
+            renderProjectList();
+            resetProjectDetail();
+        }
+        function renderProjectList(filter='') {
+            const list = getProjectList();
+            const tbody = document.getElementById('site-list-tbody2');
+            tbody.innerHTML = '';
+            
+            // 검색 결과와 일반 리스트를 분리
+            const searchResults = [];
+            const normalList = [];
+            
+            list.forEach(row => {
+                // 진행중인 현장만 표시
+                if (row.progressStatus === '진행중') {
+                    if (filter && (row.name + row.company + row.note).toLowerCase().includes(filter.toLowerCase())) {
+                        searchResults.push(row);
+                    } else {
+                        normalList.push(row);
+                    }
+                }
+            });
+            
+            // 검색 결과를 먼저 표시 (강조 표시)
+            searchResults.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.style.backgroundColor = '#e3f2fd';
+                tr.innerHTML =
+                    `<td style='cursor:pointer;color:#1976d2;text-decoration:underline;font-weight:bold;'>${row.name}</td>`+
+                    `<td>${row.type || '공사'}</td>`+
+                    `<td>${row.company||''}</td>`+
+                    `<td style='cursor:pointer;color:#1976d2;text-decoration:underline;'>${addComma(row.total)||''}</td>`+
+                    `<td>${row.note||''}</td>`;
+                tr.children[0].onclick = tr.children[3].onclick = function() {
+                    loadProjectDetail(row.name);
+                };
+                tbody.appendChild(tr);
+            });
+            
+            // 일반 리스트 표시
+            normalList.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML =
+                    `<td style='cursor:pointer;color:#1976d2;text-decoration:underline;'>${row.name}</td>`+
+                    `<td>${row.type || '공사'}</td>`+
+                    `<td>${row.company||''}</td>`+
+                    `<td style='cursor:pointer;color:#1976d2;text-decoration:underline;'>${addComma(row.total)||''}</td>`+
+                    `<td>${row.note||''}</td>`;
+                tr.children[0].onclick = tr.children[3].onclick = function() {
+                    loadProjectDetail(row.name);
+                };
+                tbody.appendChild(tr);
+            });
+        }
+        function loadProjectDetail(name) {
+            const list = getProjectList();
+            const data = list.find(x => x.name === name);
+            if(!data) return;
+            
+            document.getElementById('pd-name').value = data.name;
+            document.getElementById('pd-start-date').value = data.startDate || '';
+            document.getElementById('pd-end-date').value = data.endDate || '';
+            document.getElementById('pd-type').value = data.type || '공사';
+            document.getElementById('pd-company').value = data.company || '';
+            document.getElementById('pd-team').value = data.team || '';
+            document.getElementById('pd-manager').value = data.manager || '';
+            document.getElementById('pd-address').value = data.address || '';
+            document.getElementById('pd-total').value = addComma(data.total) || '';
+            document.getElementById('pd-note').value = data.note || '';
+            document.getElementById('pd-memo').value = data.memo || '';
+            
+            // 진행 상태 설정
+            setProgressStatusUI(data.progressStatus || '예정');
+            if (data.progressStatus === '진행중') {
+                document.getElementById('progress-percent').value = data.progressPercent || '0';
+                updateDonutChart(data.progressPercent || 0);
+            }
+            
+            // 견적내역
+            const tbody = document.getElementById('pd-estimate-tbody');
+            tbody.innerHTML = '';
+            (data.estimate||[]).forEach(row => addPdEstimateRow(row.item, row.qty, row.price));
+            if((data.estimate||[]).length === 0) addPdEstimateRow();
+        }
+        // 현장 세부사항 초기화 함수 수정
+        function resetProjectDetail() {
+            document.getElementById('project-detail-form').reset();
+            document.getElementById('pd-total').value = '';
+            const tbody = document.getElementById('pd-estimate-tbody');
+            tbody.innerHTML = '';
+            addPdEstimateRow();
+            
+            // 모든 입력란 비활성화
+            const inputs = document.querySelectorAll('#project-detail-form input, #project-detail-form select, #project-detail-form textarea');
+            inputs.forEach(input => {
+                input.readOnly = true;
+                if(input.tagName === 'SELECT') input.disabled = true;
+            });
+            
+            // 진행율 관련 필드만 활성화
+            document.getElementById('progress-status-select').disabled = false;
+            document.getElementById('progress-percent').readOnly = false;
+            
+            // 버튼 상태 초기화
+            document.getElementById('btn-edit').style.display = 'block';
+            document.getElementById('btn-save').style.display = 'none';
+            document.getElementById('btn-cancel').style.display = 'none';
+            document.querySelector('.estimate-add').style.display = 'none';
+        }
+        // 찾기 버튼 동작 수정
+        document.getElementById('site-search-btn').onclick = function() {
+            const word = prompt('현장명, 회사명, 비고로 검색');
+            renderProjectList(word || '');
+        };
+
+        // 진행중 현장 LIST 렌더링 (공사현황)
+        function renderSiteList() {
+            const table = document.getElementById('site-list-table');
+            while (table.rows.length > 1) table.deleteRow(1);
+            
+            // 저장된 현장 데이터 불러오기
+            const projectList = getProjectList();
+            
+            projectList.forEach(project => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><div class="site-dot" style="width:8px;height:8px;background:#1976d2;border-radius:50%;margin:0 auto;"></div></td>
+                    <td style="cursor:pointer;color:#1976d2;text-decoration:underline;" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${project.name}')">${project.name}</td>
+                `;
+                tr.children[1].onclick = function() { openModal(project.name); };
+                table.appendChild(tr);
+            });
+        }
+
+        // 캘린더 생성 (날짜 셀에 현장명 클릭 이벤트 추가)
+        function renderCalendar() {
+            const tbody = document.getElementById('calendar-body');
+            tbody.innerHTML = '';
+            
+            // 캘린더 상단에 버튼 추가
+            const calendarTableWrap = document.querySelector('.calendar-table-wrap');
+            if (!document.querySelector('.calendar-actions')) {
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'calendar-actions';
+                actionsDiv.innerHTML = `
+                    <button class="calendar-btn delete" onclick="deleteSelectedSites()">선택 삭제</button>
+                    <button class="calendar-btn" onclick="saveCalendarSites()">저장하기</button>
+                `;
+                calendarTableWrap.insertBefore(actionsDiv, calendarTableWrap.firstChild);
+            }
+
+            const firstDay = new Date(calendarYear, calendarMonth - 1, 1);
+            const lastDay = new Date(calendarYear, calendarMonth, 0);
+            let dayOfWeek = firstDay.getDay();
+            dayOfWeek = (dayOfWeek === 0) ? 6 : dayOfWeek - 1;
+            let date = 1;
+
+            // 저장된 현장 데이터 불러오기
+            const savedSites = JSON.parse(localStorage.getItem('calendarSites') || '{}');
+            const currentMonthKey = `${calendarYear}-${String(calendarMonth).padStart(2, '0')}`;
+
+            for (let row = 0; row < 6; row++) {
+                const tr = document.createElement('tr');
+                for (let col = 0; col < 7; col++) {
+                    const td = document.createElement('td');
+                    td.contentEditable = true;
+                    td.className = '';
+                    td.dataset.date = '';
+                    
+                    if (row === 0 && col < dayOfWeek) {
+                        td.innerHTML = '';
+                    } else if (date > lastDay.getDate()) {
+                        td.innerHTML = '';
+                    } else {
+                        const currentDate = `${currentMonthKey}-${String(date).padStart(2, '0')}`;
+                        td.innerHTML = `<div style='font-weight:bold; color:#888; font-size:0.95em;'>${date}</div>`;
+                        td.dataset.date = currentDate;
+                        
+                        // 저장된 현장 표시
+                        if (savedSites[currentDate]) {
+                            savedSites[currentDate].forEach(site => {
+                                const siteDiv = document.createElement('div');
+                                siteDiv.className = 'site-link';
+                                siteDiv.textContent = site;
+                                
+                                // 클릭 이벤트 (선택/해제)
+                                siteDiv.onclick = function(e) {
+                                    e.stopPropagation();
+                                    this.classList.toggle('selected');
+                                };
+                                
+                                // 더블클릭 이벤트 (팝업)
+                                siteDiv.ondblclick = function(e) {
+                                    e.stopPropagation();
+                                    // 데이터 필드명에 맞게 수정
+                                    showSiteInfo(this.textContent, sites.find(s => s.name === this.textContent).start, sites.find(s => s.name === this.textContent).end, '시공팀 A');
+                                };
+                                
+                                td.appendChild(siteDiv);
+                            });
+                        }
+
+                        if (col === 5) td.classList.add('sat');
+                        if (col === 6) td.classList.add('sun');
+                        
+                        td.addEventListener('dragover', function(e) { e.preventDefault(); });
+                        td.addEventListener('drop', function(e) {
+                            e.preventDefault();
+                            const siteName = e.dataTransfer.getData('text/plain');
+                            if (siteName) {
+                                const siteDiv = document.createElement('div');
+                                siteDiv.className = 'site-link';
+                                siteDiv.textContent = siteName;
+                                
+                                // 클릭 이벤트 (선택/해제)
+                                siteDiv.onclick = function(e) {
+                                    e.stopPropagation();
+                                    this.classList.toggle('selected');
+                                };
+                                
+                                // 더블클릭 이벤트 (팝업)
+                                siteDiv.ondblclick = function(e) {
+                                    e.stopPropagation();
+                                    // 데이터 필드명에 맞게 수정
+                                    showSiteInfo(this.textContent, sites.find(s => s.name === this.textContent).start, sites.find(s => s.name === this.textContent).end, '시공팀 A');
+                                };
+                                
+                                td.appendChild(siteDiv);
+                            }
+                        });
+                    }
+                    tr.appendChild(td);
+                    date++;
+                }
+                tbody.appendChild(tr);
+                if (date > lastDay.getDate()) break;
+            }
+        }
+
+        // 캘린더 현장 저장 함수
+        function saveCalendarSites() {
+            const savedSites = {};
+            const currentMonthKey = `${calendarYear}-${String(calendarMonth).padStart(2, '0')}`;
+            
+            document.querySelectorAll('#calendar-body td[data-date]').forEach(td => {
+                const date = td.dataset.date;
+                const sites = Array.from(td.querySelectorAll('.site-link')).map(div => div.textContent);
+                if (sites.length > 0) {
+                    savedSites[date] = sites;
+                }
+            });
+            
+            localStorage.setItem('calendarSites', JSON.stringify(savedSites));
+            alert('저장되었습니다!');
+        }
+
+        // 선택된 현장 삭제 함수
+        function deleteSelectedSites() {
+            const selectedSites = document.querySelectorAll('.site-link.selected');
+            if (selectedSites.length === 0) {
+                alert('삭제할 현장을 선택해주세요.');
+                return;
+            }
+            
+            if (confirm(`${selectedSites.length}개의 현장을 삭제하시겠습니까?`)) {
+                selectedSites.forEach(site => site.remove());
+                saveCalendarSites();
+            }
+        }
+
+        // 팝업 외부 클릭 시 닫기
+        function showSiteInfo(siteName, startDate, endDate, team) {
+            const popup = document.createElement('div');
+            popup.className = 'site-info-popup';
+            popup.innerHTML = `
+                <h3>${siteName}</h3>
+                <div class="site-info-content">
+                    <p><strong>공사기간:</strong> ${startDate} ~ ${endDate}</p>
+                    <p><strong>시공팀:</strong> ${team}</p>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <button class="detail-btn" style="background: #e53935;" onclick="closePopupAndAction(()=>deleteSite('${siteName}'))">삭제하기</button>
+                    <button class="detail-btn" onclick="closePopupAndAction(()=>showProjectDetail('${siteName}'))">세부내역</button>
+                </div>
+            `;
+            document.body.appendChild(popup);
+            popup.style.display = 'block';
+            // z-index, position 등도 확인
+        }
+
+        // 개별 현장 삭제 함수
+        function deleteSite(siteName) {
+            if (confirm(`${siteName} 현장을 삭제하시겠습니까?`)) {
+                const savedSites = JSON.parse(localStorage.getItem('calendarSites') || '{}');
+                const currentMonthKey = `${calendarYear}-${String(calendarMonth).padStart(2, '0')}`;
+                
+                // 모든 날짜에서 해당 현장 삭제
+                Object.keys(savedSites).forEach(date => {
+                    savedSites[date] = savedSites[date].filter(site => site !== siteName);
+                    if (savedSites[date].length === 0) {
+                        delete savedSites[date];
+                    }
+                });
+                
+                localStorage.setItem('calendarSites', JSON.stringify(savedSites));
+                renderCalendar();
+                
+                // 팝업 닫기
+                const popup = document.querySelector('.site-info-popup');
+                if (popup) popup.remove();
+            }
+        }
+
+        // 기성현황 관련 함수들
+        function saveProgress() {
+            const data = {
+                site: document.getElementById('progress-site').value,
+                type: document.getElementById('progress-type').value,
+                amount: removeComma(document.getElementById('progress-amount').value),
+                date: document.getElementById('progress-date').value,
+                note: document.getElementById('progress-note').value
+            };
+            
+            let progressList = JSON.parse(localStorage.getItem('progressList') || '[]');
+            progressList.push(data);
+            localStorage.setItem('progressList', JSON.stringify(progressList));
+            
+            alert('저장되었습니다!');
+            renderProgressList();
+            document.getElementById('progress-form').reset();
+        }
+        
+        function renderProgressList() {
+            const progressList = JSON.parse(localStorage.getItem('progressList') || '[]');
+            const projectList = getProjectList();
+            const tbody = document.getElementById('monthly-tbody');
+            tbody.innerHTML = '';
+            
+            // 현장별로 데이터 집계
+            const siteData = {};
+            projectList.forEach(project => {
+                siteData[project.name] = {
+                    contract: Number(project.total) || 0,
+                    claim: 0,
+                    payment: 0
+                };
+            });
+            
+            progressList.forEach(progress => {
+                if (siteData[progress.site]) {
+                    if (progress.type === '청구') {
+                        siteData[progress.site].claim += Number(progress.amount);
+                    } else {
+                        siteData[progress.site].payment += Number(progress.amount);
+                    }
+                }
+            });
+            
+            // 테이블에 데이터 표시
+            Object.entries(siteData).forEach(([site, data]) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${site}</td>
+                    <td>${addComma(data.contract)}</td>
+                    <td>${addComma(data.claim)}</td>
+                    <td>${addComma(data.payment)}</td>
+                    <td>${addComma(data.contract - data.claim)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            // TODAY 업데이트
+            const today = new Date().toISOString().split('T')[0];
+            const todayClaims = progressList.filter(p => p.type === '청구' && p.date === today).length;
+            const todayPayments = progressList.filter(p => p.type === '지급' && p.date === today).length;
+            document.getElementById('today-claim').textContent = todayClaims;
+            document.getElementById('today-payment').textContent = todayPayments;
+        }
+        
+        // 기성현황 진입 시 현장명 목록 업데이트
+        function updateProgressSiteList() {
+            const select = document.getElementById('progress-site');
+            select.innerHTML = '<option value="">선택하세요</option>';
+            getProjectList().forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.name;
+                option.textContent = project.name;
+                select.appendChild(option);
+            });
+        }
+
+        // 초기화 시 이벤트 핸들러 부여
+        setTimeout(() => {
+            Array.from(document.querySelectorAll('.site-link')).forEach(link => {
+                // 클릭 이벤트 (선택/해제)
+                link.onclick = function(e) {
+                    e.stopPropagation();
+                    this.classList.toggle('selected');
+                };
+                // 더블클릭 이벤트 (팝업)
+                link.ondblclick = function(e) {
+                    e.stopPropagation();
+                    const site = sites.find(s => s.name === this.textContent);
+                    if (site) {
+                        showSiteInfo(site.name, site.start, site.end, '시공팀 A');
+                    }
+                };
+            });
+        }, 10);
+
+        // 수정 모드 토글 함수 수정
+        function toggleEditMode() {
+            const inputs = document.querySelectorAll('#project-detail-form input, #project-detail-form select, #project-detail-form textarea');
+            const isReadOnly = inputs[0].readOnly;
+            
+            inputs.forEach(input => {
+                input.readOnly = !isReadOnly;
+                if(input.tagName === 'SELECT') input.disabled = isReadOnly;
+            });
+            
+            // 진행율 관련 필드는 항상 활성화
+            document.getElementById('progress-status-select').disabled = false;
+            document.getElementById('progress-percent').readOnly = false;
+            
+            // 버튼 상태 변경
+            document.getElementById('btn-edit').style.display = isReadOnly ? 'none' : 'block';
+            document.getElementById('btn-save').style.display = isReadOnly ? 'block' : 'none';
+            document.getElementById('btn-cancel').style.display = isReadOnly ? 'block' : 'none';
+            document.querySelector('.estimate-add').style.display = isReadOnly ? 'block' : 'none';
+        }
+
+        // 진행 상태 변경 이벤트 처리
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('input[name="progress-status"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const progressPercentInput = document.getElementById('progress-percent');
+                    const donutChart = document.querySelector('.donut-chart');
+                    
+                    if (this.value === '진행중') {
+                        progressPercentInput.style.display = 'block';
+                        donutChart.style.display = 'block';
+                        updateDonutChart(progressPercentInput.value || 0);
+                    } else {
+                        progressPercentInput.style.display = 'none';
+                        donutChart.style.display = 'none';
+                    }
+                });
+            });
+            
+            // 진행율 입력 처리
+            document.getElementById('progress-percent').addEventListener('input', function() {
+                const value = Math.min(100, Math.max(0, this.value));
+                updateDonutChart(value);
+            });
+        });
+
+        // 도넛 차트 업데이트 함수
+        function updateDonutChart(percent) {
+            const circle = document.querySelector('.donut-chart .progress');
+            const percentage = document.querySelector('.donut-chart .percentage');
+            const radius = 15.91549430918954;
+            const circumference = 2 * Math.PI * radius;
+            
+            const offset = circumference - (percent / 100) * circumference;
+            circle.style.strokeDasharray = `${circumference} ${circumference}`;
+            circle.style.strokeDashoffset = offset;
+            
+            percentage.textContent = `${Math.round(percent)}%`;
+        }
+
+        // 진행상태 버튼 그룹 및 진행율 저장 기능
+        function setProgressStatusUI(status) {
+            document.getElementById('progress-status-select').value = status;
+            const percentInput = document.getElementById('progress-percent');
+            const donut = document.querySelector('.donut-chart');
+            if(status === '진행중') {
+                percentInput.readOnly = false;
+                percentInput.style.background = '#fff';
+                donut.style.display = 'block';
+            } else {
+                percentInput.readOnly = true;
+                percentInput.value = '';
+                percentInput.style.background = '#f4f7fb';
+                donut.style.display = 'none';
+            }
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            // 진행상태 셀렉트박스 변경 이벤트
+            document.getElementById('progress-status-select').onchange = function() {
+                setProgressStatusUI(this.value);
+                updateDonutChart(document.getElementById('progress-percent').value || 0);
+            };
+            // 진행율 입력 처리
+            document.getElementById('progress-percent').addEventListener('input', function() {
+                const value = Math.min(100, Math.max(0, this.value));
+                updateDonutChart(value);
+            });
+            // 진행율 저장 버튼(항상 보임)
+            document.getElementById('btn-progress-save').onclick = function() {
+                const list = getProjectList();
+                const name = document.getElementById('pd-name').value;
+                const idx = list.findIndex(x => x.name === name);
+                if(idx >= 0) {
+                    list[idx].progressStatus = document.getElementById('progress-status-select').value || '예정';
+                    list[idx].progressPercent = document.getElementById('progress-percent').value;
+                    setProjectList(list);
+                    alert('진행상태/진행율이 저장되었습니다!');
+                }
+            };
+        });
+
+        function closePopupAndAction(action) {
+            const popup = document.querySelector('.site-info-popup');
+            if (popup) popup.remove();
+            if (typeof action === 'function') action();
+        }
+
+        // 현장별 리스트 렌더링 함수(3개씩, 시공팀 표시)
+        function renderSiteLists() {
+            const list = getProjectList();
+            // 진행중
+            const inprogress = list.filter(x => x.progressStatus === '진행중');
+            // 예정
+            const planned = list.filter(x => x.progressStatus === '예정');
+            // 완료
+            const done = list.filter(x => x.progressStatus === '완료');
+
+            function renderTable(targetId, arr, max) {
+                const table = document.getElementById(targetId);
+                table.innerHTML = `
+                    <tr>
+                        <th>현장명</th>
+                        <th>계약</th>
+                        <th>회사명</th>
+                        <th>계약금액</th>
+                        <th>시공팀</th>
+                    </tr>
+                `;
+                arr.slice(0, max).forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML =
+                        `<td style='cursor:pointer;color:#1976d2;text-decoration:underline;'>${row.name}</td>`+
+                        `<td>${row.type || '공사'}</td>`+
+                        `<td>${row.company||''}</td>`+
+                        `<td>${addComma(row.total)||''}</td>`+
+                        `<td>${row.team||''}</td>`;
+                    tr.children[0].onclick = function() { loadProjectDetail(row.name); };
+                    tr.children[0].ondblclick = function(e) {
+                        e.stopPropagation();
+                        // 팝업 띄우기
+                        showSiteInfo(row.name, row.startDate, row.endDate, row.team);
+                    };
+                    table.appendChild(tr);
+                });
+            }
+            renderTable('site-list-table-inprogress', inprogress, 7); // 7개까지
+            renderTable('site-list-table-planned', planned, 3);      // 3개까지
+            renderTable('site-list-table-done', done, 3);            // 3개까지
+        }
+    </script>
+</body>
+</html>

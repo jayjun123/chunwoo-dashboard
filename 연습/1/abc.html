@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>공사 현장 관리 예제</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pikaday/css/pikaday.css">
+  <style>
+    body { font-family: 'Pretendard', 'Roboto', 'Noto Sans KR', sans-serif; background: #f4f7fb; margin: 0; }
+    .hidden { display: none !important; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px #1976d220; padding: 2rem; }
+    h2 { color: #1976d2; }
+    label { display: block; margin: 1rem 0 0.3rem 0; }
+    input, select { padding: 0.5rem; border: 1.5px solid #b6c7e3; border-radius: 6px; font-size: 1rem; }
+    button { background: #1976d2; color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1.2rem; font-size: 1rem; font-weight: 500; cursor: pointer; margin-top: 1rem; }
+    button:hover { background: #1565c0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { border: 1px solid #e3eaf3; padding: 0.5rem; text-align: center; }
+    th { background: #e3eaf3; color: #1976d2; }
+    .donut-chart { width:60px; height:60px; position:relative; display:none; }
+    .donut-chart svg { width:100%; height:100%; }
+    .donut-chart .background { stroke: #e3eaf3; fill: none; stroke-width: 8; }
+    .donut-chart .progress { stroke: #1976d2; fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 0.3s; }
+    .donut-chart .percentage { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:1rem; font-weight:bold; color:#1976d2; }
+    #progress-percent-wrap { display:none; align-items:center; gap:1rem; }
+    .row { display: flex; gap: 1rem; align-items: center; }
+    .row > * { flex: 1; }
+    .right { text-align: right; }
+  </style>
+</head>
+<body>
+  <!-- 로그인 화면 -->
+  <div id="login-section" class="container">
+    <h2>로그인</h2>
+    <label>아이디 <input type="text" id="login-id"></label>
+    <label>비밀번호 <input type="password" id="login-pw"></label>
+    <button id="login-btn">로그인</button>
+  </div>
+
+  <!-- 메인(현장 리스트/등록) -->
+  <div id="main-section" class="container hidden">
+    <h2>공사 현장 리스트</h2>
+    <button id="btn-add-site">현장 등록</button>
+    <table id="site-table">
+      <thead>
+        <tr>
+          <th>현장명</th>
+          <th>기간</th>
+          <th>상태</th>
+          <th>진행율</th>
+          <th>관리</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="right">
+      <button id="btn-to-progress">기성현황</button>
+      <button id="btn-logout">로그아웃</button>
+    </div>
+  </div>
+
+  <!-- 현장 등록/수정 폼 -->
+  <div id="site-form-section" class="container hidden">
+    <h2 id="site-form-title">현장 등록</h2>
+    <label>현장명 <input type="text" id="pd-name"></label>
+    <div class="row">
+      <label>시작일 <input type="text" id="pd-start-date" readonly></label>
+      <label>종료일 <input type="text" id="pd-end-date" readonly></label>
+    </div>
+    <label>진행상태
+      <select id="progress-status-select">
+        <option value="예정">예정</option>
+        <option value="진행중">진행중</option>
+        <option value="완료">완료</option>
+      </select>
+    </label>
+    <div id="progress-percent-wrap">
+      <input type="number" id="progress-percent" min="0" max="100" value="0" style="width:60px;">
+      <div class="donut-chart">
+        <svg viewBox="0 0 36 36">
+          <circle class="background" cx="18" cy="18" r="15.91549430918954"></circle>
+          <circle class="progress" cx="18" cy="18" r="15.91549430918954"></circle>
+        </svg>
+        <div class="percentage">0%</div>
+      </div>
+    </div>
+    <div class="right">
+      <button id="btn-save-site">저장</button>
+      <button id="btn-cancel-site">취소</button>
+    </div>
+  </div>
+
+  <!-- 기성현황 화면 -->
+  <div id="progress-section" class="container hidden">
+    <h2>기성현황</h2>
+    <div class="row">
+      <label>현장명
+        <select id="progress-site"></select>
+      </label>
+      <label>구분
+        <select id="progress-type">
+          <option value="청구">청구</option>
+          <option value="지급">지급</option>
+        </select>
+      </label>
+      <label>금액 <input type="number" id="progress-amount"></label>
+      <label>날짜 <input type="date" id="progress-date"></label>
+      <button id="progress-add">추가</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>현장명</th>
+          <th>구분</th>
+          <th>금액</th>
+          <th>날짜</th>
+        </tr>
+      </thead>
+      <tbody id="progress-tbody"></tbody>
+    </table>
+    <div class="right">
+      <button id="btn-back-main">메인으로</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/pikaday/pikaday.js"></script>
+  <script>
+    // 로그인
+    const loginSection = document.getElementById('login-section');
+    const mainSection = document.getElementById('main-section');
+    const siteFormSection = document.getElementById('site-form-section');
+    const progressSection = document.getElementById('progress-section');
+    let editIndex = null;
+
+    function showSection(section) {
+      [loginSection, mainSection, siteFormSection, progressSection].forEach(s => s.classList.add('hidden'));
+      section.classList.remove('hidden');
+    }
+
+    document.getElementById('login-btn').onclick = function() {
+      const id = document.getElementById('login-id').value.trim();
+      if (id === 'fire8803') {
+        showSection(mainSection);
+        renderSiteList();
+      } else {
+        alert('아이디를 정확히 입력하세요. (예: fire8803)');
+      }
+    };
+    document.getElementById('btn-logout').onclick = function() {
+      showSection(loginSection);
+    };
+
+    // 현장 리스트
+    function getSiteList() {
+      return JSON.parse(localStorage.getItem('siteList') || '[]');
+    }
+    function setSiteList(list) {
+      localStorage.setItem('siteList', JSON.stringify(list));
+    }
+    function renderSiteList() {
+      const list = getSiteList();
+      const tbody = document.querySelector('#site-table tbody');
+      tbody.innerHTML = '';
+      list.forEach((site, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${site.name}</td>
+          <td>${site.startDate} ~ ${site.endDate}</td>
+          <td>${site.status}</td>
+          <td>${site.status === '진행중' ? (site.percent || 0) + '%' : '-'}</td>
+          <td>
+            <button onclick='editSite(${i})'>수정</button>
+            <button onclick='deleteSite(${i})'>삭제</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+    window.editSite = function(i) {
+      const site = getSiteList()[i];
+      editIndex = i;
+      document.getElementById('site-form-title').textContent = '현장 수정';
+      document.getElementById('pd-name').value = site.name;
+      document.getElementById('pd-start-date').value = site.startDate;
+      document.getElementById('pd-end-date').value = site.endDate;
+      document.getElementById('progress-status-select').value = site.status;
+      document.getElementById('progress-percent').value = site.percent || 0;
+      showSection(siteFormSection);
+      updateProgressUI();
+    };
+    window.deleteSite = function(i) {
+      if (confirm('정말 삭제하시겠습니까?')) {
+        const list = getSiteList();
+        list.splice(i, 1);
+        setSiteList(list);
+        renderSiteList();
+      }
+    };
+
+    document.getElementById('btn-add-site').onclick = function() {
+      editIndex = null;
+      document.getElementById('site-form-title').textContent = '현장 등록';
+      document.getElementById('pd-name').value = '';
+      document.getElementById('pd-start-date').value = '';
+      document.getElementById('pd-end-date').value = '';
+      document.getElementById('progress-status-select').value = '예정';
+      document.getElementById('progress-percent').value = 0;
+      showSection(siteFormSection);
+      updateProgressUI();
+    };
+    document.getElementById('btn-cancel-site').onclick = function() {
+      showSection(mainSection);
+    };
+    document.getElementById('btn-save-site').onclick = function() {
+      const name = document.getElementById('pd-name').value.trim();
+      const start = document.getElementById('pd-start-date').value;
+      const end = document.getElementById('pd-end-date').value;
+      const status = document.getElementById('progress-status-select').value;
+      const percent = document.getElementById('progress-percent').value;
+      if (!name || !start || !end) { alert('모든 항목을 입력하세요.'); return; }
+      const list = getSiteList();
+      const data = { name, startDate: start, endDate: end, status, percent: status === '진행중' ? percent : 0 };
+      if (editIndex !== null) list[editIndex] = data;
+      else list.push(data);
+      setSiteList(list);
+      showSection(mainSection);
+      renderSiteList();
+    };
+
+    // 미니캘린더
+    new Pikaday({ field: document.getElementById('pd-start-date'), format: 'YYYY-MM-DD',
+      i18n: { previousMonth: '이전 달', nextMonth: '다음 달', months: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'], weekdays: ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'], weekdaysShort: ['일','월','화','수','목','금','토'] }
+    });
+    new Pikaday({ field: document.getElementById('pd-end-date'), format: 'YYYY-MM-DD',
+      i18n: { previousMonth: '이전 달', nextMonth: '다음 달', months: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'], weekdays: ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'], weekdaysShort: ['일','월','화','수','목','금','토'] }
+    });
+
+    // 진행상태/진행율/도넛 차트
+    const statusSelect = document.getElementById('progress-status-select');
+    const percentWrap = document.getElementById('progress-percent-wrap');
+    const percentInput = document.getElementById('progress-percent');
+    const donut = document.querySelector('.donut-chart');
+    const percentText = document.querySelector('.donut-chart .percentage');
+    const donutCircle = document.querySelector('.donut-chart .progress');
+    function updateDonut(val) {
+      const percent = Math.max(0, Math.min(100, Number(val) || 0));
+      const radius = 15.91549430918954;
+      const circumference = 2 * Math.PI * radius;
+      donutCircle.style.strokeDasharray = `${circumference} ${circumference}`;
+      donutCircle.style.strokeDashoffset = circumference - (percent / 100) * circumference;
+      percentText.textContent = percent + '%';
+    }
+    function updateProgressUI() {
+      if (statusSelect.value === '진행중') {
+        percentWrap.style.display = 'flex';
+        donut.style.display = 'block';
+        updateDonut(percentInput.value);
+      } else {
+        percentWrap.style.display = 'none';
+        donut.style.display = 'none';
+      }
+    }
+    statusSelect.addEventListener('change', updateProgressUI);
+    percentInput.addEventListener('input', function() { updateDonut(this.value); });
+
+    // 기성현황
+    function getProgressList() {
+      return JSON.parse(localStorage.getItem('progressList') || '[]');
+    }
+    function setProgressList(list) {
+      localStorage.setItem('progressList', JSON.stringify(list));
+    }
+    function renderProgressList() {
+      const list = getProgressList();
+      const tbody = document.getElementById('progress-tbody');
+      tbody.innerHTML = '';
+      list.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${row.site}</td><td>${row.type}</td><td>${row.amount}</td><td>${row.date}</td>`;
+        tbody.appendChild(tr);
+      });
+      // 현장명 셀렉트 갱신
+      const siteSel = document.getElementById('progress-site');
+      siteSel.innerHTML = '';
+      getSiteList().forEach(site => {
+        const opt = document.createElement('option');
+        opt.value = site.name;
+        opt.textContent = site.name;
+        siteSel.appendChild(opt);
+      });
+    }
+    document.getElementById('btn-to-progress').onclick = function() {
+      showSection(progressSection);
+      renderProgressList();
+    };
+    document.getElementById('btn-back-main').onclick = function() {
+      showSection(mainSection);
+      renderSiteList();
+    };
+    document.getElementById('progress-add').onclick = function() {
+      const site = document.getElementById('progress-site').value;
+      const type = document.getElementById('progress-type').value;
+      const amount = document.getElementById('progress-amount').value;
+      const date = document.getElementById('progress-date').value;
+      if (!site || !amount || !date) { alert('모든 항목을 입력하세요.'); return; }
+      const list = getProgressList();
+      list.push({ site, type, amount, date });
+      setProgressList(list);
+      renderProgressList();
+    };
+  </script>
+</body>
+</html>
