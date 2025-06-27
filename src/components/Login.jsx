@@ -35,7 +35,37 @@ const Login = () => {
       navigate('/');
     } catch (err) {
       console.error('로그인 에러:', err);
-      setError(err.message || '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.');
+      
+      // Firebase 인증 오류 코드별 메시지
+      let errorMessage = '로그인에 실패했습니다.';
+      
+      switch (err.code) {
+        case 'auth/user-not-found':
+          errorMessage = '등록되지 않은 이메일입니다.';
+          break;
+        case 'auth/wrong-password':
+          errorMessage = '비밀번호가 올바르지 않습니다.';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = '올바르지 않은 이메일 형식입니다.';
+          break;
+        case 'auth/user-disabled':
+          errorMessage = '비활성화된 계정입니다.';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = '너무 많은 로그인 시도가 있었습니다. 잠시 후 다시 시도해주세요.';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = '네트워크 연결을 확인해주세요.';
+          break;
+        case 'auth/invalid-api-key':
+          errorMessage = 'Firebase 설정에 문제가 있습니다. 관리자에게 문의하세요.';
+          break;
+        default:
+          errorMessage = err.message || '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

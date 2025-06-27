@@ -6,13 +6,39 @@ import { NanumGothic } from '../assets/fonts/NanumGothic.js';
 // 전문적인 엑셀 디자인으로 내보내기
 export const exportToExcel = (data, sheetName, fileName, options = {}) => {
   try {
+    // 데이터 검증
+    if (!data || !Array.isArray(data)) {
+      throw new Error('유효하지 않은 데이터입니다. 배열 형태의 데이터가 필요합니다.');
+    }
+    
+    if (data.length === 0) {
+      throw new Error('내보낼 데이터가 없습니다.');
+    }
+    
+    // 데이터 정리 (undefined, null 값 처리)
+    const cleanData = data.map(row => {
+      const cleanRow = {};
+      Object.keys(row).forEach(key => {
+        const value = row[key];
+        if (value === undefined || value === null) {
+          cleanRow[key] = '';
+        } else if (typeof value === 'object' && value !== null) {
+          // 객체나 배열인 경우 문자열로 변환
+          cleanRow[key] = JSON.stringify(value);
+        } else {
+          cleanRow[key] = value;
+        }
+      });
+      return cleanRow;
+    });
+    
     const wb = XLSX.utils.book_new();
     
     // 워크시트 생성
-    const ws = XLSX.utils.json_to_sheet(data);
+    const ws = XLSX.utils.json_to_sheet(cleanData);
     
     // 전문적인 엑셀 디자인 적용
-    applyExcelStyling(ws, data, options);
+    applyExcelStyling(ws, cleanData, options);
     
     // 워크북에 시트 추가
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -33,132 +59,143 @@ export const exportToExcel = (data, sheetName, fileName, options = {}) => {
 
 // 전문적인 엑셀 스타일링 적용
 const applyExcelStyling = (ws, data, options) => {
-  const range = XLSX.utils.decode_range(ws['!ref']);
-  
-  // 헤더 스타일링 (첫 번째 행)
-  for (let col = range.s.c; col <= range.e.c; col++) {
-    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
-    if (!ws[cellAddress]) continue;
+  try {
+    // 워크시트 범위 확인
+    if (!ws['!ref']) {
+      console.warn('워크시트가 비어있습니다.');
+      return;
+    }
     
-    ws[cellAddress].s = {
-      font: {
-        name: '맑은 고딕',
-        sz: 12,
-        bold: true,
-        color: { rgb: 'FFFFFF' }
-      },
-      fill: {
-        fgColor: { rgb: '4472C4' }
-      },
-      alignment: {
-        horizontal: 'center',
-        vertical: 'center'
-      },
-      border: {
-        top: { style: 'thin', color: { rgb: '000000' } },
-        bottom: { style: 'thin', color: { rgb: '000000' } },
-        left: { style: 'thin', color: { rgb: '000000' } },
-        right: { style: 'thin', color: { rgb: '000000' } }
-      }
-    };
-  }
-  
-  // 데이터 행 스타일링
-  for (let row = range.s.r + 1; row <= range.e.r; row++) {
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    
+    // 헤더 스타일링 (첫 번째 행)
     for (let col = range.s.c; col <= range.e.c; col++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
       if (!ws[cellAddress]) continue;
-      
-      // 짝수/홀수 행 구분 색상
-      const isEvenRow = row % 2 === 0;
-      const bgColor = isEvenRow ? 'F2F2F2' : 'FFFFFF';
       
       ws[cellAddress].s = {
         font: {
           name: '맑은 고딕',
-          sz: 10
+          sz: 12,
+          bold: true,
+          color: { rgb: 'FFFFFF' }
         },
         fill: {
-          fgColor: { rgb: bgColor }
+          fgColor: { rgb: '4472C4' }
         },
         alignment: {
           horizontal: 'center',
           vertical: 'center'
         },
         border: {
-          top: { style: 'thin', color: { rgb: 'D9D9D9' } },
-          bottom: { style: 'thin', color: { rgb: 'D9D9D9' } },
-          left: { style: 'thin', color: { rgb: 'D9D9D9' } },
-          right: { style: 'thin', color: { rgb: 'D9D9D9' } }
+          top: { style: 'thin', color: { rgb: '000000' } },
+          bottom: { style: 'thin', color: { rgb: '000000' } },
+          left: { style: 'thin', color: { rgb: '000000' } },
+          right: { style: 'thin', color: { rgb: '000000' } }
+        }
+      };
+    }
+    
+    // 데이터 행 스타일링
+    for (let row = range.s.r + 1; row <= range.e.r; row++) {
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+        if (!ws[cellAddress]) continue;
+        
+        // 짝수/홀수 행 구분 색상
+        const isEvenRow = row % 2 === 0;
+        const bgColor = isEvenRow ? 'F2F2F2' : 'FFFFFF';
+        
+        ws[cellAddress].s = {
+          font: {
+            name: '맑은 고딕',
+            sz: 10
+          },
+          fill: {
+            fgColor: { rgb: bgColor }
+          },
+          alignment: {
+            horizontal: 'center',
+            vertical: 'center'
+          },
+          border: {
+            top: { style: 'thin', color: { rgb: 'D9D9D9' } },
+            bottom: { style: 'thin', color: { rgb: 'D9D9D9' } },
+            left: { style: 'thin', color: { rgb: 'D9D9D9' } },
+            right: { style: 'thin', color: { rgb: 'D9D9D9' } }
+          }
+        };
+        
+        // 숫자 컬럼 우측 정렬
+        const cellValue = ws[cellAddress].v;
+        if (typeof cellValue === 'number' || !isNaN(parseFloat(cellValue))) {
+          ws[cellAddress].s.alignment.horizontal = 'right';
+        }
+        
+        // 긴 텍스트 컬럼 좌측 정렬
+        if (typeof cellValue === 'string' && cellValue.length > 20) {
+          ws[cellAddress].s.alignment.horizontal = 'left';
+        }
+      }
+    }
+    
+    // 요약 정보 추가 (마지막 행에)
+    if (data.length > 0) {
+      const summaryRow = range.e.r + 2;
+      const totalLabel = XLSX.utils.encode_cell({ r: summaryRow, c: 0 });
+      const totalValue = XLSX.utils.encode_cell({ r: summaryRow, c: 1 });
+      
+      ws[totalLabel] = { v: '총 개수', t: 's' };
+      ws[totalValue] = { v: data.length, t: 'n' };
+      
+      // 요약 행 스타일링
+      ws[totalLabel].s = {
+        font: { name: '맑은 고딕', sz: 11, bold: true },
+        fill: { fgColor: { rgb: 'E7E6E6' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: {
+          top: { style: 'thin', color: { rgb: '000000' } },
+          bottom: { style: 'thin', color: { rgb: '000000' } },
+          left: { style: 'thin', color: { rgb: '000000' } },
+          right: { style: 'thin', color: { rgb: '000000' } }
         }
       };
       
-      // 숫자 컬럼 우측 정렬
-      const cellValue = ws[cellAddress].v;
-      if (typeof cellValue === 'number' || !isNaN(parseFloat(cellValue))) {
-        ws[cellAddress].s.alignment.horizontal = 'right';
-      }
+      ws[totalValue].s = {
+        font: { name: '맑은 고딕', sz: 11, bold: true },
+        fill: { fgColor: { rgb: 'E7E6E6' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: {
+          top: { style: 'thin', color: { rgb: '000000' } },
+          bottom: { style: 'thin', color: { rgb: '000000' } },
+          left: { style: 'thin', color: { rgb: '000000' } },
+          right: { style: 'thin', color: { rgb: '000000' } }
+        }
+      };
       
-      // 긴 텍스트 컬럼 좌측 정렬
-      if (typeof cellValue === 'string' && cellValue.length > 20) {
-        ws[cellAddress].s.alignment.horizontal = 'left';
-      }
+      // 범위 업데이트
+      ws['!ref'] = XLSX.utils.encode_range({
+        s: { r: 0, c: 0 },
+        e: { r: summaryRow, c: range.e.c }
+      });
     }
-  }
-  
-  // 요약 정보 추가 (마지막 행에)
-  if (data.length > 0) {
-    const summaryRow = range.e.r + 2;
-    const totalLabel = XLSX.utils.encode_cell({ r: summaryRow, c: 0 });
-    const totalValue = XLSX.utils.encode_cell({ r: summaryRow, c: 1 });
     
-    ws[totalLabel] = { v: '총 개수', t: 's' };
-    ws[totalValue] = { v: data.length, t: 'n' };
+    // 컬럼 너비 자동 조정
+    if (options.columnWidths) {
+      ws['!cols'] = options.columnWidths;
+    } else {
+      const defaultWidths = Object.keys(data[0] || {}).map(() => ({ wch: 15 }));
+      ws['!cols'] = defaultWidths;
+    }
     
-    // 요약 행 스타일링
-    ws[totalLabel].s = {
-      font: { name: '맑은 고딕', sz: 11, bold: true },
-      fill: { fgColor: { rgb: 'E7E6E6' } },
-      alignment: { horizontal: 'center', vertical: 'center' },
-      border: {
-        top: { style: 'thin', color: { rgb: '000000' } },
-        bottom: { style: 'thin', color: { rgb: '000000' } },
-        left: { style: 'thin', color: { rgb: '000000' } },
-        right: { style: 'thin', color: { rgb: '000000' } }
-      }
-    };
-    
-    ws[totalValue].s = {
-      font: { name: '맑은 고딕', sz: 11, bold: true },
-      fill: { fgColor: { rgb: 'E7E6E6' } },
-      alignment: { horizontal: 'center', vertical: 'center' },
-      border: {
-        top: { style: 'thin', color: { rgb: '000000' } },
-        bottom: { style: 'thin', color: { rgb: '000000' } },
-        left: { style: 'thin', color: { rgb: '000000' } },
-        right: { style: 'thin', color: { rgb: '000000' } }
-      }
-    };
-    
-    // 범위 업데이트
-    ws['!ref'] = XLSX.utils.encode_range({
-      s: { r: 0, c: 0 },
-      e: { r: summaryRow, c: range.e.c }
-    });
-  }
-  
-  // 컬럼 너비 자동 조정
-  if (options.columnWidths) {
-    ws['!cols'] = options.columnWidths;
-  } else {
-    const defaultWidths = Object.keys(data[0] || {}).map(() => ({ wch: 15 }));
-    ws['!cols'] = defaultWidths;
-  }
-  
-  // 행 높이 설정
-  ws['!rows'] = [];
-  for (let i = 0; i <= range.e.r + 3; i++) {
-    ws['!rows'][i] = { hpt: i === 0 ? 25 : 20 }; // 헤더는 25pt, 나머지는 20pt
+    // 행 높이 설정
+    ws['!rows'] = [];
+    for (let i = 0; i <= range.e.r + 3; i++) {
+      ws['!rows'][i] = { hpt: i === 0 ? 25 : 20 }; // 헤더는 25pt, 나머지는 20pt
+    }
+  } catch (error) {
+    console.error('엑셀 스타일링 적용 실패:', error);
+    // 스타일링 실패해도 기본 기능은 동작하도록 함
   }
 };
 
@@ -203,61 +240,94 @@ const createCalendarSheet = (calendarItems, year, month) => {
     };
   });
   
-  // 월 제목
-  const titleCell = XLSX.utils.encode_cell({ r: 0, c: 7 });
-  ws[titleCell] = { v: `${year}년 ${month}월 일정`, t: 's' };
-  ws[titleCell].s = {
+  // 월 헤더
+  const monthHeader = XLSX.utils.encode_cell({ r: 0, c: 7 });
+  ws[monthHeader] = { v: `${year}년 ${month}월`, t: 's' };
+  ws[monthHeader].s = {
     font: { name: '맑은 고딕', sz: 14, bold: true, color: { rgb: 'FFFFFF' } },
-    fill: { fgColor: { rgb: '70AD47' } },
-    alignment: { horizontal: 'center', vertical: 'center' }
+    fill: { fgColor: { rgb: '4472C4' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
   };
   
-  // 날짜와 일정 데이터
+  // 달력 그리드 생성
   const daysInMonth = new Date(year, month, 0).getDate();
   const firstDayOfMonth = new Date(year, month - 1, 1).getDay();
-  
-  let currentRow = 1;
   let currentDay = 1;
+  let currentRow = 1;
   
-  for (let week = 0; week < 6; week++) {
+  // 주별로 반복
+  for (let week = 0; week < 6 && currentDay <= daysInMonth; week++) {
+    // 요일별로 반복
     for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
       const cellAddress = XLSX.utils.encode_cell({ r: currentRow, c: dayOfWeek });
       
+      // 첫 주에서 월의 첫 날 이전은 빈 셀로
       if (week === 0 && dayOfWeek < firstDayOfMonth) {
-        // 빈 셀
         ws[cellAddress] = { v: '', t: 's' };
-      } else if (currentDay <= daysInMonth) {
-        // 날짜 표시
-        ws[cellAddress] = { v: currentDay, t: 'n' };
         ws[cellAddress].s = {
-          font: { name: '맑은 고딕', sz: 10, bold: true },
-          fill: { fgColor: { rgb: 'E2EFDA' } },
-          alignment: { horizontal: 'center', vertical: 'top' },
+          font: { name: '맑은 고딕', sz: 10 },
+          fill: { fgColor: { rgb: 'F8F9FA' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
           border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
         };
-        
-        // 해당 날짜의 일정 추가
-        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+        continue;
+      }
+      
+      // 월의 마지막 날 이후는 빈 셀로
+      if (currentDay > daysInMonth) {
+        ws[cellAddress] = { v: '', t: 's' };
+        ws[cellAddress].s = {
+          font: { name: '맑은 고딕', sz: 10 },
+          fill: { fgColor: { rgb: 'F8F9FA' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
+        };
+        continue;
+      }
+      
+      // 날짜 셀
+      ws[cellAddress] = { v: currentDay, t: 'n' };
+      ws[cellAddress].s = {
+        font: { name: '맑은 고딕', sz: 10, bold: true },
+        fill: { fgColor: { rgb: 'E3F2FD' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
+      };
+      
+      // 해당 날짜의 일정 추가
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+      const items = calendarItems[dateStr] || [];
+      
+      if (items.length > 0) {
+        items.forEach((item, index) => {
+          const itemRow = currentRow + 1 + index;
+          const itemCell = XLSX.utils.encode_cell({ r: itemRow, c: dayOfWeek });
+          ws[itemCell] = { v: item.text, t: 's' };
+          ws[itemCell].s = {
+            font: { name: '맑은 고딕', sz: 8 },
+            fill: { fgColor: { rgb: 'FFF2CC' } },
+            alignment: { horizontal: 'left', vertical: 'top' },
+            border: { bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
+          };
+        });
+      }
+      
+      currentDay++;
+    }
+    
+    // 현재 주의 최대 높이 계산 (일정이 있는 경우 고려)
+    let maxItemsInWeek = 0;
+    for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+      const dayInWeek = currentDay - 7 + dayOfWeek;
+      if (dayInWeek >= 1 && dayInWeek <= daysInMonth) {
+        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayInWeek).padStart(2, '0')}`;
         const items = calendarItems[dateStr] || [];
-        
-        if (items.length > 0) {
-          items.forEach((item, index) => {
-            const itemRow = currentRow + 1 + index;
-            const itemCell = XLSX.utils.encode_cell({ r: itemRow, c: dayOfWeek });
-            ws[itemCell] = { v: item.text, t: 's' };
-            ws[itemCell].s = {
-              font: { name: '맑은 고딕', sz: 8 },
-              fill: { fgColor: { rgb: 'FFF2CC' } },
-              alignment: { horizontal: 'left', vertical: 'top' },
-              border: { bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
-            };
-          });
-        }
-        
-        currentDay++;
+        maxItemsInWeek = Math.max(maxItemsInWeek, items.length);
       }
     }
-    currentRow += Math.max(1, items?.length || 1) + 1;
+    
+    currentRow += Math.max(1, maxItemsInWeek) + 1;
   }
   
   // 컬럼 너비 설정
