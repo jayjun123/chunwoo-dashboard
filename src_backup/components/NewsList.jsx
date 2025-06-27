@@ -1,0 +1,58 @@
+import React, { useEffect, useState } from 'react';
+import '../styles/NewsList.css';
+
+export default function NewsList() {
+  const [news, setNews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [popup, setPopup] = useState(null);
+
+  useEffect(() => {
+    fetch('/.netlify/functions/news?query=건설')
+      .then(res => res.json())
+      .then(data => {
+        if (data.items) {
+          setNews(data.items);
+        } else {
+          setError('뉴스를 불러오는데 실패했습니다.');
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('뉴스를 불러오는데 실패했습니다.');
+        setLoading(false);
+      });
+  }, []);
+
+  const handlePopupClose = () => setPopup(null);
+  const handleOverlayClick = e => {
+    if (e.target.className === 'news-popup-overlay') handlePopupClose();
+  };
+
+  return (
+    <div className="news-list-main">
+      <h2 className="news-title">건설NEWS</h2>
+      {loading && <div className="news-loading">로딩 중...</div>}
+      {error && <div className="news-error">{error}</div>}
+      <ul className="news-headline-list">
+        {news.map((item, idx) => (
+          <li key={idx} className="news-headline-item">
+            <button className="news-headline-btn" onClick={() => setPopup(item)}>
+              {item.title.replace(/<[^>]+>/g, '')}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {popup && (
+        <div className="news-popup-overlay" onClick={handleOverlayClick}>
+          <div className="news-popup">
+            <button className="news-popup-close" onClick={handlePopupClose}>×</button>
+            <h3>{popup.title.replace(/<[^>]+>/g, '')}</h3>
+            <div className="news-popup-content">{popup.description.replace(/<[^>]+>/g, '')}</div>
+            {popup.link && <a href={popup.link} target="_blank" rel="noopener noreferrer" className="news-popup-link">원문 보기</a>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+} 

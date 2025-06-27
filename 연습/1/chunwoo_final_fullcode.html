@@ -1428,6 +1428,65 @@
             box-sizing: border-box;
             background: #fffde7 !important;
         }
+
+        /* 달력 컨테이너 스타일 */
+        .calendar-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 1rem;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(25,118,210,0.07);
+        }
+
+        .calendar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1rem;
+        }
+
+        .calendar-nav-btn {
+            background: none;
+            border: none;
+            color: #1976d2;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.5rem;
+            padding: 1rem;
+        }
+
+        .calendar-actions {
+            display: flex;
+            justify-content: flex-end;
+            padding: 1rem;
+        }
+
+        .excel-export-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.7rem 1.5rem;
+            background: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.2s;
+        }
+
+        .excel-export-btn:hover {
+            background: #1565c0;
+        }
     </style>
     <!-- 카카오 지도 API -->
     <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=cfac38e017d71dfeec7900cc8fa2e08f&libraries=services"></script>
@@ -1481,170 +1540,29 @@
         <section id="main-content" style="display:block;">
             <div class="calendar-main">
                 <div class="site-list">
-                    <div class="site-list-title">진행중 현장 LIST</div>
+                    <div class="site-list-title">진행중 LIST</div>
                     <table class="site-list-table" id="site-list-table">
                         <tr><th style="width:2.5rem;"> </th><th>현장명</th></tr>
                         <!-- JS로 현장 자동 삽입 -->
                     </table>
                 </div>
-                <div class="calendar-table-wrap">
-                    <div id="calendar-current-title" style="font-size:2.2rem;font-weight:bold;color:#1976d2;text-align:center;margin-bottom:0.7rem;letter-spacing:1px;"></div>
-                    <table class="calendar-table" id="calendar-table">
-                        <thead>
-                            <tr>
-                                <th>월<br>Monday</th>
-                                <th>화<br>Tuesday</th>
-                                <th>수<br>Wednesday</th>
-                                <th>목<br>Thursday</th>
-                                <th>금<br>Friday</th>
-                                <th style="color:#1976d2;">토<br>Saturday</th>
-                                <th style="color:#d32f2f;">일<br>Sunday</th>
-                            </tr>
-                        </thead>
-                        <tbody id="calendar-body">
-                            <!-- JS로 캘린더 자동 생성 -->
-                        </tbody>
-                    </table>
-                    <div style="display:flex;justify-content:flex-start;margin-top:1.2rem;">
-                        <button id="btn-map" class="site-detail-save" style="font-size:1.1rem;padding:0.7rem 1.7rem;">공사 위치 확인</button>
+                <div class="calendar-container">
+                    <div class="calendar-header">
+                        <button class="calendar-nav-btn" onclick="prevMonth()">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <h2 id="current-month"></h2>
+                        <button class="calendar-nav-btn" onclick="nextMonth()">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
                     </div>
-                </div>
-            </div>
-        </section>
-        <!-- 현장 세부내역(좌우 레이아웃) -->
-        <section id="project-detail-section" style="display:none;">
-            <div style="display:flex;gap:2rem;align-items:flex-start;min-height:600px;">
-                <!-- 왼쪽: 현장별 LIST -->
-                <div id="site-list-panel" style="flex:1;min-width:400px;max-width:540px;background:#f4f7fb;border-radius:16px;padding:1.5rem 1rem 1.5rem 1rem;box-shadow:0 2px 12px rgba(25,118,210,0.07);height:100%;display:flex;flex-direction:column;gap:1.2rem;">
-                    <!-- 검색창 공통 상단 배치 -->
-                    <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.7rem;">
-                        <input type="text" id="inprogress-search" placeholder="현장명, 회사명 등 검색" style="width:200px;padding:0.4rem 0.7rem;border:1.5px solid #b6c7e3;border-radius:8px;font-size:1rem;">
-                        <button class="site-list-search-btn" id="inprogress-search-btn">찾기</button>
+                    <div class="calendar-grid" id="calendar-grid"></div>
+                    <div class="calendar-actions">
+                        <button class="excel-export-btn" onclick="exportToExcel()">
+                            <i class="fas fa-file-excel"></i>
+                            엑셀 내보내기
+                        </button>
                     </div>
-                    <!-- 진행중 현장 LIST -->
-                    <div class="site-list-box inprogress-list">
-                        <div class="site-list-header">
-                            <span class="site-list-title">진행중 현장 LIST</span>
-                        </div>
-                        <div class="site-list-table-wrap">
-                            <table class="site-list-table" id="site-list-table-inprogress"></table>
-                        </div>
-                    </div>
-                    <!-- 예정 현장 LIST -->
-                    <div class="site-list-box planned-list">
-                        <div class="site-list-header">
-                            <span class="site-list-title">예정 현장 LIST</span>
-                        </div>
-                        <div class="site-list-table-wrap">
-                            <table class="site-list-table" id="site-list-table-planned"></table>
-                        </div>
-                    </div>
-                    <!-- 완료 현장 LIST -->
-                    <div class="site-list-box done-list">
-                        <div class="site-list-header">
-                            <span class="site-list-title">완료 현장 LIST</span>
-                        </div>
-                        <div class="site-list-table-wrap">
-                            <table class="site-list-table" id="site-list-table-done"></table>
-                        </div>
-                    </div>
-                </div>
-                <!-- 오른쪽: 현장 세부 사항 -->
-                <div class="project-detail-box" style="flex:2;max-width:540px;">
-                    <div class="project-detail-header">
-                        <div class="project-detail-title">현장 세부 사항</div>
-                        <button class="project-detail-back" onclick="showAllSitesList()">전체 현장LIST</button>
-                    </div>
-                    <form id="project-detail-form" onsubmit="return false;">
-                        <div class="project-detail-section">
-                            <div class="project-detail-row" style="gap:0.5rem;">
-                                <label>현장명</label>
-                                <input type="text" id="pd-name" required maxlength="20">
-                            </div>
-                            <div class="project-detail-row" style="gap:0.5rem;">
-                                <label>현장주소</label>
-                                <input type="text" id="pd-address" placeholder="현장 주소를 입력하세요">
-                            </div>
-                            <div class="project-detail-row" style="gap:0.5rem;">
-                                <label>공사기간</label>
-                                <input type="text" id="pd-start-date" readonly style="flex:1;max-width:150px;" placeholder="시작일">
-                                <span style="margin: 0 0.5rem;">~</span>
-                                <input type="text" id="pd-end-date" readonly style="flex:1;max-width:150px;" placeholder="종료일">
-                            </div>
-                            <div class="project-detail-row">
-                                <label>현장 진행율</label>
-                                <select id="progress-status-select" style="flex:1;max-width:120px;">
-                                    <option value="예정">예정</option>
-                                    <option value="진행중">진행중</option>
-                                    <option value="완료">완료</option>
-                                </select>
-                                <div class="progress-percent-container" id="progress-percent-wrap" style="display:none;">
-                                    <input type="number" id="progress-percent" class="progress-percent-input" min="0" max="100" placeholder="진행율">
-                                    <button type="button" id="btn-progress-save" class="site-detail-save" style="padding:0.3rem 0.8rem;font-size:0.95rem;">저장</button>
-                                    <div class="donut-chart">
-                                        <svg viewBox="0 0 36 36">
-                                            <circle class="background" cx="18" cy="18" r="15.91549430918954"></circle>
-                                            <circle class="progress" cx="18" cy="18" r="15.91549430918954"></circle>
-                                        </svg>
-                                        <div class="percentage">0%</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="project-detail-row" style="gap:0.5rem;">
-                                <label>계약구분</label>
-                                <select id="pd-type" style="flex:1;max-width:100px;">
-                                    <option value="공사">공사</option>
-                                    <option value="납품">납품</option>
-                                    <option value="NONE">NONE</option>
-                                </select>
-                            </div>
-                            <div class="project-detail-row">
-                                <label>회사</label>
-                                <input type="text" id="pd-company">
-                            </div>
-                            <div class="project-detail-row">
-                                <label>시공팀</label>
-                                <input type="text" id="pd-team" placeholder="시공팀을 입력하세요">
-                            </div>
-                            <div class="project-detail-row">
-                                <label>현장소장</label>
-                                <input type="text" id="pd-manager">
-                            </div>
-                            <div class="project-detail-row">
-                                <label>비고</label>
-                                <input type="text" id="pd-note">
-                            </div>
-                        </div>
-                        <div class="project-detail-section">
-                            <div class="project-detail-section-title">견적내역</div>
-                            <table class="estimate-table" id="pd-estimate-table">
-                                <thead>
-                                    <tr>
-                                        <th>항목</th>
-                                        <th>물량</th>
-                                        <th>단가</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="pd-estimate-tbody">
-                                    <!-- JS로 행 추가/삭제 -->
-                                </tbody>
-                            </table>
-                            <button type="button" class="estimate-add" onclick="addPdEstimateRow()" style="display:block;">+ 행 추가</button>
-                        </div>
-                        <div class="project-detail-section">
-                            <div class="project-detail-section-title">메모/리스트</div>
-                            <textarea id="pd-memo" rows="3" placeholder="메모 또는 리스트를 입력하세요"></textarea>
-                        </div>
-                        <div style="display:flex;gap:0.7rem;justify-content:flex-end;">
-                            <button type="button" class="site-detail-save" onclick="downloadExcelTemplate()">양식다운</button>
-                            <button type="button" class="site-detail-save" onclick="document.getElementById('excel-upload').click()">올리기</button>
-                            <input type="file" id="excel-upload" accept=".xlsx,.xls" style="display: none;" onchange="handleExcelUpload(event)">
-                            <button type="button" class="site-detail-save" id="btn-to-progress">기성현황</button>
-                            <button type="button" class="site-detail-save" id="btn-edit" onclick="toggleEditMode()" style="display:none;">수정하기</button>
-                            <button type="button" class="site-detail-save" onclick="saveProjectDetail2()" id="btn-save">등록하기</button>
-                        </div>
-                    </form>
                 </div>
             </div>
         </section>
@@ -2122,12 +2040,22 @@
             // 저장된 현장 데이터 불러오기
             const projectList = getProjectList();
             const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            
+            // 현재 달의 시작일과 마지막일
+            const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+            const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
             
             // 현재 날짜가 공사기간에 포함된 현장만 필터링
             const currentSites = projectList.filter(project => {
+                if (!project.startDate || !project.endDate) return false;
+                
                 const startDate = new Date(project.startDate);
                 const endDate = new Date(project.endDate);
-                return today >= startDate && today <= endDate;
+                
+                // 공사기간이 현재 달과 겹치는지 확인
+                return !(endDate < firstDayOfMonth || startDate > lastDayOfMonth);
             });
             
             currentSites.forEach(project => {

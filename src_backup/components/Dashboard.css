@@ -1,0 +1,66 @@
+/* Dashboard 기본 스타일 */
+.dashboard-container {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  background: #f5f6fa;
+  min-height: 100vh;
+}
+
+.dashboard-card {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  margin-bottom: 24px;
+  transition: box-shadow 0.2s;
+}
+.dashboard-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+.dashboard-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 16px;
+}
+
+.dashboard-chart {
+  margin: 16px 0;
+}
+
+.dashboard-status {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.status-warning {
+  color: #ff9800;
+  font-weight: bold;
+}
+.status-success {
+  color: #4caf50;
+  font-weight: bold;
+}
+.status-progress {
+  color: #2196f3;
+  font-weight: bold;
+}
+
+.dashboard-todo {
+  margin-top: 24px;
+}
+
+@media (max-width: 600px) {
+  .dashboard-card {
+    padding: 12px;
+  }
+  .dashboard-title {
+    font-size: 1.1rem;
+  }
+} 

@@ -1,0 +1,18 @@
+.settings {
+  padding: 20px;
+}
+
+.settings-content {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 20px;
+}
+
+/* 다크 모드 스타일 */
+@media (prefers-color-scheme: dark) {
+  .settings-content {
+    background-color: #1a1a1a;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+} 

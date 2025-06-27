@@ -1,0 +1,585 @@
+/* ===== 전체 배경/폰트 ===== */
+body, .schedule-container {
+  background: #181c26 !important;
+  color: #fff !important;
+  font-family: 'Pretendard', 'Noto Sans KR', sans-serif;
+}
+
+/* ===== 좌측 영역 ===== */
+.schedule-left {
+  background: none;
+  min-width: 260px;
+  max-width: 320px;
+  padding: 32px 0 0 32px;
+  color: #fff;
+}
+.schedule-left h2, .schedule-left .section-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 18px;
+  color: #fff;
+  letter-spacing: -1px;
+}
+.schedule-left .sub-title, .schedule-left .add-item-label {
+  text-align: left !important;
+}
+.schedule-left .sub-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #90caf9;
+  margin-bottom: 18px;
+}
+.schedule-left .add-item-label {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #fff;
+}
+.schedule-left .add-item-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.schedule-left input[type="text"] {
+  background: #232734;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 1rem;
+}
+.schedule-left .add-btn {
+  background: #3578ff;
+  color: #fff;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 1.2rem;
+  min-width: 40px;
+  min-height: 40px;
+  border: none;
+  transition: background 0.2s;
+}
+.schedule-left .add-btn:hover {
+  background: #285bb5;
+}
+
+/* ===== 캘린더 헤더(월/네비) ===== */
+.schedule-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  gap: 16px;
+}
+.schedule-calendar-header .month-label {
+  font-size: 2.1rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -1px;
+  text-align: center;
+  flex: 1;
+}
+.schedule-calendar-header button {
+  background: none;
+  border: none;
+  color: #90caf9;
+  font-size: 2.2rem;
+  cursor: pointer;
+  padding: 0 12px;
+  transition: color 0.2s;
+}
+.schedule-calendar-header button:hover {
+  color: #fff;
+}
+
+/* ===== 요일 ===== */
+.schedule-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 2px;
+}
+.schedule-calendar-weekdays .weekday {
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding: 6px 0 8px 0;
+  color: #fff;
+}
+.schedule-calendar-weekdays .weekday.sunday {
+  color: #ff5252;
+}
+.schedule-calendar-weekdays .weekday.saturday {
+  color: #42a5f5;
+}
+
+/* ===== 캘린더 셀 ===== */
+.schedule-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  gap: 2px;
+  background: #232734;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.schedule-calendar-cell {
+  min-height: 80px;
+  height: 90px;
+  background: #232734;
+  border: 1.5px solid #232b3a;
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: right;
+  padding: 8px 10px 0 0;
+  position: relative;
+  transition: border 0.2s, background 0.2s;
+}
+.schedule-calendar-cell.today {
+  border: 2.5px solid #ff5252;
+  background: #232b3a;
+}
+.schedule-calendar-cell.selected {
+  border: 2.5px solid #3578ff;
+  background: #232b3a;
+}
+.schedule-calendar-cell:hover {
+  background: #2a2f3d;
+  border-color: #3578ff;
+}
+.schedule-calendar-cell .cell-content {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+}
+.schedule-calendar-cell .cell-extra {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  font-size: 0.95rem;
+  color: #90caf9;
+}
+
+/* ===== 버튼(저장/삭제/엑셀) ===== */
+.schedule-action-btns {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.schedule-action-btns button {
+  font-weight: 700;
+  font-size: 1.1rem;
+  border-radius: 8px;
+  min-width: 80px;
+  min-height: 38px;
+}
+
+/* ===== 반응형 ===== */
+@media (max-width: 900px) {
+  .schedule-left {
+    padding: 18px 0 0 8px;
+    min-width: 0;
+    max-width: 100vw;
+  }
+  .schedule-calendar-header .month-label {
+    font-size: 1.3rem;
+  }
+  .schedule-calendar-cell {
+    min-height: 48px;
+    height: 54px;
+    font-size: 0.95rem;
+  }
+}
+
+.schedule-container {
+  padding: 20px;
+  height: calc(100vh - 60px);
+  background-color: #f5f5f5;
+}
+
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.schedule-header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.add-schedule-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.add-schedule-button:hover {
+  background-color: #45a049;
+}
+
+.schedule-filters {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.search-box {
+  flex: 1;
+  position: relative;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 8px 16px 8px 40px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.search-box svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #666;
+}
+
+.status-filter {
+  position: relative;
+  min-width: 200px;
+}
+
+.status-filter select {
+  width: 100%;
+  padding: 8px 16px 8px 40px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  appearance: none;
+  background-color: white;
+}
+
+.status-filter svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #666;
+  pointer-events: none;
+}
+
+.schedule-table {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.schedule-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.schedule-table th,
+.schedule-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.schedule-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #333;
+}
+
+.schedule-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge.pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-badge.in_progress {
+  background-color: #cce5ff;
+  color: #004085;
+}
+
+.status-badge.completed {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.priority-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.priority-badge.high {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.priority-badge.medium {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.priority-badge.low {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-button,
+.delete-button {
+  padding: 6px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.edit-button {
+  background-color: #007bff;
+  color: white;
+}
+
+.edit-button:hover {
+  background-color: #0056b3;
+}
+
+.delete-button {
+  background-color: #dc3545;
+  color: white;
+}
+
+.delete-button:hover {
+  background-color: #c82333;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 24px;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-content h3 {
+  margin: 0 0 20px 0;
+  color: #333;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #333;
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.save-button,
+.cancel-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.3s;
+}
+
+.save-button {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.save-button:hover {
+  background-color: #45a049;
+}
+
+.cancel-button {
+  background-color: #6c757d;
+  color: white;
+}
+
+.cancel-button:hover {
+  background-color: #5a6268;
+}
+
+.schedule-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #666;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 다크 모드 스타일 */
+@media (prefers-color-scheme: dark) {
+  .schedule-container {
+    background-color: #1a1a1a;
+  }
+
+  .schedule-header h2 {
+    color: #fff;
+  }
+
+  .schedule-table {
+    background-color: #2d2d2d;
+  }
+
+  .schedule-table th {
+    background-color: #333;
+    color: #fff;
+  }
+
+  .schedule-table td {
+    color: #fff;
+    border-bottom-color: #404040;
+  }
+
+  .schedule-table tr:hover {
+    background-color: #333;
+  }
+
+  .search-box input,
+  .status-filter select {
+    background-color: #2d2d2d;
+    border-color: #404040;
+    color: #fff;
+  }
+
+  .search-box svg,
+  .status-filter svg {
+    color: #999;
+  }
+
+  .modal-content {
+    background-color: #2d2d2d;
+  }
+
+  .modal-content h3 {
+    color: #fff;
+  }
+
+  .form-group label {
+    color: #fff;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    background-color: #333;
+    border-color: #404040;
+    color: #fff;
+  }
+
+  .schedule-loading {
+    color: #999;
+  }
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  .schedule-filters {
+    flex-direction: column;
+  }
+
+  .schedule-table {
+    overflow-x: auto;
+  }
+
+  .schedule-table table {
+    min-width: 800px;
+  }
+
+  .modal-content {
+    margin: 20px;
+    max-height: calc(100vh - 40px);
+  }
+}
