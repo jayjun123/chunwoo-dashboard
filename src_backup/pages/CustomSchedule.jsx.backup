@@ -1,0 +1,337 @@
+// 이 파일은 2024-07-18 기준 CustomSchedule.jsx의 백업본입니다.
+// 아래는 원본 전체 내용입니다.
+
+import React, { useState, useMemo } from 'react';
+import { Box, Typography, Button, TextField, IconButton } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import CustomCalendar from '../components/CustomCalendar';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+
+// 더미 현장 데이터
+const dummySites = [
+  { id: 'site1', name: '현장A아파트신축공사', status: '진행', start: '2025-04-20', end: '2025-06-15' },
+  { id: 'site2', name: '현장B오피스텔', status: '보류', start: '2025-05-01', end: '2025-07-10' },
+  { id: 'site3', name: '현장C리모델링', status: '예정', start: '2025-06-01', end: '2025-08-31' },
+  { id: 'site4', name: '현장D주택', status: '완료', start: '2025-05-10', end: '2025-05-30' },
+  { id: 'site5', name: '현장E상가', status: '진행', start: '2025-03-15', end: '2025-05-25' },
+];
+
+function isInMonth(site, year, month) {
+  const s = new Date(site.start);
+  const e = new Date(site.end);
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
+  return !(e < first || s > last);
+}
+
+export default function CustomSchedule() {
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
+  const [input, setInput] = useState('');
+  const [extraItems, setExtraItems] = useState([]); // 추가사항
+  const [calendarItems, setCalendarItems] = useState({}); // { 'YYYY-MM-DD': [ {type, id, text, ...} ] }
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [popupDate, setPopupDate] = useState(null);
+  const [popupTitle, setPopupTitle] = useState('');
+  const [popupType, setPopupType] = useState('일정');
+  const [popupDesc, setPopupDesc] = useState('');
+
+  // 1. 진행중 현장 리스트(공사기간이 현재 월에 포함된 현장)
+  const filteredSites = useMemo(() =>
+    dummySites.filter(site => isInMonth(site, year, month)),
+    [year, month]
+  );
+
+  // 2. 추가사항 입력
+  const handleAddExtra = () => {
+    if (input.trim()) {
+      setExtraItems([...extraItems, { id: 'extra-' + Date.now(), text: input }]);
+      setInput('');
+    }
+  };
+
+  // 3. 드래그앤드롭 핸들러
+  const onDragEnd = (result) => {
+    const { source, destination, draggableId } = result;
+
+    if (!destination) return;
+
+    // 드래그 ID 파싱
+    const isFromSiteList = draggableId.startsWith('siteList-');
+    const isFromCell = draggableId.startsWith('cell-');
+    
+    if (isFromSiteList) {
+      // 현장 리스트에서 드래그한 경우
+      const siteId = draggableId.replace('siteList-', '');
+      const site = filteredSites.find(s => s.id === siteId);
+      if (!site) return;
+
+      const targetDate = destination.droppableId;
+      
+      // 같은 날짜에 이미 있는지 확인
+      const existingItems = calendarItems[targetDate] || [];
+      if (existingItems.some(item => item.id === siteId)) {
+        return; // 이미 있으면 무시
+      }
+
+      // 새 항목 추가
+      const newItem = {
+        id: siteId,
+        text: site.name,
+        status: site.status
+      };
+
+      setCalendarItems(prev => ({
+        ...prev,
+        [targetDate]: [...(prev[targetDate] || []), newItem]
+      }));
+    } else if (isFromCell) {
+      // 셀 내부에서 드래그한 경우
+      // 'cell-YYYY-MM-DD-현장ID' → ['cell', 'YYYY', 'MM', 'DD', 'siteId']
+      const parts = draggableId.split('-');
+      const sourceDate = `${parts[1]}-${parts[2]}-${parts[3]}`;
+      const siteId = parts.slice(4).join('-');
+      const targetDate = destination.droppableId;
+
+      // 같은 날짜로 이동하는 경우 무시
+      if (sourceDate === targetDate) return;
+
+      // 대상 날짜에 이미 있는지 확인
+      const existingItems = calendarItems[targetDate] || [];
+      if (existingItems.some(item => item.id === siteId)) {
+        return; // 이미 있으면 무시
+      }
+
+      // 항목 이동
+      setCalendarItems(prev => {
+        const sourceItems = [...(prev[sourceDate] || [])];
+        const targetItems = [...(prev[targetDate] || [])];
+        const [movedItem] = sourceItems.splice(source.index, 1);
+        
+        if (!movedItem) return prev; // movedItem이 undefined인 경우 처리
+        
+        targetItems.splice(destination.index, 0, movedItem);
+
+        return {
+          ...prev,
+          [sourceDate]: sourceItems,
+          [targetDate]: targetItems
+        };
+      });
+    }
+  };
+
+  // 4. 달력에 넘길 데이터 변환
+  const calendarData = useMemo(() => calendarItems, [calendarItems]);
+
+  // 5. 팝업 오픈 핸들러
+  const handleOpenPopup = (dateStr) => {
+    if (!dateStr) return;
+    setPopupOpen(true);
+    setPopupDate(dateStr);
+    setPopupTitle('');
+    setPopupType('일정');
+    setPopupDesc('');
+  };
+  const handleClosePopup = () => setPopupOpen(false);
+
+  // 6. 팝업에서 추가 버튼 클릭 시 해당 날짜 셀에 항목 추가
+  const handleAddSchedule = () => {
+    if (!popupTitle.trim()) return;
+    const items = calendarItems[popupDate] || [];
+    setCalendarItems({
+      ...calendarItems,
+      [popupDate]: [...items, { id: 'schedule-' + Date.now(), text: popupTitle, type: popupType, desc: popupDesc }]
+    });
+    setPopupOpen(false);
+  };
+
+  return (
+    <DragDropContext onDragEnd={onDragEnd}>
+      <Box sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
+        gap: { xs: 2, md: 3 },
+        p: { xs: 1, md: 3 },
+        width: '100%',
+        maxWidth: '100vw',
+        minHeight: '100vh',
+        bgcolor: '#0f172a',
+        boxSizing: 'border-box',
+        overflow: 'hidden'
+      }}>
+        {/* 좌측 패널 */}
+        <Box sx={{
+          width: { xs: '100%', md: '220px' },
+          minWidth: { xs: 'auto', md: '170px' },
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: { xs: 1, md: 2 },
+          bgcolor: '#1e293b',
+          borderRadius: { xs: 2, md: 4 },
+          p: { xs: 1.5, md: 3 },
+          height: { xs: 'auto', md: 'calc(100vh - 48px)' },
+          position: { xs: 'relative', md: 'sticky' },
+          top: { xs: 'auto', md: 24 },
+        }}>
+          <Typography variant="h5" sx={{ 
+            color: '#fff', 
+            fontWeight: 700, 
+            mb: { xs: 1, md: 2 }, 
+            textAlign: 'left',
+            fontSize: { xs: '1.2rem', md: '1.5rem' }
+          }}>
+            공사현황
+          </Typography>
+          <Typography sx={{ 
+            color: '#3b82f6', 
+            fontWeight: 600, 
+            borderBottom: '2px solid #3b82f6', 
+            pb: 0.5, 
+            mb: { xs: 2, md: 4 }, 
+            fontSize: { xs: '0.9rem', md: '1.1rem' }, 
+            textAlign: 'left' 
+          }}>
+            진행중 현장 LIST
+          </Typography>
+          <Droppable droppableId="siteList"
+            renderClone={(provided, snapshot, rubric) => (
+              <Box
+                ref={provided.innerRef}
+                {...provided.draggableProps}
+                {...provided.dragHandleProps}
+                sx={{
+                  mb: { xs: 0.5, md: 1 },
+                  p: { xs: 0.75, md: 1 },
+                  bgcolor: '#3b82f6',
+                  color: '#fff',
+                  borderRadius: 1,
+                  fontWeight: 500,
+                  fontSize: { xs: '0.8rem', md: '0.9rem' },
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                  cursor: 'grab',
+                  border: '2px solid #3b82f6',
+                  transition: 'all 0.2s',
+                  width: '180px',
+                  zIndex: 99999,
+                  position: 'fixed',
+                  pointerEvents: 'none',
+                }}
+              >
+                {filteredSites[rubric.source.index]?.name?.slice(0,7)}({filteredSites[rubric.source.index]?.status})
+              </Box>
+            )}
+          >
+            {(provided) => (
+              <Box
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                sx={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: { xs: 0.5, md: 1 },
+                  minHeight: { xs: '200px', md: 'auto' }
+                }}
+              >
+                {filteredSites.map((site, idx) => (
+                  <Draggable key={site.id} draggableId={`siteList-${site.id}`} index={idx}>
+                    {(provided, snapshot) => (
+                      <Box
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                        sx={{
+                          mb: { xs: 0.5, md: 1 },
+                          p: { xs: 0.75, md: 1 },
+                          bgcolor: snapshot.isDragging ? '#3b82f6' : '#181c24',
+                          color: '#fff',
+                          borderRadius: 1,
+                          fontWeight: 500,
+                          fontSize: { xs: '0.8rem', md: '0.9rem' },
+                          boxShadow: snapshot.isDragging ? 3 : 0,
+                          cursor: 'grab',
+                          border: '1px solid #3b82f6',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        {site.name.slice(0,7)}({site.status})
+                      </Box>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </Box>
+            )}
+          </Droppable>
+        </Box>
+        {/* 우측 달력 */}
+        <Box sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'stretch',
+          bgcolor: '#181c24',
+          borderRadius: { xs: 2, md: 4 },
+          p: { xs: 1, md: 3 },
+          width: '100%',
+          minWidth: 0,
+          minHeight: { xs: 'auto', md: 'calc(100vh - 48px)' },
+          boxSizing: 'border-box',
+          justifyContent: 'flex-start',
+        }}>
+          <Box sx={{ 
+            flex: 1, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            width: '100%',
+            height: '100%'
+          }}>
+            <CustomCalendar
+              year={year}
+              month={month}
+              calendarItems={calendarItems}
+              onDragEnd={onDragEnd}
+              onPrevMonth={() => setMonth(m => m === 0 ? 11 : m - 1)}
+              onNextMonth={() => setMonth(m => m === 11 ? 0 : m + 1)}
+              onDateClick={handleOpenPopup}
+              sx={{
+                width: '100%',
+                height: '100%',
+                '& .calendar-grid': {
+                  gap: { xs: '2px', md: '5px' }
+                },
+                '& .calendar-cell': {
+                  p: { xs: 0.5, md: 1 },
+                  minHeight: { xs: '60px', md: '100px' }
+                }
+              }}
+            />
+          </Box>
+        </Box>
+      </Box>
+      {popupOpen && (
+        <Box onClick={handleClosePopup} sx={{ position: 'fixed', top:0, left:0, width:'100vw', height:'100vh', bgcolor:'rgba(0,0,0,0.4)', zIndex: 2000, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <Box onClick={e=>e.stopPropagation()} sx={{ minWidth:340, bgcolor:'#232837', borderRadius:3, p:3, boxShadow:5, position:'relative' }}>
+            <IconButton onClick={handleClosePopup} sx={{ position:'absolute', top:8, right:8, color:'#fff' }}>X</IconButton>
+            <Typography variant="h6" sx={{ color:'#fff', mb:2 }}>새 일정 추가</Typography>
+            <TextField label="제목" value={popupTitle} onChange={e=>setPopupTitle(e.target.value)} fullWidth sx={{ mb:2, input:{color:'#fff'}, label:{color:'#fff'} }} autoFocus/>
+            <TextField select label="유형" value={popupType} onChange={e=>setPopupType(e.target.value)} fullWidth sx={{ mb:2, input:{color:'#fff'}, label:{color:'#fff'} }} SelectProps={{ native:true }}>
+              <option value="일정">일정</option>
+              <option value="지원">지원</option>
+              <option value="회의">회의</option>
+              <option value="입찰">입찰</option>
+              <option value="점검">점검</option>
+              <option value="기타">기타</option>
+            </TextField>
+            <TextField label="설명" value={popupDesc} onChange={e=>setPopupDesc(e.target.value)} fullWidth multiline rows={3} sx={{ mb:2, input:{color:'#fff'}, label:{color:'#fff'} }}/>
+            <Button variant="contained" color="primary" onClick={handleAddSchedule} fullWidth>추가</Button>
+          </Box>
+        </Box>
+      )}
+    </DragDropContext>
+  );
+} 

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대화방 강제 삭제</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #c82333;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 대화방 강제 삭제 도구</h1>
+        
+        <div class="warning">
+            <strong>⚠️ 주의사항:</strong>
+            <ul>
+                <li>이 도구는 모든 대화방과 관련 메시지를 영구적으로 삭제합니다.</li>
+                <li>삭제된 데이터는 복구할 수 없습니다.</li>
+                <li>실행 전에 반드시 백업을 확인하세요.</li>
+            </ul>
+        </div>
+
+        <div>
+            <button id="deleteAllBtn" onclick="deleteAllRooms()">🗑️ 모든 대화방 삭제</button>
+            <button id="checkBtn" onclick="checkRooms()">📋 대화방 목록 확인</button>
+            <button onclick="clearLog()">🧹 로그 지우기</button>
+        </div>
+
+        <div id="log" class="log"></div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, getDocs, deleteDoc, doc, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Firebase 설정 (실제 프로젝트 설정으로 교체 필요)
+        const firebaseConfig = {
+            apiKey: "AIzaSyATCGXGD2_teiJFdpng9J2_fvZRItPef0w",
+            authDomain: "chunwooo-edf9f.firebaseapp.com",
+            projectId: "chunwooo-edf9f",
+            storageBucket: "chunwooo-edf9f.appspot.com",
+            messagingSenderId: "417029078660",
+            appId: "1:417029078660:web:00e23d79af77876e598cd1"
+        };
+
+        // Firebase 초기화
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // 로그 출력 함수
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+
+        // 로그 지우기
+        window.clearLog = function() {
+            document.getElementById('log').textContent = '';
+        };
+
+        // 대화방 목록 확인
+        window.checkRooms = async function() {
+            try {
+                log('📋 대화방 목록 조회 중...');
+                const roomsSnapshot = await getDocs(collection(db, 'discussionRooms'));
+                const rooms = roomsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                log(`📊 총 ${rooms.length}개의 대화방 발견`);
+                
+                if (rooms.length === 0) {
+                    log('✅ 삭제할 대화방이 없습니다.');
+                    return;
+                }
+
+                rooms.forEach((room, index) => {
+                    log(`${index + 1}. ${room.name} (${room.siteName || 'N/A'}) - ID: ${room.id}`);
+                });
+
+            } catch (error) {
+                log(`❌ 오류 발생: ${error.message}`);
+                console.error('오류 상세:', error);
+            }
+        };
+
+        // 모든 대화방 삭제
+        window.deleteAllRooms = async function() {
+            const deleteBtn = document.getElementById('deleteAllBtn');
+            const checkBtn = document.getElementById('checkBtn');
+            
+            if (!confirm('정말로 모든 대화방을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다!')) {
+                return;
+            }
+
+            deleteBtn.disabled = true;
+            checkBtn.disabled = true;
+
+            try {
+                log('🚀 강제 삭제 시작...');
+                
+                // 1. 모든 대화방 조회
+                log('📋 대화방 목록 조회 중...');
+                const roomsSnapshot = await getDocs(collection(db, 'discussionRooms'));
+                const rooms = roomsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                log(`📊 총 ${rooms.length}개의 대화방 발견`);
+                
+                if (rooms.length === 0) {
+                    log('✅ 삭제할 대화방이 없습니다.');
+                    return;
+                }
+                
+                // 2. 각 대화방의 메시지 삭제
+                for (const room of rooms) {
+                    log(`🗑️ 대화방 "${room.name}" (${room.id}) 처리 중...`);
+                    
+                    // 해당 대화방의 모든 메시지 조회
+                    const messagesQuery = query(collection(db, 'discussions'), where('roomId', '==', room.id));
+                    const messagesSnapshot = await getDocs(messagesQuery);
+                    
+                    log(`  - ${messagesSnapshot.docs.length}개의 메시지 발견`);
+                    
+                    // 메시지 삭제
+                    if (!messagesSnapshot.empty) {
+                        const deletePromises = messagesSnapshot.docs.map(doc => {
+                            log(`    삭제 중: ${doc.id}`);
+                            return deleteDoc(doc.ref);
+                        });
+                        await Promise.all(deletePromises);
+                        log(`  ✅ ${messagesSnapshot.docs.length}개 메시지 삭제 완료`);
+                    }
+                    
+                    // 대화방 삭제
+                    log(`  🗑️ 대화방 삭제 중: ${room.id}`);
+                    await deleteDoc(doc(db, 'discussionRooms', room.id));
+                    log(`  ✅ 대화방 삭제 완료`);
+                }
+                
+                log('🎉 모든 대화방 삭제 완료!');
+                
+            } catch (error) {
+                log(`❌ 삭제 중 오류 발생: ${error.message}`);
+                log(`오류 코드: ${error.code}`);
+                console.error('오류 상세:', error);
+            } finally {
+                deleteBtn.disabled = false;
+                checkBtn.disabled = false;
+            }
+        };
+
+        // 초기 로그
+        log('🔧 대화방 강제 삭제 도구가 준비되었습니다.');
+        log('⚠️ Firebase 설정을 실제 프로젝트 설정으로 교체해야 합니다.');
+    </script>
+</body>
+</html> 

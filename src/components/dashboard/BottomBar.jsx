@@ -1,0 +1,1136 @@
+import React, { useEffect, useState } from 'react';
+import { Box, Typography, IconButton, Tooltip, Badge, Modal, Paper, Drawer, List, ListItem, ListItemIcon, ListItemText, Snackbar, Alert, Checkbox, Button, Popover } from '@mui/material';
+import GroupIcon from '@mui/icons-material/Group';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
+import ForumIcon from '@mui/icons-material/Forum';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ListAltIcon from '@mui/icons-material/ListAlt';
+import SettingsIcon from '@mui/icons-material/Settings';
+import WbSunnyIcon from '@mui/icons-material/WbSunny';
+import CloudIcon from '@mui/icons-material/Cloud';
+import OpacityIcon from '@mui/icons-material/Opacity';
+import AcUnitIcon from '@mui/icons-material/AcUnit';
+import ThunderstormIcon from '@mui/icons-material/Thunderstorm';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import MenuIcon from '@mui/icons-material/Menu';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc, orderBy } from 'firebase/firestore';
+import { db } from '../../firebase';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import TextField from '@mui/material/TextField';
+import CloseIcon from '@mui/icons-material/Close';
+import Slide from '@mui/material/Slide';
+import { format } from 'date-fns';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import InfoIcon from '@mui/icons-material/Info';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import EngineeringIcon from '@mui/icons-material/Engineering';
+import SafetyHelmetIcon from '@mui/icons-material/SafetyCheck';
+import useMediaQuery from '@mui/material/useMediaQuery';
+
+// props: 날짜, 날씨, 온도, 현장/기성/협의/안전/ToDo/관리 등 실시간 데이터, 클릭 이벤트 핸들러
+const BottomBar = ({
+  dateText,
+  weatherIcon = <WbSunnyIcon sx={{ color: '#FFD600', fontSize: 20, verticalAlign: 'middle' }} />, // ☀️
+  temperature,
+  onWeather,
+  onSites,
+  onProgress,
+  onDiscussion,
+  onSafety,
+  onTodo,
+  onManage
+}) => {
+  const [stats, setStats] = useState({
+    todaySites: 0,
+    todayCompleted: 0,
+    monthCompleted: 0,
+    progressCount: 0,
+    discussionCount: 0,
+    safetyCount: 0,
+    todoDone: 0,
+    todoTotal: 0
+  });
+
+  // 팝업 상태 관리
+  const [openProgress, setOpenProgress] = useState(false);
+  const [openDiscussion, setOpenDiscussion] = useState(false);
+  const [openSafety, setOpenSafety] = useState(false);
+  const [openTodo, setOpenTodo] = useState(false);
+
+  // 팝업 데이터 상태
+  const [progressList, setProgressList] = useState([]);
+  const [discussionList, setDiscussionList] = useState([]);
+  const [safetyList, setSafetyList] = useState([]);
+  const [todoList, setTodoList] = useState([]);
+  const [setupList, setSetupList] = useState([]); // 금일현설용 별도 상태
+
+  // 햄버거 메뉴 Drawer 상태
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const navigate = useNavigate();
+
+  const [error, setError] = useState('');
+
+  const { currentUser } = useAuth();
+  const [isMaster, setIsMaster] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const isMobile = useMediaQuery('(max-width:600px)');
+
+  useEffect(() => {
+    if (currentUser) {
+      // 사용자 권한 확인
+      const checkUserRole = async () => {
+        try {
+          const userDoc = await getDoc(doc(db, 'members', currentUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setIsMaster(userData.role === 'master');
+            setIsAdmin(userData.role === 'admin' || userData.role === 'master');
+          }
+        } catch (error) {
+          console.error('사용자 권한 확인 실패:', error);
+        }
+      };
+      checkUserRole();
+    }
+  }, [currentUser]);
+
+  // 팝업 닫기 함수
+  const handleClose = () => {
+    setOpenProgress(false);
+    setOpenDiscussion(false);
+    setOpenSafety(false);
+    setOpenTodo(false);
+  };
+
+  // 확장 상태 관리
+  const [expandWeather, setExpandWeather] = useState(false);
+  const [expandCenter, setExpandCenter] = useState(false);
+  const [expandTodo, setExpandTodo] = useState(false);
+  const [expandSettings, setExpandSettings] = useState(false);
+  const [weatherLocation, setWeatherLocation] = useState('대구');
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [weatherData, setWeatherData] = useState({
+    current: {
+      temp: 0,
+      weather: '',
+      icon: '01d'
+    },
+    daily: []
+  });
+  const [weatherLoading, setWeatherLoading] = useState(false);
+
+  const [settingsTab, setSettingsTab] = useState(0); // 0:회원, 1:권한, 2:설정
+
+  const [inputValue, setInputValue] = useState(weatherLocation);
+
+  // 날씨 아이콘 매핑 - 각 상태에 맞는 아이콘 사용
+  const weatherIcons = {
+    '01d': <WbSunnyIcon sx={{ color: '#FFD600', fontSize: 28 }} />, // 맑음 - 노란색 해
+    '01n': <WbSunnyIcon sx={{ color: '#FFD600', fontSize: 28 }} />, // 맑음(밤) - 노란색 해
+    '02d': <CloudIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 구름많음 - 파란색 구름
+    '02n': <CloudIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 구름많음(밤) - 파란색 구름
+    '03d': <CloudIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 흐림 - 파란색 구름
+    '03n': <CloudIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 흐림(밤) - 파란색 구름
+    '04d': <CloudIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 흐림 - 파란색 구름
+    '04n': <CloudIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 흐림(밤) - 파란색 구름
+    '09d': <OpacityIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 소나기 - 파란색 물방울
+    '09n': <OpacityIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 소나기(밤) - 파란색 물방울
+    '10d': <OpacityIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 비 - 파란색 물방울
+    '10n': <OpacityIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 비(밤) - 파란색 물방울
+    '11d': <ThunderstormIcon sx={{ color: '#FFD600', fontSize: 28 }} />, // 번개 - 노란색 번개
+    '11n': <ThunderstormIcon sx={{ color: '#FFD600', fontSize: 28 }} />, // 번개(밤) - 노란색 번개
+    '13d': <AcUnitIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 눈 - 파란색 눈송이
+    '13n': <AcUnitIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 눈(밤) - 파란색 눈송이
+    '50d': <VisibilityIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 안개 - 파란색 안개
+    '50n': <VisibilityIcon sx={{ color: '#90CAF9', fontSize: 28 }} />  // 안개(밤) - 파란색 안개
+  };
+
+  // 날씨 상태 한글 매핑
+  const weatherStatus = {
+    'Clear': '맑음',
+    'Clouds': '구름',
+    'Rain': '비',
+    'Snow': '눈',
+    'Thunderstorm': '번개',
+    'Drizzle': '이슬비',
+    'Mist': '안개'
+  };
+
+  // 날짜를 'YYYY. M. D (요일)' 한글로 포맷팅하는 함수
+  function formatDate(date) {
+    const week = ['일', '월', '화', '수', '목', '금', '토'];
+    const d = new Date(date);
+    return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()} (${week[d.getDay()]})`;
+  }
+
+  // 기상청 날씨 코드 변환 함수(상태/아이콘) - 실제 API 코드에 맞게 수정
+  const getWeatherStatus = (code) => {
+    const status = {
+      '1': '맑음',
+      '3': '구름많음',
+      '4': '흐림'
+    };
+    return status[code] || '날씨 정보 없음';
+  };
+  const getWeatherIcon = (code) => {
+    const icons = {
+      '1': '01d', // 맑음
+      '3': '02d', // 구름많음
+      '4': '04d'  // 흐림
+    };
+    return icons[code] || '01d';
+  };
+
+  // 기상청 PTY(강수형태) + SKY(하늘상태) 조합으로 아이콘 결정
+  function getWeatherIconByKMA(sky, pty) {
+    if (pty && pty !== '0') {
+      if (pty === '1' || pty === '4') return '10d'; // 비, 소나기
+      if (pty === '2') return '13d'; // 비/눈
+      if (pty === '3') return '13d'; // 눈
+    }
+    if (sky === '1') return '01d'; // 맑음
+    if (sky === '3') return '02d'; // 구름많음
+    if (sky === '4') return '04d'; // 흐림
+    return '01d';
+  }
+
+  // 대구 달서구 nx, ny: 89, 90
+  const getLocationCoords = (location) => {
+    // 주요 도시별 좌표 (기상청 격자 좌표)
+    const locationCoords = {
+      '서울': { nx: 60, ny: 127 },
+      '부산': { nx: 98, ny: 76 },
+      '대구': { nx: 89, ny: 90 },
+      '인천': { nx: 55, ny: 124 },
+      '광주': { nx: 58, ny: 74 },
+      '대전': { nx: 67, ny: 100 },
+      '울산': { nx: 102, ny: 84 },
+      '세종': { nx: 66, ny: 103 },
+      '수원': { nx: 60, ny: 120 },
+      '성남': { nx: 62, ny: 123 },
+      '안양': { nx: 59, ny: 123 },
+      '안산': { nx: 58, ny: 121 },
+      '고양': { nx: 57, ny: 128 },
+      '용인': { nx: 64, ny: 119 },
+      '부천': { nx: 56, ny: 125 },
+      '광명': { nx: 58, ny: 125 },
+      '평택': { nx: 62, ny: 114 },
+      '과천': { nx: 60, ny: 124 },
+      '오산': { nx: 62, ny: 118 },
+      '시흥': { nx: 57, ny: 123 },
+      '군포': { nx: 59, ny: 122 },
+      '의왕': { nx: 60, ny: 122 },
+      '하남': { nx: 64, ny: 126 },
+      '이천': { nx: 68, ny: 121 },
+      '안성': { nx: 65, ny: 115 },
+      '김포': { nx: 55, ny: 128 },
+      '화성': { nx: 57, ny: 119 },
+      '여주': { nx: 71, ny: 121 },
+      '양평': { nx: 69, ny: 125 },
+      '포천': { nx: 64, ny: 134 },
+      '연천': { nx: 61, ny: 138 },
+      '가평': { nx: 69, ny: 133 },
+      '춘천': { nx: 73, ny: 134 },
+      '원주': { nx: 76, ny: 122 },
+      '강릉': { nx: 92, ny: 131 },
+      '태백': { nx: 95, ny: 119 },
+      '정선': { nx: 89, ny: 123 },
+      '속초': { nx: 87, ny: 141 },
+      '삼척': { nx: 98, ny: 125 },
+      '동해': { nx: 97, ny: 127 },
+      '횡성': { nx: 75, ny: 125 },
+      '영월': { nx: 86, ny: 119 },
+      '평창': { nx: 84, ny: 123 },
+      '철원': { nx: 65, ny: 139 },
+      '화천': { nx: 72, ny: 139 },
+      '양구': { nx: 77, ny: 139 },
+      '인제': { nx: 80, ny: 138 },
+      '고성': { nx: 85, ny: 145 },
+      '양양': { nx: 88, ny: 138 },
+      '제주': { nx: 53, ny: 38 },
+      '서귀포': { nx: 52, ny: 33 }
+    };
+    
+    // 입력된 지역명에서 매칭되는 좌표 찾기
+    for (const [city, coords] of Object.entries(locationCoords)) {
+      if (location.includes(city)) {
+        return coords;
+      }
+    }
+    
+    // 기본값: 대구
+    return { nx: 89, ny: 90 };
+  };
+  const fetchWeatherData = async (location) => {
+    try {
+      setWeatherLoading(true);
+      const { nx, ny } = getLocationCoords(location);
+      const serviceKey = import.meta.env.VITE_WEATHER_API_KEY;
+      const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${format(new Date(), 'yyyyMMdd')}&base_time=0500&nx=${nx}&ny=${ny}`;
+      console.log('기상청 fetch URL:', url);
+      const response = await fetch(url);
+      const text = await response.text();
+      console.log('기상청 날씨 API 원본 응답:', text);
+      let data;
+      try {
+        data = JSON.parse(text);
+        console.log('기상청 날씨 API 응답(JSON):', data);
+      } catch (jsonErr) {
+        console.error('JSON 파싱 실패! 원본 응답:', text);
+        throw jsonErr;
+      }
+      const weatherItems = data?.response?.body?.items?.item || [];
+      // 실제로 데이터가 있는 날짜만 추출해서 3일치만 표시
+      const uniqueDates = [...new Set(weatherItems.map(item => item.fcstDate))].slice(0, 3);
+      const days = uniqueDates.map(dateStr => {
+        const d = new Date(dateStr.slice(0,4), dateStr.slice(4,6)-1, dateStr.slice(6,8));
+        const dayItems = weatherItems.filter(item => item.fcstDate === dateStr);
+        const tempItem = dayItems.find(item => item.category === 'TMP');
+        // 가장 가까운 시간대의 PTY/SKY 선택
+        const nowHour = new Date().getHours();
+        const getClosest = (cat) => {
+          const arr = dayItems.filter(item => item.category === cat);
+          if (arr.length === 0) return null;
+          return arr.sort((a, b) => Math.abs(Number(a.fcstTime) - nowHour*100) - Math.abs(Number(b.fcstTime) - nowHour*100))[0];
+        };
+        const skyItem = getClosest('SKY');
+        const ptyItem = getClosest('PTY');
+        // POP(강수확률) 중 최대값
+        const popItems = dayItems.filter(item => item.category === 'POP');
+        const maxPop = popItems.length > 0 ? Math.max(...popItems.map(item => Number(item.fcstValue))) : '-';
+        return {
+          date: d,
+          temp: tempItem ? Math.round(parseFloat(tempItem.fcstValue)) : '-',
+          icon: getWeatherIconByKMA(skyItem?.fcstValue, ptyItem?.fcstValue),
+          weather: getWeatherStatus(skyItem?.fcstValue),
+          pop: maxPop
+        };
+      });
+      // 현재 날씨(가장 가까운 PTY, SKY)
+      const now = format(new Date(), 'yyyyMMddHHmm');
+      const getClosestNow = (cat) => {
+        const arr = weatherItems.filter(item => item.category === cat && item.fcstDate === format(new Date(), 'yyyyMMdd'));
+        if (arr.length === 0) return null;
+        const nowHour = new Date().getHours();
+        return arr.sort((a, b) => Math.abs(Number(a.fcstTime) - nowHour*100) - Math.abs(Number(b.fcstTime) - nowHour*100))[0];
+      };
+      const currentSky = getClosestNow('SKY');
+      const currentPty = getClosestNow('PTY');
+      const currentTemp = weatherItems.find(item => item.category === 'TMP');
+      const weatherDataObj = {
+        current: {
+          temp: currentTemp ? Math.round(parseFloat(currentTemp.fcstValue)) : '-',
+          weather: getWeatherStatus(currentSky?.fcstValue),
+          icon: getWeatherIconByKMA(currentSky?.fcstValue, currentPty?.fcstValue)
+        },
+        daily: days
+      };
+      // 지역별 캐시 키
+      const cacheKey = `cachedWeatherData_${location}`;
+      const cacheTimeKey = `cachedWeatherTime_${location}`;
+      localStorage.setItem(cacheKey, JSON.stringify(weatherDataObj));
+      localStorage.setItem(cacheTimeKey, new Date().toISOString());
+      setWeatherData(weatherDataObj);
+    } catch (error) {
+      console.error('날씨 데이터 조회 실패:', error);
+      setError('날씨 정보를 불러오는데 실패했습니다.');
+    } finally {
+      setWeatherLoading(false);
+    }
+  };
+
+  // 날씨 데이터 주기적 갱신 (캐시도 지역별로)
+  useEffect(() => {
+    const checkAndFetchWeather = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      const cacheKey = `cachedWeatherData_${weatherLocation}`;
+      const cacheTimeKey = `cachedWeatherTime_${weatherLocation}`;
+      const shouldFetchFromAPI = hour === 3 || hour === 12 || hour === 16;
+      const cachedWeather = localStorage.getItem(cacheKey);
+      const cachedTime = localStorage.getItem(cacheTimeKey);
+      if (shouldFetchFromAPI) {
+        fetchWeatherData(weatherLocation);
+      } else if (cachedWeather && cachedTime) {
+        const cacheTime = new Date(cachedTime);
+        const hoursSinceCache = (now - cacheTime) / (1000 * 60 * 60);
+        if (hoursSinceCache < 24) {
+          setWeatherData(JSON.parse(cachedWeather));
+        } else {
+          fetchWeatherData(weatherLocation);
+        }
+      } else {
+        fetchWeatherData(weatherLocation);
+      }
+    };
+    checkAndFetchWeather();
+    const interval = setInterval(checkAndFetchWeather, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [weatherLocation]);
+
+  useEffect(() => {
+    // 일정관리에서 금일 데이터 fetch + 최근 5개
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    console.log('오늘 날짜:', todayStr);
+    
+    const unsubSchedules = onSnapshot(collection(db, 'schedules'), (snapshot) => {
+      const arr = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      console.log('전체 일정 데이터:', arr);
+      
+      // 오늘 날짜만 엄격하게 필터링
+      const todaySchedules = arr.filter(item => {
+        if (!item.date) return false;
+        
+        // 날짜 형식이 다를 수 있으므로 여러 형식 지원
+        const itemDate = new Date(item.date);
+        const todayDate = new Date(todayStr);
+        
+        console.log('아이템 날짜:', item.date, '변환된 날짜:', itemDate.toDateString(), '오늘:', todayDate.toDateString());
+        
+        return itemDate.toDateString() === todayDate.toDateString();
+      });
+      
+      console.log('오늘 필터링된 일정:', todaySchedules);
+      
+      // 금일현장 (type에 '현장' 포함)
+      const todaySites = todaySchedules.filter(item => 
+        item.type && 
+        item.type.includes('현장')
+      );
+      setStats(prev => ({ ...prev, todaySites: todaySites.length }));
+      setProgressList(todaySites.slice(-5).reverse());
+      
+      // 금일입찰 (type에 '입찰' 포함)
+      const todayBids = todaySchedules.filter(item => 
+        item.type && 
+        item.type.includes('입찰')
+      );
+      setStats(prev => ({ ...prev, progressCount: todayBids.length }));
+      setDiscussionList(todayBids.slice(-5).reverse());
+      
+      // 금일회의 (type에 '회의' 포함)
+      const todayMeetings = todaySchedules.filter(item => 
+        item.type && 
+        item.type.includes('회의')
+      );
+      setStats(prev => ({ ...prev, discussionCount: todayMeetings.length }));
+      setSafetyList(todayMeetings.slice(-5).reverse());
+      
+      // 금일현설 (type에 '현설' 포함)
+      const todaySetup = todaySchedules.filter(item => 
+        item.type && 
+        item.type.includes('현설')
+      );
+      setStats(prev => ({ ...prev, safetyCount: todaySetup.length }));
+      setSetupList(todaySetup.slice(-5).reverse());
+    }, (err) => setError('일정관리 데이터를 불러오는 중 오류가 발생했습니다.'));
+
+    return () => {
+      unsubSchedules();
+    };
+  }, []);
+
+  // ToDoList fetch + 최근 5개 (별도 관리)
+  useEffect(() => {
+    const unsubTodos = onSnapshot(collection(db, 'todos'), (snapshot) => {
+      const arr = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 오늘 날짜 필터링
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+      
+      const todayTodos = arr.filter(item => {
+        if (!item.createdAt) return false;
+        
+        let itemDate;
+        if (item.createdAt.toDate) {
+          // Firestore Timestamp
+          itemDate = item.createdAt.toDate();
+        } else if (item.createdAt instanceof Date) {
+          // Date 객체
+          itemDate = item.createdAt;
+        } else {
+          // 문자열이나 숫자
+          itemDate = new Date(item.createdAt);
+        }
+        
+        // 오늘 00:00:00 ~ 23:59:59 사이에 생성된 항목만
+        return itemDate >= todayStart && itemDate <= todayEnd;
+      });
+      
+      const filtered = todayTodos.filter(item => !['샘플','테스트','임시'].some(word => (item.text||item.title||'').includes(word)));
+      const done = filtered.filter(t => t.completed).length;
+      
+      console.log('투두리스트 필터링:', {
+        전체: arr.length,
+        오늘: todayTodos.length,
+        필터링: filtered.length,
+        완료: done
+      });
+      
+      setStats(prev => ({ ...prev, todoDone: done, todoTotal: filtered.length }));
+      setTodoList(filtered.slice(-5).reverse());
+    }, (err) => setError('ToDoList 데이터를 불러오는 중 오류가 발생했습니다.'));
+
+    return () => {
+      unsubTodos();
+    };
+  }, []);
+
+  // ToDo 확장 팝업용 스타일
+  const todoPopupStyle = {
+    background: '#fff',
+    borderRadius: 12,
+    boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+    border: '1.5px solid #222',
+    padding: '24px 20px 20px 20px',
+    minWidth: 320,
+    maxWidth: 400,
+    width: '95%',
+    margin: '0 auto',
+    position: 'relative',
+    fontFamily: 'inherit',
+    backgroundImage: 'repeating-linear-gradient(to bottom, #fff, #fff 32px, #eee 32px, #eee 34px)',
+  };
+
+  // 요일/날짜 계산 함수
+  const getWeekDates = () => {
+    const today = new Date();
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      week.push({
+        date: d,
+        day: ['일','월','화','수','목','금','토'][d.getDay()],
+        label: `${d.getMonth() + 1}/${d.getDate()}`
+      });
+    }
+    return week;
+  };
+  const weekDates = getWeekDates();
+
+  // 확장 패널 동시 오픈 방지
+  const handleOpenPanel = (panel) => {
+    setExpandWeather(panel === 'weather' ? !expandWeather : false);
+    setExpandCenter(panel === 'center' ? !expandCenter : false);
+    setExpandTodo(panel === 'todo' ? !expandTodo : false);
+  };
+
+  // 확장 패널 닫기: ESC, 외부 클릭 지원
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        setExpandCenter(false);
+        setExpandWeather(false);
+        setExpandTodo(false);
+        setExpandSettings(false);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  function handleBackdropClick(e, closeFn) {
+    if (e.target === e.currentTarget) {
+      closeFn(false);
+    }
+  }
+
+  // 외부 클릭 시 모든 확장 패널 닫기
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // 확장 패널들이 열려있고, 클릭이 패널 외부에서 발생한 경우
+      if ((expandWeather || expandCenter || expandTodo || expandSettings) && 
+          !event.target.closest('[data-panel]')) {
+        setExpandWeather(false);
+        setExpandCenter(false);
+        setExpandTodo(false);
+        setExpandSettings(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [expandWeather, expandCenter, expandTodo, expandSettings]);
+
+  const [todoInput, setTodoInput] = useState('');
+
+  const handleAddTodo = async (e) => {
+    e.preventDefault();
+    if (!todoInput.trim()) return;
+
+    try {
+      await addDoc(collection(db, 'todos'), {
+        text: todoInput.trim(),
+        completed: false,
+        userId: currentUser.uid,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      setTodoInput('');
+    } catch (error) {
+      console.error('할일 추가 실패:', error);
+      setError('할일을 추가하는데 실패했습니다.');
+    }
+  };
+
+  const handleToggleTodo = async (item) => {
+    try {
+      await updateDoc(doc(db, 'todos', item.id), {
+        completed: !item.completed,
+        updatedAt: new Date()
+      });
+    } catch (error) {
+      console.error('할일 상태 변경 실패:', error);
+      setError('할일 상태를 변경하는데 실패했습니다.');
+    }
+  };
+
+  const handleEditTodo = async (item) => {
+    try {
+      await updateDoc(doc(db, 'todos', item.id), {
+        text: item.text,
+        updatedAt: new Date()
+      });
+    } catch (error) {
+      console.error('할일 수정 실패:', error);
+      setError('할일을 수정하는데 실패했습니다.');
+    }
+  };
+
+  const handleDeleteTodo = async (item) => {
+    try {
+      await deleteDoc(doc(db, 'todos', item.id));
+    } catch (error) {
+      console.error('할일 삭제 실패:', error);
+      setError('할일을 삭제하는데 실패했습니다.');
+    }
+  };
+
+  // 관리자/마스터 권한 체크 함수
+  function isAdminOrMaster(user) {
+    if (!user) return false;
+    if (user.role === 'master' || user.role === 'admin') return true;
+    if (user.email === 'fire8803@naver.com' || user.uid === 'HpF5IrlTscYbWPsUhtdzV05sjbF2') return true;
+    return false;
+  }
+  const isAdminOrMasterUser = isAdminOrMaster(currentUser);
+
+  const [anchorElSettings, setAnchorElSettings] = useState(null);
+  const [anchorElWeather, setAnchorElWeather] = useState(null);
+
+  // 매일 00:00 리셋 기능
+  useEffect(() => {
+    const checkDailyReset = () => {
+      const now = new Date();
+      const lastReset = localStorage.getItem('lastTodoReset');
+      const lastResetDate = lastReset ? new Date(lastReset) : null;
+      
+      // 오늘 날짜와 마지막 리셋 날짜가 다르면 리셋
+      if (!lastResetDate || lastResetDate.getDate() !== now.getDate() || 
+          lastResetDate.getMonth() !== now.getMonth() || 
+          lastResetDate.getFullYear() !== now.getFullYear()) {
+        
+        // 전날 미완료 항목들을 저장
+        const incompleteTodos = todoList.filter(todo => !todo.completed);
+        if (incompleteTodos.length > 0) {
+          localStorage.setItem('yesterdayIncompleteTodos', JSON.stringify(incompleteTodos));
+        }
+        
+        // 오늘 날짜로 리셋 기록
+        localStorage.setItem('lastTodoReset', now.toISOString());
+        
+        // 모든 완료된 항목들 삭제 (미완료는 유지)
+        todoList.forEach(async (todo) => {
+          if (todo.completed) {
+            try {
+              await deleteDoc(doc(db, 'todos', todo.id));
+            } catch (error) {
+              console.error('완료된 할일 삭제 실패:', error);
+            }
+          }
+        });
+      }
+    };
+
+    // 페이지 로드 시 체크
+    checkDailyReset();
+    
+    // 매분마다 체크 (00:00에 리셋되도록)
+    const interval = setInterval(checkDailyReset, 60000);
+    
+    return () => clearInterval(interval);
+  }, [todoList]);
+
+  // 전날 미완료 현장 불러오기 기능
+  const handleLoadYesterdayIncomplete = async () => {
+    try {
+      const yesterdayTodos = localStorage.getItem('yesterdayIncompleteTodos');
+      if (yesterdayTodos) {
+        const incompleteTodos = JSON.parse(yesterdayTodos);
+        
+        // 전날 미완료 항목들을 오늘 TodoList에 추가
+        for (const todo of incompleteTodos) {
+          await addDoc(collection(db, 'todos'), {
+            text: todo.text,
+            completed: false,
+            userId: currentUser.uid,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            fromYesterday: true // 전날에서 온 항목 표시
+          });
+        }
+        
+        // 불러온 후 localStorage에서 삭제
+        localStorage.removeItem('yesterdayIncompleteTodos');
+        
+        setError('전날 미완료 항목을 성공적으로 불러왔습니다.');
+      } else {
+        setError('불러올 전날 미완료 항목이 없습니다.');
+      }
+    } catch (error) {
+      console.error('전날 미완료 항목 불러오기 실패:', error);
+      setError('전날 미완료 항목을 불러오는데 실패했습니다.');
+    }
+  };
+
+  // 설정 아이콘 클릭 핸들러
+  const handleSettingsIconClick = (e) => {
+    setAnchorElSettings(e.currentTarget);
+  };
+  const handleSettingsClose = () => {
+    setAnchorElSettings(null);
+  };
+  // 날씨 아이콘 클릭 핸들러
+  const handleWeatherIconClick = (e) => {
+    setAnchorElWeather(e.currentTarget);
+  };
+  const handleWeatherClose = () => {
+    setAnchorElWeather(null);
+  };
+
+  return (
+    <Box sx={{
+      width: '100%',
+      bgcolor: '#23242a',
+      color: '#fff',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      px: { xs: 1, md: 3 },
+      py: 1,
+      minHeight: 44,
+      fontSize: 15,
+      position: 'fixed',
+      left: 0,
+      bottom: 0,
+      zIndex: 1201,
+      boxShadow: '0 -2px 8px rgba(0,0,0,0.08)'
+    }}>
+      {/* 왼쪽: 날짜/온도/날씨(아이콘) 전체 클릭 시 확장 */}
+      {!isMobile && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: '0 0 auto', minWidth: 220, cursor: 'pointer' }} onClick={() => handleOpenPanel('weather')}>
+          <Typography sx={{ fontWeight: 500, fontSize: 15 }}>{formatDate(currentDate)}</Typography>
+          <Typography sx={{ fontSize: 15, ml: 0.5 }}>{weatherData.current?.temp !== undefined && weatherData.current?.temp !== null && weatherData.current?.temp !== '-' ? `${weatherData.current.temp}°C` : '-'}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>{weatherIcons[weatherData.current?.icon]}</Box>
+        </Box>
+      )}
+      {/* WeatherPanel: 하단바 위로 확장되는 날씨 패널 */}
+      <Slide direction="up" in={expandWeather} mountOnEnter unmountOnExit>
+        <Box sx={{ 
+          position: 'fixed', 
+          left: 0, 
+          bottom: 44, 
+          zIndex: 1302, 
+          bgcolor: '#23242a', 
+          color: '#fff', 
+          boxShadow: 3, 
+          borderRadius: '16px 0 0 0', // 왼쪽 상단만 둥글게
+          p: 3, 
+          maxWidth: isMobile ? '100vw' : 1000, 
+          minWidth: 0, 
+          width: isMobile ? '100vw' : '100%', 
+          margin: 0, // 중앙정렬 제거
+          minHeight: 220, 
+          overflowX: 'auto',
+          overflowY: 'visible',
+        }} onClick={e => handleBackdropClick(e, setExpandWeather)} data-panel="weather">
+          <IconButton onClick={() => setExpandWeather(false)} sx={{ position: 'absolute', right: 16, top: 16, color: '#fff', zIndex: 1400 }}><CloseIcon /></IconButton>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+            {weatherLocation} - {weatherData.daily.length > 0 ? `${formatDate(weatherData.daily[0].date)} ~ ${formatDate(weatherData.daily[weatherData.daily.length-1].date)}` : ''} ({weatherData.daily.length}일간)
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2, justifyContent: 'flex-end' }}>
+            <TextField 
+              size="small" 
+              variant="outlined" 
+              value={inputValue} 
+              onChange={e => setInputValue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  setWeatherLocation(inputValue);
+                }
+              }}
+              sx={{ borderRadius: 1, minWidth: 180 }}
+              placeholder="지역명(예: 서울, 대구, 부산)" 
+            />
+            <Button 
+              variant="contained" 
+              size="small" 
+              onClick={() => setWeatherLocation(inputValue)}
+              disabled={weatherLoading}
+              sx={{ bgcolor: '#4FC3F7', color: '#fff', fontWeight: 600 }}
+            >
+              {weatherLoading ? '검색중...' : '검색'}
+            </Button>
+            <Typography sx={{ color: '#aaa', fontSize: 13 }}>기상청 실시간 날씨 정보</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 2, overflowX: 'auto', pb: 1 }}>
+            {weatherData.daily && weatherData.daily.length > 0 ? (
+              weatherData.daily.slice(0, 3).map((day, i) => {
+                const dayDate = day.date instanceof Date ? day.date : new Date(day.date);
+                const popItem = (Array.isArray(day.pop) ? day.pop[0] : day.pop) ?? '-';
+                return (
+                  <Box key={i} sx={{ bgcolor: '#2a2b32', borderRadius: 2, p: 2, minWidth: 140, textAlign: 'center', flex: '0 0 auto', boxShadow: 2, mx: 0.5 }}>
+                    <Typography sx={{ fontSize: 13, mb: 0.5 }}>{['일','월','화','수','목','금','토'][dayDate.getDay()]}</Typography>
+                    <Typography sx={{ fontSize: 12, color: '#aaa', mb: 1 }}>{`${dayDate.getMonth() + 1}/${dayDate.getDate()}`}</Typography>
+                    {weatherIcons[day.icon]}
+                    <Typography sx={{ fontSize: 15, fontWeight: 700, mt: 1 }}>{day.temp !== undefined && day.temp !== null && day.temp !== '-' ? `${day.temp}°C` : '-'}</Typography>
+                    <Typography sx={{ fontSize: 12, color: '#4FC3F7' }}>강수확률: {day.pop !== undefined && day.pop !== null && day.pop !== '-' ? `${day.pop}%` : '-'}</Typography>
+                  </Box>
+                );
+              })
+            ) : (
+              <Typography sx={{ color: '#aaa', fontSize: 14 }}>날씨 데이터가 없습니다.</Typography>
+            )}
+          </Box>
+        </Box>
+      </Slide>
+      {/* 중앙: 금일현장/입찰/회의/현설 */}
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: { xs: 2, md: 4 }, 
+        flex: 1, 
+        justifyContent: 'center', 
+        cursor: 'pointer' 
+      }} onClick={() => handleOpenPanel('center')}>
+        <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <EngineeringIcon sx={{ fontSize: 18, color: '#FFD600', mr: 0.5 }} />
+          {!isMobile && '[금일현장]'} {stats.todaySites ?? 0}
+        </Typography>
+        <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <TrendingUpIcon sx={{ fontSize: 18, color: '#4FC3F7', mr: 0.5 }} />
+          {!isMobile && '[금일입찰]'} {stats.progressCount ?? 0}
+        </Typography>
+        <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <ForumIcon sx={{ fontSize: 18, color: '#FF7043', mr: 0.5 }} />
+          {!isMobile && '[금일회의]'} {stats.discussionCount ?? 0}
+        </Typography>
+        <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <SafetyHelmetIcon sx={{ fontSize: 18, color: '#81C784', mr: 0.5 }} />
+          {!isMobile && '[금일현설]'} {stats.safetyCount ?? 0}
+        </Typography>
+      </Box>
+      {/* 중앙 확장 패널: 금일현장/입찰/회의/현설 상세 */}
+      <Slide direction="up" in={expandCenter} mountOnEnter unmountOnExit>
+        <Box
+          sx={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 44,
+            zIndex: 1202,
+            bgcolor: '#23242a',
+            color: '#fff',
+            boxShadow: 3,
+            borderRadius: isMobile ? '16px 16px 0 0' : '16px 16px 0 0',
+            p: isMobile ? 1.5 : 3,
+            maxWidth: isMobile ? '100vw' : 1000,
+            minWidth: 0,
+            width: isMobile ? '100vw' : '100%',
+            margin: isMobile ? 0 : '0 auto',
+            minHeight: isMobile ? 180 : 260,
+            fontSize: isMobile ? 14 : 15
+          }}
+          onClick={e => handleBackdropClick(e, setExpandCenter)}
+          data-panel="center"
+        >
+          <IconButton 
+            onClick={() => setExpandCenter(false)} 
+            sx={{ position: 'absolute', right: 16, top: 16, color: '#fff' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, fontSize: isMobile ? 17 : 20 }}>
+            금일현장/입찰/회의/현설 실시간 현황
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', flexWrap: isMobile ? 'wrap' : 'nowrap', gap: isMobile ? 1.5 : 3, justifyContent: isMobile ? 'center' : 'space-between' }}>
+            {/* 금일현장 카드 */}
+            <Box sx={{ flex: 1, minWidth: isMobile ? 0 : 280, bgcolor: '#2a2b32', borderRadius: 2, p: isMobile ? 1.2 : 2, display: 'flex', flexDirection: 'column', mb: isMobile ? 1 : 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography sx={{ fontWeight: 600, mr: 1, fontSize: isMobile ? 14 : 16 }}>[금일현장]</Typography>
+                <Typography sx={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: '#FFD600' }}>{stats.todaySites ?? 0}</Typography>
+              </Box>
+              <Box>
+                {progressList.length === 0 ? (
+                  <Typography sx={{ color: '#aaa', fontSize: isMobile ? 12 : 14 }}>금일 현장 데이터 없음</Typography>
+                ) : (
+                  progressList.map(item => (
+                    <Box key={item.id} sx={{ fontSize: isMobile ? 12 : 14, color: '#fff', mb: 0.5 }}>
+                      {item.text || '-'}
+                    </Box>
+                  ))
+                )}
+              </Box>
+            </Box>
+            {/* 금일입찰 카드 */}
+            <Box sx={{ flex: 1, minWidth: isMobile ? 0 : 200, bgcolor: '#2a2b32', borderRadius: 2, p: isMobile ? 1.2 : 2, display: 'flex', flexDirection: 'column', mb: isMobile ? 1 : 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography sx={{ fontWeight: 600, mr: 1, fontSize: isMobile ? 14 : 16 }}>[금일입찰]</Typography>
+                <Typography sx={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: '#4FC3F7' }}>{stats.progressCount ?? 0}</Typography>
+              </Box>
+              <Box>
+                {discussionList.length === 0 ? (
+                  <Typography sx={{ color: '#aaa', fontSize: isMobile ? 12 : 14 }}>금일 입찰 데이터 없음</Typography>
+                ) : (
+                  discussionList.map(item => (
+                    <Box key={item.id} sx={{ fontSize: isMobile ? 12 : 14, color: '#fff', mb: 0.5 }}>
+                      {item.text || '-'}
+                    </Box>
+                  ))
+                )}
+              </Box>
+            </Box>
+            {/* 금일회의 카드 */}
+            <Box sx={{ flex: 1, minWidth: isMobile ? 0 : 200, bgcolor: '#2a2b32', borderRadius: 2, p: isMobile ? 1.2 : 2, display: 'flex', flexDirection: 'column', mb: isMobile ? 1 : 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography sx={{ fontWeight: 600, mr: 1, fontSize: isMobile ? 14 : 16 }}>[금일회의]</Typography>
+                <Typography sx={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: '#FF7043' }}>{stats.discussionCount ?? 0}</Typography>
+              </Box>
+              <Box>
+                {safetyList.length === 0 ? (
+                  <Typography sx={{ color: '#aaa', fontSize: isMobile ? 12 : 14 }}>금일 회의 데이터 없음</Typography>
+                ) : (
+                  safetyList.map(item => (
+                    <Box key={item.id} sx={{ fontSize: isMobile ? 12 : 14, color: '#fff', mb: 0.5 }}>
+                      {item.text || '-'}
+                    </Box>
+                  ))
+                )}
+              </Box>
+            </Box>
+            {/* 금일현설 카드 */}
+            <Box sx={{ flex: 1, minWidth: isMobile ? 0 : 200, bgcolor: '#2a2b32', borderRadius: 2, p: isMobile ? 1.2 : 2, display: 'flex', flexDirection: 'column', mb: isMobile ? 1 : 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography sx={{ fontWeight: 600, mr: 1, fontSize: isMobile ? 14 : 16 }}>[금일현설]</Typography>
+                <Typography sx={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: '#81C784' }}>{stats.safetyCount ?? 0}</Typography>
+              </Box>
+              <Box>
+                {setupList.length === 0 ? (
+                  <Typography sx={{ color: '#aaa', fontSize: isMobile ? 12 : 14 }}>금일 현설 데이터 없음</Typography>
+                ) : (
+                  setupList.map(item => (
+                    <Box key={item.id} sx={{ fontSize: isMobile ? 12 : 14, color: '#fff', mb: 0.5 }}>
+                      {item.text || '-'}
+                    </Box>
+                  ))
+                )}
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      </Slide>
+      {/* 우측: ToDoList + 설정 아이콘 */}
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 2, 
+        flex: '0 0 auto', 
+        minWidth: 120, 
+        justifyContent: 'flex-end' 
+      }}>
+        <Typography 
+          sx={{ fontSize: 15, cursor: 'pointer' }} 
+          onClick={() => handleOpenPanel('todo')}
+        >
+          ToDoList {stats.todoDone ?? 0}/{stats.todoTotal ?? 0}
+        </Typography>
+        <IconButton size="small" onClick={handleSettingsIconClick} sx={{ color: '#fff' }}>
+          <SettingsIcon />
+        </IconButton>
+        <Popover
+          open={Boolean(anchorElSettings)}
+          anchorEl={anchorElSettings}
+          onClose={handleSettingsClose}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+          transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          PaperProps={{ sx: { bgcolor: '#23242a', color: '#fff', p: 2, borderRadius: 2, minWidth: 180 } }}
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Button variant="contained" color="primary" size="small" sx={{ fontWeight: 600 }} onClick={() => { handleSettingsClose(); navigate('/members'); }}>회원관리</Button>
+            <Button variant="contained" color="primary" size="small" sx={{ fontWeight: 600 }} onClick={() => { handleSettingsClose(); navigate('/permissions'); }}>권한관리</Button>
+            <Button variant="contained" color="primary" size="small" sx={{ fontWeight: 600 }} onClick={() => { handleSettingsClose(); navigate('/settings'); }}>설정</Button>
+          </Box>
+        </Popover>
+      </Box>
+      {/* ToDoList 확장 패널: ToDoList 바로 위에서 슬라이드로 확장 */}
+      <Slide direction="up" in={expandTodo} mountOnEnter unmountOnExit>
+        <Box sx={{ 
+          position: 'fixed', 
+          right: isMobile ? 0 : 32, 
+          left: isMobile ? 0 : 'auto',
+          bottom: 44, 
+          top: 'auto',
+          zIndex: 1202, 
+          bgcolor: '#fff',
+          color: '#000',
+          boxShadow: 3, 
+          borderRadius: '16px 16px 0 0', 
+          p: isMobile ? 1.5 : 3, 
+          width: isMobile ? '100vw' : 420,
+          maxWidth: isMobile ? '100vw' : '100%',
+          minWidth: 0,
+          height: isMobile ? 'auto' : 320,
+          maxHeight: isMobile ? '80vh' : '60vh',
+          minHeight: isMobile ? 120 : 180,
+          backgroundImage: 'repeating-linear-gradient(to bottom, #fff, #fff 32px, #eee 32px, #eee 34px)',
+          border: '1.5px solid #222',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          transition: 'height 0.2s',
+          fontSize: isMobile ? 14 : 15
+        }} onClick={e => handleBackdropClick(e, setExpandTodo)} data-panel="todo">
+          {/* 상단 버튼들 */}
+          <Box sx={{ display: 'flex', gap: 1, mb: 2, justifyContent: 'space-between', alignItems: 'center' }}>
+            <img src="/TodoList.png" alt="TodoList" style={{ height: '30px', width: 'auto' }} />
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button variant="outlined" size="small" sx={{ fontWeight: 600 }} onClick={() => navigate('/todo/all')}>
+                LIST
+              </Button>
+              <Button variant="outlined" size="small" sx={{ fontWeight: 600 }} onClick={handleLoadYesterdayIncomplete}>
+                불러오기
+              </Button>
+            </Box>
+          </Box>
+          {/* ToDo 입력/추가 */}
+          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <TextField
+              variant="standard"
+              placeholder="할 일 추가"
+              value={todoInput}
+              onChange={e => setTodoInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && todoInput?.trim()) handleAddTodo(e); }}
+              InputProps={{
+                disableUnderline: true,
+                style: {
+                  background: 'transparent',
+                  border: 'none',
+                  boxShadow: 'none',
+                  color: '#000',
+                  padding: 0
+                }
+              }}
+              sx={{
+                flex: 1,
+                minWidth: 0,
+                fontSize: '1rem',
+                background: 'transparent',
+                border: 'none',
+                boxShadow: 'none',
+                color: '#000',
+                '& input': {
+                  background: 'transparent',
+                  border: 'none',
+                  boxShadow: 'none',
+                  color: '#000',
+                  padding: 0
+                }
+              }}
+            />
+            <Button
+              variant="contained"
+              color="primary"
+              sx={{ minWidth: 80, fontWeight: 600 }}
+              onClick={e => handleAddTodo(e)}
+              disabled={!todoInput?.trim()}
+            >
+              추가
+            </Button>
+          </Box>
+          {/* ToDo 리스트 */}
+          <Box sx={{ flex: 1, overflowY: 'auto', pr: 1 }}>
+            {(() => {
+              const today = new Date();
+              const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+              const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+              
+              const todayTodos = todoList.filter(item => {
+                if (!item.createdAt) return false;
+                
+                let itemDate;
+                if (item.createdAt.toDate) {
+                  // Firestore Timestamp
+                  itemDate = item.createdAt.toDate();
+                } else if (item.createdAt instanceof Date) {
+                  // Date 객체
+                  itemDate = item.createdAt;
+                } else {
+                  // 문자열이나 숫자
+                  itemDate = new Date(item.createdAt);
+                }
+                
+                // 오늘 00:00:00 ~ 23:59:59 사이에 생성된 항목만
+                return itemDate >= todayStart && itemDate <= todayEnd;
+              });
+              
+              console.log('오늘 투두 필터링:', {
+                전체: todoList.length,
+                오늘: todayTodos.length,
+                오늘시작: todayStart,
+                오늘끝: todayEnd
+              });
+              
+              return todayTodos.length === 0 ? (
+                <Typography sx={{ color: '#666', fontSize: 14 }}>할 일이 없습니다.</Typography>
+              ) : (
+                todayTodos.map(item => (
+                  <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', mb: 0.25, p: 0.25, borderRadius: 1, bgcolor: item.completed ? '#f5f5f5' : '#fff' }}>
+                    <Checkbox
+                      checked={!!item.completed}
+                      onChange={() => handleToggleTodo(item)}
+                      sx={{ color: '#1976d2', p: 0.25 }}
+                    />
+                    <Typography sx={{ flex: 1, fontSize: 14, textDecoration: item.completed ? 'line-through' : 'none', color: item.completed ? '#666' : '#000' }}>
+                      {item.text}
+                    </Typography>
+                    <IconButton size="small" onClick={() => handleEditTodo(item)} sx={{ color: '#1976d2', p: 0.25 }}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton size="small" onClick={() => handleDeleteTodo(item)} sx={{ color: '#d32f2f', p: 0.25 }}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                ))
+              );
+            })()}
+          </Box>
+        </Box>
+      </Slide>
+    </Box>
+  );
+};
+
+export default BottomBar; 

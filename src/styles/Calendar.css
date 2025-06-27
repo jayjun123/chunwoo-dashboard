@@ -1,0 +1,229 @@
+.calendar {
+  padding: 0;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  max-width: none;
+  margin: 0;
+  width: 100%;
+}
+
+.calendar.light {
+  background: #fff;
+  color: #333;
+}
+
+.calendar.dark {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.calendar-header h2 {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #1976d2;
+  margin: 0;
+}
+
+.month-nav {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: #1976d2;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.month-nav:hover {
+  background: #f5f5f5;
+}
+
+.calendar.dark .month-nav:hover {
+  background: #2d2d2d;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  row-gap: 15px;
+  column-gap: 1px;
+  background: #e0e0e0;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.calendar.dark .calendar-grid {
+  background: #404040;
+  border-color: #404040;
+}
+
+.weekday {
+  background: #f5f5f5;
+  padding: 1rem;
+  text-align: center;
+  font-weight: 600;
+  color: #666;
+}
+
+.calendar.dark .weekday {
+  background: #2d2d2d;
+  color: #aaa;
+}
+
+.weekday:first-child {
+  color: #d32f2f;
+}
+
+.weekday:last-child {
+  color: #1976d2;
+}
+
+.calendar-day {
+  background: #fff;
+  min-height: 120px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0;
+}
+
+.calendar.dark .calendar-day {
+  background: #1a1a1a;
+}
+
+.calendar-day.other-month {
+  background: #f8f9fa;
+  color: #999;
+}
+
+.calendar.dark .calendar-day.other-month {
+  background: #2d2d2d;
+  color: #666;
+}
+
+.calendar-day.today {
+  background: #e3f2fd;
+}
+
+.calendar.dark .calendar-day.today {
+  background: #1a237e;
+}
+
+.day-number {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #666;
+}
+
+.calendar.dark .day-number {
+  color: #aaa;
+}
+
+.calendar-day.today .day-number {
+  color: #1976d2;
+  font-weight: bold;
+}
+
+.calendar.dark .calendar-day.today .day-number {
+  color: #90caf9;
+}
+
+.day-sites {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  overflow-y: auto;
+}
+
+.site-item {
+  padding: 0.4rem 0.6rem;
+  background: #1976d2;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.2s;
+}
+
+.site-item:hover {
+  background: #1565c0;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .calendar {
+    padding: 1rem;
+  }
+
+  .calendar-header h2 {
+    font-size: 1.4rem;
+  }
+
+  .calendar-day {
+    min-height: 100px;
+    padding: 0.3rem;
+  }
+
+  .day-number {
+    font-size: 1rem;
+  }
+
+  .site-item {
+    font-size: 0.8rem;
+    padding: 0.3rem 0.4rem;
+  }
+}
+
+/* 캘린더 한 줄, 작은 폰트, 가로 정렬 */
+.calendar-header, .calendar-grid, .calendar-day, .weekday, .day-sites, .site-item {
+  display: flex;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.98rem;
+  padding: 0.1rem 0.3rem;
+  margin: 0;
+  white-space: nowrap;
+}
+.calendar-header *, .calendar-grid *, .calendar-day *, .weekday *, .day-sites *, .site-item * {
+  writing-mode: initial !important;
+  flex-direction: row !important;
+  font-size: 0.98rem;
+  padding: 0 0.1rem;
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .calendar-header, .calendar-grid, .calendar-day, .weekday, .day-sites, .site-item {
+    font-size: 0.85rem;
+    padding: 0.05rem 0.1rem;
+    gap: 0.1rem;
+  }
+  .calendar-header *, .calendar-grid *, .calendar-day *, .weekday *, .day-sites *, .site-item * {
+    font-size: 0.85rem;
+    padding: 0 0.05rem;
+  }
+}
+/* 세로 정렬/세로 글씨/세로 버튼 금지 */
+.calendar-header, .calendar-header *,
+.calendar-grid, .calendar-grid *,
+.calendar-day, .calendar-day *,
+.weekday, .weekday *,
+.day-sites, .day-sites *,
+.site-item, .site-item * {
+  writing-mode: initial !important;
+  flex-direction: row !important;
+} 

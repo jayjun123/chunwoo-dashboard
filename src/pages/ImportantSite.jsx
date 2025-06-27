@@ -1,0 +1,866 @@
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { 
+  Box, 
+  Card, 
+  CardContent, 
+  Typography, 
+  Button, 
+  TextField, 
+  Grid, 
+  InputAdornment, 
+  IconButton, 
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Chip,
+  Alert,
+  Snackbar,
+  List,
+  ListItem,
+  ListItemText,
+  Divider
+} from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import CommentIcon from '@mui/icons-material/Comment';
+import AddCommentIcon from '@mui/icons-material/AddComment';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { collection, getDocs, doc, updateDoc, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { Bar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+import LinearProgress from '@mui/material/LinearProgress';
+import { useAuth } from '../contexts/AuthContext';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import CircularProgress from '@mui/material/CircularProgress';
+import { useNavigate } from 'react-router-dom';
+import useMediaQuery from '@mui/material/useMediaQuery';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+
+export default function ImportantSite() {
+  const isMobile = useMediaQuery('(max-width:600px)');
+  const [sites, setSites] = useState([]);
+  const [progressData, setProgressData] = useState({}); // { siteId: [progressItems] }
+  const [gisungData, setGisungData] = useState({}); // { siteId: [gisungItems] }
+  const [search, setSearch] = useState('');
+  const [remarks, setRemarks] = useState({}); // { siteId: remark }
+  const [editingProgress, setEditingProgress] = useState({}); // { siteId: true/false }
+  const [progressInput, setProgressInput] = useState({}); // { siteId: 값 }
+  const [comments, setComments] = useState({}); // { siteId: [comments] }
+  const [commentDialog, setCommentDialog] = useState({ open: false, siteId: null });
+  const [newComment, setNewComment] = useState('');
+  const [newCommentInputs, setNewCommentInputs] = useState({}); // { siteId: inputValue }
+  const [editingComment, setEditingComment] = useState({ id: null, content: '' });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const { currentUser } = useAuth();
+  const fileInputRefs = useRef({});
+  const [uploadingSiteId, setUploadingSiteId] = useState(null);
+  const [hoveredSiteId, setHoveredSiteId] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // isFavorite가 true인 현장만 실시간으로 가져옵니다.
+    const q = query(collection(db, 'sites'), where('isFavorite', '==', true));
+    
+    let unsubscribe = null;
+    
+    try {
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        setSites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      }, (error) => {
+        console.error("Error fetching important sites in real-time:", error);
+        // 에러 발생 시 빈 배열로 설정
+        setSites([]);
+      });
+    } catch (error) {
+      console.error("Error setting up sites listener:", error);
+      setSites([]);
+    }
+
+    return () => {
+      try {
+        if (unsubscribe && typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      } catch (error) {
+        console.error("Error cleaning up sites listener:", error);
+      }
+    };
+  }, []);
+
+  // 전체 기성 데이터 디버깅용 (한 번만 실행)
+  useEffect(() => {
+    const debugGisungData = async () => {
+      try {
+        console.log('=== 전체 기성 데이터 디버깅 ===');
+        const gisungSnapshot = await getDocs(collection(db, 'gisung'));
+        const allGisung = gisungSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        console.log('DB의 모든 기성 데이터:', allGisung);
+        console.log('기성 데이터 개수:', allGisung.length);
+        
+        // 각 기성 데이터의 모든 필드 출력
+        allGisung.forEach((item, index) => {
+          console.log(`기성 데이터 ${index + 1}:`, {
+            id: item.id,
+            siteId: item.siteId,
+            siteName: item.siteName,
+            name: item.name,
+            gisungAmount: item.gisungAmount,
+            currentGisung: item.currentGisung,
+            gisungDate: item.gisungDate,
+            gisungMonth: item.gisungMonth,
+            모든필드: item
+          });
+        });
+        
+        // siteId별로 그룹화
+        const groupedBySiteId = {};
+        allGisung.forEach(item => {
+          if (!groupedBySiteId[item.siteId]) {
+            groupedBySiteId[item.siteId] = [];
+          }
+          groupedBySiteId[item.siteId].push(item);
+        });
+        console.log('siteId별 그룹화된 기성 데이터:', groupedBySiteId);
+        
+        // 각 siteId별 합계
+        Object.keys(groupedBySiteId).forEach(siteId => {
+          const total = groupedBySiteId[siteId].reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
+          console.log(`SiteId ${siteId}의 누계기성: ${total.toLocaleString()}원`);
+        });
+      } catch (error) {
+        console.error('기성 데이터 디버깅 중 오류:', error);
+      }
+    };
+    
+    debugGisungData();
+  }, []);
+
+  // 기성금 데이터 실시간 구독
+  useEffect(() => {
+    if (sites.length === 0) return;
+
+    console.log('=== 기성 데이터 구독 시작 ===');
+    console.log('현재 sites:', sites.map(s => ({ id: s.id, name: s.name })));
+
+    const siteIds = sites.map(site => site.id);
+    const unsubscribes = [];
+    
+    // 각 현장별로 기성 데이터 구독
+    siteIds.forEach(siteId => {
+      try {
+        console.log(`SiteId ${siteId}에 대한 기성 쿼리 생성`);
+        
+        // siteId로 쿼리
+        const gisungQuery = query(
+          collection(db, 'gisung'), 
+          where('siteId', '==', siteId)
+        );
+        
+        const unsubscribe = onSnapshot(gisungQuery, (snapshot) => {
+          const gisungItems = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          console.log(`Site ${siteId}의 기성 데이터 (${gisungItems.length}개):`, gisungItems);
+          
+          setGisungData(prev => ({
+            ...prev,
+            [siteId]: gisungItems
+          }));
+        }, (error) => {
+          console.error(`Error fetching gisung for site ${siteId}:`, error);
+          // 에러 발생 시 해당 siteId의 데이터를 빈 배열로 설정
+          setGisungData(prev => ({
+            ...prev,
+            [siteId]: []
+          }));
+        });
+        
+        unsubscribes.push(unsubscribe);
+      } catch (error) {
+        console.error(`Error setting up gisung listener for site ${siteId}:`, error);
+      }
+    });
+
+    return () => {
+      unsubscribes.forEach(unsubscribe => {
+        try {
+          if (unsubscribe && typeof unsubscribe === 'function') {
+            unsubscribe();
+          }
+        } catch (error) {
+          console.error("Error cleaning up gisung listener:", error);
+        }
+      });
+    };
+  }, [sites]);
+
+  // 기존 progress 데이터 구독 (유지)
+  useEffect(() => {
+    if (sites.length === 0) return;
+
+    const siteIds = sites.map(site => site.id);
+    const unsubscribes = [];
+    
+    siteIds.forEach((siteId, index) => {
+      try {
+        const progressQuery = query(
+          collection(db, 'progress'), 
+          where('siteId', '==', siteId), 
+          orderBy('date', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(progressQuery, (snapshot) => {
+          const progressItems = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          setProgressData(prev => ({
+            ...prev,
+            [siteId]: progressItems
+          }));
+        }, (error) => {
+          console.error(`Error fetching progress for site ${siteId}:`, error);
+          // 에러 발생 시 해당 siteId의 데이터를 빈 배열로 설정
+          setProgressData(prev => ({
+            ...prev,
+            [siteId]: []
+          }));
+        });
+        
+        unsubscribes.push(unsubscribe);
+      } catch (error) {
+        console.error(`Error setting up progress listener for site ${siteId}:`, error);
+      }
+    });
+
+    return () => {
+      unsubscribes.forEach(unsubscribe => {
+        try {
+          if (unsubscribe && typeof unsubscribe === 'function') {
+            unsubscribe();
+          }
+        } catch (error) {
+          console.error("Error cleaning up progress listener:", error);
+        }
+      });
+    };
+  }, [sites]);
+
+  // 댓글 가져오기
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        const commentsSnapshot = await getDocs(collection(db, 'siteComments'));
+        const commentsData = {};
+        commentsSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (!commentsData[data.siteId]) {
+            commentsData[data.siteId] = [];
+          }
+          commentsData[data.siteId].push({ id: doc.id, ...data });
+        });
+        setComments(commentsData);
+      } catch (error) {
+        console.error('댓글 로딩 실패:', error);
+      }
+    };
+    fetchComments();
+  }, []);
+
+  // 검색어에 따라 필터링합니다.
+  const filteredSites = useMemo(() => {
+    const filtered = sites.filter(site =>
+      site.name?.toLowerCase().includes(search.toLowerCase()) || 
+      site.manager?.toLowerCase().includes(search.toLowerCase()) || 
+      site.address?.toLowerCase().includes(search.toLowerCase())
+    );
+    
+    // 모바일에서는 검색어가 없으면 첫 번째 현장만 보여주고, 검색어가 있으면 필터링된 결과를 보여줌
+    if (isMobile) {
+      if (search.trim() === '') {
+        return filtered.length > 0 ? [filtered[0]] : [];
+      } else {
+        return filtered;
+      }
+    }
+    
+    // PC에서는 모든 필터링된 결과를 보여줌
+    return filtered;
+  }, [sites, search, isMobile]);
+
+  const handleRemarkChange = (id, value) => {
+    setRemarks(prev => ({ ...prev, [id]: value }));
+  };
+
+  // 새 의견 입력 변경
+  const handleNewCommentChange = (siteId, value) => {
+    setNewCommentInputs(prev => ({ ...prev, [siteId]: value }));
+  };
+
+  // 직접 의견 추가
+  const handleAddCommentDirect = async (siteId) => {
+    const content = newCommentInputs[siteId]?.trim();
+    if (!content) return;
+    
+    try {
+      await addDoc(collection(db, 'siteComments'), {
+        siteId: siteId,
+        content: content,
+        userName: currentUser?.displayName || currentUser?.email || '사용자',
+        userId: currentUser?.uid || 'anonymous',
+        timestamp: serverTimestamp()
+      });
+      
+      setNewCommentInputs(prev => ({ ...prev, [siteId]: '' }));
+      setSnackbar({ open: true, message: '의견이 추가되었습니다.', severity: 'success' });
+      
+      // 댓글 목록 새로고침
+      const commentsSnapshot = await getDocs(collection(db, 'siteComments'));
+      const commentsData = {};
+      commentsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (!commentsData[data.siteId]) {
+          commentsData[data.siteId] = [];
+        }
+        commentsData[data.siteId].push({ id: doc.id, ...data });
+      });
+      setComments(commentsData);
+    } catch (error) {
+      console.error('의견 추가 실패:', error);
+      setSnackbar({ open: true, message: '의견 추가에 실패했습니다.', severity: 'error' });
+    }
+  };
+
+  // 의견 수정
+  const handleEditComment = (commentId, currentContent) => {
+    setEditingComment({ id: commentId, content: currentContent });
+  };
+
+  // 의견 수정 저장
+  const handleSaveEditComment = async () => {
+    if (!editingComment.id || !editingComment.content.trim()) return;
+    
+    try {
+      await updateDoc(doc(db, 'siteComments', editingComment.id), {
+        content: editingComment.content,
+        updatedAt: serverTimestamp()
+      });
+      
+      setEditingComment({ id: null, content: '' });
+      setSnackbar({ open: true, message: '의견이 수정되었습니다.', severity: 'success' });
+      
+      // 댓글 목록 새로고침
+      const commentsSnapshot = await getDocs(collection(db, 'siteComments'));
+      const commentsData = {};
+      commentsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (!commentsData[data.siteId]) {
+          commentsData[data.siteId] = [];
+        }
+        commentsData[data.siteId].push({ id: doc.id, ...data });
+      });
+      setComments(commentsData);
+    } catch (error) {
+      console.error('댓글 수정 실패:', error);
+      setSnackbar({ open: true, message: '댓글 수정에 실패했습니다.', severity: 'error' });
+    }
+  };
+
+  // 의견 삭제
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm('이 의견을 삭제하시겠습니까?')) return;
+    
+    try {
+      await deleteDoc(doc(db, 'siteComments', commentId));
+      setSnackbar({ open: true, message: '의견이 삭제되었습니다.', severity: 'success' });
+      
+      // 댓글 목록 새로고침
+      const commentsSnapshot = await getDocs(collection(db, 'siteComments'));
+      const commentsData = {};
+      commentsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (!commentsData[data.siteId]) {
+          commentsData[data.siteId] = [];
+        }
+        commentsData[data.siteId].push({ id: doc.id, ...data });
+      });
+      setComments(commentsData);
+    } catch (error) {
+      console.error('댓글 삭제 실패:', error);
+      setSnackbar({ open: true, message: '댓글 삭제에 실패했습니다.', severity: 'error' });
+    }
+  };
+
+  // 차트 데이터 생성 함수
+  const getChartData = (site, totalGisung) => {
+    const contract = Number(site.contractAmount) || 0;
+    const balance = contract - totalGisung; // 잔액 계산
+    // 천단위로 변환
+    const contractInThousand = Math.round(contract / 1000);
+    const totalGisungInThousand = Math.round(totalGisung / 1000);
+    const balanceInThousand = Math.round(balance / 1000);
+    const chartData = {
+      labels: ['계약금', '기성', '잔액'],
+      datasets: [
+        {
+          label: '금액(천원)',
+          data: [contractInThousand, totalGisungInThousand, balanceInThousand],
+          backgroundColor: [
+            '#1976d2', // 계약금 - 파랑
+            '#43e97b', // 기성 - 연두
+            '#f44336', // 잔액 - 빨강
+          ],
+          borderRadius: 8,
+          barPercentage: 0.7,
+          categoryPercentage: 0.5
+        }
+      ]
+    };
+    return chartData;
+  };
+
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { enabled: true },
+      title: { display: false }
+    },
+    scales: {
+      x: {
+        grid: { color: '#333' },
+        ticks: { color: '#bbb', font: { weight: 700 } }
+      },
+      y: {
+        grid: { color: '#222' },
+        ticks: { color: '#bbb', font: { weight: 700 } }
+      }
+    }
+  };
+
+  const handleSaveProgress = async (site) => {
+    const contract = Number(site.contractAmount) || 0;
+    let percent = progressInput[site.id];
+    // 빈값 또는 NaN 방지
+    if (percent === '' || isNaN(percent)) percent = 0;
+    const newTotalProgress = contract * (percent / 100);
+
+    try {
+      // Firestore 업데이트
+      await updateDoc(doc(db, 'sites', site.id), { totalProgress: newTotalProgress });
+      // Firestore에서 최신 데이터 다시 불러오기(권장)
+      const snapshot = await getDocs(collection(db, 'sites'));
+      setSites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      // 입력모드 해제 및 입력값 초기화
+      setEditingProgress(prev => ({ ...prev, [site.id]: false }));
+      setProgressInput(prev => ({ ...prev, [site.id]: undefined }));
+      setSnackbar({ open: true, message: '진행률이 저장되었습니다.', severity: 'success' });
+    } catch (error) {
+      setSnackbar({ open: true, message: '저장에 실패했습니다.', severity: 'error' });
+    }
+  };
+
+  const formatTime = (timestamp) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('ko-KR').format(amount);
+  };
+
+  const handleImageClick = (siteId) => {
+    if (fileInputRefs.current[siteId]) fileInputRefs.current[siteId].click();
+  };
+
+  const handleImageUpload = async (e, siteId) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingSiteId(siteId);
+    const storage = getStorage();
+    const sRef = storageRef(storage, `siteImages/${siteId}_${file.name}`);
+    await uploadBytes(sRef, file);
+    const url = await getDownloadURL(sRef);
+    await updateDoc(doc(db, "sites", siteId), { imageUrl: url });
+    setUploadingSiteId(null);
+  };
+
+  const handleImageDelete = async (siteId, imageUrl) => {
+    setUploadingSiteId(siteId);
+    try {
+      const storage = getStorage();
+      const imageRef = storageRef(storage, imageUrl);
+      await updateDoc(doc(db, "sites", siteId), { imageUrl: null });
+      await imageRef.delete();
+    } catch (e) {
+      // URL이 storage 경로가 아닐 경우 등 예외 무시
+    }
+    setUploadingSiteId(null);
+  };
+
+  return (
+    <Box sx={{ 
+      width: '100%', 
+      minHeight: '100vh', 
+      bgcolor: '#101624', 
+      // 모바일에서 패딩 제거
+      p: { xs: 0, md: 3 }, 
+      maxWidth: '100%',
+      // 모바일에서 화면을 꽉 채우기
+      ...(isMobile && {
+        width: '100vw',
+        maxWidth: '100vw',
+        overflow: 'hidden'
+      }),
+      position: isMobile ? 'relative' : 'static',
+      left: isMobile ? '-30px' : 'auto'
+    }}>
+      {/* 상단 검색창 - 모바일에서 간소화 */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'flex-end', 
+        mb: 3,
+        // 모바일에서 패딩 추가
+        px: isMobile ? 1 : 0
+      }}>
+        <TextField
+          size="small"
+          placeholder={isMobile ? "현장명, 소장으로 검색" : "현장명, 소장, 주소 검색"}
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton>
+                  <SearchIcon />
+                </IconButton>
+              </InputAdornment>
+            )
+          }}
+          sx={{ 
+            width: isMobile ? '100%' : 320, 
+            bgcolor: '#232b3b', 
+            borderRadius: 2, 
+            input: { color: '#fff' } 
+          }}
+        />
+      </Box>
+      <Grid container spacing={0}>
+        <Grid item xs={12}>
+          <div style={{ 
+            width: '100%', 
+            maxWidth: '100%', 
+            padding: 0, 
+            margin: 0,
+            // 모바일에서 패딩 추가
+            ...(isMobile && {
+              padding: '0 8px'
+            })
+          }}>
+            {filteredSites.length === 0 && (
+              <Typography sx={{ color: '#bbb', mt: 4 }}>
+                {isMobile ? '검색 결과가 없습니다.' : '해당 월에 포함된 현장이 없습니다.'}
+              </Typography>
+            )}
+            {filteredSites.map(site => {
+              // siteId로 바로 접근해서 누계기성값 계산
+              const siteGisungData = gisungData[site.id] || [];
+              const totalGisung = siteGisungData.reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
+              
+              console.log('=== 현장별 기성 데이터 분석 ===');
+              console.log('현장 ID:', site.id);
+              console.log('현장명:', site.name);
+              console.log('전체 gisungData:', gisungData);
+              console.log('현재 현장의 gisungData:', siteGisungData);
+              console.log('계산된 totalGisung:', totalGisung);
+              console.log('각 기성 항목:', siteGisungData.map(item => ({
+                id: item.id,
+                gisungAmount: item.gisungAmount,
+                siteId: item.siteId,
+                gisungDate: item.gisungDate
+              })));
+              
+              return (
+                <Paper key={site.id} sx={{ 
+                  mb: 0, 
+                  borderRadius: 4, 
+                  boxShadow: 6, 
+                  bgcolor: '#181f2e', 
+                  color: '#fff', 
+                  display: 'flex', 
+                  flexDirection: { xs: 'column', md: 'row' }, 
+                  alignItems: 'stretch', 
+                  minHeight: isMobile ? 'auto' : 380, 
+                  minWidth: isMobile ? '100%' : 1000, 
+                  width: '100%', 
+                  p: 0, 
+                  overflow: 'hidden' 
+                }}>
+                  {/* 왼쪽: 정보/버튼 */}
+                  <Box sx={{ 
+                    flex: 2.5, 
+                    minWidth: isMobile ? '100%' : 320, 
+                    p: isMobile ? 2 : 3, 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: 1, 
+                    borderRight: { md: '2px solid #232b3b' }, 
+                    justifyContent: 'flex-start', 
+                    alignItems: 'flex-start' 
+                  }}>
+                    <Typography variant="h5" sx={{ 
+                      fontWeight: 800, 
+                      mb: 1, 
+                      color: '#90caf9', 
+                      textAlign: 'left', 
+                      width: '100%',
+                      fontSize: isMobile ? '1.2rem' : '1.5rem'
+                    }}>{site.name}</Typography>
+                    <Box sx={{ display: 'flex', gap: 3, width: '100%', alignItems: 'center', mb: 0.6 }}>
+                      <Typography sx={{ 
+                        fontSize: isMobile ? '0.9rem' : 16, 
+                        color: '#43e97b', 
+                        fontWeight: 700, 
+                        textAlign: 'left' 
+                      }}>계약구분: {site.contractType}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 2, width: '100%', alignItems: 'center', mb: 0.6 }}>
+                      <Typography sx={{ 
+                        fontSize: isMobile ? '0.8rem' : 15, 
+                        color: '#90caf9', 
+                        fontWeight: 700 
+                      }}>{`회사명: ${site.companyName}`}</Typography>
+                      <Typography sx={{ fontSize: isMobile ? '0.8rem' : 15 }}>소장: {site.manager}</Typography>
+                    </Box>
+                    <Typography sx={{ 
+                      fontSize: isMobile ? '0.8rem' : 15, 
+                      textAlign: 'left', 
+                      width: '100%', 
+                      mb: 0.6 
+                    }}>주소: {site.address}</Typography>
+                    <Typography sx={{ 
+                      fontSize: isMobile ? '0.8rem' : 15, 
+                      textAlign: 'left', 
+                      width: '100%', 
+                      mb: 0.6 
+                    }}>공사기간: {site.startDate} ~ {site.endDate}</Typography>
+                    <Box sx={{ display: 'flex', gap: 3, width: '100%', alignItems: 'center', mb: 0.6 }}>
+                      <Typography sx={{ 
+                        fontSize: isMobile ? '0.8rem' : 15, 
+                        textAlign: 'left', 
+                        minWidth: isMobile ? '80px' : '120px' 
+                      }}>계약금: {Number(site.contractAmount || 0).toLocaleString()}원</Typography>
+                      <Typography sx={{ 
+                        fontSize: isMobile ? '0.8rem' : 15, 
+                        textAlign: 'left', 
+                        color: '#43e97b', 
+                        fontWeight: 'bold' 
+                      }}>기성: {Number(totalGisung).toLocaleString()}원</Typography>
+                    </Box>
+                    {/* 잔액을 시공팀 위로 이동 */}
+                    <Box sx={{ display: 'flex', gap: 3, width: '100%', alignItems: 'center', mb: 0.6 }}>
+                      <Typography sx={{ 
+                        fontSize: isMobile ? '0.8rem' : 15, 
+                        textAlign: 'left', 
+                        color: '#f44336', 
+                        fontWeight: 'bold' 
+                      }}>잔액: {Number((site.contractAmount || 0) - totalGisung).toLocaleString()}원</Typography>
+                    </Box>
+                    <Typography sx={{ 
+                      fontSize: isMobile ? '0.8rem' : 15, 
+                      textAlign: 'left', 
+                      width: '100%', 
+                      mb: 0.6 
+                    }}>시공팀: {site.team}</Typography>
+                    <Box sx={{ mt: 0, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                      <Button 
+                        variant="contained" 
+                        color="primary" 
+                        size={isMobile ? 'small' : 'medium'}
+                        sx={{ 
+                          borderRadius: 2, 
+                          fontWeight: 700,
+                          fontSize: isMobile ? '0.7rem' : 'inherit'
+                        }} 
+                        onClick={() => navigate(`/progress?siteId=${site.id}`)}
+                      >기성관리</Button>
+                      <Button 
+                        variant="contained" 
+                        color="success" 
+                        size={isMobile ? 'small' : 'medium'}
+                        sx={{ 
+                          borderRadius: 2, 
+                          fontWeight: 700,
+                          fontSize: isMobile ? '0.7rem' : 'inherit'
+                        }} 
+                        onClick={() => navigate(`/safety?siteId=${site.id}`)}
+                      >안전관리</Button>
+                      <Button 
+                        variant="contained" 
+                        color="secondary" 
+                        size={isMobile ? 'small' : 'medium'}
+                        sx={{ 
+                          borderRadius: 2, 
+                          fontWeight: 700,
+                          fontSize: isMobile ? '0.7rem' : 'inherit'
+                        }} 
+                        onClick={() => navigate(`/discussions?siteId=${site.id}`)}
+                      >토론</Button>
+                    </Box>
+                  </Box>
+                  {/* 가운데: 차트 - 모바일에서 숨김 */}
+                  {!isMobile && (
+                    <Box sx={{ flex: 1.7, minWidth: 320, maxWidth: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', bgcolor: '#181f2e', p: 0, height: '380px', borderRight: { md: '2px solid #232b3b' }, mt: 1 }}>
+                      {/* 공사진행률 가로 차트 - 상단 고정 */}
+                      <Box sx={{ width: '90%', mb: 2 }}>
+                        <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: 15, mb: 0.5 }}>공사진행률</Typography>
+                        {(() => {
+                          const contract = Number(site.contractAmount) || 0;
+                          const percent = editingProgress[site.id]
+                            ? (progressInput[site.id] ?? 0)
+                            : (contract > 0 ? Math.round((Number(site.totalProgress) / contract) * 100) : 0);
+                          return (
+                            <LinearProgress
+                              variant="determinate"
+                              value={percent}
+                              sx={{ height: 18, borderRadius: 6, bgcolor: '#232b3b', '& .MuiLinearProgress-bar': { background: 'linear-gradient(90deg, #43e97b 0%, #38f9d7 100%)' } }}
+                            />
+                          );
+                        })()}
+                      </Box>
+                      {/* 진행률 바(숫자 입력) - 상단 고정 */}
+                      {(() => {
+                        const contract = Number(site.contractAmount) || 0;
+                        const isEditing = editingProgress[site.id];
+                        const percent = isEditing
+                          ? (progressInput[site.id] ?? 0)
+                          : (contract > 0 ? Math.round((Number(site.totalProgress) / contract) * 100) : 0);
+                        return (
+                          <Box sx={{ width: '90%', mb: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {isEditing ? (
+                              <>
+                                <TextField
+                                  type="number"
+                                  size="small"
+                                  autoFocus
+                                  inputProps={{ min: 0, max: 100, style: { color: '#43e97b', fontWeight: 700, fontSize: 15, textAlign: 'center' } }}
+                                  value={progressInput[site.id] ?? percent}
+                                  onChange={e => {
+                                    let v = e.target.value;
+                                    if (v === '') v = '';
+                                    else v = Math.max(0, Math.min(100, Number(v)));
+                                    setProgressInput(prev => ({ ...prev, [site.id]: v }));
+                                  }}
+                                  sx={{ width: 90, bgcolor: '#232b3b', borderRadius: 1, mr: 1 }}
+                                />
+                                <Button
+                                  variant="contained"
+                                  color="primary"
+                                  size="small"
+                                  sx={{ minWidth: 60, fontWeight: 700, borderRadius: 2, bgcolor: '#43e97b', color: '#222', '&:hover': { bgcolor: '#38f9d7' } }}
+                                  onClick={() => handleSaveProgress(site)}
+                                >저장</Button>
+                              </>
+                            ) : (
+                              <Typography
+                                sx={{ color: '#43e97b', fontWeight: 700, fontSize: 15, mb: 2, cursor: 'pointer', userSelect: 'none' }}
+                                onDoubleClick={() => {
+                                  setEditingProgress(prev => ({ ...prev, [site.id]: true }));
+                                  setProgressInput(prev => ({ ...prev, [site.id]: percent }));
+                                }}
+                              >
+                                {`공사 진행률: ${percent}%`}
+                              </Typography>
+                            )}
+                          </Box>
+                        );
+                      })()}
+                      {/* 차트 - 하단 배치 */}
+                      <Box sx={{ width: '100%', height: '100%', flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', p: 0, m: 0 }}>
+                        <Bar
+                          data={getChartData(site, totalGisung)}
+                          options={{
+                            ...chartOptions,
+                            maintainAspectRatio: false,
+                            plugins: {
+                              ...chartOptions.plugins,
+                              legend: { display: false },
+                            },
+                            scales: {
+                              x: {
+                                grid: { color: '#333' },
+                                ticks: { color: '#bbb', font: { weight: 700, size: 12 } }
+                              },
+                              y: {
+                                grid: { color: '#222' },
+                                ticks: { color: '#bbb', font: { weight: 700, size: 12 } }
+                              }
+                            },
+                            barPercentage: 0.6,
+                            categoryPercentage: 0.5,
+                          }}
+                          style={{ width: '100%', height: '100%' }}
+                        />
+                      </Box>
+                    </Box>
+                  )}
+                  {/* 오른쪽: 조감도 이미지 - 모바일에서 숨김 */}
+                  {!isMobile && (
+                    <Box
+                      sx={{ flex: 1.5, minWidth: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#222', cursor: !site.imageUrl && !uploadingSiteId ? 'pointer' : 'default', position: 'relative' }}
+                      onClick={!site.imageUrl && !uploadingSiteId ? () => handleImageClick(site.id) : undefined}
+                      onMouseEnter={() => setHoveredSiteId(site.id)}
+                      onMouseLeave={() => setHoveredSiteId(null)}
+                    >
+                      {uploadingSiteId === site.id ? (
+                        <CircularProgress color="warning" />
+                      ) : site.imageUrl ? (
+                        <>
+                          <img src={site.imageUrl} alt="조감도" style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 8, filter: hoveredSiteId === site.id ? 'brightness(0.7)' : 'none' }} />
+                          {hoveredSiteId === site.id && (
+                            <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, bgcolor: 'rgba(0,0,0,0.4)' }}>
+                              <Button variant="contained" size="small" sx={{ mb: 1, bgcolor: '#ffd600', color: '#222', fontWeight: 700 }} onClick={e => { e.stopPropagation(); handleImageClick(site.id); }}>교체</Button>
+                              <Button variant="contained" size="small" color="error" sx={{ fontWeight: 700 }} onClick={e => { e.stopPropagation(); handleImageDelete(site.id, site.imageUrl); }}>삭제</Button>
+                            </Box>
+                          )}
+                        </>
+                      ) : (
+                        <Typography sx={{ color: '#bbb', fontSize: 15, textAlign: 'center' }}>조감도 없음<br />(클릭하여 업로드)</Typography>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        ref={el => fileInputRefs.current[site.id] = el}
+                        onChange={e => handleImageUpload(e, site.id)}
+                      />
+                    </Box>
+                  )}
+                </Paper>
+              );
+            })}
+          </div>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+} 

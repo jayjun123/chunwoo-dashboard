@@ -1,0 +1,91 @@
+/* 버튼, 카드, 입력, 배경 등 변수 추가 */
+:root[data-theme="dark"] {
+  --bg-main: #181c24;
+  --bg-card: #232837;
+  --bg-header: #232837;
+  --text-main: #fff;
+  --text-sub: #b3b8c5;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --border: #2d3344;
+  --radius: 12px;
+  --shadow: 0 2px 16px rgba(0,0,0,0.12);
+  --input-background: #232837;
+  --input-background-dark: #181c24;
+  --card-background-dark: #232837;
+  --button-bg: #232837;
+  --button-bg-hover: #3b82f6;
+  --button-text: #fff;
+}
+:root[data-theme="light"] {
+  --bg-main: #f8fafc;
+  --bg-card: #fff;
+  --bg-header: #fff;
+  --text-main: #1e293b;
+  --text-sub: #64748b;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --border: #e2e8f0;
+  --radius: 12px;
+  --shadow: 0 2px 16px rgba(0,0,0,0.08);
+  --input-background: #fff;
+  --input-background-dark: #f8fafc;
+  --card-background-dark: #fff;
+  --button-bg: #fff;
+  --button-bg-hover: #3b82f6;
+  --button-text: #1e293b;
+}
+
+/* 전역 버튼 스타일 (가로 컴팩트) */
+.btn, .button, button, input[type="button"], input[type="submit"] {
+  padding: 2px 4px;
+  min-width: unset;
+  min-height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: var(--button-bg);
+  color: var(--button-text);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  box-sizing: border-box;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+.btn:hover, .button:hover, button:hover, input[type="button"]:hover, input[type="submit"]:hover {
+  background: var(--button-bg-hover);
+  color: #fff;
+}
+
+/* 버튼 텍스트보다 2px만 넓게(좌우 2px) */
+.btn, .button {
+  padding-left: 2px;
+  padding-right: 2px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  min-width: unset;
+  width: auto;
+  max-width: 100%;
+}
+
+/* 카드, 입력, 배경 등 주요 UI 요소 변수 적용 */
+.card, .dashboard-card, .modal-content, .login-box, .settings-content, .site-card, .users-table, .auth-table {
+  background: var(--bg-card) !important;
+  color: var(--text-main) !important;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+body, html, .app, .main-content, .schedule-container, .safety-container, .dashboard-container, .documents-container, .reports-container {
+  background: var(--bg-main) !important;
+  color: var(--text-main) !important;
+}
+input, select, textarea {
+  background: var(--input-background) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border);
+} 
