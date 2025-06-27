@@ -30,6 +30,7 @@ yarn-error.log*
 
 # Backup files
 /backup
+/temp_restore
 *.tar.gz
 *.zip
 
