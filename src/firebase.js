@@ -4,15 +4,57 @@ import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+// 환경변수 디버깅 - 더 자세한 정보
+console.log('=== Firebase 환경변수 디버깅 ===');
+console.log('import.meta.env:', import.meta.env);
+console.log('VITE_FIREBASE_API_KEY:', import.meta.env.VITE_FIREBASE_API_KEY);
+console.log('VITE_FIREBASE_AUTH_DOMAIN:', import.meta.env.VITE_FIREBASE_AUTH_DOMAIN);
+console.log('VITE_FIREBASE_PROJECT_ID:', import.meta.env.VITE_FIREBASE_PROJECT_ID);
+console.log('VITE_FIREBASE_STORAGE_BUCKET:', import.meta.env.VITE_FIREBASE_STORAGE_BUCKET);
+console.log('VITE_FIREBASE_MESSAGING_SENDER_ID:', import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID);
+console.log('VITE_FIREBASE_APP_ID:', import.meta.env.VITE_FIREBASE_APP_ID);
+console.log('VITE_FIREBASE_MEASUREMENT_ID:', import.meta.env.VITE_FIREBASE_MEASUREMENT_ID);
+console.log('================================');
+
+// 환경변수가 로드되지 않을 경우 하드코딩된 설정 사용 (임시)
+const fallbackConfig = {
+  apiKey: "AIzaSyATCGXGD2_teiJFdpng9J2_fvZRItPef0w",
+  authDomain: "chunwooo-ebaseapp.com",
+  projectId: "chunwooo-edf9f",
+  storageBucket: "chunwooo-erebasestorage.app",
+  messagingSenderId: "417029078660",
+  appId: "1:417029078660:web:00e23d79af77876e598cd1",
+  measurementId: "G-653CL9XWFH"
 };
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || fallbackConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || fallbackConfig.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || fallbackConfig.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || fallbackConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || fallbackConfig.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || fallbackConfig.appId,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || fallbackConfig.measurementId
+};
+
+// 설정 검증 - 더 엄격한 검증
+const requiredFields = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+const missingFields = requiredFields.filter(field => !firebaseConfig[field]);
+
+if (missingFields.length > 0) {
+  console.error('누락된 Firebase 설정:', missingFields);
+  throw new Error(`Firebase 설정이 누락되었습니다: ${missingFields.join(', ')}`);
+}
+
+if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'undefined') {
+  throw new Error('Firebase API 키가 설정되지 않았습니다. 환경변수 VITE_FIREBASE_API_KEY를 확인해주세요.');
+}
+
+console.log('Firebase 설정 완료:', {
+  apiKey: firebaseConfig.apiKey ? '설정됨' : '설정되지 않음',
+  authDomain: firebaseConfig.authDomain,
+  projectId: firebaseConfig.projectId
+});
 
 let app;
 if (!getApps().length) {
