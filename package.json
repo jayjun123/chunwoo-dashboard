@@ -24,6 +24,7 @@
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "@types/node": "^24.0.3",
+    "@vitejs/plugin-react": "^4.5.1",
     "axios": "^1.9.0",
     "bcryptjs": "^3.0.2",
     "chart.js": "^4.4.9",
@@ -52,6 +53,7 @@
     "react-toastify": "^10.0.6",
     "recharts": "^2.15.3",
     "typescript": "^5.8.3",
+    "vite": "^5.4.19",
     "web-vitals": "^2.1.4",
     "xlsx": "^0.18.5"
   },
@@ -89,7 +91,6 @@
     "@craco/craco": "^7.1.0",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
-    "@vitejs/plugin-react": "^4.5.1",
     "babel-jest": "^29.7.0",
     "compression-webpack-plugin": "^10.0.0",
     "identity-obj-proxy": "^3.0.0",
@@ -98,7 +99,6 @@
     "prop-types": "^15.8.1",
     "source-map-explorer": "^2.5.3",
     "terser-webpack-plugin": "^5.3.10",
-    "vite": "^5.4.19",
     "webpack-bundle-analyzer": "^4.10.1"
   }
 }
