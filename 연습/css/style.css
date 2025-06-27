@@ -1,0 +1,121 @@
+body {
+  font-family: 'Pretendard', 'Roboto', 'Noto Sans KR', sans-serif;
+  background: #f4f7fb;
+  margin: 0;
+}
+header {
+  background: #fff;
+  border-bottom: 4px solid #1976d2;
+  padding: 1.2rem 2rem 0.7rem 2rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+.logo {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #1976d2;
+}
+.menu {
+  display: flex;
+  gap: 1.2rem;
+}
+.menu-item {
+  color: #1976d2;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+}
+.menu-item.active, .menu-item:hover {
+  background: #e3eaf3;
+}
+.date-box {
+  color: #1976d2;
+  font-size: 1.1rem;
+}
+#logout-btn {
+  margin-left: 2rem;
+  background: #e53935;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1.2rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+main {
+  padding: 2rem;
+}
+.login-bg {
+  position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.08); z-index: 9999;
+}
+.login-box {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  background: #fff; border-radius: 14px; box-shadow: 0 4px 24px #1976d233;
+  min-width: 260px; max-width: 90vw; min-height: 120px; padding: 2rem 2.5rem 1.5rem 2.5rem;
+  z-index: 10000;
+  text-align: center;
+}
+.login-box input {
+  width: 80%; padding: 0.6rem; margin: 0.5rem 0; border-radius: 6px; border: 1.5px solid #b6c7e3;
+  font-size: 1.1rem;
+}
+.login-box button {
+  background: #1976d2; color: #fff; border: none; border-radius: 6px;
+  padding: 0.6rem 1.5rem; font-size: 1.1rem; font-weight: 500; cursor: pointer;
+  margin-top: 1rem;
+}
+.member-vertical-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+.member-table-wrap {
+  max-height: 220px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px #1976d233;
+  margin-bottom: 1rem;
+}
+.member-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+.member-table th, .member-table td {
+  border: 1px solid #e3eaf3;
+  padding: 0.5rem 0.7rem;
+  text-align: center;
+  font-size: 1rem;
+}
+.member-table th {
+  background: #e3eaf3;
+  color: #1976d2;
+  font-weight: bold;
+}
+.pw-eye-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: #1976d2;
+  padding: 0;
+}
+.pw-eye-btn::before {
+  content: '👁';
+  font-size: 1.1rem;
+}
+.pw-eye-btn.active::before {
+  content: '🙈';
+}
+.role-select {
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+  border: 1px solid #b6c7e3;
+  font-size: 1rem;
+  background: #f8fafd;
+} 

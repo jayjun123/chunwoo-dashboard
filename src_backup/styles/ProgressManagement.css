@@ -1,0 +1,233 @@
+.progress-management {
+  padding: 20px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.progress-management.dark {
+  background-color: var(--dark-bg);
+  color: var(--dark-text);
+}
+
+.progress-management.light {
+  background-color: var(--light-bg);
+  color: var(--light-text);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.progress-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.site-select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  min-width: 200px;
+}
+
+.edit-button {
+  padding: 8px 16px;
+  background-color: var(--edit-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.progress-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.progress-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.summary-card {
+  background-color: var(--card-bg);
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.summary-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.summary-card p {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.progress-details {
+  background-color: var(--card-bg);
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progress-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+}
+
+.progress-table th,
+.progress-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.progress-table th {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* 모달 스타일 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background-color: var(--modal-bg);
+  padding: 24px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.progress-payments {
+  margin: 20px 0;
+  padding: 16px;
+  background-color: var(--card-bg);
+  border-radius: 8px;
+}
+
+.progress-payments h4 {
+  margin: 0 0 16px 0;
+}
+
+.payment-item {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.add-button {
+  padding: 8px 16px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+.delete-button {
+  padding: 4px 8px;
+  background-color: var(--delete-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.save-button,
+.cancel-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.save-button {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.cancel-button {
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+}
+
+/* 반응형 스타일 */
+@media (max-width: 600px) {
+  .progress-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .progress-actions {
+    width: 100%;
+  }
+
+  .site-select {
+    width: 100%;
+  }
+
+  .progress-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-item {
+    grid-template-columns: 1fr;
+  }
+
+  .modal {
+    width: 95%;
+    margin: 10px;
+  }
+} 

@@ -1,0 +1,280 @@
+.safety-list {
+  padding: 20px;
+}
+
+.safety-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.safety-list-header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #333;
+}
+
+.add-inspection-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.add-inspection-button:hover {
+  background-color: #45a049;
+}
+
+.safety-list-filters {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.search-box, .filter-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.search-box input, .filter-box select {
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 14px;
+  width: 200px;
+}
+
+.safety-list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.inspection-card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.inspection-card-header {
+  padding: 16px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.inspection-card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge.예정 {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.status-badge.진행중 {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.status-badge.완료 {
+  background-color: #e8f5e9;
+  color: #388e3c;
+}
+
+.inspection-card-body {
+  padding: 16px;
+}
+
+.inspection-card-body p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.findings-list {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.findings-list h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.finding-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.finding-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
+.severity-icon {
+  font-size: 14px;
+}
+
+.severity-icon.높음 {
+  color: #f44336;
+}
+
+.severity-icon.중간 {
+  color: #ff9800;
+}
+
+.severity-icon.낮음 {
+  color: #4caf50;
+}
+
+.finding-status {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.finding-status.해결 {
+  background-color: #e8f5e9;
+  color: #388e3c;
+}
+
+.finding-status.미해결 {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.inspection-card-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.edit-button, .delete-button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.3s;
+}
+
+.edit-button {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.edit-button:hover {
+  background-color: #bbdefb;
+}
+
+.delete-button {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.delete-button:hover {
+  background-color: #ffcdd2;
+}
+
+@media (prefers-color-scheme: dark) {
+  .safety-list-header h1 {
+    color: #fff;
+  }
+
+  .search-box, .filter-box {
+    background-color: #2d2d2d;
+  }
+
+  .search-box input, .filter-box select {
+    color: #fff;
+  }
+
+  .inspection-card {
+    background-color: #2d2d2d;
+  }
+
+  .inspection-card-header {
+    border-bottom-color: #404040;
+  }
+
+  .inspection-card-header h3 {
+    color: #fff;
+  }
+
+  .inspection-card-body p {
+    color: #ccc;
+  }
+
+  .findings-list {
+    border-top-color: #404040;
+  }
+
+  .findings-list h4 {
+    color: #fff;
+  }
+
+  .finding-info {
+    color: #ccc;
+  }
+
+  .inspection-card-footer {
+    border-top-color: #404040;
+  }
+}
+
+@media (max-width: 768px) {
+  .safety-list {
+    padding: 16px;
+  }
+
+  .safety-list-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .safety-list-filters {
+    flex-direction: column;
+  }
+
+  .search-box input, .filter-box select {
+    width: 100%;
+  }
+
+  .safety-list-grid {
+    grid-template-columns: 1fr;
+  }
+} 
