@@ -190,6 +190,16 @@ const WholeList = () => {
 
   // 엑셀 다운로드
   const handleExportExcel = () => {
+    console.log('엑셀 내보내기 시작');
+    console.log('sites 데이터:', sites);
+    console.log('sites 길이:', sites.length);
+    
+    // 데이터가 비어있는지 확인
+    if (!sites || sites.length === 0) {
+      alert('내보낼 데이터가 없습니다. 데이터를 먼저 로드해주세요.');
+      return;
+    }
+
     // 헤더 행 추가
     const headers = [
       '현장명', '진행상황', '계약구분', '계약금액', '선급금', '누계기성', 
@@ -197,25 +207,31 @@ const WholeList = () => {
       '시공팀', '기타사항', '차수', '하도급지킴이', '주요현장'
     ];
 
-    const exportData = sites.map(site => ({
-      현장명: site.name || '',
-      진행상황: site.status || '',
-      계약구분: site.contractType || '',
-      계약금액: site.contractAmount || '',
-      선급금: site.advance || '',
-      누계기성: site.totalProgress || '',
-      주소: site.address || '',
-      착공일: site.startDate || '',
-      준공예정일: site.endDate || '',
-      회사명: site.companyName || '',
-      소장: site.manager || '',
-      연락처: site.phone || '',
-      시공팀: site.team || '',
-      기타사항: site.desc || '',
-      차수: site.installment || '',
-      하도급지킴이: site.subcontractGuardian ? 'Y' : 'N',
-      주요현장: site.isFavorite ? 'Y' : 'N'
-    }));
+    const exportData = sites.map(site => {
+      console.log('처리 중인 site:', site);
+      return {
+        현장명: site.name || '',
+        진행상황: site.status || '',
+        계약구분: site.contractType || '',
+        계약금액: site.contractAmount || '',
+        선급금: site.advance || '',
+        누계기성: site.totalProgress || '',
+        주소: site.address || '',
+        착공일: site.startDate || '',
+        준공예정일: site.endDate || '',
+        회사명: site.companyName || '',
+        소장: site.manager || '',
+        연락처: site.phone || '',
+        시공팀: site.team || '',
+        기타사항: site.desc || '',
+        차수: site.installment || '',
+        하도급지킴이: site.subcontractGuardian ? 'Y' : 'N',
+        주요현장: site.isFavorite ? 'Y' : 'N'
+      };
+    });
+
+    console.log('변환된 exportData:', exportData);
+    console.log('exportData 길이:', exportData.length);
 
     // 컬럼 너비 자동 조정 (한글 텍스트 고려)
     const columnWidths = [
@@ -240,10 +256,12 @@ const WholeList = () => {
 
     const result = exportToExcel(exportData, '현장목록', '현장목록', { columnWidths });
     
+    console.log('exportToExcel 결과:', result);
+    
     if (result.success) {
       alert('엑셀 파일이 다운로드되었습니다.');
     } else {
-      alert('엑셀 다운로드에 실패했습니다.');
+      alert('엑셀 다운로드에 실패했습니다: ' + (result.error || '알 수 없는 오류'));
     }
   };
 
@@ -342,7 +360,15 @@ const WholeList = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box
+      sx={{
+        width: '100%',
+        height: '100%',
+        margin: 0,
+        padding: 0,
+        boxSizing: 'border-box',
+      }}
+    >
       {/* 헤더 */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

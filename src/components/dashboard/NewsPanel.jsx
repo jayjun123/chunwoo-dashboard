@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Typography, Card, CardContent, Link, CircularProgress, Button, IconButton, Tooltip, Fade, Grid, ToggleButton } from '@mui/material';
+import { Box, Typography, Card, CardContent, Link, CircularProgress, Button, IconButton, Tooltip, Fade, Grid, ToggleButton, useMediaQuery } from '@mui/material';
 import { Refresh as RefreshIcon, OpenInNew as OpenInNewIcon, Bookmark as BookmarkIcon, BookmarkBorder as BookmarkBorderIcon, List as ListIcon } from '@mui/icons-material';
 import { getNews, saveNewsToFirestore } from '../../services/newsService';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,7 @@ const NewsPanel = () => {
   const [showFavorites, setShowFavorites] = useState(false);
   const [favorites, setFavorites] = useState([]);
   const navigate = useNavigate();
+  const isMobile = useMediaQuery('(max-width:768px)');
 
   // 즐겨찾기 로컬스토리지 관리
   const loadFavorites = () => {
@@ -167,6 +168,23 @@ const NewsPanel = () => {
     return () => clearInterval(interval);
   }, [fetchAndSaveNews]);
 
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchAndSaveNews().finally(() => setRefreshing(false));
+  };
+
+  const handleNewsClick = (item) => {
+    window.open(item.link, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleFavoriteToggle = (item) => {
+    if (favorites.some(fav => fav.title === item.title)) {
+      setFavorites(favorites.filter(fav => fav.title !== item.title));
+    } else {
+      setFavorites([...favorites, item]);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -193,19 +211,21 @@ const NewsPanel = () => {
 
   // 표시할 뉴스 데이터 결정
   const displayNews = showFavorites ? favorites : news;
-  const leftNews = displayNews.slice(0, 5);
-  const rightNews = displayNews.slice(5, 10);
+  const leftNews = isMobile ? displayNews : displayNews.slice(0, 5);
+  const rightNews = isMobile ? [] : displayNews.slice(5, 10);
 
   return (
-    <Box sx={{ 
-      p: 0.5, 
-      display: 'flex', 
-      flexDirection: 'column', 
+    <Box sx={{
+      height: { xs: 'calc(100vh - 60px - 44px)', md: '100%' },
+      width: '100vw',
+      margin: 0,
+      padding: 0,
+      overflow: 'auto',
+      boxSizing: 'border-box',
+      display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'flex-start',
-      width: '100%',
-      height: '100vh',
-      overflow: 'hidden'
     }}>
       <Box sx={{ 
         display: 'flex', 
@@ -213,256 +233,204 @@ const NewsPanel = () => {
         alignItems: 'center', 
         mb: 0.5, 
         width: '100%', 
+        px: { xs: 1, md: 2 },
         maxWidth: 1200 
       }}>
         <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#fff' }}>
           건설NEWS {showFavorites && '(즐겨찾기)'}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <ToggleButton
-            value="favorites"
-            selected={showFavorites}
-            onChange={() => setShowFavorites(!showFavorites)}
-            size="small"
-            sx={{ 
-              color: '#fff', 
-              borderColor: '#fff',
-              '&.Mui-selected': { 
-                bgcolor: '#FFD600', 
-                color: '#000',
-                '&:hover': { bgcolor: '#FFD600' }
-              }
-            }}
-          >
-            <BookmarkIcon sx={{ fontSize: 16 }} />
-          </ToggleButton>
-          <Tooltip title="즐겨찾기 관리" arrow>
-            <IconButton
-              onClick={() => navigate('/news-favorites')}
-              sx={{ color: '#fff' }}
-            >
-              <ListIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="뉴스 새로고침" arrow>
-            <IconButton
-              onClick={fetchAndSaveNews}
+          <Tooltip title="새로고침">
+            <IconButton 
+              onClick={handleRefresh} 
               disabled={refreshing}
               sx={{ color: '#fff' }}
             >
-              {refreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
+              <RefreshIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="뉴스 즐겨찾기 화면으로 이동">
+            <IconButton 
+              onClick={() => navigate('/news-favorites')}
+              sx={{ color: '#fff' }}
+            >
+              <BookmarkIcon />
             </IconButton>
           </Tooltip>
         </Box>
       </Box>
-
+      
       <Box sx={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: { xs: 1, md: 2 }, 
         width: '100%', 
-        maxWidth: 1200,
-        display: 'flex',
-        gap: 2,
+        height: 'calc(100vh - 80px)',
         overflow: 'hidden',
-        height: 'calc(100vh - 80px)'
+        px: { xs: 0, md: 2 }
       }}>
-        {/* 왼쪽 컬럼 */}
+        {/* 모바일에서는 단일 컬럼, 데스크톱에서는 왼쪽 컬럼 */}
         <Box sx={{ 
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 0.5,
-          overflowY: 'auto'
+          flex: 1, 
+          overflowY: 'auto',
+          width: '100%',
+          px: { xs: 1, md: 0 }
         }}>
           {leftNews.map((item, index) => (
-            <Fade in={true} timeout={500} key={item.id || index}>
+            <Fade in={true} timeout={500 + index * 100} key={item.id || index}>
               <Card 
                 sx={{ 
-                  bgcolor: '#23242a', 
-                  color: '#fff',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  minHeight: 80,
-                  '&:hover': {
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 3px 6px rgba(0,0,0,0.2)'
+                  mb: 1, 
+                  cursor: 'pointer',
+                  '&:hover': { 
+                    transform: 'translateY(-2px)', 
+                    boxShadow: 3,
+                    transition: 'all 0.3s ease'
                   }
                 }}
+                onClick={() => handleNewsClick(item)}
               >
-                <CardContent sx={{ py: 0.5, px: 1.5, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                    <Link
-                      href={item.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      sx={{
-                        color: '#fff',
-                        textDecoration: 'none',
-                        flex: 1,
-                        '&:hover': { color: '#90caf9' }
-                      }}
-                    >
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          fontWeight: '500',
-                          lineHeight: 1.2,
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          fontSize: '1.1rem',
-                          minHeight: '2.4em',
-                          textAlign: 'left'
-                        }}
-                      >
-                        {item.title.replace(/<[^>]*>/g, '')}
-                      </Typography>
-                    </Link>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-                      <Tooltip title={isFavorite(item) ? "즐겨찾기 해제" : "즐겨찾기 추가"} arrow>
-                        <IconButton
-                          size="small"
-                          onClick={() => toggleFavorite(item)}
-                          sx={{ color: isFavorite(item) ? '#FFD600' : '#fff', p: 0.5 }}
-                        >
-                          {isFavorite(item) ? <BookmarkIcon sx={{ fontSize: '0.9rem' }} /> : <BookmarkBorderIcon sx={{ fontSize: '0.9rem' }} />}
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="새 창에서 열기" arrow>
-                        <IconButton
-                          size="small"
-                          component="a"
-                          href={item.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          sx={{ color: '#fff', p: 0.5 }}
-                        >
-                          <OpenInNewIcon sx={{ fontSize: '0.9rem' }} />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </Box>
+                <CardContent sx={{ p: { xs: 1.5, md: 2 } }}>
                   <Typography 
-                    variant="caption" 
+                    variant="body2" 
                     sx={{ 
-                      color: '#666', 
-                      display: 'block',
-                      mt: 0.25,
-                      fontSize: '0.65rem',
-                      alignSelf: 'flex-end'
+                      fontWeight: 'bold', 
+                      mb: 1,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      lineHeight: 1.4
                     }}
                   >
-                    {new Date(item.pubDate).toLocaleString('ko-KR', {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    {item.title}
                   </Typography>
+                  <Typography 
+                    variant="caption" 
+                    color="text.secondary"
+                    sx={{ 
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      mb: 1
+                    }}
+                  >
+                    {item.description}
+                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(item.pubDate).toLocaleString('ko-KR', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </Typography>
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleFavoriteToggle(item);
+                      }}
+                      sx={{ 
+                        color: favorites.some(fav => fav.title === item.title) ? '#ffd700' : 'grey.400',
+                        p: 0.5
+                      }}
+                    >
+                      {favorites.some(fav => fav.title === item.title) ? 
+                        <BookmarkIcon sx={{ fontSize: 16 }} /> : 
+                        <BookmarkBorderIcon sx={{ fontSize: 16 }} />
+                      }
+                    </IconButton>
+                  </Box>
                 </CardContent>
               </Card>
             </Fade>
           ))}
         </Box>
 
-        {/* 오른쪽 컬럼 */}
-        <Box sx={{ 
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 0.5,
-          overflowY: 'auto'
-        }}>
-          {rightNews.map((item, index) => (
-            <Fade in={true} timeout={500} key={item.id || (index + 5)}>
-              <Card 
-                sx={{ 
-                  bgcolor: '#23242a', 
-                  color: '#fff',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  minHeight: 80,
-                  '&:hover': {
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 3px 6px rgba(0,0,0,0.2)'
-                  }
-                }}
-              >
-                <CardContent sx={{ py: 0.5, px: 1.5, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                    <Link
-                      href={item.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      sx={{
-                        color: '#fff',
-                        textDecoration: 'none',
-                        flex: 1,
-                        '&:hover': { color: '#90caf9' }
+        {/* 데스크톱에서만 오른쪽 컬럼 표시 */}
+        {!isMobile && (
+          <Box sx={{ 
+            flex: 1, 
+            overflowY: 'auto',
+            width: '100%'
+          }}>
+            {rightNews.map((item, index) => (
+              <Fade in={true} timeout={500 + index * 100} key={item.id || index}>
+                <Card 
+                  sx={{ 
+                    mb: 1, 
+                    cursor: 'pointer',
+                    '&:hover': { 
+                      transform: 'translateY(-2px)', 
+                      boxShadow: 3,
+                      transition: 'all 0.3s ease'
+                    }
+                  }}
+                  onClick={() => handleNewsClick(item)}
+                >
+                  <CardContent sx={{ p: 2 }}>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        fontWeight: 'bold', 
+                        mb: 1,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        lineHeight: 1.4
                       }}
                     >
-                      <Typography 
-                        variant="body2" 
+                      {item.title}
+                    </Typography>
+                    <Typography 
+                      variant="caption" 
+                      color="text.secondary"
+                      sx={{ 
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        mb: 1
+                      }}
+                    >
+                      {item.description}
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {new Date(item.pubDate).toLocaleString('ko-KR', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </Typography>
+                      <IconButton 
+                        size="small" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleFavoriteToggle(item);
+                        }}
                         sx={{ 
-                          fontWeight: '500',
-                          lineHeight: 1.2,
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          fontSize: '1.1rem',
-                          minHeight: '2.4em',
-                          textAlign: 'left'
+                          color: favorites.some(fav => fav.title === item.title) ? '#ffd700' : 'grey.400',
+                          p: 0.5
                         }}
                       >
-                        {item.title.replace(/<[^>]*>/g, '')}
-                      </Typography>
-                    </Link>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-                      <Tooltip title={isFavorite(item) ? "즐겨찾기 해제" : "즐겨찾기 추가"} arrow>
-                        <IconButton
-                          size="small"
-                          onClick={() => toggleFavorite(item)}
-                          sx={{ color: isFavorite(item) ? '#FFD600' : '#fff', p: 0.5 }}
-                        >
-                          {isFavorite(item) ? <BookmarkIcon sx={{ fontSize: '0.9rem' }} /> : <BookmarkBorderIcon sx={{ fontSize: '0.9rem' }} />}
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="새 창에서 열기" arrow>
-                        <IconButton
-                          size="small"
-                          component="a"
-                          href={item.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          sx={{ color: '#fff', p: 0.5 }}
-                        >
-                          <OpenInNewIcon sx={{ fontSize: '0.9rem' }} />
-                        </IconButton>
-                      </Tooltip>
+                        {favorites.some(fav => fav.title === item.title) ? 
+                          <BookmarkIcon sx={{ fontSize: 16 }} /> : 
+                          <BookmarkBorderIcon sx={{ fontSize: 16 }} />
+                        }
+                      </IconButton>
                     </Box>
-                  </Box>
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      color: '#666', 
-                      display: 'block',
-                      mt: 0.25,
-                      fontSize: '0.65rem',
-                      alignSelf: 'flex-end'
-                    }}
-                  >
-                    {new Date(item.pubDate).toLocaleString('ko-KR', {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Fade>
-          ))}
-        </Box>
+                  </CardContent>
+                </Card>
+              </Fade>
+            ))}
+          </Box>
+        )}
       </Box>
     </Box>
   );

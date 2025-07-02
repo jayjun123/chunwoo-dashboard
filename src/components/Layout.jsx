@@ -47,6 +47,7 @@ import {
   MonetizationOn as MonetizationOnIcon,
   Assignment as AssignmentIcon,
   Payments as PaymentsIcon,
+  Newspaper as NewspaperIcon,
 } from '@mui/icons-material';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -55,6 +56,7 @@ import { useAuth } from '../contexts/AuthContext';
 import BottomBar from './dashboard/BottomBar';
 
 const menuItems = [
+  { text: '건설뉴스', icon: <NewspaperIcon />, path: '/news' },
   { text: '일정관리', icon: <EventIcon />, path: '/schedule' },
   { text: '주요현장', icon: <ProgressIcon />, path: '/importantSite' },
   { text: '현장관리', icon: <BusinessIcon />, path: '/sites' },
@@ -140,7 +142,14 @@ const Layout = ({ children }) => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      minHeight: '100vh',
+      width: '100%',
+      margin: 0,
+      padding: 0
+    }}>
       <CssBaseline />
       <AppBar
         position="fixed"
@@ -149,14 +158,15 @@ const Layout = ({ children }) => {
           color: 'black',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           zIndex: (theme) => theme.zIndex.drawer + 1,
+          height: '58px',
         }}
       >
-        <Toolbar sx={{ justifyContent: 'space-between', alignItems: 'center', px: { xs: 1, md: 2 } }}>
+        <Toolbar sx={{ justifyContent: 'space-between', alignItems: 'center', px: { xs: 1, md: 2 }, minHeight: '58px' }}>
           {/* 왼쪽: 로고 */}
           <Box sx={{ minWidth: 70, px: 1, display: 'flex', alignItems: 'center' }}>
-            <img
-              src="/chunwoo.png"
-              alt="Chunwoo"
+            <img 
+              src="/chunwoo.png" 
+              alt="Chunwoo" 
               style={{ height: 40, width: 'auto', cursor: 'pointer' }}
               onClick={() => {
                 if (isMobile) {
@@ -182,7 +192,7 @@ const Layout = ({ children }) => {
                 whiteSpace: 'nowrap',
               }}
             >
-              {menuItems.map((item) => (
+              {menuItems.filter(item => item.text !== '건설뉴스').map((item) => (
                 <Box
                   key={item.text}
                   sx={{
@@ -241,11 +251,27 @@ const Layout = ({ children }) => {
             justifyContent: 'flex-end'
           }}>
             {/* 회원 등급 표시 */}
-            <Chip
-              label={currentUser?.grade || '일반회원'}
-              size="small"
-              sx={{ fontWeight: 'bold', color: '#222', backgroundColor: '#fff' }}
-            />
+            <div 
+              style={{ 
+                fontWeight: 600, 
+                fontSize: 13,
+                padding: '4px 12px',
+                borderRadius: 20,
+                backgroundColor: currentUser?.grade === '마스터' ? '#ff4444' : 
+                               currentUser?.grade === '관리자' ? '#ffeb3b' :
+                               currentUser?.grade === '대마팀' ? '#4caf50' : '#2196f3',
+                color: currentUser?.grade === '관리자' ? '#000' : '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: 'fit-content',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+            >
+              {currentUser?.grade === '마스터' ? 'MASTER' :
+               currentUser?.grade === '관리자' ? 'ADMIN' :
+               currentUser?.grade === '대마팀' ? 'TEAM' : 'USER'}
+            </div>
 
             {/* 프로필 메뉴 */}
             <IconButton
@@ -258,8 +284,64 @@ const Layout = ({ children }) => {
           </Box>
         </Toolbar>
       </AppBar>
-
-      <Box component="main" sx={{ flexGrow: 1, mt: '48px', p: 0 }}>{children}</Box>
+      
+      {/* 모바일용 Drawer */}
+      <Drawer
+        anchor="left"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        sx={{
+          '& .MuiDrawer-paper': {
+            width: 280,
+            boxSizing: 'border-box',
+          },
+        }}
+      >
+        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+            메뉴
+          </Typography>
+        </Box>
+        <Box sx={{ p: 1 }}>
+          {menuItems.map((item) => (
+            <Box
+              key={item.text}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                p: 2,
+                cursor: 'pointer',
+                borderRadius: 1,
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                },
+                bgcolor: location.pathname === item.path ? 'action.selected' : 'transparent',
+              }}
+              onClick={() => {
+                navigate(item.path);
+                setDrawerOpen(false);
+              }}
+            >
+              <Box sx={{ color: location.pathname === item.path ? 'primary.main' : 'inherit' }}>
+                {item.icon}
+              </Box>
+              <Typography
+                sx={{
+                  color: location.pathname === item.path ? 'primary.main' : 'inherit',
+                  fontWeight: location.pathname === item.path ? 'bold' : 'normal',
+                }}
+              >
+                {item.text}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      </Drawer>
+      
+      <Box component="main" sx={{ flexGrow: 1, mt: { xs: '58px', md: '58px' }, p: 0, width: isMobile ? '100vw' : '100%', maxWidth: isMobile ? '100vw' : '100%', minWidth: isMobile ? '100vw' : '0', margin: 0, padding: 0, boxSizing: 'border-box', ...(isMobile && { height: 'calc(100vh - 58px)', maxHeight: 'calc(100vh - 58px)' }) }}>
+        {children}
+      </Box>
 
       {/* 대시보드 하단 바 - 항상 고정 */}
       <BottomBar
@@ -315,12 +397,6 @@ const Layout = ({ children }) => {
           handleMenuClose();
         }}>
           프로필
-        </MenuItem>
-        <MenuItem onClick={() => {
-          navigate('/settings');
-          handleMenuClose();
-        }}>
-          설정
         </MenuItem>
         <Divider />
         <MenuItem onClick={handleLogout}>
@@ -382,39 +458,6 @@ const Layout = ({ children }) => {
           </MenuItem>
         ))}
       </Menu>
-
-      {/* Drawer: 모바일에서만 chunwoo 이미지 클릭 시 열림 */}
-      {isMobile && (
-        <Drawer
-          anchor="left"
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-          sx={{
-            display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 250 },
-          }}
-        >
-          {/* 원하는 메뉴/내용을 여기에 추가 */}
-          <Box sx={{ width: 250, p: 2 }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>메뉴</Typography>
-            {/* 예시: 주요 메뉴 리스트 */}
-            {menuItems.map((item) => (
-              <Button
-                key={item.text}
-                fullWidth
-                sx={{ justifyContent: 'flex-start', mb: 1 }}
-                onClick={() => {
-                  navigate(item.path);
-                  setDrawerOpen(false);
-                }}
-                startIcon={item.icon}
-              >
-                {item.text}
-              </Button>
-            ))}
-          </Box>
-        </Drawer>
-      )}
     </Box>
   );
 };

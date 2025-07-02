@@ -178,7 +178,7 @@ const NewSites = () => {
       gap: 2, 
       overflow: { xs: 'visible', md: 'hidden' },
       position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '-30px' : 'auto',
+      left: isMobile ? '10px' : 'auto',
       width: isMobile ? '100vw' : '100%',
       minHeight: isMobile ? '100vh' : 'auto'
     }}>
@@ -191,7 +191,10 @@ const NewSites = () => {
         flexDirection: 'column', 
         bgcolor: '#232734', 
         p: isMobile ? 1 : 2, 
-        borderRadius: 2 
+        borderRadius: 2, 
+        position: isMobile ? 'relative' : 'static',
+        top: isMobile ? '-10px' : 'auto',
+        left: isMobile ? '-8px' : 'auto'
       }}>
         <Tabs 
           value={statusTab} 
@@ -263,7 +266,10 @@ const NewSites = () => {
         borderRadius: 2, 
         minWidth: 0, 
         height: { xs: 'auto', md: '100%' },
-        maxHeight: isMobile ? 'none' : '100%'
+        maxHeight: isMobile ? 'none' : '100%',
+        position: isMobile ? 'relative' : 'static',
+        top: isMobile ? '-10px' : 'auto',
+        left: isMobile ? '-8px' : 'auto'
       }}>
          <Box sx={{ display: 'flex', alignItems: 'center', mb: isMobile ? 1 : 2 }}>
            <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>
@@ -273,7 +279,7 @@ const NewSites = () => {
              <Button variant="contained" onClick={handleNewSite} size={isMobile ? 'small' : 'small'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
                + 새현장
              </Button>
-             <Button variant="outlined" onClick={handleWholeList} size={isMobile ? 'small' : 'small'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+             <Button variant="outlined" onClick={handleWholeList} size={isMobile ? 'small' : 'small'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', display: isMobile ? 'none' : 'inline-flex' }}>
                전체 List
              </Button>
            </Box>
@@ -292,17 +298,20 @@ const NewSites = () => {
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  현장명
                </Typography>
-               <TextField name="name" value={form.name ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
-             </Box>
-             <Box sx={{ flex: isMobile ? 'none' : 4 }}>
-               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
-                 진행상황
-               </Typography>
-               <FormControl fullWidth size="small">
-                 <Select name="status" value={form.status ?? '계획'} onChange={handleChange} disabled={isReadOnly}>
-                   {STATUS_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
-                 </Select>
-               </FormControl>
+               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                 <TextField name="name" value={form.name ?? ''} onChange={handleChange} size="small" disabled={isReadOnly} sx={{ width: isMobile ? '250px' : '500px' }} />
+                 <Box sx={{ display: 'flex', alignItems: 'center', pb: 0.5, flexDirection: 'row', whiteSpace: 'nowrap' }}>
+                   <Typography variant="body1" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>주요현장</Typography>
+                   <IconButton 
+                     onClick={() => handleChange({ target: { name: 'isFavorite', value: !form.isFavorite } })} 
+                     size="small" 
+                     sx={{ ml: 0.5 }} 
+                     disabled={isReadOnly}
+                   >
+                     {form.isFavorite ? <StarIcon sx={{ color: 'gold' }} /> : <StarBorderIcon />}
+                   </IconButton>
+                 </Box>
+               </Box>
              </Box>
            </Box>
            
@@ -325,29 +334,13 @@ const NewSites = () => {
              </Box>
              <Box sx={{ flex: isMobile ? 1 : 3 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
-                 차수
+                 진행상황
                </Typography>
-               <TextField 
-                 name="installment" 
-                 value={form.installment ?? ''} 
-                 onChange={handleChange} 
-                 size="small" 
-                 fullWidth 
-                 placeholder="숫자입력" 
-                 InputProps={{ endAdornment: <span style={{color: '#666'}}>차</span> }} 
-                 disabled={isReadOnly || !(form.contractType === '하도급' || form.contractType === '일반')} 
-               />
-             </Box>
-             <Box sx={{ flex: isMobile ? 1 : 3, display: 'flex', alignItems: 'center', pb: 0.5, ml: isMobile ? 0 : 2 }}>
-               <Typography variant="body1" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>주요현장</Typography>
-               <IconButton 
-                 onClick={() => handleChange({ target: { name: 'isFavorite', value: !form.isFavorite } })} 
-                 size="small" 
-                 sx={{ ml: 0.5 }} 
-                 disabled={isReadOnly}
-               >
-                 {form.isFavorite ? <StarIcon sx={{ color: 'gold' }} /> : <StarBorderIcon />}
-               </IconButton>
+               <FormControl fullWidth size="small">
+                 <Select name="status" value={form.status ?? '계획'} onChange={handleChange} disabled={isReadOnly}>
+                   {STATUS_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                 </Select>
+               </FormControl>
              </Box>
            </Box>
            
@@ -356,13 +349,13 @@ const NewSites = () => {
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  계약금액
                </Typography>
-               <TextField name="contractAmount" value={isReadOnly ? (Number(form.contractAmount || 0)).toLocaleString() : form.contractAmount} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
+               <TextField name="contractAmount" value={isReadOnly ? (Number(form.contractAmount || 0)).toLocaleString() : (form.contractAmount ?? '')} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
              </Box>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  선급금
                </Typography>
-               <TextField name="advance" value={isReadOnly ? (Number(form.advance || 0)).toLocaleString() : form.advance} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
+               <TextField name="advance" value={isReadOnly ? (Number(form.advance || 0)).toLocaleString() : (form.advance ?? '')} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
              </Box>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
@@ -374,7 +367,7 @@ const NewSites = () => {
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  안전관리비
                </Typography>
-               <TextField name="safetyCost" value={isReadOnly ? (Number(form.safetyCost || 0)).toLocaleString() : form.safetyCost} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
+               <TextField name="safetyCost" value={isReadOnly ? (Number(form.safetyCost || 0)).toLocaleString() : (form.safetyCost ?? '')} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
              </Box>
            </Box>
            
@@ -392,13 +385,13 @@ const NewSites = () => {
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  착공일
                </Typography>
-               <TextField name="startDate" type="date" value={formatDateForInput(form.startDate)} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} disabled={isReadOnly} />
+               <TextField name="startDate" type="date" value={formatDateForInput(form.startDate) ?? ''} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} disabled={isReadOnly} />
              </Box>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  준공예정일
                </Typography>
-               <TextField name="endDate" type="date" value={formatDateForInput(form.endDate)} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} disabled={isReadOnly} />
+               <TextField name="endDate" type="date" value={formatDateForInput(form.endDate) ?? ''} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} disabled={isReadOnly} />
              </Box>
            </Box>
            
@@ -466,7 +459,10 @@ const NewSites = () => {
         flexDirection: 'column', 
         bgcolor: '#232734', 
         p: isMobile ? 2 : 3, 
-        borderRadius: 2 
+        borderRadius: 2, 
+        position: isMobile ? 'relative' : 'static',
+        top: isMobile ? '-10px' : 'auto',
+        left: isMobile ? '-8px' : 'auto'
       }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
           <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>

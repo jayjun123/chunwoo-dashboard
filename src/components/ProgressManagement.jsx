@@ -151,8 +151,8 @@ const ProgressManagement = () => {
   }
 
   return (
-    <div className={`progress-management ${isDarkMode ? 'dark' : 'light'}`}>
-      <div className="progress-header">
+    <div className={`progress-management ${isDarkMode ? 'dark' : 'light'}`} style={{ width: '100vw', maxWidth: '100vw', margin: 0, padding: 0, boxSizing: 'border-box', minHeight: '100vh' }}>
+      <div className="progress-header" style={{ width: '100vw', maxWidth: '100vw', margin: 0, padding: 0, boxSizing: 'border-box' }}>
         <h2>기성현황</h2>
         <div className="progress-actions">
           <select
@@ -176,40 +176,40 @@ const ProgressManagement = () => {
       </div>
 
       {selectedSite && progressData && (
-        <div className="progress-content">
-          <div className="progress-summary">
-            <div className="summary-card">
+        <div className="progress-content" style={{ width: '100vw', maxWidth: '100vw', margin: 0, padding: 0, boxSizing: 'border-box' }}>
+          <div className="progress-summary" style={{ width: '100vw', maxWidth: '100vw', margin: 0, padding: 0, boxSizing: 'border-box' }}>
+            <div className="summary-card" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <h3>계약금액</h3>
               <p>{progressData.contractAmount?.toLocaleString()}원</p>
             </div>
-            <div className="summary-card">
+            <div className="summary-card" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <h3>선급금</h3>
               <p>{progressData.advancePayment?.toLocaleString()}원</p>
             </div>
-            <div className="summary-card">
+            <div className="summary-card" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <h3>기성금</h3>
               <p>{progressData.progressPayments.reduce(
                 (sum, payment) => sum + Number(payment.amount),
                 0
               )?.toLocaleString()}원</p>
             </div>
-            <div className="summary-card">
+            <div className="summary-card" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <h3>유지보수금</h3>
               <p>{progressData.retentionMoney?.toLocaleString()}원</p>
             </div>
-            <div className="summary-card">
+            <div className="summary-card" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <h3>총 지급액</h3>
               <p>{progressData.totalPaid?.toLocaleString()}원</p>
             </div>
-            <div className="summary-card">
+            <div className="summary-card" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <h3>잔여금액</h3>
               <p>{progressData.remainingAmount?.toLocaleString()}원</p>
             </div>
           </div>
 
-          <div className="progress-details">
+          <div className="progress-details" style={{ width: '100vw', maxWidth: '100vw', margin: 0, padding: 0, boxSizing: 'border-box' }}>
             <h3>기성금 내역</h3>
-            <table className="progress-table">
+            <table className="progress-table" style={{ width: '100vw', maxWidth: '100vw', minWidth: '100vw', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <thead>
                 <tr>
                   <th>날짜</th>

@@ -69,6 +69,12 @@ const Members = () => {
   const [error, setError] = useState('');
   const [permissionDialog, setPermissionDialog] = useState({ open: false, member: null });
   const [permissionSettings, setPermissionSettings] = useState({});
+  const [roleDialog, setRoleDialog] = useState({ open: false, member: null });
+  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedTeamGrade, setSelectedTeamGrade] = useState('');
+  const [approvalDialog, setApprovalDialog] = useState({ open: false, member: null });
+  const [approvalRole, setApprovalRole] = useState('user');
+  const [approvalTeamGrade, setApprovalTeamGrade] = useState('A');
 
   // 권한 옵션 - Firebase에서 가져올 수 있지만 기본값으로 설정
   const permissionOptions = ['읽기', '쓰기', '읽기/쓰기', '권한없음'];
@@ -82,6 +88,58 @@ const Members = () => {
     team: { label: '대마팀', color: 'info', icon: GroupIcon },
     user: { label: '일반회원', color: 'default', icon: PersonIcon },
     pending: { label: '보류', color: 'secondary', icon: PendingIcon }
+  };
+
+  // 역할 변경 권한 체크
+  const canChangeRole = (member) => {
+    // 마스터는 절대 변경 불가
+    if (member.role === 'master') {
+      return false;
+    }
+    // 관리자만 역할 변경 가능
+    return currentUser && currentUser.grade === '관리자';
+  };
+
+  // 역할 변경 다이얼로그 열기
+  const openRoleDialog = (member) => {
+    setRoleDialog({ open: true, member });
+    setSelectedRole(member.role || 'user');
+    setSelectedTeamGrade(member.teamGrade || 'A');
+  };
+
+  // 역할 변경 저장
+  const saveRoleChange = async () => {
+    try {
+      const { member } = roleDialog;
+      await handleRoleChange(member.id, selectedRole, selectedRole === 'team' ? selectedTeamGrade : null);
+      setRoleDialog({ open: false, member: null });
+      setSelectedRole('');
+      setSelectedTeamGrade('');
+    } catch (error) {
+      console.error('역할 변경 실패:', error);
+      setError('역할 변경에 실패했습니다.');
+    }
+  };
+
+  // 승인 다이얼로그 열기
+  const openApprovalDialog = (member) => {
+    setApprovalDialog({ open: true, member });
+    setApprovalRole('user');
+    setApprovalTeamGrade('A');
+  };
+
+  // 승인 처리
+  const handleApproval = async () => {
+    try {
+      const { member } = approvalDialog;
+      await handleStatusChange(member.id, 'approved', approvalRole, approvalRole === 'team' ? approvalTeamGrade : null);
+      setApprovalDialog({ open: false, member: null });
+      setApprovalRole('user');
+      setApprovalTeamGrade('A');
+    } catch (error) {
+      console.error('승인 처리 실패:', error);
+      setError('승인 처리에 실패했습니다.');
+    }
   };
 
   useEffect(() => {
@@ -171,22 +229,24 @@ const Members = () => {
     }
   };
 
-  const handleStatusChange = async (memberId, newStatus) => {
+  const handleStatusChange = async (memberId, newStatus, selectedRole = 'user', teamGrade = null) => {
     try {
       const memberRef = doc(db, 'members', memberId);
       let updateData = { status: newStatus };
 
       if (newStatus === 'approved') {
-        updateData.role = 'user';
+        updateData.role = selectedRole;
         updateData.approvedAt = new Date();
-        // 기본 권한 설정
-        updateData.permissions = {
-          '메인메뉴': '읽기',
-          '일정관리': '읽기',
-          '현장관리': '읽기',
-          '문서관리': '읽기',
-          '설정': '권한없음'
-        };
+        
+        if (selectedRole === 'team' && teamGrade) {
+          updateData.teamGrade = teamGrade;
+        }
+        
+        // 역할별 기본 권한 설정
+        const defaultPermissions = getDefaultPermissions(selectedRole);
+        if (defaultPermissions) {
+          updateData.permissions = defaultPermissions;
+        }
       } else if (newStatus === 'rejected') {
         updateData.rejectedAt = new Date();
       }
@@ -349,89 +409,284 @@ const Members = () => {
 
       {/* 회원명단 탭 */}
       {activeTab === 0 && (
-        <Paper>
-          <TableContainer sx={{ maxHeight: 400 }}>
-            <Table stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell>회원정보</TableCell>
-                  <TableCell>역할</TableCell>
-                  <TableCell>가입일</TableCell>
-                  <TableCell>권한설정</TableCell>
-                  <TableCell>관리</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {members.map((member) => (
-                  <TableRow key={member.id}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Avatar src={member.avatar}>
-                          {member.name?.[0] || 'U'}
-                        </Avatar>
-                        <Box>
-                          <Typography variant="subtitle2">{member.name || '이름 없음'}</Typography>
-                          <Typography variant="caption" color="textSecondary">
-                            {member.email || '이메일 없음'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Chip
-                          label={getRoleLabel(member)}
-                          color={getRoleColor(member)}
-                          size="small"
-                          icon={member.role === 'admin' ? <AdminIcon /> : 
-                                member.role === 'team' ? <GroupIcon /> : 
-                                member.role === 'master' ? <AdminIcon /> : <PersonIcon />}
-                        />
-                        {member.role !== 'master' && (
-                          <FormControl size="small" sx={{ minWidth: 120 }}>
-                            <Select
-                              value={member.role}
-                              onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                              displayEmpty
-                            >
-                              <MenuItem value="admin">관리자</MenuItem>
-                              <MenuItem value="team">대마팀</MenuItem>
-                              <MenuItem value="user">일반회원</MenuItem>
-                            </Select>
-                          </FormControl>
-                        )}
-                        {member.role === 'team' && (
-                          <FormControl size="small" sx={{ minWidth: 80 }}>
-                            <Select
-                              value={member.teamGrade || 'A'}
-                              onChange={(e) => handleRoleChange(member.id, 'team', e.target.value)}
-                            >
-                              {teamGrades.map(grade => (
-                                <MenuItem key={grade} value={grade}>{grade}</MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {member.createdAt ? format(member.createdAt.toDate(), 'yyyy-MM-dd') : '-'}
+        <>
+          {/* 모바일: 카드형 UI */}
+          {isMobile ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {members.map((member) => (
+                <Card key={member.id} sx={{ p: 2, borderRadius: 2, boxShadow: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Avatar src={member.avatar} sx={{ width: 50, height: 50 }}>
+                      {member.name?.[0] || 'U'}
+                    </Avatar>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        {member.name || '이름 없음'}
                       </Typography>
-                    </TableCell>
-                    <TableCell>
+                      <Typography variant="body2" color="textSecondary">
+                        {member.email || '이메일 없음'}
+                      </Typography>
+                    </Box>
+                    <Chip 
+                      label={getRoleLabel(member)} 
+                      color={getRoleColor(member)} 
+                      size="small"
+                      sx={{ fontWeight: 600 }}
+                    />
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      가입일: {member.createdAt ? format(member.createdAt.toDate(), 'yyyy-MM-dd') : '-'}
+                    </Typography>
+                    {member.phone && (
+                      <Typography variant="body2" color="textSecondary">
+                        연락처: {member.phone}
+                      </Typography>
+                    )}
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                    {canChangeRole(member) && (
                       <Button
                         variant="outlined"
                         size="small"
-                        onClick={() => openPermissionDialog(member)}
-                        startIcon={<SecurityIcon />}
+                        onClick={() => openRoleDialog(member)}
+                        startIcon={<EditIcon />}
+                        sx={{ fontSize: '0.75rem' }}
                       >
-                        권한설정
+                        역할변경
                       </Button>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Tooltip title="삭제">
+                    )}
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => openPermissionDialog(member)}
+                      startIcon={<SecurityIcon />}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      권한설정
+                    </Button>
+                    <IconButton 
+                      size="small" 
+                      color="error"
+                      onClick={() => handleDeleteMember(member.id)}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Card>
+              ))}
+            </Box>
+          ) : (
+            /* PC: 테이블형 UI */
+            <Paper>
+              <TableContainer sx={{ maxHeight: 400 }}>
+                <Table stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>회원정보</TableCell>
+                      <TableCell>역할</TableCell>
+                      <TableCell>가입일</TableCell>
+                      <TableCell>권한설정</TableCell>
+                      <TableCell>관리</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {members.map((member) => (
+                      <TableRow key={member.id}>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Avatar src={member.avatar}>
+                              {member.name?.[0] || 'U'}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="subtitle2">{member.name || '이름 없음'}</Typography>
+                              <Typography variant="caption" color="textSecondary">
+                                {member.email || '이메일 없음'}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip 
+                              label={getRoleLabel(member)} 
+                              color={getRoleColor(member)} 
+                              size="small"
+                            />
+                            {canChangeRole(member) && (
+                              <Tooltip title="역할 변경">
+                                <IconButton 
+                                  size="small" 
+                                  color="primary"
+                                  onClick={() => openRoleDialog(member)}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {member.createdAt ? format(member.createdAt.toDate(), 'yyyy-MM-dd') : '-'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => openPermissionDialog(member)}
+                            startIcon={<SecurityIcon />}
+                          >
+                            권한설정
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Tooltip title="삭제">
+                              <IconButton 
+                                size="small" 
+                                color="error"
+                                onClick={() => handleDeleteMember(member.id)}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          )}
+        </>
+      )}
+
+      {/* 보류 명단 탭 */}
+      {activeTab === 1 && (
+        <>
+          {/* 모바일: 카드형 UI */}
+          {isMobile ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {pendingMembers.map((member) => (
+                <Card key={member.id} sx={{ p: 2, borderRadius: 2, boxShadow: 2, bgcolor: '#fff3e0' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Avatar src={member.avatar} sx={{ width: 50, height: 50 }}>
+                      {member.name?.[0] || 'U'}
+                    </Avatar>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        {member.name || '이름 없음'}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {member.email || '이메일 없음'}
+                      </Typography>
+                    </Box>
+                    <Chip 
+                      label="대기중" 
+                      color="warning" 
+                      size="small"
+                      sx={{ fontWeight: 600 }}
+                    />
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      신청일: {member.createdAt ? format(member.createdAt.toDate(), 'yyyy-MM-dd') : '-'}
+                    </Typography>
+                    {member.phone && (
+                      <Typography variant="body2" color="textSecondary">
+                        연락처: {member.phone}
+                      </Typography>
+                    )}
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      color="success"
+                      onClick={() => openApprovalDialog(member)}
+                      startIcon={<CheckCircleIcon />}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      승인
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      color="error"
+                      onClick={() => handleStatusChange(member.id, 'rejected')}
+                      startIcon={<CancelIcon />}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      거부
+                    </Button>
+                  </Box>
+                </Card>
+              ))}
+            </Box>
+          ) : (
+            /* PC: 테이블형 UI */
+            <Paper>
+              <TableContainer sx={{ maxHeight: 400 }}>
+                <Table stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>회원정보</TableCell>
+                      <TableCell>신청일</TableCell>
+                      <TableCell>권한 부여</TableCell>
+                      <TableCell>관리</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {pendingMembers.map((member) => (
+                      <TableRow key={member.id}>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Avatar src={member.avatar}>
+                              {member.name?.[0] || 'U'}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="subtitle2">{member.name || '이름 없음'}</Typography>
+                              <Typography variant="caption" color="textSecondary">
+                                {member.email || '이메일 없음'}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {member.createdAt ? format(member.createdAt.toDate(), 'yyyy-MM-dd') : '-'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              color="success"
+                              onClick={() => openApprovalDialog(member)}
+                              startIcon={<CheckCircleIcon />}
+                            >
+                              승인
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              color="error"
+                              onClick={() => handleStatusChange(member.id, 'rejected')}
+                              startIcon={<CancelIcon />}
+                            >
+                              거부
+                            </Button>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
                           <IconButton 
                             size="small" 
                             color="error"
@@ -439,101 +694,15 @@ const Members = () => {
                           >
                             <DeleteIcon />
                           </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-      )}
-
-      {/* 보류 명단 탭 */}
-      {activeTab === 1 && (
-        <Paper>
-          <TableContainer sx={{ maxHeight: 400 }}>
-            <Table stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell>회원정보</TableCell>
-                  <TableCell>신청일</TableCell>
-                  <TableCell>권한 부여</TableCell>
-                  <TableCell>관리</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {pendingMembers.map((member) => (
-                  <TableRow key={member.id}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Avatar src={member.avatar}>
-                          {member.name?.[0] || 'U'}
-                        </Avatar>
-                        <Box>
-                          <Typography variant="subtitle2">{member.name || '이름 없음'}</Typography>
-                          <Typography variant="caption" color="textSecondary">
-                            {member.email || '이메일 없음'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {member.createdAt ? format(member.createdAt.toDate(), 'yyyy-MM-dd') : '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        <Button
-                          variant="contained"
-                          color="success"
-                          size="small"
-                          onClick={() => handleStatusChange(member.id, 'approved')}
-                          startIcon={<CheckCircleIcon />}
-                        >
-                          승인
-                        </Button>
-                        <FormControl size="small" sx={{ minWidth: 120 }}>
-                          <Select
-                            value="user"
-                            onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                            displayEmpty
-                          >
-                            <MenuItem value="admin">관리자</MenuItem>
-                            <MenuItem value="team">대마팀</MenuItem>
-                            <MenuItem value="user">일반회원</MenuItem>
-                          </Select>
-                        </FormControl>
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          size="small"
-                          onClick={() => handleStatusChange(member.id, 'rejected')}
-                          startIcon={<CancelIcon />}
-                        >
-                          거절
-                        </Button>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        size="small"
-                        onClick={() => handleDeleteMember(member.id)}
-                        startIcon={<DeleteIcon />}
-                      >
-                        삭제
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          )}
+        </>
       )}
 
       {/* 권한 설정 다이얼로그 */}
@@ -583,8 +752,126 @@ const Members = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
-  );
-};
+
+      {/* 역할 변경 다이얼로그 */}
+      <Dialog 
+        open={roleDialog.open} 
+        onClose={() => setRoleDialog({ open: false, member: null })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          역할 변경 - {roleDialog.member?.name}
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom>
+                역할 선택
+              </Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>역할</InputLabel>
+                <Select
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                  label="역할"
+                >
+                  {Object.entries(roles).map(([role, { label }]) => (
+                    <MenuItem key={role} value={role}>{label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            {selectedRole === 'team' && (
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>팀 등급</InputLabel>
+                  <Select
+                    value={selectedTeamGrade}
+                    onChange={(e) => setSelectedTeamGrade(e.target.value)}
+                    label="팀 등급"
+                  >
+                    {teamGrades.map((grade) => (
+                      <MenuItem key={grade} value={grade}>{grade}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRoleDialog({ open: false, member: null })}>
+            취소
+          </Button>
+          <Button onClick={saveRoleChange} variant="contained">
+            저장
+          </Button>
+                 </DialogActions>
+       </Dialog>
+
+       {/* 승인 다이얼로그 */}
+       <Dialog 
+         open={approvalDialog.open} 
+         onClose={() => setApprovalDialog({ open: false, member: null })}
+         maxWidth="md"
+         fullWidth
+       >
+         <DialogTitle>
+           회원 승인 - {approvalDialog.member?.name}
+         </DialogTitle>
+         <DialogContent>
+           <Grid container spacing={2} sx={{ mt: 1 }}>
+             <Grid item xs={12}>
+               <Typography variant="h6" gutterBottom>
+                 승인할 역할 선택
+               </Typography>
+             </Grid>
+             <Grid item xs={12}>
+               <FormControl fullWidth>
+                 <InputLabel>역할</InputLabel>
+                 <Select
+                   value={approvalRole}
+                   onChange={(e) => setApprovalRole(e.target.value)}
+                   label="역할"
+                 >
+                   {Object.entries(roles).filter(([role, { hidden }]) => !hidden).map(([role, { label }]) => (
+                     <MenuItem key={role} value={role}>{label}</MenuItem>
+                   ))}
+                 </Select>
+               </FormControl>
+             </Grid>
+             {approvalRole === 'team' && (
+               <Grid item xs={12}>
+                 <FormControl fullWidth>
+                   <InputLabel>팀 등급</InputLabel>
+                   <Select
+                     value={approvalTeamGrade}
+                     onChange={(e) => setApprovalTeamGrade(e.target.value)}
+                     label="팀 등급"
+                   >
+                     {teamGrades.map((grade) => (
+                       <MenuItem key={grade} value={grade}>{grade}</MenuItem>
+                     ))}
+                   </Select>
+                 </FormControl>
+               </Grid>
+             )}
+           </Grid>
+         </DialogContent>
+         <DialogActions>
+           <Button onClick={() => setApprovalDialog({ open: false, member: null })}>
+             취소
+           </Button>
+           <Button onClick={handleApproval} variant="contained" color="success">
+             승인
+           </Button>
+         </DialogActions>
+       </Dialog>
+     </Box>
+   );
+ };
 
 export default Members; 

@@ -159,15 +159,6 @@ const Settings = () => {
     <Layout>
       <Box sx={{ p: 3 }}>
         <Typography variant="h4" gutterBottom>설정</Typography>
-        {/* 회원관리/권한관리 이동 버튼 */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-          <Button variant="outlined" color="primary" onClick={() => navigate('/members')}>
-            회원관리
-          </Button>
-          <Button variant="outlined" color="secondary" onClick={() => navigate('/permissions')}>
-            권한관리
-          </Button>
-        </Box>
         <Grid container spacing={3}>
           {/* 프로필 */}
           <Grid>

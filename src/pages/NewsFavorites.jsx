@@ -167,19 +167,20 @@ const NewsFavorites = () => {
   return (
     <Box sx={{ 
       p: 3, 
+      pt: { xs: 1, md: 3 },
+      mt: { xs: 0.5, md: 0 }, // 모바일에서 20px 아래로 내림 (0.5 * 8px = 4px, 기존 -22px에서 +20px = -2px, 0.5 * 8px = 4px)
       minHeight: '100vh', 
-      background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
-      color: '#fff'
+      color: { xs: '#fff', md: '#333' }
     }}>
       {/* 헤더 */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ mb: 3, mt: { xs: -2, md: 0 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: { xs: '#fff', md: '#333' } }}>
             뉴스 즐겨찾기
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <Typography variant="body1" sx={{ opacity: 0.8 }}>
-              저장된 뉴스 {favorites.length}개
+            <Typography variant="body1" sx={{ opacity: 0.8, color: { xs: '#fff', md: '#666' } }}>
+              저장 뉴스 {favorites.length}개
             </Typography>
             {favorites.length > 0 && (
               <Box sx={{ display: 'flex', gap: 1 }}>
@@ -208,16 +209,26 @@ const NewsFavorites = () => {
           <Button
             variant="outlined"
             onClick={() => navigate('/')}
-            sx={{ color: '#fff', borderColor: '#fff' }}
+            sx={{ 
+              color: { xs: '#fff', md: '#333' }, 
+              borderColor: { xs: '#fff', md: '#333' },
+              '&:hover': {
+                borderColor: { xs: '#fff', md: '#333' },
+                backgroundColor: { xs: 'rgba(255,255,255,0.1)', md: 'transparent' }
+              }
+            }}
           >
-            메인화면으로
+            메인화면
           </Button>
           {favorites.length > 0 && (
             <Button
               variant="outlined"
               color="error"
               onClick={() => setDeleteDialog({ open: true, item: null })}
-              sx={{ borderColor: '#ff6b6b' }}
+              sx={{ 
+                borderColor: '#ff6b6b',
+                display: { xs: 'none', sm: 'inline-flex' } // 모바일에서 숨김
+              }}
             >
               전체 삭제
             </Button>
@@ -228,45 +239,58 @@ const NewsFavorites = () => {
       {/* 검색 및 필터 */}
       <Box sx={{ mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
+          <Grid item xs={8} md={4}>
             <TextField
               fullWidth
+              size="small"
               placeholder="뉴스 검색... (Ctrl+F)"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
-                startAdornment: <SearchIcon sx={{ color: '#fff', mr: 1 }} />,
+                startAdornment: <SearchIcon sx={{ color: { xs: '#fff', md: '#666' }, mr: 1 }} />,
                 endAdornment: searchTerm && (
                   <IconButton size="small" onClick={() => setSearchTerm('')}>
-                    <ClearIcon sx={{ color: '#fff' }} />
+                    <ClearIcon sx={{ color: { xs: '#fff', md: '#666' } }} />
                   </IconButton>
                 )
               }}
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  color: '#fff',
-                  '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                  '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
-                  '&.Mui-focused fieldset': { borderColor: '#fff' }
+                  color: { xs: '#fff', md: '#333' },
+                  '& fieldset': { 
+                    borderColor: { xs: 'rgba(255,255,255,0.3)', md: 'rgba(0,0,0,0.3)' } 
+                  },
+                  '&:hover fieldset': { 
+                    borderColor: { xs: 'rgba(255,255,255,0.5)', md: 'rgba(0,0,0,0.5)' } 
+                  },
+                  '&.Mui-focused fieldset': { 
+                    borderColor: { xs: '#fff', md: '#333' } 
+                  }
                 },
                 '& .MuiInputBase-input::placeholder': {
-                  color: 'rgba(255,255,255,0.7)'
+                  color: { xs: 'rgba(255,255,255,0.7)', md: 'rgba(0,0,0,0.7)' }
                 }
               }}
             />
           </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel sx={{ color: '#fff' }}>카테고리</InputLabel>
+          <Grid item xs={2} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ color: { xs: '#fff', md: '#666' } }}>카테고리</InputLabel>
               <Select
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
                 label="카테고리"
                 sx={{
-                  color: '#fff',
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.5)' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' }
+                  color: { xs: '#fff', md: '#333' },
+                  '& .MuiOutlinedInput-notchedOutline': { 
+                    borderColor: { xs: 'rgba(255,255,255,0.3)', md: 'rgba(0,0,0,0.3)' } 
+                  },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { 
+                    borderColor: { xs: 'rgba(255,255,255,0.5)', md: 'rgba(0,0,0,0.5)' } 
+                  },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { 
+                    borderColor: { xs: '#fff', md: '#333' } 
+                  }
                 }}
               >
                 {categories.map(cat => (
@@ -277,18 +301,24 @@ const NewsFavorites = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel sx={{ color: '#fff' }}>정렬</InputLabel>
+          <Grid item xs={2} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ color: { xs: '#fff', md: '#666' } }}>정렬</InputLabel>
               <Select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 label="정렬"
                 sx={{
-                  color: '#fff',
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.5)' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' }
+                  color: { xs: '#fff', md: '#333' },
+                  '& .MuiOutlinedInput-notchedOutline': { 
+                    borderColor: { xs: 'rgba(255,255,255,0.3)', md: 'rgba(0,0,0,0.3)' } 
+                  },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { 
+                    borderColor: { xs: 'rgba(255,255,255,0.5)', md: 'rgba(0,0,0,0.5)' } 
+                  },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { 
+                    borderColor: { xs: '#fff', md: '#333' } 
+                  }
                 }}
               >
                 <MenuItem value="date">날짜순</MenuItem>
@@ -297,8 +327,13 @@ const NewsFavorites = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={2}>
-            <Typography variant="body2" sx={{ textAlign: 'center', opacity: 0.8 }}>
+          <Grid item xs={0} md={2}>
+            <Typography variant="body2" sx={{ 
+              textAlign: 'center', 
+              opacity: 0.8,
+              color: { xs: '#fff', md: '#333' },
+              display: { xs: 'none', md: 'block' } // 모바일에서 숨김
+            }}>
               {filteredFavorites.length}개 표시
             </Typography>
           </Grid>
@@ -310,14 +345,14 @@ const NewsFavorites = () => {
         <Box sx={{ 
           textAlign: 'center', 
           py: 8,
-          background: 'rgba(255,255,255,0.1)',
+          background: { xs: 'rgba(255,255,255,0.1)', md: 'rgba(0,0,0,0.05)' },
           borderRadius: 2
         }}>
-          <BookmarkBorderIcon sx={{ fontSize: 64, opacity: 0.5, mb: 2 }} />
-          <Typography variant="h6" sx={{ mb: 1 }}>
+          <BookmarkBorderIcon sx={{ fontSize: 64, opacity: 0.5, mb: 2, color: { xs: '#fff', md: '#666' } }} />
+          <Typography variant="h6" sx={{ mb: 1, color: { xs: '#fff', md: '#333' } }}>
             {searchTerm || filterCategory !== 'all' ? '검색 결과가 없습니다' : '저장된 즐겨찾기가 없습니다'}
           </Typography>
-          <Typography variant="body2" sx={{ opacity: 0.7, mb: 2 }}>
+          <Typography variant="body2" sx={{ opacity: 0.7, mb: 2, color: { xs: '#fff', md: '#666' } }}>
             {searchTerm || filterCategory !== 'all' 
               ? '다른 검색어나 필터를 시도해보세요' 
               : '대시보드에서 관심 있는 뉴스에 즐겨찾기를 추가해보세요'
@@ -328,9 +363,12 @@ const NewsFavorites = () => {
               variant="outlined"
               onClick={() => navigate('/')}
               sx={{ 
-                color: '#fff', 
-                borderColor: '#fff',
-                '&:hover': { borderColor: '#FFD600', color: '#FFD600' }
+                color: { xs: '#fff', md: '#333' }, 
+                borderColor: { xs: '#fff', md: '#333' },
+                '&:hover': { 
+                  borderColor: { xs: '#FFD600', md: '#333' }, 
+                  color: { xs: '#FFD600', md: '#333' } 
+                }
               }}
             >
               메인화면으로 이동
@@ -343,14 +381,14 @@ const NewsFavorites = () => {
             <Grid item xs={12} md={6} key={item.link}>
               <Fade in={true} timeout={300 + index * 100}>
                 <Card sx={{ 
-                  bgcolor: 'rgba(255,255,255,0.1)', 
+                  bgcolor: { xs: 'rgba(255,255,255,0.1)', md: 'rgba(255,255,255,0.05)' }, 
                   backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255,255,255,0.2)',
+                  border: { xs: '1px solid rgba(255,255,255,0.2)', md: '1px solid rgba(0,0,0,0.1)' },
                   transition: 'all 0.3s',
                   '&:hover': {
                     transform: 'translateY(-4px)',
-                    boxShadow: '0 8px 25px rgba(0,0,0,0.3)',
-                    borderColor: 'rgba(255,255,255,0.4)'
+                    boxShadow: { xs: '0 8px 25px rgba(0,0,0,0.3)', md: '0 8px 25px rgba(0,0,0,0.1)' },
+                    borderColor: { xs: 'rgba(255,255,255,0.4)', md: 'rgba(0,0,0,0.2)' }
                   }
                 }}>
                   <CardContent sx={{ p: 2 }}>
@@ -374,7 +412,7 @@ const NewsFavorites = () => {
                             href={item.link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            sx={{ color: '#fff', p: 0.5 }}
+                            sx={{ color: { xs: '#fff', md: '#666' }, p: 0.5 }}
                           >
                             <OpenInNewIcon sx={{ fontSize: 16 }} />
                           </IconButton>
@@ -398,7 +436,8 @@ const NewsFavorites = () => {
                         mb: 1, 
                         lineHeight: 1.3,
                         cursor: 'pointer',
-                        '&:hover': { color: '#90caf9' }
+                        color: { xs: '#fff', md: '#333' },
+                        '&:hover': { color: { xs: '#90caf9', md: '#1976d2' } }
                       }}
                       onClick={() => window.open(item.link, '_blank')}
                     >
@@ -408,7 +447,7 @@ const NewsFavorites = () => {
                     <Typography 
                       variant="body2" 
                       sx={{ 
-                        color: 'rgba(255,255,255,0.8)', 
+                        color: { xs: 'rgba(255,255,255,0.8)', md: 'rgba(0,0,0,0.7)' }, 
                         mb: 1,
                         lineHeight: 1.4,
                         display: '-webkit-box',
@@ -423,7 +462,7 @@ const NewsFavorites = () => {
                     <Typography 
                       variant="caption" 
                       sx={{ 
-                        color: 'rgba(255,255,255,0.6)',
+                        color: { xs: 'rgba(255,255,255,0.6)', md: 'rgba(0,0,0,0.5)' },
                         display: 'block'
                       }}
                     >

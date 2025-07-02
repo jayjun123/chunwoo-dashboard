@@ -35,6 +35,7 @@ import {
   Edit as EditIcon, 
   Delete as DeleteIcon, 
   CloudDownload as CloudDownloadIcon,
+  CloudUpload as CloudUploadIcon,
   Search as SearchIcon,
   Sort as SortIcon
 } from '@mui/icons-material';
@@ -43,7 +44,7 @@ import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where
 import { exportToExcel } from '../utils/exportUtils';
 import { useAuth } from '../contexts/AuthContext';
 
-const CostPage = ({ viewType, currentMonth, monthText, selectedSites, filteredData }) => {
+const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }) => {
   const { currentUser } = useAuth();
   const [costs, setCosts] = useState([]);
   const [sites, setSites] = useState([]);
@@ -122,15 +123,17 @@ const CostPage = ({ viewType, currentMonth, monthText, selectedSites, filteredDa
 
   // 통계 데이터
   const stats = useMemo(() => {
-    const totalValue = filteredAndSortedCosts.reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+    const filtered = filteredData || filteredAndSortedCosts;
+    const totalValue = filtered.reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
     
     return { totalValue };
-  }, [filteredAndSortedCosts]);
+  }, [filteredData, filteredAndSortedCosts]);
 
   // 체크박스 관련 함수들
   const handleSelectAll = (event) => {
+    const filtered = filteredData || filteredAndSortedCosts;
     if (event.target.checked) {
-      setSelectedItems(filteredAndSortedCosts.map(item => item.id));
+      setSelectedItems(filtered.map(item => item.id));
     } else {
       setSelectedItems([]);
     }
@@ -297,29 +300,29 @@ const CostPage = ({ viewType, currentMonth, monthText, selectedSites, filteredDa
   const StatCard = ({ title, value, color }) => (
     <Grid item xs={6} sm={6} md={3}>
       <Card sx={{ 
-        p: isMobile ? 1 : 2, 
+        p: isMobile ? 2 : 2, 
         height: '100%', 
         bgcolor: '#181f2e', 
         color: '#fff',
         border: '1px solid #232b3b'
       }}>
         <Typography 
-          variant={isMobile ? "caption" : "subtitle2"} 
+          variant={isMobile ? "subtitle2" : "subtitle2"} 
           sx={{ 
             color: '#bbb', 
-            mb: isMobile ? 0.5 : 1,
-            fontSize: isMobile ? '0.6rem' : 'inherit',
+            mb: isMobile ? 1 : 1,
+            fontSize: isMobile ? '0.9rem' : 'inherit',
             lineHeight: isMobile ? 1.2 : 'inherit'
           }}
         >
           {title}
         </Typography>
         <Typography 
-          variant={isMobile ? "body2" : "h6"} 
+          variant={isMobile ? "h6" : "h6"} 
           color={color || '#43e97b'} 
           sx={{ 
             fontWeight: 'bold',
-            fontSize: isMobile ? '0.7rem' : 'inherit',
+            fontSize: isMobile ? '1rem' : 'inherit',
             lineHeight: isMobile ? 1.2 : 'inherit'
           }}
         >
@@ -329,105 +332,74 @@ const CostPage = ({ viewType, currentMonth, monthText, selectedSites, filteredDa
     </Grid>
   );
 
+  // 필터 적용 (상위 컴포넌트에서 전달받은 filteredData 사용)
+  const filtered = filteredData || filteredAndSortedCosts;
+
   return (
-    <Box sx={{ 
-      width: '100%', 
-      minHeight: '100vh', 
-      bgcolor: '#101624', 
-      p: { xs: 1, md: 4 },
-      position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '-30px' : 'auto',
-      width: isMobile ? '100vw' : '100%'
-    }}>
-      {/* 상단 제목 및 통계 */}
-      <Typography variant="h4" sx={{ 
-        mb: 3, 
-        fontWeight: 800, 
-        color: '#90caf9',
-        textAlign: 'center'
-      }}>
-        {viewType === 'month' ? `${monthText} 지출현황` : '현장별 지출현황'}
-      </Typography>
-
-      {/* 통계 카드 */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <StatCard title="총 지출액" value={stats.totalValue} color="#ef5350" />
-        <StatCard title="건수" value={filteredAndSortedCosts.length} color="#a084e8" />
-      </Grid>
-
-      {/* 버튼들 */}
-      <Box sx={{ 
-        display: 'flex', 
-        gap: 2, 
-        mb: 3, 
-        alignItems: 'center',
-        justifyContent: 'flex-end'
-      }}>
-        {selectedItems.length > 0 && (
+    <Box sx={{ p: 2 }}>
+      {/* 통계 카드 + 새지출 버튼 한 줄 배치 (모바일만) */}
+      {isMobile ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, position: 'relative', width: 390 }}>
+          <Grid container spacing={2} sx={{ flex: 1 }}>
+            <StatCard title="총 지출액" value={stats.totalValue} color="#ef5350" />
+            <StatCard title="건수" value={filtered.length} color="#a084e8" />
+          </Grid>
           <Button 
             variant="contained" 
-            color="error" 
-            onClick={handleBulkDelete}
-            sx={{ 
-              bgcolor: '#d32f2f',
-              '&:hover': { bgcolor: '#c62828' }
-            }}
-          >
-            선택 삭제 ({selectedItems.length})
+            color="success" 
+            startIcon={<AddIcon />} 
+            sx={{ ml: 2, height: 40, position: 'absolute', right: 4, top: 15 }} 
+            onClick={() => openDialog()}>
+            새 지출
           </Button>
-        )}
-        
-        <Button 
-          variant="contained" 
-          color="primary" 
-          startIcon={<CloudDownloadIcon />}
-          onClick={handleExcelDownload}
-          sx={{ 
-            bgcolor: '#1976d2',
-            '&:hover': { bgcolor: '#1565c0' },
-            display: isMobile ? 'none' : 'flex'
-          }}
-        >
-          엑셀 다운로드
-        </Button>
-        <Button 
-          variant="contained" 
-          color="success" 
-          startIcon={<AddIcon />}
-          onClick={() => openDialog()}
-          sx={{ 
-            bgcolor: '#2e7d32',
-            '&:hover': { bgcolor: '#1b5e20' }
-          }}
-        >
-          항목 추가
-        </Button>
-      </Box>
-
-      {/* 테이블 */}
+        </Box>
+      ) : (
+        <Box sx={{ mb: 3 }}>
+          <Grid container spacing={2}>
+            <StatCard title="총 지출액" value={stats.totalValue} color="#ef5350" />
+            <StatCard title="건수" value={filtered.length} color="#a084e8" />
+          </Grid>
+        </Box>
+      )}
+      
       <Paper sx={{ 
-        borderRadius: 4, 
-        boxShadow: 6, 
-        bgcolor: '#181f2e', 
-        color: '#fff',
-        overflow: 'hidden'
+        width: isMobile ? '410px' : '100%', 
+        overflow: 'hidden', 
+        mt: 3, 
+        p: 2,
+        maxWidth: isMobile ? '410px' : '100vw',
+        boxSizing: 'border-box',
+        ml: isMobile ? '-16px' : 0
       }}>
-        <TableContainer>
-          <Table size={isMobile ? 'small' : 'medium'}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, position: 'relative' }}>
+          <Typography variant="h6" sx={{ flex: 1, display: isMobile ? 'none' : 'block' }}>지출현황</Typography>
+          <Button variant="contained" color="primary" startIcon={<CloudDownloadIcon />} sx={{ ml: 1, display: isMobile ? 'none' : 'flex' }} onClick={handleExcelDownload}>엑셀 다운로드</Button>
+          <Button variant="contained" color="primary" startIcon={<CloudUploadIcon />} sx={{ ml: 1, display: isMobile ? 'none' : 'flex' }}>엑셀 업로드</Button>
+        </Box>
+        <TableContainer sx={{ 
+          width: isMobile ? '410px' : '100%',
+          maxWidth: isMobile ? '410px' : '100%',
+          overflowX: 'auto'
+        }}>
+          <Table size={isMobile ? 'small' : 'medium'} sx={{ 
+            width: isMobile ? '410px' : '100%',
+            minWidth: isMobile ? '410px' : '100%',
+            tableLayout: 'auto'
+          }}>
             <TableHead>
               <TableRow sx={{ bgcolor: '#232b3b' }}>
                 <TableCell padding="checkbox" sx={{ display: isMobile ? 'none' : 'table-cell' }}>
                   <Checkbox
-                    indeterminate={selectedItems.length > 0 && selectedItems.length < filteredAndSortedCosts.length}
-                    checked={filteredAndSortedCosts.length > 0 && selectedItems.length === filteredAndSortedCosts.length}
+                    indeterminate={selectedItems.length > 0 && selectedItems.length < filtered.length}
+                    checked={filtered.length > 0 && selectedItems.length === filtered.length}
                     onChange={handleSelectAll}
                     sx={{ color: '#fff' }}
                   />
                 </TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700 }}>현장명</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700 }}>항목</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 700, ml: isMobile ? '-8px' : 0 }}>현장명</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 700, ml: isMobile ? '-8px' : 0 }}>항목</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>사용날짜</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700 }}>금액</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 700, ml: isMobile ? '-8px' : 0 }}>금액</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>결제</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>비고</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>기타</TableCell>
@@ -435,14 +407,14 @@ const CostPage = ({ viewType, currentMonth, monthText, selectedSites, filteredDa
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredAndSortedCosts.length === 0 ? (
+              {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isMobile ? 3 : 9} sx={{ textAlign: 'center', color: '#bbb', py: 4 }}>
+                  <TableCell colSpan={isMobile ? 3 : 9} sx={{ textAlign: 'center', color: '#bbb', py: 4, ml: isMobile ? '-8px' : 0 }}>
                     {search ? '검색 결과가 없습니다.' : '지출 데이터가 없습니다.'}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredAndSortedCosts.map(cost => (
+                filtered.map(cost => (
                   <TableRow 
                     key={cost.id} 
                     sx={{ 
@@ -768,4 +740,4 @@ const CostPage = ({ viewType, currentMonth, monthText, selectedSites, filteredDa
   );
 };
 
-export default CostPage; 
+export default Cost; 

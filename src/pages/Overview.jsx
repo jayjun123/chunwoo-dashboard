@@ -253,7 +253,7 @@ const Overview = () => {
 
         {/* Site Cards */}
         {processedSites.map(site => (
-          <Grid key={site.id}>
+          <Grid key={site.id} sx={{ mb: isMobile ? 2.5 : 1.875, width: isMobile ? '360px' : 'auto' }}>
             <Card 
               sx={{ 
                 height: '100%', 

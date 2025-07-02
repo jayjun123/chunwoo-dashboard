@@ -293,18 +293,24 @@ export default function ImportantSite() {
       site.address?.toLowerCase().includes(search.toLowerCase())
     );
     
-    // 모바일에서는 검색어가 없으면 첫 번째 현장만 보여주고, 검색어가 있으면 필터링된 결과를 보여줌
-    if (isMobile) {
-      if (search.trim() === '') {
-        return filtered.length > 0 ? [filtered[0]] : [];
-      } else {
-        return filtered;
-      }
+    // 검색어가 있으면 검색된 현장을 우선적으로 정렬
+    if (search.trim() !== '') {
+      return filtered.sort((a, b) => {
+        const aNameMatch = a.name?.toLowerCase().includes(search.toLowerCase());
+        const bNameMatch = b.name?.toLowerCase().includes(search.toLowerCase());
+        
+        // 현장명이 검색어와 일치하는 것을 우선
+        if (aNameMatch && !bNameMatch) return -1;
+        if (!aNameMatch && bNameMatch) return 1;
+        
+        // 둘 다 현장명이 일치하거나 둘 다 일치하지 않으면 원래 순서 유지
+        return 0;
+      });
     }
     
-    // PC에서는 모든 필터링된 결과를 보여줌
+    // 검색어가 없으면 모든 현장을 반환
     return filtered;
-  }, [sites, search, isMobile]);
+  }, [sites, search]);
 
   const handleRemarkChange = (id, value) => {
     setRemarks(prev => ({ ...prev, [id]: value }));
@@ -519,20 +525,16 @@ export default function ImportantSite() {
 
   return (
     <Box sx={{ 
-      width: '100%', 
+      width: isMobile ? 'calc(100vw - 40px)' : '100%', 
       minHeight: '100vh', 
       bgcolor: '#101624', 
-      // 모바일에서 패딩 제거
-      p: { xs: 0, md: 3 }, 
-      maxWidth: '100%',
-      // 모바일에서 화면을 꽉 채우기
-      ...(isMobile && {
-        width: '100vw',
-        maxWidth: '100vw',
-        overflow: 'hidden'
-      }),
-      position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '-30px' : 'auto'
+      p: isMobile ? 0 : 3, 
+      maxWidth: isMobile ? 'calc(100vw - 40px)' : '100%', 
+      position: isMobile ? 'relative' : 'static', 
+      left: 0, 
+      mr: 0, 
+      ml: isMobile ? '20px' : 0, 
+      boxSizing: 'border-box' 
     }}>
       {/* 상단 검색창 - 모바일에서 간소화 */}
       <Box sx={{ 
@@ -601,7 +603,7 @@ export default function ImportantSite() {
               
               return (
                 <Paper key={site.id} sx={{ 
-                  mb: 0, 
+                  mb: isMobile ? 1.25 : 0, // 모바일에서 카드간 간격 10px (1.25 * 8px = 10px)
                   borderRadius: 4, 
                   boxShadow: 6, 
                   bgcolor: '#181f2e', 

@@ -12,7 +12,9 @@ import {
   DialogActions,
   TextField,
   IconButton,
-  Chip
+  Chip,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
@@ -32,6 +34,9 @@ const SiteList = () => {
     budget: '',
     description: ''
   });
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
     fetchSites();
@@ -115,7 +120,7 @@ const SiteList = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, ml: isMobile ? '4px' : 0, mt: isMobile ? '10px' : 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">현장 목록</Typography>
         <Button

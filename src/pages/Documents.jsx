@@ -102,12 +102,18 @@ const Documents = () => {
 
   return (
     <Box sx={{ 
-      p: 0, 
-      height: 'calc(100vh - 120px)', 
+      height: 'calc(100vh - 65px - 51px)',
+      display: 'flex',
+      flexDirection: 'column',
+      position: 'fixed',
+      top: '65px',
+      left: 0,
+      right: 0,
+      bottom: '51px',
       overflow: 'hidden',
-      position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '-30px' : 'auto',
-      width: isMobile ? '100vw' : '100%'
+      overflowX: 'hidden',
+      zIndex: 1000,
+      bgcolor: '#1a1d21'
     }}>
       {isMobile ? (
         <Box sx={{ 

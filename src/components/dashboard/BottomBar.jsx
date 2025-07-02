@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Typography, IconButton, Tooltip, Badge, Modal, Paper, Drawer, List, ListItem, ListItemIcon, ListItemText, Snackbar, Alert, Checkbox, Button, Popover } from '@mui/material';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { Box, Typography, IconButton, Tooltip, Badge, Modal, Paper, Drawer, List, ListItem, ListItemIcon, ListItemText, Snackbar, Alert, Checkbox, Button, Popover, TextField, Slide, useMediaQuery, useTheme } from '@mui/material';
 import GroupIcon from '@mui/icons-material/Group';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
@@ -15,14 +15,7 @@ import AcUnitIcon from '@mui/icons-material/AcUnit';
 import ThunderstormIcon from '@mui/icons-material/Thunderstorm';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import MenuIcon from '@mui/icons-material/Menu';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc, orderBy } from 'firebase/firestore';
-import { db } from '../../firebase';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import TextField from '@mui/material/TextField';
 import CloseIcon from '@mui/icons-material/Close';
-import Slide from '@mui/material/Slide';
-import { format } from 'date-fns';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import InfoIcon from '@mui/icons-material/Info';
@@ -30,7 +23,22 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import SafetyHelmetIcon from '@mui/icons-material/SafetyCheck';
-import useMediaQuery from '@mui/material/useMediaQuery';
+import AddIcon from '@mui/icons-material/Add';
+import SecurityIcon from '@mui/icons-material/Security';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc, orderBy } from 'firebase/firestore';
+import { db } from '../../firebase';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { usePopup } from '../../contexts/PopupContext';
+import { format } from 'date-fns';
+
+// 관리자/마스터 권한 체크 함수
+function isAdminOrMaster(user) {
+  if (!user) return false;
+  if (user.role === 'master' || user.role === 'admin') return true;
+  if (user.email === 'fire8803@naver.com' || user.uid === 'HpF5IrlTscYbWPsUhtdzV05sjbF2') return true;
+  return false;
+}
 
 // props: 날짜, 날씨, 온도, 현장/기성/협의/안전/ToDo/관리 등 실시간 데이터, 클릭 이벤트 핸들러
 const BottomBar = ({
@@ -43,8 +51,14 @@ const BottomBar = ({
   onDiscussion,
   onSafety,
   onTodo,
-  onManage
+  onManage,
+  keyboardVisibleProp = false
 }) => {
+  const { currentUser } = useAuth();
+  
+  // 관리자/마스터 권한 체크
+  const isAdminOrMasterUser = isAdminOrMaster(currentUser);
+
   const [stats, setStats] = useState({
     todaySites: 0,
     todayCompleted: 0,
@@ -72,48 +86,25 @@ const BottomBar = ({
   // 햄버거 메뉴 Drawer 상태
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  const { registerPopup, unregisterPopup } = usePopup();
   const navigate = useNavigate();
-
-  const [error, setError] = useState('');
-
-  const { currentUser } = useAuth();
+  const theme = useTheme();
   const [isMaster, setIsMaster] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const isMobile = useMediaQuery('(max-width:600px)');
 
-  useEffect(() => {
-    if (currentUser) {
-      // 사용자 권한 확인
-      const checkUserRole = async () => {
-        try {
-          const userDoc = await getDoc(doc(db, 'members', currentUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setIsMaster(userData.role === 'master');
-            setIsAdmin(userData.role === 'admin' || userData.role === 'master');
-          }
-        } catch (error) {
-          console.error('사용자 권한 확인 실패:', error);
-        }
-      };
-      checkUserRole();
-    }
-  }, [currentUser]);
+  const [error, setError] = useState('');
 
-  // 팝업 닫기 함수
-  const handleClose = () => {
-    setOpenProgress(false);
-    setOpenDiscussion(false);
-    setOpenSafety(false);
-    setOpenTodo(false);
-  };
+  const [todoInput, setTodoInput] = useState('');
+  const [isComposing, setIsComposing] = useState(false);
 
   // 확장 상태 관리
   const [expandWeather, setExpandWeather] = useState(false);
   const [expandCenter, setExpandCenter] = useState(false);
   const [expandTodo, setExpandTodo] = useState(false);
   const [expandSettings, setExpandSettings] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false); // 하단바 전체 확장/축소 상태
   const [weatherLocation, setWeatherLocation] = useState('대구');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [weatherData, setWeatherData] = useState({
@@ -129,6 +120,14 @@ const BottomBar = ({
   const [settingsTab, setSettingsTab] = useState(0); // 0:회원, 1:권한, 2:설정
 
   const [inputValue, setInputValue] = useState(weatherLocation);
+
+  // Popover 앵커 상태
+  const [anchorElSettings, setAnchorElSettings] = useState(null);
+  const [anchorElWeather, setAnchorElWeather] = useState(null);
+
+  // todoList의 최신 값을 참조하기 위한 ref
+  const todoListRef = useRef(todoList);
+  todoListRef.current = todoList;
 
   // 날씨 아이콘 매핑 - 각 상태에 맞는 아이콘 사용
   const weatherIcons = {
@@ -268,7 +267,7 @@ const BottomBar = ({
     // 기본값: 대구
     return { nx: 89, ny: 90 };
   };
-  const fetchWeatherData = async (location) => {
+  const fetchWeatherData = useCallback(async (location) => {
     try {
       setWeatherLoading(true);
       const { nx, ny } = getLocationCoords(location);
@@ -344,7 +343,7 @@ const BottomBar = ({
     } finally {
       setWeatherLoading(false);
     }
-  };
+  }, []);
 
   // 날씨 데이터 주기적 갱신 (캐시도 지역별로)
   useEffect(() => {
@@ -373,7 +372,7 @@ const BottomBar = ({
     checkAndFetchWeather();
     const interval = setInterval(checkAndFetchWeather, 60 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [weatherLocation]);
+  }, [weatherLocation, fetchWeatherData]);
 
   useEffect(() => {
     // 일정관리에서 금일 데이터 fetch + 최근 5개
@@ -407,31 +406,37 @@ const BottomBar = ({
         item.type && 
         item.type.includes('현장')
       );
-      setStats(prev => ({ ...prev, todaySites: todaySites.length }));
-      setProgressList(todaySites.slice(-5).reverse());
       
       // 금일입찰 (type에 '입찰' 포함)
       const todayBids = todaySchedules.filter(item => 
         item.type && 
         item.type.includes('입찰')
       );
-      setStats(prev => ({ ...prev, progressCount: todayBids.length }));
-      setDiscussionList(todayBids.slice(-5).reverse());
       
       // 금일회의 (type에 '회의' 포함)
       const todayMeetings = todaySchedules.filter(item => 
         item.type && 
         item.type.includes('회의')
       );
-      setStats(prev => ({ ...prev, discussionCount: todayMeetings.length }));
-      setSafetyList(todayMeetings.slice(-5).reverse());
       
       // 금일현설 (type에 '현설' 포함)
       const todaySetup = todaySchedules.filter(item => 
         item.type && 
         item.type.includes('현설')
       );
-      setStats(prev => ({ ...prev, safetyCount: todaySetup.length }));
+      
+      // stats를 한 번에 업데이트
+      setStats(prev => ({
+        ...prev,
+        todaySites: todaySites.length,
+        progressCount: todayBids.length,
+        discussionCount: todayMeetings.length,
+        safetyCount: todaySetup.length
+      }));
+      
+      setProgressList(todaySites.slice(-5).reverse());
+      setDiscussionList(todayBids.slice(-5).reverse());
+      setSafetyList(todayMeetings.slice(-5).reverse());
       setSetupList(todaySetup.slice(-5).reverse());
     }, (err) => setError('일정관리 데이터를 불러오는 중 오류가 발생했습니다.'));
 
@@ -440,17 +445,20 @@ const BottomBar = ({
     };
   }, []);
 
-  // ToDoList fetch + 최근 5개 (별도 관리)
+  // ToDoList fetch + 최근 20개 (별도 관리)
   useEffect(() => {
     const unsubTodos = onSnapshot(collection(db, 'todos'), (snapshot) => {
       const arr = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 현재 사용자의 투두리스트만 필터링
+      const userTodos = arr.filter(item => item.userId === currentUser?.uid);
       
       // 오늘 날짜 필터링
       const today = new Date();
       const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
       const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
       
-      const todayTodos = arr.filter(item => {
+      const todayTodos = userTodos.filter(item => {
         if (!item.createdAt) return false;
         
         let itemDate;
@@ -474,19 +482,21 @@ const BottomBar = ({
       
       console.log('투두리스트 필터링:', {
         전체: arr.length,
+        사용자: currentUser?.uid,
+        사용자투두: userTodos.length,
         오늘: todayTodos.length,
         필터링: filtered.length,
         완료: done
       });
       
       setStats(prev => ({ ...prev, todoDone: done, todoTotal: filtered.length }));
-      setTodoList(filtered.slice(-5).reverse());
+      setTodoList(filtered.slice(-20).reverse());
     }, (err) => setError('ToDoList 데이터를 불러오는 중 오류가 발생했습니다.'));
 
     return () => {
       unsubTodos();
     };
-  }, []);
+  }, [currentUser?.uid]);
 
   // ToDo 확장 팝업용 스타일
   const todoPopupStyle = {
@@ -504,43 +514,27 @@ const BottomBar = ({
     backgroundImage: 'repeating-linear-gradient(to bottom, #fff, #fff 32px, #eee 32px, #eee 34px)',
   };
 
-  // 요일/날짜 계산 함수
-  const getWeekDates = () => {
-    const today = new Date();
-    const week = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      week.push({
-        date: d,
-        day: ['일','월','화','수','목','금','토'][d.getDay()],
-        label: `${d.getMonth() + 1}/${d.getDate()}`
-      });
-    }
-    return week;
-  };
-  const weekDates = getWeekDates();
-
   // 확장 패널 동시 오픈 방지
-  const handleOpenPanel = (panel) => {
+  const handleOpenPanel = useCallback((panel) => {
     setExpandWeather(panel === 'weather' ? !expandWeather : false);
     setExpandCenter(panel === 'center' ? !expandCenter : false);
     setExpandTodo(panel === 'todo' ? !expandTodo : false);
-  };
+  }, [expandWeather, expandCenter, expandTodo]);
 
   // 확장 패널 닫기: ESC, 외부 클릭 지원
-  useEffect(() => {
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') {
-        setExpandCenter(false);
-        setExpandWeather(false);
-        setExpandTodo(false);
-        setExpandSettings(false);
-      }
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') {
+      setExpandCenter(false);
+      setExpandWeather(false);
+      setExpandTodo(false);
+      setExpandSettings(false);
     }
+  }, []);
+
+  useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [handleKeyDown]);
 
   function handleBackdropClick(e, closeFn) {
     if (e.target === e.currentTarget) {
@@ -549,23 +543,21 @@ const BottomBar = ({
   }
 
   // 외부 클릭 시 모든 확장 패널 닫기
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // 확장 패널들이 열려있고, 클릭이 패널 외부에서 발생한 경우
-      if ((expandWeather || expandCenter || expandTodo || expandSettings) && 
-          !event.target.closest('[data-panel]')) {
-        setExpandWeather(false);
-        setExpandCenter(false);
-        setExpandTodo(false);
-        setExpandSettings(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+  const handleClickOutside = useCallback((event) => {
+    // 확장 패널들이 열려있고, 클릭이 패널 외부에서 발생한 경우
+    if ((expandWeather || expandCenter || expandTodo || expandSettings) && 
+        !event.target.closest('[data-panel]')) {
+      setExpandWeather(false);
+      setExpandCenter(false);
+      setExpandTodo(false);
+      setExpandSettings(false);
+    }
   }, [expandWeather, expandCenter, expandTodo, expandSettings]);
 
-  const [todoInput, setTodoInput] = useState('');
+  useEffect(() => {
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [handleClickOutside]);
 
   const handleAddTodo = async (e) => {
     e.preventDefault();
@@ -598,6 +590,15 @@ const BottomBar = ({
     }
   };
 
+  const handleDeleteTodo = async (item) => {
+    try {
+      await deleteDoc(doc(db, 'todos', item.id));
+    } catch (error) {
+      console.error('할일 삭제 실패:', error);
+      setError('할일을 삭제하는데 실패했습니다.');
+    }
+  };
+
   const handleEditTodo = async (item) => {
     try {
       await updateDoc(doc(db, 'todos', item.id), {
@@ -609,27 +610,6 @@ const BottomBar = ({
       setError('할일을 수정하는데 실패했습니다.');
     }
   };
-
-  const handleDeleteTodo = async (item) => {
-    try {
-      await deleteDoc(doc(db, 'todos', item.id));
-    } catch (error) {
-      console.error('할일 삭제 실패:', error);
-      setError('할일을 삭제하는데 실패했습니다.');
-    }
-  };
-
-  // 관리자/마스터 권한 체크 함수
-  function isAdminOrMaster(user) {
-    if (!user) return false;
-    if (user.role === 'master' || user.role === 'admin') return true;
-    if (user.email === 'fire8803@naver.com' || user.uid === 'HpF5IrlTscYbWPsUhtdzV05sjbF2') return true;
-    return false;
-  }
-  const isAdminOrMasterUser = isAdminOrMaster(currentUser);
-
-  const [anchorElSettings, setAnchorElSettings] = useState(null);
-  const [anchorElWeather, setAnchorElWeather] = useState(null);
 
   // 매일 00:00 리셋 기능
   useEffect(() => {
@@ -644,7 +624,7 @@ const BottomBar = ({
           lastResetDate.getFullYear() !== now.getFullYear()) {
         
         // 전날 미완료 항목들을 저장
-        const incompleteTodos = todoList.filter(todo => !todo.completed);
+        const incompleteTodos = todoListRef.current.filter(todo => !todo.completed);
         if (incompleteTodos.length > 0) {
           localStorage.setItem('yesterdayIncompleteTodos', JSON.stringify(incompleteTodos));
         }
@@ -653,7 +633,7 @@ const BottomBar = ({
         localStorage.setItem('lastTodoReset', now.toISOString());
         
         // 모든 완료된 항목들 삭제 (미완료는 유지)
-        todoList.forEach(async (todo) => {
+        todoListRef.current.forEach(async (todo) => {
           if (todo.completed) {
             try {
               await deleteDoc(doc(db, 'todos', todo.id));
@@ -672,7 +652,7 @@ const BottomBar = ({
     const interval = setInterval(checkDailyReset, 60000);
     
     return () => clearInterval(interval);
-  }, [todoList]);
+  }, []); // todoList 의존성 제거
 
   // 전날 미완료 현장 불러오기 기능
   const handleLoadYesterdayIncomplete = async () => {
@@ -706,6 +686,93 @@ const BottomBar = ({
     }
   };
 
+  // 키보드 이벤트 감지 (모바일)
+  const [keyboardVisible, setKeyboardVisible] = useState(keyboardVisibleProp);
+  const handleResize = useCallback(() => {
+    const viewportHeight = window.innerHeight;
+    const windowHeight = window.outerHeight;
+    const isKeyboardVisible = viewportHeight < windowHeight * 0.8;
+    setKeyboardVisible(isKeyboardVisible);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, [isMobile, handleResize]);
+
+  useEffect(() => {
+    if (currentUser) {
+      // 사용자 권한 확인
+      const checkUserRole = async () => {
+        try {
+          const userDoc = await getDoc(doc(db, 'members', currentUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setIsMaster(userData.role === 'master');
+            setIsAdmin(userData.role === 'admin' || userData.role === 'master');
+          }
+        } catch (error) {
+          console.error('사용자 권한 확인 실패:', error);
+        }
+      };
+      checkUserRole();
+    }
+  }, [currentUser]);
+
+  // 팝업 닫기 함수
+  const handleClose = () => {
+    setOpenProgress(false);
+    setOpenDiscussion(false);
+    setOpenSafety(false);
+    setOpenTodo(false);
+  };
+
+  // 팝업 refs
+  const expandCenterRef = useRef(null);
+  const expandWeatherRef = useRef(null);
+  const expandTodoRef = useRef(null);
+
+  // 팝업 등록/해제
+  useEffect(() => {
+    if (expandCenter && expandCenterRef.current) {
+      registerPopup('expand-center', 1202, {
+        element: expandCenterRef.current,
+        onClose: () => setExpandCenter(false)
+      });
+    } else {
+      unregisterPopup('expand-center');
+    }
+  }, [expandCenter]);
+
+  useEffect(() => {
+    if (expandWeather && expandWeatherRef.current) {
+      registerPopup('expand-weather', 1302, {
+        element: expandWeatherRef.current,
+        onClose: () => setExpandWeather(false)
+      });
+    } else {
+      unregisterPopup('expand-weather');
+    }
+  }, [expandWeather]);
+
+  useEffect(() => {
+    if (expandTodo && expandTodoRef.current) {
+      registerPopup('expand-todo', 1202, {
+        element: expandTodoRef.current,
+        onClose: () => setExpandTodo(false)
+      });
+    } else {
+      unregisterPopup('expand-todo');
+    }
+  }, [expandTodo]);
+
   // 설정 아이콘 클릭 핸들러
   const handleSettingsIconClick = (e) => {
     setAnchorElSettings(e.currentTarget);
@@ -721,53 +788,266 @@ const BottomBar = ({
     setAnchorElWeather(null);
   };
 
+  // 하단바 전체 확장/축소 토글 함수
+  const handleBottomBarToggle = () => {
+    setIsExpanded(!isExpanded);
+  };
+
+  // 1. 뷰포트 높이 상태 추가
+  const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
+
+  useEffect(() => {
+    const handleResize = () => setViewportHeight(window.innerHeight);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // 2. ToDo 입력칸 ref 및 포커스 시 scrollIntoView
+  const todoInputRef = useRef(null);
+  useEffect(() => {
+    if (keyboardVisible && todoInputRef.current) {
+      setTimeout(() => {
+        todoInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [keyboardVisible]);
+
   return (
-    <Box sx={{
-      width: '100%',
-      bgcolor: '#23242a',
-      color: '#fff',
+    <Box sx={{ 
+      position: 'fixed', 
+      bottom: { xs: keyboardVisible ? 'auto' : 0, md: 0 }, 
+      left: 0, 
+      right: 0, 
+      zIndex: 2000, 
+      bgcolor: '#23242a', 
+      color: '#fff', 
+      borderTop: '1px solid #333', 
+      height: '46px',
       display: 'flex',
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      px: { xs: 1, md: 3 },
-      py: 1,
-      minHeight: 44,
-      fontSize: 15,
-      position: 'fixed',
-      left: 0,
-      bottom: 0,
-      zIndex: 1201,
-      boxShadow: '0 -2px 8px rgba(0,0,0,0.08)'
-    }}>
-      {/* 왼쪽: 날짜/온도/날씨(아이콘) 전체 클릭 시 확장 */}
-      {!isMobile && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: '0 0 auto', minWidth: 220, cursor: 'pointer' }} onClick={() => handleOpenPanel('weather')}>
-          <Typography sx={{ fontWeight: 500, fontSize: 15 }}>{formatDate(currentDate)}</Typography>
-          <Typography sx={{ fontSize: 15, ml: 0.5 }}>{weatherData.current?.temp !== undefined && weatherData.current?.temp !== null && weatherData.current?.temp !== '-' ? `${weatherData.current.temp}°C` : '-'}</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>{weatherIcons[weatherData.current?.icon]}</Box>
-        </Box>
-      )}
-      {/* WeatherPanel: 하단바 위로 확장되는 날씨 패널 */}
-      <Slide direction="up" in={expandWeather} mountOnEnter unmountOnExit>
+      px: 2,
+      transition: 'bottom 0.3s ease',
+      cursor: 'default',
+      '&:hover': {
+        bgcolor: '#23242a'
+      },
+      ...(keyboardVisible && isMobile && {
+        position: 'absolute',
+        bottom: 'auto',
+        top: 'calc(100vh - 46px - 300px)', // 키보드 높이를 고려한 위치
+        transform: 'translateY(-100%)'
+      })
+    }} onClick={() => { setExpandWeather(false); setExpandCenter(false); setExpandTodo(false); setExpandSettings(false); }}>
+      {/* 기본 하단바 내용 */}
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        height: '46px',
+        width: '100%'
+      }}>
+        {/* 왼쪽: 날짜/온도/날씨(아이콘) 전체 클릭 시 확장 */}
+        {!isMobile && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: '0 0 auto', minWidth: 220, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); handleOpenPanel('weather'); }}>
+            <Typography sx={{ fontWeight: 500, fontSize: 15 }}>{formatDate(currentDate)}</Typography>
+            <Typography sx={{ fontSize: 15, ml: 0.5 }}>{weatherData.current?.temp !== undefined && weatherData.current?.temp !== null && weatherData.current?.temp !== '-' ? `${weatherData.current.temp}°C` : '-'}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>{weatherIcons[weatherData.current?.icon]}</Box>
+          </Box>
+        )}
+        {/* 중앙: 금일현장/입찰/회의/현설 */}
         <Box sx={{ 
-          position: 'fixed', 
-          left: 0, 
-          bottom: 44, 
-          zIndex: 1302, 
-          bgcolor: '#23242a', 
-          color: '#fff', 
-          boxShadow: 3, 
-          borderRadius: '16px 0 0 0', // 왼쪽 상단만 둥글게
-          p: 3, 
-          maxWidth: isMobile ? '100vw' : 1000, 
-          minWidth: 0, 
-          width: isMobile ? '100vw' : '100%', 
-          margin: 0, // 중앙정렬 제거
-          minHeight: 220, 
-          overflowX: 'auto',
-          overflowY: 'visible',
-        }} onClick={e => handleBackdropClick(e, setExpandWeather)} data-panel="weather">
-          <IconButton onClick={() => setExpandWeather(false)} sx={{ position: 'absolute', right: 16, top: 16, color: '#fff', zIndex: 1400 }}><CloseIcon /></IconButton>
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: { xs: 2, md: 4 }, 
+          flex: 1, 
+          justifyContent: 'center', 
+          cursor: 'pointer' 
+        }} onClick={(e) => { e.stopPropagation(); handleOpenPanel('center'); }}>
+          <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <EngineeringIcon sx={{ fontSize: 18, color: '#FFD600', mr: 0.5 }} />
+            {!isMobile && '[금일현장]'} {stats.todaySites ?? 0}
+          </Typography>
+          <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <TrendingUpIcon sx={{ fontSize: 18, color: '#4FC3F7', mr: 0.5 }} />
+            {!isMobile && '[금일입찰]'} {stats.progressCount ?? 0}
+          </Typography>
+          <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <ForumIcon sx={{ fontSize: 18, color: '#FF7043', mr: 0.5 }} />
+            {!isMobile && '[금일회의]'} {stats.discussionCount ?? 0}
+          </Typography>
+          <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <SafetyHelmetIcon sx={{ fontSize: 18, color: '#81C784', mr: 0.5 }} />
+            {!isMobile && '[금일현설]'} {stats.safetyCount ?? 0}
+          </Typography>
+        </Box>
+        {/* 우측: ToDoList + 설정 아이콘 */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 2, 
+          flex: '0 0 auto', 
+          minWidth: 120, 
+          justifyContent: 'flex-end' 
+        }}>
+          <Typography 
+            sx={{ fontSize: 15, cursor: 'pointer' }} 
+            onClick={(e) => { e.stopPropagation(); handleOpenPanel('todo'); }}
+          >
+            ToDoList {stats.todoDone ?? 0}/{stats.todoTotal ?? 0}
+          </Typography>
+          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setExpandSettings(!expandSettings); setExpandWeather(false); setExpandCenter(false); setExpandTodo(false); }} sx={{ color: '#fff' }}>
+            <SettingsIcon />
+          </IconButton>
+        </Box>
+      </Box>
+      
+      {/* Settings 확장 패널: 하단바 위로 확장되는 설정 메뉴 */}
+      {expandSettings && (
+        <Box position="fixed" top={0} left={0} right={0} bottom={0} zIndex={1499} onClick={() => { setExpandWeather(false); setExpandCenter(false); setExpandTodo(false); setExpandSettings(false); }} />
+      )}
+      <Slide direction="up" in={expandSettings} mountOnEnter unmountOnExit>
+        <Box
+          onClick={e => e.stopPropagation()}
+          sx={{
+            position: 'fixed',
+            right: isMobile ? 16 : 32,
+            left: isMobile ? 16 : 'auto',
+            bottom: { xs: keyboardVisible ? 'auto' : 46, md: 46 },
+            top: { xs: keyboardVisible ? 'calc(100vh - 46px - 200px)' : 'auto', md: 'auto' },
+            zIndex: 1500,
+            bgcolor: '#23242a',
+            color: '#fff',
+            boxShadow: 3,
+            borderRadius: '16px 16px 0 0',
+            p: isMobile ? 1.5 : 2,
+            width: isMobile ? 'calc(100vw - 32px)' : 280,
+            maxWidth: isMobile ? 'calc(100vw - 32px)' : '100%',
+            minWidth: 0,
+            height: 'auto',
+            maxHeight: isMobile ? '60vh' : '50vh',
+            minHeight: isMobile ? 120 : 150,
+            fontSize: isMobile ? 14 : 15,
+            transition: 'bottom 0.3s ease, top 0.3s ease'
+          }}
+          data-panel="settings"
+        >
+          <IconButton 
+            onClick={() => setExpandSettings(false)} 
+            sx={{ position: 'absolute', right: 16, top: 16, color: '#fff', zIndex: 1500 + 100 }}
+          >
+            <CloseIcon />
+          </IconButton>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, fontSize: isMobile ? 16 : 18 }}>
+            설정 메뉴
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {/* 관리자/마스터만 회원관리 접근 가능 */}
+            {isAdminOrMasterUser && (
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={() => {
+                  setExpandSettings(false);
+                  navigate('/members');
+                }}
+                sx={{
+                  bgcolor: '#4FC3F7',
+                  color: '#fff',
+                  fontWeight: 600,
+                  py: 1.5,
+                  fontSize: isMobile ? 14 : 15,
+                  '&:hover': { bgcolor: '#29B6F6' }
+                }}
+                startIcon={<GroupIcon />}
+              >
+                회원관리
+              </Button>
+            )}
+            {/* 마스터만 권한관리 접근 가능 (PC에서만) */}
+            {isAdminOrMasterUser && !isMobile && (
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={() => {
+                  setExpandSettings(false);
+                  navigate('/permissions');
+                }}
+                sx={{
+                  bgcolor: '#FF7043',
+                  color: '#fff',
+                  fontWeight: 600,
+                  py: 1.5,
+                  fontSize: isMobile ? 14 : 15,
+                  '&:hover': { bgcolor: '#F4511E' }
+                }}
+                startIcon={<SecurityIcon />}
+              >
+                권한관리
+              </Button>
+            )}
+            {/* 모든 사용자 설정 접근 가능 */}
+            <Button
+              variant="contained"
+              fullWidth
+              onClick={() => {
+                setExpandSettings(false);
+                navigate('/settings');
+              }}
+              sx={{
+                bgcolor: '#81C784',
+                color: '#fff',
+                fontWeight: 600,
+                py: 1.5,
+                fontSize: isMobile ? 14 : 15,
+                '&:hover': { bgcolor: '#66BB6A' }
+              }}
+              startIcon={<SettingsIcon />}
+            >
+              설정
+            </Button>
+          </Box>
+        </Box>
+      </Slide>
+      
+      {/* WeatherPanel: 하단바 위로 확장되는 날씨 패널 */}
+      {expandWeather && (
+        <Box position="fixed" top={0} left={0} right={0} bottom={0} zIndex={1499} onClick={() => { setExpandWeather(false); setExpandCenter(false); setExpandTodo(false); setExpandSettings(false); }} />
+      )}
+      <Slide direction="up" in={expandWeather} mountOnEnter unmountOnExit>
+        <Box
+          ref={expandWeatherRef}
+          onClick={e => e.stopPropagation()}
+          sx={{
+            position: 'fixed',
+            left: 0,
+            right: isMobile ? 0 : 'auto',
+            bottom: { xs: keyboardVisible ? 'auto' : 46, md: 46 },
+            top: { xs: keyboardVisible ? 'calc(100vh - 46px - 300px)' : 'auto', md: 'auto' },
+            zIndex: 1500,
+            bgcolor: '#23242a',
+            color: '#fff',
+            boxShadow: 3,
+            borderRadius: '16px 16px 0 0',
+            p: isMobile ? 1.5 : 3,
+            width: isMobile ? '100vw' : 520,
+            maxWidth: isMobile ? '100vw' : '100%',
+            minWidth: 0,
+            height: isMobile ? 'auto' : 320,
+            maxHeight: isMobile ? '80vh' : '60vh',
+            minHeight: isMobile ? 120 : 180,
+            fontSize: isMobile ? 14 : 15,
+            transition: 'bottom 0.3s ease, top 0.3s ease'
+          }}
+          data-panel="weather"
+        >
+          <IconButton 
+            onClick={handleWeatherClose} 
+            sx={{ position: 'absolute', right: 16, top: 16, color: '#fff', zIndex: 1500 + 100 }}
+          >
+            <CloseIcon />
+          </IconButton>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
             {weatherLocation} - {weatherData.daily.length > 0 ? `${formatDate(weatherData.daily[0].date)} ~ ${formatDate(weatherData.daily[weatherData.daily.length-1].date)}` : ''} ({weatherData.daily.length}일간)
           </Typography>
@@ -817,41 +1097,22 @@ const BottomBar = ({
           </Box>
         </Box>
       </Slide>
-      {/* 중앙: 금일현장/입찰/회의/현설 */}
-      <Box sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: { xs: 2, md: 4 }, 
-        flex: 1, 
-        justifyContent: 'center', 
-        cursor: 'pointer' 
-      }} onClick={() => handleOpenPanel('center')}>
-        <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <EngineeringIcon sx={{ fontSize: 18, color: '#FFD600', mr: 0.5 }} />
-          {!isMobile && '[금일현장]'} {stats.todaySites ?? 0}
-        </Typography>
-        <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <TrendingUpIcon sx={{ fontSize: 18, color: '#4FC3F7', mr: 0.5 }} />
-          {!isMobile && '[금일입찰]'} {stats.progressCount ?? 0}
-        </Typography>
-        <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <ForumIcon sx={{ fontSize: 18, color: '#FF7043', mr: 0.5 }} />
-          {!isMobile && '[금일회의]'} {stats.discussionCount ?? 0}
-        </Typography>
-        <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <SafetyHelmetIcon sx={{ fontSize: 18, color: '#81C784', mr: 0.5 }} />
-          {!isMobile && '[금일현설]'} {stats.safetyCount ?? 0}
-        </Typography>
-      </Box>
+      
       {/* 중앙 확장 패널: 금일현장/입찰/회의/현설 상세 */}
+      {expandCenter && (
+        <Box position="fixed" top={0} left={0} right={0} bottom={0} zIndex={1499} onClick={() => { setExpandWeather(false); setExpandCenter(false); setExpandTodo(false); setExpandSettings(false); }} />
+      )}
       <Slide direction="up" in={expandCenter} mountOnEnter unmountOnExit>
         <Box
+          ref={expandCenterRef}
+          onClick={e => e.stopPropagation()}
           sx={{
             position: 'fixed',
             left: 0,
             right: 0,
-            bottom: 44,
-            zIndex: 1202,
+            bottom: { xs: keyboardVisible ? 'auto' : 46, md: 46 },
+            top: { xs: keyboardVisible ? 'calc(100vh - 46px - 300px - 260px)' : 'auto', md: 'auto' },
+            zIndex: 1500,
             bgcolor: '#23242a',
             color: '#fff',
             boxShadow: 3,
@@ -862,9 +1123,9 @@ const BottomBar = ({
             width: isMobile ? '100vw' : '100%',
             margin: isMobile ? 0 : '0 auto',
             minHeight: isMobile ? 180 : 260,
-            fontSize: isMobile ? 14 : 15
+            fontSize: isMobile ? 14 : 15,
+            transition: 'bottom 0.3s ease, top 0.3s ease'
           }}
-          onClick={e => handleBackdropClick(e, setExpandCenter)}
           data-panel="center"
         >
           <IconButton 
@@ -952,71 +1213,53 @@ const BottomBar = ({
           </Box>
         </Box>
       </Slide>
-      {/* 우측: ToDoList + 설정 아이콘 */}
-      <Box sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: 2, 
-        flex: '0 0 auto', 
-        minWidth: 120, 
-        justifyContent: 'flex-end' 
-      }}>
-        <Typography 
-          sx={{ fontSize: 15, cursor: 'pointer' }} 
-          onClick={() => handleOpenPanel('todo')}
-        >
-          ToDoList {stats.todoDone ?? 0}/{stats.todoTotal ?? 0}
-        </Typography>
-        <IconButton size="small" onClick={handleSettingsIconClick} sx={{ color: '#fff' }}>
-          <SettingsIcon />
-        </IconButton>
-        <Popover
-          open={Boolean(anchorElSettings)}
-          anchorEl={anchorElSettings}
-          onClose={handleSettingsClose}
-          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-          transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-          PaperProps={{ sx: { bgcolor: '#23242a', color: '#fff', p: 2, borderRadius: 2, minWidth: 180 } }}
-        >
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Button variant="contained" color="primary" size="small" sx={{ fontWeight: 600 }} onClick={() => { handleSettingsClose(); navigate('/members'); }}>회원관리</Button>
-            <Button variant="contained" color="primary" size="small" sx={{ fontWeight: 600 }} onClick={() => { handleSettingsClose(); navigate('/permissions'); }}>권한관리</Button>
-            <Button variant="contained" color="primary" size="small" sx={{ fontWeight: 600 }} onClick={() => { handleSettingsClose(); navigate('/settings'); }}>설정</Button>
-          </Box>
-        </Popover>
-      </Box>
+      
       {/* ToDoList 확장 패널: ToDoList 바로 위에서 슬라이드로 확장 */}
+      {expandTodo && (
+        <Box position="fixed" top={0} left={0} right={0} bottom={0} zIndex={1499} onClick={() => { setExpandWeather(false); setExpandCenter(false); setExpandTodo(false); setExpandSettings(false); }} />
+      )}
       <Slide direction="up" in={expandTodo} mountOnEnter unmountOnExit>
-        <Box sx={{ 
-          position: 'fixed', 
-          right: isMobile ? 0 : 32, 
-          left: isMobile ? 0 : 'auto',
-          bottom: 44, 
-          top: 'auto',
-          zIndex: 1202, 
-          bgcolor: '#fff',
-          color: '#000',
-          boxShadow: 3, 
-          borderRadius: '16px 16px 0 0', 
-          p: isMobile ? 1.5 : 3, 
-          width: isMobile ? '100vw' : 420,
-          maxWidth: isMobile ? '100vw' : '100%',
-          minWidth: 0,
-          height: isMobile ? 'auto' : 320,
-          maxHeight: isMobile ? '80vh' : '60vh',
-          minHeight: isMobile ? 120 : 180,
-          backgroundImage: 'repeating-linear-gradient(to bottom, #fff, #fff 32px, #eee 32px, #eee 34px)',
-          border: '1.5px solid #222',
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          transition: 'height 0.2s',
-          fontSize: isMobile ? 14 : 15
-        }} onClick={e => handleBackdropClick(e, setExpandTodo)} data-panel="todo">
+        <Box 
+          ref={expandTodoRef}
+          onClick={e => e.stopPropagation()}
+          sx={{ 
+            position: 'fixed', 
+            right: isMobile ? 0 : 32, 
+            left: isMobile ? 0 : 'auto',
+            bottom: { xs: keyboardVisible ? 'auto' : 46, md: 46 }, 
+            top: { xs: keyboardVisible ? 'calc(100vh - 46px - 300px - 400px)' : 'auto', md: 'auto' },
+            zIndex: 1500, 
+            bgcolor: '#fff',
+            color: '#000',
+            boxShadow: 3, 
+            borderRadius: { xs: keyboardVisible ? 0 : '16px 16px 0 0', md: '16px 16px 0 0' }, 
+            p: isMobile ? 1.5 : 3, 
+            width: isMobile ? '100vw' : 420,
+            maxWidth: isMobile ? '100vw' : '100%',
+            minWidth: 0,
+            height: { xs: keyboardVisible ? `${Math.min(400, viewportHeight - 46)}px` : 'auto', md: 400 },
+            maxHeight: { xs: keyboardVisible ? `${Math.min(400, viewportHeight - 46)}px` : '80vh', md: '70vh' },
+            minHeight: isMobile ? 150 : 250,
+            backgroundImage: 'repeating-linear-gradient(to bottom, #fff, #fff 32px, #eee 32px, #eee 34px)',
+            border: '1.5px solid #222',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            transition: 'all 0.3s ease',
+            fontSize: isMobile ? 14 : 15
+          }}
+          data-panel="todo"
+        >
           {/* 상단 버튼들 */}
           <Box sx={{ display: 'flex', gap: 1, mb: 2, justifyContent: 'space-between', alignItems: 'center' }}>
             <img src="/TodoList.png" alt="TodoList" style={{ height: '30px', width: 'auto' }} />
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              {/* 성현준 아이디에만 이름 표시 */}
+              {currentUser?.uid === 'HpF5IrlTscYbWPsUhtdzV05sjbF2' && (
+                <Typography sx={{ fontSize: 12, color: '#666', mr: 1 }}>
+                  성현준
+                </Typography>
+              )}
               <Button variant="outlined" size="small" sx={{ fontWeight: 600 }} onClick={() => navigate('/todo/all')}>
                 LIST
               </Button>
@@ -1025,14 +1268,42 @@ const BottomBar = ({
               </Button>
             </Box>
           </Box>
+          
           {/* ToDo 입력/추가 */}
-          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 1, 
+            mb: 2,
+            position: { xs: keyboardVisible ? 'fixed' : 'static' },
+            bottom: { xs: keyboardVisible ? '300px' : 'auto' },
+            left: { xs: keyboardVisible ? '16px' : 'auto' },
+            right: { xs: keyboardVisible ? '16px' : 'auto' },
+            zIndex: { xs: keyboardVisible ? 1300 : 'auto' },
+            bgcolor: { xs: keyboardVisible ? '#fff' : 'transparent' },
+            p: { xs: keyboardVisible ? 1 : 0 },
+            borderRadius: { xs: keyboardVisible ? 1 : 0 },
+            boxShadow: { xs: keyboardVisible ? 2 : 'none' }
+          }}>
             <TextField
+              inputRef={todoInputRef}
               variant="standard"
               placeholder="할 일 추가"
               value={todoInput}
               onChange={e => setTodoInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && todoInput?.trim()) handleAddTodo(e); }}
+              onCompositionStart={() => setIsComposing(true)}
+              onCompositionEnd={() => setIsComposing(false)}
+              onKeyDown={e => { 
+                if (e.key === 'Enter' && todoInput?.trim() && !isComposing) {
+                  handleAddTodo(e);
+                }
+              }}
+              inputProps={{
+                'data-lpignore': 'true',
+                'autoComplete': 'off',
+                'autoCorrect': 'off',
+                'autoCapitalize': 'off',
+                'spellCheck': 'false'
+              }}
               InputProps={{
                 disableUnderline: true,
                 style: {
@@ -1056,7 +1327,10 @@ const BottomBar = ({
                   border: 'none',
                   boxShadow: 'none',
                   color: '#000',
-                  padding: 0
+                  padding: 0,
+                  '&::placeholder': {
+                    color: '#999'
+                  }
                 }
               }}
             />
@@ -1071,7 +1345,17 @@ const BottomBar = ({
             </Button>
           </Box>
           {/* ToDo 리스트 */}
-          <Box sx={{ flex: 1, overflowY: 'auto', pr: 1 }}>
+          <Box sx={{ 
+            flex: 1, 
+            overflowY: 'auto', 
+            pr: 1,
+            maxHeight: '300px', // 높이를 300px로 증가
+            minHeight: '150px', // 최소 높이도 증가
+            border: '1px solid #e0e0e0',
+            borderRadius: 1,
+            p: 1,
+            bgcolor: '#fafafa'
+          }}>
             {(() => {
               const today = new Date();
               const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
@@ -1116,9 +1400,6 @@ const BottomBar = ({
                     <Typography sx={{ flex: 1, fontSize: 14, textDecoration: item.completed ? 'line-through' : 'none', color: item.completed ? '#666' : '#000' }}>
                       {item.text}
                     </Typography>
-                    <IconButton size="small" onClick={() => handleEditTodo(item)} sx={{ color: '#1976d2', p: 0.25 }}>
-                      <EditIcon fontSize="small" />
-                    </IconButton>
                     <IconButton size="small" onClick={() => handleDeleteTodo(item)} sx={{ color: '#d32f2f', p: 0.25 }}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>

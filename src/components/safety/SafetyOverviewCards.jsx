@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Grid, Paper, Typography, TextField, Chip, Divider, Button } from '@mui/material';
+import { Box, Grid, Paper, Typography, TextField, Chip, Divider, Button, useTheme, useMediaQuery } from '@mui/material';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import SchoolIcon from '@mui/icons-material/School';
@@ -21,6 +21,8 @@ const statusColor = {
 };
 
 function SafetyOverviewCards() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [search, setSearch] = useState('');
   const [siteData, setSiteData] = useState([]);
   const [inputs, setInputs] = useState({});
@@ -41,31 +43,33 @@ function SafetyOverviewCards() {
         ...cost.docs.map(d => d.data().siteName),
       ].filter(Boolean));
       const arr = Array.from(allSites);
-      const result = arr.map(siteName => {
-        const inspections = ins.docs.map(d => d.data()).filter(d => d.siteName === siteName).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-        const accidents = acc.docs.map(d => d.data()).filter(d => d.siteName === siteName).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-        const educations = edu.docs.map(d => d.data()).filter(d => d.siteName === siteName).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-        const costs = cost.docs.map(d => d.data()).filter(d => d.siteName === siteName).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      // site가 하나도 없으면 더미 site 추가
+      const siteArr = arr.length > 0 ? arr : ['등록된 현장 없음'];
+      const result = siteArr.map(siteName => {
+        const inspections = ins.docs.map(d => d.data()).filter(d => d.siteName === siteName);
+        const accidents = acc.docs.map(d => d.data()).filter(d => d.siteName === siteName);
+        const educations = edu.docs.map(d => d.data()).filter(d => d.siteName === siteName);
+        const costs = cost.docs.map(d => d.data()).filter(d => d.siteName === siteName);
         return {
           siteName,
           inspection: {
-            count: inspections.length,
-            last: inspections[0]?.title || '없음',
-            status: inspections[0]?.status || '없음',
+            count: inspections.length || 0,
+            last: inspections[0]?.title || '',
+            status: inspections[0]?.status || '',
           },
           accident: {
-            count: accidents.length,
-            last: accidents[0]?.title || '없음',
-            status: accidents[0]?.status || '없음',
+            count: accidents.length || 0,
+            last: accidents[0]?.title || '',
+            status: accidents[0]?.status || '',
           },
           education: {
-            count: educations.length,
-            last: educations[0]?.title || '없음',
-            status: educations[0]?.status || '없음',
+            count: educations.length || 0,
+            last: educations[0]?.title || '',
+            status: educations[0]?.status || '',
           },
           cost: {
-            total: costs.reduce((sum, c) => sum + (Number(c.amount) || 0), 0),
-            last: costs[0]?.note || '없음',
+            total: costs.reduce((sum, c) => sum + (Number(c.amount) || 0), 0) || 0,
+            last: costs[0]?.note || ''
           },
         };
       });
@@ -102,32 +106,66 @@ function SafetyOverviewCards() {
   };
 
   return (
-    <Box sx={{ width: '100%', mb: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+    <Box sx={{ 
+      width: '100%', 
+      mb: 3, 
+      maxWidth: isMobile ? '100vw' : '100%',
+      px: isMobile ? 1 : 0
+    }}>
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        mb: 2,
+        justifyContent: isMobile ? 'center' : 'flex-start'
+      }}>
         <TextField
           size="small"
           placeholder="현장명 또는 키워드 검색"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          sx={{ width: 260, bgcolor: '#23272f', borderRadius: 2, input: { color: '#fff' } }}
+          sx={{ 
+            width: isMobile ? '100%' : 260, 
+            bgcolor: '#23272f', 
+            borderRadius: 2, 
+            input: { color: '#fff' },
+            '& .MuiOutlinedInput-root': {
+              fontSize: isMobile ? '0.9rem' : 'inherit'
+            }
+          }}
         />
       </Box>
-      <Grid container spacing={2}>
+      <Grid container spacing={2.5}>
         {filtered.map(site => (
-          <Grid item xs={12} md={6} lg={4} key={site.siteName}>
-            <Paper sx={{ p: 2.5, bgcolor: '#181c24', borderRadius: 3, minHeight: 210, boxShadow: 3 }}>
+          <Grid item xs={12} md={4} lg={4} key={site.siteName}>
+            <Paper sx={{ 
+              p: isMobile ? 2 : 2.5, 
+              bgcolor: '#181c24', 
+              borderRadius: 3, 
+              minHeight: isMobile ? 180 : 210, 
+              boxShadow: 3 
+            }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, flex: 1 }}>{site.siteName}</Typography>
+                <Typography 
+                  variant={isMobile ? "h6" : "h6"} 
+                  sx={{ 
+                    color: '#fff', 
+                    fontWeight: 700, 
+                    flex: 1,
+                    fontSize: '1rem'
+                  }}
+                >
+                  {site.siteName}
+                </Typography>
               </Box>
               <Divider sx={{ mb: 1.5, bgcolor: '#23272f' }} />
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 0.5 : 1 }}>
                 {/* 안전점검 */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 36 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 40 }}>
                   {icons.inspection}
-                  <Typography sx={{ color: '#fff', fontWeight: 500, ml: 0.5, mr: 1, minWidth: 60 }}>안전점검</Typography>
-                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', gap: 0 }}>
+                  <Typography sx={{ minWidth: 70, fontSize: '1rem' }}>안전점검</Typography>
+                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', gap: 0, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                     <Chip
-                      label={`${site.inspection.count}건`}
+                      label={`${site.inspection.count || 0}건`}
                       size="small"
                       sx={{
                         bgcolor: '#23272f',
@@ -135,45 +173,76 @@ function SafetyOverviewCards() {
                         fontWeight: 700,
                         mr: 0,
                         pr: 0,
-                        px: 1,
+                        px: isMobile ? 0.5 : 1,
                         minWidth: 'unset',
                         borderRadius: 1,
-                        height: 32,
-                        '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' }
+                        height: isMobile ? 28 : 32,
+                        fontSize: '0.9rem',
+                        '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
+                        alignSelf: 'center'
                       }}
                       component="span"
                       style={{ marginRight: 0 }}
                     />
-                    <Chip label={site.inspection.status} size="small" sx={{ bgcolor: statusColor[site.inspection.status] || '#23272f', color: '#222', fontWeight: 700, mr: 1 }} />
+                    <Chip
+                      label={site.inspection.status}
+                      size="small"
+                      sx={{
+                        bgcolor: statusColor[site.inspection.status] || '#23272f',
+                        color: '#222',
+                        fontWeight: 700,
+                        mr: 1,
+                        display: (isMobile && site.inspection.status === '없음') ? 'none' : 'inline-flex',
+                        fontSize: '0.9rem',
+                        height: isMobile ? 28 : 32,
+                        px: isMobile ? 0.5 : 1,
+                        alignSelf: 'center'
+                      }}
+                    />
                     <TextField
                       size="small"
                       variant="outlined"
                       placeholder="입력"
                       value={inputs[site.siteName]?.inspection || ''}
                       onChange={e => handleInputChange(site.siteName, 'inspection', e.target.value)}
-                      sx={{
-                        bgcolor: '#23272f',
-                        input: { color: '#fff', pl: 0, textAlign: 'center' },
-                        width: 120,
-                        ml: 0,
-                        mr: 1,
-                        '& .MuiOutlinedInput-root': { borderRadius: 1 }
-                      }}
-                      InputProps={{ style: { paddingLeft: 0, textAlign: 'center' } }}
+                      sx={{ width: 90, height: 28, ml: 0, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 28, p: 0 } }}
+                      InputProps={{ style: { height: 28, padding: 0, paddingTop: 0, paddingBottom: 0, fontSize: '1rem', textAlign: 'center', lineHeight: 1 } }}
                     />
-                    <Button variant="contained" size="small" sx={{ bgcolor: '#4ade80', color: '#222', fontWeight: 700, minWidth: 48 }} onClick={() => handleSave(site.siteName, 'inspection')}>저장</Button>
-                    {site.inspection.last !== '없음' && (
-                      <Typography sx={{ color: '#bbb', fontSize: 14, ml: 1 }}>{site.inspection.last}</Typography>
+                    <Button 
+                      variant="contained" 
+                      size="small" 
+                      sx={{ 
+                        bgcolor: '#4ade80', 
+                        color: '#222', 
+                        fontWeight: 700, 
+                        minWidth: 50,
+                        height: 28,
+                        px: 0
+                      }} 
+                      onClick={() => handleSave(site.siteName, 'inspection')}
+                    >
+                      저장
+                    </Button>
+                    {!(isMobile && site.inspection.last === '없음') && (
+                      <Typography sx={{ 
+                        color: '#bbb', 
+                        fontSize: '1rem', 
+                        ml: 1,
+                        width: isMobile ? '100%' : 'auto',
+                        mt: isMobile ? 0.5 : 0
+                      }}>
+                        {site.inspection.last}
+                      </Typography>
                     )}
                   </Box>
                 </Box>
                 {/* 사고예방 */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 36 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 40 }}>
                   {icons.accident}
-                  <Typography sx={{ color: '#fff', fontWeight: 500, ml: 0.5, mr: 1, minWidth: 60 }}>사고예방</Typography>
+                  <Typography sx={{ minWidth: 70, fontSize: '1rem' }}>사고예방</Typography>
                   <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', gap: 0 }}>
                     <Chip
-                      label={`${site.accident.count}건`}
+                      label={`${site.accident.count || 0}건`}
                       size="small"
                       sx={{
                         bgcolor: '#23272f',
@@ -185,41 +254,48 @@ function SafetyOverviewCards() {
                         minWidth: 'unset',
                         borderRadius: 1,
                         height: 32,
-                        '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' }
+                        '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
+                        fontSize: '0.9rem',
+                        alignSelf: 'center'
                       }}
                       component="span"
                       style={{ marginRight: 0 }}
                     />
-                    <Chip label={site.accident.status} size="small" sx={{ bgcolor: statusColor[site.accident.status] || '#23272f', color: '#222', fontWeight: 700, mr: 1 }} />
+                    <Chip
+                      label={site.accident.status}
+                      size="small"
+                      sx={{
+                        bgcolor: statusColor[site.accident.status] || '#23272f',
+                        color: '#222',
+                        fontWeight: 700,
+                        mr: 1,
+                        display: (isMobile && site.accident.status === '없음') ? 'none' : 'inline-flex',
+                        fontSize: '0.9rem',
+                        alignSelf: 'center'
+                      }}
+                    />
                     <TextField
                       size="small"
                       variant="outlined"
                       placeholder="입력"
                       value={inputs[site.siteName]?.accident || ''}
                       onChange={e => handleInputChange(site.siteName, 'accident', e.target.value)}
-                      sx={{
-                        bgcolor: '#23272f',
-                        input: { color: '#fff', pl: 0, textAlign: 'center' },
-                        width: 120,
-                        ml: 0,
-                        mr: 1,
-                        '& .MuiOutlinedInput-root': { borderRadius: 1 }
-                      }}
-                      InputProps={{ style: { paddingLeft: 0, textAlign: 'center' } }}
+                      sx={{ width: 90, height: 28, ml: 0, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 28, p: 0 } }}
+                      InputProps={{ style: { height: 28, padding: 0, paddingTop: 0, paddingBottom: 0, fontSize: '1rem', textAlign: 'center', lineHeight: 1 } }}
                     />
-                    <Button variant="contained" size="small" sx={{ bgcolor: '#f87171', color: '#222', fontWeight: 700, minWidth: 48 }} onClick={() => handleSave(site.siteName, 'accident')}>저장</Button>
-                    {site.accident.last !== '없음' && (
-                      <Typography sx={{ color: '#bbb', fontSize: 14, ml: 1 }}>{site.accident.last}</Typography>
+                    <Button variant="contained" size="small" sx={{ bgcolor: '#f87171', color: '#222', fontWeight: 700, minWidth: 50, height: 28, px: 0 }} onClick={() => handleSave(site.siteName, 'accident')}>저장</Button>
+                    {!(isMobile && site.accident.last === '없음') && (
+                      <Typography sx={{ color: '#bbb', fontSize: '1rem', ml: 1 }}>{site.accident.last}</Typography>
                     )}
                   </Box>
                 </Box>
                 {/* 안전교육 */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 36 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 40 }}>
                   {icons.education}
-                  <Typography sx={{ color: '#fff', fontWeight: 500, ml: 0.5, mr: 1, minWidth: 60 }}>안전교육</Typography>
+                  <Typography sx={{ minWidth: 70, fontSize: '1rem' }}>안전교육</Typography>
                   <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', gap: 0 }}>
                     <Chip
-                      label={`${site.education.count}건`}
+                      label={`${site.education.count || 0}건`}
                       size="small"
                       sx={{
                         bgcolor: '#23272f',
@@ -231,38 +307,45 @@ function SafetyOverviewCards() {
                         minWidth: 'unset',
                         borderRadius: 1,
                         height: 32,
-                        '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' }
+                        '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
+                        fontSize: '0.9rem',
+                        alignSelf: 'center'
                       }}
                       component="span"
                       style={{ marginRight: 0 }}
                     />
-                    <Chip label={site.education.status} size="small" sx={{ bgcolor: statusColor[site.education.status] || '#23272f', color: '#222', fontWeight: 700, mr: 1 }} />
+                    <Chip
+                      label={site.education.status}
+                      size="small"
+                      sx={{
+                        bgcolor: statusColor[site.education.status] || '#23272f',
+                        color: '#222',
+                        fontWeight: 700,
+                        mr: 1,
+                        display: (isMobile && site.education.status === '없음') ? 'none' : 'inline-flex',
+                        fontSize: '0.9rem',
+                        alignSelf: 'center'
+                      }}
+                    />
                     <TextField
                       size="small"
                       variant="outlined"
                       placeholder="입력"
                       value={inputs[site.siteName]?.education || ''}
                       onChange={e => handleInputChange(site.siteName, 'education', e.target.value)}
-                      sx={{
-                        bgcolor: '#23272f',
-                        input: { color: '#fff', pl: 0, textAlign: 'center' },
-                        width: 120,
-                        ml: 0,
-                        mr: 1,
-                        '& .MuiOutlinedInput-root': { borderRadius: 1 }
-                      }}
-                      InputProps={{ style: { paddingLeft: 0, textAlign: 'center' } }}
+                      sx={{ width: 90, height: 28, ml: 0, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 28, p: 0 } }}
+                      InputProps={{ style: { height: 28, padding: 0, paddingTop: 0, paddingBottom: 0, fontSize: '1rem', textAlign: 'center', lineHeight: 1 } }}
                     />
-                    <Button variant="contained" size="small" sx={{ bgcolor: '#60a5fa', color: '#222', fontWeight: 700, minWidth: 48 }} onClick={() => handleSave(site.siteName, 'education')}>저장</Button>
-                    {site.education.last !== '없음' && (
-                      <Typography sx={{ color: '#bbb', fontSize: 14, ml: 1 }}>{site.education.last}</Typography>
+                    <Button variant="contained" size="small" sx={{ bgcolor: '#60a5fa', color: '#222', fontWeight: 700, minWidth: 50, height: 28, px: 0 }} onClick={() => handleSave(site.siteName, 'education')}>저장</Button>
+                    {!(isMobile && site.education.last === '없음') && (
+                      <Typography sx={{ color: '#bbb', fontSize: '1rem', ml: 1 }}>{site.education.last}</Typography>
                     )}
                   </Box>
                 </Box>
                 {/* 안전관리비 */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 36 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 40 }}>
                   {icons.cost}
-                  <Typography sx={{ color: '#fff', fontWeight: 500, ml: 0.5, mr: 1, minWidth: 60 }}>안전관리비</Typography>
+                  <Typography sx={{ minWidth: 70, fontSize: '1rem' }}>안전관리비</Typography>
                   <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', gap: 0 }}>
                     <Chip
                       label={site.cost.total ? site.cost.total.toLocaleString() + '원' : '0원'}
@@ -277,7 +360,9 @@ function SafetyOverviewCards() {
                         minWidth: 'unset',
                         borderRadius: 1,
                         height: 32,
-                        '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' }
+                        '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
+                        fontSize: '0.9rem',
+                        alignSelf: 'center'
                       }}
                       component="span"
                       style={{ marginRight: 0 }}
@@ -288,19 +373,12 @@ function SafetyOverviewCards() {
                       placeholder="입력"
                       value={inputs[site.siteName]?.cost || ''}
                       onChange={e => handleInputChange(site.siteName, 'cost', e.target.value)}
-                      sx={{
-                        bgcolor: '#23272f',
-                        input: { color: '#fff', pl: 0, textAlign: 'center' },
-                        width: 120,
-                        ml: 0,
-                        mr: 1,
-                        '& .MuiOutlinedInput-root': { borderRadius: 1 }
-                      }}
-                      InputProps={{ style: { paddingLeft: 0, textAlign: 'center' } }}
+                      sx={{ width: 90, height: 28, ml: 0, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 28, p: 0 } }}
+                      InputProps={{ style: { height: 28, padding: 0, paddingTop: 0, paddingBottom: 0, fontSize: '1rem', textAlign: 'center', lineHeight: 1 } }}
                     />
-                    <Button variant="contained" size="small" sx={{ bgcolor: '#facc15', color: '#222', fontWeight: 700, minWidth: 48 }} onClick={() => handleSave(site.siteName, 'cost')}>저장</Button>
-                    {site.cost.last !== '없음' && (
-                      <Typography sx={{ color: '#bbb', fontSize: 14, ml: 1 }}>{site.cost.last}</Typography>
+                    <Button variant="contained" size="small" sx={{ bgcolor: '#facc15', color: '#222', fontWeight: 700, minWidth: 50, height: 28, px: 0 }} onClick={() => handleSave(site.siteName, 'cost')}>저장</Button>
+                    {!(isMobile && site.cost.last === '없음') && (
+                      <Typography sx={{ color: '#bbb', fontSize: '1rem', ml: 1 }}>{site.cost.last}</Typography>
                     )}
                   </Box>
                 </Box>

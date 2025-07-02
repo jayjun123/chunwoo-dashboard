@@ -258,10 +258,22 @@ const Permissions = () => {
     );
   }
 
+  // PC에서만 사용가능
+  if (isMobile) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="info">
+          권한관리는 PC에서만 사용 가능합니다. 데스크톱 환경에서 접속해주세요.
+        </Alert>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ p: isMobile ? 2 : 3 }}>
       <Typography variant="h4" gutterBottom>
         권한 관리
+
       </Typography>
 
       {/* 통계 */}

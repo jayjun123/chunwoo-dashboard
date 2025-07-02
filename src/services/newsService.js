@@ -51,13 +51,25 @@ const fetchNaverNews = async (keyword) => {
     if (!clientId || !clientSecret) {
       throw new Error('네이버 API 키가 설정되지 않았습니다.');
     }
+    
+    // 현재 날짜와 일주일 전 날짜 계산
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    // 날짜 범위를 문자열로 변환 (YYYY-MM-DD 형식)
+    const startDate = oneWeekAgo.toISOString().split('T')[0];
+    const endDate = now.toISOString().split('T')[0];
+    
+    console.log(`뉴스 검색: ${keyword}, 기간: ${startDate} ~ ${endDate}`);
+    
     const response = await axios.get(
       '/naverapi/v1/search/news.json',
       {
         params: {
           query: keyword,
-          display: 10,
-          sort: 'date'
+          display: 20, // 더 많은 결과를 가져와서 필터링
+          sort: 'date',
+          start: 1
         },
         headers: {
           'X-Naver-Client-Id': clientId,
@@ -65,8 +77,22 @@ const fetchNaverNews = async (keyword) => {
         }
       }
     );
+    
+    // 날짜 필터링 적용
+    const filteredItems = (response.data.items || []).filter(item => {
+      try {
+        const pubDate = new Date(item.pubDate);
+        return pubDate >= oneWeekAgo && pubDate <= now;
+      } catch (error) {
+        console.warn('날짜 파싱 실패:', item.pubDate);
+        return false;
+      }
+    });
+    
+    console.log(`${keyword} 검색 결과: 전체 ${response.data.items?.length || 0}개, 필터링 후 ${filteredItems.length}개`);
+    
     // 네이버 뉴스 API 결과를 내부 포맷으로 변환
-    return (response.data.items || []).map((item, idx) => ({
+    return filteredItems.map((item, idx) => ({
       id: `${keyword}_${idx}`,
       title: item.title,
       description: item.description,

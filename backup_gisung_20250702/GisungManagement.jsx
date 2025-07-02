@@ -27,9 +27,7 @@ import {
   InputAdornment,
   Autocomplete,
   Tabs,
-  Tab,
-  useMediaQuery,
-  useTheme
+  Tab
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -44,8 +42,6 @@ import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where
 import { db } from '../firebase';
 
 const GisungManagement = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [sites, setSites] = useState([]);
   const [selectedSiteData, setSelectedSiteData] = useState(null);
   const [gisungData, setGisungData] = useState([]);
@@ -278,15 +274,15 @@ const GisungManagement = () => {
         {activeTab === 1 && (
           <Grid item xs={12}>
             <Paper elevation={3} sx={{ bgcolor: '#232734', p: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: isMobile ? 'flex-start' : 'flex-start' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <FilterIcon sx={{ color: '#fff' }} />
                 <Typography sx={{ color: '#fff', minWidth: '80px' }}>현장 필터:</Typography>
-                <FormControl sx={{ minWidth: 300, textAlign: isMobile ? 'left' : 'left' }}>
+                <FormControl sx={{ minWidth: 300 }}>
                   <InputLabel sx={{ color: '#fff' }}>현장 선택</InputLabel>
                   <Select
                     value={selectedSiteFilter}
                     onChange={(e) => setSelectedSiteFilter(e.target.value)}
-                    sx={{ color: '#fff', textAlign: 'left' }}
+                    sx={{ color: '#fff' }}
                   >
                     <MenuItem value="">전체 현장</MenuItem>
                     {sites.map((site) => (
