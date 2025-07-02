@@ -263,23 +263,6 @@ const SafetyPage = () => {
     if (tab === 0) {
       return (
         <Grid>
-          <Paper sx={{ p: 3, textAlign: 'center', mb: 3 }}>
-            <Typography variant="h6">안전관리 개요</Typography>
-            {!isMobile && (
-              <Typography>안전관리 관련 정보를 확인하고 관리하는 페이지입니다. 상단 탭을 선택하여 세부 항목을 확인하세요.</Typography>
-            )}
-            {isMobile && (
-              <Box sx={{ mt: 3, p: 2, bgcolor: '#232b3b', borderRadius: 2, border: '1px solid #90caf9' }}>
-                <Typography variant="body1" sx={{ color: '#90caf9', fontWeight: 'bold', mb: 1 }}>
-                  📱 모바일 제한 안내
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#bbb', lineHeight: 1.5 }}>
-                  세부항목 확인 및 등록이 불가능합니다.<br />
-                  <strong style={{ color: '#ff9800' }}>PC로 접속하여 이용해 주세요.</strong>
-                </Typography>
-              </Box>
-            )}
-          </Paper>
           <SafetyOverviewCards />
         </Grid>
       );
@@ -464,91 +447,393 @@ const SafetyPage = () => {
   return (
     <Box sx={{ 
       p: 0,
-      position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '-30px' : 'auto',
-      width: isMobile ? '100vw' : '100%'
+      position: 'fixed',
+      top: '65px',
+      left: 0,
+      right: 0,
+      bottom: '51px',
+      width: '100%',
+      height: 'calc(100vh - 65px - 51px)',
+      overflow: 'hidden',
+      overflowX: 'hidden',
+      zIndex: 1000,
+      padding: '16px',
+      bgcolor: '#1a1d21'
     }}>
-      <Paper sx={{ mb: isMobile ? 1 : 2 }}>
-        <Tabs 
-          value={tab} 
-          onChange={(e, v) => setTab(v)} 
-          variant={isMobile ? 'scrollable' : 'standard'} 
-          scrollButtons={isMobile ? 'auto' : false}
+      <Paper sx={{ 
+        mb: 2,
+        marginBottom: '16px',
+        borderRadius: '12px',
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
+        backgroundColor: '#1a1d21'
+      }}>
+        <Tabs
+          value={tab}
+          onChange={(e, v) => setTab(v)}
           sx={{
+            mb: 2,
+            bgcolor: '#232b3b',
+            borderRadius: 2,
+            boxShadow: 2,
+            display: isMobile ? 'none' : 'flex',
             '& .MuiTab-root': {
-              minHeight: isMobile ? '40px' : 'auto',
-              fontSize: isMobile ? '0.7rem' : 'inherit',
-              padding: isMobile ? '6px 8px' : 'auto'
-            }
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '1rem',
+              px: 3,
+              py: 1.5,
+              borderRadius: 2,
+              minHeight: 48,
+              minWidth: 120,
+              '&.Mui-selected': {
+                color: '#90caf9',
+                bgcolor: '#181c24',
+                fontWeight: 900,
+              },
+            },
+            '& .MuiTabs-flexContainer': {
+              gap: 2,
+            },
           }}
         >
           {TAB_LABELS.map((label, index) => (
-            <Tab 
-              key={label} 
-              label={label} 
-              sx={{ 
-                display: isMobile && index > 0 ? 'none' : 'block' 
+            <Tab
+              key={label}
+              label={label}
+              sx={{
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: '1rem',
+                px: 3,
+                py: 1.5,
+                borderRadius: 2,
+                minHeight: 48,
+                minWidth: 120,
+                '&.Mui-selected': {
+                  color: '#90caf9',
+                  bgcolor: '#181c24',
+                  fontWeight: 900,
+                },
               }}
             />
           ))}
         </Tabs>
       </Paper>
-      <Grid container spacing={isMobile ? 1 : 2}>
+      <Grid container spacing={2} sx={{
+        height: 'calc(100vh - 120px)',
+        overflowY: 'hidden',
+        overflowX: 'hidden'
+      }}>
         {renderContent()}
       </Grid>
       {/* 추가/수정 다이얼로그 */}
-      <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="sm">
-        <DialogTitle>{editId ? '수정' : '추가'}</DialogTitle>
-        <DialogContent>
+      <Dialog 
+        open={dialogOpen} 
+        onClose={closeDialog} 
+        fullWidth 
+        maxWidth="sm"
+        sx={{
+          ...(isMobile && {
+            '& .MuiDialog-paper': {
+              margin: '16px',
+              width: 'calc(100% - 32px)',
+              maxWidth: 'none'
+            }
+          })
+        }}
+      >
+        <DialogTitle sx={{
+          ...(isMobile && {
+            fontSize: '1.1rem',
+            padding: '16px 20px'
+          })
+        }}>
+          {editId ? '수정' : '추가'}
+        </DialogTitle>
+        <DialogContent sx={{
+          ...(isMobile && {
+            padding: '16px 20px'
+          })
+        }}>
           <Autocomplete
             options={siteOptions}
             value={form.siteName}
             onChange={(event, newValue) => {
               setForm(prev => ({ ...prev, siteName: newValue || '' }));
             }}
-            renderInput={(params) => <TextField {...params} label="현장명" margin="dense" fullWidth />}
+            renderInput={(params) => (
+              <TextField 
+                {...params} 
+                label="현장명" 
+                margin="dense" 
+                fullWidth 
+                sx={{
+                  ...(isMobile && {
+                    '& .MuiInputBase-root': {
+                      height: '40px'
+                    }
+                  })
+                }}
+              />
+            )}
           />
           {tab === 4 && (
             <>
-              <TextField margin="dense" label="이름" fullWidth value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} />
-              <TextField margin="dense" label="안전장비" fullWidth value={form.equipment} onChange={e => setForm(prev => ({ ...prev, equipment: e.target.value }))} />
-              <TextField margin="dense" label="금액" fullWidth value={form.amount} onChange={e => setForm(prev => ({ ...prev, amount: e.target.value }))} />
+              <TextField 
+                margin="dense" 
+                label="이름" 
+                fullWidth 
+                value={form.name} 
+                onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                sx={{
+                  ...(isMobile && {
+                    '& .MuiInputBase-root': {
+                      height: '40px'
+                    }
+                  })
+                }}
+              />
+              <TextField 
+                margin="dense" 
+                label="안전장비" 
+                fullWidth 
+                value={form.equipment} 
+                onChange={e => setForm(prev => ({ ...prev, equipment: e.target.value }))}
+                sx={{
+                  ...(isMobile && {
+                    '& .MuiInputBase-root': {
+                      height: '40px'
+                    }
+                  })
+                }}
+              />
+              <TextField 
+                margin="dense" 
+                label="금액" 
+                fullWidth 
+                value={form.amount} 
+                onChange={e => setForm(prev => ({ ...prev, amount: e.target.value }))}
+                sx={{
+                  ...(isMobile && {
+                    '& .MuiInputBase-root': {
+                      height: '40px'
+                    }
+                  })
+                }}
+              />
             </>
           )}
-          <TextField margin="dense" label="제목" fullWidth value={form.title} onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))} />
-          <TextField margin="dense" type="date" fullWidth value={form.date} onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))} InputLabelProps={{ shrink: true }} />
-          <TextField margin="dense" label="비고" fullWidth multiline rows={3} value={form.description} onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))} />
-          <Button variant="contained" component="label" sx={{ mt: 1 }}>
-            파일 첨부
-            <input type="file" hidden onChange={e => setForm(prev => ({ ...prev, attachment: e.target.files[0] }))} />
-          </Button>
-          {form.attachment && <Typography variant="body2" sx={{ mt: 1 }}>{form.attachment.name}</Typography>}
-          {tab === 4 && (
-            <>
-              <Button variant="contained" component="label" sx={{ mt: 1, ml: 1 }}>영수증 첨부 <input type="file" hidden onChange={e => setForm(prev => ({ ...prev, receipt: e.target.files[0] }))} /></Button>
-              <Button variant="contained" component="label" sx={{ mt: 1, ml: 1 }}>분출대장 첨부 <input type="file" hidden onChange={e => setForm(prev => ({ ...prev, issueDoc: e.target.files[0] }))} /></Button>
-            </>
-          )}
+          <TextField 
+            margin="dense" 
+            label="제목" 
+            fullWidth 
+            value={form.title} 
+            onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
+            sx={{
+              ...(isMobile && {
+                '& .MuiInputBase-root': {
+                  height: '40px'
+                }
+              })
+            }}
+          />
+          <TextField 
+            margin="dense" 
+            type="date" 
+            fullWidth 
+            value={form.date} 
+            onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))} 
+            InputLabelProps={{ shrink: true }}
+            sx={{
+              ...(isMobile && {
+                '& .MuiInputBase-root': {
+                  height: '40px'
+                }
+              })
+            }}
+          />
+          <TextField 
+            margin="dense" 
+            label="비고" 
+            fullWidth 
+            multiline 
+            rows={3} 
+            value={form.description} 
+            onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
+            sx={{
+              ...(isMobile && {
+                '& .MuiInputBase-root': {
+                  minHeight: '80px'
+                }
+              })
+            }}
+          />
+          <Box sx={{
+            ...(isMobile && {
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              marginTop: '16px'
+            })
+          }}>
+            <Button 
+              variant="contained" 
+              component="label" 
+              sx={{ 
+                mt: 1,
+                ...(isMobile && {
+                  height: '40px',
+                  fontSize: '0.9rem'
+                })
+              }}
+            >
+              파일 첨부
+              <input type="file" hidden onChange={e => setForm(prev => ({ ...prev, attachment: e.target.files[0] }))} />
+            </Button>
+            {form.attachment && (
+              <Typography variant="body2" sx={{ 
+                mt: 1,
+                ...(isMobile && {
+                  fontSize: '0.8rem',
+                  wordBreak: 'break-all'
+                })
+              }}>
+                {form.attachment.name}
+              </Typography>
+            )}
+            {tab === 4 && (
+              <Box sx={{
+                ...(isMobile && {
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                })
+              }}>
+                <Button 
+                  variant="contained" 
+                  component="label" 
+                  sx={{ 
+                    mt: 1, 
+                    ml: isMobile ? 0 : 1,
+                    ...(isMobile && {
+                      height: '40px',
+                      fontSize: '0.9rem',
+                      marginLeft: 0
+                    })
+                  }}
+                >
+                  영수증 첨부 
+                  <input type="file" hidden onChange={e => setForm(prev => ({ ...prev, receipt: e.target.files[0] }))} />
+                </Button>
+                <Button 
+                  variant="contained" 
+                  component="label" 
+                  sx={{ 
+                    mt: 1, 
+                    ml: isMobile ? 0 : 1,
+                    ...(isMobile && {
+                      height: '40px',
+                      fontSize: '0.9rem',
+                      marginLeft: 0
+                    })
+                  }}
+                >
+                  분출대장 첨부 
+                  <input type="file" hidden onChange={e => setForm(prev => ({ ...prev, issueDoc: e.target.files[0] }))} />
+                </Button>
+              </Box>
+            )}
+          </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={closeDialog}>취소</Button>
-          <Button onClick={handleSave}>저장</Button>
+        <DialogActions sx={{
+          ...(isMobile && {
+            padding: '16px 20px',
+            justifyContent: 'space-between'
+          })
+        }}>
+          <Button 
+            onClick={closeDialog}
+            sx={{
+              ...(isMobile && {
+                fontSize: '0.9rem',
+                padding: '8px 16px'
+              })
+            }}
+          >
+            취소
+          </Button>
+          <Button 
+            onClick={handleSave}
+            sx={{
+              ...(isMobile && {
+                fontSize: '0.9rem',
+                padding: '8px 16px'
+              })
+            }}
+          >
+            저장
+          </Button>
         </DialogActions>
       </Dialog>
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
+        sx={{
+          ...(isMobile && {
+            bottom: '16px',
+            left: '16px',
+            right: '16px'
+          })
+        }}
       >
-        <Alert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</Alert>
+        <Alert 
+          severity={snackbar.severity} 
+          sx={{ 
+            width: '100%',
+            ...(isMobile && {
+              fontSize: '0.9rem'
+            })
+          }}
+        >
+          {snackbar.message}
+        </Alert>
       </Snackbar>
       {filteredSiteId && filteredSiteName && (
-        <Alert severity="info" sx={{ mb: 2, bgcolor: '#232b3b', color: '#90caf9', border: '1px solid #90caf9' }}>
-          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+        <Alert 
+          severity="info" 
+          sx={{ 
+            mb: 2, 
+            bgcolor: '#232b3b', 
+            color: '#90caf9', 
+            border: '1px solid #90caf9',
+            ...(isMobile && {
+              marginBottom: '16px',
+              borderRadius: '12px',
+              padding: '16px'
+            })
+          }}
+        >
+          <Typography variant="body1" sx={{ 
+            fontWeight: 600,
+            ...(isMobile && {
+              fontSize: '1rem',
+              lineHeight: 1.4
+            })
+          }}>
             📍 {filteredSiteName} 현장의 안전관리 데이터를 확인하고 있습니다.
           </Typography>
           {filteredData.length === 0 && (
-            <Typography variant="body2" sx={{ mt: 1, color: '#ff9800' }}>
+            <Typography variant="body2" sx={{ 
+              mt: 1, 
+              color: '#ff9800',
+              ...(isMobile && {
+                fontSize: '0.9rem',
+                lineHeight: 1.4
+              })
+            }}>
               이 현장에 대한 안전관리 자료가 없습니다. "자료 등록" 버튼을 클릭하여 안전관리 자료를 등록해주세요.
             </Typography>
           )}

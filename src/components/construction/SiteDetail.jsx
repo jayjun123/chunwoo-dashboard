@@ -43,6 +43,7 @@ const SiteDetail = () => {
   const [documents, setDocuments] = useState([]);
   const [safetyChecks, setSafetyChecks] = useState([]);
   const [progress, setProgress] = useState([]);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     loadSiteData();
@@ -139,7 +140,7 @@ const SiteDetail = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: isMobile ? 0 : 3, m: 0, width: isMobile ? '100vw' : 'auto', maxWidth: isMobile ? '100vw' : 'auto', minWidth: isMobile ? '100vw' : 'auto', boxSizing: 'border-box' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
           {site.name}

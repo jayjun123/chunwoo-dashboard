@@ -186,12 +186,18 @@ const DiscussionChat = ({ roomId }) => {
   };
 
   return (
-    <Box sx={{ p: isMobile ? 1 : 2, height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(90deg, #232634 60%, #1976d2 100%)', borderRadius: 3, boxShadow: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.8, mb: 1, p: 0.8, borderBottom: '1px solid #444' }}>
+    <Box sx={{ p: isMobile ? 0 : 1, m: 0, width: isMobile ? '100vw' : 'auto', maxWidth: isMobile ? '100vw' : 'auto', minWidth: isMobile ? '100vw' : 'auto', boxSizing: 'border-box', height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(90deg, #232634 60%, #1976d2 100%)', borderRadius: 3, boxShadow: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.8, mb: 1, p: 0.8, borderBottom: '1px solid #444', mt: isMobile ? '15px' : 0 }}>
         <Button startIcon={<ExcelIcon />} onClick={handleExportExcel} variant="outlined" size="small" sx={{color: '#fff', borderColor: '#fff', fontSize: '0.8rem'}}>Excel</Button>
         <Button startIcon={<PdfIcon />} onClick={handleExportPDF} variant="outlined" size="small" sx={{color: '#fff', borderColor: '#fff', fontSize: '0.8rem'}}>PDF</Button>
       </Box>
-      <Box sx={{ flex: 1, overflowY: 'auto', mb: 1.5, pr: isMobile ? 0 : 1.5 }}>
+      <Box sx={{ 
+        flex: 1, 
+        overflowY: 'auto', 
+        mb: 1.5, 
+        pr: isMobile ? 0 : 1.5,
+        pb: isMobile ? '110px' : 0 // 입력창+하단바 높이만큼 패딩
+      }}>
         {loading ? (
           <Box display="flex" justifyContent="center" alignItems="center" height="100%"><CircularProgress /></Box>
         ) : (
@@ -262,32 +268,46 @@ const DiscussionChat = ({ roomId }) => {
         )}
         <div ref={messagesEndRef} />
       </Box>
-      <Box component="form" onSubmit={handleSend} sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end', mt: 1.5, flexDirection: isMobile ? 'column' : 'row', background: '#fff', borderRadius: 2, boxShadow: 2, p: isMobile ? 1 : 1.5 }}>
+      <Box component="form" onSubmit={handleSend} sx={{ 
+        display: 'flex', 
+        gap: 1, 
+        alignItems: 'center', 
+        mt: 0, 
+        mb: isMobile ? 0 : 0, 
+        p: 0, 
+        flexDirection: 'row', 
+        background: '#fff', 
+        borderRadius: 2, 
+        boxShadow: 2,
+        position: isMobile ? 'fixed' : 'static',
+        bottom: isMobile ? '46px' : 'auto', // 하단바 위에 고정
+        left: isMobile ? 0 : 'auto',
+        right: isMobile ? 0 : 'auto',
+        zIndex: isMobile ? 1000 : 'auto',
+        width: isMobile ? '100%' : 'auto'
+      }}>
         <TextField
           fullWidth
           multiline
-          minRows={isMobile ? 2 : 2}
-          maxRows={isMobile ? 4 : 6}
+          minRows={2}
+          maxRows={4}
           variant="outlined"
-          placeholder="메시지 입력 또는 파일 첨부"
+          placeholder="메시지를 입력하세요..."
           value={newMessage}
           onChange={e => setNewMessage(e.target.value)}
-          sx={{ background: '#f5f7fa', borderRadius: 1.5, fontSize: isMobile ? '0.9rem' : '1rem' }}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton component="label" sx={{ p: 0.5 }}>
-                  <AttachFileIcon sx={{ fontSize: 18 }} />
-                  <input type="file" hidden multiple onChange={handleFileChange} />
-                </IconButton>
-              </InputAdornment>
-            )
-          }}
+          sx={{ background: '#f5f7fa', borderRadius: 1.5, fontSize: '1rem', m: 0 }}
         />
-        <Box sx={{ display: 'flex', gap: 0.8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {previews.map((url, idx) => url && <img key={idx} src={url} alt="미리보기" style={{ maxWidth: 50, borderRadius: 6, marginRight: 6, marginBottom: 3, boxShadow: '0 2px 8px #1976d233' }} />)}
-        </Box>
-        <Button type="submit" variant="contained" color="primary" size={isMobile ? 'medium' : 'large'} endIcon={<SendIcon />} sx={{ height: isMobile ? 40 : 48, fontWeight: 700, fontSize: isMobile ? '0.9rem' : '1rem', borderRadius: 1.5, minWidth: 80 }}>전송</Button>
+        <Button
+          variant="outlined"
+          component="label"
+          sx={{ minWidth: 56, fontWeight: 700, fontSize: '1rem', borderRadius: 1.5, ml: 0, height: 48 }}
+        >
+          첨부
+          <input type="file" hidden multiple onChange={handleFileChange} />
+        </Button>
+        <Button type="submit" variant="contained" color="primary" size="large" endIcon={<SendIcon />} sx={{ height: 48, fontWeight: 700, fontSize: '1rem', borderRadius: 1.5, minWidth: 56, ml: 0 }}>
+          전송
+        </Button>
       </Box>
       
       {/* 이미지 모달 */}

@@ -1,3 +1,70 @@
+/* 전역 스크롤바 숨김 - 강화 */
+html, body {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+  height: 100% !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html::-webkit-scrollbar, body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb {
+  display: none !important;
+  background: transparent !important;
+}
+
+html::-webkit-scrollbar-track, body::-webkit-scrollbar-track {
+  display: none !important;
+  background: transparent !important;
+}
+
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+*::-webkit-scrollbar-thumb {
+  display: none !important;
+  background: transparent !important;
+}
+
+*::-webkit-scrollbar-track {
+  display: none !important;
+  background: transparent !important;
+}
+
+/* 모든 div, section, article 등에도 적용 */
+div, section, article, main, aside, nav, header, footer {
+  overflow: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+div::-webkit-scrollbar, section::-webkit-scrollbar, article::-webkit-scrollbar,
+main::-webkit-scrollbar, aside::-webkit-scrollbar, nav::-webkit-scrollbar,
+header::-webkit-scrollbar, footer::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
 /* 버튼, 카드, 입력, 배경 등 변수 추가 */
 :root[data-theme="dark"] {
   --bg-main: #181c24;
@@ -88,4 +155,15 @@ input, select, textarea {
   background: var(--input-background) !important;
   color: var(--text-main) !important;
   border: 1px solid var(--border);
+}
+
+#root, .app, .main-content {
+  overflow: hidden !important;
+  width: 100% !important;
+}
+#root::-webkit-scrollbar, .app::-webkit-scrollbar, .main-content::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 } 

@@ -33,9 +33,11 @@ import {
 import { collection, query, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useNavigate } from 'react-router-dom';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 const SiteManagement = () => {
   const navigate = useNavigate();
+  const isMobile = useMediaQuery('(max-width:600px)');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sites, setSites] = useState([]);
@@ -197,7 +199,15 @@ const SiteManagement = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{
+      width: '100%',
+      maxWidth: '100%',
+      minWidth: 0,
+      p: isMobile ? 0 : 3,
+      m: 0,
+      ml: isMobile ? '30px' : 0,
+      boxSizing: 'border-box'
+    }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
           현장 관리
@@ -217,7 +227,7 @@ const SiteManagement = () => {
         </Alert>
       )}
 
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
         <Table>
           <TableHead>
             <TableRow>

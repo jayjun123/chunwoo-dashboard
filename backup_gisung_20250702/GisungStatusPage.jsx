@@ -289,7 +289,6 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         gisungMonth: item.gisungMonth || '',
         gisungAmount: item.gisungAmount || '',
         currentGisung: item.gisungAmount || '',
-        paymentMethod: item.paymentMethod || '',
         note: item.note || '',
       });
     } else {
@@ -302,7 +301,6 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         gisungMonth: viewType === 'month' ? `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}` : '',
         gisungAmount: '',
         currentGisung: '',
-        paymentMethod: '',
         note: '',
       });
     }
@@ -375,28 +373,6 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       advance: selectedSite?.advance || '',
       prevGisung: prevSum.toString(),
     });
-  };
-
-  const handlePaymentStatusChange = async (gisungId, newStatus) => {
-    try {
-      const gisungRef = doc(db, 'gisung', gisungId);
-      await updateDoc(gisungRef, {
-        paymentStatus: newStatus,
-        updatedAt: serverTimestamp()
-      });
-      
-      // 로컬 상태 업데이트
-      setGisungList(prev => prev.map(item => 
-        item.id === gisungId 
-          ? { ...item, paymentStatus: newStatus }
-          : item
-      ));
-      
-      console.log(`기성 ID ${gisungId}의 입금상태가 ${newStatus}로 변경되었습니다.`);
-    } catch (error) {
-      console.error('입금상태 변경 실패:', error);
-      alert('입금상태 변경에 실패했습니다.');
-    }
   };
 
   const handleSort = (field) => {
@@ -509,26 +485,21 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       width: '100%', 
       p: isMobile ? 0 : 2,
       position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '0px' : 'auto',
+      left: isMobile ? '-26px' : 'auto',
       width: isMobile ? '100vw' : '100%'
     }}>
       {/* 상단 제목 및 통계 */}
-      {viewType === 'month' && !isMobile && (
-        <Typography variant="h4" sx={{ 
-          mb: 3, 
-          fontWeight: 800, 
-          color: '#90caf9',
-          textAlign: 'center'
-        }}>
-          {monthText || '기성현황'}
-        </Typography>
-      )}
+      <Typography variant="h4" sx={{ 
+        mb: 3, 
+        fontWeight: 800, 
+        color: '#90caf9',
+        textAlign: 'center'
+      }}>
+        {viewType === 'month' ? `${monthText || '기성현황'}` : '현장별 기성현황'}
+      </Typography>
 
       {/* 통계 카드 */}
-      <Grid container spacing={isMobile ? 0 : 2} sx={{ 
-        mb: 3,
-        justifyContent: isMobile ? 'center' : 'flex-start'
-      }}>
+      <Grid container spacing={isMobile ? 0.7 : 2} sx={{ mb: 3 }}>
         <StatCard title="총 계약금액" value={stats.totalContractAmount} color="#43e97b" />
         <StatCard title="총 선급금" value={stats.totalAdvance} color="#ffd600" />
         <StatCard title="총 전회기성" value={stats.totalPrevGisung} color="#a084e8" />
@@ -590,21 +561,10 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         boxShadow: 6, 
         bgcolor: '#181f2e', 
         color: '#fff',
-        overflow: 'hidden',
-        width: '100%',
-        maxWidth: '100vw',
-        boxSizing: 'border-box'
+        overflow: 'hidden'
       }}>
-        <TableContainer sx={{ 
-          width: '100%',
-          maxWidth: '100%',
-          overflowX: 'auto'
-        }}>
-          <Table sx={{ 
-            width: '100%',
-            minWidth: '100%',
-            tableLayout: 'auto'
-          }}>
+        <TableContainer>
+          <Table>
             <TableHead>
               <TableRow sx={{ bgcolor: '#232b3b' }}>
                 <TableCell padding="checkbox" sx={{ display: isMobile ? 'none' : 'table-cell' }}>
@@ -621,8 +581,6 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>선급금</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>전회기성</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 700 }}>기성금액</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>결제방법</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>입금확인</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>비고</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>관리</TableCell>
               </TableRow>
@@ -630,7 +588,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             <TableBody>
               {filteredAndSortedGisung.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isMobile ? 3 : 11} sx={{ textAlign: 'center', color: '#bbb', py: 4 }}>
+                  <TableCell colSpan={isMobile ? 3 : 10} sx={{ textAlign: 'center', color: '#bbb', py: 4 }}>
                     {search ? '검색 결과가 없습니다.' : '기성 데이터가 없습니다.'}
                   </TableCell>
                 </TableRow>
@@ -673,41 +631,6 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                     </TableCell>
                     <TableCell sx={{ color: '#ef5350', fontWeight: 700 }}>
                       {Number(row.gisungAmount || 0).toLocaleString()}원
-                    </TableCell>
-                    <TableCell sx={{ color: '#bbb', display: isMobile ? 'none' : 'table-cell' }}>{row.paymentMethod || '-'}</TableCell>
-                    <TableCell sx={{ display: isMobile ? 'none' : 'table-cell' }}>
-                      <FormControl size="small" sx={{ minWidth: 120 }}>
-                        <Select
-                          value={row.paymentStatus || '미입금'}
-                          onChange={(e) => handlePaymentStatusChange(row.id, e.target.value)}
-                          sx={{
-                            bgcolor: '#232b3b',
-                            color: '#fff',
-                            fontSize: '0.8rem',
-                            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
-                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
-                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
-                            '& .MuiSelect-icon': { color: '#fff' }
-                          }}
-                          MenuProps={{
-                            PaperProps: {
-                              sx: {
-                                bgcolor: '#232b3b',
-                                '& .MuiMenuItem-root': {
-                                  color: '#fff',
-                                  fontSize: '0.8rem',
-                                  '&:hover': { bgcolor: '#2c3446' },
-                                  '&.Mui-selected': { bgcolor: '#1976d2' }
-                                }
-                              }
-                            }
-                          }}
-                        >
-                          <MenuItem value="미입금">미입금</MenuItem>
-                          <MenuItem value="입금완료">입금완료</MenuItem>
-                          <MenuItem value="일부분">일부분</MenuItem>
-                        </Select>
-                      </FormControl>
                     </TableCell>
                     <TableCell sx={{ color: '#bbb', display: isMobile ? 'none' : 'table-cell' }}>{row.note || '-'}</TableCell>
                     <TableCell sx={{ display: isMobile ? 'none' : 'table-cell' }}>
@@ -763,7 +686,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         <DialogContent sx={{ pt: 4, pb: 2, mt: 6 }}>
           <Box display="flex" flexDirection="column" alignItems="center" gap={3}>
             {/* 1줄: 현장명(검색,드롭다운) + 기성월 */}
-            <Box display="flex" width="100%" justifyContent={isMobile ? "flex-start" : "center"} gap={2}>
+            <Box display="flex" width="100%" justifyContent="center" gap={2}>
               <FormControl sx={{ minWidth: 220 }} size="medium">
                 <InputLabel sx={{ color: '#bbb', fontSize: '1rem' }}>현장명</InputLabel>
                 <Select
@@ -886,45 +809,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 }}
               />
             </Box>
-            {/* 4줄: 결제방법 */}
-            <Box display="flex" width="100%" justifyContent="center">
-              <FormControl sx={{ minWidth: 400 }} size="medium">
-                <InputLabel sx={{ color: '#bbb', fontSize: '1rem' }}>결제방법</InputLabel>
-                <Select
-                  value={formData.paymentMethod || ''}
-                  label="결제방법"
-                  onChange={e => setFormData({ ...formData, paymentMethod: e.target.value })}
-                  sx={{
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
-                    '& .MuiSelect-icon': { color: '#fff' },
-                    '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        bgcolor: '#232b3b',
-                        '& .MuiMenuItem-root': {
-                          color: '#fff',
-                          fontSize: '1rem',
-                          py: 1.5,
-                          '&:hover': { bgcolor: '#2c3446' },
-                          '&.Mui-selected': { bgcolor: '#1976d2' }
-                        }
-                      }
-                    }
-                  }}
-                >
-                  <MenuItem value="세금계산서">세금계산서</MenuItem>
-                  <MenuItem value="노무자료">노무자료</MenuItem>
-                  <MenuItem value="노무비닷컴">노무비닷컴</MenuItem>
-                  <MenuItem value="무자료">무자료</MenuItem>
-                  <MenuItem value="기타">기타</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-            {/* 5줄: 비고 */}
+            {/* 4줄: 비고 */}
             <Box display="flex" width="100%" justifyContent="center">
               <TextField
                 label="비고"

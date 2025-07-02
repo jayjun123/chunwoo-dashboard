@@ -12,6 +12,8 @@ const SiteList = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [gisungMap, setGisungMap] = useState({}); // siteId별 누계기성값
 
+  const isMobile = window.innerWidth <= 600;
+
   useEffect(() => {
     const fetchSitesAndGisung = async () => {
       try {
@@ -69,7 +71,7 @@ const SiteList = () => {
   }
 
   return (
-    <div className="site-list">
+    <div className="site-list" style={isMobile ? { marginLeft: '4px', marginTop: '10px' } : {}}>
       <div className="site-list-header">
         <h1>현장 목록</h1>
         <Link to="/sites/new" className="add-site-button">

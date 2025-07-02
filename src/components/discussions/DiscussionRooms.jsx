@@ -25,7 +25,7 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import Autocomplete from '@mui/material/Autocomplete';
 
-const DiscussionRooms = ({ onSelectRoom, currentUser }) => {
+const DiscussionRooms = ({ onSelectRoom, currentUser, isMobile }) => {
   const [rooms, setRooms] = useState([]);
   const [sites, setSites] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
@@ -148,7 +148,7 @@ const DiscussionRooms = ({ onSelectRoom, currentUser }) => {
   };
 
   return (
-    <Box sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}>
+    <Box sx={{ width: isMobile ? '100vw' : '100%', maxWidth: isMobile ? '100vw' : '360px', bgcolor: 'background.paper', p: isMobile ? 0 : 2, m: 0, minWidth: isMobile ? '100vw' : 0, boxSizing: 'border-box' }}>
       <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h6">토론방 목록</Typography>
         <Tooltip title="새 토론방 만들기">

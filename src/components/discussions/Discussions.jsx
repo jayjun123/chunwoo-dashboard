@@ -14,6 +14,7 @@ const Discussions = () => {
   const { currentUser } = useAuth();
   const messagesEndRef = useRef(null);
   const [error, setError] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   // 메시지 스크롤 자동화
   const scrollToBottom = () => {
@@ -86,7 +87,7 @@ const Discussions = () => {
   };
 
   return (
-    <Grid container spacing={2} sx={{ height: '100%' }}>
+    <Grid container spacing={2} sx={{ height: '100%', p: isMobile ? 0 : 2, m: 0, width: isMobile ? '100vw' : '100%', maxWidth: isMobile ? '100vw' : '100%', minWidth: isMobile ? '100vw' : '0', boxSizing: 'border-box' }}>
       <Grid item xs={3}>
         <DiscussionRooms 
           onSelectRoom={handleSelectRoom} 

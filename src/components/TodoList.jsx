@@ -59,6 +59,15 @@ const TodoList = () => {
   const userId = currentUser?.uid;
   const isMaster = currentUser?.email === 'fire8803@naver.com' || userId === 'HpF5IrlTscYbWPsUhtdzV05sjbF2';
 
+  // 관리자/마스터 권한 체크 함수
+  function isAdminOrMaster(user) {
+    if (!user) return false;
+    if (user.role === 'master' || user.role === 'admin') return true;
+    if (user.email === 'fire8803@naver.com' || user.uid === 'HpF5IrlTscYbWPsUhtdzV05sjbF2') return true;
+    return false;
+  }
+  const isAdminOrMasterUser = isAdminOrMaster(currentUser);
+
   // 현재 사용자의 오늘 날짜 투두리스트 가져오기
   const getCurrentUserTodos = async () => {
     if (!userId) return;
@@ -111,17 +120,80 @@ const TodoList = () => {
 
   // 사용자 목록 가져오기 (마스터 계정용)
   const fetchAllUsers = async () => {
-    if (!isMaster) return;
+    if (!isAdminOrMasterUser) return;
     
     try {
+      // members 컬렉션에서 사용자 정보 가져오기
+      const membersQuery = query(collection(db, 'members'));
+      const membersSnapshot = await getDocs(membersQuery);
+      const members = membersSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // users 컬렉션에서도 사용자 정보 가져오기 (백업용)
       const usersQuery = query(collection(db, 'users'));
       const usersSnapshot = await getDocs(usersQuery);
       const users = usersSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      setAllUsers(users);
-      console.log('사용자 목록:', users); // 디버깅용
+      
+      // 두 컬렉션의 데이터를 병합하여 중복 제거
+      const allUsersMap = new Map();
+      
+      // members 컬렉션 우선
+      members.forEach(member => {
+        allUsersMap.set(member.id, {
+          id: member.id,
+          displayName: member.displayName || member.name || member.email,
+          email: member.email,
+          role: member.role,
+          grade: member.grade
+        });
+      });
+      
+      // users 컬렉션에서 누락된 사용자 추가
+      users.forEach(user => {
+        if (!allUsersMap.has(user.id)) {
+          allUsersMap.set(user.id, {
+            id: user.id,
+            displayName: user.displayName || user.name || user.email,
+            email: user.email,
+            role: user.role,
+            grade: user.grade
+          });
+        }
+      });
+      
+      const allUsers = Array.from(allUsersMap.values());
+      
+      // 지정된 사용자 이름 매핑 - Firebase에 실제로 존재하는 사용자만
+      const userDisplayNames = {
+        'HpF5IrlTscYbWPsUhtdzV05sjbF2': '성현준',
+        'chunwoo8658@naver.com': '테스트',
+        // Firebase에 실제로 존재하는 사용자만 추가
+      };
+      
+      // 사용자 목록에 지정된 이름 적용
+      const usersWithDisplayNames = allUsers.map(user => ({
+        ...user,
+        displayName: userDisplayNames[user.id] || 
+                    userDisplayNames[user.email] || 
+                    user.displayName || 
+                    user.name || 
+                    user.email || 
+                    '알 수 없음'
+      }));
+      
+      // Firebase에 실제로 존재하는 사용자만 필터링 (매핑에 있는 사용자만)
+      const validUsers = usersWithDisplayNames.filter(user => 
+        user.id && user.email && 
+        (userDisplayNames[user.id] || userDisplayNames[user.email])
+      );
+      
+      setAllUsers(validUsers);
+      console.log('사용자 목록:', validUsers); // 디버깅용
     } catch (error) {
       console.error('사용자 목록 가져오기 오류:', error);
     }
@@ -131,50 +203,39 @@ const TodoList = () => {
     if (!userId) return;
     
     // 마스터 계정이면 사용자 목록 가져오기
-    if (isMaster) {
+    if (isAdminOrMasterUser) {
       fetchAllUsers();
     }
     
     // 현재 사용자의 오늘 투두리스트 초기화
     getCurrentUserTodos();
-  }, [userId, isMaster]);
+  }, [userId, isAdminOrMasterUser]);
 
   useEffect(() => {
     if (!userId) return;
 
-    const targetUserId = (selectedUser === null || selectedUser === '') ? userId : selectedUser;
+    // 사용자가 선택되지 않았으면 아무것도 표시하지 않음
+    if (!selectedUser) {
+      setTodos([]);
+      return;
+    }
 
     let q;
-    if (isMaster && selectedUser) {
-      // 마스터 계정이 특정 사용자 선택 시
-      q = query(
-        collection(db, collections.todos),
-        where('userId', '==', targetUserId),
-        orderBy('createdAt', 'desc')
-      );
-    } else if (isMaster && !selectedUser) {
-      // 마스터 계정이 모든 사용자 보기
-      q = query(
-        collection(db, collections.todos),
-        orderBy('createdAt', 'desc')
-      );
-    } else {
-      // 일반 사용자 또는 마스터 계정이 자신의 투두리스트
-      q = query(
-        collection(db, collections.todos),
-        where('userId', '==', targetUserId),
-        orderBy('createdAt', 'desc')
-      );
-    }
+    // 선택된 사용자의 투두리스트만 가져오기
+    q = query(
+      collection(db, collections.todos),
+      where('userId', '==', selectedUser),
+      orderBy('createdAt', 'desc')
+    );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('todos 전체:', data);
+      console.log('todos 전체:', data, '선택된 사용자:', selectedUser);
       setTodos(data);
     });
 
     return () => unsubscribe();
-  }, [userId, selectedUser, isMaster]);
+  }, [userId, selectedUser, isAdminOrMasterUser]);
 
   // 일자별 그룹핑 (전체 투두 표시)
   console.log('todos 전체:', todos);
@@ -232,7 +293,7 @@ const TodoList = () => {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'ToDo리스트');
-    XLSX.writeFile(wb, isMaster ? '전체_ToDo리스트.xlsx' : '내_ToDo리스트.xlsx');
+    XLSX.writeFile(wb, isAdminOrMasterUser ? '전체_ToDo리스트.xlsx' : '내_ToDo리스트.xlsx');
   };
 
   // 설정 버튼 클릭 핸들러
@@ -250,6 +311,7 @@ const TodoList = () => {
     setSelectedUser(userId);
     setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
     setNewTodo(''); // 입력칸도 초기화
+    setTodos([]); // 투두리스트 초기화
     setSettingsAnchor(null);
   };
 
@@ -261,7 +323,7 @@ const TodoList = () => {
 
   // 마스터 계정용 설정 팝오버
   const renderSettingsPopover = () => {
-    if (!isMaster) return null;
+    if (!isAdminOrMasterUser) return null;
 
     return (
       <Popover
@@ -294,13 +356,35 @@ const TodoList = () => {
           <InputLabel>사용자 선택</InputLabel>
           <Select
             value={selectedUser || ''}
-            onChange={(e) => handleUserSelect(e.target.value)}
+            onChange={(e) => {
+              setSelectedUser(e.target.value);
+              setTodos([]); // 투두리스트 초기화
+            }}
             label="사용자 선택"
+            sx={{
+              bgcolor: 'transparent',
+              borderRadius: 1,
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(255,255,255,0.3)',
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(255,255,255,0.5)',
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(255,255,255,0.7)',
+              },
+                                '& .MuiSelect-select': {
+                    color: '#fff',
+                    textAlign: 'left',
+                  },
+              '& .MuiInputLabel-root': {
+                color: 'rgba(255,255,255,0.7)',
+              }
+            }}
           >
-            <MenuItem value="">내 투두리스트</MenuItem>
             {allUsers.map(user => (
               <MenuItem key={user.id} value={user.id}>
-                {user.displayName || user.email || user.id}
+                {user.displayName}
               </MenuItem>
             ))}
           </Select>
@@ -321,9 +405,9 @@ const TodoList = () => {
 
   // 현재 표시 중인 사용자 정보
   const getCurrentDisplayUser = () => {
-    if (!isMaster || !selectedUser) return '내 투두리스트';
+    if (!isAdminOrMasterUser || !selectedUser) return '사용자 선택';
     const user = allUsers.find(u => u.id === selectedUser);
-    return user ? (user.displayName || user.email || user.id) : '알 수 없는 사용자';
+    return user ? user.displayName : '알 수 없는 사용자';
   };
 
   // 포스트잇 색상 배열 (연노란하얀빛)
@@ -352,10 +436,10 @@ const TodoList = () => {
       {/* 헤더 */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, color: '#fff', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
-          📋 전체 투두리스트 (실시간 모니터)
+          📋 전체 투두리스트 <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>(실시간 모니터)</Box>
         </Typography>
         {/* 마스터 계정만 회원 드롭다운 */}
-        {isMaster && (
+        {isAdminOrMasterUser && (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <Typography variant="body2" sx={{ color: '#fff' }}>
               {getCurrentDisplayUser()}
@@ -364,10 +448,13 @@ const TodoList = () => {
               <InputLabel sx={{ color: '#fff' }}>사용자 선택</InputLabel>
               <Select
                 value={selectedUser || ''}
-                onChange={(e) => setSelectedUser(e.target.value)}
+                onChange={(e) => {
+                  setSelectedUser(e.target.value);
+                  setTodos([]); // 투두리스트 초기화
+                }}
                 label="사용자 선택"
                 sx={{
-                  bgcolor: 'rgba(255,255,255,0.9)',
+                  bgcolor: 'transparent',
                   borderRadius: 1,
                   '& .MuiOutlinedInput-notchedOutline': {
                     borderColor: 'rgba(255,255,255,0.3)',
@@ -377,13 +464,19 @@ const TodoList = () => {
                   },
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
                     borderColor: 'rgba(255,255,255,0.7)',
+                  },
+                  '& .MuiSelect-select': {
+                    color: '#fff',
+                    textAlign: 'left',
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: 'rgba(255,255,255,0.7)',
                   }
                 }}
               >
-                <MenuItem value="">내 투두리스트</MenuItem>
                 {allUsers.map(user => (
                   <MenuItem key={user.id} value={user.id}>
-                    {user.displayName || user.email || user.id}
+                    {user.displayName}
                   </MenuItem>
                 ))}
               </Select>
@@ -401,6 +494,8 @@ const TodoList = () => {
                 p: 2,
                 minHeight: 300,
                 maxHeight: 400,
+                minWidth: { xs: '360px', sm: 'auto' },
+                width: { xs: '360px', sm: 'auto' },
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',

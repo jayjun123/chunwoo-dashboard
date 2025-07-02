@@ -6,17 +6,28 @@ import { NanumGothic } from '../assets/fonts/NanumGothic.js';
 // 전문적인 엑셀 디자인으로 내보내기
 export const exportToExcel = (data, sheetName, fileName, options = {}) => {
   try {
+    console.log('exportToExcel 함수 시작');
+    console.log('받은 데이터:', data);
+    console.log('데이터 타입:', typeof data);
+    console.log('데이터가 배열인가?', Array.isArray(data));
+    
     // 데이터 검증
     if (!data || !Array.isArray(data)) {
+      console.error('데이터 검증 실패:', { data, isArray: Array.isArray(data) });
       throw new Error('유효하지 않은 데이터입니다. 배열 형태의 데이터가 필요합니다.');
     }
     
     if (data.length === 0) {
+      console.error('데이터가 비어있음');
       throw new Error('내보낼 데이터가 없습니다.');
     }
     
+    console.log('데이터 검증 통과, 데이터 개수:', data.length);
+    console.log('첫 번째 데이터 샘플:', data[0]);
+    
     // 데이터 정리 (undefined, null 값 처리)
-    const cleanData = data.map(row => {
+    const cleanData = data.map((row, index) => {
+      console.log(`데이터 ${index} 처리 중:`, row);
       const cleanRow = {};
       Object.keys(row).forEach(key => {
         const value = row[key];
@@ -29,13 +40,20 @@ export const exportToExcel = (data, sheetName, fileName, options = {}) => {
           cleanRow[key] = value;
         }
       });
+      console.log(`데이터 ${index} 정리 완료:`, cleanRow);
       return cleanRow;
     });
+    
+    console.log('정리된 데이터:', cleanData);
+    console.log('정리된 데이터 개수:', cleanData.length);
     
     const wb = XLSX.utils.book_new();
     
     // 워크시트 생성
+    console.log('워크시트 생성 시작');
     const ws = XLSX.utils.json_to_sheet(cleanData);
+    console.log('워크시트 생성 완료:', ws);
+    console.log('워크시트 범위:', ws['!ref']);
     
     // 전문적인 엑셀 디자인 적용
     applyExcelStyling(ws, cleanData, options);
@@ -47,12 +65,16 @@ export const exportToExcel = (data, sheetName, fileName, options = {}) => {
     const dateStr = new Date().toISOString().split('T')[0];
     const finalFileName = fileName ? `${fileName}_${dateStr}.xlsx` : `export_${dateStr}.xlsx`;
     
+    console.log('최종 파일명:', finalFileName);
+    
     // 엑셀 파일 다운로드
     XLSX.writeFile(wb, finalFileName);
     
+    console.log('엑셀 파일 다운로드 완료');
     return { success: true, fileName: finalFileName };
   } catch (error) {
     console.error('엑셀 내보내기 실패:', error);
+    console.error('에러 스택:', error.stack);
     return { success: false, error: error.message };
   }
 };

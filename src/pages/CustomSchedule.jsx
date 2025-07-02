@@ -143,6 +143,10 @@ const CustomSchedule = () => {
 
   const handleOpenPopup = (dateStr) => {
     if (!dateStr) return;
+    if (isMobile) {
+      // 모바일에서는 CustomCalendar의 팝업을 사용
+      return;
+    }
     setPopupOpen(true);
     setPopupDate(dateStr);
     setPopupTitle('');
@@ -435,9 +439,11 @@ const CustomSchedule = () => {
             border: '1px solid', borderColor: 'divider', borderRadius: 2, display: 'flex',
             flexDirection: 'column', 
             height: 'calc(100% - 30px)',
-            maxHeight: { xs: '270px', md: 'calc(100% - 30px)' }
+            maxHeight: { xs: '270px', md: 'calc(100% - 30px)' },
+            position: { xs: 'relative', md: 'static' },
+            display: isMobile ? 'none' : 'flex',
           }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', position: { xs: 'relative', md: 'static' }, transform: { xs: 'translateX(25px)', md: 'none' }, display: { xs: 'none', md: 'block' } }}>
               <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, display: { xs: 'none', md: 'block' } }}>공사현황</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', md: 'block' } }}>이달의 현장</Typography>
             </Box>
@@ -446,7 +452,10 @@ const CustomSchedule = () => {
                 <Box ref={provided.innerRef} {...provided.droppableProps} sx={{
                   flex: 1, overflowY: 'auto', p: isMobile ? 0.5 : 1,
                   bgcolor: snapshot.isDraggingOver ? 'action.hover' : 'background.paper',
-                  maxHeight: isMobile ? '200px' : 'none'
+                  maxHeight: isMobile ? '200px' : 'none',
+                  position: { xs: 'relative', md: 'static' },
+                  transform: { xs: 'translateX(25px)', md: 'none' },
+                  display: { xs: 'none', md: 'block' },
                 }}>
                   {filteredSites.length > 0 ? (
                     filteredSites.map((site, index) => (
@@ -503,11 +512,13 @@ const CustomSchedule = () => {
               onDateNumberClick={handleOpenPopup}
               onCountClick={handleShowListPopup}
               onCellClick={handleShowListPopup}
+              sites={sites}
+              onOpenPopup={handleOpenPopup}
             />
           </Box>
         </Box>
       </DragDropContext>
-      {popupOpen && (
+      {!isMobile && popupOpen && (
         <Box
           onClick={e => { e.stopPropagation(); handleClosePopup(); }}
           sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', bgcolor: 'rgba(0,0,0,0.4)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -516,7 +527,6 @@ const CustomSchedule = () => {
             <IconButton onClick={e => { e.stopPropagation(); handleClosePopup(); }} sx={{ position: 'absolute', top: 8, right: 8, color: 'text.primary' }}>X</IconButton>
             <Typography variant="h6" sx={{ color: 'text.primary', mb: 2 }}>새 일정 추가</Typography>
             <TextField label="제목" value={popupTitle} onChange={e => setPopupTitle(e.target.value)} fullWidth sx={{ mb: 2 }} autoFocus />
-            
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>분류 선택</Typography>
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
@@ -546,7 +556,6 @@ const CustomSchedule = () => {
                 />
               </Box>
             </Box>
-            
             <Typography variant="subtitle2" sx={{ mb: 1 }}>색상 선택</Typography>
             <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
               {colorChoices.map(color => (
@@ -563,7 +572,6 @@ const CustomSchedule = () => {
                 />
               ))}
             </Box>
-            
             <TextField label="설명" value={popupDesc} onChange={e => setPopupDesc(e.target.value)} fullWidth multiline rows={3} sx={{ mb: 2 }} />
             <Button variant="contained" color="primary" onClick={handleAddSchedule} fullWidth disabled={!popupTitle.trim() || selectedTypes.length === 0}>추가</Button>
           </Box>

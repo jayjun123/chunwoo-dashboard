@@ -68,7 +68,7 @@ const Progress = () => {
     contractAmount: '',
     payments: [{ label: '1차 기성', amount: '' }],
   });
-  const [tab, setTab] = useState(isMobile ? 'gisung' : 'chart');
+  const [tab, setTab] = useState('chart');
   const [statusView, setStatusView] = useState('month'); // 'month' or 'site'
   // 월 상태 관리
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -295,7 +295,14 @@ const Progress = () => {
   const getMonthChartData = useMemo(() => {
     const monthData = [];
     
-    for (let month = 1; month <= 12; month++) {
+    // 모바일에서는 현재 월이 속한 분기만 표시, PC에서는 전체 12개월 표시
+    const currentMonthNum = currentMonth.getMonth() + 1;
+    const quarterStartMonth = Math.floor((currentMonthNum - 1) / 3) * 3 + 1;
+    const monthsToShow = isMobile ? 3 : 12;
+    const startMonth = isMobile ? quarterStartMonth : 1;
+    
+    for (let i = 0; i < monthsToShow; i++) {
+      const month = startMonth + i;
       const monthStr = `${currentMonth.getFullYear()}-${String(month).padStart(2, '0')}`;
       
       // 기성 데이터에서 해당 월의 데이터 필터링
@@ -355,7 +362,7 @@ const Progress = () => {
     }
     
     return monthData;
-  }, [progressList, allCostData, currentMonth]);
+  }, [progressList, allCostData, currentMonth, isMobile]);
 
   // 필터링된 기성 데이터 - 현장별
   const getFilteredGisungData = useMemo(() => {
@@ -451,7 +458,7 @@ const Progress = () => {
   const SiteSearch = () => (
     <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
       <Typography sx={{ color: '#fff', fontWeight: 600, display: isMobile ? 'none' : 'block' }}>현장 선택:</Typography>
-      <FormControl sx={{ minWidth: isMobile ? 200 : 300 }}>
+      <FormControl sx={{ minWidth: isMobile ? 200 : 300, position: isMobile ? 'relative' : 'static', left: isMobile ? '80px' : 0 }}>
         <InputLabel sx={{ color: '#fff', fontSize: isMobile ? '0.8rem' : 'inherit' }}>현장명 검색</InputLabel>
         <Select
           value=""
@@ -542,90 +549,101 @@ const Progress = () => {
       left: isMobile ? '0px' : 'auto'
     }}>
       {/* 기성관리, 기성현황, 지출 탭 버튼들 */}
-      {isMobile ? (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, mr: '-50px' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-start', flex: 1 }}>
-            <ButtonGroup variant="outlined" size="small">
-              <Button 
-                onClick={() => setTab('gisung')}
-                variant={tab === 'gisung' ? 'contained' : 'outlined'}
-                sx={{ fontSize: '0.75rem', px: 1 }}
-              >
-                기성현황
-              </Button>
-              <Button 
-                onClick={() => setTab('cost')}
-                variant={tab === 'cost' ? 'contained' : 'outlined'}
-                sx={{ fontSize: '0.75rem', px: 1 }}
-              >
-                지출
-              </Button>
-            </ButtonGroup>
-          </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', flex: 1 }}>
-            <ButtonGroup variant="outlined" size="small">
-              <Button 
-                onClick={() => setStatusView('month')}
-                variant={statusView === 'month' ? 'contained' : 'outlined'}
-                sx={{ fontSize: '0.75rem', px: 1 }}
-              >
-                월별
-              </Button>
-              <Button 
-                onClick={() => setStatusView('site')}
-                variant={statusView === 'site' ? 'contained' : 'outlined'}
-                sx={{ fontSize: '0.75rem', px: 1 }}
-              >
-                현장별
-              </Button>
-            </ButtonGroup>
-          </Box>
-        </Box>
-      ) : (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, gap: 3 }}>
-          {/* 왼쪽: 기성관리/기성현황/지출 */}
-          <ButtonGroup variant="outlined" size="medium">
-            <Button 
-              onClick={() => setTab('chart')}
-              variant={tab === 'chart' ? 'contained' : 'outlined'}
-              sx={{ px: 2 }}
-            >
-              기성관리
-            </Button>
-            <Button 
-              onClick={() => setTab('gisung')}
-              variant={tab === 'gisung' ? 'contained' : 'outlined'}
-              sx={{ px: 2 }}
-            >
-              기성현황
-            </Button>
-            <Button 
-              onClick={() => setTab('cost')}
-              variant={tab === 'cost' ? 'contained' : 'outlined'}
-              sx={{ px: 2 }}
-            >
-              지출
-            </Button>
-          </ButtonGroup>
-          {/* 오른쪽: 월별/현장별 */}
-          <ButtonGroup variant="outlined" size="medium">
-            <Button 
-              onClick={() => setStatusView('month')}
-              variant={statusView === 'month' ? 'contained' : 'outlined'}
-              sx={{ px: 2 }}
-            >
-              월별
-            </Button>
-            <Button 
-              onClick={() => setStatusView('site')}
-              variant={statusView === 'site' ? 'contained' : 'outlined'}
-              sx={{ px: 2 }}
-            >
-              현장별
-            </Button>
-          </ButtonGroup>
-        </Box>
-      )}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3, 
+        gap: isMobile ? 1 : 3,
+        ml: isMobile ? '10px' : 0,
+        mr: isMobile ? '10px' : 0,
+        width: isMobile ? 'calc(100vw - 20px)' : 'auto'
+      }}>
+        {/* 왼쪽: 기성관리/기성현황/지출 */}
+        <ButtonGroup 
+          variant="outlined" 
+          size={isMobile ? 'small' : 'medium'}
+          sx={{ 
+            flex: isMobile ? 1 : 'auto',
+            '& .MuiButton-root': {
+              flex: isMobile ? 1 : 'auto',
+              minWidth: isMobile ? 'auto' : 'auto'
+            }
+          }}
+        >
+          <Button 
+            onClick={() => setTab('chart')}
+            variant={tab === 'chart' ? 'contained' : 'outlined'}
+            sx={{ 
+              px: isMobile ? 0.5 : 2, 
+              fontSize: isMobile ? '0.7rem' : 'inherit',
+              flex: isMobile ? 1 : 'auto'
+            }}
+          >
+            기성관리
+          </Button>
+          <Button 
+            onClick={() => setTab('gisung')}
+            variant={tab === 'gisung' ? 'contained' : 'outlined'}
+            sx={{ 
+              px: isMobile ? 0.5 : 2, 
+              fontSize: isMobile ? '0.7rem' : 'inherit',
+              flex: isMobile ? 1 : 'auto'
+            }}
+          >
+            기성현황
+          </Button>
+          <Button 
+            onClick={() => setTab('cost')}
+            variant={tab === 'cost' ? 'contained' : 'outlined'}
+            sx={{ 
+              px: isMobile ? 0.5 : 2, 
+              fontSize: isMobile ? '0.7rem' : 'inherit',
+              flex: isMobile ? 1 : 'auto'
+            }}
+          >
+            지출
+          </Button>
+        </ButtonGroup>
+        {/* 오른쪽: 월별/현장별 */}
+        <ButtonGroup 
+          variant="outlined" 
+          size={isMobile ? 'small' : 'medium'}
+          color="success"
+          sx={{ 
+            flex: isMobile ? 1 : 'auto',
+            '& .MuiButton-root': {
+              flex: isMobile ? 1 : 'auto',
+              minWidth: isMobile ? 'auto' : '100px'
+            }
+          }}
+        >
+          <Button 
+            onClick={() => setStatusView('month')}
+            variant={statusView === 'month' ? 'contained' : 'outlined'}
+            color="success"
+            sx={{ 
+              px: isMobile ? 0.5 : 1, 
+              fontSize: isMobile ? '0.7rem' : 'inherit',
+              flex: isMobile ? 1 : 'auto'
+            }}
+          >
+            월별
+          </Button>
+          <Button 
+            onClick={() => setStatusView('site')}
+            variant={statusView === 'site' ? 'contained' : 'outlined'}
+            color="success"
+            sx={{ 
+              px: isMobile ? 0.5 : 1, 
+              fontSize: isMobile ? '0.7rem' : 'inherit',
+              flex: isMobile ? 1 : 'auto'
+            }}
+          >
+            현장별
+          </Button>
+        </ButtonGroup>
+      </Box>
 
       {/* 월별탭에서만 월 네비게이션 버튼 노출 (기성현황, 지출 모두) */}
       {statusView === 'month' && (
@@ -635,7 +653,7 @@ const Progress = () => {
           alignItems: 'center', 
           mb: 2, 
           gap: isMobile ? 1 : 2,
-          mr: isMobile ? '-50px' : 'auto'
+          mr: isMobile ? '-82px' : 'auto'
         }}>
           <Button 
             variant="outlined" 
@@ -672,8 +690,146 @@ const Progress = () => {
       )}
 
       {/* 현장별탭에서만 현장검색 체크박스 노출 */}
-      {statusView === 'site' && (
-        <SiteSearch />
+      {statusView === 'site' && (tab === 'chart' || tab === 'gisung' || tab === 'cost') && (
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, ml: 1, flexDirection: 'row' }}>
+          {/* 선택 현장 리스트 (가로, 체크박스 포함) */}
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 2, flexWrap: 'wrap' }}>
+            <Checkbox checked disabled sx={{ p: 0.5, color: '#90caf9' }} />
+            <Typography sx={{ color: '#90caf9', fontSize: '0.8rem', fontWeight: 700, mr: 1 }}>
+              선택 현장
+            </Typography>
+            {selectedSites.length === 0 ? (
+              <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>없음</Typography>
+            ) : (
+              selectedSites.map(siteName => (
+                <Box key={siteName} sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                  <Checkbox
+                    checked={selectedSites.includes(siteName)}
+                    onChange={e => {
+                      if (e.target.checked) {
+                        // 이미 선택된 상태이므로 아무 동작 안 함
+                        return;
+                      } else {
+                        // 체크 해제 시 선택 해제
+                        setSelectedSites(selectedSites.filter(name => name !== siteName));
+                      }
+                    }}
+                    sx={{ p: 0.5, color: '#90caf9' }}
+                  />
+                  <Typography sx={{ color: '#fff', fontSize: '0.8rem', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {siteName.length > 10 ? siteName.slice(0, 10) + '...' : siteName}
+                  </Typography>
+                </Box>
+              ))
+            )}
+          </Box>
+          <FormControl sx={{ minWidth: 120, maxWidth: 120, position: 'relative', left: '50px' }}>
+            <InputLabel sx={{ color: '#fff', fontSize: '0.8rem' }}>현장명 검색</InputLabel>
+            <Select
+              value=""
+              onChange={(e) => {
+                const selectedSiteName = e.target.value;
+                if (selectedSiteName && !selectedSites.includes(selectedSiteName)) {
+                  if (selectedSites.length >= 4) {
+                    alert('현장은 최대 4개까지 선택할 수 있습니다.');
+                    return;
+                  }
+                  setSelectedSites([...selectedSites, selectedSiteName]);
+                }
+              }}
+              displayEmpty
+              size="small"
+              sx={{ 
+                bgcolor: '#232b3b', 
+                color: '#fff',
+                fontSize: '0.8rem',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
+                '& .MuiSelect-icon': { color: '#fff' }
+              }}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    bgcolor: '#232b3b',
+                    '& .MuiMenuItem-root': {
+                      color: '#fff',
+                      fontSize: '0.8rem',
+                      '&:hover': { bgcolor: '#2c3446' },
+                      '&.Mui-selected': { bgcolor: '#1976d2' }
+                    }
+                  }
+                }
+              }}
+            >
+              {filteredSites.map(site => (
+                <MenuItem key={site.id} value={site.name} disabled={selectedSites.includes(site.name)}>
+                  {site.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+      )}
+      {/* PC에서는 기존 Box 구조 유지, 중복 제목 완전히 삭제 */}
+      {!isMobile && statusView === 'site' && (tab === 'chart' || tab === 'gisung' || tab === 'cost') && (
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'row',
+          justifyContent: 'flex-end', 
+          alignItems: 'center', 
+          mb: 2, 
+          gap: 2, 
+          flexWrap: 'wrap',
+          mr: 0
+        }}>
+          <FormControl sx={{ minWidth: 300 }}>
+            <InputLabel>현장명 검색</InputLabel>
+            <Select
+              value=""
+              onChange={(e) => {
+                const selectedSiteName = e.target.value;
+                if (selectedSiteName && !selectedSites.includes(selectedSiteName)) {
+                  if (selectedSites.length >= 4) {
+                    alert('현장은 최대 4개까지 선택할 수 있습니다.');
+                    return;
+                  }
+                  setSelectedSites([...selectedSites, selectedSiteName]);
+                }
+              }}
+              displayEmpty
+              size="medium"
+              sx={{ 
+                bgcolor: '#232b3b', 
+                color: '#fff',
+                fontSize: 'inherit',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
+                '& .MuiSelect-icon': { color: '#fff' }
+              }}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    bgcolor: '#232b3b',
+                    '& .MuiMenuItem-root': {
+                      color: '#fff',
+                      fontSize: 'inherit',
+                      '&:hover': { bgcolor: '#2c3446' },
+                      '&.Mui-selected': { bgcolor: '#1976d2' }
+                    }
+                  }
+                }
+              }}
+            >
+              {filteredSites.map(site => (
+                <MenuItem key={site.id} value={site.name} disabled={selectedSites.includes(site.name)}>
+                  {site.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
       )}
 
       {/* 필터링된 현장 안내 메시지 */}
@@ -694,21 +850,108 @@ const Progress = () => {
       )}
 
       {/* 월별/현장별 + 소분류 연동 분기 */}
-      {!isMobile && statusView === 'month' && tab === 'chart' && (
+      {statusView === 'month' && tab === 'chart' && (
         // 월별+기성관리 차트/데이터
         <Grid container spacing={2} alignItems="stretch" sx={{ mb: 3, width: '100vw', maxWidth: '100vw', margin: 0 }}>
+          {/* 모바일에서 차트 위 제목 */}
+          {isMobile && (
+            <Grid item xs={12}>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontSize: '1.08rem', 
+                  color: '#90caf9',
+                  textAlign: 'center',
+                  width: '100%',
+                  mt: 2,
+                  ml: '20px'
+                }}
+              >
+                기성 및 지출 현황
+              </Typography>
+            </Grid>
+          )}
           {/* 차트 전체 화면 */}
           <Grid item xs={12}>
-            <Paper sx={{ p: 3, height: '100%' }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>{currentMonth.getFullYear()}년 월별 기성 및 지출 현황</Typography>
-              <ResponsiveContainer width="100%" height={500} minWidth={1200} minHeight={400}>
+            <Paper sx={{ p: isMobile ? 1 : 3, height: '100%', mt: isMobile ? '20px' : 0 }}>
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="h6" sx={{ fontSize: isMobile ? '1rem' : 'inherit' }}>
+                    {isMobile 
+                      ? `${currentMonth.getFullYear()}년 ${Math.floor((currentMonth.getMonth()) / 3) + 1}분기`
+                      : `${currentMonth.getFullYear()}년 월별 기성 및 지출 현황`
+                    }
+                  </Typography>
+                  {isMobile && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Button 
+                        variant="outlined" 
+                        size="small"
+                        onClick={() => {
+                          const currentQuarter = Math.floor((currentMonth.getMonth()) / 3);
+                          const prevQuarter = currentQuarter - 1;
+                          const prevYear = currentMonth.getFullYear();
+                          const newYear = prevQuarter < 0 ? prevYear - 1 : prevYear;
+                          const newQuarter = prevQuarter < 0 ? 3 : prevQuarter;
+                          const newMonth = newQuarter * 3; // 분기 시작 월 (0-based)
+                          setCurrentMonth(new Date(newYear, newMonth, 1));
+                        }}
+                        sx={{ fontSize: '0.7rem', px: 1, py: 0.5 }}
+                      >
+                        이전
+                      </Button>
+                      <Typography 
+                        sx={{ 
+                          fontWeight: 700, 
+                          color: '#90caf9', 
+                          px: 1,
+                          py: 0.5,
+                          borderRadius: 1,
+                          fontSize: '0.8rem',
+                          bgcolor: '#232b3b'
+                        }}
+                      >
+                        {Math.floor((currentMonth.getMonth()) / 3) + 1}분기
+                      </Typography>
+                      <Button 
+                        variant="outlined" 
+                        size="small"
+                        onClick={() => {
+                          const currentQuarter = Math.floor((currentMonth.getMonth()) / 3);
+                          const nextQuarter = currentQuarter + 1;
+                          const nextYear = currentMonth.getFullYear();
+                          const newYear = nextQuarter > 3 ? nextYear + 1 : nextYear;
+                          const newQuarter = nextQuarter > 3 ? 0 : nextQuarter;
+                          const newMonth = newQuarter * 3; // 분기 시작 월 (0-based)
+                          setCurrentMonth(new Date(nextYear, newMonth, 1));
+                        }}
+                        sx={{ fontSize: '0.7rem', px: 1, py: 0.5 }}
+                      >
+                        다음
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 400 : 1390} minHeight={isMobile ? 200 : 400}>
                 <BarChart
                   data={getMonthChartData}
                   margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                   barCategoryGap={24}
                 >
                   <XAxis dataKey="name" />
-                  <YAxis />
+                  <YAxis 
+                    tickFormatter={(value) => {
+                      if (value >= 100000000) {
+                        return `${(value / 100000000).toFixed(1)}억`;
+                      } else if (value >= 10000) {
+                        return `${(value / 10000).toFixed(0)}만원`;
+                      } else {
+                        return value.toLocaleString();
+                      }
+                    }}
+                    tick={{ fontSize: isMobile ? 12 : 14 }}
+                  />
                   <Tooltip />
                   <Legend />
                   <Bar dataKey="기성금" fill="#82ca9d">
@@ -729,21 +972,32 @@ const Progress = () => {
           </Grid>
         </Grid>
       )}
-      {!isMobile && statusView === 'site' && tab === 'chart' && (
+      {statusView === 'site' && tab === 'chart' && (
         // 현장별+기성관리 차트/데이터(선택된 현장만)
         <Grid container spacing={2} alignItems="stretch" sx={{ mb: 3, width: '100vw', maxWidth: '100vw', margin: 0 }}>
           {/* 차트 전체 화면 */}
           <Grid item xs={12}>
-            <Paper sx={{ p: 3, height: '100%' }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>현장별 기성/지출 현황</Typography>
-              <ResponsiveContainer width="100%" height={500} minWidth={1200} minHeight={400}>
+            <Paper sx={{ p: isMobile ? 1 : 3, height: '100%', mt: isMobile ? '20px' : 0 }}>
+              <Typography variant="h6" sx={{ mb: 2, fontSize: isMobile ? '1rem' : 'inherit' }}>현장별 기성/지출 현황</Typography>
+              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 400 : 1390} minHeight={isMobile ? 200 : 400}>
                 <BarChart
                   data={getSiteChartData}
                   margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                   barCategoryGap={24}
                 >
                   <XAxis dataKey="name" />
-                  <YAxis />
+                  <YAxis 
+                    tickFormatter={(value) => {
+                      if (value >= 100000000) {
+                        return `${(value / 100000000).toFixed(1)}억`;
+                      } else if (value >= 10000) {
+                        return `${(value / 10000).toFixed(0)}만원`;
+                      } else {
+                        return value.toLocaleString();
+                      }
+                    }}
+                    tick={{ fontSize: isMobile ? 12 : 14 }}
+                  />
                   <Tooltip />
                   <Legend />
                   <Bar dataKey="기성금" fill="#82ca9d">

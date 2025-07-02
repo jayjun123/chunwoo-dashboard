@@ -15,6 +15,20 @@ import koLocale from 'date-fns/locale/ko';
 
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
+// API 키 검증 함수
+const validateOpenAIKey = (apiKey) => {
+  if (!apiKey) {
+    return { valid: false, error: 'OpenAI API 키가 설정되지 않았습니다.' };
+  }
+  if (apiKey === 'sk-your-actual-openai-api-key-here' || apiKey === 'your_openai_api_key_here') {
+    return { valid: false, error: 'OpenAI API 키가 기본값으로 설정되어 있습니다. 실제 API 키를 입력해주세요.' };
+  }
+  if (!apiKey.startsWith('sk-')) {
+    return { valid: false, error: 'OpenAI API 키 형식이 올바르지 않습니다. (sk-로 시작해야 합니다)' };
+  }
+  return { valid: true };
+};
+
 const fetchReportData = async (site, period) => {
   // 샘플: 실제 Firestore 구조에 맞게 쿼리 수정 필요
   // 기간 계산
@@ -42,8 +56,9 @@ const getAISummary = async (data, setSummaryCallback = null) => {
   if (!data.length) return '데이터가 없습니다.';
   
   // API 키 검증
-  if (!OPENAI_API_KEY || OPENAI_API_KEY === 'sk-your-actual-openai-api-key-here') {
-    const errorMsg = 'OpenAI API 키가 설정되지 않았습니다. .env 파일에서 VITE_OPENAI_API_KEY를 확인해주세요.';
+  const keyValidation = validateOpenAIKey(OPENAI_API_KEY);
+  if (!keyValidation.valid) {
+    const errorMsg = `OpenAI API 키 오류: ${keyValidation.error}\n\n.env 파일 또는 넷틀리파이 환경변수에서 VITE_OPENAI_API_KEY를 확인해주세요.`;
     if (setSummaryCallback) setSummaryCallback(errorMsg);
     return errorMsg;
   }
@@ -113,6 +128,16 @@ const Reports = () => {
   const [typeFilter, setTypeFilter] = useState('');
   const [rateLimitCooldown, setRateLimitCooldown] = useState(false);
 
+  // API 키 상태 확인 (개발용)
+  useEffect(() => {
+    const keyValidation = validateOpenAIKey(OPENAI_API_KEY);
+    if (!keyValidation.valid) {
+      console.warn('OpenAI API 키 상태:', keyValidation.error);
+    } else {
+      console.log('OpenAI API 키가 정상적으로 설정되었습니다.');
+    }
+  }, []);
+
   useEffect(() => {
     const q = query(collection(db, 'sites'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -159,8 +184,9 @@ const Reports = () => {
     if (!prompt.trim()) return;
     
     // API 키 검증
-    if (!OPENAI_API_KEY || OPENAI_API_KEY === 'sk-your-actual-openai-api-key-here') {
-      setSummary('OpenAI API 키가 설정되지 않았습니다. .env 파일에서 VITE_OPENAI_API_KEY를 확인해주세요.');
+    const keyValidation = validateOpenAIKey(OPENAI_API_KEY);
+    if (!keyValidation.valid) {
+      setSummary(`OpenAI API 키 오류: ${keyValidation.error}\n\n.env 파일 또는 넷틀리파이 환경변수에서 VITE_OPENAI_API_KEY를 확인해주세요.`);
       return;
     }
     
@@ -277,12 +303,18 @@ const Reports = () => {
 
   return (
     <Box sx={{ 
-      p: 0, 
-      height: 'calc(100vh - 120px)', 
+      height: 'calc(100vh - 65px - 51px)',
+      display: 'flex',
+      flexDirection: 'column',
+      position: 'fixed',
+      top: '65px',
+      left: 0,
+      right: 0,
+      bottom: '51px',
       overflow: 'hidden',
-      position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '-30px' : 'auto',
-      width: isMobile ? '100vw' : '100%'
+      overflowX: 'hidden',
+      zIndex: 1000,
+      bgcolor: '#1a1d21'
     }}>
       {isMobile ? (
         <Box sx={{ 
