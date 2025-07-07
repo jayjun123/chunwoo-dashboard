@@ -112,8 +112,16 @@ const Header = () => {
 
   return (
     <>
-      <AppBar position="static" sx={{ backgroundColor: '#f5f6fa !important', color: '#222 !important', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-        <Toolbar>
+      <AppBar position="static" sx={{ 
+        backgroundColor: '#f5f6fa !important', 
+        color: '#222 !important', 
+        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+        height: isMobile ? '45px' : 'auto'
+      }}>
+        <Toolbar sx={{ 
+          minHeight: isMobile ? '45px' : '64px',
+          height: isMobile ? '45px' : 'auto'
+        }}>
           <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
             <img 
               src="/chunwoo.png" 

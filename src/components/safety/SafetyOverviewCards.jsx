@@ -134,17 +134,40 @@ function SafetyOverviewCards() {
           }}
         />
       </Box>
+      
+
+
       <Grid container spacing={2.5}>
         {filtered.map(site => (
           <Grid item xs={12} md={4} lg={4} key={site.siteName}>
             <Paper sx={{ 
-              p: isMobile ? 2 : 2.5, 
+              p: isMobile ? 1.5 : 2.5, 
               bgcolor: '#181c24', 
               borderRadius: 3, 
-              minHeight: isMobile ? 180 : 210, 
-              boxShadow: 3 
+              minHeight: isMobile ? 200 : 210, 
+              boxShadow: 3,
+              position: 'relative',
+              ml: isMobile ? '-5px' : 0
             }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              {/* 그리드 오버레이 */}
+              <Box sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                pointerEvents: 'none',
+                zIndex: 1,
+                opacity: 0.1,
+                backgroundImage: `
+                  linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+                `,
+                backgroundSize: '20px 40px',
+                borderRadius: 3
+              }} />
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, position: 'relative', zIndex: 2 }}>
                 <Typography 
                   variant={isMobile ? "h6" : "h6"} 
                   sx={{ 
@@ -158,228 +181,149 @@ function SafetyOverviewCards() {
                 </Typography>
               </Box>
               <Divider sx={{ mb: 1.5, bgcolor: '#23272f' }} />
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 0.5 : 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 0.1 : 0.15, position: 'relative', zIndex: 2 }}>
                 {/* 안전점검 */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 40 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minHeight: 35, position: 'relative' }}>
                   {icons.inspection}
-                  <Typography sx={{ minWidth: 70, fontSize: '1rem' }}>안전점검</Typography>
-                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', gap: 0, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-                    <Chip
-                      label={`${site.inspection.count || 0}건`}
-                      size="small"
-                      sx={{
-                        bgcolor: '#23272f',
-                        color: '#4ade80',
-                        fontWeight: 700,
-                        mr: 0,
-                        pr: 0,
-                        px: isMobile ? 0.5 : 1,
-                        minWidth: 'unset',
-                        borderRadius: 1,
-                        height: isMobile ? 28 : 32,
-                        fontSize: '0.9rem',
-                        '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
-                        alignSelf: 'center'
-                      }}
-                      component="span"
-                      style={{ marginRight: 0 }}
-                    />
-                    <Chip
-                      label={site.inspection.status}
-                      size="small"
-                      sx={{
-                        bgcolor: statusColor[site.inspection.status] || '#23272f',
-                        color: '#222',
-                        fontWeight: 700,
-                        mr: 1,
-                        display: (isMobile && site.inspection.status === '없음') ? 'none' : 'inline-flex',
-                        fontSize: '0.9rem',
-                        height: isMobile ? 28 : 32,
-                        px: isMobile ? 0.5 : 1,
-                        alignSelf: 'center'
-                      }}
-                    />
+                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>{isMobile ? ' 안전점검' : ' 안 전 점 검'}</Typography>
+                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start', gap: 0 }}>
+                    <Box sx={{ ml: isMobile ? -1.25 : -0.625, width: 110, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box sx={{ width: isMobile ? 50 : 60 }} />
+                      <Chip
+                        label={`${site.inspection.count || 0}건`}
+                        size="small"
+                        sx={{
+                          bgcolor: '#23272f',
+                          color: '#4ade80',
+                          fontWeight: 700,
+                          px: 1,
+                          minWidth: 'unset',
+                          borderRadius: 1,
+                          height: isMobile ? 28 : 32,
+                          fontSize: isMobile ? '0.7rem' : '0.9rem',
+                          '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
+                          alignSelf: 'center'
+                        }}
+                        component="span"
+                      />
+                    </Box>
                     <TextField
                       size="small"
                       variant="outlined"
                       placeholder="입력"
                       value={inputs[site.siteName]?.inspection || ''}
                       onChange={e => handleInputChange(site.siteName, 'inspection', e.target.value)}
-                      sx={{ width: 90, height: 28, ml: 0, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 28, p: 0 } }}
-                      InputProps={{ style: { height: 28, padding: 0, paddingTop: 0, paddingBottom: 0, fontSize: '1rem', textAlign: 'center', lineHeight: 1 } }}
+                      sx={{ width: isMobile ? 95 : 105, height: isMobile ? 24 : 28, ml: isMobile ? '5px' : -0.625, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: isMobile ? 24 : 28, p: 0 } }}
+                      InputProps={{ style: { height: isMobile ? 24 : 28, padding: 0, paddingTop: 0, paddingBottom: 0, fontSize: isMobile ? '0.8rem' : '1rem', textAlign: 'center', lineHeight: 1 } }}
                     />
-                    <Button 
-                      variant="contained" 
-                      size="small" 
-                      sx={{ 
-                        bgcolor: '#4ade80', 
-                        color: '#222', 
-                        fontWeight: 700, 
-                        minWidth: 50,
-                        height: 28,
-                        px: 0
-                      }} 
-                      onClick={() => handleSave(site.siteName, 'inspection')}
-                    >
-                      저장
-                    </Button>
-                    {!(isMobile && site.inspection.last === '없음') && (
-                      <Typography sx={{ 
-                        color: '#bbb', 
-                        fontSize: '1rem', 
-                        ml: 1,
-                        width: isMobile ? '100%' : 'auto',
-                        mt: isMobile ? 0.5 : 0
-                      }}>
-                        {site.inspection.last}
-                      </Typography>
-                    )}
                   </Box>
                 </Box>
                 {/* 사고예방 */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 40 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minHeight: 35, position: 'relative' }}>
                   {icons.accident}
-                  <Typography sx={{ minWidth: 70, fontSize: '1rem' }}>사고예방</Typography>
-                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', gap: 0 }}>
-                    <Chip
-                      label={`${site.accident.count || 0}건`}
-                      size="small"
-                      sx={{
-                        bgcolor: '#23272f',
-                        color: '#f87171',
-                        fontWeight: 700,
-                        mr: 0,
-                        pr: 0,
-                        px: 1,
-                        minWidth: 'unset',
-                        borderRadius: 1,
-                        height: 32,
-                        '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
-                        fontSize: '0.9rem',
-                        alignSelf: 'center'
-                      }}
-                      component="span"
-                      style={{ marginRight: 0 }}
-                    />
-                    <Chip
-                      label={site.accident.status}
-                      size="small"
-                      sx={{
-                        bgcolor: statusColor[site.accident.status] || '#23272f',
-                        color: '#222',
-                        fontWeight: 700,
-                        mr: 1,
-                        display: (isMobile && site.accident.status === '없음') ? 'none' : 'inline-flex',
-                        fontSize: '0.9rem',
-                        alignSelf: 'center'
-                      }}
-                    />
+                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>{isMobile ? ' 사고예방' : ' 사 고 예 방'}</Typography>
+                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start', gap: 0 }}>
+                    <Box sx={{ ml: isMobile ? -1.25 : -0.625, width: 110, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box sx={{ width: isMobile ? 50 : 60 }} />
+                      <Chip
+                        label={`${site.accident.count || 0}건`}
+                        size="small"
+                        sx={{
+                          bgcolor: '#23272f',
+                          color: '#f87171',
+                          fontWeight: 700,
+                          px: 1,
+                          minWidth: 'unset',
+                          borderRadius: 1,
+                          height: isMobile ? 28 : 32,
+                          fontSize: isMobile ? '0.7rem' : '0.9rem',
+                          '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
+                          alignSelf: 'center'
+                        }}
+                        component="span"
+                      />
+                    </Box>
                     <TextField
                       size="small"
                       variant="outlined"
                       placeholder="입력"
                       value={inputs[site.siteName]?.accident || ''}
                       onChange={e => handleInputChange(site.siteName, 'accident', e.target.value)}
-                      sx={{ width: 90, height: 28, ml: 0, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 28, p: 0 } }}
-                      InputProps={{ style: { height: 28, padding: 0, paddingTop: 0, paddingBottom: 0, fontSize: '1rem', textAlign: 'center', lineHeight: 1 } }}
+                      sx={{ width: isMobile ? 95 : 105, height: isMobile ? 24 : 28, ml: isMobile ? '5px' : -0.625, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: isMobile ? 24 : 28, p: 0 } }}
+                      InputProps={{ style: { height: isMobile ? 24 : 28, padding: 0, paddingTop: 0, paddingBottom: 0, fontSize: isMobile ? '0.8rem' : '1rem', textAlign: 'center', lineHeight: 1 } }}
                     />
-                    <Button variant="contained" size="small" sx={{ bgcolor: '#f87171', color: '#222', fontWeight: 700, minWidth: 50, height: 28, px: 0 }} onClick={() => handleSave(site.siteName, 'accident')}>저장</Button>
-                    {!(isMobile && site.accident.last === '없음') && (
-                      <Typography sx={{ color: '#bbb', fontSize: '1rem', ml: 1 }}>{site.accident.last}</Typography>
-                    )}
                   </Box>
                 </Box>
                 {/* 안전교육 */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 40 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minHeight: 35, position: 'relative' }}>
                   {icons.education}
-                  <Typography sx={{ minWidth: 70, fontSize: '1rem' }}>안전교육</Typography>
-                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', gap: 0 }}>
-                    <Chip
-                      label={`${site.education.count || 0}건`}
-                      size="small"
-                      sx={{
-                        bgcolor: '#23272f',
-                        color: '#60a5fa',
-                        fontWeight: 700,
-                        mr: 0,
-                        pr: 0,
-                        px: 1,
-                        minWidth: 'unset',
-                        borderRadius: 1,
-                        height: 32,
-                        '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
-                        fontSize: '0.9rem',
-                        alignSelf: 'center'
-                      }}
-                      component="span"
-                      style={{ marginRight: 0 }}
-                    />
-                    <Chip
-                      label={site.education.status}
-                      size="small"
-                      sx={{
-                        bgcolor: statusColor[site.education.status] || '#23272f',
-                        color: '#222',
-                        fontWeight: 700,
-                        mr: 1,
-                        display: (isMobile && site.education.status === '없음') ? 'none' : 'inline-flex',
-                        fontSize: '0.9rem',
-                        alignSelf: 'center'
-                      }}
-                    />
+                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>{isMobile ? ' 안전교육' : ' 안 전 교 육'}</Typography>
+                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start', gap: 0 }}>
+                    <Box sx={{ ml: isMobile ? -1.25 : -0.625, width: 110, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box sx={{ width: isMobile ? 50 : 60 }} />
+                      <Chip
+                        label={`${site.education.count || 0}건`}
+                        size="small"
+                        sx={{
+                          bgcolor: '#23272f',
+                          color: '#60a5fa',
+                          fontWeight: 700,
+                          px: 1,
+                          minWidth: 'unset',
+                          borderRadius: 1,
+                          height: isMobile ? 28 : 32,
+                          fontSize: isMobile ? '0.7rem' : '0.9rem',
+                          '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
+                          alignSelf: 'center'
+                        }}
+                        component="span"
+                      />
+                    </Box>
                     <TextField
                       size="small"
                       variant="outlined"
                       placeholder="입력"
                       value={inputs[site.siteName]?.education || ''}
                       onChange={e => handleInputChange(site.siteName, 'education', e.target.value)}
-                      sx={{ width: 90, height: 28, ml: 0, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 28, p: 0 } }}
-                      InputProps={{ style: { height: 28, padding: 0, paddingTop: 0, paddingBottom: 0, fontSize: '1rem', textAlign: 'center', lineHeight: 1 } }}
+                      sx={{ width: isMobile ? 95 : 105, height: isMobile ? 24 : 28, ml: isMobile ? '5px' : -0.625, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: isMobile ? 24 : 28, p: 0 } }}
+                      InputProps={{ style: { height: isMobile ? 24 : 28, padding: 0, paddingTop: 0, paddingBottom: 0, fontSize: isMobile ? '0.8rem' : '1rem', textAlign: 'center', lineHeight: 1 } }}
                     />
-                    <Button variant="contained" size="small" sx={{ bgcolor: '#60a5fa', color: '#222', fontWeight: 700, minWidth: 50, height: 28, px: 0 }} onClick={() => handleSave(site.siteName, 'education')}>저장</Button>
-                    {!(isMobile && site.education.last === '없음') && (
-                      <Typography sx={{ color: '#bbb', fontSize: '1rem', ml: 1 }}>{site.education.last}</Typography>
-                    )}
                   </Box>
                 </Box>
                 {/* 안전관리비 */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 40 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minHeight: 35, position: 'relative' }}>
                   {icons.cost}
-                  <Typography sx={{ minWidth: 70, fontSize: '1rem' }}>안전관리비</Typography>
-                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', gap: 0 }}>
-                    <Chip
-                      label={site.cost.total ? site.cost.total.toLocaleString() + '원' : '0원'}
-                      size="small"
-                      sx={{
-                        bgcolor: '#23272f',
-                        color: '#facc15',
-                        fontWeight: 700,
-                        mr: 0,
-                        pr: 0,
-                        px: 1,
-                        minWidth: 'unset',
-                        borderRadius: 1,
-                        height: 32,
-                        '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
-                        fontSize: '0.9rem',
-                        alignSelf: 'center'
-                      }}
-                      component="span"
-                      style={{ marginRight: 0 }}
-                    />
+                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>안전관리비</Typography>
+                  <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start', gap: 0 }}>
+                    <Box sx={{ ml: isMobile ? -1.25 : -0.625, width: 110, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box sx={{ width: isMobile ? 50 : 60 }} />
+                      <Chip
+                        label={site.cost.total ? site.cost.total.toLocaleString() + '원' : '0원'}
+                        size="small"
+                        sx={{
+                          bgcolor: '#23272f',
+                          color: '#facc15',
+                          fontWeight: 700,
+                          px: 1,
+                          minWidth: 'unset',
+                          borderRadius: 1,
+                          height: isMobile ? 28 : 32,
+                          '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
+                          fontSize: isMobile ? '0.7rem' : '0.9rem',
+                          alignSelf: 'center'
+                        }}
+                        component="span"
+                      />
+                    </Box>
                     <TextField
                       size="small"
                       variant="outlined"
                       placeholder="입력"
                       value={inputs[site.siteName]?.cost || ''}
                       onChange={e => handleInputChange(site.siteName, 'cost', e.target.value)}
-                      sx={{ width: 90, height: 28, ml: 0, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 28, p: 0 } }}
-                      InputProps={{ style: { height: 28, padding: 0, paddingTop: 0, paddingBottom: 0, fontSize: '1rem', textAlign: 'center', lineHeight: 1 } }}
+                      sx={{ width: isMobile ? 95 : 105, height: isMobile ? 24 : 28, ml: isMobile ? '5px' : -0.625, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: isMobile ? 24 : 28, p: 0 } }}
+                      InputProps={{ style: { height: isMobile ? 24 : 28, padding: 0, paddingTop: 0, paddingBottom: 0, fontSize: isMobile ? '0.8rem' : '1rem', textAlign: 'center', lineHeight: 1 } }}
                     />
-                    <Button variant="contained" size="small" sx={{ bgcolor: '#facc15', color: '#222', fontWeight: 700, minWidth: 50, height: 28, px: 0 }} onClick={() => handleSave(site.siteName, 'cost')}>저장</Button>
-                    {!(isMobile && site.cost.last === '없음') && (
-                      <Typography sx={{ color: '#bbb', fontSize: '1rem', ml: 1 }}>{site.cost.last}</Typography>
-                    )}
                   </Box>
                 </Box>
               </Box>

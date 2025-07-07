@@ -296,12 +296,14 @@ const DiscussionRoomList = ({ onSelectRoom }) => {
               <Card sx={{ borderRadius: 3, boxShadow: 4, background: 'linear-gradient(90deg, #232634 60%, #1976d2 100%)', color: '#fff', cursor: 'pointer', transition: '0.2s', '&:hover': { boxShadow: 8, background: 'linear-gradient(90deg, #1976d2 60%, #232634 100%)', transform: 'scale(1.03)' } }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box onClick={() => hasPassword ? handlePasswordEnter(room) : onSelectRoom(room)}>
-                      <Typography variant="h6" sx={{ fontWeight: 700 }}>{room.name}</Typography>
-                      <Typography variant="body2" sx={{ color: '#90caf9' }}>현장: {room.siteName}</Typography>
-                      <Typography variant="body2" sx={{ mt: 1, color: '#b0b0b0' }}>글 수: {roomMsgs.length}</Typography>
-                      <Typography variant="body2" sx={{ color: '#b0b0b0' }}>최근 작성자: {lastAuthor || '-'}</Typography>
-                      {hasPassword ? <LockIcon fontSize="small" sx={{ color: '#ffb300', ml: 1 }} /> : <LockOpenIcon fontSize="small" sx={{ color: '#90caf9', ml: 1 }} />}
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box onClick={() => hasPassword ? handlePasswordEnter(room) : onSelectRoom(room)} sx={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 700 }}>{room.name}</Typography>
+                        <Typography variant="body2" sx={{ color: '#90caf9' }}>현장: {room.siteName}</Typography>
+                        <Typography variant="body2" sx={{ mt: 1, color: '#b0b0b0' }}>글 수: {roomMsgs.length}</Typography>
+                        <Typography variant="body2" sx={{ color: '#b0b0b0' }}>최근 작성자: {lastAuthor || '-'}</Typography>
+                        {hasPassword ? <LockIcon fontSize="small" sx={{ color: '#ffb300', ml: 1 }} /> : <LockOpenIcon fontSize="small" sx={{ color: '#90caf9', ml: 1 }} />}
+                      </Box>
                     </Box>
                     <Box>
                       <Tooltip title="PDF로 내보내기"><IconButton color="inherit" onClick={() => handleExportPDF(room)}><PictureAsPdfIcon /></IconButton></Tooltip>

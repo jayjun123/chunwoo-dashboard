@@ -542,11 +542,10 @@ const Progress = () => {
   return (
     <Box sx={{ 
       p: isMobile ? 2 : 3, 
-      width: 'calc(100vw - 60px)', 
-      maxWidth: 'calc(100vw - 60px)', 
-      ml: '-20px',
-      position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '0px' : 'auto'
+      width: isMobile ? '100%' : 'calc(100% - 20px)', 
+      maxWidth: isMobile ? '100%' : 'calc(100% - 20px)', 
+      mx: isMobile ? 0 : '10px',
+      mt: '50px'
     }}>
       {/* 기성관리, 기성현황, 지출 탭 버튼들 */}
       <Box sx={{ 
@@ -555,9 +554,7 @@ const Progress = () => {
         alignItems: 'center', 
         mb: 3, 
         gap: isMobile ? 1 : 3,
-        ml: isMobile ? '10px' : 0,
-        mr: isMobile ? '10px' : 0,
-        width: isMobile ? 'calc(100vw - 20px)' : 'auto'
+        width: '100%'
       }}>
         {/* 왼쪽: 기성관리/기성현황/지출 */}
         <ButtonGroup 
@@ -653,7 +650,7 @@ const Progress = () => {
           alignItems: 'center', 
           mb: 2, 
           gap: isMobile ? 1 : 2,
-          mr: isMobile ? '-82px' : 'auto'
+          width: '100%'
         }}>
           <Button 
             variant="outlined" 
@@ -723,7 +720,7 @@ const Progress = () => {
               ))
             )}
           </Box>
-          <FormControl sx={{ minWidth: 120, maxWidth: 120, position: 'relative', left: '50px' }}>
+          <FormControl sx={{ minWidth: 120, maxWidth: 120, position: 'relative', left: isMobile ? '30px' : '50px' }}>
             <InputLabel sx={{ color: '#fff', fontSize: '0.8rem' }}>현장명 검색</InputLabel>
             <Select
               value=""
@@ -852,7 +849,7 @@ const Progress = () => {
       {/* 월별/현장별 + 소분류 연동 분기 */}
       {statusView === 'month' && tab === 'chart' && (
         // 월별+기성관리 차트/데이터
-        <Grid container spacing={2} alignItems="stretch" sx={{ mb: 3, width: '100vw', maxWidth: '100vw', margin: 0 }}>
+        <Grid container spacing={2} alignItems="stretch" sx={{ mb: 3, width: '100%' }}>
           {/* 모바일에서 차트 위 제목 */}
           {isMobile && (
             <Grid item xs={12}>
@@ -867,23 +864,23 @@ const Progress = () => {
                   ml: '20px'
                 }}
               >
-                기성 및 지출 현황
+                {currentMonth.getFullYear()}년 {Math.floor((currentMonth.getMonth()) / 3) + 1}분기 기성현황
               </Typography>
             </Grid>
           )}
           {/* 차트 전체 화면 */}
           <Grid item xs={12}>
-            <Paper sx={{ p: isMobile ? 1 : 3, height: '100%', mt: isMobile ? '20px' : 0 }}>
+            <Paper sx={{ px: isMobile ? 3 : 3, py: isMobile ? 1 : 3, height: '100%', mt: isMobile ? '20px' : 0 }}>
               <Box sx={{ mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="h6" sx={{ fontSize: isMobile ? '1rem' : 'inherit' }}>
+                  <Typography variant="h6" sx={{ fontSize: isMobile ? '1rem' : 'inherit', display: isMobile ? 'none' : 'block' }}>
                     {isMobile 
                       ? `${currentMonth.getFullYear()}년 ${Math.floor((currentMonth.getMonth()) / 3) + 1}분기`
                       : `${currentMonth.getFullYear()}년 월별 기성 및 지출 현황`
                     }
                   </Typography>
                   {isMobile && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: '80px' }}>
                       <Button 
                         variant="outlined" 
                         size="small"
@@ -908,7 +905,8 @@ const Progress = () => {
                           py: 0.5,
                           borderRadius: 1,
                           fontSize: '0.8rem',
-                          bgcolor: '#232b3b'
+                          bgcolor: '#232b3b',
+                          whiteSpace: 'nowrap'
                         }}
                       >
                         {Math.floor((currentMonth.getMonth()) / 3) + 1}분기
@@ -933,12 +931,12 @@ const Progress = () => {
                   )}
                 </Box>
               </Box>
-              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 400 : 1390} minHeight={isMobile ? 200 : 400}>
-                <BarChart
-                  data={getMonthChartData}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                  barCategoryGap={24}
-                >
+                              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 360 : 1390} minHeight={isMobile ? 200 : 400} style={{ marginLeft: isMobile ? '-50px' : 0 }}>
+                  <BarChart
+                    data={getMonthChartData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                    barCategoryGap={24}
+                  >
                   <XAxis dataKey="name" />
                   <YAxis 
                     tickFormatter={(value) => {
@@ -974,17 +972,17 @@ const Progress = () => {
       )}
       {statusView === 'site' && tab === 'chart' && (
         // 현장별+기성관리 차트/데이터(선택된 현장만)
-        <Grid container spacing={2} alignItems="stretch" sx={{ mb: 3, width: '100vw', maxWidth: '100vw', margin: 0 }}>
+        <Grid container spacing={2} alignItems="stretch" sx={{ mb: 3, width: '100%' }}>
           {/* 차트 전체 화면 */}
           <Grid item xs={12}>
-            <Paper sx={{ p: isMobile ? 1 : 3, height: '100%', mt: isMobile ? '20px' : 0 }}>
+            <Paper sx={{ px: isMobile ? 3 : 3, py: isMobile ? 1 : 3, height: '100%', mt: isMobile ? '20px' : 0 }}>
               <Typography variant="h6" sx={{ mb: 2, fontSize: isMobile ? '1rem' : 'inherit' }}>현장별 기성/지출 현황</Typography>
-              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 400 : 1390} minHeight={isMobile ? 200 : 400}>
-                <BarChart
-                  data={getSiteChartData}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                  barCategoryGap={24}
-                >
+                              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 360 : 1390} minHeight={isMobile ? 200 : 400} style={{ marginLeft: isMobile ? '-50px' : 0 }}>
+                  <BarChart
+                    data={getSiteChartData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                    barCategoryGap={24}
+                  >
                   <XAxis dataKey="name" />
                   <YAxis 
                     tickFormatter={(value) => {

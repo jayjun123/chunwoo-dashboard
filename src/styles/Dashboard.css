@@ -408,13 +408,11 @@
 }
 
 .dashboard-detail-card {
-  background: linear-gradient(135deg,#23243a 60%,#2d2e4a 100%);
+  background: var(--bg-card);
   border-radius: 16px;
   padding: 24px;
-  color: #fff;
+  color: var(--text-main);
   box-shadow: 0 2px 12px rgba(0,0,0,0.18);
-  background: var(--bg-card) !important;
-  color: var(--text-main) !important;
 }
 
 .dashboard-detail-card h3 {

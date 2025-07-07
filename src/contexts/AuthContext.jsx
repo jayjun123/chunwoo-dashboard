@@ -13,7 +13,11 @@ import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
 const AuthContext = createContext();
 
 export const useAuth = () => {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };
 
 export const AuthProvider = ({ children }) => {
@@ -99,6 +103,7 @@ export const AuthProvider = ({ children }) => {
       storeUser(userInfo);
       return userCredential;
     } catch (error) {
+      console.error('로그인 실패:', error);
       throw error;
     }
   };
@@ -116,7 +121,7 @@ export const AuthProvider = ({ children }) => {
     
     try {
       const userDoc = await getDoc(doc(db, 'members', auth.currentUser.uid));
-      const userData = userDoc.exists() ? doc.data() : {};
+      const userData = userDoc.exists() ? userDoc.data() : {};
       
       const userInfo = {
         uid: auth.currentUser.uid,
@@ -153,9 +158,22 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let unsubscribeFirestore = null;
     
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    // 초기 로딩 시 로컬 스토리지에서 사용자 정보 복원
+    const storedUser = getStoredUser();
+    if (storedUser && !currentUser) {
+      console.log('AuthContext - 로컬 스토리지에서 사용자 정보 복원:', storedUser);
+      setCurrentUser(storedUser);
+    }
+    
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('AuthContext - Firebase Auth 상태 변경:', user ? '로그인' : '로그아웃');
+      
       if (user) {
         try {
+          // 토큰 새로고침 (세션 유지)
+          const token = await user.getIdToken(true);
+          console.log('AuthContext - 토큰 새로고침 완료');
+          
           // Firestore 실시간 리스너 추가
           unsubscribeFirestore = onSnapshot(doc(db, 'members', user.uid), 
             (doc) => { // Success callback
@@ -219,10 +237,17 @@ export const AuthProvider = ({ children }) => {
         }
       } else {
         // 로그아웃 상태
+        console.log('AuthContext - 로그아웃 상태로 변경');
         setCurrentUser(null);
         storeUser(null);
         setLoading(false); // 로딩 종료
       }
+    }, (error) => {
+      // Firebase Auth 초기화 오류 처리
+      console.error('Firebase Auth 초기화 오류:', error);
+      setCurrentUser(null);
+      storeUser(null);
+      setLoading(false);
     });
 
     return () => {
@@ -237,28 +262,7 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // 브라우저 탭/창 닫힐 때 로그아웃 처리
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      // 브라우저를 닫을 때 로그아웃
-      storeUser(null);
-    };
 
-    const handleVisibilityChange = () => {
-      // 탭이 숨겨질 때 로그아웃
-      if (document.visibilityState === 'hidden') {
-        storeUser(null);
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
 
   const value = {
     currentUser,
@@ -275,7 +279,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }; 

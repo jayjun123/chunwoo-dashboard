@@ -6,7 +6,7 @@ import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, write
 import { db, auth } from '../firebase';
 import * as XLSX from 'xlsx';
 import { exportCalendarToExcel } from '../utils/exportUtils';
-import useMediaQuery from '@mui/material/useMediaQuery';
+
 
 function isInMonth(site, year, month) {
   if (!site.startDate || !site.endDate) return false;
@@ -18,7 +18,7 @@ function isInMonth(site, year, month) {
 }
 
 const CustomSchedule = () => {
-  const isMobile = useMediaQuery('(max-width:600px)');
+  const isMobile = false; // 모바일 반응형 사용하지 않음
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -38,6 +38,11 @@ const CustomSchedule = () => {
   const [selectedColor, setSelectedColor] = useState(colorChoices[0]);
   const [showListPopup, setShowListPopup] = useState(false);
   const [listPopupDate, setListPopupDate] = useState('');
+  const [copiedItem, setCopiedItem] = useState(null); // 복사된 항목 상태
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return todayStr;
+  });
 
   useEffect(() => {
     const q = query(collection(db, 'sites'));
@@ -142,11 +147,9 @@ const CustomSchedule = () => {
   };
 
   const handleOpenPopup = (dateStr) => {
+    console.log('handleOpenPopup 호출됨:', dateStr);
     if (!dateStr) return;
-    if (isMobile) {
-      // 모바일에서는 CustomCalendar의 팝업을 사용
-      return;
-    }
+    console.log('팝업 열기:', dateStr);
     setPopupOpen(true);
     setPopupDate(dateStr);
     setPopupTitle('');
@@ -183,6 +186,7 @@ const CustomSchedule = () => {
   };
 
   const handleItemClick = (date, id) => {
+    console.log('handleItemClick 호출됨:', date, id);
     setSelectedItems(prev => {
       const exists = prev.find(sel => sel.date === date && sel.id === id);
       if (exists) return prev.filter(sel => !(sel.date === date && sel.id === id));
@@ -287,8 +291,11 @@ const CustomSchedule = () => {
     
     // 1. Optimistic UI update
     const newCalendarItems = { ...calendarItems };
-    itemsToDelete.forEach(({ date, id }) => {
-      if (newCalendarItems[date]) {
+    itemsToDelete.forEach(({ date, id, type }) => {
+      if (type === 'site') {
+        // 현장 삭제는 별도 처리 (현재는 선택 해제만)
+        console.log('현장 삭제:', id);
+      } else if (newCalendarItems[date]) {
         newCalendarItems[date] = newCalendarItems[date].filter(item => item.id !== id);
         if (newCalendarItems[date].length === 0) {
           delete newCalendarItems[date];
@@ -301,7 +308,7 @@ const CustomSchedule = () => {
     // 2. Background DB operation
     const batch = writeBatch(db);
     itemsToDelete.forEach(selected => {
-      if (selected.id) {
+      if (selected.id && selected.type !== 'site') {
         batch.delete(doc(db, 'schedules', selected.id));
       }
     });
@@ -375,8 +382,20 @@ const CustomSchedule = () => {
 
   const handleExcel = () => {
     try {
+      // 체크박스 상태를 포함한 데이터 생성
+      const dataWithCheckStatus = Object.entries(calendarItems).flatMap(([date, items]) =>
+        items.map(item => ({
+          날짜: date,
+          제목: item.text,
+          유형: item.type,
+          설명: item.desc || '',
+          현장: item.siteId || '',
+          체크여부: checkedItems[`${date}-${item.id}`] ? '체크' : '미체크'
+        }))
+      );
+      
       // 새로운 전문적인 엑셀 내보내기 사용
-      const result = exportCalendarToExcel(calendarItems, year, month + 1, '일정관리');
+      const result = exportToExcel(dataWithCheckStatus, '일정관리', '일정관리');
       
       if (result.success) {
         alert('전문적인 엑셀 파일이 다운로드되었습니다!');
@@ -391,8 +410,9 @@ const CustomSchedule = () => {
   };
 
   const handleCheckItem = (date, id, checked) => {
+    // 체크박스 상태만 변경 (엑셀 다운로드용)
     setCheckedItems(prev => {
-      const key = `${date}_${id}`;
+      const key = `${date}-${id}`;
       return { ...prev, [key]: checked };
     });
   };
@@ -408,22 +428,111 @@ const CustomSchedule = () => {
     }
   };
 
-  const handleShowListPopup = (dateStr) => { setShowListPopup(true); setListPopupDate(dateStr); };
+  const handleShowListPopup = (dateStr) => { 
+    console.log('handleShowListPopup 호출됨:', dateStr);
+    setShowListPopup(true); 
+    setListPopupDate(dateStr); 
+  };
   const handleCloseListPopup = () => { setShowListPopup(false); setListPopupDate(''); };
 
+  // 키보드 이벤트 핸들러 (복사/붙여넣기)
+  const handleKeyDown = (e) => {
+    console.log('키보드 이벤트:', e.key, 'Ctrl:', e.ctrlKey);
+    
+    // Ctrl+C: 복사
+    if (e.ctrlKey && e.key === 'c') {
+      e.preventDefault();
+      console.log('Ctrl+C 감지됨');
+      if (selectedItems.length > 0) {
+        // 선택된 항목 중 첫 번째 항목을 복사
+        const selectedItem = selectedItems[0];
+        const item = calendarItems[selectedItem.date]?.find(item => item.id === selectedItem.id);
+        if (item) {
+          setCopiedItem(item);
+          console.log('항목 복사됨:', item);
+          alert('항목이 복사되었습니다!');
+        } else {
+          console.log('복사할 항목을 찾을 수 없음');
+        }
+      } else {
+        console.log('선택된 항목이 없음');
+      }
+    }
+    
+    // Ctrl+V: 붙여넣기
+    if (e.ctrlKey && e.key === 'v') {
+      e.preventDefault();
+      console.log('Ctrl+V 감지됨');
+      if (copiedItem && selectedDate) {
+        console.log('붙여넣기 시도:', selectedDate);
+        handlePasteItem(selectedDate);
+      } else {
+        console.log('복사된 항목이 없거나 선택된 날짜가 없음');
+        if (!copiedItem) alert('복사된 항목이 없습니다. Ctrl+C로 항목을 복사하세요.');
+        if (!selectedDate) alert('붙여넣을 날짜를 선택하세요.');
+      }
+    }
+  };
+
+  // 붙여넣기 핸들러
+  const handlePasteItem = async (targetDate) => {
+    if (!copiedItem) return;
+    
+    const user = auth.currentUser;
+    if (!user) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    try {
+      const newItem = {
+        text: copiedItem.text || '',
+        type: copiedItem.type || '기타',
+        desc: copiedItem.desc || '',
+        siteId: copiedItem.siteId || '',
+        date: targetDate,
+        userId: user.uid,
+        color: copiedItem.color || colorChoices[0], // 기본 색상 설정
+        siteName: copiedItem.siteName || '',
+        selectedTypes: copiedItem.selectedTypes || [copiedItem.type || '기타'],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      // undefined 값 제거
+      Object.keys(newItem).forEach(key => {
+        if (newItem[key] === undefined) {
+          delete newItem[key];
+        }
+      });
+      
+      console.log('붙여넣을 항목:', newItem);
+      
+      await addDoc(collection(db, 'schedules'), newItem);
+      console.log('항목 붙여넣기 완료:', targetDate);
+    } catch (error) {
+      console.error('항목 붙여넣기 실패:', error);
+      alert('항목 붙여넣기에 실패했습니다.');
+    }
+  };
+
   return (
-    <Box sx={{ 
-      p: 0, 
-      height: isMobile ? 'calc(100vh - 90px)' : 'calc(100vh - 120px)',
-      width: isMobile ? '100vw' : '100%',
-      mx: 0,
-      px: 0,
-      margin: 0,
-      padding: 0,
-      position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '-30px' : 'auto',
-      right: isMobile ? 0 : 'auto'
-    }}>
+    <Box 
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      sx={{ 
+        p: 0, 
+        height: isMobile ? 'calc(100vh - 90px)' : 'calc(100vh - 120px)',
+        width: isMobile ? '100vw' : '100%',
+        mx: 0,
+        px: 0,
+        margin: 0,
+        padding: 0,
+        position: isMobile ? 'relative' : 'static',
+        left: isMobile ? '-30px' : 'auto',
+        right: isMobile ? 0 : 'auto',
+        outline: 'none' // 포커스 테두리 제거
+      }}>
       <DragDropContext onDragEnd={onDragEnd}>
         <Box sx={{ 
           display: 'flex', 
@@ -436,12 +545,12 @@ const CustomSchedule = () => {
         }}>
           <Box sx={{
             width: { xs: '100%', md: 280 },
-            border: '1px solid', borderColor: 'divider', borderRadius: 2, display: 'flex',
+            border: '1px solid', borderColor: 'divider', borderRadius: 2,
             flexDirection: 'column', 
             height: 'calc(100% - 30px)',
             maxHeight: { xs: '270px', md: 'calc(100% - 30px)' },
             position: { xs: 'relative', md: 'static' },
-            display: isMobile ? 'none' : 'flex',
+            display: 'flex',
           }}>
             <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', position: { xs: 'relative', md: 'static' }, transform: { xs: 'translateX(25px)', md: 'none' }, display: { xs: 'none', md: 'block' } }}>
               <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, display: { xs: 'none', md: 'block' } }}>공사현황</Typography>
@@ -450,29 +559,62 @@ const CustomSchedule = () => {
             <Droppable droppableId="siteList">
               {(provided, snapshot) => (
                 <Box ref={provided.innerRef} {...provided.droppableProps} sx={{
-                  flex: 1, overflowY: 'auto', p: isMobile ? 0.5 : 1,
+                  flex: 1, overflowY: 'auto', p: 1,
                   bgcolor: snapshot.isDraggingOver ? 'action.hover' : 'background.paper',
-                  maxHeight: isMobile ? '200px' : 'none',
-                  position: { xs: 'relative', md: 'static' },
-                  transform: { xs: 'translateX(25px)', md: 'none' },
-                  display: { xs: 'none', md: 'block' },
+                  maxHeight: 'none',
+                  position: 'static',
+                  transform: 'none',
+                  display: 'block',
                 }}>
                   {filteredSites.length > 0 ? (
                     filteredSites.map((site, index) => (
                       <Draggable key={site.id} draggableId={site.id} index={index}>
-                        {(provided) => (
-                          <Paper ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
+                        {(provided, snapshot) => (
+                          <Paper 
+                            ref={provided.innerRef} 
+                            {...provided.draggableProps} 
+                            {...provided.dragHandleProps}
+                            onClick={() => {
+                              // 현장 클릭 시 선택 상태 토글
+                              setSelectedItems(prev => {
+                                const exists = prev.find(sel => sel.id === site.id && sel.type === 'site');
+                                if (exists) {
+                                  return prev.filter(sel => !(sel.id === site.id && sel.type === 'site'));
+                                }
+                                return [...prev, { id: site.id, type: 'site', name: site.name }];
+                              });
+                            }}
                             sx={{ 
-                              mb: isMobile ? 0.5 : 1, 
-                              p: isMobile ? 0.5 : 1.5, 
-                              bgcolor: 'background.default',
-                              borderRadius: isMobile ? 1 : 2
-                            }}>
+                              mb: 1, 
+                              p: 1.5, 
+                              bgcolor: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') 
+                                ? '#3b82f6' 
+                                : 'background.default',
+                              color: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') 
+                                ? '#fff' 
+                                : 'text.primary',
+                              borderRadius: 2,
+                              cursor: 'grab',
+                              border: '1px solid',
+                              borderColor: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') 
+                                ? '#3b82f6' 
+                                : 'divider',
+                              transition: 'all 0.2s',
+                              transform: snapshot.isDragging ? 'rotate(5deg)' : 'none',
+                              boxShadow: snapshot.isDragging ? '0 8px 24px rgba(0,0,0,0.4)' : 'none',
+                              '&:hover': {
+                                bgcolor: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') 
+                                  ? '#2563eb' 
+                                  : 'action.hover'
+                              }
+                            }}
+                          >
                             <Typography sx={{ 
-                              fontSize: isMobile ? '0.7rem' : 'inherit',
-                              lineHeight: isMobile ? 1.2 : 'inherit'
+                              fontSize: 'inherit',
+                              lineHeight: 'inherit',
+                              fontWeight: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') ? 600 : 400
                             }}>
-                              {site.name.slice(0, 10)}
+                              {site.name}
                               {site.status ? ` (${site.status})` : ''}
                             </Typography>
                           </Paper>
@@ -493,8 +635,28 @@ const CustomSchedule = () => {
             flex: 1, 
             height: '100%',
             width: '100%',
-            px: isMobile ? 0 : undefined
+            px: undefined,
+            position: 'relative'
           }}>
+            {/* 복사 상태 표시 */}
+            {copiedItem && (
+              <Box sx={{
+                position: 'absolute',
+                top: 10,
+                right: 10,
+                bgcolor: '#22c55e',
+                color: '#fff',
+                px: 2,
+                py: 1,
+                borderRadius: 2,
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                zIndex: 1000,
+                boxShadow: 2
+              }}>
+                복사됨: {copiedItem.text}
+              </Box>
+            )}
             <CustomCalendar
               year={year} month={month} calendarItems={calendarItems}
               onPrevMonth={() => setMonth(m => m === 0 ? 11 : m - 1)}
@@ -511,21 +673,33 @@ const CustomSchedule = () => {
               onViewModeChange={handleViewModeChange}
               onDateNumberClick={handleOpenPopup}
               onCountClick={handleShowListPopup}
-              onCellClick={handleShowListPopup}
+              onCellClick={(dateStr) => {
+                if (dateStr) {
+                  setSelectedDate(dateStr);
+                }
+                handleShowListPopup(dateStr);
+              }}
               sites={sites}
               onOpenPopup={handleOpenPopup}
+              selectedDate={selectedDate}
             />
           </Box>
         </Box>
       </DragDropContext>
-      {!isMobile && popupOpen && (
+      {popupOpen && (
         <Box
           onClick={e => { e.stopPropagation(); handleClosePopup(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              handleClosePopup();
+            }
+          }}
+          tabIndex={0}
           sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', bgcolor: 'rgba(0,0,0,0.4)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <Box onClick={e => e.stopPropagation()} sx={{ minWidth: 340, bgcolor: 'background.paper', borderRadius: 3, p: 3, boxShadow: 5, position: 'relative', zIndex: 3100 }}>
             <IconButton onClick={e => { e.stopPropagation(); handleClosePopup(); }} sx={{ position: 'absolute', top: 8, right: 8, color: 'text.primary' }}>X</IconButton>
-            <Typography variant="h6" sx={{ color: 'text.primary', mb: 2 }}>새 일정 추가</Typography>
+            <Typography variant="h6" sx={{ color: 'text.primary', mb: 2 }}>{popupDate} 일정</Typography>
             <TextField label="제목" value={popupTitle} onChange={e => setPopupTitle(e.target.value)} fullWidth sx={{ mb: 2 }} autoFocus />
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>분류 선택</Typography>
@@ -580,6 +754,12 @@ const CustomSchedule = () => {
       {editPopup.open && (
         <Box
           onClick={e => { e.stopPropagation(); setEditPopup({ ...editPopup, open: false }); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setEditPopup({ ...editPopup, open: false });
+            }
+          }}
+          tabIndex={0}
           sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', bgcolor: 'rgba(0,0,0,0.4)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <Box onClick={e => e.stopPropagation()} sx={{ minWidth: 340, bgcolor: 'background.paper', borderRadius: 3, p: 3, boxShadow: 5, position: 'relative', zIndex: 3100 }}>
@@ -645,6 +825,12 @@ const CustomSchedule = () => {
       {showListPopup && (
         <Box
           onClick={e => { e.stopPropagation(); handleCloseListPopup(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              handleCloseListPopup();
+            }
+          }}
+          tabIndex={0}
           sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', bgcolor: 'rgba(0,0,0,0.4)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <Box onClick={e => e.stopPropagation()} sx={{ minWidth: 340, bgcolor: 'background.paper', borderRadius: 3, p: 3, boxShadow: 5, position: 'relative', zIndex: 3100 }}>

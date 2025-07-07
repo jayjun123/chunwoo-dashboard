@@ -180,7 +180,8 @@ const NewSites = () => {
       position: isMobile ? 'relative' : 'static',
       left: isMobile ? '10px' : 'auto',
       width: isMobile ? '100vw' : '100%',
-      minHeight: isMobile ? '100vh' : 'auto'
+      minHeight: isMobile ? '100vh' : 'auto',
+      mt: '50px'
     }}>
       {/* Left Panel */}
       <Paper elevation={3} sx={{ 

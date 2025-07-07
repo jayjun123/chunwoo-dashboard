@@ -45,7 +45,7 @@ import { db } from '../firebase';
 
 const GisungManagement = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery('(max-width:600px)');
   const [sites, setSites] = useState([]);
   const [selectedSiteData, setSelectedSiteData] = useState(null);
   const [gisungData, setGisungData] = useState([]);
@@ -189,7 +189,7 @@ const GisungManagement = () => {
   };
 
   return (
-    <Box sx={{ p: 3, bgcolor: '#1a1d21', minHeight: '100vh' }}>
+    <Box sx={{ p: 3, bgcolor: '#1a1d21', minHeight: '100vh', mt: isMobile ? '26px' : '50px' }}>
       <Grid container spacing={3}>
         {/* 헤더 */}
         <Grid item xs={12}>

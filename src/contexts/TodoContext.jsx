@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { collection, query, onSnapshot, where, addDoc, updateDoc, deleteDoc, doc, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { format, subDays } from 'date-fns';
 import { useAuth } from './AuthContext';
@@ -22,7 +22,7 @@ export const TodoProvider = ({ children }) => {
 
   // 투두 데이터 가져오기
   const fetchTodos = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser?.uid) return;
 
     try {
       setLoading(true);
@@ -67,58 +67,48 @@ export const TodoProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser?.uid]);
 
-  // 실시간 투두 데이터 구독
+  // 실시간 투두 데이터 구독 (임시 비활성화)
   useEffect(() => {
-    if (!currentUser) return;
-
-    // 임시 해결책: 인덱스 없이도 동작하도록 orderBy 제거
-    const q = query(
-      collection(db, 'todos'),
-      where('userId', '==', currentUser.uid)
-    );
-
-    let unsubscribe = null;
-    
-    try {
-      unsubscribe = onSnapshot(q, (snapshot) => {
-        try {
-          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          // 클라이언트에서 정렬 (인덱스 없이도 동작)
-          const sortedData = data.sort((a, b) => {
-            const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
-            const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
-            return dateB - dateA; // 내림차순
-          });
-          setTodos(sortedData);
-          setError(null);
-        } catch (error) {
-          console.error('투두 데이터 처리 오류:', error);
-          setError(error.message);
-        }
-      }, (error) => {
-        console.error('투두 구독 오류:', error);
-        // Firestore 연결 오류 시 빈 배열로 설정
-        setTodos([]);
-        setError(null); // 오류 상태를 초기화하여 UI가 멈추지 않도록
-      });
-    } catch (error) {
-      console.error('투두 구독 설정 오류:', error);
+    if (!currentUser?.uid) {
       setTodos([]);
-      setError(null);
+      return;
     }
 
-    return () => {
+    // Firebase 연결 문제로 인해 임시로 비활성화
+    // 대신 수동으로 데이터를 가져오는 방식 사용
+    const loadTodos = async () => {
       try {
-        if (unsubscribe && typeof unsubscribe === 'function') {
-          unsubscribe();
-        }
+        setLoading(true);
+        const q = query(
+          collection(db, 'todos'),
+          where('userId', '==', currentUser.uid)
+        );
+        
+        const snapshot = await getDocs(q);
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // 클라이언트에서 정렬
+        const sortedData = data.sort((a, b) => {
+          const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
+          const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
+          return dateB - dateA; // 내림차순
+        });
+        
+        setTodos(sortedData);
+        setError(null);
       } catch (error) {
-        console.error('투두 구독 해제 오류:', error);
+        console.error('투두 데이터 로드 오류:', error);
+        setTodos([]);
+        setError(null);
+      } finally {
+        setLoading(false);
       }
     };
-  }, [currentUser]);
+
+    loadTodos();
+  }, [currentUser?.uid]);
 
   // 초기 데이터 로드
   useEffect(() => {
@@ -127,7 +117,7 @@ export const TodoProvider = ({ children }) => {
 
   // 투두 추가
   const addTodo = async (text, date = null) => {
-    if (!currentUser || !text.trim()) return;
+    if (!currentUser?.uid || !text.trim()) return;
 
     try {
       const todoDate = date || format(new Date(), 'yyyy-MM-dd');
@@ -148,7 +138,7 @@ export const TodoProvider = ({ children }) => {
 
   // 투두 수정
   const updateTodo = async (id, updates) => {
-    if (!currentUser) return;
+    if (!currentUser?.uid) return;
 
     try {
       const updatedTodo = await updateDoc(doc(db, 'todos', id), {
@@ -164,7 +154,7 @@ export const TodoProvider = ({ children }) => {
 
   // 투두 삭제
   const deleteTodo = async (id) => {
-    if (!currentUser) return;
+    if (!currentUser?.uid) return;
 
     try {
       await deleteDoc(doc(db, 'todos', id));

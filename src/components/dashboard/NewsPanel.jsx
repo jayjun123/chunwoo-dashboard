@@ -217,14 +217,16 @@ const NewsPanel = () => {
   return (
     <Box sx={{
       height: { xs: 'calc(100vh - 60px - 44px)', md: '100%' },
-      width: '100vw',
+      width: { xs: '100%', md: '1300px' },
+      maxWidth: { xs: '100%', md: '1300px' },
       margin: 0,
+      marginTop: { xs: '20px', md: '50px' },
       padding: 0,
       overflow: 'auto',
       boxSizing: 'border-box',
       display: 'flex',
       flexDirection: 'column',
-      alignItems: 'center',
+      alignItems: 'stretch',
       justifyContent: 'flex-start',
     }}>
       <Box sx={{ 
@@ -234,7 +236,7 @@ const NewsPanel = () => {
         mb: 0.5, 
         width: '100%', 
         px: { xs: 1, md: 2 },
-        maxWidth: 1200 
+        mt: { xs: '30px', md: 0 } // 모바일에서 30px 아래로 이동
       }}>
         <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#fff' }}>
           건설NEWS {showFavorites && '(즐겨찾기)'}
@@ -267,14 +269,15 @@ const NewsPanel = () => {
         width: '100%', 
         height: 'calc(100vh - 80px)',
         overflow: 'hidden',
-        px: { xs: 0, md: 2 }
+        px: { xs: 0, md: 0 }
       }}>
         {/* 모바일에서는 단일 컬럼, 데스크톱에서는 왼쪽 컬럼 */}
         <Box sx={{ 
           flex: 1, 
           overflowY: 'auto',
-          width: '100%',
-          px: { xs: 1, md: 0 }
+          width: { xs: '100%', md: '650px' },
+          minWidth: { xs: '100%', md: '650px' },
+          px: { xs: 1, md: 1 }
         }}>
           {leftNews.map((item, index) => (
             <Fade in={true} timeout={500 + index * 100} key={item.id || index}>
@@ -290,7 +293,7 @@ const NewsPanel = () => {
                 }}
                 onClick={() => handleNewsClick(item)}
               >
-                <CardContent sx={{ p: { xs: 1.5, md: 2 } }}>
+                <CardContent sx={{ p: { xs: 1.5, md: 2.5 } }}>
                   <Typography 
                     variant="body2" 
                     sx={{ 
@@ -355,7 +358,9 @@ const NewsPanel = () => {
           <Box sx={{ 
             flex: 1, 
             overflowY: 'auto',
-            width: '100%'
+            width: { xs: '100%', md: '650px' },
+            minWidth: { xs: '100%', md: '650px' },
+            px: 1
           }}>
             {rightNews.map((item, index) => (
               <Fade in={true} timeout={500 + index * 100} key={item.id || index}>
@@ -371,7 +376,7 @@ const NewsPanel = () => {
                   }}
                   onClick={() => handleNewsClick(item)}
                 >
-                  <CardContent sx={{ p: 2 }}>
+                  <CardContent sx={{ p: 2.5 }}>
                     <Typography 
                       variant="body2" 
                       sx={{ 

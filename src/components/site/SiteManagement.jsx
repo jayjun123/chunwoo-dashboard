@@ -206,7 +206,8 @@ const SiteManagement = () => {
       p: isMobile ? 0 : 3,
       m: 0,
       ml: isMobile ? '30px' : 0,
-      boxSizing: 'border-box'
+      boxSizing: 'border-box',
+      mt: isMobile ? 0 : '130px'
     }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">

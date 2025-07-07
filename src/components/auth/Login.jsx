@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import '../../styles/Login.css';
 
 const Login = () => {
@@ -10,6 +11,10 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useMediaQuery('(max-width:600px)');
+
+  // 디버깅용 콘솔 로그
+  console.log('isMobile:', isMobile);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,6 +33,27 @@ const Login = () => {
 
   return (
     <div className="login-container">
+      {/* PC 버전 알림 문구 - 테스트용 (항상 표시) */}
+      <div className="pc-notice" style={{
+        position: 'fixed',
+        top: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        background: 'rgba(255, 0, 0, 0.9)',
+        color: '#ffffff',
+        padding: '12px 20px',
+        borderRadius: '8px',
+        fontSize: '14px',
+        fontWeight: 'bold',
+        textAlign: 'center',
+        maxWidth: '400px',
+        boxShadow: '0 4px 12px rgba(255, 0, 0, 0.5)',
+        zIndex: 9999,
+        border: '2px solid #ff0000'
+      }}>
+        📱 모바일 앱으로 접속하시면 더 나은 사용자 경험을 제공합니다 (PC: {isMobile ? 'false' : 'true'})
+      </div>
+      
       <div className="login-box">
         <h2>로그인</h2>
         {error && <div className="error-message">{error}</div>}

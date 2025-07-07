@@ -58,14 +58,51 @@
     "xlsx": "^0.18.5"
   },
   "scripts": {
+    "dev": "vite",
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "test": "react-scripts test",
     "test:coverage": "react-scripts test --coverage --watchAll=false",
+    "test:ci": "react-scripts test --coverage --watchAll=false --ci",
     "analyze": "source-map-explorer 'build/static/js/*.js'",
     "eject": "react-scripts eject",
-    "migrate-status": "node -e \"import('./src/scripts/migrateSiteStatus.js').then(m => m.migrateSiteStatus())\""
+    "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
+    "lint:fix": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
+    "format": "prettier --write src/**/*.{js,jsx,ts,tsx,css,md}",
+    "type-check": "tsc --noEmit",
+    "migrate-status": "node -e \"import('./src/scripts/migrateSiteStatus.js').then(m => m.migrateSiteStatus())\"",
+    "clean": "rm -rf dist node_modules/.cache",
+    "clean:all": "rm -rf dist node_modules package-lock.json && npm install",
+    "serve": "npm run build && npm run preview",
+    "docker:build": "docker build -t myproject .",
+    "docker:run": "docker run -p 3000:3000 myproject",
+    "firebase:login": "firebase login",
+    "firebase:init": "firebase init",
+    "firebase:deploy": "npm run build && firebase deploy",
+    "firebase:deploy:hosting": "npm run build && firebase deploy --only hosting",
+    "firebase:deploy:firestore": "firebase deploy --only firestore",
+    "firebase:deploy:storage": "firebase deploy --only storage",
+    "firebase:emulators": "firebase emulators:start",
+    "firebase:emulators:export": "firebase emulators:export ./emulator-data",
+    "firebase:emulators:import": "firebase emulators:start --import=./emulator-data",
+    "netlify:deploy": "npm run build && netlify deploy --prod --dir=dist",
+    "netlify:deploy:preview": "npm run build && netlify deploy --dir=dist",
+    "capacitor:add": "npx cap add",
+    "capacitor:sync": "npx cap sync",
+    "capacitor:copy": "npx cap copy",
+    "capacitor:open:android": "npx cap open android",
+    "capacitor:open:ios": "npx cap open ios",
+    "capacitor:build:android": "npm run build && npx cap sync && npx cap build android",
+    "capacitor:build:ios": "npm run build && npx cap sync && npx cap build ios",
+    "android:build:debug": "npm run capacitor:build:android && cd android && ./gradlew assembleDebug",
+    "android:build:release": "npm run capacitor:build:android && cd android && ./gradlew assembleRelease",
+    "android:bundle:release": "npm run capacitor:build:android && cd android && ./gradlew bundleRelease",
+    "ios:build": "npm run capacitor:build:ios && cd ios && xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -destination generic/platform=iOS archive -archivePath App.xcarchive",
+    "ios:ipa": "npm run ios:build && cd ios && xcodebuild -exportArchive -archivePath App.xcarchive -exportOptionsPlist exportOptions.plist -exportPath ./build",
+    "deploy:all": "npm run build && npm run firebase:deploy && npm run netlify:deploy",
+    "release:android": "npm run android:bundle:release",
+    "release:ios": "npm run ios:ipa"
   },
   "eslintConfig": {
     "extends": [
@@ -100,5 +137,23 @@
     "source-map-explorer": "^2.5.3",
     "terser-webpack-plugin": "^5.3.10",
     "webpack-bundle-analyzer": "^4.10.1"
-  }
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/myproject.git"
+  },
+  "keywords": [
+    "react",
+    "firebase",
+    "construction",
+    "management",
+    "typescript",
+    "material-ui"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
 }

@@ -300,30 +300,30 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   const StatCard = ({ title, value, color }) => (
     <Grid item xs={6} sm={6} md={3}>
       <Card sx={{ 
-        p: isMobile ? 2 : 2, 
+        p: 2, 
         height: '100%', 
         bgcolor: '#181f2e', 
         color: '#fff',
         border: '1px solid #232b3b'
       }}>
         <Typography 
-          variant={isMobile ? "subtitle2" : "subtitle2"} 
+          variant="subtitle2" 
           sx={{ 
             color: '#bbb', 
-            mb: isMobile ? 1 : 1,
-            fontSize: isMobile ? '0.9rem' : 'inherit',
-            lineHeight: isMobile ? 1.2 : 'inherit'
+            mb: 1,
+            fontSize: '0.9rem',
+            lineHeight: 1.2
           }}
         >
           {title}
         </Typography>
         <Typography 
-          variant={isMobile ? "h6" : "h6"} 
+          variant="h6" 
           color={color || '#43e97b'} 
           sx={{ 
             fontWeight: 'bold',
-            fontSize: isMobile ? '1rem' : 'inherit',
-            lineHeight: isMobile ? 1.2 : 'inherit'
+            fontSize: '1rem',
+            lineHeight: 1.2
           }}
         >
           {Number(value || 0).toLocaleString()}원
@@ -336,10 +336,17 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   const filtered = filteredData || filteredAndSortedCosts;
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box sx={{ 
+      width: isMobile ? '100%' : 'calc(100% - 20px)', 
+      maxWidth: isMobile ? '100%' : 'calc(100% - 20px)', 
+      mx: isMobile ? 0 : '10px',
+      p: 0,
+      overflow: 'hidden',
+      mt: isMobile ? '26px' : '90px'
+    }}>
       {/* 통계 카드 + 새지출 버튼 한 줄 배치 (모바일만) */}
       {isMobile ? (
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, position: 'relative', width: 390 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, position: 'relative' }}>
           <Grid container spacing={2} sx={{ flex: 1 }}>
             <StatCard title="총 지출액" value={stats.totalValue} color="#ef5350" />
             <StatCard title="건수" value={filtered.length} color="#a084e8" />
@@ -363,32 +370,63 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       )}
       
       <Paper sx={{ 
-        width: isMobile ? '410px' : '100%', 
+        width: '100%',
+        maxWidth: '100%',
         overflow: 'hidden', 
         mt: 3, 
-        p: 2,
-        maxWidth: isMobile ? '410px' : '100vw',
-        boxSizing: 'border-box',
-        ml: isMobile ? '-16px' : 0
+        p: 0,
+        boxSizing: 'border-box'
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, position: 'relative' }}>
-          <Typography variant="h6" sx={{ flex: 1, display: isMobile ? 'none' : 'block' }}>지출현황</Typography>
-          <Button variant="contained" color="primary" startIcon={<CloudDownloadIcon />} sx={{ ml: 1, display: isMobile ? 'none' : 'flex' }} onClick={handleExcelDownload}>엑셀 다운로드</Button>
-          <Button variant="contained" color="primary" startIcon={<CloudUploadIcon />} sx={{ ml: 1, display: isMobile ? 'none' : 'flex' }}>엑셀 업로드</Button>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 2, 
+          mb: 2, 
+          position: 'relative',
+          width: '100%',
+          maxWidth: '100%',
+          px: { xs: 1, md: 2 },
+          boxSizing: 'border-box'
+        }}>
+          <Typography variant="h6" sx={{ 
+            flex: 1, 
+            display: isMobile ? 'none' : 'block',
+          }}>지출현황</Typography>
+          <Button variant="contained" color="primary" startIcon={<CloudDownloadIcon />} sx={{ 
+            ml: 1, 
+            display: isMobile ? 'none' : 'flex',
+          }} onClick={handleExcelDownload}>엑셀 다운로드</Button>
+          <Button variant="contained" color="primary" startIcon={<CloudUploadIcon />} sx={{ 
+            ml: 1, 
+            display: isMobile ? 'none' : 'flex',
+          }}>엑셀 업로드</Button>
         </Box>
         <TableContainer sx={{ 
-          width: isMobile ? '410px' : '100%',
-          maxWidth: isMobile ? '410px' : '100%',
-          overflowX: 'auto'
+          width: '100%',
+          maxWidth: '100%',
+          overflowX: 'auto',
+          px: { xs: 1, md: 2 },
+          boxSizing: 'border-box',
+          '& .MuiTable-root': {
+            width: '100%',
+            minWidth: '100%',
+            maxWidth: '100%'
+          }
         }}>
           <Table size={isMobile ? 'small' : 'medium'} sx={{ 
-            width: isMobile ? '410px' : '100%',
-            minWidth: isMobile ? '410px' : '100%',
+            width: '100%',
+            minWidth: '100%',
+            maxWidth: '100%',
             tableLayout: 'auto'
           }}>
             <TableHead>
               <TableRow sx={{ bgcolor: '#232b3b' }}>
-                <TableCell padding="checkbox" sx={{ display: isMobile ? 'none' : 'table-cell' }}>
+                <TableCell padding="checkbox" sx={{ 
+                  display: isMobile ? 'none' : 'table-cell',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>
                   <Checkbox
                     indeterminate={selectedItems.length > 0 && selectedItems.length < filtered.length}
                     checked={filtered.length > 0 && selectedItems.length === filtered.length}
@@ -396,20 +434,84 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                     sx={{ color: '#fff' }}
                   />
                 </TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, ml: isMobile ? '-8px' : 0 }}>현장명</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, ml: isMobile ? '-8px' : 0 }}>항목</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>사용날짜</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, ml: isMobile ? '-8px' : 0 }}>금액</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>결제</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>비고</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>기타</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>관리</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff', 
+                  fontWeight: 700, 
+                  ml: isMobile ? '-8px' : 0,
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>현장명</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff', 
+                  fontWeight: 700, 
+                  ml: isMobile ? '-8px' : 0,
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>항목</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff', 
+                  fontWeight: 700, 
+                  display: isMobile ? 'none' : 'table-cell',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>사용날짜</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff', 
+                  fontWeight: 700, 
+                  ml: isMobile ? '-8px' : 0,
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>금액</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff', 
+                  fontWeight: 700, 
+                  display: isMobile ? 'none' : 'table-cell',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>결제</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff', 
+                  fontWeight: 700, 
+                  display: isMobile ? 'none' : 'table-cell',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>비고</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff', 
+                  fontWeight: 700, 
+                  display: isMobile ? 'none' : 'table-cell',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>기타</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff', 
+                  fontWeight: 700, 
+                  display: isMobile ? 'none' : 'table-cell',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>관리</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isMobile ? 3 : 9} sx={{ textAlign: 'center', color: '#bbb', py: 4, ml: isMobile ? '-8px' : 0 }}>
+                  <TableCell colSpan={isMobile ? 3 : 9} sx={{ 
+                    textAlign: 'center', 
+                    color: '#bbb', 
+                    py: 4, 
+                    ml: isMobile ? '-8px' : 0,
+                    width: 'auto',
+                    minWidth: 0,
+                    maxWidth: '100%'
+                  }}>
                     {search ? '검색 결과가 없습니다.' : '지출 데이터가 없습니다.'}
                   </TableCell>
                 </TableRow>
@@ -422,15 +524,29 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       borderBottom: '1px solid #333'
                     }}
                   >
-                    <TableCell padding="checkbox" sx={{ display: isMobile ? 'none' : 'table-cell' }}>
+                    <TableCell padding="checkbox" sx={{ 
+                      display: isMobile ? 'none' : 'table-cell',
+                      width: 'auto',
+                      minWidth: 0,
+                      maxWidth: '100%'
+                    }}>
                       <Checkbox
                         checked={selectedItems.includes(cost.id)}
                         onChange={() => handleSelectItem(cost.id)}
                         sx={{ color: '#90caf9' }}
                       />
                     </TableCell>
-                    <TableCell sx={{ color: '#fff' }}>{cost.site || '-'}</TableCell>
-                    <TableCell>
+                    <TableCell sx={{ 
+                      color: '#fff',
+                      width: 'auto',
+                      minWidth: 0,
+                      maxWidth: '100%'
+                    }}>{cost.site || '-'}</TableCell>
+                    <TableCell sx={{
+                      width: 'auto',
+                      minWidth: 0,
+                      maxWidth: '100%'
+                    }}>
                       <Chip 
                         label={cost.itemType || '-'} 
                         size="small" 
@@ -443,11 +559,28 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                         }} 
                       />
                     </TableCell>
-                    <TableCell sx={{ color: '#fff', display: isMobile ? 'none' : 'table-cell' }}>{cost.date || '-'}</TableCell>
-                    <TableCell sx={{ color: '#ef5350', fontWeight: 700 }}>
+                    <TableCell sx={{ 
+                      color: '#fff', 
+                      display: isMobile ? 'none' : 'table-cell',
+                      width: 'auto',
+                      minWidth: 0,
+                      maxWidth: '100%'
+                    }}>{cost.date || '-'}</TableCell>
+                    <TableCell sx={{ 
+                      color: '#ef5350', 
+                      fontWeight: 700,
+                      width: 'auto',
+                      minWidth: 0,
+                      maxWidth: '100%'
+                    }}>
                       {Number(cost.totalValue || 0).toLocaleString()}원
                     </TableCell>
-                    <TableCell sx={{ display: isMobile ? 'none' : 'table-cell' }}>
+                    <TableCell sx={{ 
+                      display: isMobile ? 'none' : 'table-cell',
+                      width: 'auto',
+                      minWidth: 0,
+                      maxWidth: '100%'
+                    }}>
                       <Chip 
                         label={cost.paymentType || '-'} 
                         size="small" 
@@ -458,9 +591,26 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                         }} 
                       />
                     </TableCell>
-                    <TableCell sx={{ color: '#bbb', display: isMobile ? 'none' : 'table-cell' }}>{cost.description || '-'}</TableCell>
-                    <TableCell sx={{ color: '#bbb', display: isMobile ? 'none' : 'table-cell' }}>{cost.etcNote || '-'}</TableCell>
-                    <TableCell sx={{ display: isMobile ? 'none' : 'table-cell' }}>
+                    <TableCell sx={{ 
+                      color: '#bbb', 
+                      display: isMobile ? 'none' : 'table-cell',
+                      width: 'auto',
+                      minWidth: 0,
+                      maxWidth: '100%'
+                    }}>{cost.description || '-'}</TableCell>
+                    <TableCell sx={{ 
+                      color: '#bbb', 
+                      display: isMobile ? 'none' : 'table-cell',
+                      width: 'auto',
+                      minWidth: 0,
+                      maxWidth: '100%'
+                    }}>{cost.etcNote || '-'}</TableCell>
+                    <TableCell sx={{ 
+                      display: isMobile ? 'none' : 'table-cell',
+                      width: 'auto',
+                      minWidth: 0,
+                      maxWidth: '100%'
+                    }}>
                       <IconButton 
                         size="small" 
                         onClick={() => openDialog(cost)}

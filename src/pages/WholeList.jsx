@@ -367,6 +367,7 @@ const WholeList = () => {
         margin: 0,
         padding: 0,
         boxSizing: 'border-box',
+        mt: '90px'
       }}
     >
       {/* 헤더 */}

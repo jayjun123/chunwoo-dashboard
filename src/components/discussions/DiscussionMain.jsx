@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Box, Grid, Button, Typography, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Autocomplete, useMediaQuery } from '@mui/material';
 import DiscussionRoomList from './DiscussionRoomList';
 import DiscussionChat from './DiscussionChat';
+import MobileDiscussionChat from './MobileDiscussionChat';
+import MobileDiscussionRoomList from './MobileDiscussionRoomList';
 import { collection, addDoc, serverTimestamp, onSnapshot, query } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useTheme } from '@mui/material/styles';
@@ -37,25 +39,62 @@ const DiscussionMain = () => {
   };
 
   return (
-    <Box sx={{ p: isMobile ? 1 : 3, minHeight: '80vh', background: 'linear-gradient(90deg, #181A20 60%, #1976d2 100%)', borderRadius: 4, boxShadow: 6 }}>
-      <Grid container spacing={isMobile ? 1 : 3} direction={isMobile ? 'column' : 'row'}>
-        <Grid item xs={12} md={4} sx={{ mb: isMobile ? 2 : 0 }}>
-          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#fff' }}>대화방 리스트</Typography>
-            <Button variant="contained" color="secondary" onClick={() => setOpenDialog(true)} size={isMobile ? 'small' : 'medium'}>+ 대화방 만들기</Button>
-          </Box>
-          <DiscussionRoomList onSelectRoom={setSelectedRoom} />
-        </Grid>
-        <Grid item xs={12} md={8}>
-          {selectedRoom ? (
-            <DiscussionChat roomId={selectedRoom.id} />
-          ) : (
-            <Box sx={{ height: '100%', minHeight: isMobile ? 200 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-              <Typography variant="h6">좌측에서 대화방을 선택하세요</Typography>
-            </Box>
-          )}
-        </Grid>
-      </Grid>
+    <Box sx={
+      isMobile
+        ? {
+            bgcolor: '#181a20',
+            position: 'fixed',
+            top: '15px',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 1000,
+            height: 'calc(100vh - 60px)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }
+        : {
+            height: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+          }
+    }>
+      {isMobile ? (
+        // 모바일 레이아웃
+        selectedRoom ? (
+          <MobileDiscussionChat 
+            roomId={selectedRoom.id} 
+            roomName={selectedRoom.name} 
+            onBack={() => setSelectedRoom(null)}
+          />
+        ) : (
+          <MobileDiscussionRoomList onSelectRoom={setSelectedRoom} />
+        )
+      ) : (
+        // 데스크톱 레이아웃
+        <Box sx={{ p: 3, minHeight: '80vh', background: 'linear-gradient(90deg, #181A20 60%, #1976d2 100%)', borderRadius: 4, boxShadow: 6 }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={4}>
+              <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h5" sx={{ fontWeight: 800, color: '#fff' }}>대화방 리스트</Typography>
+                <Button variant="contained" color="secondary" onClick={() => setOpenDialog(true)}>+ 대화방 만들기</Button>
+              </Box>
+              <DiscussionRoomList onSelectRoom={setSelectedRoom} />
+            </Grid>
+            <Grid item xs={12} md={8}>
+              {selectedRoom ? (
+                <DiscussionChat roomId={selectedRoom.id} />
+              ) : (
+                <Box sx={{ height: '100%', minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                  <Typography variant="h6">좌측에서 대화방을 선택하세요</Typography>
+                </Box>
+              )}
+            </Grid>
+          </Grid>
+        </Box>
+      )}
+      
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
         <DialogTitle>새 대화방 만들기</DialogTitle>
         <DialogContent>

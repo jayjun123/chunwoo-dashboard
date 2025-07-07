@@ -119,7 +119,10 @@ const Header = ({ user, onLogout }) => {
   const userGrade = getGradeLabel(currentUser);
 
   return (
-    <header className={`header ${theme}`}>
+    <header 
+      className={`header ${theme}`}
+      style={isMobile ? { height: '38px', minHeight: '38px', maxHeight: '38px' } : {}}
+    >
       <div className="header-container">
         {/* 좌측: 메뉴(데스크탑/태블릿) */}
         {!isMobile && (

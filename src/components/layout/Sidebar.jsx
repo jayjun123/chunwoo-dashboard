@@ -17,7 +17,24 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className="sidebar">
+    <aside 
+      className="sidebar"
+      style={{ 
+        width: window.innerWidth <= 768 ? '45px' : '250px',
+        minWidth: window.innerWidth <= 768 ? '45px' : '250px',
+        maxWidth: window.innerWidth <= 768 ? '45px' : '250px',
+        position: 'fixed',
+        left: 0,
+        top: 0,
+        height: '100vh',
+        zIndex: 1000,
+        backgroundColor: '#fff',
+        borderRight: '1px solid #eee',
+        display: 'block',
+        visibility: 'visible',
+        opacity: 1
+      }}
+    >
       <nav className="sidebar-nav">
         {menuItems.map((item) => (
           <NavLink

@@ -123,14 +123,7 @@ function TodoDetail() {
       </Box>
       <List>
         {todos.map(todo => (
-          <ListItem key={todo.id}>
-            {editId === todo.id ? (
-              <TextField size="small" value={editText} onChange={e => setEditText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleEditSave()} autoFocus />
-            ) : (
-              <ListItemText
-                primary={<Typography sx={{ textDecoration: todo.completed ? 'line-through' : 'none' }}>{todo.text}</Typography>}
-              />
-            )}
+          <ListItem key={todo.id} secondaryAction={
             <Box>
               <IconButton onClick={() => handleToggle(todo.id)} color={todo.completed ? 'success' : 'default'}>
                 <CheckCircleIcon />
@@ -138,6 +131,14 @@ function TodoDetail() {
               <IconButton onClick={() => handleEdit(todo.id, todo.text)}><EditIcon /></IconButton>
               <IconButton onClick={() => handleDelete(todo.id)}><DeleteIcon /></IconButton>
             </Box>
+          }>
+            {editId === todo.id ? (
+              <TextField size="small" value={editText} onChange={e => setEditText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleEditSave()} autoFocus />
+            ) : (
+              <ListItemText
+                primary={<Typography sx={{ textDecoration: todo.completed ? 'line-through' : 'none' }}>{todo.text}</Typography>}
+              />
+            )}
           </ListItem>
         ))}
       </List>
@@ -240,11 +241,12 @@ const Dashboard = () => {
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'flex-start',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      mt: 0
     }}>
       <Box sx={{ 
         width: '100%',
-        maxWidth: 1200,
+        maxWidth: { xs: '100%', md: 1300 },
         display: 'flex',
         justifyContent: 'center',
         mt: 0

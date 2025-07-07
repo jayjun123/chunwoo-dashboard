@@ -1,3 +1,7 @@
+
+
+
+
 /* 다크모드 공통 변수 및 스타일 */
 :root[data-theme="dark"] {
   --bg-main: #181c24;
@@ -55,8 +59,10 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #181A20;
-  color: #fff;
+  background-color: var(--bg-main);
+  /* 개발용 그리드 (CSS 변수로 제어) */
+  position: relative;
+  color: var(--text-main);
   overflow-x: hidden;
   overflow-y: auto;
   height: 100vh;

@@ -158,10 +158,15 @@ const Layout = ({ children }) => {
           color: 'black',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           zIndex: (theme) => theme.zIndex.drawer + 1,
-          height: '58px',
+          height: isMobile ? '45px' : '58px',
         }}
       >
-        <Toolbar sx={{ justifyContent: 'space-between', alignItems: 'center', px: { xs: 1, md: 2 }, minHeight: '58px' }}>
+        <Toolbar sx={{ 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          minHeight: isMobile ? '45px' : '58px',
+          height: isMobile ? '45px' : '58px'
+        }}>
           {/* 왼쪽: 로고 */}
           <Box sx={{ minWidth: 70, px: 1, display: 'flex', alignItems: 'center' }}>
             <img 
@@ -290,9 +295,12 @@ const Layout = ({ children }) => {
         anchor="left"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        disableEnforceFocus
+        disableAutoFocus
+        disableRestoreFocus
         sx={{
           '& .MuiDrawer-paper': {
-            width: 280,
+            width: 200,
             boxSizing: 'border-box',
           },
         }}
@@ -339,7 +347,19 @@ const Layout = ({ children }) => {
         </Box>
       </Drawer>
       
-      <Box component="main" sx={{ flexGrow: 1, mt: { xs: '58px', md: '58px' }, p: 0, width: isMobile ? '100vw' : '100%', maxWidth: isMobile ? '100vw' : '100%', minWidth: isMobile ? '100vw' : '0', margin: 0, padding: 0, boxSizing: 'border-box', ...(isMobile && { height: 'calc(100vh - 58px)', maxHeight: 'calc(100vh - 58px)' }) }}>
+      <Box component="main" sx={{ 
+        flexGrow: 1, 
+        mt: 0, 
+        p: 0, 
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
+        margin: 0, 
+        padding: 0, 
+        boxSizing: 'border-box', 
+        overflowX: 'hidden',
+        ...(isMobile && { height: 'calc(100vh - 58px)', maxHeight: 'calc(100vh - 58px)' }) 
+      }}>
         {children}
       </Box>
 

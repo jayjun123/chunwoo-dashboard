@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import Autocomplete from '@mui/material/Autocomplete';
+import Checkbox from '@mui/material/Checkbox';
 
 const DiscussionRooms = ({ onSelectRoom, currentUser, isMobile }) => {
   const [rooms, setRooms] = useState([]);
@@ -32,6 +33,7 @@ const DiscussionRooms = ({ onSelectRoom, currentUser, isMobile }) => {
   const [newRoomName, setNewRoomName] = useState('');
   const [selectedSiteId, setSelectedSiteId] = useState('');
   const [lastAuthors, setLastAuthors] = useState({});
+  const [selectedRoomIds, setSelectedRoomIds] = useState([]);
 
   // 현장 목록 가져오기
   useEffect(() => {
@@ -163,27 +165,40 @@ const DiscussionRooms = ({ onSelectRoom, currentUser, isMobile }) => {
           <ListItem
             key={room.id}
             disablePadding
+            sx={{ alignItems: 'center' }}
           >
-            <ListItemButton onClick={() => onSelectRoom(room)}>
-              <ListItemText
-                primary={room.name}
-                secondary={
-                  <>
-                    <span>현장: {room.siteName}</span><br/>
-                    <span style={{ color: '#90caf9' }}>최근 작성자: {lastAuthors[room.id] || '-'}</span>
-                  </>
-                }
+            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+              <Checkbox
+                edge="start"
+                checked={selectedRoomIds.includes(room.id)}
+                onChange={(_, checked) => {
+                  setSelectedRoomIds(prev =>
+                    checked ? [...prev, room.id] : prev.filter(id => id !== room.id)
+                  );
+                }}
+                sx={{ ml: 1, mr: 1 }}
               />
-            </ListItemButton>
-            {(currentUser?.role === 'master' || currentUser?.role === 'admin') && (
-              <IconButton 
-                edge="end" 
-                aria-label="delete"
-                onClick={() => handleDeleteRoom(room.id)}
-              >
-                <DeleteIcon />
-              </IconButton>
-            )}
+              <ListItemButton onClick={() => onSelectRoom(room)} sx={{ flex: 1 }}>
+                <ListItemText
+                  primary={room.name}
+                  secondary={
+                    <>
+                      <span>현장: {room.siteName}</span><br/>
+                      <span style={{ color: '#90caf9' }}>최근 작성자: {lastAuthors[room.id] || '-'}</span>
+                    </>
+                  }
+                />
+              </ListItemButton>
+              {(currentUser?.role === 'master' || currentUser?.role === 'admin') && (
+                <IconButton 
+                  edge="end" 
+                  aria-label="delete"
+                  onClick={() => handleDeleteRoom(room.id)}
+                >
+                  <DeleteIcon />
+                </IconButton>
+              )}
+            </Box>
           </ListItem>
         ))}
       </List>
