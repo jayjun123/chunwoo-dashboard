@@ -12,9 +12,9 @@ export const get5DayForecast = async (nx = 89, ny = 90) => {
     const apiKey = import.meta.env.VITE_WEATHER_API_KEY;
     console.log('기상청 API 키 확인:', apiKey ? '설정됨' : '설정되지 않음');
     
-    if (!apiKey || apiKey === 'your_weather_api_key_here') {
-      console.warn('기상청 API 키가 설정되지 않았습니다. 실제 날씨 데이터를 반환합니다.');
-      return getRealWeatherData();
+    if (!apiKey) {
+      console.error('기상청 API 키가 설정되지 않았습니다.');
+      throw new Error('API 키가 설정되지 않음');
     }
 
     // 오늘 날짜 기준으로 API 호출
@@ -52,9 +52,8 @@ export const get5DayForecast = async (nx = 89, ny = 90) => {
     console.log('기상청 API 원본 응답:', data);
 
     if (!data.response?.body?.items?.item) {
-      console.warn('기상청 API 응답에 데이터가 없습니다. 실제 날씨 데이터를 반환합니다.');
-      console.log('응답 구조:', data);
-      return getRealWeatherData();
+      console.error('기상청 API 응답에 데이터가 없습니다.');
+      throw new Error('API 응답에 데이터가 없음');
     }
 
     const items = data.response.body.items.item;
@@ -67,8 +66,7 @@ export const get5DayForecast = async (nx = 89, ny = 90) => {
 
   } catch (error) {
     console.error('기상청 API 호출 중 오류 발생:', error);
-    console.warn('실제 날씨 데이터를 반환합니다.');
-    return getRealWeatherData();
+    throw error; // 에러를 다시 던져서 상위에서 처리하도록 함
   }
 };
 
@@ -117,8 +115,8 @@ const processWeatherData = (items) => {
     const dayData = {
       date: format(targetDate, 'yyyy-MM-dd'),
       dayName: dayName,
-      maxTemp: maxTempItem ? parseInt(maxTempItem.fcstValue) : 35,
-      minTemp: minTempItem ? parseInt(minTempItem.fcstValue) : 28,
+      maxTemp: maxTempItem ? parseInt(maxTempItem.fcstValue) : null,
+      minTemp: minTempItem ? parseInt(minTempItem.fcstValue) : null,
       sky: getSkyText(skyItem?.fcstValue || '1'),
       pty: ptyItem?.fcstValue || '0',
       pop: popItem ? parseInt(popItem.fcstValue) : 0
@@ -143,76 +141,4 @@ const getSkyText = (skyCode) => {
     '4': '흐림'
   };
   return skyMap[skyCode] || '맑음';
-};
-
-/**
- * 실제 날씨 데이터를 반환합니다 (API 실패 시 사용)
- * @returns {object} 실제 날씨 데이터
- */
-const getRealWeatherData = () => {
-  console.log('실제 날씨 데이터 반환');
-  const today = new Date();
-  const currentHour = today.getHours();
-  
-  // 현재 시간에 따른 온도 조정
-  let baseTemp = 35;
-  if (currentHour >= 6 && currentHour <= 12) {
-    baseTemp = 32; // 오전
-  } else if (currentHour >= 13 && currentHour <= 18) {
-    baseTemp = 37; // 오후
-  } else if (currentHour >= 19 && currentHour <= 23) {
-    baseTemp = 33; // 저녁
-  } else {
-    baseTemp = 30; // 새벽
-  }
-  
-  return {
-    daily: [
-      {
-        date: format(today, 'yyyy-MM-dd'),
-        dayName: '오늘',
-        maxTemp: baseTemp + 2,
-        minTemp: baseTemp - 7,
-        sky: '맑음',
-        pty: '0',
-        pop: 10
-      },
-      {
-        date: format(addDays(today, 1), 'yyyy-MM-dd'),
-        dayName: '내일',
-        maxTemp: baseTemp + 3,
-        minTemp: baseTemp - 6,
-        sky: '구름많음',
-        pty: '0',
-        pop: 20
-      },
-      {
-        date: format(addDays(today, 2), 'yyyy-MM-dd'),
-        dayName: '모레',
-        maxTemp: baseTemp + 1,
-        minTemp: baseTemp - 8,
-        sky: '흐림',
-        pty: '1',
-        pop: 60
-      },
-      {
-        date: format(addDays(today, 3), 'yyyy-MM-dd'),
-        dayName: '글피',
-        maxTemp: baseTemp + 4,
-        minTemp: baseTemp - 5,
-        sky: '맑음',
-        pty: '0',
-        pop: 5
-      },
-      {
-        date: format(addDays(today, 4), 'yyyy-MM-dd'),
-        dayName: '그글피',
-        maxTemp: baseTemp + 2,
-        minTemp: baseTemp - 7,
-        sky: '구름조금',
-        pty: '0',
-        pop: 15
-      }
-    ]
-  };
 }; 
