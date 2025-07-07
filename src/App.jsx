@@ -43,6 +43,7 @@ import DiscussionChat from './components/discussions/DiscussionChat';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
 import PWAInstallPrompt from './components/common/PWAInstallPrompt';
+import PWAInstallGuide from './components/common/PWAInstallGuide';
 
 const theme = createTheme({
   palette: {
@@ -623,6 +624,7 @@ const App = () => {
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                     <PWAInstallPrompt />
+                    <PWAInstallGuide />
                   </PopupProvider>
                 </LoadingProvider>
               </ThemeProvider>
