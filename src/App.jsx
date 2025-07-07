@@ -42,6 +42,7 @@ import PDFTest from './pages/PDFTest';
 import DiscussionChat from './components/discussions/DiscussionChat';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
+import PWAInstallPrompt from './components/common/PWAInstallPrompt';
 
 const theme = createTheme({
   palette: {
@@ -621,6 +622,7 @@ const App = () => {
                       <Route path="/chat/:roomId" element={<DiscussionChatWrapper />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
+                    <PWAInstallPrompt />
                   </PopupProvider>
                 </LoadingProvider>
               </ThemeProvider>
