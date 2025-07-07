@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Grid, Paper, Typography, Button, TextField, Dialog,
   DialogTitle, DialogContent, DialogActions, Table, TableBody,
@@ -53,6 +53,8 @@ const Users = () => {
   });
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  const inputRef1 = useRef();
 
   useEffect(() => {
     fetchUsers();
@@ -182,6 +184,12 @@ const Users = () => {
     }));
   };
 
+  const scrollFocus = (ref) => () => {
+    setTimeout(() => {
+      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -302,6 +310,8 @@ const Users = () => {
                 value={formData.name ?? ''}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 fullWidth
+                inputRef={inputRef1}
+                onFocus={scrollFocus(inputRef1)}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -311,6 +321,8 @@ const Users = () => {
                 value={formData.email ?? ''}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 fullWidth
+                inputRef={inputRef1}
+                onFocus={scrollFocus(inputRef1)}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -319,6 +331,8 @@ const Users = () => {
                 value={formData.department ?? ''}
                 onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                 fullWidth
+                inputRef={inputRef1}
+                onFocus={scrollFocus(inputRef1)}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -327,6 +341,8 @@ const Users = () => {
                 value={formData.position ?? ''}
                 onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                 fullWidth
+                inputRef={inputRef1}
+                onFocus={scrollFocus(inputRef1)}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -336,6 +352,8 @@ const Users = () => {
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   label="역할"
+                  inputRef={inputRef1}
+                  onFocus={scrollFocus(inputRef1)}
                 >
                   {Object.entries(ROLES).map(([key, { label }]) => (
                     <MenuItem key={key} value={key}>{label}</MenuItem>
@@ -352,6 +370,8 @@ const Users = () => {
                   />
                 }
                 label="활성 상태"
+                inputRef={inputRef1}
+                onFocus={scrollFocus(inputRef1)}
               />
             </Grid>
             <Grid item xs={12}>
@@ -367,6 +387,8 @@ const Users = () => {
                         />
                       }
                       label={label}
+                      inputRef={inputRef1}
+                      onFocus={scrollFocus(inputRef1)}
                     />
                   </Grid>
                 ))}

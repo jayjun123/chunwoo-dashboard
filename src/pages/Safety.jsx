@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Grid, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Snackbar, Alert, useMediaQuery, Tabs, Tab, Autocomplete
 } from '@mui/material';
@@ -576,6 +576,14 @@ const SafetyPage = () => {
       </Grid>
     );
   };
+
+  const scrollFocus = (ref) => () => {
+    setTimeout(() => {
+      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
+  const inputRef1 = useRef();
 
   return (
     <Box sx={{ 

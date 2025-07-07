@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -250,6 +250,15 @@ const Permissions = () => {
     }
   };
 
+  const scrollFocus = (ref) => () => {
+    setTimeout(() => {
+      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
+  const inputRef1 = useRef();
+  const inputRef2 = useRef();
+
   if (!currentUser || currentUser.grade !== '마스터') {
     return (
       <Box sx={{ p: 3 }}>
@@ -402,6 +411,8 @@ const Permissions = () => {
               label="권한명"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              inputRef={inputRef1}
+              onFocus={scrollFocus(inputRef1)}
             />
             <TextField
               label="설명"
@@ -409,6 +420,8 @@ const Permissions = () => {
               rows={2}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              inputRef={inputRef2}
+              onFocus={scrollFocus(inputRef2)}
             />
             <FormControl>
               <InputLabel>카테고리</InputLabel>
@@ -416,6 +429,8 @@ const Permissions = () => {
                 value={formData.category}
                 label="카테고리"
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                inputRef={inputRef1}
+                onFocus={scrollFocus(inputRef1)}
               >
                 {categories.map((category) => (
                   <MenuItem key={category} value={category}>
@@ -438,6 +453,8 @@ const Permissions = () => {
                     ))}
                   </Box>
                 )}
+                inputRef={inputRef1}
+                onFocus={scrollFocus(inputRef1)}
               >
                 {roles.map((role) => (
                   <MenuItem key={role} value={role}>
@@ -451,6 +468,8 @@ const Permissions = () => {
                 <Switch
                   checked={formData.isActive}
                   onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  inputRef={inputRef1}
+                  onFocus={scrollFocus(inputRef1)}
                 />
               }
               label="활성화"

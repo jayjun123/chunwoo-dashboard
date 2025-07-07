@@ -6,6 +6,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Box, Typography, TextField, Button, Paper, Avatar, CircularProgress, Grid, IconButton, Dialog, DialogContent } from '@mui/material';
 import { Send as SendIcon, AttachFile as AttachFileIcon, Download as DownloadIcon, Close as CloseIcon } from '@mui/icons-material';
 import DiscussionRooms from './DiscussionRooms';
+import './ChatInput.css';
+import { Keyboard } from '@capacitor/keyboard';
 
 const Discussions = () => {
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -18,6 +20,9 @@ const Discussions = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [files, setFiles] = useState([]);
   const [imageModal, setImageModal] = useState({ open: false, url: '' });
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const inputRef = useRef();
+  const [scrolled, setScrolled] = useState(false);
 
   // 메시지 스크롤 자동화
   const scrollToBottom = () => {
@@ -63,6 +68,27 @@ const Discussions = () => {
 
     return () => unsubscribe();
   }, [selectedRoom]);
+
+  useEffect(() => {
+    Keyboard.addListener('keyboardWillShow', (info) => {
+      setKeyboardHeight(info.keyboardHeight);
+    });
+    Keyboard.addListener('keyboardWillHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      Keyboard.removeAllListeners();
+    };
+  }, []);
+
+  const handleFocus = () => {
+    if (!scrolled) {
+      setTimeout(() => {
+        inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setScrolled(true);
+      }, 300);
+    }
+  };
 
   const handleFileChange = (e) => {
     const selected = Array.from(e.target.files);
@@ -227,7 +253,13 @@ const Discussions = () => {
                   p: 2,
                   borderTop: 1,
                   borderColor: 'divider',
-                  backgroundColor: 'background.paper'
+                  backgroundColor: 'background.paper',
+                  position: 'fixed',
+                  left: 0,
+                  right: 0,
+                  bottom: keyboardHeight,
+                  zIndex: 1000,
+                  boxShadow: '0 -2px 8px rgba(0,0,0,0.08)'
                 }}
               >
                 {/* 선택된 파일 표시 */}
@@ -257,6 +289,8 @@ const Discussions = () => {
                 
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <TextField
+                    inputRef={inputRef}
+                    onFocus={handleFocus}
                     fullWidth
                     variant="outlined"
                     placeholder="메시지를 입력하세요..."

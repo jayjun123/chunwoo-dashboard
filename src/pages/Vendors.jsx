@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -62,6 +62,8 @@ const Vendors = () => {
     workers: '',
     description: '',
   });
+
+  const inputRef1 = useRef();
 
   useEffect(() => {
     fetchVendors();
@@ -202,6 +204,12 @@ const Vendors = () => {
   const types = ['건설업체', 'AL관급업체', 'PL관급업체'];
   const statuses = ['활성', '비활성', '계약종료'];
 
+  const scrollFocus = (ref) => () => {
+    setTimeout(() => {
+      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
@@ -285,6 +293,8 @@ const Vendors = () => {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               fullWidth
+              inputRef={inputRef1}
+              onFocus={scrollFocus(inputRef1)}
             />
             <FormControl fullWidth>
               <InputLabel>분류</InputLabel>
@@ -319,18 +329,24 @@ const Vendors = () => {
               value={formData.contact}
               onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
               fullWidth
+              inputRef={inputRef1}
+              onFocus={scrollFocus(inputRef1)}
             />
             <TextField
               label="이메일"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               fullWidth
+              inputRef={inputRef1}
+              onFocus={scrollFocus(inputRef1)}
             />
             <TextField
               label="주소"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               fullWidth
+              inputRef={inputRef1}
+              onFocus={scrollFocus(inputRef1)}
             />
             <FormControl fullWidth>
               <InputLabel>상태</InputLabel>
@@ -353,12 +369,16 @@ const Vendors = () => {
               onChange={(e) => setFormData({ ...formData, contractDate: e.target.value })}
               fullWidth
               InputLabelProps={{ shrink: true }}
+              inputRef={inputRef1}
+              onFocus={scrollFocus(inputRef1)}
             />
             <TextField
               label="계약금액"
               value={formData.contractAmount}
               onChange={(e) => setFormData({ ...formData, contractAmount: e.target.value })}
               fullWidth
+              inputRef={inputRef1}
+              onFocus={scrollFocus(inputRef1)}
             />
             <TextField
               label="진행률"
@@ -367,18 +387,24 @@ const Vendors = () => {
               onChange={(e) => setFormData({ ...formData, progress: e.target.value })}
               fullWidth
               InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+              inputRef={inputRef1}
+              onFocus={scrollFocus(inputRef1)}
             />
             <TextField
               label="담당자"
               value={formData.manager}
               onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
               fullWidth
+              inputRef={inputRef1}
+              onFocus={scrollFocus(inputRef1)}
             />
             <TextField
               label="작업인원"
               value={formData.workers}
               onChange={(e) => setFormData({ ...formData, workers: e.target.value })}
               fullWidth
+              inputRef={inputRef1}
+              onFocus={scrollFocus(inputRef1)}
             />
             <TextField
               label="비고"
@@ -387,6 +413,8 @@ const Vendors = () => {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               fullWidth
+              inputRef={inputRef1}
+              onFocus={scrollFocus(inputRef1)}
             />
           </Box>
         </DialogContent>

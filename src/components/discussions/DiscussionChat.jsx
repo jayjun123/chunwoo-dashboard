@@ -15,6 +15,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 import { InputBase } from '@mui/material';
 import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
+import { Keyboard } from '@capacitor/keyboard';
 
 const DiscussionChat = ({ roomId }) => {
   const [messages, setMessages] = useState([]);
@@ -31,7 +32,10 @@ const DiscussionChat = ({ roomId }) => {
   const [roomName, setRoomName] = useState('채팅방');
   const navigate = useNavigate();
   const [editingMessage, setEditingMessage] = useState(null);
-  const [checkedMessages, setCheckedMessages] = useState([]);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const inputRef = useRef();
+  const [scrolled, setScrolled] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
 
   useEffect(() => {
     if (!roomId) return;
@@ -84,6 +88,30 @@ const DiscussionChat = ({ roomId }) => {
     }
   }, [messages, roomId]);
 
+  useEffect(() => {
+    Keyboard.addListener('keyboardWillShow', (info) => {
+      setKeyboardHeight(info.keyboardHeight);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 200);
+    });
+    Keyboard.addListener('keyboardWillHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      Keyboard.removeAllListeners();
+    };
+  }, []);
+
+  const handleFocus = () => {
+    if (!scrolled) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        setScrolled(true);
+      }, 300);
+    }
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() && files.length === 0) return;
@@ -115,7 +143,7 @@ const DiscussionChat = ({ roomId }) => {
       const messageData = {
         text: newMessage,
         userId: currentUser?.uid || 'anonymous',
-        userName: currentUser?.displayName || currentUser?.email || '익명',
+        userName: currentUser?.displayName || '익명',
         timestamp: serverTimestamp(),
       };
       
@@ -233,20 +261,6 @@ const DiscussionChat = ({ roomId }) => {
     // Implementation of handleUpdateMessage
   };
 
-  const handleCheckMessage = (id) => {
-    setCheckedMessages(prev => prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]);
-  };
-
-  const handleBulkDelete = async () => {
-    if (!window.confirm('선택한 의견을 모두 삭제할까요?')) return;
-    for (const id of checkedMessages) {
-      try {
-        await deleteDoc(doc(db, `discussions/${roomId}/messages`, id));
-      } catch (e) { console.error('삭제 실패', id, e); }
-    }
-    setCheckedMessages([]);
-  };
-
   return (
     <Box sx={{
       height: '100vh', width: '100vw', maxWidth: '100vw', minWidth: '100vw',
@@ -311,17 +325,9 @@ const DiscussionChat = ({ roomId }) => {
                 )}
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', mb: 1.5 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Checkbox
-                      checked={checkedMessages.includes(msg.id)}
-                      onChange={() => handleCheckMessage(msg.id)}
-                      size="small"
-                      sx={{ p: 0.5, mr: 1 }}
-                    />
-                    {!isMe && (
-                      <Typography sx={{ color: '#aaa', fontSize: 12, fontWeight: 700, mb: 0.5 }}>
-                        {msg.userName}
-                      </Typography>
-                    )}
+                    <Typography sx={{ color: '#1976d2', fontSize: 14, fontWeight: 900, mb: 0.5, mr: 1 }}>
+                      {msg.userName}
+                    </Typography>
                   </Box>
                   <Box sx={{
                     bgcolor: isMe ? '#FFF066' : '#232323',
@@ -421,7 +427,7 @@ const DiscussionChat = ({ roomId }) => {
       {/* 입력창 */}
       <Box component="form" onSubmit={handleSend} sx={{
         display: 'flex', alignItems: 'center',
-        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 1200,
+        position: 'fixed', left: 0, right: 0, bottom: keyboardHeight, zIndex: 1200,
         background: 'transparent',
         p: 0.8,
         borderTop: 'none',
@@ -440,10 +446,15 @@ const DiscussionChat = ({ roomId }) => {
           mr: 1,
         }}>
           <InputBase
+            inputRef={inputRef}
+            value={newMessage}
+            onChange={e => { if (!isComposing) setNewMessage(e.target.value); }}
+            onInput={e => { if (!isComposing) setNewMessage(e.target.value); }}
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={e => { setIsComposing(false); setNewMessage(e.target.value); }}
+            onFocus={handleFocus}
             fullWidth
             placeholder="메시지 입력"
-            value={newMessage}
-            onChange={e => setNewMessage(e.target.value)}
             sx={{
               color: '#fff',
               fontSize: 17,
@@ -468,19 +479,6 @@ const DiscussionChat = ({ roomId }) => {
           <img src={imageModal.url} alt="확대보기" style={{ maxWidth: '90vw', maxHeight: '80vh', display: 'block', margin: '0 auto' }} />
         </DialogContent>
       </Dialog>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-        <Button
-          variant="contained"
-          color="error"
-          size="small"
-          startIcon={<DeleteIcon />}
-          disabled={checkedMessages.length === 0}
-          onClick={handleBulkDelete}
-          sx={{ mr: 1 }}
-        >
-          선택삭제
-        </Button>
-      </Box>
     </Box>
   );
 };

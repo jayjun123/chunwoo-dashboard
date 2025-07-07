@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -54,10 +54,7 @@ import {
   Line,
 } from 'recharts';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { useRef } from 'react';
 import { exportToPDF } from '../utils/exportUtils';
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 const ProgressManagement = () => {
   const { setLoading, setLoadingMessage } = useLoading();
@@ -339,6 +336,17 @@ const ProgressManagement = () => {
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
   };
 
+  // scrollFocus 함수 한 번만 선언
+  const scrollFocus = (ref) => () => {
+    setTimeout(() => {
+      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
+  // 각 주요 입력창에 대해 useRef 선언 및 연결
+  const inputRef1 = useRef();
+  const inputRef2 = useRef();
+
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <Box sx={{
@@ -370,6 +378,8 @@ const ProgressManagement = () => {
               size="small"
               placeholder="현장명, 회사명, 소장명 검색"
               sx={{ mb: 2 }}
+              inputRef={inputRef1}
+              onFocus={scrollFocus(inputRef1)}
             />
             <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 600, mb: 1, textAlign: 'left' }}>
               추가사항
@@ -382,6 +392,8 @@ const ProgressManagement = () => {
                 value={extraInput}
                 onChange={e => setExtraInput(e.target.value)}
                 onKeyDown={handleExtraInputKeyDown}
+                inputRef={inputRef2}
+                onFocus={scrollFocus(inputRef2)}
               />
               <IconButton color="primary" onClick={handleAddExtra}>
                 <AddIcon />

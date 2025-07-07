@@ -425,70 +425,77 @@ const BottomBar = ({
   useEffect(() => {
     // 일정관리에서 금일 데이터 fetch + 최근 5개
     const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
     
-    console.log('오늘 날짜:', todayStr);
+    console.log('🔥 하단바 일정 연동 시작 - 오늘 날짜 범위:', todayStart, '~', todayEnd);
     
-    const unsubSchedules = onSnapshot(collection(db, 'schedules'), (snapshot) => {
-      const arr = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Firebase에서 타임스탬프 date 필드로 오늘 날짜 범위 쿼리
+    const q = query(
+      collection(db, 'schedules'),
+      where('date', '>=', todayStart),
+      where('date', '<=', todayEnd)
+    );
+    
+    const unsubSchedules = onSnapshot(q, (snapshot) => {
+      const todaySchedules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
-      console.log('전체 일정 데이터:', arr);
-      
-      // 오늘 날짜만 엄격하게 필터링
-      const todaySchedules = arr.filter(item => {
-        if (!item.date) return false;
-        
-        // 날짜 형식이 다를 수 있으므로 여러 형식 지원
-        const itemDate = new Date(item.date);
-        const todayDate = new Date(todayStr);
-        
-        console.log('아이템 날짜:', item.date, '변환된 날짜:', itemDate.toDateString(), '오늘:', todayDate.toDateString());
-        
-        return itemDate.toDateString() === todayDate.toDateString();
-      });
-      
-      console.log('오늘 필터링된 일정:', todaySchedules);
+      console.log('🔥 Firebase에서 가져온 오늘 일정 (타임스탬프 date 필드 쿼리):', todaySchedules);
       
       // 금일현장 (type에 '현장' 포함)
       const todaySites = todaySchedules.filter(item => 
         item.type && 
         item.type.includes('현장')
       );
+      console.log('🔥 금일현장:', todaySites.length, '개', todaySites);
       
       // 금일입찰 (type에 '입찰' 포함)
       const todayBids = todaySchedules.filter(item => 
         item.type && 
         item.type.includes('입찰')
       );
+      console.log('🔥 금일입찰:', todayBids.length, '개', todayBids);
       
       // 금일회의 (type에 '회의' 포함)
       const todayMeetings = todaySchedules.filter(item => 
         item.type && 
         item.type.includes('회의')
       );
+      console.log('🔥 금일회의:', todayMeetings.length, '개', todayMeetings);
       
       // 금일현설 (type에 '현설' 포함)
       const todaySetup = todaySchedules.filter(item => 
         item.type && 
         item.type.includes('현설')
       );
+      console.log('🔥 금일현설:', todaySetup.length, '개', todaySetup);
       
       // stats를 한 번에 업데이트
-      setStats(prev => ({
-        ...prev,
+      const newStats = {
         todaySites: todaySites.length,
         progressCount: todayBids.length,
         discussionCount: todayMeetings.length,
         safetyCount: todaySetup.length
+      };
+      
+      console.log('🔥 하단바 stats 업데이트:', newStats);
+      
+      setStats(prev => ({
+        ...prev,
+        ...newStats
       }));
       
       setProgressList(todaySites.slice(-5).reverse());
       setDiscussionList(todayBids.slice(-5).reverse());
       setSafetyList(todayMeetings.slice(-5).reverse());
       setSetupList(todaySetup.slice(-5).reverse());
-    }, (err) => setError('일정관리 데이터를 불러오는 중 오류가 발생했습니다.'));
+    }, (err) => {
+      console.error('🔥 하단바 일정 연동 오류:', err);
+      setError('일정관리 데이터를 불러오는 중 오류가 발생했습니다.');
+    });
 
     return () => {
+      console.log('🔥 하단바 일정 연동 해제');
       unsubSchedules();
     };
   }, []);
