@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -59,6 +59,9 @@ const GisungManagement = () => {
   const [siteExpenseTotals, setSiteExpenseTotals] = useState({}); // 현장별 지출합계
   const [siteLaborTotals, setSiteLaborTotals] = useState({}); // 현장별 노무합계
   const [siteEtcTotals, setSiteEtcTotals] = useState({}); // 현장별 기타합계
+
+  const inputRef1 = useRef();
+  const inputRef2 = useRef();
 
   useEffect(() => {
     const sitesQuery = query(collection(db, 'sites'));
@@ -186,6 +189,12 @@ const GisungManagement = () => {
   const getCurrentSiteTotalGisung = () => {
     if (!currentGisung.siteId) return 0;
     return siteGisungTotals[currentGisung.siteId] || 0;
+  };
+
+  const scrollFocus = (ref) => () => {
+    setTimeout(() => {
+      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
   };
 
   return (
@@ -358,7 +367,7 @@ const GisungManagement = () => {
                     setCurrentGisung(prev => ({ ...prev, siteId: '' }));
                   }
                 }}
-                renderInput={(params) => <TextField {...params} label="현장명" fullWidth margin="normal" />}
+                renderInput={(params) => <TextField {...params} label="현장명" fullWidth margin="normal" inputRef={inputRef1} onFocus={scrollFocus(inputRef1)} />}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -385,6 +394,8 @@ const GisungManagement = () => {
                 onChange={e => setCurrentGisung(prev => ({ ...prev, gisungDate: e.target.value }))}
                 InputLabelProps={{ shrink: true }}
                 sx={{ input: { color: '#fff' }, label: { color: '#fff' } }}
+                inputRef={inputRef2}
+                onFocus={scrollFocus(inputRef2)}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -394,6 +405,8 @@ const GisungManagement = () => {
                 value={currentGisung.description || ''}
                 onChange={e => setCurrentGisung(prev => ({ ...prev, description: e.target.value }))}
                 sx={{ input: { color: '#fff' }, label: { color: '#fff' } }}
+                inputRef={inputRef3}
+                onFocus={scrollFocus(inputRef3)}
               />
             </Grid>
             <Grid item xs={12}>
@@ -403,6 +416,8 @@ const GisungManagement = () => {
                 value={currentGisung.etcNote || ''}
                 onChange={e => setCurrentGisung(prev => ({ ...prev, etcNote: e.target.value }))}
                 sx={{ input: { color: '#fff' }, label: { color: '#fff' } }}
+                inputRef={inputRef4}
+                onFocus={scrollFocus(inputRef4)}
               />
             </Grid>
           </Grid>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   List,
   ListItem,
@@ -956,6 +956,12 @@ const TodoList = () => {
     }
   };
 
+  const scrollFocus = (ref) => () => {
+    setTimeout(() => {
+      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
   return (
     <Box sx={{ 
       p: { xs: 1, sm: 2, md: 3 }, 
@@ -1425,7 +1431,7 @@ const TodoList = () => {
                     }
                   }}
                   onClick={(e) => e.stopPropagation()}
-                  onFocus={(e) => e.stopPropagation()}
+                  onFocus={scrollFocus(null)}
                   sx={{ 
                     flex: 1,
                     '& .MuiOutlinedInput-root': {

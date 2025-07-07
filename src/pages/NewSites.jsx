@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Grid, Paper, Tabs, Tab, TextField, List, ListItem, ListItemText, Button, IconButton, Typography, Box, FormControl, Select, MenuItem, Checkbox, FormControlLabel, InputLabel } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
@@ -168,6 +168,15 @@ const NewSites = () => {
   const handleWholeList = () => navigate('/whole-list');
   const isReadOnly = !isEditing;
 
+  const scrollFocus = (ref) => () => {
+    setTimeout(() => {
+      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
+  const inputRef1 = useRef();
+  const inputRef2 = useRef();
+
   return (
     <Box sx={{ 
       display: 'flex', 
@@ -300,7 +309,7 @@ const NewSites = () => {
                  현장명
                </Typography>
                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                 <TextField name="name" value={form.name ?? ''} onChange={handleChange} size="small" disabled={isReadOnly} sx={{ width: isMobile ? '250px' : '500px' }} />
+                 <TextField name="name" value={form.name ?? ''} onChange={handleChange} size="small" disabled={isReadOnly} sx={{ width: isMobile ? '250px' : '500px' }} inputRef={inputRef1} onFocus={scrollFocus(inputRef1)} />
                  <Box sx={{ display: 'flex', alignItems: 'center', pb: 0.5, flexDirection: 'row', whiteSpace: 'nowrap' }}>
                    <Typography variant="body1" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>주요현장</Typography>
                    <IconButton 
@@ -350,7 +359,7 @@ const NewSites = () => {
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  계약금액
                </Typography>
-               <TextField name="contractAmount" value={isReadOnly ? (Number(form.contractAmount || 0)).toLocaleString() : (form.contractAmount ?? '')} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
+               <TextField name="contractAmount" value={isReadOnly ? (Number(form.contractAmount || 0)).toLocaleString() : (form.contractAmount ?? '')} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} inputRef={inputRef2} onFocus={scrollFocus(inputRef2)} />
              </Box>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>

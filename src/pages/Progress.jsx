@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -539,6 +539,16 @@ const Progress = () => {
     </Box>
   );
 
+  const scrollFocus = (ref) => () => {
+    setTimeout(() => {
+      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
+  // 각 주요 입력창에 대해 useRef 선언 및 연결
+  const inputRef1 = useRef();
+  const inputRef2 = useRef();
+
   return (
     <Box sx={{ 
       p: isMobile ? 2 : 3, 
@@ -1057,6 +1067,8 @@ const Progress = () => {
             onChange={e => setFormData({ ...formData, name: e.target.value })}
             fullWidth
             sx={{ mb: 2 }}
+            inputRef={inputRef1}
+            onFocus={scrollFocus(inputRef1)}
           >
             {filteredSites.map(site => (
               <MenuItem key={site.id} value={site.name}>{site.name}</MenuItem>
@@ -1068,6 +1080,8 @@ const Progress = () => {
             onChange={e => setFormData({ ...formData, contractAmount: e.target.value.replace(/[^0-9]/g, '') })}
             fullWidth
             sx={{ mb: 2 }}
+            inputRef={inputRef2}
+            onFocus={scrollFocus(inputRef2)}
           />
           {formData.payments.map((p, idx) => (
             <Box key={idx} sx={{ display: 'flex', gap: 1, mb: 1 }}>
@@ -1076,6 +1090,8 @@ const Progress = () => {
                 value={p.amount}
                 onChange={e => handleChangePayment(idx, 'amount', e.target.value.replace(/[^0-9]/g, ''))}
                 fullWidth
+                inputRef={`amount-${idx}`}
+                onFocus={scrollFocus(document.getElementById(`amount-${idx}`))}
               />
               <IconButton onClick={() => handleRemovePayment(idx)} disabled={formData.payments.length === 1}>
                 <DeleteIcon />

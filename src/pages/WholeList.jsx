@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -78,6 +78,12 @@ const sortData = (data, orderBy, order) => {
       return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
     }
   });
+};
+
+const scrollFocus = (ref) => () => {
+  setTimeout(() => {
+    ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 300);
 };
 
 const WholeList = () => {
@@ -716,6 +722,27 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
     isFavorite: false
   });
 
+  const inputRef1 = useRef();
+  const inputRef2 = useRef();
+  const inputRef3 = useRef();
+  const inputRef4 = useRef();
+  const inputRef5 = useRef();
+  const inputRef6 = useRef();
+  const inputRef7 = useRef();
+  const inputRef8 = useRef();
+  const inputRef9 = useRef();
+  const inputRef10 = useRef();
+  const inputRef11 = useRef();
+  const inputRef12 = useRef();
+  const inputRef13 = useRef();
+  const inputRef14 = useRef();
+  const inputRef15 = useRef();
+  const inputRef16 = useRef();
+  const inputRef17 = useRef();
+  const inputRef18 = useRef();
+  const inputRef19 = useRef();
+  const inputRef20 = useRef();
+
   useEffect(() => {
     if (site) {
       setForm(site);
@@ -767,6 +794,8 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
               onChange={handleChange}
               fullWidth
               required
+              inputRef={inputRef1}
+              onFocus={scrollFocus(inputRef1)}
             />
             <FormControl fullWidth>
               <Select name="status" value={form.status} onChange={handleChange}>
@@ -791,6 +820,8 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
               value={form.installment}
               onChange={handleChange}
               fullWidth
+              inputRef={inputRef2}
+              onFocus={scrollFocus(inputRef2)}
             />
           </Box>
 
@@ -801,6 +832,8 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
               value={form.contractAmount}
               onChange={handleChange}
               fullWidth
+              inputRef={inputRef3}
+              onFocus={scrollFocus(inputRef3)}
             />
             <TextField
               name="advance"
@@ -808,6 +841,8 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
               value={form.advance}
               onChange={handleChange}
               fullWidth
+              inputRef={inputRef4}
+              onFocus={scrollFocus(inputRef4)}
             />
             <TextField
               name="totalProgress"
@@ -815,6 +850,8 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
               value={form.totalProgress}
               onChange={handleChange}
               fullWidth
+              inputRef={inputRef5}
+              onFocus={scrollFocus(inputRef5)}
             />
           </Box>
 
@@ -824,6 +861,8 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
             value={form.address}
             onChange={handleChange}
             fullWidth
+            inputRef={inputRef6}
+            onFocus={scrollFocus(inputRef6)}
           />
 
           <Box sx={{ display: 'flex', gap: 2 }}>
@@ -835,6 +874,8 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
               onChange={handleChange}
               fullWidth
               InputLabelProps={{ shrink: true }}
+              inputRef={inputRef7}
+              onFocus={scrollFocus(inputRef7)}
             />
             <TextField
               name="endDate"
@@ -844,6 +885,8 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
               onChange={handleChange}
               fullWidth
               InputLabelProps={{ shrink: true }}
+              inputRef={inputRef8}
+              onFocus={scrollFocus(inputRef8)}
             />
           </Box>
 
@@ -854,6 +897,8 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
               value={form.companyName}
               onChange={handleChange}
               fullWidth
+              inputRef={inputRef9}
+              onFocus={scrollFocus(inputRef9)}
             />
             <TextField
               name="manager"
@@ -861,6 +906,8 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
               value={form.manager}
               onChange={handleChange}
               fullWidth
+              inputRef={inputRef10}
+              onFocus={scrollFocus(inputRef10)}
             />
             <TextField
               name="phone"
@@ -868,6 +915,8 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
               value={form.phone}
               onChange={handleChange}
               fullWidth
+              inputRef={inputRef11}
+              onFocus={scrollFocus(inputRef11)}
             />
           </Box>
 
@@ -878,6 +927,8 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
               value={form.team}
               onChange={handleChange}
               fullWidth
+              inputRef={inputRef12}
+              onFocus={scrollFocus(inputRef12)}
             />
             <TextField
               name="desc"
@@ -887,6 +938,8 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
               fullWidth
               multiline
               rows={2}
+              inputRef={inputRef13}
+              onFocus={scrollFocus(inputRef13)}
             />
           </Box>
 

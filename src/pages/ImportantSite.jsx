@@ -69,6 +69,12 @@ export default function ImportantSite() {
   const [hoveredSiteId, setHoveredSiteId] = useState(null);
   const navigate = useNavigate();
 
+  const scrollFocus = (ref) => () => {
+    setTimeout(() => {
+      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
   useEffect(() => {
     // isFavorite가 true인 현장만 실시간으로 가져옵니다.
     const q = query(collection(db, 'sites'), where('isFavorite', '==', true));
@@ -553,6 +559,7 @@ export default function ImportantSite() {
             borderRadius: 2, 
             input: { color: '#fff' } 
           }}
+          inputRef={scrollFocus(null)}
         />
       </Box>
       <Grid container spacing={2.5}>
@@ -771,6 +778,7 @@ export default function ImportantSite() {
                                     setProgressInput(prev => ({ ...prev, [site.id]: v }));
                                   }}
                                   sx={{ width: 90, bgcolor: '#232b3b', borderRadius: 1, mr: 1 }}
+                                  inputRef={scrollFocus(null)}
                                 />
                                 <Button
                                   variant="contained"
@@ -787,6 +795,7 @@ export default function ImportantSite() {
                                   setEditingProgress(prev => ({ ...prev, [site.id]: true }));
                                   setProgressInput(prev => ({ ...prev, [site.id]: percent }));
                                 }}
+                                inputRef={scrollFocus(null)}
                               >
                                 {`공사 진행률: ${percent}%`}
                               </Typography>

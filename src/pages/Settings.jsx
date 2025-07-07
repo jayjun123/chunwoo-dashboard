@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import Layout from '../components/Layout';
 import {
   Box, Grid, Paper, Typography, Switch, FormControlLabel, TextField,
@@ -145,6 +145,14 @@ const Settings = () => {
     }));
   };
 
+  const scrollFocus = (ref) => () => {
+    setTimeout(() => {
+      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
+  const inputRef1 = useRef();
+
   if (loading) {
     return (
       <Layout>
@@ -181,6 +189,8 @@ const Settings = () => {
                           value={profile.name ?? ''}
                           onChange={handleProfileChange('name')}
                           size="small"
+                          inputRef={inputRef1}
+                          onFocus={scrollFocus(inputRef1)}
                         />
                       }
                     />
@@ -195,6 +205,8 @@ const Settings = () => {
                           value={profile.email ?? currentUser.email}
                           onChange={handleProfileChange('email')}
                           size="small"
+                          inputRef={inputRef1}
+                          onFocus={scrollFocus(inputRef1)}
                         />
                       }
                     />
@@ -209,6 +221,8 @@ const Settings = () => {
                           value={profile.phone ?? ''}
                           onChange={handleProfileChange('phone')}
                           size="small"
+                          inputRef={inputRef1}
+                          onFocus={scrollFocus(inputRef1)}
                         />
                       }
                     />
@@ -223,6 +237,8 @@ const Settings = () => {
                           value={profile.department ?? ''}
                           onChange={handleProfileChange('department')}
                           size="small"
+                          inputRef={inputRef1}
+                          onFocus={scrollFocus(inputRef1)}
                         />
                       }
                     />
@@ -237,6 +253,8 @@ const Settings = () => {
                           value={profile.position ?? ''}
                           onChange={handleProfileChange('position')}
                           size="small"
+                          inputRef={inputRef1}
+                          onFocus={scrollFocus(inputRef1)}
                         />
                       }
                     />

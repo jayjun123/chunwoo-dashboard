@@ -53,6 +53,9 @@ const CustomCalendar = (props) => {
 
   const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
 
+  // 현장명 중복 제거
+  const uniqueSiteNames = [...new Set(sites.map(site => site.name).filter(Boolean))];
+
   // 오늘 날짜 확인
   const today = new Date();
   const isToday = (date) => {
@@ -291,11 +294,6 @@ const CustomCalendar = (props) => {
       alert('일정 수정에 실패했습니다.');
     }
   };
-
-  // Autocomplete options 중복 제거
-  const uniqueSiteNames = Array.from(new Set(sites.map(s => s.name).filter(Boolean)));
-
-
 
   return (
     <Box 
@@ -705,9 +703,9 @@ const CustomCalendar = (props) => {
                           display: 'flex',
                           flexDirection: 'column',
                           gap: { xs: 0.1, md: 0.2 },
-                          overflowY: items.length > 5 ? 'auto' : 'hidden',
+                          overflowY: items.length > 3 ? 'auto' : 'hidden',
                           overflowX: 'hidden',
-                          maxHeight: items.length > 5 ? '120px' : 'auto',
+                          maxHeight: items.length > 3 ? '120px' : 'auto',
                           margin: 0,
                           padding: 0,
                           boxSizing: 'border-box',
