@@ -490,11 +490,13 @@
 /* 반응형 - 모바일(갤럭시 세로) */
 @media (max-width: 600px) {
   .header {
-    height: 48px;
+    height: 38px !important;
+    min-height: 38px !important;
+    max-height: 38px !important;
     padding: 0 8px;
   }
   .logo {
-    font-size: 1.3rem;
+    font-size: 1rem;
   }
   .header-nav {
     display: none !important;

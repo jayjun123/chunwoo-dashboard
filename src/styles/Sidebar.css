@@ -76,7 +76,16 @@
 /* 반응형 스타일 */
 @media (max-width: 768px) {
   .sidebar {
-    width: 60px;
+    width: 45px !important;
+    min-width: 45px !important;
+    max-width: 45px !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    height: 100vh !important;
+    z-index: 1000 !important;
+    background-color: #fff !important;
+    border-right: 1px solid #eee !important;
   }
 
   .nav-label {

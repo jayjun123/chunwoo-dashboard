@@ -223,7 +223,7 @@ const Overview = () => {
       width: isMobile ? '100vw' : '100%'
     }}>
       <Typography variant="h4" sx={{ mb: 3 }}>주요현장</Typography>
-      <Grid container spacing={3}>
+      <Grid container spacing={2.5}>
         {/* Chart */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3, mb: 3 }}>
@@ -253,7 +253,7 @@ const Overview = () => {
 
         {/* Site Cards */}
         {processedSites.map(site => (
-          <Grid key={site.id} sx={{ mb: isMobile ? 2.5 : 1.875, width: isMobile ? '360px' : 'auto' }}>
+          <Grid key={site.id} item xs={12} sm={6} md={4} lg={3}>
             <Card 
               sx={{ 
                 height: '100%', 
@@ -269,40 +269,41 @@ const Overview = () => {
               {getLatestPhoto(site) && (
                 <CardMedia
                   component="img"
-                  height="200"
+                  height={isMobile ? "120" : "200"}
                   image={getLatestPhoto(site)}
                   alt="현장사진"
                   sx={{ objectFit: 'cover' }}
                 />
               )}
-              <CardContent sx={{ flex: 1 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                  <Typography variant="h6">{site.name}</Typography>
+              <CardContent sx={{ flex: 1, p: isMobile ? 1.5 : 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: isMobile ? 0.5 : 1 }}>
+                  <Typography variant={isMobile ? "subtitle1" : "h6"} sx={{ fontSize: isMobile ? '14px' : 'inherit' }}>{site.name}</Typography>
                   <Tooltip title={site.isStarred ? "주요현장에서 제외" : "주요현장에 추가"}>
                     <IconButton 
                       onClick={() => toggleStar(site.id, site.isStarred)}
                       color={site.isStarred ? "primary" : "default"}
+                      size={isMobile ? "small" : "medium"}
                     >
-                      {site.isStarred ? <StarIcon /> : <StarBorderIcon />}
+                      {site.isStarred ? <StarIcon fontSize={isMobile ? "small" : "medium"} /> : <StarBorderIcon fontSize={isMobile ? "small" : "medium"} />}
                     </IconButton>
                   </Tooltip>
                 </Box>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                  <LocationOnIcon color="action" fontSize="small" />
-                  <Typography color="text.secondary">{site.location}</Typography>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: isMobile ? 0.5 : 1 }}>
+                  <LocationOnIcon color="action" fontSize={isMobile ? "small" : "small"} />
+                  <Typography color="text.secondary" sx={{ fontSize: isMobile ? '12px' : 'inherit' }}>{site.location}</Typography>
                 </Stack>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                  <MonetizationOnIcon color="action" fontSize="small" />
-                  <Typography color="text.secondary">
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: isMobile ? 0.5 : 1 }}>
+                  <MonetizationOnIcon color="action" fontSize={isMobile ? "small" : "small"} />
+                  <Typography color="text.secondary" sx={{ fontSize: isMobile ? '12px' : 'inherit' }}>
                     공사금액: {site.budget ? site.budget.toLocaleString() + '원' : '-'}
                   </Typography>
                 </Stack>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: isMobile ? 0.5 : 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-                    <Typography color="text.secondary" sx={{ minWidth: '80px' }}>
+                    <Typography color="text.secondary" sx={{ minWidth: isMobile ? '60px' : '80px', fontSize: isMobile ? '12px' : 'inherit' }}>
                       기성: {site.totalGisung.toLocaleString()}원
                     </Typography>
-                    <Box sx={{ flex: 1, height: '20px', bgcolor: 'grey.200', borderRadius: 1, overflow: 'hidden' }}>
+                    <Box sx={{ flex: 1, height: isMobile ? '16px' : '20px', bgcolor: 'grey.200', borderRadius: 1, overflow: 'hidden' }}>
                       <Box 
                         sx={{ 
                           height: '100%', 
@@ -312,50 +313,85 @@ const Overview = () => {
                         }} 
                       />
                     </Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ minWidth: '40px' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ minWidth: isMobile ? '30px' : '40px', fontSize: isMobile ? '10px' : 'inherit' }}>
                       {site.gisungProgress}%
                     </Typography>
                   </Box>
                 </Stack>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                  <Typography color="text.secondary" variant="body2">
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: isMobile ? 0.5 : 1 }}>
+                  <Typography color="text.secondary" variant="body2" sx={{ fontSize: isMobile ? '11px' : 'inherit' }}>
                     노무: {site.totalLabor.toLocaleString()}원 | 경비: {site.totalExpense.toLocaleString()}원 | 기타: {site.totalEtc.toLocaleString()}원
                   </Typography>
                 </Stack>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                  <CalendarTodayIcon color="action" fontSize="small" />
-                  <Typography>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: isMobile ? 0.5 : 1 }}>
+                  <CalendarTodayIcon color="action" fontSize={isMobile ? "small" : "small"} />
+                  <Typography sx={{ fontSize: isMobile ? '12px' : 'inherit' }}>
                     {site.startDate ? site.startDate.toLocaleDateString() : '-'} ~ {site.endDate ? site.endDate.toLocaleDateString() : '-'}
                   </Typography>
                 </Stack>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                  <Typography color="text.secondary">시공팀: {site.team || '-'}</Typography>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: isMobile ? 0.5 : 1 }}>
+                  <Typography color="text.secondary" sx={{ fontSize: isMobile ? '12px' : 'inherit' }}>시공팀: {site.team || '-'}</Typography>
                 </Stack>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                <Box sx={{ mb: isMobile ? 1 : 2 }}>
+                  <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontSize: isMobile ? '12px' : 'inherit' }}>
                     기성 진행률
                   </Typography>
                   <LinearProgress 
                     variant="determinate" 
                     value={site.gisungProgress} 
-                    sx={{ height: 8, borderRadius: 4, mb: 0.5 }}
+                    sx={{ height: isMobile ? 6 : 8, borderRadius: 4, mb: isMobile ? 0.3 : 0.5 }}
                   />
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '11px' : 'inherit' }}>
                     {site.totalGisung.toLocaleString()}원 / {Number(site.budget || 0).toLocaleString()}원 ({site.gisungProgress}%)
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <EventIcon color="action" fontSize="small" />
-                  <Typography variant="body2" color="text.secondary">
+                  <EventIcon color="action" fontSize={isMobile ? "small" : "small"} />
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '12px' : 'inherit' }}>
                     다음 일정: {getNextSchedule(site)}
                   </Typography>
                 </Stack>
               </CardContent>
               {/* 카드 하단 버튼 */}
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, p: 2, pt: 0 }}>
-                <Button variant="outlined" size="small" onClick={() => navigate(`/progress/${site.id}`)}>기성</Button>
-                <Button variant="outlined" size="small" color="success" onClick={() => navigate(`/safety/${site.id}`)}>안전</Button>
-                <Button variant="outlined" size="small" color="info" onClick={() => navigate(`/discussions?siteId=${site.id}`)}>협의</Button>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: isMobile ? 0.5 : 1, p: isMobile ? 1 : 2, pt: 0 }}>
+                <Button 
+                  variant="outlined" 
+                  size={isMobile ? "small" : "small"} 
+                  onClick={() => navigate(`/progress/${site.id}`)}
+                  sx={{ 
+                    fontSize: isMobile ? '10px' : 'inherit',
+                    padding: isMobile ? '4px 8px' : 'inherit',
+                    minWidth: isMobile ? 'auto' : 'inherit'
+                  }}
+                >
+                  기성
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size={isMobile ? "small" : "small"} 
+                  color="success" 
+                  onClick={() => navigate(`/safety/${site.id}`)}
+                  sx={{ 
+                    fontSize: isMobile ? '10px' : 'inherit',
+                    padding: isMobile ? '4px 8px' : 'inherit',
+                    minWidth: isMobile ? 'auto' : 'inherit'
+                  }}
+                >
+                  안전
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size={isMobile ? "small" : "small"} 
+                  color="info" 
+                  onClick={() => navigate(`/discussions?siteId=${site.id}`)}
+                  sx={{ 
+                    fontSize: isMobile ? '10px' : 'inherit',
+                    padding: isMobile ? '4px 8px' : 'inherit',
+                    minWidth: isMobile ? 'auto' : 'inherit'
+                  }}
+                >
+                  협의
+                </Button>
               </Box>
             </Card>
           </Grid>

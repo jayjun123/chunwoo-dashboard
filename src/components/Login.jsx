@@ -9,16 +9,48 @@ import {
   Link as MuiLink,
   CircularProgress,
   Alert,
+  useMediaQuery,
+  useTheme,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 
 const Login = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [rememberEmail, setRememberEmail] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  
+  // useAuth 훅 사용 시 에러 처리
+  let auth = null;
+  try {
+    auth = useAuth();
+  } catch (error) {
+    console.error('AuthContext 에러:', error);
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <Alert severity="error">
+          인증 시스템을 초기화할 수 없습니다. 페이지를 새로고침해주세요.
+        </Alert>
+      </Box>
+    );
+  }
+
+  const { login } = auth;
+
+  // 컴포넌트 마운트 시 저장된 이메일 불러오기
+  React.useEffect(() => {
+    const savedEmail = localStorage.getItem('savedEmail');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberEmail(true);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,6 +64,14 @@ const Login = () => {
       setError('');
       setLoading(true);
       await login(email, password);
+      
+      // 로그인 성공 시 이메일 저장 처리
+      if (rememberEmail) {
+        localStorage.setItem('savedEmail', email);
+      } else {
+        localStorage.removeItem('savedEmail');
+      }
+      
       navigate('/');
     } catch (err) {
       console.error('로그인 에러:', err);
@@ -59,7 +99,14 @@ const Login = () => {
           errorMessage = '네트워크 연결을 확인해주세요.';
           break;
         case 'auth/invalid-api-key':
+        case 'auth/api-key-not-valid':
           errorMessage = 'Firebase 설정에 문제가 있습니다. 관리자에게 문의하세요.';
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage = '이 로그인 방법이 허용되지 않습니다.';
+          break;
+        case 'auth/weak-password':
+          errorMessage = '비밀번호가 너무 약합니다.';
           break;
         default:
           errorMessage = err.message || '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.';
@@ -80,8 +127,33 @@ const Login = () => {
         minHeight: '100vh',
         backgroundColor: 'background.default',
         p: 2,
+        position: 'relative',
       }}
     >
+      {/* PC 버전 알림 문구 */}
+      {!isMobile && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: '140px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(0, 123, 255, 0.1)',
+            color: '#007bff',
+            padding: '20px 80px',
+            borderRadius: '8px',
+            fontSize: '21px',
+            fontWeight: '500',
+            textAlign: 'center',
+            maxWidth: '600px',
+            boxShadow: '0 2px 8px rgba(0, 123, 255, 0.2)',
+            zIndex: 1000,
+            border: '1px solid rgba(0, 123, 255, 0.3)'
+          }}
+        >
+          🏗️ 천우건업(주) 현장관리시스템
+        </Box>
+      )}
       <Paper
         elevation={3}
         sx={{
@@ -90,8 +162,51 @@ const Login = () => {
           maxWidth: 400,
           borderRadius: 2,
           bgcolor: 'background.paper',
+          position: 'relative',
         }}
       >
+        {/* 모바일에서만 보이는 알림 글 */}
+        {isMobile && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -80,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              textAlign: 'center',
+              width: '100%',
+              maxWidth: 350,
+            }}
+          >
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 800,
+                color: '#1976d2',
+                fontSize: '1.21rem',
+                lineHeight: 1.4,
+                mb: 1,
+                background: 'linear-gradient(135deg, #1976d2, #42a5f5)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              🏗️ 천우건업(주) 현장관리시스템
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                color: '#666',
+                fontSize: '0.94rem',
+                fontWeight: 500,
+                opacity: 0.9,
+              }}
+            >
+              안전하고 효율적인 건설 현장 관리의 새로운 기준
+            </Typography>
+          </Box>
+        )}
         <Typography 
           variant="h4" 
           component="h1" 
@@ -135,7 +250,25 @@ const Login = () => {
             required
             autoComplete="current-password"
             error={!!error}
-            sx={{ mb: 3 }}
+            sx={{ mb: 2 }}
+          />
+          
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={rememberEmail}
+                onChange={(e) => setRememberEmail(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="아이디 저장"
+            sx={{ 
+              mb: 2,
+              '& .MuiFormControlLabel-label': {
+                fontSize: '0.9rem',
+                color: 'text.secondary'
+              }
+            }}
           />
           <Button
             fullWidth

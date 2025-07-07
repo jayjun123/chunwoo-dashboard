@@ -506,11 +506,10 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
 
   return (
     <Box sx={{ 
-      width: '100%', 
-      p: isMobile ? 0 : 2,
-      position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '0px' : 'auto',
-      width: isMobile ? '100vw' : '100%'
+      width: isMobile ? '100%' : 'calc(100% - 20px)', 
+      maxWidth: isMobile ? '100%' : 'calc(100% - 20px)', 
+      mx: isMobile ? 0 : '10px',
+      p: isMobile ? 0 : 2
     }}>
       {/* 상단 제목 및 통계 */}
       {viewType === 'month' && !isMobile && (
@@ -592,7 +591,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         color: '#fff',
         overflow: 'hidden',
         width: '100%',
-        maxWidth: '100vw',
+        maxWidth: '100%',
         boxSizing: 'border-box'
       }}>
         <TableContainer sx={{ 
@@ -745,8 +744,10 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             bgcolor: '#181f2e',
             color: '#fff',
             borderRadius: 4,
-            minHeight: '480px',
-            width: '100%'
+            minHeight: isMobile ? 'auto' : '480px',
+            width: '100%',
+            maxHeight: isMobile ? '90vh' : '80vh',
+            overflow: 'auto'
           }
         }}
       >
@@ -754,18 +755,18 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           bgcolor: '#232b3b', 
           color: '#90caf9',
           fontWeight: 700,
-          fontSize: '1.3rem',
-          py: 2,
+          fontSize: { xs: '1.1rem', md: '1.3rem' },
+          py: { xs: 1.5, md: 2 },
           textAlign: 'center'
         }}>
           기성 등록(vat포함)
         </DialogTitle>
-        <DialogContent sx={{ pt: 4, pb: 2, mt: 6 }}>
-          <Box display="flex" flexDirection="column" alignItems="center" gap={3}>
+        <DialogContent sx={{ pt: { xs: 2, md: 4 }, pb: 2, mt: { xs: 2, md: 6 } }}>
+          <Box display="flex" flexDirection="column" alignItems="center" gap={isMobile ? 2 : 3}>
             {/* 1줄: 현장명(검색,드롭다운) + 기성월 */}
-            <Box display="flex" width="100%" justifyContent={isMobile ? "flex-start" : "center"} gap={2}>
-              <FormControl sx={{ minWidth: 220 }} size="medium">
-                <InputLabel sx={{ color: '#bbb', fontSize: '1rem' }}>현장명</InputLabel>
+            <Box display="flex" width="100%" flexDirection={isMobile ? "column" : "row"} justifyContent={isMobile ? "flex-start" : "center"} gap={isMobile ? 1 : 2}>
+              <FormControl sx={{ minWidth: isMobile ? '100%' : 220 }} size={isMobile ? "small" : "medium"}>
+                <InputLabel sx={{ color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } }}>현장명</InputLabel>
                 <Select
                   value={formData.name}
                   label="현장명"
@@ -775,7 +776,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                     '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
                     '& .MuiSelect-icon': { color: '#fff' },
-                    '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                    '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
                   }}
                   MenuProps={{
                     PaperProps: {
@@ -783,8 +784,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                         bgcolor: '#232b3b',
                         '& .MuiMenuItem-root': {
                           color: '#fff',
-                          fontSize: '1rem',
-                          py: 1.5,
+                          fontSize: { xs: '0.9rem', md: '1rem' },
+                          py: isMobile ? 1 : 1.5,
                           '&:hover': { bgcolor: '#2c3446' },
                           '&.Mui-selected': { bgcolor: '#1976d2' }
                         }
@@ -803,69 +804,69 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 label="기성월"
                 value={formData.gisungMonth}
                 onChange={e => setFormData({ ...formData, gisungMonth: e.target.value })}
-                size="medium"
+                size={isMobile ? "small" : "medium"}
                 sx={{
-                  minWidth: 120,
+                  minWidth: isMobile ? '100%' : 120,
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#333' },
                     '&:hover fieldset': { borderColor: '#555' },
                     '&.Mui-focused fieldset': { borderColor: '#90caf9' }
                   },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } },
+                  '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
                 }}
               />
             </Box>
             {/* 2줄: 계약금액 + 선급금 */}
-            <Box display="flex" width="100%" justifyContent="center" gap={2}>
+            <Box display="flex" width="100%" flexDirection={isMobile ? "column" : "row"} justifyContent="center" gap={isMobile ? 1 : 2}>
               <TextField
                 label="계약금액"
                 value={Number(formData.contractAmount || 0).toLocaleString()}
-                size="medium"
+                size={isMobile ? "small" : "medium"}
                 sx={{
-                  minWidth: 180,
+                  minWidth: isMobile ? '100%' : 180,
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#333' },
                     '&:hover fieldset': { borderColor: '#555' },
                     '&.Mui-focused fieldset': { borderColor: '#90caf9' }
                   },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } },
+                  '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
                 }}
                 InputProps={{ readOnly: true }}
               />
               <TextField
                 label="선급금"
                 value={Number(formData.advance || 0).toLocaleString()}
-                size="medium"
+                size={isMobile ? "small" : "medium"}
                 sx={{
-                  minWidth: 180,
+                  minWidth: isMobile ? '100%' : 180,
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#333' },
                     '&:hover fieldset': { borderColor: '#555' },
                     '&.Mui-focused fieldset': { borderColor: '#90caf9' }
                   },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } },
+                  '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
                 }}
                 InputProps={{ readOnly: true }}
               />
             </Box>
             {/* 3줄: 전회기성 + 금회기성 */}
-            <Box display="flex" width="100%" justifyContent="center" gap={2}>
+            <Box display="flex" width="100%" flexDirection={isMobile ? "column" : "row"} justifyContent="center" gap={isMobile ? 1 : 2}>
               <TextField
                 label="전회기성"
                 value={Number(formData.prevGisung || 0).toLocaleString()}
-                size="medium"
+                size={isMobile ? "small" : "medium"}
                 sx={{
-                  minWidth: 180,
+                  minWidth: isMobile ? '100%' : 180,
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#333' },
                     '&:hover fieldset': { borderColor: '#555' },
                     '&.Mui-focused fieldset': { borderColor: '#90caf9' }
                   },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } },
+                  '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
                 }}
                 InputProps={{ readOnly: true }}
               />
@@ -873,23 +874,23 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 label="금회기성"
                 value={formData.currentGisung}
                 onChange={e => setFormData({ ...formData, currentGisung: e.target.value })}
-                size="medium"
+                size={isMobile ? "small" : "medium"}
                 sx={{
-                  minWidth: 180,
+                  minWidth: isMobile ? '100%' : 180,
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#333' },
                     '&:hover fieldset': { borderColor: '#555' },
                     '&.Mui-focused fieldset': { borderColor: '#90caf9' }
                   },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } },
+                  '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
                 }}
               />
             </Box>
             {/* 4줄: 결제방법 */}
             <Box display="flex" width="100%" justifyContent="center">
-              <FormControl sx={{ minWidth: 400 }} size="medium">
-                <InputLabel sx={{ color: '#bbb', fontSize: '1rem' }}>결제방법</InputLabel>
+              <FormControl sx={{ minWidth: isMobile ? '100%' : 400 }} size={isMobile ? "small" : "medium"}>
+                <InputLabel sx={{ color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } }}>결제방법</InputLabel>
                 <Select
                   value={formData.paymentMethod || ''}
                   label="결제방법"
@@ -899,7 +900,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                     '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
                     '& .MuiSelect-icon': { color: '#fff' },
-                    '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                    '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
                   }}
                   MenuProps={{
                     PaperProps: {
@@ -907,8 +908,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                         bgcolor: '#232b3b',
                         '& .MuiMenuItem-root': {
                           color: '#fff',
-                          fontSize: '1rem',
-                          py: 1.5,
+                          fontSize: { xs: '0.9rem', md: '1rem' },
+                          py: isMobile ? 1 : 1.5,
                           '&:hover': { bgcolor: '#2c3446' },
                           '&.Mui-selected': { bgcolor: '#1976d2' }
                         }
@@ -932,26 +933,31 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 onChange={e => setFormData({ ...formData, note: e.target.value })}
                 fullWidth
                 multiline
-                rows={3}
-                size="medium"
+                rows={isMobile ? 2 : 3}
+                size={isMobile ? "small" : "medium"}
                 sx={{
-                  maxWidth: 400,
+                  maxWidth: isMobile ? '100%' : 400,
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#333' },
                     '&:hover fieldset': { borderColor: '#555' },
                     '&.Mui-focused fieldset': { borderColor: '#90caf9' }
                   },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem' }
+                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } },
+                  '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' } }
                 }}
               />
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ bgcolor: '#232b3b', p: 3, justifyContent: 'center' }}>
+        <DialogActions sx={{ bgcolor: '#232b3b', p: { xs: 2, md: 3 }, justifyContent: 'center' }}>
           <Button 
             onClick={handleClose}
-            sx={{ color: '#bbb', fontSize: '1rem', px: 3, py: 1 }}
+            sx={{ 
+              color: '#bbb', 
+              fontSize: { xs: '0.9rem', md: '1rem' }, 
+              px: { xs: 2, md: 3 }, 
+              py: { xs: 0.8, md: 1 } 
+            }}
           >
             취소
           </Button>
@@ -960,9 +966,9 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             variant="contained"
             sx={{ 
               bgcolor: '#2e7d32',
-              fontSize: '1rem',
-              px: 3,
-              py: 1,
+              fontSize: { xs: '0.9rem', md: '1rem' },
+              px: { xs: 2, md: 3 },
+              py: { xs: 0.8, md: 1 },
               '&:hover': { bgcolor: '#1b5e20' }
             }}
           >

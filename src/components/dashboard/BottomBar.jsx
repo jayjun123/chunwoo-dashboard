@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Box, Typography, IconButton, Tooltip, Badge, Modal, Paper, Drawer, List, ListItem, ListItemIcon, ListItemText, Snackbar, Alert, Checkbox, Button, Popover, TextField, Slide, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Typography, IconButton, Tooltip, Badge, Modal, Paper, Drawer, List, ListItem, ListItemIcon, ListItemText, Snackbar, Alert, Checkbox, Button, Popover, TextField, Slide, useMediaQuery, useTheme, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import GroupIcon from '@mui/icons-material/Group';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
@@ -25,11 +25,11 @@ import EngineeringIcon from '@mui/icons-material/Engineering';
 import SafetyHelmetIcon from '@mui/icons-material/SafetyCheck';
 import AddIcon from '@mui/icons-material/Add';
 import SecurityIcon from '@mui/icons-material/Security';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { usePopup } from '../../contexts/PopupContext';
+// import { usePopup } from '../../contexts/PopupContext';
 import { format } from 'date-fns';
 
 // 관리자/마스터 권한 체크 함수
@@ -86,7 +86,9 @@ const BottomBar = ({
   // 햄버거 메뉴 Drawer 상태
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const { registerPopup, unregisterPopup } = usePopup();
+  // PopupProvider 컨텍스트 사용하지 않음 (필요시 나중에 추가)
+  const registerPopup = () => {};
+  const unregisterPopup = () => {};
   const navigate = useNavigate();
   const theme = useTheme();
   const [isMaster, setIsMaster] = useState(false);
@@ -98,6 +100,9 @@ const BottomBar = ({
 
   const [todoInput, setTodoInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
+  const [loadTodoDialog, setLoadTodoDialog] = useState(false);
+  const [yesterdayTodos, setYesterdayTodos] = useState([]);
+  const [selectedTodos, setSelectedTodos] = useState([]);
 
   // 확장 상태 관리
   const [expandWeather, setExpandWeather] = useState(false);
@@ -272,6 +277,30 @@ const BottomBar = ({
       setWeatherLoading(true);
       const { nx, ny } = getLocationCoords(location);
       const serviceKey = import.meta.env.VITE_WEATHER_API_KEY;
+      
+      // API 키가 없거나 잘못된 경우 기본 날씨 정보 사용
+      if (!serviceKey || serviceKey === 'undefined' || serviceKey === 'null') {
+        console.log('날씨 API 키가 설정되지 않아 기본 날씨 정보를 사용합니다.');
+        const defaultWeatherData = {
+          current: {
+            temp: 20,
+            weather: '맑음',
+            icon: '01d'
+          },
+          daily: [
+            {
+              date: new Date(),
+              temp: 20,
+              icon: '01d',
+              weather: '맑음',
+              pop: 0
+            }
+          ]
+        };
+        setWeatherData(defaultWeatherData);
+        return;
+      }
+      
       const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${format(new Date(), 'yyyyMMdd')}&base_time=0500&nx=${nx}&ny=${ny}`;
       console.log('기상청 fetch URL:', url);
       const response = await fetch(url);
@@ -282,8 +311,27 @@ const BottomBar = ({
         data = JSON.parse(text);
         console.log('기상청 날씨 API 응답(JSON):', data);
       } catch (jsonErr) {
-        console.error('JSON 파싱 실패! 원본 응답:', text);
-        throw jsonErr;
+        console.warn('날씨 API 응답이 JSON 형식이 아닙니다. 기본 날씨 정보를 사용합니다.');
+        // API 오류 시 기본 날씨 정보 사용
+        const defaultWeatherData = {
+          current: {
+            temp: 20,
+            weather: '맑음',
+            icon: '01d'
+          },
+          daily: [
+            {
+              date: new Date(),
+              temp: 20,
+              icon: '01d',
+              weather: '맑음',
+              pop: 0
+            }
+          ]
+        };
+        setWeatherData(defaultWeatherData);
+        setWeatherLoading(false);
+        return;
       }
       const weatherItems = data?.response?.body?.items?.item || [];
       // 실제로 데이터가 있는 날짜만 추출해서 3일치만 표시
@@ -478,7 +526,15 @@ const BottomBar = ({
       });
       
       const filtered = todayTodos.filter(item => !['샘플','테스트','임시'].some(word => (item.text||item.title||'').includes(word)));
-      const done = filtered.filter(t => t.completed).length;
+      
+      // 최신 순서로 정렬 (timestamp 또는 createdAt 기준)
+      const sorted = filtered.sort((a, b) => {
+        const timeA = a.timestamp || (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime());
+        const timeB = b.timestamp || (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime());
+        return timeB - timeA; // 최신이 위로
+      });
+      
+      const done = sorted.filter(t => t.completed).length;
       
       console.log('투두리스트 필터링:', {
         전체: arr.length,
@@ -486,11 +542,12 @@ const BottomBar = ({
         사용자투두: userTodos.length,
         오늘: todayTodos.length,
         필터링: filtered.length,
+        정렬후: sorted.length,
         완료: done
       });
       
-      setStats(prev => ({ ...prev, todoDone: done, todoTotal: filtered.length }));
-      setTodoList(filtered.slice(-20).reverse());
+      setStats(prev => ({ ...prev, todoDone: done, todoTotal: sorted.length }));
+      setTodoList(sorted.slice(0, 20)); // 최신 20개만 표시
     }, (err) => setError('ToDoList 데이터를 불러오는 중 오류가 발생했습니다.'));
 
     return () => {
@@ -568,8 +625,10 @@ const BottomBar = ({
         text: todoInput.trim(),
         completed: false,
         userId: currentUser.uid,
+        date: new Date().toISOString().slice(0, 10), // 반드시 추가!
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        timestamp: Date.now() // 정확한 시간순 정렬을 위한 타임스탬프 추가
       });
       setTodoInput('');
     } catch (error) {
@@ -654,35 +713,137 @@ const BottomBar = ({
     return () => clearInterval(interval);
   }, []); // todoList 의존성 제거
 
-  // 전날 미완료 현장 불러오기 기능
+  // 전날 미완료 투두 불러오기 다이얼로그 열기
   const handleLoadYesterdayIncomplete = async () => {
     try {
-      const yesterdayTodos = localStorage.getItem('yesterdayIncompleteTodos');
-      if (yesterdayTodos) {
-        const incompleteTodos = JSON.parse(yesterdayTodos);
-        
-        // 전날 미완료 항목들을 오늘 TodoList에 추가
-        for (const todo of incompleteTodos) {
+      if (!currentUser) {
+        setError('로그인이 필요합니다.');
+        return;
+      }
+
+      // 전날 미완료 투두들을 createdAt 기준으로 가져오기 (UTC+9 보정)
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStart = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0);
+      const yesterdayEnd = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
+
+      // 모든 미완료 투두를 가져와서 createdAt으로 필터링
+      const allTodosQuery = query(
+        collection(db, 'todos'),
+        where('userId', '==', currentUser.uid),
+        where('completed', '==', false)
+      );
+      const allTodosSnapshot = await getDocs(allTodosQuery);
+      const allTodos = allTodosSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // createdAt 필드로 전날 필터링 (UTC+9 보정)
+      const incompleteTodos = allTodos.filter(todo => {
+        if (!todo.createdAt) return false;
+        let todoDate;
+        if (todo.createdAt.toDate) {
+          todoDate = todo.createdAt.toDate();
+        } else if (todo.createdAt instanceof Date) {
+          todoDate = todo.createdAt;
+        } else {
+          todoDate = new Date(todo.createdAt);
+        }
+        // 시간대 보정 (UTC+9)
+        todoDate = new Date(todoDate.getTime() + 9 * 60 * 60 * 1000);
+        return todoDate >= yesterdayStart && todoDate <= yesterdayEnd;
+      });
+
+      if (incompleteTodos.length === 0) {
+        setError('불러올 전날 미완료 항목이 없습니다.');
+        return;
+      }
+
+      setYesterdayTodos(incompleteTodos);
+      setSelectedTodos([]);
+      setLoadTodoDialog(true);
+    } catch (error) {
+      console.error('전날 미완료 항목 조회 실패:', error);
+      setError('전날 미완료 항목을 조회하는데 실패했습니다.');
+    }
+  };
+
+  // 선택된 투두 불러오기
+  const handleLoadSelectedTodos = async () => {
+    try {
+      if (!currentUser) {
+        setError('로그인이 필요합니다.');
+        return;
+      }
+      
+      if (selectedTodos.length === 0) {
+        setError('불러올 항목을 선택해주세요.');
+        return;
+      }
+      
+      const today = new Date().toISOString().slice(0, 10);
+      
+      // 선택된 투두들을 오늘로 추가
+      for (const todoId of selectedTodos) {
+        const todo = yesterdayTodos.find(t => t.id === todoId);
+        if (todo) {
           await addDoc(collection(db, 'todos'), {
             text: todo.text,
             completed: false,
             userId: currentUser.uid,
+            date: today,
             createdAt: new Date(),
             updatedAt: new Date(),
-            fromYesterday: true // 전날에서 온 항목 표시
+            fromYesterday: true
           });
         }
-        
-        // 불러온 후 localStorage에서 삭제
-        localStorage.removeItem('yesterdayIncompleteTodos');
-        
-        setError('전날 미완료 항목을 성공적으로 불러왔습니다.');
-      } else {
-        setError('불러올 전날 미완료 항목이 없습니다.');
       }
+      
+      setLoadTodoDialog(false);
+      setError(`${selectedTodos.length}개의 항목을 성공적으로 불러왔습니다.`);
     } catch (error) {
-      console.error('전날 미완료 항목 불러오기 실패:', error);
-      setError('전날 미완료 항목을 불러오는데 실패했습니다.');
+      console.error('투두 불러오기 실패:', error);
+      setError('투두를 불러오는데 실패했습니다.');
+    }
+  };
+
+  // 선택된 투두 삭제
+  const handleDeleteSelectedTodos = async () => {
+    try {
+      if (selectedTodos.length === 0) {
+        setError('삭제할 항목을 선택해주세요.');
+        return;
+      }
+      
+      // 선택된 투두들을 삭제
+      for (const todoId of selectedTodos) {
+        await deleteDoc(doc(db, 'todos', todoId));
+      }
+      
+      setLoadTodoDialog(false);
+      setError(`${selectedTodos.length}개의 항목을 성공적으로 삭제했습니다.`);
+    } catch (error) {
+      console.error('투두 삭제 실패:', error);
+      setError('투두를 삭제하는데 실패했습니다.');
+    }
+  };
+
+  // 체크박스 선택/해제
+  const handleTodoSelection = (todoId) => {
+    setSelectedTodos(prev => 
+      prev.includes(todoId) 
+        ? prev.filter(id => id !== todoId)
+        : [...prev, todoId]
+    );
+  };
+
+  // 전체 선택/해제
+  const handleSelectAll = () => {
+    if (selectedTodos.length === yesterdayTodos.length) {
+      setSelectedTodos([]);
+    } else {
+      setSelectedTodos(yesterdayTodos.map(todo => todo.id));
     }
   };
 
@@ -822,7 +983,7 @@ const BottomBar = ({
       bgcolor: '#23242a', 
       color: '#fff', 
       borderTop: '1px solid #333', 
-      height: '46px',
+      height: isMobile ? '38px' : '46px',
       display: 'flex',
       flexDirection: 'row',
       alignItems: 'center',
@@ -845,7 +1006,7 @@ const BottomBar = ({
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'space-between',
-        height: '46px',
+        height: isMobile ? '38px' : '46px',
         width: '100%'
       }}>
         {/* 왼쪽: 날짜/온도/날씨(아이콘) 전체 클릭 시 확장 */}
@@ -860,25 +1021,25 @@ const BottomBar = ({
         <Box sx={{ 
           display: 'flex', 
           alignItems: 'center', 
-          gap: { xs: 2, md: 4 }, 
+          gap: { xs: 1, md: 4 }, 
           flex: 1, 
           justifyContent: 'center', 
           cursor: 'pointer' 
         }} onClick={(e) => { e.stopPropagation(); handleOpenPanel('center'); }}>
-          <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <EngineeringIcon sx={{ fontSize: 18, color: '#FFD600', mr: 0.5 }} />
+          <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <EngineeringIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FFD600', mr: 0.5 }} />
             {!isMobile && '[금일현장]'} {stats.todaySites ?? 0}
           </Typography>
-          <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <TrendingUpIcon sx={{ fontSize: 18, color: '#4FC3F7', mr: 0.5 }} />
+          <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <TrendingUpIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#4FC3F7', mr: 0.5 }} />
             {!isMobile && '[금일입찰]'} {stats.progressCount ?? 0}
           </Typography>
-          <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <ForumIcon sx={{ fontSize: 18, color: '#FF7043', mr: 0.5 }} />
+          <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <ForumIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF7043', mr: 0.5 }} />
             {!isMobile && '[금일회의]'} {stats.discussionCount ?? 0}
           </Typography>
-          <Typography sx={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <SafetyHelmetIcon sx={{ fontSize: 18, color: '#81C784', mr: 0.5 }} />
+          <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <SafetyHelmetIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#81C784', mr: 0.5 }} />
             {!isMobile && '[금일현설]'} {stats.safetyCount ?? 0}
           </Typography>
         </Box>
@@ -886,13 +1047,13 @@ const BottomBar = ({
         <Box sx={{ 
           display: 'flex', 
           alignItems: 'center', 
-          gap: 2, 
+          gap: { xs: 1, md: 2 }, 
           flex: '0 0 auto', 
-          minWidth: 120, 
+          minWidth: { xs: 100, md: 120 }, 
           justifyContent: 'flex-end' 
         }}>
           <Typography 
-            sx={{ fontSize: 15, cursor: 'pointer' }} 
+            sx={{ fontSize: isMobile ? 12 : 15, cursor: 'pointer' }} 
             onClick={(e) => { e.stopPropagation(); handleOpenPanel('todo'); }}
           >
             ToDoList {stats.todoDone ?? 0}/{stats.todoTotal ?? 0}
@@ -1380,17 +1541,25 @@ const BottomBar = ({
                 return itemDate >= todayStart && itemDate <= todayEnd;
               });
               
+              // 최신 순서로 정렬 (확장 팝업에서도 동일한 정렬 적용)
+              const sortedTodayTodos = todayTodos.sort((a, b) => {
+                const timeA = a.timestamp || (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime());
+                const timeB = b.timestamp || (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime());
+                return timeB - timeA; // 최신이 위로
+              });
+              
               console.log('오늘 투두 필터링:', {
                 전체: todoList.length,
                 오늘: todayTodos.length,
+                정렬후: sortedTodayTodos.length,
                 오늘시작: todayStart,
                 오늘끝: todayEnd
               });
               
-              return todayTodos.length === 0 ? (
+              return sortedTodayTodos.length === 0 ? (
                 <Typography sx={{ color: '#666', fontSize: 14 }}>할 일이 없습니다.</Typography>
               ) : (
-                todayTodos.map(item => (
+                sortedTodayTodos.map(item => (
                   <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', mb: 0.25, p: 0.25, borderRadius: 1, bgcolor: item.completed ? '#f5f5f5' : '#fff' }}>
                     <Checkbox
                       checked={!!item.completed}
@@ -1410,6 +1579,120 @@ const BottomBar = ({
           </Box>
         </Box>
       </Slide>
+
+      {/* 투두 불러오기 다이얼로그 */}
+      <Dialog
+        open={loadTodoDialog}
+        onClose={() => setLoadTodoDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            borderRadius: 2,
+            minHeight: 400
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: '#f5f5f5', 
+          borderBottom: '1px solid #e0e0e0',
+          fontWeight: 600
+        }}>
+          전날 미완료 투두 불러오기
+        </DialogTitle>
+        <DialogContent sx={{ p: 2 }}>
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              불러올 항목을 선택하거나 삭제할 항목을 선택하세요
+            </Typography>
+            <Button
+              size="small"
+              onClick={handleSelectAll}
+              sx={{ fontSize: '0.8rem' }}
+            >
+              {selectedTodos.length === yesterdayTodos.length ? '전체 해제' : '전체 선택'}
+            </Button>
+          </Box>
+          
+          <Box sx={{ 
+            maxHeight: 300, 
+            overflowY: 'auto',
+            border: '1px solid #e0e0e0',
+            borderRadius: 1,
+            p: 1
+          }}>
+            {yesterdayTodos.length === 0 ? (
+              <Typography sx={{ color: '#666', textAlign: 'center', py: 2 }}>
+                불러올 전날 미완료 항목이 없습니다.
+              </Typography>
+            ) : (
+              yesterdayTodos.map(todo => (
+                <Box 
+                  key={todo.id} 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    p: 1, 
+                    mb: 0.5,
+                    borderRadius: 1,
+                    bgcolor: selectedTodos.includes(todo.id) ? '#e3f2fd' : '#fff',
+                    border: '1px solid #e0e0e0'
+                  }}
+                >
+                  <Checkbox
+                    checked={selectedTodos.includes(todo.id)}
+                    onChange={() => handleTodoSelection(todo.id)}
+                    sx={{ mr: 1 }}
+                  />
+                  <Typography sx={{ flex: 1, fontSize: 14, color: '#000' }}>
+                    {todo.text}
+                  </Typography>
+                </Box>
+              ))
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button 
+            onClick={() => setLoadTodoDialog(false)}
+            variant="outlined"
+          >
+            취소
+          </Button>
+          <Button 
+            onClick={handleDeleteSelectedTodos}
+            variant="outlined"
+            color="error"
+            disabled={selectedTodos.length === 0}
+          >
+            선택 삭제 ({selectedTodos.length})
+          </Button>
+          <Button 
+            onClick={handleLoadSelectedTodos}
+            variant="contained"
+            color="primary"
+            disabled={selectedTodos.length === 0}
+          >
+            선택 불러오기 ({selectedTodos.length})
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 에러 메시지 Snackbar */}
+      <Snackbar
+        open={!!error}
+        autoHideDuration={4000}
+        onClose={() => setError('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setError('')} 
+          severity={error.includes('성공') ? 'success' : 'error'}
+          sx={{ width: '100%' }}
+        >
+          {error}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

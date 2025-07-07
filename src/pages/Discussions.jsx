@@ -19,9 +19,10 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon,
   Search as SearchIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, where } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, where, getDocs } from 'firebase/firestore';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,7 +31,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NanumGothic } from '../assets/fonts/NanumGothic.js';
 import { exportToExcel, exportChatToPDF } from '../utils/exportUtils';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 const Discussions = () => {
   const [rooms, setRooms] = useState([]);
@@ -40,10 +41,22 @@ const Discussions = () => {
   const [newMessage, setNewMessage] = useState('');
   const [fileToUpload, setFileToUpload] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadTask, setUploadTask] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
   const [newRoomData, setNewRoomData] = useState({ name: '', siteId: '', password: '', permissions: {} });
+  
+  // 권한 타입 정의
+  const permissionTypes = [
+    { value: 'admin', label: '관리자', color: 'error' },
+    { value: 'general', label: '일반회원', color: 'primary' },
+    { value: 'teamA', label: '대마팀A', color: 'success' },
+    { value: 'teamB', label: '대마팀B', color: 'warning' },
+    { value: 'teamC', label: '대마팀C', color: 'info' },
+    { value: 'teamD', label: '대마팀D', color: 'secondary' }
+  ];
   const [searchTerm, setSearchTerm] = useState('');
   const [editingMessage, setEditingMessage] = useState(null);
   const [searchParams] = useSearchParams();
@@ -57,10 +70,12 @@ const Discussions = () => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const [selectedRoomIds, setSelectedRoomIds] = useState([]);
 
   const { currentUser } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery('(max-width:600px)');
+  const navigate = useNavigate();
 
   const formatDate = (date) => {
     if (!date) return '';
@@ -111,10 +126,25 @@ const Discussions = () => {
       orderBy('timestamp', 'asc')
     );
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const messagesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('메시지 로딩:', {
+        roomId: selectedRoom.id,
+        messageCount: messagesData.length,
+        messages: messagesData.map(m => ({ id: m.id, text: m.text, userName: m.userName, timestamp: m.timestamp }))
+      });
+      setMessages(messagesData);
+    }, (error) => {
+      console.error('메시지 로딩 오류:', error);
     });
     return () => unsubscribe();
   }, [selectedRoom]);
+
+  // 메시지 저장 후 강제 새로고침을 위한 useEffect
+  useEffect(() => {
+    if (messages.length > 0) {
+      console.log('메시지 상태 업데이트됨:', messages.length, '개');
+    }
+  }, [messages]);
 
   useEffect(() => {
     const siteId = searchParams.get('siteId');
@@ -127,30 +157,88 @@ const Discussions = () => {
     }
   }, [searchParams, sites]);
 
-  // 키보드 이벤트 감지 (모바일)
+  // 키보드 이벤트 감지 (모바일) - 개선된 버전
   useEffect(() => {
     if (!isMobile) return;
 
     const handleResize = () => {
-      const viewportHeight = window.innerHeight;
-      const windowHeight = window.outerHeight;
-      const keyboardVisible = viewportHeight < windowHeight * 0.8;
-      setKeyboardVisible(keyboardVisible);
+      const visualViewport = window.visualViewport;
+      if (visualViewport) {
+        const keyboardHeight = window.innerHeight - visualViewport.height;
+        const isKeyboardVisible = keyboardHeight > 150;
+        setKeyboardVisible(isKeyboardVisible);
+        
+        // 키보드가 올라오면 입력창 위치 조정 및 스크롤
+        if (isKeyboardVisible) {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ 
+              behavior: 'smooth',
+              block: 'end'
+            });
+          }, 300);
+        }
+      } else {
+        // visualViewport가 지원되지 않는 경우 기존 방식 사용
+        const viewportHeight = window.innerHeight;
+        const windowHeight = window.outerHeight;
+        const keyboardVisible = viewportHeight < windowHeight * 0.8;
+        setKeyboardVisible(keyboardVisible);
+        
+        if (keyboardVisible) {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ 
+              behavior: 'smooth',
+              block: 'end'
+            });
+          }, 300);
+        }
+      }
     };
 
-    window.addEventListener('resize', handleResize);
+    const handleFocus = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        // 입력창에 포커스가 갈 때 키보드가 올라올 것으로 예상하고 미리 조정
+        setTimeout(() => {
+          e.target.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        }, 300);
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+    } else {
+      window.addEventListener('resize', handleResize);
+    }
+    
     window.addEventListener('orientationchange', handleResize);
+    document.addEventListener('focusin', handleFocus);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+      } else {
+        window.removeEventListener('resize', handleResize);
+      }
       window.removeEventListener('orientationchange', handleResize);
+      document.removeEventListener('focusin', handleFocus);
     };
   }, [isMobile]);
 
-  // 메시지 자동 스크롤
+  // 메시지 자동 스크롤 (카카오톡처럼 마지막 메시지가 보이도록)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    console.log('자동 스크롤 실행, 메시지 개수:', messages.length);
+    if (messages.length > 0) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ 
+          behavior: 'auto',
+          block: 'end'
+        });
+      }, 100);
+    }
+  }, [messages, selectedRoom]);
 
   const handleSendMessage = async () => {
     if ((!newMessage.trim() && !fileToUpload) || !currentUser || !selectedRoom) return;
@@ -166,33 +254,90 @@ const Discussions = () => {
     let attachmentData = null;
 
     if (fileToUpload) {
-      const storage = getStorage();
-      const storageRef = ref(storage, `discussion_attachments/${selectedRoom.id}/${Date.now()}_${fileToUpload.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, fileToUpload);
-
       try {
-        await uploadTask;
-        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        attachmentData = {
-          url: downloadURL,
-          name: fileToUpload.name,
-          type: fileToUpload.type,
-        };
+        const storage = getStorage();
+        const storageRef = ref(storage, `discussion_attachments/${selectedRoom.id}/${Date.now()}_${fileToUpload.name}`);
+        const newUploadTask = uploadBytesResumable(storageRef, fileToUpload);
+        setUploadTask(newUploadTask);
+
+        // 업로드 진행 상황 모니터링
+        newUploadTask.on('state_changed', 
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setUploadProgress(progress);
+            console.log('Upload progress: ' + progress + '%');
+          },
+          (error) => {
+            console.error("Upload error:", error);
+            setError("파일 업로드 중 오류가 발생했습니다: " + error.message);
+            setUploading(false);
+          },
+          async () => {
+            try {
+              const downloadURL = await getDownloadURL(newUploadTask.snapshot.ref);
+              attachmentData = {
+                url: downloadURL,
+                name: fileToUpload.name,
+                type: fileToUpload.type,
+              };
+              console.log('파일 업로드 완료:', attachmentData);
+              
+              // 파일 업로드 완료 후 메시지 저장
+              await saveMessage(attachmentData);
+            } catch (e) {
+              console.error("Download URL error:", e);
+              setError("파일 다운로드 URL 생성 중 오류가 발생했습니다.");
+              setUploading(false);
+              return;
+            }
+          }
+        );
+
+        // 업로드 완료 대기
+        await newUploadTask;
+        setUploadTask(null);
+        setUploadProgress(0);
       } catch (e) {
         console.error("File upload error:", e);
-        setError("파일 업로드 중 오류가 발생했습니다.");
+        setError("파일 업로드 중 오류가 발생했습니다: " + e.message);
         setUploading(false);
         return;
       }
+    } else {
+      // 파일이 없는 경우 바로 메시지 저장
+      await saveMessage(null);
     }
+  };
 
-    await addDoc(collection(db, `discussions/${selectedRoom.id}/messages`), {
+  const saveMessage = async (attachmentData) => {
+    console.log('메시지 저장 시작:', {
+      roomId: selectedRoom.id,
       text: newMessage.trim(),
       userId: currentUser.uid,
       userName: currentUser.name || currentUser.displayName || '익명',
-      timestamp: serverTimestamp(),
-      attachment: attachmentData,
+      attachment: attachmentData
     });
+
+    try {
+      const messageData = {
+        text: newMessage.trim(),
+        userId: currentUser.uid,
+        userName: currentUser.name || currentUser.displayName || '익명',
+        timestamp: serverTimestamp(),
+      };
+      
+      if (attachmentData) {
+        messageData.attachment = attachmentData;
+      }
+      
+      const messageRef = await addDoc(collection(db, `discussions/${selectedRoom.id}/messages`), messageData);
+      console.log('메시지 저장 성공:', messageRef.id, '첨부파일:', attachmentData);
+    } catch (error) {
+      console.error('메시지 저장 실패:', error);
+      setError("메시지 저장 중 오류가 발생했습니다: " + error.message);
+      setUploading(false);
+      return;
+    }
     
     let lastMessageText = newMessage.trim();
     if (attachmentData) {
@@ -211,12 +356,59 @@ const Discussions = () => {
     setNewMessage('');
     setFileToUpload(null);
     setUploading(false);
+    
+    // 메시지 저장 후 강제로 메시지 목록 새로고침
+    console.log('메시지 저장 완료, 목록 새로고침 시도');
+    setTimeout(() => {
+      console.log('현재 메시지 개수:', messages.length);
+    }, 1000);
+  };
+
+  const handleUploadCancel = () => {
+    if (uploadTask) {
+      uploadTask.cancel();
+      setUploadTask(null);
+    }
+    setUploading(false);
+    setUploadProgress(0);
+    setFileToUpload(null);
+    setError(null);
   };
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // 파일 크기 제한 (10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        setError("파일 크기는 10MB를 초과할 수 없습니다.");
+        return;
+      }
+
+      // 허용된 파일 타입 검증
+      const allowedTypes = [
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+        'application/pdf',
+        'text/plain',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/acad',
+        'image/vnd.dwg',
+        'application/dwg',
+        'application/x-sketchup',
+        'application/skp',
+        'model/skp'
+      ];
+      
+      if (!allowedTypes.includes(file.type)) {
+        setError("지원하지 않는 파일 형식입니다. 이미지, PDF, 텍스트, Word 문서, Excel 파일, DWG 파일, SketchUp 파일만 업로드 가능합니다.");
+        return;
+      }
+
       setFileToUpload(file);
+      setError(null); // 이전 오류 메시지 클리어
     }
   };
 
@@ -361,17 +553,45 @@ const Discussions = () => {
     if (!currentUser) return false;
     if (currentUser.role === 'admin' || currentUser.role === 'master') return true;
     if (!room.permissions) return true; // 권한 설정이 없으면 모든 사용자 접근 가능
-    return room.permissions[currentUser.uid] === 'read' || 
-           room.permissions[currentUser.uid] === 'write' || 
-           room.permissions[currentUser.uid] === 'admin';
+    
+    // 기존 사용자별 권한 체크
+    if (room.permissions[currentUser.uid] === 'read' || 
+        room.permissions[currentUser.uid] === 'write' || 
+        room.permissions[currentUser.uid] === 'admin') {
+      return true;
+    }
+    
+    // 권한 타입별 체크
+    for (const permission of permissionTypes) {
+      if (room.permissions[`${permission.value}Read`] !== false) return true;
+    }
+    
+    // 공개 권한 체크
+    if (room.permissions.publicRead !== false) return true;
+    
+    return false;
   };
 
   const canWriteRoom = (room) => {
     if (!currentUser) return false;
     if (currentUser.role === 'admin' || currentUser.role === 'master') return true;
     if (!room.permissions) return true; // 권한 설정이 없으면 모든 사용자 접근 가능
-    return room.permissions[currentUser.uid] === 'write' || 
-           room.permissions[currentUser.uid] === 'admin';
+    
+    // 기존 사용자별 권한 체크
+    if (room.permissions[currentUser.uid] === 'write' || 
+        room.permissions[currentUser.uid] === 'admin') {
+      return true;
+    }
+    
+    // 권한 타입별 체크
+    for (const permission of permissionTypes) {
+      if (room.permissions[`${permission.value}Write`] !== false) return true;
+    }
+    
+    // 공개 권한 체크
+    if (room.permissions.publicWrite !== false) return true;
+    
+    return false;
   };
 
   const canAdminRoom = (room) => {
@@ -384,6 +604,51 @@ const Discussions = () => {
   const canCreateRoom = () => {
     if (!currentUser) return false;
     return currentUser.role === 'admin' || currentUser.role === 'master' || currentUser.role === 'manager';
+  };
+
+  // 엑셀 내보내기 함수
+  const handleExportSelectedRoomsToExcel = async () => {
+    if (selectedRoomIds.length === 0) {
+      alert('엑셀로 내보낼 방을 먼저 선택하세요.');
+      return;
+    }
+    for (const roomId of selectedRoomIds) {
+      const room = rooms.find(r => r.id === roomId);
+      if (!room) continue;
+      // 메시지 불러오기
+      const messagesQuery = query(collection(db, `discussions/${roomId}/messages`), orderBy('timestamp', 'asc'));
+      const snapshot = await getDocs(messagesQuery);
+      const messagesData = snapshot.docs.map(doc => doc.data());
+      if (!messagesData.length) {
+        alert(`${room.name} 방에 내보낼 메시지가 없습니다.`);
+        continue;
+      }
+      // 엑셀 데이터 포맷
+      const excelData = messagesData.map(msg => {
+        let content = msg.text || '';
+        if (msg.attachment) {
+          if (msg.attachment.type && msg.attachment.type.startsWith('image/')) {
+            content = `[이미지] ${msg.attachment.name}`;
+          } else {
+            content = `[파일] ${msg.attachment.name}`;
+          }
+          // 텍스트와 파일이 모두 있으면 텍스트 + [파일] 형태로
+          if (msg.text && msg.attachment) {
+            if (msg.attachment.type && msg.attachment.type.startsWith('image/')) {
+              content = `${msg.text} [이미지] ${msg.attachment.name}`;
+            } else {
+              content = `${msg.text} [파일] ${msg.attachment.name}`;
+            }
+          }
+        }
+        return {
+          '작성자': msg.userName,
+          '내용': content,
+          '시간': msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleString() : ''
+        };
+      });
+      exportToExcel(excelData, '대화기록', `${room.name}_대화기록`);
+    }
   };
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><CircularProgress /></Box>;
@@ -401,20 +666,21 @@ const Discussions = () => {
         borderBottom: 1, 
         borderColor: 'divider',
         bgcolor: 'background.paper',
-        width: '100%'
+        width: '100%',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
       }}>
-        {(!isMobile || !selectedRoom) && (
-          <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>
-            토론의견
-          </Typography>
-        )}
-        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-          {(!isMobile || !selectedRoom) && (
-            <Typography variant="body2" color="text.secondary">
-              프로젝트 관련 의견을 나누는 공간입니다.
-            </Typography>
-          )}
-        </Box>
+        <Typography variant="h6">토론의견</Typography>
+        <Button
+          variant="outlined"
+          startIcon={<DownloadIcon />}
+          size="small"
+          onClick={handleExportSelectedRoomsToExcel}
+          sx={{ ml: 2 }}
+        >
+          엑셀 내보내기
+        </Button>
       </Box>
 
       {/* 메인 컨텐츠 */}
@@ -427,7 +693,7 @@ const Discussions = () => {
         {/* 채팅방 목록: 모바일은 selectedRoom 없을 때만, PC는 항상 */}
         {(!selectedRoom || !isMobile) && (
           <Box sx={{
-            width: { xs: '100%', md: 300 },
+            width: { xs: '100%', md: 350 },
             borderRight: { xs: 0, md: 1 },
             borderColor: 'divider',
             display: 'flex',
@@ -471,7 +737,13 @@ const Discussions = () => {
                 return (
                   <Box
                     key={room.id}
-                    onClick={() => setSelectedRoom(room)}
+                    onClick={() => {
+                      if (isMobile) {
+                        navigate(`/chat/${room.id}`);
+                      } else {
+                        setSelectedRoom(room);
+                      }
+                    }}
                     sx={{
                       p: { xs: 1, md: 1.5 },
                       cursor: 'pointer',
@@ -480,53 +752,66 @@ const Discussions = () => {
                       bgcolor: selectedRoom?.id === room.id ? 'action.selected' : 'transparent',
                       '&:hover': {
                         bgcolor: 'action.hover'
-                      }
+                      },
+                      display: 'flex',
+                      alignItems: 'center',
+                      position: 'relative'
                     }}
                   >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                          {room.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {room.lastMessage || '메시지가 없습니다.'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', gap: 0.5, ml: 1 }}>
-                        {!canWrite && (
-                          <Chip 
-                            label="읽기전용" 
-                            size="small" 
-                            color="warning" 
-                            variant="outlined"
-                            sx={{ fontSize: '0.6rem', height: 20 }}
-                          />
-                        )}
-                        {canAdmin && (
-                          <Chip 
-                            label="관리자" 
-                            size="small" 
-                            color="error" 
-                            variant="outlined"
-                            sx={{ fontSize: '0.6rem', height: 20 }}
-                          />
-                        )}
-                        {room.password && (
-                          <Chip 
-                            icon={<LockIcon />} 
-                            label="잠금" 
-                            size="small" 
-                            color="secondary" 
-                            variant="outlined"
-                            sx={{ fontSize: '0.6rem', height: 20 }}
-                          />
-                        )}
-                      </Box>
+                    <Checkbox
+                      checked={selectedRoomIds.includes(room.id)}
+                      onChange={e => {
+                        e.stopPropagation();
+                        setSelectedRoomIds(prev =>
+                          e.target.checked ? [...prev, room.id] : prev.filter(id => id !== room.id)
+                        );
+                      }}
+                      sx={{ mr: 1 }}
+                    />
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                        {room.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {room.lastAuthor && room.lastActivity ?
+                          `[마지막 작성자 : ${room.lastAuthor} ${formatDate(room.lastActivity)} ${formatTime(room.lastActivity)}]`
+                          : '메시지가 없습니다.'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 0.5, ml: 1 }}>
+                      {!canWrite && (
+                        <Chip 
+                          label="읽기전용" 
+                          size="small" 
+                          color="warning" 
+                          variant="outlined"
+                          sx={{ fontSize: '0.6rem', height: 20 }}
+                        />
+                      )}
+                      {canAdmin && (
+                        <Chip 
+                          label="관리자" 
+                          size="small" 
+                          color="error" 
+                          variant="outlined"
+                          sx={{ fontSize: '0.6rem', height: 20 }}
+                        />
+                      )}
+                      {room.password && (
+                        <Chip 
+                          icon={<LockIcon />} 
+                          label="잠금" 
+                          size="small" 
+                          color="secondary" 
+                          variant="outlined"
+                          sx={{ fontSize: '0.6rem', height: 20 }}
+                        />
+                      )}
                     </Box>
                     {canAdmin && (
                       <IconButton
                         size="small"
-                        onClick={(e) => handleDeleteRoom(e, room.id)}
+                        onClick={e => { e.stopPropagation(); handleDeleteRoom(e, room.id); }}
                         sx={{ 
                           position: 'absolute', 
                           top: 4, 
@@ -557,8 +842,9 @@ const Discussions = () => {
               justifyContent: 'space-between',
               alignItems: 'center',
               position: 'sticky',
-              top: 0,
-              zIndex: 1200
+              top: { xs: '-24px', md: 0 }, // 모바일에서만 24px 위로 올림
+              zIndex: 1200,
+              transform: { xs: 'translateY(-24px)', md: 'none' } // 모바일에서 확실히 24px 위로 올림
             }}>
               <Typography 
                 variant="h6"
@@ -586,7 +872,8 @@ const Discussions = () => {
               display: 'flex',
               flexDirection: 'column',
               width: '100%',
-              pb: '110px' // 입력창+하단바 높이만큼 패딩
+              pb: keyboardVisible ? '160px' : '110px', // 키보드 상태에 따라 패딩 조정
+              transition: 'padding-bottom 0.3s ease-in-out'
             }}>
               <Box 
                 sx={{ 
@@ -596,130 +883,128 @@ const Discussions = () => {
                   minHeight: 0,
                   maxHeight: isMobile 
                     ? keyboardVisible 
-                      ? 'calc(100vh - 200px)' 
+                      ? 'calc(100vh - 250px)' 
                       : 'calc(100vh - 300px)'
-                    : 'calc(100vh - 350px)'
+                    : 'calc(100vh - 350px)',
+                  transition: 'max-height 0.3s ease-in-out'
                 }}
               >
                 {messages.map((msg, index) => {
                   const isMe = msg.userId === currentUser?.uid;
                   const canModify = canEditOrDelete(msg);
-                  
+                  // 날짜 구분선 추가 (카카오톡 스타일)
+                  const currentDate = msg.timestamp?.toDate?.() || new Date();
+                  const prevDate = index > 0 ? messages[index - 1].timestamp?.toDate?.() || new Date() : null;
+                  const showDateDivider = !prevDate || 
+                    currentDate.getDate() !== prevDate.getDate() ||
+                    currentDate.getMonth() !== prevDate.getMonth() ||
+                    currentDate.getFullYear() !== prevDate.getFullYear();
                   return (
-                    <Box 
-                      key={msg.id} 
-                      ref={el => messageRefs.current[msg.id] = el}
-                      sx={{ 
-                        mb: 2, 
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        alignItems: isMe ? 'flex-end' : 'flex-start'
-                      }}
-                    >
-                      <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        mb: 0.5,
-                        gap: 1
-                      }}>
-                        <Typography variant="caption" sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}>
-                          {formatTime(msg.timestamp)}
-                        </Typography>
-                        <Typography variant="caption" sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}>
-                          {msg.userName}
-                        </Typography>
-                        {canModify && (
-                          <Box sx={{ 
-                            display: 'flex', 
-                            gap: 0.5,
-                            opacity: 0.7,
-                            '&:hover': { opacity: 1 }
+                    <Box key={msg.id}>
+                      {showDateDivider && (
+                        <Box sx={{ 
+                          display: 'flex', 
+                          justifyContent: 'center', 
+                          my: 2,
+                          px: 1
+                        }}>
+                          <Box sx={{
+                            bgcolor: 'rgba(0,0,0,0.1)',
+                            color: 'text.secondary',
+                            px: 2,
+                            py: 0.5,
+                            borderRadius: 2,
+                            fontSize: '0.75rem',
+                            fontWeight: 500
                           }}>
-                            {editingMessage && editingMessage.id === msg.id ? (
+                            {new Intl.DateTimeFormat('ko-KR', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              weekday: 'long'
+                            }).format(currentDate)}
+                          </Box>
+                        </Box>
+                      )}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', mb: 1.5 }}>
+                        {/* 이름 (상대방만) */}
+                        {!isMe && (
+                          <Typography sx={{ color: '#aaa', fontSize: 12, fontWeight: 700, mb: 0.5 }}>
+                            {msg.userName}
+                          </Typography>
+                        )}
+                        {/* 메시지 버블 */}
+                        <Box sx={{
+                          bgcolor: isMe ? '#FFF9C4' : '#222',
+                          color: isMe ? '#222' : '#fff',
+                          borderRadius: 3,
+                          px: 2, py: 1.2,
+                          maxWidth: '75vw',
+                          fontSize: 16,
+                          position: 'relative',
+                          boxShadow: isMe ? 3 : 1,
+                          fontFamily: 'NanumGothic, Malgun Gothic, Apple SD Gothic Neo, sans-serif',
+                        }}>
+                          {editingMessage && editingMessage.id === msg.id ? (
+                            <TextField
+                              fullWidth
+                              value={editingMessage.text}
+                              onChange={(e) => setEditingMessage({ ...editingMessage, text: e.target.value })}
+                              variant="standard"
+                              size="small"
+                            />
+                          ) : (
+                            <>
+                              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', fontSize: '1rem' }}>{msg.text}</Typography>
+                              {msg.attachment && (
+                                <Box mt={1}>
+                                  {msg.attachment.type.startsWith('image/') ? (
+                                    <Box sx={{ position: 'relative', display: 'inline-block', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}>
+                                      <a href={msg.attachment.url} target="_blank" rel="noopener noreferrer">
+                                        <img 
+                                          src={msg.attachment.url} 
+                                          alt={msg.attachment.name} 
+                                          style={{ maxWidth: '180px', maxHeight: '180px', borderRadius: '8px', cursor: 'pointer', display: 'block' }} 
+                                        />
+                                      </a>
+                                    </Box>
+                                  ) : (
+                                    <Button 
+                                      variant="outlined" 
+                                      startIcon={<DescriptionIcon />} 
+                                      href={msg.attachment.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      sx={{ textTransform: 'none', fontSize: '0.7rem', borderRadius: 2 }}
+                                      size="small"
+                                    >
+                                      {msg.attachment.name}
+                                    </Button>
+                                  )}
+                                </Box>
+                              )}
+                            </>
+                          )}
+                          {/* 시간, 수정/삭제 버튼 */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: isMe ? 'flex-end' : 'flex-start', mt: 0.5 }}>
+                            <Typography sx={{ color: '#aaa', fontSize: 11, ml: isMe ? 1 : 0, mr: isMe ? 0 : 1 }}>
+                              {formatTime(msg.timestamp)}
+                            </Typography>
+                            {isMe && !editingMessage && (
                               <>
-                                <IconButton size={isMobile ? 'small' : 'small'} onClick={handleUpdateMessage} sx={{ bgcolor: 'background.paper' }}>
-                                  <SaveIcon fontSize={isMobile ? 'small' : 'small'}/>
-                                </IconButton>
-                                <IconButton size={isMobile ? 'small' : 'small'} onClick={() => setEditingMessage(null)} sx={{ bgcolor: 'background.paper' }}>
-                                  <CancelIcon fontSize={isMobile ? 'small' : 'small'}/>
-                                </IconButton>
+                                <IconButton size="small" onClick={() => setEditingMessage(msg)}><EditIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                                <IconButton size="small" onClick={() => { if(window.confirm('이 메시지를 삭제하시겠습니까?')) handleDeleteMessage(msg.id); }}><DeleteIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
                               </>
-                            ) : (
+                            )}
+                            {isMe && editingMessage && editingMessage.id === msg.id && (
                               <>
-                                <IconButton size={isMobile ? 'small' : 'small'} onClick={() => setEditingMessage(msg)} sx={{ bgcolor: 'background.paper' }}>
-                                  <EditIcon fontSize={isMobile ? 'small' : 'small'}/>
-                                </IconButton>
-                                <IconButton size={isMobile ? 'small' : 'small'} onClick={() => {
-                                  if (window.confirm('이 메시지를 삭제하시겠습니까?')) {
-                                    handleDeleteMessage(msg.id);
-                                  }
-                                }} sx={{ bgcolor: 'background.paper' }}>
-                                  <DeleteIcon fontSize={isMobile ? 'small' : 'small'}/>
-                                </IconButton>
+                                <IconButton size="small" onClick={handleUpdateMessage}><SaveIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                                <IconButton size="small" onClick={() => setEditingMessage(null)}><CancelIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
                               </>
                             )}
                           </Box>
-                        )}
+                        </Box>
                       </Box>
-                      
-                      <Paper 
-                        variant="outlined"
-                        sx={{
-                          p: isMobile ? 1 : 1.5,
-                          maxWidth: '80%',
-                          bgcolor: isMe ? 'primary.light' : 'background.paper',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          position: 'relative'
-                        }}
-                      >
-                        {editingMessage && editingMessage.id === msg.id ? (
-                          <TextField
-                            fullWidth
-                            value={editingMessage.text}
-                            onChange={(e) => setEditingMessage({ ...editingMessage, text: e.target.value })}
-                            variant="standard"
-                            size={isMobile ? 'small' : 'medium'}
-                          />
-                        ) : (
-                          <>
-                            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', fontSize: isMobile ? '0.8rem' : 'inherit' }}>{msg.text}</Typography>
-                            {msg.attachment && (
-                              <Box mt={1}>
-                                {msg.attachment.type.startsWith('image/') ? (
-                                  <a href={msg.attachment.url} target="_blank" rel="noopener noreferrer">
-                                    <img 
-                                      src={msg.attachment.url} 
-                                      alt={msg.attachment.name} 
-                                      style={{ 
-                                        maxWidth: isMobile ? '150px' : '200px', 
-                                        maxHeight: isMobile ? '150px' : '200px', 
-                                        borderRadius: '4px', 
-                                        cursor: 'pointer' 
-                                      }} 
-                                    />
-                                  </a>
-                                ) : (
-                                  <Button 
-                                    variant="outlined" 
-                                    startIcon={<DescriptionIcon />} 
-                                    href={msg.attachment.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    sx={{ 
-                                      textTransform: 'none',
-                                      fontSize: isMobile ? '0.7rem' : 'inherit'
-                                    }}
-                                    size={isMobile ? 'small' : 'medium'}
-                                  >
-                                    {msg.attachment.name}
-                                  </Button>
-                                )}
-                              </Box>
-                            )}
-                          </>
-                        )}
-                      </Paper>
                     </Box>
                   );
                 })}
@@ -727,7 +1012,7 @@ const Discussions = () => {
               </Box>
             </Box>
 
-            {/* 입력칸 - 하단바 위에 고정 */}
+            {/* 입력칸 - 키보드 반응형 (카카오톡 스타일) */}
             <Box sx={{ 
               p: { xs: 1, md: 2 }, 
               borderTop: 1, 
@@ -737,35 +1022,102 @@ const Discussions = () => {
               position: 'fixed',
               left: 0,
               right: 0,
-              bottom: '46px',
-              zIndex: 2000
+              bottom: keyboardVisible ? '0px' : '46px', // 키보드가 올라오면 하단바 위로 올라감
+              zIndex: 2000,
+              transition: 'all 0.3s ease-in-out',
+              transform: keyboardVisible ? 'translateY(0)' : 'translateY(0)',
+              // 모바일에서 키보드가 올라올 때 입력창이 키보드 위에 위치하도록 조정
+              ...(isMobile && keyboardVisible && {
+                bottom: '0px',
+                position: 'fixed',
+                zIndex: 3000
+              })
             }}>
-              {/* 첨부파일 미리보기 */}
+              {/* 첨부파일 미리보기 (카카오톡 스타일) */}
               {fileToUpload && (
                 <Box sx={{ 
                   mb: 1, 
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: 1,
-                  p: 1,
+                  p: 1.5,
                   bgcolor: 'grey.50',
-                  borderRadius: 1,
+                  borderRadius: 2,
                   border: 1,
-                  borderColor: 'grey.200'
+                  borderColor: 'grey.200',
+                  position: 'relative'
                 }}>
                   {fileToUpload.type.startsWith('image/') ? (
-                    <img
-                      src={URL.createObjectURL(fileToUpload)}
-                      alt={fileToUpload.name}
-                      style={{ 
-                        width: 48, 
-                        height: 48, 
-                        objectFit: 'cover', 
-                        borderRadius: 4 
-                      }}
-                    />
+                    <Box sx={{ position: 'relative' }}>
+                      <img
+                        src={URL.createObjectURL(fileToUpload)}
+                        alt={fileToUpload.name}
+                        style={{ 
+                          width: 60, 
+                          height: 60, 
+                          objectFit: 'cover', 
+                          borderRadius: 8,
+                          border: '2px solid #e0e0e0'
+                        }}
+                      />
+                      <Box sx={{
+                        position: 'absolute',
+                        top: -4,
+                        right: -4,
+                        bgcolor: 'rgba(0,0,0,0.7)',
+                        borderRadius: '50%',
+                        width: 20,
+                        height: 20,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer'
+                      }}>
+                        <CancelIcon 
+                          sx={{ 
+                            fontSize: 14, 
+                            color: 'white' 
+                          }} 
+                          onClick={() => setFileToUpload(null)}
+                        />
+                      </Box>
+                    </Box>
                   ) : (
-                    <DescriptionIcon sx={{ fontSize: 48, color: 'grey.500' }} />
+                    <Box sx={{ position: 'relative' }}>
+                      <Box sx={{
+                        width: 60,
+                        height: 60,
+                        bgcolor: 'grey.200',
+                        borderRadius: 8,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '2px solid #e0e0e0'
+                      }}>
+                        <DescriptionIcon sx={{ fontSize: 32, color: 'grey.500' }} />
+                      </Box>
+                      <Box sx={{
+                        position: 'absolute',
+                        top: -4,
+                        right: -4,
+                        bgcolor: 'rgba(0,0,0,0.7)',
+                        borderRadius: '50%',
+                        width: 20,
+                        height: 20,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer'
+                      }}>
+                        <CancelIcon 
+                          sx={{ 
+                            fontSize: 14, 
+                            color: 'white' 
+                          }} 
+                          onClick={() => setFileToUpload(null)}
+                        />
+                      </Box>
+                    </Box>
                   )}
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography 
@@ -774,30 +1126,33 @@ const Discussions = () => {
                         fontWeight: 'bold',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        fontSize: '0.9rem'
                       }}
                     >
                       {fileToUpload.name}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                       {(fileToUpload.size / 1024 / 1024).toFixed(2)} MB
                     </Typography>
                   </Box>
-                  {uploading ? (
+                  {uploading && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <CircularProgress size={20} />
-                      <Typography variant="caption" color="primary">
-                        업로드중...
+                      <CircularProgress size={16} />
+                      <Typography variant="caption" color="primary" sx={{ fontSize: '0.75rem' }}>
+                        {Math.round(uploadProgress)}%
                       </Typography>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        onClick={handleUploadCancel}
+                        startIcon={<CancelIcon />}
+                        sx={{ fontSize: '0.7rem', height: 28 }}
+                      >
+                        취소
+                      </Button>
                     </Box>
-                  ) : (
-                    <IconButton 
-                      size="small" 
-                      onClick={() => setFileToUpload(null)}
-                      sx={{ color: 'grey.500' }}
-                    >
-                      <CancelIcon fontSize="small" />
-                    </IconButton>
                   )}
                 </Box>
               )}
@@ -824,10 +1179,27 @@ const Discussions = () => {
                       handleSendMessage();
                     }
                   }}
+                  onFocus={(e) => {
+                    if (isMobile) {
+                      // 모바일에서 입력창에 포커스가 갈 때 키보드가 올라올 것으로 예상하고 미리 조정
+                      setTimeout(() => {
+                        e.target.scrollIntoView({ 
+                          behavior: 'smooth', 
+                          block: 'center' 
+                        });
+                      }, 300);
+                    }
+                  }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: 2
-                    }
+                    },
+                    // 모바일에서 키보드가 올라올 때 입력창이 키보드 위에 위치하도록 조정
+                    ...(isMobile && {
+                      '& .MuiInputBase-root': {
+                        fontSize: '16px', // iOS에서 줌 방지
+                      }
+                    })
                   }}
                 />
                 <IconButton
@@ -901,122 +1273,119 @@ const Discussions = () => {
                 {messages.map((msg, index) => {
                   const isMe = msg.userId === currentUser?.uid;
                   const canModify = canEditOrDelete(msg);
-                  
+                  // 날짜 구분선 추가 (카카오톡 스타일)
+                  const currentDate = msg.timestamp?.toDate?.() || new Date();
+                  const prevDate = index > 0 ? messages[index - 1].timestamp?.toDate?.() || new Date() : null;
+                  const showDateDivider = !prevDate || 
+                    currentDate.getDate() !== prevDate.getDate() ||
+                    currentDate.getMonth() !== prevDate.getMonth() ||
+                    currentDate.getFullYear() !== prevDate.getFullYear();
                   return (
-                    <Box 
-                      key={msg.id} 
-                      ref={el => messageRefs.current[msg.id] = el}
-                      sx={{ 
-                        mb: 2, 
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        alignItems: isMe ? 'flex-end' : 'flex-start'
-                      }}
-                    >
-                      <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        mb: 0.5,
-                        gap: 1
-                      }}>
-                        <Typography variant="caption" sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}>
-                          {formatTime(msg.timestamp)}
-                        </Typography>
-                        <Typography variant="caption" sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}>
-                          {msg.userName}
-                        </Typography>
-                        {canModify && (
-                          <Box sx={{ 
-                            display: 'flex', 
-                            gap: 0.5,
-                            opacity: 0.7,
-                            '&:hover': { opacity: 1 }
+                    <Box key={msg.id}>
+                      {showDateDivider && (
+                        <Box sx={{ 
+                          display: 'flex', 
+                          justifyContent: 'center', 
+                          my: 2,
+                          px: 1
+                        }}>
+                          <Box sx={{
+                            bgcolor: 'rgba(0,0,0,0.1)',
+                            color: 'text.secondary',
+                            px: 2,
+                            py: 0.5,
+                            borderRadius: 2,
+                            fontSize: '0.75rem',
+                            fontWeight: 500
                           }}>
-                            {editingMessage && editingMessage.id === msg.id ? (
+                            {new Intl.DateTimeFormat('ko-KR', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              weekday: 'long'
+                            }).format(currentDate)}
+                          </Box>
+                        </Box>
+                      )}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', mb: 1.5 }}>
+                        {/* 이름 (상대방만) */}
+                        {!isMe && (
+                          <Typography sx={{ color: '#aaa', fontSize: 12, fontWeight: 700, mb: 0.5 }}>
+                            {msg.userName}
+                          </Typography>
+                        )}
+                        {/* 메시지 버블 */}
+                        <Box sx={{
+                          bgcolor: isMe ? '#FFF9C4' : '#222',
+                          color: isMe ? '#222' : '#fff',
+                          borderRadius: 3,
+                          px: 2, py: 1.2,
+                          maxWidth: '75vw',
+                          fontSize: 16,
+                          position: 'relative',
+                          boxShadow: isMe ? 3 : 1,
+                          fontFamily: 'NanumGothic, Malgun Gothic, Apple SD Gothic Neo, sans-serif',
+                        }}>
+                          {editingMessage && editingMessage.id === msg.id ? (
+                            <TextField
+                              fullWidth
+                              value={editingMessage.text}
+                              onChange={(e) => setEditingMessage({ ...editingMessage, text: e.target.value })}
+                              variant="standard"
+                              size="small"
+                            />
+                          ) : (
+                            <>
+                              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', fontSize: '1rem' }}>{msg.text}</Typography>
+                              {msg.attachment && (
+                                <Box mt={1}>
+                                  {msg.attachment.type.startsWith('image/') ? (
+                                    <Box sx={{ position: 'relative', display: 'inline-block', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}>
+                                      <a href={msg.attachment.url} target="_blank" rel="noopener noreferrer">
+                                        <img 
+                                          src={msg.attachment.url} 
+                                          alt={msg.attachment.name} 
+                                          style={{ maxWidth: '180px', maxHeight: '180px', borderRadius: '8px', cursor: 'pointer', display: 'block' }} 
+                                        />
+                                      </a>
+                                    </Box>
+                                  ) : (
+                                    <Button 
+                                      variant="outlined" 
+                                      startIcon={<DescriptionIcon />} 
+                                      href={msg.attachment.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      sx={{ textTransform: 'none', fontSize: '0.7rem', borderRadius: 2 }}
+                                      size="small"
+                                    >
+                                      {msg.attachment.name}
+                                    </Button>
+                                  )}
+                                </Box>
+                              )}
+                            </>
+                          )}
+                          {/* 시간, 수정/삭제 버튼 */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: isMe ? 'flex-end' : 'flex-start', mt: 0.5 }}>
+                            <Typography sx={{ color: '#aaa', fontSize: 11, ml: isMe ? 1 : 0, mr: isMe ? 0 : 1 }}>
+                              {formatTime(msg.timestamp)}
+                            </Typography>
+                            {isMe && !editingMessage && (
                               <>
-                                <IconButton size={isMobile ? 'small' : 'small'} onClick={handleUpdateMessage} sx={{ bgcolor: 'background.paper' }}>
-                                  <SaveIcon fontSize={isMobile ? 'small' : 'small'}/>
-                                </IconButton>
-                                <IconButton size={isMobile ? 'small' : 'small'} onClick={() => setEditingMessage(null)} sx={{ bgcolor: 'background.paper' }}>
-                                  <CancelIcon fontSize={isMobile ? 'small' : 'small'}/>
-                                </IconButton>
+                                <IconButton size="small" onClick={() => setEditingMessage(msg)}><EditIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                                <IconButton size="small" onClick={() => { if(window.confirm('이 메시지를 삭제하시겠습니까?')) handleDeleteMessage(msg.id); }}><DeleteIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
                               </>
-                            ) : (
+                            )}
+                            {isMe && editingMessage && editingMessage.id === msg.id && (
                               <>
-                                <IconButton size={isMobile ? 'small' : 'small'} onClick={() => setEditingMessage(msg)} sx={{ bgcolor: 'background.paper' }}>
-                                  <EditIcon fontSize={isMobile ? 'small' : 'small'}/>
-                                </IconButton>
-                                <IconButton size={isMobile ? 'small' : 'small'} onClick={() => {
-                                  if (window.confirm('이 메시지를 삭제하시겠습니까?')) {
-                                    handleDeleteMessage(msg.id);
-                                  }
-                                }} sx={{ bgcolor: 'background.paper' }}>
-                                  <DeleteIcon fontSize={isMobile ? 'small' : 'small'}/>
-                                </IconButton>
+                                <IconButton size="small" onClick={handleUpdateMessage}><SaveIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                                <IconButton size="small" onClick={() => setEditingMessage(null)}><CancelIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
                               </>
                             )}
                           </Box>
-                        )}
+                        </Box>
                       </Box>
-                      
-                      <Paper 
-                        variant="outlined"
-                        sx={{
-                          p: isMobile ? 1 : 1.5,
-                          maxWidth: '80%',
-                          bgcolor: isMe ? 'primary.light' : 'background.paper',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          position: 'relative'
-                        }}
-                      >
-                        {editingMessage && editingMessage.id === msg.id ? (
-                          <TextField
-                            fullWidth
-                            value={editingMessage.text}
-                            onChange={(e) => setEditingMessage({ ...editingMessage, text: e.target.value })}
-                            variant="standard"
-                            size={isMobile ? 'small' : 'medium'}
-                          />
-                        ) : (
-                          <>
-                            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', fontSize: isMobile ? '0.8rem' : 'inherit' }}>{msg.text}</Typography>
-                            {msg.attachment && (
-                              <Box mt={1}>
-                                {msg.attachment.type.startsWith('image/') ? (
-                                  <a href={msg.attachment.url} target="_blank" rel="noopener noreferrer">
-                                    <img 
-                                      src={msg.attachment.url} 
-                                      alt={msg.attachment.name} 
-                                      style={{ 
-                                        maxWidth: isMobile ? '150px' : '200px', 
-                                        maxHeight: isMobile ? '150px' : '200px', 
-                                        borderRadius: '4px', 
-                                        cursor: 'pointer' 
-                                      }} 
-                                    />
-                                  </a>
-                                ) : (
-                                  <Button 
-                                    variant="outlined" 
-                                    startIcon={<DescriptionIcon />} 
-                                    href={msg.attachment.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    sx={{ 
-                                      textTransform: 'none',
-                                      fontSize: isMobile ? '0.7rem' : 'inherit'
-                                    }}
-                                    size={isMobile ? 'small' : 'medium'}
-                                  >
-                                    {msg.attachment.name}
-                                  </Button>
-                                )}
-                              </Box>
-                            )}
-                          </>
-                        )}
-                      </Paper>
                     </Box>
                   );
                 })}
@@ -1033,32 +1402,91 @@ const Discussions = () => {
                 position: 'sticky',
                 bottom: 0
               }}>
-                {/* 첨부파일 미리보기 */}
+                {/* 첨부파일 미리보기 (카카오톡 스타일) */}
                 {fileToUpload && (
                   <Box sx={{ 
                     mb: 1, 
                     display: 'flex', 
                     alignItems: 'center', 
                     gap: 1,
-                    p: 1,
+                    p: 1.5,
                     bgcolor: 'grey.50',
-                    borderRadius: 1,
+                    borderRadius: 2,
                     border: 1,
-                    borderColor: 'grey.200'
+                    borderColor: 'grey.200',
+                    position: 'relative'
                   }}>
                     {fileToUpload.type.startsWith('image/') ? (
-                      <img
-                        src={URL.createObjectURL(fileToUpload)}
-                        alt={fileToUpload.name}
-                        style={{ 
-                          width: 48, 
-                          height: 48, 
-                          objectFit: 'cover', 
-                          borderRadius: 4 
-                        }}
-                      />
+                      <Box sx={{ position: 'relative' }}>
+                        <img
+                          src={URL.createObjectURL(fileToUpload)}
+                          alt={fileToUpload.name}
+                          style={{ 
+                            width: 60, 
+                            height: 60, 
+                            objectFit: 'cover', 
+                            borderRadius: 8,
+                            border: '2px solid #e0e0e0'
+                          }}
+                        />
+                        <Box sx={{
+                          position: 'absolute',
+                          top: -4,
+                          right: -4,
+                          bgcolor: 'rgba(0,0,0,0.7)',
+                          borderRadius: '50%',
+                          width: 20,
+                          height: 20,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer'
+                        }}>
+                          <CancelIcon 
+                            sx={{ 
+                              fontSize: 14, 
+                              color: 'white' 
+                            }} 
+                            onClick={() => setFileToUpload(null)}
+                          />
+                        </Box>
+                      </Box>
                     ) : (
-                      <DescriptionIcon sx={{ fontSize: 48, color: 'grey.500' }} />
+                      <Box sx={{ position: 'relative' }}>
+                        <Box sx={{
+                          width: 60,
+                          height: 60,
+                          bgcolor: 'grey.200',
+                          borderRadius: 8,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '2px solid #e0e0e0'
+                        }}>
+                          <DescriptionIcon sx={{ fontSize: 32, color: 'grey.500' }} />
+                        </Box>
+                        <Box sx={{
+                          position: 'absolute',
+                          top: -4,
+                          right: -4,
+                          bgcolor: 'rgba(0,0,0,0.7)',
+                          borderRadius: '50%',
+                          width: 20,
+                          height: 20,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer'
+                        }}>
+                          <CancelIcon 
+                            sx={{ 
+                              fontSize: 14, 
+                              color: 'white' 
+                            }} 
+                            onClick={() => setFileToUpload(null)}
+                          />
+                        </Box>
+                      </Box>
                     )}
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography 
@@ -1067,30 +1495,33 @@ const Discussions = () => {
                           fontWeight: 'bold',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
+                          whiteSpace: 'nowrap',
+                          fontSize: '0.9rem'
                         }}
                       >
                         {fileToUpload.name}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                         {(fileToUpload.size / 1024 / 1024).toFixed(2)} MB
                       </Typography>
                     </Box>
-                    {uploading ? (
+                    {uploading && (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CircularProgress size={20} />
-                        <Typography variant="caption" color="primary">
-                          업로드중...
+                        <CircularProgress size={16} />
+                        <Typography variant="caption" color="primary" sx={{ fontSize: '0.75rem' }}>
+                          {Math.round(uploadProgress)}%
                         </Typography>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={handleUploadCancel}
+                          startIcon={<CancelIcon />}
+                          sx={{ fontSize: '0.7rem', height: 28 }}
+                        >
+                          취소
+                        </Button>
                       </Box>
-                    ) : (
-                      <IconButton 
-                        size="small" 
-                        onClick={() => setFileToUpload(null)}
-                        sx={{ color: 'grey.500' }}
-                      >
-                        <CancelIcon fontSize="small" />
-                      </IconButton>
                     )}
                   </Box>
                 )}
@@ -1191,6 +1622,60 @@ const Discussions = () => {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               채팅방 생성 후 사용자별 권한을 추가로 설정할 수 있습니다.
             </Typography>
+            
+            {/* 권한 타입별 설정 */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                권한별 접근 설정
+              </Typography>
+              {permissionTypes.map((permission) => (
+                <Box key={permission.value} sx={{ mb: 1 }}>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    <Chip 
+                      label={permission.label} 
+                      size="small" 
+                      color={permission.color} 
+                      variant="outlined"
+                      sx={{ mr: 1 }}
+                    />
+                  </Typography>
+                  <FormControl component="fieldset" size="small">
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={newRoomData.permissions[`${permission.value}Read`] !== false}
+                          onChange={(e) => setNewRoomData({
+                            ...newRoomData,
+                            permissions: {
+                              ...newRoomData.permissions,
+                              [`${permission.value}Read`]: e.target.checked
+                            }
+                          })}
+                        />
+                      }
+                      label="읽기 허용"
+                      sx={{ mr: 2 }}
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={newRoomData.permissions[`${permission.value}Write`] !== false}
+                          onChange={(e) => setNewRoomData({
+                            ...newRoomData,
+                            permissions: {
+                              ...newRoomData.permissions,
+                              [`${permission.value}Write`]: e.target.checked
+                            }
+                          })}
+                        />
+                      }
+                      label="쓰기 허용"
+                    />
+                  </FormControl>
+                </Box>
+              ))}
+            </Box>
+            
             <FormControl component="fieldset">
               <FormControlLabel
                 control={

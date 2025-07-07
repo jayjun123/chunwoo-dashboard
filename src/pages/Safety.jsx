@@ -279,16 +279,40 @@ const SafetyPage = () => {
       if (tab >= 1 && tab <= 3) {
         return (
           <TableRow key={row.id}>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.siteName}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.title}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.7rem' : 'inherit', 
+              padding: isMobile ? '8px 4px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.date}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.preview ? (
                 <Button 
                   size={isMobile ? 'small' : 'small'} 
@@ -301,7 +325,13 @@ const SafetyPage = () => {
                 </Button>
               ) : '-'}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.preview && (row.attachment && row.attachment.match(/\.(jpg|jpeg|png|gif)$/i)) ? (
                 <img src={row.preview} alt="미리보기" style={{ maxWidth: isMobile ? 40 : 60, maxHeight: isMobile ? 30 : 40 }} />
               ) : row.preview ? (
@@ -310,10 +340,22 @@ const SafetyPage = () => {
                 </a>
               ) : '-'}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.description}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               <IconButton size={isMobile ? 'small' : 'small'} onClick={() => openDialog(row)}>
                 <EditIcon sx={{ fontSize: isMobile ? '1rem' : 'inherit' }} />
               </IconButton>
@@ -327,42 +369,102 @@ const SafetyPage = () => {
       if (tab === 4) {
         return (
           <TableRow key={row.id}>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.siteName}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.name}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.7rem' : 'inherit', 
+              padding: isMobile ? '8px 4px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.date}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.equipment}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.isIssued ? '예' : '아니오'}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.receiptUrl ? (
                 <a href={row.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}>
                   다운로드
                 </a>
               ) : '-'}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.issueDocUrl ? (
                 <a href={row.issueDocUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}>
                   다운로드
                 </a>
               ) : '-'}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.note}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               {row.amount ? Number(row.amount).toLocaleString() : ''}
             </TableCell>
-            <TableCell sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', padding: isMobile ? '8px 4px' : 'auto' }}>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
               <IconButton size={isMobile ? 'small' : 'small'} onClick={() => openDialog(row)}>
                 <EditIcon sx={{ fontSize: isMobile ? '1rem' : 'inherit' }} />
               </IconButton>
@@ -377,20 +479,30 @@ const SafetyPage = () => {
     };
     
     return (
-      <Grid>
-        <Paper sx={{ p: isMobile ? 1 : 2 }}>
+      <Grid sx={{
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0
+      }}>
+        <Paper sx={{ 
+          p: isMobile ? 1 : 2,
+          width: '100%',
+          maxWidth: '100%',
+          minWidth: 0,
+          overflow: 'hidden'
+        }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: isMobile ? 1 : 2, flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 1 : 0 }}>
             <Typography variant="h6" sx={{ mr: isMobile ? 0 : 2, flexShrink: 0, fontSize: isMobile ? '1rem' : 'inherit' }}>
               {currentLabel}
             </Typography>
-            <TextField 
-              size="small" 
+                        <TextField 
+              size="small"
               placeholder="검색..." 
               value={search ?? ''} 
               onChange={e => setSearch(e.target.value)} 
               sx={{ 
                 width: isMobile ? '100%' : { xs: 150, sm: 200, md: 260 },
-                fontSize: isMobile ? '0.8rem' : 'inherit'
+                fontSize: isMobile ? '0.7rem' : 'inherit'
               }}
             />
             <Box sx={{ flexGrow: isMobile ? 0 : 1 }} />
@@ -400,7 +512,7 @@ const SafetyPage = () => {
                 startIcon={<AddIcon />} 
                 onClick={() => openDialog()}
                 size={isMobile ? 'small' : 'medium'}
-                sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+                sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}
               >
                 추가
               </Button>
@@ -411,23 +523,44 @@ const SafetyPage = () => {
               )}
             </Box>
           </Box>
-          <TableContainer sx={{ minWidth: '100%', overflowX: 'auto' }}>
-            <Table size={isMobile ? 'small' : 'medium'} sx={{ minWidth: isMobile ? '100%' : 1200 }}>
-              <TableHead>
-                <TableRow>
-                  {tableHeaders[tab].map(header => (
-                    <TableCell 
-                      key={header}
-                      sx={{ 
-                        fontSize: isMobile ? '0.7rem' : 'inherit',
-                        padding: isMobile ? '8px 4px' : 'auto'
-                      }}
-                    >
-                      {header}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
+          <TableContainer sx={{ 
+            width: '100%', 
+            maxWidth: '100%', 
+            minWidth: 0, 
+            overflowX: 'auto',
+            '& .MuiTable-root': {
+              width: '100%',
+              minWidth: 0,
+              maxWidth: '100%'
+            }
+          }}>
+            <Table size={isMobile ? 'small' : 'medium'} sx={{ 
+              width: '100%', 
+              minWidth: 0,
+              maxWidth: '100%',
+              tableLayout: 'auto',
+              '& .MuiTableCell-root': {
+                padding: isMobile ? '4px 2px' : 'auto'
+              }
+            }}>
+                          <TableHead>
+              <TableRow>
+                {tableHeaders[tab].map(header => (
+                  <TableCell 
+                    key={header}
+                    sx={{ 
+                      fontSize: isMobile ? '0.6rem' : 'inherit',
+                      padding: isMobile ? '4px 2px' : 'auto',
+                      width: 'auto',
+                      minWidth: 0,
+                      maxWidth: '100%'
+                    }}
+                  >
+                    {header}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
               <TableBody>
                 {filteredData.filter(row => {
                   if (!search) return true;
@@ -448,16 +581,16 @@ const SafetyPage = () => {
     <Box sx={{ 
       p: 0,
       position: 'fixed',
-      top: '65px',
+      top: isMobile ? '45px' : '65px',
       left: 0,
       right: 0,
       bottom: '51px',
       width: '100%',
-      height: 'calc(100vh - 65px - 51px)',
+      height: isMobile ? 'calc(100vh - 45px - 51px)' : 'calc(100vh - 65px - 51px)',
       overflow: 'hidden',
       overflowX: 'hidden',
       zIndex: 1000,
-      padding: '16px',
+      padding: isMobile ? '8px' : '16px',
       bgcolor: '#1a1d21'
     }}>
       <Paper sx={{ 
@@ -478,6 +611,7 @@ const SafetyPage = () => {
             borderRadius: 2,
             boxShadow: 2,
             display: isMobile ? 'none' : 'flex',
+            width: '100%',
             '& .MuiTab-root': {
               color: '#fff',
               fontWeight: 700,
@@ -486,7 +620,8 @@ const SafetyPage = () => {
               py: 1.5,
               borderRadius: 2,
               minHeight: 48,
-              minWidth: 120,
+                              minWidth: 120,
+                flex: 1,
               '&.Mui-selected': {
                 color: '#90caf9',
                 bgcolor: '#181c24',
@@ -495,6 +630,8 @@ const SafetyPage = () => {
             },
             '& .MuiTabs-flexContainer': {
               gap: 2,
+              width: '100%',
+              justifyContent: 'space-between',
             },
           }}
         >
@@ -524,7 +661,9 @@ const SafetyPage = () => {
       <Grid container spacing={2} sx={{
         height: 'calc(100vh - 120px)',
         overflowY: 'hidden',
-        overflowX: 'hidden'
+        overflowX: 'hidden',
+        width: '100%',
+        maxWidth: '100%'
       }}>
         {renderContent()}
       </Grid>

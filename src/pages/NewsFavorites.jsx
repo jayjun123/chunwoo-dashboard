@@ -34,6 +34,7 @@ import {
   Clear as ClearIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 const NewsFavorites = () => {
   const [favorites, setFavorites] = useState([]);
@@ -44,6 +45,7 @@ const NewsFavorites = () => {
   const [deleteDialog, setDeleteDialog] = useState({ open: false, item: null });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const navigate = useNavigate();
+  const isMobile = useMediaQuery('(max-width:600px)');
 
   // 즐겨찾기 로드
   const loadFavorites = () => {
@@ -168,12 +170,12 @@ const NewsFavorites = () => {
     <Box sx={{ 
       p: 3, 
       pt: { xs: 1, md: 3 },
-      mt: { xs: 0.5, md: 0 }, // 모바일에서 20px 아래로 내림 (0.5 * 8px = 4px, 기존 -22px에서 +20px = -2px, 0.5 * 8px = 4px)
+              mt: isMobile ? '30px' : '90px',
       minHeight: '100vh', 
       color: { xs: '#fff', md: '#333' }
     }}>
       {/* 헤더 */}
-      <Box sx={{ mb: 3, mt: { xs: -2, md: 0 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ mb: 3, mt: { xs: 0, md: 0 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: { xs: '#fff', md: '#333' } }}>
             뉴스 즐겨찾기
@@ -273,69 +275,71 @@ const NewsFavorites = () => {
               }}
             />
           </Grid>
-          <Grid item xs={2} md={3}>
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ color: { xs: '#fff', md: '#666' } }}>카테고리</InputLabel>
-              <Select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                label="카테고리"
-                sx={{
-                  color: { xs: '#fff', md: '#333' },
-                  '& .MuiOutlinedInput-notchedOutline': { 
-                    borderColor: { xs: 'rgba(255,255,255,0.3)', md: 'rgba(0,0,0,0.3)' } 
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { 
-                    borderColor: { xs: 'rgba(255,255,255,0.5)', md: 'rgba(0,0,0,0.5)' } 
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { 
-                    borderColor: { xs: '#fff', md: '#333' } 
-                  }
-                }}
-              >
-                {categories.map(cat => (
-                  <MenuItem key={cat} value={cat}>
-                    {cat === 'all' ? '전체' : cat}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={2} md={3}>
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ color: { xs: '#fff', md: '#666' } }}>정렬</InputLabel>
-              <Select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                label="정렬"
-                sx={{
-                  color: { xs: '#fff', md: '#333' },
-                  '& .MuiOutlinedInput-notchedOutline': { 
-                    borderColor: { xs: 'rgba(255,255,255,0.3)', md: 'rgba(0,0,0,0.3)' } 
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { 
-                    borderColor: { xs: 'rgba(255,255,255,0.5)', md: 'rgba(0,0,0,0.5)' } 
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { 
-                    borderColor: { xs: '#fff', md: '#333' } 
-                  }
-                }}
-              >
-                <MenuItem value="date">날짜순</MenuItem>
-                <MenuItem value="title">제목순</MenuItem>
-                <MenuItem value="category">카테고리순</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={0} md={2}>
-            <Typography variant="body2" sx={{ 
-              textAlign: 'center', 
-              opacity: 0.8,
-              color: { xs: '#fff', md: '#333' },
-              display: { xs: 'none', md: 'block' } // 모바일에서 숨김
-            }}>
-              {filteredFavorites.length}개 표시
-            </Typography>
+          <Grid container spacing={2}>
+            <Grid>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ color: { xs: '#fff', md: '#666' } }}>카테고리</InputLabel>
+                <Select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  label="카테고리"
+                  sx={{
+                    color: { xs: '#fff', md: '#333' },
+                    '& .MuiOutlinedInput-notchedOutline': { 
+                      borderColor: { xs: 'rgba(255,255,255,0.3)', md: 'rgba(0,0,0,0.3)' } 
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { 
+                      borderColor: { xs: 'rgba(255,255,255,0.5)', md: 'rgba(0,0,0,0.5)' } 
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { 
+                      borderColor: { xs: '#fff', md: '#333' } 
+                    }
+                  }}
+                >
+                  {categories.map(cat => (
+                    <MenuItem key={cat} value={cat}>
+                      {cat === 'all' ? '전체' : cat}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ color: { xs: '#fff', md: '#666' } }}>정렬</InputLabel>
+                <Select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  label="정렬"
+                  sx={{
+                    color: { xs: '#fff', md: '#333' },
+                    '& .MuiOutlinedInput-notchedOutline': { 
+                      borderColor: { xs: 'rgba(255,255,255,0.3)', md: 'rgba(0,0,0,0.3)' } 
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { 
+                      borderColor: { xs: 'rgba(255,255,255,0.5)', md: 'rgba(0,0,0,0.5)' } 
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { 
+                      borderColor: { xs: '#fff', md: '#333' } 
+                    }
+                  }}
+                >
+                  <MenuItem value="date">날짜순</MenuItem>
+                  <MenuItem value="title">제목순</MenuItem>
+                  <MenuItem value="category">카테고리순</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid>
+              <Typography variant="body2" sx={{ 
+                textAlign: 'center', 
+                opacity: 0.8,
+                color: { xs: '#fff', md: '#333' },
+                display: { xs: 'none', md: 'block' } // 모바일에서 숨김
+              }}>
+                {filteredFavorites.length}개 표시
+              </Typography>
+            </Grid>
           </Grid>
         </Grid>
       </Box>
@@ -378,7 +382,7 @@ const NewsFavorites = () => {
       ) : (
         <Grid container spacing={2}>
           {filteredFavorites.map((item, index) => (
-            <Grid item xs={12} md={6} key={item.link}>
+            <Grid key={item.link}>
               <Fade in={true} timeout={300 + index * 100}>
                 <Card sx={{ 
                   bgcolor: { xs: 'rgba(255,255,255,0.1)', md: 'rgba(255,255,255,0.05)' }, 

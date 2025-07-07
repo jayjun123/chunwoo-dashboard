@@ -40,11 +40,26 @@ const PopupProvider = ({ children }) => {
     // 활성화된 팝업이 없으면 무시
     if (activePopups.length === 0) return;
 
+    // 입력 요소나 버튼 요소를 클릭한 경우 팝업을 닫지 않음
+    const target = event.target;
+    if (target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' || 
+        target.tagName === 'BUTTON' ||
+        target.closest('input') ||
+        target.closest('textarea') ||
+        target.closest('button') ||
+        target.closest('[role="button"]') ||
+        target.closest('.MuiInputBase-root') ||
+        target.closest('.MuiButton-root') ||
+        target.closest('.MuiIconButton-root')) {
+      return;
+    }
+
     // 클릭된 요소가 어떤 팝업에 속하는지 확인
     let clickedPopup = null;
     for (const popup of activePopups) {
       const element = popupRefs.current.get(popup.id);
-      if (element && element.contains(event.target)) {
+      if (element && typeof element.contains === 'function' && element.contains(event.target)) {
         clickedPopup = popup;
         break;
       }
@@ -54,12 +69,13 @@ const PopupProvider = ({ children }) => {
     if (!clickedPopup) {
       // 가장 높은 우선순위의 팝업을 닫음
       const topPopup = activePopups[0];
-      if (topPopup && topPopup.element) {
+      if (topPopup && topPopup.element && typeof topPopup.element.onClose === 'function') {
         // 팝업의 onClose 함수가 있다면 호출
-        if (topPopup.element.onClose) {
-          topPopup.element.onClose();
-        }
+        topPopup.element.onClose();
         // 팝업 해제
+        unregisterPopup(topPopup.id);
+      } else if (topPopup) {
+        // onClose 함수가 없어도 팝업은 해제
         unregisterPopup(topPopup.id);
       }
     }
@@ -69,10 +85,11 @@ const PopupProvider = ({ children }) => {
   const handleKeyDown = (event) => {
     if (event.key === 'Escape' && activePopups.length > 0) {
       const topPopup = activePopups[0];
-      if (topPopup && topPopup.element) {
-        if (topPopup.element.onClose) {
-          topPopup.element.onClose();
-        }
+      if (topPopup && topPopup.element && typeof topPopup.element.onClose === 'function') {
+        topPopup.element.onClose();
+        unregisterPopup(topPopup.id);
+      } else if (topPopup) {
+        // onClose 함수가 없어도 팝업은 해제
         unregisterPopup(topPopup.id);
       }
     }

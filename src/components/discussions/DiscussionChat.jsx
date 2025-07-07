@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Typography, TextField, Button, Paper, Avatar, CircularProgress, IconButton, InputAdornment, Dialog, DialogContent, useMediaQuery, Menu, MenuItem } from '@mui/material';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
+import { Box, Typography, TextField, Button, Paper, Avatar, CircularProgress, IconButton, InputAdornment, Dialog, DialogContent, useMediaQuery, Menu, MenuItem, Checkbox } from '@mui/material';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../../firebase';
-import { Send as SendIcon, AttachFile as AttachFileIcon, Image as ImageIcon, Download as DownloadIcon, Close as CloseIcon, MoreVert as MoreVertIcon, Delete as DeleteIcon, PictureAsPdf as PdfIcon, Description as ExcelIcon } from '@mui/icons-material';
+import { Send as SendIcon, AttachFile as AttachFileIcon, Image as ImageIcon, Download as DownloadIcon, Close as CloseIcon, MoreVert as MoreVertIcon, Delete as DeleteIcon, PictureAsPdf as PdfIcon, Description as ExcelIcon, Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import jsPDF from 'jspdf';
@@ -11,6 +11,10 @@ import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { NanumGothic } from '../../assets/fonts/NanumGothic';
 import { exportToExcel, exportChatToPDF } from '../../utils/exportUtils';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { useNavigate } from 'react-router-dom';
+import { InputBase } from '@mui/material';
+import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
 
 const DiscussionChat = ({ roomId }) => {
   const [messages, setMessages] = useState([]);
@@ -24,19 +28,61 @@ const DiscussionChat = ({ roomId }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { currentUser } = useAuth();
+  const [roomName, setRoomName] = useState('채팅방');
+  const navigate = useNavigate();
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [checkedMessages, setCheckedMessages] = useState([]);
 
   useEffect(() => {
     if (!roomId) return;
     setLoading(true);
-    const q = query(collection(db, 'discussions'), where('roomId', '==', roomId), orderBy('createdAt', 'asc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    
+    // 올바른 메시지 컬렉션 경로 사용
+    const messagesQuery = query(
+      collection(db, `discussions/${roomId}/messages`),
+      orderBy('timestamp', 'asc')
+    );
+    
+    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('메시지 업데이트:', msgs.length, '개 메시지');
       setMessages(msgs);
       setLoading(false);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }, (error) => {
+      console.error('메시지 로딩 오류:', error);
+      setLoading(false);
     });
+    
     return () => unsubscribe();
   }, [roomId]);
+
+  useEffect(() => {
+    if (!roomId) return;
+    const fetchRoom = async () => {
+      try {
+        const docRef = doc(db, 'discussions', roomId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setRoomName(docSnap.data().name || '채팅방');
+        }
+      } catch (e) {
+        console.error('방 정보 로딩 오류:', e);
+      }
+    };
+    fetchRoom();
+  }, [roomId]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ 
+          behavior: 'auto',
+          block: 'end'
+        });
+      }, 100);
+    }
+  }, [messages, roomId]);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -52,7 +98,7 @@ const DiscussionChat = ({ roomId }) => {
         for (const file of files) {
           console.log('업로드 중인 파일:', file.name, file.size, file.type);
           try {
-            const storageRef = ref(storage, `discussions/${roomId}/${Date.now()}_${file.name}`);
+            const storageRef = ref(storage, `discussion_attachments/${roomId}/${Date.now()}_${file.name}`);
             await uploadBytes(storageRef, file);
             const url = await getDownloadURL(storageRef);
             uploadedFiles.push({ url, name: file.name, type: file.type });
@@ -64,19 +110,23 @@ const DiscussionChat = ({ roomId }) => {
         }
       }
       
-      // 메시지 저장
+      // 메시지 저장 - 올바른 컬렉션 경로 사용
       console.log('메시지 저장 시작...');
-      await addDoc(collection(db, 'discussions'), {
-        roomId,
-        content: newMessage,
-        files: uploadedFiles,
-        createdAt: serverTimestamp(),
-        author: currentUser?.displayName || currentUser?.email || '익명',
-        authorId: currentUser?.uid || 'anonymous',
-        authorEmail: currentUser?.email || ''
-      });
+      const messageData = {
+        text: newMessage,
+        userId: currentUser?.uid || 'anonymous',
+        userName: currentUser?.displayName || currentUser?.email || '익명',
+        timestamp: serverTimestamp(),
+      };
       
+      if (uploadedFiles.length > 0) {
+        messageData.attachment = uploadedFiles[0]; // 단일 첨부파일로 저장
+      }
+      
+      console.log('저장할 메시지 데이터:', messageData);
+      await addDoc(collection(db, `discussions/${roomId}/messages`), messageData);
       console.log('메시지 저장 성공!');
+      
       setNewMessage('');
       setFiles([]);
       setPreviews([]);
@@ -88,8 +138,12 @@ const DiscussionChat = ({ roomId }) => {
 
   const handleFileChange = (e) => {
     const selected = Array.from(e.target.files);
+    console.log('파일 선택됨:', selected.map(f => ({ name: f.name, type: f.type, size: f.size })));
     setFiles(selected);
-    setPreviews(selected.map(f => f.type.startsWith('image/') ? URL.createObjectURL(f) : ''));
+    
+    const previews = selected.map(f => f.type.startsWith('image/') ? URL.createObjectURL(f) : '');
+    console.log('미리보기 생성:', previews);
+    setPreviews(previews);
   };
 
   const handleImageClick = (url) => {
@@ -104,33 +158,23 @@ const DiscussionChat = ({ roomId }) => {
     setMessageMenu({ open: false, anchorEl: null, message: null });
   };
 
-  const handleDeleteMessage = async () => {
-    const message = messageMenu.message;
+  const handleDeleteMessage = async (message) => {
     if (!message) return;
-    
     if (!window.confirm('이 메시지를 삭제하시겠습니까?')) {
-      handleMessageMenuClose();
+      handleMessageMenuClose && handleMessageMenuClose();
       return;
     }
-    
     try {
-      // 메시지 삭제
-      await deleteDoc(doc(db, 'discussions', message.id));
-      
-      // 첨부 파일 삭제
-      if (message.files && message.files.length > 0) {
-        const deleteFilePromises = message.files.map(async (file) => {
-          try {
-            const fileRef = ref(storage, file.url);
-            await deleteObject(fileRef);
-          } catch (error) {
-            console.error('파일 삭제 중 오류:', error);
-          }
-        });
-        await Promise.all(deleteFilePromises);
+      await deleteDoc(doc(db, `discussions/${roomId}/messages`, message.id));
+      if (message.attachment) {
+        try {
+          const fileRef = ref(storage, message.attachment.url);
+          await deleteObject(fileRef);
+        } catch (error) {
+          console.error('파일 삭제 중 오류:', error);
+        }
       }
-      
-      handleMessageMenuClose();
+      handleMessageMenuClose && handleMessageMenuClose();
     } catch (error) {
       console.error('메시지 삭제 중 오류:', error);
       alert('메시지 삭제 중 오류가 발생했습니다.');
@@ -138,17 +182,17 @@ const DiscussionChat = ({ roomId }) => {
   };
 
   const canDeleteMessage = (message) => {
-    return currentUser?.uid === message.authorId || 
-           currentUser?.grade === '마스터' || 
-           currentUser?.grade === '관리자';
+    return currentUser?.uid === message.userId || 
+           currentUser?.role === 'admin' || 
+           currentUser?.role === 'master';
   };
 
   const handleExportExcel = () => {
     const dataToExport = messages.map(msg => ({
-      '작성 시간': msg.createdAt?.toDate?.().toLocaleString() || '',
-      '작성자': msg.author || '익명',
-      '내용': msg.content || '',
-      '첨부파일': msg.files?.map(f => f.name).join(', ') || ''
+      '작성 시간': msg.timestamp?.toDate?.().toLocaleString() || '',
+      '작성자': msg.userName || '익명',
+      '내용': msg.text || '',
+      '첨부파일': msg.attachment?.name || ''
     }));
 
     // 컬럼 너비 설정 (한글 텍스트 고려)
@@ -170,7 +214,7 @@ const DiscussionChat = ({ roomId }) => {
 
   const handleExportPDF = () => {
     const roomInfo = {
-      name: `대화방 ${roomId}`,
+      name: roomName,
       siteName: '현장 정보 없음',
       createdAt: new Date().toLocaleDateString(),
       password: '없음'
@@ -185,131 +229,238 @@ const DiscussionChat = ({ roomId }) => {
     }
   };
 
+  const handleUpdateMessage = () => {
+    // Implementation of handleUpdateMessage
+  };
+
+  const handleCheckMessage = (id) => {
+    setCheckedMessages(prev => prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]);
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm('선택한 의견을 모두 삭제할까요?')) return;
+    for (const id of checkedMessages) {
+      try {
+        await deleteDoc(doc(db, `discussions/${roomId}/messages`, id));
+      } catch (e) { console.error('삭제 실패', id, e); }
+    }
+    setCheckedMessages([]);
+  };
+
   return (
-    <Box sx={{ p: isMobile ? 0 : 1, m: 0, width: isMobile ? '100vw' : 'auto', maxWidth: isMobile ? '100vw' : 'auto', minWidth: isMobile ? '100vw' : 'auto', boxSizing: 'border-box', height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(90deg, #232634 60%, #1976d2 100%)', borderRadius: 3, boxShadow: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.8, mb: 1, p: 0.8, borderBottom: '1px solid #444', mt: isMobile ? '15px' : 0 }}>
-        <Button startIcon={<ExcelIcon />} onClick={handleExportExcel} variant="outlined" size="small" sx={{color: '#fff', borderColor: '#fff', fontSize: '0.8rem'}}>Excel</Button>
-        <Button startIcon={<PdfIcon />} onClick={handleExportPDF} variant="outlined" size="small" sx={{color: '#fff', borderColor: '#fff', fontSize: '0.8rem'}}>PDF</Button>
+    <Box sx={{
+      height: '100vh', width: '100vw', maxWidth: '100vw', minWidth: '100vw',
+      display: 'flex', flexDirection: 'column', background: '#232634',
+      position: 'fixed', top: 0, left: 0, zIndex: 2000
+    }}>
+      {/* 상단 바 */}
+      <Box sx={{
+        height: 56, minHeight: 56, background: '#1976d2', color: '#fff',
+        display: 'flex', alignItems: 'center', px: 2, boxShadow: 2
+      }}>
+        <IconButton onClick={() => navigate('/discussions')} sx={{ color: '#fff', mr: 1 }}>
+          <ArrowBackIcon />
+        </IconButton>
+        <Typography variant="h6" sx={{ fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{roomName}</Typography>
       </Box>
-      <Box sx={{ 
-        flex: 1, 
-        overflowY: 'auto', 
-        mb: 1.5, 
-        pr: isMobile ? 0 : 1.5,
-        pb: isMobile ? '110px' : 0 // 입력창+하단바 높이만큼 패딩
+      {/* 메시지 영역 */}
+      <Box sx={{
+        flex: 1,
+        overflowY: 'auto',
+        px: 1, py: 2,
+        background: '#232323',
+        display: 'flex', flexDirection: 'column',
+        position: 'absolute',
+        top: 56, // 상단바 높이
+        bottom: 72, // 입력창 높이(아래 입력창 Box와 맞춤)
+        left: 0, right: 0,
+        height: 'auto',
       }}>
         {loading ? (
           <Box display="flex" justifyContent="center" alignItems="center" height="100%"><CircularProgress /></Box>
         ) : (
           messages.map((msg, idx) => {
-            const isMine = currentUser?.uid === msg.authorId;
+            const isMe = currentUser?.uid === msg.userId;
+            const currentDate = msg.timestamp?.toDate?.() || new Date();
+            const prevDate = idx > 0 ? messages[idx - 1].timestamp?.toDate?.() || new Date() : null;
+            const showDateDivider = !prevDate || 
+              currentDate.getDate() !== prevDate.getDate() ||
+              currentDate.getMonth() !== prevDate.getMonth() ||
+              currentDate.getFullYear() !== prevDate.getFullYear();
             return (
-              <Box key={msg.id} sx={{ mb: 1.5, display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', width: '100%' }}>
-                <Paper
-                  sx={{
-                    p: isMobile ? 1 : 1.5,
-                    borderRadius: 2,
-                    background: isMine ? 'linear-gradient(90deg, #1976d2 60%, #232634 100%)' : '#fff',
-                    color: isMine ? '#fff' : '#232634',
-                    minWidth: 120,
-                    maxWidth: isMobile ? '90vw' : 400,
-                    boxShadow: isMine ? 6 : 2,
-                    transition: 'box-shadow 0.2s',
-                    mb: 0.5,
-                    position: 'relative',
-                    animation: 'fadeIn 0.4s',
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.8, justifyContent: 'space-between' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Avatar sx={{ width: 24, height: 24, mr: 0.8, bgcolor: isMine ? '#1976d2' : '#90caf9', color: '#fff', fontWeight: 700, fontSize: '0.8rem' }}>
-                        {msg.author?.[0] || 'U'}
-                      </Avatar>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.85rem' }}>{msg.author || '익명'}</Typography>
-                      <Typography variant="caption" sx={{ ml: 0.8, color: isMine ? '#fff' : '#888', fontSize: '0.7rem' }}>
-                        {msg.createdAt?.toDate?.().toLocaleString() || ''}
-                      </Typography>
+              <Box key={msg.id}>
+                {showDateDivider && (
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    my: 2,
+                    px: 1
+                  }}>
+                    <Box sx={{
+                      bgcolor: 'rgba(255,255,255,0.08)',
+                      color: '#fff',
+                      px: 2,
+                      py: 0.5,
+                      borderRadius: 2,
+                      fontSize: '0.75rem',
+                      fontWeight: 500
+                    }}>
+                      {currentDate.getMonth() + 1}월 {currentDate.getDate()}일 ({['일','월','화','수','목','금','토'][currentDate.getDay()]})
                     </Box>
-                    {canDeleteMessage(msg) && (
-                      <IconButton
-                        size="small"
-                        onClick={(e) => handleMessageMenuOpen(e, msg)}
-                        sx={{
-                          color: isMine ? '#fff' : '#666',
-                          p: 0.3,
-                          position: 'absolute',
-                          top: 8,
-                          right: 8,
-                          zIndex: 2,
-                          background: 'rgba(255,255,255,0.7)',
-                          '&:hover': { background: 'rgba(25, 118, 210, 0.15)' }
-                        }}
-                      >
-                        <MoreVertIcon fontSize="small" />
-                      </IconButton>
+                  </Box>
+                )}
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', mb: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Checkbox
+                      checked={checkedMessages.includes(msg.id)}
+                      onChange={() => handleCheckMessage(msg.id)}
+                      size="small"
+                      sx={{ p: 0.5, mr: 1 }}
+                    />
+                    {!isMe && (
+                      <Typography sx={{ color: '#aaa', fontSize: 12, fontWeight: 700, mb: 0.5 }}>
+                        {msg.userName}
+                      </Typography>
                     )}
                   </Box>
-                  <Typography variant="body1" sx={{ mb: 0.8, wordBreak: 'break-all', fontSize: '0.85rem', lineHeight: 1.4 }}>{msg.content}</Typography>
-                  {msg.files && msg.files.length > 0 && (
-                    <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap', mb: 0.8 }}>
-                      {msg.files.map((f, idx) => f.type.startsWith('image/') ? (
-                        <img key={idx} src={f.url} alt={f.name} style={{ maxWidth: 60, borderRadius: 6, cursor: 'pointer', boxShadow: '0 2px 8px #1976d233' }} onClick={() => handleImageClick(f.url)} />
-                      ) : (
-                        <Button key={idx} href={f.url} target="_blank" startIcon={<DownloadIcon />} size="small" sx={{ fontSize: '0.8rem' }}>
-                          {f.name}
-                        </Button>
-                      ))}
-                    </Box>
-                  )}
-                </Paper>
+                  <Box sx={{
+                    bgcolor: isMe ? '#FFF066' : '#232323',
+                    color: isMe ? '#222' : '#fff',
+                    borderRadius: 4,
+                    px: 1.4, py: 0.9,
+                    minWidth: 36,
+                    maxWidth: '80vw',
+                    fontSize: 16,
+                    position: 'relative',
+                    boxShadow: isMe ? 2 : 1,
+                    fontFamily: 'NanumGothic, Malgun Gothic, Apple SD Gothic Neo, sans-serif',
+                    mb: 0.2,
+                    wordBreak: 'break-word',
+                    display: 'inline-block',
+                  }}>
+                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', fontSize: '1rem', p: 0 }}>{msg.text}</Typography>
+                    {msg.attachment && (
+                      <Box mt={1}>
+                        {msg.attachment.type.startsWith('image/') ? (
+                          <Box sx={{ position: 'relative', display: 'inline-block', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}>
+                            <a href={msg.attachment.url} target="_blank" rel="noopener noreferrer">
+                              <img 
+                                src={msg.attachment.url} 
+                                alt={msg.attachment.name} 
+                                style={{ maxWidth: '180px', maxHeight: '180px', borderRadius: '8px', cursor: 'pointer', display: 'block' }} 
+                              />
+                            </a>
+                          </Box>
+                        ) : (
+                          <Button 
+                            variant="outlined" 
+                            startIcon={<ExcelIcon />} 
+                            href={msg.attachment.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{ textTransform: 'none', fontSize: '0.7rem', borderRadius: 2 }}
+                            size="small"
+                          >
+                            {msg.attachment.name}
+                          </Button>
+                        )}
+                      </Box>
+                    )}
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: isMe ? 'flex-end' : 'flex-start', mt: 0.5, mb: 1 }}>
+                    <Typography sx={{ color: '#aaa', fontSize: 11, ml: isMe ? 1 : 0, mr: isMe ? 0 : 1 }}>
+                      {msg.timestamp ? (msg.timestamp.toDate ? msg.timestamp.toDate() : new Date(msg.timestamp)).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}
+                    </Typography>
+                    {isMe && !editingMessage && (
+                      <>
+                        <IconButton size="small" onClick={() => setEditingMessage(msg)}><EditIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                        <IconButton size="small" onClick={() => handleDeleteMessage(msg)}><DeleteIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                      </>
+                    )}
+                    {isMe && editingMessage && editingMessage.id === msg.id && (
+                      <>
+                        <IconButton size="small" onClick={handleUpdateMessage}><SaveIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                        <IconButton size="small" onClick={() => setEditingMessage(null)}><CancelIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                      </>
+                    )}
+                  </Box>
+                </Box>
               </Box>
             );
           })
         )}
         <div ref={messagesEndRef} />
       </Box>
-      <Box component="form" onSubmit={handleSend} sx={{ 
-        display: 'flex', 
-        gap: 1, 
-        alignItems: 'center', 
-        mt: 0, 
-        mb: isMobile ? 0 : 0, 
-        p: 0, 
-        flexDirection: 'row', 
-        background: '#fff', 
-        borderRadius: 2, 
-        boxShadow: 2,
-        position: isMobile ? 'fixed' : 'static',
-        bottom: isMobile ? '46px' : 'auto', // 하단바 위에 고정
-        left: isMobile ? 0 : 'auto',
-        right: isMobile ? 0 : 'auto',
-        zIndex: isMobile ? 1000 : 'auto',
-        width: isMobile ? '100%' : 'auto'
+      {/* 파일 미리보기 영역 */}
+      {files.length > 0 && (
+        <Box sx={{
+          p: 1, background: '#fff', borderRadius: 2, border: '1px solid #ddd',
+          position: 'fixed', left: 0, right: 0, bottom: 80, zIndex: 1200, mx: 'auto', width: '96vw', maxWidth: 480
+        }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+            📎 선택된 파일 ({files.length}개)
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {files.map((file, idx) => (
+              <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, p: 0.5, background: '#f5f5f5', borderRadius: 1 }}>
+                {file.type.startsWith('image/') && (
+                  <img src={previews[idx]} alt={file.name} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, marginRight: 4 }} />
+                )}
+                <Typography variant="caption">{file.name}</Typography>
+                <IconButton size="small" onClick={() => {
+                  setFiles(files.filter((_, i) => i !== idx));
+                  setPreviews(previews.filter((_, i) => i !== idx));
+                }}>
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      )}
+      {/* 입력창 */}
+      <Box component="form" onSubmit={handleSend} sx={{
+        display: 'flex', alignItems: 'center',
+        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 1200,
+        background: 'transparent',
+        p: 0.8,
+        borderTop: 'none',
+        width: '100vw', maxWidth: 480, mx: 'auto',
+        boxShadow: 'none',
+        borderRadius: 0,
       }}>
-        <TextField
-          fullWidth
-          multiline
-          minRows={2}
-          maxRows={4}
-          variant="outlined"
-          placeholder="메시지를 입력하세요..."
-          value={newMessage}
-          onChange={e => setNewMessage(e.target.value)}
-          sx={{ background: '#f5f7fa', borderRadius: 1.5, fontSize: '1rem', m: 0 }}
-        />
-        <Button
-          variant="outlined"
-          component="label"
-          sx={{ minWidth: 56, fontWeight: 700, fontSize: '1rem', borderRadius: 1.5, ml: 0, height: 48 }}
-        >
-          첨부
+        <Box sx={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          bgcolor: '#232323',
+          borderRadius: 18,
+          px: 2,
+          py: 1.2,
+          mr: 1,
+        }}>
+          <InputBase
+            fullWidth
+            placeholder="메시지 입력"
+            value={newMessage}
+            onChange={e => setNewMessage(e.target.value)}
+            sx={{
+              color: '#fff',
+              fontSize: 17,
+              fontFamily: 'NanumGothic, Malgun Gothic, Apple SD Gothic Neo, sans-serif',
+              '::placeholder': { color: '#bbb', opacity: 1 },
+            }}
+            inputProps={{ style: { color: '#fff' } }}
+          />
+        </Box>
+        <IconButton component="label" sx={{ color: '#fff', ml: 1 }}>
+          <AttachFileIcon />
           <input type="file" hidden multiple onChange={handleFileChange} />
-        </Button>
-        <Button type="submit" variant="contained" color="primary" size="large" endIcon={<SendIcon />} sx={{ height: 48, fontWeight: 700, fontSize: '1rem', borderRadius: 1.5, minWidth: 56, ml: 0 }}>
-          전송
-        </Button>
+        </IconButton>
+        <IconButton type="submit" color="primary" sx={{ color: '#fff', ml: 1, bgcolor: '#1976d2', '&:hover': { bgcolor: '#1565c0' } }}>
+          <SendIcon />
+        </IconButton>
       </Box>
-      
       {/* 이미지 모달 */}
       <Dialog open={imageModal.open} onClose={() => setImageModal({ open: false, url: '' })} maxWidth="md">
         <DialogContent sx={{ p: 0, background: '#111' }}>
@@ -317,18 +468,19 @@ const DiscussionChat = ({ roomId }) => {
           <img src={imageModal.url} alt="확대보기" style={{ maxWidth: '90vw', maxHeight: '80vh', display: 'block', margin: '0 auto' }} />
         </DialogContent>
       </Dialog>
-      
-      {/* 메시지 메뉴 */}
-      <Menu
-        anchorEl={messageMenu.anchorEl}
-        open={messageMenu.open}
-        onClose={handleMessageMenuClose}
-      >
-        <MenuItem onClick={handleDeleteMessage} sx={{ color: '#f44336' }}>
-          <DeleteIcon sx={{ mr: 1 }} />
-          삭제
-        </MenuItem>
-      </Menu>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+        <Button
+          variant="contained"
+          color="error"
+          size="small"
+          startIcon={<DeleteIcon />}
+          disabled={checkedMessages.length === 0}
+          onClick={handleBulkDelete}
+          sx={{ mr: 1 }}
+        >
+          선택삭제
+        </Button>
+      </Box>
     </Box>
   );
 };

@@ -198,17 +198,18 @@ const ScheduleList = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h4">일정 목록</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpen()}
-        >
-          일정 추가
-        </Button>
-      </Box>
+    <DragDropContext onDragEnd={onDragEnd}>
+      <Box sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+          <Typography variant="h4">일정 목록</Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpen()}
+          >
+            일정 추가
+          </Button>
+        </Box>
 
       <Box sx={{ mb: 4 }}>
         <Typography variant="h6" sx={{ color: '#2196f3', fontWeight: 700, mb: 2, textAlign: 'left' }}>
@@ -448,6 +449,7 @@ const ScheduleList = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+      </Box>
+    </DragDropContext>
   );
 };

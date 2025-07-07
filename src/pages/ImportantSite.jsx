@@ -524,18 +524,7 @@ export default function ImportantSite() {
   };
 
   return (
-    <Box sx={{ 
-      width: isMobile ? 'calc(100vw - 40px)' : '100%', 
-      minHeight: '100vh', 
-      bgcolor: '#101624', 
-      p: isMobile ? 0 : 3, 
-      maxWidth: isMobile ? 'calc(100vw - 40px)' : '100%', 
-      position: isMobile ? 'relative' : 'static', 
-      left: 0, 
-      mr: 0, 
-      ml: isMobile ? '20px' : 0, 
-      boxSizing: 'border-box' 
-    }}>
+            <Box sx={{ mt: isMobile ? '38px' : '50px' }}>
       {/* 상단 검색창 - 모바일에서 간소화 */}
       <Box sx={{ 
         display: 'flex', 
@@ -566,7 +555,7 @@ export default function ImportantSite() {
           }}
         />
       </Box>
-      <Grid container spacing={0}>
+      <Grid container spacing={2.5}>
         <Grid item xs={12}>
           <div style={{ 
             width: '100%', 
@@ -603,7 +592,7 @@ export default function ImportantSite() {
               
               return (
                 <Paper key={site.id} sx={{ 
-                  mb: isMobile ? 1.25 : 0, // 모바일에서 카드간 간격 10px (1.25 * 8px = 10px)
+                  mb: 2.5, // 카드간 간격 20px (2.5 * 8px = 20px)
                   borderRadius: 4, 
                   boxShadow: 6, 
                   bgcolor: '#181f2e', 
@@ -612,88 +601,91 @@ export default function ImportantSite() {
                   flexDirection: { xs: 'column', md: 'row' }, 
                   alignItems: 'stretch', 
                   minHeight: isMobile ? 'auto' : 380, 
-                  minWidth: isMobile ? '100%' : 1000, 
-                  width: '100%', 
+                  minWidth: isMobile ? 'calc(100vw - 20px)' : 1000, 
+                  width: isMobile ? 'calc(100vw - 20px)' : '100%', 
                   p: 0, 
-                  overflow: 'hidden' 
+                  overflow: 'hidden',
+                  marginLeft: isMobile ? '2px' : 0,
+                  marginRight: isMobile ? '5px' : 0
                 }}>
                   {/* 왼쪽: 정보/버튼 */}
                   <Box sx={{ 
                     flex: 2.5, 
-                    minWidth: isMobile ? '100%' : 320, 
-                    p: isMobile ? 2 : 3, 
+                    minWidth: isMobile ? 'calc(100vw - 20px)' : 320, 
+                    width: isMobile ? 'calc(100vw - 20px)' : 'auto',
+                    p: isMobile ? 1.5 : 3, 
                     display: 'flex', 
                     flexDirection: 'column', 
-                    gap: 1, 
+                    gap: isMobile ? 0.5 : 1, 
                     borderRight: { md: '2px solid #232b3b' }, 
                     justifyContent: 'flex-start', 
                     alignItems: 'flex-start' 
                   }}>
                     <Typography variant="h5" sx={{ 
                       fontWeight: 800, 
-                      mb: 1, 
+                      mb: isMobile ? 0.5 : 1, 
                       color: '#90caf9', 
                       textAlign: 'left', 
                       width: '100%',
-                      fontSize: isMobile ? '1.2rem' : '1.5rem'
+                      fontSize: isMobile ? '1rem' : '1.5rem'
                     }}>{site.name}</Typography>
-                    <Box sx={{ display: 'flex', gap: 3, width: '100%', alignItems: 'center', mb: 0.6 }}>
+                    <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
                       <Typography sx={{ 
-                        fontSize: isMobile ? '0.9rem' : 16, 
+                        fontSize: isMobile ? '0.75rem' : 16, 
                         color: '#43e97b', 
                         fontWeight: 700, 
                         textAlign: 'left' 
                       }}>계약구분: {site.contractType}</Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 2, width: '100%', alignItems: 'center', mb: 0.6 }}>
+                    <Box sx={{ display: 'flex', gap: isMobile ? 1 : 2, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
                       <Typography sx={{ 
-                        fontSize: isMobile ? '0.8rem' : 15, 
+                        fontSize: isMobile ? '0.7rem' : 15, 
                         color: '#90caf9', 
                         fontWeight: 700 
                       }}>{`회사명: ${site.companyName}`}</Typography>
-                      <Typography sx={{ fontSize: isMobile ? '0.8rem' : 15 }}>소장: {site.manager}</Typography>
+                      <Typography sx={{ fontSize: isMobile ? '0.7rem' : 15 }}>소장: {site.manager}</Typography>
                     </Box>
                     <Typography sx={{ 
-                      fontSize: isMobile ? '0.8rem' : 15, 
+                      fontSize: isMobile ? '0.7rem' : 15, 
                       textAlign: 'left', 
                       width: '100%', 
-                      mb: 0.6 
+                      mb: isMobile ? 0.3 : 0.6 
                     }}>주소: {site.address}</Typography>
                     <Typography sx={{ 
-                      fontSize: isMobile ? '0.8rem' : 15, 
+                      fontSize: isMobile ? '0.7rem' : 15, 
                       textAlign: 'left', 
                       width: '100%', 
-                      mb: 0.6 
+                      mb: isMobile ? 0.3 : 0.6 
                     }}>공사기간: {site.startDate} ~ {site.endDate}</Typography>
-                    <Box sx={{ display: 'flex', gap: 3, width: '100%', alignItems: 'center', mb: 0.6 }}>
+                    <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
                       <Typography sx={{ 
-                        fontSize: isMobile ? '0.8rem' : 15, 
+                        fontSize: isMobile ? '0.7rem' : 15, 
                         textAlign: 'left', 
-                        minWidth: isMobile ? '80px' : '120px' 
+                        minWidth: isMobile ? '60px' : '120px' 
                       }}>계약금: {Number(site.contractAmount || 0).toLocaleString()}원</Typography>
                       <Typography sx={{ 
-                        fontSize: isMobile ? '0.8rem' : 15, 
+                        fontSize: isMobile ? '0.7rem' : 15, 
                         textAlign: 'left', 
                         color: '#43e97b', 
                         fontWeight: 'bold' 
                       }}>기성: {Number(totalGisung).toLocaleString()}원</Typography>
                     </Box>
                     {/* 잔액을 시공팀 위로 이동 */}
-                    <Box sx={{ display: 'flex', gap: 3, width: '100%', alignItems: 'center', mb: 0.6 }}>
+                    <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
                       <Typography sx={{ 
-                        fontSize: isMobile ? '0.8rem' : 15, 
+                        fontSize: isMobile ? '0.7rem' : 15, 
                         textAlign: 'left', 
                         color: '#f44336', 
                         fontWeight: 'bold' 
                       }}>잔액: {Number((site.contractAmount || 0) - totalGisung).toLocaleString()}원</Typography>
                     </Box>
                     <Typography sx={{ 
-                      fontSize: isMobile ? '0.8rem' : 15, 
+                      fontSize: isMobile ? '0.7rem' : 15, 
                       textAlign: 'left', 
                       width: '100%', 
-                      mb: 0.6 
+                      mb: isMobile ? 0.3 : 0.6 
                     }}>시공팀: {site.team}</Typography>
-                    <Box sx={{ mt: 0, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                    <Box sx={{ mt: 0, mb: isMobile ? 1 : 2, display: 'flex', gap: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
                       <Button 
                         variant="contained" 
                         color="primary" 
@@ -701,7 +693,9 @@ export default function ImportantSite() {
                         sx={{ 
                           borderRadius: 2, 
                           fontWeight: 700,
-                          fontSize: isMobile ? '0.7rem' : 'inherit'
+                          fontSize: isMobile ? '0.65rem' : 'inherit',
+                          padding: isMobile ? '4px 8px' : 'inherit',
+                          minWidth: isMobile ? 'auto' : 'inherit'
                         }} 
                         onClick={() => navigate(`/progress?siteId=${site.id}`)}
                       >기성관리</Button>
@@ -712,7 +706,9 @@ export default function ImportantSite() {
                         sx={{ 
                           borderRadius: 2, 
                           fontWeight: 700,
-                          fontSize: isMobile ? '0.7rem' : 'inherit'
+                          fontSize: isMobile ? '0.65rem' : 'inherit',
+                          padding: isMobile ? '4px 8px' : 'inherit',
+                          minWidth: isMobile ? 'auto' : 'inherit'
                         }} 
                         onClick={() => navigate(`/safety?siteId=${site.id}`)}
                       >안전관리</Button>
@@ -723,7 +719,9 @@ export default function ImportantSite() {
                         sx={{ 
                           borderRadius: 2, 
                           fontWeight: 700,
-                          fontSize: isMobile ? '0.7rem' : 'inherit'
+                          fontSize: isMobile ? '0.65rem' : 'inherit',
+                          padding: isMobile ? '4px 8px' : 'inherit',
+                          minWidth: isMobile ? 'auto' : 'inherit'
                         }} 
                         onClick={() => navigate(`/discussions?siteId=${site.id}`)}
                       >토론</Button>

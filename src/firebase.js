@@ -1,98 +1,68 @@
-import { initializeApp, getApps } from 'firebase/app';
+import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, query, orderBy, limit, where, connectFirestoreEmulator } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 
-// 환경변수 디버깅 - 더 자세한 정보
-console.log('=== Firebase 환경변수 디버깅 ===');
-console.log('import.meta.env:', import.meta.env);
-console.log('VITE_FIREBASE_API_KEY:', import.meta.env.VITE_FIREBASE_API_KEY);
-console.log('VITE_FIREBASE_AUTH_DOMAIN:', import.meta.env.VITE_FIREBASE_AUTH_DOMAIN);
-console.log('VITE_FIREBASE_PROJECT_ID:', import.meta.env.VITE_FIREBASE_PROJECT_ID);
-console.log('VITE_FIREBASE_STORAGE_BUCKET:', import.meta.env.VITE_FIREBASE_STORAGE_BUCKET);
-console.log('VITE_FIREBASE_MESSAGING_SENDER_ID:', import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID);
-console.log('VITE_FIREBASE_APP_ID:', import.meta.env.VITE_FIREBASE_APP_ID);
-console.log('VITE_FIREBASE_MEASUREMENT_ID:', import.meta.env.VITE_FIREBASE_MEASUREMENT_ID);
-console.log('================================');
-
-// 환경변수가 로드되지 않을 경우 하드코딩된 설정 사용 (임시)
-const fallbackConfig = {
+// Firebase 설정 (직접 설정값 사용)
+const firebaseConfig = {
   apiKey: "AIzaSyATCGXGD2_teiJFdpng9J2_fvZRItPef0w",
   authDomain: "chunwooo-ebaseapp.com",
   projectId: "chunwooo-edf9f",
-  storageBucket: "chunwooo-erebasestorage.app",
+  storageBucket: "chunwooo-edf9f.firebasestorage.app",
   messagingSenderId: "417029078660",
   appId: "1:417029078660:web:00e23d79af77876e598cd1",
   measurementId: "G-653CL9XWFH"
 };
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || fallbackConfig.apiKey,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || fallbackConfig.authDomain,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || fallbackConfig.projectId,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || fallbackConfig.storageBucket,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || fallbackConfig.messagingSenderId,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || fallbackConfig.appId,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || fallbackConfig.measurementId
-};
-
-// 설정 검증 - 더 엄격한 검증
-const requiredFields = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
-const missingFields = requiredFields.filter(field => !firebaseConfig[field]);
-
-if (missingFields.length > 0) {
-  console.error('누락된 Firebase 설정:', missingFields);
-  throw new Error(`Firebase 설정이 누락되었습니다: ${missingFields.join(', ')}`);
-}
-
-if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'undefined') {
-  throw new Error('Firebase API 키가 설정되지 않았습니다. 환경변수 VITE_FIREBASE_API_KEY를 확인해주세요.');
-}
-
-console.log('Firebase 설정 완료:', {
-  apiKey: firebaseConfig.apiKey ? '설정됨' : '설정되지 않음',
+console.log('Firebase 설정 로드:', {
+  projectId: firebaseConfig.projectId,
   authDomain: firebaseConfig.authDomain,
-  projectId: firebaseConfig.projectId
+  apiKey: firebaseConfig.apiKey ? '설정됨' : '설정되지 않음'
 });
 
+// Firebase 앱 초기화
 let app;
-if (!getApps().length) {
+try {
   app = initializeApp(firebaseConfig);
-} else {
-  app = getApps()[0];
+  console.log('✅ Firebase 앱이 성공적으로 초기화되었습니다.');
+} catch (error) {
+  console.error('❌ Firebase 앱 초기화 실패:', error);
+  throw error;
 }
 
+// Firebase 서비스 초기화
 export const auth = getAuth(app);
 
-// Firestore 설정 개선
+// 강력한 지속성 설정 (새로고침 시 로그인 유지)
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log('✅ Firebase Auth 지속성 설정 완료 (browserLocalPersistence)');
+  })
+  .catch((error) => {
+    console.error('❌ Firebase Auth 지속성 설정 실패:', error);
+  });
+
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 
-// Firestore 연결 안정성을 위한 설정
-const firestoreSettings = {
-  // 실시간 리스너 연결 안정성 향상
-  experimentalForceLongPolling: true, // 긴 폴링 사용으로 연결 안정성 향상
-  useFetchStreams: false, // 스트림 대신 일반 HTTP 요청 사용
-  cacheSizeBytes: 50 * 1024 * 1024, // 캐시 크기 증가 (50MB)
-};
+// Analytics 초기화 (지원되는 환경에서만)
+let analytics = null;
+isSupported().then(yes => yes ? analytics = getAnalytics(app) : null);
 
-// 개발 환경에서 에뮬레이터 연결 (필요시)
+export { analytics };
+
+// 개발 환경에서 Firestore 에뮬레이터 설정 (선택사항)
 if (import.meta.env.DEV && import.meta.env.VITE_USE_FIRESTORE_EMULATOR === 'true') {
   try {
-    connectFirestoreEmulator(db, 'localhost', 8080);
+    import('firebase/firestore').then(({ connectFirestoreEmulator }) => {
+      connectFirestoreEmulator(db, 'localhost', 8080);
+      console.log('Firestore 에뮬레이터에 연결되었습니다.');
+    });
   } catch (error) {
     console.warn('Firestore 에뮬레이터 연결 실패:', error);
   }
 }
-
-export const storage = getStorage(app);
-
-export const initializeAnalytics = async () => {
-  if (await isSupported()) {
-    return getAnalytics(app);
-  }
-  return null;
-};
 
 // 데이터베이스 컬렉션 구조
 export const collections = {
@@ -103,7 +73,12 @@ export const collections = {
   todos: 'todos',           // 할일 목록
   weather: 'weather',       // 날씨 정보
   members: 'members',       // 회원 정보
-  permissions: 'permissions' // 권한 관리
+  permissions: 'permissions', // 권한 관리
+  costs: 'costs',           // 지출 관리
+  documents: 'documents',   // 문서 관리
+  schedules: 'schedules',   // 일정 관리
+  vendors: 'vendors',       // 거래처 관리
+  gisung: 'gisung'          // 기성 관리
 };
 
 // 최적화된 쿼리 함수들
@@ -119,6 +94,15 @@ export const queries = {
       q = query(q, where('createdAt', '<', lastDoc.createdAt));
     }
     return q;
+  },
+
+  // 활성 현장 조회
+  getActiveSites: () => {
+    return query(
+      collection(db, collections.sites),
+      where('status', '==', '진행중'),
+      orderBy('createdAt', 'desc')
+    );
   },
 
   // 기성 현황 조회 (현장별)
@@ -149,6 +133,7 @@ export const queries = {
     return query(
       collection(db, collections.safety),
       where('resolved', '==', false),
+      orderBy('createdAt', 'desc'),
       limit(20)
     );
   },
@@ -161,6 +146,36 @@ export const queries = {
       where('completed', '==', false),
       orderBy('createdAt', 'desc'),
       limit(20)
+    );
+  },
+
+  // 지출 내역 조회 (현장별)
+  getCostsBySite: (siteId) => {
+    return query(
+      collection(db, collections.costs),
+      where('siteId', '==', siteId),
+      orderBy('date', 'desc'),
+      limit(50)
+    );
+  },
+
+  // 문서 조회 (사용자별)
+  getDocumentsByUser: (userId) => {
+    return query(
+      collection(db, collections.documents),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(20)
+    );
+  },
+
+  // 일정 조회 (사용자별)
+  getSchedulesByUser: (userId) => {
+    return query(
+      collection(db, collections.schedules),
+      where('userId', '==', userId),
+      orderBy('startDate', 'asc'),
+      limit(50)
     );
   }
 };
@@ -190,7 +205,25 @@ export const initialData = {
     completed: 0,
     total: 0,
     items: []
+  },
+  costs: {
+    total: 0,
+    monthly: 0,
+    items: []
   }
+};
+
+// Firebase 연결 상태 모니터링
+export const monitorConnection = () => {
+  const unsubscribe = auth.onAuthStateChanged((user) => {
+    if (user) {
+      console.log('Firebase 연결 상태: 연결됨');
+    } else {
+      console.log('Firebase 연결 상태: 연결되지 않음');
+    }
+  });
+
+  return unsubscribe;
 };
 
 export default app; 
