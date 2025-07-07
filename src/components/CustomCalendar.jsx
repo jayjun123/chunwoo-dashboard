@@ -572,7 +572,18 @@ const CustomCalendar = (props) => {
                       pointerEvents: 'none',
                     }}
                   >
-                    {items[rubric.source.index]?.text?.slice(0, 6)}
+                    {(() => {
+                      const item = items[rubric.source.index];
+                      if (!item) return '';
+                      const typePrefix = 
+                        item.type === '현장' ? '[현장]' : 
+                        item.type === '회의' ? '[회의]' : 
+                        item.type === '입찰' ? '[입찰]' : 
+                        item.type === '현설' ? '[현설]' : 
+                        item.type === '지원' ? '[지원]' : 
+                        item.type === '기타' ? '[기타]' : '';
+                      return typePrefix + (viewMode === '3days' ? item.text : item.text.slice(0, 9));
+                    })()}
                   </Box>
                 )}
               >
@@ -705,7 +716,7 @@ const CustomCalendar = (props) => {
                           gap: { xs: 0.1, md: 0.2 },
                           overflowY: items.length > 3 ? 'auto' : 'hidden',
                           overflowX: 'hidden',
-                          maxHeight: items.length > 3 ? '120px' : 'auto',
+                          maxHeight: items.length > 3 ? '180px' : 'auto',
                           margin: 0,
                           padding: 0,
                           boxSizing: 'border-box',
@@ -751,7 +762,7 @@ const CustomCalendar = (props) => {
                                       color: '#fff',
                                       borderRadius: 1,
                                       fontWeight: 500,
-                                      fontSize: { xs: '0.6rem', md: '0.9375rem' },
+                                      fontSize: { xs: '0.6rem', md: '0.875rem' },
                                       boxShadow: snapshot.isDragging ? 3 : 0,
                                       cursor: 'grab',
                                       border: '1px solid #3b82f6',
@@ -764,7 +775,17 @@ const CustomCalendar = (props) => {
                                       }
                                     }}
                                   >
-                                    <span>{viewMode === '3days' ? item.text : item.text.slice(0, 6)}</span>
+                                    <span>
+                                      <>
+                                        {item.type === '현장' && '[현장]'}
+                                        {item.type === '회의' && '[회의]'}
+                                        {item.type === '입찰' && '[입찰]'}
+                                        {item.type === '현설' && '[현설]'}
+                                        {item.type === '지원' && '[지원]'}
+                                        {item.type === '기타' && '[기타]'}
+                                        {viewMode === '3days' ? item.text : item.text.slice(0, 9)}
+                                      </>
+                                    </span>
                                     {onCheckItem && (
                                       <Checkbox
                                         size="small"
