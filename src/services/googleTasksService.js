@@ -6,9 +6,24 @@ class GoogleTasksService {
   }
 
   // Google OAuth 인증 초기화
-  async initializeAuth(token) {
+  async initializeAuth() {
     try {
-      this.accessToken = token;
+      // Firebase Auth에서 Google 액세스 토큰 가져오기
+      const { auth } = await import('../firebase');
+      const user = auth.currentUser;
+      
+      if (!user) {
+        throw new Error('로그인된 사용자가 없습니다.');
+      }
+
+      // Google OAuth 액세스 토큰 가져오기 (Firebase Auth에서)
+      const credential = await user.getIdTokenResult();
+      if (!credential) {
+        throw new Error('Google 인증 토큰을 가져올 수 없습니다.');
+      }
+
+      // Firebase Auth의 Google 액세스 토큰 사용
+      this.accessToken = credential.token;
       this.isInitialized = true;
       console.log('Google Tasks 인증 초기화 완료');
       return true;
@@ -17,6 +32,8 @@ class GoogleTasksService {
       throw error;
     }
   }
+
+
 
   // Google API 호출 헬퍼 함수
   async makeGoogleApiCall(endpoint, method = 'GET', body = null) {

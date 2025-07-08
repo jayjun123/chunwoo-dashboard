@@ -39,7 +39,7 @@ import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { format, startOfDay, endOfDay, isToday, isYesterday, subDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import googleTasksService from '../services/googleTasksService';
+
 import { auth } from '../firebase';
 
 const statusColor = (completed, planned) => {
@@ -62,11 +62,9 @@ const TodoList = () => {
   const [startDate, setStartDate] = useState(format(subDays(new Date(), 7), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   
-  // 사용자별 구글 연동 상태 관리
-  const [userGoogleSyncStatus, setUserGoogleSyncStatus] = useState({}); // {userId: {enabled: boolean, taskLists: [], selectedTaskList: ''}}
   const [syncing, setSyncing] = useState(false);
   
-  const { currentUser } = useAuth();
+  const { currentUser, loginWithGoogle } = useAuth();
   const userId = currentUser?.uid;
   const isMaster = currentUser?.email === 'fire8803@naver.com' || userId === 'HpF5IrlTscYbWPsUhtdzV05sjbF2';
 
@@ -210,62 +208,7 @@ const TodoList = () => {
     }
   };
 
-  // 사용자별 구글 연동 상태를 Firebase에서 불러오기
-  const loadUserGoogleSyncStatus = async (targetUserId) => {
-    try {
-      const userSyncDoc = await getDocs(query(
-        collection(db, 'userGoogleSync'),
-        where('userId', '==', targetUserId)
-      ));
-      
-      if (!userSyncDoc.empty) {
-        const userData = userSyncDoc.docs[0].data();
-        setUserGoogleSyncStatus(prev => ({
-          ...prev,
-          [targetUserId]: {
-            enabled: userData.enabled || false,
-            taskLists: userData.taskLists || [],
-            selectedTaskList: userData.selectedTaskList || ''
-          }
-        }));
-      }
-    } catch (error) {
-      console.error('사용자 구글 연동 상태 불러오기 실패:', error);
-    }
-  };
 
-  // 사용자별 구글 연동 상태를 Firebase에 저장
-  const saveUserGoogleSyncStatus = async (targetUserId, status) => {
-    try {
-      const userSyncQuery = query(
-        collection(db, 'userGoogleSync'),
-        where('userId', '==', targetUserId)
-      );
-      
-      const existingDoc = await getDocs(userSyncQuery);
-      
-      if (existingDoc.empty) {
-        // 새 문서 생성
-        await addDoc(collection(db, 'userGoogleSync'), {
-          userId: targetUserId,
-          enabled: status.enabled,
-          taskLists: status.taskLists,
-          selectedTaskList: status.selectedTaskList,
-          updatedAt: new Date()
-        });
-      } else {
-        // 기존 문서 업데이트
-        await updateDoc(doc(db, 'userGoogleSync', existingDoc.docs[0].id), {
-          enabled: status.enabled,
-          taskLists: status.taskLists,
-          selectedTaskList: status.selectedTaskList,
-          updatedAt: new Date()
-        });
-      }
-    } catch (error) {
-      console.error('사용자 구글 연동 상태 저장 실패:', error);
-    }
-  };
 
   useEffect(() => {
     if (!userId) return;
@@ -277,17 +220,9 @@ const TodoList = () => {
     
     // 현재 사용자의 오늘 투두리스트 초기화
     getCurrentUserTodos();
-    
-    // 현재 사용자의 구글 연동 상태 불러오기
-    loadUserGoogleSyncStatus(userId);
   }, [userId, isAdminOrMasterUser]);
 
-  // 선택된 사용자가 변경될 때 해당 사용자의 구글 연동 상태 불러오기
-  useEffect(() => {
-    if (selectedUser && isAdminOrMasterUser) {
-      loadUserGoogleSyncStatus(selectedUser);
-    }
-  }, [selectedUser, isAdminOrMasterUser]);
+
 
   useEffect(() => {
     if (!userId) return;
@@ -308,8 +243,31 @@ const TodoList = () => {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('todos 전체:', data, '선택된 사용자:', selectedUser);
-      setTodos(data);
+      
+      // 중복 제거: 같은 id를 가진 투두는 하나만 유지 (실제 Firestore 문서 ID 기준)
+      const uniqueTodos = data.reduce((acc, todo) => {
+        if (!acc.has(todo.id)) {
+          acc.set(todo.id, todo);
+        }
+        return acc;
+      }, new Map());
+      
+      const uniqueData = Array.from(uniqueTodos.values());
+      
+      // 실제로 변경된 경우에만 상태 업데이트 (불필요한 리렌더링 방지)
+      setTodos(prevTodos => {
+        const prevIds = new Set(prevTodos.map(t => t.id));
+        const newIds = new Set(uniqueData.map(t => t.id));
+        
+        // 길이와 ID가 모두 같으면 변경 없음
+        if (prevTodos.length === uniqueData.length && 
+            uniqueData.every(todo => prevIds.has(todo.id))) {
+          return prevTodos;
+        }
+        
+        console.log('todos 업데이트:', uniqueData, '선택된 사용자:', selectedUser);
+        return uniqueData;
+      });
     });
 
     return () => unsubscribe();
@@ -428,258 +386,41 @@ const TodoList = () => {
     setSettingsAnchor(null);
   };
 
-  // 현재 선택된 사용자의 구글 연동 상태
-  const currentUserSyncStatus = userGoogleSyncStatus[selectedUser || userId] || {
-    enabled: false,
-    taskLists: [],
-    selectedTaskList: ''
-  };
 
-  // Google Tasks 연동 함수들
+
+  // Google 로그인 함수
   const initializeGoogleSync = async () => {
-    const targetUserId = selectedUser || userId;
-    
     try {
-      // Firebase Auth에서 Google 액세스 토큰 가져오기
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
-        alert('Google 인증 토큰을 가져올 수 없습니다. Google 계정으로 로그인해주세요.');
-        return;
-      }
-
-      // Google Tasks 서비스 초기화
-      await googleTasksService.initializeAuth(token);
-      
-      // 토큰 유효성 검사
-      const isValid = await googleTasksService.validateToken();
-      if (!isValid) {
-        alert('Google 인증이 유효하지 않습니다. 다시 로그인해주세요.');
-        return;
-      }
-      
-      // 사용자의 Task 목록 가져오기
-      const taskLists = await googleTasksService.getTaskLists();
-      
-      // 해당 사용자의 연동 상태 업데이트
-      const newStatus = {
-        enabled: true,
-        taskLists: taskLists,
-        selectedTaskList: taskLists.length > 0 ? taskLists[0].id : ''
-      };
-      
-      setUserGoogleSyncStatus(prev => ({
-        ...prev,
-        [targetUserId]: newStatus
-      }));
-      
-      // Firebase에 저장
-      await saveUserGoogleSyncStatus(targetUserId, newStatus);
-      
-      if (taskLists.length > 0) {
-        alert(`Google Tasks 연동이 완료되었습니다!\n${taskLists.length}개의 Task 목록을 찾았습니다.`);
-      } else {
-        alert('Google Tasks 목록을 찾을 수 없습니다. Google Tasks에서 새 목록을 만들어주세요.');
-      }
-    } catch (error) {
-      console.error('Google Tasks 연동 초기화 실패:', error);
-      alert('Google Tasks 연동에 실패했습니다: ' + error.message);
-    }
-  };
-
-  const syncWithGoogleTasks = async () => {
-    const targetUserId = selectedUser || userId;
-    const userStatus = userGoogleSyncStatus[targetUserId];
-    
-    if (!userStatus?.enabled || !userStatus?.selectedTaskList) {
-      alert('Google Tasks 연동을 먼저 설정해주세요.');
-      return;
-    }
-    
-    setSyncing(true);
-    try {
-      // 양방향 동기화 실행
-      const result = await googleTasksService.syncBidirectional(
-        todos, 
-        userStatus.selectedTaskList, 
-        targetUserId, 
-        addDoc, 
-        collection(db, collections.todos),
-        updateDoc,
-        doc,
-        query,
-        where
+      // Google 계정으로 로그인되지 않은 경우 Google 로그인 시도
+      const credential = auth.currentUser?.providerData.find(
+        provider => provider.providerId === 'google.com'
       );
       
-      console.log('Google Tasks 동기화 완료:', result);
-      alert(`동기화 완료!\nGoogle → Firebase: ${result.googleToFirebase.length}개\nFirebase → Google: ${result.firebaseToGoogle.length}개`);
-    } catch (error) {
-      console.error('Google Tasks 동기화 실패:', error);
-      alert('Google Tasks 동기화에 실패했습니다: ' + error.message);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const importFromGoogleTasks = async () => {
-    const targetUserId = selectedUser || userId;
-    const userStatus = userGoogleSyncStatus[targetUserId];
-    
-    if (!userStatus?.enabled || !userStatus?.selectedTaskList) {
-      alert('Google Tasks 연동을 먼저 설정해주세요.');
-      return;
-    }
-    
-    setSyncing(true);
-    try {
-      // Google Tasks에서 할 일 가져오기
-      const googleTasks = await googleTasksService.getTasks(userStatus.selectedTaskList);
-      
-      // Firebase에 추가 (중복 방지)
-      let addedCount = 0;
-      let skippedCount = 0;
-      
-      for (const task of googleTasks) {
-        // 이미 존재하는지 확인
-        const existingTodo = await googleTasksService.findTodoByGoogleTaskId(
-          task.id, 
-          collection(db, collections.todos), 
-          query, 
-          where
-        );
-        
-        if (!existingTodo && !task.completed) {
-          await addDoc(collection(db, collections.todos), {
-            text: task.title,
-            completed: false,
-            userId: targetUserId,
-            date: task.due ? new Date(task.due).toISOString().slice(0, 10) : format(new Date(), 'yyyy-MM-dd'),
-            createdAt: new Date(),
-            googleTaskId: task.id,
-            notes: task.notes || ''
-          });
-          addedCount++;
-        } else {
-          skippedCount++;
+      if (!credential) {
+        try {
+          await loginWithGoogle();
+          alert('Google 계정으로 로그인되었습니다!\n\n이제 개인별로 Google Tasks와 연동할 수 있습니다.\n\n사용 방법:\n1. Google Tasks에서 할 일을 관리하세요\n2. 이 앱에서도 동일한 할 일을 확인할 수 있습니다\n3. 양쪽에서 수정하면 자동으로 동기화됩니다');
+          return;
+        } catch (error) {
+          alert('Google 로그인에 실패했습니다: ' + error.message);
+          return;
         }
+      } else {
+        alert('이미 Google 계정으로 로그인되어 있습니다!\n\nGoogle Tasks와 연동되어 개인별로 할 일을 관리할 수 있습니다.');
       }
-      
-      console.log('Google Tasks에서 가져오기 완료');
-      alert(`Google Tasks에서 ${addedCount}개의 할 일을 가져왔습니다.\n${skippedCount}개는 이미 존재하거나 완료된 항목입니다.`);
     } catch (error) {
-      console.error('Google Tasks에서 가져오기 실패:', error);
-      alert('Google Tasks에서 가져오기에 실패했습니다: ' + error.message);
-    } finally {
-      setSyncing(false);
+      console.error('Google 로그인 실패:', error);
+      alert('Google 로그인에 실패했습니다: ' + error.message);
     }
   };
 
-  const exportToGoogleTasks = async () => {
-    const targetUserId = selectedUser || userId;
-    const userStatus = userGoogleSyncStatus[targetUserId];
-    
-    if (!userStatus?.enabled || !userStatus?.selectedTaskList) {
-      alert('Google Tasks 연동을 먼저 설정해주세요.');
-      return;
-    }
-    
-    setSyncing(true);
-    try {
-      // Firebase 투두들을 Google Tasks로 동기화
-      const result = await googleTasksService.syncFirebaseToGoogle(todos, userStatus.selectedTaskList);
-      console.log('Firebase to Google 동기화 완료:', result);
-      alert(`Google Tasks로 ${result.length}개의 할 일을 내보냈습니다.`);
-    } catch (error) {
-      console.error('Google Tasks로 내보내기 실패:', error);
-      alert('Google Tasks로 내보내기에 실패했습니다: ' + error.message);
-    } finally {
-      setSyncing(false);
-    }
-  };
 
-  // 구글 연동 해제
-  const disableGoogleSync = async () => {
-    const targetUserId = selectedUser || userId;
-    
-    const newStatus = {
-      enabled: false,
-      taskLists: [],
-      selectedTaskList: ''
-    };
-    
-    setUserGoogleSyncStatus(prev => ({
-      ...prev,
-      [targetUserId]: newStatus
-    }));
-    
-    // Firebase에 저장
-    await saveUserGoogleSyncStatus(targetUserId, newStatus);
-    
-    alert('Google Tasks 연동이 해제되었습니다.');
-  };
 
-  // Task 목록 선택 변경
-  const handleTaskListChange = async (taskListId) => {
-    const targetUserId = selectedUser || userId;
-    
-    const newStatus = {
-      ...currentUserSyncStatus,
-      selectedTaskList: taskListId
-    };
-    
-    setUserGoogleSyncStatus(prev => ({
-      ...prev,
-      [targetUserId]: newStatus
-    }));
-    
-    // Firebase에 저장
-    await saveUserGoogleSyncStatus(targetUserId, newStatus);
-  };
 
-  // Google Tasks 연동 상태 확인 및 복구
-  const checkAndRepairGoogleSync = async () => {
-    const targetUserId = selectedUser || userId;
-    const userStatus = userGoogleSyncStatus[targetUserId];
-    
-    if (!userStatus?.enabled) {
-      alert('Google Tasks 연동이 설정되지 않았습니다.');
-      return;
-    }
-    
-    setSyncing(true);
-    try {
-      // 토큰 유효성 검사
-      const isValid = await googleTasksService.validateToken();
-      if (!isValid) {
-        alert('Google 인증이 만료되었습니다. 다시 연동해주세요.');
-        await disableGoogleSync();
-        return;
-      }
-      
-      // Task 목록 다시 가져오기
-      const taskLists = await googleTasksService.getTaskLists();
-      
-      // 연동 상태 업데이트
-      const newStatus = {
-        ...userStatus,
-        taskLists: taskLists,
-        selectedTaskList: taskLists.find(tl => tl.id === userStatus.selectedTaskList) ? userStatus.selectedTaskList : (taskLists.length > 0 ? taskLists[0].id : '')
-      };
-      
-      setUserGoogleSyncStatus(prev => ({
-        ...prev,
-        [targetUserId]: newStatus
-      }));
-      
-      await saveUserGoogleSyncStatus(targetUserId, newStatus);
-      
-      alert('Google Tasks 연동 상태가 확인되었습니다.');
-    } catch (error) {
-      console.error('Google Tasks 연동 상태 확인 실패:', error);
-      alert('Google Tasks 연동 상태 확인에 실패했습니다: ' + error.message);
-    } finally {
-      setSyncing(false);
-    }
-  };
+
+
+
+
 
   // 마스터 계정용 설정 팝오버
   const renderSettingsPopover = () => {
@@ -717,8 +458,13 @@ const TodoList = () => {
           <Select
             value={selectedUser || ''}
             onChange={(e) => {
-              setSelectedUser(e.target.value);
+              const userId = e.target.value;
+              setSelectedUser(userId);
               setTodos([]); // 투두리스트 초기화
+              // 선택된 사용자의 구글 연동 상태 로드
+              if (userId) {
+                loadUserGoogleSyncStatus(userId);
+              }
             }}
             label="사용자 선택"
             sx={{
@@ -763,123 +509,58 @@ const TodoList = () => {
         <Divider sx={{ my: 2 }} />
         
         <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: '#333' }}>
-          Google Tasks 연동
+          Google 계정 연동
         </Typography>
         
         {/* 현재 사용자 정보 표시 */}
         {isAdminOrMasterUser && selectedUser && (
           <Box sx={{ mb: 2, p: 1, bgcolor: '#e3f2fd', borderRadius: 1, border: '1px solid #2196f3' }}>
             <Typography variant="caption" sx={{ color: '#1976d2', fontWeight: 600 }}>
-              👤 {getCurrentDisplayUser()} 사용자 연동 설정
+              👤 {getCurrentDisplayUser()} 사용자
             </Typography>
           </Box>
         )}
         
-        {!currentUserSyncStatus.enabled ? (
-          <Box>
-            <Button
-              variant="outlined"
-              size="small"
-              fullWidth
-              onClick={initializeGoogleSync}
-              disabled={syncing}
-              sx={{ mb: 1 }}
-            >
-              🔗 Google Tasks 연동 시작
-            </Button>
-            <Typography variant="caption" sx={{ color: '#666', display: 'block', textAlign: 'center' }}>
-              연동하면 Google Tasks와 투두리스트를 동기화할 수 있습니다
-            </Typography>
-          </Box>
-        ) : (
-          <>
-            <Box sx={{ mb: 2, p: 1, bgcolor: '#e8f5e9', borderRadius: 1, border: '1px solid #4caf50' }}>
-              <Typography variant="caption" sx={{ color: '#2e7d32', fontWeight: 600 }}>
-                ✅ Google Tasks 연동됨
-              </Typography>
-              {currentUserSyncStatus.taskLists.length > 0 && (
-                <Typography variant="caption" sx={{ color: '#2e7d32', display: 'block', mt: 0.5 }}>
-                  📋 {currentUserSyncStatus.taskLists.length}개의 Task 목록 사용 가능
+        {/* Google 로그인 상태 확인 */}
+        {(() => {
+          const credential = auth.currentUser?.providerData.find(
+            provider => provider.providerId === 'google.com'
+          );
+          
+          if (!credential) {
+            return (
+              <Box>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  onClick={initializeGoogleSync}
+                  disabled={syncing}
+                  sx={{ mb: 1 }}
+                >
+                  🔗 Google 계정으로 로그인
+                </Button>
+                <Typography variant="caption" sx={{ color: '#666', display: 'block', textAlign: 'center' }}>
+                  Google 계정으로 로그인하면 개인별로 할 일을 관리할 수 있습니다
                 </Typography>
-              )}
-            </Box>
-            
-            <FormControl fullWidth size="small" sx={{ mb: 1 }}>
-              <InputLabel>Task 목록 선택</InputLabel>
-              <Select
-                value={currentUserSyncStatus.selectedTaskList}
-                onChange={(e) => handleTaskListChange(e.target.value)}
-                label="Task 목록 선택"
-              >
-                {currentUserSyncStatus.taskLists.map(taskList => (
-                  <MenuItem key={taskList.id} value={taskList.id}>
-                    {taskList.title}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            
-            <Button
-              variant="contained"
-              size="small"
-              fullWidth
-              onClick={syncWithGoogleTasks}
-              disabled={syncing}
-              sx={{ mb: 1 }}
-              startIcon={<SyncIcon />}
-            >
-              {syncing ? '동기화 중...' : '🔄 양방향 동기화'}
-            </Button>
-            
-            <Button
-              variant="outlined"
-              size="small"
-              fullWidth
-              onClick={importFromGoogleTasks}
-              disabled={syncing}
-              sx={{ mb: 1 }}
-              startIcon={<SyncIcon />}
-            >
-              {syncing ? '가져오는 중...' : '⬇️ Google Tasks에서 가져오기'}
-            </Button>
-            
-            <Button
-              variant="outlined"
-              size="small"
-              fullWidth
-              onClick={exportToGoogleTasks}
-              disabled={syncing}
-              sx={{ mb: 1 }}
-              startIcon={<SyncIcon />}
-            >
-              {syncing ? '내보내는 중...' : '⬆️ Google Tasks로 내보내기'}
-            </Button>
-            
-            <Button
-              variant="outlined"
-              size="small"
-              fullWidth
-              onClick={checkAndRepairGoogleSync}
-              disabled={syncing}
-              sx={{ mb: 1 }}
-              startIcon={<RefreshIcon />}
-            >
-              {syncing ? '확인 중...' : '🔍 연동 상태 확인'}
-            </Button>
-            
-            <Button
-              variant="outlined"
-              size="small"
-              fullWidth
-              onClick={disableGoogleSync}
-              disabled={syncing}
-              color="error"
-              sx={{ mb: 1 }}
-            >
-              ❌ 연동 해제
-            </Button>
-          </>
-        )}
+              </Box>
+            );
+          } else {
+            return (
+              <Box sx={{ mb: 2, p: 1, bgcolor: '#e8f5e9', borderRadius: 1, border: '1px solid #4caf50' }}>
+                <Typography variant="caption" sx={{ color: '#2e7d32', fontWeight: 600 }}>
+                  ✅ Google 계정으로 로그인됨
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#2e7d32', display: 'block', mt: 0.5 }}>
+                  📧 {auth.currentUser.email}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#2e7d32', display: 'block', mt: 0.5 }}>
+                  개인별로 할 일을 관리할 수 있습니다
+                </Typography>
+              </Box>
+            );
+          }
+        })()}
       </Popover>
     );
   };
@@ -907,6 +588,18 @@ const TodoList = () => {
     if (!todoText) return;
     
     const targetUserId = isAdminOrMasterUser && selectedUser ? selectedUser : userId;
+    
+    // 중복 확인: 같은 날짜에 같은 내용의 투두가 이미 있는지 확인
+    const existingTodo = todos.find(todo => 
+      todo.text === todoText && 
+      todo.date === date && 
+      todo.userId === targetUserId
+    );
+    
+    if (existingTodo) {
+      alert('같은 날짜에 이미 동일한 할 일이 있습니다.');
+      return;
+    }
     
     try {
       await addDoc(collection(db, collections.todos), {
@@ -938,9 +631,18 @@ const TodoList = () => {
   // 투두 삭제 함수
   const handleDeleteTodo = async (id) => {
     try {
+      // 로컬 상태에서 즉시 제거 (UI 반응성 향상)
+      setTodos(prev => prev.filter(todo => todo.id !== id));
+      
+      // Firestore에서 삭제
       await deleteDoc(doc(db, collections.todos, id));
     } catch (error) {
       console.error('투두 삭제 오류:', error);
+      // 삭제 실패 시 다시 추가
+      const deletedTodo = todos.find(todo => todo.id === id);
+      if (deletedTodo) {
+        setTodos(prev => [...prev, deletedTodo]);
+      }
     }
   };
 
@@ -948,11 +650,23 @@ const TodoList = () => {
   const handleToggleTodo = async (id) => {
     try {
       const todo = todos.find(t => t.id === id);
+      if (!todo) return;
+      
+      // 로컬 상태에서 즉시 업데이트 (UI 반응성 향상)
+      setTodos(prev => prev.map(t => 
+        t.id === id ? { ...t, completed: !t.completed } : t
+      ));
+      
+      // Firestore에서 업데이트
       await updateDoc(doc(db, collections.todos, id), {
         completed: !todo.completed
       });
     } catch (error) {
       console.error('투두 상태 변경 오류:', error);
+      // 업데이트 실패 시 원래 상태로 되돌리기
+      setTodos(prev => prev.map(t => 
+        t.id === id ? { ...t, completed: todo.completed } : t
+      ));
     }
   };
 
@@ -1028,6 +742,29 @@ const TodoList = () => {
           📊 엑셀 다운로드
         </Button>
         
+        {/* 구글 로그인 버튼 */}
+        <Button
+          variant="contained"
+          size="small"
+          onClick={initializeGoogleSync}
+          disabled={syncing}
+          sx={{
+            bgcolor: '#4285f4',
+            color: '#fff',
+            '&:hover': {
+              bgcolor: '#3367d6'
+            },
+            '&:disabled': {
+              bgcolor: 'rgba(66, 133, 244, 0.5)'
+            },
+            fontSize: { xs: '0.7rem', sm: '0.8rem' },
+            px: { xs: 1, sm: 2 },
+            py: { xs: 0.5, sm: 1 }
+          }}
+        >
+          {syncing ? '연동 중...' : '🔗 구글 로그인'}
+        </Button>
+        
         {/* 설정 버튼 */}
         <IconButton
           onClick={handleSettingsClick}
@@ -1057,7 +794,8 @@ const TodoList = () => {
               <Select
                 value={selectedUser || ''}
                 onChange={(e) => {
-                  setSelectedUser(e.target.value);
+                  const userId = e.target.value;
+                  setSelectedUser(userId);
                   setTodos([]); // 투두리스트 초기화
                 }}
                 label="사용자 선택"
@@ -1409,74 +1147,37 @@ const TodoList = () => {
                   />
                 )}
               </Box>
-              {/* 투두 추가 입력 */}
-              <Box sx={{ 
-                display: 'flex', 
-                mb: { xs: 1, sm: 1.5 }, 
-                gap: { xs: 0.5, sm: 1 },
-                p: { xs: 0.5, sm: 1 },
-                bgcolor: 'rgba(255,255,255,0.3)',
-                borderRadius: 1,
-                border: '1px solid rgba(0,0,0,0.1)'
-              }}>
-                <TextField
-                  size="small"
-                  placeholder="할 일 추가"
-                  value={newTodoInputs[date] || ''}
-                  onChange={(e) => handleInputChange(date, e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newTodoInputs[date]?.trim()) {
-                      e.preventDefault();
-                      handleAddTodo(date);
-                    }
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  onFocus={scrollFocus(null)}
-                  sx={{ 
-                    flex: 1,
-                    '& .MuiOutlinedInput-root': {
-                      bgcolor: 'rgba(255,255,255,0.9)',
+              {/* 구글 로그인 상태 표시 */}
+              {(() => {
+                const credential = auth.currentUser?.providerData.find(
+                  provider => provider.providerId === 'google.com'
+                );
+                
+                if (credential) {
+                  return (
+                    <Box sx={{ 
+                      mb: { xs: 1, sm: 1.5 }, 
+                      p: { xs: 0.5, sm: 1 },
+                      bgcolor: 'rgba(76, 175, 80, 0.1)',
                       borderRadius: 1,
-                      '& fieldset': {
-                        borderColor: 'rgba(0,0,0,0.2)',
-                      },
-                      '&:hover fieldset': {
-                        borderColor: 'rgba(0,0,0,0.3)',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: 'rgba(0,0,0,0.4)',
-                      },
-                    },
-                    '& .MuiInputBase-input': {
-                      fontSize: { xs: '0.7rem', sm: '0.8rem' },
-                      color: '#333'
-                    },
-                    '& .MuiInputBase-input::placeholder': {
-                      color: '#666',
-                      opacity: 1
-                    }
-                  }}
-                />
-                <IconButton 
-                  size="small" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAddTodo(date);
-                  }}
-                  disabled={!newTodoInputs[date]?.trim()}
-                  sx={{ 
-                    bgcolor: '#4caf50',
-                    color: '#fff',
-                    '&:hover': { bgcolor: '#388e3c' },
-                    '&.Mui-disabled': {
-                      bgcolor: 'rgba(0,0,0,0.12)',
-                      color: 'rgba(0,0,0,0.26)'
-                    }
-                  }}
-                >
-                  <AddIcon sx={{ fontSize: { xs: '1rem', sm: '1.2rem' } }} />
-                </IconButton>
-              </Box>
+                      border: '1px solid rgba(76, 175, 80, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}>
+                      <SyncIcon sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, color: '#4caf50' }} />
+                      <Typography sx={{ 
+                        fontSize: { xs: '0.6rem', sm: '0.7rem' }, 
+                        color: '#4caf50',
+                        fontWeight: 600
+                      }}>
+                        Google 계정
+                      </Typography>
+                    </Box>
+                  );
+                }
+                return null;
+              })()}
               {/* 투두 리스트 */}
               <Box sx={{ flex: 1, overflowY: 'auto', pr: { xs: 0.5, sm: 1 } }}>
                 {grouped[date].map(todo => (
@@ -1516,22 +1217,6 @@ const TodoList = () => {
                     }}>
                       {todo.text}
                     </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteTodo(todo.id);
-                      }}
-                      sx={{ 
-                        p: 0.5,
-                        color: '#f44336',
-                        '&:hover': {
-                          bgcolor: 'rgba(244, 67, 54, 0.1)'
-                        }
-                      }}
-                    >
-                      <DeleteIcon sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }} />
-                    </IconButton>
                     {todo.carriedOver && (
                       <Chip 
                         label="이월" 

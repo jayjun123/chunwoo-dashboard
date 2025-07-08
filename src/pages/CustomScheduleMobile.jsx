@@ -197,7 +197,7 @@ const CustomScheduleMobile = () => {
                 key={i}
                 sx={{
                   width: isSelected ? '100%' : '0%', // 선택된 날짜는 100% 너비
-                  height: 340, // 높이를 340px로 변경
+                  height: 'calc(100vh - 200px)', // 화면 높이에서 헤더/하단바 높이를 뺀 값으로 설정
                   bgcolor: isSelected ? '#232634' : 'transparent',
                   borderRadius: 2,
                   border: isToday
@@ -286,7 +286,16 @@ const CustomScheduleMobile = () => {
                             mb: 0.2,
                           }}
                         >
-                          {(item.text || item.title || '제목 없음').slice(0, 15)}
+                          {(() => {
+                            const typePrefix = 
+                              item.type === '현장' ? '[현장]' : 
+                              item.type === '회의' ? '[회의]' : 
+                              item.type === '입찰' ? '[입찰]' : 
+                              item.type === '현설' ? '[현설]' : 
+                              item.type === '지원' ? '[지원]' : 
+                              item.type === '기타' ? '[기타]' : '';
+                            return typePrefix + (item.text || item.title || '제목 없음').slice(0, 15);
+                          })()}
                         </Box>
                       ))}
                     </Box>
@@ -368,7 +377,7 @@ const CustomScheduleMobile = () => {
                 key={i}
                 sx={{
                   width: '33.33%', // 3개 합쳐서 100% (각각 33.33%)
-                  height: 340, // 높이를 340px로 변경
+                  height: 'calc(100vh - 200px)', // 화면 높이에서 헤더/하단바 높이를 뺀 값으로 설정
                   bgcolor: dayInfo.isSelected ? '#232634' : 'transparent',
                   borderRadius: 2,
                   border: isToday
@@ -449,9 +458,18 @@ const CustomScheduleMobile = () => {
                         width: '100%',
                         mb: 0.1,
                       }}
-                    >
-                      {(item.text || item.title || '제목 없음').slice(0, 8)}
-                    </Box>
+                                          >
+                        {(() => {
+                          const typePrefix = 
+                            item.type === '현장' ? '[현장]' : 
+                            item.type === '회의' ? '[회의]' : 
+                            item.type === '입찰' ? '[입찰]' : 
+                            item.type === '현설' ? '[현설]' : 
+                            item.type === '지원' ? '[지원]' : 
+                            item.type === '기타' ? '[기타]' : '';
+                          return typePrefix + (item.text || item.title || '제목 없음').slice(0, 8);
+                        })()}
+                      </Box>
                   ))}
                 </Box>
               </Box>
@@ -877,8 +895,10 @@ const CustomScheduleMobile = () => {
         mx: 1, 
         p: 1.5, 
         boxShadow: 3,
-        maxHeight: '220px',
-        overflow: 'hidden'
+        height: '320px',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column'
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
           <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 700 }}>
@@ -899,19 +919,20 @@ const CustomScheduleMobile = () => {
         </Box>
         <Divider sx={{ bgcolor: '#333', mb: 0.5 }} />
         {selectedSchedules.length === 0 ? (
-          <Typography sx={{ color: '#b0b0b0', fontSize: '0.95rem' }}>등록된 일정이 없습니다.</Typography>
+          <Typography sx={{ color: '#b0b0b0', fontSize: '0.95rem', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>등록된 일정이 없습니다.</Typography>
         ) : (
           <Box 
             sx={{ 
               display: 'flex', 
               flexDirection: 'column', 
               gap: 0.3,
-              maxHeight: '220px',
+              flex: 1,
               overflowY: 'auto',
               overflowX: 'hidden',
               scrollbarWidth: 'none', // Firefox
               msOverflowStyle: 'none', // IE/Edge
               '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari
+              WebkitOverflowScrolling: 'touch', // iOS 스크롤 개선
             }}
           >
             {selectedSchedules.map((item, i) => (
@@ -933,7 +954,16 @@ const CustomScheduleMobile = () => {
                 }}
               >
                 <Typography sx={{ flex: 1, fontSize: '0.9rem' }}>
-                  {item.text || item.title || '제목 없음'}
+                  {(() => {
+                    const typePrefix = 
+                      item.type === '현장' ? '[현장]' : 
+                      item.type === '회의' ? '[회의]' : 
+                      item.type === '입찰' ? '[입찰]' : 
+                      item.type === '현설' ? '[현설]' : 
+                      item.type === '지원' ? '[지원]' : 
+                      item.type === '기타' ? '[기타]' : '';
+                    return typePrefix + (item.text || item.title || '제목 없음');
+                  })()}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                   <IconButton 

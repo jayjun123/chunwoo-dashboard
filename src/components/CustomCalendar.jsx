@@ -519,7 +519,7 @@ const CustomCalendar = (props) => {
         gridTemplateColumns: `repeat(${viewMode === '3days' ? 3 : viewMode === 'week' ? 7 : 7}, 1fr)`,
         gridTemplateRows: viewMode === 'month' ? `repeat(${weekCount}, 1fr)` : '1fr',
         gap: { xs: '2px', md: '4px' },
-        height: { xs: '380px', md: '100%' }, // 더 줄인 높이
+        height: { xs: '440px', md: '100%' }, // 모바일에서 60px 증가
         width: '100%',
         minHeight: 0,
         position: 'relative',
@@ -714,16 +714,16 @@ const CustomCalendar = (props) => {
                           display: 'flex',
                           flexDirection: 'column',
                           gap: { xs: 0.1, md: 0.2 },
-                          overflowY: items.length > 3 ? 'auto' : 'hidden',
+                          overflowY: 'auto', // 스크롤 다시 활성화
                           overflowX: 'hidden',
-                          maxHeight: items.length > 3 ? '180px' : 'auto',
+                          maxHeight: '240px',
                           margin: 0,
                           padding: 0,
                           boxSizing: 'border-box',
-                          scrollbarWidth: 'none', // Firefox
-                          msOverflowStyle: 'none', // IE/Edge
+                          scrollbarWidth: 'none', // Firefox에서 스크롤바 숨기기
+                          msOverflowStyle: 'none', // IE/Edge에서 스크롤바 숨기기
                           '&::-webkit-scrollbar': {
-                            display: 'none', // Chrome/Safari
+                            display: 'none', // Webkit 브라우저에서 스크롤바 숨기기
                           },
                         }}>
                           {items.map((item, index) => (
@@ -783,29 +783,29 @@ const CustomCalendar = (props) => {
                                         {item.type === '현설' && '[현설]'}
                                         {item.type === '지원' && '[지원]'}
                                         {item.type === '기타' && '[기타]'}
-                                        {viewMode === '3days' ? item.text : item.text.slice(0, 9)}
+                                        {viewMode === '3days' ? item.text : (viewMode === 'month' ? item.text.slice(0, 9) : item.text)}
                                       </>
                                     </span>
-                                    {onCheckItem && (
-                                      <Checkbox
-                                        size="small"
-                                        checked={isChecked || false}
-                                        onChange={(e) => {
-                                          e.stopPropagation();
+                                    <Checkbox
+                                      size="small"
+                                      checked={isChecked || false}
+                                      onChange={(e) => {
+                                        e.stopPropagation();
+                                        if (onCheckItem) {
                                           onCheckItem(dateStr, item.id, e.target.checked);
-                                        }}
-                                        sx={{
-                                          color: '#ffffff',
-                                          p: 0,
-                                          minWidth: 'auto',
-                                          width: '14px',
-                                          height: '14px',
-                                          '&.Mui-checked': {
-                                            color: '#ffffff'
-                                          }
-                                        }}
-                                      />
-                                    )}
+                                        }
+                                      }}
+                                      sx={{
+                                        color: '#ffffff',
+                                        p: 0,
+                                        minWidth: 'auto',
+                                        width: { xs: '16px', md: '14px' },
+                                        height: { xs: '16px', md: '14px' },
+                                        '&.Mui-checked': {
+                                          color: '#ffffff'
+                                        }
+                                      }}
+                                    />
                                   </Box>
                                 );
                               }}

@@ -262,10 +262,10 @@ const Layout = ({ children }) => {
                 fontSize: 13,
                 padding: '4px 12px',
                 borderRadius: 20,
-                backgroundColor: currentUser?.grade === '마스터' ? '#ff4444' : 
-                               currentUser?.grade === '관리자' ? '#ffeb3b' :
-                               currentUser?.grade === '대마팀' ? '#4caf50' : '#2196f3',
-                color: currentUser?.grade === '관리자' ? '#000' : '#fff',
+                backgroundColor: currentUser?.role === 'team' ? '#4caf50' : 
+                               currentUser?.role === 'admin' ? '#ffeb3b' :
+                               currentUser?.role === 'master' ? '#ff4444' : '#2196f3',
+                color: currentUser?.role === 'admin' ? '#000' : '#fff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -273,9 +273,11 @@ const Layout = ({ children }) => {
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
               }}
             >
-              {currentUser?.grade === '마스터' ? 'MASTER' :
-               currentUser?.grade === '관리자' ? 'ADMIN' :
-               currentUser?.grade === '대마팀' ? 'TEAM' : 'USER'}
+              {currentUser?.role === 'team' ? 
+                (currentUser?.teamGrade === 'B' ? 'TEAM B' : 
+                 currentUser?.teamGrade === 'A' ? 'TEAM A' : 'TEAM') :
+               currentUser?.role === 'admin' ? 'ADMIN' :
+               currentUser?.role === 'master' ? 'MASTER' : 'USER'}
             </div>
 
             {/* 프로필 메뉴 */}

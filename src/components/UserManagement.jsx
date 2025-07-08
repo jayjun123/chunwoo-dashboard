@@ -17,6 +17,16 @@ const UserManagement = () => {
     status: 'active'
   });
   const [permissions, setPermissions] = useState({});
+  const [editingRoleId, setEditingRoleId] = useState(null);
+  
+  // 현재 로그인한 사용자 정보 (실제로는 AuthContext에서 가져와야 함)
+  const [currentUser, setCurrentUser] = useState({
+    id: 1,
+    name: '김철수',
+    email: 'kim@example.com',
+    role: 'admin',
+    team: '관리팀'
+  });
 
   const ROLES = ['master', 'admin', 'user', '대마팀', '보류'];
   const MENUS = [
@@ -47,7 +57,7 @@ const UserManagement = () => {
           id: 2,
           name: '이영희',
           email: 'lee@example.com',
-          role: 'manager',
+          role: '대마팀',
           team: '현장관리팀',
           status: 'active',
           lastLogin: '2024-03-15 13:45'
@@ -66,6 +76,35 @@ const UserManagement = () => {
     }, 1000);
   }, []);
 
+  // 현재 사용자의 권한에 따라 볼 수 있는 사용자 목록 필터링
+  const getVisibleUsers = (allUsers) => {
+    if (currentUser.role === 'master' || currentUser.role === 'admin') {
+      return allUsers; // 마스터와 관리자는 전체 목록 볼 수 있음
+    } else {
+      // 일반회원과 대마팀은 자신의 정보만 볼 수 있음
+      return allUsers.filter(user => user.id === currentUser.id);
+    }
+  };
+
+  // 현재 사용자가 수정/삭제할 수 있는지 확인
+  const canEditUser = (user) => {
+    if (currentUser.role === 'master') return true;
+    if (currentUser.role === 'admin') return user.role !== 'master';
+    return user.id === currentUser.id; // 자신의 정보만 수정 가능
+  };
+
+  // 현재 사용자가 새 사용자를 추가할 수 있는지 확인
+  const canAddUser = () => {
+    return currentUser.role === 'master' || currentUser.role === 'admin';
+  };
+
+  // 역할 변경 권한 확인
+  const canChangeRole = (user) => {
+    if (currentUser.role === 'master') return true;
+    if (currentUser.role === 'admin') return user.role !== 'master';
+    return false; // 일반회원과 대마팀은 역할 변경 불가
+  };
+
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
   };
@@ -75,6 +114,10 @@ const UserManagement = () => {
   };
 
   const handleAddUser = () => {
+    if (!canAddUser()) {
+      alert('사용자 추가 권한이 없습니다.');
+      return;
+    }
     setEditingUser(null);
     setNewUser({
       name: '',
@@ -87,12 +130,21 @@ const UserManagement = () => {
   };
 
   const handleEditUser = (user) => {
+    if (!canEditUser(user)) {
+      alert('이 사용자를 수정할 권한이 없습니다.');
+      return;
+    }
     setEditingUser(user);
     setNewUser({ ...user });
     setShowModal(true);
   };
 
   const handleDeleteUser = (userId) => {
+    const userToDelete = users.find(u => u.id === userId);
+    if (!canEditUser(userToDelete)) {
+      alert('이 사용자를 삭제할 권한이 없습니다.');
+      return;
+    }
     if (window.confirm('정말로 이 사용자를 삭제하시겠습니까?')) {
       setUsers(users.filter(user => user.id !== userId));
     }
@@ -122,7 +174,51 @@ const UserManagement = () => {
     }));
   };
 
-  const filteredUsers = users.filter(user => {
+  const handleRoleClick = (user) => {
+    if (!canChangeRole(user)) {
+      alert('역할을 변경할 권한이 없습니다.');
+      return;
+    }
+    setEditingRoleId(user.id);
+  };
+
+  const handleRoleChange = (userId, newRole) => {
+    setUsers(users.map(user => {
+      if (user.id === userId) {
+        // 역할에 따라 grade 기본값 설정 (직책은 별도로 설정 가능)
+        let newGrade = user.grade || '사원';
+        if (newRole === 'master') {
+          newGrade = '마스터';
+        } else if (newRole === 'admin') {
+          newGrade = '관리자';
+        } else if (newRole === 'team') {
+          newGrade = '팀원'; // 기본값, 필요시 팀장, 대리 등으로 수정 가능
+        } else if (newRole === 'user') {
+          newGrade = '사원';
+        } else if (newRole === 'pending') {
+          newGrade = '보류';
+        }
+        
+        return { ...user, role: newRole, grade: newGrade };
+      }
+      return user;
+    }));
+    setEditingRoleId(null);
+  };
+
+  const getRoleDisplayName = (role) => {
+    const roleMap = {
+      'master': '마스터',
+      'admin': '관리자',
+      'user': '일반회원',
+      '대마팀': '대마팀',
+      '보류': '보류'
+    };
+    return roleMap[role] || role;
+  };
+
+  const visibleUsers = getVisibleUsers(users);
+  const filteredUsers = visibleUsers.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.team.toLowerCase().includes(searchTerm.toLowerCase());
@@ -143,9 +239,11 @@ const UserManagement = () => {
     <div className="user-management-container">
       <div className="user-management-header">
         <h2>사용자 관리</h2>
-        <button className="add-user-button" onClick={handleAddUser}>
-          <FaUserPlus /> 사용자 추가
-        </button>
+        {canAddUser() && (
+          <button className="add-user-button" onClick={handleAddUser}>
+            <FaUserPlus /> 사용자 추가
+          </button>
+        )}
       </div>
 
       <div className="user-management-filters">
@@ -158,15 +256,19 @@ const UserManagement = () => {
             onChange={handleSearch}
           />
         </div>
-        <div className="role-filter">
-          <FaFilter />
-          <select value={selectedRole} onChange={handleRoleFilter}>
-            <option value="all">모든 역할</option>
-            <option value="admin">관리자</option>
-            <option value="manager">매니저</option>
-            <option value="user">일반 사용자</option>
-          </select>
-        </div>
+        {(currentUser.role === 'master' || currentUser.role === 'admin') && (
+          <div className="role-filter">
+            <FaFilter />
+            <select value={selectedRole} onChange={handleRoleFilter}>
+              <option value="all">모든 역할</option>
+              <option value="master">마스터</option>
+              <option value="admin">관리자</option>
+              <option value="user">일반회원</option>
+              <option value="대마팀">대마팀</option>
+              <option value="보류">보류</option>
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="users-table">
@@ -180,7 +282,7 @@ const UserManagement = () => {
               <th>상태</th>
               <th>최근 로그인</th>
               <th>작업</th>
-              {MENUS.map(menu => (
+              {(currentUser.role === 'master' || currentUser.role === 'admin') && MENUS.map(menu => (
                 <th key={menu.key}>{menu.label}</th>
               ))}
             </tr>
@@ -191,18 +293,51 @@ const UserManagement = () => {
                 <td>{user.name}</td>
                 <td>{user.email}</td>
                 <td>
-                  <span className={`role-badge ${user.role}`}>{ROLES.includes(user.role) ? user.role : user.role}</span>
+                  {editingRoleId === user.id ? (
+                    <select
+                      value={user.role}
+                      onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                      onBlur={() => setEditingRoleId(null)}
+                      autoFocus
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid #ddd',
+                        fontSize: '14px',
+                        backgroundColor: '#fff',
+                        color: '#333'
+                      }}
+                    >
+                      <option value="master">마스터</option>
+                      <option value="admin">관리자</option>
+                      <option value="user">일반회원</option>
+                      <option value="대마팀">대마팀</option>
+                      <option value="보류">보류</option>
+                    </select>
+                  ) : (
+                    <span 
+                      className={`role-badge ${user.role} ${canChangeRole(user) ? 'clickable' : ''}`}
+                      onClick={() => handleRoleClick(user)}
+                      style={{ cursor: canChangeRole(user) ? 'pointer' : 'default' }}
+                    >
+                      {getRoleDisplayName(user.role)}
+                    </span>
+                  )}
                 </td>
                 <td>{user.team}</td>
                 <td><span className={`status-badge ${user.status}`}>{user.status === 'active' ? '활성' : '비활성'}</span></td>
                 <td>{user.lastLogin}</td>
                 <td>
                   <div className="action-buttons">
-                    <button className="edit-button" onClick={() => handleEditUser(user)}><FaUserEdit /></button>
-                    <button className="delete-button" onClick={() => handleDeleteUser(user.id)}><FaUserMinus /></button>
+                    {canEditUser(user) && (
+                      <button className="edit-button" onClick={() => handleEditUser(user)}><FaUserEdit /></button>
+                    )}
+                    {canEditUser(user) && (
+                      <button className="delete-button" onClick={() => handleDeleteUser(user.id)}><FaUserMinus /></button>
+                    )}
                   </div>
                 </td>
-                {MENUS.map(menu => (
+                {(currentUser.role === 'master' || currentUser.role === 'admin') && MENUS.map(menu => (
                   <td key={menu.key}>
                     {PERMS.map(perm => (
                       <label key={perm} style={{ marginRight: 4 }}>
@@ -248,10 +383,13 @@ const UserManagement = () => {
               <select
                 value={newUser.role}
                 onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                disabled={currentUser.role !== 'master' && currentUser.role !== 'admin'}
               >
+                <option value="master">마스터</option>
                 <option value="admin">관리자</option>
-                <option value="manager">매니저</option>
-                <option value="user">일반 사용자</option>
+                <option value="user">일반회원</option>
+                <option value="대마팀">대마팀</option>
+                <option value="보류">보류</option>
               </select>
             </div>
             <div className="form-group">

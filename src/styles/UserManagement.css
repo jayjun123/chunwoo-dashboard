@@ -125,6 +125,17 @@
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.role-badge.clickable:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.role-badge.master {
+  background-color: #9c27b0;
+  color: white;
 }
 
 .role-badge.admin {
@@ -132,13 +143,18 @@
   color: white;
 }
 
-.role-badge.manager {
+.role-badge.user {
+  background-color: var(--info-color);
+  color: white;
+}
+
+.role-badge.대마팀 {
   background-color: var(--warning-color);
   color: white;
 }
 
-.role-badge.user {
-  background-color: var(--info-color);
+.role-badge.보류 {
+  background-color: var(--text-secondary);
   color: white;
 }
 

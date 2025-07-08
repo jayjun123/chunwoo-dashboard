@@ -21,7 +21,7 @@ const Header = ({ user, onLogout }) => {
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const menuRef = useRef();
-  const { currentUser } = useAuth();
+  const { currentUser, refreshUserInfo } = useAuth();
 
   const menuItems = [
     { path: '/schedule', label: '일정관리', icon: <EventIcon /> },
@@ -81,15 +81,20 @@ const Header = ({ user, onLogout }) => {
   const getGradeLabel = (user) => {
     if (!user) return { label: '게스트', color: '#666', bgColor: '#f0f0f0' };
     
-    // 테스트용: 현재 사용자를 마스터로 강제 설정
-    return { label: 'MASTER', color: '#fff', bgColor: '#ff4444' };
-    
-    // 아래 코드는 주석 처리
-    /*
     const email = user.email?.toLowerCase() || '';
     const displayName = user.displayName || '';
     const role = user.role || '';
     const grade = user.grade || '';
+    const teamGrade = user.teamGrade || '';
+    
+    console.log('Header - 현재 사용자 정보:', { 
+      email, 
+      displayName, 
+      role, 
+      grade, 
+      teamGrade,
+      전체사용자정보: user 
+    });
     
     // 마스터 권한 확인 (role 우선, 그 다음 email/displayName)
     if (role === 'master' || grade === '마스터' || email.includes('master') || displayName.includes('마스터')) {
@@ -101,19 +106,18 @@ const Header = ({ user, onLogout }) => {
       return { label: '관리자', color: '#000', bgColor: '#ffeb3b' };
     }
     
-    // 대마팀 권한 확인 (A, B 구분)
-    if (role === 'team' || grade === '대마팀' || email.includes('team') || displayName.includes('대마팀')) {
-      if (email.includes('a') || displayName.includes('A') || grade === '대마팀A') {
-        return { label: '대마팀A', color: '#fff', bgColor: '#4caf50' };
-      } else if (email.includes('b') || displayName.includes('B') || grade === '대마팀B') {
-        return { label: '대마팀B', color: '#fff', bgColor: '#4caf50' };
+    // 팀 권한 확인 (role이 team인 경우)
+    if (role === 'team') {
+      if (teamGrade === 'A') {
+        return { label: 'TEAM A', color: '#fff', bgColor: '#4caf50' };
+      } else if (teamGrade === 'B') {
+        return { label: 'TEAM B', color: '#fff', bgColor: '#4caf50' };
       }
-      return { label: '대마팀', color: '#fff', bgColor: '#4caf50' };
+      return { label: 'TEAM', color: '#fff', bgColor: '#4caf50' };
     }
     
     // 일반회원
-    return { label: '일반회원', color: '#fff', bgColor: '#2196f3' };
-    */
+    return { label: 'USER', color: '#fff', bgColor: '#2196f3' };
   };
 
   const userGrade = getGradeLabel(currentUser);
@@ -201,7 +205,13 @@ const Header = ({ user, onLogout }) => {
               justifyContent: 'center',
               minWidth: 'fit-content',
               boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              cursor: 'pointer',
               border: '2px solid red' // 테스트용 테두리 추가
+            }}
+            onClick={async () => {
+              console.log('사용자 정보 강제 새로고침 시작');
+              await refreshUserInfo();
+              console.log('사용자 정보 새로고침 완료');
             }}
           >
             {userGrade.label} - TEST
