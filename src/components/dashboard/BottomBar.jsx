@@ -1431,7 +1431,25 @@ const BottomBar = ({
               <Button variant="outlined" size="small" sx={{ fontWeight: 600 }} onClick={() => navigate('/todo/all')}>
                 LIST
               </Button>
-              <Button variant="outlined" size="small" sx={{ fontWeight: 600 }} onClick={handleLoadYesterdayIncomplete}>
+              <Button 
+                variant="outlined" 
+                size="small" 
+                sx={{ 
+                  fontWeight: 600,
+                  fontSize: '0.7rem',
+                  px: 1.5,
+                  py: 0.5,
+                  minWidth: 'auto',
+                  bgcolor: '#424242',
+                  color: '#fff',
+                  borderColor: '#666',
+                  '&:hover': {
+                    bgcolor: '#616161',
+                    borderColor: '#888'
+                  }
+                }} 
+                onClick={handleLoadYesterdayIncomplete}
+              >
                 불러오기
               </Button>
             </Box>
@@ -1601,8 +1619,9 @@ const BottomBar = ({
         }}
       >
         <DialogTitle sx={{ 
-          bgcolor: '#f5f5f5', 
-          borderBottom: '1px solid #e0e0e0',
+          bgcolor: '#424242', 
+          color: '#fff',
+          borderBottom: '1px solid #666',
           fontWeight: 600
         }}>
           전날 미완료 투두 불러오기
@@ -1615,9 +1634,22 @@ const BottomBar = ({
             <Button
               size="small"
               onClick={handleSelectAll}
-              sx={{ fontSize: '0.8rem' }}
+              sx={{ 
+                fontSize: '0.7rem',
+                px: 1.5,
+                py: 0.5,
+                minWidth: 'auto',
+                bgcolor: '#424242',
+                color: '#fff',
+                borderColor: '#666',
+                whiteSpace: 'nowrap',
+                '&:hover': {
+                  bgcolor: '#616161',
+                  borderColor: '#888'
+                }
+              }}
             >
-              {selectedTodos.length === yesterdayTodos.length ? '전체 해제' : '전체 선택'}
+              {selectedTodos.length === yesterdayTodos.length ? '전체해제' : '전체선택'}
             </Button>
           </Box>
           
@@ -1639,8 +1671,8 @@ const BottomBar = ({
                   sx={{ 
                     display: 'flex', 
                     alignItems: 'center', 
-                    p: 1, 
-                    mb: 0.5,
+                    p: 0.5, 
+                    mb: 0.25,
                     borderRadius: 1,
                     bgcolor: selectedTodos.includes(todo.id) ? '#e3f2fd' : '#fff',
                     border: '1px solid #e0e0e0'
@@ -1649,9 +1681,10 @@ const BottomBar = ({
                   <Checkbox
                     checked={selectedTodos.includes(todo.id)}
                     onChange={() => handleTodoSelection(todo.id)}
-                    sx={{ mr: 1 }}
+                    sx={{ mr: 0.5, p: 0.25 }}
+                    size="small"
                   />
-                  <Typography sx={{ flex: 1, fontSize: 14, color: '#000' }}>
+                  <Typography sx={{ flex: 1, fontSize: '0.75rem', color: '#000', lineHeight: 1.2 }}>
                     {todo.text}
                   </Typography>
                 </Box>
@@ -1663,6 +1696,20 @@ const BottomBar = ({
           <Button 
             onClick={() => setLoadTodoDialog(false)}
             variant="outlined"
+            size="small"
+            sx={{ 
+              fontSize: '0.7rem',
+              px: 1.5,
+              py: 0.5,
+              minWidth: 'auto',
+              bgcolor: '#424242',
+              color: '#fff',
+              borderColor: '#666',
+              '&:hover': {
+                bgcolor: '#616161',
+                borderColor: '#888'
+              }
+            }}
           >
             취소
           </Button>
@@ -1670,17 +1717,52 @@ const BottomBar = ({
             onClick={handleDeleteSelectedTodos}
             variant="outlined"
             color="error"
+            size="small"
             disabled={selectedTodos.length === 0}
+            sx={{ 
+              fontSize: '0.7rem',
+              px: 1.5,
+              py: 0.5,
+              minWidth: 'auto',
+              bgcolor: '#424242',
+              color: '#ff6b6b',
+              borderColor: '#666',
+              '&:hover': {
+                bgcolor: '#616161',
+                borderColor: '#888'
+              },
+              '&:disabled': {
+                bgcolor: '#2a2a2a',
+                color: '#666',
+                borderColor: '#444'
+              }
+            }}
           >
-            선택 삭제 ({selectedTodos.length})
+            선택삭제({selectedTodos.length})
           </Button>
           <Button 
             onClick={handleLoadSelectedTodos}
             variant="contained"
             color="primary"
+            size="small"
             disabled={selectedTodos.length === 0}
+            sx={{ 
+              fontSize: '0.7rem',
+              px: 1.5,
+              py: 0.5,
+              minWidth: 'auto',
+              bgcolor: '#424242',
+              color: '#fff',
+              '&:hover': {
+                bgcolor: '#616161'
+              },
+              '&:disabled': {
+                bgcolor: '#2a2a2a',
+                color: '#666'
+              }
+            }}
           >
-            선택 불러오기 ({selectedTodos.length})
+            선택불러오기({selectedTodos.length})
           </Button>
         </DialogActions>
       </Dialog>

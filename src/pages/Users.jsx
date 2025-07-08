@@ -18,14 +18,11 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } 
 import { db } from '../firebase';
 
 const ROLES = {
-  ADMIN: { label: '관리자', color: 'error', icon: AdminIcon },
-  MANAGER: { label: '매니저', color: 'warning', icon: SecurityIcon },
-  USER: { label: '일반사용자', color: 'info', icon: PersonIcon },
-  MASTER: { label: '마스터', color: 'error', icon: AdminIcon },
-  admin: { label: '관리자', color: 'error', icon: AdminIcon },
-  manager: { label: '매니저', color: 'warning', icon: SecurityIcon },
-  user: { label: '일반사용자', color: 'info', icon: PersonIcon },
-  master: { label: '마스터', color: 'error', icon: AdminIcon }
+  master: { label: '마스터', color: 'error', icon: AdminIcon },
+  admin: { label: '관리자', color: 'warning', icon: AdminIcon },
+  user: { label: '일반회원', color: 'info', icon: PersonIcon },
+  '대마팀': { label: '대마팀', color: 'success', icon: SecurityIcon },
+  '보류': { label: '보류', color: 'default', icon: PersonIcon }
 };
 
 const PERMISSIONS = {
@@ -42,10 +39,11 @@ const Users = () => {
   const [users, setUsers] = useState([]);
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [editingRoleId, setEditingRoleId] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    role: 'USER',
+    role: 'user',
     permissions: [],
     isActive: true,
     department: '',
@@ -53,6 +51,15 @@ const Users = () => {
   });
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // 현재 로그인한 사용자 정보 (실제로는 AuthContext에서 가져와야 함)
+  const [currentUser, setCurrentUser] = useState({
+    id: 1,
+    name: '김철수',
+    email: 'kim@example.com',
+    role: 'admin',
+    team: '관리팀'
+  });
 
   const inputRef1 = useRef();
 
@@ -89,6 +96,65 @@ const Users = () => {
     }
   };
 
+  // 역할 변경 권한 확인
+  const canChangeRole = (user) => {
+    if (currentUser.role === 'master') return true;
+    if (currentUser.role === 'admin') return user.role !== 'master';
+    return false; // 일반회원과 대마팀은 역할 변경 불가
+  };
+
+  const handleRoleClick = (user) => {
+    if (!canChangeRole(user)) {
+      setSnackbar({
+        open: true,
+        message: '역할을 변경할 권한이 없습니다.',
+        severity: 'warning'
+      });
+      return;
+    }
+    setEditingRoleId(user.id);
+  };
+
+  const handleRoleChange = async (userId, newRole) => {
+    try {
+      // 역할에 따라 grade 기본값 설정 (직책은 별도로 설정 가능)
+      let newGrade = '사원';
+      if (newRole === 'master') {
+        newGrade = '마스터';
+      } else if (newRole === 'admin') {
+        newGrade = '관리자';
+      } else if (newRole === 'team') {
+        newGrade = '팀원'; // 기본값, 필요시 팀장, 대리 등으로 수정 가능
+      } else if (newRole === 'user') {
+        newGrade = '사원';
+      } else if (newRole === 'pending') {
+        newGrade = '보류';
+      }
+
+      await updateDoc(doc(db, 'members', userId), { 
+        role: newRole,
+        grade: newGrade 
+      });
+      
+      setUsers(users.map(user => 
+        user.id === userId ? { ...user, role: newRole, grade: newGrade } : user
+      ));
+      setEditingRoleId(null);
+      setSnackbar({
+        open: true,
+        message: '역할이 변경되었습니다.',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('역할 변경 실패:', error);
+      setSnackbar({
+        open: true,
+        message: '역할 변경에 실패했습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
   const handleOpen = (user = null) => {
     if (user) {
       setSelectedUser(user);
@@ -106,7 +172,7 @@ const Users = () => {
       setFormData({
         name: '',
         email: '',
-        role: 'USER',
+        role: 'user',
         permissions: [],
         isActive: true,
         department: '',
@@ -249,12 +315,35 @@ const Users = () => {
                     <Typography variant="caption" color="textSecondary">{user.position || '-'}</Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={ROLES[user.role]?.label || '일반사용자'}
-                      color={ROLES[user.role]?.color || 'info'}
-                      size="small"
-                      icon={ROLES[user.role]?.icon || PersonIcon}
-                    />
+                    {editingRoleId === user.id ? (
+                      <Select
+                        value={user.role}
+                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                        onBlur={() => setEditingRoleId(null)}
+                        autoFocus
+                        size="small"
+                        sx={{ minWidth: 120 }}
+                      >
+                        {Object.entries(ROLES).map(([key, { label }]) => (
+                          <MenuItem key={key} value={key}>{label}</MenuItem>
+                        ))}
+                      </Select>
+                    ) : (
+                      <Chip
+                        label={ROLES[user.role]?.label || '일반회원'}
+                        color={ROLES[user.role]?.color || 'info'}
+                        size="small"
+                        icon={ROLES[user.role]?.icon || PersonIcon}
+                        onClick={() => handleRoleClick(user)}
+                        sx={{ 
+                          cursor: canChangeRole(user) ? 'pointer' : 'default',
+                          '&:hover': canChangeRole(user) ? {
+                            transform: 'scale(1.05)',
+                            boxShadow: 1
+                          } : {}
+                        }}
+                      />
+                    )}
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>

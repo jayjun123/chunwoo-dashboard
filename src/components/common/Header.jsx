@@ -6,10 +6,13 @@ import '../../styles/Header.css';
 import { useMediaQuery } from 'react-responsive';
 
 const Header = () => {
-  const { logout } = useAuth();
+  const { logout, currentUser } = useAuth();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  // 디버깅용: 현재 사용자 정보 출력
+  console.log('Header - 현재 사용자 정보:', currentUser);
 
   const menuItems = [
     { path: '/schedule', label: '일정관리', icon: '📅' },
@@ -95,8 +98,18 @@ const Header = () => {
           {isUserMenuOpen && (
             <div className="user-dropdown">
               <div className="user-info">
-                <div className="user-name">관리자</div>
-                <div className="user-email">admin@example.com</div>
+                <div className="user-name">
+                  {currentUser?.name || currentUser?.displayName || '사용자'}
+                  <span className="user-role" data-role={currentUser?.role}>
+                    {currentUser?.role === 'master' && '마스터'}
+                    {currentUser?.role === 'admin' && '관리자'}
+                    {currentUser?.role === 'team' && `팀 ${currentUser?.grade || '팀원'}`}
+                    {currentUser?.role === 'user' && '일반회원'}
+                    {currentUser?.role === 'pending' && '보류'}
+                    {!currentUser?.role && '일반회원'}
+                  </span>
+                </div>
+                <div className="user-email">{currentUser?.email || '이메일 없음'}</div>
               </div>
               <div className="dropdown-divider" />
               <button className="dropdown-item">

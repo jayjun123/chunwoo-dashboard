@@ -68,6 +68,7 @@ const ScheduleManagement = ({
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().slice(0, 10)
   );
+  const [siteSearchTerm, setSiteSearchTerm] = useState('');
 
   useEffect(() => {
     // props로 전달받은 sites가 있으면 사용, 없으면 기존 로직 사용
@@ -128,7 +129,7 @@ const ScheduleManagement = ({
           const schedulesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           console.log('PC 일정 데이터 로드:', schedulesData);
           
-          // 날짜별로 일정을 그룹화
+          // 날짜별로 일정을 그룹화하고 입력순서대로 정렬
           const newCalendarItems = {};
           schedulesData.forEach(schedule => {
             if (!schedule.date) {
@@ -153,6 +154,19 @@ const ScheduleManagement = ({
               newCalendarItems[dateStr] = [];
             }
             newCalendarItems[dateStr].push(schedule);
+          });
+          
+          // 각 날짜별로 입력순서대로 정렬 (createdAt 기준)
+          Object.keys(newCalendarItems).forEach(dateStr => {
+            newCalendarItems[dateStr].sort((a, b) => {
+              const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 
+                           a.createdAt?.getTime ? a.createdAt.getTime() : 
+                           new Date(a.createdAt).getTime();
+              const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 
+                           b.createdAt?.getTime ? b.createdAt.getTime() : 
+                           new Date(b.createdAt).getTime();
+              return aTime - bTime; // 오름차순 (먼저 입력된 것이 위에)
+            });
           });
           
           console.log('PC 달력 아이템 업데이트:', newCalendarItems);
@@ -181,7 +195,14 @@ const ScheduleManagement = ({
     };
   }, []); // 빈 의존성 배열로 컴포넌트 마운트 시에만 실행
 
-  const filteredSites = useMemo(() => sites.filter(site => isInMonth(site, year, month)), [sites, year, month]);
+  const filteredSites = useMemo(() => {
+    const monthFiltered = sites.filter(site => isInMonth(site, year, month));
+    if (!siteSearchTerm) return monthFiltered;
+    
+    return monthFiltered.filter(site => 
+      site.name && site.name.toLowerCase().includes(siteSearchTerm.toLowerCase())
+    );
+  }, [sites, year, month, siteSearchTerm]);
 
   const onDragEnd = async (result) => {
     if (!result.destination) return;
@@ -210,6 +231,7 @@ const ScheduleManagement = ({
         userId: user.uid,
         createdAt: new Date(),
         updatedAt: new Date(),
+        siteName: site.name,
       };
       try {
         if (onAddSchedule) {
@@ -524,17 +546,35 @@ const ScheduleManagement = ({
             mt: { xs: 0, md: '15px' } // PC에서만 위쪽 여백 15px 추가
           }}>
             <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', position: { xs: 'static', md: 'static' }, transform: { xs: 'none', md: 'none' }, display: { xs: 'none', md: 'block' } }}>
-              <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, display: { xs: 'none', md: 'block' } }}>공사현황</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', md: 'block' } }}>이달의 현장</Typography>
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, display: { xs: 'none', md: 'block' } }}>이달의 현장</Typography>
+              <TextField
+                size="small"
+                placeholder="현장명 검색"
+                value={siteSearchTerm}
+                sx={{ 
+                  width: '100%',
+                  '& .MuiOutlinedInput-root': {
+                    fontSize: '0.875rem'
+                  }
+                }}
+                onChange={(e) => {
+                  setSiteSearchTerm(e.target.value);
+                }}
+              />
             </Box>
             <Droppable droppableId="siteList">
               {(provided, snapshot) => (
                 <Box ref={provided.innerRef} {...provided.droppableProps} sx={{
-                  flex: 1, overflowY: 'auto', p: isMobile ? 0.5 : 1,
+                  flex: 1, overflowY: filteredSites.length > 10 ? 'auto' : 'hidden', p: isMobile ? 0.5 : 1,
                   bgcolor: snapshot.isDraggingOver ? 'action.hover' : 'background.paper',
                   maxHeight: isMobile ? '200px' : 'none',
                   position: { xs: 'static', md: 'static' },
-                  transform: { xs: 'none', md: 'none' }
+                  transform: { xs: 'none', md: 'none' },
+                  scrollbarWidth: 'none', // Firefox에서 스크롤바 숨기기
+                  msOverflowStyle: 'none', // IE/Edge에서 스크롤바 숨기기
+                  '&::-webkit-scrollbar': {
+                    display: 'none', // Webkit 브라우저에서 스크롤바 숨기기
+                  },
                 }}>
                   {filteredSites.length > 0 ? (
                     filteredSites.map((site, index) => (

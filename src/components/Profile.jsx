@@ -269,11 +269,19 @@ const Profile = () => {
               <Box sx={{ textAlign: 'left' }}>
                 <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                   <SecurityIcon sx={{ mr: 1, fontSize: 16 }} />
-                  권한: {currentUser.role === 'master' ? '마스터' : currentUser.role === 'admin' ? '관리자' : '일반회원'}
+                  권한: {currentUser.role === 'team' ? 
+                    (currentUser.teamGrade === 'B' ? 'TEAM B' : 
+                     currentUser.teamGrade === 'A' ? 'TEAM A' : 'TEAM') :
+                   currentUser.role === 'admin' ? 'ADMIN' :
+                   currentUser.role === 'master' ? 'MASTER' : 'USER'}
                 </Typography>
                 <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                   <PersonIcon sx={{ mr: 1, fontSize: 16 }} />
-                  등급: {currentUser.grade || '일반회원'}
+                  등급: {currentUser.role === 'team' ? 
+                    (currentUser.teamGrade === 'B' ? 'TEAM B' : 
+                     currentUser.teamGrade === 'A' ? 'TEAM A' : 'TEAM') :
+                   currentUser.role === 'admin' ? 'ADMIN' :
+                   currentUser.role === 'master' ? 'MASTER' : 'USER'}
                 </Typography>
                 <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
                   <EmailIcon sx={{ mr: 1, fontSize: 16 }} />

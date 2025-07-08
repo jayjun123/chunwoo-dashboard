@@ -59,7 +59,7 @@ import { useAuth } from '../contexts/AuthContext';
 const Members = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { currentUser } = useAuth();
+  const { currentUser, refreshUserInfo } = useAuth();
   
   // 상태 관리
   const [members, setMembers] = useState([]);
@@ -96,8 +96,16 @@ const Members = () => {
     if (member.role === 'master') {
       return false;
     }
-    // 관리자만 역할 변경 가능
-    return currentUser && currentUser.grade === '관리자';
+    // 마스터는 모든 사용자 변경 가능
+    if (currentUser && currentUser.role === 'master') {
+      return true;
+    }
+    // 관리자는 마스터 제외한 사용자 변경 가능
+    if (currentUser && currentUser.role === 'admin') {
+      return member.role !== 'master';
+    }
+    // 일반회원과 대마팀은 변경 불가
+    return false;
   };
 
   // 역할 변경 다이얼로그 열기
@@ -115,6 +123,8 @@ const Members = () => {
       setRoleDialog({ open: false, member: null });
       setSelectedRole('');
       setSelectedTeamGrade('');
+      // 성공 메시지 표시
+      alert(`${member.name}의 역할이 ${roles[selectedRole]?.label}로 변경되었습니다.`);
     } catch (error) {
       console.error('역할 변경 실패:', error);
       setError('역할 변경에 실패했습니다.');
@@ -279,6 +289,11 @@ const Members = () => {
 
       await updateDoc(memberRef, updateData);
       await fetchMembers();
+      
+      // 현재 사용자의 역할이 변경된 경우 AuthContext 새로고침
+      if (memberId === currentUser?.uid) {
+        await refreshUserInfo();
+      }
     } catch (error) {
       console.error('역할 변경 실패:', error);
       setError('역할 변경에 실패했습니다.');
@@ -431,7 +446,16 @@ const Members = () => {
                       label={getRoleLabel(member)} 
                       color={getRoleColor(member)} 
                       size="small"
-                      sx={{ fontWeight: 600 }}
+                      onClick={canChangeRole(member) ? () => openRoleDialog(member) : undefined}
+                      sx={{ 
+                        fontWeight: 600,
+                        cursor: canChangeRole(member) ? 'pointer' : 'default',
+                        '&:hover': canChangeRole(member) ? {
+                          opacity: 0.8,
+                          transform: 'scale(1.05)',
+                          transition: 'all 0.2s ease'
+                        } : {}
+                      }}
                     />
                   </Box>
                   
@@ -514,6 +538,15 @@ const Members = () => {
                               label={getRoleLabel(member)} 
                               color={getRoleColor(member)} 
                               size="small"
+                              onClick={canChangeRole(member) ? () => openRoleDialog(member) : undefined}
+                              sx={{
+                                cursor: canChangeRole(member) ? 'pointer' : 'default',
+                                '&:hover': canChangeRole(member) ? {
+                                  opacity: 0.8,
+                                  transform: 'scale(1.05)',
+                                  transition: 'all 0.2s ease'
+                                } : {}
+                              }}
                             />
                             {canChangeRole(member) && (
                               <Tooltip title="역할 변경">
@@ -778,8 +811,10 @@ const Members = () => {
                   onChange={(e) => setSelectedRole(e.target.value)}
                   label="역할"
                 >
-                  {Object.entries(roles).map(([role, { label }]) => (
-                    <MenuItem key={role} value={role}>{label}</MenuItem>
+                  {Object.entries(roles).map(([role, { label, hidden }]) => (
+                    <MenuItem key={role} value={role} disabled={hidden}>
+                      {label}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>

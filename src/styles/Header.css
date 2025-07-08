@@ -192,6 +192,39 @@
   color: #fff;
   font-weight: 600;
   font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.user-role {
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.user-role[data-role="master"] {
+  background: #d32f2f;
+}
+
+.user-role[data-role="admin"] {
+  background: #f57c00;
+}
+
+.user-role[data-role="team"] {
+  background: #1976d2;
+}
+
+.user-role[data-role="user"] {
+  background: #388e3c;
+}
+
+.user-role[data-role="pending"] {
+  background: #757575;
 }
 
 .user-email {

@@ -37,6 +37,7 @@ import {
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../../firebase';
 import { signOut } from 'firebase/auth';
+import { useAuth } from '../../contexts/AuthContext';
 
 const menuItems = [
   { text: '일정관리', icon: <CalendarIcon />, path: '/schedule' },
@@ -50,8 +51,9 @@ const menuItems = [
   { text: '보고서', icon: <ProgressIcon />, path: '/reports' },
 ];
 
-const Header = () => {
+const Header = ({ onMenuClick }) => {
   const [user] = useAuthState(auth);
+  const { currentUser, refreshUserInfo } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -79,6 +81,50 @@ const Header = () => {
       console.error('로그아웃 실패:', error);
     }
   };
+
+  const getGradeLabel = (user) => {
+    if (!user) return { label: '게스트', color: '#666', bgColor: '#f0f0f0' };
+    
+    const email = user.email?.toLowerCase() || '';
+    const displayName = user.displayName || '';
+    const role = user.role || '';
+    const grade = user.grade || '';
+    const teamGrade = user.teamGrade || '';
+    
+    console.log('Layout Header - 현재 사용자 정보:', { 
+      email, 
+      displayName, 
+      role, 
+      grade, 
+      teamGrade,
+      전체사용자정보: user 
+    });
+    
+    // 마스터 권한 확인
+    if (role === 'master' || grade === '마스터' || email.includes('master') || displayName.includes('마스터')) {
+      return { label: 'MASTER', color: '#fff', bgColor: '#ff4444' };
+    }
+    
+    // 관리자 권한 확인
+    if (role === 'admin' || grade === '관리자' || email.includes('admin') || displayName.includes('관리자')) {
+      return { label: '관리자', color: '#000', bgColor: '#ffeb3b' };
+    }
+    
+    // 팀 권한 확인 (role이 team인 경우)
+    if (role === 'team') {
+      if (teamGrade === 'A') {
+        return { label: 'TEAM A', color: '#fff', bgColor: '#4caf50' };
+      } else if (teamGrade === 'B') {
+        return { label: 'TEAM B', color: '#fff', bgColor: '#4caf50' };
+      }
+      return { label: 'TEAM', color: '#fff', bgColor: '#4caf50' };
+    }
+    
+    // 일반회원
+    return { label: 'USER', color: '#fff', bgColor: '#2196f3' };
+  };
+
+  const userGrade = getGradeLabel(currentUser);
 
   const drawer = (
     <Box sx={{ width: 250 }}>
@@ -151,7 +197,32 @@ const Header = () => {
             </Box>
           )}
 
-          <Box sx={{ ml: 2 }}>
+          <Box sx={{ ml: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* 사용자 역할 표시 */}
+            <Box
+              sx={{
+                fontWeight: 600,
+                fontSize: 13,
+                padding: '4px 12px',
+                borderRadius: 20,
+                backgroundColor: userGrade.bgColor,
+                color: userGrade.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: 'fit-content',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                cursor: 'pointer',
+                border: '2px solid red' // 테스트용 테두리
+              }}
+              onClick={async () => {
+                console.log('사용자 정보 강제 새로고침 시작');
+                await refreshUserInfo();
+                console.log('사용자 정보 새로고침 완료');
+              }}
+            >
+              {userGrade.label} - TEST
+            </Box>
             <IconButton
               size="large"
               aria-label="account of current user"

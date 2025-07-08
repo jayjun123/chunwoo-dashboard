@@ -6,7 +6,9 @@ import {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
-  updateProfile
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
 
@@ -108,6 +110,34 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Google 로그인
+  const loginWithGoogle = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      // Google Tasks API 권한 추가
+      provider.addScope('https://www.googleapis.com/auth/tasks');
+      provider.addScope('https://www.googleapis.com/auth/tasks.readonly');
+      
+      const userCredential = await signInWithPopup(auth, provider);
+      const userDoc = await getDoc(doc(db, 'members', userCredential.user.uid));
+      const userData = userDoc.exists() ? userDoc.data() : {};
+      
+      const userInfo = {
+        uid: userCredential.user.uid,
+        email: userCredential.user.email,
+        displayName: userCredential.user.displayName,
+        ...userData,
+      };
+      
+      setCurrentUser(userInfo);
+      storeUser(userInfo);
+      return userCredential;
+    } catch (error) {
+      console.error('Google 로그인 실패:', error);
+      throw error;
+    }
+  };
+
   // 로그아웃
   const logout = () => {
     setCurrentUser(null);
@@ -186,8 +216,8 @@ export const AuthProvider = ({ children }) => {
                   ...userData,
                 };
 
-                if (!userInfo.role) userInfo.role = 'user';
-                if (!userInfo.grade) userInfo.grade = '일반회원';
+                // 기본값 설정하지 않음 - Firestore에서 실제 값 사용
+                console.log('AuthContext - Firestore에서 로드된 사용자 정보:', userData);
 
                 setCurrentUser(userInfo);
                 storeUser(userInfo);
@@ -199,8 +229,7 @@ export const AuthProvider = ({ children }) => {
                   uid: user.uid,
                   email: user.email,
                   displayName: user.displayName,
-                  role: 'user',
-                  grade: '일반회원',
+                  // 기본값 설정하지 않음
                 };
                 setCurrentUser(userInfo);
                 storeUser(userInfo);
@@ -214,8 +243,7 @@ export const AuthProvider = ({ children }) => {
                 uid: user.uid,
                 email: user.email,
                 displayName: user.displayName,
-                role: 'user',
-                grade: '일반회원',
+                // 기본값 설정하지 않음
               };
               setCurrentUser(userInfo);
               storeUser(userInfo);
@@ -228,8 +256,7 @@ export const AuthProvider = ({ children }) => {
             uid: user.uid,
             email: user.email,
             displayName: user.displayName,
-            role: 'user',
-            grade: '일반회원',
+            // 기본값 설정하지 않음
           };
           setCurrentUser(userInfo);
           storeUser(userInfo);
@@ -268,6 +295,7 @@ export const AuthProvider = ({ children }) => {
     currentUser,
     register,
     login,
+    loginWithGoogle,
     logout,
     refreshUserInfo,
     resetPassword,

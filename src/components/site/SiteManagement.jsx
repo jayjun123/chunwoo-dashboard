@@ -143,6 +143,17 @@ const SiteManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // 확인 다이얼로그
+    const action = selectedSite ? '수정' : '등록';
+    const confirmMessage = selectedSite 
+      ? `현장을 수정하시겠습니까?` 
+      : `현장을 등록하시겠습니까?`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    
     setLoading(true);
     setError('');
 
@@ -163,9 +174,34 @@ const SiteManagement = () => {
 
       handleCloseDialog();
       fetchSites();
+      
+      // 성공 메시지 - 현장명과 진행상황 포함
+      const statusLabel = statusOptions.find(option => option.value === formData.status)?.label || '진행중';
+      const successMessage = selectedSite 
+        ? `${formData.name} [${statusLabel}] 현장수정 완료했습니다.`
+        : `${formData.name} [${statusLabel}] 현장등록 완료했습니다.`;
+      
+      alert(successMessage);
+      
+      // 입력칸 초기화
+      setFormData({
+        name: '',
+        address: '',
+        manager: '',
+        phone: '',
+        email: '',
+        status: 'active',
+        startDate: '',
+        endDate: '',
+        description: '',
+      });
     } catch (error) {
       console.error('현장 저장 실패:', error);
-      setError('현장 정보 저장에 실패했습니다.');
+      const failMessage = selectedSite 
+        ? '현장 수정에 실패했습니다.'
+        : '현장 등록에 실패했습니다.';
+      alert(failMessage);
+      setError(failMessage);
     } finally {
       setLoading(false);
     }
@@ -306,6 +342,20 @@ const SiteManagement = () => {
                   value={formData.name}
                   onChange={handleInputChange}
                   required
+                  inputProps={{
+                    style: { 
+                      fontSize: '16px',
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }
+                  }}
+                  sx={{
+                    '& .MuiInputBase-input': {
+                      fontSize: '16px',
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }
+                  }}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -316,6 +366,20 @@ const SiteManagement = () => {
                   value={formData.address}
                   onChange={handleInputChange}
                   required
+                  inputProps={{
+                    style: { 
+                      fontSize: '16px',
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }
+                  }}
+                  sx={{
+                    '& .MuiInputBase-input': {
+                      fontSize: '16px',
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }
+                  }}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
@@ -326,6 +390,20 @@ const SiteManagement = () => {
                   value={formData.manager}
                   onChange={handleInputChange}
                   required
+                  inputProps={{
+                    style: { 
+                      fontSize: '16px',
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }
+                  }}
+                  sx={{
+                    '& .MuiInputBase-input': {
+                      fontSize: '16px',
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }
+                  }}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
@@ -402,6 +480,20 @@ const SiteManagement = () => {
                   onChange={handleInputChange}
                   multiline
                   rows={4}
+                  inputProps={{
+                    style: { 
+                      fontSize: '16px',
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }
+                  }}
+                  sx={{
+                    '& .MuiInputBase-input': {
+                      fontSize: '16px',
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }
+                  }}
                 />
               </Grid>
             </Grid>
