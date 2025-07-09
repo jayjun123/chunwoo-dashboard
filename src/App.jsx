@@ -44,7 +44,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
 // import PWAInstallPrompt from './components/common/PWAInstallPrompt';
 import OfflineSupport from './components/common/OfflineSupport';
-import BackButtonHandler from './components/common/BackButtonHandler';
+// import BackButtonHandler from './components/common/BackButtonHandler';
 import SplashScreen from './components/common/SplashScreen';
 import StatusBarManager from './components/common/StatusBarManager';
 import KeyboardManager from './components/common/KeyboardManager';
@@ -511,7 +511,6 @@ const App = () => {
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                     <OfflineSupport />
-                    <BackButtonHandler />
                     <StatusBarManager />
                     <KeyboardManager />
                     <GlobalErrorHandler />
