@@ -45,7 +45,6 @@ import CustomScheduleMobile from './pages/CustomScheduleMobile';
 // import PWAInstallPrompt from './components/common/PWAInstallPrompt.jsx';
 import OfflineSupport from './components/common/OfflineSupport';
 // import BackButtonHandler from './components/common/BackButtonHandler';
-import KeyboardManager from './components/common/KeyboardManager';
 import GlobalErrorHandler from './components/common/GlobalErrorHandler';
 
 const theme = createTheme({
@@ -511,7 +510,7 @@ const App = () => {
                     <OfflineSupport />
                     {/* <BackButtonHandler /> */}
                     {/* <StatusBarManager /> */}
-                    <KeyboardManager />
+                    {/* <KeyboardManager /> */}
                     {/* <PWAInstallPrompt /> */}
                     <GlobalErrorHandler />
                   </PopupProvider>
