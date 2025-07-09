@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TodoProvider } from './contexts/TodoContext';
@@ -42,8 +42,14 @@ import PDFTest from './pages/PDFTest';
 import DiscussionChat from './components/discussions/DiscussionChat';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
-import PWAInstallPrompt from './components/common/PWAInstallPrompt';
+// import PWAInstallPrompt from './components/common/PWAInstallPrompt';
 import PWAInstallGuide from './components/common/PWAInstallGuide';
+import OfflineSupport from './components/common/OfflineSupport';
+import BackButtonHandler from './components/common/BackButtonHandler';
+import SplashScreen from './components/common/SplashScreen';
+import StatusBarManager from './components/common/StatusBarManager';
+import KeyboardManager from './components/common/KeyboardManager';
+import GlobalErrorHandler from './components/common/GlobalErrorHandler';
 
 const theme = createTheme({
   palette: {
@@ -185,121 +191,7 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-const setupGlobalErrorHandling = () => {
-  const handleGlobalError = (event) => {
-    // Chrome 확장 프로그램 관련 오류 무시
-    if (event.error && event.error.message && 
-        (event.error.message.includes('message channel closed') ||
-         event.error.message.includes('extension port') ||
-         event.error.message.includes('runtime.lastError') ||
-         event.error.message.includes('back/forward cache') ||
-         event.error.message.includes('The page keeping the extension port') ||
-         event.error.message.includes('so the message channel is closed') ||
-         event.error.message.includes('A listener indicated an asynchronous response'))) {
-      event.preventDefault();
-      return;
-    }
-    
-    // PopupProvider 컨텍스트 오류 처리
-    if (event.error && event.error.message && 
-        (event.error.message.includes('usePopup must be used within a PopupProvider') ||
-         event.error.message.includes('does not provide an export named \'usePopup\''))) {
-      console.warn('PopupProvider 컨텍스트 오류 무시:', event.error.message);
-      event.preventDefault();
-      return;
-    }
-    
-    // DiscussionChat 컴포넌트 오류 처리
-    if (event.error && event.error.message && 
-        event.error.message.includes('does not provide an export named \'default\'')) {
-      console.warn('컴포넌트 export 오류 무시:', event.error.message);
-      event.preventDefault();
-      return;
-    }
-    
-    if (event.error && event.error.message && 
-        (event.error.message.includes('firestore') ||
-         event.error.message.includes('Firestore') ||
-         event.error.message.includes('INTERNAL ASSERTION FAILED'))) {
-      console.warn('Firestore 오류가 발생했습니다:', event.error);
-      event.preventDefault();
-      return;
-    }
-    
-    if (event.error && event.error.message && 
-        (event.error.message.includes('QUIC_PROTOCOL_ERROR') ||
-         event.error.message.includes('ERR_QUIC_PROTOCOL_ERROR'))) {
-      console.warn('네트워크 프로토콜 오류가 발생했습니다:', event.error);
-      event.preventDefault();
-      return;
-    }
 
-    console.error('전역 오류 발생:', event.error);
-  };
-
-  const handleUnhandledRejection = (event) => {
-    if (event.reason && event.reason.message && 
-        (event.reason.message.includes('message channel closed') ||
-         event.reason.message.includes('extension port') ||
-         event.reason.message.includes('runtime.lastError') ||
-         event.reason.message.includes('back/forward cache') ||
-         event.reason.message.includes('The page keeping the extension port') ||
-         event.reason.message.includes('so the message channel is closed'))) {
-      event.preventDefault();
-      return;
-    }
-    
-    if (event.reason && event.reason.message && 
-        (event.reason.message.includes('firestore') ||
-         event.reason.message.includes('Firestore') ||
-         event.reason.message.includes('INTERNAL ASSERTION FAILED'))) {
-      console.warn('Firestore Promise rejection이 발생했습니다:', event.reason);
-      event.preventDefault();
-      return;
-    }
-
-    console.error('처리되지 않은 Promise rejection:', event.reason);
-  };
-
-  const handlePageShow = (event) => {
-    if (event.persisted) {
-      console.log('Page restored from back/forward cache');
-      window.location.reload();
-    }
-  };
-
-  const handlePageHide = (event) => {
-    if (event.persisted) {
-      console.log('Page stored in back/forward cache');
-    }
-  };
-
-  const originalConsoleError = console.error;
-  console.error = (...args) => {
-    const message = args.join(' ');
-    if (message.includes('runtime.lastError') || 
-        message.includes('message channel closed') ||
-        message.includes('extension port') ||
-        message.includes('back/forward cache') ||
-        message.includes('The page keeping the extension port')) {
-      return;
-    }
-    originalConsoleError.apply(console, args);
-  };
-
-  window.addEventListener('error', handleGlobalError);
-  window.addEventListener('unhandledrejection', handleUnhandledRejection);
-  window.addEventListener('pageshow', handlePageShow);
-  window.addEventListener('pagehide', handlePageHide);
-
-  return () => {
-    window.removeEventListener('error', handleGlobalError);
-    window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-    window.removeEventListener('pageshow', handlePageShow);
-    window.removeEventListener('pagehide', handlePageHide);
-    console.error = originalConsoleError;
-  };
-};
 
 const setupKeyboardHandling = () => {
   const handleResize = () => {
@@ -345,8 +237,10 @@ const DiscussionChatWrapper = () => {
 };
 
 const App = () => {
+  const [showSplash, setShowSplash] = useState(true);
+  const isMobile = useMediaQuery('(max-width:600px)');
+
   useEffect(() => {
-    const cleanupErrorHandling = setupGlobalErrorHandling();
     const cleanupKeyboardHandling = setupKeyboardHandling();
 
     // 새로고침 시 세션 복원 확인
@@ -354,24 +248,17 @@ const App = () => {
       console.log('페이지 새로고침/종료 감지 - 세션 유지 시도');
     };
 
-    const handlePageShow = (event) => {
-      if (event.persisted) {
-        console.log('페이지가 back/forward cache에서 복원됨');
-      }
-    };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('pageshow', handlePageShow);
 
     return () => {
-      cleanupErrorHandling();
       cleanupKeyboardHandling();
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('pageshow', handlePageShow);
     };
   }, []);
 
-  const isMobile = useMediaQuery('(max-width:600px)');
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+  };
 
   return (
     <ErrorBoundary>
@@ -383,6 +270,7 @@ const App = () => {
                 <CssBaseline />
                 <LoadingProvider>
                   <PopupProvider>
+                    {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
                     <Routes>
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />
@@ -623,8 +511,12 @@ const App = () => {
                       <Route path="/chat/:roomId" element={<DiscussionChatWrapper />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
-                    <PWAInstallPrompt />
                     <PWAInstallGuide />
+                    <OfflineSupport />
+                    <BackButtonHandler />
+                    <StatusBarManager />
+                    <KeyboardManager />
+                    <GlobalErrorHandler />
                   </PopupProvider>
                 </LoadingProvider>
               </ThemeProvider>
