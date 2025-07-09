@@ -154,11 +154,12 @@ const Layout = ({ children }) => {
       <AppBar
         position="fixed"
         sx={{
-          backgroundColor: 'white',
-          color: 'black',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          backgroundColor: '#0f0f0f',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           zIndex: (theme) => theme.zIndex.drawer + 1,
           height: isMobile ? '45px' : '58px',
+          borderBottom: '1px solid #333',
         }}
       >
         <Toolbar sx={{ 

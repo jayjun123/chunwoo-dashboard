@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   List,
   ListItem,
@@ -78,7 +78,7 @@ const TodoList = () => {
   const isAdminOrMasterUser = isAdminOrMaster(currentUser);
 
   // 현재 사용자의 오늘 날짜 투두리스트 가져오기
-  const getCurrentUserTodos = async () => {
+  const getCurrentUserTodos = useCallback(async () => {
     if (!userId) return;
     
     const today = format(new Date(), 'yyyy-MM-dd');
@@ -125,10 +125,10 @@ const TodoList = () => {
     } catch (error) {
       console.error('투두리스트 초기화 오류:', error);
     }
-  };
+  }, [userId]);
 
   // 사용자 목록 가져오기 (마스터 계정용)
-  const fetchAllUsers = async () => {
+  const fetchAllUsers = useCallback(async () => {
     if (!isAdminOrMasterUser) return;
     
     try {
@@ -206,7 +206,7 @@ const TodoList = () => {
     } catch (error) {
       console.error('사용자 목록 가져오기 오류:', error);
     }
-  };
+  }, [isAdminOrMasterUser]);
 
 
 
@@ -218,9 +218,9 @@ const TodoList = () => {
       fetchAllUsers();
     }
     
-    // 현재 사용자의 오늘 투두리스트 초기화
+    // 현재 사용자의 오늘 투두리스트 초기화 (한 번만 실행)
     getCurrentUserTodos();
-  }, [userId, isAdminOrMasterUser]);
+  }, [userId, isAdminOrMasterUser, fetchAllUsers, getCurrentUserTodos]);
 
 
 
@@ -271,7 +271,7 @@ const TodoList = () => {
     });
 
     return () => unsubscribe();
-  }, [userId, selectedUser, isAdminOrMasterUser]);
+  }, [userId, selectedUser]);
 
   // 검색어와 기간으로 필터링된 투두리스트
   const filteredTodos = todos.filter(todo => {
@@ -391,6 +391,8 @@ const TodoList = () => {
   // Google 로그인 함수
   const initializeGoogleSync = async () => {
     try {
+      setSyncing(true);
+      
       // Google 계정으로 로그인되지 않은 경우 Google 로그인 시도
       const credential = auth.currentUser?.providerData.find(
         provider => provider.providerId === 'google.com'
@@ -399,18 +401,20 @@ const TodoList = () => {
       if (!credential) {
         try {
           await loginWithGoogle();
-          alert('Google 계정으로 로그인되었습니다!\n\n이제 개인별로 Google Tasks와 연동할 수 있습니다.\n\n사용 방법:\n1. Google Tasks에서 할 일을 관리하세요\n2. 이 앱에서도 동일한 할 일을 확인할 수 있습니다\n3. 양쪽에서 수정하면 자동으로 동기화됩니다');
+          alert('✅ Google 계정으로 로그인되었습니다!\n\n📝 현재는 Firebase Auth를 통한 Google 로그인만 지원됩니다.\n\n🔗 실제 Google Tasks API 연동을 위해서는:\n1. Google Cloud Console에서 Google Tasks API 활성화\n2. OAuth 2.0 클라이언트 ID 생성\n3. 추가적인 설정이 필요합니다\n\n💡 현재는 앱 내에서 투두 관리가 가능합니다.');
           return;
         } catch (error) {
-          alert('Google 로그인에 실패했습니다: ' + error.message);
+          alert('❌ Google 로그인에 실패했습니다: ' + error.message);
           return;
         }
       } else {
-        alert('이미 Google 계정으로 로그인되어 있습니다!\n\nGoogle Tasks와 연동되어 개인별로 할 일을 관리할 수 있습니다.');
+        alert('✅ 이미 Google 계정으로 로그인되어 있습니다!\n\n📝 현재는 Firebase Auth를 통한 Google 로그인만 지원됩니다.\n\n🔗 실제 Google Tasks API 연동을 위해서는 추가 설정이 필요합니다.\n\n💡 현재는 앱 내에서 투두 관리가 가능합니다.');
       }
     } catch (error) {
       console.error('Google 로그인 실패:', error);
-      alert('Google 로그인에 실패했습니다: ' + error.message);
+      alert('❌ Google 로그인에 실패했습니다: ' + error.message);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -1215,7 +1219,9 @@ const TodoList = () => {
                       textDecoration: todo.completed ? 'line-through' : 'none',
                       lineHeight: { xs: 1.2, sm: 1.4 }
                     }}>
-                      {todo.text}
+                      <span style={{ color: todo.carriedOver ? '#444' : undefined }}>
+                        {todo.text}
+                      </span>
                     </Typography>
                     {todo.carriedOver && (
                       <Chip 

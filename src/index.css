@@ -16,6 +16,8 @@
   --border: #2d3344;
   --radius: 12px;
   --shadow: 0 2px 16px rgba(0,0,0,0.12);
+  --status-bar-color: #181A20;
+  --status-bar-height: env(safe-area-inset-top);
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -35,6 +37,8 @@
   --border: #e2e8f0;
   --radius: 12px;
   --shadow: 0 2px 16px rgba(0,0,0,0.08);
+  --status-bar-color: #ffffff;
+  --status-bar-height: env(safe-area-inset-top);
 }
 
 * {
@@ -67,6 +71,8 @@ body {
   overflow-y: auto;
   height: 100vh;
   line-height: 1.5;
+  /* 상태바 영역 고려 */
+  padding-top: var(--status-bar-height);
 }
 
 h1 {
@@ -552,5 +558,57 @@ body.popup-open {
 @media (min-width: 601px) {
   main.MuiBox-root.css-138ktsf {
     padding-top: 0 !important;
+  }
+}
+
+/* 상태바 관련 스타일 */
+.status-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--status-bar-height);
+  background-color: var(--status-bar-color);
+  z-index: 9998;
+}
+
+/* PWA 환경에서 상태바 영역 고려 */
+@media (display-mode: standalone) {
+  body {
+    padding-top: var(--status-bar-height);
+  }
+  
+  .header {
+    top: var(--status-bar-height);
+  }
+  
+  .main-content {
+    padding-top: calc(var(--status-bar-height) + 60px);
+  }
+}
+
+/* iOS Safari 상태바 영역 */
+@supports (padding: max(0px)) {
+  body {
+    padding-top: max(var(--status-bar-height), env(safe-area-inset-top));
+  }
+  
+  .header {
+    top: max(var(--status-bar-height), env(safe-area-inset-top));
+  }
+}
+
+/* 키보드 열림 상태에서 상태바 조정 */
+@media screen and (max-height: 600px) {
+  body {
+    padding-top: 0;
+  }
+  
+  .header {
+    top: 0;
+  }
+  
+  .main-content {
+    padding-top: 60px;
   }
 } 

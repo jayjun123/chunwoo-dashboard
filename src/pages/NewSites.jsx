@@ -135,7 +135,20 @@ const NewSites = () => {
     const newItems = form.items.filter((_, i) => i !== index);
     setForm(prev => ({ ...prev, items: newItems }));
   };
-  const handleNewSite = () => setSelectedSite(null);
+  const handleNewSite = () => {
+    setSelectedSite(null);
+    setForm({
+      name: '',
+      contractType: '관급',
+      manager: '',
+      startDate: '',
+      endDate: '',
+      status: '진행중',
+      isFavorite: false,
+      items: []
+    });
+    setIsEditing(false);
+  };
   const handleEditClick = () => setIsEditing(true);
 
   const handleSave = async () => {
@@ -148,10 +161,21 @@ const NewSites = () => {
         } catch (error) { console.error("Failed to update site:", error); }
       }
     } else {
+      // 등록 확인 메시지
+      const confirmMessage = `다음 현장을 등록하시겠습니까?\n\n현장명: ${form.name}\n계약구분: ${form.contractType}\n담당자: ${form.manager}\n시작일: ${form.startDate}\n종료일: ${form.endDate}`;
+      
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+      
       try {
         await addSite(formDataToSave);
+        alert('현장이 성공적으로 등록되었습니다.');
         handleNewSite();
-      } catch (error) { console.error("Failed to add site:", error); }
+      } catch (error) { 
+        console.error("Failed to add site:", error);
+        alert('현장 등록 중 오류가 발생했습니다.');
+      }
     }
   };
   

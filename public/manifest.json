@@ -1,6 +1,6 @@
 {
   "short_name": "천우현장관리",
-  "name": "천우현장관리 시스템",
+  "name": "천우 건설현장관리시스템",
   "icons": [
     {
       "src": "favicon.ico",
@@ -58,10 +58,10 @@
   ],
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#23242a",
-  "background_color": "#181c24",
+  "theme_color": "#181A20",
+  "background_color": "#181A20",
   "orientation": "portrait",
-  "description": "천우현장관리 시스템 - 현장, 일정, 안전관리 통합 시스템",
+  "description": "천우 건설현장관리시스템 - 현장, 일정, 안전관리, 기성관리 통합 시스템",
   "dir": "ltr",
   "lang": "ko-KR",
   "prefer_related_applications": false,

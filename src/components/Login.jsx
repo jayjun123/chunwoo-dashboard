@@ -13,6 +13,7 @@ import {
   useTheme,
   FormControlLabel,
   Checkbox,
+  Divider,
 } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -41,7 +42,7 @@ const Login = () => {
     );
   }
 
-  const { login } = auth;
+  const { login, loginWithGoogle } = auth;
 
   // 컴포넌트 마운트 시 저장된 이메일 불러오기
   React.useEffect(() => {

@@ -642,7 +642,7 @@ const Discussions = () => {
           }
         }
         return {
-          '작성자': msg.userName,
+          '작성자': msg.userName || '익명',
           '내용': content,
           '시간': msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleString() : ''
         };
@@ -659,7 +659,7 @@ const Discussions = () => {
   );
 
   return (
-    <Box sx={{ height: 'calc(100vh - 65px - 51px)', display: 'flex', flexDirection: 'column', position: 'fixed', top: '65px', left: 0, right: 0, bottom: '51px', overflow: 'hidden', overflowX: 'hidden', zIndex: 1000, bgcolor: '#1a1d21', p: isMobile ? 0 : undefined, m: 0, width: isMobile ? '100vw' : '100%', maxWidth: isMobile ? '100vw' : '100%', minWidth: isMobile ? '100vw' : '0', boxSizing: 'border-box' }}>
+    <Box sx={{ height: 'calc(100vh - 65px - 51px)', display: 'flex', flexDirection: 'column', position: 'fixed', top: isMobile ? '45px' : '65px', left: 0, right: 0, bottom: isMobile ? '20px' : '51px', overflow: 'hidden', overflowX: 'hidden', zIndex: 1000, bgcolor: '#1a1d21', p: isMobile ? 0 : undefined, m: 0, width: isMobile ? '100vw' : '100%', maxWidth: isMobile ? '100vw' : '100%', minWidth: isMobile ? '100vw' : '0', boxSizing: 'border-box' }}>
       {/* 헤더 */}
       <Box sx={{ 
         p: { xs: 1, md: 2 }, 
@@ -672,15 +672,17 @@ const Discussions = () => {
         alignItems: 'center'
       }}>
         <Typography variant="h6">토론의견</Typography>
-        <Button
-          variant="outlined"
-          startIcon={<DownloadIcon />}
-          size="small"
-          onClick={handleExportSelectedRoomsToExcel}
-          sx={{ ml: 2 }}
-        >
-          엑셀 내보내기
-        </Button>
+        {!isMobile && (
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            size="small"
+            onClick={handleExportSelectedRoomsToExcel}
+            sx={{ ml: 2 }}
+          >
+            엑셀 내보내기
+          </Button>
+        )}
       </Box>
 
       {/* 메인 컨텐츠 */}
@@ -713,16 +715,33 @@ const Discussions = () => {
               alignItems: 'center'
             }}>
               <Typography variant="h6">채팅방</Typography>
-              {canCreateRoom() && (
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={() => setIsCreateRoomOpen(true)}
-                  startIcon={<AddIcon />}
-                >
-                  새방
-                </Button>
-              )}
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                {isMobile && (
+                  <TextField
+                    size="small"
+                    placeholder="검색..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    sx={{ 
+                      width: '120px',
+                      '& .MuiOutlinedInput-root': {
+                        height: '32px',
+                        fontSize: '0.875rem'
+                      }
+                    }}
+                  />
+                )}
+                {canCreateRoom() && (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => setIsCreateRoomOpen(true)}
+                    startIcon={<AddIcon />}
+                  >
+                    새방
+                  </Button>
+                )}
+              </Box>
             </Box>
             
             <Box sx={{ 
@@ -746,6 +765,7 @@ const Discussions = () => {
                     }}
                     sx={{
                       p: { xs: 1, md: 1.5 },
+                      minHeight: '80px', // 높이를 40px 늘림 (기본 40px + 추가 40px)
                       cursor: 'pointer',
                       borderBottom: 1,
                       borderColor: 'divider',
@@ -927,12 +947,10 @@ const Discussions = () => {
                         </Box>
                       )}
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', mb: 1.5 }}>
-                        {/* 이름 (상대방만) */}
-                        {!isMe && (
-                          <Typography sx={{ color: '#aaa', fontSize: 12, fontWeight: 700, mb: 0.5 }}>
-                            {msg.userName}
-                          </Typography>
-                        )}
+                        {/* 이름(닉네임) 표시 */}
+                        <Typography sx={{ color: '#1976d2', fontSize: 14, fontWeight: 900, mb: 0.5 }}>
+                          {msg.userName || '익명'}
+                        </Typography>
                         {/* 메시지 버블 */}
                         <Box sx={{
                           bgcolor: isMe ? '#FFF9C4' : '#222',
@@ -1267,7 +1285,7 @@ const Discussions = () => {
                     ? keyboardVisible 
                       ? 'calc(100vh - 200px)' 
                       : 'calc(100vh - 300px)'
-                    : 'calc(100vh - 350px)'
+                    : 'calc(100vh - 400px)'
                 }}
               >
                 {messages.map((msg, index) => {
@@ -1308,12 +1326,10 @@ const Discussions = () => {
                         </Box>
                       )}
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', mb: 1.5 }}>
-                        {/* 이름 (상대방만) */}
-                        {!isMe && (
-                          <Typography sx={{ color: '#aaa', fontSize: 12, fontWeight: 700, mb: 0.5 }}>
-                            {msg.userName}
-                          </Typography>
-                        )}
+                        {/* 이름(닉네임) 표시 */}
+                        <Typography sx={{ color: '#1976d2', fontSize: 14, fontWeight: 900, mb: 0.5 }}>
+                          {msg.userName || '익명'}
+                        </Typography>
                         {/* 메시지 버블 */}
                         <Box sx={{
                           bgcolor: isMe ? '#FFF9C4' : '#222',
@@ -1400,7 +1416,9 @@ const Discussions = () => {
                 bgcolor: 'background.paper',
                 width: '100%',
                 position: 'sticky',
-                bottom: 0
+                bottom: 0,
+                mt: 'auto',
+                pt: 3
               }}>
                 {/* 첨부파일 미리보기 (카카오톡 스타일) */}
                 {fileToUpload && (

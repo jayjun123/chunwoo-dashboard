@@ -93,35 +93,35 @@ const NewsPanel = () => {
               id: 1,
               title: '건설업계, 친환경 건축물 인증 확대 추진',
               description: '정부가 친환경 건축물 인증을 확대하여 건설업계의 친환경 전환이 가속화될 것으로 예상됩니다.',
-              link: 'https://www.news1.kr/articles/5034567',
+              link: 'https://www.yna.co.kr/view/AKR20231201000000003',
               pubDate: new Date().toISOString()
             },
             {
               id: 2,
               title: '유리공사 기술 발전, 에너지 효율성 향상',
               description: '최신 유리공사 기술이 건물의 에너지 효율성을 크게 향상시키는 것으로 나타났습니다.',
-              link: 'https://www.news1.kr/articles/5034568',
+              link: 'https://www.yna.co.kr/view/AKR20231130000000003',
               pubDate: new Date(Date.now() - 3600000).toISOString()
             },
             {
               id: 3,
               title: '건설현장 안전관리 강화, 사고율 감소',
               description: '디지털 기술을 활용한 건설현장 안전관리로 사고율이 지속적으로 감소하고 있습니다.',
-              link: 'https://www.news1.kr/articles/5034569',
+              link: 'https://www.yna.co.kr/view/AKR20231129000000003',
               pubDate: new Date(Date.now() - 7200000).toISOString()
             },
             {
               id: 4,
               title: '스마트 건설기술 도입 확산',
               description: 'BIM, IoT 등 스마트 건설기술이 건설업계에 빠르게 확산되고 있습니다.',
-              link: 'https://www.news1.kr/articles/5034570',
+              link: 'https://www.yna.co.kr/view/AKR20231128000000003',
               pubDate: new Date(Date.now() - 10800000).toISOString()
             },
             {
               id: 5,
               title: '건설자재 가격 안정화 기대',
               description: '원자재 가격 안정화로 건설자재 가격이 안정세를 보일 것으로 전망됩니다.',
-              link: 'https://www.news1.kr/articles/5034571',
+              link: 'https://www.yna.co.kr/view/AKR20231127000000003',
               pubDate: new Date(Date.now() - 14400000).toISOString()
             }
           ];
@@ -136,21 +136,21 @@ const NewsPanel = () => {
             id: 1,
             title: '건설업계, 친환경 건축물 인증 확대 추진',
             description: '정부가 친환경 건축물 인증을 확대하여 건설업계의 친환경 전환이 가속화될 것으로 예상됩니다.',
-            link: 'https://www.news1.kr/articles/5034567',
+            link: 'https://www.yna.co.kr/view/AKR20231201000000003',
             pubDate: new Date().toISOString()
           },
           {
             id: 2,
             title: '유리공사 기술 발전, 에너지 효율성 향상',
             description: '최신 유리공사 기술이 건물의 에너지 효율성을 크게 향상시키는 것으로 나타났습니다.',
-            link: 'https://www.news1.kr/articles/5034568',
+            link: 'https://www.yna.co.kr/view/AKR20231130000000003',
             pubDate: new Date(Date.now() - 3600000).toISOString()
           },
           {
             id: 3,
             title: '건설현장 안전관리 강화, 사고율 감소',
             description: '디지털 기술을 활용한 건설현장 안전관리로 사고율이 지속적으로 감소하고 있습니다.',
-            link: 'https://www.news1.kr/articles/5034569',
+            link: 'https://www.yna.co.kr/view/AKR20231129000000003',
             pubDate: new Date(Date.now() - 7200000).toISOString()
           }
         ];
