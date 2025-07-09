@@ -43,7 +43,6 @@ import DiscussionChat from './components/discussions/DiscussionChat';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
 // import PWAInstallPrompt from './components/common/PWAInstallPrompt';
-import PWAInstallGuide from './components/common/PWAInstallGuide';
 import OfflineSupport from './components/common/OfflineSupport';
 import BackButtonHandler from './components/common/BackButtonHandler';
 import SplashScreen from './components/common/SplashScreen';
@@ -511,7 +510,6 @@ const App = () => {
                       <Route path="/chat/:roomId" element={<DiscussionChatWrapper />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
-                    <PWAInstallGuide />
                     <OfflineSupport />
                     <BackButtonHandler />
                     <StatusBarManager />
