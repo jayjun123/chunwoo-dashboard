@@ -10,6 +10,9 @@ import Layout from './components/Layout';
 import Login from './components/Login';
 import Dashboard from './components/dashboard/Dashboard';
 import { useAuth } from './contexts/AuthContext';
+import LoadingProvider from './components/common/LoadingProvider';
+import PopupProvider from './contexts/PopupContext';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 const theme = createTheme({
   palette: {
@@ -54,30 +57,36 @@ const ProtectedRoute = ({ children }) => {
 
 const App = () => {
   return (
-    <Provider store={store}>
-      <AuthProvider>
-        <TodoProvider>
-          <ThemeProvider theme={theme}>
-            <CssBaseline />
-            <Router>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Dashboard />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-              </Routes>
-            </Router>
-          </ThemeProvider>
-        </TodoProvider>
-      </AuthProvider>
-    </Provider>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <AuthProvider>
+          <TodoProvider>
+            <ThemeProvider theme={theme}>
+              <CssBaseline />
+              <LoadingProvider>
+                <PopupProvider>
+                  <Router>
+                    <Routes>
+                      <Route path="/login" element={<Login />} />
+                      <Route
+                        path="/"
+                        element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <Dashboard />
+                            </Layout>
+                          </ProtectedRoute>
+                        }
+                      />
+                    </Routes>
+                  </Router>
+                </PopupProvider>
+              </LoadingProvider>
+            </ThemeProvider>
+          </TodoProvider>
+        </AuthProvider>
+      </Provider>
+    </ErrorBoundary>
   );
 };
 
