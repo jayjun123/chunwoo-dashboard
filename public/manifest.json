@@ -57,7 +57,7 @@
     }
   ],
   "start_url": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "theme_color": "#181A20",
   "background_color": "#181A20",
   "orientation": "portrait",
