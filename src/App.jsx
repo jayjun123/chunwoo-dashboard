@@ -45,7 +45,7 @@ import CustomScheduleMobile from './pages/CustomScheduleMobile';
 // import PWAInstallPrompt from './components/common/PWAInstallPrompt';
 import OfflineSupport from './components/common/OfflineSupport';
 // import BackButtonHandler from './components/common/BackButtonHandler';
-import SplashScreen from './components/common/SplashScreen';
+// import SplashScreen from './components/common/SplashScreen';
 import KeyboardManager from './components/common/KeyboardManager';
 import GlobalErrorHandler from './components/common/GlobalErrorHandler';
 
@@ -268,7 +268,7 @@ const App = () => {
                 <CssBaseline />
                 <LoadingProvider>
                   <PopupProvider>
-                    {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+                    {/* {showSplash && <SplashScreen onComplete={handleSplashComplete} />} */}
                     <Routes>
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />
