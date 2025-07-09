@@ -29,7 +29,7 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc
 import { db } from '../../firebase';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-// import { usePopup } from '../../contexts/PopupContext';
+import { usePopup } from '../../contexts/PopupContext';
 import { format } from 'date-fns';
 
 // 관리자/마스터 권한 체크 함수
@@ -431,16 +431,39 @@ const BottomBar = ({
     console.log('🔥 하단바 일정 연동 시작 - 오늘 날짜 범위:', todayStart, '~', todayEnd);
     
     // Firebase에서 타임스탬프 date 필드로 오늘 날짜 범위 쿼리
-    const q = query(
-      collection(db, 'schedules'),
-      where('date', '>=', todayStart),
-      where('date', '<=', todayEnd)
-    );
+    const q = query(collection(db, 'schedules'));
     
     const unsubSchedules = onSnapshot(q, (snapshot) => {
-      const todaySchedules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const allSchedules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
-      console.log('🔥 Firebase에서 가져온 오늘 일정 (타임스탬프 date 필드 쿼리):', todaySchedules);
+      // 클라이언트에서 오늘 날짜 필터링 (문자열과 Date 객체 모두 처리)
+      const todaySchedules = allSchedules.filter(item => {
+        if (!item.date) return false;
+        
+        let itemDate;
+        if (item.date.toDate) {
+          // Firestore Timestamp
+          itemDate = item.date.toDate();
+        } else if (item.date instanceof Date) {
+          // Date 객체
+          itemDate = item.date;
+        } else if (typeof item.date === 'string') {
+          // 문자열 형식 (예: "2024-01-15")
+          itemDate = new Date(item.date + 'T12:00:00');
+        } else {
+          // 기타 형식
+          itemDate = new Date(item.date);
+        }
+        
+        // 오늘 00:00:00 ~ 23:59:59 사이에 생성된 항목만
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+        const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+        
+        return itemDate >= todayStart && itemDate <= todayEnd;
+      });
+      
+      console.log('🔥 Firebase에서 가져온 오늘 일정 (클라이언트 필터링):', todaySchedules);
       
       // 금일현장 (type에 '현장' 포함)
       const todaySites = todaySchedules.filter(item => 

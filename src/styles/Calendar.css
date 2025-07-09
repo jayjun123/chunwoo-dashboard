@@ -226,4 +226,10 @@
 .site-item, .site-item * {
   writing-mode: initial !important;
   flex-direction: row !important;
+}
+
+.calendar-table td.selected {
+  border: 2.5px dashed #ff5252 !important;
+  box-sizing: border-box;
+  border-radius: 8px;
 } 

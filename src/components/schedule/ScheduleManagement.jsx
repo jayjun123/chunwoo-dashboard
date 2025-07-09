@@ -227,7 +227,7 @@ const ScheduleManagement = ({
         type: '현장', // 무조건 현장으로 설정
         desc: `${site.name} - ${site.status || ''}`,
         siteId: site.id,
-        date: destination.droppableId,
+        date: new Date(destination.droppableId + 'T12:00:00'), // Date 객체로 변환
         userId: user.uid,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -259,7 +259,7 @@ const ScheduleManagement = ({
         const itemId = draggableId.split('-').pop();
         const docRef = doc(db, 'schedules', itemId);
         await updateDoc(docRef, {
-          date: destination.droppableId,
+          date: new Date(destination.droppableId + 'T12:00:00'), // Date 객체로 변환
           updatedAt: new Date()
         });
       } catch (error) {

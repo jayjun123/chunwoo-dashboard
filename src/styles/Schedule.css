@@ -140,7 +140,7 @@ body, .schedule-container {
   background: #232b3a;
 }
 .schedule-calendar-cell.selected {
-  border: 2.5px solid #3578ff;
+  border: 2.5px dashed #ff5252;
   background: #232b3a;
 }
 .schedule-calendar-cell:hover {
