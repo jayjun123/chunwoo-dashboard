@@ -286,7 +286,7 @@ const DiscussionChat = ({ roomId }) => {
         display: 'flex', flexDirection: 'column',
         position: 'absolute',
         top: 56, // 상단바 높이
-        bottom: isMobile ? 150 : 120, // 모바일: 입력창 높이 + 하단바 높이 + 여유공간, PC: 입력창 높이 + 여유공간
+        bottom: isMobile ? 60 : 60, // 입력창 높이에 딱 맞게 조정 (불필요한 여백 최소화)
         left: 0, right: 0,
         height: 'auto',
       }}>
@@ -323,37 +323,37 @@ const DiscussionChat = ({ roomId }) => {
                     </Box>
                   </Box>
                 )}
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', mb: 1.5 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', mb: isMobile ? 0.6 : 1.5 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Typography sx={{ color: '#1976d2', fontSize: 14, fontWeight: 900, mb: 0.5, mr: 1 }}>
+                    <Typography sx={{ color: '#1976d2', fontSize: isMobile ? '0.8rem' : 14, fontWeight: 900, mb: isMobile ? 0.2 : 0.5, mr: 1 }}>
                       {msg.userName || '익명'}
                     </Typography>
                   </Box>
                   <Box sx={{
                     bgcolor: isMe ? '#FFF066' : '#232323',
                     color: isMe ? '#222' : '#fff',
-                    borderRadius: 4,
-                    px: 1.4, py: 0.9,
-                    minWidth: 36,
-                    maxWidth: '80vw',
-                    fontSize: 16,
+                    borderRadius: isMobile ? 3 : 4,
+                    px: isMobile ? 0.8 : 1.4, py: isMobile ? 0.8 : 0.9,
+                    minWidth: isMobile ? 28 : 36,
+                    maxWidth: isMobile ? '90vw' : '80vw',
+                    fontSize: isMobile ? '0.85rem' : '1rem',
                     position: 'relative',
                     boxShadow: isMe ? 2 : 1,
                     fontFamily: 'NanumGothic, Malgun Gothic, Apple SD Gothic Neo, sans-serif',
-                    mb: 0.2,
+                    mb: isMobile ? 0.1 : 0.2,
                     wordBreak: 'break-word',
                     display: 'inline-block',
                   }}>
-                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', fontSize: '1rem', p: 0 }}>{msg.text}</Typography>
+                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', fontSize: isMobile ? '0.85rem' : '1rem', p: 0 }}>{msg.text}</Typography>
                     {msg.attachment && (
-                      <Box mt={1}>
+                      <Box mt={isMobile ? 0.5 : 1}>
                         {msg.attachment.type.startsWith('image/') ? (
-                          <Box sx={{ position: 'relative', display: 'inline-block', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}>
+                          <Box sx={{ position: 'relative', display: 'inline-block', borderRadius: isMobile ? 3 : 2, overflow: 'hidden', boxShadow: 1 }}>
                             <a href={msg.attachment.url} target="_blank" rel="noopener noreferrer">
                               <img 
                                 src={msg.attachment.url} 
                                 alt={msg.attachment.name} 
-                                style={{ maxWidth: '180px', maxHeight: '180px', borderRadius: '8px', cursor: 'pointer', display: 'block' }} 
+                                style={{ maxWidth: isMobile ? '120px' : '180px', maxHeight: isMobile ? '120px' : '180px', borderRadius: isMobile ? '6px' : '8px', cursor: 'pointer', display: 'block' }} 
                               />
                             </a>
                           </Box>
@@ -364,7 +364,7 @@ const DiscussionChat = ({ roomId }) => {
                             href={msg.attachment.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            sx={{ textTransform: 'none', fontSize: '0.7rem', borderRadius: 2 }}
+                            sx={{ textTransform: 'none', fontSize: isMobile ? '0.6rem' : '0.7rem', borderRadius: isMobile ? 1 : 2, minHeight: isMobile ? 20 : undefined, height: isMobile ? 20 : undefined, px: isMobile ? 0.5 : 1 }}
                             size="small"
                           >
                             {msg.attachment.name}
@@ -373,20 +373,20 @@ const DiscussionChat = ({ roomId }) => {
                       </Box>
                     )}
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: isMe ? 'flex-end' : 'flex-start', mt: 0.5, mb: 1 }}>
-                    <Typography sx={{ color: '#aaa', fontSize: 11, ml: isMe ? 1 : 0, mr: isMe ? 0 : 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: isMe ? 'flex-end' : 'flex-start', mt: isMobile ? 0.2 : 0.5, mb: isMobile ? 0.6 : 1 }}>
+                    <Typography sx={{ color: '#aaa', fontSize: isMobile ? '0.7rem' : 11, ml: isMe ? 1 : 0, mr: isMe ? 0 : 1 }}>
                       {msg.timestamp ? (msg.timestamp.toDate ? msg.timestamp.toDate() : new Date(msg.timestamp)).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}
                     </Typography>
                     {isMe && !editingMessage && (
                       <>
-                        <IconButton size="small" onClick={() => setEditingMessage(msg)}><EditIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
-                        <IconButton size="small" onClick={() => handleDeleteMessage(msg)}><DeleteIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                        <IconButton size="small" sx={{ p: isMobile ? 0.2 : 0.5 }} onClick={() => setEditingMessage(msg)}><EditIcon sx={{ fontSize: isMobile ? 13 : 16, color: '#444' }}/></IconButton>
+                        <IconButton size="small" sx={{ p: isMobile ? 0.2 : 0.5 }} onClick={() => handleDeleteMessage(msg)}><DeleteIcon sx={{ fontSize: isMobile ? 13 : 16, color: '#444' }}/></IconButton>
                       </>
                     )}
                     {isMe && editingMessage && editingMessage.id === msg.id && (
                       <>
-                        <IconButton size="small" onClick={handleUpdateMessage}><SaveIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
-                        <IconButton size="small" onClick={() => setEditingMessage(null)}><CancelIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                        <IconButton size="small" sx={{ p: isMobile ? 0.2 : 0.5 }} onClick={handleUpdateMessage}><SaveIcon sx={{ fontSize: isMobile ? 13 : 16, color: '#444' }}/></IconButton>
+                        <IconButton size="small" sx={{ p: isMobile ? 0.2 : 0.5 }} onClick={() => setEditingMessage(null)}><CancelIcon sx={{ fontSize: isMobile ? 13 : 16, color: '#444' }}/></IconButton>
                       </>
                     )}
                   </Box>
@@ -400,20 +400,32 @@ const DiscussionChat = ({ roomId }) => {
       {/* 파일 미리보기 영역 */}
       {files.length > 0 && (
         <Box sx={{
-          p: 1, background: '#fff', borderRadius: 2, border: '1px solid #ddd',
-          position: 'fixed', left: 0, right: 0, bottom: 80, zIndex: 1200, mx: 'auto', width: '96vw', maxWidth: 480
+          p: isMobile ? 0.2 : 0.5,
+          background: '#fff',
+          borderRadius: 1,
+          border: '1px solid #ddd',
+          boxShadow: 1,
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: isMobile ? 48 : 80,
+          zIndex: 1200,
+          mx: 0,
+          width: '100vw',
+          maxWidth: '100vw',
+          minHeight: isMobile ? 28 : 36,
         }}>
-          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+          <Typography variant="subtitle2" sx={{ mb: isMobile ? 0.2 : 1, fontWeight: 'bold', fontSize: isMobile ? '0.75rem' : '1rem' }}>
             📎 선택된 파일 ({files.length}개)
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: isMobile ? 0.2 : 1, flexWrap: 'wrap' }}>
             {files.map((file, idx) => (
-              <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, p: 0.5, background: '#f5f5f5', borderRadius: 1 }}>
+              <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.2, p: isMobile ? 0.1 : 0.5, background: '#f5f5f5', borderRadius: 1 }}>
                 {file.type.startsWith('image/') && (
-                  <img src={previews[idx]} alt={file.name} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, marginRight: 4 }} />
+                  <img src={previews[idx]} alt={file.name} style={{ width: isMobile ? 20 : 48, height: isMobile ? 20 : 48, objectFit: 'cover', borderRadius: 4, marginRight: 2 }} />
                 )}
-                <Typography variant="caption">{file.name}</Typography>
-                <IconButton size="small" onClick={() => {
+                <Typography variant="caption" sx={{ fontSize: isMobile ? '0.6rem' : '0.85rem' }}>{file.name}</Typography>
+                <IconButton size="small" sx={{ p: isMobile ? 0.2 : 0.5 }} onClick={() => {
                   setFiles(files.filter((_, i) => i !== idx));
                   setPreviews(previews.filter((_, i) => i !== idx));
                 }}>
@@ -426,29 +438,39 @@ const DiscussionChat = ({ roomId }) => {
       )}
       {/* 입력창 */}
       <Box sx={{ 
-        px: 2, 
-        py: 1, 
+        px: isMobile ? 0.5 : 2, 
+        py: 0, 
         bgcolor: '#232634', 
         borderTop: '1px solid #333', 
-        position: isMobile ? 'fixed' : 'static', 
-        bottom: isMobile ? `calc(${keyboardHeight}px + 80px)` : '20px', 
-        left: 0, 
-        right: 0, 
-        zIndex: 1200 
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1200,
+        width: '100vw',
+        maxWidth: '100vw',
+        minHeight: isMobile ? 48 : 48,
+        height: isMobile ? 48 : undefined,
+        display: 'flex',
+        alignItems: 'center',
       }}>
         {!isMobile && (
           <Typography variant="caption" sx={{ color: '#aaa', mb: 0.5 }}>
             현재 사용자: {currentUser?.displayName || currentUser?.email || '익명'}
           </Typography>
         )}
-        <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 1 : 8, minHeight: isMobile ? 36 : 48, width: '100%' }}>
           {/* 첨부파일 버튼 */}
           <IconButton
             component="label"
             sx={{ 
               color: '#1976d2', 
               bgcolor: 'rgba(25, 118, 210, 0.1)',
-              '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.2)' }
+              '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.2)' },
+              p: isMobile ? 0.2 : 1,
+              fontSize: isMobile ? 14 : 24,
+              minWidth: isMobile ? 20 : 40,
+              minHeight: isMobile ? 20 : 40
             }}
           >
             <input
@@ -458,9 +480,8 @@ const DiscussionChat = ({ roomId }) => {
               style={{ display: 'none' }}
               accept="image/*,.pdf,.xlsx,.xls,.doc,.docx"
             />
-            <AttachFileIcon />
+            <AttachFileIcon sx={{ fontSize: isMobile ? 16 : 24 }} />
           </IconButton>
-          
           <TextField
             inputRef={inputRef}
             value={newMessage}
@@ -473,6 +494,9 @@ const DiscussionChat = ({ roomId }) => {
               bgcolor: '#181a20', 
               borderRadius: 2, 
               flex: 1,
+              fontSize: isMobile ? '0.8rem' : '1rem',
+              minHeight: isMobile ? 28 : 40,
+              maxHeight: isMobile ? 28 : 40,
               '& .MuiOutlinedInput-root': {
                 '& fieldset': {
                   borderColor: 'rgba(255,255,255,0.3)',
@@ -483,16 +507,24 @@ const DiscussionChat = ({ roomId }) => {
                 '&.Mui-focused fieldset': {
                   borderColor: '#1976d2',
                 },
+                fontSize: isMobile ? '0.8rem' : '1rem',
+                minHeight: isMobile ? 28 : 40,
+                maxHeight: isMobile ? 28 : 40,
+                padding: isMobile ? '0 4px' : '6px 12px',
               },
               '& .MuiInputBase-input': {
                 color: '#fff',
+                fontSize: isMobile ? '0.8rem' : '1rem',
+                padding: isMobile ? '4px 2px' : '10px 8px',
+                minHeight: isMobile ? 20 : 32,
+                maxHeight: isMobile ? 20 : 32,
               }
             }}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton type="submit" color="primary" disabled={!newMessage.trim() && files.length === 0}>
-                    <SendIcon />
+                  <IconButton type="submit" color="primary" disabled={!newMessage.trim() && files.length === 0} sx={{ p: isMobile ? 0.2 : 1 }}>
+                    <SendIcon sx={{ fontSize: isMobile ? 16 : 24 }} />
                   </IconButton>
                 </InputAdornment>
               )

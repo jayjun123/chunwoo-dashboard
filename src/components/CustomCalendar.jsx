@@ -241,7 +241,7 @@ const CustomCalendar = (props) => {
         type: copiedItem.type || '기타',
         desc: copiedItem.desc || '',
         siteId: copiedItem.siteId || '',
-        date: targetDate,
+        date: new Date(targetDate + 'T12:00:00'), // Date 객체로 변환
         color: copiedItem.color || colorChoices[0], // 기본 색상 설정
         siteName: copiedItem.siteName || '',
         selectedTypes: copiedItem.selectedTypes || [copiedItem.type || '기타'],
@@ -765,7 +765,9 @@ const CustomCalendar = (props) => {
                                       fontSize: { xs: '0.6rem', md: '0.875rem' },
                                       boxShadow: snapshot.isDragging ? 3 : 0,
                                       cursor: 'grab',
-                                      border: '1px solid #3b82f6',
+                                      border: isSelected
+                                        ? '2.5px dashed #ff5252'
+                                        : '1px solid #3b82f6',
                                       transition: 'all 0.2s',
                                       display: 'flex',
                                       justifyContent: 'space-between',
