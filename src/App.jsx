@@ -6,6 +6,10 @@ import { AuthProvider } from './contexts/AuthContext';
 import { TodoProvider } from './contexts/TodoContext';
 import { Provider } from 'react-redux';
 import { store } from './store/index';
+import Layout from './components/Layout';
+import Login from './components/Login';
+import Dashboard from './components/dashboard/Dashboard';
+import { useAuth } from './contexts/AuthContext';
 
 const theme = createTheme({
   palette: {
@@ -23,6 +27,31 @@ const theme = createTheme({
   },
 });
 
+const ProtectedRoute = ({ children }) => {
+  const { currentUser, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        backgroundColor: '#181A20',
+        color: '#fff'
+      }}>
+        <div>로딩 중...</div>
+      </div>
+    );
+  }
+  
+  if (!currentUser) {
+    return <Login />;
+  }
+  
+  return children;
+};
+
 const App = () => {
   return (
     <Provider store={store}>
@@ -31,22 +60,19 @@ const App = () => {
           <ThemeProvider theme={theme}>
             <CssBaseline />
             <Router>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '100vh',
-                backgroundColor: '#181A20',
-                color: '#fff',
-                fontSize: '24px',
-                fontFamily: 'Arial, sans-serif'
-              }}>
-                <div style={{ textAlign: 'center' }}>
-                  <h1>천우현장관리</h1>
-                  <p>Context Provider 테스트 성공!</p>
-                  <p>Redux, Auth, Todo Context가 정상 작동합니다.</p>
-                </div>
-              </div>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Dashboard />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
             </Router>
           </ThemeProvider>
         </TodoProvider>
