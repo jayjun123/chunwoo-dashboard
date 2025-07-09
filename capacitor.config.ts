@@ -1,8 +1,9 @@
 import type { CapacitorConfig } from '@capacitor/cli';
+import { KeyboardResize, KeyboardStyle } from '@capacitor/keyboard';
 
 const config: CapacitorConfig = {
   appId: 'com.chunwoo.construction',
-  appName: '건설현장관리시스템',
+  appName: '천우시스템',
   webDir: 'dist',
   server: {
     androidScheme: 'https',
@@ -29,8 +30,8 @@ const config: CapacitorConfig = {
   },
   plugins: {
     Keyboard: {
-      resize: 'body',
-      style: 'default',
+      resize: KeyboardResize.Body,
+      style: KeyboardStyle.Default,
       resizeOnFullScreen: true
     },
     SplashScreen: {
@@ -48,7 +49,7 @@ const config: CapacitorConfig = {
     },
     StatusBar: {
       style: 'dark',
-      backgroundColor: '#ffffff'
+      backgroundColor: '#181A20'
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"]

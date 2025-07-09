@@ -45,7 +45,12 @@ import CustomScheduleMobile from './pages/CustomScheduleMobile';
 // import PWAInstallPrompt from './components/common/PWAInstallPrompt.jsx';
 import OfflineSupport from './components/common/OfflineSupport';
 // import BackButtonHandler from './components/common/BackButtonHandler';
+// import StatusBarManager from './components/common/StatusBarManager';
+// import KeyboardManager from './components/common/KeyboardManager';
 // import GlobalErrorHandler from './components/common/GlobalErrorHandler';
+import SplashScreen from './components/common/SplashScreen';
+import { setupIMEHandler } from './utils/imeHandler';
+import { setupStrictBackButtonHandler } from './utils/backButtonHandler';
 
 const theme = createTheme({
   palette: {
@@ -234,10 +239,65 @@ const DiscussionChatWrapper = () => {
 
 const App = () => {
   const [showSplash, setShowSplash] = useState(true);
+  const [splashTimeout, setSplashTimeout] = useState(null);
   const isMobile = useMediaQuery('(max-width:600px)');
 
   useEffect(() => {
     const cleanupKeyboardHandling = setupKeyboardHandling();
+    const cleanupIMEHandler = setupIMEHandler();
+    const cleanupBackButtonHandler = setupStrictBackButtonHandler();
+
+    // 스플래시 스크린 강제 타임아웃 (Netlify 대응)
+    const isNetlify = window.location.hostname.includes('netlify.app') || 
+                     window.location.hostname.includes('netlify.com');
+    
+    const timeout = setTimeout(() => {
+      console.log('스플래시 스크린 강제 종료 (타임아웃)', { isNetlify });
+      setShowSplash(false);
+    }, isNetlify ? 3000 : 5000); // Netlify에서는 3초, 일반적으로는 5초
+    setSplashTimeout(timeout);
+
+    // PWA 전체화면 모드 강제
+    if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+      document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+      
+      // iPad PWA 전체화면 강제
+      if (window.innerWidth >= 768) {
+        document.body.style.position = 'fixed';
+        document.body.style.top = '0';
+        document.body.style.left = '0';
+        document.body.style.width = '100vw';
+        document.body.style.height = '100vh';
+        document.body.style.overflow = 'hidden';
+        document.body.style.margin = '0';
+        document.body.style.padding = '0';
+        
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+          rootElement.style.width = '100vw';
+          rootElement.style.height = '100vh';
+          rootElement.style.overflow = 'auto';
+          rootElement.style.webkitOverflowScrolling = 'touch';
+          rootElement.style.position = 'relative';
+        }
+        
+        // Safari에서 전체화면 강제
+        if (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
+          document.documentElement.style.position = 'fixed';
+          document.documentElement.style.top = '0';
+          document.documentElement.style.left = '0';
+          document.documentElement.style.width = '100vw';
+          document.documentElement.style.height = '100vh';
+          document.documentElement.style.overflow = 'hidden';
+        }
+      }
+      
+      const handleResize = () => {
+        document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+      };
+      
+      window.addEventListener('resize', handleResize);
+    }
 
     // 새로고침 시 세션 복원 확인
     const handleBeforeUnload = () => {
@@ -248,13 +308,26 @@ const App = () => {
 
     return () => {
       cleanupKeyboardHandling();
+      cleanupIMEHandler();
+      cleanupBackButtonHandler();
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (splashTimeout) {
+        clearTimeout(splashTimeout);
+      }
     };
   }, []);
 
   const handleSplashComplete = () => {
+    console.log('스플래시 완료 콜백 실행');
     setShowSplash(false);
+    // 타임아웃 클리어
+    if (splashTimeout) {
+      clearTimeout(splashTimeout);
+      setSplashTimeout(null);
+    }
   };
+
+  console.log('App 렌더링 - showSplash:', showSplash);
 
   return (
     <ErrorBoundary>
@@ -266,7 +339,7 @@ const App = () => {
                 <CssBaseline />
                 <LoadingProvider>
                   <PopupProvider>
-                    {/* {showSplash && <SplashScreen onComplete={handleSplashComplete} />} */}
+                    {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
                     <Routes>
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />

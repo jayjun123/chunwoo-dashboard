@@ -716,14 +716,24 @@ const CustomCalendar = (props) => {
                           gap: { xs: 0.1, md: 0.2 },
                           overflowY: 'auto', // 스크롤 다시 활성화
                           overflowX: 'hidden',
-                          maxHeight: '240px',
+                          maxHeight: { xs: '280px', md: '240px' },
                           margin: 0,
                           padding: 0,
                           boxSizing: 'border-box',
-                          scrollbarWidth: 'none', // Firefox에서 스크롤바 숨기기
+                          scrollbarWidth: 'thin', // Firefox에서 얇은 스크롤바
                           msOverflowStyle: 'none', // IE/Edge에서 스크롤바 숨기기
                           '&::-webkit-scrollbar': {
-                            display: 'none', // Webkit 브라우저에서 스크롤바 숨기기
+                            width: '6px', // Webkit 브라우저에서 스크롤바 너비
+                          },
+                          '&::-webkit-scrollbar-track': {
+                            background: 'transparent',
+                          },
+                          '&::-webkit-scrollbar-thumb': {
+                            background: '#4a5568',
+                            borderRadius: '3px',
+                          },
+                          '&::-webkit-scrollbar-thumb:hover': {
+                            background: '#718096',
                           },
                         }}>
                           {items.map((item, index) => (
@@ -753,8 +763,23 @@ const CustomCalendar = (props) => {
                                       console.log('일정 더블클릭됨:', dateStr, item);
                                       handleItemDoubleClick(dateStr, item);
                                     }}
-                                    onTouchStart={undefined}
-                                    onTouchEnd={undefined}
+                                    onTouchStart={e => {
+                                      e.stopPropagation();
+                                      console.log('일정 터치 시작:', dateStr, item.id);
+                                      // 터치 시작 시 드래그 준비
+                                      e.target.style.transform = 'scale(1.05)';
+                                      e.target.style.zIndex = '9999';
+                                    }}
+                                    onTouchMove={e => {
+                                      e.stopPropagation();
+                                      // 터치 이동 시 드래그 효과
+                                    }}
+                                    onTouchEnd={e => {
+                                      e.stopPropagation();
+                                      console.log('일정 터치 종료:', dateStr, item.id);
+                                      e.target.style.transform = '';
+                                      e.target.style.zIndex = '';
+                                    }}
                                     className={snapshot.isDragging ? 'dragging' : ''}
                                     sx={{
                                       p: { xs: 0.3, md: 0.5 },
@@ -785,7 +810,7 @@ const CustomCalendar = (props) => {
                                         {item.type === '현설' && '[현설]'}
                                         {item.type === '지원' && '[지원]'}
                                         {item.type === '기타' && '[기타]'}
-                                        {viewMode === '3days' ? item.text : (viewMode === 'month' ? item.text.slice(0, 9) : item.text)}
+                                        {viewMode === '3days' ? item.text : (viewMode === 'month' ? item.text.slice(0, 7) : item.text)}
                                       </>
                                     </span>
                                     <Checkbox
