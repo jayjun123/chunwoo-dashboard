@@ -1,5 +1,7 @@
 .safety-detail {
   padding: 20px;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .safety-detail-header {
@@ -357,4 +359,11 @@
   .download-button {
     width: 100%;
   }
+}
+
+/* 안전 상세 스크롤바 숨김 */
+.safety-detail::-webkit-scrollbar,
+.safety-content::-webkit-scrollbar,
+.safety-form::-webkit-scrollbar {
+  display: none !important;
 } 

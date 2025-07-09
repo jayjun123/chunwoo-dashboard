@@ -166,4 +166,80 @@ input, select, textarea {
   width: 0 !important;
   height: 0 !important;
   background: transparent !important;
+}
+
+/* 전역 스크롤바 숨김 스타일 */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* HTML과 Body에 스크롤바 숨김 적용 */
+html, body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+/* 모든 스크롤 가능한 요소에 스크롤바 숨김 적용 */
+div, section, article, aside, nav, main, header, footer {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+div::-webkit-scrollbar,
+section::-webkit-scrollbar,
+article::-webkit-scrollbar,
+aside::-webkit-scrollbar,
+nav::-webkit-scrollbar,
+main::-webkit-scrollbar,
+header::-webkit-scrollbar,
+footer::-webkit-scrollbar {
+  display: none;
+}
+
+/* Material-UI 컴포넌트 스크롤바 숨김 */
+.MuiBox-root,
+.MuiPaper-root,
+.MuiDialog-root,
+.MuiDrawer-root,
+.MuiList-root,
+.MuiTableContainer-root,
+.MuiCard-root {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.MuiBox-root::-webkit-scrollbar,
+.MuiPaper-root::-webkit-scrollbar,
+.MuiDialog-root::-webkit-scrollbar,
+.MuiDrawer-root::-webkit-scrollbar,
+.MuiList-root::-webkit-scrollbar,
+.MuiTableContainer-root::-webkit-scrollbar,
+.MuiCard-root::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* 특정 클래스에 대한 스크롤바 숨김 */
+.scrollable-content,
+.overflow-auto,
+.overflow-y-auto,
+.overflow-x-auto {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.scrollable-content::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar {
+  display: none !important;
 } 

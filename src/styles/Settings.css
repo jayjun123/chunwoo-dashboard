@@ -15,4 +15,18 @@
     background-color: #1a1a1a;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
   }
+}
+
+/* 설정 페이지 스크롤바 숨김 */
+.settings-container,
+.settings-list,
+.settings-form {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.settings-container::-webkit-scrollbar,
+.settings-list::-webkit-scrollbar,
+.settings-form::-webkit-scrollbar {
+  display: none !important;
 } 

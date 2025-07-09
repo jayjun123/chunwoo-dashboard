@@ -100,4 +100,18 @@
   .nav-icon {
     font-size: 20px;
   }
+}
+
+/* 사이드바 스크롤바 숨김 */
+.sidebar,
+.sidebar-content,
+.sidebar-menu {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.sidebar::-webkit-scrollbar,
+.sidebar-content::-webkit-scrollbar,
+.sidebar-menu::-webkit-scrollbar {
+  display: none !important;
 } 

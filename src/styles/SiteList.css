@@ -5,6 +5,8 @@
   padding: 0;
   border-radius: 16px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .site-list.light {
@@ -547,4 +549,11 @@ input, select, textarea {
 .site-list-actions, .site-list-actions * {
   writing-mode: initial !important;
   flex-direction: row !important;
+}
+
+/* 현장 목록 스크롤바 숨김 */
+.site-list::-webkit-scrollbar,
+.list-content::-webkit-scrollbar,
+.list-table::-webkit-scrollbar {
+  display: none !important;
 } 

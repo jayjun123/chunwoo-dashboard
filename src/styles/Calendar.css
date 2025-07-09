@@ -232,4 +232,18 @@
   border: 2.5px dashed #ff5252 !important;
   box-sizing: border-box;
   border-radius: 8px;
+}
+
+/* 캘린더 스크롤바 숨김 */
+.calendar-container,
+.calendar-content,
+.calendar-events {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.calendar-container::-webkit-scrollbar,
+.calendar-content::-webkit-scrollbar,
+.calendar-events::-webkit-scrollbar {
+  display: none !important;
 } 

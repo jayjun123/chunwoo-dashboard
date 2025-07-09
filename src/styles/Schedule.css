@@ -583,3 +583,17 @@ body, .schedule-container {
     max-height: calc(100vh - 40px);
   }
 }
+
+/* 일정 관리 스크롤바 숨김 */
+.schedule-container,
+.schedule-list,
+.schedule-table {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.schedule-container::-webkit-scrollbar,
+.schedule-list::-webkit-scrollbar,
+.schedule-table::-webkit-scrollbar {
+  display: none !important;
+}

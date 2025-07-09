@@ -201,4 +201,18 @@ tr:hover {
   background-color: #f8d7da;
   border-radius: 4px;
   margin-bottom: 16px;
+}
+
+/* 안전 보고서 스크롤바 숨김 */
+.safety-reports,
+.reports-content,
+.reports-table {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.safety-reports::-webkit-scrollbar,
+.reports-content::-webkit-scrollbar,
+.reports-table::-webkit-scrollbar {
+  display: none !important;
 } 

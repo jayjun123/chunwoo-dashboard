@@ -1,5 +1,11 @@
 .safety-training {
   padding: 20px;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.safety-training::-webkit-scrollbar {
+  display: none !important;
 }
 
 .training-header {
@@ -60,6 +66,12 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.training-list::-webkit-scrollbar {
+  display: none !important;
 }
 
 .training-card {

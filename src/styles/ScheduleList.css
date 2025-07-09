@@ -2,6 +2,8 @@
   padding: 20px;
   background-color: #181818;
   min-height: calc(100vh - 60px);
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .schedule-list-header {
@@ -836,4 +838,18 @@ input, select, textarea {
   background: var(--input-background) !important;
   color: var(--text-main) !important;
   border: 1px solid var(--border);
+}
+
+/* 일정 목록 스크롤바 숨김 */
+.schedule-list,
+.list-content,
+.list-table {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.schedule-list::-webkit-scrollbar,
+.list-content::-webkit-scrollbar,
+.list-table::-webkit-scrollbar {
+  display: none !important;
 } 

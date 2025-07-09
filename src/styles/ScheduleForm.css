@@ -162,4 +162,18 @@ input:focus, select:focus, textarea:focus {
 .form-actions, .form-actions * {
   writing-mode: initial !important;
   flex-direction: row !important;
+}
+
+/* 일정 폼 스크롤바 숨김 */
+.schedule-form,
+.form-content,
+.form-container {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.schedule-form::-webkit-scrollbar,
+.form-content::-webkit-scrollbar,
+.form-container::-webkit-scrollbar {
+  display: none !important;
 } 

@@ -1,0 +1,15 @@
+/* 토론 스크롤바 숨김 */
+.discussions-container,
+.discussions-list,
+.discussions-chat {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.discussions-container::-webkit-scrollbar,
+.discussions-list::-webkit-scrollbar,
+.discussions-chat::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* 기존 스타일들... */

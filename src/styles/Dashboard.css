@@ -5,10 +5,16 @@
   display: flex;
   flex-direction: column;
   transition: all 0.3s ease;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .dashboard-container.expanded {
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.dashboard-container::-webkit-scrollbar {
+  display: none !important;
 }
 
 .dashboard-content {
@@ -16,6 +22,12 @@
   width: 100%;
   margin: 0 auto;
   padding: 0;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.dashboard-content::-webkit-scrollbar {
+  display: none !important;
 }
 
 .dashboard-header, .dashboard-date, .dashboard-info, .dashboard-bottom-bar {
@@ -182,6 +194,8 @@
   border-top: 1px solid var(--border-color);
   z-index: 1000;
   transition: all 0.3s ease;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .bottom-dashboard.expanded {
@@ -192,6 +206,12 @@
   padding: 16px;
   max-height: 300px;
   overflow-y: auto;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.bottom-dashboard::-webkit-scrollbar {
+  display: none !important;
 }
 
 .stat-item {
@@ -1095,4 +1115,22 @@ input, select, textarea {
 .chart-wrapper {
   height: 300px;
   width: 100%;
+}
+
+/* 대시보드 스크롤바 숨김 */
+.dashboard-container,
+.dashboard-content,
+.news-panel,
+.weather-widget,
+.bottom-bar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.dashboard-container::-webkit-scrollbar,
+.dashboard-content::-webkit-scrollbar,
+.news-panel::-webkit-scrollbar,
+.weather-widget::-webkit-scrollbar,
+.bottom-bar::-webkit-scrollbar {
+  display: none !important;
 } 

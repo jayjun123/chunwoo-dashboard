@@ -210,4 +210,18 @@
     width: 95%;
     margin: 10px;
   }
+}
+
+/* 일정 관리 스크롤바 숨김 */
+.schedule-management,
+.management-content,
+.management-table {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.schedule-management::-webkit-scrollbar,
+.management-content::-webkit-scrollbar,
+.management-table::-webkit-scrollbar {
+  display: none !important;
 } 

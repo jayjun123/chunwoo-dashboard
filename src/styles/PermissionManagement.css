@@ -230,4 +230,18 @@
   .permission-actions {
     flex-direction: column;
   }
+}
+
+/* 권한 관리 스크롤바 숨김 */
+.permission-container,
+.permission-list,
+.permission-table {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.permission-container::-webkit-scrollbar,
+.permission-list::-webkit-scrollbar,
+.permission-table::-webkit-scrollbar {
+  display: none !important;
 } 

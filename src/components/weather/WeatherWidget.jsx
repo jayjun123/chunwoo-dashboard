@@ -16,7 +16,12 @@ const WeatherWidget = () => {
         setLoading(true);
         setError(null);
         const data = await get5DayForecast();
-        setWeatherData(data);
+        if (data && data.daily && data.daily.length > 0) {
+          setWeatherData(data);
+          console.log('날씨 데이터 로드 성공:', data.daily.length, '일');
+        } else {
+          throw new Error('날씨 데이터가 없습니다.');
+        }
       } catch (error) {
         console.error('날씨 데이터 로드 실패:', error);
         setError('날씨 데이터를 불러올 수 없습니다.');

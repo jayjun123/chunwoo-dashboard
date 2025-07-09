@@ -385,4 +385,18 @@
   .form-row {
     grid-template-columns: 1fr;
   }
+}
+
+/* 현장 관리 스크롤바 숨김 */
+.site-container,
+.site-list,
+.site-table {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.site-container::-webkit-scrollbar,
+.site-list::-webkit-scrollbar,
+.site-table::-webkit-scrollbar {
+  display: none !important;
 } 

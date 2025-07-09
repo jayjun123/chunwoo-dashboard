@@ -377,4 +377,18 @@ input, select, textarea {
   background: var(--input-background) !important;
   color: var(--text-main) !important;
   border: 1px solid var(--border);
+}
+
+/* 자재 관리 스크롤바 숨김 */
+.materials-container,
+.materials-list,
+.materials-table {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.materials-container::-webkit-scrollbar,
+.materials-list::-webkit-scrollbar,
+.materials-table::-webkit-scrollbar {
+  display: none !important;
 } 

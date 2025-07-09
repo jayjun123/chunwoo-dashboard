@@ -12,6 +12,8 @@
   right: 0;
   z-index: 1000;
   border-bottom: 1px solid #333;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .header-left {
@@ -64,6 +66,8 @@
   white-space: nowrap;
   overflow-x: auto;
   max-width: 100vw;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .header-menu .menu-item {
@@ -572,6 +576,20 @@
   .header-nav {
     gap: 32px;
   }
+}
+
+/* 헤더 스크롤바 숨김 */
+.header,
+.header-content,
+.header-menu {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.header::-webkit-scrollbar,
+.header-content::-webkit-scrollbar,
+.header-menu::-webkit-scrollbar {
+  display: none !important;
 }
 
 /* 헤더 메뉴 한 줄, 작은 폰트, 오버플로우 스크롤/말줄임 */

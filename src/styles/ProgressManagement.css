@@ -234,4 +234,18 @@
   .progress-management {
     /* 이동 관련 스타일 제거 */
   }
+}
+
+/* 기성현황 관리 스크롤바 숨김 */
+.progress-container,
+.progress-list,
+.progress-table {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.progress-container::-webkit-scrollbar,
+.progress-list::-webkit-scrollbar,
+.progress-table::-webkit-scrollbar {
+  display: none !important;
 } 

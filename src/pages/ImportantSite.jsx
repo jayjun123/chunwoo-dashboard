@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { 
   Box, 
   Card, 
@@ -29,6 +29,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { collection, getDocs, doc, updateDoc, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { devLog, devError, useCleanup, createOptimizedSubscription } from '../utils/performanceUtils';
 import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -50,6 +51,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 export default function ImportantSite() {
   const isMobile = useMediaQuery('(max-width:600px)');
+  const { addCleanup } = useCleanup();
   const [sites, setSites] = useState([]);
   const [progressData, setProgressData] = useState({}); // { siteId: [progressItems] }
   const [gisungData, setGisungData] = useState({}); // { siteId: [gisungItems] }
@@ -79,48 +81,39 @@ export default function ImportantSite() {
     // isFavorite가 true인 현장만 실시간으로 가져옵니다.
     const q = query(collection(db, 'sites'), where('isFavorite', '==', true));
     
-    let unsubscribe = null;
-    
-    try {
-      unsubscribe = onSnapshot(q, (snapshot) => {
+    const { subscribe, cleanup } = createOptimizedSubscription(
+      () => q,
+      (snapshot) => {
         setSites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      }, (error) => {
-        console.error("Error fetching important sites in real-time:", error);
-        // 에러 발생 시 빈 배열로 설정
+      },
+      (error) => {
+        devError("Error fetching important sites in real-time:", error);
         setSites([]);
-      });
-    } catch (error) {
-      console.error("Error setting up sites listener:", error);
-      setSites([]);
-    }
-
-    return () => {
-      try {
-        if (unsubscribe && typeof unsubscribe === 'function') {
-          unsubscribe();
-        }
-      } catch (error) {
-        console.error("Error cleaning up sites listener:", error);
       }
-    };
-  }, []);
+    );
+    
+    subscribe();
+    addCleanup(cleanup);
+  }, [addCleanup]);
 
-  // 전체 기성 데이터 디버깅용 (한 번만 실행)
+  // 전체 기성 데이터 디버깅용 (개발 환경에서만 실행)
   useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    
     const debugGisungData = async () => {
       try {
-        console.log('=== 전체 기성 데이터 디버깅 ===');
+        devLog('=== 전체 기성 데이터 디버깅 ===');
         const gisungSnapshot = await getDocs(collection(db, 'gisung'));
         const allGisung = gisungSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
-        console.log('DB의 모든 기성 데이터:', allGisung);
-        console.log('기성 데이터 개수:', allGisung.length);
+        devLog('DB의 모든 기성 데이터:', allGisung);
+        devLog('기성 데이터 개수:', allGisung.length);
         
         // 각 기성 데이터의 모든 필드 출력
         allGisung.forEach((item, index) => {
-          console.log(`기성 데이터 ${index + 1}:`, {
+          devLog(`기성 데이터 ${index + 1}:`, {
             id: item.id,
             siteId: item.siteId,
             siteName: item.siteName,
@@ -141,15 +134,15 @@ export default function ImportantSite() {
           }
           groupedBySiteId[item.siteId].push(item);
         });
-        console.log('siteId별 그룹화된 기성 데이터:', groupedBySiteId);
+        devLog('siteId별 그룹화된 기성 데이터:', groupedBySiteId);
         
         // 각 siteId별 합계
         Object.keys(groupedBySiteId).forEach(siteId => {
           const total = groupedBySiteId[siteId].reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
-          console.log(`SiteId ${siteId}의 누계기성: ${total.toLocaleString()}원`);
+          devLog(`SiteId ${siteId}의 누계기성: ${total.toLocaleString()}원`);
         });
       } catch (error) {
-        console.error('기성 데이터 디버깅 중 오류:', error);
+        devError('기성 데이터 디버깅 중 오류:', error);
       }
     };
     
@@ -160,8 +153,8 @@ export default function ImportantSite() {
   useEffect(() => {
     if (sites.length === 0) return;
 
-    console.log('=== 기성 데이터 구독 시작 ===');
-    console.log('현재 sites:', sites.map(s => ({ id: s.id, name: s.name })));
+    devLog('=== 기성 데이터 구독 시작 ===');
+    devLog('현재 sites:', sites.map(s => ({ id: s.id, name: s.name })));
 
     const siteIds = sites.map(site => site.id);
     const unsubscribes = [];
@@ -169,7 +162,7 @@ export default function ImportantSite() {
     // 각 현장별로 기성 데이터 구독
     siteIds.forEach(siteId => {
       try {
-        console.log(`SiteId ${siteId}에 대한 기성 쿼리 생성`);
+        devLog(`SiteId ${siteId}에 대한 기성 쿼리 생성`);
         
         // siteId로 쿼리
         const gisungQuery = query(
@@ -177,41 +170,43 @@ export default function ImportantSite() {
           where('siteId', '==', siteId)
         );
         
-        const unsubscribe = onSnapshot(gisungQuery, (snapshot) => {
-          const gisungItems = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          
-          console.log(`Site ${siteId}의 기성 데이터 (${gisungItems.length}개):`, gisungItems);
-          
-          setGisungData(prev => ({
-            ...prev,
-            [siteId]: gisungItems
-          }));
-        }, (error) => {
-          console.error(`Error fetching gisung for site ${siteId}:`, error);
-          // 에러 발생 시 해당 siteId의 데이터를 빈 배열로 설정
-          setGisungData(prev => ({
-            ...prev,
-            [siteId]: []
-          }));
-        });
+        const { subscribe, cleanup } = createOptimizedSubscription(
+          () => gisungQuery,
+          (snapshot) => {
+            const gisungItems = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            
+            devLog(`Site ${siteId}의 기성 데이터 (${gisungItems.length}개):`, gisungItems);
+            
+            setGisungData(prev => ({
+              ...prev,
+              [siteId]: gisungItems
+            }));
+          },
+          (error) => {
+            devError(`Error fetching gisung for site ${siteId}:`, error);
+            setGisungData(prev => ({
+              ...prev,
+              [siteId]: []
+            }));
+          }
+        );
         
-        unsubscribes.push(unsubscribe);
+        subscribe();
+        unsubscribes.push(cleanup);
       } catch (error) {
-        console.error(`Error setting up gisung listener for site ${siteId}:`, error);
+        devError(`Error setting up gisung listener for site ${siteId}:`, error);
       }
     });
 
     return () => {
-      unsubscribes.forEach(unsubscribe => {
+      unsubscribes.forEach(cleanup => {
         try {
-          if (unsubscribe && typeof unsubscribe === 'function') {
-            unsubscribe();
-          }
+          cleanup();
         } catch (error) {
-          console.error("Error cleaning up gisung listener:", error);
+          devError("Error cleaning up gisung listener:", error);
         }
       });
     };
@@ -232,39 +227,41 @@ export default function ImportantSite() {
           orderBy('date', 'desc')
         );
 
-        const unsubscribe = onSnapshot(progressQuery, (snapshot) => {
-          const progressItems = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          
-          setProgressData(prev => ({
-            ...prev,
-            [siteId]: progressItems
-          }));
-        }, (error) => {
-          console.error(`Error fetching progress for site ${siteId}:`, error);
-          // 에러 발생 시 해당 siteId의 데이터를 빈 배열로 설정
-          setProgressData(prev => ({
-            ...prev,
-            [siteId]: []
-          }));
-        });
+        const { subscribe, cleanup } = createOptimizedSubscription(
+          () => progressQuery,
+          (snapshot) => {
+            const progressItems = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            
+            setProgressData(prev => ({
+              ...prev,
+              [siteId]: progressItems
+            }));
+          },
+          (error) => {
+            devError(`Error fetching progress for site ${siteId}:`, error);
+            setProgressData(prev => ({
+              ...prev,
+              [siteId]: []
+            }));
+          }
+        );
         
-        unsubscribes.push(unsubscribe);
+        subscribe();
+        unsubscribes.push(cleanup);
       } catch (error) {
-        console.error(`Error setting up progress listener for site ${siteId}:`, error);
+        devError(`Error setting up progress listener for site ${siteId}:`, error);
       }
     });
 
     return () => {
-      unsubscribes.forEach(unsubscribe => {
+      unsubscribes.forEach(cleanup => {
         try {
-          if (unsubscribe && typeof unsubscribe === 'function') {
-            unsubscribe();
-          }
+          cleanup();
         } catch (error) {
-          console.error("Error cleaning up progress listener:", error);
+          devError("Error cleaning up progress listener:", error);
         }
       });
     };
@@ -285,7 +282,7 @@ export default function ImportantSite() {
         });
         setComments(commentsData);
       } catch (error) {
-        console.error('댓글 로딩 실패:', error);
+        devError('댓글 로딩 실패:', error);
       }
     };
     fetchComments();
@@ -584,13 +581,13 @@ export default function ImportantSite() {
               const siteGisungData = gisungData[site.id] || [];
               const totalGisung = siteGisungData.reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
               
-              console.log('=== 현장별 기성 데이터 분석 ===');
-              console.log('현장 ID:', site.id);
-              console.log('현장명:', site.name);
-              console.log('전체 gisungData:', gisungData);
-              console.log('현재 현장의 gisungData:', siteGisungData);
-              console.log('계산된 totalGisung:', totalGisung);
-              console.log('각 기성 항목:', siteGisungData.map(item => ({
+              devLog('=== 현장별 기성 데이터 분석 ===');
+              devLog('현장 ID:', site.id);
+              devLog('현장명:', site.name);
+              devLog('전체 gisungData:', gisungData);
+              devLog('현재 현장의 gisungData:', siteGisungData);
+              devLog('계산된 totalGisung:', totalGisung);
+              devLog('각 기성 항목:', siteGisungData.map(item => ({
                 id: item.id,
                 gisungAmount: item.gisungAmount,
                 siteId: item.siteId,

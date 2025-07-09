@@ -13,8 +13,7 @@ export const get5DayForecast = async (nx = 89, ny = 90) => {
     console.log('기상청 API 키 확인:', apiKey ? '설정됨' : '설정되지 않음');
     
     if (!apiKey) {
-      console.error('기상청 API 키가 설정되지 않았습니다.');
-      throw new Error('API 키가 설정되지 않음');
+      throw new Error('기상청 API 키가 설정되지 않았습니다.');
     }
 
     // 오늘 날짜 기준으로 API 호출
@@ -66,57 +65,7 @@ export const get5DayForecast = async (nx = 89, ny = 90) => {
 
   } catch (error) {
     console.error('기상청 API 호출 중 오류 발생:', error);
-    // API 키가 없거나 오류 발생 시 더미 데이터 반환
-    console.log('더미 날씨 데이터를 반환합니다.');
-    return {
-      daily: [
-        {
-          date: format(new Date(), 'yyyy-MM-dd'),
-          dayName: '오늘',
-          maxTemp: 25,
-          minTemp: 15,
-          sky: '맑음',
-          pty: '0',
-          pop: 10
-        },
-        {
-          date: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
-          dayName: '내일',
-          maxTemp: 27,
-          minTemp: 17,
-          sky: '구름많음',
-          pty: '0',
-          pop: 20
-        },
-        {
-          date: format(addDays(new Date(), 2), 'yyyy-MM-dd'),
-          dayName: '모레',
-          maxTemp: 24,
-          minTemp: 16,
-          sky: '흐림',
-          pty: '1',
-          pop: 60
-        },
-        {
-          date: format(addDays(new Date(), 3), 'yyyy-MM-dd'),
-          dayName: '글피',
-          maxTemp: 26,
-          minTemp: 18,
-          sky: '맑음',
-          pty: '0',
-          pop: 5
-        },
-        {
-          date: format(addDays(new Date(), 4), 'yyyy-MM-dd'),
-          dayName: '그글피',
-          maxTemp: 28,
-          minTemp: 19,
-          sky: '구름많음',
-          pty: '0',
-          pop: 15
-        }
-      ]
-    };
+    throw error;
   }
 };
 
@@ -180,8 +129,8 @@ const processWeatherData = (items) => {
 };
 
 /**
- * 하늘상태 코드를 텍스트로 변환
- * @param {string} skyCode - 하늘상태 코드
+ * 기상청 하늘상태 코드를 텍스트로 변환
+ * @param {string} skyCode - 기상청 하늘상태 코드
  * @returns {string} 하늘상태 텍스트
  */
 const getSkyText = (skyCode) => {
@@ -191,4 +140,73 @@ const getSkyText = (skyCode) => {
     '4': '흐림'
   };
   return skyMap[skyCode] || '맑음';
+};
+
+/**
+ * 현재 날씨 정보를 가져옵니다
+ * @param {number} nx - X 좌표
+ * @param {number} ny - Y 좌표
+ * @returns {Promise<object>} 현재 날씨 정보
+ */
+export const getCurrentWeather = async (nx = 89, ny = 90) => {
+  try {
+    const forecastData = await get5DayForecast(nx, ny);
+    const todayData = forecastData.daily[0];
+    
+    if (!todayData) {
+      throw new Error('오늘 날씨 데이터가 없습니다.');
+    }
+    
+    return {
+      temperature: todayData.maxTemp,
+      weather: todayData.sky,
+      precipitation: todayData.pop,
+      date: todayData.date
+    };
+  } catch (error) {
+    console.error('현재 날씨 조회 실패:', error);
+    throw error;
+  }
+};
+
+/**
+ * 지역별 좌표 정보
+ */
+export const LOCATION_COORDS = {
+  '서울': { nx: 60, ny: 127 },
+  '부산': { nx: 98, ny: 76 },
+  '대구': { nx: 89, ny: 90 },
+  '인천': { nx: 55, ny: 124 },
+  '광주': { nx: 58, ny: 74 },
+  '대전': { nx: 67, ny: 100 },
+  '울산': { nx: 102, ny: 84 },
+  '세종': { nx: 66, ny: 103 },
+  '경기': { nx: 60, ny: 120 },
+  '강원': { nx: 73, ny: 134 },
+  '충북': { nx: 69, ny: 107 },
+  '충남': { nx: 68, ny: 100 },
+  '전북': { nx: 63, ny: 89 },
+  '전남': { nx: 51, ny: 67 },
+  '경북': { nx: 89, ny: 91 },
+  '경남': { nx: 91, ny: 76 },
+  '제주': { nx: 53, ny: 38 }
+};
+
+/**
+ * 지역명으로 좌표를 찾습니다
+ * @param {string} location - 지역명
+ * @returns {object} 좌표 정보
+ */
+export const getLocationCoords = (location) => {
+  if (!location) return { nx: 89, ny: 90 }; // 기본값: 대구
+  
+  // 입력된 지역명에서 매칭되는 좌표 찾기
+  for (const [city, coords] of Object.entries(LOCATION_COORDS)) {
+    if (location.includes(city)) {
+      return coords;
+    }
+  }
+  
+  // 기본값: 대구
+  return { nx: 89, ny: 90 };
 }; 

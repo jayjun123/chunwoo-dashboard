@@ -2,6 +2,12 @@
   padding: 20px;
   height: calc(100vh - 60px);
   background-color: #f5f5f5;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.safety-container::-webkit-scrollbar {
+  display: none !important;
 }
 
 .safety-header {
@@ -89,6 +95,12 @@
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.safety-table::-webkit-scrollbar {
+  display: none !important;
 }
 
 .safety-table table {
