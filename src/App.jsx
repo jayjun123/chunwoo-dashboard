@@ -42,7 +42,7 @@ import PDFTest from './pages/PDFTest';
 import DiscussionChat from './components/discussions/DiscussionChat';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
-import PWAInstallPrompt from './components/common/PWAInstallPrompt';
+// import PWAInstallPrompt from './components/common/PWAInstallPrompt.jsx';
 import OfflineSupport from './components/common/OfflineSupport';
 import BackButtonHandler from './components/common/BackButtonHandler';
 import SplashScreen from './components/common/SplashScreen';
@@ -514,7 +514,7 @@ const App = () => {
                     <BackButtonHandler />
                     <StatusBarManager />
                     <KeyboardManager />
-                    <PWAInstallPrompt />
+                    {/* <PWAInstallPrompt /> */}
                     <GlobalErrorHandler />
                   </PopupProvider>
                 </LoadingProvider>
