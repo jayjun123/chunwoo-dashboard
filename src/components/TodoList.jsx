@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material';
 import { collection, query, onSnapshot, where, addDoc, updateDoc, deleteDoc, doc, getDocs, orderBy } from 'firebase/firestore';
 import { db, collections } from '../firebase';
+import { devLog, devError } from '../utils/performanceUtils';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ScheduleIcon from '@mui/icons-material/Schedule';
@@ -77,14 +78,14 @@ const TodoList = () => {
   }
   const isAdminOrMasterUser = isAdminOrMaster(currentUser);
 
-  // 현재 사용자의 오늘 날짜 투두리스트 가져오기
+  // 현재 사용자의 오늘 날짜 투두리스트 가져오기 (자동 이월 제거)
   const getCurrentUserTodos = useCallback(async () => {
     if (!userId) return;
     
     const today = format(new Date(), 'yyyy-MM-dd');
     
     try {
-      console.log('오늘 날짜:', today);
+      devLog('오늘 날짜:', today);
       
       // 오늘 투두리스트 확인 (date 필드 또는 createdAt 필드로)
       const todayQuery = query(
@@ -94,36 +95,36 @@ const TodoList = () => {
       );
       
       const todaySnapshot = await getDocs(todayQuery);
-      console.log('오늘 투두 개수:', todaySnapshot.size);
+      devLog('오늘 투두 개수:', todaySnapshot.size);
       
-      // 오늘 투두리스트가 없으면 전날 미완료 항목을 carry over
-      if (todaySnapshot.empty) {
-        console.log('오늘 투두가 없어서 전날 미완료 항목을 이월합니다.');
-        const yesterday = format(new Date(Date.now() - 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
-        const yesterdayQuery = query(
-          collection(db, collections.todos),
-          where('userId', '==', userId),
-          where('date', '==', yesterday),
-          where('completed', '==', false)
-        );
-        
-        const yesterdaySnapshot = await getDocs(yesterdayQuery);
-        console.log('전날 미완료 항목 개수:', yesterdaySnapshot.size);
-        
-        // 전날 미완료 항목들을 오늘로 carry over
-        for (const doc of yesterdaySnapshot.docs) {
-          const todoData = doc.data();
-          await addDoc(collection(db, collections.todos), {
-            ...todoData,
-            date: today,
-            carriedOver: true,
-            createdAt: new Date(),
-            completed: false
-          });
-        }
-      }
+      // 자동 이월 로직 제거 - 사용자가 직접 불러오기 버튼을 눌러야 함
+      // if (todaySnapshot.empty) {
+      //   console.log('오늘 투두가 없어서 전날 미완료 항목을 이월합니다.');
+      //   const yesterday = format(new Date(Date.now() - 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+      //   const yesterdayQuery = query(
+      //     collection(db, collections.todos),
+      //       where('userId', '==', userId),
+      //       where('date', '==', yesterday),
+      //       where('completed', '==', false)
+      //     );
+      //   
+      //   const yesterdaySnapshot = await getDocs(yesterdayQuery);
+      //   console.log('전날 미완료 항목 개수:', yesterdaySnapshot.size);
+      //   
+      //   // 전날 미완료 항목들을 오늘로 carry over
+      //   for (const doc of yesterdaySnapshot.docs) {
+      //     const todoData = doc.data();
+      //     await addDoc(collection(db, collections.todos), {
+      //       ...todoData,
+      //       date: today,
+      //       carriedOver: true,
+      //       createdAt: new Date(),
+      //       completed: false
+      //     });
+      //   }
+      // }
     } catch (error) {
-      console.error('투두리스트 초기화 오류:', error);
+      devError('투두리스트 초기화 오류:', error);
     }
   }, [userId]);
 

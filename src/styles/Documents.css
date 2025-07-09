@@ -3,6 +3,12 @@
   color: var(--text-main, #fff);
   min-height: 100vh;
   padding: 32px 0;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.documents-container::-webkit-scrollbar {
+  display: none !important;
 }
 
 .documents-header {

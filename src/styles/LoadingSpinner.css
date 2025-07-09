@@ -5,12 +5,25 @@
   justify-content: center;
   min-height: 200px;
   padding: 20px;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.loading-container::-webkit-scrollbar {
+  display: none !important;
 }
 
 .loading-spinner {
   font-size: 48px;
   color: var(--primary-color);
   animation: spin 1s linear infinite;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.loading-container::-webkit-scrollbar,
+.loading-spinner::-webkit-scrollbar {
+  display: none !important;
 }
 
 .loading-container p {

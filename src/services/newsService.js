@@ -32,11 +32,10 @@ const getNewsFromLocalStorage = () => {
 };
 
 // 로컬 스토리지에 뉴스 저장
-const saveNewsToLocalStorage = (newsList) => {
+const saveNewsToLocalStorage = (news) => {
   try {
-    const today = getTodayString();
-    localStorage.setItem(NEWS_STORAGE_KEY, JSON.stringify(newsList));
-    localStorage.setItem(NEWS_DATE_KEY, today);
+    localStorage.setItem(NEWS_STORAGE_KEY, JSON.stringify(news));
+    localStorage.setItem(NEWS_DATE_KEY, getTodayString());
     console.log('뉴스가 로컬 스토리지에 저장되었습니다.');
   } catch (error) {
     console.error('로컬 스토리지에 뉴스 저장 실패:', error);
@@ -48,6 +47,7 @@ const fetchNaverNews = async (keyword) => {
   try {
     const clientId = import.meta.env.VITE_NAVER_CLIENT_ID;
     const clientSecret = import.meta.env.VITE_NAVER_CLIENT_SECRET;
+    
     if (!clientId || !clientSecret) {
       throw new Error('네이버 API 키가 설정되지 않았습니다.');
     }
@@ -101,23 +101,7 @@ const fetchNaverNews = async (keyword) => {
     }));
   } catch (error) {
     console.error(`네이버 뉴스 검색 실패 (${keyword}):`, error);
-    // API 키가 없거나 오류 발생 시 더미 데이터 반환
-    return [
-      {
-        id: `${keyword}_dummy_1`,
-        title: `${keyword} 관련 건설 뉴스`,
-        description: '건설 현장의 최신 동향과 업계 소식을 전해드립니다.',
-        link: '#',
-        pubDate: new Date().toISOString()
-      },
-      {
-        id: `${keyword}_dummy_2`,
-        title: `${keyword} 시장 동향 분석`,
-        description: '최신 시장 동향과 전망을 분석한 리포트입니다.',
-        link: '#',
-        pubDate: new Date().toISOString()
-      }
-    ];
+    throw error;
   }
 };
 
@@ -125,13 +109,17 @@ const fetchNaverNews = async (keyword) => {
 export const searchConstructionNews = async () => {
   try {
     console.log('뉴스 검색 시작');
+    
     // 키워드별로 검색 (우선순위 순서)
     const keywords = ['유리공사', '건설', '대구', '경북'];
     const results = await Promise.all(keywords.map(fetchNaverNews));
+    
     // 모든 키워드 결과 합치기
     const allNews = results.flat();
+    
     // 중복 제거 (링크 기준)
     const uniqueNews = Array.from(new Map(allNews.map(item => [item.link, item])).values());
+    
     // 우선순위에 따른 정렬 (유리공사 > 건설 > 대구/경북)
     uniqueNews.sort((a, b) => {
       // 우선순위 점수 계산
@@ -139,6 +127,7 @@ export const searchConstructionNews = async () => {
         const title = item.title.toLowerCase();
         const description = (item.description || '').toLowerCase();
         const content = title + ' ' + description;
+        
         // 1순위: 유리공사
         if (content.includes('유리공사')) return 3;
         // 2순위: 건설
@@ -147,18 +136,23 @@ export const searchConstructionNews = async () => {
         if (content.includes('대구') || content.includes('경북')) return 1;
         return 0;
       };
+      
       const scoreA = getPriorityScore(a);
       const scoreB = getPriorityScore(b);
+      
       // 우선순위가 같으면 최신순
       if (scoreA === scoreB) {
         return new Date(b.pubDate) - new Date(a.pubDate);
       }
+      
       // 우선순위가 높은 순서로 정렬
       return scoreB - scoreA;
     });
+    
     // 10개만 반환
     const finalNews = uniqueNews.slice(0, 10);
     console.log('최종 뉴스 데이터:', finalNews.length, '개');
+    
     saveNewsToLocalStorage(finalNews);
     return finalNews;
   } catch (error) {
@@ -185,31 +179,25 @@ export const getNews = async (forceRefresh = false) => {
     return news || [];
   } catch (error) {
     console.error('뉴스 검색 실패:', error);
-    return []; // 빈 배열 반환 (더미 데이터 없음)
+    throw error;
   }
 };
 
-// Firestore에 뉴스 저장 (배치 처리)
-export const saveNewsToFirestore = async (newsList) => {
+// Firestore에 뉴스 저장
+export const saveNewsToFirestore = async (news) => {
   try {
-    const batch = newsList.map(async (item) => {
-      // 링크 기준 중복 방지: doc id를 링크 해시로 사용
-      const id = btoa(unescape(encodeURIComponent(item.link)))
-        .replace(/=+$/, '')
-        .replace(/\//g, '_')
-        .replace(/\+/g, '-');
-      const newsData = {
+    const batch = [];
+    for (const item of news) {
+      const docRef = doc(collection(db, 'news'));
+      batch.push(setDoc(docRef, {
         ...item,
-        savedAt: Timestamp.now(),
-        category: item.title.includes('유리') ? '유리공사' : '건설'
-      };
-      await setDoc(doc(db, 'news', id), newsData);
-    });
+        savedAt: Timestamp.now()
+      }));
+    }
     await Promise.all(batch);
-    console.log(`${newsList.length}개의 뉴스가 Firestore에 저장되었습니다.`);
+    console.log('뉴스가 Firestore에 저장되었습니다.');
   } catch (error) {
-    console.error('뉴스 Firestore 저장 오류:', error);
-    throw error;
+    console.error('Firestore에 뉴스 저장 실패:', error);
   }
 };
 

@@ -384,4 +384,18 @@
   .calendar-cell {
     min-width: 120px;
   }
+}
+
+/* 건설 상태 스크롤바 숨김 */
+.construction-status,
+.status-content,
+.status-list {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.construction-status::-webkit-scrollbar,
+.status-content::-webkit-scrollbar,
+.status-list::-webkit-scrollbar {
+  display: none !important;
 } 

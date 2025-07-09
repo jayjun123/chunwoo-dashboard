@@ -7,4 +7,18 @@
   background: #232634;
   padding: 8px;
   box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+}
+
+/* 채팅 입력 스크롤바 숨김 */
+.chat-input,
+.chat-messages,
+.chat-container {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.chat-input::-webkit-scrollbar,
+.chat-messages::-webkit-scrollbar,
+.chat-container::-webkit-scrollbar {
+  display: none !important;
 } 

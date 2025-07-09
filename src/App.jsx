@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import { configureIME } from './utils/imeHandler.jsx';
+import { initKeyboardManager } from './utils/pwaKeyboardUtils';
+import './styles/IME.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { TodoProvider } from './contexts/TodoContext';
 import { Provider } from 'react-redux';
@@ -13,6 +16,7 @@ import { useAuth } from './contexts/AuthContext';
 import LoadingProvider from './components/common/LoadingProvider';
 import PopupProvider from './contexts/PopupContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import SplashScreen from './components/common/SplashScreen';
 import Safety from './pages/Safety';
 import Documents from './pages/Documents';
 import Reports from './pages/Reports';
@@ -61,19 +65,13 @@ const theme = createTheme({
 
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
+  const [showSplash, setShowSplash] = useState(true);
   
-  if (loading) {
+  if (loading || showSplash) {
     return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        backgroundColor: '#181A20',
-        color: '#fff'
-      }}>
-        <div>로딩 중...</div>
-      </div>
+      <SplashScreen 
+        onComplete={() => setShowSplash(false)} 
+      />
     );
   }
   
@@ -91,6 +89,19 @@ const DiscussionChatWrapper = () => {
 
 const App = () => {
   const isMobile = useMediaQuery('(max-width:600px)');
+
+  // IME 및 키보드 매니저 초기화
+  useEffect(() => {
+    configureIME({
+      enableLogging: process.env.NODE_ENV === 'development',
+      enableViewportAdjustment: true,
+      enableCursorFix: true,
+      keyboardDetectionThreshold: 150
+    });
+    
+    // PWA 환경에서 키보드 매니저 초기화
+    initKeyboardManager();
+  }, []);
 
   return (
     <ErrorBoundary>

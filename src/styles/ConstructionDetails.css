@@ -288,4 +288,18 @@ input, select, textarea {
   background: var(--input-background) !important;
   color: var(--text-main) !important;
   border: 1px solid var(--border);
+}
+
+/* 건설 상세 스크롤바 숨김 */
+.construction-details,
+.construction-content,
+.construction-list {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.construction-details::-webkit-scrollbar,
+.construction-content::-webkit-scrollbar,
+.construction-list::-webkit-scrollbar {
+  display: none !important;
 } 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Box, Typography, IconButton, Tooltip, Badge, Modal, Paper, Drawer, List, ListItem, ListItemIcon, ListItemText, Snackbar, Alert, Checkbox, Button, Popover, TextField, Slide, useMediaQuery, useTheme, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { devLog, devError } from '../../utils/performanceUtils';
 import GroupIcon from '@mui/icons-material/Group';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
@@ -278,27 +279,8 @@ const BottomBar = ({
       const { nx, ny } = getLocationCoords(location);
       const serviceKey = import.meta.env.VITE_WEATHER_API_KEY;
       
-      // API 키가 없거나 잘못된 경우 기본 날씨 정보 사용
-      if (!serviceKey || serviceKey === 'undefined' || serviceKey === 'null') {
-        console.log('날씨 API 키가 설정되지 않아 기본 날씨 정보를 사용합니다.');
-        const defaultWeatherData = {
-          current: {
-            temp: 20,
-            weather: '맑음',
-            icon: '01d'
-          },
-          daily: [
-            {
-              date: new Date(),
-              temp: 20,
-              icon: '01d',
-              weather: '맑음',
-              pop: 0
-            }
-          ]
-        };
-        setWeatherData(defaultWeatherData);
-        return;
+      if (!serviceKey) {
+        throw new Error('날씨 API 키가 설정되지 않았습니다.');
       }
       
       const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${format(new Date(), 'yyyyMMdd')}&base_time=0500&nx=${nx}&ny=${ny}`;
@@ -751,39 +733,28 @@ const BottomBar = ({
         return;
       }
 
-      // 전날 미완료 투두들을 createdAt 기준으로 가져오기 (UTC+9 보정)
+      // 전날 날짜 계산 (한국 시간 기준)
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStart = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0);
-      const yesterdayEnd = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
+      const yesterdayStr = yesterday.toISOString().slice(0, 10); // YYYY-MM-DD 형식
 
-      // 모든 미완료 투두를 가져와서 createdAt으로 필터링
-      const allTodosQuery = query(
+      devLog('전날 날짜:', yesterdayStr);
+
+      // 전날 미완료 투두들을 date 필드로 정확히 가져오기
+      const yesterdayQuery = query(
         collection(db, 'todos'),
         where('userId', '==', currentUser.uid),
+        where('date', '==', yesterdayStr),
         where('completed', '==', false)
       );
-      const allTodosSnapshot = await getDocs(allTodosQuery);
-      const allTodos = allTodosSnapshot.docs.map(doc => ({
+      
+      const yesterdaySnapshot = await getDocs(yesterdayQuery);
+      const incompleteTodos = yesterdaySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
 
-      // createdAt 필드로 전날 필터링 (UTC+9 보정)
-      const incompleteTodos = allTodos.filter(todo => {
-        if (!todo.createdAt) return false;
-        let todoDate;
-        if (todo.createdAt.toDate) {
-          todoDate = todo.createdAt.toDate();
-        } else if (todo.createdAt instanceof Date) {
-          todoDate = todo.createdAt;
-        } else {
-          todoDate = new Date(todo.createdAt);
-        }
-        // 시간대 보정 (UTC+9)
-        todoDate = new Date(todoDate.getTime() + 9 * 60 * 60 * 1000);
-        return todoDate >= yesterdayStart && todoDate <= yesterdayEnd;
-      });
+      devLog('전날 미완료 투두 개수:', incompleteTodos.length);
 
       if (incompleteTodos.length === 0) {
         setError('불러올 전날 미완료 항목이 없습니다.');
@@ -794,7 +765,7 @@ const BottomBar = ({
       setSelectedTodos([]);
       setLoadTodoDialog(true);
     } catch (error) {
-      console.error('전날 미완료 항목 조회 실패:', error);
+      devError('전날 미완료 항목 조회 실패:', error);
       setError('전날 미완료 항목을 조회하는데 실패했습니다.');
     }
   };
@@ -814,10 +785,28 @@ const BottomBar = ({
       
       const today = new Date().toISOString().slice(0, 10);
       
-      // 선택된 투두들을 오늘로 추가
+      // 오늘 이미 존재하는 투두 체크 (중복 방지)
+      const todayQuery = query(
+        collection(db, 'todos'),
+        where('userId', '==', currentUser.uid),
+        where('date', '==', today)
+      );
+      const todaySnapshot = await getDocs(todayQuery);
+      const existingTodos = todaySnapshot.docs.map(doc => doc.data().text);
+      
+      let addedCount = 0;
+      let skippedCount = 0;
+      
+      // 선택된 투두들을 오늘로 추가 (중복 체크)
       for (const todoId of selectedTodos) {
         const todo = yesterdayTodos.find(t => t.id === todoId);
         if (todo) {
+          // 중복 체크
+          if (existingTodos.includes(todo.text)) {
+            skippedCount++;
+            continue;
+          }
+          
           await addDoc(collection(db, 'todos'), {
             text: todo.text,
             completed: false,
@@ -827,13 +816,23 @@ const BottomBar = ({
             updatedAt: new Date(),
             fromYesterday: true
           });
+          addedCount++;
         }
       }
       
       setLoadTodoDialog(false);
-      setError(`${selectedTodos.length}개의 항목을 성공적으로 불러왔습니다.`);
+      
+      let message = '';
+      if (addedCount > 0) {
+        message += `${addedCount}개의 항목을 성공적으로 불러왔습니다.`;
+      }
+      if (skippedCount > 0) {
+        message += ` ${skippedCount}개의 중복 항목은 건너뛰었습니다.`;
+      }
+      
+      setError(message || '처리 완료되었습니다.');
     } catch (error) {
-      console.error('투두 불러오기 실패:', error);
+      devError('투두 불러오기 실패:', error);
       setError('투두를 불러오는데 실패했습니다.');
     }
   };
@@ -854,7 +853,7 @@ const BottomBar = ({
       setLoadTodoDialog(false);
       setError(`${selectedTodos.length}개의 항목을 성공적으로 삭제했습니다.`);
     } catch (error) {
-      console.error('투두 삭제 실패:', error);
+      devError('투두 삭제 실패:', error);
       setError('투두를 삭제하는데 실패했습니다.');
     }
   };
@@ -910,7 +909,7 @@ const BottomBar = ({
             setIsAdmin(userData.role === 'admin' || userData.role === 'master');
           }
         } catch (error) {
-          console.error('사용자 권한 확인 실패:', error);
+          devError('사용자 권한 확인 실패:', error);
         }
       };
       checkUserRole();

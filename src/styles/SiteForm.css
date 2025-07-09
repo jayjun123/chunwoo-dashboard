@@ -4,6 +4,8 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   max-width: 1200px;
   margin: 0 auto;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .site-form.light {
@@ -148,4 +150,11 @@
   .cancel-btn {
     width: 100%;
   }
+}
+
+/* 현장 폼 스크롤바 숨김 */
+.site-form::-webkit-scrollbar,
+.form-content::-webkit-scrollbar,
+.form-container::-webkit-scrollbar {
+  display: none !important;
 } 

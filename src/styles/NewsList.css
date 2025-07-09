@@ -154,4 +154,18 @@
     padding: 8px 10px;
     font-size: 12px;
   }
+}
+
+/* 뉴스 목록 스크롤바 숨김 */
+.news-container,
+.news-list,
+.news-item {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.news-container::-webkit-scrollbar,
+.news-list::-webkit-scrollbar,
+.news-item::-webkit-scrollbar {
+  display: none !important;
 } 

@@ -266,4 +266,18 @@
     width: 100%;
     justify-content: flex-end;
   }
+}
+
+/* 할일 관리 스크롤바 숨김 */
+.todo-container,
+.todo-list,
+.todo-item {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.todo-container::-webkit-scrollbar,
+.todo-list::-webkit-scrollbar,
+.todo-item::-webkit-scrollbar {
+  display: none !important;
 } 

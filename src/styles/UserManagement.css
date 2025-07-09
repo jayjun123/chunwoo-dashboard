@@ -389,4 +389,18 @@ input, select, textarea {
   background: var(--input-background) !important;
   color: var(--text-main) !important;
   border: 1px solid var(--border);
+}
+
+/* 사용자 관리 스크롤바 숨김 */
+.user-container,
+.user-list,
+.user-table {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.user-container::-webkit-scrollbar,
+.user-list::-webkit-scrollbar,
+.user-table::-webkit-scrollbar {
+  display: none !important;
 } 

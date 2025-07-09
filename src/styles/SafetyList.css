@@ -277,4 +277,18 @@
   .safety-list-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* 안전 목록 스크롤바 숨김 */
+.safety-list,
+.list-content,
+.list-table {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.safety-list::-webkit-scrollbar,
+.list-content::-webkit-scrollbar,
+.list-table::-webkit-scrollbar {
+  display: none !important;
 } 

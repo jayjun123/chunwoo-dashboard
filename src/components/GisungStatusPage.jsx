@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -37,6 +37,7 @@ import {
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
+import { devLog, devError, useCleanup } from '../utils/performanceUtils';
 import * as XLSX from 'xlsx';
 import { addMonths, subMonths, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -44,6 +45,7 @@ import { ko } from 'date-fns/locale';
 const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurrentMonth, monthText: initialMonthText, selectedSites, filteredData }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { addCleanup } = useCleanup();
   const [gisungList, setGisungList] = useState([]);
   const [allGisungData, setAllGisungData] = useState([]);
   const [sites, setSites] = useState([]);
@@ -79,34 +81,34 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   }, [currentMonth]);
 
   // 네비게이션 핸들러 - 상태 변경 시 즉시 반영
-  const handlePrevMonth = () => {
+  const handlePrevMonth = useCallback(() => {
     const newMonth = subMonths(currentMonth, 1);
     setCurrentMonth(newMonth);
-    console.log('이전달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
-  };
+    devLog('이전달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
+  }, [currentMonth]);
   
-  const handleNextMonth = () => {
+  const handleNextMonth = useCallback(() => {
     const newMonth = addMonths(currentMonth, 1);
     setCurrentMonth(newMonth);
-    console.log('다음달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
-  };
+    devLog('다음달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
+  }, [currentMonth]);
   
-  const handleThisMonth = () => {
+  const handleThisMonth = useCallback(() => {
     const newMonth = new Date();
     setCurrentMonth(newMonth);
-    console.log('이번달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
-  };
+    devLog('이번달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
+  }, []);
   
   const handleMonthClick = () => handleThisMonth();
 
   useEffect(() => {
     fetchAllGisung();
-  }, []); // 컴포넌트 마운트 시 한 번만 실행
+  }, [fetchAllGisung]); // 컴포넌트 마운트 시 한 번만 실행
 
   useEffect(() => {
     fetchGisung();
     fetchSites();
-  }, [viewType, currentMonth, selectedSites]);
+  }, [fetchGisung, fetchSites]);
 
   // props.currentMonth가 바뀔 때마다 내부 currentMonth 동기화
   useEffect(() => {
@@ -127,71 +129,71 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     // filteredData가 전달되어도 내부 fetchGisung 로직을 우선 사용
     // filteredData는 백업용으로만 사용
     if (filteredData && filteredData.length > 0 && gisungList.length === 0) {
-      console.log('filteredData를 백업으로 사용:', filteredData);
+      devLog('filteredData를 백업으로 사용:', filteredData);
       setGisungList(filteredData);
     }
   }, [filteredData, gisungList.length]);
 
-  const fetchSites = async () => {
+  const fetchSites = useCallback(async () => {
     try {
       const snapshot = await getDocs(collection(db, 'sites'));
       setSites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     } catch (e) {
-      console.error('현장 데이터 로드 오류:', e);
+      devError('현장 데이터 로드 오류:', e);
       setSites([]); // 오류 발생 시 빈 배열로 설정
     }
-  };
+  }, []);
 
-  const fetchAllGisung = async () => {
+  const fetchAllGisung = useCallback(async () => {
     try {
-      console.log('=== 전체 기성 데이터 로드 시작 ===');
+      devLog('=== 전체 기성 데이터 로드 시작 ===');
       const snapshot = await getDocs(collection(db, 'gisung'));
       const allData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('로드된 전체 기성 데이터:', allData);
+      devLog('로드된 전체 기성 데이터:', allData);
       setAllGisungData(allData);
-      console.log('=== 전체 기성 데이터 로드 완료 ===');
+      devLog('=== 전체 기성 데이터 로드 완료 ===');
     } catch (e) {
-      console.error('전체 기성 데이터 로드 오류:', e);
+      devError('전체 기성 데이터 로드 오류:', e);
       setAllGisungData([]); // 오류 발생 시 빈 배열로 설정
     }
-  };
+  }, []);
 
-  const fetchGisung = async () => {
+  const fetchGisung = useCallback(async () => {
     try {
-      console.log('=== 기성 데이터 로드 시작 ===');
-      console.log('viewType:', viewType);
-      console.log('currentMonth:', currentMonth);
-      console.log('selectedSites:', selectedSites);
+      devLog('=== 기성 데이터 로드 시작 ===');
+      devLog('viewType:', viewType);
+      devLog('currentMonth:', currentMonth);
+      devLog('selectedSites:', selectedSites);
       
       let q;
       const gisungCollection = collection(db, 'gisung');
       
       if (viewType === 'month') {
         const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-        console.log('월별 필터링 - monthStr:', monthStr);
+        devLog('월별 필터링 - monthStr:', monthStr);
         q = query(gisungCollection, where('gisungMonth', '==', monthStr));
       } else if (viewType === 'site' && selectedSites && selectedSites.length > 0) {
-        console.log('현장별 필터링 - selectedSites:', selectedSites);
+        devLog('현장별 필터링 - selectedSites:', selectedSites);
         q = query(gisungCollection, where('name', 'in', selectedSites));
       } else if (viewType === 'site' && (!selectedSites || selectedSites.length === 0)) {
-        console.log('현장별 필터링 - 선택된 현장 없음');
+        devLog('현장별 필터링 - 선택된 현장 없음');
         setGisungList([]);
         return;
       } else {
-        console.log('필터링 조건 없음 - 전체 데이터 로드');
+        devLog('필터링 조건 없음 - 전체 데이터 로드');
         q = query(gisungCollection);
       }
       
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('로드된 기성 데이터:', data);
+      devLog('로드된 기성 데이터:', data);
       setGisungList(data);
-      console.log('=== 기성 데이터 로드 완료 ===');
+      devLog('=== 기성 데이터 로드 완료 ===');
     } catch (e) {
-      console.error('기성 데이터 로드 오류:', e);
+      devError('기성 데이터 로드 오류:', e);
       setGisungList([]);
     }
-  };
+  }, [viewType, currentMonth, selectedSites]);
 
   // 검색 및 정렬된 데이터
   const filteredAndSortedGisung = useMemo(() => {
@@ -254,12 +256,12 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     XLSX.writeFile(wb, `기성현황_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const updateSiteTotalProgress = async (siteName) => {
+  const updateSiteTotalProgress = useCallback(async (siteName) => {
     if (!siteName) return;
     try {
       const site = sites.find(s => s.name === siteName);
       if (!site) {
-        console.error("업데이트할 현장을 찾을 수 없습니다:", siteName);
+        devError("업데이트할 현장을 찾을 수 없습니다:", siteName);
         return;
       }
 
@@ -271,11 +273,11 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       await updateDoc(siteRef, {
         totalProgress: totalProgress
       });
-      console.log(`'${siteName}' 현장의 누계기성이 ${totalProgress}으로 업데이트되었습니다.`);
+      devLog(`'${siteName}' 현장의 누계기성이 ${totalProgress}으로 업데이트되었습니다.`);
     } catch (e) {
-      console.error("현장 누계기성 업데이트 실패:", e);
+      devError("현장 누계기성 업데이트 실패:", e);
     }
-  };
+  }, [sites]);
 
   const handleOpen = (item = null) => {
     fetchAllGisung(); // 팝업 열 때마다 최신 DB fetch

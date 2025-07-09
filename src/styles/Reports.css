@@ -565,4 +565,18 @@ input, select, textarea {
     width: 100%;
     right: 0;
   }
+}
+
+/* 보고서 스크롤바 숨김 */
+.reports-container,
+.reports-list,
+.reports-table {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.reports-container::-webkit-scrollbar,
+.reports-list::-webkit-scrollbar,
+.reports-table::-webkit-scrollbar {
+  display: none !important;
 } 
