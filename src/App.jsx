@@ -46,7 +46,6 @@ import CustomScheduleMobile from './pages/CustomScheduleMobile';
 import OfflineSupport from './components/common/OfflineSupport';
 // import BackButtonHandler from './components/common/BackButtonHandler';
 import SplashScreen from './components/common/SplashScreen';
-import StatusBarManager from './components/common/StatusBarManager';
 import KeyboardManager from './components/common/KeyboardManager';
 import GlobalErrorHandler from './components/common/GlobalErrorHandler';
 
@@ -511,7 +510,6 @@ const App = () => {
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                     <OfflineSupport />
-                    <StatusBarManager />
                     <KeyboardManager />
                     <GlobalErrorHandler />
                   </PopupProvider>
