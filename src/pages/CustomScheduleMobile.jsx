@@ -592,7 +592,17 @@ const CustomScheduleMobile = () => {
 
   // 일정 추가 완료 함수
   const handleSaveAdd = async () => {
-    if ((!newScheduleTitle.trim() && !newScheduleSiteName.trim()) || newScheduleTypes.length === 0) return;
+    if ((!newScheduleTitle.trim() && !newScheduleSiteName.trim()) || newScheduleTypes.length === 0) {
+      alert('일정 제목 또는 현장명을 입력하고 분류를 선택해주세요.');
+      return;
+    }
+    
+    // 등록 확인 메시지
+    const confirmMessage = `다음 일정을 등록하시겠습니까?\n\n제목: ${newScheduleTitle || newScheduleSiteName}\n현장명: ${newScheduleSiteName}\n분류: ${newScheduleTypes.join(', ')}\n날짜: ${year}년 ${month + 1}월 ${selectedDay}일`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
     
     try {
       // 한국 시간대로 날짜 생성 (시간대 문제 해결)
@@ -615,6 +625,10 @@ const CustomScheduleMobile = () => {
       const docRef = await addDoc(collection(db, 'schedules'), newSchedule);
       console.log('일정이 추가되었습니다. 문서 ID:', docRef.id);
       
+      // 성공 메시지
+      alert('일정이 성공적으로 등록되었습니다.');
+      
+      // 입력칸 초기화
       setAddDialogOpen(false);
       setNewScheduleTitle('');
       setNewScheduleDesc('');
@@ -623,6 +637,7 @@ const CustomScheduleMobile = () => {
       setNewScheduleColor('#3b82f6');
     } catch (error) {
       console.error('일정 추가 중 오류:', error);
+      alert('일정 등록 중 오류가 발생했습니다.');
     }
   };
 

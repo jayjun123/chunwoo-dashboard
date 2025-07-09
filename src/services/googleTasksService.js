@@ -29,7 +29,9 @@ class GoogleTasksService {
       return true;
     } catch (error) {
       console.error('Google Tasks 인증 초기화 실패:', error);
-      throw error;
+      // 실제 Google Tasks API 연동을 위해서는 별도의 Google OAuth 설정이 필요합니다
+      // 현재는 Firebase Auth만으로는 Google Tasks API에 접근할 수 없습니다
+      throw new Error('Google Tasks API 연동을 위해서는 별도의 Google OAuth 설정이 필요합니다. 현재는 Firebase Auth만으로는 Google Tasks API에 접근할 수 없습니다.');
     }
   }
 

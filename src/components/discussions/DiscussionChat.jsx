@@ -286,7 +286,7 @@ const DiscussionChat = ({ roomId }) => {
         display: 'flex', flexDirection: 'column',
         position: 'absolute',
         top: 56, // 상단바 높이
-        bottom: 72, // 입력창 높이(아래 입력창 Box와 맞춤)
+        bottom: isMobile ? 150 : 120, // 모바일: 입력창 높이 + 하단바 높이 + 여유공간, PC: 입력창 높이 + 여유공간
         left: 0, right: 0,
         height: 'auto',
       }}>
@@ -326,7 +326,7 @@ const DiscussionChat = ({ roomId }) => {
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', mb: 1.5 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <Typography sx={{ color: '#1976d2', fontSize: 14, fontWeight: 900, mb: 0.5, mr: 1 }}>
-                      {msg.userName}
+                      {msg.userName || '익명'}
                     </Typography>
                   </Box>
                   <Box sx={{
@@ -425,52 +425,80 @@ const DiscussionChat = ({ roomId }) => {
         </Box>
       )}
       {/* 입력창 */}
-      <Box component="form" onSubmit={handleSend} sx={{
-        display: 'flex', alignItems: 'center',
-        position: 'fixed', left: 0, right: 0, bottom: keyboardHeight, zIndex: 1200,
-        background: 'transparent',
-        p: 0.8,
-        borderTop: 'none',
-        width: '100vw', maxWidth: 480, mx: 'auto',
-        boxShadow: 'none',
-        borderRadius: 0,
+      <Box sx={{ 
+        px: 2, 
+        py: 1, 
+        bgcolor: '#232634', 
+        borderTop: '1px solid #333', 
+        position: isMobile ? 'fixed' : 'static', 
+        bottom: isMobile ? `calc(${keyboardHeight}px + 80px)` : '20px', 
+        left: 0, 
+        right: 0, 
+        zIndex: 1200 
       }}>
-        <Box sx={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          bgcolor: '#232323',
-          borderRadius: 18,
-          px: 2,
-          py: 1.2,
-          mr: 1,
-        }}>
-          <InputBase
+        {!isMobile && (
+          <Typography variant="caption" sx={{ color: '#aaa', mb: 0.5 }}>
+            현재 사용자: {currentUser?.displayName || currentUser?.email || '익명'}
+          </Typography>
+        )}
+        <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* 첨부파일 버튼 */}
+          <IconButton
+            component="label"
+            sx={{ 
+              color: '#1976d2', 
+              bgcolor: 'rgba(25, 118, 210, 0.1)',
+              '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.2)' }
+            }}
+          >
+            <input
+              type="file"
+              multiple
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+              accept="image/*,.pdf,.xlsx,.xls,.doc,.docx"
+            />
+            <AttachFileIcon />
+          </IconButton>
+          
+          <TextField
             inputRef={inputRef}
             value={newMessage}
-            onChange={e => { if (!isComposing) setNewMessage(e.target.value); }}
-            onInput={e => { if (!isComposing) setNewMessage(e.target.value); }}
-            onCompositionStart={() => setIsComposing(true)}
-            onCompositionEnd={e => { setIsComposing(false); setNewMessage(e.target.value); }}
+            onChange={e => setNewMessage(e.target.value)}
             onFocus={handleFocus}
+            placeholder="메시지를 입력하세요"
             fullWidth
-            placeholder="메시지 입력"
-            sx={{
-              color: '#fff',
-              fontSize: 17,
-              fontFamily: 'NanumGothic, Malgun Gothic, Apple SD Gothic Neo, sans-serif',
-              '::placeholder': { color: '#bbb', opacity: 1 },
+            size="small"
+            sx={{ 
+              bgcolor: '#181a20', 
+              borderRadius: 2, 
+              flex: 1,
+              '& .MuiOutlinedInput-root': {
+                '& fieldset': {
+                  borderColor: 'rgba(255,255,255,0.3)',
+                },
+                '&:hover fieldset': {
+                  borderColor: 'rgba(255,255,255,0.5)',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: '#1976d2',
+                },
+              },
+              '& .MuiInputBase-input': {
+                color: '#fff',
+              }
             }}
-            inputProps={{ style: { color: '#fff' } }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton type="submit" color="primary" disabled={!newMessage.trim() && files.length === 0}>
+                    <SendIcon />
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
           />
-        </Box>
-        <IconButton component="label" sx={{ color: '#fff', ml: 1 }}>
-          <AttachFileIcon />
-          <input type="file" hidden multiple onChange={handleFileChange} />
-        </IconButton>
-        <IconButton type="submit" color="primary" sx={{ color: '#fff', ml: 1, bgcolor: '#1976d2', '&:hover': { bgcolor: '#1565c0' } }}>
-          <SendIcon />
-        </IconButton>
+        </form>
       </Box>
       {/* 이미지 모달 */}
       <Dialog open={imageModal.open} onClose={() => setImageModal({ open: false, url: '' })} maxWidth="md">

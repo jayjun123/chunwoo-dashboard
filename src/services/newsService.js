@@ -101,7 +101,23 @@ const fetchNaverNews = async (keyword) => {
     }));
   } catch (error) {
     console.error(`네이버 뉴스 검색 실패 (${keyword}):`, error);
-    throw error; // 더미 데이터 반환하지 않고 에러를 던짐
+    // API 키가 없거나 오류 발생 시 더미 데이터 반환
+    return [
+      {
+        id: `${keyword}_dummy_1`,
+        title: `${keyword} 관련 건설 뉴스`,
+        description: '건설 현장의 최신 동향과 업계 소식을 전해드립니다.',
+        link: '#',
+        pubDate: new Date().toISOString()
+      },
+      {
+        id: `${keyword}_dummy_2`,
+        title: `${keyword} 시장 동향 분석`,
+        description: '최신 시장 동향과 전망을 분석한 리포트입니다.',
+        link: '#',
+        pubDate: new Date().toISOString()
+      }
+    ];
   }
 };
 

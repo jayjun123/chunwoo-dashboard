@@ -3,14 +3,15 @@
   justify-content: space-between;
   align-items: center;
   padding: 0 24px;
-  background: #1a1a1a;
+  background: #0f0f0f;
   height: 64px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 1000;
+  border-bottom: 1px solid #333;
 }
 
 .header-left {
@@ -96,12 +97,14 @@
 }
 
 .header-menu li a:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  color: #90caf9;
 }
 
 .header-menu li a.active {
   background: #1976d2;
   color: #fff;
+  box-shadow: 0 2px 4px rgba(25, 118, 210, 0.3);
 }
 
 .menu-icon {
@@ -174,13 +177,14 @@
   position: absolute;
   top: 100%;
   right: 0;
-  background: #1a1a1a;
+  background: #0f0f0f;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   min-width: 200px;
   margin-top: 8px;
   padding: 12px 0;
   z-index: 1000;
+  border: 1px solid #333;
 }
 
 .user-info {

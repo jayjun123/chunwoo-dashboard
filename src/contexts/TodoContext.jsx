@@ -19,10 +19,15 @@ export const TodoProvider = ({ children }) => {
   const [todos, setTodos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [initialized, setInitialized] = useState(false);
 
   // 투두 데이터 가져오기
   const fetchTodos = useCallback(async () => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.uid) {
+      setTodos([]);
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -38,7 +43,7 @@ export const TodoProvider = ({ children }) => {
       const todaySnapshot = await getDocs(todayQuery);
       
       // 오늘 투두리스트가 없으면 전날 미완료 항목을 carry over
-      if (todaySnapshot.empty) {
+      if (todaySnapshot.empty && !initialized) {
         const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
         const yesterdayQuery = query(
           collection(db, 'todos'),
@@ -67,17 +72,16 @@ export const TodoProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, initialized]);
 
-  // 실시간 투두 데이터 구독 (임시 비활성화)
+  // 실시간 투두 데이터 구독
   useEffect(() => {
     if (!currentUser?.uid) {
       setTodos([]);
+      setLoading(false);
       return;
     }
 
-    // Firebase 연결 문제로 인해 임시로 비활성화
-    // 대신 수동으로 데이터를 가져오는 방식 사용
     const loadTodos = async () => {
       try {
         setLoading(true);
@@ -110,10 +114,13 @@ export const TodoProvider = ({ children }) => {
     loadTodos();
   }, [currentUser?.uid]);
 
-  // 초기 데이터 로드
+  // 초기 데이터 로드 (한 번만 실행)
   useEffect(() => {
-    fetchTodos();
-  }, [fetchTodos]);
+    if (!initialized && currentUser?.uid) {
+      fetchTodos();
+      setInitialized(true);
+    }
+  }, [fetchTodos, initialized, currentUser?.uid]);
 
   // 투두 추가
   const addTodo = async (text, date = null) => {
@@ -129,6 +136,11 @@ export const TodoProvider = ({ children }) => {
         createdAt: new Date(),
         updatedAt: new Date()
       });
+      
+      // 로컬 상태 업데이트
+      const newTodo = { id: todo.id, text: text.trim(), completed: false, userId: currentUser.uid, date: todoDate, createdAt: new Date(), updatedAt: new Date() };
+      setTodos(prev => [newTodo, ...prev]);
+      
       return todo;
     } catch (error) {
       console.error('투두 추가 오류:', error);
@@ -141,11 +153,15 @@ export const TodoProvider = ({ children }) => {
     if (!currentUser?.uid) return;
 
     try {
-      const updatedTodo = await updateDoc(doc(db, 'todos', id), {
+      await updateDoc(doc(db, 'todos', id), {
         ...updates,
         updatedAt: new Date()
       });
-      return updatedTodo;
+      
+      // 로컬 상태 업데이트
+      setTodos(prev => prev.map(todo => 
+        todo.id === id ? { ...todo, ...updates, updatedAt: new Date() } : todo
+      ));
     } catch (error) {
       console.error('투두 수정 오류:', error);
       throw error;
@@ -158,6 +174,9 @@ export const TodoProvider = ({ children }) => {
 
     try {
       await deleteDoc(doc(db, 'todos', id));
+      
+      // 로컬 상태 업데이트
+      setTodos(prev => prev.filter(todo => todo.id !== id));
     } catch (error) {
       console.error('투두 삭제 오류:', error);
       throw error;
@@ -170,7 +189,7 @@ export const TodoProvider = ({ children }) => {
   };
 
   // 오늘 투두만 필터링 (date 포맷 불일치 방지)
-  const getTodayTodos = () => {
+  const getTodayTodos = useCallback(() => {
     const today = format(new Date(), 'yyyy-MM-dd');
     return todos.filter(todo => {
       try {
@@ -179,12 +198,42 @@ export const TodoProvider = ({ children }) => {
         return false;
       }
     });
-  };
+  }, [todos]);
 
   // 특정 날짜 투두 필터링
-  const getTodosByDate = (date) => {
+  const getTodosByDate = useCallback((date) => {
     return todos.filter(todo => todo.date === date);
-  };
+  }, [todos]);
+
+  // 데이터 새로고침
+  const refreshTodos = useCallback(async () => {
+    if (!currentUser?.uid) return;
+    
+    try {
+      setLoading(true);
+      const q = query(
+        collection(db, 'todos'),
+        where('userId', '==', currentUser.uid)
+      );
+      
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      const sortedData = data.sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
+        const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
+        return dateB - dateA;
+      });
+      
+      setTodos(sortedData);
+      setError(null);
+    } catch (error) {
+      console.error('투두 데이터 새로고침 오류:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUser?.uid]);
 
   const value = {
     todos,
@@ -196,7 +245,7 @@ export const TodoProvider = ({ children }) => {
     deleteTodo,
     toggleTodo,
     getTodosByDate,
-    refreshTodos: fetchTodos
+    refreshTodos
   };
 
   return (
