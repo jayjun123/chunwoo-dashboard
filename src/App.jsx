@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
 import { configureIME } from './utils/imeHandler.jsx';
 import { initKeyboardManager } from './utils/pwaKeyboardUtils';
 import './styles/IME.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { TodoProvider } from './contexts/TodoContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { Provider } from 'react-redux';
 import { store } from './store/index';
 import Layout from './components/Layout';
@@ -46,22 +45,6 @@ import CustomSchedule from './pages/CustomSchedule';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
 import ScheduleManagement from './components/schedule/ScheduleManagement';
 import useMediaQuery from '@mui/material/useMediaQuery';
-
-const theme = createTheme({
-  palette: {
-    mode: 'dark',
-    primary: {
-      main: '#1976d2',
-    },
-    background: {
-      default: '#181A20',
-      paper: '#232634',
-    },
-    text: {
-      primary: '#fff',
-    },
-  },
-});
 
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
@@ -108,8 +91,7 @@ const App = () => {
       <Provider store={store}>
         <AuthProvider>
           <TodoProvider>
-            <ThemeProvider theme={theme}>
-              <CssBaseline />
+            <ThemeProvider>
               <LoadingProvider>
                 <PopupProvider>
                   <Router>
@@ -280,7 +262,7 @@ const App = () => {
                         }
                       />
                       <Route
-                        path="/wholelist"
+                        path="/whole-list"
                         element={
                           <ProtectedRoute>
                             <Layout>

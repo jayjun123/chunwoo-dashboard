@@ -221,44 +221,33 @@ const CustomSchedule = () => {
     const user = auth.currentUser;
     if (!user) {
       setCalendarItems({});
+      setCheckedItems({});
       return;
     }
     
     const q = query(collection(db, 'schedules'));
     let unsubscribe = null;
+    let checksUnsubscribe = null;
     
     try {
-      unsubscribe = onSnapshot(q, (snapshot) => {
+      unsubscribe = onSnapshot(q, async (snapshot) => {
         try {
-          snapshot.docChanges().forEach((change) => {
-            const item = { id: change.doc.id, ...change.doc.data() };
+          // 모든 일정 데이터 수집
+          const allSchedules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          
+          // 날짜별로 일정 그룹화
+          const newCalendarItems = {};
+          allSchedules.forEach(item => {
             const date = item.date;
-
             if (!date) return;
 
-            setCalendarItems(prev => {
-              const newItems = { ...prev };
-              
-              if (change.type === "added" || change.type === "modified") {
-                let dateItems = newItems[date] ? [...newItems[date]] : [];
-                const existingIndex = dateItems.findIndex(i => i.id === item.id);
-                if (existingIndex > -1) {
-                  dateItems[existingIndex] = item;
-                } else {
-                  dateItems.push(item);
-                }
-                newItems[date] = dateItems;
-              } else if (change.type === "removed") {
-                let dateItems = newItems[date] ? newItems[date].filter(i => i.id !== item.id) : [];
-                if (dateItems.length > 0) {
-                  newItems[date] = dateItems;
-                } else {
-                  delete newItems[date];
-                }
-              }
-              return newItems;
-            });
+            if (!newCalendarItems[date]) {
+              newCalendarItems[date] = [];
+            }
+            newCalendarItems[date].push(item);
           });
+
+          setCalendarItems(newCalendarItems);
         } catch (error) {
           console.error('일정 데이터 처리 오류:', error);
           setCalendarItems({});
@@ -267,9 +256,37 @@ const CustomSchedule = () => {
         console.error('일정 구독 오류:', error);
         setCalendarItems({});
       });
+
+      // 체크 상태 실시간 구독
+      const checksQuery = query(
+        collection(db, 'scheduleChecks'),
+        where('userId', '==', user.uid)
+      );
+      
+      checksUnsubscribe = onSnapshot(checksQuery, (checksSnapshot) => {
+        try {
+          const newCheckedItems = {};
+          
+          checksSnapshot.docs.forEach(doc => {
+            const checkData = doc.data();
+            if (checkData.date && checkData.scheduleId) {
+              const key = `${checkData.date}-${checkData.scheduleId}`;
+              newCheckedItems[key] = checkData.checked;
+            }
+          });
+          
+          setCheckedItems(newCheckedItems);
+          console.log('체크 상태 실시간 업데이트:', newCheckedItems);
+        } catch (error) {
+          console.error('체크 상태 처리 오류:', error);
+        }
+      }, (error) => {
+        console.error('체크 상태 구독 오류:', error);
+      });
     } catch (error) {
-      console.error('일정 구독 설정 오류:', error);
+      console.error('구독 설정 오류:', error);
       setCalendarItems({});
+      setCheckedItems({});
     }
     
     return () => {
@@ -277,8 +294,11 @@ const CustomSchedule = () => {
         if (unsubscribe && typeof unsubscribe === 'function') {
           unsubscribe();
         }
+        if (checksUnsubscribe && typeof checksUnsubscribe === 'function') {
+          checksUnsubscribe();
+        }
       } catch (error) {
-        console.error('일정 구독 해제 오류:', error);
+        console.error('구독 해제 오류:', error);
       }
     };
   }, []);
@@ -409,12 +429,87 @@ const CustomSchedule = () => {
     }
   };
 
-  const handleCheckItem = (date, id, checked) => {
-    // 체크박스 상태만 변경 (엑셀 다운로드용)
-    setCheckedItems(prev => {
-      const key = `${date}-${id}`;
-      return { ...prev, [key]: checked };
-    });
+  const handleCheckItem = async (date, id, checked) => {
+    const user = auth.currentUser;
+    if (!user) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    const checkKey = `${date}-${id}`;
+    console.log('체크박스 변경 시작:', { date, id, checked, checkKey });
+    
+    try {
+      // 즉시 로컬 상태 업데이트 (Optimistic Update)
+      setCheckedItems(prev => {
+        const newState = {
+          ...prev,
+          [checkKey]: checked
+        };
+        console.log('로컬 상태 업데이트:', newState);
+        return newState;
+      });
+
+      // Firestore에 체크 상태 저장
+      const checkData = {
+        scheduleId: id,
+        date: date,
+        checked: checked,
+        userId: user.uid,
+        updatedAt: new Date()
+      };
+
+      console.log('Firestore 저장 데이터:', checkData);
+
+      // 기존 체크 데이터가 있는지 확인
+      const existingCheckQuery = query(
+        collection(db, 'scheduleChecks'),
+        where('scheduleId', '==', id),
+        where('date', '==', date),
+        where('userId', '==', user.uid)
+      );
+      
+      const existingCheckSnapshot = await getDocs(existingCheckQuery);
+      console.log('기존 체크 데이터 조회 결과:', existingCheckSnapshot.docs.length);
+      
+      if (existingCheckSnapshot.docs.length > 0) {
+        // 기존 데이터 업데이트
+        const existingDoc = existingCheckSnapshot.docs[0];
+        await updateDoc(doc(db, 'scheduleChecks', existingDoc.id), {
+          checked: checked,
+          updatedAt: new Date()
+        });
+        console.log('체크 상태 업데이트 완료:', checkKey, checked);
+      } else {
+        // 새 데이터 추가
+        const newDocRef = await addDoc(collection(db, 'scheduleChecks'), checkData);
+        console.log('체크 상태 추가 완료:', checkKey, checked, '문서 ID:', newDocRef.id);
+      }
+    } catch (error) {
+      console.error('체크 상태 저장 실패:', error);
+      console.error('에러 상세:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      
+      // 실패 시 로컬 상태 롤백
+      setCheckedItems(prev => {
+        const newState = {
+          ...prev,
+          [checkKey]: !checked
+        };
+        console.log('실패로 인한 상태 롤백:', newState);
+        return newState;
+      });
+      
+      // 사용자에게 알림 (개발 중에는 상세 정보 포함)
+      if (process.env.NODE_ENV === 'development') {
+        alert(`체크 상태 저장에 실패했습니다.\n에러: ${error.message}\n코드: ${error.code}`);
+      } else {
+        alert('체크 상태 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      }
+    }
   };
 
   const handleDateClick = (dateStr) => {

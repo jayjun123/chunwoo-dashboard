@@ -40,7 +40,7 @@ const Overview = () => {
 
   useEffect(() => {
     // 실시간 주요현장(onSnapshot)
-    const sitesQuery = query(collection(db, 'sites'), where('isStarred', '==', true));
+    const sitesQuery = query(collection(db, 'sites'), where('isFavorite', '==', true));
     const sitesUnsubscribe = onSnapshot(sitesQuery, (snapshot) => {
       const sitesData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -81,9 +81,9 @@ const Overview = () => {
   const toggleStar = async (siteId, currentStarred) => {
     try {
       const siteRef = doc(db, 'sites', siteId);
-      await updateDoc(siteRef, { isStarred: !currentStarred });
+      await updateDoc(siteRef, { isFavorite: !currentStarred });
       setSites(sites.map(site => 
-        site.id === siteId ? { ...site, isStarred: !currentStarred } : site
+        site.id === siteId ? { ...site, isFavorite: !currentStarred } : site
       ));
     } catch (error) {
       console.error('Error toggling star:', error);
@@ -275,13 +275,13 @@ const Overview = () => {
               <CardContent sx={{ flex: 1, p: isMobile ? 1.5 : 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: isMobile ? 0.5 : 1 }}>
                   <Typography variant={isMobile ? "subtitle1" : "h6"} sx={{ fontSize: isMobile ? '14px' : 'inherit' }}>{site.name}</Typography>
-                  <Tooltip title={site.isStarred ? "주요현장에서 제외" : "주요현장에 추가"}>
+                  <Tooltip title={site.isFavorite ? "주요현장에서 제외" : "주요현장에 추가"}>
                     <IconButton 
-                      onClick={() => toggleStar(site.id, site.isStarred)}
-                      color={site.isStarred ? "primary" : "default"}
+                      onClick={() => toggleStar(site.id, site.isFavorite)}
+                      color={site.isFavorite ? "primary" : "default"}
                       size={isMobile ? "small" : "medium"}
                     >
-                      {site.isStarred ? <StarIcon fontSize={isMobile ? "small" : "medium"} /> : <StarBorderIcon fontSize={isMobile ? "small" : "medium"} />}
+                      {site.isFavorite ? <StarIcon fontSize={isMobile ? "small" : "medium"} /> : <StarBorderIcon fontSize={isMobile ? "small" : "medium"} />}
                     </IconButton>
                   </Tooltip>
                 </Box>

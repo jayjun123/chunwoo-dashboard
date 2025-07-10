@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Button, Typography, Paper, Grid, Alert } from '@mui/material';
 import { PictureAsPdf as PdfIcon, Description as ExcelIcon, Download as DownloadIcon } from '@mui/icons-material';
-import { exportToPDF, exportToExcel, exportFullGuidePDF } from '../utils/exportUtils';
+import { exportToPDF, exportToExcel, exportFullGuidePDF, exportUserGuidePDF } from '../utils/exportUtils';
 
 const PDFTest = () => {
   const [message, setMessage] = useState('');
@@ -63,6 +63,15 @@ const PDFTest = () => {
     }
   };
 
+  const handleExportUserGuidePDF = () => {
+    try {
+      exportUserGuidePDF();
+      setMessage('✅ 사용법 가이드 PDF가 성공적으로 다운로드되었습니다!');
+    } catch (error) {
+      setMessage('❌ 사용법 가이드 PDF 다운로드에 실패했습니다: ' + error.message);
+    }
+  };
+
   return (
     <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
       <Typography variant="h4" gutterBottom sx={{ textAlign: 'center', mb: 4 }}>
@@ -106,7 +115,7 @@ const PDFTest = () => {
       </Paper>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <Paper sx={{ p: 2, textAlign: 'center' }}>
             <Button
               variant="contained"
@@ -124,7 +133,7 @@ const PDFTest = () => {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <Paper sx={{ p: 2, textAlign: 'center' }}>
             <Button
               variant="contained"
@@ -142,7 +151,7 @@ const PDFTest = () => {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <Paper sx={{ p: 2, textAlign: 'center' }}>
             <Button
               variant="contained"
@@ -156,6 +165,24 @@ const PDFTest = () => {
             <Typography variant="body2" color="text.secondary">
               웹앱 한글 사용 설명서 PDF<br />
               (이모지, 나눔고딕 폰트)
+            </Typography>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, textAlign: 'center' }}>
+            <Button
+              variant="contained"
+              startIcon={<DownloadIcon />}
+              onClick={handleExportUserGuidePDF}
+              fullWidth
+              sx={{ mb: 1 }}
+            >
+              📚 사용법 가이드 PDF
+            </Button>
+            <Typography variant="body2" color="text.secondary">
+              실용적인 사용법 가이드 PDF<br />
+              (단계별 상세 설명)
             </Typography>
           </Paper>
         </Grid>
@@ -173,6 +200,9 @@ const PDFTest = () => {
         </Typography>
         <Typography variant="body2" paragraph>
           3. <strong>한글 설명서 PDF</strong>: 웹앱의 전체 한글 사용 설명서를 PDF로 다운로드합니다.
+        </Typography>
+        <Typography variant="body2" paragraph>
+          4. <strong>사용법 가이드 PDF</strong>: 실용적인 단계별 사용법 가이드를 PDF로 다운로드합니다.
         </Typography>
         <Typography variant="body2" color="text.secondary">
           * 모든 파일은 다운로드 폴더에 저장됩니다.

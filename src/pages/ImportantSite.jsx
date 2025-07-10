@@ -29,7 +29,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { collection, getDocs, doc, updateDoc, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { devLog, devError, useCleanup, createOptimizedSubscription } from '../utils/performanceUtils';
+import { devLog, devError } from '../utils/performanceUtils';
 import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -51,7 +51,6 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 export default function ImportantSite() {
   const isMobile = useMediaQuery('(max-width:600px)');
-  const { addCleanup } = useCleanup();
   const [sites, setSites] = useState([]);
   const [progressData, setProgressData] = useState({}); // { siteId: [progressItems] }
   const [gisungData, setGisungData] = useState({}); // { siteId: [gisungItems] }
@@ -81,20 +80,19 @@ export default function ImportantSite() {
     // isFavorite가 true인 현장만 실시간으로 가져옵니다.
     const q = query(collection(db, 'sites'), where('isFavorite', '==', true));
     
-    const { subscribe, cleanup } = createOptimizedSubscription(
-      () => q,
-      (snapshot) => {
-        setSites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      },
-      (error) => {
-        devError("Error fetching important sites in real-time:", error);
-        setSites([]);
-      }
-    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('🔍 ImportantSite - 로드된 현장 데이터:', sitesData);
+      console.log('🔍 ImportantSite - 현장 개수:', sitesData.length);
+      setSites(sitesData);
+    }, (error) => {
+      devError("Error fetching important sites in real-time:", error);
+      console.error('❌ ImportantSite - 데이터 로드 실패:', error);
+      setSites([]);
+    });
     
-    subscribe();
-    addCleanup(cleanup);
-  }, [addCleanup]);
+    return () => unsubscribe();
+  }, []);
 
   // 전체 기성 데이터 디버깅용 (개발 환경에서만 실행)
   useEffect(() => {
@@ -170,41 +168,36 @@ export default function ImportantSite() {
           where('siteId', '==', siteId)
         );
         
-        const { subscribe, cleanup } = createOptimizedSubscription(
-          () => gisungQuery,
-          (snapshot) => {
-            const gisungItems = snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            }));
-            
-            devLog(`Site ${siteId}의 기성 데이터 (${gisungItems.length}개):`, gisungItems);
-            
-            setGisungData(prev => ({
-              ...prev,
-              [siteId]: gisungItems
-            }));
-          },
-          (error) => {
-            devError(`Error fetching gisung for site ${siteId}:`, error);
-            setGisungData(prev => ({
-              ...prev,
-              [siteId]: []
-            }));
-          }
-        );
+        const unsubscribe = onSnapshot(gisungQuery, (snapshot) => {
+          const gisungItems = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          devLog(`Site ${siteId}의 기성 데이터 (${gisungItems.length}개):`, gisungItems);
+          
+          setGisungData(prev => ({
+            ...prev,
+            [siteId]: gisungItems
+          }));
+        }, (error) => {
+          devError(`Error fetching gisung for site ${siteId}:`, error);
+          setGisungData(prev => ({
+            ...prev,
+            [siteId]: []
+          }));
+        });
         
-        subscribe();
-        unsubscribes.push(cleanup);
+        unsubscribes.push(unsubscribe);
       } catch (error) {
         devError(`Error setting up gisung listener for site ${siteId}:`, error);
       }
     });
 
     return () => {
-      unsubscribes.forEach(cleanup => {
+      unsubscribes.forEach(unsubscribe => {
         try {
-          cleanup();
+          unsubscribe();
         } catch (error) {
           devError("Error cleaning up gisung listener:", error);
         }
@@ -227,39 +220,34 @@ export default function ImportantSite() {
           orderBy('date', 'desc')
         );
 
-        const { subscribe, cleanup } = createOptimizedSubscription(
-          () => progressQuery,
-          (snapshot) => {
-            const progressItems = snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            }));
-            
-            setProgressData(prev => ({
-              ...prev,
-              [siteId]: progressItems
-            }));
-          },
-          (error) => {
-            devError(`Error fetching progress for site ${siteId}:`, error);
-            setProgressData(prev => ({
-              ...prev,
-              [siteId]: []
-            }));
-          }
-        );
+        const unsubscribe = onSnapshot(progressQuery, (snapshot) => {
+          const progressItems = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          setProgressData(prev => ({
+            ...prev,
+            [siteId]: progressItems
+          }));
+        }, (error) => {
+          devError(`Error fetching progress for site ${siteId}:`, error);
+          setProgressData(prev => ({
+            ...prev,
+            [siteId]: []
+          }));
+        });
         
-        subscribe();
-        unsubscribes.push(cleanup);
+        unsubscribes.push(unsubscribe);
       } catch (error) {
         devError(`Error setting up progress listener for site ${siteId}:`, error);
       }
     });
 
     return () => {
-      unsubscribes.forEach(cleanup => {
+      unsubscribes.forEach(unsubscribe => {
         try {
-          cleanup();
+          unsubscribe();
         } catch (error) {
           devError("Error cleaning up progress listener:", error);
         }
@@ -290,11 +278,16 @@ export default function ImportantSite() {
 
   // 검색어에 따라 필터링합니다.
   const filteredSites = useMemo(() => {
+    console.log('🔍 ImportantSite - 필터링 전 sites:', sites);
+    console.log('🔍 ImportantSite - 검색어:', search);
+    
     const filtered = sites.filter(site =>
       site.name?.toLowerCase().includes(search.toLowerCase()) || 
       site.manager?.toLowerCase().includes(search.toLowerCase()) || 
       site.address?.toLowerCase().includes(search.toLowerCase())
     );
+    
+    console.log('🔍 ImportantSite - 필터링 후 현장:', filtered);
     
     // 검색어가 있으면 검색된 현장을 우선적으로 정렬
     if (search.trim() !== '') {
@@ -573,7 +566,7 @@ export default function ImportantSite() {
           }}>
             {filteredSites.length === 0 && (
               <Typography sx={{ color: '#bbb', mt: 4 }}>
-                {isMobile ? '검색 결과가 없습니다.' : '해당 월에 포함된 현장이 없습니다.'}
+                {search.trim() !== '' ? '검색 결과가 없습니다.' : '주요현장으로 지정된 현장이 없습니다. 현장관리에서 별표를 체크하여 주요현장을 추가해주세요.'}
               </Typography>
             )}
             {filteredSites.map(site => {

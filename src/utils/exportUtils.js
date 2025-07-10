@@ -788,4 +788,229 @@ export const exportFullGuidePDF = () => {
   // 저장
   const dateStr = new Date().toISOString().split('T')[0];
   doc.save(`건설현장_통합관리_웹앱_설명서_${dateStr}.pdf`);
+};
+
+// 실용적인 사용법 가이드 PDF 내보내기
+export const exportUserGuidePDF = () => {
+  const doc = new jsPDF();
+  doc.addFileToVFS('NanumGothic.ttf', NanumGothic);
+  doc.addFont('NanumGothic.ttf', 'NanumGothic', 'normal');
+  doc.setFont('NanumGothic', 'normal');
+
+  // 1페이지: 표지
+  doc.setFontSize(24);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('🏗️ 건설현장 통합관리 웹앱', 20, 40);
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('사용법 가이드', 20, 55);
+  doc.setFontSize(12);
+  doc.text(`작성일: ${new Date().toLocaleDateString('ko-KR')}`, 20, 75);
+  doc.text('버전: v2.0', 20, 85);
+  doc.text('대상: 현장 관리자, 팀원, 마스터 사용자', 20, 95);
+
+  // 2페이지: 목차
+  doc.addPage();
+  doc.setFontSize(18);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('📋 목차', 20, 25);
+  doc.setFontSize(12);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('1. 로그인 및 기본 설정', 20, 45);
+  doc.text('2. 대시보드 사용법', 20, 55);
+  doc.text('3. 현장 관리', 20, 65);
+  doc.text('4. 일정 관리', 20, 75);
+  doc.text('5. 기성/지출 관리', 20, 85);
+  doc.text('6. 안전 관리', 20, 95);
+  doc.text('7. 토론/의견', 20, 105);
+  doc.text('8. 보고서 및 문서', 20, 115);
+  doc.text('9. 사용자 관리', 20, 125);
+  doc.text('10. 모바일 사용법', 20, 135);
+  doc.text('11. 문제 해결', 20, 145);
+
+  // 3페이지: 로그인 및 기본 설정
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('🔐 1. 로그인 및 기본 설정', 20, 25);
+  doc.setFontSize(11);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('• 로그인: 이메일과 비밀번호로 로그인', 20, 40);
+  doc.text('• 권한별 접근: 마스터 > 관리자 > 팀원 > 일반회원', 20, 50);
+  doc.text('• 테마 설정: 우측 상단 설정 → 다크/라이트 모드', 20, 60);
+  doc.text('• 알림 설정: 푸시 알림, 이메일 알림 설정', 20, 70);
+  doc.text('• 프로필 관리: 사용자 정보 수정, 비밀번호 변경', 20, 80);
+
+  // 4페이지: 대시보드 사용법
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('🏠 2. 대시보드 사용법', 20, 25);
+  doc.setFontSize(11);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('• 주요 현장 현황: 실시간 진행상황 확인', 20, 40);
+  doc.text('• 투두 리스트: 할 일 추가/완료/삭제', 20, 50);
+  doc.text('• 최근 활동: 최근 등록된 현장, 기성, 안전사고', 20, 60);
+  doc.text('• 날씨 정보: 현장별 날씨 확인', 20, 70);
+  doc.text('• 빠른 액션: 현장 추가, 일정 등록, 안전보고', 20, 80);
+
+  // 5페이지: 현장 관리
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('🏗️ 3. 현장 관리', 20, 25);
+  doc.setFontSize(11);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('• 현장 등록: 현장명, 위치, 계약구분, 담당자 입력', 20, 40);
+  doc.text('• 현장 수정: 기존 현장 정보 수정', 20, 50);
+  doc.text('• 주요현장 설정: ⭐ 버튼으로 주요현장 지정', 20, 60);
+  doc.text('• 현장별 필터링: 현장별 데이터 조회', 20, 70);
+  doc.text('• 전체 현장 목록: 모든 현장 한눈에 보기', 20, 80);
+  doc.text('• 현장 삭제: 관리자 권한 필요', 20, 90);
+
+  // 6페이지: 일정 관리
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('📅 4. 일정 관리', 20, 25);
+  doc.setFontSize(11);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('• 일정 등록: 제목, 날짜, 시간, 현장 선택', 20, 40);
+  doc.text('• 체크박스 기능: 완료된 일정 체크 표시', 20, 50);
+  doc.text('• 실시간 동기화: 체크박스 상태 실시간 저장', 20, 60);
+  doc.text('• 일정 수정: 기존 일정 정보 변경', 20, 70);
+  doc.text('• 일정 삭제: 불필요한 일정 제거', 20, 80);
+  doc.text('• 구글 태스크 연동: 마스터 사용자만 가능', 20, 90);
+
+  // 7페이지: 기성/지출 관리
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('💰 5. 기성/지출 관리', 20, 25);
+  doc.setFontSize(11);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('• 기성 등록: 현장별, 월별 기성금액 입력', 20, 40);
+  doc.text('• 지출 등록: 현장별 지출 내역 관리', 20, 50);
+  doc.text('• 차트 분석: 기성/지출 현황 시각화', 20, 60);
+  doc.text('• 엑셀/PDF 내보내기: 데이터 다운로드', 20, 70);
+  doc.text('• 실시간 집계: 기성/지출 합계 자동 계산', 20, 80);
+  doc.text('• 현장별 필터링: 특정 현장 데이터만 조회', 20, 90);
+
+  // 8페이지: 안전 관리
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('⚠️ 6. 안전 관리', 20, 25);
+  doc.setFontSize(11);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('• 안전사고 등록: 사고 발생 시 즉시 등록', 20, 40);
+  doc.text('• 안전점검: 정기 안전점검 결과 기록', 20, 50);
+  doc.text('• 안전교육: 교육 이수 현황 관리', 20, 60);
+  doc.text('• 안전보고서: 월별/분기별 안전보고서 작성', 20, 70);
+  doc.text('• 사고 통계: 안전사고 발생 현황 분석', 20, 80);
+  doc.text('• 알림 기능: 안전사고 발생 시 즉시 알림', 20, 90);
+
+  // 9페이지: 토론/의견
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('💬 7. 토론/의견', 20, 25);
+  doc.setFontSize(11);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('• 토론방 생성: 현장별/주제별 토론방 만들기', 20, 40);
+  doc.text('• 실시간 채팅: 실시간 메시지 교환', 20, 50);
+  doc.text('• 파일 첨부: 이미지, 문서 첨부 가능', 20, 60);
+  doc.text('• 채팅 내보내기: 대화 내용 PDF/엑셀로 저장', 20, 70);
+  doc.text('• 비밀 토론방: 비밀번호 설정 가능', 20, 80);
+  doc.text('• 메시지 삭제: 본인이 작성한 메시지 삭제', 20, 90);
+
+  // 10페이지: 보고서 및 문서
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('📊 8. 보고서 및 문서', 20, 25);
+  doc.setFontSize(11);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('• AI 보고서: OpenAI 연동으로 자동 요약', 20, 40);
+  doc.text('• PDF/엑셀 내보내기: 한글 폰트 지원', 20, 50);
+  doc.text('• 문서 업로드: PDF, 이미지, 엑셀 파일 업로드', 20, 60);
+  doc.text('• 문서 관리: 파일 분류, 검색, 다운로드', 20, 70);
+  doc.text('• 보고서 템플릿: 표준 보고서 양식 제공', 20, 80);
+  doc.text('• 데이터 분석: 차트, 그래프로 시각화', 20, 90);
+
+  // 11페이지: 사용자 관리
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('👥 9. 사용자 관리', 20, 25);
+  doc.setFontSize(11);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('• 사용자 등록: 이메일, 이름, 권한 설정', 20, 40);
+  doc.text('• 권한 관리: 마스터/관리자/팀원/일반회원', 20, 50);
+  doc.text('• 팀 관리: 팀별 사용자 그룹화', 20, 60);
+  doc.text('• 사용자 현황: 접속 현황, 활동 내역', 20, 70);
+  doc.text('• 계정 승인: 신규 사용자 승인/거부', 20, 80);
+  doc.text('• 사용자 삭제: 계정 비활성화/삭제', 20, 90);
+
+  // 12페이지: 모바일 사용법
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('📱 10. 모바일 사용법', 20, 25);
+  doc.setFontSize(11);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('• 반응형 디자인: 모든 화면 모바일 최적화', 20, 40);
+  doc.text('• 하단 네비게이션: 주요 메뉴 빠른 접근', 20, 50);
+  doc.text('• 터치 최적화: 버튼 크기, 간격 최적화', 20, 60);
+  doc.text('• 한글 입력: 모바일 키보드 최적화', 20, 70);
+  doc.text('• PWA 설치: 홈 화면에 앱으로 설치', 20, 80);
+  doc.text('• 오프라인 지원: 네트워크 없어도 기본 기능', 20, 90);
+
+  // 13페이지: 문제 해결
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('🔧 11. 문제 해결', 20, 25);
+  doc.setFontSize(11);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('• 로그인 안됨: 이메일/비밀번호 확인', 20, 40);
+  doc.text('• 데이터 안보임: 권한 확인, 새로고침', 20, 50);
+  doc.text('• 체크박스 풀림: 네트워크 상태 확인', 20, 60);
+  doc.text('• PDF 한글 깨짐: 나눔고딕 폰트 확인', 20, 70);
+  doc.text('• 모바일 버튼 겹침: 화면 회전 또는 새로고침', 20, 80);
+  doc.text('• 실시간 동기화 안됨: 인터넷 연결 확인', 20, 90);
+
+  // 14페이지: 단축키 및 팁
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('⚡ 12. 단축키 및 유용한 팁', 20, 25);
+  doc.setFontSize(11);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('• Ctrl + S: 저장 (일정, 현장 등)', 20, 40);
+  doc.text('• Ctrl + F: 검색', 20, 50);
+  doc.text('• Ctrl + P: PDF 인쇄', 20, 60);
+  doc.text('• ESC: 모달 닫기', 20, 70);
+  doc.text('• Enter: 빠른 등록', 20, 80);
+  doc.text('• 새로고침: 실시간 데이터 업데이트', 20, 90);
+  doc.text('• 북마크: 자주 사용하는 페이지 저장', 20, 100);
+  doc.text('• 알림 설정: 중요한 업무 알림 받기', 20, 110);
+
+  // 15페이지: 연락처 및 지원
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.setFont('NanumGothic', 'bold');
+  doc.text('📞 13. 연락처 및 기술 지원', 20, 25);
+  doc.setFontSize(11);
+  doc.setFont('NanumGothic', 'normal');
+  doc.text('• 기술 지원: support@chunwoo.com', 20, 40);
+  doc.text('• 사용자 가이드: PDF 다운로드 가능', 20, 50);
+  doc.text('• 업데이트: 정기적인 기능 업데이트', 20, 60);
+  doc.text('• 피드백: 사용자 의견 수렴', 20, 70);
+  doc.text('• 교육: 신규 사용자 교육 제공', 20, 80);
+  doc.text('• 커스터마이징: 기업별 맞춤 개발', 20, 90);
+
+  // 저장
+  const dateStr = new Date().toISOString().split('T')[0];
+  doc.save(`건설현장_웹앱_사용법_가이드_${dateStr}.pdf`);
 }; 

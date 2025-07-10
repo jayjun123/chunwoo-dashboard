@@ -4,6 +4,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { FaBars, FaTimes, FaUser, FaSignOutAlt, FaCog, FaBell } from 'react-icons/fa';
 import '../../styles/Header.css';
 import { useMediaQuery } from 'react-responsive';
+import NotificationSystem from './NotificationSystem';
+import ThemeToggle from './ThemeToggle';
+import PushNotification from './PushNotification';
 
 const Header = () => {
   const { logout, currentUser } = useAuth();
@@ -82,10 +85,9 @@ const Header = () => {
       </nav>
 
       <div className="header-right">
-        <button className="icon-button">
-          <FaBell />
-          <span className="notification-badge">3</span>
-        </button>
+        <NotificationSystem />
+        <ThemeToggle />
+        <PushNotification />
         
         <div className="user-menu">
           <button 
