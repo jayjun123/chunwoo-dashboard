@@ -57,6 +57,12 @@ class IMEStateManager {
     const currentValue = target.value;
     const currentPosition = target.selectionStart;
     
+    // 모바일에서 한글 입력 시 자음모음 하나씩 표시
+    if (this.isKoreanInput && window.innerWidth <= 768) {
+      // 조합 중인 텍스트를 실시간으로 표시
+      this.showCompositionText(target, currentValue);
+    }
+    
     // 한글 입력 중일 때 커서 위치 고정
     if (this.isKoreanInput) {
       this.fixCursorPosition(target, currentPosition);
@@ -149,6 +155,23 @@ class IMEStateManager {
         behavior: 'smooth'
       });
     }
+  }
+
+  // 조합 중인 텍스트를 실시간으로 표시
+  showCompositionText(target, value) {
+    // 모바일에서 한글 입력 시 조합 중인 텍스트를 강조 표시
+    if (target.style) {
+      target.style.backgroundColor = 'rgba(255, 255, 0, 0.1)';
+      target.style.borderColor = '#ffd600';
+    }
+    
+    // 조합 완료 후 스타일 복원
+    setTimeout(() => {
+      if (target.style) {
+        target.style.backgroundColor = '';
+        target.style.borderColor = '';
+      }
+    }, 100);
   }
 
   // 뷰포트 복원

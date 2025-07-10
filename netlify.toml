@@ -5,6 +5,9 @@
 [build.environment]
   NODE_VERSION = "18"
   NPM_VERSION = "9"
+  VITE_WEATHER_API_KEY = "your_weather_api_key_here"
+  VITE_NAVER_CLIENT_ID = "your_naver_client_id_here"
+  VITE_NAVER_CLIENT_SECRET = "your_naver_client_secret_here"
 
 [[redirects]]
   from = "/*"

@@ -176,10 +176,9 @@ const Overview = () => {
   if (loading) {
     return (
       <Box sx={{ 
-        p: 3,
-        position: isMobile ? 'relative' : 'static',
-        left: isMobile ? '-30px' : 'auto',
-        width: isMobile ? '100vw' : '100%'
+        p: isMobile ? 2 : 3,
+        width: '100%',
+        maxWidth: '100%'
       }}>
         <Typography>로딩 중...</Typography>
       </Box>
@@ -189,10 +188,9 @@ const Overview = () => {
   if (error) {
     return (
       <Box sx={{ 
-        p: 3,
-        position: isMobile ? 'relative' : 'static',
-        left: isMobile ? '-30px' : 'auto',
-        width: isMobile ? '100vw' : '100%'
+        p: isMobile ? 2 : 3,
+        width: '100%',
+        maxWidth: '100%'
       }}>
         <Alert severity="error">{error}</Alert>
       </Box>
@@ -202,10 +200,9 @@ const Overview = () => {
   if (sites.length === 0) {
     return (
       <Box sx={{ 
-        p: 3,
-        position: isMobile ? 'relative' : 'static',
-        left: isMobile ? '-30px' : 'auto',
-        width: isMobile ? '100vw' : '100%'
+        p: isMobile ? 2 : 3,
+        width: '100%',
+        maxWidth: '100%'
       }}>
         <Typography variant="h4" sx={{ mb: 3 }}>주요현장</Typography>
         <Alert severity="info">
@@ -217,13 +214,13 @@ const Overview = () => {
 
   return (
     <Box sx={{ 
-      p: 3,
-      position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '-30px' : 'auto',
-      width: isMobile ? '100vw' : '100%'
+      p: isMobile ? 2 : 3,
+      width: '100%',
+      maxWidth: '100%',
+      overflow: 'hidden'
     }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>주요현장</Typography>
-      <Grid container spacing={2.5}>
+      <Typography variant="h4" sx={{ mb: 3, fontSize: isMobile ? '1.5rem' : 'inherit' }}>주요현장</Typography>
+      <Grid container spacing={isMobile ? 1.5 : 2.5}>
         {/* Chart */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3, mb: 3 }}>

@@ -31,6 +31,35 @@ const getNewsFromLocalStorage = () => {
   }
 };
 
+// 더미 뉴스 데이터 생성
+const getDummyNews = (keyword) => {
+  const dummyNews = [
+    {
+      id: `${keyword}_1`,
+      title: `${keyword} 관련 최신 소식 - 건설업계 동향`,
+      description: `${keyword} 분야의 최신 트렌드와 시장 동향을 분석한 기사입니다.`,
+      link: '#',
+      pubDate: new Date().toISOString()
+    },
+    {
+      id: `${keyword}_2`,
+      title: `${keyword} 기술 발전과 미래 전망`,
+      description: `${keyword} 기술의 발전 방향과 향후 시장 전망에 대한 전문가 의견입니다.`,
+      link: '#',
+      pubDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      id: `${keyword}_3`,
+      title: `${keyword} 관련 정책 변화 소식`,
+      description: `${keyword} 분야의 새로운 정책과 규제 변화에 대한 소식입니다.`,
+      link: '#',
+      pubDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+    }
+  ];
+  
+  return dummyNews;
+};
+
 // 로컬 스토리지에 뉴스 저장
 const saveNewsToLocalStorage = (news) => {
   try {
@@ -48,8 +77,9 @@ const fetchNaverNews = async (keyword) => {
     const clientId = import.meta.env.VITE_NAVER_CLIENT_ID;
     const clientSecret = import.meta.env.VITE_NAVER_CLIENT_SECRET;
     
-    if (!clientId || !clientSecret) {
-      throw new Error('네이버 API 키가 설정되지 않았습니다.');
+    if (!clientId || !clientSecret || clientId === 'your_naver_client_id_here') {
+      console.warn('네이버 API 키가 설정되지 않았습니다. 더미 뉴스를 반환합니다.');
+      return getDummyNews(keyword);
     }
     
     // 현재 날짜와 일주일 전 날짜 계산
