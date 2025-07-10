@@ -21,7 +21,7 @@ const SiteForm = ({ site, onSubmit, onCancel }) => {
     progressPercent: 0,
     advance: '',
     totalProgress: '',
-    isStarred: false
+    isFavorite: false
   });
   const [items, setItems] = useState(site?.items || []);
   const [newItem, setNewItem] = useState({ name: '', qty: '', price: '' });
@@ -61,7 +61,7 @@ const SiteForm = ({ site, onSubmit, onCancel }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit({ ...formData, isStarred: !!formData.isStarred, items });
+    onSubmit({ ...formData, isFavorite: !!formData.isFavorite, items });
   };
 
   return (
@@ -72,9 +72,9 @@ const SiteForm = ({ site, onSubmit, onCancel }) => {
           <div className="form-group full-width" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
               type="checkbox"
-              name="isStarred"
-              checked={!!formData.isStarred}
-              onChange={e => setFormData(prev => ({ ...prev, isStarred: e.target.checked }))}
+              name="isFavorite"
+              checked={!!formData.isFavorite}
+              onChange={e => setFormData(prev => ({ ...prev, isFavorite: e.target.checked }))}
               disabled={!isEditMode}
               style={{ width: 18, height: 18 }}
             />

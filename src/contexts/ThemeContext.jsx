@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material/styles';
+import { CssBaseline } from '@mui/material';
 
-const ThemeContext = createContext({
-  theme: 'light',
-  toggleTheme: () => {},
-});
+const ThemeContext = createContext();
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
@@ -13,44 +12,162 @@ export const useTheme = () => {
   return context;
 };
 
-export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => {
+export const ThemeProvider = ({ children }) => {
+  const [darkMode, setDarkMode] = useState(() => {
+    // 로컬 스토리지에서 테마 설정 불러오기
     const savedTheme = localStorage.getItem('theme');
-    return savedTheme || 'light';
+    if (savedTheme) {
+      return savedTheme === 'dark';
+    }
+    // 시스템 설정 확인
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
-  useEffect(() => {
-    if (theme === 'system') {
-      const mq = window.matchMedia('(prefers-color-scheme: dark)');
-      const systemTheme = mq.matches ? 'dark' : 'light';
-      document.documentElement.setAttribute('data-theme', systemTheme);
-      localStorage.setItem('theme', 'system');
-      const handler = (e) => {
-        document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
-      };
-      mq.addEventListener('change', handler);
-      return () => mq.removeEventListener('change', handler);
-    } else {
-      document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem('theme', theme);
-    }
-  }, [theme]);
+  // 라이트 테마
+  const lightTheme = createTheme({
+    palette: {
+      mode: 'light',
+      primary: {
+        main: '#1976d2',
+        light: '#42a5f5',
+        dark: '#1565c0',
+      },
+      secondary: {
+        main: '#dc004e',
+        light: '#ff5983',
+        dark: '#9a0036',
+      },
+      background: {
+        default: '#f5f5f5',
+        paper: '#ffffff',
+      },
+      text: {
+        primary: '#333333',
+        secondary: '#666666',
+      },
+      divider: '#e0e0e0',
+    },
+    components: {
+      MuiCard: {
+        styleOverrides: {
+          root: {
+            backgroundColor: '#ffffff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          },
+        },
+      },
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundColor: '#ffffff',
+          },
+        },
+      },
+      MuiAppBar: {
+        styleOverrides: {
+          root: {
+            backgroundColor: '#1976d2',
+          },
+        },
+      },
+    },
+  });
 
+  // 다크 테마
+  const darkTheme = createTheme({
+    palette: {
+      mode: 'dark',
+      primary: {
+        main: '#90caf9',
+        light: '#e3f2fd',
+        dark: '#42a5f5',
+      },
+      secondary: {
+        main: '#f48fb1',
+        light: '#f8bbd9',
+        dark: '#ec407a',
+      },
+      background: {
+        default: '#121212',
+        paper: '#1e1e1e',
+      },
+      text: {
+        primary: '#ffffff',
+        secondary: '#b0b0b0',
+      },
+      divider: '#333333',
+    },
+    components: {
+      MuiCard: {
+        styleOverrides: {
+          root: {
+            backgroundColor: '#1e1e1e',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          },
+        },
+      },
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundColor: '#1e1e1e',
+          },
+        },
+      },
+      MuiAppBar: {
+        styleOverrides: {
+          root: {
+            backgroundColor: '#1e1e1e',
+          },
+        },
+      },
+      MuiDrawer: {
+        styleOverrides: {
+          paper: {
+            backgroundColor: '#1e1e1e',
+          },
+        },
+      },
+    },
+  });
+
+  // 테마 토글 함수
   const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+    setDarkMode(prev => !prev);
   };
 
+  // 테마 설정 저장
+  useEffect(() => {
+    localStorage.setItem('theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
+
+  // 시스템 테마 변경 감지
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e) => {
+      // 로컬 스토리지에 저장된 설정이 없을 때만 시스템 설정 따름
+      if (!localStorage.getItem('theme')) {
+        setDarkMode(e.matches);
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
   const value = {
-    theme,
-    setTheme,
+    darkMode,
     toggleTheme,
+    theme: darkMode ? darkTheme : lightTheme,
   };
 
   return (
     <ThemeContext.Provider value={value}>
-      {children}
+      <MuiThemeProvider theme={value.theme}>
+        <CssBaseline />
+        {children}
+      </MuiThemeProvider>
     </ThemeContext.Provider>
   );
-}
+};
 
 export default ThemeContext; 

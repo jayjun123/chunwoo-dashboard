@@ -10,6 +10,8 @@
  * - 로깅 제어
  */
 
+import { onSnapshot } from 'firebase/firestore';
+
 // 개발 환경에서만 로깅하는 함수
 export const devLog = (...args) => {
   if (process.env.NODE_ENV === 'development') {

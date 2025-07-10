@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, IconButton, Button, ToggleButtonGroup, ToggleButton, Tooltip, Checkbox, FormControlLabel } from '@mui/material';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Box, Typography, IconButton, Button, ToggleButtonGroup, ToggleButton, Tooltip, Checkbox, FormControlLabel, useMediaQuery, useTheme } from '@mui/material';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -21,6 +21,12 @@ import AddIcon from '@mui/icons-material/Add';
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 const CustomCalendar = (props) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
+  const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
+  const isLargeDesktop = useMediaQuery(theme.breakpoints.up('xl'));
+
   const {
     year, 
     month, 
@@ -96,7 +102,7 @@ const CustomCalendar = (props) => {
     monthMatrix.push(currentWeek);
   }
 
-  const isMobile = false; // 모바일 반응형 사용하지 않음
+  // 모바일 반응형은 useMediaQuery로 처리
   const containerHeight = '100%';
 
   const [currentViewDate, setCurrentViewDate] = useState(today); // 3일/7일 보기에서 현재 표시되는 시작 날짜
@@ -164,7 +170,40 @@ const CustomCalendar = (props) => {
 
   const weekCount = renderDates.length; // 5 또는 6
 
-
+  // 반응형 글자수 조절 함수
+  const getResponsiveText = useMemo(() => {
+    return (text, type) => {
+      const typePrefix = 
+        type === '현장' ? '[현장]' : 
+        type === '회의' ? '[회의]' : 
+        type === '입찰' ? '[입찰]' : 
+        type === '현설' ? '[현설]' : 
+        type === '지원' ? '[지원]' : 
+        type === '기타' ? '[기타]' : '';
+      
+      const fullText = typePrefix + (text || '');
+      
+      // 보기 모드에 따른 처리
+      if (viewMode === '3days' || viewMode === 'week') {
+        return fullText; // 3일/주 보기에서는 전체 텍스트
+      } else if (viewMode === 'month') {
+        // 월 보기에서는 화면 크기에 따라 조절
+        if (isLargeDesktop) {
+          return fullText.length > 20 ? fullText.slice(0, 20) + '...' : fullText;
+        } else if (isDesktop) {
+          return fullText.length > 15 ? fullText.slice(0, 15) + '...' : fullText;
+        } else if (isTablet) {
+          return fullText.length > 12 ? fullText.slice(0, 12) + '...' : fullText;
+        } else if (isMobile) {
+          return fullText.length > 8 ? fullText.slice(0, 8) + '...' : fullText;
+        } else {
+          return fullText.length > 10 ? fullText.slice(0, 10) + '...' : fullText;
+        }
+      } else {
+        return fullText; // 기타 보기에서는 전체 텍스트
+      }
+    };
+  }, [viewMode, isLargeDesktop, isDesktop, isTablet, isMobile]);
 
   // 플러스 버튼 onClick 핸들러를 handleOpenPopup(selectedDate)로 연결
   const handleOpenPopup = (date) => {
@@ -588,44 +627,56 @@ const CustomCalendar = (props) => {
                 )}
               >
                 {(provided, snapshot) => (
-                  <Box
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    onClick={() => {
-                      if (dateStr) {
-                        setSelectedDate(dateStr);
-                      }
-                      onCellClick && onCellClick(dateStr);
-                    }}
-                    sx={{
-                      bgcolor: snapshot.isDraggingOver ? '#1e293b' : '#232837',
-                      borderRadius: { xs: 1, md: 2 },
-                      p: 0,
-                      pt: 0,
-                      pb: 0,
-                      height: '100%',
-                      minHeight: 0,
-                      width: '100%',
-                      minWidth: 0,
-                      maxWidth: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: { xs: 0.2, md: 0.3 },
-                      cursor: date ? 'pointer' : 'default',
-                      position: 'relative',
-                      border: snapshot.isDraggingOver 
-                        ? '2px solid #3b82f6' 
-                        : isTodayCell
-                          ? '2px solid #ef4444'
-                          : '1px solid #232837',
-                      flexShrink: 0,
-                      margin: 0,
-                      boxSizing: 'border-box',
-                      '&:hover': {
-                        bgcolor: date ? '#1e293b' : '#232837'
-                      }
-                    }}
-                  >
+                                  <Box
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className="calendar-cell"
+                  onClick={() => {
+                    if (dateStr) {
+                      setSelectedDate(dateStr);
+                    }
+                    onCellClick && onCellClick(dateStr);
+                  }}
+                  sx={{
+                    bgcolor: snapshot.isDraggingOver ? '#1e293b' : '#232837',
+                    borderRadius: { xs: 1, md: 2 },
+                    p: 0,
+                    pt: 0,
+                    pb: 0,
+                    height: '100%',
+                    minHeight: 0,
+                    width: '100%',
+                    minWidth: 0,
+                    maxWidth: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: { xs: 0.2, md: 0.3 },
+                    cursor: date ? 'pointer' : 'default',
+                    position: 'relative',
+                    border: snapshot.isDraggingOver 
+                      ? '2px solid #3b82f6' 
+                      : isTodayCell
+                        ? '2px solid #ef4444'
+                        : '1px solid #232837',
+                    flexShrink: 0,
+                    margin: 0,
+                    boxSizing: 'border-box',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    '&::-webkit-scrollbar': {
+                      display: 'none',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      display: 'none',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      display: 'none',
+                    },
+                    '&:hover': {
+                      bgcolor: date ? '#1e293b' : '#232837'
+                    }
+                  }}
+                >
                     {date ? (
                       <>
                         {/* 날짜 셀 헤더 */}
@@ -709,33 +760,32 @@ const CustomCalendar = (props) => {
                           )}
                         </Box>
                         {/* 항목 리스트 */}
-                        <Box sx={{
-                          flex: 1,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: { xs: 0.1, md: 0.2 },
-                          overflowY: 'auto', // 스크롤 다시 활성화
-                          overflowX: 'hidden',
-                          maxHeight: { xs: '280px', md: '240px' },
-                          margin: 0,
-                          padding: 0,
-                          boxSizing: 'border-box',
-                          scrollbarWidth: 'thin', // Firefox에서 얇은 스크롤바
-                          msOverflowStyle: 'none', // IE/Edge에서 스크롤바 숨기기
-                          '&::-webkit-scrollbar': {
-                            width: '6px', // Webkit 브라우저에서 스크롤바 너비
-                          },
-                          '&::-webkit-scrollbar-track': {
-                            background: 'transparent',
-                          },
-                          '&::-webkit-scrollbar-thumb': {
-                            background: '#4a5568',
-                            borderRadius: '3px',
-                          },
-                          '&::-webkit-scrollbar-thumb:hover': {
-                            background: '#718096',
-                          },
-                        }}>
+                        <Box 
+                          className="calendar-events"
+                          sx={{
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: { xs: 0.1, md: 0.2 },
+                            overflowY: 'auto',
+                            overflowX: 'hidden',
+                            maxHeight: { xs: '280px', md: '240px' },
+                            margin: 0,
+                            padding: 0,
+                            boxSizing: 'border-box',
+                            scrollbarWidth: 'none', // Firefox에서 스크롤바 완전히 숨기기
+                            msOverflowStyle: 'none', // IE/Edge에서 스크롤바 숨기기
+                            '&::-webkit-scrollbar': {
+                              display: 'none', // Webkit 브라우저에서 스크롤바 완전히 숨기기
+                            },
+                            '&::-webkit-scrollbar-track': {
+                              display: 'none',
+                            },
+                            '&::-webkit-scrollbar-thumb': {
+                              display: 'none',
+                            },
+                          }}
+                        >
                           {items
                             .sort((a, b) => {
                               // 모바일에서는 입력 순서대로, 데스크톱에서는 드래그 순서 유지
@@ -755,7 +805,7 @@ const CustomCalendar = (props) => {
                                   sel => sel.date === dateStr && sel.id === item.id
                                 );
                                 const isChecked = checkedItems && typeof checkedItems === 'object' && 
-                                  checkedItems[`${dateStr}-${item.id}`];
+                                  checkedItems[`${dateStr}-${item.id}`] === true;
                                 return (
                                   <Box
                                     ref={provided.innerRef}
@@ -811,26 +861,38 @@ const CustomCalendar = (props) => {
                                       }
                                     }}
                                   >
-                                    <span style={{ 
-                                      flex: 1, 
-                                      textAlign: 'left',
-                                      marginRight: '8px'
-                                    }}>
-                                      <>
-                                        {item.type === '현장' && '[현장]'}
-                                        {item.type === '회의' && '[회의]'}
-                                        {item.type === '입찰' && '[입찰]'}
-                                        {item.type === '현설' && '[현설]'}
-                                        {item.type === '지원' && '[지원]'}
-                                        {item.type === '기타' && '[기타]'}
-                                        {viewMode === '3days' ? item.text : (viewMode === 'month' ? item.text.slice(0, 7) : item.text)}
-                                      </>
-                                    </span>
+                                    <Tooltip 
+                                      title={(() => {
+                                        const typePrefix = 
+                                          item.type === '현장' ? '[현장]' : 
+                                          item.type === '회의' ? '[회의]' : 
+                                          item.type === '입찰' ? '[입찰]' : 
+                                          item.type === '현설' ? '[현설]' : 
+                                          item.type === '지원' ? '[지원]' : 
+                                          item.type === '기타' ? '[기타]' : '';
+                                        return typePrefix + (item.text || '') + (item.desc ? `\n${item.desc}` : '');
+                                      })()}
+                                      placement="top"
+                                      arrow
+                                    >
+                                      <span 
+                                        className="calendar-item-text"
+                                        style={{ 
+                                          flex: 1, 
+                                          textAlign: 'left',
+                                          marginRight: '8px',
+                                          cursor: 'help'
+                                        }}
+                                      >
+                                        {getResponsiveText(item.text, item.type)}
+                                      </span>
+                                    </Tooltip>
                                     <Checkbox
                                       size="small"
-                                      checked={isChecked || false}
+                                      checked={isChecked}
                                       onChange={(e) => {
                                         e.stopPropagation();
+                                        console.log('체크박스 변경:', dateStr, item.id, e.target.checked);
                                         if (onCheckItem) {
                                           onCheckItem(dateStr, item.id, e.target.checked);
                                         }

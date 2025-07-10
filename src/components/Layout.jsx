@@ -23,6 +23,8 @@ import {
   Badge,
   Drawer,
 } from '@mui/material';
+import SwipeableContainer from './common/SwipeableContainer';
+import MobileBottomNav from './common/MobileBottomNav';
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
@@ -350,21 +352,26 @@ const Layout = ({ children }) => {
         </Box>
       </Drawer>
       
-      <Box component="main" sx={{ 
-        flexGrow: 1, 
-        mt: 0, 
-        p: 0, 
-        width: '100%',
-        maxWidth: '100%',
-        minWidth: 0,
-        margin: 0, 
-        padding: 0, 
-        boxSizing: 'border-box', 
-        overflowX: 'hidden',
-        ...(isMobile && { height: 'calc(100vh - 58px)', maxHeight: 'calc(100vh - 58px)' }) 
-      }}>
-        {children}
-      </Box>
+      <SwipeableContainer>
+        <Box component="main" sx={{ 
+          flexGrow: 1, 
+          mt: 0, 
+          p: 0, 
+          width: '100%',
+          maxWidth: '100%',
+          minWidth: 0,
+          margin: 0, 
+          padding: 0, 
+          boxSizing: 'border-box', 
+          overflowX: 'hidden',
+          ...(isMobile && { height: 'calc(100vh - 58px)', maxHeight: 'calc(100vh - 58px)' }) 
+        }}>
+          {children}
+        </Box>
+      </SwipeableContainer>
+
+      {/* 모바일 하단 네비게이션 */}
+      <MobileBottomNav />
 
       {/* 대시보드 하단 바 - 항상 고정 */}
       <BottomBar

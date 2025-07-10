@@ -198,6 +198,42 @@ div, section, article, aside, nav, main, header, footer {
 div::-webkit-scrollbar,
 section::-webkit-scrollbar,
 article::-webkit-scrollbar,
+
+/* 일정관리 특별 스크롤바 숨김 */
+.calendar-cell,
+.calendar-events,
+.schedule-container,
+.schedule-management,
+.MuiBox-root {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.calendar-cell::-webkit-scrollbar,
+.calendar-events::-webkit-scrollbar,
+.schedule-container::-webkit-scrollbar,
+.schedule-management::-webkit-scrollbar,
+.MuiBox-root::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.calendar-cell::-webkit-scrollbar-track,
+.calendar-events::-webkit-scrollbar-track,
+.schedule-container::-webkit-scrollbar-track,
+.schedule-management::-webkit-scrollbar-track,
+.MuiBox-root::-webkit-scrollbar-track {
+  display: none !important;
+}
+
+.calendar-cell::-webkit-scrollbar-thumb,
+.calendar-events::-webkit-scrollbar-thumb,
+.schedule-container::-webkit-scrollbar-thumb,
+.schedule-management::-webkit-scrollbar-thumb,
+.MuiBox-root::-webkit-scrollbar-thumb {
+  display: none !important;
+}
 aside::-webkit-scrollbar,
 nav::-webkit-scrollbar,
 main::-webkit-scrollbar,

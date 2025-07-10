@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, IconButton, Grid, Paper, Divider, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Checkbox, FormControlLabel } from '@mui/material';
 import { ChevronLeft, ChevronRight, ArrowBack, Add, Today, Edit, Delete, ViewWeek, ViewModule, CalendarViewMonth } from '@mui/icons-material';
-import { collection, onSnapshot, doc, deleteDoc, updateDoc, addDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, onSnapshot, doc, deleteDoc, updateDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { db, auth } from '../firebase';
 
 // 헤더/하단바 높이(px)
 const HEADER_HEIGHT = 56;
@@ -85,14 +85,69 @@ const CustomScheduleMobile = () => {
   const [sites, setSites] = useState([]);
   const [viewMode, setViewMode] = useState('month'); // 'day', '3day', 'month'
   const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
+  const [checkedItems, setCheckedItems] = useState({});
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'schedules'), (snapshot) => {
-      const scheduleData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('일정 데이터 로드:', scheduleData);
-      setSchedules(scheduleData);
-    });
-    return () => unsubscribe();
+    const user = auth.currentUser;
+    if (!user) {
+      setSchedules([]);
+      setCheckedItems({});
+      return;
+    }
+
+    let schedulesUnsubscribe = null;
+    let checksUnsubscribe = null;
+
+    try {
+      // 일정 데이터 실시간 구독
+      schedulesUnsubscribe = onSnapshot(collection(db, 'schedules'), (snapshot) => {
+        const scheduleData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log('모바일 일정 데이터 로드:', scheduleData);
+        setSchedules(scheduleData);
+      });
+
+      // 체크 상태 실시간 구독
+      const checksQuery = query(
+        collection(db, 'scheduleChecks'),
+        where('userId', '==', user.uid)
+      );
+      
+      checksUnsubscribe = onSnapshot(checksQuery, (checksSnapshot) => {
+        try {
+          const newCheckedItems = {};
+          
+          checksSnapshot.docs.forEach(doc => {
+            const checkData = doc.data();
+            if (checkData.date && checkData.scheduleId) {
+              const key = `${checkData.date}-${checkData.scheduleId}`;
+              newCheckedItems[key] = checkData.checked;
+            }
+          });
+          
+          setCheckedItems(newCheckedItems);
+          console.log('모바일 체크 상태 실시간 업데이트:', newCheckedItems);
+        } catch (error) {
+          console.error('모바일 체크 상태 처리 오류:', error);
+        }
+      });
+    } catch (error) {
+      console.error('모바일 구독 설정 오류:', error);
+      setSchedules([]);
+      setCheckedItems({});
+    }
+
+    return () => {
+      try {
+        if (schedulesUnsubscribe && typeof schedulesUnsubscribe === 'function') {
+          schedulesUnsubscribe();
+        }
+        if (checksUnsubscribe && typeof checksUnsubscribe === 'function') {
+          checksUnsubscribe();
+        }
+      } catch (error) {
+        console.error('모바일 구독 해제 오류:', error);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -669,6 +724,90 @@ const CustomScheduleMobile = () => {
     );
   };
 
+  // 체크박스 상태 저장 함수
+  const handleCheckItem = async (date, id, checked) => {
+    const user = auth.currentUser;
+    if (!user) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    const checkKey = `${date}-${id}`;
+    console.log('모바일 체크박스 변경 시작:', { date, id, checked, checkKey });
+
+    try {
+      // 로컬 상태 업데이트
+      setCheckedItems(prev => {
+        const newState = {
+          ...prev,
+          [checkKey]: checked
+        };
+        console.log('모바일 로컬 상태 업데이트:', newState);
+        return newState;
+      });
+
+      // Firestore에 체크 상태 저장
+      const checkData = {
+        scheduleId: id,
+        date: date,
+        checked: checked,
+        userId: user.uid,
+        updatedAt: new Date()
+      };
+
+      console.log('모바일 Firestore 저장 데이터:', checkData);
+
+      // 기존 체크 데이터가 있는지 확인
+      const existingCheckQuery = query(
+        collection(db, 'scheduleChecks'),
+        where('scheduleId', '==', id),
+        where('date', '==', date),
+        where('userId', '==', user.uid)
+      );
+      
+      const existingCheckSnapshot = await getDocs(existingCheckQuery);
+      console.log('모바일 기존 체크 데이터 조회 결과:', existingCheckSnapshot.docs.length);
+      
+      if (existingCheckSnapshot.docs.length > 0) {
+        // 기존 데이터 업데이트
+        const existingDoc = existingCheckSnapshot.docs[0];
+        await updateDoc(doc(db, 'scheduleChecks', existingDoc.id), {
+          checked: checked,
+          updatedAt: new Date()
+        });
+        console.log('모바일 체크 상태 업데이트 완료:', checkKey, checked);
+      } else {
+        // 새 데이터 추가
+        const newDocRef = await addDoc(collection(db, 'scheduleChecks'), checkData);
+        console.log('모바일 체크 상태 추가 완료:', checkKey, checked, '문서 ID:', newDocRef.id);
+      }
+    } catch (error) {
+      console.error('모바일 체크 상태 저장 실패:', error);
+      console.error('모바일 에러 상세:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      
+      // 실패 시 로컬 상태 롤백
+      setCheckedItems(prev => {
+        const newState = {
+          ...prev,
+          [checkKey]: !checked
+        };
+        console.log('모바일 실패로 인한 상태 롤백:', newState);
+        return newState;
+      });
+      
+      // 사용자에게 알림 (개발 중에는 상세 정보 포함)
+      if (process.env.NODE_ENV === 'development') {
+        alert(`모바일 체크 상태 저장에 실패했습니다.\n에러: ${error.message}\n코드: ${error.code}`);
+      } else {
+        alert('체크 상태 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      }
+    }
+  };
+
   return (
     <Box sx={{ 
       bgcolor: '#181a20', 
@@ -950,62 +1089,86 @@ const CustomScheduleMobile = () => {
               WebkitOverflowScrolling: 'touch', // iOS 스크롤 개선
             }}
           >
-            {selectedSchedules.map((item, i) => (
-              <Box 
-                key={item.id} 
-                sx={{ 
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  p: 0.5, // 패딩 줄임 (1 → 0.5)
-                  borderRadius: 2, 
-                  bgcolor: item.color || colorList[i % colorList.length], 
-                  color: '#fff', 
-                  fontWeight: 500, 
-                  fontSize: '0.9rem', // 폰트 크기 줄임 (1rem → 0.9rem)
-                  boxShadow: '0 1px 4px 0 #0003',
-                  mb: 0.2, // 마진 줄임
-                  flexShrink: 0, // 스크롤 시 크기 유지
-                }}
-              >
-                <Typography sx={{ flex: 1, fontSize: '0.9rem' }}>
-                  {(() => {
-                    const typePrefix = 
-                      item.type === '현장' ? '[현장]' : 
-                      item.type === '회의' ? '[회의]' : 
-                      item.type === '입찰' ? '[입찰]' : 
-                      item.type === '현설' ? '[현설]' : 
-                      item.type === '지원' ? '[지원]' : 
-                      item.type === '기타' ? '[기타]' : '';
-                    return typePrefix + (item.text || item.title || '제목 없음');
-                  })()}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  <IconButton 
-                    size="small" 
-                    onClick={() => handleEditSchedule(item)}
-                    sx={{ 
-                      color: '#fff', 
-                      p: 0.2,
-                      '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
-                    }}
-                  >
-                    <Edit sx={{ fontSize: '0.8rem' }} />
-                  </IconButton>
-                  <IconButton 
-                    size="small" 
-                    onClick={() => handleDeleteConfirm(item)}
-                    sx={{ 
-                      color: '#fff', 
-                      p: 0.2,
-                      '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
-                    }}
-                  >
-                    <Delete sx={{ fontSize: '0.8rem' }} />
-                  </IconButton>
+            {selectedSchedules.map((item, i) => {
+              // 날짜 문자열 생성
+              const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+              const checkKey = `${dateStr}-${item.id}`;
+              const isChecked = checkedItems[checkKey] || false;
+
+              return (
+                <Box 
+                  key={item.id} 
+                  sx={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    p: 0.5, // 패딩 줄임 (1 → 0.5)
+                    borderRadius: 2, 
+                    bgcolor: item.color || colorList[i % colorList.length], 
+                    color: '#fff', 
+                    fontWeight: 500, 
+                    fontSize: '0.9rem', // 폰트 크기 줄임 (1rem → 0.9rem)
+                    boxShadow: '0 1px 4px 0 #0003',
+                    mb: 0.2, // 마진 줄임
+                    flexShrink: 0, // 스크롤 시 크기 유지
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, gap: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={isChecked}
+                      onChange={(e) => handleCheckItem(dateStr, item.id, e.target.checked)}
+                      sx={{
+                        color: '#ffffff',
+                        p: 0,
+                        minWidth: 'auto',
+                        width: '16px',
+                        height: '16px',
+                        '&.Mui-checked': {
+                          color: '#ffffff'
+                        }
+                      }}
+                    />
+                    <Typography sx={{ flex: 1, fontSize: '0.9rem' }}>
+                      {(() => {
+                        const typePrefix = 
+                          item.type === '현장' ? '[현장]' : 
+                          item.type === '회의' ? '[회의]' : 
+                          item.type === '입찰' ? '[입찰]' : 
+                          item.type === '현설' ? '[현설]' : 
+                          item.type === '지원' ? '[지원]' : 
+                          item.type === '기타' ? '[기타]' : '';
+                        return typePrefix + (item.text || item.title || '제목 없음');
+                      })()}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleEditSchedule(item)}
+                      sx={{ 
+                        color: '#fff', 
+                        p: 0.2,
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+                      }}
+                    >
+                      <Edit sx={{ fontSize: '0.8rem' }} />
+                    </IconButton>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleDeleteConfirm(item)}
+                      sx={{ 
+                        color: '#fff', 
+                        p: 0.2,
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+                      }}
+                    >
+                      <Delete sx={{ fontSize: '0.8rem' }} />
+                    </IconButton>
+                  </Box>
                 </Box>
-              </Box>
-            ))}
+              );
+            })}
           </Box>
         )}
       </Paper>

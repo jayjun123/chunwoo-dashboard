@@ -843,13 +843,37 @@ input, select, textarea {
 /* 일정 목록 스크롤바 숨김 */
 .schedule-list,
 .list-content,
-.list-table {
+.list-table,
+.calendar-cell,
+.calendar-events,
+.schedule-container {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
 
 .schedule-list::-webkit-scrollbar,
 .list-content::-webkit-scrollbar,
-.list-table::-webkit-scrollbar {
+.list-table::-webkit-scrollbar,
+.calendar-cell::-webkit-scrollbar,
+.calendar-events::-webkit-scrollbar,
+.schedule-container::-webkit-scrollbar {
+  display: none !important;
+}
+
+.schedule-list::-webkit-scrollbar-track,
+.list-content::-webkit-scrollbar-track,
+.list-table::-webkit-scrollbar-track,
+.calendar-cell::-webkit-scrollbar-track,
+.calendar-events::-webkit-scrollbar-track,
+.schedule-container::-webkit-scrollbar-track {
+  display: none !important;
+}
+
+.schedule-list::-webkit-scrollbar-thumb,
+.list-content::-webkit-scrollbar-thumb,
+.list-table::-webkit-scrollbar-thumb,
+.calendar-cell::-webkit-scrollbar-thumb,
+.calendar-events::-webkit-scrollbar-thumb,
+.schedule-container::-webkit-scrollbar-thumb {
   display: none !important;
 } 
