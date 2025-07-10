@@ -736,7 +736,15 @@ const CustomCalendar = (props) => {
                             background: '#718096',
                           },
                         }}>
-                          {items.map((item, index) => (
+                          {items
+                            .sort((a, b) => {
+                              // 모바일에서는 입력 순서대로, 데스크톱에서는 드래그 순서 유지
+                              if (window.innerWidth <= 768) {
+                                return (a.createdAt || 0) - (b.createdAt || 0);
+                              }
+                              return 0;
+                            })
+                            .map((item, index) => (
                             <Draggable
                               key={item.id}
                               draggableId={`cell-${dateStr}-${item.id}`}
@@ -797,12 +805,17 @@ const CustomCalendar = (props) => {
                                       display: 'flex',
                                       justifyContent: 'space-between',
                                       alignItems: 'center',
+                                      textAlign: 'left',
                                       '&:hover': {
                                         bgcolor: isSelected ? '#2563eb' : '#1e293b'
                                       }
                                     }}
                                   >
-                                    <span>
+                                    <span style={{ 
+                                      flex: 1, 
+                                      textAlign: 'left',
+                                      marginRight: '8px'
+                                    }}>
                                       <>
                                         {item.type === '현장' && '[현장]'}
                                         {item.type === '회의' && '[회의]'}
@@ -828,6 +841,7 @@ const CustomCalendar = (props) => {
                                         minWidth: 'auto',
                                         width: { xs: '16px', md: '14px' },
                                         height: { xs: '16px', md: '14px' },
+                                        marginLeft: 'auto',
                                         '&.Mui-checked': {
                                           color: '#ffffff'
                                         }

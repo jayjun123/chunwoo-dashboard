@@ -12,8 +12,9 @@ export const get5DayForecast = async (nx = 89, ny = 90) => {
     const apiKey = import.meta.env.VITE_WEATHER_API_KEY;
     console.log('기상청 API 키 확인:', apiKey ? '설정됨' : '설정되지 않음');
     
-    if (!apiKey) {
-      throw new Error('기상청 API 키가 설정되지 않았습니다.');
+    if (!apiKey || apiKey === 'your_weather_api_key_here') {
+      console.warn('기상청 API 키가 설정되지 않았습니다. 더미 데이터를 반환합니다.');
+      return getDummyWeatherData();
     }
 
     // 오늘 날짜 기준으로 API 호출
@@ -190,6 +191,39 @@ export const LOCATION_COORDS = {
   '경북': { nx: 89, ny: 91 },
   '경남': { nx: 91, ny: 76 },
   '제주': { nx: 53, ny: 38 }
+};
+
+/**
+ * 더미 날씨 데이터를 반환합니다 (API 키가 없을 때 사용)
+ * @returns {object} 더미 날씨 데이터
+ */
+const getDummyWeatherData = () => {
+  const today = new Date();
+  const dailyData = [];
+  
+  for (let i = 0; i < 5; i++) {
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + i);
+    
+    const dayName = i === 0 ? '오늘' : 
+                   i === 1 ? '내일' : 
+                   i === 2 ? '모레' : 
+                   i === 3 ? '글피' : '그글피';
+    
+    const dayData = {
+      date: format(targetDate, 'yyyy-MM-dd'),
+      dayName: dayName,
+      maxTemp: 25 + Math.floor(Math.random() * 10),
+      minTemp: 15 + Math.floor(Math.random() * 5),
+      sky: ['맑음', '구름많음', '흐림'][Math.floor(Math.random() * 3)],
+      pty: '0',
+      pop: Math.floor(Math.random() * 30)
+    };
+    
+    dailyData.push(dayData);
+  }
+  
+  return { daily: dailyData };
 };
 
 /**
