@@ -20,6 +20,7 @@ import {
   Chip,
   Grid,
   Alert,
+  Tooltip,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -29,6 +30,8 @@ import {
   Add as AddIcon,
   Refresh as RefreshIcon,
   Sync as SyncIcon,
+  CloudSync as CloudSyncIcon,
+  Google as GoogleIcon,
 } from '@mui/icons-material';
 import { collection, query, onSnapshot, where, addDoc, updateDoc, deleteDoc, doc, getDocs, orderBy } from 'firebase/firestore';
 import { db, collections } from '../firebase';
@@ -37,6 +40,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import { useAuth } from '../contexts/AuthContext';
+import { useTodo } from '../contexts/TodoContext';
 import * as XLSX from 'xlsx';
 import { format, startOfDay, endOfDay, isToday, isYesterday, subDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -66,6 +70,7 @@ const TodoList = () => {
   const [syncing, setSyncing] = useState(false);
   
   const { currentUser, loginWithGoogle } = useAuth();
+  const { isGoogleTasksEnabled, isMasterUser, syncWithGoogleTasks } = useTodo();
   const userId = currentUser?.uid;
   const isMaster = currentUser?.email === 'fire8803@naver.com' || userId === 'HpF5IrlTscYbWPsUhtdzV05sjbF2';
 
@@ -77,6 +82,25 @@ const TodoList = () => {
     return false;
   }
   const isAdminOrMasterUser = isAdminOrMaster(currentUser);
+
+  // Google Tasks 동기화 처리
+  const handleGoogleSync = async () => {
+    if (!isMasterUser || !isGoogleTasksEnabled) {
+      alert('마스터 사용자만 Google Tasks 동기화를 사용할 수 있습니다.');
+      return;
+    }
+
+    try {
+      setSyncing(true);
+      await syncWithGoogleTasks();
+      alert('Google Tasks 동기화가 완료되었습니다.');
+    } catch (error) {
+      console.error('Google Tasks 동기화 실패:', error);
+      alert('Google Tasks 동기화에 실패했습니다: ' + error.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // 현재 사용자의 오늘 날짜 투두리스트 가져오기 (자동 이월 제거)
   const getCurrentUserTodos = useCallback(async () => {
@@ -387,46 +411,6 @@ const TodoList = () => {
     setSettingsAnchor(null);
   };
 
-
-
-  // Google 로그인 함수
-  const initializeGoogleSync = async () => {
-    try {
-      setSyncing(true);
-      
-      // Google 계정으로 로그인되지 않은 경우 Google 로그인 시도
-      const credential = auth.currentUser?.providerData.find(
-        provider => provider.providerId === 'google.com'
-      );
-      
-      if (!credential) {
-        try {
-          await loginWithGoogle();
-          alert('✅ Google 계정으로 로그인되었습니다!\n\n📝 현재는 Firebase Auth를 통한 Google 로그인만 지원됩니다.\n\n🔗 실제 Google Tasks API 연동을 위해서는:\n1. Google Cloud Console에서 Google Tasks API 활성화\n2. OAuth 2.0 클라이언트 ID 생성\n3. 추가적인 설정이 필요합니다\n\n💡 현재는 앱 내에서 투두 관리가 가능합니다.');
-          return;
-        } catch (error) {
-          alert('❌ Google 로그인에 실패했습니다: ' + error.message);
-          return;
-        }
-      } else {
-        alert('✅ 이미 Google 계정으로 로그인되어 있습니다!\n\n📝 현재는 Firebase Auth를 통한 Google 로그인만 지원됩니다.\n\n🔗 실제 Google Tasks API 연동을 위해서는 추가 설정이 필요합니다.\n\n💡 현재는 앱 내에서 투두 관리가 가능합니다.');
-      }
-    } catch (error) {
-      console.error('Google 로그인 실패:', error);
-      alert('❌ Google 로그인에 실패했습니다: ' + error.message);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-
-
-
-
-
-
-
-
   // 마스터 계정용 설정 팝오버
   const renderSettingsPopover = () => {
     if (!isAdminOrMasterUser) return null;
@@ -514,7 +498,7 @@ const TodoList = () => {
         <Divider sx={{ my: 2 }} />
         
         <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: '#333' }}>
-          Google 계정 연동
+          Google Tasks 연동
         </Typography>
         
         {/* 현재 사용자 정보 표시 */}
@@ -526,46 +510,60 @@ const TodoList = () => {
           </Box>
         )}
         
-        {/* Google 로그인 상태 확인 */}
-        {(() => {
-          const credential = auth.currentUser?.providerData.find(
-            provider => provider.providerId === 'google.com'
-          );
-          
-          if (!credential) {
-            return (
-              <Box>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  fullWidth
-                  onClick={initializeGoogleSync}
-                  disabled={syncing}
-                  sx={{ mb: 1 }}
-                >
-                  🔗 Google 계정으로 로그인
-                </Button>
-                <Typography variant="caption" sx={{ color: '#666', display: 'block', textAlign: 'center' }}>
-                  Google 계정으로 로그인하면 개인별로 할 일을 관리할 수 있습니다
-                </Typography>
-              </Box>
-            );
-          } else {
-            return (
+        {/* 마스터 사용자 Google Tasks 연동 상태 */}
+        {isMasterUser ? (
+          <Box>
+            {isGoogleTasksEnabled ? (
               <Box sx={{ mb: 2, p: 1, bgcolor: '#e8f5e9', borderRadius: 1, border: '1px solid #4caf50' }}>
-                <Typography variant="caption" sx={{ color: '#2e7d32', fontWeight: 600 }}>
-                  ✅ Google 계정으로 로그인됨
+                <Typography variant="caption" sx={{ color: '#2e7d32', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <GoogleIcon sx={{ fontSize: 16 }} />
+                  ✅ Google Tasks 연동됨
                 </Typography>
                 <Typography variant="caption" sx={{ color: '#2e7d32', display: 'block', mt: 0.5 }}>
-                  📧 {auth.currentUser.email}
+                  📧 {currentUser?.email}
                 </Typography>
                 <Typography variant="caption" sx={{ color: '#2e7d32', display: 'block', mt: 0.5 }}>
-                  개인별로 할 일을 관리할 수 있습니다
+                  마스터 계정으로 Google Tasks와 동기화됩니다
                 </Typography>
               </Box>
-            );
-          }
-        })()}
+            ) : (
+              <Box sx={{ mb: 2, p: 1, bgcolor: '#fff3e0', borderRadius: 1, border: '1px solid #ff9800' }}>
+                <Typography variant="caption" sx={{ color: '#e65100', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <GoogleIcon sx={{ fontSize: 16 }} />
+                  ⚠️ Google Tasks 연동 대기 중
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#e65100', display: 'block', mt: 0.5 }}>
+                  Google Tasks API 설정이 필요합니다
+                </Typography>
+              </Box>
+            )}
+            
+            <Button
+              variant="outlined"
+              size="small"
+              fullWidth
+              onClick={handleGoogleSync}
+              disabled={syncing || !isGoogleTasksEnabled}
+              startIcon={<CloudSyncIcon />}
+              sx={{ mb: 1 }}
+            >
+              {syncing ? '동기화 중...' : 'Google Tasks 동기화'}
+            </Button>
+            
+            <Typography variant="caption" sx={{ color: '#666', display: 'block', textAlign: 'center' }}>
+              마스터 계정만 Google Tasks와 연동됩니다
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ mb: 2, p: 1, bgcolor: '#f3e5f5', borderRadius: 1, border: '1px solid #9c27b0' }}>
+            <Typography variant="caption" sx={{ color: '#7b1fa2', fontWeight: 600 }}>
+              👤 개인 투두 사용
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#7b1fa2', display: 'block', mt: 0.5 }}>
+              일반 사용자는 개인 투두를 사용합니다
+            </Typography>
+          </Box>
+        )}
       </Popover>
     );
   };
@@ -747,28 +745,47 @@ const TodoList = () => {
           📊 엑셀 다운로드
         </Button>
         
-        {/* 구글 로그인 버튼 */}
-        <Button
-          variant="contained"
-          size="small"
-          onClick={initializeGoogleSync}
-          disabled={syncing}
-          sx={{
-            bgcolor: '#4285f4',
-            color: '#fff',
-            '&:hover': {
-              bgcolor: '#3367d6'
-            },
-            '&:disabled': {
-              bgcolor: 'rgba(66, 133, 244, 0.5)'
-            },
-            fontSize: { xs: '0.7rem', sm: '0.8rem' },
-            px: { xs: 1, sm: 2 },
-            py: { xs: 0.5, sm: 1 }
-          }}
-        >
-          {syncing ? '연동 중...' : '🔗 구글 로그인'}
-        </Button>
+        {/* Google Tasks 연동 상태 표시 */}
+        {isMasterUser && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Chip
+              icon={isGoogleTasksEnabled ? <GoogleIcon /> : <GoogleIcon />}
+              label={isGoogleTasksEnabled ? 'Google Tasks 연동됨' : 'Google Tasks 대기'}
+              color={isGoogleTasksEnabled ? 'success' : 'warning'}
+              size="small"
+              sx={{
+                color: '#fff',
+                '& .MuiChip-icon': {
+                  color: '#fff'
+                }
+              }}
+            />
+            <Tooltip title={isGoogleTasksEnabled ? 'Google Tasks 동기화' : 'Google Tasks API 설정 필요'}>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={handleGoogleSync}
+                disabled={syncing || !isGoogleTasksEnabled}
+                startIcon={<CloudSyncIcon />}
+                sx={{
+                  bgcolor: isGoogleTasksEnabled ? '#4285f4' : '#9e9e9e',
+                  color: '#fff',
+                  '&:hover': {
+                    bgcolor: isGoogleTasksEnabled ? '#3367d6' : '#757575'
+                  },
+                  '&:disabled': {
+                    bgcolor: 'rgba(66, 133, 244, 0.5)'
+                  },
+                  fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                  px: { xs: 1, sm: 2 },
+                  py: { xs: 0.5, sm: 1 }
+                }}
+              >
+                {syncing ? '동기화 중...' : '동기화'}
+              </Button>
+            </Tooltip>
+          </Box>
+        )}
         
         {/* 설정 버튼 */}
         <IconButton
