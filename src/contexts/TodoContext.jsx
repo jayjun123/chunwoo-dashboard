@@ -3,6 +3,7 @@ import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, getDocs, o
 import { db } from '../firebase';
 import { format, subDays } from 'date-fns';
 import { useAuth } from './AuthContext';
+import googleTasksService from '../services/googleTasksService';
 
 const TodoContext = createContext();
 
@@ -20,6 +21,32 @@ export const TodoProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [initialized, setInitialized] = useState(false);
+  const [isGoogleTasksEnabled, setIsGoogleTasksEnabled] = useState(false);
+  const [googleTasksInitialized, setGoogleTasksInitialized] = useState(false);
+
+  // 마스터 사용자 확인
+  const isMasterUser = useCallback(() => {
+    return currentUser?.email === 'master@chunwoo.com'; // 실제 마스터 이메일로 변경
+  }, [currentUser?.email]);
+
+  // Google Tasks 초기화
+  const initializeGoogleTasks = useCallback(async () => {
+    if (!isMasterUser()) {
+      setIsGoogleTasksEnabled(false);
+      return;
+    }
+
+    try {
+      await googleTasksService.initialize(currentUser.email);
+      await googleTasksService.signIn();
+      setIsGoogleTasksEnabled(true);
+      setGoogleTasksInitialized(true);
+      console.log('Google Tasks 초기화 완료');
+    } catch (error) {
+      console.error('Google Tasks 초기화 실패:', error);
+      setIsGoogleTasksEnabled(false);
+    }
+  }, [currentUser?.email, isMasterUser]);
 
   // 투두 데이터 가져오기
   const fetchTodos = useCallback(async () => {
@@ -33,7 +60,30 @@ export const TodoProvider = ({ children }) => {
       setLoading(true);
       const today = format(new Date(), 'yyyy-MM-dd');
       
-      // 오늘 투두리스트 확인
+      // 마스터 사용자이고 Google Tasks가 활성화된 경우
+      if (isMasterUser() && isGoogleTasksEnabled) {
+        try {
+          const googleTasks = await googleTasksService.syncGoogleToLocal();
+          const localTodos = googleTasks.map(task => ({
+            id: task.id,
+            text: task.text,
+            completed: task.completed,
+            userId: currentUser.uid,
+            date: today,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            source: 'google',
+            googleTaskId: task.googleTaskId
+          }));
+          
+          setTodos(localTodos);
+          return;
+        } catch (error) {
+          console.error('Google Tasks 동기화 실패, 로컬 투두 사용:', error);
+        }
+      }
+      
+      // 일반 사용자 또는 Google Tasks 실패 시 로컬 투두 사용
       const todayQuery = query(
         collection(db, 'todos'),
         where('userId', '==', currentUser.uid),
@@ -72,7 +122,7 @@ export const TodoProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [currentUser?.uid, initialized]);
+  }, [currentUser?.uid, initialized, isMasterUser, isGoogleTasksEnabled]);
 
   // 실시간 투두 데이터 구독
   useEffect(() => {
@@ -85,6 +135,32 @@ export const TodoProvider = ({ children }) => {
     const loadTodos = async () => {
       try {
         setLoading(true);
+        
+        // 마스터 사용자이고 Google Tasks가 활성화된 경우
+        if (isMasterUser() && isGoogleTasksEnabled) {
+          try {
+            const googleTasks = await googleTasksService.syncGoogleToLocal();
+            const localTodos = googleTasks.map(task => ({
+              id: task.id,
+              text: task.text,
+              completed: task.completed,
+              userId: currentUser.uid,
+              date: format(new Date(), 'yyyy-MM-dd'),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              source: 'google',
+              googleTaskId: task.googleTaskId
+            }));
+            
+            setTodos(localTodos);
+            setError(null);
+            return;
+          } catch (error) {
+            console.error('Google Tasks 동기화 실패, 로컬 투두 사용:', error);
+          }
+        }
+        
+        // 일반 사용자 또는 Google Tasks 실패 시 로컬 투두 사용
         const q = query(
           collection(db, 'todos'),
           where('userId', '==', currentUser.uid)
@@ -112,7 +188,14 @@ export const TodoProvider = ({ children }) => {
     };
 
     loadTodos();
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, isMasterUser, isGoogleTasksEnabled]);
+
+  // Google Tasks 초기화
+  useEffect(() => {
+    if (isMasterUser() && !googleTasksInitialized) {
+      initializeGoogleTasks();
+    }
+  }, [isMasterUser, googleTasksInitialized, initializeGoogleTasks]);
 
   // 초기 데이터 로드 (한 번만 실행)
   useEffect(() => {
@@ -128,6 +211,31 @@ export const TodoProvider = ({ children }) => {
 
     try {
       const todoDate = date || format(new Date(), 'yyyy-MM-dd');
+      
+      // 마스터 사용자이고 Google Tasks가 활성화된 경우
+      if (isMasterUser() && isGoogleTasksEnabled) {
+        try {
+          const googleTask = await googleTasksService.addTask(text.trim());
+          const newTodo = {
+            id: googleTask.id,
+            text: text.trim(),
+            completed: false,
+            userId: currentUser.uid,
+            date: todoDate,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            source: 'google',
+            googleTaskId: googleTask.id
+          };
+          
+          setTodos(prev => [newTodo, ...prev]);
+          return newTodo;
+        } catch (error) {
+          console.error('Google Tasks 추가 실패, 로컬 투두 사용:', error);
+        }
+      }
+      
+      // 일반 사용자 또는 Google Tasks 실패 시 로컬 투두 사용
       const todo = await addDoc(collection(db, 'todos'), {
         text: text.trim(),
         completed: false,
@@ -153,15 +261,33 @@ export const TodoProvider = ({ children }) => {
     if (!currentUser?.uid) return;
 
     try {
-      await updateDoc(doc(db, 'todos', id), {
-        ...updates,
-        updatedAt: new Date()
-      });
+      // 마스터 사용자이고 Google Tasks가 활성화된 경우
+      if (isMasterUser() && isGoogleTasksEnabled) {
+        try {
+          const todo = todos.find(t => t.id === id);
+          if (todo?.googleTaskId) {
+            await googleTasksService.updateTask(todo.googleTaskId, {
+              title: updates.text || todo.text,
+              completed: updates.completed !== undefined ? (updates.completed ? new Date().toISOString() : null) : undefined
+            });
+          }
+        } catch (error) {
+          console.error('Google Tasks 업데이트 실패:', error);
+        }
+      }
       
       // 로컬 상태 업데이트
       setTodos(prev => prev.map(todo => 
         todo.id === id ? { ...todo, ...updates, updatedAt: new Date() } : todo
       ));
+      
+      // 일반 사용자 또는 Google Tasks 실패 시 로컬 투두 업데이트
+      if (!isMasterUser() || !isGoogleTasksEnabled) {
+        await updateDoc(doc(db, 'todos', id), {
+          ...updates,
+          updatedAt: new Date()
+        });
+      }
     } catch (error) {
       console.error('투두 수정 오류:', error);
       throw error;
@@ -173,10 +299,25 @@ export const TodoProvider = ({ children }) => {
     if (!currentUser?.uid) return;
 
     try {
-      await deleteDoc(doc(db, 'todos', id));
+      // 마스터 사용자이고 Google Tasks가 활성화된 경우
+      if (isMasterUser() && isGoogleTasksEnabled) {
+        try {
+          const todo = todos.find(t => t.id === id);
+          if (todo?.googleTaskId) {
+            await googleTasksService.deleteTask(todo.googleTaskId);
+          }
+        } catch (error) {
+          console.error('Google Tasks 삭제 실패:', error);
+        }
+      }
       
       // 로컬 상태 업데이트
       setTodos(prev => prev.filter(todo => todo.id !== id));
+      
+      // 일반 사용자 또는 Google Tasks 실패 시 로컬 투두 삭제
+      if (!isMasterUser() || !isGoogleTasksEnabled) {
+        await deleteDoc(doc(db, 'todos', id));
+      }
     } catch (error) {
       console.error('투두 삭제 오류:', error);
       throw error;
@@ -185,7 +326,41 @@ export const TodoProvider = ({ children }) => {
 
   // 투두 토글 (완료/미완료)
   const toggleTodo = async (id, completed) => {
-    return updateTodo(id, { completed: !completed });
+    if (!currentUser?.uid) return;
+
+    try {
+      // 마스터 사용자이고 Google Tasks가 활성화된 경우
+      if (isMasterUser() && isGoogleTasksEnabled) {
+        try {
+          const todo = todos.find(t => t.id === id);
+          if (todo?.googleTaskId) {
+            if (!completed) {
+              await googleTasksService.completeTask(todo.googleTaskId);
+            } else {
+              await googleTasksService.uncompleteTask(todo.googleTaskId);
+            }
+          }
+        } catch (error) {
+          console.error('Google Tasks 토글 실패:', error);
+        }
+      }
+      
+      // 로컬 상태 업데이트
+      setTodos(prev => prev.map(todo => 
+        todo.id === id ? { ...todo, completed: !completed, updatedAt: new Date() } : todo
+      ));
+      
+      // 일반 사용자 또는 Google Tasks 실패 시 로컬 투두 업데이트
+      if (!isMasterUser() || !isGoogleTasksEnabled) {
+        await updateDoc(doc(db, 'todos', id), {
+          completed: !completed,
+          updatedAt: new Date()
+        });
+      }
+    } catch (error) {
+      console.error('투두 토글 오류:', error);
+      throw error;
+    }
   };
 
   // 오늘 투두만 필터링 (date 포맷 불일치 방지)
@@ -200,52 +375,34 @@ export const TodoProvider = ({ children }) => {
     });
   }, [todos]);
 
-  // 특정 날짜 투두 필터링
-  const getTodosByDate = useCallback((date) => {
-    return todos.filter(todo => todo.date === date);
-  }, [todos]);
-
-  // 데이터 새로고침
-  const refreshTodos = useCallback(async () => {
-    if (!currentUser?.uid) return;
-    
-    try {
-      setLoading(true);
-      const q = query(
-        collection(db, 'todos'),
-        where('userId', '==', currentUser.uid)
-      );
-      
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      const sortedData = data.sort((a, b) => {
-        const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
-        const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
-        return dateB - dateA;
-      });
-      
-      setTodos(sortedData);
-      setError(null);
-    } catch (error) {
-      console.error('투두 데이터 새로고침 오류:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
+  // Google Tasks 동기화
+  const syncWithGoogleTasks = async () => {
+    if (!isMasterUser() || !isGoogleTasksEnabled) {
+      throw new Error('마스터 사용자만 Google Tasks 동기화를 사용할 수 있습니다.');
     }
-  }, [currentUser?.uid]);
+
+    try {
+      const syncedTasks = await googleTasksService.syncLocalToGoogle(todos);
+      console.log('Google Tasks 동기화 완료:', syncedTasks);
+      return syncedTasks;
+    } catch (error) {
+      console.error('Google Tasks 동기화 실패:', error);
+      throw error;
+    }
+  };
 
   const value = {
     todos,
-    todayTodos: getTodayTodos(),
     loading,
     error,
     addTodo,
     updateTodo,
     deleteTodo,
     toggleTodo,
-    getTodosByDate,
-    refreshTodos
+    getTodayTodos,
+    isGoogleTasksEnabled,
+    isMasterUser: isMasterUser(),
+    syncWithGoogleTasks
   };
 
   return (

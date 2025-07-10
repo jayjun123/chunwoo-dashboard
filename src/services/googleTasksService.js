@@ -1,301 +1,309 @@
-// Google Tasks API를 직접 호출하는 서비스
+/**
+ * Google Tasks API 서비스
+ * 마스터 아이디만 Google Tasks와 연동
+ */
+
+// 마스터 아이디 설정 (환경변수에서 가져오기)
+const MASTER_EMAIL = process.env.REACT_APP_MASTER_EMAIL || 'master@chunwoo.com';
+
+// Google Tasks API 클라이언트 ID (환경변수에서 가져오기)
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || 'your-google-client-id.apps.googleusercontent.com';
+
 class GoogleTasksService {
   constructor() {
-    this.accessToken = null;
     this.isInitialized = false;
+    this.gapi = null;
+    this.isMasterUser = false;
   }
 
-  // Google OAuth 인증 초기화
-  async initializeAuth() {
-    try {
-      // Firebase Auth에서 Google 액세스 토큰 가져오기
-      const { auth } = await import('../firebase');
-      const user = auth.currentUser;
-      
-      if (!user) {
-        throw new Error('로그인된 사용자가 없습니다.');
-      }
-
-      // Google OAuth 액세스 토큰 가져오기 (Firebase Auth에서)
-      const credential = await user.getIdTokenResult();
-      if (!credential) {
-        throw new Error('Google 인증 토큰을 가져올 수 없습니다.');
-      }
-
-      // Firebase Auth의 Google 액세스 토큰 사용
-      this.accessToken = credential.token;
-      this.isInitialized = true;
-      console.log('Google Tasks 인증 초기화 완료');
-      return true;
-    } catch (error) {
-      console.error('Google Tasks 인증 초기화 실패:', error);
-      // 실제 Google Tasks API 연동을 위해서는 별도의 Google OAuth 설정이 필요합니다
-      // 현재는 Firebase Auth만으로는 Google Tasks API에 접근할 수 없습니다
-      throw new Error('Google Tasks API 연동을 위해서는 별도의 Google OAuth 설정이 필요합니다. 현재는 Firebase Auth만으로는 Google Tasks API에 접근할 수 없습니다.');
-    }
+  // 마스터 사용자 확인
+  isMasterUser(userEmail) {
+    return userEmail === MASTER_EMAIL;
   }
 
+  // Google API 초기화
+  async initialize(userEmail) {
+    if (this.isInitialized) return;
 
-
-  // Google API 호출 헬퍼 함수
-  async makeGoogleApiCall(endpoint, method = 'GET', body = null) {
-    if (!this.isInitialized || !this.accessToken) {
-      throw new Error('Google Tasks가 초기화되지 않았습니다.');
-    }
-
-    const baseUrl = 'https://www.googleapis.com/tasks/v1';
-    const url = `${baseUrl}${endpoint}`;
+    this.isMasterUser = this.isMasterUser(userEmail);
     
-    const headers = {
-      'Authorization': `Bearer ${this.accessToken}`,
-      'Content-Type': 'application/json',
-    };
-
-    const options = {
-      method,
-      headers,
-    };
-
-    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
-      options.body = JSON.stringify(body);
+    if (!this.isMasterUser) {
+      console.log('마스터 사용자가 아닙니다. 개인 투두를 사용합니다.');
+      return;
     }
 
     try {
-      const response = await fetch(url, options);
+      // Google API 로드
+      await this.loadGoogleAPI();
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Google API 오류: ${errorData.error?.message || response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Google API 호출 실패:', error);
-      throw error;
-    }
-  }
-
-  // Task 목록 가져오기
-  async getTaskLists() {
-    try {
-      const response = await this.makeGoogleApiCall('/users/@me/lists');
-      return response.items || [];
-    } catch (error) {
-      console.error('Task 목록 가져오기 실패:', error);
-      throw error;
-    }
-  }
-
-  // 특정 Task 목록의 할 일 가져오기
-  async getTasks(taskListId) {
-    try {
-      const response = await this.makeGoogleApiCall(`/lists/${taskListId}/tasks`);
-      return response.items || [];
-    } catch (error) {
-      console.error('할 일 가져오기 실패:', error);
-      throw error;
-    }
-  }
-
-  // 새 할 일 생성
-  async createTask(taskListId, taskData) {
-    try {
-      const response = await this.makeGoogleApiCall(
-        `/lists/${taskListId}/tasks`,
-        'POST',
-        taskData
-      );
-      return response;
-    } catch (error) {
-      console.error('할 일 생성 실패:', error);
-      throw error;
-    }
-  }
-
-  // 할 일 업데이트
-  async updateTask(taskListId, taskId, taskData) {
-    try {
-      const response = await this.makeGoogleApiCall(
-        `/lists/${taskListId}/tasks/${taskId}`,
-        'PATCH',
-        taskData
-      );
-      return response;
-    } catch (error) {
-      console.error('할 일 업데이트 실패:', error);
-      throw error;
-    }
-  }
-
-  // 할 일 삭제
-  async deleteTask(taskListId, taskId) {
-    try {
-      await this.makeGoogleApiCall(
-        `/lists/${taskListId}/tasks/${taskId}`,
-        'DELETE'
-      );
-      return true;
-    } catch (error) {
-      console.error('할 일 삭제 실패:', error);
-      throw error;
-    }
-  }
-
-  // Firebase 투두를 Google Tasks 형식으로 변환
-  convertFirebaseToGoogleTask(firebaseTodo) {
-    return {
-      title: firebaseTodo.text,
-      notes: firebaseTodo.notes || '',
-      completed: firebaseTodo.completed ? new Date().toISOString() : null,
-      due: firebaseTodo.date ? new Date(firebaseTodo.date).toISOString() : null,
-      status: firebaseTodo.completed ? 'completed' : 'needsAction'
-    };
-  }
-
-  // Google Task를 Firebase 형식으로 변환
-  convertGoogleToFirebaseTask(googleTask, userId) {
-    return {
-      text: googleTask.title,
-      completed: googleTask.status === 'completed',
-      userId: userId,
-      date: googleTask.due ? new Date(googleTask.due).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
-      createdAt: new Date(),
-      googleTaskId: googleTask.id,
-      notes: googleTask.notes || ''
-    };
-  }
-
-  // Firebase에서 Google Tasks로 동기화
-  async syncFirebaseToGoogle(firebaseTodos, taskListId) {
-    try {
-      const results = [];
-      
-      for (const todo of firebaseTodos) {
-        // 이미 Google Task ID가 있으면 업데이트, 없으면 생성
-        if (todo.googleTaskId) {
+      // Google API 초기화
+      await new Promise((resolve, reject) => {
+        gapi.load('client:auth2', async () => {
           try {
-            await this.updateTask(taskListId, todo.googleTaskId, this.convertFirebaseToGoogleTask(todo));
-            results.push({ id: todo.id, action: 'updated', googleTaskId: todo.googleTaskId });
+            await gapi.client.init({
+              clientId: GOOGLE_CLIENT_ID,
+              scope: 'https://www.googleapis.com/auth/tasks'
+            });
+            
+            this.gapi = gapi;
+            this.isInitialized = true;
+            console.log('Google Tasks API 초기화 완료');
+            resolve();
           } catch (error) {
-            console.error(`Google Task 업데이트 실패 (${todo.id}):`, error);
-            // 업데이트 실패 시 새로 생성
-            const newTask = await this.createTask(taskListId, this.convertFirebaseToGoogleTask(todo));
-            results.push({ id: todo.id, action: 'created', googleTaskId: newTask.id });
+            console.error('Google API 초기화 실패:', error);
+            reject(error);
           }
-        } else {
-          const newTask = await this.createTask(taskListId, this.convertFirebaseToGoogleTask(todo));
-          results.push({ id: todo.id, action: 'created', googleTaskId: newTask.id });
-        }
-      }
-      
-      return results;
+        });
+      });
     } catch (error) {
-      console.error('Firebase to Google 동기화 실패:', error);
+      console.error('Google Tasks 서비스 초기화 실패:', error);
       throw error;
     }
   }
 
-  // Google Tasks에서 Firebase로 동기화
-  async syncGoogleToFirebase(taskListId, userId, addDoc, todosCollection, updateDoc, doc, query, where) {
+  // Google API 스크립트 로드
+  loadGoogleAPI() {
+    return new Promise((resolve, reject) => {
+      if (window.gapi) {
+        resolve();
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://apis.google.com/js/api.js';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  // Google 로그인
+  async signIn() {
+    if (!this.isMasterUser || !this.gapi) {
+      throw new Error('마스터 사용자만 Google Tasks를 사용할 수 있습니다.');
+    }
+
     try {
-      const googleTasks = await this.getTasks(taskListId);
-      const results = [];
+      const authInstance = this.gapi.auth2.getAuthInstance();
+      if (!authInstance.isSignedIn.get()) {
+        await authInstance.signIn();
+      }
+      return authInstance.currentUser.get();
+    } catch (error) {
+      console.error('Google 로그인 실패:', error);
+      throw error;
+    }
+  }
+
+  // Google 로그아웃
+  async signOut() {
+    if (!this.isMasterUser || !this.gapi) return;
+
+    try {
+      const authInstance = this.gapi.auth2.getAuthInstance();
+      await authInstance.signOut();
+    } catch (error) {
+      console.error('Google 로그아웃 실패:', error);
+    }
+  }
+
+  // 작업 목록 가져오기
+  async getTaskLists() {
+    if (!this.isMasterUser || !this.gapi) {
+      throw new Error('마스터 사용자만 Google Tasks를 사용할 수 있습니다.');
+    }
+
+    try {
+      const response = await this.gapi.client.tasks.tasklists.list();
+      return response.result.items || [];
+    } catch (error) {
+      console.error('작업 목록 가져오기 실패:', error);
+      throw error;
+    }
+  }
+
+  // 작업 가져오기
+  async getTasks(taskListId = '@default') {
+    if (!this.isMasterUser || !this.gapi) {
+      throw new Error('마스터 사용자만 Google Tasks를 사용할 수 있습니다.');
+    }
+
+    try {
+      const response = await this.gapi.client.tasks.tasks.list({
+        tasklist: taskListId,
+        showCompleted: false,
+        maxResults: 100
+      });
       
-      for (const googleTask of googleTasks) {
-        // Firebase에 이미 존재하는지 확인
-        const existingTodo = await this.findTodoByGoogleTaskId(googleTask.id, todosCollection, query, where);
-        
-        if (existingTodo) {
-          // 기존 투두 업데이트
-          await updateDoc(doc(todosCollection, existingTodo.id), {
-            text: googleTask.title,
-            completed: googleTask.status === 'completed',
-            notes: googleTask.notes || '',
-            updatedAt: new Date()
+      return response.result.items || [];
+    } catch (error) {
+      console.error('작업 가져오기 실패:', error);
+      throw error;
+    }
+  }
+
+  // 작업 추가
+  async addTask(title, taskListId = '@default') {
+    if (!this.isMasterUser || !this.gapi) {
+      throw new Error('마스터 사용자만 Google Tasks를 사용할 수 있습니다.');
+    }
+
+    try {
+      const response = await this.gapi.client.tasks.tasks.insert({
+        tasklist: taskListId,
+        resource: {
+          title: title,
+          notes: '천우시스템에서 추가됨'
+        }
+      });
+      
+      return response.result;
+    } catch (error) {
+      console.error('작업 추가 실패:', error);
+      throw error;
+    }
+  }
+
+  // 작업 업데이트
+  async updateTask(taskId, updates, taskListId = '@default') {
+    if (!this.isMasterUser || !this.gapi) {
+      throw new Error('마스터 사용자만 Google Tasks를 사용할 수 있습니다.');
+    }
+
+    try {
+      const response = await this.gapi.client.tasks.tasks.patch({
+        tasklist: taskListId,
+        task: taskId,
+        resource: updates
+      });
+      
+      return response.result;
+    } catch (error) {
+      console.error('작업 업데이트 실패:', error);
+      throw error;
+    }
+  }
+
+  // 작업 삭제
+  async deleteTask(taskId, taskListId = '@default') {
+    if (!this.isMasterUser || !this.gapi) {
+      throw new Error('마스터 사용자만 Google Tasks를 사용할 수 있습니다.');
+    }
+
+    try {
+      await this.gapi.client.tasks.tasks.delete({
+        tasklist: taskListId,
+        task: taskId
+      });
+    } catch (error) {
+      console.error('작업 삭제 실패:', error);
+      throw error;
+    }
+  }
+
+  // 작업 완료 처리
+  async completeTask(taskId, taskListId = '@default') {
+    if (!this.isMasterUser || !this.gapi) {
+      throw new Error('마스터 사용자만 Google Tasks를 사용할 수 있습니다.');
+    }
+
+    try {
+      const response = await this.gapi.client.tasks.tasks.patch({
+        tasklist: taskListId,
+        task: taskId,
+        resource: {
+          completed: new Date().toISOString()
+        }
+      });
+      
+      return response.result;
+    } catch (error) {
+      console.error('작업 완료 처리 실패:', error);
+      throw error;
+    }
+  }
+
+  // 작업 미완료 처리
+  async uncompleteTask(taskId, taskListId = '@default') {
+    if (!this.isMasterUser || !this.gapi) {
+      throw new Error('마스터 사용자만 Google Tasks를 사용할 수 있습니다.');
+    }
+
+    try {
+      const response = await this.gapi.client.tasks.tasks.patch({
+        tasklist: taskListId,
+        task: taskId,
+        resource: {
+          completed: null
+        }
+      });
+      
+      return response.result;
+    } catch (error) {
+      console.error('작업 미완료 처리 실패:', error);
+      throw error;
+    }
+  }
+
+  // 로컬 투두를 Google Tasks로 동기화
+  async syncLocalToGoogle(localTodos) {
+    if (!this.isMasterUser || !this.gapi) {
+      throw new Error('마스터 사용자만 Google Tasks를 사용할 수 있습니다.');
+    }
+
+    try {
+      const googleTasks = await this.getTasks();
+      const syncedTasks = [];
+
+      for (const localTodo of localTodos) {
+        // 이미 동기화된 작업인지 확인
+        const existingTask = googleTasks.find(task => 
+          task.notes && task.notes.includes(`localId:${localTodo.id}`)
+        );
+
+        if (!existingTask) {
+          // 새로운 작업 추가
+          const newTask = await this.addTask(localTodo.text);
+          await this.updateTask(newTask.id, {
+            notes: `localId:${localTodo.id}\n천우시스템에서 추가됨`
           });
-          results.push({ googleTaskId: googleTask.id, action: 'updated', firebaseId: existingTodo.id });
-        } else {
-          // 새 투두 생성
-          const newTodo = this.convertGoogleToFirebaseTask(googleTask, userId);
-          const docRef = await addDoc(todosCollection, newTodo);
-          results.push({ googleTaskId: googleTask.id, action: 'created', firebaseId: docRef.id });
+          syncedTasks.push({ ...newTask, localId: localTodo.id });
         }
       }
-      
-      return results;
+
+      return syncedTasks;
     } catch (error) {
-      console.error('Google to Firebase 동기화 실패:', error);
+      console.error('로컬 투두 동기화 실패:', error);
       throw error;
     }
   }
 
-  // Google Task ID로 Firebase 투두 찾기
-  async findTodoByGoogleTaskId(googleTaskId, todosCollection, query, where) {
+  // Google Tasks를 로컬 투두로 동기화
+  async syncGoogleToLocal() {
+    if (!this.isMasterUser || !this.gapi) {
+      throw new Error('마스터 사용자만 Google Tasks를 사용할 수 있습니다.');
+    }
+
     try {
-      const todoQuery = query(
-        todosCollection,
-        where('googleTaskId', '==', googleTaskId)
-      );
-      
-      const { getDocs } = await import('firebase/firestore');
-      const snapshot = await getDocs(todoQuery);
-      
-      if (!snapshot.empty) {
-        const doc = snapshot.docs[0];
-        return { id: doc.id, ...doc.data() };
+      const googleTasks = await this.getTasks();
+      const localTodos = [];
+
+      for (const googleTask of googleTasks) {
+        if (!googleTask.completed) {
+          localTodos.push({
+            id: googleTask.id,
+            text: googleTask.title,
+            completed: false,
+            source: 'google',
+            googleTaskId: googleTask.id
+          });
+        }
       }
-      
-      return null;
-    } catch (error) {
-      console.error('Google Task ID로 투두 찾기 실패:', error);
-      return null;
-    }
-  }
 
-  // 양방향 동기화
-  async syncBidirectional(firebaseTodos, taskListId, userId, addDoc, todosCollection, updateDoc, doc, query, where) {
-    try {
-      // Firebase에서 Google로 동기화
-      const firebaseToGoogle = await this.syncFirebaseToGoogle(firebaseTodos, taskListId);
-      
-      // Google에서 Firebase로 동기화
-      const googleToFirebase = await this.syncGoogleToFirebase(taskListId, userId, addDoc, todosCollection, updateDoc, doc, query, where);
-      
-      return {
-        firebaseToGoogle,
-        googleToFirebase
-      };
+      return localTodos;
     } catch (error) {
-      console.error('양방향 동기화 실패:', error);
+      console.error('Google Tasks 동기화 실패:', error);
       throw error;
-    }
-  }
-
-  // 인증 상태 확인
-  isAuthenticated() {
-    return this.isInitialized && this.accessToken !== null;
-  }
-
-  // 인증 해제
-  logout() {
-    this.accessToken = null;
-    this.isInitialized = false;
-  }
-
-  // 토큰 유효성 검사
-  async validateToken() {
-    if (!this.accessToken) {
-      return false;
-    }
-
-    try {
-      // 간단한 API 호출로 토큰 유효성 검사
-      await this.makeGoogleApiCall('/users/@me/lists');
-      return true;
-    } catch (error) {
-      console.error('토큰 유효성 검사 실패:', error);
-      this.logout();
-      return false;
     }
   }
 }
