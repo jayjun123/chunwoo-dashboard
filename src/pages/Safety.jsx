@@ -9,7 +9,8 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as XLSX from 'xlsx';
 import SafetyOverviewCards from '../components/safety/SafetyOverviewCards';
 import { exportToExcel } from '../utils/exportUtils';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import MobileLayout from '../components/common/MobileLayout';
 
 const TAB_LABELS = ['안전관리', '안전 점검', '사고/사고예방', '안전 교육', '안전관리비'];
 
@@ -41,6 +42,7 @@ const SafetyPage = () => {
   const [siteOptions, setSiteOptions] = useState([]);
   const [search, setSearch] = useState('');
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [filteredSiteId, setFilteredSiteId] = useState(null);
   const [filteredSiteName, setFilteredSiteName] = useState('');
 
@@ -264,6 +266,89 @@ const SafetyPage = () => {
       return (
         <Grid>
           <SafetyOverviewCards />
+        </Grid>
+      );
+    }
+
+    // 모바일에서는 카드 형태로 표시
+    if (isMobile) {
+      return (
+        <Grid container spacing={2} sx={{ p: 1 }}>
+          {filteredData.map((row) => (
+            <Grid item xs={12} key={row.id}>
+              <Paper
+                sx={{
+                  p: 2,
+                  bgcolor: '#232b3b',
+                  borderRadius: 2,
+                  border: '1px solid #333',
+                  '&:hover': {
+                    bgcolor: '#2a3441',
+                    borderColor: '#90caf9'
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                  <Typography variant="h6" sx={{ color: '#fff', fontSize: '1rem', fontWeight: 600 }}>
+                    {tab === 4 ? row.name : row.title}
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => {
+                        // 각 탭에 맞는 상세 페이지로 이동
+                        const routes = {
+                          1: '/safety-inspections', // 안전 점검
+                          2: '/safety-accidents',   // 사고/사고예방
+                          3: '/safety-education',  // 안전 교육
+                          4: '/safety-costs'       // 안전관리비
+                        };
+                        navigate(routes[tab]);
+                      }}
+                      sx={{
+                        color: '#90caf9',
+                        borderColor: '#90caf9',
+                        fontSize: '0.7rem',
+                        px: 1,
+                        py: 0.5,
+                        '&:hover': {
+                          bgcolor: '#90caf9',
+                          color: '#000'
+                        }
+                      }}
+                    >
+                      상세보기
+                    </Button>
+                  </Box>
+                </Box>
+                
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  <Typography sx={{ color: '#ccc', fontSize: '0.8rem' }}>
+                    현장: {row.siteName}
+                  </Typography>
+                  <Typography sx={{ color: '#ccc', fontSize: '0.8rem' }}>
+                    날짜: {row.date}
+                  </Typography>
+                  {tab === 4 && (
+                    <>
+                      <Typography sx={{ color: '#ccc', fontSize: '0.8rem' }}>
+                        안전장비: {row.equipment}
+                      </Typography>
+                      <Typography sx={{ color: '#ccc', fontSize: '0.8rem' }}>
+                        금액: {row.amount ? Number(row.amount).toLocaleString() : '-'}
+                      </Typography>
+                    </>
+                  )}
+                  {row.description && (
+                    <Typography sx={{ color: '#ccc', fontSize: '0.8rem' }}>
+                      비고: {row.description}
+                    </Typography>
+                  )}
+                </Box>
+              </Paper>
+            </Grid>
+          ))}
         </Grid>
       );
     }
@@ -586,68 +671,42 @@ const SafetyPage = () => {
   const inputRef1 = useRef();
 
   return (
-    <Box sx={{ 
-      p: 0,
-      position: 'fixed',
-      top: isMobile ? '45px' : '65px',
-      left: 0,
-      right: 0,
-      bottom: '51px',
-      width: '100%',
-      height: isMobile ? 'calc(100vh - 45px - 51px)' : 'calc(100vh - 65px - 51px)',
-      overflow: 'hidden',
-      overflowX: 'hidden',
-      zIndex: 1000,
-      padding: isMobile ? '8px' : '16px',
-      bgcolor: '#1a1d21'
-    }}>
-      <Paper sx={{ 
-        mb: 2,
-        marginBottom: '16px',
-        borderRadius: '12px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-        backgroundColor: '#1a1d21'
+    <MobileLayout>
+      <Box sx={{ 
+        p: 0,
+        position: 'fixed',
+        top: isMobile ? '32px' : '65px',
+        left: 0,
+        right: 0,
+        bottom: '51px',
+        width: '100%',
+        height: isMobile ? 'calc(100vh - 32px - 51px)' : 'calc(100vh - 65px - 51px)',
+        overflow: 'auto',
+        overflowX: 'hidden',
+        zIndex: 1000,
+        padding: isMobile ? '0px' : '16px',
+        bgcolor: '#1a1d21'
       }}>
-        <Tabs
-          value={tab}
-          onChange={(e, v) => setTab(v)}
-          sx={{
-            mb: 2,
-            bgcolor: '#232b3b',
-            borderRadius: 2,
-            boxShadow: 2,
-            display: isMobile ? 'none' : 'flex',
-            width: '100%',
-            '& .MuiTab-root': {
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: '1rem',
-              px: 3,
-              py: 1.5,
+        <Paper sx={{ 
+          mb: 2,
+          marginBottom: '16px',
+          borderRadius: '12px',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          backgroundColor: '#1a1d21'
+        }}>
+          <Tabs
+            value={tab}
+            onChange={(e, v) => setTab(v)}
+            sx={{
+              mb: 2,
+              bgcolor: '#232b3b',
               borderRadius: 2,
-              minHeight: 48,
-                              minWidth: 120,
-                flex: 1,
-              '&.Mui-selected': {
-                color: '#90caf9',
-                bgcolor: '#181c24',
-                fontWeight: 900,
-              },
-            },
-            '& .MuiTabs-flexContainer': {
-              gap: 2,
+              boxShadow: 2,
+              display: isMobile ? 'none' : 'flex',
               width: '100%',
-              justifyContent: 'space-between',
-            },
-          }}
-        >
-          {TAB_LABELS.map((label, index) => (
-            <Tab
-              key={label}
-              label={label}
-              sx={{
+              '& .MuiTab-root': {
                 color: '#fff',
                 fontWeight: 700,
                 fontSize: '1rem',
@@ -655,338 +714,366 @@ const SafetyPage = () => {
                 py: 1.5,
                 borderRadius: 2,
                 minHeight: 48,
-                minWidth: 120,
+                              minWidth: 120,
+                flex: 1,
                 '&.Mui-selected': {
                   color: '#90caf9',
                   bgcolor: '#181c24',
                   fontWeight: 900,
                 },
+              },
+              '& .MuiTabs-flexContainer': {
+                gap: 2,
+                width: '100%',
+                justifyContent: 'space-between',
+              },
+            }}
+          >
+            {TAB_LABELS.map((label, index) => (
+              <Tab
+                key={label}
+                label={label}
+                sx={{
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: '1rem',
+                  px: 3,
+                  py: 1.5,
+                  borderRadius: 2,
+                  minHeight: 48,
+                  minWidth: 120,
+                  '&.Mui-selected': {
+                    color: '#90caf9',
+                    bgcolor: '#181c24',
+                    fontWeight: 900,
+                  },
+                }}
+              />
+            ))}
+          </Tabs>
+        </Paper>
+        <Grid container spacing={2} sx={{
+          height: 'calc(100vh - 120px)',
+          overflowY: 'hidden',
+          overflowX: 'hidden',
+          width: '100%',
+          maxWidth: '100%'
+        }}>
+          {renderContent()}
+        </Grid>
+        {/* 추가/수정 다이얼로그 */}
+        <Dialog 
+          open={dialogOpen} 
+          onClose={closeDialog} 
+          fullWidth 
+          maxWidth="sm"
+          sx={{
+            ...(isMobile && {
+              '& .MuiDialog-paper': {
+                margin: '16px',
+                width: 'calc(100% - 32px)',
+                maxWidth: 'none'
+              }
+            })
+          }}
+        >
+          <DialogTitle sx={{
+            ...(isMobile && {
+              fontSize: '1.1rem',
+              padding: '16px 20px'
+            })
+          }}>
+            {editId ? '수정' : '추가'}
+          </DialogTitle>
+          <DialogContent sx={{
+            ...(isMobile && {
+              padding: '16px 20px'
+            })
+          }}>
+            <Autocomplete
+              options={siteOptions}
+              value={form.siteName}
+              onChange={(event, newValue) => {
+                setForm(prev => ({ ...prev, siteName: newValue || '' }));
+              }}
+              renderInput={(params) => (
+                <TextField 
+                  {...params} 
+                  label="현장명" 
+                  margin="dense" 
+                  fullWidth 
+                  sx={{
+                    ...(isMobile && {
+                      '& .MuiInputBase-root': {
+                        height: '40px'
+                      }
+                    })
+                  }}
+                />
+              )}
+            />
+            {tab === 4 && (
+              <>
+                <TextField 
+                  margin="dense" 
+                  label="이름" 
+                  fullWidth 
+                  value={form.name} 
+                  onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                  sx={{
+                    ...(isMobile && {
+                      '& .MuiInputBase-root': {
+                        height: '40px'
+                      }
+                    })
+                  }}
+                />
+                <TextField 
+                  margin="dense" 
+                  label="안전장비" 
+                  fullWidth 
+                  value={form.equipment} 
+                  onChange={e => setForm(prev => ({ ...prev, equipment: e.target.value }))}
+                  sx={{
+                    ...(isMobile && {
+                      '& .MuiInputBase-root': {
+                        height: '40px'
+                      }
+                    })
+                  }}
+                />
+                <TextField 
+                  margin="dense" 
+                  label="금액" 
+                  fullWidth 
+                  value={form.amount} 
+                  onChange={e => setForm(prev => ({ ...prev, amount: e.target.value }))}
+                  sx={{
+                    ...(isMobile && {
+                      '& .MuiInputBase-root': {
+                        height: '40px'
+                      }
+                    })
+                  }}
+                />
+              </>
+            )}
+            <TextField 
+              margin="dense" 
+              label="제목" 
+              fullWidth 
+              value={form.title} 
+              onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
+              sx={{
+                ...(isMobile && {
+                  '& .MuiInputBase-root': {
+                    height: '40px'
+                  }
+                })
               }}
             />
-          ))}
-        </Tabs>
-      </Paper>
-      <Grid container spacing={2} sx={{
-        height: 'calc(100vh - 120px)',
-        overflowY: 'hidden',
-        overflowX: 'hidden',
-        width: '100%',
-        maxWidth: '100%'
-      }}>
-        {renderContent()}
-      </Grid>
-      {/* 추가/수정 다이얼로그 */}
-      <Dialog 
-        open={dialogOpen} 
-        onClose={closeDialog} 
-        fullWidth 
-        maxWidth="sm"
-        sx={{
-          ...(isMobile && {
-            '& .MuiDialog-paper': {
-              margin: '16px',
-              width: 'calc(100% - 32px)',
-              maxWidth: 'none'
-            }
-          })
-        }}
-      >
-        <DialogTitle sx={{
-          ...(isMobile && {
-            fontSize: '1.1rem',
-            padding: '16px 20px'
-          })
-        }}>
-          {editId ? '수정' : '추가'}
-        </DialogTitle>
-        <DialogContent sx={{
-          ...(isMobile && {
-            padding: '16px 20px'
-          })
-        }}>
-          <Autocomplete
-            options={siteOptions}
-            value={form.siteName}
-            onChange={(event, newValue) => {
-              setForm(prev => ({ ...prev, siteName: newValue || '' }));
-            }}
-            renderInput={(params) => (
-              <TextField 
-                {...params} 
-                label="현장명" 
-                margin="dense" 
-                fullWidth 
-                sx={{
-                  ...(isMobile && {
-                    '& .MuiInputBase-root': {
-                      height: '40px'
-                    }
-                  })
-                }}
-              />
-            )}
-          />
-          {tab === 4 && (
-            <>
-              <TextField 
-                margin="dense" 
-                label="이름" 
-                fullWidth 
-                value={form.name} 
-                onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-                sx={{
-                  ...(isMobile && {
-                    '& .MuiInputBase-root': {
-                      height: '40px'
-                    }
-                  })
-                }}
-              />
-              <TextField 
-                margin="dense" 
-                label="안전장비" 
-                fullWidth 
-                value={form.equipment} 
-                onChange={e => setForm(prev => ({ ...prev, equipment: e.target.value }))}
-                sx={{
-                  ...(isMobile && {
-                    '& .MuiInputBase-root': {
-                      height: '40px'
-                    }
-                  })
-                }}
-              />
-              <TextField 
-                margin="dense" 
-                label="금액" 
-                fullWidth 
-                value={form.amount} 
-                onChange={e => setForm(prev => ({ ...prev, amount: e.target.value }))}
-                sx={{
-                  ...(isMobile && {
-                    '& .MuiInputBase-root': {
-                      height: '40px'
-                    }
-                  })
-                }}
-              />
-            </>
-          )}
-          <TextField 
-            margin="dense" 
-            label="제목" 
-            fullWidth 
-            value={form.title} 
-            onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
-            sx={{
+            <TextField 
+              margin="dense" 
+              type="date" 
+              fullWidth 
+              value={form.date} 
+              onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))} 
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                ...(isMobile && {
+                  '& .MuiInputBase-root': {
+                    height: '40px'
+                  }
+                })
+              }}
+            />
+            <TextField 
+              margin="dense" 
+              label="비고" 
+              fullWidth 
+              multiline 
+              rows={3} 
+              value={form.description} 
+              onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
+              sx={{
+                ...(isMobile && {
+                  '& .MuiInputBase-root': {
+                    minHeight: '80px'
+                  }
+                })
+              }}
+            />
+            <Box sx={{
               ...(isMobile && {
-                '& .MuiInputBase-root': {
-                  height: '40px'
-                }
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                marginTop: '16px'
               })
-            }}
-          />
-          <TextField 
-            margin="dense" 
-            type="date" 
-            fullWidth 
-            value={form.date} 
-            onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))} 
-            InputLabelProps={{ shrink: true }}
-            sx={{
-              ...(isMobile && {
-                '& .MuiInputBase-root': {
-                  height: '40px'
-                }
-              })
-            }}
-          />
-          <TextField 
-            margin="dense" 
-            label="비고" 
-            fullWidth 
-            multiline 
-            rows={3} 
-            value={form.description} 
-            onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
-            sx={{
-              ...(isMobile && {
-                '& .MuiInputBase-root': {
-                  minHeight: '80px'
-                }
-              })
-            }}
-          />
-          <Box sx={{
+            }}>
+              <Button 
+                variant="contained" 
+                component="label" 
+                sx={{ 
+                  mt: 1,
+                  ...(isMobile && {
+                    height: '40px',
+                    fontSize: '0.9rem'
+                  })
+                }}
+              >
+                파일 첨부
+                <input type="file" hidden onChange={e => setForm(prev => ({ ...prev, attachment: e.target.files[0] }))} />
+              </Button>
+              {form.attachment && (
+                <Typography variant="body2" sx={{ 
+                  mt: 1,
+                  ...(isMobile && {
+                    fontSize: '0.8rem',
+                    wordBreak: 'break-all'
+                  })
+                }}>
+                  {form.attachment.name}
+                </Typography>
+              )}
+              {tab === 4 && (
+                <Box sx={{
+                  ...(isMobile && {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  })
+                }}>
+                  <Button 
+                    variant="contained" 
+                    component="label" 
+                    sx={{ 
+                      mt: 1, 
+                      ml: isMobile ? 0 : 1,
+                      ...(isMobile && {
+                        height: '40px',
+                        fontSize: '0.9rem',
+                        marginLeft: 0
+                      })
+                    }}
+                  >
+                    영수증 첨부 
+                    <input type="file" hidden onChange={e => setForm(prev => ({ ...prev, receipt: e.target.files[0] }))} />
+                  </Button>
+                  <Button 
+                    variant="contained" 
+                    component="label" 
+                    sx={{ 
+                      mt: 1, 
+                      ml: isMobile ? 0 : 1,
+                      ...(isMobile && {
+                        height: '40px',
+                        fontSize: '0.9rem',
+                        marginLeft: 0
+                      })
+                    }}
+                  >
+                    분출대장 첨부 
+                    <input type="file" hidden onChange={e => setForm(prev => ({ ...prev, issueDoc: e.target.files[0] }))} />
+                  </Button>
+                </Box>
+              )}
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{
             ...(isMobile && {
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              marginTop: '16px'
+              padding: '16px 20px',
+              justifyContent: 'space-between'
             })
           }}>
             <Button 
-              variant="contained" 
-              component="label" 
-              sx={{ 
-                mt: 1,
+              onClick={closeDialog}
+              sx={{
                 ...(isMobile && {
-                  height: '40px',
-                  fontSize: '0.9rem'
+                  fontSize: '0.9rem',
+                  padding: '8px 16px'
                 })
               }}
             >
-              파일 첨부
-              <input type="file" hidden onChange={e => setForm(prev => ({ ...prev, attachment: e.target.files[0] }))} />
+              취소
             </Button>
-            {form.attachment && (
-              <Typography variant="body2" sx={{ 
-                mt: 1,
+            <Button 
+              onClick={handleSave}
+              sx={{
                 ...(isMobile && {
-                  fontSize: '0.8rem',
-                  wordBreak: 'break-all'
+                  fontSize: '0.9rem',
+                  padding: '8px 16px'
                 })
-              }}>
-                {form.attachment.name}
-              </Typography>
-            )}
-            {tab === 4 && (
-              <Box sx={{
-                ...(isMobile && {
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px'
-                })
-              }}>
-                <Button 
-                  variant="contained" 
-                  component="label" 
-                  sx={{ 
-                    mt: 1, 
-                    ml: isMobile ? 0 : 1,
-                    ...(isMobile && {
-                      height: '40px',
-                      fontSize: '0.9rem',
-                      marginLeft: 0
-                    })
-                  }}
-                >
-                  영수증 첨부 
-                  <input type="file" hidden onChange={e => setForm(prev => ({ ...prev, receipt: e.target.files[0] }))} />
-                </Button>
-                <Button 
-                  variant="contained" 
-                  component="label" 
-                  sx={{ 
-                    mt: 1, 
-                    ml: isMobile ? 0 : 1,
-                    ...(isMobile && {
-                      height: '40px',
-                      fontSize: '0.9rem',
-                      marginLeft: 0
-                    })
-                  }}
-                >
-                  분출대장 첨부 
-                  <input type="file" hidden onChange={e => setForm(prev => ({ ...prev, issueDoc: e.target.files[0] }))} />
-                </Button>
-              </Box>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{
-          ...(isMobile && {
-            padding: '16px 20px',
-            justifyContent: 'space-between'
-          })
-        }}>
-          <Button 
-            onClick={closeDialog}
-            sx={{
-              ...(isMobile && {
-                fontSize: '0.9rem',
-                padding: '8px 16px'
-              })
-            }}
-          >
-            취소
-          </Button>
-          <Button 
-            onClick={handleSave}
-            sx={{
-              ...(isMobile && {
-                fontSize: '0.9rem',
-                padding: '8px 16px'
-              })
-            }}
-          >
-            저장
-          </Button>
-        </DialogActions>
-      </Dialog>
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        sx={{
-          ...(isMobile && {
-            bottom: '16px',
-            left: '16px',
-            right: '16px'
-          })
-        }}
-      >
-        <Alert 
-          severity={snackbar.severity} 
-          sx={{ 
-            width: '100%',
+              }}
+            >
+              저장
+            </Button>
+          </DialogActions>
+        </Dialog>
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          sx={{
             ...(isMobile && {
-              fontSize: '0.9rem'
+              bottom: '16px',
+              left: '16px',
+              right: '16px'
             })
           }}
         >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-      {filteredSiteId && filteredSiteName && (
-        <Alert 
-          severity="info" 
-          sx={{ 
-            mb: 2, 
-            bgcolor: '#232b3b', 
-            color: '#90caf9', 
-            border: '1px solid #90caf9',
-            ...(isMobile && {
-              marginBottom: '16px',
-              borderRadius: '12px',
-              padding: '16px'
-            })
-          }}
-        >
-          <Typography variant="body1" sx={{ 
-            fontWeight: 600,
-            ...(isMobile && {
-              fontSize: '1rem',
-              lineHeight: 1.4
-            })
-          }}>
-            📍 {filteredSiteName} 현장의 안전관리 데이터를 확인하고 있습니다.
-          </Typography>
-          {filteredData.length === 0 && (
-            <Typography variant="body2" sx={{ 
-              mt: 1, 
-              color: '#ff9800',
+          <Alert 
+            severity={snackbar.severity} 
+            sx={{ 
+              width: '100%',
               ...(isMobile && {
-                fontSize: '0.9rem',
+                fontSize: '0.9rem'
+              })
+            }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+        {filteredSiteId && filteredSiteName && (
+          <Alert 
+            severity="info" 
+            sx={{ 
+              mb: 2, 
+              bgcolor: '#232b3b', 
+              color: '#90caf9', 
+              border: '1px solid #90caf9',
+              ...(isMobile && {
+                marginBottom: '16px',
+                borderRadius: '12px',
+                padding: '16px'
+              })
+            }}
+          >
+            <Typography variant="body1" sx={{ 
+              fontWeight: 600,
+              ...(isMobile && {
+                fontSize: '1rem',
                 lineHeight: 1.4
               })
             }}>
-              이 현장에 대한 안전관리 자료가 없습니다. "자료 등록" 버튼을 클릭하여 안전관리 자료를 등록해주세요.
+              📍 {filteredSiteName} 현장의 안전관리 데이터를 확인하고 있습니다.
             </Typography>
-          )}
-        </Alert>
-      )}
-    </Box>
+            {filteredData.length === 0 && (
+              <Typography variant="body2" sx={{ 
+                mt: 1, 
+                color: '#ff9800',
+                ...(isMobile && {
+                  fontSize: '0.9rem',
+                  lineHeight: 1.4
+                })
+              }}>
+                이 현장에 대한 안전관리 자료가 없습니다. "자료 등록" 버튼을 클릭하여 안전관리 자료를 등록해주세요.
+              </Typography>
+            )}
+          </Alert>
+        )}
+      </Box>
+    </MobileLayout>
   );
 };
 

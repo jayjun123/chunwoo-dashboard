@@ -187,17 +187,17 @@ const CustomCalendar = (props) => {
       if (viewMode === '3days' || viewMode === 'week') {
         return fullText; // 3일/주 보기에서는 전체 텍스트
       } else if (viewMode === 'month') {
-        // 월 보기에서는 화면 크기에 따라 조절
+        // 월 보기에서는 화면 크기에 따라 조절 (PC 버전은 더 엄격하게)
         if (isLargeDesktop) {
-          return fullText.length > 20 ? fullText.slice(0, 20) + '...' : fullText;
-        } else if (isDesktop) {
-          return fullText.length > 15 ? fullText.slice(0, 15) + '...' : fullText;
-        } else if (isTablet) {
           return fullText.length > 12 ? fullText.slice(0, 12) + '...' : fullText;
+        } else if (isDesktop) {
+          return fullText.length > 10 ? fullText.slice(0, 10) + '...' : fullText;
+        } else if (isTablet) {
+          return fullText.length > 8 ? fullText.slice(0, 8) + '...' : fullText;
         } else if (isMobile) {
           return fullText.length > 8 ? fullText.slice(0, 8) + '...' : fullText;
         } else {
-          return fullText.length > 10 ? fullText.slice(0, 10) + '...' : fullText;
+          return fullText.length > 8 ? fullText.slice(0, 8) + '...' : fullText;
         }
       } else {
         return fullText; // 기타 보기에서는 전체 텍스트
@@ -840,12 +840,12 @@ const CustomCalendar = (props) => {
                                     }}
                                     className={snapshot.isDragging ? 'dragging' : ''}
                                     sx={{
-                                      p: { xs: 0.3, md: 0.5 },
+                                      p: { xs: 0.3, md: 0.4 },
                                       bgcolor: item.color || (isSelected ? '#3b82f6' : '#181c24'),
                                       color: '#fff',
                                       borderRadius: 1,
                                       fontWeight: 500,
-                                      fontSize: { xs: '0.6rem', md: '0.875rem' },
+                                      fontSize: { xs: '0.6rem', md: '0.75rem' },
                                       boxShadow: snapshot.isDragging ? 3 : 0,
                                       cursor: 'grab',
                                       border: isSelected
@@ -856,6 +856,12 @@ const CustomCalendar = (props) => {
                                       justifyContent: 'space-between',
                                       alignItems: 'center',
                                       textAlign: 'left',
+                                      minHeight: { xs: 'auto', md: '24px' },
+                                      maxHeight: { xs: 'auto', md: '24px' },
+                                      lineHeight: { xs: 'auto', md: '1.2' },
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
                                       '&:hover': {
                                         bgcolor: isSelected ? '#2563eb' : '#1e293b'
                                       }
@@ -881,7 +887,11 @@ const CustomCalendar = (props) => {
                                           flex: 1, 
                                           textAlign: 'left',
                                           marginRight: '8px',
-                                          cursor: 'help'
+                                          cursor: 'help',
+                                          whiteSpace: 'nowrap',
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                          display: 'block'
                                         }}
                                       >
                                         {getResponsiveText(item.text, item.type)}

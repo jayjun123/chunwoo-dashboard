@@ -27,7 +27,7 @@ import CommentIcon from '@mui/icons-material/Comment';
 import AddCommentIcon from '@mui/icons-material/AddComment';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { collection, getDocs, doc, updateDoc, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, deleteDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { devLog, devError } from '../utils/performanceUtils';
 import { Bar } from 'react-chartjs-2';
@@ -46,6 +46,7 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "fire
 import CircularProgress from '@mui/material/CircularProgress';
 import { useNavigate } from 'react-router-dom';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import MobileLayout from '../components/common/MobileLayout';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -77,16 +78,31 @@ export default function ImportantSite() {
   };
 
   useEffect(() => {
-    // isFavorite가 true인 현장만 실시간으로 가져옵니다.
-    const q = query(collection(db, 'sites'), where('isFavorite', '==', true));
+    // 모든 현장을 가져온 후 클라이언트에서 필터링 (디버깅용)
+    const q = query(collection(db, 'sites'), orderBy('createdAt', 'desc'));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('🔍 ImportantSite - 로드된 현장 데이터:', sitesData);
-      console.log('🔍 ImportantSite - 현장 개수:', sitesData.length);
-      setSites(sitesData);
+      const allSitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('🔍 ImportantSite - 전체 현장 데이터:', allSitesData);
+      console.log('🔍 ImportantSite - 전체 현장 개수:', allSitesData.length);
+      
+      // 각 현장의 isFavorite 상태 상세 출력
+      allSitesData.forEach((site, index) => {
+        console.log(`🔍 현장 ${index + 1}: ${site.name} - isFavorite: ${site.isFavorite}`);
+      });
+      
+      // isFavorite가 true인 현장만 필터링
+      const importantSitesData = allSitesData.filter(site => site.isFavorite === true);
+      console.log('🔍 ImportantSite - 주요현장 필터링 결과:', importantSitesData);
+      console.log('🔍 ImportantSite - 주요현장 개수:', importantSitesData.length);
+      
+      // 최대 10개까지만 표시
+      const limitedSitesData = importantSitesData.slice(0, 10);
+      console.log('🔍 ImportantSite - 최종 표시할 주요현장:', limitedSitesData);
+      
+      setSites(limitedSitesData);
     }, (error) => {
-      devError("Error fetching important sites in real-time:", error);
+      devError("Error fetching sites in real-time:", error);
       console.error('❌ ImportantSite - 데이터 로드 실패:', error);
       setSites([]);
     });
@@ -277,36 +293,9 @@ export default function ImportantSite() {
   }, []);
 
   // 검색어에 따라 필터링합니다.
-  const filteredSites = useMemo(() => {
-    console.log('🔍 ImportantSite - 필터링 전 sites:', sites);
-    console.log('🔍 ImportantSite - 검색어:', search);
-    
-    const filtered = sites.filter(site =>
-      site.name?.toLowerCase().includes(search.toLowerCase()) || 
-      site.manager?.toLowerCase().includes(search.toLowerCase()) || 
-      site.address?.toLowerCase().includes(search.toLowerCase())
-    );
-    
-    console.log('🔍 ImportantSite - 필터링 후 현장:', filtered);
-    
-    // 검색어가 있으면 검색된 현장을 우선적으로 정렬
-    if (search.trim() !== '') {
-      return filtered.sort((a, b) => {
-        const aNameMatch = a.name?.toLowerCase().includes(search.toLowerCase());
-        const bNameMatch = b.name?.toLowerCase().includes(search.toLowerCase());
-        
-        // 현장명이 검색어와 일치하는 것을 우선
-        if (aNameMatch && !bNameMatch) return -1;
-        if (!aNameMatch && bNameMatch) return 1;
-        
-        // 둘 다 현장명이 일치하거나 둘 다 일치하지 않으면 원래 순서 유지
-        return 0;
-      });
-    }
-    
-    // 검색어가 없으면 모든 현장을 반환
-    return filtered;
-  }, [sites, search]);
+  const filteredSites = search.trim()
+    ? sites.filter(site => site.name.includes(search.trim()))
+    : sites;
 
   const handleRemarkChange = (id, value) => {
     setRemarks(prev => ({ ...prev, [id]: value }));
@@ -520,346 +509,343 @@ export default function ImportantSite() {
   };
 
   return (
-            <Box sx={{ mt: isMobile ? '38px' : '50px' }}>
-      {/* 상단 검색창 - 모바일에서 간소화 */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'flex-end', 
-        mb: 3,
-        // 모바일에서 패딩 추가
-        px: isMobile ? 1 : 0
-      }}>
-        <TextField
-          size="small"
-          placeholder={isMobile ? "현장명, 소장으로 검색" : "현장명, 소장, 주소 검색"}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton>
-                  <SearchIcon />
-                </IconButton>
-              </InputAdornment>
-            )
-          }}
-          sx={{ 
-            width: isMobile ? '100%' : 320, 
-            bgcolor: '#232b3b', 
-            borderRadius: 2, 
-            input: { color: '#fff' } 
-          }}
-          inputRef={scrollFocus(null)}
-        />
-      </Box>
-      <Grid container spacing={2.5}>
-        <Grid item xs={12}>
-          <div style={{ 
-            width: '100%', 
-            maxWidth: '100%', 
-            padding: 0, 
-            margin: 0,
-            // 모바일에서 패딩 추가
-            ...(isMobile && {
-              padding: '0 8px'
-            })
-          }}>
-            {filteredSites.length === 0 && (
-              <Typography sx={{ color: '#bbb', mt: 4 }}>
-                {search.trim() !== '' ? '검색 결과가 없습니다.' : '주요현장으로 지정된 현장이 없습니다. 현장관리에서 별표를 체크하여 주요현장을 추가해주세요.'}
-              </Typography>
-            )}
-            {filteredSites.map(site => {
-              // siteId로 바로 접근해서 누계기성값 계산
-              const siteGisungData = gisungData[site.id] || [];
-              const totalGisung = siteGisungData.reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
-              
-              devLog('=== 현장별 기성 데이터 분석 ===');
-              devLog('현장 ID:', site.id);
-              devLog('현장명:', site.name);
-              devLog('전체 gisungData:', gisungData);
-              devLog('현재 현장의 gisungData:', siteGisungData);
-              devLog('계산된 totalGisung:', totalGisung);
-              devLog('각 기성 항목:', siteGisungData.map(item => ({
-                id: item.id,
-                gisungAmount: item.gisungAmount,
-                siteId: item.siteId,
-                gisungDate: item.gisungDate
-              })));
-              
-              return (
-                <Paper key={site.id} sx={{ 
-                  mb: 2.5, // 카드간 간격 20px (2.5 * 8px = 20px)
-                  borderRadius: 4, 
-                  boxShadow: 6, 
-                  bgcolor: '#181f2e', 
-                  color: '#fff', 
-                  display: 'flex', 
-                  flexDirection: { xs: 'column', md: 'row' }, 
-                  alignItems: 'stretch', 
-                  minHeight: isMobile ? 'auto' : 380, 
-                  minWidth: isMobile ? 'calc(100vw - 20px)' : 1000, 
-                  width: isMobile ? 'calc(100vw - 20px)' : '100%', 
-                  p: 0, 
-                  overflow: 'hidden',
-                  marginLeft: isMobile ? '2px' : 0,
-                  marginRight: isMobile ? '5px' : 0
-                }}>
-                  {/* 왼쪽: 정보/버튼 */}
-                  <Box sx={{ 
-                    flex: 2.5, 
-                    minWidth: isMobile ? 'calc(100vw - 20px)' : 320, 
-                    width: isMobile ? 'calc(100vw - 20px)' : 'auto',
-                    p: isMobile ? 1.5 : 3, 
+    <MobileLayout>
+      <Box sx={{ mt: isMobile ? '38px' : '50px', height: 'auto', overflow: 'visible', pb: 4 }}>
+        {/* 상단 검색창 - 모바일에서 간소화 */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end', 
+          mb: 3,
+          // 모바일에서 패딩 추가
+          px: isMobile ? 1 : 0
+        }}>
+          <TextField
+            size="small"
+            placeholder={isMobile ? "현장명, 소장으로 검색" : "현장명, 소장, 주소 검색"}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton>
+                    <SearchIcon />
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
+            sx={{ 
+              width: isMobile ? '100%' : 320, 
+              bgcolor: '#232b3b', 
+              borderRadius: 2, 
+              input: { color: '#fff' } 
+            }}
+            inputRef={scrollFocus(null)}
+          />
+        </Box>
+        <Box sx={{ 
+          width: '100%', 
+          height: 'calc(100vh - 200px)', 
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          padding: isMobile ? '0 0 0 6px' : '0 10px',
+          border: '1px solid #333',
+          borderRadius: 2,
+          bgcolor: '#1a1a1a'
+        }}>
+              {filteredSites.length === 0 && (
+                <Typography sx={{ color: '#bbb', mt: 4 }}>
+                  {search.trim() !== '' ? '검색 결과가 없습니다.' : '주요현장으로 지정된 현장이 없습니다. 현장관리에서 별표를 체크하여 주요현장을 추가해주세요.'}
+                </Typography>
+              )}
+              {filteredSites.map(site => {
+                // siteId로 바로 접근해서 누계기성값 계산
+                const siteGisungData = gisungData[site.id] || [];
+                const totalGisung = siteGisungData.reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
+                
+                devLog('=== 현장별 기성 데이터 분석 ===');
+                devLog('현장 ID:', site.id);
+                devLog('현장명:', site.name);
+                devLog('전체 gisungData:', gisungData);
+                devLog('현재 현장의 gisungData:', siteGisungData);
+                devLog('계산된 totalGisung:', totalGisung);
+                devLog('각 기성 항목:', siteGisungData.map(item => ({
+                  id: item.id,
+                  gisungAmount: item.gisungAmount,
+                  siteId: item.siteId,
+                  gisungDate: item.gisungDate
+                })));
+                
+                return (
+                  <Paper key={site.id} sx={{ 
+                    mb: 2.5, // 카드간 간격 20px (2.5 * 8px = 20px)
+                    borderRadius: 4, 
+                    boxShadow: 6, 
+                    bgcolor: '#181f2e', 
+                    color: '#fff', 
                     display: 'flex', 
-                    flexDirection: 'column', 
-                    gap: isMobile ? 0.5 : 1, 
-                    borderRight: { md: '2px solid #232b3b' }, 
-                    justifyContent: 'flex-start', 
-                    alignItems: 'flex-start' 
+                    flexDirection: { xs: 'column', md: 'row' }, 
+                    alignItems: 'stretch', 
+                    minHeight: isMobile ? 'auto' : 380, 
+                    minWidth: isMobile ? 'calc(100vw - 20px)' : 1000, 
+                    width: isMobile ? 'calc(100vw - 20px)' : '100%', 
+                    p: 0, 
+                    overflow: 'hidden',
+                    marginLeft: isMobile ? '2px' : 0,
+                    marginRight: isMobile ? '5px' : 0
                   }}>
-                    <Typography variant="h5" sx={{ 
-                      fontWeight: 800, 
-                      mb: isMobile ? 0.5 : 1, 
-                      color: '#90caf9', 
-                      textAlign: 'left', 
-                      width: '100%',
-                      fontSize: isMobile ? '1rem' : '1.5rem'
-                    }}>{site.name}</Typography>
-                    <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
-                      <Typography sx={{ 
-                        fontSize: isMobile ? '0.75rem' : 16, 
-                        color: '#43e97b', 
-                        fontWeight: 700, 
-                        textAlign: 'left' 
-                      }}>계약구분: {site.contractType}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: isMobile ? 1 : 2, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
-                      <Typography sx={{ 
-                        fontSize: isMobile ? '0.7rem' : 15, 
+                    {/* 왼쪽: 정보/버튼 */}
+                    <Box sx={{ 
+                      flex: 2.5, 
+                      minWidth: isMobile ? 'calc(100vw - 20px)' : 320, 
+                      width: isMobile ? 'calc(100vw - 20px)' : 'auto',
+                      p: isMobile ? 1.5 : 3, 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      gap: isMobile ? 0.5 : 1, 
+                      borderRight: { md: '2px solid #232b3b' }, 
+                      justifyContent: 'flex-start', 
+                      alignItems: 'flex-start' 
+                    }}>
+                      <Typography variant="h5" sx={{ 
+                        fontWeight: 800, 
+                        mb: isMobile ? 0.5 : 1, 
                         color: '#90caf9', 
-                        fontWeight: 700 
-                      }}>{`회사명: ${site.companyName}`}</Typography>
-                      <Typography sx={{ fontSize: isMobile ? '0.7rem' : 15 }}>소장: {site.manager}</Typography>
-                    </Box>
-                    <Typography sx={{ 
-                      fontSize: isMobile ? '0.7rem' : 15, 
-                      textAlign: 'left', 
-                      width: '100%', 
-                      mb: isMobile ? 0.3 : 0.6 
-                    }}>주소: {site.address}</Typography>
-                    <Typography sx={{ 
-                      fontSize: isMobile ? '0.7rem' : 15, 
-                      textAlign: 'left', 
-                      width: '100%', 
-                      mb: isMobile ? 0.3 : 0.6 
-                    }}>공사기간: {site.startDate} ~ {site.endDate}</Typography>
-                    <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
+                        textAlign: 'left', 
+                        width: '100%',
+                        fontSize: isMobile ? '1rem' : '1.5rem'
+                      }}>{site.name}</Typography>
+                      <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
+                        <Typography sx={{ 
+                          fontSize: isMobile ? '0.75rem' : 16, 
+                          color: '#43e97b', 
+                          fontWeight: 700, 
+                          textAlign: 'left' 
+                        }}>계약구분: {site.contractType}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: isMobile ? 1 : 2, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
+                        <Typography sx={{ 
+                          fontSize: isMobile ? '0.7rem' : 15, 
+                          color: '#90caf9', 
+                          fontWeight: 700 
+                        }}>{`회사명: ${site.companyName}`}</Typography>
+                        <Typography sx={{ fontSize: isMobile ? '0.7rem' : 15 }}>소장: {site.manager}</Typography>
+                      </Box>
                       <Typography sx={{ 
                         fontSize: isMobile ? '0.7rem' : 15, 
                         textAlign: 'left', 
-                        minWidth: isMobile ? '60px' : '120px' 
-                      }}>계약금: {Number(site.contractAmount || 0).toLocaleString()}원</Typography>
+                        width: '100%', 
+                        mb: isMobile ? 0.3 : 0.6 
+                      }}>주소: {site.address}</Typography>
                       <Typography sx={{ 
                         fontSize: isMobile ? '0.7rem' : 15, 
                         textAlign: 'left', 
-                        color: '#43e97b', 
-                        fontWeight: 'bold' 
-                      }}>기성: {Number(totalGisung).toLocaleString()}원</Typography>
-                    </Box>
-                    {/* 잔액을 시공팀 위로 이동 */}
-                    <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
+                        width: '100%', 
+                        mb: isMobile ? 0.3 : 0.6 
+                      }}>공사기간: {site.startDate} ~ {site.endDate}</Typography>
+                      <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
+                        <Typography sx={{ 
+                          fontSize: isMobile ? '0.7rem' : 15, 
+                          textAlign: 'left', 
+                          minWidth: isMobile ? '60px' : '120px' 
+                        }}>계약금: {Number(site.contractAmount || 0).toLocaleString()}원</Typography>
+                        <Typography sx={{ 
+                          fontSize: isMobile ? '0.7rem' : 15, 
+                          textAlign: 'left', 
+                          color: '#43e97b', 
+                          fontWeight: 'bold' 
+                        }}>기성: {Number(totalGisung).toLocaleString()}원</Typography>
+                      </Box>
+                      {/* 잔액을 시공팀 위로 이동 */}
+                      <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
+                        <Typography sx={{ 
+                          fontSize: isMobile ? '0.7rem' : 15, 
+                          textAlign: 'left', 
+                          color: '#f44336', 
+                          fontWeight: 'bold' 
+                        }}>잔액: {Number((site.contractAmount || 0) - totalGisung).toLocaleString()}원</Typography>
+                      </Box>
                       <Typography sx={{ 
                         fontSize: isMobile ? '0.7rem' : 15, 
                         textAlign: 'left', 
-                        color: '#f44336', 
-                        fontWeight: 'bold' 
-                      }}>잔액: {Number((site.contractAmount || 0) - totalGisung).toLocaleString()}원</Typography>
+                        width: '100%', 
+                        mb: isMobile ? 0.3 : 0.6 
+                      }}>시공팀: {site.team}</Typography>
+                      <Box sx={{ mt: 0, mb: isMobile ? 1 : 2, display: 'flex', gap: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
+                        <Button 
+                          variant="contained" 
+                          color="primary" 
+                          size={isMobile ? 'small' : 'medium'}
+                          sx={{ 
+                            borderRadius: 2, 
+                            fontWeight: 700,
+                            fontSize: isMobile ? '0.65rem' : 'inherit',
+                            padding: isMobile ? '4px 8px' : 'inherit',
+                            minWidth: isMobile ? 'auto' : 'inherit'
+                          }} 
+                          onClick={() => navigate(`/progress?siteId=${site.id}`)}
+                        >기성관리</Button>
+                        <Button 
+                          variant="contained" 
+                          color="success" 
+                          size={isMobile ? 'small' : 'medium'}
+                          sx={{ 
+                            borderRadius: 2, 
+                            fontWeight: 700,
+                            fontSize: isMobile ? '0.65rem' : 'inherit',
+                            padding: isMobile ? '4px 8px' : 'inherit',
+                            minWidth: isMobile ? 'auto' : 'inherit'
+                          }} 
+                          onClick={() => navigate(`/safety?siteId=${site.id}`)}
+                        >안전관리</Button>
+                        <Button 
+                          variant="contained" 
+                          color="secondary" 
+                          size={isMobile ? 'small' : 'medium'}
+                          sx={{ 
+                            borderRadius: 2, 
+                            fontWeight: 700,
+                            fontSize: isMobile ? '0.65rem' : 'inherit',
+                            padding: isMobile ? '4px 8px' : 'inherit',
+                            minWidth: isMobile ? 'auto' : 'inherit'
+                          }} 
+                          onClick={() => navigate(`/discussions?siteId=${site.id}`)}
+                        >토론</Button>
+                      </Box>
                     </Box>
-                    <Typography sx={{ 
-                      fontSize: isMobile ? '0.7rem' : 15, 
-                      textAlign: 'left', 
-                      width: '100%', 
-                      mb: isMobile ? 0.3 : 0.6 
-                    }}>시공팀: {site.team}</Typography>
-                    <Box sx={{ mt: 0, mb: isMobile ? 1 : 2, display: 'flex', gap: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
-                      <Button 
-                        variant="contained" 
-                        color="primary" 
-                        size={isMobile ? 'small' : 'medium'}
-                        sx={{ 
-                          borderRadius: 2, 
-                          fontWeight: 700,
-                          fontSize: isMobile ? '0.65rem' : 'inherit',
-                          padding: isMobile ? '4px 8px' : 'inherit',
-                          minWidth: isMobile ? 'auto' : 'inherit'
-                        }} 
-                        onClick={() => navigate(`/progress?siteId=${site.id}`)}
-                      >기성관리</Button>
-                      <Button 
-                        variant="contained" 
-                        color="success" 
-                        size={isMobile ? 'small' : 'medium'}
-                        sx={{ 
-                          borderRadius: 2, 
-                          fontWeight: 700,
-                          fontSize: isMobile ? '0.65rem' : 'inherit',
-                          padding: isMobile ? '4px 8px' : 'inherit',
-                          minWidth: isMobile ? 'auto' : 'inherit'
-                        }} 
-                        onClick={() => navigate(`/safety?siteId=${site.id}`)}
-                      >안전관리</Button>
-                      <Button 
-                        variant="contained" 
-                        color="secondary" 
-                        size={isMobile ? 'small' : 'medium'}
-                        sx={{ 
-                          borderRadius: 2, 
-                          fontWeight: 700,
-                          fontSize: isMobile ? '0.65rem' : 'inherit',
-                          padding: isMobile ? '4px 8px' : 'inherit',
-                          minWidth: isMobile ? 'auto' : 'inherit'
-                        }} 
-                        onClick={() => navigate(`/discussions?siteId=${site.id}`)}
-                      >토론</Button>
-                    </Box>
-                  </Box>
-                  {/* 가운데: 차트 - 모바일에서 숨김 */}
-                  {!isMobile && (
-                    <Box sx={{ flex: 1.7, minWidth: 320, maxWidth: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', bgcolor: '#181f2e', p: 0, height: '380px', borderRight: { md: '2px solid #232b3b' }, mt: 1 }}>
-                      {/* 공사진행률 가로 차트 - 상단 고정 */}
-                      <Box sx={{ width: '90%', mb: 2 }}>
-                        <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: 15, mb: 0.5 }}>공사진행률</Typography>
+                    {/* 가운데: 차트 - 모바일에서 숨김 */}
+                    {!isMobile && (
+                      <Box sx={{ flex: 1.7, minWidth: 320, maxWidth: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', bgcolor: '#181f2e', p: 0, height: '380px', borderRight: { md: '2px solid #232b3b' }, mt: 1 }}>
+                        {/* 공사진행률 가로 차트 - 상단 고정 */}
+                        <Box sx={{ width: '90%', mb: 2 }}>
+                          <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: 15, mb: 0.5 }}>공사진행률</Typography>
+                          {(() => {
+                            const contract = Number(site.contractAmount) || 0;
+                            const percent = editingProgress[site.id]
+                              ? (progressInput[site.id] ?? 0)
+                              : (contract > 0 ? Math.round((Number(site.totalProgress) / contract) * 100) : 0);
+                            return (
+                              <LinearProgress
+                                variant="determinate"
+                                value={percent}
+                                sx={{ height: 18, borderRadius: 6, bgcolor: '#232b3b', '& .MuiLinearProgress-bar': { background: 'linear-gradient(90deg, #43e97b 0%, #38f9d7 100%)' } }}
+                              />
+                            );
+                          })()}
+                        </Box>
+                        {/* 진행률 바(숫자 입력) - 상단 고정 */}
                         {(() => {
                           const contract = Number(site.contractAmount) || 0;
-                          const percent = editingProgress[site.id]
+                          const isEditing = editingProgress[site.id];
+                          const percent = isEditing
                             ? (progressInput[site.id] ?? 0)
                             : (contract > 0 ? Math.round((Number(site.totalProgress) / contract) * 100) : 0);
                           return (
-                            <LinearProgress
-                              variant="determinate"
-                              value={percent}
-                              sx={{ height: 18, borderRadius: 6, bgcolor: '#232b3b', '& .MuiLinearProgress-bar': { background: 'linear-gradient(90deg, #43e97b 0%, #38f9d7 100%)' } }}
-                            />
+                            <Box sx={{ width: '90%', mb: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
+                              {isEditing ? (
+                                <>
+                                  <TextField
+                                    type="number"
+                                    size="small"
+                                    autoFocus
+                                    inputProps={{ min: 0, max: 100, style: { color: '#43e97b', fontWeight: 700, fontSize: 15, textAlign: 'center' } }}
+                                    value={progressInput[site.id] ?? percent}
+                                    onChange={e => {
+                                      let v = e.target.value;
+                                      if (v === '') v = '';
+                                      else v = Math.max(0, Math.min(100, Number(v)));
+                                      setProgressInput(prev => ({ ...prev, [site.id]: v }));
+                                    }}
+                                    sx={{ width: 90, bgcolor: '#232b3b', borderRadius: 1, mr: 1 }}
+                                    inputRef={scrollFocus(null)}
+                                  />
+                                  <Button
+                                    variant="contained"
+                                    color="primary"
+                                    size="small"
+                                    sx={{ minWidth: 60, fontWeight: 700, borderRadius: 2, bgcolor: '#43e97b', color: '#222', '&:hover': { bgcolor: '#38f9d7' } }}
+                                    onClick={() => handleSaveProgress(site)}
+                                  >저장</Button>
+                                </>
+                              ) : (
+                                <Typography
+                                  sx={{ color: '#43e97b', fontWeight: 700, fontSize: 15, mb: 2, cursor: 'pointer', userSelect: 'none' }}
+                                  onDoubleClick={() => {
+                                    setEditingProgress(prev => ({ ...prev, [site.id]: true }));
+                                    setProgressInput(prev => ({ ...prev, [site.id]: percent }));
+                                  }}
+                                >
+                                  {`공사 진행률: ${percent}%`}
+                                </Typography>
+                              )}
+                            </Box>
                           );
                         })()}
-                      </Box>
-                      {/* 진행률 바(숫자 입력) - 상단 고정 */}
-                      {(() => {
-                        const contract = Number(site.contractAmount) || 0;
-                        const isEditing = editingProgress[site.id];
-                        const percent = isEditing
-                          ? (progressInput[site.id] ?? 0)
-                          : (contract > 0 ? Math.round((Number(site.totalProgress) / contract) * 100) : 0);
-                        return (
-                          <Box sx={{ width: '90%', mb: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {isEditing ? (
-                              <>
-                                <TextField
-                                  type="number"
-                                  size="small"
-                                  autoFocus
-                                  inputProps={{ min: 0, max: 100, style: { color: '#43e97b', fontWeight: 700, fontSize: 15, textAlign: 'center' } }}
-                                  value={progressInput[site.id] ?? percent}
-                                  onChange={e => {
-                                    let v = e.target.value;
-                                    if (v === '') v = '';
-                                    else v = Math.max(0, Math.min(100, Number(v)));
-                                    setProgressInput(prev => ({ ...prev, [site.id]: v }));
-                                  }}
-                                  sx={{ width: 90, bgcolor: '#232b3b', borderRadius: 1, mr: 1 }}
-                                  inputRef={scrollFocus(null)}
-                                />
-                                <Button
-                                  variant="contained"
-                                  color="primary"
-                                  size="small"
-                                  sx={{ minWidth: 60, fontWeight: 700, borderRadius: 2, bgcolor: '#43e97b', color: '#222', '&:hover': { bgcolor: '#38f9d7' } }}
-                                  onClick={() => handleSaveProgress(site)}
-                                >저장</Button>
-                              </>
-                            ) : (
-                              <Typography
-                                sx={{ color: '#43e97b', fontWeight: 700, fontSize: 15, mb: 2, cursor: 'pointer', userSelect: 'none' }}
-                                onDoubleClick={() => {
-                                  setEditingProgress(prev => ({ ...prev, [site.id]: true }));
-                                  setProgressInput(prev => ({ ...prev, [site.id]: percent }));
-                                }}
-                                inputRef={scrollFocus(null)}
-                              >
-                                {`공사 진행률: ${percent}%`}
-                              </Typography>
-                            )}
-                          </Box>
-                        );
-                      })()}
-                      {/* 차트 - 하단 배치 */}
-                      <Box sx={{ width: '100%', height: '100%', flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', p: 0, m: 0 }}>
-                        <Bar
-                          data={getChartData(site, totalGisung)}
-                          options={{
-                            ...chartOptions,
-                            maintainAspectRatio: false,
-                            plugins: {
-                              ...chartOptions.plugins,
-                              legend: { display: false },
-                            },
-                            scales: {
-                              x: {
-                                grid: { color: '#333' },
-                                ticks: { color: '#bbb', font: { weight: 700, size: 12 } }
+                        {/* 차트 - 하단 배치 */}
+                        <Box sx={{ width: '100%', height: '100%', flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', p: 0, m: 0 }}>
+                          <Bar
+                            data={getChartData(site, totalGisung)}
+                            options={{
+                              ...chartOptions,
+                              maintainAspectRatio: false,
+                              plugins: {
+                                ...chartOptions.plugins,
+                                legend: { display: false },
                               },
-                              y: {
-                                grid: { color: '#222' },
-                                ticks: { color: '#bbb', font: { weight: 700, size: 12 } }
-                              }
-                            },
-                            barPercentage: 0.6,
-                            categoryPercentage: 0.5,
-                          }}
-                          style={{ width: '100%', height: '100%' }}
+                              scales: {
+                                x: {
+                                  grid: { color: '#333' },
+                                  ticks: { color: '#bbb', font: { weight: 700, size: 12 } }
+                                },
+                                y: {
+                                  grid: { color: '#222' },
+                                  ticks: { color: '#bbb', font: { weight: 700, size: 12 } }
+                                }
+                              },
+                              barPercentage: 0.6,
+                              categoryPercentage: 0.5,
+                            }}
+                            style={{ width: '100%', height: '100%' }}
+                          />
+                        </Box>
+                      </Box>
+                    )}
+                    {/* 오른쪽: 조감도 이미지 - 모바일에서 숨김 */}
+                    {!isMobile && (
+                      <Box
+                        sx={{ flex: 1.5, minWidth: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#222', cursor: !site.imageUrl && !uploadingSiteId ? 'pointer' : 'default', position: 'relative' }}
+                        onClick={!site.imageUrl && !uploadingSiteId ? () => handleImageClick(site.id) : undefined}
+                        onMouseEnter={() => setHoveredSiteId(site.id)}
+                        onMouseLeave={() => setHoveredSiteId(null)}
+                      >
+                        {uploadingSiteId === site.id ? (
+                          <CircularProgress color="warning" />
+                        ) : site.imageUrl ? (
+                          <>
+                            <img src={site.imageUrl} alt="조감도" style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 8, filter: hoveredSiteId === site.id ? 'brightness(0.7)' : 'none' }} />
+                            {hoveredSiteId === site.id && (
+                              <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, bgcolor: 'rgba(0,0,0,0.4)' }}>
+                                <Button variant="contained" size="small" sx={{ mb: 1, bgcolor: '#ffd600', color: '#222', fontWeight: 700 }} onClick={e => { e.stopPropagation(); handleImageClick(site.id); }}>교체</Button>
+                                <Button variant="contained" size="small" color="error" sx={{ fontWeight: 700 }} onClick={e => { e.stopPropagation(); handleImageDelete(site.id, site.imageUrl); }}>삭제</Button>
+                              </Box>
+                            )}
+                          </>
+                        ) : (
+                          <Typography sx={{ color: '#bbb', fontSize: 15, textAlign: 'center' }}>조감도 없음<br />(클릭하여 업로드)</Typography>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          ref={el => fileInputRefs.current[site.id] = el}
+                          onChange={e => handleImageUpload(e, site.id)}
                         />
                       </Box>
-                    </Box>
-                  )}
-                  {/* 오른쪽: 조감도 이미지 - 모바일에서 숨김 */}
-                  {!isMobile && (
-                    <Box
-                      sx={{ flex: 1.5, minWidth: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#222', cursor: !site.imageUrl && !uploadingSiteId ? 'pointer' : 'default', position: 'relative' }}
-                      onClick={!site.imageUrl && !uploadingSiteId ? () => handleImageClick(site.id) : undefined}
-                      onMouseEnter={() => setHoveredSiteId(site.id)}
-                      onMouseLeave={() => setHoveredSiteId(null)}
-                    >
-                      {uploadingSiteId === site.id ? (
-                        <CircularProgress color="warning" />
-                      ) : site.imageUrl ? (
-                        <>
-                          <img src={site.imageUrl} alt="조감도" style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 8, filter: hoveredSiteId === site.id ? 'brightness(0.7)' : 'none' }} />
-                          {hoveredSiteId === site.id && (
-                            <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, bgcolor: 'rgba(0,0,0,0.4)' }}>
-                              <Button variant="contained" size="small" sx={{ mb: 1, bgcolor: '#ffd600', color: '#222', fontWeight: 700 }} onClick={e => { e.stopPropagation(); handleImageClick(site.id); }}>교체</Button>
-                              <Button variant="contained" size="small" color="error" sx={{ fontWeight: 700 }} onClick={e => { e.stopPropagation(); handleImageDelete(site.id, site.imageUrl); }}>삭제</Button>
-                            </Box>
-                          )}
-                        </>
-                      ) : (
-                        <Typography sx={{ color: '#bbb', fontSize: 15, textAlign: 'center' }}>조감도 없음<br />(클릭하여 업로드)</Typography>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        style={{ display: 'none' }}
-                        ref={el => fileInputRefs.current[site.id] = el}
-                        onChange={e => handleImageUpload(e, site.id)}
-                      />
-                    </Box>
-                  )}
-                </Paper>
-              );
-            })}
-          </div>
-        </Grid>
-      </Grid>
-    </Box>
+                    )}
+                  </Paper>
+                );
+              })}
+        </Box>
+      </Box>
+    </MobileLayout>
   );
 } 

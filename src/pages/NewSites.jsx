@@ -209,12 +209,13 @@ const NewSites = () => {
       bgcolor: '#1a1d21', 
       p: 0, 
       gap: 2, 
-      overflow: { xs: 'visible', md: 'hidden' },
+      overflow: { xs: 'auto', md: 'hidden' },
       position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '10px' : 'auto',
+      top: isMobile ? '20px' : 'auto',
+      left: isMobile ? '5px' : 'auto',
       width: isMobile ? '100vw' : '100%',
       minHeight: isMobile ? '100vh' : 'auto',
-      mt: '50px'
+      mt: isMobile ? '0px' : '50px'
     }}>
       {/* Left Panel */}
       <Paper elevation={3} sx={{ 

@@ -555,7 +555,7 @@ const Progress = () => {
       width: isMobile ? '100%' : 'calc(100% - 20px)', 
       maxWidth: isMobile ? '100%' : 'calc(100% - 20px)', 
       mx: isMobile ? 0 : '10px',
-      mt: '50px'
+      mt: isMobile ? '0px' : '50px'
     }}>
       {/* 기성관리, 기성현황, 지출 탭 버튼들 */}
       <Box sx={{ 
@@ -572,42 +572,34 @@ const Progress = () => {
           size={isMobile ? 'small' : 'medium'}
           sx={{ 
             flex: isMobile ? 1 : 'auto',
+            height: isMobile ? '28px' : 'auto',
             '& .MuiButton-root': {
               flex: isMobile ? 1 : 'auto',
-              minWidth: isMobile ? 'auto' : 'auto'
+              minWidth: isMobile ? 0 : 'auto',
+              px: isMobile ? 0.2 : 2,
+              fontSize: isMobile ? '0.65rem' : 'inherit',
+              whiteSpace: 'nowrap',
+              lineHeight: 1,
+              py: isMobile ? 0.2 : 1,
+              height: isMobile ? '28px' : 'auto',
             }
           }}
         >
           <Button 
             onClick={() => setTab('chart')}
             variant={tab === 'chart' ? 'contained' : 'outlined'}
-            sx={{ 
-              px: isMobile ? 0.5 : 2, 
-              fontSize: isMobile ? '0.7rem' : 'inherit',
-              flex: isMobile ? 1 : 'auto'
-            }}
           >
             기성관리
           </Button>
           <Button 
             onClick={() => setTab('gisung')}
             variant={tab === 'gisung' ? 'contained' : 'outlined'}
-            sx={{ 
-              px: isMobile ? 0.5 : 2, 
-              fontSize: isMobile ? '0.7rem' : 'inherit',
-              flex: isMobile ? 1 : 'auto'
-            }}
           >
             기성현황
           </Button>
           <Button 
             onClick={() => setTab('cost')}
             variant={tab === 'cost' ? 'contained' : 'outlined'}
-            sx={{ 
-              px: isMobile ? 0.5 : 2, 
-              fontSize: isMobile ? '0.7rem' : 'inherit',
-              flex: isMobile ? 1 : 'auto'
-            }}
           >
             지출
           </Button>
@@ -890,7 +882,7 @@ const Progress = () => {
                     }
                   </Typography>
                   {isMobile && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: '80px' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: '80px', justifyContent: 'flex-end' }}>
                       <Button 
                         variant="outlined" 
                         size="small"
@@ -903,7 +895,7 @@ const Progress = () => {
                           const newMonth = newQuarter * 3; // 분기 시작 월 (0-based)
                           setCurrentMonth(new Date(newYear, newMonth, 1));
                         }}
-                        sx={{ fontSize: '0.7rem', px: 1, py: 0.5 }}
+                        sx={{ fontSize: '0.65rem', px: 0.2, py: 0.2, minWidth: 32, width: 'auto' }}
                       >
                         이전
                       </Button>
@@ -933,7 +925,7 @@ const Progress = () => {
                           const newMonth = newQuarter * 3; // 분기 시작 월 (0-based)
                           setCurrentMonth(new Date(nextYear, newMonth, 1));
                         }}
-                        sx={{ fontSize: '0.7rem', px: 1, py: 0.5 }}
+                        sx={{ fontSize: '0.65rem', px: 0.2, py: 0.2, minWidth: 32, width: 'auto' }}
                       >
                         다음
                       </Button>
@@ -941,10 +933,10 @@ const Progress = () => {
                   )}
                 </Box>
               </Box>
-                              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 360 : 1390} minHeight={isMobile ? 200 : 400} style={{ marginLeft: isMobile ? '-50px' : 0 }}>
+                              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 320 : 1390} minHeight={isMobile ? 200 : 400} style={{ marginLeft: isMobile ? '-30px' : 0 }}>
                   <BarChart
                     data={getMonthChartData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                    margin={{ top: 20, right: 30, left: isMobile ? 0 : 20, bottom: 20 }}
                     barCategoryGap={24}
                   >
                   <XAxis dataKey="name" />
@@ -987,7 +979,7 @@ const Progress = () => {
           <Grid item xs={12}>
             <Paper sx={{ px: isMobile ? 3 : 3, py: isMobile ? 1 : 3, height: '100%', mt: isMobile ? '20px' : 0 }}>
               <Typography variant="h6" sx={{ mb: 2, fontSize: isMobile ? '1rem' : 'inherit' }}>현장별 기성/지출 현황</Typography>
-                              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 360 : 1390} minHeight={isMobile ? 200 : 400} style={{ marginLeft: isMobile ? '-50px' : 0 }}>
+                              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 360 : 1390} minHeight={isMobile ? 200 : 400} style={{ marginLeft: isMobile ? '-30px' : 0 }}>
                   <BarChart
                     data={getSiteChartData}
                     margin={{ top: 20, right: 30, left: 20, bottom: 20 }}

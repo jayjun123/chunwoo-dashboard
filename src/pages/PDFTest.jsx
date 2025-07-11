@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Button, Typography, Paper, Grid, Alert } from '@mui/material';
 import { PictureAsPdf as PdfIcon, Description as ExcelIcon, Download as DownloadIcon } from '@mui/icons-material';
 import { exportToPDF, exportToExcel, exportFullGuidePDF, exportUserGuidePDF } from '../utils/exportUtils';
+import MobileLayout from '../components/common/MobileLayout';
 
 const PDFTest = () => {
   const [message, setMessage] = useState('');
@@ -73,142 +74,144 @@ const PDFTest = () => {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-      <Typography variant="h4" gutterBottom sx={{ textAlign: 'center', mb: 4 }}>
-        📄 PDF/엑셀 내보내기 테스트
-      </Typography>
-
-      {message && (
-        <Alert severity={message.includes('✅') ? 'success' : 'error'} sx={{ mb: 3 }}>
-          {message}
-        </Alert>
-      )}
-
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          📊 Sample Data Preview
+    <MobileLayout>
+      <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
+        <Typography variant="h4" gutterBottom sx={{ textAlign: 'center', mb: 4 }}>
+          📄 PDF/엑셀 내보내기 테스트
         </Typography>
-        <Box sx={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f5f5f5' }}>
-                <th style={{ padding: '8px', border: '1px solid #ddd' }}>Date</th>
-                <th style={{ padding: '8px', border: '1px solid #ddd' }}>Site</th>
-                <th style={{ padding: '8px', border: '1px solid #ddd' }}>Progress</th>
-                <th style={{ padding: '8px', border: '1px solid #ddd' }}>Expense</th>
-                <th style={{ padding: '8px', border: '1px solid #ddd' }}>Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sampleData.map((row, index) => (
-                <tr key={index}>
-                  <td style={{ padding: '8px', border: '1px solid #ddd' }}>{row['Date']}</td>
-                  <td style={{ padding: '8px', border: '1px solid #ddd' }}>{row['Site']}</td>
-                  <td style={{ padding: '8px', border: '1px solid #ddd' }}>{row['Progress']}</td>
-                  <td style={{ padding: '8px', border: '1px solid #ddd' }}>{row['Expense']}</td>
-                  <td style={{ padding: '8px', border: '1px solid #ddd' }}>{row['Rate']}</td>
+
+        {message && (
+          <Alert severity={message.includes('✅') ? 'success' : 'error'} sx={{ mb: 3 }}>
+            {message}
+          </Alert>
+        )}
+
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            📊 Sample Data Preview
+          </Typography>
+          <Box sx={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f5f5f5' }}>
+                  <th style={{ padding: '8px', border: '1px solid #ddd' }}>Date</th>
+                  <th style={{ padding: '8px', border: '1px solid #ddd' }}>Site</th>
+                  <th style={{ padding: '8px', border: '1px solid #ddd' }}>Progress</th>
+                  <th style={{ padding: '8px', border: '1px solid #ddd' }}>Expense</th>
+                  <th style={{ padding: '8px', border: '1px solid #ddd' }}>Rate</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </Box>
-      </Paper>
+              </thead>
+              <tbody>
+                {sampleData.map((row, index) => (
+                  <tr key={index}>
+                    <td style={{ padding: '8px', border: '1px solid #ddd' }}>{row['Date']}</td>
+                    <td style={{ padding: '8px', border: '1px solid #ddd' }}>{row['Site']}</td>
+                    <td style={{ padding: '8px', border: '1px solid #ddd' }}>{row['Progress']}</td>
+                    <td style={{ padding: '8px', border: '1px solid #ddd' }}>{row['Expense']}</td>
+                    <td style={{ padding: '8px', border: '1px solid #ddd' }}>{row['Rate']}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Box>
+        </Paper>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2, textAlign: 'center' }}>
-            <Button
-              variant="contained"
-              startIcon={<PdfIcon />}
-              onClick={handleExportSamplePDF}
-              fullWidth
-              sx={{ mb: 1 }}
-            >
-              📄 Export PDF
-            </Button>
-            <Typography variant="body2" color="text.secondary">
-              Export sample data to PDF<br />
-              (English font, table format)
-            </Typography>
-          </Paper>
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <Button
+                variant="contained"
+                startIcon={<PdfIcon />}
+                onClick={handleExportSamplePDF}
+                fullWidth
+                sx={{ mb: 1 }}
+              >
+                📄 Export PDF
+              </Button>
+              <Typography variant="body2" color="text.secondary">
+                Export sample data to PDF<br />
+                (English font, table format)
+              </Typography>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <Button
+                variant="contained"
+                startIcon={<ExcelIcon />}
+                onClick={handleExportSampleExcel}
+                fullWidth
+                sx={{ mb: 1 }}
+              >
+                📊 Export Excel
+              </Button>
+              <Typography variant="body2" color="text.secondary">
+                Export sample data to Excel<br />
+                (Auto column width)
+              </Typography>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={handleExportGuidePDF}
+                fullWidth
+                sx={{ mb: 1 }}
+              >
+                📖 한글 설명서 PDF
+              </Button>
+              <Typography variant="body2" color="text.secondary">
+                웹앱 한글 사용 설명서 PDF<br />
+                (이모지, 나눔고딕 폰트)
+              </Typography>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={handleExportUserGuidePDF}
+                fullWidth
+                sx={{ mb: 1 }}
+              >
+                📚 사용법 가이드 PDF
+              </Button>
+              <Typography variant="body2" color="text.secondary">
+                실용적인 사용법 가이드 PDF<br />
+                (단계별 상세 설명)
+              </Typography>
+            </Paper>
+          </Grid>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2, textAlign: 'center' }}>
-            <Button
-              variant="contained"
-              startIcon={<ExcelIcon />}
-              onClick={handleExportSampleExcel}
-              fullWidth
-              sx={{ mb: 1 }}
-            >
-              📊 Export Excel
-            </Button>
-            <Typography variant="body2" color="text.secondary">
-              Export sample data to Excel<br />
-              (Auto column width)
-            </Typography>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2, textAlign: 'center' }}>
-            <Button
-              variant="contained"
-              startIcon={<DownloadIcon />}
-              onClick={handleExportGuidePDF}
-              fullWidth
-              sx={{ mb: 1 }}
-            >
-              📖 한글 설명서 PDF
-            </Button>
-            <Typography variant="body2" color="text.secondary">
-              웹앱 한글 사용 설명서 PDF<br />
-              (이모지, 나눔고딕 폰트)
-            </Typography>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2, textAlign: 'center' }}>
-            <Button
-              variant="contained"
-              startIcon={<DownloadIcon />}
-              onClick={handleExportUserGuidePDF}
-              fullWidth
-              sx={{ mb: 1 }}
-            >
-              📚 사용법 가이드 PDF
-            </Button>
-            <Typography variant="body2" color="text.secondary">
-              실용적인 사용법 가이드 PDF<br />
-              (단계별 상세 설명)
-            </Typography>
-          </Paper>
-        </Grid>
-      </Grid>
-
-      <Paper sx={{ p: 3, mt: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          💡 사용 방법
-        </Typography>
-        <Typography variant="body2" paragraph>
-          1. <strong>PDF 내보내기</strong>: 샘플 데이터를 PDF로 다운로드합니다.
-        </Typography>
-        <Typography variant="body2" paragraph>
-          2. <strong>엑셀 내보내기</strong>: 샘플 데이터를 엑셀 파일로 다운로드합니다.
-        </Typography>
-        <Typography variant="body2" paragraph>
-          3. <strong>한글 설명서 PDF</strong>: 웹앱의 전체 한글 사용 설명서를 PDF로 다운로드합니다.
-        </Typography>
-        <Typography variant="body2" paragraph>
-          4. <strong>사용법 가이드 PDF</strong>: 실용적인 단계별 사용법 가이드를 PDF로 다운로드합니다.
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          * 모든 파일은 다운로드 폴더에 저장됩니다.
-        </Typography>
-      </Paper>
-    </Box>
+        <Paper sx={{ p: 3, mt: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            💡 사용 방법
+          </Typography>
+          <Typography variant="body2" paragraph>
+            1. <strong>PDF 내보내기</strong>: 샘플 데이터를 PDF로 다운로드합니다.
+          </Typography>
+          <Typography variant="body2" paragraph>
+            2. <strong>엑셀 내보내기</strong>: 샘플 데이터를 엑셀 파일로 다운로드합니다.
+          </Typography>
+          <Typography variant="body2" paragraph>
+            3. <strong>한글 설명서 PDF</strong>: 웹앱의 전체 한글 사용 설명서를 PDF로 다운로드합니다.
+          </Typography>
+          <Typography variant="body2" paragraph>
+            4. <strong>사용법 가이드 PDF</strong>: 실용적인 단계별 사용법 가이드를 PDF로 다운로드합니다.
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            * 모든 파일은 다운로드 폴더에 저장됩니다.
+          </Typography>
+        </Paper>
+      </Box>
+    </MobileLayout>
   );
 };
 

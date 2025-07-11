@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import Layout from '../components/Layout';
+import MobileLayout from '../components/common/MobileLayout';
 import {
   Box, Grid, Paper, Typography, Switch, FormControlLabel, TextField,
   Button, Divider, List, ListItem, ListItemText, ListItemIcon,
@@ -164,281 +165,283 @@ const Settings = () => {
   }
 
   return (
-    <Layout>
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom>설정</Typography>
-        <Grid container spacing={3}>
-          {/* 프로필 */}
-          <Grid>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
-                  <Avatar src={profile.avatar} sx={{ width: 80, height: 80, mb: 1 }} />
-                  <Typography variant="h6">{profile.name || '이름 없음'}</Typography>
-                  <Typography variant="body2" color="textSecondary">{profile.email || currentUser.email}</Typography>
-                </Box>
-                <Divider sx={{ mb: 2 }} />
-                <List>
-                  <ListItem>
-                    <ListItemIcon><PersonIcon /></ListItemIcon>
-                    <ListItemText
-                      primary="이름"
-                      secondary={
-                        <TextField
-                          fullWidth
-                          value={profile.name ?? ''}
-                          onChange={handleProfileChange('name')}
-                          size="small"
-                          inputRef={inputRef1}
-                          onFocus={scrollFocus(inputRef1)}
-                        />
-                      }
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon><PersonIcon /></ListItemIcon>
-                    <ListItemText
-                      primary="이메일"
-                      secondary={
-                        <TextField
-                          fullWidth
-                          value={profile.email ?? currentUser.email}
-                          onChange={handleProfileChange('email')}
-                          size="small"
-                          inputRef={inputRef1}
-                          onFocus={scrollFocus(inputRef1)}
-                        />
-                      }
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon><PersonIcon /></ListItemIcon>
-                    <ListItemText
-                      primary="연락처"
-                      secondary={
-                        <TextField
-                          fullWidth
-                          value={profile.phone ?? ''}
-                          onChange={handleProfileChange('phone')}
-                          size="small"
-                          inputRef={inputRef1}
-                          onFocus={scrollFocus(inputRef1)}
-                        />
-                      }
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon><PersonIcon /></ListItemIcon>
-                    <ListItemText
-                      primary="부서"
-                      secondary={
-                        <TextField
-                          fullWidth
-                          value={profile.department ?? ''}
-                          onChange={handleProfileChange('department')}
-                          size="small"
-                          inputRef={inputRef1}
-                          onFocus={scrollFocus(inputRef1)}
-                        />
-                      }
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon><PersonIcon /></ListItemIcon>
-                    <ListItemText
-                      primary="직위"
-                      secondary={
-                        <TextField
-                          fullWidth
-                          value={profile.position ?? ''}
-                          onChange={handleProfileChange('position')}
-                          size="small"
-                          inputRef={inputRef1}
-                          onFocus={scrollFocus(inputRef1)}
-                        />
-                      }
-                    />
-                  </ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* 설정 섹션 */}
-          <Grid>
-            <Grid container spacing={3}>
-              {/* 알림 설정 */}
-              <Grid>
-                <Paper sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <NotificationsIcon sx={{ mr: 1 }} />
-                    <Typography variant="h6">알림 설정</Typography>
+    <MobileLayout>
+      <Layout>
+        <Box sx={{ p: 3 }}>
+          <Typography variant="h4" gutterBottom>설정</Typography>
+          <Grid container spacing={3}>
+            {/* 프로필 */}
+            <Grid>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+                    <Avatar src={profile.avatar} sx={{ width: 80, height: 80, mb: 1 }} />
+                    <Typography variant="h6">{profile.name || '이름 없음'}</Typography>
+                    <Typography variant="body2" color="textSecondary">{profile.email || currentUser.email}</Typography>
                   </Box>
-                  <Grid container spacing={2}>
-                    <Grid>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={settings.notifications.email}
-                            onChange={handleNotificationChange('email')}
+                  <Divider sx={{ mb: 2 }} />
+                  <List>
+                    <ListItem>
+                      <ListItemIcon><PersonIcon /></ListItemIcon>
+                      <ListItemText
+                        primary="이름"
+                        secondary={
+                          <TextField
+                            fullWidth
+                            value={profile.name ?? ''}
+                            onChange={handleProfileChange('name')}
+                            size="small"
+                            inputRef={inputRef1}
+                            onFocus={scrollFocus(inputRef1)}
                           />
                         }
-                        label="이메일 알림"
                       />
-                    </Grid>
-                    <Grid>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={settings.notifications.push}
-                            onChange={handleNotificationChange('push')}
+                    </ListItem>
+                    <ListItem>
+                      <ListItemIcon><PersonIcon /></ListItemIcon>
+                      <ListItemText
+                        primary="이메일"
+                        secondary={
+                          <TextField
+                            fullWidth
+                            value={profile.email ?? currentUser.email}
+                            onChange={handleProfileChange('email')}
+                            size="small"
+                            inputRef={inputRef1}
+                            onFocus={scrollFocus(inputRef1)}
                           />
                         }
-                        label="푸시 알림"
                       />
-                    </Grid>
-                    <Grid>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={settings.notifications.daily}
-                            onChange={handleNotificationChange('daily')}
+                    </ListItem>
+                    <ListItem>
+                      <ListItemIcon><PersonIcon /></ListItemIcon>
+                      <ListItemText
+                        primary="연락처"
+                        secondary={
+                          <TextField
+                            fullWidth
+                            value={profile.phone ?? ''}
+                            onChange={handleProfileChange('phone')}
+                            size="small"
+                            inputRef={inputRef1}
+                            onFocus={scrollFocus(inputRef1)}
                           />
                         }
-                        label="일일 요약"
                       />
-                    </Grid>
-                    <Grid>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={settings.notifications.weekly}
-                            onChange={handleNotificationChange('weekly')}
+                    </ListItem>
+                    <ListItem>
+                      <ListItemIcon><PersonIcon /></ListItemIcon>
+                      <ListItemText
+                        primary="부서"
+                        secondary={
+                          <TextField
+                            fullWidth
+                            value={profile.department ?? ''}
+                            onChange={handleProfileChange('department')}
+                            size="small"
+                            inputRef={inputRef1}
+                            onFocus={scrollFocus(inputRef1)}
                           />
                         }
-                        label="주간 보고서"
                       />
-                    </Grid>
-                  </Grid>
-                </Paper>
-              </Grid>
+                    </ListItem>
+                    <ListItem>
+                      <ListItemIcon><PersonIcon /></ListItemIcon>
+                      <ListItemText
+                        primary="직위"
+                        secondary={
+                          <TextField
+                            fullWidth
+                            value={profile.position ?? ''}
+                            onChange={handleProfileChange('position')}
+                            size="small"
+                            inputRef={inputRef1}
+                            onFocus={scrollFocus(inputRef1)}
+                          />
+                        }
+                      />
+                    </ListItem>
+                  </List>
+                </CardContent>
+              </Card>
+            </Grid>
 
-              {/* 외관 설정 */}
-              <Grid>
-                <Paper sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <PaletteIcon sx={{ mr: 1 }} />
-                    <Typography variant="h6">외관 설정</Typography>
-                  </Box>
-                  <Grid container spacing={2}>
-                    <Grid>
-                      <FormControl fullWidth>
-                        <InputLabel>테마</InputLabel>
-                        <Select
-                          value={settings.appearance.theme}
-                          onChange={handleAppearanceChange('theme')}
-                          label="테마"
-                        >
-                          <MenuItem value="light">라이트</MenuItem>
-                          <MenuItem value="dark">다크</MenuItem>
-                          <MenuItem value="system">시스템</MenuItem>
-                        </Select>
-                      </FormControl>
+            {/* 설정 섹션 */}
+            <Grid>
+              <Grid container spacing={3}>
+                {/* 알림 설정 */}
+                <Grid>
+                  <Paper sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <NotificationsIcon sx={{ mr: 1 }} />
+                      <Typography variant="h6">알림 설정</Typography>
+                    </Box>
+                    <Grid container spacing={2}>
+                      <Grid>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={settings.notifications.email}
+                              onChange={handleNotificationChange('email')}
+                            />
+                          }
+                          label="이메일 알림"
+                        />
+                      </Grid>
+                      <Grid>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={settings.notifications.push}
+                              onChange={handleNotificationChange('push')}
+                            />
+                          }
+                          label="푸시 알림"
+                        />
+                      </Grid>
+                      <Grid>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={settings.notifications.daily}
+                              onChange={handleNotificationChange('daily')}
+                            />
+                          }
+                          label="일일 요약"
+                        />
+                      </Grid>
+                      <Grid>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={settings.notifications.weekly}
+                              onChange={handleNotificationChange('weekly')}
+                            />
+                          }
+                          label="주간 보고서"
+                        />
+                      </Grid>
                     </Grid>
-                    <Grid>
-                      <FormControl fullWidth>
-                        <InputLabel>글자 크기</InputLabel>
-                        <Select
-                          value={settings.appearance.fontSize}
-                          onChange={handleAppearanceChange('fontSize')}
-                          label="글자 크기"
-                        >
-                          <MenuItem value="small">작게</MenuItem>
-                          <MenuItem value="medium">보통</MenuItem>
-                          <MenuItem value="large">크게</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                  </Grid>
-                </Paper>
-              </Grid>
+                  </Paper>
+                </Grid>
 
-              {/* 보안 설정 */}
-              <Grid>
-                <Paper sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <SecurityIcon sx={{ mr: 1 }} />
-                    <Typography variant="h6">보안 설정</Typography>
-                  </Box>
-                  <Grid container spacing={2}>
-                    <Grid>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={settings.security.twoFactor}
+                {/* 외관 설정 */}
+                <Grid>
+                  <Paper sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <PaletteIcon sx={{ mr: 1 }} />
+                      <Typography variant="h6">외관 설정</Typography>
+                    </Box>
+                    <Grid container spacing={2}>
+                      <Grid>
+                        <FormControl fullWidth>
+                          <InputLabel>테마</InputLabel>
+                          <Select
+                            value={settings.appearance.theme}
+                            onChange={handleAppearanceChange('theme')}
+                            label="테마"
+                          >
+                            <MenuItem value="light">라이트</MenuItem>
+                            <MenuItem value="dark">다크</MenuItem>
+                            <MenuItem value="system">시스템</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid>
+                        <FormControl fullWidth>
+                          <InputLabel>글자 크기</InputLabel>
+                          <Select
+                            value={settings.appearance.fontSize}
+                            onChange={handleAppearanceChange('fontSize')}
+                            label="글자 크기"
+                          >
+                            <MenuItem value="small">작게</MenuItem>
+                            <MenuItem value="medium">보통</MenuItem>
+                            <MenuItem value="large">크게</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
+
+                {/* 보안 설정 */}
+                <Grid>
+                  <Paper sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <SecurityIcon sx={{ mr: 1 }} />
+                      <Typography variant="h6">보안 설정</Typography>
+                    </Box>
+                    <Grid container spacing={2}>
+                      <Grid>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={settings.security.twoFactor}
+                              onChange={e => setSettings(prev => ({
+                                ...prev,
+                                security: { ...prev.security, twoFactor: e.target.checked }
+                              }))}
+                            />
+                          }
+                          label="2단계 인증"
+                        />
+                      </Grid>
+                      <Grid>
+                        <FormControl fullWidth>
+                          <InputLabel>세션 타임아웃</InputLabel>
+                          <Select
+                            value={settings.security.sessionTimeout}
                             onChange={e => setSettings(prev => ({
                               ...prev,
-                              security: { ...prev.security, twoFactor: e.target.checked }
+                              security: { ...prev.security, sessionTimeout: e.target.value }
                             }))}
-                          />
-                        }
-                        label="2단계 인증"
-                      />
+                            label="세션 타임아웃"
+                          >
+                            <MenuItem value={15}>15분</MenuItem>
+                            <MenuItem value={30}>30분</MenuItem>
+                            <MenuItem value={60}>1시간</MenuItem>
+                            <MenuItem value={120}>2시간</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
                     </Grid>
-                    <Grid>
-                      <FormControl fullWidth>
-                        <InputLabel>세션 타임아웃</InputLabel>
-                        <Select
-                          value={settings.security.sessionTimeout}
-                          onChange={e => setSettings(prev => ({
-                            ...prev,
-                            security: { ...prev.security, sessionTimeout: e.target.value }
-                          }))}
-                          label="세션 타임아웃"
-                        >
-                          <MenuItem value={15}>15분</MenuItem>
-                          <MenuItem value={30}>30분</MenuItem>
-                          <MenuItem value={60}>1시간</MenuItem>
-                          <MenuItem value={120}>2시간</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                  </Grid>
-                </Paper>
+                  </Paper>
+                </Grid>
               </Grid>
+            </Grid>
+
+            {/* 저장 버튼 */}
+            <Grid>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                <Button
+                  variant="contained"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  {saving ? '저장 중...' : '설정 저장'}
+                </Button>
+              </Box>
             </Grid>
           </Grid>
 
-          {/* 저장 버튼 */}
-          <Grid>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-              <Button
-                variant="contained"
-                startIcon={<SaveIcon />}
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? '저장 중...' : '설정 저장'}
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
-
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-        >
-          <Alert
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={6000}
             onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-            severity={snackbar.severity}
-            sx={{ width: '100%' }}
           >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </Layout>
+            <Alert
+              onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+              severity={snackbar.severity}
+              sx={{ width: '100%' }}
+            >
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </Box>
+      </Layout>
+    </MobileLayout>
   );
 };
 
