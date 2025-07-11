@@ -357,6 +357,19 @@ const WholeList = () => {
     window.location.href = `/sites/${siteId}`;
   };
 
+  // 주요현장(별) 토글
+  const handleToggleFavorite = async (site) => {
+    try {
+      await updateDoc(doc(db, 'sites', site.id), {
+        isFavorite: !site.isFavorite,
+        updatedAt: new Date()
+      });
+      setSnackbar({ open: true, message: site.isFavorite ? '주요현장에서 해제되었습니다.' : '주요현장으로 등록되었습니다.', severity: 'success' });
+    } catch (error) {
+      setSnackbar({ open: true, message: '주요현장 변경 중 오류가 발생했습니다: ' + error.message, severity: 'error' });
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -575,11 +588,13 @@ const WholeList = () => {
                 .map((site) => (
                   <TableRow key={site.id} hover>
                     <TableCell>
-                      {site.isFavorite ? (
-                        <StarIcon sx={{ color: 'gold' }} />
-                      ) : (
-                        <StarBorderIcon />
-                      )}
+                      <IconButton size="small" onClick={() => handleToggleFavorite(site)}>
+                        {site.isFavorite ? (
+                          <StarIcon sx={{ color: 'gold' }} />
+                        ) : (
+                          <StarBorderIcon />
+                        )}
+                      </IconButton>
                     </TableCell>
                     <TableCell>{site.name}</TableCell>
                     <TableCell>

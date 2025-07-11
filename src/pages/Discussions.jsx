@@ -659,10 +659,10 @@ const Discussions = () => {
   );
 
   return (
-    <Box sx={{ height: 'calc(100vh - 65px - 51px)', display: 'flex', flexDirection: 'column', position: 'fixed', top: isMobile ? '45px' : '65px', left: 0, right: 0, bottom: isMobile ? '20px' : '51px', overflow: 'hidden', overflowX: 'hidden', zIndex: 1000, bgcolor: '#1a1d21', p: isMobile ? 0 : undefined, m: 0, width: isMobile ? '100vw' : '100%', maxWidth: isMobile ? '100vw' : '100%', minWidth: isMobile ? '100vw' : '0', boxSizing: 'border-box' }}>
+    <Box sx={{ height: 'calc(100vh - 65px - 51px)', display: 'flex', flexDirection: 'column', position: 'fixed', top: isMobile ? '32px' : '65px', left: 0, right: 0, bottom: isMobile ? '51px' : '51px', overflow: 'hidden', overflowX: 'hidden', zIndex: 1000, bgcolor: '#1a1d21', p: 0, m: 0, width: isMobile ? '100vw' : '100%', maxWidth: isMobile ? '100vw' : '100%', minWidth: isMobile ? '100vw' : '0', boxSizing: 'border-box' }}>
       {/* 헤더 */}
       <Box sx={{ 
-        p: { xs: 1, md: 2 }, 
+        p: { xs: 0, md: 2 }, 
         borderBottom: 1, 
         borderColor: 'divider',
         bgcolor: 'background.paper',
@@ -707,7 +707,7 @@ const Discussions = () => {
             minHeight: 0,
           }}>
             <Box sx={{ 
-              p: { xs: 1, md: 2 }, 
+              p: { xs: 0, md: 2 }, 
               borderBottom: 1, 
               borderColor: 'divider',
               display: 'flex',
@@ -747,7 +747,7 @@ const Discussions = () => {
             <Box sx={{ 
               flex: 1, 
               overflowY: 'auto',
-              p: { xs: 0, md: 1 }
+              p: 0
             }}>
               {filteredRooms.map((room) => {
                 const canWrite = canWriteRoom(room);
@@ -764,7 +764,7 @@ const Discussions = () => {
                       }
                     }}
                     sx={{
-                      p: { xs: 1, md: 1.5 },
+                      p: { xs: 0.5, md: 1.5 },
                       minHeight: '80px', // 높이를 40px 늘림 (기본 40px + 추가 40px)
                       cursor: 'pointer',
                       borderBottom: 1,

@@ -103,12 +103,12 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
 
   useEffect(() => {
     fetchAllGisung();
-  }, [fetchAllGisung]); // 컴포넌트 마운트 시 한 번만 실행
+  }, []); // 컴포넌트 마운트 시 한 번만 실행
 
   useEffect(() => {
     fetchGisung();
     fetchSites();
-  }, [fetchGisung, fetchSites]);
+  }, [viewType, currentMonth, selectedSites]); // 의존성 배열 수정
 
   // props.currentMonth가 바뀔 때마다 내부 currentMonth 동기화
   useEffect(() => {
@@ -195,6 +195,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     }
   }, [viewType, currentMonth, selectedSites]);
 
+
+
   // 검색 및 정렬된 데이터
   const filteredAndSortedGisung = useMemo(() => {
     let filtered = gisungList.filter(gisung =>
@@ -231,13 +233,39 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
 
   // 통계 데이터
   const stats = useMemo(() => {
-    const totalContractAmount = filteredAndSortedGisung.reduce((sum, gisung) => sum + (Number(gisung.contractAmount) || 0), 0);
-    const totalAdvance = filteredAndSortedGisung.reduce((sum, gisung) => sum + (Number(gisung.advance) || 0), 0);
-    const totalPrevGisung = filteredAndSortedGisung.reduce((sum, gisung) => sum + (Number(gisung.prevGisung) || 0), 0);
-    const totalGisungAmount = filteredAndSortedGisung.reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
+    // 현재 월 문자열 (예: "2024-07")
+    const currentMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+    
+    // 월별 계약금액 계산 - 해당 월에 공사가 시작된 현장들의 계약금액만 합산
+    const totalContractAmount = sites.reduce((sum, site) => {
+      if (!site.startDate) return sum;
+      
+      try {
+        // startDate가 문자열인 경우 Date 객체로 변환
+        const startDate = typeof site.startDate === 'string' 
+          ? new Date(site.startDate) 
+          : site.startDate.toDate ? site.startDate.toDate() : site.startDate;
+        
+        // 시작 월 문자열 (예: "2024-07")
+        const startMonthStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
+        
+        // 현재 월과 시작 월이 같으면 계약금액 포함
+        if (startMonthStr === currentMonthStr) {
+          return sum + (Number(site.contractAmount) || 0);
+        }
+      } catch (e) {
+        devError('날짜 파싱 오류:', e, site);
+      }
+      
+      return sum;
+    }, 0);
+    
+    const totalAdvance = sites.reduce((sum, site) => sum + (Number(site.advance) || 0), 0);
+    const totalPrevGisung = gisungList.reduce((sum, gisung) => sum + (Number(gisung.prevGisung) || 0), 0);
+    const totalGisungAmount = gisungList.reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
     
     return { totalContractAmount, totalAdvance, totalPrevGisung, totalGisungAmount };
-  }, [filteredAndSortedGisung]);
+  }, [sites, gisungList, currentMonth]);
 
   const handleExcelDownload = () => {
     const data = filteredAndSortedGisung.map(row => ({

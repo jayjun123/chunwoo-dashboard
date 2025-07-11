@@ -24,7 +24,7 @@ import {
   Drawer,
 } from '@mui/material';
 import SwipeableContainer from './common/SwipeableContainer';
-import MobileBottomNav from './common/MobileBottomNav';
+
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
@@ -162,6 +162,7 @@ const Layout = ({ children }) => {
           zIndex: (theme) => theme.zIndex.drawer + 1,
           height: isMobile ? '45px' : '58px',
           borderBottom: '1px solid #333',
+          display: isMobile ? 'none' : 'block',
         }}
       >
         <Toolbar sx={{ 
@@ -364,14 +365,13 @@ const Layout = ({ children }) => {
           padding: 0, 
           boxSizing: 'border-box', 
           overflowX: 'hidden',
-          ...(isMobile && { height: 'calc(100vh - 58px)', maxHeight: 'calc(100vh - 58px)' }) 
+          ...(isMobile && { height: '100vh', maxHeight: '100vh' }) 
         }}>
           {children}
         </Box>
       </SwipeableContainer>
 
-      {/* 모바일 하단 네비게이션 */}
-      <MobileBottomNav />
+
 
       {/* 대시보드 하단 바 - 항상 고정 */}
       <BottomBar

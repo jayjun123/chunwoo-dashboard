@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, IconButton, Grid, Paper, Divider, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Checkbox, FormControlLabel } from '@mui/material';
-import { ChevronLeft, ChevronRight, ArrowBack, Add, Today, Edit, Delete, ViewWeek, ViewModule, CalendarViewMonth } from '@mui/icons-material';
+import { Box, Typography, IconButton, Grid, Paper, Divider, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Checkbox, FormControlLabel, Tooltip } from '@mui/material';
+import { ChevronLeft, ChevronRight, ArrowBack, Add, Today, Edit, Delete, ViewWeek, ViewModule, CalendarViewMonth, Home, Business, Security, Assignment, Chat, Description, Assessment, Settings, Person, Star } from '@mui/icons-material';
 import { collection, onSnapshot, doc, deleteDoc, updateDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { useNavigate } from 'react-router-dom';
+import MobileLayout from '../components/common/MobileLayout';
 
 // 헤더/하단바 높이(px)
 const HEADER_HEIGHT = 56;
@@ -61,6 +63,7 @@ function getMonthMatrix(year, month) {
 }
 
 const CustomScheduleMobile = () => {
+  const navigate = useNavigate();
   const today = new Date();
   const [year, setYear] = useState(2025); // 2025년으로 설정
   const [month, setMonth] = useState(today.getMonth());
@@ -86,14 +89,29 @@ const CustomScheduleMobile = () => {
   const [viewMode, setViewMode] = useState('month'); // 'day', '3day', 'month'
   const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
   const [checkedItems, setCheckedItems] = useState({});
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // 네비게이션 아이템들
+  const navigationItems = [
+    { icon: <Home />, path: '/', label: '홈' },
+    { icon: <Star />, path: '/importantsite', label: '주요현장' },
+    { icon: <Business />, path: '/sites', label: '현장' },
+    { icon: <Assignment />, path: '/progress', label: '기성' },
+    { icon: <Security />, path: '/safety', label: '안전' },
+    { icon: <Chat />, path: '/discussions', label: '협의' },
+    { icon: <Person />, path: '/profile', label: '프로필' },
+  ];
 
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) {
       setSchedules([]);
       setCheckedItems({});
+      setCurrentUser(null);
       return;
     }
+    
+    setCurrentUser(user);
 
     let schedulesUnsubscribe = null;
     let checksUnsubscribe = null;
@@ -159,8 +177,10 @@ const CustomScheduleMobile = () => {
 
   const monthMatrix = getMonthMatrix(year, month);
 
-  // 날짜별 일정 매핑
+  // 날짜별 일정 매핑 (월과 연도를 고려한 개선된 버전)
   const scheduleMap = {};
+  const getScheduleKey = (year, month, day) => `${year}-${month}-${day}`;
+  
   schedules.forEach(item => {
     if (!item.date) {
       console.log('날짜가 없는 일정:', item);
@@ -191,10 +211,17 @@ const CustomScheduleMobile = () => {
     
     if (d.getFullYear() === year && d.getMonth() === month) {
       const day = d.getDate();
-      if (!scheduleMap[day]) scheduleMap[day] = [];
-      scheduleMap[day].push(item);
+      const key = getScheduleKey(d.getFullYear(), d.getMonth(), day);
+      if (!scheduleMap[key]) scheduleMap[key] = [];
+      scheduleMap[key].push(item);
     }
   });
+  
+  // 현재 선택된 날짜의 일정을 가져오는 헬퍼 함수
+  const getSchedulesForDate = (targetYear, targetMonth, targetDay) => {
+    const key = getScheduleKey(targetYear, targetMonth, targetDay);
+    return scheduleMap[key] || [];
+  };
   
   console.log('현재 월 일정 매핑:', scheduleMap);
 
@@ -203,17 +230,27 @@ const CustomScheduleMobile = () => {
     const selectedDate = new Date(year, month, selectedDay);
     const dayOfWeek = selectedDate.getDay();
     
+    // 날짜 이동 함수들
+    const goToPreviousDay = () => {
+      const newDate = new Date(year, month, selectedDay - 1);
+      setSelectedDay(newDate.getDate());
+      setMonth(newDate.getMonth());
+      setYear(newDate.getFullYear());
+    };
+    
+    const goToNextDay = () => {
+      const newDate = new Date(year, month, selectedDay + 1);
+      setSelectedDay(newDate.getDate());
+      setMonth(newDate.getMonth());
+      setYear(newDate.getFullYear());
+    };
+    
     return (
       <Box sx={{ px: 1, mb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
           <IconButton 
             size="small" 
-            onClick={() => {
-              const newDate = new Date(year, month, selectedDay - 1);
-              setSelectedDay(newDate.getDate());
-              setMonth(newDate.getMonth());
-              setYear(newDate.getFullYear());
-            }}
+            onClick={goToPreviousDay}
             sx={{ 
               color: '#fff', 
               p: 0.5,
@@ -227,12 +264,7 @@ const CustomScheduleMobile = () => {
           </Typography>
           <IconButton 
             size="small" 
-            onClick={() => {
-              const newDate = new Date(year, month, selectedDay + 1);
-              setSelectedDay(newDate.getDate());
-              setMonth(newDate.getMonth());
-              setYear(newDate.getFullYear());
-            }}
+            onClick={goToNextDay}
             sx={{ 
               color: '#fff', 
               p: 0.5,
@@ -251,9 +283,9 @@ const CustomScheduleMobile = () => {
               <Box
                 key={i}
                 sx={{
-                  width: isSelected ? '100%' : '0%', // 선택된 날짜는 100% 너비
-                  height: 'calc(100vh - 200px)', // 화면 높이에서 헤더/하단바 높이를 뺀 값으로 설정
-                  bgcolor: isSelected ? '#232634' : 'transparent',
+                  width: isSelected ? '100%' : '0%',
+                  height: '240px',
+                  bgcolor: 'transparent',
                   borderRadius: 2,
                   border: isToday
                     ? '2px solid #ef5350'
@@ -268,7 +300,7 @@ const CustomScheduleMobile = () => {
                   transition: 'all 0.2s',
                   cursor: 'pointer',
                   '&:hover': {
-                    bgcolor: isSelected ? '#232634' : 'rgba(35, 38, 52, 0.3)',
+                    bgcolor: 'rgba(35, 38, 52, 0.06)',
                   }
                 }}
                 onClick={() => {
@@ -286,42 +318,39 @@ const CustomScheduleMobile = () => {
               >
                 {isSelected && (
                   <>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0.5, mt: 0.5 }}>
-                      {/* 일정 카운트 */}
-                      {scheduleMap[selectedDay]?.length > 0 && (
-                        <Typography
-                          sx={{
-                            color: '#888',
-                            fontSize: '0.75rem',
-                            fontWeight: 400,
-                            opacity: 0.7,
-                            ml: 0.5,
-                            mt: 0.5,
-                          }}
-                        >
-                          [{scheduleMap[selectedDay].length}]
-                        </Typography>
-                      )}
-                      {/* 날짜 숫자 */}
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0, mt: 0, gap: 0 }}>
+                      <Typography
+                        sx={{
+                          color: '#888',
+                          fontSize: '0.6rem',
+                          fontWeight: 400,
+                          opacity: 0.7,
+                          ml: 0.2,
+                          mt: 0,
+                          mb: 0,
+                          p: 0,
+                          lineHeight: 1,
+                        }}
+                      >
+                        [{getSchedulesForDate(year, month, selectedDay).length || 0}]
+                      </Typography>
                       <Box
                         sx={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: '50%',
-                          bgcolor: 'transparent',
-                          color: dayOfWeek === 0 ? '#ef5350' : dayOfWeek === 6 ? '#42a5f5' : '#fff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          color: dayOfWeek === 0 ? '#ef5350' : dayOfWeek === 6 ? '#42a5f5' : isToday ? '#fff' : '#888',
                           fontWeight: 700,
-                          fontSize: '1rem',
+                          fontSize: '0.8rem',
+                          mr: 0.2,
+                          mt: 0,
+                          mb: 0,
+                          p: 0,
+                          lineHeight: 1,
                         }}
                       >
                         {selectedDay}
                       </Box>
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2, mt: 0.5 }}>
-                      {scheduleMap[selectedDay]?.slice(0, 12).map((item, i) => (
+                      {getSchedulesForDate(year, month, selectedDay).slice(0, 12).map((item, i) => (
                         <Box
                           key={item.id}
                           sx={{
@@ -369,6 +398,21 @@ const CustomScheduleMobile = () => {
     const selectedDate = new Date(year, month, selectedDay);
     const dayOfWeek = selectedDate.getDay();
     
+    // 날짜 이동 함수들
+    const goToPreviousDay = () => {
+      const newDate = new Date(year, month, selectedDay - 1);
+      setSelectedDay(newDate.getDate());
+      setMonth(newDate.getMonth());
+      setYear(newDate.getFullYear());
+    };
+    
+    const goToNextDay = () => {
+      const newDate = new Date(year, month, selectedDay + 1);
+      setSelectedDay(newDate.getDate());
+      setMonth(newDate.getMonth());
+      setYear(newDate.getFullYear());
+    };
+    
     // 선택된 날짜 기준으로 3일 (전날, 오늘, 다음날)
     const days = [];
     for (let i = -1; i <= 1; i++) {
@@ -378,7 +422,7 @@ const CustomScheduleMobile = () => {
         day: date.getDate(),
         month: date.getMonth(),
         year: date.getFullYear(),
-        isCurrentMonth: date.getMonth() === month,
+        isCurrentMonth: date.getMonth() === month && date.getFullYear() === year,
         isSelected: i === 0
       });
     }
@@ -388,12 +432,7 @@ const CustomScheduleMobile = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
           <IconButton 
             size="small" 
-            onClick={() => {
-              const newDate = new Date(year, month, selectedDay - 1);
-              setSelectedDay(newDate.getDate());
-              setMonth(newDate.getMonth());
-              setYear(newDate.getFullYear());
-            }}
+            onClick={goToPreviousDay}
             sx={{ 
               color: '#fff', 
               p: 0.5,
@@ -407,12 +446,7 @@ const CustomScheduleMobile = () => {
           </Typography>
           <IconButton 
             size="small" 
-            onClick={() => {
-              const newDate = new Date(year, month, selectedDay + 1);
-              setSelectedDay(newDate.getDate());
-              setMonth(newDate.getMonth());
-              setYear(newDate.getFullYear());
-            }}
+            onClick={goToNextDay}
             sx={{ 
               color: '#fff', 
               p: 0.5,
@@ -431,9 +465,9 @@ const CustomScheduleMobile = () => {
               <Box
                 key={i}
                 sx={{
-                  width: '33.33%', // 3개 합쳐서 100% (각각 33.33%)
-                  height: 'calc(100vh - 200px)', // 화면 높이에서 헤더/하단바 높이를 뺀 값으로 설정
-                  bgcolor: dayInfo.isSelected ? '#232634' : 'transparent',
+                  width: '33.33%',
+                  height: '240px',
+                  bgcolor: 'transparent',
                   borderRadius: 2,
                   border: isToday
                     ? '2px solid #ef5350'
@@ -447,8 +481,13 @@ const CustomScheduleMobile = () => {
                   boxShadow: dayInfo.isSelected ? '0 2px 8px 0 #1976d255' : 'none',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-start',
+                  alignItems: 'stretch',
+                  overflow: 'hidden',
                   '&:hover': {
-                    bgcolor: dayInfo.isCurrentMonth ? '#232634' : 'transparent',
+                    bgcolor: 'rgba(35, 38, 52, 0.06)',
                   }
                 }}
                 onClick={() => {
@@ -459,73 +498,103 @@ const CustomScheduleMobile = () => {
                   }
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0.3, mt: 0.3 }}>
-                  {/* 일정 카운트 */}
-                  {dayInfo.isCurrentMonth && scheduleMap[dayInfo.day]?.length > 0 && (
-                    <Typography
-                      sx={{
-                        color: '#888',
-                        fontSize: '0.65rem',
-                        fontWeight: 400,
-                        opacity: 0.7,
-                        ml: 0.5,
-                        mt: 0.5,
-                      }}
-                    >
-                      [{scheduleMap[dayInfo.day].length}]
-                    </Typography>
-                  )}
-                  {/* 날짜 숫자 */}
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0, mt: 0, gap: 0 }}>
+                  <Typography
+                    sx={{
+                      color: '#888',
+                      fontSize: '0.6rem',
+                      fontWeight: 400,
+                      opacity: 0.7,
+                      ml: 0.2,
+                      mt: 0,
+                      mb: 0,
+                      p: 0,
+                      lineHeight: 1,
+                    }}
+                  >
+                    [{getSchedulesForDate(dayInfo.year, dayInfo.month, dayInfo.day).length || 0}]
+                  </Typography>
                   <Box
                     sx={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: '50%',
-                      bgcolor: 'transparent',
                       color: dayOfWeek === 0 ? '#ef5350' : dayOfWeek === 6 ? '#42a5f5' : dayInfo.isCurrentMonth ? '#fff' : '#888',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
                       fontWeight: 700,
-                      fontSize: '0.95rem',
+                      fontSize: '0.8rem',
+                      mr: 0.2,
+                      mt: 0,
+                      mb: 0,
+                      p: 0,
+                      lineHeight: 1,
                     }}
                   >
                     {dayInfo.day}
                   </Box>
                 </Box>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.15, mt: 0.3 }}>
-                  {dayInfo.isCurrentMonth && scheduleMap[dayInfo.day]?.slice(0, 8).map((item, j) => (
-                    <Box
-                      key={item.id}
-                      sx={{
-                        borderRadius: 1,
-                        px: 0.6,
-                        py: 0.2,
-                        fontSize: '0.75rem',
-                        fontWeight: 500,
-                        bgcolor: item.color || colorList[j % colorList.length],
-                        color: '#fff',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        boxShadow: '0 1px 2px 0 #0003',
-                        textAlign: 'center',
-                        width: '100%',
-                        mb: 0.1,
-                      }}
-                                          >
-                        {(() => {
-                          const typePrefix = 
-                            item.type === '현장' ? '[현장]' : 
-                            item.type === '회의' ? '[회의]' : 
-                            item.type === '입찰' ? '[입찰]' : 
-                            item.type === '현설' ? '[현설]' : 
-                            item.type === '지원' ? '[지원]' : 
-                            item.type === '기타' ? '[기타]' : '';
-                          return typePrefix + (item.text || item.title || '제목 없음').slice(0, 8);
-                        })()}
+                  {dayInfo.isCurrentMonth && getSchedulesForDate(dayInfo.year, dayInfo.month, dayInfo.day).slice(0, 8).map((item, j) => {
+                    const dateStr = `${dayInfo.year}-${String(dayInfo.month + 1).padStart(2, '0')}-${String(dayInfo.day).padStart(2, '0')}`;
+                    const checkKey = `${dateStr}-${item.id}`;
+                    const isChecked = checkedItems[checkKey] || false;
+                    
+                    return (
+                      <Box
+                        key={item.id}
+                        sx={{
+                          borderRadius: 1,
+                          px: 0.6,
+                          py: 0.2,
+                          fontSize: '0.75rem',
+                          fontWeight: 500,
+                          bgcolor: item.color || colorList[j % colorList.length],
+                          color: '#fff',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          boxShadow: '0 1px 2px 0 #0003',
+                          textAlign: 'center',
+                          width: '100%',
+                          mb: 0.1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.3,
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCheckItem(dateStr, item.id, !isChecked);
+                        }}
+                      >
+                        <Checkbox
+                          size="small"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleCheckItem(dateStr, item.id, e.target.checked);
+                          }}
+                          sx={{
+                            color: '#ffffff',
+                            p: 0,
+                            minWidth: 'auto',
+                            width: '12px',
+                            height: '12px',
+                            '&.Mui-checked': {
+                              color: '#ffffff'
+                            }
+                          }}
+                        />
+                                                  <span style={{ flex: 1, textAlign: 'left' }}>
+                            {(() => {
+                              const typePrefix = 
+                                item.type === '현장' ? '[현장]' : 
+                                item.type === '회의' ? '[회의]' : 
+                                item.type === '입찰' ? '[입찰]' : 
+                                item.type === '현설' ? '[현설]' : 
+                                item.type === '지원' ? '[지원]' : 
+                                item.type === '기타' ? '[기타]' : '';
+                              return typePrefix + (item.text || item.title || '제목 없음').slice(0, 6);
+                            })()}
+                          </span>
                       </Box>
-                  ))}
+                    );
+                  })}
                 </Box>
               </Box>
             );
@@ -558,7 +627,7 @@ const CustomScheduleMobile = () => {
   };
 
   // 선택 날짜의 일정
-  const selectedSchedules = scheduleMap[selectedDay] || [];
+  const selectedSchedules = getSchedulesForDate(year, month, selectedDay);
 
   // 일정 삭제 확인 함수
   const handleDeleteConfirm = (schedule) => {
@@ -809,228 +878,228 @@ const CustomScheduleMobile = () => {
   };
 
   return (
-    <Box sx={{ 
-      bgcolor: '#181a20', 
-      height: 'calc(100vh - 60px)', 
-      overflow: 'hidden',
-      position: 'fixed',
-      top: '15px',
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 1000
-    }}>
-      {/* 상단 빈칸 */}
-      <Box sx={{ height: 30, bgcolor: '#181a20' }} />
-      
-      {/* 월/연도 네비 */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1, px: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <IconButton onClick={handlePrevMonth} color="primary" size="small"><ChevronLeft /></IconButton>
-          <Typography variant="h6" sx={{ color: '#2196f3', fontWeight: 700, fontSize: '1.1rem', minWidth: 90, textAlign: 'center' }}>{year}년 {month + 1}월</Typography>
-          <IconButton onClick={handleNextMonth} color="primary" size="small"><ChevronRight /></IconButton>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <IconButton
-            size="small"
-            onClick={() => setViewMode('day')}
-            sx={{
-              color: '#fff',
-              bgcolor: viewMode === 'day' ? '#232634' : 'transparent',
-              borderRadius: 1,
-              border: viewMode === 'day' ? '1.5px solid #fff' : '1px solid #333',
-              width: 36, height: 36,
-              boxShadow: viewMode === 'day' ? '0 0 0 2px #2196f3' : 'none',
-              '&:hover': {
-                bgcolor: '#232634',
-                borderColor: '#2196f3',
-              }
-            }}
-          >
-            <ViewWeek />
-          </IconButton>
-          <IconButton
-            size="small"
-            onClick={() => setViewMode('3day')}
-            sx={{
-              color: '#fff',
-              bgcolor: viewMode === '3day' ? '#232634' : 'transparent',
-              borderRadius: 1,
-              border: viewMode === '3day' ? '1.5px solid #fff' : '1px solid #333',
-              width: 36, height: 36,
-              boxShadow: viewMode === '3day' ? '0 0 0 2px #2196f3' : 'none',
-              '&:hover': {
-                bgcolor: '#232634',
-                borderColor: '#2196f3',
-              }
-            }}
-          >
-            <ViewModule />
-          </IconButton>
-          <IconButton
-            size="small"
-            onClick={() => setViewMode('month')}
-            sx={{
-              color: '#fff',
-              bgcolor: viewMode === 'month' ? '#232634' : 'transparent',
-              borderRadius: 1,
-              border: viewMode === 'month' ? '1.5px solid #fff' : '1px solid #333',
-              width: 36, height: 36,
-              boxShadow: viewMode === 'month' ? '0 0 0 2px #2196f3' : 'none',
-              '&:hover': {
-                bgcolor: '#232634',
-                borderColor: '#2196f3',
-              }
-            }}
-          >
-            <CalendarViewMonth />
-          </IconButton>
-        </Box>
-      </Box>
-      
-      {/* 요일 헤더 - 월간보기에서만 표시 */}
-      {viewMode === 'month' && (
-        <Box sx={{ display: 'flex', mb: 0.5, px: 1 }}>
-          {dayNames.map((d, i) => (
-            <Box
-              key={d}
+    <MobileLayout>
+      <Box sx={{
+        bgcolor: '#181a20',
+        minHeight: '100vh',
+        width: '100vw',
+        overflow: 'auto',
+        position: 'relative',
+        top: '20px',
+        mt: 0,
+        pt: 0,
+        marginTop: 0,
+        paddingTop: 0,
+        padding: 0,
+        margin: 0,
+        '& > *:first-of-type': {
+          marginTop: 0,
+          paddingTop: 0,
+        }
+      }}>
+
+        
+        {/* 월/연도 네비 */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 0, px: 1, position: 'relative', top: 0, mt: 0, pt: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton onClick={handlePrevMonth} color="primary" size="small"><ChevronLeft /></IconButton>
+            <Typography variant="h6" sx={{ color: '#2196f3', fontWeight: 700, fontSize: '1.1rem', minWidth: 90, textAlign: 'center' }}>{year}년 {month + 1}월</Typography>
+            <IconButton onClick={handleNextMonth} color="primary" size="small"><ChevronRight /></IconButton>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <IconButton
+              size="small"
+              onClick={() => setViewMode('day')}
               sx={{
-                flex: 1, // 모든 요일이 동일한 너비
-                textAlign: 'center',
-                color: i === 0 ? '#ef5350' : i === 6 ? '#42a5f5' : '#b0b0b0',
-                fontWeight: 700,
-                fontSize: '0.95rem',
-                letterSpacing: 0.5,
-                mx: 0.1, // 날짜 셀과 동일한 간격 (0.25 → 0.1)
+                color: '#fff',
+                bgcolor: viewMode === 'day' ? '#232634' : 'transparent',
+                borderRadius: 1,
+                border: viewMode === 'day' ? '1.5px solid #fff' : '1px solid #333',
+                width: 36, height: 36,
+                boxShadow: viewMode === 'day' ? '0 0 0 2px #2196f3' : 'none',
+                '&:hover': {
+                  bgcolor: '#232634',
+                  borderColor: '#2196f3',
+                }
               }}
             >
-              {d}
-            </Box>
-          ))}
+              <ViewWeek />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => setViewMode('3day')}
+              sx={{
+                color: '#fff',
+                bgcolor: viewMode === '3day' ? '#232634' : 'transparent',
+                borderRadius: 1,
+                border: viewMode === '3day' ? '1.5px solid #fff' : '1px solid #333',
+                width: 36, height: 36,
+                boxShadow: viewMode === '3day' ? '0 0 0 2px #2196f3' : 'none',
+                '&:hover': {
+                  bgcolor: '#232634',
+                  borderColor: '#2196f3',
+                }
+              }}
+            >
+              <ViewModule />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => setViewMode('month')}
+              sx={{
+                color: '#fff',
+                bgcolor: viewMode === 'month' ? '#232634' : 'transparent',
+                borderRadius: 1,
+                border: viewMode === 'month' ? '1.5px solid #fff' : '1px solid #333',
+                width: 36, height: 36,
+                boxShadow: viewMode === 'month' ? '0 0 0 2px #2196f3' : 'none',
+                '&:hover': {
+                  bgcolor: '#232634',
+                  borderColor: '#2196f3',
+                }
+              }}
+            >
+              <CalendarViewMonth />
+            </IconButton>
+          </Box>
         </Box>
-      )}
-      
-      {/* 달력 그리드 - 뷰 모드에 따라 렌더링 */}
-      {viewMode === 'day' && renderDayView()}
-      {viewMode === '3day' && render3DayView()}
-      {viewMode === 'month' && (
-        <Box sx={{ px: 1, mb: 1 }}>
-          {monthMatrix.map((week, rowIdx) => (
-            <Box key={rowIdx} sx={{ display: 'flex', mb: 0.2 }}>
-              {week.map((cell, colIdx) => {
+        
+        {/* 요일 헤더 - 월간보기에서만 표시 */}
+        {viewMode === 'month' && (
+          <Box sx={{ display: 'flex', mb: 0, px: 1, mt: 0, pt: 0 }}>
+            {dayNames.map((d, i) => (
+              <Box
+                key={d}
+                sx={{
+                  flex: 1, // 모든 요일이 동일한 너비
+                  textAlign: 'center',
+                  color: i === 0 ? '#ef5350' : i === 6 ? '#42a5f5' : '#b0b0b0',
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  letterSpacing: 0.5,
+                  mx: 0.1, // 날짜 셀과 동일한 간격 (0.25 → 0.1)
+                }}
+              >
+                {d}
+              </Box>
+            ))}
+          </Box>
+        )}
+        
+        {/* 달력 그리드 - 뷰 모드에 따라 렌더링 */}
+        {viewMode === 'day' && renderDayView()}
+        {viewMode === '3day' && render3DayView()}
+        {viewMode === 'month' && (
+          <Box sx={{ px: 0, mb: 1, width: '100%', overflow: 'hidden', mt: 0, pt: 0 }}>
+            <Box sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(7, 1fr)', 
+              gap: 0, 
+              width: '100%',
+              minWidth: '100%',
+              maxWidth: '100%'
+            }}>
+              {monthMatrix.flat().map((cell, index) => {
                 const { day, isCurrentMonth } = cell;
+                const rowIdx = Math.floor(index / 7);
+                const colIdx = index % 7;
                 const isToday = isCurrentMonth && day && year === today.getFullYear() && month === today.getMonth() && day === today.getDate();
                 const isSelected = isCurrentMonth && day === selectedDay;
-                const dayOfWeek = colIdx; // 0=일요일, 6=토요일
-                
+                const dayOfWeek = colIdx;
+                // 동적 높이 적용
+                const cellHeight = monthMatrix.length === 5 ? 55 : 45;
                 return (
                   <Box
                     key={`${rowIdx}-${colIdx}`}
                     sx={{
-                      flex: 1, // 모든 셀이 동일한 너비
-                      height: 68, // 모든 셀 높이 동일 (64 → 68)
-                      bgcolor: isSelected ? '#232634' : 'transparent',
-                      borderRadius: 2,
+                      width: '100%',
+                      minWidth: 0,
+                      height: cellHeight,
+                      bgcolor: 'transparent',
+                      borderRadius: 1.5,
                       border: isToday
-                        ? '2px solid #ef5350' // 오늘 날짜 셀 전체에만 빨간 테두리
+                        ? '2px solid #ef5350'
                         : isSelected
                           ? '2px solid #42a5f5'
                           : '1px solid #333',
-                      p: 0.25, // 패딩 줄임 (0.5 → 0.25)
-                      mx: 0.1, // 마진 줄임 (0.25 → 0.1)
+                      p: 0.2,
+                      m: 0,
                       position: 'relative',
                       opacity: isCurrentMonth ? 1 : 0.3,
-                      boxShadow: isSelected ? '0 2px 8px 0 #1976d255' : 'none',
+                      boxShadow: isSelected ? '0 0 0 2px #2196f3' : 'none',
                       cursor: day ? 'pointer' : 'default',
                       transition: 'all 0.2s',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-start',
+                      alignItems: 'stretch',
+                      overflow: 'hidden',
                       '&:hover': {
-                        bgcolor: isCurrentMonth ? '#232634' : 'transparent',
+                        bgcolor: 'rgba(35, 38, 52, 0.06)',
                       }
                     }}
                     onClick={() => isCurrentMonth && day && setSelectedDay(day)}
                   >
                     {day && (
                       <>
-                        {/* 날짜 숫자와 일정 카운트 */}
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0.2, mt: -0.5 }}>
-                          {/* 일정 카운트 */}
-                          {isCurrentMonth && scheduleMap[day]?.length > 0 && (
-                            <Typography
-                              sx={{
-                                color: '#888',
-                                fontSize: '0.65rem',
-                                fontWeight: 400,
-                                opacity: 0.7,
-                                ml: 0.5,
-                                mt: 0.5,
-                              }}
-                            >
-                              [{scheduleMap[day].length}]
-                            </Typography>
-                          )}
-                          {/* 날짜 숫자 */}
+                        {/* 날짜 숫자와 일정 카운트 - 더 컴팩트하게 */}
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0, mt: 0, gap: 0 }}>
+                          <Typography
+                            sx={{
+                              color: '#888',
+                              fontSize: '0.5rem',
+                              fontWeight: 400,
+                              opacity: 0.7,
+                              ml: 0.1,
+                              mt: 0,
+                              mb: 0,
+                              p: 0,
+                              lineHeight: 1,
+                            }}
+                          >
+                            [{getSchedulesForDate(year, month, day).length || 0}]
+                          </Typography>
                           <Box
                             sx={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: '50%',
-                              bgcolor: 'transparent',
-                              color:
-                                dayOfWeek === 0 ? '#ef5350' : // 일요일 빨강
-                                dayOfWeek === 6 ? '#42a5f5' : // 토요일 파랑
-                                isCurrentMonth ? '#fff' : '#888',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
+                              color: dayOfWeek === 0 ? '#ef5350' : dayOfWeek === 6 ? '#42a5f5' : isToday ? '#fff' : '#888',
                               fontWeight: 700,
-                              fontSize: '0.9rem',
-                              transition: 'all 0.2s',
+                              fontSize: '0.7rem',
+                              mr: 0.1,
+                              mt: 0,
+                              mb: 0,
+                              p: 0,
+                              lineHeight: 1,
                             }}
                           >
                             {day}
                           </Box>
                         </Box>
-                        
-                        {/* 일정 바 - 이번달만 표시 */}
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1, mt: -0.5 }}>
-                          {isCurrentMonth && scheduleMap[day]?.length > 0 && (
+                        {/* 일정 바 - 더 컴팩트하게 */}
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1, mt: 0.2 }}>
+                          {getSchedulesForDate(year, month, day).slice(0, 8).map((item, i) => (
                             <Box
+                              key={item.id}
                               sx={{
-                                maxHeight: scheduleMap[day]?.length > 3 ? 30 : 'auto',
-                                overflowY: scheduleMap[day]?.length > 3 ? 'auto' : 'visible',
-                                scrollbarWidth: 'none', // Firefox
-                                msOverflowStyle: 'none', // IE/Edge
-                                '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 0.1,
+                                borderRadius: 0.5,
+                                px: 0.4,
+                                py: 0.1,
+                                fontSize: '0.6rem',
+                                fontWeight: 500,
+                                bgcolor: item.color || colorList[i % colorList.length],
+                                color: '#fff',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                boxShadow: '0 1px 1px 0 #0002',
+                                textAlign: 'center',
+                                width: '100%',
+                                mb: 0.1,
+                                lineHeight: 1.2,
                               }}
                             >
-                              {scheduleMap[day]?.map((item, i) => (
-                                <Box
-                                  key={item.id}
-                                  sx={{
-                                    borderRadius: 1,
-                                    px: 0.5,
-                                    py: 0,
-                                    fontSize: '0.7rem',
-                                    fontWeight: 500,
-                                    bgcolor: item.color || colorList[i % colorList.length],
-                                    color: '#fff',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    boxShadow: '0 1px 2px 0 #0003',
-                                    textAlign: 'center',
-                                    width: '100%',
-                                    flexShrink: 0, // 스크롤 시 크기 유지
-                                  }}
-                                >
-                                  {(item.text || item.title || '제목 없음').slice(0, 3)}
-                                </Box>
-                              ))}
+                              {(item.text || item.title || '제목 없음').slice(0, 8)}
                             </Box>
-                          )}
+                          ))}
                         </Box>
                       </>
                     )}
@@ -1038,610 +1107,667 @@ const CustomScheduleMobile = () => {
                 );
               })}
             </Box>
-          ))}
-        </Box>
-      )}
-      
-      {/* 하단 상세 일정 */}
-      <Paper sx={{ 
-        bgcolor: '#232634', 
-        borderRadius: 3, 
-        mx: 1, 
-        p: 1.5, 
-        boxShadow: 3,
-        height: '320px',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-          <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 700 }}>
-            {year}년 {month + 1}월 {selectedDay}일 일정
-          </Typography>
-          <IconButton 
-            size="small" 
-            onClick={() => handleAddSchedule()}
-            sx={{ 
-              color: '#fff', 
-              p: 0.5,
-              bgcolor: '#2196f3',
-              '&:hover': { bgcolor: '#1976d2' }
-            }}
-          >
-            <Add sx={{ fontSize: '1rem' }} />
-          </IconButton>
-        </Box>
-        <Divider sx={{ bgcolor: '#333', mb: 0.5 }} />
-        {selectedSchedules.length === 0 ? (
-          <Typography sx={{ color: '#b0b0b0', fontSize: '0.95rem', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>등록된 일정이 없습니다.</Typography>
-        ) : (
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: 0.3,
-              flex: 1,
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              scrollbarWidth: 'none', // Firefox
-              msOverflowStyle: 'none', // IE/Edge
-              '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari
-              WebkitOverflowScrolling: 'touch', // iOS 스크롤 개선
-            }}
-          >
-            {selectedSchedules.map((item, i) => {
-              // 날짜 문자열 생성
-              const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
-              const checkKey = `${dateStr}-${item.id}`;
-              const isChecked = checkedItems[checkKey] || false;
-
-              return (
-                <Box 
-                  key={item.id} 
-                  sx={{ 
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    p: 0.5, // 패딩 줄임 (1 → 0.5)
-                    borderRadius: 2, 
-                    bgcolor: item.color || colorList[i % colorList.length], 
-                    color: '#fff', 
-                    fontWeight: 500, 
-                    fontSize: '0.9rem', // 폰트 크기 줄임 (1rem → 0.9rem)
-                    boxShadow: '0 1px 4px 0 #0003',
-                    mb: 0.2, // 마진 줄임
-                    flexShrink: 0, // 스크롤 시 크기 유지
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, gap: 0.5 }}>
-                    <Checkbox
-                      size="small"
-                      checked={isChecked}
-                      onChange={(e) => handleCheckItem(dateStr, item.id, e.target.checked)}
-                      sx={{
-                        color: '#ffffff',
-                        p: 0,
-                        minWidth: 'auto',
-                        width: '16px',
-                        height: '16px',
-                        '&.Mui-checked': {
-                          color: '#ffffff'
-                        }
-                      }}
-                    />
-                    <Typography sx={{ flex: 1, fontSize: '0.9rem' }}>
-                      {(() => {
-                        const typePrefix = 
-                          item.type === '현장' ? '[현장]' : 
-                          item.type === '회의' ? '[회의]' : 
-                          item.type === '입찰' ? '[입찰]' : 
-                          item.type === '현설' ? '[현설]' : 
-                          item.type === '지원' ? '[지원]' : 
-                          item.type === '기타' ? '[기타]' : '';
-                        return typePrefix + (item.text || item.title || '제목 없음');
-                      })()}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 0.5 }}>
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleEditSchedule(item)}
-                      sx={{ 
-                        color: '#fff', 
-                        p: 0.2,
-                        '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
-                      }}
-                    >
-                      <Edit sx={{ fontSize: '0.8rem' }} />
-                    </IconButton>
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleDeleteConfirm(item)}
-                      sx={{ 
-                        color: '#fff', 
-                        p: 0.2,
-                        '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
-                      }}
-                    >
-                      <Delete sx={{ fontSize: '0.8rem' }} />
-                    </IconButton>
-                  </Box>
-                </Box>
-              );
-            })}
           </Box>
         )}
-      </Paper>
-      
-      {/* 수정 다이얼로그 */}
-      <Dialog 
-        open={editDialogOpen} 
-        onClose={handleCancelEdit}
-        maxWidth="xs"
-        fullWidth
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            handleCancelEdit();
-          }
-        }}
-        PaperProps={{
-          sx: { 
-            bgcolor: '#232634', 
-            color: '#fff',
-            width: '90%',
-            maxWidth: '320px',
-            mx: 'auto'
-          }
-        }}
-      >
-        <DialogTitle sx={{ color: '#fff', fontWeight: 700 }}>
-          일정 수정
-        </DialogTitle>
-        <DialogContent sx={{ p: 1.5 }}>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="제목"
-            type="text"
-            fullWidth
-            variant="outlined"
-            value={editScheduleTitle}
-            onChange={(e) => setEditScheduleTitle(e.target.value)}
-            sx={{
-              mt: 0.5, mb: 1,
-              '& .MuiOutlinedInput-root': {
-                color: '#fff',
-                fontSize: '0.9rem',
-                '& fieldset': {
-                  borderColor: '#555',
-                },
-                '&:hover fieldset': {
-                  borderColor: '#777',
-                },
-                '&.Mui-focused fieldset': {
-                  borderColor: '#2196f3',
-                },
-              },
-              '& .MuiInputLabel-root': {
-                color: '#b0b0b0',
-                fontSize: '0.85rem',
-                '&.Mui-focused': {
-                  color: '#2196f3',
-                },
-              },
-            }}
-          />
-          {/* 현장명 검색 선택 */}
-          <Autocomplete
-            options={sites.map(site => site.name).filter(Boolean)}
-            value={editScheduleSiteName || ''}
-            onInputChange={(_, v) => setEditScheduleSiteName(v)}
-            renderInput={(params) => (
-              <TextField 
-                {...params} 
-                label="현장명 검색" 
-                sx={{
-                  mb: 2,
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': {
-                      borderColor: '#555',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: '#777',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#2196f3',
-                    },
-                  },
-                  '& .MuiInputLabel-root': {
-                    color: '#b0b0b0',
-                    '&.Mui-focused': {
-                      color: '#2196f3',
-                    },
-                  },
-                }}
-              />
-            )}
-            freeSolo
-            sx={{
-              mb: 2,
-              '& .MuiAutocomplete-popupIndicator': {
-                color: '#b0b0b0',
-              },
-              '& .MuiAutocomplete-clearIndicator': {
-                color: '#b0b0b0',
-              },
-            }}
-          />
-          {/* 분류 선택 */}
-          <Box sx={{ mb: 1.5 }}>
-            <Typography sx={{ color: '#fff', mb: 0.5, fontSize: '0.85rem' }}>분류</Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              <FormControlLabel
-                control={<Checkbox checked={editScheduleTypes.includes('현장')} onChange={() => handleEditTypeChange('현장')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
-                label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>현장</Typography>}
-              />
-              <FormControlLabel
-                control={<Checkbox checked={editScheduleTypes.includes('회의')} onChange={() => handleEditTypeChange('회의')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
-                label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>회의</Typography>}
-              />
-              <FormControlLabel
-                control={<Checkbox checked={editScheduleTypes.includes('입찰')} onChange={() => handleEditTypeChange('입찰')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
-                label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>입찰</Typography>}
-              />
-              <FormControlLabel
-                control={<Checkbox checked={editScheduleTypes.includes('현설')} onChange={() => handleEditTypeChange('현설')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
-                label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>현설</Typography>}
-              />
-              <FormControlLabel
-                control={<Checkbox checked={editScheduleTypes.includes('지원')} onChange={() => handleEditTypeChange('지원')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
-                label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>지원</Typography>}
-              />
-              <FormControlLabel
-                control={<Checkbox checked={editScheduleTypes.includes('기타')} onChange={() => handleEditTypeChange('기타')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
-                label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>기타</Typography>}
-              />
-            </Box>
+        
+        {/* 하단 상세 일정 */}
+        <Paper sx={{ 
+          bgcolor: '#232634', 
+          borderRadius: 3, 
+          mx: 0, 
+          p: 1.5, 
+          boxShadow: 3,
+          height: '240px',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+            <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 700 }}>
+              {year}년 {month + 1}월 {selectedDay}일 일정
+            </Typography>
+            <IconButton 
+              size="small" 
+              onClick={() => handleAddSchedule()}
+              sx={{ 
+                color: '#fff', 
+                p: 0.5,
+                bgcolor: '#2196f3',
+                '&:hover': { bgcolor: '#1976d2' }
+              }}
+            >
+              <Add sx={{ fontSize: '1rem' }} />
+            </IconButton>
           </Box>
-          {/* 색상 선택 */}
-          <Box sx={{ mb: 1.5 }}>
-            <Typography sx={{ color: '#fff', mb: 0.5, fontSize: '0.85rem' }}>색상</Typography>
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
-              {colorChoices.map(color => (
-                <Box
-                  key={color}
-                  onClick={() => setEditScheduleColor(color)}
+          <Divider sx={{ bgcolor: '#333', mb: 0.5 }} />
+          {selectedSchedules.length === 0 ? (
+            <Typography sx={{ color: '#b0b0b0', fontSize: '0.95rem', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>등록된 일정이 없습니다.</Typography>
+          ) : (
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: 0.3,
+                flex: 1,
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                scrollbarWidth: 'thin', // Firefox - 얇은 스크롤바
+                msOverflowStyle: 'auto', // IE/Edge - 스크롤바 표시
+                '&::-webkit-scrollbar': { 
+                  width: '6px',
+                  backgroundColor: 'transparent'
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: '#555',
+                  borderRadius: '3px',
+                  '&:hover': {
+                    backgroundColor: '#777'
+                  }
+                },
+                '&::-webkit-scrollbar-track': {
+                  backgroundColor: 'transparent'
+                },
+                WebkitOverflowScrolling: 'touch', // iOS 스크롤 개선
+                maxHeight: '280px', // 헤더와 패딩을 제외한 최대 높이
+              }}
+            >
+              {selectedSchedules.map((item, i) => {
+                // 날짜 문자열 생성
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+                const checkKey = `${dateStr}-${item.id}`;
+                const isChecked = checkedItems[checkKey] || false;
+
+                return (
+                  <Box 
+                    key={item.id} 
+                    sx={{ 
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      p: 0.2, // 패딩 더 줄임
+                      borderRadius: 1, 
+                      bgcolor: item.color || colorList[i % colorList.length], 
+                      color: '#fff', 
+                      fontWeight: 500, 
+                      fontSize: '0.7rem', // 폰트 더 작게
+                      boxShadow: '0 1px 2px 0 #0002',
+                      mb: 0.05, // 마진 더 줄임
+                      flexShrink: 0, // 스크롤 시 크기 유지
+                      minHeight: 18, // 최소 높이도 줄임
+                      maxHeight: 18, // 최대 높이도 제한
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, gap: 0.3 }}>
+                      <Checkbox
+                        size="small"
+                        checked={isChecked}
+                        onChange={(e) => handleCheckItem(dateStr, item.id, e.target.checked)}
+                        sx={{
+                          color: '#ffffff',
+                          p: 0,
+                          minWidth: 'auto',
+                          width: '12px',
+                          height: '12px',
+                          '& .MuiSvgIcon-root': { fontSize: 14 },
+                          '&.Mui-checked': {
+                            color: '#ffffff'
+                          }
+                        }}
+                      />
+                      <Typography sx={{ 
+                        flex: 1, 
+                        fontSize: '0.65rem', // 더 작게
+                        textAlign: 'left',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        lineHeight: 1.2
+                      }}>
+                        {(() => {
+                          const typePrefix = 
+                            item.type === '현장' ? '[현장]' : 
+                            item.type === '회의' ? '[회의]' : 
+                            item.type === '입찰' ? '[입찰]' : 
+                            item.type === '현설' ? '[현설]' : 
+                            item.type === '지원' ? '[지원]' : 
+                            item.type === '기타' ? '[기타]' : '';
+                          const fullText = typePrefix + (item.text || item.title || '제목 없음');
+                          return fullText.length > 15 ? fullText.slice(0, 15) + '...' : fullText;
+                        })()}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 0.3 }}>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleEditSchedule(item)}
+                        sx={{ 
+                          color: '#fff', 
+                          p: 0.05,
+                          minWidth: 'auto',
+                          width: '16px',
+                          height: '16px',
+                          '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+                        }}
+                      >
+                        <Edit sx={{ fontSize: '0.6rem' }} />
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleDeleteConfirm(item)}
+                        sx={{ 
+                          color: '#fff', 
+                          p: 0.05,
+                          minWidth: 'auto',
+                          width: '16px',
+                          height: '16px',
+                          '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+                        }}
+                      >
+                        <Delete sx={{ fontSize: '0.6rem' }} />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Box>
+          )}
+        </Paper>
+        
+        {/* 수정 다이얼로그 */}
+        <Dialog 
+          open={editDialogOpen} 
+          onClose={handleCancelEdit}
+          maxWidth="xs"
+          fullWidth
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              handleCancelEdit();
+            }
+          }}
+          PaperProps={{
+            sx: { 
+              bgcolor: '#232634', 
+              color: '#fff',
+              width: '90%',
+              maxWidth: '320px',
+              mx: 'auto'
+            }
+          }}
+        >
+          <DialogTitle sx={{ color: '#fff', fontWeight: 700 }}>
+            일정 수정
+          </DialogTitle>
+          <DialogContent sx={{ p: 1.5 }}>
+            <TextField
+              autoFocus
+              margin="dense"
+              label="제목"
+              type="text"
+              fullWidth
+              variant="outlined"
+              value={editScheduleTitle}
+              onChange={(e) => setEditScheduleTitle(e.target.value)}
+              sx={{
+                mt: 0.5, mb: 1,
+                '& .MuiOutlinedInput-root': {
+                  color: '#fff',
+                  fontSize: '0.9rem',
+                  '& fieldset': {
+                    borderColor: '#555',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: '#777',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#2196f3',
+                  },
+                },
+                '& .MuiInputLabel-root': {
+                  color: '#b0b0b0',
+                  fontSize: '0.85rem',
+                  '&.Mui-focused': {
+                    color: '#2196f3',
+                  },
+                },
+              }}
+            />
+            {/* 현장명 검색 선택 */}
+            <Autocomplete
+              options={sites.map(site => site.name).filter(Boolean)}
+              value={editScheduleSiteName || ''}
+              onInputChange={(_, v) => setEditScheduleSiteName(v)}
+              renderInput={(params) => (
+                <TextField 
+                  {...params} 
+                  label="현장명 검색" 
                   sx={{
-                    width: 20, height: 20, borderRadius: '50%',
-                    bgcolor: color, cursor: 'pointer',
-                    border: editScheduleColor === color ? '2px solid #fff' : '1px solid #888',
-                    boxShadow: editScheduleColor === color ? '0 0 0 1px #2196f3' : 'none',
-                    transition: 'all 0.15s'
+                    mb: 2,
+                    '& .MuiOutlinedInput-root': {
+                      color: '#fff',
+                      '& fieldset': {
+                        borderColor: '#555',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#777',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#2196f3',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#b0b0b0',
+                      '&.Mui-focused': {
+                        color: '#2196f3',
+                      },
+                    },
                   }}
                 />
-              ))}
+              )}
+              freeSolo
+              sx={{
+                mb: 2,
+                '& .MuiAutocomplete-popupIndicator': {
+                  color: '#b0b0b0',
+                },
+                '& .MuiAutocomplete-clearIndicator': {
+                  color: '#b0b0b0',
+                },
+              }}
+            />
+            {/* 분류 선택 */}
+            <Box sx={{ mb: 1.5 }}>
+              <Typography sx={{ color: '#fff', mb: 0.5, fontSize: '0.85rem' }}>분류</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                <FormControlLabel
+                  control={<Checkbox checked={editScheduleTypes.includes('현장')} onChange={() => handleEditTypeChange('현장')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>현장</Typography>}
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={editScheduleTypes.includes('회의')} onChange={() => handleEditTypeChange('회의')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>회의</Typography>}
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={editScheduleTypes.includes('입찰')} onChange={() => handleEditTypeChange('입찰')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>입찰</Typography>}
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={editScheduleTypes.includes('현설')} onChange={() => handleEditTypeChange('현설')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>현설</Typography>}
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={editScheduleTypes.includes('지원')} onChange={() => handleEditTypeChange('지원')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>지원</Typography>}
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={editScheduleTypes.includes('기타')} onChange={() => handleEditTypeChange('기타')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>기타</Typography>}
+                />
+              </Box>
             </Box>
-          </Box>
-          <TextField
-            margin="dense"
-            label="설명"
-            type="text"
-            fullWidth
-            multiline
-            rows={2}
-            variant="outlined"
-            value={editScheduleDesc}
-            onChange={(e) => setEditScheduleDesc(e.target.value)}
-            sx={{
-              mb: 1.5,
-              '& .MuiOutlinedInput-root': {
-                color: '#fff',
-                '& fieldset': {
-                  borderColor: '#555',
+            {/* 색상 선택 */}
+            <Box sx={{ mb: 1.5 }}>
+              <Typography sx={{ color: '#fff', mb: 0.5, fontSize: '0.85rem' }}>색상</Typography>
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                {colorChoices.map(color => (
+                  <Box
+                    key={color}
+                    onClick={() => setEditScheduleColor(color)}
+                    sx={{
+                      width: 20, height: 20, borderRadius: '50%',
+                      bgcolor: color, cursor: 'pointer',
+                      border: editScheduleColor === color ? '2px solid #fff' : '1px solid #888',
+                      boxShadow: editScheduleColor === color ? '0 0 0 1px #2196f3' : 'none',
+                      transition: 'all 0.15s'
+                    }}
+                  />
+                ))}
+              </Box>
+            </Box>
+            <TextField
+              margin="dense"
+              label="설명"
+              type="text"
+              fullWidth
+              multiline
+              rows={2}
+              variant="outlined"
+              value={editScheduleDesc}
+              onChange={(e) => setEditScheduleDesc(e.target.value)}
+              sx={{
+                mb: 1.5,
+                '& .MuiOutlinedInput-root': {
+                  color: '#fff',
+                  '& fieldset': {
+                    borderColor: '#555',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: '#777',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#2196f3',
+                  },
                 },
-                '&:hover fieldset': {
-                  borderColor: '#777',
+                '& .MuiInputLabel-root': {
+                  color: '#b0b0b0',
+                  '&.Mui-focused': {
+                    color: '#2196f3',
+                  },
                 },
-                '&.Mui-focused fieldset': {
-                  borderColor: '#2196f3',
-                },
-              },
-              '& .MuiInputLabel-root': {
-                color: '#b0b0b0',
-                '&.Mui-focused': {
-                  color: '#2196f3',
-                },
-              },
-            }}
-          />
-        </DialogContent>
-        <DialogActions sx={{ p: 1.5, gap: 0.5 }}>
-          <Button 
-            onClick={handleCancelEdit}
-            size="small"
-            sx={{ 
-              color: '#b0b0b0',
-              fontSize: '0.85rem',
-              '&:hover': { bgcolor: 'rgba(176,176,176,0.1)' }
-            }}
-          >
-            취소
-          </Button>
-          <Button 
-            onClick={handleSaveEdit}
-            variant="contained"
-            size="small"
-            disabled={(!editScheduleTitle.trim() && !editScheduleSiteName.trim()) || editScheduleTypes.length === 0}
-            sx={{ 
-              bgcolor: '#2196f3',
-              fontSize: '0.85rem',
-              '&:hover': { bgcolor: '#1976d2' }
-            }}
-          >
-            수정
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* 삭제 확인 다이얼로그 */}
-      <Dialog 
-        open={deleteDialogOpen} 
-        onClose={handleDeleteCancel}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{
-          sx: { 
-            bgcolor: '#232634', 
-            color: '#fff',
-            width: '90%',
-            maxWidth: '280px',
-            mx: 'auto'
-          }
-        }}
-      >
-        <DialogTitle sx={{ color: '#fff', fontWeight: 700 }}>
-          일정 삭제
-        </DialogTitle>
-        <DialogContent>
-          <Typography sx={{ color: '#fff', fontSize: '1rem' }}>
-            "{scheduleToDelete?.text || scheduleToDelete?.title || '제목 없음'}" 일정을 삭제하시겠습니까?
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ p: 2, gap: 1 }}>
-          <Button 
-            onClick={handleDeleteCancel}
-            sx={{ 
-              color: '#b0b0b0',
-              '&:hover': { bgcolor: 'rgba(176,176,176,0.1)' }
-            }}
-          >
-            취소
-          </Button>
-          <Button 
-            onClick={handleDeleteSchedule}
-            variant="contained"
-            sx={{ 
-              bgcolor: '#ef4444',
-              '&:hover': { bgcolor: '#dc2626' }
-            }}
-          >
-            삭제
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* 일정 추가 다이얼로그 */}
-      <Dialog 
-        open={addDialogOpen} 
-        onClose={handleCancelAdd}
-        maxWidth="xs"
-        fullWidth
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            handleCancelAdd();
-          }
-        }}
-        PaperProps={{
-          sx: { 
-            bgcolor: '#232634', 
-            color: '#fff',
-            width: '90%',
-            maxWidth: '320px',
-            mx: 'auto'
-          }
-        }}
-      >
-        <DialogTitle sx={{ color: '#fff', fontWeight: 700 }}>
-          {year}년 {month + 1}월 {selectedDay}일 일정
-        </DialogTitle>
-        <DialogContent sx={{ p: 1.5 }}>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="제목"
-            type="text"
-            fullWidth
-            variant="outlined"
-            value={newScheduleTitle}
-            onChange={(e) => setNewScheduleTitle(e.target.value)}
-            sx={{
-              mt: 0.5, mb: 1,
-              '& .MuiOutlinedInput-root': {
-                color: '#fff',
-                fontSize: '0.9rem',
-                '& fieldset': {
-                  borderColor: '#555',
-                },
-                '&:hover fieldset': {
-                  borderColor: '#777',
-                },
-                '&.Mui-focused fieldset': {
-                  borderColor: '#2196f3',
-                },
-              },
-              '& .MuiInputLabel-root': {
+              }}
+            />
+          </DialogContent>
+          <DialogActions sx={{ p: 1.5, gap: 0.5 }}>
+            <Button 
+              onClick={handleCancelEdit}
+              size="small"
+              sx={{ 
                 color: '#b0b0b0',
                 fontSize: '0.85rem',
-                '&.Mui-focused': {
-                  color: '#2196f3',
+                '&:hover': { bgcolor: 'rgba(176,176,176,0.1)' }
+              }}
+            >
+              취소
+            </Button>
+            <Button 
+              onClick={handleSaveEdit}
+              variant="contained"
+              size="small"
+              disabled={(!editScheduleTitle.trim() && !editScheduleSiteName.trim()) || editScheduleTypes.length === 0}
+              sx={{ 
+                bgcolor: '#2196f3',
+                fontSize: '0.85rem',
+                '&:hover': { bgcolor: '#1976d2' }
+              }}
+            >
+              수정
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* 삭제 확인 다이얼로그 */}
+        <Dialog 
+          open={deleteDialogOpen} 
+          onClose={handleDeleteCancel}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{
+            sx: { 
+              bgcolor: '#232634', 
+              color: '#fff',
+              width: '90%',
+              maxWidth: '280px',
+              mx: 'auto'
+            }
+          }}
+        >
+          <DialogTitle sx={{ color: '#fff', fontWeight: 700 }}>
+            일정 삭제
+          </DialogTitle>
+          <DialogContent>
+            <Typography sx={{ color: '#fff', fontSize: '1rem' }}>
+              "{scheduleToDelete?.text || scheduleToDelete?.title || '제목 없음'}" 일정을 삭제하시겠습니까?
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, gap: 1 }}>
+            <Button 
+              onClick={handleDeleteCancel}
+              sx={{ 
+                color: '#b0b0b0',
+                '&:hover': { bgcolor: 'rgba(176,176,176,0.1)' }
+              }}
+            >
+              취소
+            </Button>
+            <Button 
+              onClick={handleDeleteSchedule}
+              variant="contained"
+              sx={{ 
+                bgcolor: '#ef4444',
+                '&:hover': { bgcolor: '#dc2626' }
+              }}
+            >
+              삭제
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* 일정 추가 다이얼로그 */}
+        <Dialog 
+          open={addDialogOpen} 
+          onClose={handleCancelAdd}
+          maxWidth="xs"
+          fullWidth
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              handleCancelAdd();
+            }
+          }}
+          PaperProps={{
+            sx: { 
+              bgcolor: '#232634', 
+              color: '#fff',
+              width: '90%',
+              maxWidth: '320px',
+              mx: 'auto'
+            }
+          }}
+        >
+          <DialogTitle sx={{ color: '#fff', fontWeight: 700 }}>
+            {year}년 {month + 1}월 {selectedDay}일 일정
+          </DialogTitle>
+          <DialogContent sx={{ p: 1.5 }}>
+            <TextField
+              autoFocus
+              margin="dense"
+              label="제목"
+              type="text"
+              fullWidth
+              variant="outlined"
+              value={newScheduleTitle}
+              onChange={(e) => setNewScheduleTitle(e.target.value)}
+              sx={{
+                mt: 0.5, mb: 1,
+                '& .MuiOutlinedInput-root': {
+                  color: '#fff',
+                  fontSize: '0.9rem',
+                  '& fieldset': {
+                    borderColor: '#555',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: '#777',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#2196f3',
+                  },
                 },
-              },
-            }}
-          />
-          {/* 현장명 검색 선택 */}
-          <Autocomplete
-            options={sites.map(site => site.name).filter(Boolean)}
-            value={newScheduleSiteName || ''}
-            onInputChange={(_, v) => setNewScheduleSiteName(v)}
-            renderInput={(params) => (
-              <TextField 
-                {...params} 
-                label="현장명 검색" 
-                sx={{
-                  mb: 2,
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': {
-                      borderColor: '#555',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: '#777',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#2196f3',
-                    },
+                '& .MuiInputLabel-root': {
+                  color: '#b0b0b0',
+                  fontSize: '0.85rem',
+                  '&.Mui-focused': {
+                    color: '#2196f3',
                   },
-                  '& .MuiInputLabel-root': {
-                    color: '#b0b0b0',
-                    '&.Mui-focused': {
-                      color: '#2196f3',
-                    },
-                  },
-                }}
-              />
-            )}
-            freeSolo
-            sx={{
-              mb: 2,
-              '& .MuiAutocomplete-popupIndicator': {
-                color: '#b0b0b0',
-              },
-              '& .MuiAutocomplete-clearIndicator': {
-                color: '#b0b0b0',
-              },
-            }}
-          />
-          {/* 분류 선택 */}
-          <Box sx={{ mb: 1.5 }}>
-            <Typography sx={{ color: '#fff', mb: 0.5, fontSize: '0.85rem' }}>분류</Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              <FormControlLabel
-                control={<Checkbox checked={newScheduleTypes.includes('현장')} onChange={() => handleTypeChange('현장')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
-                label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>현장</Typography>}
-              />
-              <FormControlLabel
-                control={<Checkbox checked={newScheduleTypes.includes('회의')} onChange={() => handleTypeChange('회의')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
-                label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>회의</Typography>}
-              />
-              <FormControlLabel
-                control={<Checkbox checked={newScheduleTypes.includes('입찰')} onChange={() => handleTypeChange('입찰')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
-                label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>입찰</Typography>}
-              />
-              <FormControlLabel
-                control={<Checkbox checked={newScheduleTypes.includes('현설')} onChange={() => handleTypeChange('현설')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
-                label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>현설</Typography>}
-              />
-              <FormControlLabel
-                control={<Checkbox checked={newScheduleTypes.includes('지원')} onChange={() => handleTypeChange('지원')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
-                label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>지원</Typography>}
-              />
-              <FormControlLabel
-                control={<Checkbox checked={newScheduleTypes.includes('기타')} onChange={() => handleTypeChange('기타')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
-                label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>기타</Typography>}
-              />
-            </Box>
-          </Box>
-          {/* 색상 선택 */}
-          <Box sx={{ mb: 1.5 }}>
-            <Typography sx={{ color: '#fff', mb: 0.5, fontSize: '0.85rem' }}>색상</Typography>
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
-              {colorChoices.map(color => (
-                <Box
-                  key={color}
-                  onClick={() => setNewScheduleColor(color)}
+                },
+              }}
+            />
+            {/* 현장명 검색 선택 */}
+            <Autocomplete
+              options={sites.map(site => site.name).filter(Boolean)}
+              value={newScheduleSiteName || ''}
+              onInputChange={(_, v) => setNewScheduleSiteName(v)}
+              renderInput={(params) => (
+                <TextField 
+                  {...params} 
+                  label="현장명 검색" 
                   sx={{
-                    width: 18, height: 18, borderRadius: '50%',
-                    bgcolor: color, cursor: 'pointer',
-                    border: newScheduleColor === color ? '2px solid #fff' : '1px solid #888',
-                    boxShadow: newScheduleColor === color ? '0 0 0 1px #2196f3' : 'none',
-                    transition: 'all 0.15s'
+                    mb: 2,
+                    '& .MuiOutlinedInput-root': {
+                      color: '#fff',
+                      '& fieldset': {
+                        borderColor: '#555',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#777',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#2196f3',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#b0b0b0',
+                      '&.Mui-focused': {
+                        color: '#2196f3',
+                      },
+                    },
                   }}
                 />
-              ))}
+              )}
+              freeSolo
+              sx={{
+                mb: 2,
+                '& .MuiAutocomplete-popupIndicator': {
+                  color: '#b0b0b0',
+                },
+                '& .MuiAutocomplete-clearIndicator': {
+                  color: '#b0b0b0',
+                },
+              }}
+            />
+            {/* 분류 선택 */}
+            <Box sx={{ mb: 1.5 }}>
+              <Typography sx={{ color: '#fff', mb: 0.5, fontSize: '0.85rem' }}>분류</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                <FormControlLabel
+                  control={<Checkbox checked={newScheduleTypes.includes('현장')} onChange={() => handleTypeChange('현장')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>현장</Typography>}
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={newScheduleTypes.includes('회의')} onChange={() => handleTypeChange('회의')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>회의</Typography>}
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={newScheduleTypes.includes('입찰')} onChange={() => handleTypeChange('입찰')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>입찰</Typography>}
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={newScheduleTypes.includes('현설')} onChange={() => handleTypeChange('현설')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>현설</Typography>}
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={newScheduleTypes.includes('지원')} onChange={() => handleTypeChange('지원')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>지원</Typography>}
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={newScheduleTypes.includes('기타')} onChange={() => handleTypeChange('기타')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>기타</Typography>}
+                />
+              </Box>
             </Box>
-          </Box>
-          <TextField
-            margin="dense"
-            label="설명"
-            type="text"
-            fullWidth
-            multiline
-            rows={2}
-            variant="outlined"
-            value={newScheduleDesc}
-            onChange={(e) => setNewScheduleDesc(e.target.value)}
-            sx={{
-              mb: 1.5,
-              '& .MuiOutlinedInput-root': {
-                color: '#fff',
-                '& fieldset': {
-                  borderColor: '#555',
+            {/* 색상 선택 */}
+            <Box sx={{ mb: 1.5 }}>
+              <Typography sx={{ color: '#fff', mb: 0.5, fontSize: '0.85rem' }}>색상</Typography>
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                {colorChoices.map(color => (
+                  <Box
+                    key={color}
+                    onClick={() => setNewScheduleColor(color)}
+                    sx={{
+                      width: 18, height: 18, borderRadius: '50%',
+                      bgcolor: color, cursor: 'pointer',
+                      border: newScheduleColor === color ? '2px solid #fff' : '1px solid #888',
+                      boxShadow: newScheduleColor === color ? '0 0 0 1px #2196f3' : 'none',
+                      transition: 'all 0.15s'
+                    }}
+                  />
+                ))}
+              </Box>
+            </Box>
+            <TextField
+              margin="dense"
+              label="설명"
+              type="text"
+              fullWidth
+              multiline
+              rows={2}
+              variant="outlined"
+              value={newScheduleDesc}
+              onChange={(e) => setNewScheduleDesc(e.target.value)}
+              sx={{
+                mb: 1.5,
+                '& .MuiOutlinedInput-root': {
+                  color: '#fff',
+                  '& fieldset': {
+                    borderColor: '#555',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: '#777',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#2196f3',
+                  },
                 },
-                '&:hover fieldset': {
-                  borderColor: '#777',
+                '& .MuiInputLabel-root': {
+                  color: '#b0b0b0',
+                  '&.Mui-focused': {
+                    color: '#2196f3',
+                  },
                 },
-                '&.Mui-focused fieldset': {
-                  borderColor: '#2196f3',
-                },
-              },
-              '& .MuiInputLabel-root': {
+              }}
+            />
+          </DialogContent>
+          <DialogActions sx={{ p: 1.5, gap: 0.5 }}>
+            <Button 
+              onClick={handleCancelAdd}
+              size="small"
+              sx={{ 
                 color: '#b0b0b0',
-                '&.Mui-focused': {
-                  color: '#2196f3',
-                },
-              },
+                fontSize: '0.85rem',
+                '&:hover': { bgcolor: 'rgba(176,176,176,0.1)' }
+              }}
+            >
+              취소
+            </Button>
+            <Button 
+              onClick={handleSaveAdd}
+              variant="contained"
+              size="small"
+              disabled={(!newScheduleTitle.trim() && !newScheduleSiteName.trim()) || newScheduleTypes.length === 0}
+              sx={{ 
+                bgcolor: '#2196f3',
+                fontSize: '0.85rem',
+                '&:hover': { bgcolor: '#1976d2' }
+              }}
+            >
+              추가
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* 하단 Chunwoo 로고 워터마크 */}
+        <Box
+          sx={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: FOOTER_HEIGHT + 98,
+            display: 'flex',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            zIndex: 2000,
+          }}
+        >
+          <img
+            src="/chunwoo.png"
+            alt="Chunwoo"
+            style={{
+              height: 40,
+              opacity: 0.15,
+              filter: 'drop-shadow(0 2px 8px #0006)',
+              userSelect: 'none',
             }}
           />
-        </DialogContent>
-        <DialogActions sx={{ p: 1.5, gap: 0.5 }}>
-          <Button 
-            onClick={handleCancelAdd}
-            size="small"
-            sx={{ 
-              color: '#b0b0b0',
-              fontSize: '0.85rem',
-              '&:hover': { bgcolor: 'rgba(176,176,176,0.1)' }
-            }}
-          >
-            취소
-          </Button>
-          <Button 
-            onClick={handleSaveAdd}
-            variant="contained"
-            size="small"
-            disabled={(!newScheduleTitle.trim() && !newScheduleSiteName.trim()) || newScheduleTypes.length === 0}
-            sx={{ 
-              bgcolor: '#2196f3',
-              fontSize: '0.85rem',
-              '&:hover': { bgcolor: '#1976d2' }
-            }}
-          >
-            추가
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        </Box>
+      </Box>
+    </MobileLayout>
   );
 };
 
