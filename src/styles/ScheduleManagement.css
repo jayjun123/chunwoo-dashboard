@@ -212,42 +212,60 @@
   }
 }
 
-/* 일정 관리 스크롤바 숨김 */
-.schedule-management,
-.management-content,
-.management-table,
-.calendar-cell,
-.calendar-events,
-.schedule-list-container {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+/* 일정 관리 스크롤바 숨김 - 데스크톱에서만 */
+@media (min-width: 601px) {
+  .schedule-management,
+  .management-content,
+  .management-table,
+  .calendar-cell,
+  .calendar-events,
+  .schedule-list-container {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  .schedule-management::-webkit-scrollbar,
+  .management-content::-webkit-scrollbar,
+  .management-table::-webkit-scrollbar,
+  .calendar-cell::-webkit-scrollbar,
+  .calendar-events::-webkit-scrollbar,
+  .schedule-list-container::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .schedule-management::-webkit-scrollbar-track,
+  .management-content::-webkit-scrollbar-track,
+  .management-table::-webkit-scrollbar-track,
+  .calendar-cell::-webkit-scrollbar-track,
+  .calendar-events::-webkit-scrollbar-track,
+  .schedule-list-container::-webkit-scrollbar-track {
+    display: none !important;
+  }
+
+  .schedule-management::-webkit-scrollbar-thumb,
+  .management-content::-webkit-scrollbar-thumb,
+  .management-table::-webkit-scrollbar-thumb,
+  .calendar-cell::-webkit-scrollbar-thumb,
+  .calendar-events::-webkit-scrollbar-thumb,
+  .schedule-list-container::-webkit-scrollbar-thumb {
+    display: none !important;
+  }
 }
 
-.schedule-management::-webkit-scrollbar,
-.management-content::-webkit-scrollbar,
-.management-table::-webkit-scrollbar,
-.calendar-cell::-webkit-scrollbar,
-.calendar-events::-webkit-scrollbar,
-.schedule-list-container::-webkit-scrollbar {
-  display: none !important;
-}
-
-.schedule-management::-webkit-scrollbar-track,
-.management-content::-webkit-scrollbar-track,
-.management-table::-webkit-scrollbar-track,
-.calendar-cell::-webkit-scrollbar-track,
-.calendar-events::-webkit-scrollbar-track,
-.schedule-list-container::-webkit-scrollbar-track {
-  display: none !important;
-}
-
-.schedule-management::-webkit-scrollbar-thumb,
-.management-content::-webkit-scrollbar-thumb,
-.management-table::-webkit-scrollbar-thumb,
-.calendar-cell::-webkit-scrollbar-thumb,
-.calendar-events::-webkit-scrollbar-thumb,
-.schedule-list-container::-webkit-scrollbar-thumb {
-  display: none !important;
+/* 모바일에서 스크롤 완전 제거 */
+@media (max-width: 600px) {
+  .schedule-management {
+    overflow: hidden !important;
+    height: calc(100vh - 140px) !important;
+  }
+  
+  .management-content,
+  .management-table,
+  .calendar-cell,
+  .calendar-events,
+  .schedule-list-container {
+    overflow: hidden !important;
+  }
 }
 
 /* 반응형 일정 텍스트 스타일 */

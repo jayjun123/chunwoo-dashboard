@@ -170,7 +170,7 @@ const NewsFavorites = () => {
     <Box sx={{ 
       p: 3, 
       pt: { xs: 1, md: 3 },
-              mt: isMobile ? '30px' : '90px',
+              mt: isMobile ? '0px' : '90px',
       minHeight: '100vh', 
       color: { xs: '#fff', md: '#333' }
     }}>

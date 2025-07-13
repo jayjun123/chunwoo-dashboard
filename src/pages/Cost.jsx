@@ -342,7 +342,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       mx: isMobile ? 0 : '10px',
       p: 0,
       overflow: 'hidden',
-      mt: isMobile ? '26px' : '90px'
+      mt: isMobile ? '0px' : '90px'
     }}>
       {/* 통계 카드 + 새지출 버튼 한 줄 배치 (모바일만) */}
       {isMobile ? (
