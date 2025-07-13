@@ -628,26 +628,28 @@ const ScheduleManagement = ({
   return (
     <Box sx={{ 
       p: 0, 
-      height: isMobile ? 'calc(100vh + 80px)' : 'calc(100vh - 80px)',
+      height: isMobile ? 'calc(100vh - 140px)' : 'calc(100vh - 80px)',
       width: '100%',
       mx: 0,
       px: 0,
       margin: 0,
       padding: 0,
       position: 'relative',
-      mt: isMobile ? '-10px' : '30px',
-      mb: '20px'
+      mt: isMobile ? '140px' : '30px',
+      mb: '20px',
+      overflow: isMobile ? 'hidden' : 'visible'
     }}>
       <DragDropContext onDragEnd={onDragEnd}>
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: { xs: 'column-reverse', md: 'row' }, 
-          gap: isMobile ? 0 : 2, 
-          height: '100%',
-          width: '100%',
-          mx: 0,
-          px: 0
-        }}>
+                  <Box sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column-reverse', md: 'row' }, 
+            gap: isMobile ? 0 : 2, 
+            height: '100%',
+            width: '100%',
+            mx: 0,
+            px: 0,
+            overflow: isMobile ? 'hidden' : 'visible'
+          }}>
           {/* 왼쪽 편 레이아웃 - 진행중현장리스트 */}
           <Box sx={{
             width: { xs: '100%', md: 280 },
@@ -657,7 +659,8 @@ const ScheduleManagement = ({
             maxHeight: { xs: '270px', md: 'calc(100% - 30px)' },
             position: { xs: 'static', md: 'static' },
             transform: { xs: 'none', md: 'none' },
-            mt: { xs: 0, md: '15px' } // PC에서만 위쪽 여백 15px 추가
+            mt: { xs: 0, md: '15px' }, // PC에서만 위쪽 여백 15px 추가
+            overflow: isMobile ? 'hidden' : 'visible'
           }}>
             <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', position: { xs: 'static', md: 'static' }, transform: { xs: 'none', md: 'none' }, display: { xs: 'none', md: 'block' } }}>
               <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, display: { xs: 'none', md: 'block' } }}>이달의 현장</Typography>
@@ -679,7 +682,7 @@ const ScheduleManagement = ({
             <Droppable droppableId="siteList">
               {(provided, snapshot) => (
                 <Box ref={provided.innerRef} {...provided.droppableProps} sx={{
-                  flex: 1, overflowY: filteredSites.length > 10 ? 'auto' : 'hidden', p: isMobile ? 0.5 : 1,
+                  flex: 1, overflowY: isMobile ? 'hidden' : (filteredSites.length > 10 ? 'auto' : 'hidden'), p: isMobile ? 0.5 : 1,
                   bgcolor: snapshot.isDraggingOver ? 'action.hover' : 'background.paper',
                   maxHeight: isMobile ? '200px' : 'none',
                   position: { xs: 'static', md: 'static' },
@@ -765,7 +768,8 @@ const ScheduleManagement = ({
             flex: 1, 
             height: '100%',
             width: '100%',
-            px: isMobile ? 0 : undefined
+            px: isMobile ? 0 : undefined,
+            overflow: isMobile ? 'hidden' : 'visible'
           }}>
             <CustomCalendar
               year={year}

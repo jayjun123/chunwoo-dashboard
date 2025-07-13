@@ -872,7 +872,7 @@ const Progress = () => {
           )}
           {/* 차트 전체 화면 */}
           <Grid item xs={12}>
-            <Paper sx={{ px: isMobile ? 3 : 3, py: isMobile ? 1 : 3, height: '100%', mt: isMobile ? '20px' : 0 }}>
+            <Paper sx={{ px: isMobile ? 3 : 3, py: isMobile ? 1 : 3, height: '100%', mt: isMobile ? '0px' : 0 }}>
               <Box sx={{ mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="h6" sx={{ fontSize: isMobile ? '1rem' : 'inherit', display: isMobile ? 'none' : 'block' }}>
@@ -977,7 +977,7 @@ const Progress = () => {
         <Grid container spacing={2} alignItems="stretch" sx={{ mb: 3, width: '100%' }}>
           {/* 차트 전체 화면 */}
           <Grid item xs={12}>
-            <Paper sx={{ px: isMobile ? 3 : 3, py: isMobile ? 1 : 3, height: '100%', mt: isMobile ? '20px' : 0 }}>
+            <Paper sx={{ px: isMobile ? 3 : 3, py: isMobile ? 1 : 3, height: '100%', mt: isMobile ? '0px' : 0 }}>
               <Typography variant="h6" sx={{ mb: 2, fontSize: isMobile ? '1rem' : 'inherit' }}>현장별 기성/지출 현황</Typography>
                               <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 360 : 1390} minHeight={isMobile ? 200 : 400} style={{ marginLeft: isMobile ? '-30px' : 0 }}>
                   <BarChart

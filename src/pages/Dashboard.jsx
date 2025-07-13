@@ -167,7 +167,7 @@ const Dashboard = () => {
       position: isMobile ? 'relative' : 'static',
       left: isMobile ? '-30px' : 'auto',
       width: isMobile ? '100vw' : '100%',
-      mt: isMobile ? '26px' : '90px'
+      mt: isMobile ? '0px' : '90px'
     }}>
       <Grid container spacing={3}>
         {/* 상단 통계 카드 */}
