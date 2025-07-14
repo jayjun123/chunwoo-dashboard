@@ -48,7 +48,7 @@ import ForgotPassword from './components/ForgotPassword';
 import CustomSchedule from './pages/CustomSchedule';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
 import ScheduleManagement from './components/schedule/ScheduleManagement';
-import MobileLayout from './components/common/MobileLayout.jsx';
+import MobileLayout from './components/common/MobileLayout';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
 const ProtectedRoute = ({ children }) => {
