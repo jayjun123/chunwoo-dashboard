@@ -321,4 +321,373 @@
 .ime-input::-webkit-scrollbar,
 .ime-suggestions::-webkit-scrollbar {
   display: none !important;
+}
+
+/* IME Composition 처리 관련 CSS 스타일 */
+
+/* 한글 입력 중 composition 이벤트 처리 */
+.ime-composing {
+  background-color: rgba(33, 150, 243, 0.05) !important;
+  border-color: #2196F3 !important;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2) !important;
+  transition: all 0.2s ease;
+}
+
+.ime-composing::placeholder {
+  color: #2196F3;
+  opacity: 0.7;
+}
+
+/* 조합 중인 텍스트 강조 */
+.ime-composition-text {
+  color: #2196F3 !important;
+  font-weight: bold;
+  background-color: rgba(33, 150, 243, 0.1);
+  border-radius: 2px;
+  padding: 1px 2px;
+}
+
+/* 조합 상태 표시 */
+.ime-composition-status {
+  position: absolute;
+  top: -25px;
+  left: 0;
+  font-size: 12px;
+  color: #2196F3;
+  background-color: rgba(33, 150, 243, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #2196F3;
+  z-index: 1000;
+  animation: imeStatusFadeIn 0.3s ease;
+}
+
+@keyframes imeStatusFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 조합 취소 버튼 */
+.ime-cancel-button {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 8px;
+  font-size: 12px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  z-index: 1001;
+}
+
+.ime-cancel-button:hover {
+  background-color: #d32f2f;
+}
+
+/* 입력 필드 래퍼 */
+.advanced-korean-input {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.advanced-korean-input input,
+.advanced-korean-input textarea {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 16px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.2s ease;
+  background-color: white;
+  font-family: inherit;
+}
+
+.advanced-korean-input input:focus,
+.advanced-korean-input textarea:focus {
+  border-color: #2196F3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+.advanced-korean-input input:disabled,
+.advanced-korean-input textarea:disabled {
+  background-color: #f5f5f5;
+  color: #666;
+  cursor: not-allowed;
+}
+
+/* 자동 완성 제안 드롭다운 */
+.ime-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+  animation: imeSuggestionsSlideIn 0.2s ease;
+}
+
+@keyframes imeSuggestionsSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ime-suggestion-item {
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  transition: background-color 0.2s ease;
+}
+
+.ime-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.ime-suggestion-item:hover {
+  background-color: #f5f5f5;
+}
+
+.ime-suggestion-item.selected {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+/* 입력 히스토리 */
+.ime-history {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.ime-history-header {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #666;
+  border-bottom: 1px solid #eee;
+  background-color: #f9f9f9;
+  font-weight: bold;
+}
+
+.ime-history-item {
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+}
+
+.ime-history-item:last-child {
+  border-bottom: none;
+}
+
+.ime-history-item:hover {
+  background-color: #f5f5f5;
+}
+
+/* 에러 메시지 */
+.ime-error {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #f44336;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  animation: imeErrorShake 0.5s ease;
+}
+
+@keyframes imeErrorShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* 제어 버튼 컨테이너 */
+.ime-controls {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 5px;
+  z-index: 1001;
+}
+
+.ime-clear-button {
+  padding: 4px 8px;
+  font-size: 12px;
+  background-color: #999;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.ime-clear-button:hover {
+  background-color: #666;
+}
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+  .advanced-korean-input input,
+  .advanced-korean-input textarea {
+    font-size: 16px; /* iOS에서 줌 방지 */
+    padding: 14px 16px; /* 터치하기 쉽게 패딩 증가 */
+  }
+  
+  .ime-suggestions,
+  .ime-history {
+    max-height: 150px; /* 모바일에서는 더 작게 */
+  }
+  
+  .ime-suggestion-item,
+  .ime-history-item {
+    padding: 12px 16px; /* 터치하기 쉽게 패딩 증가 */
+    min-height: 44px; /* iOS 권장 최소 터치 영역 */
+    display: flex;
+    align-items: center;
+  }
+  
+  .ime-controls {
+    right: 12px; /* 모바일에서 여백 증가 */
+  }
+  
+  .ime-cancel-button,
+  .ime-clear-button {
+    padding: 6px 10px; /* 터치하기 쉽게 크기 증가 */
+    font-size: 14px;
+  }
+}
+
+/* 다크 모드 지원 */
+@media (prefers-color-scheme: dark) {
+  .advanced-korean-input input,
+  .advanced-korean-input textarea {
+    background-color: #2d2d2d;
+    color: #ffffff;
+    border-color: #555;
+  }
+  
+  .advanced-korean-input input:focus,
+  .advanced-korean-input textarea:focus {
+    border-color: #64b5f6;
+    box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.2);
+  }
+  
+  .ime-suggestions,
+  .ime-history {
+    background-color: #2d2d2d;
+    border-color: #555;
+    color: #ffffff;
+  }
+  
+  .ime-suggestion-item:hover,
+  .ime-history-item:hover {
+    background-color: #3d3d3d;
+  }
+  
+  .ime-suggestion-item.selected {
+    background-color: #1e3a5f;
+    color: #64b5f6;
+  }
+  
+  .ime-history-header {
+    background-color: #1d1d1d;
+    color: #aaa;
+    border-bottom-color: #555;
+  }
+  
+  .ime-composing {
+    background-color: rgba(100, 181, 246, 0.1) !important;
+    border-color: #64b5f6 !important;
+    box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.2) !important;
+  }
+  
+  .ime-composition-status {
+    background-color: rgba(100, 181, 246, 0.1);
+    border-color: #64b5f6;
+    color: #64b5f6;
+  }
+}
+
+/* 접근성 개선 */
+.advanced-korean-input input:focus,
+.advanced-korean-input textarea:focus {
+  outline: 2px solid #2196F3;
+  outline-offset: 2px;
+}
+
+.ime-suggestion-item:focus,
+.ime-history-item:focus {
+  outline: 2px solid #2196F3;
+  outline-offset: -2px;
+}
+
+/* 고대비 모드 지원 */
+@media (prefers-contrast: high) {
+  .advanced-korean-input input,
+  .advanced-korean-input textarea {
+    border-width: 3px;
+  }
+  
+  .ime-suggestions,
+  .ime-history {
+    border-width: 2px;
+  }
+  
+  .ime-suggestion-item,
+  .ime-history-item {
+    border-bottom-width: 2px;
+  }
+}
+
+/* 애니메이션 최적화 */
+.advanced-korean-input * {
+  will-change: auto;
+}
+
+.ime-composing,
+.ime-suggestions,
+.ime-history {
+  will-change: transform, opacity;
+}
+
+/* 인쇄 시 숨김 */
+@media print {
+  .ime-composition-status,
+  .ime-suggestions,
+  .ime-history,
+  .ime-controls {
+    display: none !important;
+  }
 } 

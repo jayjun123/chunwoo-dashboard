@@ -754,8 +754,28 @@ const CustomSchedule = () => {
             )}
             <CustomCalendar
               year={year} month={month} calendarItems={calendarItems}
-              onPrevMonth={() => setMonth(m => m === 0 ? 11 : m - 1)}
-              onNextMonth={() => setMonth(m => m === 11 ? 0 : m + 1)}
+              onPrevMonth={() => {
+                console.log('CustomSchedule onPrevMonth 호출됨, 현재 month:', month);
+                if (month === 0) {
+                  console.log('연도 변경: 1월 -> 12월');
+                  setYear(y => y - 1);
+                  setMonth(11);
+                } else {
+                  console.log('월 변경:', month, '->', month - 1);
+                  setMonth(m => m - 1);
+                }
+              }}
+              onNextMonth={() => {
+                console.log('CustomSchedule onNextMonth 호출됨, 현재 month:', month);
+                if (month === 11) {
+                  console.log('연도 변경: 12월 -> 1월');
+                  setYear(y => y + 1);
+                  setMonth(0);
+                } else {
+                  console.log('월 변경:', month, '->', month + 1);
+                  setMonth(m => m + 1);
+                }
+              }}
               onDateClick={handleDateClick} selectedItems={selectedItems}
               onItemClick={handleItemClick} onItemDoubleClick={handleItemDoubleClick}
               onItemTouchStart={handleItemTouchStart} onItemTouchEnd={handleItemTouchEnd}

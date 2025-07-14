@@ -413,6 +413,10 @@
 
 /* 반응형 스타일 */
 @media (max-width: 768px) {
+  .safety-container {
+    padding-top: 35px;
+  }
+
   .safety-filters {
     flex-direction: column;
   }

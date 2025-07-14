@@ -340,7 +340,7 @@ const ProgressManagement = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, pt: { xs: '160px', md: 3 } }}>
       <Typography variant="h4" gutterBottom>
         기성현황 관리
       </Typography>

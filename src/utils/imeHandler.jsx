@@ -8,6 +8,7 @@ import React, { useRef, useEffect } from 'react';
  * - 커서 위치 고정
  * - 모바일 키보드 최적화
  * - IME 상태 관리
+ * - 자음/모음 분리 문제 개선
  */
 
 // IME 상태 관리
@@ -23,6 +24,8 @@ class IMEStateManager {
     this.viewportHeight = window.innerHeight;
     this.keyboardHeight = 0;
     this.scrollPosition = 0;
+    this.compositionText = '';
+    this.lastCompositionText = '';
   }
 
   // IME 조합 시작
@@ -32,6 +35,8 @@ class IMEStateManager {
     this.compositionEndPosition = event.target.selectionEnd;
     this.inputElement = event.target;
     this.originalValue = event.target.value;
+    this.compositionText = '';
+    this.lastCompositionText = '';
     
     // 한글 입력 감지
     this.isKoreanInput = this.detectKoreanInput(event);
@@ -41,6 +46,9 @@ class IMEStateManager {
     
     // 키보드 높이 추정
     this.estimateKeyboardHeight();
+    
+    // 조합 시작 시 입력 필드 최적화
+    this.optimizeInputForComposition(event.target);
     
     console.log('IME Composition Start:', {
       isKorean: this.isKoreanInput,
@@ -56,11 +64,15 @@ class IMEStateManager {
     const target = event.target;
     const currentValue = target.value;
     const currentPosition = target.selectionStart;
+    this.compositionText = event.data || '';
     
     // 모바일에서 한글 입력 시 자음모음 하나씩 표시
     if (this.isKoreanInput && window.innerWidth <= 768) {
       // 조합 중인 텍스트를 실시간으로 표시
       this.showCompositionText(target, currentValue);
+      
+      // 자음/모음 분리 문제 개선
+      this.improveKoreanComposition(target, currentValue);
     }
     
     // 한글 입력 중일 때 커서 위치 고정
@@ -71,10 +83,13 @@ class IMEStateManager {
     // 뷰포트 조정
     this.adjustViewportForKeyboard();
     
+    this.lastCompositionText = this.compositionText;
+    
     console.log('IME Composition Update:', {
       value: currentValue,
       position: currentPosition,
-      isKorean: this.isKoreanInput
+      isKorean: this.isKoreanInput,
+      compositionText: this.compositionText
     });
   }
 
@@ -83,10 +98,13 @@ class IMEStateManager {
     this.isComposing = false;
     this.compositionEndPosition = event.target.selectionStart;
     this.inputElement = null;
+    this.compositionText = '';
+    this.lastCompositionText = '';
     
     // 조합 완료 후 약간의 지연을 두고 뷰포트 복원
     setTimeout(() => {
       this.restoreViewport();
+      this.restoreInputAfterComposition(event.target);
     }, 100);
     
     console.log('IME Composition End:', {
@@ -163,6 +181,7 @@ class IMEStateManager {
     if (target.style) {
       target.style.backgroundColor = 'rgba(255, 255, 0, 0.1)';
       target.style.borderColor = '#ffd600';
+      target.style.boxShadow = '0 0 0 2px rgba(255, 214, 0, 0.3)';
     }
     
     // 조합 완료 후 스타일 복원
@@ -170,8 +189,65 @@ class IMEStateManager {
       if (target.style) {
         target.style.backgroundColor = '';
         target.style.borderColor = '';
+        target.style.boxShadow = '';
       }
     }, 100);
+  }
+
+  // 한글 조합 개선
+  improveKoreanComposition(target, value) {
+    // 조합 중인 텍스트가 변경되었을 때만 처리
+    if (this.compositionText === this.lastCompositionText) return;
+    
+    // 한글 조합 중일 때 입력 필드 스타일 최적화
+    if (this.isKoreanInput && this.compositionText) {
+      // 입력 필드에 조합 중임을 표시
+      target.setAttribute('data-composing', 'true');
+      
+      // 조합 중인 텍스트를 시각적으로 강조
+      this.highlightCompositionText(target, this.compositionText);
+    }
+  }
+
+  // 조합 중인 텍스트 강조
+  highlightCompositionText(target, text) {
+    // 조합 중인 텍스트를 시각적으로 구분
+    if (target.style) {
+      target.style.color = '#2196f3';
+      target.style.fontWeight = 'bold';
+    }
+  }
+
+  // 조합 시작 시 입력 필드 최적화
+  optimizeInputForComposition(target) {
+    if (!target) return;
+    
+    // 입력 필드에 조합 중 속성 추가
+    target.setAttribute('data-composing', 'true');
+    
+    // 모바일에서 입력 필드 최적화
+    if (window.innerWidth <= 768) {
+      target.style.fontSize = '16px';
+      target.style.lineHeight = '1.5';
+      target.style.transform = 'translateZ(0)';
+    }
+  }
+
+  // 조합 완료 후 입력 필드 복원
+  restoreInputAfterComposition(target) {
+    if (!target) return;
+    
+    // 조합 중 속성 제거
+    target.removeAttribute('data-composing');
+    
+    // 스타일 복원
+    if (target.style) {
+      target.style.color = '';
+      target.style.fontWeight = '';
+      target.style.backgroundColor = '';
+      target.style.borderColor = '';
+      target.style.boxShadow = '';
+    }
   }
 
   // 뷰포트 복원
@@ -198,6 +274,10 @@ class IMEStateManager {
     element.addEventListener('focus', this.handleFocus.bind(this));
     element.addEventListener('blur', this.handleBlur.bind(this));
     
+    // 한글 입력 최적화를 위한 추가 이벤트
+    element.addEventListener('beforeinput', this.handleBeforeInput.bind(this));
+    element.addEventListener('keydown', this.handleKeyDown.bind(this));
+    
     console.log('IME listeners added to element:', element);
   }
 
@@ -209,6 +289,63 @@ class IMEStateManager {
     // 조합 중이 아닐 때만 커서 위치 고정
     if (!this.isComposing) {
       this.fixCursorPosition(target, currentPosition);
+    }
+  }
+
+  // 입력 전 이벤트 처리
+  handleBeforeInput(event) {
+    // 한글 입력 전 최적화
+    if (this.isKoreanInput) {
+      // 입력 필드 준비
+      this.prepareInputForKorean(event.target);
+    }
+  }
+
+  // 키보드 이벤트 처리
+  handleKeyDown(event) {
+    // 한글 입력 중 특수 키 처리
+    if (this.isComposing && this.isKoreanInput) {
+      // 백스페이스, 엔터 등 특수 키 처리
+      this.handleSpecialKeys(event);
+    }
+  }
+
+  // 한글 입력을 위한 입력 필드 준비
+  prepareInputForKorean(target) {
+    if (!target) return;
+    
+    // 입력 필드 최적화
+    target.style.textRendering = 'optimizeLegibility';
+    target.style.webkitFontSmoothing = 'antialiased';
+    target.style.mozOsxFontSmoothing = 'grayscale';
+  }
+
+  // 특수 키 처리
+  handleSpecialKeys(event) {
+    const { key } = event;
+    
+    switch (key) {
+      case 'Backspace':
+        // 백스페이스 처리
+        break;
+      case 'Enter':
+        // 엔터 처리
+        break;
+      case 'Escape':
+        // 조합 취소
+        this.cancelComposition();
+        break;
+      default:
+        break;
+    }
+  }
+
+  // 조합 취소
+  cancelComposition() {
+    if (this.inputElement) {
+      this.inputElement.value = this.originalValue;
+      this.inputElement.setSelectionRange(this.compositionStartPosition, this.compositionStartPosition);
+      this.isComposing = false;
     }
   }
 
@@ -258,6 +395,8 @@ class IMEStateManager {
     element.removeEventListener('input', this.handleInput.bind(this));
     element.removeEventListener('focus', this.handleFocus.bind(this));
     element.removeEventListener('blur', this.handleBlur.bind(this));
+    element.removeEventListener('beforeinput', this.handleBeforeInput.bind(this));
+    element.removeEventListener('keydown', this.handleKeyDown.bind(this));
   }
 }
 
@@ -426,7 +565,8 @@ export const IMEUtils = {
   getIMEState: () => ({
     isComposing: imeStateManager.isComposing,
     isKoreanInput: imeStateManager.isKoreanInput,
-    lastCursorPosition: imeStateManager.lastCursorPosition
+    lastCursorPosition: imeStateManager.lastCursorPosition,
+    compositionText: imeStateManager.compositionText
   }),
   
   // 수동으로 커서 위치 고정
@@ -444,6 +584,11 @@ export const IMEUtils = {
   // 뷰포트 수동 복원
   restoreViewport: () => {
     imeStateManager.restoreViewport();
+  },
+  
+  // 조합 취소
+  cancelComposition: () => {
+    imeStateManager.cancelComposition();
   }
 };
 

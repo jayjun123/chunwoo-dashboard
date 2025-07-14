@@ -555,7 +555,7 @@ const Progress = () => {
       width: isMobile ? '100%' : 'calc(100% - 20px)', 
       maxWidth: isMobile ? '100%' : 'calc(100% - 20px)', 
       mx: isMobile ? 0 : '10px',
-      mt: isMobile ? '0px' : '50px'
+      mt: isMobile ? '100px' : '50px'
     }}>
       {/* 기성관리, 기성현황, 지출 탭 버튼들 */}
       <Box sx={{ 

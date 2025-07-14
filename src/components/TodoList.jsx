@@ -682,7 +682,7 @@ const TodoList = () => {
   return (
     <Box sx={{ 
       p: { xs: 1, sm: 2, md: 3 }, 
-      pt: { xs: 5, sm: 5, md: 5 }, // 모바일과 PC 모두 40px 아래로 이동
+      pt: { xs: -59, sm: 5, md: 5 }, // 모바일에서 64px 위로 이동
       minHeight: '100vh', 
       background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)', 
       position: 'relative' 
