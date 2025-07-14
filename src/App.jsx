@@ -48,7 +48,7 @@ import ForgotPassword from './components/ForgotPassword';
 import CustomSchedule from './pages/CustomSchedule';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
 import ScheduleManagement from './components/schedule/ScheduleManagement';
-import MobileLayout from './components/common/MobileLayout';
+
 import useMediaQuery from '@mui/material/useMediaQuery';
 
 const ProtectedRoute = ({ children }) => {
@@ -109,15 +109,9 @@ const App = () => {
                         path="/"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <CustomScheduleMobile />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <ScheduleManagement />
-                              </Layout>
-                            )}
+                            <Layout>
+                              {isMobile ? <CustomScheduleMobile /> : <ScheduleManagement />}
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -125,15 +119,9 @@ const App = () => {
                         path="/sites"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <NewSites />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <NewSites />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <NewSites />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -141,15 +129,9 @@ const App = () => {
                         path="/safety"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Safety />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <Safety />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <Safety />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -157,15 +139,9 @@ const App = () => {
                         path="/safety-inspections"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <SafetyInspections />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <SafetyInspections />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <SafetyInspections />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -173,15 +149,9 @@ const App = () => {
                         path="/safety-accidents"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <SafetyIncidents />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <SafetyIncidents />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <SafetyIncidents />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -189,15 +159,9 @@ const App = () => {
                         path="/safety-education"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <SafetyTraining />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <SafetyTraining />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <SafetyTraining />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -205,15 +169,9 @@ const App = () => {
                         path="/safety-costs"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <SafetyReports />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <SafetyReports />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <SafetyReports />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -221,15 +179,9 @@ const App = () => {
                         path="/schedule"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <CustomScheduleMobile />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <ScheduleManagement />
-                              </Layout>
-                            )}
+                            <Layout>
+                              {isMobile ? <CustomScheduleMobile /> : <ScheduleManagement />}
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -237,15 +189,9 @@ const App = () => {
                         path="/documents"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Documents />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <Documents />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <Documents />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -253,15 +199,9 @@ const App = () => {
                         path="/reports"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Reports />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <Reports />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <Reports />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -269,15 +209,9 @@ const App = () => {
                         path="/discussions"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Discussions />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <Discussions />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <Discussions />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -285,15 +219,9 @@ const App = () => {
                         path="/vendors"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Vendors />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <Vendors />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <Vendors />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -302,9 +230,9 @@ const App = () => {
                         element={
                           <ProtectedRoute>
                             {isMobile ? (
-                              <MobileLayout>
+                              <Layout>
                                 <Progress />
-                              </MobileLayout>
+                              </Layout>
                             ) : (
                               <Layout>
                                 <Progress />
@@ -318,9 +246,9 @@ const App = () => {
                         element={
                           <ProtectedRoute>
                             {isMobile ? (
-                              <MobileLayout>
+                              <Layout>
                                 <Members />
-                              </MobileLayout>
+                              </Layout>
                             ) : (
                               <Layout>
                                 <Members />
@@ -334,9 +262,9 @@ const App = () => {
                         element={
                           <ProtectedRoute>
                             {isMobile ? (
-                              <MobileLayout>
+                              <Layout>
                                 <Permissions />
-                              </MobileLayout>
+                              </Layout>
                             ) : (
                               <Layout>
                                 <Permissions />
@@ -349,15 +277,9 @@ const App = () => {
                         path="/todo-list"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <TodoList />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <TodoList />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <TodoList />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -365,15 +287,9 @@ const App = () => {
                         path="/todo/all"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <TodoList />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <TodoList />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <TodoList />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -381,13 +297,7 @@ const App = () => {
                         path="/settings" 
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Settings />
-                              </MobileLayout>
-                            ) : (
-                              <Settings />
-                            )}
+                            <Settings />
                           </ProtectedRoute>
                         } 
                       />
@@ -395,15 +305,9 @@ const App = () => {
                         path="/overview"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Overview />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <Overview />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <Overview />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -411,15 +315,9 @@ const App = () => {
                         path="/importantsite"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <ImportantSite />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <ImportantSite />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <ImportantSite />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -427,15 +325,9 @@ const App = () => {
                         path="/gisung"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <GisungManagement />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <GisungManagement />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <GisungManagement />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -443,15 +335,9 @@ const App = () => {
                         path="/whole-list"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <WholeList />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <WholeList />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <WholeList />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -459,15 +345,9 @@ const App = () => {
                         path="/cost"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Cost />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <Cost />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <Cost />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -475,15 +355,9 @@ const App = () => {
                         path="/users"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Users />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <Users />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <Users />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -491,15 +365,9 @@ const App = () => {
                         path="/profile"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Profile />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <Profile />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <Profile />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -507,15 +375,9 @@ const App = () => {
                         path="/news-favorites"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <NewsFavorites />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <NewsFavorites />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <NewsFavorites />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -523,15 +385,9 @@ const App = () => {
                         path="/pdf-test"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <PDFTest />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <PDFTest />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <PDFTest />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
