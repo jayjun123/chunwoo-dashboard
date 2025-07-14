@@ -1,7 +1,3 @@
-
-
-
-
 /* 다크모드 공통 변수 및 스타일 */
 :root[data-theme="dark"] {
   --bg-main: #181c24;
@@ -97,15 +93,36 @@ code {
   margin-top: 20px !important;
 }
 
+/* 모바일에서 전체 화면 32px 내려가도록 설정 */
+@media (max-width: 600px) {
+  body {
+    padding-top: calc(var(--status-bar-height) + 32px) !important;
+    margin-top: 32px !important;
+  }
+  
+  #root {
+    margin-top: 32px !important;
+    padding-top: 32px !important;
+  }
+  
+  /* 모바일에서 모든 컨텐츠가 32px 내려가도록 */
+  .app, .main-content {
+    margin-top: 32px !important;
+    padding-top: 32px !important;
+  }
+}
+
 /* 키보드 반응형 스타일 */
 @media screen and (max-height: 600px) {
   /* 키보드가 열렸을 때 */
   body {
     margin-top: 0 !important;
+    padding-top: 0 !important;
   }
   
   #root {
     margin-top: 0 !important;
+    padding-top: 0 !important;
     height: 100vh;
   }
   
@@ -124,11 +141,15 @@ code {
   body.keyboard-open {
     height: 100vh;
     overflow: hidden;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
   }
   
   body.keyboard-open #root {
     height: 100vh;
     overflow: hidden;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
   }
   
   /* 입력 필드 포커스 시 스크롤 조정 */
@@ -141,6 +162,53 @@ code {
   input:not(:focus), textarea:not(:focus), select:not(:focus) {
     transform: translateY(0);
     transition: transform 0.3s ease;
+  }
+  
+  /* 뉴사이트 페이지 모바일 스크롤 최적화 */
+  .MuiBox-root {
+    -webkit-overflow-scrolling: touch !important;
+    scroll-behavior: smooth !important;
+  }
+  
+  /* 입력 필드 포커스 시 자동 스크롤 */
+  .MuiTextField-root input:focus,
+  .MuiTextField-root textarea:focus,
+  .MuiFormControl-root select:focus {
+    scroll-margin-top: 100px;
+  }
+  
+  /* 모바일에서 스크롤 컨테이너 최적화 */
+  .MuiPaper-root {
+    -webkit-overflow-scrolling: touch !important;
+    overflow-y: auto !important;
+  }
+  
+  /* 뉴사이트 페이지 특별 스크롤 처리 */
+  .MuiBox-root[ref] {
+    -webkit-overflow-scrolling: touch !important;
+    scroll-behavior: smooth !important;
+    overflow-y: auto !important;
+  }
+  
+  /* 입력 필드 포커스 시 스크롤 마진 설정 */
+  .MuiTextField-root {
+    scroll-margin-top: 80px;
+    scroll-margin-bottom: 80px;
+  }
+  
+  /* 모바일에서 키보드 열림 시 컨테이너 높이 조정 */
+  body.keyboard-open .MuiBox-root {
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+  
+  /* 모바일에서 입력 필드 포커스 시 자동 스크롤 */
+  .MuiTextField-root input:focus,
+  .MuiTextField-root textarea:focus,
+  .MuiFormControl-root select:focus {
+    position: relative;
+    z-index: 1000;
   }
 }
 

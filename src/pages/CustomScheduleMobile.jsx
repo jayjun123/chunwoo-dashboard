@@ -28,17 +28,25 @@ function getMonthMatrix(year, month) {
   // 지난달 날짜들 (시작 요일에 맞춰서만)
   for (let i = 0; i < startDayOfWeek; i++) {
     const prevDay = prevLastDay.getDate() - (startDayOfWeek - i - 1);
+    const prevDate = new Date(year, month - 1, prevDay);
     week.push({
       day: prevDay,
-      isCurrentMonth: false
+      isCurrentMonth: false,
+      year: prevDate.getFullYear(),
+      month: prevDate.getMonth(),
+      date: prevDate
     });
   }
   
   // 이번달 날짜들
   for (let day = 1; day <= daysInMonth; day++) {
+    const currentDate = new Date(year, month, day);
     week.push({
       day,
-      isCurrentMonth: true
+      isCurrentMonth: true,
+      year: currentDate.getFullYear(),
+      month: currentDate.getMonth(),
+      date: currentDate
     });
     
     // 7칸이 찼으면 새로운 주 시작
@@ -51,9 +59,13 @@ function getMonthMatrix(year, month) {
   // 마지막 주에 남은 칸들을 다음달 날짜로 채우기
   if (week.length > 0) {
     for (let i = 1; week.length < 7; i++) {
+      const nextDate = new Date(year, month + 1, i);
       week.push({
         day: i,
-        isCurrentMonth: false
+        isCurrentMonth: false,
+        year: nextDate.getFullYear(),
+        month: nextDate.getMonth(),
+        date: nextDate
       });
     }
     matrix.push(week);
@@ -885,17 +897,9 @@ const CustomScheduleMobile = () => {
         width: '100vw',
         overflow: 'auto',
         position: 'relative',
-        top: '20px',
-        mt: 0,
-        pt: 0,
-        marginTop: 0,
-        paddingTop: 0,
         padding: 0,
         margin: 0,
-        '& > *:first-of-type': {
-          marginTop: 0,
-          paddingTop: 0,
-        }
+        pt: '170px'
       }}>
 
         
@@ -1000,14 +1004,14 @@ const CustomScheduleMobile = () => {
               maxWidth: '100%'
             }}>
               {monthMatrix.flat().map((cell, index) => {
-                const { day, isCurrentMonth } = cell;
+                const { day, isCurrentMonth, year: cellYear, month: cellMonth, date } = cell;
                 const rowIdx = Math.floor(index / 7);
                 const colIdx = index % 7;
-                const isToday = isCurrentMonth && day && year === today.getFullYear() && month === today.getMonth() && day === today.getDate();
+                const isToday = date && date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
                 const isSelected = isCurrentMonth && day === selectedDay;
                 const dayOfWeek = colIdx;
                 // 동적 높이 적용
-                const cellHeight = monthMatrix.length === 5 ? 55 : 45;
+                const cellHeight = monthMatrix.length === 5 ? 69 : 59;
                 return (
                   <Box
                     key={`${rowIdx}-${colIdx}`}
@@ -1057,7 +1061,7 @@ const CustomScheduleMobile = () => {
                               lineHeight: 1,
                             }}
                           >
-                            [{getSchedulesForDate(year, month, day).length || 0}]
+                            [{getSchedulesForDate(cellYear, cellMonth, day).length || 0}]
                           </Typography>
                           <Box
                             sx={{
@@ -1076,7 +1080,7 @@ const CustomScheduleMobile = () => {
                         </Box>
                         {/* 일정 바 - 더 컴팩트하게 */}
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1, mt: 0.2 }}>
-                          {getSchedulesForDate(year, month, day).slice(0, 8).map((item, i) => (
+                          {getSchedulesForDate(cellYear, cellMonth, day).slice(0, 8).map((item, i) => (
                             <Box
                               key={item.id}
                               sx={{
@@ -1198,25 +1202,9 @@ const CustomScheduleMobile = () => {
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, gap: 0.3 }}>
-                      <Checkbox
-                        size="small"
-                        checked={isChecked}
-                        onChange={(e) => handleCheckItem(dateStr, item.id, e.target.checked)}
-                        sx={{
-                          color: '#ffffff',
-                          p: 0,
-                          minWidth: 'auto',
-                          width: '12px',
-                          height: '12px',
-                          '& .MuiSvgIcon-root': { fontSize: 14 },
-                          '&.Mui-checked': {
-                            color: '#ffffff'
-                          }
-                        }}
-                      />
                       <Typography sx={{ 
                         flex: 1, 
-                        fontSize: '0.65rem', // 더 작게
+                        fontSize: '0.7rem',
                         textAlign: 'left',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -1232,7 +1220,7 @@ const CustomScheduleMobile = () => {
                             item.type === '지원' ? '[지원]' : 
                             item.type === '기타' ? '[기타]' : '';
                           const fullText = typePrefix + (item.text || item.title || '제목 없음');
-                          return fullText.length > 15 ? fullText.slice(0, 15) + '...' : fullText;
+                          return fullText;
                         })()}
                       </Typography>
                     </Box>
@@ -1748,7 +1736,7 @@ const CustomScheduleMobile = () => {
             position: 'absolute',
             left: 0,
             right: 0,
-            bottom: FOOTER_HEIGHT + 98,
+            bottom: FOOTER_HEIGHT + 100,
             display: 'flex',
             justifyContent: 'center',
             pointerEvents: 'none',

@@ -243,7 +243,10 @@ const SiteManagement = () => {
       m: 0,
       ml: isMobile ? '30px' : 0,
       boxSizing: 'border-box',
-      mt: isMobile ? 0 : '130px'
+      mt: isMobile ? '200px' : '130px',
+      height: isMobile ? 'calc(100vh - 200px)' : 'auto',
+      overflowY: isMobile ? 'auto' : 'visible',
+      WebkitOverflowScrolling: isMobile ? 'touch' : 'auto'
     }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
@@ -264,7 +267,12 @@ const SiteManagement = () => {
         </Alert>
       )}
 
-      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+      <TableContainer component={Paper} sx={{ 
+        overflowX: 'auto',
+        overflowY: isMobile ? 'auto' : 'visible',
+        maxHeight: isMobile ? 'calc(100vh - 300px)' : 'none',
+        WebkitOverflowScrolling: isMobile ? 'touch' : 'auto'
+      }}>
         <Table>
           <TableHead>
             <TableRow>

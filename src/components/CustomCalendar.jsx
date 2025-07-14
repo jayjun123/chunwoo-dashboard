@@ -224,10 +224,11 @@ const CustomCalendar = (props) => {
       ...item,
       text: item.text || '',
       siteName: item.siteName || '',
-      selectedTypes: item.selectedTypes || [item.type || '현장'],
+      type: item.type || '현장',
       color: item.color || colorChoices[0],
       desc: item.desc || ''
     };
+    console.log('수정 팝업 열기:', editItem);
     setEditPopup({ open: true, item: editItem, date });
   };
 
@@ -312,7 +313,7 @@ const CustomCalendar = (props) => {
 
   // 수정 팝업 저장 핸들러
   const handleEditSave = async () => {
-    if (!editPopup.item || (!editPopup.item.text.trim() && !editPopup.item.siteName.trim()) || !editPopup.item.desc?.trim()) return;
+    if (!editPopup.item || (!editPopup.item.text?.trim() && !editPopup.item.siteName?.trim())) return;
     
     try {
       const updatedItem = {
@@ -320,14 +321,17 @@ const CustomCalendar = (props) => {
         text: editPopup.item.text || editPopup.item.siteName,
         desc: editPopup.item.desc || '',
         siteName: editPopup.item.siteName || '',
-        selectedTypes: editPopup.item.selectedTypes || [],
+        type: editPopup.item.type || '현장',
         color: editPopup.item.color || colorChoices[0],
         updatedAt: new Date()
       };
       
+      console.log('수정할 데이터:', updatedItem);
+      
       await updateSchedule(editPopup.item.id, updatedItem);
       setEditPopup({ open: false, item: null, date: '' });
       if (onSave) onSave();
+      console.log('일정 수정 완료');
     } catch (error) {
       console.error('일정 수정 실패:', error);
       alert('일정 수정에 실패했습니다.');
@@ -974,27 +978,27 @@ const CustomCalendar = (props) => {
             <Typography variant="subtitle2" sx={{ mb: 1 }}>분류 선택</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
               <FormControlLabel
-                control={<Checkbox checked={(editPopup.item?.selectedTypes || []).includes('현장')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, selectedTypes: (p.item.selectedTypes || []).includes('현장') ? (p.item.selectedTypes || []).filter(t => t !== '현장') : [...(p.item.selectedTypes || []), '현장'] } }))} />}
+                control={<Checkbox checked={editPopup.item?.type === '현장'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '현장' } }))} />}
                 label="현장"
               />
               <FormControlLabel
-                control={<Checkbox checked={(editPopup.item?.selectedTypes || []).includes('회의')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, selectedTypes: (p.item.selectedTypes || []).includes('회의') ? (p.item.selectedTypes || []).filter(t => t !== '회의') : [...(p.item.selectedTypes || []), '회의'] } }))} />}
+                control={<Checkbox checked={editPopup.item?.type === '회의'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '회의' } }))} />}
                 label="회의"
               />
               <FormControlLabel
-                control={<Checkbox checked={(editPopup.item?.selectedTypes || []).includes('입찰')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, selectedTypes: (p.item.selectedTypes || []).includes('입찰') ? (p.item.selectedTypes || []).filter(t => t !== '입찰') : [...(p.item.selectedTypes || []), '입찰'] } }))} />}
+                control={<Checkbox checked={editPopup.item?.type === '입찰'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '입찰' } }))} />}
                 label="입찰"
               />
               <FormControlLabel
-                control={<Checkbox checked={(editPopup.item?.selectedTypes || []).includes('현설')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, selectedTypes: (p.item.selectedTypes || []).includes('현설') ? (p.item.selectedTypes || []).filter(t => t !== '현설') : [...(p.item.selectedTypes || []), '현설'] } }))} />}
+                control={<Checkbox checked={editPopup.item?.type === '현설'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '현설' } }))} />}
                 label="현설"
               />
               <FormControlLabel
-                control={<Checkbox checked={(editPopup.item?.selectedTypes || []).includes('지원')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, selectedTypes: (p.item.selectedTypes || []).includes('지원') ? (p.item.selectedTypes || []).filter(t => t !== '지원') : [...(p.item.selectedTypes || []), '지원'] } }))} />}
+                control={<Checkbox checked={editPopup.item?.type === '지원'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '지원' } }))} />}
                 label="지원"
               />
               <FormControlLabel
-                control={<Checkbox checked={(editPopup.item?.selectedTypes || []).includes('기타')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, selectedTypes: (p.item.selectedTypes || []).includes('기타') ? (p.item.selectedTypes || []).filter(t => t !== '기타') : [...(p.item.selectedTypes || []), '기타'] } }))} />}
+                control={<Checkbox checked={editPopup.item?.type === '기타'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '기타' } }))} />}
                 label="기타"
               />
             </Box>
@@ -1026,7 +1030,13 @@ const CustomCalendar = (props) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditPopup({ open: false, item: null, date: '' })}>취소</Button>
-          <Button variant="contained" onClick={handleEditSave} disabled={!(editPopup.item?.text?.trim() || editPopup.item?.siteName?.trim())}>저장</Button>
+          <Button 
+            variant="contained" 
+            onClick={handleEditSave} 
+            disabled={!editPopup.item || (!editPopup.item.text?.trim() && !editPopup.item.siteName?.trim())}
+          >
+            저장
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

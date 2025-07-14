@@ -338,6 +338,7 @@
 @media (max-width: 768px) {
   .user-management-container {
     padding: 16px;
+    margin-top: -64px;
   }
 
   .user-management-filters {

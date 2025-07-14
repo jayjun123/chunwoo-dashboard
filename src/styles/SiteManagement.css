@@ -387,16 +387,38 @@
   }
 }
 
-/* 현장 관리 스크롤바 숨김 */
+/* 현장 관리 스크롤바 숨김 - 스크롤 기능은 유지 */
 .site-container,
 .site-list,
 .site-table {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  scrollbar-width: thin;
+  -ms-overflow-style: none;
 }
 
 .site-container::-webkit-scrollbar,
 .site-list::-webkit-scrollbar,
 .site-table::-webkit-scrollbar {
-  display: none !important;
+  width: 4px;
+}
+
+.site-container::-webkit-scrollbar-track,
+.site-list::-webkit-scrollbar-track,
+.site-table::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.site-container::-webkit-scrollbar-thumb,
+.site-list::-webkit-scrollbar-thumb,
+.site-table::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+/* 모바일에서 스크롤 최적화 */
+@media (max-width: 768px) {
+  .site-management {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    height: calc(100vh - 200px);
+  }
 } 

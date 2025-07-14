@@ -46,6 +46,89 @@ const NewSites = () => {
   const { currentUser } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const containerRef = useRef(null);
+
+  // 모바일에서 키보드가 올라올 때 뷰포트 조정
+  useEffect(() => {
+    if (isMobile) {
+      const handleFocusIn = (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+          // 키보드가 올라올 때 뷰포트 높이 조정
+          const viewport = document.querySelector('meta[name=viewport]');
+          if (viewport) {
+            viewport.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
+          }
+          
+          // body에 키보드 열림 클래스 추가
+          document.body.classList.add('keyboard-open');
+          
+          // 입력 필드가 화면 밖으로 나가지 않도록 스크롤
+          setTimeout(() => {
+            e.target.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center',
+              inline: 'nearest'
+            });
+            
+            // 추가 스크롤 조정
+            const container = containerRef.current;
+            if (container) {
+              const rect = e.target.getBoundingClientRect();
+              const containerRect = container.getBoundingClientRect();
+              if (rect && containerRect) {
+                const offset = rect.top - containerRect.top - 120;
+                if (offset > 0) {
+                  container.scrollTop += offset;
+                }
+              }
+            }
+          }, 100);
+        }
+      };
+
+      const handleFocusOut = () => {
+        // 포커스가 벗어날 때 뷰포트 복원
+        const viewport = document.querySelector('meta[name=viewport]');
+        if (viewport) {
+          viewport.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+        }
+        
+        // body에서 키보드 열림 클래스 제거
+        document.body.classList.remove('keyboard-open');
+      };
+
+      // 키보드 표시/숨김 이벤트 처리
+      const handleVisualViewportChange = () => {
+        const visualViewport = window.visualViewport;
+        if (visualViewport) {
+          const heightDiff = window.innerHeight - visualViewport.height;
+          if (heightDiff > 150) {
+            // 키보드가 열렸을 때
+            document.body.classList.add('keyboard-open');
+          } else {
+            // 키보드가 닫혔을 때
+            document.body.classList.remove('keyboard-open');
+          }
+        }
+      };
+
+      document.addEventListener('focusin', handleFocusIn);
+      document.addEventListener('focusout', handleFocusOut);
+      
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', handleVisualViewportChange);
+      }
+
+      return () => {
+        document.removeEventListener('focusin', handleFocusIn);
+        document.removeEventListener('focusout', handleFocusOut);
+        if (window.visualViewport) {
+          window.visualViewport.removeEventListener('resize', handleVisualViewportChange);
+        }
+        document.body.classList.remove('keyboard-open');
+      };
+    }
+  }, [isMobile]);
 
   const formatDateForInput = (dateString) => {
     if (!dateString) return '';
@@ -193,30 +276,60 @@ const NewSites = () => {
   const isReadOnly = !isEditing;
 
   const scrollFocus = (ref) => () => {
-    setTimeout(() => {
-      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 300);
+    if (isMobile) {
+      setTimeout(() => {
+        ref?.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center',
+          inline: 'nearest'
+        });
+        
+        // 모바일에서 추가 스크롤 조정
+        const container = containerRef.current;
+        if (container) {
+          const rect = ref.current?.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+          if (rect && containerRect) {
+            const offset = rect.top - containerRect.top - 100;
+            container.scrollTop += offset;
+          }
+        }
+      }, 100);
+    } else {
+      setTimeout(() => {
+        ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
   };
 
   const inputRef1 = useRef();
   const inputRef2 = useRef();
+  const addressRef = useRef();
+  const startDateRef = useRef();
+  const endDateRef = useRef();
+  const companyNameRef = useRef();
+  const managerRef = useRef();
+  const phoneRef = useRef();
+  const teamRef = useRef();
+  const descRef = useRef();
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      flexDirection: { xs: 'column', md: 'row' }, 
-      height: { xs: 'auto', md: 'calc(100vh - 64px - 52px)' }, 
-      bgcolor: '#1a1d21', 
-      p: 0, 
-      gap: 2, 
-      overflow: { xs: 'auto', md: 'hidden' },
-      position: isMobile ? 'relative' : 'static',
-      top: isMobile ? '20px' : 'auto',
-      left: isMobile ? '5px' : 'auto',
-      width: isMobile ? '100vw' : '100%',
-      minHeight: isMobile ? '100vh' : 'auto',
-      mt: isMobile ? '0px' : '50px'
-    }}>
+    <Box 
+      ref={containerRef}
+      sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', md: 'row' }, 
+        height: { xs: 'auto', md: 'calc(100vh - 64px - 52px)' }, 
+        bgcolor: '#1a1d21', 
+        p: 0, 
+        gap: 2, 
+        overflow: { xs: 'auto', md: 'hidden' },
+        width: isMobile ? '100vw' : '100%',
+        minHeight: isMobile ? '100vh' : 'auto',
+        WebkitOverflowScrolling: isMobile ? 'touch' : 'auto',
+        scrollBehavior: isMobile ? 'smooth' : 'auto'
+      }}
+    >
       {/* Left Panel */}
       <Paper elevation={3} sx={{ 
         width: { xs: '100%', md: '20%' }, 
@@ -326,7 +439,9 @@ const NewSites = () => {
            display: 'flex', 
            flexDirection: 'column', 
            gap: isMobile ? 0.5 : 1,
-           maxHeight: isMobile ? 'none' : 'calc(100vh - 200px)'
+           maxHeight: isMobile ? 'none' : 'calc(100vh - 200px)',
+           WebkitOverflowScrolling: isMobile ? 'touch' : 'auto',
+           scrollBehavior: isMobile ? 'smooth' : 'auto'
          }}>
            <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
              <Box sx={{ flex: isMobile ? 'none' : 8 }}>
@@ -411,7 +526,16 @@ const NewSites = () => {
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  주소
                </Typography>
-               <TextField name="address" value={form.address ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
+               <TextField 
+                 name="address" 
+                 value={form.address ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 disabled={isReadOnly} 
+                 inputRef={addressRef}
+                 onFocus={scrollFocus(addressRef)}
+               />
              </Box>
            </Box>
            
@@ -420,13 +544,35 @@ const NewSites = () => {
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  착공일
                </Typography>
-               <TextField name="startDate" type="date" value={formatDateForInput(form.startDate) ?? ''} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} disabled={isReadOnly} />
+               <TextField 
+                 name="startDate" 
+                 type="date" 
+                 value={formatDateForInput(form.startDate) ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 InputLabelProps={{ shrink: true }} 
+                 disabled={isReadOnly} 
+                 inputRef={startDateRef}
+                 onFocus={scrollFocus(startDateRef)}
+               />
              </Box>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  준공예정일
                </Typography>
-               <TextField name="endDate" type="date" value={formatDateForInput(form.endDate) ?? ''} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} disabled={isReadOnly} />
+               <TextField 
+                 name="endDate" 
+                 type="date" 
+                 value={formatDateForInput(form.endDate) ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 InputLabelProps={{ shrink: true }} 
+                 disabled={isReadOnly} 
+                 inputRef={endDateRef}
+                 onFocus={scrollFocus(endDateRef)}
+               />
              </Box>
            </Box>
            
@@ -435,19 +581,46 @@ const NewSites = () => {
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  회사명
                </Typography>
-               <TextField name="companyName" value={form.companyName ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
+               <TextField 
+                 name="companyName" 
+                 value={form.companyName ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 disabled={isReadOnly} 
+                 inputRef={companyNameRef}
+                 onFocus={scrollFocus(companyNameRef)}
+               />
              </Box>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  소장
                </Typography>
-               <TextField name="manager" value={form.manager ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
+               <TextField 
+                 name="manager" 
+                 value={form.manager ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 disabled={isReadOnly} 
+                 inputRef={managerRef}
+                 onFocus={scrollFocus(managerRef)}
+               />
              </Box>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  연락처
                </Typography>
-               <TextField name="phone" value={form.phone ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
+               <TextField 
+                 name="phone" 
+                 value={form.phone ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 disabled={isReadOnly} 
+                 inputRef={phoneRef}
+                 onFocus={scrollFocus(phoneRef)}
+               />
              </Box>
            </Box>
            
@@ -456,13 +629,31 @@ const NewSites = () => {
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  시공팀
                </Typography>
-               <TextField name="team" value={form.team ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
+               <TextField 
+                 name="team" 
+                 value={form.team ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 disabled={isReadOnly} 
+                 inputRef={teamRef}
+                 onFocus={scrollFocus(teamRef)}
+               />
              </Box>
              <Box sx={{ flex: isMobile ? 'none' : 8 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  기타사항
                </Typography>
-               <TextField name="desc" value={form.desc ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
+               <TextField 
+                 name="desc" 
+                 value={form.desc ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 disabled={isReadOnly} 
+                 inputRef={descRef}
+                 onFocus={scrollFocus(descRef)}
+               />
              </Box>
            </Box>
          </Box>

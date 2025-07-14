@@ -8,7 +8,7 @@ const GisungManagement = () => {
 
   return (
     <MobileLayout>
-      <Box sx={{ bgcolor: '#1a1d21', minHeight: '100vh', mt: isMobile ? '0px' : '50px' }}>
+      <Box sx={{ bgcolor: '#1a1d21', minHeight: '100vh' }}>
         <GisungStatusPage />
       </Box>
     </MobileLayout>

@@ -120,7 +120,7 @@ const SiteList = () => {
   };
 
   return (
-    <Box sx={{ p: 3, ml: isMobile ? '4px' : 0, mt: isMobile ? '0px' : 0 }}>
+    <Box sx={{ p: 3, ml: isMobile ? '4px' : 0, mt: isMobile ? '200px' : 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">현장 목록</Typography>
         <Button
