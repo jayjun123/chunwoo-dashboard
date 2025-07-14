@@ -27,6 +27,8 @@ const CustomCalendar = (props) => {
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
   const isLargeDesktop = useMediaQuery(theme.breakpoints.up('xl'));
 
+
+
   const {
     year, 
     month, 
@@ -78,25 +80,36 @@ const CustomCalendar = (props) => {
   // 달력 데이터 생성
   const monthMatrix = [];
   let currentWeek = [];
-  
+
   // 이전 달의 날짜들
   const firstDayOfWeek = firstDay.getDay();
-  for (let i = 0; i < firstDayOfWeek; i++) {
-    currentWeek.push(null);
+  const prevMonthLastDate = new Date(year, month, 0).getDate();
+  for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+    currentWeek.push({
+      date: new Date(year, month - 1, prevMonthLastDate - i),
+      isCurrentMonth: false
+    });
   }
-  
+
   // 현재 달의 날짜들
   for (let day = 1; day <= lastDay.getDate(); day++) {
-    currentWeek.push(new Date(year, month, day));
+    currentWeek.push({
+      date: new Date(year, month, day),
+      isCurrentMonth: true
+    });
     if (currentWeek.length === 7) {
       monthMatrix.push(currentWeek);
       currentWeek = [];
     }
   }
-  
+
   // 다음 달의 날짜들
+  let nextDay = 1;
   while (currentWeek.length < 7) {
-    currentWeek.push(null);
+    currentWeek.push({
+      date: new Date(year, month + 1, nextDay++),
+      isCurrentMonth: false
+    });
   }
   if (currentWeek.length > 0) {
     monthMatrix.push(currentWeek);
@@ -120,7 +133,10 @@ const CustomCalendar = (props) => {
     for (let i = 0; i < n; i++) {
       const d = new Date(baseDate);
       d.setDate(baseDate.getDate() + i);
-      arr.push(d);
+      arr.push({
+        date: d,
+        isCurrentMonth: true // 3일/7일 보기에서는 항상 현재 월로 간주
+      });
     }
     return arr;
   };
@@ -400,7 +416,18 @@ const CustomCalendar = (props) => {
             </Box>
           )}
           <IconButton 
-            onClick={viewMode === 'month' ? onPrevMonth : handlePrevDays} 
+            onClick={() => {
+              console.log('이전 달 버튼 클릭됨');
+              console.log('viewMode:', viewMode);
+              console.log('onPrevMonth 함수:', onPrevMonth);
+              if (viewMode === 'month') {
+                console.log('월간 보기에서 이전 달 호출');
+                onPrevMonth && onPrevMonth();
+              } else {
+                console.log('3일/주간 보기에서 이전 날짜 호출');
+                handlePrevDays();
+              }
+            }} 
             sx={{ color: '#fff', p: 1, minWidth: 40, minHeight: 40 }}
           >
             <ChevronLeftIcon sx={{ fontSize: 28 }} />
@@ -465,7 +492,18 @@ const CustomCalendar = (props) => {
             }
           </Typography>
           <IconButton 
-            onClick={viewMode === 'month' ? onNextMonth : handleNextDays} 
+            onClick={() => {
+              console.log('다음 달 버튼 클릭됨');
+              console.log('viewMode:', viewMode);
+              console.log('onNextMonth 함수:', onNextMonth);
+              if (viewMode === 'month') {
+                console.log('월간 보기에서 다음 달 호출');
+                onNextMonth && onNextMonth();
+              } else {
+                console.log('3일/주간 보기에서 다음 날짜 호출');
+                handleNextDays();
+              }
+            }} 
             sx={{ color: '#fff', p: 1, minWidth: 40, minHeight: 40 }}
           >
             <ChevronRightIcon sx={{ fontSize: 28 }} />
@@ -582,12 +620,12 @@ const CustomCalendar = (props) => {
         }
       }}>
         {renderDates.map((week, weekIndex) => (
-          week.map((date, dayIndex) => {
-            const dateStr = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : null;
+          week.map((cell, dayIndex) => {
+            const dateStr = cell.date ? `${cell.date.getFullYear()}-${String(cell.date.getMonth() + 1).padStart(2, '0')}-${String(cell.date.getDate()).padStart(2, '0')}` : null;
             const items = dateStr ? calendarItems[dateStr] || [] : [];
             const isSunday = dayIndex === 0;
             const isSaturday = dayIndex === 6;
-            const isTodayCell = isToday(date);
+            const isTodayCell = isToday(cell.date);
             
             return (
               <Droppable
@@ -655,7 +693,7 @@ const CustomCalendar = (props) => {
                     display: 'flex',
                     flexDirection: 'column',
                     gap: { xs: 0.2, md: 0.3 },
-                    cursor: date ? 'pointer' : 'default',
+                    cursor: dateStr ? 'pointer' : 'default',
                     position: 'relative',
                     border: snapshot.isDraggingOver 
                       ? '2px solid #3b82f6' 
@@ -677,11 +715,11 @@ const CustomCalendar = (props) => {
                       display: 'none',
                     },
                     '&:hover': {
-                      bgcolor: date ? '#1e293b' : '#232837'
+                      bgcolor: dateStr ? '#1e293b' : '#232837'
                     }
                   }}
                 >
-                    {date ? (
+                    {dateStr ? (
                       <>
                         {/* 날짜 셀 헤더 */}
                         <Box sx={{
@@ -698,7 +736,16 @@ const CustomCalendar = (props) => {
                             <>
                               {/* 날짜(숫자) - 왼쪽 정렬 */}
                               <Typography
-                                sx={{ fontSize: '0.8rem', color: isTodayCell ? '#fff' : isSunday ? '#ef4444' : isSaturday ? '#3b82f6' : '#fff', fontWeight: 600, margin: 0, padding: 0 }}
+                                sx={{
+                                  fontSize: '0.8rem',
+                                  color: cell.isCurrentMonth 
+                                    ? (isTodayCell ? '#fff' : isSunday ? '#ef4444' : isSaturday ? '#3b82f6' : '#fff')
+                                    : '#bbb',
+                                  fontWeight: isTodayCell ? 'bold' : 600,
+                                  margin: 0,
+                                  padding: 0,
+                                  opacity: cell.isCurrentMonth ? 1 : 0.6
+                                }}
                                 onClick={e => {
                                   e.stopPropagation();
                                   if (onDateNumberClick) {
@@ -707,7 +754,7 @@ const CustomCalendar = (props) => {
                                 }}
                                 style={{ cursor: 'pointer' }}
                               >
-                                {date ? date.getDate() : ''}
+                                {cell.date ? cell.date.getDate() : ''}
                               </Typography>
                               {/* 추가 버튼 - 오른쪽 끝 */}
                               <IconButton
@@ -749,7 +796,16 @@ const CustomCalendar = (props) => {
                               </Typography>
                               {/* 날짜(숫자) */}
                               <Typography
-                                sx={{ fontSize: '0.9rem', color: isTodayCell ? '#fff' : isSunday ? '#ef4444' : isSaturday ? '#3b82f6' : '#fff', fontWeight: 600, margin: 0, padding: 0 }}
+                                sx={{
+                                  fontSize: '0.8rem',
+                                  color: cell.isCurrentMonth 
+                                    ? (isTodayCell ? '#fff' : isSunday ? '#ef4444' : isSaturday ? '#3b82f6' : '#fff')
+                                    : '#bbb',
+                                  fontWeight: isTodayCell ? 'bold' : 600,
+                                  margin: 0,
+                                  padding: 0,
+                                  opacity: cell.isCurrentMonth ? 1 : 0.6
+                                }}
                                 onClick={e => {
                                   e.stopPropagation();
                                   if (onDateNumberClick) {
@@ -758,7 +814,7 @@ const CustomCalendar = (props) => {
                                 }}
                                 style={{ cursor: 'pointer' }}
                               >
-                                {date ? date.getDate() : ''}
+                                {cell.date ? cell.date.getDate() : ''}
                               </Typography>
                             </>
                           )}
@@ -849,7 +905,9 @@ const CustomCalendar = (props) => {
                                       color: '#fff',
                                       borderRadius: 1,
                                       fontWeight: 500,
-                                      fontSize: { xs: '0.6rem', md: '0.75rem' },
+                                      fontSize: viewMode === '3days' 
+                                        ? { xs: '1.3rem', md: '1.3rem' }  // 3일 보기에서는 더 큰 글씨
+                                        : { xs: '0.6rem', md: '0.75rem' }, // 기타 보기에서는 기존 크기
                                       boxShadow: snapshot.isDragging ? 3 : 0,
                                       cursor: 'grab',
                                       border: isSelected
@@ -860,12 +918,17 @@ const CustomCalendar = (props) => {
                                       justifyContent: 'space-between',
                                       alignItems: 'center',
                                       textAlign: 'left',
-                                      minHeight: { xs: 'auto', md: '24px' },
-                                      maxHeight: { xs: 'auto', md: '24px' },
+                                      minHeight: viewMode === '3days' 
+                                        ? { xs: 'auto', md: '28px' }  // 3일 보기에서는 더 높은 높이
+                                        : { xs: 'auto', md: '24px' }, // 기타 보기에서는 기존 높이
+                                      maxHeight: viewMode === '3days' 
+                                        ? { xs: 'auto', md: '28px' }  // 3일 보기에서는 더 높은 높이
+                                        : { xs: 'auto', md: '24px' }, // 기타 보기에서는 기존 높이
                                       lineHeight: { xs: 'auto', md: '1.2' },
                                       whiteSpace: 'nowrap',
                                       overflow: 'hidden',
                                       textOverflow: 'ellipsis',
+                                      opacity: cell.isCurrentMonth ? 1 : 0.6,
                                       '&:hover': {
                                         bgcolor: isSelected ? '#2563eb' : '#1e293b'
                                       }
