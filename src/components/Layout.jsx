@@ -50,6 +50,7 @@ import {
   Assignment as AssignmentIcon,
   Payments as PaymentsIcon,
   Newspaper as NewspaperIcon,
+  Timeline as TimelineIcon,
 } from '@mui/icons-material';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -60,6 +61,7 @@ import BottomBar from './dashboard/BottomBar';
 const menuItems = [
   { text: '건설뉴스', icon: <NewspaperIcon />, path: '/news' },
   { text: '일정관리', icon: <EventIcon />, path: '/schedule' },
+  { text: '현장일정', icon: <TimelineIcon />, path: '/gantt' },
   { text: '주요현장', icon: <ProgressIcon />, path: '/importantSite' },
   { text: '현장관리', icon: <BusinessIcon />, path: '/sites' },
   { text: '안전관리', icon: <SecurityIcon />, path: '/safety' },

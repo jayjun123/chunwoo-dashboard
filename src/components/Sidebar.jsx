@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { FaHome, FaBuilding, FaList, FaComments, FaBell, FaUsers, FaCalendarAlt, FaHardHat, FaBox, FaFileAlt } from 'react-icons/fa';
+import { FaHome, FaBuilding, FaList, FaComments, FaBell, FaUsers, FaCalendarAlt, FaHardHat, FaBox, FaFileAlt, FaChartBar } from 'react-icons/fa';
 import './Sidebar.css';
 
 const Sidebar = () => {
@@ -22,7 +22,7 @@ const Sidebar = () => {
     { path: '/sites', icon: <FaBuilding />, label: '현장 관리' },
     { path: '/whole-list', icon: <FaList />, label: '전체 현장 목록' },
     { path: '/discussions', icon: <FaComments />, label: '토론' },
-
+    { path: '/gantt', icon: <FaChartBar />, label: '공정표' },
     { path: '/notifications', icon: <FaBell />, label: '알림' },
     { path: '/user-management', icon: <FaUsers />, label: '사용자 관리' },
     { path: '/schedule', icon: <FaCalendarAlt />, label: '일정 관리' },

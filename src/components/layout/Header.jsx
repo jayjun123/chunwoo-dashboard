@@ -33,6 +33,7 @@ import {
   Logout as LogoutIcon,
   MonetizationOn as MonetizationOnIcon,
   Star as StarIcon,
+  Timeline as TimelineIcon,
 } from '@mui/icons-material';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../../firebase';
@@ -41,6 +42,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const menuItems = [
   { text: '일정관리', icon: <CalendarIcon />, path: '/schedule' },
+  { text: '현장일정', icon: <TimelineIcon />, path: '/gantt' },
   { text: '주요현장', icon: <StarIcon />, path: '/overview' },
   { text: '현장관리', icon: <ConstructionIcon />, path: '/sites' },
   { text: '안전관리', icon: <SafetyIcon />, path: '/safety' },

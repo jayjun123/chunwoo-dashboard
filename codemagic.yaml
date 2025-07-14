@@ -1,0 +1,44 @@
+workflows:
+  ios-workflow:
+    name: iOS Workflow
+    environment:
+      vars:
+        XCODE_PROJECT: "ios/App.xcodeproj"
+        XCODE_SCHEME: "App"
+        XCODE_WORKSPACE: "ios/App.xcworkspace"
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Set up code signing settings
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "com.example.app" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Install Node.js
+        script: |
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm install 18
+          nvm use 18
+      - name: Install dependencies
+        script: |
+          npm ci
+      - name: Build web assets
+        script: |
+          npm run build
+      - name: Install Capacitor CLI
+        script: |
+          npm install -g @capacitor/cli
+      - name: Sync Capacitor
+        script: |
+          npx cap sync ios
+      - name: Build iOS
+        script: |
+          cd ios
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath App.xcarchive archive
+          xcodebuild -exportArchive -archivePath App.xcarchive -exportOptionsPlist exportOptions.plist -exportPath ./build
+    artifacts:
+      - ios/build/*.ipa
+      - /tmp/xcodebuild_logs/*.log 

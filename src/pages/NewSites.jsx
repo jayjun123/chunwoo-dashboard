@@ -327,7 +327,8 @@ const NewSites = () => {
         width: isMobile ? '100vw' : '100%',
         minHeight: isMobile ? '100vh' : 'auto',
         WebkitOverflowScrolling: isMobile ? 'touch' : 'auto',
-        scrollBehavior: isMobile ? 'smooth' : 'auto'
+        scrollBehavior: isMobile ? 'smooth' : 'auto',
+        mt: isMobile ? 0 : 7
       }}
     >
       {/* Left Panel */}
