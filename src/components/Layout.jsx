@@ -23,7 +23,7 @@ import {
   Badge,
   Drawer,
 } from '@mui/material';
-import SwipeableContainer from './common/SwipeableContainer';
+import SwipeableContainer from './common/SwipeableContainer.jsx';
 
 import {
   Menu as MenuIcon,
