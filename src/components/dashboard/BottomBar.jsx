@@ -22,6 +22,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import InfoIcon from '@mui/icons-material/Info';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import StarIcon from '@mui/icons-material/Star';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import SafetyHelmetIcon from '@mui/icons-material/SafetyCheck';
 import AddIcon from '@mui/icons-material/Add';
@@ -1228,6 +1229,9 @@ const BottomBar = ({
             backgroundImage: 'repeating-linear-gradient(to bottom, #fff, #fff 32px, #eee 32px, #eee 34px)',
             border: '1.5px solid #222',
             overflowY: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            '&::-webkit-scrollbar': { display: 'none' },
             display: 'flex',
             flexDirection: 'column',
             transition: 'all 0.3s ease',
@@ -1351,6 +1355,9 @@ const BottomBar = ({
           <Box sx={{ 
             flex: 1, 
             overflowY: 'auto', 
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            '&::-webkit-scrollbar': { display: 'none' },
             pr: 1,
             maxHeight: '300px', // 높이를 300px로 증가
             minHeight: '150px', // 최소 높이도 증가
@@ -1473,6 +1480,9 @@ const BottomBar = ({
           <Box sx={{ 
             maxHeight: 300, 
             overflowY: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            '&::-webkit-scrollbar': { display: 'none' },
             border: '1px solid #e0e0e0',
             borderRadius: 1,
             p: 1

@@ -10,6 +10,7 @@ import {
   Home as HomeIcon,
   Business as SitesIcon,
   Schedule as ScheduleIcon,
+  Timeline as TimelineIcon,
   Warning as SafetyIcon,
   Chat as ChatIcon,
   AttachMoney as ProgressIcon
@@ -26,6 +27,7 @@ const MobileBottomNav = () => {
     { path: '/', label: '홈', icon: HomeIcon },
     { path: '/sites', label: '현장', icon: SitesIcon },
     { path: '/schedule', label: '일정', icon: ScheduleIcon },
+    { path: '/gantt', label: '현장일정', icon: TimelineIcon },
     { path: '/safety', label: '안전', icon: SafetyIcon },
     { path: '/discussions', label: '토론', icon: ChatIcon },
     { path: '/progress', label: '기성', icon: ProgressIcon }
@@ -74,6 +76,10 @@ const MobileBottomNav = () => {
           showLabels
           sx={{
             height: 70,
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            '&::-webkit-scrollbar': { display: 'none' },
             '& .MuiBottomNavigationAction-root': {
               minWidth: 'auto',
               padding: '6px 8px',

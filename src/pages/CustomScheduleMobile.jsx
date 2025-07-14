@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, IconButton, Grid, Paper, Divider, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Checkbox, FormControlLabel, Tooltip } from '@mui/material';
-import { ChevronLeft, ChevronRight, ArrowBack, Add, Today, Edit, Delete, ViewWeek, ViewModule, CalendarViewMonth, Home, Business, Security, Assignment, Chat, Description, Assessment, Settings, Person, Star } from '@mui/icons-material';
+import { ChevronLeft, ChevronRight, ArrowBack, Add, Today, Edit, Delete, ViewWeek, ViewModule, CalendarViewMonth, Home, Business, Security, Assignment, Chat, Description, Assessment, Settings, Person, Star, Schedule, Timeline } from '@mui/icons-material';
 import { collection, onSnapshot, doc, deleteDoc, updateDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useNavigate } from 'react-router-dom';
@@ -108,6 +108,8 @@ const CustomScheduleMobile = () => {
     { icon: <Home />, path: '/', label: '홈' },
     { icon: <Star />, path: '/importantsite', label: '주요현장' },
     { icon: <Business />, path: '/sites', label: '현장' },
+    { icon: <Schedule />, path: '/schedule', label: '일정' },
+    { icon: <Timeline />, path: '/gantt', label: '현장일정' },
     { icon: <Assignment />, path: '/progress', label: '기성' },
     { icon: <Security />, path: '/safety', label: '안전' },
     { icon: <Chat />, path: '/discussions', label: '협의' },

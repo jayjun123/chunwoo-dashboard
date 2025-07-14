@@ -14,6 +14,7 @@ const SwipeableContainer = ({ children }) => {
     '/importantsite',       // 주요현장
     '/sites',              // 현장
     '/schedule',           // 일정
+    '/gantt',              // 현장일정
     '/safety',             // 안전
     '/discussions',        // 토론
     '/progress',           // 기성

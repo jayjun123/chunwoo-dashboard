@@ -38,17 +38,21 @@ import {
   TrendingUp as TrendingUpIcon,
   ZoomIn as ZoomInIcon,
   ZoomOut as ZoomOutIcon,
-  Today as TodayIcon
+  Today as TodayIcon,
+  Fullscreen as FullscreenIcon,
+  FullscreenExit as FullscreenExitIcon
 } from '@mui/icons-material';
 import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useLoading } from './common/LoadingProvider';
 import { exportToPDF } from '../utils/exportUtils';
+import { useMediaQuery } from '@mui/material';
 import '../styles/GanttChart.css';
 
 const GanttChart = () => {
   const theme = useTheme();
   const { setLoading, setLoadingMessage } = useLoading();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [error, setError] = useState('');
   const [sites, setSites] = useState([]);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -58,8 +62,27 @@ const GanttChart = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSite, setEditingSite] = useState(null);
   const [useYearMode, setUseYearMode] = useState(true); // 연도 모드 사용 여부
+  const [isFullscreen, setIsFullscreen] = useState(false); // 전체화면 모드
+  const [viewMode, setViewMode] = useState('halfyear'); // halfyear, quarter, mobile
   const chartContainerRef = useRef(null);
-  // 오늘 날짜가 속한 분기 계산
+  
+  // 반기 계산 (6개월)
+  const getCurrentHalfYear = () => {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    
+    // 반기별 시작월 계산 (0, 6)
+    const halfYearStartMonth = Math.floor(currentMonth / 6) * 6;
+    const halfYearEndMonth = halfYearStartMonth + 5;
+    
+    return {
+      startDate: new Date(currentYear, halfYearStartMonth, 1).toISOString().slice(0, 10),
+      endDate: new Date(currentYear, halfYearEndMonth + 1, 0).toISOString().slice(0, 10)
+    };
+  };
+  
+  // 분기 계산 (3개월)
   const getCurrentQuarter = () => {
     const today = new Date();
     const currentMonth = today.getMonth();
@@ -71,11 +94,25 @@ const GanttChart = () => {
     
     return {
       startDate: new Date(currentYear, quarterStartMonth, 1).toISOString().slice(0, 10),
-      endDate: new Date(currentYear, quarterEndMonth + 1, 0).toISOString().slice(0, 10) // 해당 월의 마지막 날
+      endDate: new Date(currentYear, quarterEndMonth + 1, 0).toISOString().slice(0, 10)
+    };
+  };
+  
+  // 모바일용 2주 계산
+  const getCurrentTwoWeeks = () => {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 7); // 1주 전
+    const endDate = new Date(today);
+    endDate.setDate(today.getDate() + 7); // 1주 후
+    
+    return {
+      startDate: startDate.toISOString().slice(0, 10),
+      endDate: endDate.toISOString().slice(0, 10)
     };
   };
 
-  const [dateRange, setDateRange] = useState(getCurrentQuarter());
+  const [dateRange, setDateRange] = useState(getCurrentHalfYear());
   const [formData, setFormData] = useState({
     name: '',
     startDate: '',
@@ -316,6 +353,13 @@ const GanttChart = () => {
     }
   };
 
+  // 모바일 감지 시 자동으로 모바일 뷰로 변경
+  useEffect(() => {
+    if (isMobile) {
+      handleViewModeChange('mobile');
+    }
+  }, [isMobile]);
+
   // 컴포넌트 마운트 시 오늘 날짜로 스크롤
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -323,6 +367,29 @@ const GanttChart = () => {
     }, 100);
     return () => clearTimeout(timer);
   }, [zoomLevel, dateRange]);
+
+  // 뷰 모드 변경
+  const handleViewModeChange = (mode) => {
+    setViewMode(mode);
+    switch (mode) {
+      case 'halfyear':
+        setDateRange(getCurrentHalfYear());
+        break;
+      case 'quarter':
+        setDateRange(getCurrentQuarter());
+        break;
+      case 'mobile':
+        setDateRange(getCurrentTwoWeeks());
+        break;
+      default:
+        setDateRange(getCurrentHalfYear());
+    }
+  };
+
+  // 전체화면 토글
+  const handleFullscreenToggle = () => {
+    setIsFullscreen(!isFullscreen);
+  };
 
   // 줌 레벨 조정
   const handleZoomIn = () => {
@@ -520,13 +587,45 @@ const GanttChart = () => {
   };
 
   return (
-    <Box sx={{ p: 3, mt: 5.75 }}>
-                    <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+    <Box sx={{ 
+      p: isFullscreen ? 0 : 3, 
+      mt: isFullscreen ? 0 : 5.75,
+      height: isFullscreen ? '100vh' : 'auto',
+      width: isFullscreen ? '100vw' : 'auto',
+      position: isFullscreen ? 'fixed' : 'relative',
+      top: isFullscreen ? 0 : 'auto',
+      left: isFullscreen ? 0 : 'auto',
+      zIndex: isFullscreen ? 9999 : 'auto',
+      backgroundColor: isFullscreen ? 'background.paper' : 'transparent',
+      overflow: isFullscreen ? 'hidden' : 'visible'
+    }}>
+      <Typography variant={isMobile ? "h6" : "h4"} gutterBottom sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 1,
+        p: isFullscreen ? 2 : 0,
+        borderBottom: isFullscreen ? 1 : 0,
+        borderColor: isFullscreen ? 'divider' : 'transparent'
+      }}>
         <TimelineIcon color="primary" />
-        현장 현황표 {useYearMode ? 
-          `(${selectedYear}년 ${Math.floor(new Date().getMonth() / 3) + 1}분기)` : 
-          `(${dateRange.startDate} ~ ${dateRange.endDate})`
+        현장 현황표 {isMobile ? 
+          '(2주 보기)' :
+          (viewMode === 'halfyear' ? 
+            '(반기 보기)' : 
+            viewMode === 'quarter' ? 
+              '(분기 보기)' : 
+              `(${dateRange.startDate} ~ ${dateRange.endDate})`
+          )
         }
+        {isFullscreen && (
+          <IconButton 
+            onClick={handleFullscreenToggle} 
+            size="small" 
+            sx={{ ml: 'auto' }}
+          >
+            <FullscreenExitIcon />
+          </IconButton>
+        )}
       </Typography>
 
       {error && (
@@ -634,21 +733,57 @@ const GanttChart = () => {
               />
             </Box>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Tooltip title="오늘 날짜로 이동">
-                <IconButton onClick={scrollToToday} size="small">
-                  <TodayIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="축소">
-                <IconButton onClick={handleZoomOut} size="small">
-                  <ZoomOutIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="확대">
-                <IconButton onClick={handleZoomIn} size="small">
-                  <ZoomInIcon />
-                </IconButton>
-              </Tooltip>
+              {/* PC 전용 컨트롤 */}
+              {!isMobile && (
+                <>
+                  <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <InputLabel>보기 모드</InputLabel>
+                    <Select
+                      value={viewMode}
+                      onChange={(e) => handleViewModeChange(e.target.value)}
+                      label="보기 모드"
+                    >
+                      <MenuItem value="halfyear">반기 (6개월)</MenuItem>
+                      <MenuItem value="quarter">분기 (3개월)</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <Tooltip title={isFullscreen ? "전체화면 해제" : "전체화면"}>
+                    <IconButton onClick={handleFullscreenToggle} size="small">
+                      {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="오늘 날짜로 이동">
+                    <IconButton onClick={scrollToToday} size="small">
+                      <TodayIcon />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="축소">
+                    <IconButton onClick={handleZoomOut} size="small">
+                      <ZoomOutIcon />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="확대">
+                    <IconButton onClick={handleZoomIn} size="small">
+                      <ZoomInIcon />
+                    </IconButton>
+                  </Tooltip>
+                </>
+              )}
+              
+              {/* 모바일 전용 컨트롤 */}
+              {isMobile && (
+                <>
+                  <Typography variant="body2" color="text.secondary">
+                    2주 보기
+                  </Typography>
+                  <Tooltip title="오늘 날짜로 이동">
+                    <IconButton onClick={scrollToToday} size="small">
+                      <TodayIcon />
+                    </IconButton>
+                  </Tooltip>
+                </>
+              )}
+              
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -662,11 +797,19 @@ const GanttChart = () => {
       </Card>
 
       {/* 공정표 차트 */}
-      <Paper sx={{ p: 3, overflow: 'auto', mt: 2.5, maxHeight: '70vh' }} ref={chartContainerRef} className="gantt-timeline">
+      <Paper sx={{ 
+        p: isMobile ? 1 : 3, 
+        overflow: 'auto', 
+        mt: isMobile ? 1 : 2.5, 
+        maxHeight: isFullscreen ? 'calc(100vh - 80px)' : isMobile ? '60vh' : '70vh',
+        height: isFullscreen ? 'calc(100vh - 80px)' : 'auto'
+      }} ref={chartContainerRef} className="gantt-timeline">
         <Box sx={{ 
           position: 'relative', 
-          minHeight: 600,
-          minWidth: dateArray.length * (40 * zoomLevel) + 200, // 현장명 열 너비 추가
+          minHeight: isMobile ? 400 : 600,
+          minWidth: isMobile ? 
+            dateArray.length * (30 * zoomLevel) + 150 : 
+            dateArray.length * (40 * zoomLevel) + 200,
           border: 1,
           borderColor: 'divider',
           borderRadius: 1
@@ -681,13 +824,17 @@ const GanttChart = () => {
             zIndex: 10,
             mt: 5
           }}>
-            <Grid container sx={{ minWidth: dateArray.length * (40 * zoomLevel) + 200 }}>
+            <Grid container sx={{ 
+              minWidth: isMobile ? 
+                dateArray.length * (30 * zoomLevel) + 150 : 
+                dateArray.length * (40 * zoomLevel) + 200 
+            }}>
               {/* 현장명 열 */}
-              <Grid item xs={2} sx={{ 
+              <Grid item xs={isMobile ? 3 : 2} sx={{ 
                 borderRight: 1, 
                 borderColor: 'divider',
                 backgroundColor: 'grey.50',
-                p: 2,
+                p: isMobile ? 1 : 2,
                 position: 'sticky',
                 left: 0,
                 zIndex: 15
@@ -695,25 +842,25 @@ const GanttChart = () => {
               </Grid>
               
               {/* 날짜 열들 */}
-              <Grid item xs={10} sx={{ display: 'flex' }}>
+              <Grid item xs={isMobile ? 9 : 10} sx={{ display: 'flex' }}>
                 {dateArray.map((date, index) => (
                   <Box
                     key={index}
                     sx={{
-                      width: 40 * zoomLevel,
-                      minWidth: 40 * zoomLevel,
+                      width: isMobile ? 30 * zoomLevel : 40 * zoomLevel,
+                      minWidth: isMobile ? 30 * zoomLevel : 40 * zoomLevel,
                       borderRight: 1,
                       borderColor: 'divider',
-                      p: 0.5,
+                      p: isMobile ? 0.25 : 0.5,
                       textAlign: 'center',
                       backgroundColor: date.getDay() === 0 ? 'primary.dark' : 'background.paper',
                       position: 'relative'
                     }}
                   >
-                    <Typography variant="body2" display="block" color={date.getDay() === 0 ? 'error.main' : 'white'} fontWeight="bold" sx={{ pt: 2.5 }}>
+                    <Typography variant={isMobile ? "caption" : "body2"} display="block" color={date.getDay() === 0 ? 'error.main' : 'white'} fontWeight="bold" sx={{ pt: isMobile ? 1.5 : 2.5 }}>
                       {date.getDate()}
                     </Typography>
-                    <Typography variant="body2" color={date.getDay() === 0 ? 'error.main' : 'white'} sx={{ pt: 0.5 }}>
+                    <Typography variant={isMobile ? "caption" : "body2"} color={date.getDay() === 0 ? 'error.main' : 'white'} sx={{ pt: isMobile ? 0.25 : 0.5 }}>
                       {date.toLocaleDateString('ko-KR', { weekday: 'short' })}
                     </Typography>
                     
@@ -787,7 +934,12 @@ const GanttChart = () => {
           </Box>
 
           {/* 현장별 공사기간 행들 */}
-          <Box sx={{ minWidth: dateArray.length * (40 * zoomLevel) + 200, mt: 3 }}>
+          <Box sx={{ 
+            minWidth: isMobile ? 
+              dateArray.length * (30 * zoomLevel) + 150 : 
+              dateArray.length * (40 * zoomLevel) + 200, 
+            mt: isMobile ? 1 : 3 
+          }}>
             {Object.entries(siteSchedules).map(([siteId, { site, schedule }]) => (
               <Grid 
                 key={siteId} 
@@ -795,15 +947,15 @@ const GanttChart = () => {
                 sx={{ 
                   borderBottom: 1, 
                   borderColor: 'divider',
-                  minHeight: 60,
+                  minHeight: isMobile ? 40 : 60,
                   '&:hover': { backgroundColor: 'action.hover' }
                 }}
               >
                 {/* 현장명 열 */}
-                <Grid item xs={2} sx={{ 
+                <Grid item xs={isMobile ? 3 : 2} sx={{ 
                   borderRight: 1, 
                   borderColor: 'divider',
-                  p: 1,
+                  p: isMobile ? 0.5 : 1,
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'center',
@@ -812,38 +964,38 @@ const GanttChart = () => {
                   backgroundColor: 'white',
                   zIndex: 10
                 }}>
-                  <Typography variant="body2" fontWeight="bold" noWrap color="black">
+                  <Typography variant={isMobile ? "caption" : "body2"} fontWeight="bold" noWrap color="black">
                     {site.name}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap>
+                  <Typography variant={isMobile ? "caption" : "caption"} color="text.secondary" noWrap>
                     {getConstructionPeriod(site)}
                   </Typography>
                 </Grid>
                 
-                                  {/* 공사기간 차트 영역 */}
-                  <Grid item xs={10} sx={{ position: 'relative', minHeight: 60 }}>
+                {/* 공사기간 차트 영역 */}
+                <Grid item xs={isMobile ? 9 : 10} sx={{ position: 'relative', minHeight: isMobile ? 40 : 60 }}>
                     {schedule && (
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          left: getSitePosition(schedule).left,
-                          width: getSitePosition(schedule).width,
-                          height: 20,
-                          backgroundColor: getSiteColor(site.id, schedule.status),
-                          borderRadius: 1,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          boxShadow: 1,
-                          '&:hover': {
-                            boxShadow: 3,
-                            transform: 'translateY(-50%) scale(1.02)'
-                          },
-                          transition: 'all 0.2s ease-in-out'
-                        }}
+                                              <Box
+                          sx={{
+                            position: 'absolute',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            left: getSitePosition(schedule).left,
+                            width: getSitePosition(schedule).width,
+                            height: isMobile ? 16 : 20,
+                            backgroundColor: getSiteColor(site.id, schedule.status),
+                            borderRadius: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            boxShadow: 1,
+                            '&:hover': {
+                              boxShadow: 3,
+                              transform: 'translateY(-50%) scale(1.02)'
+                            },
+                            transition: 'all 0.2s ease-in-out'
+                          }}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleColorChange(site.id);
@@ -857,9 +1009,9 @@ const GanttChart = () => {
                             color: 'white', 
                             fontWeight: 'bold',
                             textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
-                            fontSize: '0.6rem',
+                            fontSize: isMobile ? '0.5rem' : '0.6rem',
                             textAlign: 'center',
-                            px: 0.5,
+                            px: isMobile ? 0.25 : 0.5,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap'
@@ -881,11 +1033,11 @@ const GanttChart = () => {
             backgroundColor: 'background.paper',
             borderTop: 1,
             borderColor: 'divider',
-            p: 2,
-            mt: 2
+            p: isMobile ? 1 : 2,
+            mt: isMobile ? 1 : 2
           }}>
             <Typography variant="caption" color="text.secondary">
-              💡 클릭: 색상 변경 | 더블클릭: 현장 편집
+              {isMobile ? '💡 클릭: 색상 변경' : '💡 클릭: 색상 변경 | 더블클릭: 현장 편집'}
             </Typography>
           </Box>
         </Box>

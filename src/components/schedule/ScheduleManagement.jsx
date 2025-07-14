@@ -774,8 +774,22 @@ const ScheduleManagement = ({
             <CustomCalendar
               year={year}
               month={month}
-              onYearChange={setYear}
-              onMonthChange={setMonth}
+              onPrevMonth={() => {
+                if (month === 0) {
+                  setYear(y => y - 1);
+                  setMonth(11);
+                } else {
+                  setMonth(m => m - 1);
+                }
+              }}
+              onNextMonth={() => {
+                if (month === 11) {
+                  setYear(y => y + 1);
+                  setMonth(0);
+                } else {
+                  setMonth(m => m + 1);
+                }
+              }}
               viewMode={viewMode}
               onViewModeChange={handleViewModeChange}
               calendarItems={calendarItems}
@@ -787,18 +801,12 @@ const ScheduleManagement = ({
               onOpenPopup={handleOpenPopup}
               onDateNumberClick={handleOpenPopup}
               onCountClick={handleShowListPopup}
-              onDeleteItem={handleDeleteItem}
               onCheckItem={handleCheckItem}
               checkedItems={checkedItems}
               selectedItems={selectedItems}
               onDeleteSelected={handleDeleteSelected}
               sites={filteredSites}
-              isMobile={isMobile}
               selectedDate={selectedDate}
-              showListPopup={showListPopup}
-              listPopupDate={listPopupDate}
-              onShowListPopup={handleShowListPopup}
-              onCloseListPopup={handleCloseListPopup}
               onExcel={handleExcel}
               onAddSchedule={onAddSchedule}
             />

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
-import { Home, Business, Security, Assignment, Chat, Person, Star } from '@mui/icons-material';
+import { Home, Business, Security, Assignment, Chat, Person, Star, Schedule, Timeline } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 // 네비게이션 아이템들 (문서/보고서/설정 제외)
@@ -8,6 +8,8 @@ const navigationItems = [
   { icon: <Home />, path: '/', label: '홈' },
   { icon: <Star />, path: '/importantsite', label: '주요현장' },
   { icon: <Business />, path: '/sites', label: '현장' },
+  { icon: <Schedule />, path: '/schedule', label: '일정' },
+  { icon: <Timeline />, path: '/gantt', label: '현장일정' },
   { icon: <Assignment />, path: '/progress', label: '기성' },
   { icon: <Security />, path: '/safety', label: '안전' },
   { icon: <Chat />, path: '/discussions', label: '협의' },

@@ -9,6 +9,7 @@ import ThemeToggle from './ThemeToggle';
 import PushNotification from './PushNotification';
 import EventIcon from '@mui/icons-material/Event';
 import TimelineIcon from '@mui/icons-material/Timeline';
+import StarIcon from '@mui/icons-material/Star';
 
 const Header = () => {
   const { logout, currentUser } = useAuth();
@@ -22,7 +23,7 @@ const Header = () => {
   const menuItems = [
     { path: '/schedule', label: '일정관리', icon: <EventIcon /> },
     { path: '/gantt', label: '현장일정', icon: <TimelineIcon /> },
-    { path: '/overview', label: '주요현장', icon: <span role="img" aria-label="star">⭐</span> },
+    { path: '/overview', label: '주요현장', icon: <StarIcon /> },
     { path: '/sites', label: '현장관리', icon: <span role="img" aria-label="site">🏗️</span> },
     { path: '/safety', label: '안전관리', icon: <span role="img" aria-label="safety">⚠️</span> },
     { path: '/discussions', label: '토론의견', icon: <span role="img" aria-label="discuss">💬</span> },
