@@ -48,8 +48,27 @@ import ForgotPassword from './components/ForgotPassword';
 import CustomSchedule from './pages/CustomSchedule';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
 import ScheduleManagement from './components/schedule/ScheduleManagement';
-import MobileLayout from './components/common/MobileLayout.jsx';
+import MobileLayout from './components/common/MobileLayout';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import { lazy, Suspense } from 'react';
+
+const MobileLayout = lazy(() => import('./components/common/MobileLayout.jsx'));
+
+const MobileWrapper = ({ children }) => {
+  const [MobileLayoutComponent, setMobileLayoutComponent] = useState(null);
+  
+  useEffect(() => {
+    import('./components/common/MobileLayout.jsx').then(module => {
+      setMobileLayoutComponent(() => module.default);
+    });
+  }, []);
+  
+  if (!MobileLayoutComponent) {
+    return <div>Loading...</div>;
+  }
+  
+  return <MobileLayoutComponent>{children}</MobileLayoutComponent>;
+};
 
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
