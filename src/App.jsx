@@ -48,6 +48,7 @@ import ForgotPassword from './components/ForgotPassword';
 import CustomSchedule from './pages/CustomSchedule';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
 import ScheduleManagement from './components/schedule/ScheduleManagement';
+import GanttChartPage from './pages/GanttChart';
 
 import useMediaQuery from '@mui/material/useMediaQuery';
 
@@ -181,6 +182,16 @@ const App = () => {
                           <ProtectedRoute>
                             <Layout>
                               {isMobile ? <CustomScheduleMobile /> : <ScheduleManagement />}
+                            </Layout>
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/gantt"
+                        element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <GanttChartPage />
                             </Layout>
                           </ProtectedRoute>
                         }

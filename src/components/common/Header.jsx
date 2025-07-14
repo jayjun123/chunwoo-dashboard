@@ -7,6 +7,8 @@ import { useMediaQuery } from 'react-responsive';
 import NotificationSystem from './NotificationSystem';
 import ThemeToggle from './ThemeToggle';
 import PushNotification from './PushNotification';
+import EventIcon from '@mui/icons-material/Event';
+import TimelineIcon from '@mui/icons-material/Timeline';
 
 const Header = () => {
   const { logout, currentUser } = useAuth();
@@ -18,15 +20,16 @@ const Header = () => {
   console.log('Header - 현재 사용자 정보:', currentUser);
 
   const menuItems = [
-    { path: '/schedule', label: '일정관리', icon: '📅' },
-    { path: '/overview', label: '주요현장', icon: '⭐' },
-    { path: '/sites', label: '현장관리', icon: '🏗️' },
-    { path: '/safety', label: '안전관리', icon: '⚠️' },
-    { path: '/discussions', label: '토론의견', icon: '💬' },
-    { path: '/progress', label: '기성관리', icon: '💰' },
-    { path: '/vendors', label: '거래처현황', icon: '💼' },
-    { path: '/documents', label: '문서관리', icon: '📄' },
-    { path: '/reports', label: '보고서', icon: '📊' }
+    { path: '/schedule', label: '일정관리', icon: <EventIcon /> },
+    { path: '/gantt', label: '현장일정', icon: <TimelineIcon /> },
+    { path: '/overview', label: '주요현장', icon: <span role="img" aria-label="star">⭐</span> },
+    { path: '/sites', label: '현장관리', icon: <span role="img" aria-label="site">🏗️</span> },
+    { path: '/safety', label: '안전관리', icon: <span role="img" aria-label="safety">⚠️</span> },
+    { path: '/discussions', label: '토론의견', icon: <span role="img" aria-label="discuss">💬</span> },
+    { path: '/progress', label: '기성관리', icon: <span role="img" aria-label="money">💰</span> },
+    { path: '/vendors', label: '거래처현황', icon: <span role="img" aria-label="vendor">💼</span> },
+    { path: '/documents', label: '문서관리', icon: <span role="img" aria-label="doc">📄</span> },
+    { path: '/reports', label: '보고서', icon: <span role="img" aria-label="report">📊</span> }
   ];
 
   const handleLogout = async () => {

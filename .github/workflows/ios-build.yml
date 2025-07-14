@@ -1,0 +1,47 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [ new-master ]
+  pull_request:
+    branches: [ new-master ]
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build web assets
+      run: npm run build
+      
+    - name: Install Capacitor CLI
+      run: npm install -g @capacitor/cli
+      
+    - name: Sync Capacitor
+      run: npx cap sync ios
+      
+    - name: Build iOS for AltStore
+      run: |
+        cd ios
+        # Simple build without code signing for testing
+        xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -destination 'generic/platform=iOS' build
+        echo "Build completed for testing purposes"
+        # Note: Full IPA export requires Apple Developer account and code signing
+        
+    - name: Upload IPA artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ios-app
+        path: ios/build/*.ipa 

@@ -1,0 +1,340 @@
+/* 공정표 차트 스타일 */
+.gantt-chart-container {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.gantt-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.gantt-chart-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  min-height: 400px;
+}
+
+.gantt-task-list {
+  border-right: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
+.gantt-task-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: background-color 0.2s ease;
+}
+
+.gantt-task-item:hover {
+  background-color: #f5f5f5;
+}
+
+.gantt-task-bar {
+  position: relative;
+  height: 24px;
+  background: linear-gradient(90deg, #4CAF50, #45a049);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 500;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.gantt-task-bar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.gantt-task-bar.completed {
+  background: linear-gradient(90deg, #4CAF50, #45a049);
+}
+
+.gantt-task-bar.in-progress {
+  background: linear-gradient(90deg, #2196F3, #1976D2);
+}
+
+.gantt-task-bar.delayed {
+  background: linear-gradient(90deg, #f44336, #d32f2f);
+}
+
+.gantt-task-bar.planned {
+  background: linear-gradient(90deg, #9E9E9E, #757575);
+}
+
+.gantt-progress-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px 0 0 4px;
+  transition: width 0.3s ease;
+}
+
+.gantt-timeline {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: auto;
+  background: white;
+  scrollbar-width: thin;
+  scrollbar-color: #888 #f1f1f1;
+}
+
+.gantt-timeline::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.gantt-timeline::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.gantt-timeline::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.gantt-timeline::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.gantt-timeline-header {
+  position: sticky;
+  top: 0;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+  z-index: 10;
+}
+
+.gantt-date-column {
+  min-width: 60px;
+  text-align: center;
+  padding: 8px 4px;
+  border-right: 1px solid #e0e0e0;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.gantt-date-column.weekend {
+  background-color: #f9f9f9;
+}
+
+.gantt-date-column.today {
+  background-color: #e3f2fd;
+  border: 2px solid #2196F3;
+}
+
+.gantt-task-row {
+  position: relative;
+  height: 60px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.gantt-task-row:hover {
+  background-color: #fafafa;
+}
+
+.gantt-legend {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background: #f9f9f9;
+  border-top: 1px solid #e0e0e0;
+}
+
+.gantt-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.gantt-legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+}
+
+.gantt-stats-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
+}
+
+.gantt-stats-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.gantt-progress-bar {
+  height: 8px;
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.gantt-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50, #45a049);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.gantt-progress-fill.warning {
+  background: linear-gradient(90deg, #ff9800, #f57c00);
+}
+
+.gantt-progress-fill.danger {
+  background: linear-gradient(90deg, #f44336, #d32f2f);
+}
+
+.gantt-status-chip {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gantt-status-chip.completed {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.gantt-status-chip.in-progress {
+  background-color: #2196F3;
+  color: white;
+}
+
+.gantt-status-chip.delayed {
+  background-color: #f44336;
+  color: white;
+}
+
+.gantt-status-chip.planned {
+  background-color: #9E9E9E;
+  color: white;
+}
+
+.gantt-priority-chip {
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.gantt-priority-chip.high {
+  background-color: #f44336;
+  color: white;
+}
+
+.gantt-priority-chip.medium {
+  background-color: #ff9800;
+  color: white;
+}
+
+.gantt-priority-chip.low {
+  background-color: #4CAF50;
+  color: white;
+}
+
+/* 애니메이션 */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.gantt-delayed-indicator {
+  animation: pulse 2s infinite;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .gantt-chart-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .gantt-task-list {
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .gantt-date-column {
+    min-width: 50px;
+    font-size: 11px;
+  }
+  
+  .gantt-legend {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* 다크 모드 지원 */
+@media (prefers-color-scheme: dark) {
+  .gantt-chart-container {
+    background: #1e1e1e;
+    color: #ffffff;
+  }
+  
+  .gantt-task-list {
+    background: #2d2d2d;
+    border-right-color: #404040;
+  }
+  
+  .gantt-task-item {
+    border-bottom-color: #404040;
+  }
+  
+  .gantt-task-item:hover {
+    background-color: #3d3d3d;
+  }
+  
+  .gantt-timeline {
+    background: #1e1e1e;
+  }
+  
+  .gantt-timeline-header {
+    background: #2d2d2d;
+    border-bottom-color: #404040;
+  }
+  
+  .gantt-date-column {
+    border-right-color: #404040;
+  }
+  
+  .gantt-date-column.weekend {
+    background-color: #2a2a2a;
+  }
+  
+  .gantt-task-row {
+    border-bottom-color: #404040;
+  }
+  
+  .gantt-task-row:hover {
+    background-color: #2a2a2a;
+  }
+} 
