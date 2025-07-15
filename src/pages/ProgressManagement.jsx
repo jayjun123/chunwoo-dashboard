@@ -548,7 +548,7 @@ const ProgressManagement = () => {
         padding: 0,
         boxSizing: 'border-box',
         minHeight: '100vh',
-        pt: { xs: '160px', md: 0 }
+        pt: { xs: '-30px', md: 0 }
       }}>
         <Typography variant="h4" gutterBottom>
           기성현황 관리

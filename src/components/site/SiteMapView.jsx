@@ -37,7 +37,7 @@ import {
   Directions as DirectionsIcon,
   Photo as PhotoIcon,
   Business as BusinessIcon,
-  Schedule as ScheduleIcon,
+
   AttachMoney as MoneyIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';

@@ -10,6 +10,8 @@ import PushNotification from './PushNotification';
 import EventIcon from '@mui/icons-material/Event';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import StarIcon from '@mui/icons-material/Star';
+import GroupIcon from '@mui/icons-material/Group';
+import PeopleIcon from '@mui/icons-material/People';
 
 const Header = () => {
   const { logout, currentUser } = useAuth();
@@ -21,14 +23,13 @@ const Header = () => {
   console.log('Header - 현재 사용자 정보:', currentUser);
 
   const menuItems = [
-    { path: '/schedule', label: '일정관리', icon: <EventIcon /> },
     { path: '/gantt', label: '현장일정', icon: <TimelineIcon /> },
-    { path: '/overview', label: '주요현장', icon: <StarIcon /> },
+    { path: '/importantsite', label: '주요현장', icon: <StarIcon /> },
     { path: '/sites', label: '현장관리', icon: <span role="img" aria-label="site">🏗️</span> },
     { path: '/safety', label: '안전관리', icon: <span role="img" aria-label="safety">⚠️</span> },
     { path: '/discussions', label: '토론의견', icon: <span role="img" aria-label="discuss">💬</span> },
+    { path: '/vendors', label: '거래처현황', icon: <PeopleIcon /> },
     { path: '/progress', label: '기성관리', icon: <span role="img" aria-label="money">💰</span> },
-    { path: '/vendors', label: '거래처현황', icon: <span role="img" aria-label="vendor">💼</span> },
     { path: '/documents', label: '문서관리', icon: <span role="img" aria-label="doc">📄</span> },
     { path: '/reports', label: '보고서', icon: <span role="img" aria-label="report">📊</span> }
   ];

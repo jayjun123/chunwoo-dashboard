@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
     cleartext: true
   },
   android: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#181A20',
     allowMixedContent: true,
     captureInput: true,
     webContentsDebuggingEnabled: false,
@@ -23,7 +23,7 @@ const config: CapacitorConfig = {
     }
   },
   ios: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#181A20',
     contentInset: 'automatic',
     scheme: 'com.chunwoo.construction',
     limitsNavigationsToAppBoundDomains: true
@@ -35,9 +35,9 @@ const config: CapacitorConfig = {
       resizeOnFullScreen: true
     },
     SplashScreen: {
-      launchShowDuration: 3000,
+      launchShowDuration: 2000,
       launchAutoHide: true,
-      backgroundColor: "#ffffff",
+      backgroundColor: "#181A20",
       androidSplashResourceName: "splash",
       androidScaleType: "CENTER_CROP",
       showSpinner: true,
@@ -49,7 +49,8 @@ const config: CapacitorConfig = {
     },
     StatusBar: {
       style: 'dark',
-      backgroundColor: '#181A20'
+      backgroundColor: '#181A20',
+      overlaysWebView: false
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"]

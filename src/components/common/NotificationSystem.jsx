@@ -8,7 +8,6 @@ import {
   Warning as WarningIcon,
   Info as InfoIcon,
   CheckCircle as CheckCircleIcon,
-  Schedule as ScheduleIcon,
   Business as BusinessIcon,
   AttachMoney as MoneyIcon
 } from '@mui/icons-material';
@@ -90,7 +89,7 @@ const NotificationSystem = () => {
       case 'success':
         return <CheckCircleIcon color="success" />;
       case 'schedule':
-        return <ScheduleIcon color="primary" />;
+        return <InfoIcon color="primary" />;
       case 'site':
         return <BusinessIcon color="secondary" />;
       case 'budget':

@@ -635,7 +635,7 @@ const ScheduleManagement = ({
       margin: 0,
       padding: 0,
       position: 'relative',
-      mt: isMobile ? '140px' : '30px',
+      mt: isMobile ? '140px' : '54px',
       mb: '20px',
       overflow: isMobile ? 'hidden' : 'visible'
     }}>

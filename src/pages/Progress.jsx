@@ -555,9 +555,9 @@ const Progress = () => {
       width: isMobile ? '100%' : 'calc(100% - 20px)', 
       maxWidth: isMobile ? '100%' : 'calc(100% - 20px)', 
       mx: isMobile ? 0 : '10px',
-      mt: isMobile ? '100px' : '50px'
+      mt: isMobile ? '42px' : '50px'
     }}>
-      {/* 기성관리, 기성현황, 지출 탭 버튼들 */}
+      {/* 기성관리, 기성현황, 지출 탭 버튼들 - 모바일에서도 보이게 복구 */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -644,7 +644,7 @@ const Progress = () => {
         </ButtonGroup>
       </Box>
 
-      {/* 월별탭에서만 월 네비게이션 버튼 노출 (기성현황, 지출 모두) */}
+      {/* 월별탭에서만 월 네비게이션 버튼 노출 (기성현황, 지출 모두) - 모바일에서도 보이게 복구 */}
       {statusView === 'month' && (
         <Box sx={{ 
           display: 'flex', 
@@ -688,7 +688,7 @@ const Progress = () => {
         </Box>
       )}
 
-      {/* 현장별탭에서만 현장검색 체크박스 노출 */}
+      {/* 현장별탭에서만 현장검색 체크박스 노출 - 모바일에서도 보이게 복구 */}
       {statusView === 'site' && (tab === 'chart' || tab === 'gisung' || tab === 'cost') && (
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, ml: 1, flexDirection: 'row' }}>
           {/* 선택 현장 리스트 (가로, 체크박스 포함) */}

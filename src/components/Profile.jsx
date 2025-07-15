@@ -172,8 +172,22 @@ const Profile = () => {
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-      <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 4 }}>
+    <Box sx={{
+      p: 3,
+      maxWidth: 800,
+      mx: 'auto',
+      mt: { xs: '10px', md: 0 }
+    }}>
+      <Typography
+        variant="h4"
+        component="h1"
+        gutterBottom
+        sx={{
+          mb: 4,
+          fontSize: { xs: '1.3rem', md: '2.125rem' },
+          lineHeight: 1.2
+        }}
+      >
         회원 프로필
       </Typography>
 
@@ -253,21 +267,39 @@ const Profile = () => {
         {/* 프로필 아바타 및 권한 정보 */}
         <Grid item xs={12} md={4}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
+            <CardContent sx={{
+              textAlign: 'center',
+              p: { xs: 1.5, md: 2 },
+            }}>
               <Avatar
                 src={currentUser.photoURL}
                 alt={currentUser.name || currentUser.displayName}
-                sx={{ width: 100, height: 100, mx: 'auto', mb: 2 }}
+                sx={{ width: 100, height: 100, mx: 'auto', mb: 1.2 }}
               />
-              <Typography variant="h6" gutterBottom>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{
+                  fontSize: { xs: '1.05rem', md: '1.25rem' },
+                  mb: { xs: 0.5, md: 1.5 }
+                }}
+              >
                 {currentUser.name || currentUser.displayName}
               </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                gutterBottom
+                sx={{
+                  fontSize: { xs: '0.85rem', md: '1rem' },
+                  mb: { xs: 0.5, md: 1.5 }
+                }}
+              >
                 {currentUser.organization}
               </Typography>
-              <Divider sx={{ my: 2 }} />
+              <Divider sx={{ my: { xs: 1, md: 2 } }} />
               <Box sx={{ textAlign: 'left' }}>
-                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: { xs: 0.5, md: 1 } }}>
                   <SecurityIcon sx={{ mr: 1, fontSize: 16 }} />
                   권한: {currentUser.role === 'team' ? 
                     (currentUser.teamGrade === 'B' ? 'TEAM B' : 
@@ -275,7 +307,7 @@ const Profile = () => {
                    currentUser.role === 'admin' ? 'ADMIN' :
                    currentUser.role === 'master' ? 'MASTER' : 'USER'}
                 </Typography>
-                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: { xs: 0.5, md: 1 } }}>
                   <PersonIcon sx={{ mr: 1, fontSize: 16 }} />
                   등급: {currentUser.role === 'team' ? 
                     (currentUser.teamGrade === 'B' ? 'TEAM B' : 

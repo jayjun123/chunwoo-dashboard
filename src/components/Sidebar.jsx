@@ -25,7 +25,6 @@ const Sidebar = () => {
     { path: '/gantt', icon: <FaChartBar />, label: '공정표' },
     { path: '/notifications', icon: <FaBell />, label: '알림' },
     { path: '/user-management', icon: <FaUsers />, label: '사용자 관리' },
-    { path: '/schedule', icon: <FaCalendarAlt />, label: '일정 관리' },
     { path: '/safety', icon: <FaHardHat />, label: '안전 관리' },
     { path: '/materials', icon: <FaBox />, label: '자재 관리' },
     { path: '/reports', icon: <FaFileAlt />, label: '보고서', hideOnMobile: true }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Box, Typography, IconButton, Tooltip, Badge, Modal, Paper, Drawer, List, ListItem, ListItemIcon, ListItemText, Snackbar, Alert, Checkbox, Button, Popover, TextField, Slide, useMediaQuery, useTheme, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Typography, IconButton, Tooltip, Badge, Modal, Paper, Drawer, List, ListItem, ListItemIcon, ListItemText, Checkbox, Button, Popover, TextField, Slide, useMediaQuery, useTheme, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { devLog, devError } from '../../utils/performanceUtils';
 import GroupIcon from '@mui/icons-material/Group';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -84,6 +84,7 @@ const BottomBar = ({
   const [safetyList, setSafetyList] = useState([]);
   const [todoList, setTodoList] = useState([]);
   const [setupList, setSetupList] = useState([]); // 금일현설용 별도 상태
+  const [sitesList, setSitesList] = useState([]); // 현장 목록
 
   // 햄버거 메뉴 Drawer 상태
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -370,7 +371,7 @@ const BottomBar = ({
       setWeatherData(weatherDataObj);
     } catch (error) {
       console.error('날씨 데이터 조회 실패:', error);
-      setError('날씨 정보를 불러오는데 실패했습니다.');
+      // 날씨 오류 알림 제거
     } finally {
       setWeatherLoading(false);
     }
@@ -404,6 +405,32 @@ const BottomBar = ({
     const interval = setInterval(checkAndFetchWeather, 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, [weatherLocation, fetchWeatherData]);
+
+  // 현장 데이터 fetch (stats용)
+  useEffect(() => {
+    const unsubSites = onSnapshot(collection(db, 'sites'), (snapshot) => {
+      const arr = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 진행중인 현장만 필터링
+      const activeSites = arr.filter(site => site.status === '진행중');
+      
+      console.log('🔥 현장 데이터:', activeSites.length, '개', activeSites);
+      
+      // stats 업데이트 (현장 수)
+      setStats(prev => ({
+        ...prev,
+        todaySites: activeSites.length
+      }));
+    }, (err) => {
+      console.error('🔥 현장 데이터 연동 오류:', err);
+      setError('현장 데이터를 불러오는 중 오류가 발생했습니다.');
+    });
+
+    return () => {
+      console.log('🔥 현장 데이터 연동 해제');
+      unsubSites();
+    };
+  }, []);
 
   useEffect(() => {
     // 일정관리에서 금일 데이터 fetch + 최근 5개
@@ -1009,7 +1036,7 @@ const BottomBar = ({
       bottom: { xs: keyboardVisible ? 'auto' : 0, md: 0 }, 
       left: 0, 
       right: 0, 
-      zIndex: 2000, 
+      zIndex: 9998, 
       bgcolor: '#23242a', 
       color: '#fff', 
       borderTop: '1px solid #333', 
@@ -1021,6 +1048,7 @@ const BottomBar = ({
       px: 2,
       transition: 'bottom 0.3s ease',
       cursor: 'default',
+      boxShadow: '0 -2px 8px rgba(0,0,0,0.3)',
       '&:hover': {
         bgcolor: '#23242a'
       },
@@ -1110,14 +1138,14 @@ const BottomBar = ({
             color: '#fff',
             boxShadow: 3,
             borderRadius: '16px 16px 0 0',
-            p: isMobile ? 1.5 : 2,
+            p: isMobile ? 1 : 2, // 모바일 패딩 줄임
             width: isMobile ? 'calc(100vw - 32px)' : 280,
             maxWidth: isMobile ? 'calc(100vw - 32px)' : '100%',
             minWidth: 0,
             height: 'auto',
-            maxHeight: isMobile ? '60vh' : '50vh',
-            minHeight: isMobile ? 120 : 150,
-            fontSize: isMobile ? 14 : 15,
+            maxHeight: isMobile ? '50vh' : '50vh', // 모바일 최대 높이 줄임
+            minHeight: isMobile ? 100 : 150, // 모바일 최소 높이 줄임
+            fontSize: isMobile ? 12 : 15, // 모바일 글씨 크기 줄임
             transition: 'bottom 0.3s ease, top 0.3s ease'
           }}
           data-panel="settings"
@@ -1128,10 +1156,10 @@ const BottomBar = ({
           >
             <CloseIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, fontSize: isMobile ? 16 : 18 }}>
+          <Typography variant="h6" sx={{ mb: { xs: 1, md: 2 }, fontWeight: 700, fontSize: isMobile ? 14 : 18 }}>
             설정 메뉴
           </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
             {/* 관리자/마스터만 회원관리 접근 가능 */}
             {isAdminOrMasterUser && (
               <Button
@@ -1145,8 +1173,8 @@ const BottomBar = ({
                   bgcolor: '#4FC3F7',
                   color: '#fff',
                   fontWeight: 600,
-                  py: 1.5,
-                  fontSize: isMobile ? 14 : 15,
+                  py: { xs: 1, md: 1.5 }, // 모바일 패딩 줄임
+                  fontSize: isMobile ? 12 : 15, // 모바일 글씨 크기 줄임
                   '&:hover': { bgcolor: '#29B6F6' }
                 }}
                 startIcon={<GroupIcon />}
@@ -1167,8 +1195,8 @@ const BottomBar = ({
                   bgcolor: '#FF7043',
                   color: '#fff',
                   fontWeight: 600,
-                  py: 1.5,
-                  fontSize: isMobile ? 14 : 15,
+                  py: { xs: 1, md: 1.5 }, // 모바일 패딩 줄임
+                  fontSize: isMobile ? 12 : 15, // 모바일 글씨 크기 줄임
                   '&:hover': { bgcolor: '#F4511E' }
                 }}
                 startIcon={<SecurityIcon />}
@@ -1188,8 +1216,8 @@ const BottomBar = ({
                 bgcolor: '#81C784',
                 color: '#fff',
                 fontWeight: 600,
-                py: 1.5,
-                fontSize: isMobile ? 14 : 15,
+                py: { xs: 1, md: 1.5 }, // 모바일 패딩 줄임
+                fontSize: isMobile ? 12 : 15, // 모바일 글씨 크기 줄임
                 '&:hover': { bgcolor: '#66BB6A' }
               }}
               startIcon={<SettingsIcon />}
@@ -1219,13 +1247,13 @@ const BottomBar = ({
             color: '#000',
             boxShadow: 3, 
             borderRadius: { xs: keyboardVisible ? 0 : '16px 16px 0 0', md: '16px 16px 0 0' }, 
-            p: isMobile ? 1.5 : 3, 
+            p: isMobile ? 1 : 3, // 모바일 패딩 줄임
             width: isMobile ? '100vw' : 420,
             maxWidth: isMobile ? '100vw' : '100%',
             minWidth: 0,
-            height: { xs: keyboardVisible ? `${Math.min(400, viewportHeight - 46)}px` : 'auto', md: 400 },
-            maxHeight: { xs: keyboardVisible ? `${Math.min(400, viewportHeight - 46)}px` : '80vh', md: '70vh' },
-            minHeight: isMobile ? 150 : 250,
+            height: { xs: keyboardVisible ? `${Math.min(300, viewportHeight - 46)}px` : 'auto', md: 400 }, // 모바일 높이 줄임
+            maxHeight: { xs: keyboardVisible ? `${Math.min(300, viewportHeight - 46)}px` : '60vh', md: '70vh' }, // 모바일 최대 높이 줄임
+            minHeight: isMobile ? 120 : 250, // 모바일 최소 높이 줄임
             backgroundImage: 'repeating-linear-gradient(to bottom, #fff, #fff 32px, #eee 32px, #eee 34px)',
             border: '1.5px solid #222',
             overflowY: 'auto',
@@ -1235,21 +1263,21 @@ const BottomBar = ({
             display: 'flex',
             flexDirection: 'column',
             transition: 'all 0.3s ease',
-            fontSize: isMobile ? 14 : 15
+            fontSize: isMobile ? 12 : 15 // 모바일 글씨 크기 줄임
           }}
           data-panel="todo"
         >
           {/* 상단 버튼들 */}
-          <Box sx={{ display: 'flex', gap: 1, mb: 2, justifyContent: 'space-between', alignItems: 'center' }}>
-            <img src="/TodoList.png" alt="TodoList" style={{ height: '30px', width: 'auto' }} />
+          <Box sx={{ display: 'flex', gap: 1, mb: { xs: 1, md: 2 }, justifyContent: 'space-between', alignItems: 'center' }}>
+            <img src="/TodoList.png" alt="TodoList" style={{ height: isMobile ? '24px' : '30px', width: 'auto' }} />
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               {/* 성현준 아이디에만 이름 표시 */}
               {currentUser?.uid === 'HpF5IrlTscYbWPsUhtdzV05sjbF2' && (
-                <Typography sx={{ fontSize: 12, color: '#666', mr: 1 }}>
+                <Typography sx={{ fontSize: isMobile ? 10 : 12, color: '#666', mr: 1 }}>
                   성현준
                 </Typography>
               )}
-              <Button variant="outlined" size="small" sx={{ fontWeight: 600 }} onClick={() => navigate('/todo/all')}>
+              <Button variant="outlined" size="small" sx={{ fontWeight: 600, fontSize: isMobile ? '0.7rem' : '0.875rem', py: isMobile ? 0.5 : 1 }} onClick={() => navigate('/todo/all')}>
                 LIST
               </Button>
               <Button 
@@ -1257,9 +1285,9 @@ const BottomBar = ({
                 size="small" 
                 sx={{ 
                   fontWeight: 600,
-                  fontSize: '0.7rem',
-                  px: 1.5,
-                  py: 0.5,
+                  fontSize: isMobile ? '0.6rem' : '0.7rem',
+                  px: isMobile ? 1 : 1.5,
+                  py: isMobile ? 0.3 : 0.5,
                   minWidth: 'auto',
                   bgcolor: '#424242',
                   color: '#fff',
@@ -1280,7 +1308,7 @@ const BottomBar = ({
           <Box sx={{ 
             display: 'flex', 
             gap: 1, 
-            mb: 2,
+            mb: { xs: 1, md: 2 },
             position: { xs: keyboardVisible ? 'fixed' : 'static' },
             bottom: { xs: keyboardVisible ? '300px' : 'auto' },
             left: { xs: keyboardVisible ? '16px' : 'auto' },
@@ -1324,7 +1352,7 @@ const BottomBar = ({
               sx={{
                 flex: 1,
                 minWidth: 0,
-                fontSize: '1rem',
+                fontSize: isMobile ? '0.9rem' : '1rem',
                 background: 'transparent',
                 border: 'none',
                 boxShadow: 'none',
@@ -1344,7 +1372,7 @@ const BottomBar = ({
             <Button
               variant="contained"
               color="primary"
-              sx={{ minWidth: 80, fontWeight: 600 }}
+              sx={{ minWidth: isMobile ? 60 : 80, fontWeight: 600, fontSize: isMobile ? '0.8rem' : '0.875rem', py: isMobile ? 0.5 : 1 }}
               onClick={e => handleAddTodo(e)}
               disabled={!todoInput?.trim()}
             >
@@ -1359,11 +1387,11 @@ const BottomBar = ({
             msOverflowStyle: 'none',
             '&::-webkit-scrollbar': { display: 'none' },
             pr: 1,
-            maxHeight: '300px', // 높이를 300px로 증가
-            minHeight: '150px', // 최소 높이도 증가
+            maxHeight: isMobile ? '200px' : '300px', // 모바일 높이 줄임
+            minHeight: isMobile ? '100px' : '150px', // 모바일 최소 높이 줄임
             border: '1px solid #e0e0e0',
             borderRadius: 1,
-            p: 1,
+            p: isMobile ? 0.5 : 1, // 모바일 패딩 줄임
             bgcolor: '#fafafa'
           }}>
             {(() => {
@@ -1406,25 +1434,233 @@ const BottomBar = ({
               });
               
               return sortedTodayTodos.length === 0 ? (
-                <Typography sx={{ color: '#666', fontSize: 14 }}>할 일이 없습니다.</Typography>
+                <Typography sx={{ color: '#666', fontSize: isMobile ? 12 : 14 }}>할 일이 없습니다.</Typography>
               ) : (
                 sortedTodayTodos.map(item => (
-                  <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', mb: 0.25, p: 0.25, borderRadius: 1, bgcolor: item.completed ? '#f5f5f5' : '#fff' }}>
+                  <Box key={item.id} sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    mb: isMobile ? 0.1 : 0.25, 
+                    p: isMobile ? 0.1 : 0.25, 
+                    borderRadius: 1, 
+                    bgcolor: item.completed ? '#f5f5f5' : '#fff' 
+                  }}>
                     <Checkbox
                       checked={!!item.completed}
                       onChange={() => handleToggleTodo(item)}
-                      sx={{ color: '#1976d2', p: 0.25 }}
+                      sx={{ color: '#1976d2', p: isMobile ? 0.1 : 0.25, size: isMobile ? 'small' : 'medium' }}
                     />
-                    <Typography sx={{ flex: 1, fontSize: 14, textDecoration: item.completed ? 'line-through' : 'none', color: item.completed ? '#666' : '#000' }}>
+                    <Typography sx={{ 
+                      flex: 1, 
+                      fontSize: isMobile ? 12 : 14, 
+                      textDecoration: item.completed ? 'line-through' : 'none', 
+                      color: item.completed ? '#666' : '#000' 
+                    }}>
                       {item.text}
                     </Typography>
-                    <IconButton size="small" onClick={() => handleDeleteTodo(item)} sx={{ color: '#d32f2f', p: 0.25 }}>
-                      <DeleteIcon fontSize="small" />
+                    <IconButton size="small" onClick={() => handleDeleteTodo(item)} sx={{ color: '#d32f2f', p: isMobile ? 0.1 : 0.25 }}>
+                      <DeleteIcon fontSize={isMobile ? 'small' : 'small'} />
                     </IconButton>
                   </Box>
                 ))
               );
             })()}
+          </Box>
+        </Box>
+      </Slide>
+
+      {/* 금일현장/기성/협의/안전 실시간 현황 확장 패널 */}
+      {expandCenter && (
+        <Box position="fixed" top={0} left={0} right={0} bottom={0} zIndex={1201} onClick={() => { setExpandWeather(false); setExpandCenter(false); setExpandTodo(false); setExpandSettings(false); }} />
+      )}
+      <Slide direction="up" in={expandCenter} mountOnEnter unmountOnExit>
+        <Box
+          sx={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 44,
+            zIndex: 1202,
+            bgcolor: '#23242a',
+            color: '#fff',
+            boxShadow: 3,
+            borderRadius: '16px 16px 0 0',
+            p: { xs: 2, md: 3 }, // 모바일 패딩 줄임
+            maxWidth: 1200,
+            margin: '0 auto',
+            minHeight: { xs: 150, md: 200 } // 모바일 최소 높이 줄임
+          }}
+          onClick={e => handleBackdropClick(e, setExpandCenter)}
+          data-panel="center"
+        >
+          <IconButton 
+            onClick={() => setExpandCenter(false)} 
+            sx={{ position: 'absolute', right: 16, top: 16, color: '#fff' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          <Typography variant="h6" sx={{ mb: { xs: 1, md: 2 }, fontWeight: 700, fontSize: { xs: 16, md: 18 } }}>
+            금일현장/기성/협의/안전 실시간 현황
+          </Typography>
+          
+          {/* PC에서는 가로 배치, 모바일에서는 세로 배치 */}
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', md: 'row' }, 
+            gap: { xs: 2, md: 2 }, // 모바일 간격 줄임
+            justifyContent: 'space-between'
+          }}>
+            {/* 금일현장 목록 */}
+            <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
+              <Typography variant="h6" sx={{ mb: 1, color: '#FFD600', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
+                🏗️ 금일현장 ({progressList.length}개)
+              </Typography>
+              {progressList.length === 0 ? (
+                <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 현장 일정이 없습니다.</Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
+                  {progressList.map((item, index) => (
+                    <Box key={item.id} sx={{ 
+                      p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
+                      bgcolor: '#2a2a2a', 
+                      borderRadius: 1, 
+                      border: '1px solid #444',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.title || item.text || item.description || item.desc || '설명 없음'}
+                        </Typography>
+                        {(item.description || item.desc) && (item.description || item.desc).trim() && (
+                          <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.description || item.desc}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Typography sx={{ color: '#FFD600', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
+                        {item.startDate}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
+
+            {/* 금일입찰 목록 */}
+            <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
+              <Typography variant="h6" sx={{ mb: 1, color: '#4FC3F7', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
+                📈 금일입찰 ({discussionList.length}개)
+              </Typography>
+              {discussionList.length === 0 ? (
+                <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 입찰 일정이 없습니다.</Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
+                  {discussionList.map((item, index) => (
+                    <Box key={index} sx={{ 
+                      p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
+                      bgcolor: '#2a2a2a', 
+                      borderRadius: 1, 
+                      border: '1px solid #444',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.title || item.text || item.description || item.desc || '설명 없음'}
+                        </Typography>
+                        {(item.description || item.desc) && (item.description || item.desc).trim() && (
+                          <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.description || item.desc}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Typography sx={{ color: '#4FC3F7', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
+                        {item.startDate}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
+
+            {/* 금일회의 목록 */}
+            <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
+              <Typography variant="h6" sx={{ mb: 1, color: '#FF7043', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
+                💬 금일회의 ({safetyList.length}개)
+              </Typography>
+              {safetyList.length === 0 ? (
+                <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 회의 일정이 없습니다.</Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
+                  {safetyList.map((item, index) => (
+                    <Box key={index} sx={{ 
+                      p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
+                      bgcolor: '#2a2a2a', 
+                      borderRadius: 1, 
+                      border: '1px solid #444',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.title || item.text || item.description || item.desc || '설명 없음'}
+                        </Typography>
+                        {(item.description || item.desc) && (item.description || item.desc).trim() && (
+                          <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.description || item.desc}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Typography sx={{ color: '#FF7043', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
+                        {item.startDate}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
+
+            {/* 금일현설 목록 */}
+            <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
+              <Typography variant="h6" sx={{ mb: 1, color: '#81C784', fontWeight: 600, fontSize: { xs: 16, md: 14 } }}>
+                🛡️ 금일현설 ({setupList.length}개)
+              </Typography>
+              {setupList.length === 0 ? (
+                <Typography sx={{ color: '#ccc', fontSize: { xs: 14, md: 12 } }}>오늘 현설 일정이 없습니다.</Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {setupList.map((item, index) => (
+                    <Box key={index} sx={{ 
+                      p: { xs: 1.5, md: 1 }, 
+                      bgcolor: '#2a2a2a', 
+                      borderRadius: 1, 
+                      border: '1px solid #444',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 600, fontSize: { xs: 16, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.title || item.text || item.description || item.desc || '설명 없음'}
+                        </Typography>
+                        {(item.description || item.desc) && (item.description || item.desc).trim() && (
+                          <Typography sx={{ color: '#ccc', fontSize: { xs: 14, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.description || item.desc}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Typography sx={{ color: '#81C784', fontSize: { xs: 14, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
+                        {item.startDate}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
           </Box>
         </Box>
       </Slide>
@@ -1594,21 +1830,7 @@ const BottomBar = ({
         </DialogActions>
       </Dialog>
 
-      {/* 에러 메시지 Snackbar */}
-      <Snackbar
-        open={!!error}
-        autoHideDuration={4000}
-        onClose={() => setError('')}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={() => setError('')} 
-          severity={error.includes('성공') ? 'success' : 'error'}
-          sx={{ width: '100%' }}
-        >
-          {error}
-        </Alert>
-      </Snackbar>
+
     </Box>
   );
 };

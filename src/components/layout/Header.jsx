@@ -43,12 +43,12 @@ import { useAuth } from '../../contexts/AuthContext';
 const menuItems = [
   { text: '일정관리', icon: <CalendarIcon />, path: '/schedule' },
   { text: '현장일정', icon: <TimelineIcon />, path: '/gantt' },
-  { text: '주요현장', icon: <StarIcon />, path: '/overview' },
+  { text: '주요현장', icon: <StarIcon />, path: '/importantsite' },
   { text: '현장관리', icon: <ConstructionIcon />, path: '/sites' },
   { text: '안전관리', icon: <SafetyIcon />, path: '/safety' },
   { text: '토론의견', icon: <ForumIcon />, path: '/discussions' },
-  { text: '기성관리', icon: <MonetizationOnIcon />, path: '/progress' },
   { text: '거래처현황', icon: <PeopleIcon />, path: '/vendors' },
+  { text: '기성관리', icon: <MonetizationOnIcon />, path: '/progress' },
   { text: '문서관리', icon: <DocumentIcon />, path: '/documents' },
   { text: '보고서', icon: <ProgressIcon />, path: '/reports' },
 ];

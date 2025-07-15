@@ -38,7 +38,7 @@ import { db, collections } from '../firebase';
 import { devLog, devError } from '../utils/performanceUtils';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
-import ScheduleIcon from '@mui/icons-material/Schedule';
+
 import { useAuth } from '../contexts/AuthContext';
 import { useTodo } from '../contexts/TodoContext';
 import * as XLSX from 'xlsx';
@@ -102,55 +102,7 @@ const TodoList = () => {
     }
   };
 
-  // 현재 사용자의 오늘 날짜 투두리스트 가져오기 (자동 이월 제거)
-  const getCurrentUserTodos = useCallback(async () => {
-    if (!userId) return;
-    
-    const today = format(new Date(), 'yyyy-MM-dd');
-    
-    try {
-      devLog('오늘 날짜:', today);
-      
-      // 오늘 투두리스트 확인 (date 필드 또는 createdAt 필드로)
-      const todayQuery = query(
-        collection(db, collections.todos),
-        where('userId', '==', userId),
-        where('date', '==', today)
-      );
-      
-      const todaySnapshot = await getDocs(todayQuery);
-      devLog('오늘 투두 개수:', todaySnapshot.size);
-      
-      // 자동 이월 로직 제거 - 사용자가 직접 불러오기 버튼을 눌러야 함
-      // if (todaySnapshot.empty) {
-      //   console.log('오늘 투두가 없어서 전날 미완료 항목을 이월합니다.');
-      //   const yesterday = format(new Date(Date.now() - 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
-      //   const yesterdayQuery = query(
-      //     collection(db, collections.todos),
-      //       where('userId', '==', userId),
-      //       where('date', '==', yesterday),
-      //       where('completed', '==', false)
-      //     );
-      //   
-      //   const yesterdaySnapshot = await getDocs(yesterdayQuery);
-      //   console.log('전날 미완료 항목 개수:', yesterdaySnapshot.size);
-      //   
-      //   // 전날 미완료 항목들을 오늘로 carry over
-      //   for (const doc of yesterdaySnapshot.docs) {
-      //     const todoData = doc.data();
-      //     await addDoc(collection(db, collections.todos), {
-      //       ...todoData,
-      //       date: today,
-      //       carriedOver: true,
-      //       createdAt: new Date(),
-      //       completed: false
-      //     });
-      //   }
-      // }
-    } catch (error) {
-      devError('투두리스트 초기화 오류:', error);
-    }
-  }, [userId]);
+
 
   // 사용자 목록 가져오기 (마스터 계정용)
   const fetchAllUsers = useCallback(async () => {
@@ -242,10 +194,7 @@ const TodoList = () => {
     if (isAdminOrMasterUser) {
       fetchAllUsers();
     }
-    
-    // 현재 사용자의 오늘 투두리스트 초기화 (한 번만 실행)
-    getCurrentUserTodos();
-  }, [userId, isAdminOrMasterUser, fetchAllUsers, getCurrentUserTodos]);
+  }, [userId, isAdminOrMasterUser, fetchAllUsers]);
 
 
 
@@ -683,6 +632,7 @@ const TodoList = () => {
     <Box sx={{ 
       p: { xs: 1, sm: 2, md: 3 }, 
       pt: { xs: -59, sm: 5, md: 5 }, // 모바일에서 64px 위로 이동
+      mt: { xs: 0, sm: 3, md: 3 }, // PC에서 24px 아래로 이동
       minHeight: '100vh', 
       background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)', 
       position: 'relative' 

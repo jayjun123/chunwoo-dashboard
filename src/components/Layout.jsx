@@ -67,6 +67,7 @@ const menuItems = [
   { text: '현장관리', icon: <BusinessIcon />, path: '/sites' },
   { text: '안전관리', icon: <SecurityIcon />, path: '/safety' },
   { text: '토론의견', icon: <ForumIcon />, path: '/discussions' },
+  { text: '거래처현황', icon: <PeopleIcon />, path: '/vendors' },
   { text: '기성관리', icon: <MonetizationOnIcon />, path: '/progress' },
   { text: '보고서', icon: <AssessmentIcon />, path: '/reports' },
   { text: '문서관리', icon: <DescriptionIcon />, path: '/documents' }

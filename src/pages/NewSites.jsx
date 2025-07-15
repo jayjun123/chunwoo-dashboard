@@ -11,12 +11,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/material';
 
-const STATUS_OPTIONS = ['계획', '진행중', '완료', '미정'];
+const STATUS_OPTIONS = ['예정', '진행중', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급', '관급'];
 
 const initialFormState = {
   name: '',
-  status: '계획',
+  status: '예정',
   contractType: '관급',
   subcontractGuardian: false,
   installment: '',
@@ -155,7 +155,7 @@ const NewSites = () => {
       const sitesData = snapshot.docs.map(doc => {
         const data = { id: doc.id, ...doc.data() };
         if (data.status === '진행') data.status = '진행중';
-        else if (data.status === '예정') data.status = '계획';
+        else if (data.status === '예정') data.status = '예정';
         return data;
       });
 
@@ -328,7 +328,7 @@ const NewSites = () => {
         minHeight: isMobile ? '100vh' : 'auto',
         WebkitOverflowScrolling: isMobile ? 'touch' : 'auto',
         scrollBehavior: isMobile ? 'smooth' : 'auto',
-        mt: isMobile ? 0 : 7
+        mt: isMobile ? 0 : 8
       }}
     >
       {/* Left Panel */}
@@ -485,10 +485,10 @@ const NewSites = () => {
              </Box>
              <Box sx={{ flex: isMobile ? 1 : 3 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
-                 진행상황
+                 예정
                </Typography>
                <FormControl fullWidth size="small">
-                 <Select name="status" value={form.status ?? '계획'} onChange={handleChange} disabled={isReadOnly}>
+                 <Select name="status" value={form.status ?? '예정'} onChange={handleChange} disabled={isReadOnly}>
                    {STATUS_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
                  </Select>
                </FormControl>

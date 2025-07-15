@@ -22,7 +22,6 @@ import {
   Alert
 } from '@mui/material';
 import {
-  Schedule as ScheduleIcon,
   Notifications as NotificationsIcon,
   Repeat as RepeatIcon,
   Category as CategoryIcon,
@@ -184,7 +183,6 @@ const AdvancedScheduleForm = ({ open, onClose, onSave, initialData = null }) => 
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <ScheduleIcon />
           {initialData ? '일정 수정' : '새 일정 추가'}
         </Box>
       </DialogTitle>

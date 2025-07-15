@@ -1,23 +1,6 @@
 import { db, collections } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
 
-// 초기 날씨 데이터
-const initWeather = async () => {
-  const weatherData = [
-    { day: '월', temp: 23, weather: '맑음', icon: '☀️' },
-    { day: '화', temp: 24, weather: '구름', icon: '⛅' },
-    { day: '수', temp: 22, weather: '비', icon: '🌧️' },
-    { day: '목', temp: 21, weather: '흐림', icon: '☁️' },
-    { day: '금', temp: 25, weather: '맑음', icon: '☀️' },
-    { day: '토', temp: 26, weather: '맑음', icon: '☀️' },
-    { day: '일', temp: 24, weather: '구름', icon: '⛅' },
-  ];
-
-  for (const weather of weatherData) {
-    await addDoc(collection(db, collections.weather), weather);
-  }
-};
-
 // 초기 현장 데이터
 // const initSites = async () => {
 //   const sitesData = [
@@ -83,7 +66,7 @@ const initTodos = async () => {
 // 모든 초기 데이터 설정
 export const initializeDatabase = async () => {
   try {
-    await initWeather();
+    // await initWeather();
     // await initSites();
     await initProgress();
     await initDiscussions();

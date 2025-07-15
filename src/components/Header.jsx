@@ -12,9 +12,10 @@ import ForumIcon from '@mui/icons-material/Forum';
 import GroupIcon from '@mui/icons-material/Group';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
-import StarIcon from '@mui/icons-material/Star';
+
 import { useAuth } from '../contexts/AuthContext';
 import { TrendingUp as TrendingUpIconMUI, MonetizationOn as MonetizationOnIconMUI, Star as StarIconMUI } from '@mui/icons-material';
+import PeopleIcon from '@mui/icons-material/People';
 
 const Header = ({ user, onLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -24,13 +25,12 @@ const Header = ({ user, onLogout }) => {
   const { currentUser, refreshUserInfo } = useAuth();
 
   const menuItems = [
-    { path: '/schedule', label: '일정관리', icon: <EventIcon /> },
-    { path: '/overview', label: '주요현장', icon: <StarIcon /> },
+    { path: '/importantsite', label: '주요현장', icon: <StarIcon /> },
     { path: '/sites', label: '현장관리', icon: <DashboardIcon /> },
     { path: '/safety', label: '안전관리', icon: <SecurityIcon /> },
     { path: '/discussions', label: '토론의견', icon: <ForumIcon /> },
+    { path: '/vendors', label: '거래처현황', icon: <PeopleIcon /> },
     { path: '/cost', label: '기성관리', icon: <MonetizationOnIcon /> },
-    { path: '/vendors', label: '거래처현황', icon: <GroupIcon /> },
     { path: '/documents', label: '문서관리', icon: <DescriptionIcon /> },
     { path: '/reports', label: '보고서', icon: <BarChartIcon /> }
   ];

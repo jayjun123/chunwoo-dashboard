@@ -624,6 +624,7 @@ const CustomSchedule = () => {
         margin: 0,
         padding: 0,
         position: isMobile ? 'relative' : 'static',
+        top: isMobile ? '-100px' : 'auto',
         left: isMobile ? '-30px' : 'auto',
         right: isMobile ? 0 : 'auto',
         outline: 'none' // 포커스 테두리 제거

@@ -51,7 +51,7 @@ const menuList = [
   { key: 'reports', label: '보고서' },
   { key: 'discussions', label: '토론/의견' },
   { key: 'vendors', label: '협력업체' },
-  { key: 'progress', label: '진행상황' },
+  { key: 'progress', label: '예정' },
 ];
 const permissionTypes = [
   { key: 'read', label: '읽기' },

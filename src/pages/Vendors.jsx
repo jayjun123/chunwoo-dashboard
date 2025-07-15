@@ -211,7 +211,7 @@ const Vendors = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, pt: 9 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">거래처 현황</Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
@@ -238,14 +238,10 @@ const Vendors = () => {
             <TableRow>
               <TableCell>업체명</TableCell>
               <TableCell>분류</TableCell>
-              <TableCell>유형</TableCell>
-              <TableCell>연락처</TableCell>
-              <TableCell>이메일</TableCell>
-              <TableCell>상태</TableCell>
+              <TableCell>물량</TableCell>
               <TableCell>계약일</TableCell>
               <TableCell>계약금액</TableCell>
-              <TableCell>진행률</TableCell>
-              <TableCell>담당자</TableCell>
+              <TableCell>관급업체</TableCell>
               <TableCell>관리</TableCell>
             </TableRow>
           </TableHead>
@@ -254,20 +250,10 @@ const Vendors = () => {
               <TableRow key={vendor.id}>
                 <TableCell>{vendor.name}</TableCell>
                 <TableCell>{vendor.category}</TableCell>
-                <TableCell>{vendor.type}</TableCell>
-                <TableCell>{vendor.contact}</TableCell>
-                <TableCell>{vendor.email}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={vendor.status}
-                    color={getStatusColor(vendor.status)}
-                    size="small"
-                  />
-                </TableCell>
+                <TableCell>{vendor.workers || '-'}</TableCell>
                 <TableCell>{vendor.contractDate}</TableCell>
                 <TableCell>{vendor.contractAmount}</TableCell>
-                <TableCell>{vendor.progress}%</TableCell>
-                <TableCell>{vendor.manager}</TableCell>
+                <TableCell>{vendor.type}</TableCell>
                 <TableCell>
                   <IconButton size="small" onClick={() => handleOpen(vendor)}>
                     <EditIcon />
