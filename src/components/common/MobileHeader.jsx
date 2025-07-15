@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
-import { Home, Business, Security, Assignment, Chat, Person, Star, Schedule, Timeline } from '@mui/icons-material';
+import { Home, Business, Security, Assignment, Chat, Person, Star, Timeline } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 // 네비게이션 아이템들 (문서/보고서/설정 제외)
@@ -8,7 +8,7 @@ const navigationItems = [
   { icon: <Home />, path: '/', label: '홈' },
   { icon: <Star />, path: '/importantsite', label: '주요현장' },
   { icon: <Business />, path: '/sites', label: '현장' },
-  { icon: <Schedule />, path: '/schedule', label: '일정' },
+
   { icon: <Timeline />, path: '/gantt', label: '현장일정' },
   { icon: <Assignment />, path: '/progress', label: '기성' },
   { icon: <Security />, path: '/safety', label: '안전' },
@@ -18,23 +18,27 @@ const navigationItems = [
 
 export default function MobileHeader() {
   const navigate = useNavigate();
+  
   return (
     <Box
       sx={{
         position: 'fixed',
-        top: 32,
+        top: 'env(safe-area-inset-top, 0px)',
         left: 0,
         right: 0,
         width: '100vw',
         minWidth: 0,
         height: 32,
+        minHeight: 32,
+        maxHeight: 32,
         bgcolor: '#0f0f0f',
         borderBottom: '1px solid #333',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         px: 1,
-        zIndex: 2001,
+        zIndex: 9999,
+        boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
       }}
     >
       <Box sx={{ 
@@ -60,6 +64,9 @@ export default function MobileHeader() {
                 borderRadius: 1,
                 '&:hover': {
                   bgcolor: 'rgba(255,255,255,0.1)',
+                },
+                '&:active': {
+                  bgcolor: 'rgba(255,255,255,0.2)',
                 }
               }}
             >

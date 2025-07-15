@@ -54,7 +54,7 @@ const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
   // 사진 카테고리
   const categories = [
     { value: '일반', label: '일반', color: '#1976d2' },
-    { value: '진행상황', label: '진행상황', color: '#4caf50' },
+    { value: '계획', label: '계획', color: '#4caf50' },
     { value: '안전점검', label: '안전점검', color: '#ff9800' },
     { value: '완료', label: '완료', color: '#2196f3' },
     { value: '문제점', label: '문제점', color: '#f44336' }

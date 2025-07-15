@@ -726,7 +726,7 @@ export const exportFullGuidePDF = () => {
     ['외부문서연동', '첨부(문서관리)', '구글드라이브/원드라이브/Dropbox 문서 첨부', '외부 API, Firestore: documents', '권한별 제한 가능'],
     ['캘린더연동', '일정(설정/상단)', '구글/네이버/카카오 캘린더와 일정 양방향 동기화', '외부 API, Firestore: schedules', '-'],
     ['사진/도면주석', '이미지(문서/지도)', '사진/도면 업로드, 이미지 위 주석/마킹', 'Firestore Storage, Fabric.js', '모바일 최적화'],
-    ['지도(GIS)', '지도(현장/대시보드)', '현장 위치, 위험구역, 진행상황 지도 시각화', '카카오맵/구글맵 API, Firestore: sites', '-'],
+    ['지도(GIS)', '지도(현장/대시보드)', '현장 위치, 위험구역, 계획 지도 시각화', '카카오맵/구글맵 API, Firestore: sites', '-'],
     ['AI요약/자동화', 'AI요약(보고서)', '보고서/이슈 자동 요약, 키워드 추출', 'OpenAI, Firestore: reports', '마스터만'],
     ['OCR/음성인식', '사진/음성(입력)', '사진에서 텍스트 추출, 음성으로 투두/보고서 입력', 'Google Vision, Speech-to-Text API', '-'],
     ['감사로그', '로그(설정/관리)', '모든 주요 변경/다운로드/삭제/공유 이력 자동 기록', 'Firestore: logs', '관리자만'],
@@ -848,7 +848,7 @@ export const exportUserGuidePDF = () => {
   doc.text('🏠 2. 대시보드 사용법', 20, 25);
   doc.setFontSize(11);
   doc.setFont('NanumGothic', 'normal');
-  doc.text('• 주요 현장 현황: 실시간 진행상황 확인', 20, 40);
+  doc.text('• 주요 현장 현황: 실시간 계획 확인', 20, 40);
   doc.text('• 투두 리스트: 할 일 추가/완료/삭제', 20, 50);
   doc.text('• 최근 활동: 최근 등록된 현장, 기성, 안전사고', 20, 60);
   doc.text('• 날씨 정보: 현장별 날씨 확인', 20, 70);

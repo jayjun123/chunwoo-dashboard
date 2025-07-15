@@ -90,25 +90,25 @@ code {
   width: 100%;
   margin: 0 auto;
   text-align: center;
-  margin-top: 20px !important;
+  margin-top: 0 !important;
 }
 
-/* 모바일에서 전체 화면 32px 내려가도록 설정 */
+/* 모바일에서 상태바 고려한 올바른 레이아웃 */
 @media (max-width: 600px) {
   body {
-    padding-top: calc(var(--status-bar-height) + 32px) !important;
-    margin-top: 32px !important;
+    padding-top: env(safe-area-inset-top, 0px) !important;
+    margin-top: 0 !important;
   }
   
   #root {
-    margin-top: 32px !important;
-    padding-top: 32px !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
   }
   
-  /* 모바일에서 모든 컨텐츠가 32px 내려가도록 */
+  /* 모바일에서 컨텐츠 레이아웃 */
   .app, .main-content {
-    margin-top: 32px !important;
-    padding-top: 32px !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
   }
 }
 
@@ -440,6 +440,25 @@ html {
     width: 0 !important;
     height: 0 !important;
   }
+  
+  /* 모바일에서 터치 최적화 */
+  * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* 입력 필드는 선택 가능 */
+  input, textarea, select {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
 }
 
 /* 메인 콘텐츠 영역 스크롤 설정 */
@@ -451,6 +470,15 @@ html {
   margin-top: 0;
   flex: 1;
   min-height: 0;
+}
+
+/* 모바일에서 메인 콘텐츠 영역 */
+@media (max-width: 600px) {
+  .main-content {
+    height: calc(100vh - 64px - 44px); /* 모바일 헤더(64px) + 하단바(44px) 제외 */
+    padding-top: 0;
+    margin-top: 0;
+  }
 }
 
 /* 대시보드바는 고정 */

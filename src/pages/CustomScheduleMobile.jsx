@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, IconButton, Grid, Paper, Divider, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Checkbox, FormControlLabel, Tooltip } from '@mui/material';
-import { ChevronLeft, ChevronRight, ArrowBack, Add, Today, Edit, Delete, ViewWeek, ViewModule, CalendarViewMonth, Home, Business, Security, Assignment, Chat, Description, Assessment, Settings, Person, Star, Schedule, Timeline } from '@mui/icons-material';
+import { ChevronLeft, ChevronRight, ArrowBack, Add, Today, Edit, Delete, ViewWeek, ViewModule, CalendarViewMonth, Home, Business, Security, Assignment, Chat, Description, Assessment, Settings, Person, Star, Timeline } from '@mui/icons-material';
 import { collection, onSnapshot, doc, deleteDoc, updateDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useNavigate } from 'react-router-dom';
@@ -108,7 +108,6 @@ const CustomScheduleMobile = () => {
     { icon: <Home />, path: '/', label: '홈' },
     { icon: <Star />, path: '/importantsite', label: '주요현장' },
     { icon: <Business />, path: '/sites', label: '현장' },
-    { icon: <Schedule />, path: '/schedule', label: '일정' },
     { icon: <Timeline />, path: '/gantt', label: '현장일정' },
     { icon: <Assignment />, path: '/progress', label: '기성' },
     { icon: <Security />, path: '/safety', label: '안전' },
@@ -368,20 +367,23 @@ const CustomScheduleMobile = () => {
                         <Box
                           key={item.id}
                           sx={{
-                            borderRadius: 1,
-                            px: 0.8,
-                            py: 0.3,
-                            fontSize: '0.8rem',
+                            borderRadius: 0.5,
+                            px: 0.4,
+                            py: 0.2,
+                            fontSize: '0.7rem',
                             fontWeight: 500,
                             bgcolor: item.color || colorList[i % colorList.length],
                             color: '#fff',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
-                            boxShadow: '0 1px 2px 0 #0003',
+                            boxShadow: '0 1px 1px 0 #0002',
                             textAlign: 'center',
                             width: '100%',
-                            mb: 0.2,
+                            mb: 0.1,
+                            lineHeight: 1.2,
+                            minHeight: 18,
+                            maxHeight: 18,
                           }}
                         >
                           {(() => {
@@ -901,7 +903,7 @@ const CustomScheduleMobile = () => {
         position: 'relative',
         padding: 0,
         margin: 0,
-        pt: '170px'
+        pt: '5px'
       }}>
 
         
@@ -1012,8 +1014,8 @@ const CustomScheduleMobile = () => {
                 const isToday = date && date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
                 const isSelected = isCurrentMonth && day === selectedDay;
                 const dayOfWeek = colIdx;
-                // 동적 높이 적용
-                const cellHeight = monthMatrix.length === 5 ? 69 : 59;
+                // 기본 높이 고정 적용
+                const cellHeight = 69;
                 return (
                   <Box
                     key={`${rowIdx}-${colIdx}`}
@@ -1046,7 +1048,7 @@ const CustomScheduleMobile = () => {
                     }}
                     onClick={() => isCurrentMonth && day && setSelectedDay(day)}
                   >
-                    {day && (
+                    {day ? (
                       <>
                         {/* 날짜 숫자와 일정 카운트 - 더 컴팩트하게 */}
                         <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0, mt: 0, gap: 0 }}>
@@ -1081,15 +1083,15 @@ const CustomScheduleMobile = () => {
                           </Box>
                         </Box>
                         {/* 일정 바 - 더 컴팩트하게 */}
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1, mt: 0.2 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1, mt: 0.2, flex: 1, height: '100%', overflow: 'auto' }}>
                           {getSchedulesForDate(cellYear, cellMonth, day).slice(0, 8).map((item, i) => (
                             <Box
                               key={item.id}
                               sx={{
                                 borderRadius: 0.5,
                                 px: 0.4,
-                                py: 0.1,
-                                fontSize: '0.6rem',
+                                py: 0.2,
+                                fontSize: '0.7rem',
                                 fontWeight: 500,
                                 bgcolor: item.color || colorList[i % colorList.length],
                                 color: '#fff',
@@ -1101,6 +1103,8 @@ const CustomScheduleMobile = () => {
                                 width: '100%',
                                 mb: 0.1,
                                 lineHeight: 1.2,
+                                minHeight: 18,
+                                maxHeight: 18,
                               }}
                             >
                               {(item.text || item.title || '제목 없음').slice(0, 8)}
@@ -1108,6 +1112,10 @@ const CustomScheduleMobile = () => {
                           ))}
                         </Box>
                       </>
+                    ) : (
+                      // 빈 날짜셀을 위한 공간 확보
+                      <Box sx={{ height: cellHeight - 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      </Box>
                     )}
                   </Box>
                 );

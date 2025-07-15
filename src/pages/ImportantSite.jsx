@@ -508,7 +508,7 @@ export default function ImportantSite() {
   };
 
   return (
-    <Box sx={{ height: 'auto', overflow: 'visible', pb: 4, mt: isMobile ? 0 : 7 }}>
+    <Box sx={{ height: 'auto', overflow: 'visible', pb: 4, mt: isMobile ? 2.5 : 8 }}>
       {/* 상단 검색창 - 모바일에서 간소화 */}
       <Box sx={{ 
         display: 'flex', 

@@ -458,9 +458,9 @@ const WholeList = () => {
                     active={sortBy === 'status'}
                     direction={sortBy === 'status' ? order : 'asc'}
                     onClick={() => handleRequestSort('status')}
-                  >
-                    진행상황
-                  </TableSortLabel>
+                                      >
+                      진행상황
+                    </TableSortLabel>
                 </TableCell>
                 <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
                   <TableSortLabel

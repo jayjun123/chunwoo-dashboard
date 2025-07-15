@@ -10,7 +10,7 @@ import * as XLSX from 'xlsx';
 import SafetyOverviewCards from '../components/safety/SafetyOverviewCards';
 import { exportToExcel } from '../utils/exportUtils';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import MobileLayout from '../components/common/MobileLayout';
+
 
 const TAB_LABELS = ['안전관리', '안전 점검', '사고/사고예방', '안전 교육', '안전관리비'];
 
@@ -671,22 +671,22 @@ const SafetyPage = () => {
   const inputRef1 = useRef();
 
   return (
-    <MobileLayout>
-      <Box sx={{ 
-        p: 0,
-        position: 'fixed',
-        top: isMobile ? '54px' : '65px',
-        left: isMobile ? '20px' : 0,
-        right: isMobile ? '20px' : 0,
-        bottom: '51px',
-        width: isMobile ? 'calc(100% - 40px)' : '100%',
-        height: isMobile ? 'calc(100vh - 54px - 51px)' : 'calc(100vh - 65px - 51px)',
-        overflow: 'auto',
-        overflowX: 'hidden',
-        zIndex: 1000,
-        padding: isMobile ? '0px' : '16px',
-        bgcolor: '#1a1d21'
-      }}>
+    <Box sx={{ 
+      p: isMobile ? 0 : 3,
+      mt: isMobile ? 0 : 8,
+      position: isMobile ? 'fixed' : 'relative',
+      top: isMobile ? '54px' : 'auto',
+      left: isMobile ? '20px' : 'auto',
+      right: isMobile ? '20px' : 'auto',
+      bottom: isMobile ? '51px' : 'auto',
+      width: isMobile ? 'calc(100% - 40px)' : '100%',
+      height: isMobile ? 'calc(100vh - 54px - 51px)' : 'auto',
+      overflow: 'auto',
+      overflowX: 'hidden',
+      zIndex: isMobile ? 1000 : 'auto',
+      padding: isMobile ? '0px' : '16px',
+      bgcolor: '#1a1d21'
+    }}>
         <Paper sx={{ 
           mb: 2,
           marginBottom: '16px',
@@ -1073,7 +1073,6 @@ const SafetyPage = () => {
           </Alert>
         )}
       </Box>
-    </MobileLayout>
   );
 };
 

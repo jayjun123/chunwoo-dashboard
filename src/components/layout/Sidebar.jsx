@@ -8,7 +8,6 @@ const Sidebar = () => {
     { path: '/', icon: <FaHome />, label: '대시보드' },
     { path: '/sites', icon: <FaBuilding />, label: '현장 관리' },
     { path: '/whole-list', icon: <FaList />, label: '전체 현장 목록' },
-    { path: '/schedule', icon: <FaCalendarAlt />, label: '일정 관리' },
     { path: '/safety', icon: <FaHardHat />, label: '안전 관리' },
     { path: '/materials', icon: <FaBook />, label: '자재 관리' },
     { path: '/users', icon: <FaUsers />, label: '인력 관리' },

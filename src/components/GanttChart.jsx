@@ -34,7 +34,7 @@ import {
   PictureAsPdf as PdfIcon,
   Timeline as TimelineIcon,
   CheckCircle as CheckCircleIcon,
-  Schedule as ScheduleIcon,
+
   TrendingUp as TrendingUpIcon,
   ZoomIn as ZoomInIcon,
   ZoomOut as ZoomOutIcon,
@@ -98,13 +98,11 @@ const GanttChart = () => {
     };
   };
   
-  // 모바일용 2주 계산
-  const getCurrentTwoWeeks = () => {
+  // 모바일용 1개월 계산
+  const getCurrentMonth = () => {
     const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() - 7); // 1주 전
-    const endDate = new Date(today);
-    endDate.setDate(today.getDate() + 7); // 1주 후
+    const startDate = new Date(today.getFullYear(), today.getMonth(), 1); // 이번달 1일
+    const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // 이번달 마지막일
     
     return {
       startDate: startDate.toISOString().slice(0, 10),
@@ -112,7 +110,7 @@ const GanttChart = () => {
     };
   };
 
-  const [dateRange, setDateRange] = useState(getCurrentHalfYear());
+  const [dateRange, setDateRange] = useState(isMobile ? getCurrentMonth() : getCurrentHalfYear());
   const [formData, setFormData] = useState({
     name: '',
     startDate: '',
@@ -166,6 +164,7 @@ const GanttChart = () => {
     
     while (current <= dateRangeObj.end) {
       dates.push(new Date(current));
+      // 모바일에서도 1일 단위로 표시
       current.setDate(current.getDate() + 1);
     }
     
@@ -259,6 +258,10 @@ const GanttChart = () => {
     const endIndex = Math.floor((schedule.endDate - dateRangeObj.start) / (1000 * 60 * 60 * 24));
     const duration = Math.max(1, endIndex - startIndex + 1);
     
+    // 모바일에서는 1일 단위로 표시하도록 수정
+    const adjustedStartIndex = startIndex;
+    const adjustedDuration = duration;
+    
     console.log('🔥 위치 계산:', {
       siteName: schedule.text,
       startDate: schedule.startDate,
@@ -267,15 +270,17 @@ const GanttChart = () => {
       startIndex,
       endIndex,
       duration,
-      left: startIndex * (40 * zoomLevel),
-      width: duration * (40 * zoomLevel)
+      adjustedStartIndex,
+      adjustedDuration,
+      left: adjustedStartIndex * (isMobile ? 30 * zoomLevel : 40 * zoomLevel),
+      width: adjustedDuration * (isMobile ? 30 * zoomLevel : 40 * zoomLevel)
     });
     
     return {
-      left: Math.max(0, startIndex * (40 * zoomLevel)),
-      width: Math.max(40 * zoomLevel, duration * (40 * zoomLevel)),
-      startIndex,
-      duration
+      left: Math.max(0, adjustedStartIndex * (isMobile ? 30 * zoomLevel : 40 * zoomLevel)),
+      width: Math.max(isMobile ? 30 * zoomLevel : 40 * zoomLevel, adjustedDuration * (isMobile ? 30 * zoomLevel : 40 * zoomLevel)),
+      startIndex: adjustedStartIndex,
+      duration: adjustedDuration
     };
   };
 
@@ -346,7 +351,7 @@ const GanttChart = () => {
   // 오늘 날짜로 스크롤하는 함수
   const scrollToToday = () => {
     if (chartContainerRef.current) {
-      const todayPosition = todayIndex * (40 * zoomLevel);
+      const todayPosition = todayIndex * (isMobile ? 30 * zoomLevel : 40 * zoomLevel);
       const containerWidth = chartContainerRef.current.clientWidth;
       const scrollPosition = todayPosition - (containerWidth / 2);
       chartContainerRef.current.scrollLeft = Math.max(0, scrollPosition);
@@ -379,7 +384,7 @@ const GanttChart = () => {
         setDateRange(getCurrentQuarter());
         break;
       case 'mobile':
-        setDateRange(getCurrentTwoWeeks());
+        setDateRange(getCurrentMonth());
         break;
       default:
         setDateRange(getCurrentHalfYear());
@@ -599,17 +604,19 @@ const GanttChart = () => {
       backgroundColor: isFullscreen ? 'background.paper' : 'transparent',
       overflow: isFullscreen ? 'hidden' : 'visible'
     }}>
-      <Typography variant={isMobile ? "h6" : "h4"} gutterBottom sx={{ 
+      <Typography variant={isMobile ? "h6" : "h4"} sx={{ 
         display: 'flex', 
         alignItems: 'center', 
         gap: 1,
         p: isFullscreen ? 2 : 0,
         borderBottom: isFullscreen ? 1 : 0,
-        borderColor: isFullscreen ? 'divider' : 'transparent'
+        borderColor: isFullscreen ? 'divider' : 'transparent',
+        pt: 0,
+        pb: 0
       }}>
         <TimelineIcon color="primary" />
         현장 현황표 {isMobile ? 
-          '(2주 보기)' :
+          '(1개월 보기)' :
           (viewMode === 'halfyear' ? 
             '(반기 보기)' : 
             viewMode === 'quarter' ? 
@@ -638,101 +645,130 @@ const GanttChart = () => {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="h6">
-                현장별 진행 상황 ({Object.keys(siteSchedules).length}개 현장)
-              </Typography>
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>연도</InputLabel>
-                <Select
-                  value={selectedYear}
-                  onChange={(e) => handleYearChange(e.target.value)}
-                  label="연도"
+                          <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: isMobile ? 0.5 : 2,
+                flexDirection: isMobile ? 'column' : 'row',
+                width: '100%'
+              }}>
+                {!isMobile && (
+                  <Typography variant="h6">
+                    현장별 진행 상황 ({Object.keys(siteSchedules).length}개 현장)
+                  </Typography>
+                )}
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: isMobile ? 0.5 : 2,
+                  flexDirection: isMobile ? 'row' : 'row',
+                  flexWrap: isMobile ? 'wrap' : 'nowrap'
+                }}>
+                <FormControl size="small" sx={{ minWidth: isMobile ? 60 : 120 }}>
+                  <InputLabel sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>연도</InputLabel>
+                  <Select
+                    value={selectedYear}
+                    onChange={(e) => handleYearChange(e.target.value)}
+                    label="연도"
+                    sx={{ 
+                      fontSize: isMobile ? '0.7rem' : 'inherit',
+                      '& .MuiSelect-select': { 
+                        color: useYearMode ? 'primary.main' : 'text.secondary',
+                        fontWeight: useYearMode ? 'bold' : 'normal',
+                        fontSize: isMobile ? '0.7rem' : 'inherit'
+                      }
+                    }}
+                  >
+                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
+                      <MenuItem key={year} value={year} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>{year}년</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: isMobile ? 80 : 200 }}>
+                  <InputLabel sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>현장</InputLabel>
+                  <Select
+                    multiple
+                    value={selectedSites}
+                    onChange={(e) => setSelectedSites(e.target.value)}
+                    label="현장"
+                    sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+                    renderValue={(selected) => (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {selected.length === 0 && <Typography variant="body2" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>모든 현장</Typography>}
+                        {selected.length > 0 && selected.length <= 2 && selected.map((siteId) => {
+                          const site = sites.find(s => s.id === siteId);
+                          return <Chip key={siteId} label={site?.name} size="small" sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }} />;
+                        })}
+                        {selected.length > 2 && (
+                          <Chip label={`${selected.length}개`} size="small" sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }} />
+                        )}
+                      </Box>
+                    )}
+                  >
+                    <MenuItem onClick={handleSelectAllSites}>
+                      <Typography variant="body2" fontWeight="bold" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+                        {selectedSites.length === sites.length ? '전체 해제' : '전체 선택'}
+                      </Typography>
+                    </MenuItem>
+                    <Divider />
+                    {sites.map((site) => (
+                      <MenuItem key={site.id} value={site.id} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>{site.name}</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}>
+                            ({getConstructionPeriod(site)})
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <TextField
+                  size="small"
+                  label="시작일"
+                  type="date"
+                  value={dateRange.startDate}
+                  onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
+                  InputLabelProps={{ shrink: true }}
                   sx={{ 
-                    '& .MuiSelect-select': { 
-                      color: useYearMode ? 'primary.main' : 'text.secondary',
-                      fontWeight: useYearMode ? 'bold' : 'normal'
+                    minWidth: isMobile ? 80 : 140,
+                    fontSize: isMobile ? '0.7rem' : 'inherit',
+                    '& .MuiInputBase-input': { 
+                      color: !useYearMode ? 'primary.main' : 'text.secondary',
+                      fontWeight: !useYearMode ? 'bold' : 'normal',
+                      fontSize: isMobile ? '0.7rem' : 'inherit'
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontSize: isMobile ? '0.7rem' : 'inherit'
                     }
                   }}
-                >
-                  {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
-                    <MenuItem key={year} value={year}>{year}년</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>현장 선택</InputLabel>
-                <Select
-                  multiple
-                  value={selectedSites}
-                  onChange={(e) => setSelectedSites(e.target.value)}
-                  label="현장 선택"
-                  renderValue={(selected) => (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {selected.length === 0 && <Typography variant="body2">모든 현장</Typography>}
-                      {selected.length > 0 && selected.length <= 2 && selected.map((siteId) => {
-                        const site = sites.find(s => s.id === siteId);
-                        return <Chip key={siteId} label={site?.name} size="small" />;
-                      })}
-                      {selected.length > 2 && (
-                        <Chip label={`${selected.length}개 현장`} size="small" />
-                      )}
-                    </Box>
-                  )}
-                >
-                  <MenuItem onClick={handleSelectAllSites}>
-                    <Typography variant="body2" fontWeight="bold">
-                      {selectedSites.length === sites.length ? '전체 해제' : '전체 선택'}
-                    </Typography>
-                  </MenuItem>
-                  <Divider />
-                  {sites.map((site) => (
-                    <MenuItem key={site.id} value={site.id}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2">{site.name}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          ({getConstructionPeriod(site)})
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                size="small"
-                label="시작일"
-                type="date"
-                value={dateRange.startDate}
-                onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ 
-                  minWidth: 140,
-                  '& .MuiInputBase-input': { 
-                    color: !useYearMode ? 'primary.main' : 'text.secondary',
-                    fontWeight: !useYearMode ? 'bold' : 'normal'
-                  }
-                }}
-              />
-              <Typography variant="body2" color={!useYearMode ? 'primary.main' : 'text.secondary'} fontWeight={!useYearMode ? 'bold' : 'normal'}>
-                ~
-              </Typography>
-              <TextField
-                size="small"
-                label="종료일"
-                type="date"
-                value={dateRange.endDate}
-                onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ 
-                  minWidth: 140,
-                  '& .MuiInputBase-input': { 
-                    color: !useYearMode ? 'primary.main' : 'text.secondary',
-                    fontWeight: !useYearMode ? 'bold' : 'normal'
-                  }
-                }}
-              />
+                />
+                <Typography variant="body2" color={!useYearMode ? 'primary.main' : 'text.secondary'} fontWeight={!useYearMode ? 'bold' : 'normal'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+                  ~
+                </Typography>
+                <TextField
+                  size="small"
+                  label="종료일"
+                  type="date"
+                  value={dateRange.endDate}
+                  onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ 
+                    minWidth: isMobile ? 80 : 140,
+                    fontSize: isMobile ? '0.7rem' : 'inherit',
+                    '& .MuiInputBase-input': { 
+                      color: !useYearMode ? 'primary.main' : 'text.secondary',
+                      fontWeight: !useYearMode ? 'bold' : 'normal',
+                      fontSize: isMobile ? '0.7rem' : 'inherit'
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontSize: isMobile ? '0.7rem' : 'inherit'
+                    }
+                  }}
+                />
+              </Box>
             </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               {/* PC 전용 컨트롤 */}
               {!isMobile && (
                 <>
@@ -774,7 +810,7 @@ const GanttChart = () => {
               {isMobile && (
                 <>
                   <Typography variant="body2" color="text.secondary">
-                    2주 보기
+                    1개월 보기
                   </Typography>
                   <Tooltip title="오늘 날짜로 이동">
                     <IconButton onClick={scrollToToday} size="small">
@@ -783,14 +819,6 @@ const GanttChart = () => {
                   </Tooltip>
                 </>
               )}
-              
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleAdd}
-              >
-                현장 추가
-              </Button>
             </Box>
           </Box>
         </CardContent>
@@ -802,7 +830,12 @@ const GanttChart = () => {
         overflow: 'auto', 
         mt: isMobile ? 1 : 2.5, 
         maxHeight: isFullscreen ? 'calc(100vh - 80px)' : isMobile ? '60vh' : '70vh',
-        height: isFullscreen ? 'calc(100vh - 80px)' : 'auto'
+        height: isFullscreen ? 'calc(100vh - 80px)' : 'auto',
+        '&::-webkit-scrollbar': {
+          display: 'none'
+        },
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none'
       }} ref={chartContainerRef} className="gantt-timeline">
         <Box sx={{ 
           position: 'relative', 
@@ -830,19 +863,21 @@ const GanttChart = () => {
                 dateArray.length * (40 * zoomLevel) + 200 
             }}>
               {/* 현장명 열 */}
-              <Grid item xs={isMobile ? 3 : 2} sx={{ 
-                borderRight: 1, 
-                borderColor: 'divider',
-                backgroundColor: 'grey.50',
-                p: isMobile ? 1 : 2,
-                position: 'sticky',
-                left: 0,
-                zIndex: 15
-              }}>
-              </Grid>
+              {!isMobile && (
+                <Grid item xs={2} sx={{ 
+                  borderRight: 1, 
+                  borderColor: 'divider',
+                  backgroundColor: 'grey.50',
+                  p: 2,
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 15
+                }}>
+                </Grid>
+              )}
               
               {/* 날짜 열들 */}
-              <Grid item xs={isMobile ? 9 : 10} sx={{ display: 'flex' }}>
+              <Grid item xs={isMobile ? 12 : 10} sx={{ display: 'flex' }}>
                 {dateArray.map((date, index) => (
                   <Box
                     key={index}
@@ -857,11 +892,11 @@ const GanttChart = () => {
                       position: 'relative'
                     }}
                   >
-                    <Typography variant={isMobile ? "caption" : "body2"} display="block" color={date.getDay() === 0 ? 'error.main' : 'white'} fontWeight="bold" sx={{ pt: isMobile ? 1.5 : 2.5 }}>
+                    <Typography variant={isMobile ? "caption" : "body2"} display="block" color={date.getDay() === 0 ? 'error.main' : 'white'} fontWeight="bold" sx={{ pt: isMobile ? 1.5 : 2.5, fontSize: isMobile ? '0.6rem' : 'inherit' }}>
                       {date.getDate()}
                     </Typography>
-                    <Typography variant={isMobile ? "caption" : "body2"} color={date.getDay() === 0 ? 'error.main' : 'white'} sx={{ pt: isMobile ? 0.25 : 0.5 }}>
-                      {date.toLocaleDateString('ko-KR', { weekday: 'short' })}
+                    <Typography variant={isMobile ? "caption" : "body2"} color={date.getDay() === 0 ? 'error.main' : 'white'} sx={{ pt: isMobile ? 0.25 : 0.5, fontSize: isMobile ? '0.5rem' : 'inherit' }}>
+                      {isMobile ? `${date.getMonth() + 1}/${date.getDate()}` : date.toLocaleDateString('ko-KR', { weekday: 'short' })}
                     </Typography>
                     
                     {/* 월 표시 */}
@@ -952,28 +987,30 @@ const GanttChart = () => {
                 }}
               >
                 {/* 현장명 열 */}
-                <Grid item xs={isMobile ? 3 : 2} sx={{ 
-                  borderRight: 1, 
-                  borderColor: 'divider',
-                  p: isMobile ? 0.5 : 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  position: 'sticky',
-                  left: 0,
-                  backgroundColor: 'white',
-                  zIndex: 10
-                }}>
-                  <Typography variant={isMobile ? "caption" : "body2"} fontWeight="bold" noWrap color="black">
-                    {site.name}
-                  </Typography>
-                  <Typography variant={isMobile ? "caption" : "caption"} color="text.secondary" noWrap>
-                    {getConstructionPeriod(site)}
-                  </Typography>
-                </Grid>
+                {!isMobile && (
+                  <Grid item xs={2} sx={{ 
+                    borderRight: 1, 
+                    borderColor: 'divider',
+                    p: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    position: 'sticky',
+                    left: 0,
+                    backgroundColor: 'white',
+                    zIndex: 10
+                  }}>
+                    <Typography variant="body2" fontWeight="bold" noWrap color="black">
+                      {site.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" noWrap>
+                      {getConstructionPeriod(site)}
+                    </Typography>
+                  </Grid>
+                )}
                 
                 {/* 공사기간 차트 영역 */}
-                <Grid item xs={isMobile ? 9 : 10} sx={{ position: 'relative', minHeight: isMobile ? 40 : 60 }}>
+                <Grid item xs={isMobile ? 12 : 10} sx={{ position: 'relative', minHeight: isMobile ? 40 : 60 }}>
                     {schedule && (
                                               <Box
                           sx={{
@@ -1006,7 +1043,7 @@ const GanttChart = () => {
                         <Typography 
                           variant="caption" 
                           sx={{ 
-                            color: 'white', 
+                            color: isMobile ? 'black' : 'white',
                             fontWeight: 'bold',
                             textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
                             fontSize: isMobile ? '0.5rem' : '0.6rem',
@@ -1026,20 +1063,7 @@ const GanttChart = () => {
             ))}
           </Box>
 
-          {/* 사용법 안내 */}
-          <Box sx={{ 
-            position: 'sticky', 
-            bottom: 0, 
-            backgroundColor: 'background.paper',
-            borderTop: 1,
-            borderColor: 'divider',
-            p: isMobile ? 1 : 2,
-            mt: isMobile ? 1 : 2
-          }}>
-            <Typography variant="caption" color="text.secondary">
-              {isMobile ? '💡 클릭: 색상 변경' : '💡 클릭: 색상 변경 | 더블클릭: 현장 편집'}
-            </Typography>
-          </Box>
+
         </Box>
       </Paper>
 
