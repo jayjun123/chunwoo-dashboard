@@ -92,30 +92,13 @@ export const TodoProvider = ({ children }) => {
       
       const todaySnapshot = await getDocs(todayQuery);
       
-      // 오늘 투두리스트가 없으면 전날 미완료 항목을 carry over
-      if (todaySnapshot.empty && !initialized) {
-        const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-        const yesterdayQuery = query(
-          collection(db, 'todos'),
-          where('userId', '==', currentUser.uid),
-          where('date', '==', yesterday),
-          where('completed', '==', false)
-        );
-        
-        const yesterdaySnapshot = await getDocs(yesterdayQuery);
-        
-        // 전날 미완료 항목들을 오늘로 carry over
-        for (const doc of yesterdaySnapshot.docs) {
-          const todoData = doc.data();
-          await addDoc(collection(db, 'todos'), {
-            ...todoData,
-            date: today,
-            carriedOver: true,
-            createdAt: new Date(),
-            completed: false
-          });
-        }
-      }
+      // 오늘 투두리스트 가져오기 (자동 carry over 제거)
+      const todayTodos = todaySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      setTodos(todayTodos);
     } catch (error) {
       console.error('투두리스트 초기화 오류:', error);
       setError(error.message);
@@ -375,6 +358,91 @@ export const TodoProvider = ({ children }) => {
     });
   }, [todos]);
 
+  // 전날 미완료 할일 불러오기
+  const loadIncompleteFromPreviousDay = useCallback(async () => {
+    if (!currentUser?.uid) return;
+
+    try {
+      const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      // 전날 미완료 할일 조회
+      const yesterdayQuery = query(
+        collection(db, 'todos'),
+        where('userId', '==', currentUser.uid),
+        where('date', '==', yesterday),
+        where('completed', '==', false)
+      );
+      
+      const yesterdaySnapshot = await getDocs(yesterdayQuery);
+      
+      if (yesterdaySnapshot.empty) {
+        return { success: true, count: 0, message: '전날 미완료 할일이 없습니다.' };
+      }
+      
+      let addedCount = 0;
+      const newTodos = [];
+      
+      // 전날 미완료 항목들을 오늘로 복사
+      for (const doc of yesterdaySnapshot.docs) {
+        const todoData = doc.data();
+        
+        // 오늘 이미 같은 내용의 할일이 있는지 확인
+        const existingTodo = todos.find(todo => 
+          todo.text === todoData.text && 
+          format(new Date(todo.date), 'yyyy-MM-dd') === today
+        );
+        
+        if (!existingTodo) {
+          const newTodoRef = await addDoc(collection(db, 'todos'), {
+            text: todoData.text,
+            completed: false,
+            userId: currentUser.uid,
+            date: today,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            carriedOver: true,
+            originalDate: yesterday
+          });
+          
+          const newTodo = {
+            id: newTodoRef.id,
+            text: todoData.text,
+            completed: false,
+            userId: currentUser.uid,
+            date: today,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            carriedOver: true,
+            originalDate: yesterday
+          };
+          
+          newTodos.push(newTodo);
+          addedCount++;
+        }
+      }
+      
+      // 로컬 상태 업데이트
+      if (newTodos.length > 0) {
+        setTodos(prev => [...newTodos, ...prev]);
+      }
+      
+      return { 
+        success: true, 
+        count: addedCount, 
+        message: `전날 미완료 할일 ${addedCount}개를 불러왔습니다.` 
+      };
+      
+    } catch (error) {
+      console.error('전날 미완료 할일 불러오기 오류:', error);
+      return { 
+        success: false, 
+        count: 0, 
+        message: '전날 미완료 할일을 불러오는 중 오류가 발생했습니다.' 
+      };
+    }
+  }, [currentUser?.uid, todos]);
+
   // Google Tasks 동기화
   const syncWithGoogleTasks = async () => {
     if (!isMasterUser() || !isGoogleTasksEnabled) {
@@ -400,6 +468,7 @@ export const TodoProvider = ({ children }) => {
     deleteTodo,
     toggleTodo,
     getTodayTodos,
+    loadIncompleteFromPreviousDay,
     isGoogleTasksEnabled,
     isMasterUser: isMasterUser(),
     syncWithGoogleTasks
