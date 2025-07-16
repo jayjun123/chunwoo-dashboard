@@ -12,10 +12,7 @@ export default function MobileLayout({ children }) {
   
   // 페이지별 패딩 설정
   const isCustomScheduleMobile = location.pathname === '/';
-  const isImportantSite = location.pathname === '/importantsite';
-  const isSafety = location.pathname === '/safety';
-  const shouldUse20pxPadding = isCustomScheduleMobile || isImportantSite;
-  const shouldUse20pxPaddingSafety = isSafety;
+  const isWholeList = location.pathname === '/whole-list';
   
   // 모바일에서 상태바와 헤더 높이를 고려한 올바른 레이아웃
   React.useEffect(() => {
@@ -37,29 +34,36 @@ export default function MobileLayout({ children }) {
     };
   }, []);
 
-  // 패딩 값 결정
+  // 패딩 값 결정 - 일정관리만 28px, 현장현황표는 -46px, 나머지는 53px
   const getPaddingTop = () => {
-    if (shouldUse20pxPadding || shouldUse20pxPaddingSafety) return '20px';
-    return '32px';
+    if (isCustomScheduleMobile) return '28px';
+    if (isWholeList) return '-46px';
+    return '53px';
   };
 
   return (
     <Box sx={{ 
-      minHeight: '100vh', 
+      minHeight: '100dvh', 
       width: '100vw', 
       bgcolor: '#181a20', 
       position: 'relative', 
-      overflow: 'auto',
-      paddingTop: 0
+      overflow: 'hidden',
+      paddingTop: 'env(safe-area-inset-top, 0px)',
     }}>
       {/* 모바일 헤더 - 항상 표시 */}
       <MobileHeader />
       
       <SwipeableContainer>
         <Box sx={{ 
-          minHeight: 'calc(100vh - 64px - 44px)', // 헤더(64px) + 하단바(44px) 제외
+          minHeight: 'calc(100dvh - 48px - 70px)', // 헤더(48px) + 하단바(70px) 제외
           width: '100%',
-          paddingTop: 0
+          paddingTop: getPaddingTop(), // 일정관리만 28px, 현장현황표는 -46px, 나머지는 53px
+          paddingBottom: '70px', // 하단바 높이만큼 하단 패딩 추가
+          overflow: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          '-webkit-overflow-scrolling': 'touch',
+          touchAction: 'pan-y',
+          overscrollBehavior: 'contain'
         }}>
           {children}
         </Box>

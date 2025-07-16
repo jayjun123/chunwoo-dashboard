@@ -1,17 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useMediaQuery, useTheme } from '@mui/material';
 import {
   Box,
   Typography,
-  Paper,
-  Grid,
-  Card,
-  CardContent,
   Button,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
+  IconButton,
   FormControl,
   InputLabel,
   Select,
@@ -22,48 +20,33 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  IconButton,
-  Chip,
-  useTheme,
-  useMediaQuery,
-  InputAdornment,
+  Paper
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  FileDownload as FileDownloadIcon,
+  Download as DownloadIcon,
+  Search as SearchIcon
 } from '@mui/icons-material';
-import { format } from 'date-fns';
-import { ko } from 'date-fns/locale';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { exportToExcel } from '../utils/exportUtils';
 
 const Vendors = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [vendors, setVendors] = useState([]);
   const [open, setOpen] = useState(false);
-  const [selectedVendor, setSelectedVendor] = useState(null);
+  const [editingVendor, setEditingVendor] = useState(null);
   const [formData, setFormData] = useState({
+    siteName: '',
+    date: '',
     name: '',
-    category: '',
-    type: '건설업체',
-    contact: '',
-    email: '',
-    address: '',
-    status: '활성',
-    contractDate: '',
-    lastOrder: '',
-    contractAmount: '',
-    progress: '0',
-    manager: '',
-    workers: '',
-    description: '',
+    type: '',
+    description: ''
   });
-
-  const inputRef1 = useRef();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     fetchVendors();
@@ -71,11 +54,7 @@ const Vendors = () => {
 
   const fetchVendors = async () => {
     try {
-      const q = query(
-        collection(db, 'vendors'),
-        orderBy('contractDate', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await getDocs(collection(db, 'vendors'));
       const vendorList = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -88,29 +67,22 @@ const Vendors = () => {
 
   const handleOpen = (vendor = null) => {
     if (vendor) {
-      setSelectedVendor(vendor);
+      setEditingVendor(vendor);
       setFormData({
-        ...vendor,
-        contractDate: vendor.contractDate || format(new Date(), 'yyyy-MM-dd'),
-        lastOrder: vendor.lastOrder || format(new Date(), 'yyyy-MM-dd'),
+        siteName: vendor.siteName || '',
+        date: vendor.date || '',
+        name: vendor.name || '',
+        type: vendor.type || '',
+        description: vendor.description || ''
       });
     } else {
-      setSelectedVendor(null);
+      setEditingVendor(null);
       setFormData({
+        siteName: '',
+        date: '',
         name: '',
-        category: '',
-        type: '건설업체',
-        contact: '',
-        email: '',
-        address: '',
-        status: '활성',
-        contractDate: format(new Date(), 'yyyy-MM-dd'),
-        lastOrder: format(new Date(), 'yyyy-MM-dd'),
-        contractAmount: '',
-        progress: '0',
-        manager: '',
-        workers: '',
-        description: '',
+        type: '',
+        description: ''
       });
     }
     setOpen(true);
@@ -118,13 +90,14 @@ const Vendors = () => {
 
   const handleClose = () => {
     setOpen(false);
-    setSelectedVendor(null);
+    setEditingVendor(null);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     try {
-      if (selectedVendor) {
-        await updateDoc(doc(db, 'vendors', selectedVendor.id), formData);
+      if (editingVendor) {
+        await updateDoc(doc(db, 'vendors', editingVendor.id), formData);
       } else {
         await addDoc(collection(db, 'vendors'), formData);
       }
@@ -135,10 +108,10 @@ const Vendors = () => {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (vendorId) => {
     if (window.confirm('정말 삭제하시겠습니까?')) {
       try {
-        await deleteDoc(doc(db, 'vendors', id));
+        await deleteDoc(doc(db, 'vendors', vendorId));
         fetchVendors();
       } catch (error) {
         console.error('Error deleting vendor:', error);
@@ -146,273 +119,188 @@ const Vendors = () => {
     }
   };
 
-  const handleExportExcel = () => {
-    const data = vendors.map(vendor => ({
-      '업체명': vendor.name,
-      '분류': vendor.category,
-      '유형': vendor.type,
-      '연락처': vendor.contact,
-      '이메일': vendor.email,
-      '주소': vendor.address,
-      '상태': vendor.status,
-      '계약일': vendor.contractDate,
-      '최근주문': vendor.lastOrder,
-      '계약금액': vendor.contractAmount,
-      '진행률': vendor.progress,
-      '담당자': vendor.manager,
-      '작업인원': vendor.workers,
-      '비고': vendor.description,
-    }));
+  const handleExcelDownload = () => {
+    // 엑셀 다운로드 로직
+    const csvContent = [
+      ['현장명', '낙찰일', '업체명', '분류', '비고'],
+      ...vendors.map(vendor => [
+        vendor.siteName || '',
+        vendor.date || '',
+        vendor.name || '',
+        vendor.type || '',
+        vendor.description || ''
+      ])
+    ].map(row => row.join(',')).join('\n');
 
-    // 컬럼 너비 설정 (한글 텍스트 고려)
-    const columnWidths = [
-      { wch: 20 }, // 업체명
-      { wch: 12 }, // 분류
-      { wch: 15 }, // 유형
-      { wch: 15 }, // 연락처
-      { wch: 25 }, // 이메일
-      { wch: 30 }, // 주소
-      { wch: 10 }, // 상태
-      { wch: 12 }, // 계약일
-      { wch: 12 }, // 최근주문
-      { wch: 15 }, // 계약금액
-      { wch: 10 }, // 진행률
-      { wch: 12 }, // 담당자
-      { wch: 10 }, // 작업인원
-      { wch: 25 }, // 비고
-    ];
-
-    const result = exportToExcel(data, '거래처현황', '거래처현황', { columnWidths });
-    
-    if (result.success) {
-      alert('엑셀 파일이 다운로드되었습니다.');
-    } else {
-      alert('엑셀 다운로드에 실패했습니다.');
-    }
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `거래처현황_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case '활성': return 'success';
-      case '비활성': return 'warning';
-      case '계약종료': return 'error';
-      default: return 'default';
-    }
+  const handleSearch = () => {
+    setSearchOpen(!searchOpen);
   };
 
-  const categories = ['철근', '콘크리트', '안전장비', '토목', '기타'];
-  const types = ['건설업체', 'AL관급업체', 'PL관급업체'];
-  const statuses = ['활성', '비활성', '계약종료'];
-
-  const scrollFocus = (ref) => () => {
-    setTimeout(() => {
-      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 300);
-  };
+  const filteredVendors = vendors.filter(vendor =>
+    vendor.siteName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    vendor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    vendor.type?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <Box sx={{ p: 3, pt: 9 }}>
+    <Box sx={{ p: { xs: 0, md: 3 }, pt: { xs: 0, md: 8 } }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h4">거래처 현황</Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
+        <Typography variant="h4">거래처현황</Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <IconButton
             variant="outlined"
-            startIcon={<FileDownloadIcon />}
-            onClick={handleExportExcel}
+            onClick={handleSearch}
+            sx={{ border: 1, borderColor: 'divider' }}
           >
-            엑셀 다운로드
-          </Button>
-          <Button
+            <SearchIcon />
+          </IconButton>
+          <IconButton
+            variant="outlined"
+            onClick={handleExcelDownload}
+            sx={{ border: 1, borderColor: 'divider' }}
+          >
+            <DownloadIcon />
+          </IconButton>
+          <IconButton
             variant="contained"
-            startIcon={<AddIcon />}
             onClick={() => handleOpen()}
+            sx={{ 
+              bgcolor: 'primary.main', 
+              color: 'white',
+              '&:hover': { bgcolor: 'primary.dark' }
+            }}
           >
-            거래처 등록
-          </Button>
+            <AddIcon />
+          </IconButton>
         </Box>
       </Box>
+
+      {searchOpen && (
+        <Box sx={{ mb: 3 }}>
+          <TextField
+            fullWidth
+            label="검색어 입력"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="현장명, 업체명, 분류로 검색"
+            variant="outlined"
+            size="small"
+          />
+        </Box>
+      )}
 
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
+              <TableCell>현장명</TableCell>
+              {!isMobile && <TableCell>낙찰일</TableCell>}
               <TableCell>업체명</TableCell>
-              <TableCell>분류</TableCell>
-              <TableCell>물량</TableCell>
-              <TableCell>계약일</TableCell>
-              <TableCell>계약금액</TableCell>
-              <TableCell>관급업체</TableCell>
-              <TableCell>관리</TableCell>
+              {!isMobile && <TableCell>분류</TableCell>}
+              <TableCell>비고</TableCell>
+              {!isMobile && <TableCell>관리</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
-            {vendors.map((vendor) => (
+            {filteredVendors.map((vendor) => (
               <TableRow key={vendor.id}>
+                <TableCell>{vendor.siteName}</TableCell>
+                {!isMobile && <TableCell>{vendor.date}</TableCell>}
                 <TableCell>{vendor.name}</TableCell>
-                <TableCell>{vendor.category}</TableCell>
-                <TableCell>{vendor.workers || '-'}</TableCell>
-                <TableCell>{vendor.contractDate}</TableCell>
-                <TableCell>{vendor.contractAmount}</TableCell>
-                <TableCell>{vendor.type}</TableCell>
-                <TableCell>
-                  <IconButton size="small" onClick={() => handleOpen(vendor)}>
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => handleDelete(vendor.id)}>
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
+                {!isMobile && <TableCell>{vendor.type}</TableCell>}
+                <TableCell>{vendor.description}</TableCell>
+                {!isMobile && (
+                  <TableCell>
+                    <IconButton size="small" onClick={() => handleOpen(vendor)}>
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton size="small" onClick={() => handleDelete(vendor.id)}>
+                      <DeleteIcon />
+                    </IconButton>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
 
-      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {selectedVendor ? '거래처 수정' : '거래처 등록'}
+          {editingVendor ? '거래처 수정' : '거래처 등록'}
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
             <TextField
+              fullWidth
+              label="현장명"
+              value={formData.siteName}
+              onChange={(e) => setFormData({ ...formData, siteName: e.target.value })}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              label="낙찰일"
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              margin="normal"
+              required
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              fullWidth
               label="업체명"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              fullWidth
-              inputRef={inputRef1}
-              onFocus={scrollFocus(inputRef1)}
+              margin="normal"
+              required
             />
-            <FormControl fullWidth>
+            <FormControl fullWidth margin="normal" required>
               <InputLabel>분류</InputLabel>
-              <Select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                label="분류"
-              >
-                {categories.map((category) => (
-                  <MenuItem key={category} value={category}>
-                    {category}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth>
-              <InputLabel>유형</InputLabel>
               <Select
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                label="유형"
+                label="분류"
               >
-                {types.map((type) => (
-                  <MenuItem key={type} value={type}>
-                    {type}
-                  </MenuItem>
-                ))}
+                <MenuItem value="시공">시공</MenuItem>
+                <MenuItem value="자재">자재</MenuItem>
+                <MenuItem value="장비">장비</MenuItem>
+                <MenuItem value="기타">기타</MenuItem>
               </Select>
             </FormControl>
             <TextField
-              label="연락처"
-              value={formData.contact}
-              onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
               fullWidth
-              inputRef={inputRef1}
-              onFocus={scrollFocus(inputRef1)}
-            />
-            <TextField
-              label="이메일"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              fullWidth
-              inputRef={inputRef1}
-              onFocus={scrollFocus(inputRef1)}
-            />
-            <TextField
-              label="주소"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              fullWidth
-              inputRef={inputRef1}
-              onFocus={scrollFocus(inputRef1)}
-            />
-            <FormControl fullWidth>
-              <InputLabel>상태</InputLabel>
-              <Select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                label="상태"
-              >
-                {statuses.map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {status}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="계약일"
-              type="date"
-              value={formData.contractDate}
-              onChange={(e) => setFormData({ ...formData, contractDate: e.target.value })}
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-              inputRef={inputRef1}
-              onFocus={scrollFocus(inputRef1)}
-            />
-            <TextField
-              label="계약금액"
-              value={formData.contractAmount}
-              onChange={(e) => setFormData({ ...formData, contractAmount: e.target.value })}
-              fullWidth
-              inputRef={inputRef1}
-              onFocus={scrollFocus(inputRef1)}
-            />
-            <TextField
-              label="진행률"
-              type="number"
-              value={formData.progress}
-              onChange={(e) => setFormData({ ...formData, progress: e.target.value })}
-              fullWidth
-              InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
-              inputRef={inputRef1}
-              onFocus={scrollFocus(inputRef1)}
-            />
-            <TextField
-              label="담당자"
-              value={formData.manager}
-              onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
-              fullWidth
-              inputRef={inputRef1}
-              onFocus={scrollFocus(inputRef1)}
-            />
-            <TextField
-              label="작업인원"
-              value={formData.workers}
-              onChange={(e) => setFormData({ ...formData, workers: e.target.value })}
-              fullWidth
-              inputRef={inputRef1}
-              onFocus={scrollFocus(inputRef1)}
-            />
-            <TextField
               label="비고"
-              multiline
-              rows={4}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              fullWidth
-              inputRef={inputRef1}
-              onFocus={scrollFocus(inputRef1)}
+              margin="normal"
+              multiline
+              rows={2}
             />
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>취소</Button>
           <Button onClick={handleSubmit} variant="contained">
-            {selectedVendor ? '수정' : '등록'}
+            {editingVendor ? '수정' : '등록'}
           </Button>
         </DialogActions>
       </Dialog>
     </Box>
   );
-};
-
-export default Vendors; 
+  };
+  
+  export default Vendors; 

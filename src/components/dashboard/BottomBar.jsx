@@ -1036,7 +1036,7 @@ const BottomBar = ({
       bottom: { xs: keyboardVisible ? 'auto' : 0, md: 0 }, 
       left: 0, 
       right: 0, 
-      zIndex: 9998, 
+      zIndex: 20000, 
       bgcolor: '#23242a', 
       color: '#fff', 
       borderTop: '1px solid #333', 

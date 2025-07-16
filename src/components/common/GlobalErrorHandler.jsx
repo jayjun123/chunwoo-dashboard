@@ -5,6 +5,26 @@ const GlobalErrorHandler = () => {
   const { showLoading, hideLoading } = useLoading();
 
   useEffect(() => {
+    // Console 오버라이드로 Chrome Extension 오류 숨기기
+    const originalConsoleError = console.error;
+    console.error = (...args) => {
+      const message = args.join(' ');
+      
+      // Chrome Extension 관련 오류 필터링
+      if (message.includes('runtime.lastError') || 
+          message.includes('message channel closed') ||
+          message.includes('A listener indicated an asynchronous response') ||
+          message.includes('extension port') ||
+          message.includes('back/forward cache') ||
+          message.includes('Unchecked runtime.lastError') ||
+          message.includes('but the message channel closed before a response was received')) {
+        return; // 이런 오류들은 콘솔에 출력하지 않음
+      }
+      
+      // 나머지 오류들은 정상적으로 출력
+      originalConsoleError.apply(console, args);
+    };
+
     // 전역 에러 핸들러
     const handleGlobalError = (event) => {
       // Chrome 확장 프로그램 관련 오류 무시
@@ -17,6 +37,7 @@ const GlobalErrorHandler = () => {
            event.error.message.includes('so the message channel is closed') ||
            event.error.message.includes('A listener indicated an asynchronous response'))) {
         event.preventDefault();
+        event.stopPropagation();
         return;
       }
 
@@ -145,6 +166,9 @@ const GlobalErrorHandler = () => {
     window.addEventListener('online', handleOnline);
 
     return () => {
+      // console.error 원상복구
+      console.error = originalConsoleError;
+      
       // 이벤트 리스너 제거
       window.removeEventListener('error', handleGlobalError);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);

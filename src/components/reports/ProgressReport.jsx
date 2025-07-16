@@ -2,17 +2,17 @@ import React from 'react';
 export default function ProgressReport() {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 24, marginBottom: 32 }}>
-      <div style={{ background: '#232733', borderRadius: 16, padding: 24, color: '#fff', minHeight: 220 }}>
+      <div style={{ background: '#232733', borderRadius: 16, padding: 24, color: '#fff', height: 260 }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>기성금액 추이 (차트 자리)</div>
         <div style={{ height: 120, background: '#181b22', borderRadius: 8, margin: '18px 0' }} />
         <div>총 기성: <b>₩ 32,690,000</b></div>
       </div>
-      <div style={{ background: '#232733', borderRadius: 16, padding: 24, color: '#fff', minHeight: 220 }}>
+      <div style={{ background: '#232733', borderRadius: 16, padding: 24, color: '#fff', height: 260 }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>진행률 (도넛차트 자리)</div>
         <div style={{ height: 120, background: '#181b22', borderRadius: '50%', margin: '18px auto', width: 120 }} />
         <div>진행률: <b>78%</b></div>
       </div>
-      <div style={{ background: '#232733', borderRadius: 16, padding: 24, color: '#fff', minHeight: 220 }}>
+      <div style={{ background: '#232733', borderRadius: 16, padding: 24, color: '#fff', height: 260 }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>현장별 기성 (막대차트 자리)</div>
         <div style={{ height: 120, background: '#181b22', borderRadius: 8, margin: '18px 0' }} />
         <div>현장 수: <b>12</b></div>

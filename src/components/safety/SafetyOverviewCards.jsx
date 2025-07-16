@@ -30,28 +30,37 @@ function SafetyOverviewCards() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 4개 컬렉션에서 siteName만 추출해서 합치고, siteName별로 데이터 집계
+    // 4개 컬렉션 + sites에서 siteId→siteName 매핑
     async function fetchAll() {
-      const [ins, acc, edu, cost] = await Promise.all([
-        getDocs(query(collection(db, 'safetyInspections'))),
-        getDocs(query(collection(db, 'safetyAccidents'))),
-        getDocs(query(collection(db, 'safetyEducation'))),
-        getDocs(query(collection(db, 'safetyCosts'))),
+      const [ins, acc, edu, cost, sitesSnap] = await Promise.all([
+        getDocs(query(collection(db, 'safety_inspections'))),
+        getDocs(query(collection(db, 'safety_accidents'))),
+        getDocs(query(collection(db, 'safety_education'))),
+        getDocs(query(collection(db, 'safety_costs'))),
+        getDocs(query(collection(db, 'sites'))),
       ]);
+      const sitesMap = {};
+      sitesSnap.docs.forEach(doc => {
+        const d = doc.data();
+        sitesMap[doc.id] = d.name;
+      });
+      // siteName이 없으면 siteId로 매핑
+      function getSiteName(d) {
+        return d.siteName || sitesMap[d.siteId] || d.siteId || '';
+      }
       const allSites = new Set([
-        ...ins.docs.map(d => d.data().siteName),
-        ...acc.docs.map(d => d.data().siteName),
-        ...edu.docs.map(d => d.data().siteName),
-        ...cost.docs.map(d => d.data().siteName),
+        ...ins.docs.map(d => getSiteName(d.data())),
+        ...acc.docs.map(d => getSiteName(d.data())),
+        ...edu.docs.map(d => getSiteName(d.data())),
+        ...cost.docs.map(d => getSiteName(d.data())),
       ].filter(Boolean));
       const arr = Array.from(allSites);
-      // site가 하나도 없으면 더미 site 추가
       const siteArr = arr.length > 0 ? arr : ['등록된 현장 없음'];
       const result = siteArr.map(siteName => {
-        const inspections = ins.docs.map(d => d.data()).filter(d => d.siteName === siteName);
-        const accidents = acc.docs.map(d => d.data()).filter(d => d.siteName === siteName);
-        const educations = edu.docs.map(d => d.data()).filter(d => d.siteName === siteName);
-        const costs = cost.docs.map(d => d.data()).filter(d => d.siteName === siteName);
+        const inspections = ins.docs.map(d => d.data()).filter(d => getSiteName(d) === siteName);
+        const accidents = acc.docs.map(d => d.data()).filter(d => getSiteName(d) === siteName);
+        const educations = edu.docs.map(d => d.data()).filter(d => getSiteName(d) === siteName);
+        const costs = cost.docs.map(d => d.data()).filter(d => getSiteName(d) === siteName);
         return {
           siteName,
           inspection: {

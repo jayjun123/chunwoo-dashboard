@@ -386,7 +386,8 @@ const WholeList = () => {
         margin: 0,
         padding: 0,
         boxSizing: 'border-box',
-        mt: '90px'
+        mt: { xs: '0px', md: '90px' },
+        bgcolor: '#181a20' // 모바일 배경색과 동일하게 설정
       }}
     >
       {/* 헤더 */}

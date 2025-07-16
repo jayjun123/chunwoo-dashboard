@@ -903,7 +903,7 @@ const CustomScheduleMobile = () => {
         position: 'relative',
         padding: 0,
         margin: 0,
-        pt: '5px'
+        pt: '0px'
       }}>
 
         
@@ -1488,6 +1488,9 @@ const CustomScheduleMobile = () => {
           onClose={handleDeleteCancel}
           maxWidth="xs"
           fullWidth
+          disableRestoreFocus={false}
+          disableEnforceFocus={false}
+          hideBackdrop={false}
           PaperProps={{
             sx: { 
               bgcolor: '#232634', 
@@ -1535,6 +1538,9 @@ const CustomScheduleMobile = () => {
           onClose={handleCancelAdd}
           maxWidth="xs"
           fullWidth
+          disableRestoreFocus={false}
+          disableEnforceFocus={false}
+          hideBackdrop={false}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               handleCancelAdd();

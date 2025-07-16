@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
 import { configureIME } from './utils/imeHandler.jsx';
 import { initKeyboardManager } from './utils/pwaKeyboardUtils';
+import { initMobileOptimization, useViewportHeight } from './utils/mobileOptimization';
 import './styles/IME.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { TodoProvider } from './contexts/TodoContext';
@@ -78,6 +79,15 @@ const DiscussionChatWrapper = () => {
 
 const App = () => {
   const isMobile = useMediaQuery('(max-width:600px)');
+
+  // 모바일 최적화 초기화
+  useEffect(() => {
+    const deviceInfo = initMobileOptimization();
+    console.log('Device Info:', deviceInfo);
+  }, []);
+
+  // 뷰포트 높이 최적화
+  useViewportHeight();
 
   // IME 및 키보드 매니저 초기화
   useEffect(() => {

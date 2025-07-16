@@ -400,6 +400,9 @@ const Layout = ({ children }) => {
           aria-describedby="dashboard-modal-desc"
           closeAfterTransition
           keepMounted
+          disableRestoreFocus={false}
+          disableEnforceFocus={false}
+          hideBackdrop={false}
         >
           <Box
             tabIndex={0}
