@@ -684,7 +684,7 @@ const GanttChart = () => {
   return (
     <Box sx={{ 
       p: isFullscreen ? 0 : 3, 
-      mt: isFullscreen ? 0 : 5.75,
+      mt: isFullscreen ? 0 : (isMobile ? 0.75 : 5.75),
       height: isFullscreen ? '100vh' : 'auto',
       width: isFullscreen ? '100vw' : 'auto',
       position: isFullscreen ? 'fixed' : 'relative',

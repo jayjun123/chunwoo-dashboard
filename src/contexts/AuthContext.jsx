@@ -188,15 +188,23 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let unsubscribeFirestore = null;
     
+    // 로딩 타임아웃 설정 (10초 후 강제 로딩 종료)
+    const loadingTimeout = setTimeout(() => {
+      console.warn('AuthContext - 로딩 타임아웃, 강제로 로딩 종료');
+      setLoading(false);
+    }, 10000);
+    
     // 초기 로딩 시 로컬 스토리지에서 사용자 정보 복원
     const storedUser = getStoredUser();
     if (storedUser && !currentUser) {
       console.log('AuthContext - 로컬 스토리지에서 사용자 정보 복원:', storedUser);
       setCurrentUser(storedUser);
+      clearTimeout(loadingTimeout); // 사용자 정보가 있으면 타임아웃 클리어
     }
     
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('AuthContext - Firebase Auth 상태 변경:', user ? '로그인' : '로그아웃');
+      clearTimeout(loadingTimeout); // Auth 상태 변경 시 타임아웃 클리어
       
       if (user) {
         try {
@@ -279,6 +287,7 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       try {
+        clearTimeout(loadingTimeout); // 타임아웃 클리어
         unsubscribe();
         if (unsubscribeFirestore) {
           unsubscribeFirestore();

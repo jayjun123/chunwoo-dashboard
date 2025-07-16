@@ -14,7 +14,7 @@ const config: CapacitorConfig = {
     backgroundColor: '#181A20',
     allowMixedContent: true,
     captureInput: true,
-    webContentsDebuggingEnabled: false,
+    webContentsDebuggingEnabled: true,
     buildOptions: {
       keystorePath: 'my-release-key.keystore',
       keystoreAlias: 'my-key-alias',

@@ -68,9 +68,10 @@ const TodoList = () => {
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   
   const [syncing, setSyncing] = useState(false);
+  const [loadingPreviousDay, setLoadingPreviousDay] = useState(false);
   
   const { currentUser, loginWithGoogle } = useAuth();
-  const { isGoogleTasksEnabled, isMasterUser, syncWithGoogleTasks } = useTodo();
+  const { isGoogleTasksEnabled, isMasterUser, syncWithGoogleTasks, loadIncompleteFromPreviousDay } = useTodo();
   const userId = currentUser?.uid;
   const isMaster = currentUser?.email === 'fire8803@naver.com' || userId === 'HpF5IrlTscYbWPsUhtdzV05sjbF2';
 
