@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   appName: '천우시스템',
   webDir: 'dist',
   server: {
-    androidScheme: 'https',
+    androidScheme: 'http',
     iosScheme: 'https',
     cleartext: true
   },

@@ -142,7 +142,7 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       sourcemap: true,
       assetsDir: 'assets',
-      base: './',
+      base: '/',
       rollupOptions: {
         output: {
           assetFileNames: 'assets/[name]-[hash][extname]',
