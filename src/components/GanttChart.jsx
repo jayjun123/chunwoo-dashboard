@@ -65,11 +65,11 @@ const GanttChart = () => {
   const [isFullscreen, setIsFullscreen] = useState(false); // 전체화면 모드
   const [viewMode, setViewMode] = useState('halfyear'); // halfyear, quarter, mobile
   const chartContainerRef = useRef(null);
+  
+  // 드래그 관련 상태
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [dragStartY, setDragStartY] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const [scrollTop, setScrollTop] = useState(0);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [scrollStart, setScrollStart] = useState({ left: 0, top: 0 });
   
   // 반기 계산 (6개월)
   const getCurrentHalfYear = () => {
@@ -363,6 +363,91 @@ const GanttChart = () => {
     }
   };
 
+  // 드래그 시작 (마우스)
+  const handleMouseDown = (e) => {
+    if (chartContainerRef.current && e.button === 0) { // 좌클릭만
+      setIsDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+      setScrollStart({ 
+        left: chartContainerRef.current.scrollLeft, 
+        top: chartContainerRef.current.scrollTop 
+      });
+      e.preventDefault();
+    }
+  };
+
+  // 드래그 시작 (터치)
+  const handleTouchStart = (e) => {
+    if (chartContainerRef.current && e.touches.length === 1) {
+      const touch = e.touches[0];
+      setIsDragging(true);
+      setDragStart({ x: touch.clientX, y: touch.clientY });
+      setScrollStart({ 
+        left: chartContainerRef.current.scrollLeft, 
+        top: chartContainerRef.current.scrollTop 
+      });
+      e.preventDefault();
+    }
+  };
+
+  // 드래그 중 (마우스)
+  const handleMouseMove = (e) => {
+    if (isDragging && chartContainerRef.current) {
+      const deltaX = e.clientX - dragStart.x;
+      const deltaY = e.clientY - dragStart.y;
+      
+      chartContainerRef.current.scrollLeft = scrollStart.left - deltaX;
+      chartContainerRef.current.scrollTop = scrollStart.top - deltaY;
+      e.preventDefault();
+    }
+  };
+
+  // 드래그 중 (터치)
+  const handleTouchMove = (e) => {
+    if (isDragging && chartContainerRef.current && e.touches.length === 1) {
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - dragStart.x;
+      const deltaY = touch.clientY - dragStart.y;
+      
+      chartContainerRef.current.scrollLeft = scrollStart.left - deltaX;
+      chartContainerRef.current.scrollTop = scrollStart.top - deltaY;
+      e.preventDefault();
+    }
+  };
+
+  // 드래그 끝
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // 전역 마우스/터치 이벤트 등록
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchend', handleMouseUp);
+      document.body.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isDragging, dragStart, scrollStart]);
+
   // 모바일 감지 시 자동으로 모바일 뷰로 변경
   useEffect(() => {
     if (isMobile) {
@@ -377,31 +462,6 @@ const GanttChart = () => {
     }, 100);
     return () => clearTimeout(timer);
   }, [zoomLevel, dateRange]);
-
-  // 드래그 이벤트 핸들러
-  const handleMouseDown = (e) => {
-    setIsDragging(true);
-    setDragStartX(e.pageX - chartContainerRef.current.offsetLeft);
-    setDragStartY(e.pageY - chartContainerRef.current.offsetTop);
-    setScrollLeft(chartContainerRef.current.scrollLeft);
-    setScrollTop(chartContainerRef.current.scrollTop);
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    e.preventDefault();
-    const x = e.pageX - chartContainerRef.current.offsetLeft;
-    const walkX = (x - dragStartX) * 2;
-    chartContainerRef.current.scrollLeft = scrollLeft - walkX;
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleMouseLeave = () => {
-    setIsDragging(false);
-  };
 
   // 뷰 모드 변경
   const handleViewModeChange = (mode) => {
@@ -624,7 +684,7 @@ const GanttChart = () => {
   return (
     <Box sx={{ 
       p: isFullscreen ? 0 : 3, 
-      mt: isFullscreen ? 0 : (isMobile ? -3.75 : 5.75),
+      mt: isFullscreen ? 0 : 5.75,
       height: isFullscreen ? '100vh' : 'auto',
       width: isFullscreen ? '100vw' : 'auto',
       position: isFullscreen ? 'fixed' : 'relative',
@@ -859,51 +919,45 @@ const GanttChart = () => {
         p: isMobile ? 1 : 3, 
         overflow: 'auto', 
         mt: isMobile ? 1 : 2.5, 
-        maxHeight: isFullscreen ? 'calc(100vh - 80px)' : isMobile ? '70vh' : '80vh',
+        maxHeight: isFullscreen ? 'calc(100vh - 80px)' : isMobile ? '60vh' : '70vh',
         height: isFullscreen ? 'calc(100vh - 80px)' : 'auto',
         '&::-webkit-scrollbar': {
           width: '8px',
-          height: '0px'
+          height: '8px'
         },
         '&::-webkit-scrollbar-track': {
-          background: '#f1f1f1',
+          backgroundColor: '#2d3748',
           borderRadius: '4px'
         },
         '&::-webkit-scrollbar-thumb': {
-          background: '#888',
-          borderRadius: '4px'
+          backgroundColor: '#4a5568',
+          borderRadius: '4px',
+          border: '1px solid #2d3748'
         },
         '&::-webkit-scrollbar-thumb:hover': {
-          background: '#555'
+          backgroundColor: '#718096'
         },
-        '&::-webkit-scrollbar:horizontal': {
-          display: 'none'
+        '&::-webkit-scrollbar-corner': {
+          backgroundColor: '#2d3748'
         },
         scrollbarWidth: 'thin',
-        scrollbarColor: '#888 #f1f1f1'
+        scrollbarColor: '#4a5568 #2d3748',
+        cursor: isDragging ? 'grabbing' : 'grab'
       }} 
       ref={chartContainerRef} 
       className="gantt-timeline"
-      >
+      onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}>
         <Box sx={{ 
           position: 'relative', 
-          minHeight: isMobile ? 500 : 800,
+          minHeight: isMobile ? 400 : 600,
           minWidth: isMobile ? 
             dateArray.length * (30 * zoomLevel) + 150 : 
             dateArray.length * (40 * zoomLevel) + 200,
           border: 1,
           borderColor: 'divider',
-          borderRadius: 1,
-          touchAction: 'pan-y',
-          WebkitOverflowScrolling: 'touch',
-          userSelect: 'none',
-          cursor: isDragging ? 'grabbing' : 'grab'
-        }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        >
+          borderRadius: 1
+        }}>
           {/* 날짜 헤더 */}
           <Box sx={{ 
             position: 'sticky', 
@@ -912,7 +966,7 @@ const GanttChart = () => {
             borderBottom: 1,
             borderColor: 'divider',
             zIndex: 10,
-            mt: 2
+            mt: 5
           }}>
             <Grid container sx={{ 
               minWidth: isMobile ? 
@@ -1030,8 +1084,7 @@ const GanttChart = () => {
             minWidth: isMobile ? 
               dateArray.length * (30 * zoomLevel) + 150 : 
               dateArray.length * (40 * zoomLevel) + 200, 
-            mt: isMobile ? 0.5 : 1.5,
-            pb: 3
+            mt: isMobile ? 1 : 3 
           }}>
             {Object.entries(siteSchedules).map(([siteId, { site, schedule }]) => (
               <Grid 
@@ -1040,8 +1093,7 @@ const GanttChart = () => {
                 sx={{ 
                   borderBottom: 1, 
                   borderColor: 'divider',
-                  minHeight: isMobile ? 35 : 45,
-                  py: isMobile ? 0.25 : 0.5,
+                  minHeight: isMobile ? 40 : 60,
                   '&:hover': { backgroundColor: 'action.hover' }
                 }}
               >
@@ -1050,7 +1102,7 @@ const GanttChart = () => {
                   <Grid item xs={2} sx={{ 
                     borderRight: 1, 
                     borderColor: 'divider',
-                    p: isMobile ? 0.25 : 0.5,
+                    p: 1,
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
@@ -1069,7 +1121,7 @@ const GanttChart = () => {
                 )}
                 
                 {/* 공사기간 차트 영역 */}
-                <Grid item xs={isMobile ? 12 : 10} sx={{ position: 'relative', minHeight: isMobile ? 35 : 45 }}>
+                <Grid item xs={isMobile ? 12 : 10} sx={{ position: 'relative', minHeight: isMobile ? 40 : 60 }}>
                     {schedule && (
                                               <Box
                           sx={{
@@ -1078,7 +1130,7 @@ const GanttChart = () => {
                             transform: 'translateY(-50%)',
                             left: getSitePosition(schedule).left,
                             width: getSitePosition(schedule).width,
-                            height: isMobile ? 14 : 18,
+                            height: isMobile ? 16 : 20,
                             backgroundColor: getSiteColor(site.id, schedule.status),
                             borderRadius: 1,
                             display: 'flex',

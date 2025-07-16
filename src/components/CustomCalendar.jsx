@@ -964,28 +964,43 @@ const CustomCalendar = (props) => {
                                         {getResponsiveText(item.text, item.type)}
                                       </span>
                                     </Tooltip>
-                                    <Checkbox
-                                      size="small"
-                                      checked={isChecked}
-                                      onChange={(e) => {
+                                    <Box
+                                      onClick={(e) => {
                                         e.stopPropagation();
-                                        console.log('체크박스 변경:', dateStr, item.id, e.target.checked);
-                                        if (onCheckItem) {
-                                          onCheckItem(dateStr, item.id, e.target.checked);
-                                        }
                                       }}
                                       sx={{
-                                        color: '#ffffff',
-                                        p: 0,
-                                        minWidth: 'auto',
-                                        width: { xs: '16px', md: '14px' },
-                                        height: { xs: '16px', md: '14px' },
+                                        padding: '4px',
                                         marginLeft: 'auto',
-                                        '&.Mui-checked': {
-                                          color: '#ffffff'
-                                        }
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
                                       }}
-                                    />
+                                    >
+                                      <Checkbox
+                                        size="small"
+                                        checked={isChecked}
+                                        onChange={(e) => {
+                                          e.stopPropagation();
+                                          console.log('체크박스 변경:', dateStr, item.id, e.target.checked);
+                                          if (onCheckItem) {
+                                            onCheckItem(dateStr, item.id, e.target.checked);
+                                          }
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                        }}
+                                        sx={{
+                                          color: '#ffffff',
+                                          p: 0,
+                                          minWidth: 'auto',
+                                          width: { xs: '16px', md: '14px' },
+                                          height: { xs: '16px', md: '14px' },
+                                          '&.Mui-checked': {
+                                            color: '#ffffff'
+                                          }
+                                        }}
+                                      />
+                                    </Box>
                                   </Box>
                                 );
                               }}

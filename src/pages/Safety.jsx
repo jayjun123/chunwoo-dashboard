@@ -625,7 +625,16 @@ const SafetyPage = () => {
               maxWidth: '100%'
             }}>
               {row.preview ? (
-                <img src={row.preview} alt="첨부파일" style={{ maxWidth: isMobile ? 40 : 60, maxHeight: isMobile ? 30 : 40, cursor: 'pointer' }} onClick={() => window.open(row.preview, '_blank')} />
+                <img 
+                  src={row.preview} 
+                  alt="첨부파일" 
+                  style={{ 
+                    maxWidth: isMobile ? 40 : 60, 
+                    maxHeight: isMobile ? 30 : 40, 
+                    cursor: 'pointer'
+                  }} 
+                  onClick={() => window.open(row.preview, '_blank')}
+                />
               ) : '-'}
             </TableCell>
             <TableCell sx={{ 
@@ -636,9 +645,16 @@ const SafetyPage = () => {
               maxWidth: '100%'
             }}>
               {row.receiptUrl ? (
-                <a href={row.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}>
-                  다운로드
-                </a>
+                <img 
+                  src={row.receiptUrl} 
+                  alt="영수증" 
+                  style={{ 
+                    maxWidth: isMobile ? 40 : 60, 
+                    maxHeight: isMobile ? 30 : 40, 
+                    cursor: 'pointer'
+                  }} 
+                  onClick={() => window.open(row.receiptUrl, '_blank')}
+                />
               ) : '-'}
             </TableCell>
             <TableCell sx={{ 
@@ -649,9 +665,16 @@ const SafetyPage = () => {
               maxWidth: '100%'
             }}>
               {row.issueDocUrl ? (
-                <a href={row.issueDocUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}>
-                  다운로드
-                </a>
+                <img 
+                  src={row.issueDocUrl} 
+                  alt="분출대장" 
+                  style={{ 
+                    maxWidth: isMobile ? 40 : 60, 
+                    maxHeight: isMobile ? 30 : 40, 
+                    cursor: 'pointer'
+                  }} 
+                  onClick={() => window.open(row.issueDocUrl, '_blank')}
+                />
               ) : '-'}
             </TableCell>
             <TableCell sx={{ 
