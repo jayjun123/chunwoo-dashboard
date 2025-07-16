@@ -257,7 +257,7 @@ const Discussions = () => {
                   position: 'fixed',
                   left: 0,
                   right: 0,
-                  bottom: keyboardHeight,
+                  bottom: Math.max(keyboardHeight + 20, 100), // 하단바 높이(80px) + 여백(20px)과 키보드 높이 + 여백(20px) 중 큰 값 사용
                   zIndex: 1000,
                   boxShadow: '0 -2px 8px rgba(0,0,0,0.08)'
                 }}
@@ -297,6 +297,7 @@ const Discussions = () => {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     size="small"
+                    autoComplete="off"
                   />
                   <Button
                     variant="outlined"

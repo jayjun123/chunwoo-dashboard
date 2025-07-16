@@ -236,36 +236,57 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     // 현재 월 문자열 (예: "2024-07")
     const currentMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
     
-    // 월별 계약금액 계산 - 해당 월에 공사가 시작된 현장들의 계약금액만 합산
-    const totalContractAmount = sites.reduce((sum, site) => {
-      if (!site.startDate) return sum;
-      
-      try {
-        // startDate가 문자열인 경우 Date 객체로 변환
-        const startDate = typeof site.startDate === 'string' 
-          ? new Date(site.startDate) 
-          : site.startDate.toDate ? site.startDate.toDate() : site.startDate;
-        
-        // 시작 월 문자열 (예: "2024-07")
-        const startMonthStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
-        
-        // 현재 월과 시작 월이 같으면 계약금액 포함
-        if (startMonthStr === currentMonthStr) {
-          return sum + (Number(site.contractAmount) || 0);
-        }
-      } catch (e) {
-        devError('날짜 파싱 오류:', e, site);
-      }
-      
-      return sum;
-    }, 0);
+    let totalContractAmount = 0;
+    let totalAdvance = 0;
     
-    const totalAdvance = sites.reduce((sum, site) => sum + (Number(site.advance) || 0), 0);
+    if (viewType === 'month') {
+      // 월별: 해당 월에 공사가 시작된 현장들의 계약금액만 합산
+      totalContractAmount = sites.reduce((sum, site) => {
+        if (!site.startDate) return sum;
+        
+        try {
+          // startDate가 문자열인 경우 Date 객체로 변환
+          const startDate = typeof site.startDate === 'string' 
+            ? new Date(site.startDate) 
+            : site.startDate.toDate ? site.startDate.toDate() : site.startDate;
+          
+          // 시작 월 문자열 (예: "2024-07")
+          const startMonthStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
+          
+          // 현재 월과 시작 월이 같으면 계약금액 포함
+          if (startMonthStr === currentMonthStr) {
+            return sum + (Number(site.contractAmount) || 0);
+          }
+        } catch (e) {
+          devError('날짜 파싱 오류:', e, site);
+        }
+        
+        return sum;
+      }, 0);
+      
+      totalAdvance = sites.reduce((sum, site) => sum + (Number(site.advance) || 0), 0);
+    } else if (viewType === 'site') {
+      // 현장별: 선택된 현장들의 계약금액만 합산
+      if (selectedSites && selectedSites.length > 0) {
+        totalContractAmount = sites
+          .filter(site => selectedSites.includes(site.name))
+          .reduce((sum, site) => sum + (Number(site.contractAmount) || 0), 0);
+        
+        totalAdvance = sites
+          .filter(site => selectedSites.includes(site.name))
+          .reduce((sum, site) => sum + (Number(site.advance) || 0), 0);
+      } else {
+        // 선택된 현장이 없으면 0
+        totalContractAmount = 0;
+        totalAdvance = 0;
+      }
+    }
+    
     const totalPrevGisung = gisungList.reduce((sum, gisung) => sum + (Number(gisung.prevGisung) || 0), 0);
     const totalGisungAmount = gisungList.reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
     
     return { totalContractAmount, totalAdvance, totalPrevGisung, totalGisungAmount };
-  }, [sites, gisungList, currentMonth]);
+  }, [sites, gisungList, currentMonth, viewType, selectedSites]);
 
   const handleExcelDownload = () => {
     const data = filteredAndSortedGisung.map(row => ({
@@ -539,7 +560,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       width: isMobile ? '100%' : 'calc(100% - 20px)', 
       maxWidth: isMobile ? '100%' : 'calc(100% - 20px)', 
       mx: isMobile ? 0 : '10px',
-      p: isMobile ? 0 : 2
+      p: isMobile ? 0 : 2,
+      mt: isMobile ? '-50px' : 0
     }}>
       {/* 상단 제목 및 통계 */}
       {viewType === 'month' && !isMobile && (
@@ -564,53 +586,64 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         <StatCard title="총 기성금액" value={stats.totalGisungAmount} color="#ef5350" />
       </Grid>
 
-      {/* 버튼들 */}
+      {/* 검색 및 버튼들 */}
       <Box sx={{ 
         display: 'flex', 
         gap: 2, 
         mb: 3, 
         alignItems: 'center',
-        justifyContent: 'flex-end'
+        justifyContent: 'space-between',
+        flexDirection: isMobile ? 'column' : 'row'
       }}>
-        {selectedItems.length > 0 && (
+
+        
+        {/* 버튼들 */}
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 2, 
+          alignItems: 'center',
+          justifyContent: isMobile ? 'center' : 'flex-end'
+        }}>
+          {selectedItems.length > 0 && (
+            <Button 
+              variant="contained" 
+              color="error" 
+              onClick={handleBulkDelete}
+              sx={{ 
+                bgcolor: '#d32f2f',
+                '&:hover': { bgcolor: '#c62828' }
+              }}
+            >
+              선택 삭제 ({selectedItems.length})
+            </Button>
+          )}
+          
           <Button 
             variant="contained" 
-            color="error" 
-            onClick={handleBulkDelete}
+            color="primary" 
+            startIcon={<CloudDownloadIcon />}
+            onClick={handleExcelDownload}
             sx={{ 
-              bgcolor: '#d32f2f',
-              '&:hover': { bgcolor: '#c62828' }
+              bgcolor: '#1976d2',
+              '&:hover': { bgcolor: '#1565c0' },
+              display: isMobile ? 'none' : 'flex'
             }}
           >
-            선택 삭제 ({selectedItems.length})
+            엑셀 다운로드
           </Button>
-        )}
-        
-        <Button 
-          variant="contained" 
-          color="primary" 
-          startIcon={<CloudDownloadIcon />}
-          onClick={handleExcelDownload}
-          sx={{ 
-            bgcolor: '#1976d2',
-            '&:hover': { bgcolor: '#1565c0' },
-            display: isMobile ? 'none' : 'flex'
-          }}
-        >
-          엑셀 다운로드
-        </Button>
-        <Button 
-          variant="contained" 
-          color="success" 
-          startIcon={<AddIcon />}
-          onClick={() => handleOpen()}
-          sx={{ 
-            bgcolor: '#2e7d32',
-            '&:hover': { bgcolor: '#1b5e20' }
-          }}
-        >
-          새 기성
-        </Button>
+          <Button 
+            variant="contained" 
+            color="success" 
+            startIcon={<AddIcon />}
+            onClick={() => handleOpen()}
+            sx={{ 
+              bgcolor: '#2e7d32',
+              '&:hover': { bgcolor: '#1b5e20' }
+            }}
+          >
+            새 기성
+          </Button>
+        </Box>
       </Box>
 
       {/* 테이블 */}

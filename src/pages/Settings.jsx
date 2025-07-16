@@ -167,7 +167,7 @@ const Settings = () => {
   return (
     <MobileLayout>
       <Layout>
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 0, md: 3 } }}>
           <Typography variant="h4" gutterBottom>설정</Typography>
           <Grid container spacing={3}>
             {/* 프로필 */}

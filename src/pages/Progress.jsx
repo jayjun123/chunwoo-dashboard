@@ -33,6 +33,7 @@ import {
   InputLabel,
   Select,
   ButtonGroup,
+  InputAdornment,
 } from '@mui/material';
 import {
   Timeline as TimelineIcon,
@@ -41,6 +42,7 @@ import {
   Delete as DeleteIcon,
   CheckCircle as CheckCircleIcon,
   CloudDownload as CloudDownloadIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { format, addMonths, subMonths } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -87,6 +89,7 @@ const Progress = () => {
   const [siteSearchTerm, setSiteSearchTerm] = useState('');
   const [filteredSiteId, setFilteredSiteId] = useState(null);
   const [filteredSiteName, setFilteredSiteName] = useState('');
+  const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
 
   // URL 파라미터에서 siteId 읽기
   useEffect(() => {
@@ -454,90 +457,7 @@ const Progress = () => {
     }
   };
 
-  // 현장별 검색 UI 개선
-  const SiteSearch = () => (
-    <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
-      <Typography sx={{ color: '#fff', fontWeight: 600, display: isMobile ? 'none' : 'block' }}>현장 선택:</Typography>
-      <FormControl sx={{ minWidth: isMobile ? 200 : 300, position: isMobile ? 'relative' : 'static', left: isMobile ? '80px' : 0 }}>
-        <InputLabel sx={{ color: '#fff', fontSize: isMobile ? '0.8rem' : 'inherit' }}>현장명 검색</InputLabel>
-        <Select
-          value=""
-          onChange={(e) => {
-            const selectedSiteName = e.target.value;
-            if (selectedSiteName && !selectedSites.includes(selectedSiteName)) {
-              if (selectedSites.length >= 4) {
-                alert('현장은 최대 4개까지 선택할 수 있습니다.');
-                return;
-              }
-              setSelectedSites([...selectedSites, selectedSiteName]);
-            }
-          }}
-          displayEmpty
-          size={isMobile ? 'small' : 'medium'}
-          sx={{ 
-            bgcolor: '#232b3b', 
-            color: '#fff',
-            fontSize: isMobile ? '0.8rem' : 'inherit',
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
-            '& .MuiSelect-icon': { color: '#fff' }
-          }}
-          MenuProps={{
-            PaperProps: {
-              sx: {
-                bgcolor: '#232b3b',
-                '& .MuiMenuItem-root': {
-                  color: '#fff',
-                  fontSize: isMobile ? '0.8rem' : 'inherit',
-                  '&:hover': { bgcolor: '#2c3446' },
-                  '&.Mui-selected': { bgcolor: '#1976d2' }
-                }
-              }
-            }
-          }}
-        >
-          {filteredSites.map(site => (
-            <MenuItem key={site.id} value={site.name} disabled={selectedSites.includes(site.name)}>
-              {site.name}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      <Box sx={{ display: 'flex', gap: isMobile ? 0.5 : 1, flexWrap: 'wrap' }}>
-        {selectedSites.map(siteName => (
-          <Box key={siteName} sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: isMobile ? 0.5 : 1, 
-            bgcolor: '#2c3446', 
-            px: isMobile ? 1 : 2, 
-            py: isMobile ? 0.5 : 1, 
-            borderRadius: 1 
-          }}>
-            <Typography sx={{ 
-              color: '#fff', 
-              fontSize: isMobile ? '0.7rem' : '0.9rem' 
-            }}>
-              {siteName}
-            </Typography>
-            <IconButton
-              size="small"
-              onClick={() => setSelectedSites(selectedSites.filter(name => name !== siteName))}
-              sx={{ color: '#ff6b6b', p: isMobile ? 0.25 : 0.5 }}
-            >
-              <DeleteIcon fontSize={isMobile ? 'small' : 'small'} />
-            </IconButton>
-          </Box>
-        ))}
-      </Box>
-      {selectedSites.length >= 4 && (
-        <Typography sx={{ color: '#ff9800', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
-          현장은 최대 4개까지 선택할 수 있습니다.
-        </Typography>
-      )}
-    </Box>
-  );
+
 
   const scrollFocus = (ref) => () => {
     setTimeout(() => {
@@ -551,11 +471,11 @@ const Progress = () => {
 
   return (
     <Box sx={{ 
-      p: isMobile ? 2 : 3, 
+      p: isMobile ? 0 : 3, 
       width: isMobile ? '100%' : 'calc(100% - 20px)', 
       maxWidth: isMobile ? '100%' : 'calc(100% - 20px)', 
       mx: isMobile ? 0 : '10px',
-      mt: isMobile ? '42px' : '50px'
+      mt: isMobile ? '0px' : '50px'
     }}>
       {/* 기성관리, 기성현황, 지출 탭 버튼들 - 모바일에서도 보이게 복구 */}
       <Box sx={{ 
@@ -564,7 +484,8 @@ const Progress = () => {
         alignItems: 'center', 
         mb: 3, 
         gap: isMobile ? 1 : 3,
-        width: '100%'
+        width: '100%',
+        flexDirection: isMobile ? 'column' : 'row'
       }}>
         {/* 왼쪽: 기성관리/기성현황/지출 */}
         <ButtonGroup 
@@ -572,16 +493,20 @@ const Progress = () => {
           size={isMobile ? 'small' : 'medium'}
           sx={{ 
             flex: isMobile ? 1 : 'auto',
-            height: isMobile ? '28px' : 'auto',
+            height: isMobile ? '32px' : 'auto',
+            width: isMobile ? '100%' : 'auto',
             '& .MuiButton-root': {
               flex: isMobile ? 1 : 'auto',
               minWidth: isMobile ? 0 : 'auto',
-              px: isMobile ? 0.2 : 2,
-              fontSize: isMobile ? '0.65rem' : 'inherit',
+              px: isMobile ? 0.5 : 2,
+              fontSize: isMobile ? '0.7rem' : 'inherit',
               whiteSpace: 'nowrap',
               lineHeight: 1,
-              py: isMobile ? 0.2 : 1,
-              height: isMobile ? '28px' : 'auto',
+              py: isMobile ? 0.5 : 1,
+              height: isMobile ? '32px' : 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }
           }}
         >
@@ -611,9 +536,15 @@ const Progress = () => {
           color="success"
           sx={{ 
             flex: isMobile ? 1 : 'auto',
+            width: isMobile ? '100%' : 'auto',
+            height: isMobile ? '32px' : 'auto',
             '& .MuiButton-root': {
               flex: isMobile ? 1 : 'auto',
-              minWidth: isMobile ? 'auto' : '100px'
+              minWidth: isMobile ? 0 : '100px',
+              height: isMobile ? '32px' : 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }
           }}
         >
@@ -690,146 +621,143 @@ const Progress = () => {
 
       {/* 현장별탭에서만 현장검색 체크박스 노출 - 모바일에서도 보이게 복구 */}
       {statusView === 'site' && (tab === 'chart' || tab === 'gisung' || tab === 'cost') && (
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, ml: 1, flexDirection: 'row' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, ml: 1, flexDirection: 'row', justifyContent: 'space-between' }}>
           {/* 선택 현장 리스트 (가로, 체크박스 포함) */}
-          <Box sx={{ display: 'flex', alignItems: 'center', mr: 2, flexWrap: 'wrap' }}>
-            <Checkbox checked disabled sx={{ p: 0.5, color: '#90caf9' }} />
-            <Typography sx={{ color: '#90caf9', fontSize: '0.8rem', fontWeight: 700, mr: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+            <Checkbox checked disabled sx={{ p: isMobile ? 0.2 : 0.5, color: '#90caf9' }} />
+            <Typography sx={{ color: '#90caf9', fontSize: isMobile ? '0.8rem' : '1rem', fontWeight: 700, mr: 1 }}>
               선택 현장
             </Typography>
-            {selectedSites.length === 0 ? (
-              <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>없음</Typography>
-            ) : (
-              selectedSites.map(siteName => (
-                <Box key={siteName} sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
-                  <Checkbox
-                    checked={selectedSites.includes(siteName)}
-                    onChange={e => {
-                      if (e.target.checked) {
-                        // 이미 선택된 상태이므로 아무 동작 안 함
-                        return;
-                      } else {
-                        // 체크 해제 시 선택 해제
-                        setSelectedSites(selectedSites.filter(name => name !== siteName));
-                      }
-                    }}
-                    sx={{ p: 0.5, color: '#90caf9' }}
-                  />
-                  <Typography sx={{ color: '#fff', fontSize: '0.8rem', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {siteName.length > 10 ? siteName.slice(0, 10) + '...' : siteName}
-                  </Typography>
-                </Box>
-              ))
+            {selectedSites.length > 0 && selectedSites.map(siteName => (
+              <Box key={siteName} sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                <Checkbox
+                  checked={selectedSites.includes(siteName)}
+                  onChange={e => {
+                    if (e.target.checked) {
+                      // 이미 선택된 상태이므로 아무 동작 안 함
+                      return;
+                    } else {
+                      // 체크 해제 시 선택 해제
+                      setSelectedSites(selectedSites.filter(name => name !== siteName));
+                    }
+                  }}
+                  sx={{ p: isMobile ? 0.2 : 0.5, color: '#90caf9' }}
+                />
+                <Typography sx={{ color: '#fff', fontSize: isMobile ? '0.8rem' : '1rem', maxWidth: isMobile ? 60 : 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {siteName.length > (isMobile ? 8 : 10) ? siteName.slice(0, isMobile ? 8 : 10) + '...' : siteName}
+                </Typography>
+              </Box>
+            ))}
+            {selectedSites.length === 0 && (
+              <Typography sx={{ color: '#bbb', fontSize: isMobile ? '0.8rem' : '1rem' }}>없음</Typography>
             )}
           </Box>
-          <FormControl sx={{ minWidth: 120, maxWidth: 120, position: 'relative', left: isMobile ? '30px' : '50px' }}>
-            <InputLabel sx={{ color: '#fff', fontSize: '0.8rem' }}>현장명 검색</InputLabel>
-            <Select
-              value=""
+          
+          {/* 현장명 검색 입력칸 */}
+          <Box sx={{ position: 'relative' }}>
+            <TextField
+              placeholder="현장명 검색..."
+              value={siteSearchTerm}
               onChange={(e) => {
-                const selectedSiteName = e.target.value;
-                if (selectedSiteName && !selectedSites.includes(selectedSiteName)) {
-                  if (selectedSites.length >= 4) {
-                    alert('현장은 최대 4개까지 선택할 수 있습니다.');
-                    return;
-                  }
-                  setSelectedSites([...selectedSites, selectedSiteName]);
-                }
+                setSiteSearchTerm(e.target.value);
+                setSearchDropdownOpen(true);
               }}
-              displayEmpty
+              onFocus={() => {
+                setSearchDropdownOpen(true);
+              }}
               size="small"
-              sx={{ 
-                bgcolor: '#232b3b', 
-                color: '#fff',
-                fontSize: '0.8rem',
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
-                '& .MuiSelect-icon': { color: '#fff' }
-              }}
-              MenuProps={{
-                PaperProps: {
-                  sx: {
-                    bgcolor: '#232b3b',
-                    '& .MuiMenuItem-root': {
-                      color: '#fff',
-                      fontSize: '0.8rem',
-                      '&:hover': { bgcolor: '#2c3446' },
-                      '&.Mui-selected': { bgcolor: '#1976d2' }
-                    }
+              sx={{
+                minWidth: isMobile ? 200 : 300,
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#232b3b',
+                  py: isMobile ? 0.5 : 1,
+                  '& fieldset': { borderColor: '#333' },
+                  '&:hover fieldset': { borderColor: '#555' },
+                  '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                },
+                '& .MuiInputLabel-root': { color: '#bbb' },
+                '& .MuiInputBase-input': { 
+                  color: '#fff',
+                  fontSize: isMobile ? '0.7rem' : '1rem',
+                  '&::placeholder': {
+                    color: '#bbb',
+                    opacity: 1,
+                    fontSize: isMobile ? '0.7rem' : '1rem'
                   }
                 }
               }}
-            >
-              {filteredSites.map(site => (
-                <MenuItem key={site.id} value={site.name} disabled={selectedSites.includes(site.name)}>
-                  {site.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ color: '#bbb', fontSize: isMobile ? '1rem' : '1.5rem' }} />
+                  </InputAdornment>
+                )
+              }}
+            />
+            
+            {/* 검색 결과 드롭다운 */}
+            {searchDropdownOpen && (
+              <Paper
+                sx={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  zIndex: 1000,
+                  bgcolor: '#232b3b',
+                  maxHeight: 300,
+                  overflow: 'auto',
+                  border: '1px solid #555',
+                  borderRadius: 1,
+                  mt: 0.5
+                }}
+              >
+              {sites
+                .filter(site => 
+                  !siteSearchTerm || site.name.toLowerCase().includes(siteSearchTerm.toLowerCase())
+                )
+                .map(site => (
+                                     <Box
+                     key={site.id}
+                     sx={{
+                       p: isMobile ? 0.5 : 1,
+                       cursor: 'pointer',
+                       color: '#fff',
+                       fontSize: isMobile ? '0.8rem' : '1rem',
+                       borderBottom: '1px solid #444',
+                       '&:hover': { bgcolor: '#2c3446' },
+                       '&:last-child': { borderBottom: 'none' }
+                     }}
+                    onClick={() => {
+                      if (!selectedSites.includes(site.name)) {
+                        if (selectedSites.length >= 4) {
+                          alert('현장은 최대 4개까지 선택할 수 있습니다.');
+                          return;
+                        }
+                        setSelectedSites([...selectedSites, site.name]);
+                      }
+                      setSiteSearchTerm('');
+                      setSearchDropdownOpen(false);
+                    }}
+                  >
+                    {site.name}
+                  </Box>
+                ))
+              }
+                             {sites.filter(site => 
+                 !siteSearchTerm || site.name.toLowerCase().includes(siteSearchTerm.toLowerCase())
+               ).length === 0 && (
+                 <Box sx={{ p: isMobile ? 0.5 : 1, color: '#bbb', fontSize: isMobile ? '0.8rem' : '1rem', textAlign: 'center' }}>
+                   검색 결과가 없습니다.
+                 </Box>
+               )}
+            </Paper>
+            )}
+          </Box>
+
         </Box>
       )}
-      {/* PC에서는 기존 Box 구조 유지, 중복 제목 완전히 삭제 */}
-      {!isMobile && statusView === 'site' && (tab === 'chart' || tab === 'gisung' || tab === 'cost') && (
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: 'row',
-          justifyContent: 'flex-end', 
-          alignItems: 'center', 
-          mb: 2, 
-          gap: 2, 
-          flexWrap: 'wrap',
-          mr: 0
-        }}>
-          <FormControl sx={{ minWidth: 300 }}>
-            <InputLabel>현장명 검색</InputLabel>
-            <Select
-              value=""
-              onChange={(e) => {
-                const selectedSiteName = e.target.value;
-                if (selectedSiteName && !selectedSites.includes(selectedSiteName)) {
-                  if (selectedSites.length >= 4) {
-                    alert('현장은 최대 4개까지 선택할 수 있습니다.');
-                    return;
-                  }
-                  setSelectedSites([...selectedSites, selectedSiteName]);
-                }
-              }}
-              displayEmpty
-              size="medium"
-              sx={{ 
-                bgcolor: '#232b3b', 
-                color: '#fff',
-                fontSize: 'inherit',
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
-                '& .MuiSelect-icon': { color: '#fff' }
-              }}
-              MenuProps={{
-                PaperProps: {
-                  sx: {
-                    bgcolor: '#232b3b',
-                    '& .MuiMenuItem-root': {
-                      color: '#fff',
-                      fontSize: 'inherit',
-                      '&:hover': { bgcolor: '#2c3446' },
-                      '&.Mui-selected': { bgcolor: '#1976d2' }
-                    }
-                  }
-                }
-              }}
-            >
-              {filteredSites.map(site => (
-                <MenuItem key={site.id} value={site.name} disabled={selectedSites.includes(site.name)}>
-                  {site.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-      )}
+
 
       {/* 필터링된 현장 안내 메시지 */}
       {filteredSiteId && filteredSiteName && (
@@ -933,7 +861,7 @@ const Progress = () => {
                   )}
                 </Box>
               </Box>
-                              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 320 : 1390} minHeight={isMobile ? 200 : 400} style={{ marginLeft: isMobile ? '-30px' : 0 }}>
+                              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 320 : 1390} minHeight={isMobile ? 200 : 400} style={{ margin: '0 auto', display: 'flex', justifyContent: 'center' }}>
                   <BarChart
                     data={getMonthChartData}
                     margin={{ top: 20, right: 30, left: isMobile ? 0 : 20, bottom: 20 }}
@@ -979,7 +907,7 @@ const Progress = () => {
           <Grid item xs={12}>
             <Paper sx={{ px: isMobile ? 3 : 3, py: isMobile ? 1 : 3, height: '100%', mt: isMobile ? '0px' : 0 }}>
               <Typography variant="h6" sx={{ mb: 2, fontSize: isMobile ? '1rem' : 'inherit' }}>현장별 기성/지출 현황</Typography>
-                              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 360 : 1390} minHeight={isMobile ? 200 : 400} style={{ marginLeft: isMobile ? '-30px' : 0 }}>
+                              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 360 : 1390} minHeight={isMobile ? 200 : 400} style={{ margin: '0 auto', display: 'flex', justifyContent: 'center' }}>
                   <BarChart
                     data={getSiteChartData}
                     margin={{ top: 20, right: 30, left: 20, bottom: 20 }}

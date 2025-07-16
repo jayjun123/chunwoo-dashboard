@@ -8,19 +8,16 @@ const SwipeableContainer = ({ children }) => {
   const location = useLocation();
   const containerRef = useRef(null);
 
-  // 페이지 네비게이션 순서 정의 (모바일 네비게이션과 일치)
+  // 페이지 네비게이션 순서 정의 (요청된 순서대로)
   const pageOrder = [
-    '/',                    // 홈 (일정관리)
+    '/',                    // 일정관리
     '/importantsite',       // 주요현장
-    '/sites',              // 현장
-    '/schedule',           // 일정
-    '/gantt',              // 현장일정
-    '/safety',             // 안전
-    '/discussions',        // 토론
-    '/progress',           // 기성
-    '/vendors',            // 거래처
-    '/documents',          // 문서
-    '/reports'             // 보고서
+    '/sites',              // 현장관리
+    '/gantt',              // 현장현황표
+    '/progress',           // 기성관리
+    '/safety',             // 안전관리
+    '/discussions',        // 토론의견
+    '/profile'             // 프로필
   ];
 
   // 현재 페이지 인덱스 찾기

@@ -17,6 +17,7 @@ import { InputBase } from '@mui/material';
 import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
 import { Keyboard } from '@capacitor/keyboard';
 
+
 const DiscussionChat = ({ roomId }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -188,10 +189,7 @@ const DiscussionChat = ({ roomId }) => {
 
   const handleDeleteMessage = async (message) => {
     if (!message) return;
-    if (!window.confirm('이 메시지를 삭제하시겠습니까?')) {
-      handleMessageMenuClose && handleMessageMenuClose();
-      return;
-    }
+    
     try {
       await deleteDoc(doc(db, `discussions/${roomId}/messages`, message.id));
       if (message.attachment) {
@@ -263,9 +261,10 @@ const DiscussionChat = ({ roomId }) => {
 
   return (
     <Box sx={{
-      height: '100vh', width: '100vw', maxWidth: '100vw', minWidth: '100vw',
-      display: 'flex', flexDirection: 'column', background: '#232634',
-      position: 'fixed', top: 0, left: 0, zIndex: 2000
+      height: '100vh', width: '100%', maxWidth: '100%', minWidth: '100%',
+      display: 'flex', flexDirection: 'column', background: 'transparent',
+      position: 'relative', zIndex: 2000,
+      mt: isMobile ? 2.5 : 0 // 모바일에서 상단에 20px 여백 추가
     }}>
       {/* 상단 바 */}
       <Box sx={{
@@ -278,18 +277,21 @@ const DiscussionChat = ({ roomId }) => {
         <Typography variant="h6" sx={{ fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{roomName}</Typography>
       </Box>
       {/* 메시지 영역 */}
-      <Box sx={{
-        flex: 1,
-        overflowY: 'auto',
-        px: 1, py: 2,
-        background: '#232323',
-        display: 'flex', flexDirection: 'column',
-        position: 'absolute',
-        top: 56, // 상단바 높이
-        bottom: isMobile ? 60 : 60, // 입력창 높이에 딱 맞게 조정 (불필요한 여백 최소화)
-        left: 0, right: 0,
-        height: 'auto',
-      }}>
+      <Box 
+
+        sx={{
+          flex: 1,
+          overflowY: 'auto',
+          px: 1, py: 2,
+          background: 'transparent',
+          display: 'flex', flexDirection: 'column',
+          position: 'absolute',
+          top: 56, // 상단바 높이
+          bottom: isMobile ? 80 : 80, // 입력창 높이를 늘려서 아래로 내림
+          left: 0, right: 0,
+          height: 'auto',
+        }}
+      >
         {loading ? (
           <Box display="flex" justifyContent="center" alignItems="center" height="100%"><CircularProgress /></Box>
         ) : (
@@ -380,7 +382,7 @@ const DiscussionChat = ({ roomId }) => {
                     {isMe && !editingMessage && (
                       <>
                         <IconButton size="small" sx={{ p: isMobile ? 0.2 : 0.5 }} onClick={() => setEditingMessage(msg)}><EditIcon sx={{ fontSize: isMobile ? 13 : 16, color: '#444' }}/></IconButton>
-                        <IconButton size="small" sx={{ p: isMobile ? 0.2 : 0.5 }} onClick={() => handleDeleteMessage(msg)}><DeleteIcon sx={{ fontSize: isMobile ? 13 : 16, color: '#444' }}/></IconButton>
+                        <IconButton size="small" sx={{ p: isMobile ? 0.2 : 0.5 }} onClick={() => { if(window.confirm('이 메시지를 삭제하시겠습니까?')) handleDeleteMessage(msg); }}><DeleteIcon sx={{ fontSize: isMobile ? 13 : 16, color: '#444' }}/></IconButton>
                       </>
                     )}
                     {isMe && editingMessage && editingMessage.id === msg.id && (
@@ -397,35 +399,37 @@ const DiscussionChat = ({ roomId }) => {
         )}
         <div ref={messagesEndRef} />
       </Box>
-      {/* 파일 미리보기 영역 */}
-      {files.length > 0 && (
-        <Box sx={{
-          p: isMobile ? 0.2 : 0.5,
-          background: '#fff',
-          borderRadius: 1,
-          border: '1px solid #ddd',
-          boxShadow: 1,
-          position: 'fixed',
-          left: 0,
-          right: 0,
-          bottom: isMobile ? 48 : 80,
-          zIndex: 1200,
-          mx: 0,
-          width: '100vw',
-          maxWidth: '100vw',
-          minHeight: isMobile ? 28 : 36,
-        }}>
-          <Typography variant="subtitle2" sx={{ mb: isMobile ? 0.2 : 1, fontWeight: 'bold', fontSize: isMobile ? '0.75rem' : '1rem' }}>
+      {/* 파일 미리보기 영역 - 모바일에서만 표시 */}
+      {files.length > 0 && isMobile && (
+        <Box 
+
+          sx={{
+            p: 0.2,
+            background: 'rgba(255, 255, 255, 0.9)',
+            borderRadius: 1,
+            border: '1px solid rgba(221, 221, 221, 0.5)',
+            boxShadow: 1,
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 48,
+            zIndex: 1200,
+            width: '100%',
+            minHeight: 28,
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          <Typography variant="subtitle2" sx={{ mb: 0.2, fontWeight: 'bold', fontSize: '0.75rem' }}>
             📎 선택된 파일 ({files.length}개)
           </Typography>
-          <Box sx={{ display: 'flex', gap: isMobile ? 0.2 : 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 0.2, flexWrap: 'wrap' }}>
             {files.map((file, idx) => (
-              <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.2, p: isMobile ? 0.1 : 0.5, background: '#f5f5f5', borderRadius: 1 }}>
+              <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.2, p: 0.1, background: '#f5f5f5', borderRadius: 1 }}>
                 {file.type.startsWith('image/') && (
-                  <img src={previews[idx]} alt={file.name} style={{ width: isMobile ? 20 : 48, height: isMobile ? 20 : 48, objectFit: 'cover', borderRadius: 4, marginRight: 2 }} />
+                  <img src={previews[idx]} alt={file.name} style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 4, marginRight: 2 }} />
                 )}
-                <Typography variant="caption" sx={{ fontSize: isMobile ? '0.6rem' : '0.85rem' }}>{file.name}</Typography>
-                <IconButton size="small" sx={{ p: isMobile ? 0.2 : 0.5 }} onClick={() => {
+                <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>{file.name}</Typography>
+                <IconButton size="small" sx={{ p: 0.2 }} onClick={() => {
                   setFiles(files.filter((_, i) => i !== idx));
                   setPreviews(previews.filter((_, i) => i !== idx));
                 }}>
@@ -437,29 +441,42 @@ const DiscussionChat = ({ roomId }) => {
         </Box>
       )}
       {/* 입력창 */}
-      <Box sx={{ 
-        px: isMobile ? 0.5 : 2, 
-        py: 0, 
-        bgcolor: '#232634', 
-        borderTop: '1px solid #333', 
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 1200,
-        width: '100vw',
-        maxWidth: '100vw',
-        minHeight: isMobile ? 48 : 48,
-        height: isMobile ? 48 : undefined,
-        display: 'flex',
-        alignItems: 'center',
-      }}>
+      <Box 
+
+        sx={{ 
+          px: isMobile ? 0.5 : 2, 
+          py: 1, 
+          bgcolor: 'rgba(24, 26, 32, 0.95)', 
+          borderTop: '1px solid rgba(255,255,255,0.1)', 
+          position: 'absolute',
+          bottom: isMobile ? '0px' : '50px', // 모바일: 하단에 0, PC: 50px 위에 위치
+          left: 0,
+          right: 0,
+          zIndex: 1200,
+          width: '100%',
+          minHeight: isMobile ? 56 : 64,
+          height: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          backdropFilter: 'blur(10px)',
+          boxShadow: '0 -2px 10px rgba(0,0,0,0.3)',
+          display: isMobile ? 'flex' : 'none' // PC에서 입력창 숨김
+        }}
+      >
         {!isMobile && (
           <Typography variant="caption" sx={{ color: '#aaa', mb: 0.5 }}>
             현재 사용자: {currentUser?.displayName || currentUser?.email || '익명'}
           </Typography>
         )}
-        <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 1 : 8, minHeight: isMobile ? 36 : 48, width: '100%' }}>
+        <Box component="form" onSubmit={handleSend} sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: isMobile ? 1 : 8, 
+          minHeight: isMobile ? 36 : 48, 
+          width: '100%',
+          position: 'relative',
+          zIndex: 1
+        }}>
           {/* 첨부파일 버튼 */}
           <IconButton
             component="label"
@@ -470,7 +487,8 @@ const DiscussionChat = ({ roomId }) => {
               p: isMobile ? 0.2 : 1,
               fontSize: isMobile ? 14 : 24,
               minWidth: isMobile ? 20 : 40,
-              minHeight: isMobile ? 20 : 40
+              minHeight: isMobile ? 20 : 40,
+              flexShrink: 0
             }}
           >
             <input
@@ -490,13 +508,15 @@ const DiscussionChat = ({ roomId }) => {
             placeholder="메시지를 입력하세요"
             fullWidth
             size="small"
+            autoComplete="off"
             sx={{ 
-              bgcolor: '#181a20', 
+              bgcolor: 'rgba(24, 26, 32, 0.8)', 
               borderRadius: 2, 
               flex: 1,
               fontSize: isMobile ? '0.8rem' : '1rem',
               minHeight: isMobile ? 28 : 40,
               maxHeight: isMobile ? 28 : 40,
+              backdropFilter: 'blur(10px)',
               '& .MuiOutlinedInput-root': {
                 '& fieldset': {
                   borderColor: 'rgba(255,255,255,0.3)',
@@ -523,17 +543,25 @@ const DiscussionChat = ({ roomId }) => {
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton type="submit" color="primary" disabled={!newMessage.trim() && files.length === 0} sx={{ p: isMobile ? 0.2 : 1 }}>
+                  <IconButton 
+                    type="submit" 
+                    color="primary" 
+                    disabled={!newMessage.trim() && files.length === 0} 
+                    sx={{ 
+                      p: isMobile ? 0.2 : 1,
+                      flexShrink: 0
+                    }}
+                  >
                     <SendIcon sx={{ fontSize: isMobile ? 16 : 24 }} />
                   </IconButton>
                 </InputAdornment>
               )
             }}
           />
-        </form>
+        </Box>
       </Box>
       {/* 이미지 모달 */}
-      <Dialog open={imageModal.open} onClose={() => setImageModal({ open: false, url: '' })} maxWidth="md">
+      <Dialog open={imageModal.open} onClose={() => setImageModal({ open: false, url: '' })} maxWidth="md" disableRestoreFocus={false} disableEnforceFocus={false} hideBackdrop={false}>
         <DialogContent sx={{ p: 0, background: '#111' }}>
           <IconButton onClick={() => setImageModal({ open: false, url: '' })} sx={{ position: 'absolute', top: 8, right: 8, color: '#fff', zIndex: 2 }}><CloseIcon /></IconButton>
           <img src={imageModal.url} alt="확대보기" style={{ maxWidth: '90vw', maxHeight: '80vh', display: 'block', margin: '0 auto' }} />

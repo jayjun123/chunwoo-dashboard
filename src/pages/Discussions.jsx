@@ -46,7 +46,10 @@ const Discussions = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
-  const [newRoomData, setNewRoomData] = useState({ name: '', siteId: '', password: '', permissions: {} });
+  const [newRoomData, setNewRoomData] = useState({ name: '', siteId: '', password: '', passwordInput: '', permissions: {} });
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [selectedRoomForPassword, setSelectedRoomForPassword] = useState(null);
   
   // 권한 타입 정의
   const permissionTypes = [
@@ -431,7 +434,33 @@ const Discussions = () => {
     });
 
     setIsCreateRoomOpen(false);
-    setNewRoomData({ name: '', siteId: '', password: '', permissions: {} });
+    setNewRoomData({ name: '', siteId: '', password: '', passwordInput: '', permissions: {} });
+  };
+
+  const handlePasswordSubmit = () => {
+    if (!selectedRoomForPassword) return;
+    
+    if (passwordInput === selectedRoomForPassword.password) {
+      setSelectedRoom(selectedRoomForPassword);
+      setIsPasswordDialogOpen(false);
+      setPasswordInput('');
+      setSelectedRoomForPassword(null);
+    } else {
+      alert('비밀번호가 올바르지 않습니다.');
+      setPasswordInput('');
+    }
+  };
+
+  const handleRoomClick = (room) => {
+    if (room.password && room.password !== '') {
+      // 비밀번호가 설정된 방인 경우
+      setSelectedRoomForPassword(room);
+      setIsPasswordDialogOpen(true);
+      setPasswordInput('');
+    } else {
+      // 비밀번호가 없는 방인 경우 바로 입장
+      setSelectedRoom(room);
+    }
   };
 
   const handleDeleteRoom = async (e, roomId) => {
@@ -760,7 +789,7 @@ const Discussions = () => {
                       if (isMobile) {
                         navigate(`/chat/${room.id}`);
                       } else {
-                        setSelectedRoom(room);
+                        handleRoomClick(room);
                       }
                     }}
                     sx={{
@@ -951,73 +980,93 @@ const Discussions = () => {
                         <Typography sx={{ color: '#1976d2', fontSize: 14, fontWeight: 900, mb: 0.5 }}>
                           {msg.userName || '익명'}
                         </Typography>
-                        {/* 메시지 버블 */}
-                        <Box sx={{
-                          bgcolor: isMe ? '#FFF9C4' : '#222',
-                          color: isMe ? '#222' : '#fff',
-                          borderRadius: 3,
-                          px: 2, py: 1.2,
-                          maxWidth: '75vw',
-                          fontSize: 16,
-                          position: 'relative',
-                          boxShadow: isMe ? 3 : 1,
-                          fontFamily: 'NanumGothic, Malgun Gothic, Apple SD Gothic Neo, sans-serif',
-                        }}>
-                          {editingMessage && editingMessage.id === msg.id ? (
-                            <TextField
-                              fullWidth
-                              value={editingMessage.text}
-                              onChange={(e) => setEditingMessage({ ...editingMessage, text: e.target.value })}
-                              variant="standard"
-                              size="small"
-                            />
-                          ) : (
-                            <>
-                              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', fontSize: '1rem' }}>{msg.text}</Typography>
-                              {msg.attachment && (
-                                <Box mt={1}>
-                                  {msg.attachment.type.startsWith('image/') ? (
-                                    <Box sx={{ position: 'relative', display: 'inline-block', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}>
-                                      <a href={msg.attachment.url} target="_blank" rel="noopener noreferrer">
-                                        <img 
-                                          src={msg.attachment.url} 
-                                          alt={msg.attachment.name} 
-                                          style={{ maxWidth: '180px', maxHeight: '180px', borderRadius: '8px', cursor: 'pointer', display: 'block' }} 
-                                        />
-                                      </a>
-                                    </Box>
-                                  ) : (
-                                    <Button 
-                                      variant="outlined" 
-                                      startIcon={<DescriptionIcon />} 
-                                      href={msg.attachment.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      sx={{ textTransform: 'none', fontSize: '0.7rem', borderRadius: 2 }}
-                                      size="small"
-                                    >
-                                      {msg.attachment.name}
-                                    </Button>
-                                  )}
-                                </Box>
-                              )}
-                            </>
-                          )}
-                          {/* 시간, 수정/삭제 버튼 */}
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: isMe ? 'flex-end' : 'flex-start', mt: 0.5 }}>
-                            <Typography sx={{ color: '#aaa', fontSize: 11, ml: isMe ? 1 : 0, mr: isMe ? 0 : 1 }}>
+                        {/* 메시지 버블과 시간/버튼을 감싸는 컨테이너 */}
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+                          {/* 메시지 버블 */}
+                          <Box sx={{
+                            bgcolor: isMe ? '#FFF9C4' : '#222',
+                            color: isMe ? '#222' : '#fff',
+                            borderRadius: 3,
+                            px: 2, py: 1,
+                            maxWidth: '400px', // PC에서는 최대 너비 제한
+                            fontSize: 14,
+                            position: 'relative',
+                            boxShadow: isMe ? 3 : 1,
+                            fontFamily: 'NanumGothic, Malgun Gothic, Apple SD Gothic Neo, sans-serif',
+                            display: 'inline-block', // 내용에 맞게 크기 조정
+                            wordWrap: 'break-word',
+                            whiteSpace: 'pre-wrap'
+                          }}>
+                            {editingMessage && editingMessage.id === msg.id ? (
+                              <TextField
+                                fullWidth
+                                value={editingMessage.text}
+                                onChange={(e) => setEditingMessage({ ...editingMessage, text: e.target.value })}
+                                variant="standard"
+                                size="small"
+                              />
+                            ) : (
+                              <>
+                                <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: 1.4 }}>{msg.text}</Typography>
+                                {msg.attachment && (
+                                  <Box mt={1}>
+                                    {msg.attachment.type.startsWith('image/') ? (
+                                      <Box sx={{ position: 'relative', display: 'inline-block', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}>
+                                        <a href={msg.attachment.url} target="_blank" rel="noopener noreferrer">
+                                          <img 
+                                            src={msg.attachment.url} 
+                                            alt={msg.attachment.name} 
+                                            style={{ maxWidth: '180px', maxHeight: '180px', borderRadius: '8px', cursor: 'pointer', display: 'block' }} 
+                                          />
+                                        </a>
+                                      </Box>
+                                    ) : (
+                                      <Button 
+                                        variant="outlined" 
+                                        startIcon={<DescriptionIcon />} 
+                                        href={msg.attachment.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        sx={{ textTransform: 'none', fontSize: '0.7rem', borderRadius: 2 }}
+                                        size="small"
+                                      >
+                                        {msg.attachment.name}
+                                      </Button>
+                                    )}
+                                  </Box>
+                                )}
+                              </>
+                            )}
+                          </Box>
+                          {/* 시간, 수정/삭제 버튼 - 박스 밖에 배치 */}
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: isMe ? 'flex-end' : 'flex-start', 
+                            mt: 0.5,
+                            gap: 0.5
+                          }}>
+                            <Typography sx={{ color: '#aaa', fontSize: 10 }}>
                               {formatTime(msg.timestamp)}
                             </Typography>
                             {isMe && !editingMessage && (
                               <>
-                                <IconButton size="small" onClick={() => setEditingMessage(msg)}><EditIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
-                                <IconButton size="small" onClick={() => { if(window.confirm('이 메시지를 삭제하시겠습니까?')) handleDeleteMessage(msg.id); }}><DeleteIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                                <IconButton size="small" onClick={() => setEditingMessage(msg)} sx={{ p: 0.5 }}>
+                                  <EditIcon sx={{ fontSize: 14, color: '#666' }}/>
+                                </IconButton>
+                                <IconButton size="small" onClick={() => { if(window.confirm('이 메시지를 삭제하시겠습니까?')) handleDeleteMessage(msg.id); }} sx={{ p: 0.5 }}>
+                                  <DeleteIcon sx={{ fontSize: 14, color: '#666' }}/>
+                                </IconButton>
                               </>
                             )}
                             {isMe && editingMessage && editingMessage.id === msg.id && (
                               <>
-                                <IconButton size="small" onClick={handleUpdateMessage}><SaveIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
-                                <IconButton size="small" onClick={() => setEditingMessage(null)}><CancelIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                                <IconButton size="small" onClick={handleUpdateMessage} sx={{ p: 0.5 }}>
+                                  <SaveIcon sx={{ fontSize: 14, color: '#666' }}/>
+                                </IconButton>
+                                <IconButton size="small" onClick={() => setEditingMessage(null)} sx={{ p: 0.5 }}>
+                                  <CancelIcon sx={{ fontSize: 14, color: '#666' }}/>
+                                </IconButton>
                               </>
                             )}
                           </Box>
@@ -1250,7 +1299,7 @@ const Discussions = () => {
             </Box>
           </Box>
         )}
-        {!isMobile && selectedRoom && (
+        {selectedRoom && (
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%', p: 0, m: 0, minWidth: 0, minHeight: 0 }}>
             {/* 채팅방 헤더 */}
             <Box sx={{ 
@@ -1330,73 +1379,93 @@ const Discussions = () => {
                         <Typography sx={{ color: '#1976d2', fontSize: 14, fontWeight: 900, mb: 0.5 }}>
                           {msg.userName || '익명'}
                         </Typography>
-                        {/* 메시지 버블 */}
-                        <Box sx={{
-                          bgcolor: isMe ? '#FFF9C4' : '#222',
-                          color: isMe ? '#222' : '#fff',
-                          borderRadius: 3,
-                          px: 2, py: 1.2,
-                          maxWidth: '75vw',
-                          fontSize: 16,
-                          position: 'relative',
-                          boxShadow: isMe ? 3 : 1,
-                          fontFamily: 'NanumGothic, Malgun Gothic, Apple SD Gothic Neo, sans-serif',
-                        }}>
-                          {editingMessage && editingMessage.id === msg.id ? (
-                            <TextField
-                              fullWidth
-                              value={editingMessage.text}
-                              onChange={(e) => setEditingMessage({ ...editingMessage, text: e.target.value })}
-                              variant="standard"
-                              size="small"
-                            />
-                          ) : (
-                            <>
-                              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', fontSize: '1rem' }}>{msg.text}</Typography>
-                              {msg.attachment && (
-                                <Box mt={1}>
-                                  {msg.attachment.type.startsWith('image/') ? (
-                                    <Box sx={{ position: 'relative', display: 'inline-block', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}>
-                                      <a href={msg.attachment.url} target="_blank" rel="noopener noreferrer">
-                                        <img 
-                                          src={msg.attachment.url} 
-                                          alt={msg.attachment.name} 
-                                          style={{ maxWidth: '180px', maxHeight: '180px', borderRadius: '8px', cursor: 'pointer', display: 'block' }} 
-                                        />
-                                      </a>
-                                    </Box>
-                                  ) : (
-                                    <Button 
-                                      variant="outlined" 
-                                      startIcon={<DescriptionIcon />} 
-                                      href={msg.attachment.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      sx={{ textTransform: 'none', fontSize: '0.7rem', borderRadius: 2 }}
-                                      size="small"
-                                    >
-                                      {msg.attachment.name}
-                                    </Button>
-                                  )}
-                                </Box>
-                              )}
-                            </>
-                          )}
-                          {/* 시간, 수정/삭제 버튼 */}
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: isMe ? 'flex-end' : 'flex-start', mt: 0.5 }}>
-                            <Typography sx={{ color: '#aaa', fontSize: 11, ml: isMe ? 1 : 0, mr: isMe ? 0 : 1 }}>
+                        {/* 메시지 버블과 시간/버튼을 감싸는 컨테이너 */}
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+                          {/* 메시지 버블 */}
+                          <Box sx={{
+                            bgcolor: isMe ? '#FFF9C4' : '#222',
+                            color: isMe ? '#222' : '#fff',
+                            borderRadius: 3,
+                            px: 2, py: 1,
+                            maxWidth: '400px', // PC에서는 최대 너비 제한
+                            fontSize: 14,
+                            position: 'relative',
+                            boxShadow: isMe ? 3 : 1,
+                            fontFamily: 'NanumGothic, Malgun Gothic, Apple SD Gothic Neo, sans-serif',
+                            display: 'inline-block', // 내용에 맞게 크기 조정
+                            wordWrap: 'break-word',
+                            whiteSpace: 'pre-wrap'
+                          }}>
+                            {editingMessage && editingMessage.id === msg.id ? (
+                              <TextField
+                                fullWidth
+                                value={editingMessage.text}
+                                onChange={(e) => setEditingMessage({ ...editingMessage, text: e.target.value })}
+                                variant="standard"
+                                size="small"
+                              />
+                            ) : (
+                              <>
+                                <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: 1.4 }}>{msg.text}</Typography>
+                                {msg.attachment && (
+                                  <Box mt={1}>
+                                    {msg.attachment.type.startsWith('image/') ? (
+                                      <Box sx={{ position: 'relative', display: 'inline-block', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}>
+                                        <a href={msg.attachment.url} target="_blank" rel="noopener noreferrer">
+                                          <img 
+                                            src={msg.attachment.url} 
+                                            alt={msg.attachment.name} 
+                                            style={{ maxWidth: '180px', maxHeight: '180px', borderRadius: '8px', cursor: 'pointer', display: 'block' }} 
+                                          />
+                                        </a>
+                                      </Box>
+                                    ) : (
+                                      <Button 
+                                        variant="outlined" 
+                                        startIcon={<DescriptionIcon />} 
+                                        href={msg.attachment.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        sx={{ textTransform: 'none', fontSize: '0.7rem', borderRadius: 2 }}
+                                        size="small"
+                                      >
+                                        {msg.attachment.name}
+                                      </Button>
+                                    )}
+                                  </Box>
+                                )}
+                              </>
+                            )}
+                          </Box>
+                          {/* 시간, 수정/삭제 버튼 - 박스 밖에 배치 */}
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: isMe ? 'flex-end' : 'flex-start', 
+                            mt: 0.5,
+                            gap: 0.5
+                          }}>
+                            <Typography sx={{ color: '#aaa', fontSize: 10 }}>
                               {formatTime(msg.timestamp)}
                             </Typography>
                             {isMe && !editingMessage && (
                               <>
-                                <IconButton size="small" onClick={() => setEditingMessage(msg)}><EditIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
-                                <IconButton size="small" onClick={() => { if(window.confirm('이 메시지를 삭제하시겠습니까?')) handleDeleteMessage(msg.id); }}><DeleteIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                                <IconButton size="small" onClick={() => setEditingMessage(msg)} sx={{ p: 0.5 }}>
+                                  <EditIcon sx={{ fontSize: 14, color: '#666' }}/>
+                                </IconButton>
+                                <IconButton size="small" onClick={() => { if(window.confirm('이 메시지를 삭제하시겠습니까?')) handleDeleteMessage(msg.id); }} sx={{ p: 0.5 }}>
+                                  <DeleteIcon sx={{ fontSize: 14, color: '#666' }}/>
+                                </IconButton>
                               </>
                             )}
                             {isMe && editingMessage && editingMessage.id === msg.id && (
                               <>
-                                <IconButton size="small" onClick={handleUpdateMessage}><SaveIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
-                                <IconButton size="small" onClick={() => setEditingMessage(null)}><CancelIcon sx={{ fontSize: 16, color: '#444' }}/></IconButton>
+                                <IconButton size="small" onClick={handleUpdateMessage} sx={{ p: 0.5 }}>
+                                  <SaveIcon sx={{ fontSize: 14, color: '#666' }}/>
+                                </IconButton>
+                                <IconButton size="small" onClick={() => setEditingMessage(null)} sx={{ p: 0.5 }}>
+                                  <CancelIcon sx={{ fontSize: 14, color: '#666' }}/>
+                                </IconButton>
                               </>
                             )}
                           </Box>
@@ -1605,7 +1674,7 @@ const Discussions = () => {
         )}
       </Box>
       
-      <Dialog open={isCreateRoomOpen} onClose={() => setIsCreateRoomOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={isCreateRoomOpen} onClose={() => setIsCreateRoomOpen(false)} maxWidth="sm" fullWidth disableRestoreFocus={false} disableEnforceFocus={false} hideBackdrop={false}>
         <DialogTitle>새 대화방 만들기</DialogTitle>
         <DialogContent>
           <FormControl fullWidth sx={{ mt: 2 }}>
@@ -1736,6 +1805,35 @@ const Discussions = () => {
             disabled={!newRoomData.siteId}
           >
             만들기
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 비밀번호 확인 다이얼로그 */}
+      <Dialog open={isPasswordDialogOpen} onClose={() => setIsPasswordDialogOpen(false)} maxWidth="sm" fullWidth disableRestoreFocus={false} disableEnforceFocus={false} hideBackdrop={false}>
+        <DialogTitle>비밀번호 입력</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            "{selectedRoomForPassword?.name}" 채팅방에 입장하려면 비밀번호를 입력하세요.
+          </Typography>
+          <TextField
+            fullWidth
+            label="비밀번호"
+            type="password"
+            value={passwordInput}
+            onChange={(e) => setPasswordInput(e.target.value)}
+            placeholder="비밀번호를 입력하세요"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handlePasswordSubmit();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsPasswordDialogOpen(false)}>취소</Button>
+          <Button onClick={handlePasswordSubmit} variant="contained">
+            입장
           </Button>
         </DialogActions>
       </Dialog>

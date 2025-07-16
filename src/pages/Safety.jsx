@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Box, Grid, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Snackbar, Alert, useMediaQuery, Tabs, Tab, Autocomplete
+  Box, Grid, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Snackbar, Alert, useMediaQuery, Tabs, Tab, Autocomplete, Select, MenuItem, FormControl, InputLabel
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, CloudDownload as CloudDownloadIcon } from '@mui/icons-material';
 import { db, storage } from '../firebase';
@@ -29,7 +29,7 @@ const SafetyPage = () => {
     preview: '',
     name: '',
     equipment: '',
-    isIssued: false,
+    isIssued: '아니요',
     receipt: null,
     receiptUrl: '',
     issueDoc: null,
@@ -93,6 +93,14 @@ const SafetyPage = () => {
   const openDialog = (row = null) => {
     if (row) {
       setEditId(row.id);
+      // 기존 데이터의 isIssued 값을 문자열로 변환
+      let isIssuedValue = '아니요';
+      if (row.isIssued === true || row.isIssued === 'true' || row.isIssued === '예') {
+        isIssuedValue = '예';
+      } else if (row.isIssued === '일부분출') {
+        isIssuedValue = '일부분출';
+      }
+      
       setForm({
         title: row.title,
         date: row.date,
@@ -103,7 +111,7 @@ const SafetyPage = () => {
         preview: row.preview,
         name: row.name,
         equipment: row.equipment,
-        isIssued: row.isIssued,
+        isIssued: isIssuedValue,
         receipt: row.receipt,
         receiptUrl: row.receiptUrl,
         issueDoc: row.issueDoc,
@@ -113,7 +121,7 @@ const SafetyPage = () => {
       });
     } else {
       setEditId(null);
-      setForm({ title: '', date: '', description: '', type: collectionMap[tab], siteName: '', attachment: null, preview: '', name: '', equipment: '', isIssued: false, receipt: null, receiptUrl: '', issueDoc: null, issueDocUrl: '', note: '', amount: '' });
+      setForm({ title: '', date: '', description: '', type: collectionMap[tab], siteName: '', attachment: null, preview: '', name: '', equipment: '', isIssued: '아니요', receipt: null, receiptUrl: '', issueDoc: null, issueDocUrl: '', note: '', amount: '' });
     }
     setDialogOpen(true);
   };
@@ -148,11 +156,30 @@ const SafetyPage = () => {
   };
 
   const handleSave = async () => {
+    console.log('=== 안전관리비 저장 시작 ===');
+    console.log('현재 탭:', tab);
+    console.log('폼 데이터:', form);
+    console.log('편집 ID:', editId);
+    
     if (tab === 1 || tab === 2 || tab === 3) {
-      if (!form.title || !form.date) return;
+      if (!form.title || !form.date) {
+        console.log('필수 필드 누락 (탭 1-3)');
+        return;
+      }
     }
     if (tab === 4) {
-      if (!form.siteName || !form.name || !form.date || !form.amount) return;
+      console.log('안전관리비 필드 검증:');
+      console.log('- siteName:', form.siteName);
+      console.log('- name:', form.name);
+      console.log('- date:', form.date);
+      console.log('- amount:', form.amount);
+      console.log('- isIssued:', form.isIssued);
+      
+      if (!form.siteName || !form.name || !form.date || !form.amount) {
+        console.log('필수 필드 누락 (안전관리비)');
+        setSnackbar({ open: true, message: '필수 필드를 모두 입력해주세요.', severity: 'warning' });
+        return;
+      }
     }
     let previewUrl = form.preview;
     if (form.attachment) {
@@ -172,27 +199,116 @@ const SafetyPage = () => {
       await uploadBytes(storageRef, form.issueDoc);
       issueDocUrl = await getDownloadURL(storageRef);
     }
-    const saveData = {
-      ...form,
-      preview: previewUrl,
-      attachment: form.attachment ? form.attachment.name : '',
-      receiptUrl,
-      issueDocUrl,
+    // 안전한 데이터 정리 함수
+    const cleanValue = (value) => {
+      if (value === undefined || value === null) {
+        return '';
+      }
+      if (typeof value === 'object' && !(value instanceof Date)) {
+        // File 객체나 기타 객체는 문자열로 변환하거나 제거
+        return '';
+      }
+      return value;
     };
+
+    // 안전관리비 전용 데이터 구조
+    let saveData;
+    
+    if (tab === 4) { // 안전관리비 탭
+      saveData = {
+        siteName: cleanValue(form.siteName),
+        name: cleanValue(form.name),
+        date: cleanValue(form.date),
+        equipment: cleanValue(form.equipment),
+        isIssued: cleanValue(form.isIssued) || '아니요',
+        note: cleanValue(form.note),
+        amount: cleanValue(form.amount),
+        preview: previewUrl || '',
+        attachment: form.attachment ? form.attachment.name : '',
+        receiptUrl: receiptUrl || '',
+        issueDocUrl: issueDocUrl || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    } else {
+      // 기타 탭들
+      saveData = {
+        title: cleanValue(form.title),
+        date: cleanValue(form.date),
+        description: cleanValue(form.description),
+        type: cleanValue(form.type) || collectionMap[tab],
+        siteName: cleanValue(form.siteName),
+        attachment: form.attachment ? form.attachment.name : '',
+        preview: previewUrl || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    }
+
+    // 최종 검증: undefined나 null 값이 남아있는지 확인
+    Object.keys(saveData).forEach(key => {
+      if (saveData[key] === undefined || saveData[key] === null) {
+        saveData[key] = '';
+      }
+    });
+    
+    console.log('저장할 데이터:', saveData);
+    console.log('컬렉션:', collectionMap[tab]);
+    
     try {
+      // Firestore 저장 전 최종 데이터 검증
+      console.log('Firestore 저장 전 데이터 검증:');
+      for (const [key, value] of Object.entries(saveData)) {
+        if (value === undefined) {
+          console.error(`${key} 필드에 undefined 값이 있습니다!`);
+          saveData[key] = '';
+        }
+        if (typeof value === 'object' && value !== null && !(value instanceof Date)) {
+          console.error(`${key} 필드에 객체가 있습니다:`, value);
+          saveData[key] = '';
+        }
+      }
+      
       if (editId) {
-        await updateDoc(doc(db, collectionMap[tab], editId), saveData);
+        console.log('수정 모드 - 문서 ID:', editId);
+        // 수정 시에는 updatedAt만 업데이트
+        const updateData = { ...saveData };
+        delete updateData.createdAt;
+        updateData.updatedAt = new Date().toISOString();
+        
+        await updateDoc(doc(db, collectionMap[tab], editId), updateData);
+        console.log('수정 성공');
         setSnackbar({ open: true, message: '수정되었습니다.', severity: 'success' });
       } else {
+        console.log('추가 모드');
         await addDoc(collection(db, collectionMap[tab]), saveData);
+        console.log('추가 성공');
         setSnackbar({ open: true, message: '추가되었습니다.', severity: 'success' });
       }
+      
       if (collectionMap[tab] === 'safety_costs') {
+        console.log('안전관리비 현장 업데이트 시작');
         await updateSiteSafetyCost(saveData.siteName);
+        console.log('안전관리비 현장 업데이트 완료');
       }
+      
       closeDialog();
     } catch (e) {
-      setSnackbar({ open: true, message: '저장에 실패했습니다.', severity: 'error' });
+      console.error('=== 저장 실패 상세 분석 ===');
+      console.error('오류 객체:', e);
+      console.error('오류 메시지:', e.message);
+      console.error('오류 코드:', e.code);
+      console.error('저장하려던 데이터:', saveData);
+      console.error('컬렉션:', collectionMap[tab]);
+      
+      let errorMessage = '저장에 실패했습니다.';
+      if (e.message.includes('invalid data')) {
+        errorMessage = '잘못된 데이터 형식입니다. 모든 필드를 다시 확인해주세요.';
+      } else if (e.message.includes('undefined')) {
+        errorMessage = '일부 필드에 정의되지 않은 값이 있습니다.';
+      }
+      
+      setSnackbar({ open: true, message: errorMessage, severity: 'error' });
     }
   };
 
@@ -228,7 +344,8 @@ const SafetyPage = () => {
         '이름': row.name,
         '날짜': row.date,
         '안전장비': row.equipment,
-        '분출여부': row.isIssued ? 'Y' : 'N',
+        '분출여부': row.isIssued || '아니요',
+        '첨부파일': row.preview || '',
         '비고': row.note,
         '금액': row.amount,
       }));
@@ -242,12 +359,13 @@ const SafetyPage = () => {
     // 컬럼 너비 설정 (한글 텍스트 고려)
     const columnWidths = [
       { wch: 20 }, // 현장명
-      { wch: 25 }, // 제목/이름
-      { wch: 15 }, // 일자/날짜
-      { wch: 20 }, // 첨부파일/안전장비
+      { wch: 15 }, // 제목/이름
+      { wch: 12 }, // 일자/날짜
+      { wch: 15 }, // 안전장비
       { wch: 10 }, // 분출여부
-      { wch: 25 }, // 비고
-      { wch: 15 }, // 금액
+      { wch: 30 }, // 첨부파일 (미리보기 URL)
+      { wch: 20 }, // 비고
+      { wch: 12 }, // 금액
     ];
 
     const result = exportToExcel(dataToExport, TAB_LABELS[tab], fileName, { columnWidths });
@@ -357,7 +475,7 @@ const SafetyPage = () => {
       1: ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 안전 점검
       2: ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 사고/사고예방
       3: ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 안전 교육
-      4: ['현장명', '이름', '날짜', '안전장비', '분출여부', '영수증', '분출대장', '비고', '금액', '관리'] // 안전관리비
+      4: ['현장명', '이름', '날짜', '안전장비', '분출여부', '첨부파일', '영수증', '분출대장', '비고', '금액', '관리'] // 안전관리비
     };
 
     const renderRow = (row) => {
@@ -497,7 +615,18 @@ const SafetyPage = () => {
               minWidth: 0,
               maxWidth: '100%'
             }}>
-              {row.isIssued ? '예' : '아니오'}
+              {row.isIssued || '아니요'}
+            </TableCell>
+            <TableCell sx={{ 
+              fontSize: isMobile ? '0.6rem' : 'inherit', 
+              padding: isMobile ? '4px 2px' : 'auto',
+              width: 'auto',
+              minWidth: 0,
+              maxWidth: '100%'
+            }}>
+              {row.preview ? (
+                <img src={row.preview} alt="첨부파일" style={{ maxWidth: isMobile ? 40 : 60, maxHeight: isMobile ? 30 : 40, cursor: 'pointer' }} onClick={() => window.open(row.preview, '_blank')} />
+              ) : '-'}
             </TableCell>
             <TableCell sx={{ 
               fontSize: isMobile ? '0.6rem' : 'inherit', 
@@ -673,17 +802,17 @@ const SafetyPage = () => {
   return (
     <Box sx={{ 
       p: isMobile ? 0 : 3,
-      mt: isMobile ? 0 : 8,
-      position: isMobile ? 'fixed' : 'relative',
-      top: isMobile ? '54px' : 'auto',
-      left: isMobile ? '20px' : 'auto',
-      right: isMobile ? '20px' : 'auto',
-      bottom: isMobile ? '51px' : 'auto',
-      width: isMobile ? 'calc(100% - 40px)' : '100%',
-      height: isMobile ? 'calc(100vh - 54px - 51px)' : 'auto',
+      mt: isMobile ? '0px' : 8,
+      position: isMobile ? 'relative' : 'relative',
+      top: isMobile ? 'auto' : 'auto',
+      left: isMobile ? 'auto' : 'auto',
+      right: isMobile ? 'auto' : 'auto',
+      bottom: isMobile ? 'auto' : 'auto',
+      width: isMobile ? '100%' : '100%',
+      height: isMobile ? 'auto' : 'auto',
       overflow: 'auto',
       overflowX: 'hidden',
-      zIndex: isMobile ? 1000 : 'auto',
+      zIndex: isMobile ? 'auto' : 'auto',
       padding: isMobile ? '0px' : '16px',
       bgcolor: '#1a1d21'
     }}>
@@ -767,6 +896,9 @@ const SafetyPage = () => {
           onClose={closeDialog} 
           fullWidth 
           maxWidth="sm"
+          disableRestoreFocus={false}
+          disableEnforceFocus={false}
+          hideBackdrop={false}
           sx={{
             ...(isMobile && {
               '& .MuiDialog-paper': {
@@ -842,12 +974,90 @@ const SafetyPage = () => {
                     })
                   }}
                 />
+                <FormControl 
+                  fullWidth 
+                  margin="dense"
+                  sx={{
+                    ...(isMobile && {
+                      '& .MuiInputBase-root': {
+                        height: '40px'
+                      }
+                    })
+                  }}
+                >
+                  <InputLabel>분출여부</InputLabel>
+                  <Select
+                    value={form.isIssued}
+                    onChange={e => setForm(prev => ({ ...prev, isIssued: e.target.value }))}
+                    label="분출여부"
+                  >
+                    <MenuItem value="아니요">아니요</MenuItem>
+                    <MenuItem value="예">예</MenuItem>
+                    <MenuItem value="일부분출">일부분출</MenuItem>
+                  </Select>
+                </FormControl>
                 <TextField 
                   margin="dense" 
                   label="금액" 
                   fullWidth 
                   value={form.amount} 
                   onChange={e => setForm(prev => ({ ...prev, amount: e.target.value }))}
+                  sx={{
+                    ...(isMobile && {
+                      '& .MuiInputBase-root': {
+                        height: '40px'
+                      }
+                    })
+                  }}
+                />
+                <TextField 
+                  margin="dense" 
+                  label="비고" 
+                  fullWidth 
+                  multiline
+                  rows={2}
+                  value={form.note} 
+                  onChange={e => setForm(prev => ({ ...prev, note: e.target.value }))}
+                  sx={{
+                    ...(isMobile && {
+                      '& .MuiInputBase-root': {
+                        minHeight: '60px'
+                      }
+                    })
+                  }}
+                />
+                <Box sx={{ mt: 1, mb: 1 }}>
+                  <Button 
+                    variant="outlined" 
+                    component="label" 
+                    sx={{ 
+                      mr: 1,
+                      ...(isMobile && {
+                        height: '40px',
+                        fontSize: '0.9rem'
+                      })
+                    }}
+                  >
+                    첨부파일 선택
+                    <input 
+                      type="file" 
+                      hidden 
+                      onChange={e => setForm(prev => ({ ...prev, attachment: e.target.files[0] }))} 
+                    />
+                  </Button>
+                  {form.attachment && (
+                    <Typography variant="body2" sx={{ mt: 1, color: '#4caf50' }}>
+                      선택된 파일: {form.attachment.name}
+                    </Typography>
+                  )}
+                </Box>
+                <TextField 
+                  margin="dense" 
+                  label="미리보기 URL" 
+                  fullWidth 
+                  value={form.preview || ''} 
+                  onChange={e => setForm(prev => ({ ...prev, preview: e.target.value }))}
+                  placeholder="첨부파일의 미리보기 URL을 입력하세요"
                   sx={{
                     ...(isMobile && {
                       '& .MuiInputBase-root': {

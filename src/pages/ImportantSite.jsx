@@ -87,17 +87,43 @@ export default function ImportantSite() {
       
       // 각 현장의 isFavorite 상태 상세 출력
       allSitesData.forEach((site, index) => {
-        console.log(`🔍 현장 ${index + 1}: ${site.name} - isFavorite: ${site.isFavorite}`);
+        console.log(`🔍 현장 ${index + 1}: ${site.name}`);
+        console.log(`   - isFavorite: ${site.isFavorite} (타입: ${typeof site.isFavorite})`);
+        console.log(`   - isStarred: ${site.isStarred} (타입: ${typeof site.isStarred})`);
       });
       
-      // isFavorite가 true인 현장만 필터링
-      const importantSitesData = allSitesData.filter(site => site.isFavorite === true);
+      // isFavorite가 명시적으로 true인 현장만 필터링 (엄격한 조건)
+      const importantSitesData = allSitesData.filter(site => {
+        const isFav = site.isFavorite === true;
+        
+        console.log(`🔍 필터링 체크 - ${site.name}: isFavorite=${site.isFavorite} (${typeof site.isFavorite}) -> ${isFav ? '포함' : '제외'}`);
+        
+        // 오직 isFavorite가 명시적으로 true인 경우만 포함
+        return isFav;
+      });
       console.log('🔍 ImportantSite - 주요현장 필터링 결과:', importantSitesData);
       console.log('🔍 ImportantSite - 주요현장 개수:', importantSitesData.length);
       
       // 최대 10개까지만 표시
       const limitedSitesData = importantSitesData.slice(0, 10);
       console.log('🔍 ImportantSite - 최종 표시할 주요현장:', limitedSitesData);
+      
+      // progressRate가 없는 현장들 자동 마이그레이션
+      limitedSitesData.forEach(async (site) => {
+        if (site.progressRate === undefined && site.totalProgress && site.contractAmount) {
+          const contract = Number(site.contractAmount) || 0;
+          const progress = Number(site.totalProgress) || 0;
+          if (contract > 0) {
+            const calculatedRate = Math.round((progress / contract) * 100);
+            console.log(`✅ ${site.name} 진행률 자동 설정: ${calculatedRate}%`);
+            try {
+              await updateDoc(doc(db, 'sites', site.id), { progressRate: calculatedRate });
+            } catch (error) {
+              console.error('❌ 진행률 자동 설정 실패:', site.name, error);
+            }
+          }
+        }
+      });
       
       setSites(limitedSitesData);
     }, (error) => {
@@ -447,23 +473,73 @@ export default function ImportantSite() {
   };
 
   const handleSaveProgress = async (site) => {
+    console.log('=== 공사진행률 저장 시작 ===');
+    console.log('사이트:', site);
+    console.log('전체 progressInput 상태:', progressInput);
+    console.log('현재 사이트 입력값:', progressInput[site.id]);
+    console.log('사이트 ID:', site.id);
+    
+    // 입력값 검증
+    const inputValue = progressInput[site.id];
+    if (inputValue === undefined || inputValue === null || inputValue === '') {
+      console.error('입력값이 없습니다!');
+      setSnackbar({ open: true, message: '진행률을 입력해주세요.', severity: 'warning' });
+      return;
+    }
+    
     const contract = Number(site.contractAmount) || 0;
-    let percent = progressInput[site.id];
-    // 빈값 또는 NaN 방지
-    if (percent === '' || isNaN(percent)) percent = 0;
-    const newTotalProgress = contract * (percent / 100);
+    let percent = Number(inputValue);
+    
+    console.log('계약금액:', contract);
+    console.log('진행률 퍼센트:', percent);
+    console.log('percent가 숫자인가?', typeof percent, !isNaN(percent));
+    
+    // 계약금액 검증 (경고만 표시, 저장은 진행)
+    if (contract === 0) {
+      console.warn('계약금액이 설정되지 않았습니다. 진행률만 저장합니다.');
+      setSnackbar({ open: true, message: '계약금액이 없어 진행률만 저장됩니다.', severity: 'info' });
+    }
+    
+    // 숫자 검증
+    if (isNaN(percent)) {
+      console.error('진행률이 유효한 숫자가 아닙니다!');
+      setSnackbar({ open: true, message: '유효한 숫자를 입력해주세요.', severity: 'warning' });
+      return;
+    }
+    
+    console.log('저장할 진행률:', percent);
 
     try {
-      // Firestore 업데이트
-      await updateDoc(doc(db, 'sites', site.id), { totalProgress: newTotalProgress });
-      // Firestore에서 최신 데이터 다시 불러오기(권장)
-      const snapshot = await getDocs(collection(db, 'sites'));
-      setSites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      // Firestore 업데이트 - 진행률 퍼센트 저장 (기존 totalProgress와 분리)
+      console.log('Firestore 업데이트 시도...');
+      await updateDoc(doc(db, 'sites', site.id), { 
+        progressRate: percent,
+        totalProgress: contract > 0 ? contract * (percent / 100) : (site.totalProgress || 0)
+      });
+      console.log('Firestore 업데이트 성공');
+      
+      // 현재 표시 중인 사이트 데이터만 업데이트 (필터링 유지)
+      setSites(prevSites => {
+        const updatedSites = prevSites.map(s => 
+          s.id === site.id 
+            ? { 
+                ...s, 
+                progressRate: percent,
+                totalProgress: contract > 0 ? contract * (percent / 100) : (s.totalProgress || 0)
+              }
+            : s
+        );
+        console.log('상태 업데이트 완료:', updatedSites.find(s => s.id === site.id));
+        return updatedSites;
+      });
+      
       // 입력모드 해제 및 입력값 초기화
       setEditingProgress(prev => ({ ...prev, [site.id]: false }));
       setProgressInput(prev => ({ ...prev, [site.id]: undefined }));
       setSnackbar({ open: true, message: '진행률이 저장되었습니다.', severity: 'success' });
+      console.log('=== 공사진행률 저장 완료 ===');
     } catch (error) {
+      console.error('공사진행률 저장 오류:', error);
       setSnackbar({ open: true, message: '저장에 실패했습니다.', severity: 'error' });
     }
   };
@@ -508,7 +584,7 @@ export default function ImportantSite() {
   };
 
   return (
-    <Box sx={{ height: 'auto', overflow: 'visible', pb: 4, mt: isMobile ? 2.5 : 8 }}>
+    <Box sx={{ height: 'auto', overflow: 'visible', pb: 4, mt: isMobile ? '0px' : 8 }}>
       {/* 상단 검색창 - 모바일에서 간소화 */}
       <Box sx={{ 
         display: 'flex', 
@@ -559,18 +635,7 @@ export default function ImportantSite() {
           const siteGisungData = gisungData[site.id] || [];
           const totalGisung = siteGisungData.reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
           
-          devLog('=== 현장별 기성 데이터 분석 ===');
-          devLog('현장 ID:', site.id);
-          devLog('현장명:', site.name);
-          devLog('전체 gisungData:', gisungData);
-          devLog('현재 현장의 gisungData:', siteGisungData);
-          devLog('계산된 totalGisung:', totalGisung);
-          devLog('각 기성 항목:', siteGisungData.map(item => ({
-            id: item.id,
-            gisungAmount: item.gisungAmount,
-            siteId: item.siteId,
-            gisungDate: item.gisungDate
-          })));
+          // 기성 데이터 계산 완료 (로그 제거됨)
           
           return (
             <Paper key={site.id} sx={{ 
@@ -716,10 +781,17 @@ export default function ImportantSite() {
                   <Box sx={{ width: '90%', mb: 2 }}>
                     <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: 15, mb: 0.5 }}>공사진행률</Typography>
                     {(() => {
-                      const contract = Number(site.contractAmount) || 0;
+                      // progressRate가 없으면 기존 totalProgress로부터 계산
+                      let defaultPercent = 0;
+                      if (site.progressRate === undefined && site.totalProgress && site.contractAmount) {
+                        const contract = Number(site.contractAmount) || 0;
+                        const progress = Number(site.totalProgress) || 0;
+                        defaultPercent = contract > 0 ? Math.round((progress / contract) * 100) : 0;
+                      }
+                      
                       const percent = editingProgress[site.id]
                         ? (progressInput[site.id] ?? 0)
-                        : (contract > 0 ? Math.round((Number(site.totalProgress) / contract) * 100) : 0);
+                        : (site.progressRate ?? defaultPercent);
                       return (
                         <LinearProgress
                           variant="determinate"
@@ -731,11 +803,18 @@ export default function ImportantSite() {
                   </Box>
                   {/* 진행률 바(숫자 입력) - 상단 고정 */}
                   {(() => {
-                    const contract = Number(site.contractAmount) || 0;
+                    // progressRate가 없으면 기존 totalProgress로부터 계산
+                    let defaultPercent = 0;
+                    if (site.progressRate === undefined && site.totalProgress && site.contractAmount) {
+                      const contract = Number(site.contractAmount) || 0;
+                      const progress = Number(site.totalProgress) || 0;
+                      defaultPercent = contract > 0 ? Math.round((progress / contract) * 100) : 0;
+                    }
+                    
                     const isEditing = editingProgress[site.id];
                     const percent = isEditing
                       ? (progressInput[site.id] ?? 0)
-                      : (contract > 0 ? Math.round((Number(site.totalProgress) / contract) * 100) : 0);
+                      : (site.progressRate ?? defaultPercent);
                     return (
                       <Box sx={{ width: '90%', mb: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
                         {isEditing ? (
@@ -748,9 +827,24 @@ export default function ImportantSite() {
                               value={progressInput[site.id] ?? percent}
                               onChange={e => {
                                 let v = e.target.value;
-                                if (v === '') v = '';
-                                else v = Math.max(0, Math.min(100, Number(v)));
-                                setProgressInput(prev => ({ ...prev, [site.id]: v }));
+                                console.log('진행률 입력 변경:', site.id, '값:', v);
+                                if (v === '') {
+                                  setProgressInput(prev => ({ ...prev, [site.id]: '' }));
+                                } else {
+                                  const numValue = Number(v);
+                                  if (!isNaN(numValue)) {
+                                    const clampedValue = Math.max(0, Math.min(100, numValue));
+                                    setProgressInput(prev => ({ ...prev, [site.id]: clampedValue }));
+                                    console.log('설정된 값:', clampedValue);
+                                  }
+                                }
+                              }}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  console.log('엔터 키 눌림 - 저장 실행');
+                                  handleSaveProgress(site);
+                                }
                               }}
                               sx={{ width: 90, bgcolor: '#232b3b', borderRadius: 1, mr: 1 }}
                               inputRef={scrollFocus(null)}

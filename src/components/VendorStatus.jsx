@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
-  Grid,
   Button,
   Dialog,
   DialogTitle,
@@ -12,7 +9,6 @@ import {
   DialogActions,
   TextField,
   IconButton,
-  Chip,
   FormControl,
   InputLabel,
   Select,
@@ -28,37 +24,25 @@ import {
 import {
   Add as AddIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
-  AttachMoney as MoneyIcon,
-  Assignment as AssignmentIcon,
-  People as PeopleIcon
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const VendorStatus = () => {
   const [vendors, setVendors] = useState([]);
-  const [sites, setSites] = useState([]);
   const [open, setOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState(null);
   const [formData, setFormData] = useState({
+    siteName: '',
+    date: '',
     name: '',
-    siteId: '',
-    type: '시공',
-    status: '진행중',
-    contractAmount: '',
-    progress: '0',
-    startDate: '',
-    endDate: '',
-    manager: '',
-    contact: '',
-    workers: '',
+    type: '',
     description: ''
   });
 
   useEffect(() => {
     fetchVendors();
-    fetchSites();
   }, []);
 
   const fetchVendors = async () => {
@@ -74,37 +58,23 @@ const VendorStatus = () => {
     }
   };
 
-  const fetchSites = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, 'sites'));
-      const siteList = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setSites(siteList);
-    } catch (error) {
-      console.error('Error fetching sites:', error);
-    }
-  };
-
   const handleOpen = (vendor = null) => {
     if (vendor) {
       setEditingVendor(vendor);
-      setFormData(vendor);
+      setFormData({
+        siteName: vendor.siteName || '',
+        date: vendor.date || '',
+        name: vendor.name || '',
+        type: vendor.type || '',
+        description: vendor.description || ''
+      });
     } else {
       setEditingVendor(null);
       setFormData({
+        siteName: '',
+        date: '',
         name: '',
-        siteId: '',
-        type: '시공',
-        status: '진행중',
-        contractAmount: '',
-        progress: '0',
-        startDate: '',
-        endDate: '',
-        manager: '',
-        contact: '',
-        workers: '',
+        type: '',
         description: ''
       });
     }
@@ -142,36 +112,16 @@ const VendorStatus = () => {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case '완료':
-        return 'success';
-      case '진행중':
-        return 'primary';
-      case '대기':
-        return 'warning';
-      case '중단':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
-  const getSiteName = (siteId) => {
-    const site = sites.find(s => s.id === siteId);
-    return site ? site.name : '미지정';
-  };
-
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h4">협력업체 현황</Typography>
+        <Typography variant="h4">거래처현황</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => handleOpen()}
         >
-          협력업체 등록
+          거래처 등록
         </Button>
       </Box>
 
@@ -179,38 +129,22 @@ const VendorStatus = () => {
         <Table>
           <TableHead>
             <TableRow>
+              <TableCell>낙찰현장명</TableCell>
+              <TableCell>낙찰일</TableCell>
               <TableCell>업체명</TableCell>
-              <TableCell>현장</TableCell>
-              <TableCell>유형</TableCell>
-              <TableCell>상태</TableCell>
-              <TableCell>계약금액</TableCell>
-              <TableCell>진행률</TableCell>
-              <TableCell>담당자</TableCell>
-              <TableCell>작업인원</TableCell>
-              <TableCell>작업기간</TableCell>
+              <TableCell>분류</TableCell>
+              <TableCell>비고</TableCell>
               <TableCell>관리</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {vendors.map((vendor) => (
               <TableRow key={vendor.id}>
+                <TableCell>{vendor.siteName}</TableCell>
+                <TableCell>{vendor.date}</TableCell>
                 <TableCell>{vendor.name}</TableCell>
-                <TableCell>{getSiteName(vendor.siteId)}</TableCell>
                 <TableCell>{vendor.type}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={vendor.status}
-                    color={getStatusColor(vendor.status)}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>{vendor.contractAmount}원</TableCell>
-                <TableCell>{vendor.progress}%</TableCell>
-                <TableCell>{vendor.manager}</TableCell>
-                <TableCell>{vendor.workers}명</TableCell>
-                <TableCell>
-                  {vendor.startDate} ~ {vendor.endDate}
-                </TableCell>
+                <TableCell>{vendor.description}</TableCell>
                 <TableCell>
                   <IconButton size="small" onClick={() => handleOpen(vendor)}>
                     <EditIcon />
@@ -227,10 +161,28 @@ const VendorStatus = () => {
 
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {editingVendor ? '협력업체 수정' : '새 협력업체 등록'}
+          {editingVendor ? '거래처 수정' : '거래처 등록'}
         </DialogTitle>
         <DialogContent>
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="낙찰현장명"
+              value={formData.siteName}
+              onChange={(e) => setFormData({ ...formData, siteName: e.target.value })}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              label="낙찰일"
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              margin="normal"
+              required
+              InputLabelProps={{ shrink: true }}
+            />
             <TextField
               fullWidth
               label="업체명"
@@ -240,25 +192,11 @@ const VendorStatus = () => {
               required
             />
             <FormControl fullWidth margin="normal" required>
-              <InputLabel>현장</InputLabel>
-              <Select
-                value={formData.siteId}
-                onChange={(e) => setFormData({ ...formData, siteId: e.target.value })}
-                label="현장"
-              >
-                {sites.map((site) => (
-                  <MenuItem key={site.id} value={site.id}>
-                    {site.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth margin="normal" required>
-              <InputLabel>유형</InputLabel>
+              <InputLabel>분류</InputLabel>
               <Select
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                label="유형"
+                label="분류"
               >
                 <MenuItem value="시공">시공</MenuItem>
                 <MenuItem value="자재">자재</MenuItem>
@@ -266,93 +204,14 @@ const VendorStatus = () => {
                 <MenuItem value="기타">기타</MenuItem>
               </Select>
             </FormControl>
-            <FormControl fullWidth margin="normal" required>
-              <InputLabel>상태</InputLabel>
-              <Select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                label="상태"
-              >
-                <MenuItem value="진행중">진행중</MenuItem>
-                <MenuItem value="완료">완료</MenuItem>
-                <MenuItem value="대기">대기</MenuItem>
-                <MenuItem value="중단">중단</MenuItem>
-              </Select>
-            </FormControl>
             <TextField
               fullWidth
-              label="계약금액"
-              value={formData.contractAmount}
-              onChange={(e) => setFormData({ ...formData, contractAmount: e.target.value })}
-              margin="normal"
-              required
-              type="number"
-            />
-            <TextField
-              fullWidth
-              label="진행률"
-              value={formData.progress}
-              onChange={(e) => setFormData({ ...formData, progress: e.target.value })}
-              margin="normal"
-              required
-              type="number"
-              InputProps={{
-                inputProps: { min: 0, max: 100 }
-              }}
-            />
-            <TextField
-              fullWidth
-              label="시작일"
-              type="date"
-              value={formData.startDate}
-              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-              margin="normal"
-              required
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              fullWidth
-              label="종료일"
-              type="date"
-              value={formData.endDate}
-              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-              margin="normal"
-              required
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              fullWidth
-              label="담당자"
-              value={formData.manager}
-              onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
-              margin="normal"
-              required
-            />
-            <TextField
-              fullWidth
-              label="연락처"
-              value={formData.contact}
-              onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-              margin="normal"
-              required
-            />
-            <TextField
-              fullWidth
-              label="작업인원"
-              value={formData.workers}
-              onChange={(e) => setFormData({ ...formData, workers: e.target.value })}
-              margin="normal"
-              required
-              type="number"
-            />
-            <TextField
-              fullWidth
-              label="설명"
+              label="비고"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               margin="normal"
               multiline
-              rows={4}
+              rows={2}
             />
           </Box>
         </DialogContent>

@@ -23,14 +23,14 @@ export default function MobileHeader() {
     <Box
       sx={{
         position: 'fixed',
-        top: 'env(safe-area-inset-top, 0px)',
+        top: 0,
         left: 0,
         right: 0,
         width: '100vw',
         minWidth: 0,
-        height: 32,
-        minHeight: 32,
-        maxHeight: 32,
+        height: 48,
+        minHeight: 48,
+        maxHeight: 48,
         bgcolor: '#0f0f0f',
         borderBottom: '1px solid #333',
         display: 'flex',

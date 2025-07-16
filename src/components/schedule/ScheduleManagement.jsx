@@ -635,7 +635,7 @@ const ScheduleManagement = ({
       margin: 0,
       padding: 0,
       position: 'relative',
-      mt: isMobile ? '140px' : '54px',
+      mt: isMobile ? '0px' : '54px',
       mb: '20px',
       overflow: isMobile ? 'hidden' : 'visible'
     }}>
@@ -682,21 +682,28 @@ const ScheduleManagement = ({
             <Droppable droppableId="siteList">
               {(provided, snapshot) => (
                 <Box ref={provided.innerRef} {...provided.droppableProps} sx={{
-                  flex: 1, overflowY: isMobile ? 'hidden' : (filteredSites.length > 10 ? 'auto' : 'hidden'), p: isMobile ? 0.5 : 1,
+                  flex: 1, 
+                  overflowY: 'auto', 
+                  p: isMobile ? 0 : 1,
                   bgcolor: snapshot.isDraggingOver ? 'action.hover' : 'background.paper',
-                  maxHeight: isMobile ? '200px' : 'none',
+                  maxHeight: isMobile ? '300px' : 'calc(100vh - 200px)',
+                  minHeight: isMobile ? '200px' : '400px',
                   position: { xs: 'static', md: 'static' },
                   transform: { xs: 'none', md: 'none' },
-                  scrollbarWidth: 'none', // Firefox에서 스크롤바 숨기기
-                  msOverflowStyle: 'none', // IE/Edge에서 스크롤바 숨기기
+                  scrollbarWidth: 'thin', // Firefox에서 얇은 스크롤바
+                  msOverflowStyle: 'auto', // IE/Edge에서 스크롤바 표시
                   '&::-webkit-scrollbar': {
-                    display: 'none', // Webkit 브라우저에서 스크롤바 숨기기
+                    width: '6px', // Webkit 브라우저에서 스크롤바 너비
                   },
                   '&::-webkit-scrollbar-track': {
-                    display: 'none',
+                    background: 'transparent',
                   },
                   '&::-webkit-scrollbar-thumb': {
-                    display: 'none',
+                    background: 'rgba(0, 0, 0, 0.2)',
+                    borderRadius: '3px',
+                    '&:hover': {
+                      background: 'rgba(0, 0, 0, 0.3)',
+                    },
                   },
                 }}>
                   {filteredSites.length > 0 ? (

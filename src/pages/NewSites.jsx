@@ -48,84 +48,26 @@ const NewSites = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const containerRef = useRef(null);
 
-  // 모바일에서 키보드가 올라올 때 뷰포트 조정
+  // 모바일에서 키보드가 올라올 때 뷰포트 조정 (간소화)
   useEffect(() => {
     if (isMobile) {
       const handleFocusIn = (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
-          // 키보드가 올라올 때 뷰포트 높이 조정
-          const viewport = document.querySelector('meta[name=viewport]');
-          if (viewport) {
-            viewport.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
-          }
-          
-          // body에 키보드 열림 클래스 추가
-          document.body.classList.add('keyboard-open');
-          
-          // 입력 필드가 화면 밖으로 나가지 않도록 스크롤
+          // 간단한 스크롤 조정만 수행
           setTimeout(() => {
             e.target.scrollIntoView({ 
               behavior: 'smooth', 
               block: 'center',
               inline: 'nearest'
             });
-            
-            // 추가 스크롤 조정
-            const container = containerRef.current;
-            if (container) {
-              const rect = e.target.getBoundingClientRect();
-              const containerRect = container.getBoundingClientRect();
-              if (rect && containerRect) {
-                const offset = rect.top - containerRect.top - 120;
-                if (offset > 0) {
-                  container.scrollTop += offset;
-                }
-              }
-            }
           }, 100);
         }
       };
 
-      const handleFocusOut = () => {
-        // 포커스가 벗어날 때 뷰포트 복원
-        const viewport = document.querySelector('meta[name=viewport]');
-        if (viewport) {
-          viewport.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
-        }
-        
-        // body에서 키보드 열림 클래스 제거
-        document.body.classList.remove('keyboard-open');
-      };
-
-      // 키보드 표시/숨김 이벤트 처리
-      const handleVisualViewportChange = () => {
-        const visualViewport = window.visualViewport;
-        if (visualViewport) {
-          const heightDiff = window.innerHeight - visualViewport.height;
-          if (heightDiff > 150) {
-            // 키보드가 열렸을 때
-            document.body.classList.add('keyboard-open');
-          } else {
-            // 키보드가 닫혔을 때
-            document.body.classList.remove('keyboard-open');
-          }
-        }
-      };
-
       document.addEventListener('focusin', handleFocusIn);
-      document.addEventListener('focusout', handleFocusOut);
-      
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', handleVisualViewportChange);
-      }
 
       return () => {
         document.removeEventListener('focusin', handleFocusIn);
-        document.removeEventListener('focusout', handleFocusOut);
-        if (window.visualViewport) {
-          window.visualViewport.removeEventListener('resize', handleVisualViewportChange);
-        }
-        document.body.classList.remove('keyboard-open');
       };
     }
   }, [isMobile]);
@@ -319,23 +261,23 @@ const NewSites = () => {
       sx={{ 
         display: 'flex', 
         flexDirection: { xs: 'column', md: 'row' }, 
-        height: { xs: 'auto', md: 'calc(100vh - 64px - 52px)' }, 
+        minHeight: { xs: 'auto', md: 'calc(100vh - 64px - 52px)' }, 
         bgcolor: '#1a1d21', 
         p: 0, 
         gap: 2, 
-        overflow: { xs: 'auto', md: 'hidden' },
-        width: isMobile ? '100vw' : '100%',
-        minHeight: isMobile ? '100vh' : 'auto',
+        overflow: { xs: 'visible', md: 'auto' },
+        width: isMobile ? '100%' : '100%',
         WebkitOverflowScrolling: isMobile ? 'touch' : 'auto',
         scrollBehavior: isMobile ? 'smooth' : 'auto',
-        mt: isMobile ? 0 : 8
+        mt: isMobile ? '0px' : 8,
+        position: 'relative'
       }}
     >
       {/* Left Panel */}
       <Paper elevation={3} sx={{ 
         width: { xs: '100%', md: '20%' }, 
         minWidth: { md: '200px' }, 
-        height: { xs: isMobile ? '200px' : '300px', md: '100%' }, 
+        height: { xs: '200px', md: 'calc(100vh - 120px)' }, 
         display: 'flex', 
         flexDirection: 'column', 
         bgcolor: '#232734', 
@@ -343,7 +285,8 @@ const NewSites = () => {
         borderRadius: 2, 
         position: isMobile ? 'relative' : 'static',
         top: isMobile ? '-10px' : 'auto',
-        left: isMobile ? '-8px' : 'auto'
+        left: isMobile ? '-8px' : 'auto',
+        overflow: 'hidden'
       }}>
         <Tabs 
           value={statusTab} 
@@ -377,16 +320,45 @@ const NewSites = () => {
             fieldset: { borderColor: '#444' } 
           }} 
         />
-        <List sx={{ overflowY: 'auto', flex: 1 }}>
+        <List sx={{ 
+          overflowY: 'auto', 
+          flex: 1,
+          minHeight: 0,
+          maxHeight: '100%',
+          WebkitOverflowScrolling: 'touch',
+          '-webkit-overflow-scrolling': 'touch',
+          touchAction: 'pan-y',
+          '&::-webkit-scrollbar': {
+            width: '6px'
+          },
+          '&::-webkit-scrollbar-track': {
+            background: '#1a1d21',
+            borderRadius: '3px'
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: '#444',
+            borderRadius: '3px'
+          },
+          '&::-webkit-scrollbar-thumb:hover': {
+            background: '#666'
+          }
+        }}>
           {filteredSites.map(site => (
             <ListItem 
               key={site.id} 
               selected={selectedSite?.id === site.id} 
               onClick={() => handleSelectSite(site)} 
               sx={{ 
-                mb: isMobile ? 0.5 : 1, 
+                mb: isMobile ? 0.25 : 0.5, 
                 borderRadius: 1,
-                py: isMobile ? 0.5 : 1
+                py: isMobile ? 0.25 : 0.5,
+                border: '1px solid',
+                borderColor: selectedSite?.id === site.id ? '#90caf9' : '#333',
+                bgcolor: selectedSite?.id === site.id ? '#1e3a5f' : 'transparent',
+                '&:hover': {
+                  bgcolor: selectedSite?.id === site.id ? '#1e3a5f' : '#2a2d35',
+                  borderColor: '#90caf9'
+                }
               }}
             >
               <ListItemText 
@@ -394,10 +366,12 @@ const NewSites = () => {
                 secondary={site.status}
                 primaryTypographyProps={{ 
                   fontSize: isMobile ? '0.8rem' : 'inherit',
-                  fontWeight: selectedSite?.id === site.id ? 'bold' : 'normal'
+                  fontWeight: selectedSite?.id === site.id ? 'bold' : 'normal',
+                  color: selectedSite?.id === site.id ? '#90caf9' : '#fff'
                 }}
                 secondaryTypographyProps={{ 
-                  fontSize: isMobile ? '0.7rem' : 'inherit' 
+                  fontSize: isMobile ? '0.7rem' : 'inherit',
+                  color: selectedSite?.id === site.id ? '#90caf9' : '#aaa'
                 }}
               />
             </ListItem>
@@ -414,8 +388,7 @@ const NewSites = () => {
         p: isMobile ? 2 : 3, 
         borderRadius: 2, 
         minWidth: 0, 
-        height: { xs: 'auto', md: '100%' },
-        maxHeight: isMobile ? 'none' : '100%',
+        height: 'auto',
         position: isMobile ? 'relative' : 'static',
         top: isMobile ? '-10px' : 'auto',
         left: isMobile ? '-8px' : 'auto'
@@ -434,13 +407,10 @@ const NewSites = () => {
            </Box>
          </Box>
          <Box sx={{ 
-           overflowY: 'auto', 
            pr: 1, 
-           flex: 1, 
            display: 'flex', 
            flexDirection: 'column', 
            gap: isMobile ? 0.5 : 1,
-           maxHeight: isMobile ? 'none' : 'calc(100vh - 200px)',
            WebkitOverflowScrolling: isMobile ? 'touch' : 'auto',
            scrollBehavior: isMobile ? 'smooth' : 'auto'
          }}>
@@ -681,7 +651,7 @@ const NewSites = () => {
       <Paper elevation={3} sx={{ 
         width: { xs: '100%', md: '30%' }, 
         minWidth: { md: '280px' }, 
-        height: { xs: isMobile ? '250px' : '300px', md: '100%' }, 
+        height: 'auto', 
         display: 'flex', 
         flexDirection: 'column', 
         bgcolor: '#232734', 
@@ -704,7 +674,7 @@ const NewSites = () => {
           <Typography sx={{ width: '20%', fontWeight: 'bold', fontSize: isMobile ? '0.7rem' : 'inherit' }}>물량</Typography>
           <Typography sx={{ width: '30%', fontWeight: 'bold', fontSize: isMobile ? '0.7rem' : 'inherit' }}>단가</Typography>
         </Box>
-        <Box sx={{ flex: 1, overflowY: 'auto' }}>
+        <Box sx={{ minHeight: '200px' }}>
           {(form.items || []).map((item, index) => (
             <Box key={index} sx={{ display: 'flex', gap: 1, mb: isMobile ? 0.5 : 1, alignItems: 'center', flexWrap: 'wrap' }}>
               <TextField 

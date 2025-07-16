@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 import { KeyboardResize, KeyboardStyle } from '@capacitor/keyboard';
 
 const config: CapacitorConfig = {
-  appId: 'com.chunwoo.construction',
+  appId: 'com.chunwoo.ai',
   appName: '천우시스템',
   webDir: 'dist',
   server: {
@@ -25,7 +25,7 @@ const config: CapacitorConfig = {
   ios: {
     backgroundColor: '#181A20',
     contentInset: 'automatic',
-    scheme: 'com.chunwoo.construction',
+    scheme: 'com.chunwoo.ai',
     limitsNavigationsToAppBoundDomains: true
   },
   plugins: {
