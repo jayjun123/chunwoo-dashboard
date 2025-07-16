@@ -655,12 +655,25 @@ const CustomSchedule = () => {
             <Droppable droppableId="siteList">
               {(provided, snapshot) => (
                 <Box ref={provided.innerRef} {...provided.droppableProps} sx={{
-                  flex: 1, overflowY: 'auto', p: 1,
+                  flex: 1, 
+                  overflowY: 'auto', // 스크롤은 되지만 스크롤바는 숨김
+                  p: 1,
                   bgcolor: snapshot.isDraggingOver ? 'action.hover' : 'background.paper',
                   maxHeight: 'none',
                   position: 'static',
                   transform: 'none',
                   display: 'block',
+                  scrollbarWidth: 'none', // Firefox에서 스크롤바 숨기기
+                  msOverflowStyle: 'none', // IE/Edge에서 스크롤바 숨기기
+                  '&::-webkit-scrollbar': {
+                    display: 'none', // Webkit 브라우저에서 스크롤바 숨기기
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    display: 'none',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    display: 'none',
+                  },
                 }}>
                   {filteredSites.length > 0 ? (
                     filteredSites.map((site, index) => (
