@@ -159,8 +159,15 @@ export default defineConfig(({ mode }) => {
               if (id.includes('firebase') || id.includes('@firebase')) {
                 return 'firebase';
               }
-              if (id.includes('chart') || id.includes('recharts')) {
-                return 'charts';
+              // 차트 라이브러리별로 분리하여 초기화 순서 문제 해결
+              if (id.includes('chart.js')) {
+                return 'chartjs';
+              }
+              if (id.includes('recharts')) {
+                return 'recharts';
+              }
+              if (id.includes('react-chartjs-2')) {
+                return 'chartjs';
               }
               return 'vendor';
             }
