@@ -43,26 +43,27 @@ export default function MobileLayout({ children }) {
 
   return (
     <Box sx={{ 
-      minHeight: '100dvh', 
+      minHeight: { xs: '100vh', sm: '100dvh' }, // 모바일에서는 안전한 100vh 사용
       width: '100vw', 
       bgcolor: '#181a20', 
       position: 'relative', 
-      overflow: 'hidden',
-      paddingTop: 'env(safe-area-inset-top, 0px)',
+      overflow: 'auto', // 스크롤 허용
+      // paddingTop은 iOS에서만 적용, Android는 무시
+      paddingTop: { xs: 0, sm: 'env(safe-area-inset-top, 0px)' },
     }}>
       {/* 모바일 헤더 - 항상 표시 */}
       <MobileHeader />
       
       <SwipeableContainer>
         <Box sx={{ 
-          minHeight: 'calc(100dvh - 48px - 70px)', // 헤더(48px) + 하단바(70px) 제외
+          minHeight: { xs: 'calc(100vh - 48px - 70px)', sm: 'calc(100dvh - 48px - 70px)' }, // 모바일 호환성
           width: '100%',
-          paddingTop: getPaddingTop(), // 일정관리만 28px, 현장현황표는 -46px, 나머지는 53px
-          paddingBottom: '70px', // 하단바 높이만큼 하단 패딩 추가
+          paddingTop: { xs: '60px', sm: getPaddingTop() }, // 모바일에서는 고정 패딩 사용
+          paddingBottom: '80px', // 하단바 높이 + 여유공간
           overflow: 'auto',
           WebkitOverflowScrolling: 'touch',
           '-webkit-overflow-scrolling': 'touch',
-          touchAction: 'pan-y',
+          touchAction: 'auto', // 더 유연한 터치 액션
           overscrollBehavior: 'contain'
         }}>
           {children}

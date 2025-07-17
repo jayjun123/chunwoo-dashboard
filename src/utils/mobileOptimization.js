@@ -34,11 +34,17 @@ export const optimizeTouchEvents = () => {
   document.addEventListener('touchmove', () => {}, { passive: true });
   document.addEventListener('touchend', () => {}, { passive: true });
   
-  // 더블 탭 줌 방지
+  // 더블 탭 줌 방지 (덜 공격적으로 수정)
   let lastTouchEnd = 0;
   document.addEventListener('touchend', (event) => {
     const now = (new Date()).getTime();
-    if (now - lastTouchEnd <= 300) {
+    // 특정 요소에서만 더블 탭 줌 방지, 버튼이나 인터랙티브 요소는 제외
+    if (now - lastTouchEnd <= 300 && 
+        !event.target.closest('button') && 
+        !event.target.closest('[role="button"]') &&
+        !event.target.closest('a') &&
+        !event.target.closest('input') &&
+        !event.target.closest('textarea')) {
       event.preventDefault();
     }
     lastTouchEnd = now;
