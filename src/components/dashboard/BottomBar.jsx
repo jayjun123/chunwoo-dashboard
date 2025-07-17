@@ -282,7 +282,9 @@ const BottomBar = ({
       const serviceKey = import.meta.env.VITE_WEATHER_API_KEY;
       
       if (!serviceKey) {
-        throw new Error('날씨 API 키가 설정되지 않았습니다.');
+        console.warn('날씨 API 키가 설정되지 않았습니다. 날씨 기능이 비활성화됩니다.');
+        setWeatherLoading(false);
+        return; // 에러를 throw하지 않고 조용히 종료
       }
       
       const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${format(new Date(), 'yyyyMMdd')}&base_time=0500&nx=${nx}&ny=${ny}`;
@@ -377,7 +379,8 @@ const BottomBar = ({
     }
   }, []);
 
-  // 날씨 데이터 주기적 갱신 (캐시도 지역별로)
+  // 날씨 기능 비활성화 (필요 없음)
+  /*
   useEffect(() => {
     const checkAndFetchWeather = () => {
       const now = new Date();
@@ -405,6 +408,7 @@ const BottomBar = ({
     const interval = setInterval(checkAndFetchWeather, 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, [weatherLocation, fetchWeatherData]);
+  */
 
   // 현장 데이터 fetch (stats용)
   useEffect(() => {

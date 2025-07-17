@@ -168,10 +168,12 @@ const SplashScreen = ({ onComplete }) => {
           {/* 로딩 스피너 */}
           <Box sx={{ position: 'relative', mb: 3 }}>
             <CircularProgress
-              size={{ xs: 50, sm: 60 }}
+              size={60}
               thickness={4}
               sx={{
                 color: '#1976d2',
+                width: { xs: 50, sm: 60 },
+                height: { xs: 50, sm: 60 },
                 '& .MuiCircularProgress-circle': {
                   strokeLinecap: 'round',
                 },
