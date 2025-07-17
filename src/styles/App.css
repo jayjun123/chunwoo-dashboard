@@ -3,7 +3,7 @@ body, html {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
   overflow-x: hidden !important;
-  overflow: hidden !important;
+  overflow-y: auto !important; /* 세로 스크롤 허용 */
 }
 
 body::-webkit-scrollbar, html::-webkit-scrollbar {
@@ -23,7 +23,7 @@ body::-webkit-scrollbar, html::-webkit-scrollbar {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
   overflow-x: hidden !important;
-  overflow: hidden !important;
+  overflow-y: auto !important; /* 세로 스크롤 허용 */
 }
 
 .app::-webkit-scrollbar, .main-content::-webkit-scrollbar {
@@ -40,9 +40,8 @@ body::-webkit-scrollbar, html::-webkit-scrollbar {
   width: 100%;
   margin: 0 auto;
   height: calc(100vh - 60px - 48px); /* 헤더(60px) + 대시보드바(48px) 제외 */
-  overflow: hidden !important;
   overflow-x: hidden !important;
-  overflow-y: hidden !important;
+  overflow-y: auto !important; /* 세로 스크롤 허용 */
   padding-top: 0;
   margin-top: 60px; /* 헤더 높이만큼 상단 여백 */
   padding-bottom: 48px; /* 대시보드바 높이만큼 하단 여백 */

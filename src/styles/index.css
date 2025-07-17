@@ -1,11 +1,13 @@
-/* 전역 스크롤바 숨김 - 강화 */
+/* 전역 스크롤바 숨김 - 모바일 친화적으로 수정 */
 html, body {
-  overflow: hidden !important;
-  position: fixed !important;
+  /* overflow: hidden 제거하여 스크롤 허용 */
   width: 100% !important;
   height: 100% !important;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
+  /* 스크롤바는 숨기지만 스크롤은 허용 */
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
 html::-webkit-scrollbar, body::-webkit-scrollbar {

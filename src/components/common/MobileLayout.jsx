@@ -34,11 +34,11 @@ export default function MobileLayout({ children }) {
     };
   }, []);
 
-  // 패딩 값 결정 - 일정관리만 28px, 현장현황표는 -46px, 나머지는 53px
+  // 패딩 값 결정 - 모바일 최적화
   const getPaddingTop = () => {
-    if (isCustomScheduleMobile) return '28px';
-    if (isWholeList) return '-46px';
-    return '53px';
+    if (isCustomScheduleMobile) return '10px'; // 일정관리: 더 위에서 시작
+    if (isWholeList) return '5px'; // 현장현황표: 음수 제거, 헤더와 겹침 방지
+    return '15px'; // 기본값: 적당한 간격
   };
 
   return (
@@ -58,7 +58,7 @@ export default function MobileLayout({ children }) {
         <Box sx={{ 
           minHeight: { xs: 'calc(100vh - 48px - 70px)', sm: 'calc(100dvh - 48px - 70px)' }, // 모바일 호환성
           width: '100%',
-          paddingTop: { xs: '60px', sm: getPaddingTop() }, // 모바일에서는 고정 패딩 사용
+          paddingTop: { xs: getPaddingTop(), sm: getPaddingTop() }, // 페이지별 최적화된 패딩 사용
           paddingBottom: '80px', // 하단바 높이 + 여유공간
           overflow: 'auto',
           WebkitOverflowScrolling: 'touch',

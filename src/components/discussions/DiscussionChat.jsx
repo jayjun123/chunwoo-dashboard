@@ -442,25 +442,25 @@ const DiscussionChat = ({ roomId }) => {
       )}
       {/* 입력창 */}
       <Box 
-
         sx={{ 
           px: isMobile ? 0.5 : 2, 
           py: 1, 
           bgcolor: 'rgba(24, 26, 32, 0.95)', 
           borderTop: '1px solid rgba(255,255,255,0.1)', 
-          position: 'absolute',
-          bottom: isMobile ? '0px' : '50px', // 모바일: 하단에 0, PC: 50px 위에 위치
+          position: isMobile ? 'sticky' : 'absolute', // 모바일에서는 sticky 사용
+          bottom: isMobile ? 0 : '50px', // 모바일: 하단 고정, PC: 50px 위에 위치
           left: 0,
           right: 0,
           zIndex: 1200,
           width: '100%',
           minHeight: isMobile ? 56 : 64,
           height: 'auto',
-          display: 'flex',
+          display: isMobile ? 'flex' : 'none', // PC에서 입력창 숨김 (중복 제거)
           alignItems: 'center',
           backdropFilter: 'blur(10px)',
           boxShadow: '0 -2px 10px rgba(0,0,0,0.3)',
-          display: isMobile ? 'flex' : 'none' // PC에서 입력창 숨김
+          // 키보드가 올라올 때 적절한 위치 유지
+          transform: isMobile ? 'translateY(0)' : 'none',
         }}
       >
         {!isMobile && (
