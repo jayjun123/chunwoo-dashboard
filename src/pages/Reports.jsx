@@ -412,13 +412,13 @@ const Reports = () => {
                     label="시작일"
                     value={startDate ?? null}
                     onChange={setStartDate}
-                    renderInput={(params) => <TextField {...params} size="small" sx={{ borderRadius: 1, minWidth: 120 }} />}
+                    textField={(params) => <TextField {...params} size="small" sx={{ borderRadius: 1, minWidth: 120 }} />}
                   />
                   <DatePicker
                     label="종료일"
                     value={endDate ?? null}
                     onChange={setEndDate}
-                    renderInput={(params) => <TextField {...params} size="small" sx={{ borderRadius: 1, minWidth: 120 }} />}
+                    textField={(params) => <TextField {...params} size="small" sx={{ borderRadius: 1, minWidth: 120 }} />}
                   />
                 </LocalizationProvider>
                 <FormControl size="small" sx={{ minWidth: 120, borderRadius: 1 }}>

@@ -17,7 +17,13 @@ const GlobalErrorHandler = () => {
           message.includes('extension port') ||
           message.includes('back/forward cache') ||
           message.includes('Unchecked runtime.lastError') ||
-          message.includes('but the message channel closed before a response was received')) {
+          message.includes('but the message channel closed before a response was received') ||
+          // DOM 관련 에러 필터링 추가
+          message.includes('removeChild') ||
+          message.includes('The node to be removed is not a child of this node') ||
+          message.includes('Failed to execute \'removeChild\' on \'Node\'') ||
+          message.includes('appendChild') ||
+          message.includes('insertBefore')) {
         return; // 이런 오류들은 콘솔에 출력하지 않음
       }
       
@@ -35,7 +41,13 @@ const GlobalErrorHandler = () => {
            event.error.message.includes('back/forward cache') ||
            event.error.message.includes('The page keeping the extension port') ||
            event.error.message.includes('so the message channel is closed') ||
-           event.error.message.includes('A listener indicated an asynchronous response'))) {
+           event.error.message.includes('A listener indicated an asynchronous response') ||
+           // DOM 관련 에러 무시 추가
+           event.error.message.includes('removeChild') ||
+           event.error.message.includes('The node to be removed is not a child of this node') ||
+           event.error.message.includes('Failed to execute \'removeChild\' on \'Node\'') ||
+           event.error.message.includes('appendChild') ||
+           event.error.message.includes('insertBefore'))) {
         event.preventDefault();
         event.stopPropagation();
         return;

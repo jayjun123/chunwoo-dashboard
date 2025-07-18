@@ -369,7 +369,10 @@ const Layout = ({ children }) => {
           padding: 0, 
           boxSizing: 'border-box', 
           overflowX: 'hidden',
-          ...(isMobile && { height: '100vh', maxHeight: '100vh' }) 
+          bgcolor: '#23242a',
+          minHeight: '100vh',
+          ...(isMobile && { height: '100vh', maxHeight: '100vh' }),
+          ...(isMobile && { marginTop: '5px' }) 
         }}>
           {children}
         </Box>

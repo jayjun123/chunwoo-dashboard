@@ -69,7 +69,7 @@ const ProgressManagement = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [formData, setFormData] = useState({
     siteId: '',
-    date: '',
+    date: new Date().toISOString().slice(0, 10), // 오늘 날짜로 초기화
     type: '청구',
     category: '일반',
     amount: '',
@@ -126,7 +126,14 @@ const ProgressManagement = () => {
 
   // 기성현황 저장
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    
+    // 필수 필드 검증
+    if (!formData.date || !formData.amount || !selectedSite) {
+      setError('날짜, 금액, 현장을 모두 입력해주세요.');
+      return;
+    }
+    
     setLoading(true);
     setLoadingMessage('기성현황 저장 중...');
     try {
@@ -139,25 +146,17 @@ const ProgressManagement = () => {
       setIsModalOpen(false);
       setFormData({
         siteId: '',
-        date: '',
+        date: new Date().toISOString().slice(0, 10), // 오늘 날짜로 초기화
         type: '청구',
         category: '일반',
         amount: '',
         description: '',
         isPlanned: false,
       });
-      // 기성현황 목록 새로고침
-      const progressQuery = query(
-        collection(db, 'progress'),
-        where('siteId', '==', selectedSite),
-        orderBy('date', 'desc')
-      );
-      const snapshot = await getDocs(progressQuery);
-      const progressData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setProgressData(progressData);
+      setError(''); // 에러 메시지 초기화
+      
+      // 기성현황 목록 새로고침 (실시간 구독이므로 자동으로 업데이트됨)
+      console.log('기성현황 저장 완료');
     } catch (error) {
       console.error('기성현황 저장 실패:', error);
       setError('기성현황 저장에 실패했습니다.');
@@ -610,7 +609,28 @@ const ProgressManagement = () => {
         </Grid>
       </Grid>
 
-      <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: '#23242a',
+            color: '#fff',
+            '& .MuiDialogTitle-root': {
+              color: '#fff',
+              borderBottom: '1px solid #444',
+            },
+            '& .MuiDialogContent-root': {
+              color: '#fff',
+            },
+            '& .MuiDialogActions-root': {
+              borderTop: '1px solid #444',
+            },
+          }
+        }}
+      >
         <DialogTitle>기성현황 추가</DialogTitle>
         <DialogContent>
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
@@ -621,19 +641,69 @@ const ProgressManagement = () => {
                   type="date"
                   label="날짜"
                   value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  onChange={(e) => {
+                    console.log('날짜 변경:', e.target.value);
+                    setFormData({ ...formData, date: e.target.value });
+                  }}
                   InputLabelProps={{ shrink: true }}
                   required
+                  sx={{
+                    '& .MuiInputBase-input': {
+                      color: '#fff',
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#ccc',
+                    },
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': {
+                        borderColor: '#555',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#888',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#2196f3',
+                      },
+                    },
+                  }}
                 />
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth>
-                  <InputLabel>구분</InputLabel>
+                  <InputLabel sx={{ color: '#ccc' }}>구분</InputLabel>
                   <Select
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                     label="구분"
                     required
+                    sx={{
+                      color: '#fff',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#555',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#888',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#2196f3',
+                      },
+                      '& .MuiSvgIcon-root': {
+                        color: '#ccc',
+                      },
+                    }}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          bgcolor: '#23242a',
+                          '& .MuiMenuItem-root': {
+                            color: '#fff',
+                            '&:hover': {
+                              bgcolor: '#333',
+                            },
+                          },
+                        },
+                      },
+                    }}
                   >
                     <MenuItem value="청구">청구</MenuItem>
                     <MenuItem value="지급">지급</MenuItem>
@@ -642,12 +712,40 @@ const ProgressManagement = () => {
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth>
-                  <InputLabel>카테고리</InputLabel>
+                  <InputLabel sx={{ color: '#ccc' }}>카테고리</InputLabel>
                   <Select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     label="카테고리"
                     required
+                    sx={{
+                      color: '#fff',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#555',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#888',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#2196f3',
+                      },
+                      '& .MuiSvgIcon-root': {
+                        color: '#ccc',
+                      },
+                    }}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          bgcolor: '#23242a',
+                          '& .MuiMenuItem-root': {
+                            color: '#fff',
+                            '&:hover': {
+                              bgcolor: '#333',
+                            },
+                          },
+                        },
+                      },
+                    }}
                   >
                     <MenuItem value="일반">일반</MenuItem>
                     <MenuItem value="자재비">자재비</MenuItem>
@@ -664,6 +762,25 @@ const ProgressManagement = () => {
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   required
+                  sx={{
+                    '& .MuiInputBase-input': {
+                      color: '#fff',
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#ccc',
+                    },
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': {
+                        borderColor: '#555',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#888',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#2196f3',
+                      },
+                    },
+                  }}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -674,16 +791,63 @@ const ProgressManagement = () => {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   multiline
                   rows={3}
+                  sx={{
+                    '& .MuiInputBase-input': {
+                      color: '#fff',
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#ccc',
+                    },
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': {
+                        borderColor: '#555',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#888',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#2196f3',
+                      },
+                    },
+                  }}
                 />
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth>
-                  <InputLabel>구분</InputLabel>
+                  <InputLabel sx={{ color: '#ccc' }}>구분</InputLabel>
                   <Select
                     value={formData.isPlanned ? '예정' : '실적'}
                     onChange={(e) => setFormData({ ...formData, isPlanned: e.target.value === '예정' })}
                     label="구분"
                     required
+                    sx={{
+                      color: '#fff',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#555',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#888',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#2196f3',
+                      },
+                      '& .MuiSvgIcon-root': {
+                        color: '#ccc',
+                      },
+                    }}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          bgcolor: '#23242a',
+                          '& .MuiMenuItem-root': {
+                            color: '#fff',
+                            '&:hover': {
+                              bgcolor: '#333',
+                            },
+                          },
+                        },
+                      },
+                    }}
                   >
                     <MenuItem value="실적">실적</MenuItem>
                     <MenuItem value="예정">예정</MenuItem>
@@ -694,13 +858,22 @@ const ProgressManagement = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsModalOpen(false)}>
+          <Button 
+            onClick={() => setIsModalOpen(false)}
+            sx={{ color: '#ccc' }}
+          >
             취소
           </Button>
           <Button
             variant="contained"
             onClick={handleSubmit}
             startIcon={<SaveIcon />}
+            sx={{
+              bgcolor: '#2196f3',
+              '&:hover': {
+                bgcolor: '#1976d2',
+              },
+            }}
           >
             저장
           </Button>

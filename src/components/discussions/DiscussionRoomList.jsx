@@ -290,7 +290,7 @@ const DiscussionRoomList = ({ onSelectRoom }) => {
         {filteredRooms.map(room => {
           const roomMsgs = messages[room.id] || [];
           const lastAuthor = roomMsgs[0]?.author || '';
-          const hasPassword = !!room.password;
+          const hasPassword = !!(room.password && room.password.trim() !== '');
           return (
             <Grid item xs={12} sm={6} md={12} key={room.id}>
               <Card sx={{ borderRadius: 3, boxShadow: 4, background: 'linear-gradient(90deg, #232634 60%, #1976d2 100%)', color: '#fff', cursor: 'pointer', transition: '0.2s', '&:hover': { boxShadow: 8, background: 'linear-gradient(90deg, #1976d2 60%, #232634 100%)', transform: 'scale(1.03)' } }}>

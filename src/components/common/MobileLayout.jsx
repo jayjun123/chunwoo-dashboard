@@ -36,9 +36,8 @@ export default function MobileLayout({ children }) {
 
   // 패딩 값 결정 - 모바일 최적화
   const getPaddingTop = () => {
-    if (isCustomScheduleMobile) return '10px'; // 일정관리: 더 위에서 시작
-    if (isWholeList) return '5px'; // 현장현황표: 음수 제거, 헤더와 겹침 방지
-    return '15px'; // 기본값: 적당한 간격
+    // 모든 페이지에 헤더 아래 20px 패딩 적용 (기존 15px + 추가 5px)
+    return '20px';
   };
 
   return (
@@ -56,14 +55,13 @@ export default function MobileLayout({ children }) {
       
       <SwipeableContainer>
         <Box sx={{ 
-          minHeight: { xs: 'calc(100vh - 48px - 70px)', sm: 'calc(100dvh - 48px - 70px)' }, // 모바일 호환성
+          minHeight: { xs: 'calc(100vh - 53px - 70px)', sm: 'calc(100dvh - 53px - 70px)' }, // 헤더 높이 48px에서 53px로 변경
           width: '100%',
-          paddingTop: { xs: getPaddingTop(), sm: getPaddingTop() }, // 페이지별 최적화된 패딩 사용
-          paddingBottom: '80px', // 하단바 높이 + 여유공간
-          overflow: 'auto',
-          WebkitOverflowScrolling: 'touch',
-          '-webkit-overflow-scrolling': 'touch',
-          touchAction: 'auto', // 더 유연한 터치 액션
+          paddingTop: { xs: '33px', sm: getPaddingTop() }, // 모바일에서 33px로 변경 (28px + 5px)
+          paddingBottom: '0px', // 패딩 완전 제거
+                      overflow: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'auto', // 더 유연한 터치 액션
           overscrollBehavior: 'contain'
         }}>
           {children}

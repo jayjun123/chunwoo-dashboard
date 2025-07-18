@@ -2,23 +2,43 @@
 echo Building Chunwoo APK...
 
 echo 1. Cleaning previous build...
-rmdir /s /q dist 2>nul
-rmdir /s /q android\app\build 2>nul
+if exist dist rmdir /s /q dist
+if exist android\app\build rmdir /s /q android\app\build
 
 echo 2. Installing dependencies...
-npm install
+call npm install --legacy-peer-deps
+if errorlevel 1 (
+    echo Error: npm install failed
+    pause
+    exit /b 1
+)
 
 echo 3. Building production...
-npm run build
+call npm run build
+if errorlevel 1 (
+    echo Error: npm run build failed
+    pause
+    exit /b 1
+)
 
 echo 4. Syncing with Android...
-npx cap sync android
+call npx cap sync android
+if errorlevel 1 (
+    echo Error: cap sync failed
+    pause
+    exit /b 1
+)
 
 echo 5. Copying web assets...
-npx cap copy android
+call npx cap copy android
+if errorlevel 1 (
+    echo Error: cap copy failed
+    pause
+    exit /b 1
+)
 
 echo 6. Opening Android Studio...
-npx cap open android
+call npx cap open android
 
 echo.
 echo Please complete the following steps in Android Studio:

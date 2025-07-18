@@ -506,16 +506,69 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     }
   };
 
-  const StatCard = ({ title, value, color }) => (
+  // 계약금액 상세 모달 상태
+  const [contractDetailModal, setContractDetailModal] = useState(false);
+  const [contractDetailData, setContractDetailData] = useState([]);
+
+  // 계약금액 상세 데이터 계산
+  const getContractDetailData = useCallback(() => {
+    if (viewType !== 'month') return [];
+    
+    const currentMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+    
+    return sites.filter(site => {
+      if (!site.startDate) return false;
+      
+      try {
+        const startDate = typeof site.startDate === 'string' 
+          ? new Date(site.startDate) 
+          : site.startDate.toDate ? site.startDate.toDate() : site.startDate;
+        
+        const startMonthStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
+        
+        return startMonthStr === currentMonthStr;
+      } catch (e) {
+        return false;
+      }
+    }).map(site => ({
+      name: site.name,
+      contractAmount: Number(site.contractAmount || 0),
+      startDate: site.startDate,
+      endDate: site.endDate,
+      status: site.status || '진행중'
+    }));
+  }, [sites, currentMonth, viewType]);
+
+  // 계약금액 카드 클릭 핸들러
+  const handleContractCardClick = () => {
+    if (viewType === 'month') {
+      const detailData = getContractDetailData();
+      setContractDetailData(detailData);
+      setContractDetailModal(true);
+    }
+  };
+
+  const StatCard = ({ title, value, color, onClick }) => (
     <Grid item xs={3} sm={6} md={3}>
-      <Card sx={{ 
-        p: isMobile ? 2 : 2, 
-        height: '100%', 
-        bgcolor: '#181f2e', 
-        color: '#fff',
-        border: '1px solid #232b3b',
-        minHeight: isMobile ? '70px' : 'auto'
-      }}>
+      <Card 
+        sx={{ 
+          p: isMobile ? 2 : 2, 
+          height: '100%', 
+          bgcolor: '#181f2e', 
+          color: '#fff',
+          border: '1px solid #232b3b',
+          minHeight: isMobile ? '70px' : 'auto',
+          cursor: onClick ? 'pointer' : 'default',
+          transition: 'all 0.2s ease-in-out',
+          '&:hover': onClick ? {
+            bgcolor: '#232b3b',
+            border: '1px solid #43e97b',
+            transform: 'translateY(-2px)',
+            boxShadow: '0 4px 12px rgba(67, 233, 123, 0.3)'
+          } : {},
+        }}
+        onClick={onClick}
+      >
         <Typography 
           variant={isMobile ? "caption" : "subtitle2"} 
           sx={{ 
@@ -578,9 +631,15 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       {/* 통계 카드 */}
       <Grid container spacing={isMobile ? 0 : 2} sx={{ 
         mb: 3,
+        mt: isMobile ? '50px' : 0,
         justifyContent: isMobile ? 'center' : 'flex-start'
       }}>
-        <StatCard title="총 계약금액" value={stats.totalContractAmount} color="#43e97b" />
+        <StatCard 
+          title="총 계약금액" 
+          value={stats.totalContractAmount} 
+          color="#43e97b" 
+          onClick={handleContractCardClick}
+        />
         <StatCard title="총 선급금" value={stats.totalAdvance} color="#ffd600" />
         <StatCard title="총 전회기성" value={stats.totalPrevGisung} color="#a084e8" />
         <StatCard title="총 기성금액" value={stats.totalGisungAmount} color="#ef5350" />
@@ -855,7 +914,6 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                       }
                     }
                   }}
-                  showSearch
                   displayEmpty
                 >
                   {sites.map(site => (
@@ -1036,6 +1094,103 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             }}
           >
             저장
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 계약금액 상세 모달 */}
+      <Dialog 
+        open={contractDetailModal} 
+        onClose={() => setContractDetailModal(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: '#23242a',
+            color: '#fff',
+            '& .MuiDialogTitle-root': {
+              color: '#fff',
+              borderBottom: '1px solid #444',
+            },
+            '& .MuiDialogContent-root': {
+              color: '#fff',
+            },
+            '& .MuiDialogActions-root': {
+              borderTop: '1px solid #444',
+            },
+          }
+        }}
+      >
+        <DialogTitle>
+          {monthText} 총계약금액 상세
+          <Typography variant="body2" sx={{ color: '#bbb', mt: 1 }}>
+            총 {contractDetailData.length}개 현장 • {contractDetailData.reduce((sum, site) => sum + site.contractAmount, 0).toLocaleString()}원
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {contractDetailData.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography variant="h6" sx={{ color: '#bbb' }}>
+                해당 월에 시작된 현장이 없습니다.
+              </Typography>
+            </Box>
+          ) : (
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: '#2c3446' }}>
+                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>순번</TableCell>
+                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>현장명</TableCell>
+                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>계약금액</TableCell>
+                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>시작일</TableCell>
+                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>종료일</TableCell>
+                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>상태</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {contractDetailData.map((site, index) => (
+                    <TableRow key={index} sx={{ '&:hover': { bgcolor: '#2c3446' } }}>
+                      <TableCell sx={{ color: '#fff' }}>{index + 1}</TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{site.name}</TableCell>
+                      <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
+                        {site.contractAmount.toLocaleString()}원
+                      </TableCell>
+                      <TableCell sx={{ color: '#fff' }}>
+                        {typeof site.startDate === 'string' ? site.startDate : 
+                         site.startDate?.toDate ? site.startDate.toDate().toLocaleDateString() : 
+                         site.startDate?.toLocaleDateString?.() || '-'}
+                      </TableCell>
+                      <TableCell sx={{ color: '#fff' }}>
+                        {typeof site.endDate === 'string' ? site.endDate : 
+                         site.endDate?.toDate ? site.endDate.toDate().toLocaleDateString() : 
+                         site.endDate?.toLocaleDateString?.() || '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={site.status} 
+                          size="small"
+                          sx={{
+                            bgcolor: site.status === '완료' ? '#4caf50' : 
+                                    site.status === '진행중' ? '#2196f3' : 
+                                    site.status === '예정' ? '#ff9800' : '#9e9e9e',
+                            color: '#fff',
+                            fontWeight: 500
+                          }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setContractDetailModal(false)}
+            sx={{ color: '#ccc' }}
+          >
+            닫기
           </Button>
         </DialogActions>
       </Dialog>

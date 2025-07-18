@@ -28,9 +28,9 @@ export default function MobileHeader() {
         right: 0,
         width: '100vw',
         minWidth: 0,
-        height: 48,
-        minHeight: 48,
-        maxHeight: 48,
+        height: 53,
+        minHeight: 53,
+        maxHeight: 53,
         bgcolor: '#0f0f0f',
         borderBottom: '1px solid #333',
         display: 'flex',
@@ -46,9 +46,11 @@ export default function MobileHeader() {
         gap: 0.5, 
         flex: 1, 
         justifyContent: 'center',
+        alignItems: 'center',
         overflowX: 'auto',
         scrollbarWidth: 'none',
         msOverflowStyle: 'none',
+        marginTop: '24px',
         '&::-webkit-scrollbar': { display: 'none' }
       }}>
         {navigationItems.map((item, index) => (

@@ -360,9 +360,9 @@ const CustomCalendar = (props) => {
       tabIndex={0}
       sx={{
         width: '100%',
-        height: { xs: 430, md: '100%' },
-        minHeight: { xs: containerHeight, md: 'auto' },
-        maxHeight: { xs: containerHeight, md: 'none' },
+        height: { xs: 'calc(100vh - 53px - 70px)', md: '100%' }, // 모바일에서 헤더(53px) + 하단바(70px) 제외
+        minHeight: { xs: 'calc(100vh - 53px - 70px)', md: 'auto' },
+        maxHeight: { xs: 'calc(100vh - 53px - 70px)', md: 'none' },
         position: { xs: 'relative', md: 'static' },
         top: { xs: '-30px', md: '0' },
         mr: { xs: '0', md: '0' },
@@ -378,7 +378,7 @@ const CustomCalendar = (props) => {
         borderRadius: 4,
         mt: 0,
         boxSizing: 'border-box',
-        overflow: 'hidden',
+        overflow: { xs: 'hidden', md: 'hidden' }, // 모바일에서 스크롤 비활성화
         outline: 'none', // 포커스 테두리 제거
         ...sx
       }}>
@@ -512,7 +512,32 @@ const CustomCalendar = (props) => {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
           <ToggleButtonGroup value={viewMode} exclusive onChange={onViewModeChange} size="small"
-            sx={isMobile ? { gap: '6px', '& .MuiToggleButton-root': { p: '6px', minWidth: 36, minHeight: 36, fontSize: '1.1rem' }, '& .MuiSvgIcon-root': { fontSize: '1.4rem' } } : {}}>
+            sx={{
+              gap: '6px',
+              '& .MuiToggleButton-root': { 
+                p: '6px', 
+                minWidth: 36, 
+                minHeight: 36, 
+                fontSize: '1.1rem',
+                bgcolor: '#2a2b32',
+                color: '#fff',
+                border: '1px solid #444',
+                '&:hover': {
+                  bgcolor: '#333'
+                },
+                '&.Mui-selected': {
+                  bgcolor: '#1976d2',
+                  color: '#fff',
+                  '&:hover': {
+                    bgcolor: '#1565c0'
+                  }
+                }
+              },
+              '& .MuiSvgIcon-root': { 
+                fontSize: '1.4rem',
+                color: '#fff'
+              }
+            }}>
             <Tooltip title="3일 보기"><ToggleButton value="3days"><CalendarViewDayIcon /></ToggleButton></Tooltip>
             <Tooltip title="7일 보기"><ToggleButton value="week"><CalendarViewWeekIcon /></ToggleButton></Tooltip>
             <Tooltip title="월간 보기"><ToggleButton value="month"><CalendarMonthIcon /></ToggleButton></Tooltip>
@@ -600,7 +625,7 @@ const CustomCalendar = (props) => {
         gridTemplateColumns: `repeat(${viewMode === '3days' ? 3 : viewMode === 'week' ? 7 : 7}, 1fr)`,
         gridTemplateRows: viewMode === 'month' ? `repeat(${weekCount}, 1fr)` : '1fr',
         gap: { xs: '2px', md: '4px' },
-        height: { xs: '440px', md: '100%' }, // 모바일에서 60px 증가
+        height: { xs: 'calc(100vh - 53px - 70px - 120px)', md: '100%' }, // 모바일에서 헤더+하단바+네비게이션 제외
         width: '100%',
         minHeight: 0,
         position: 'relative',
@@ -610,8 +635,9 @@ const CustomCalendar = (props) => {
         pb: 0,
         alignItems: 'stretch',
         justifyContent: 'stretch',
-        overflow: 'hidden',
+        overflow: { xs: 'hidden', md: 'hidden' }, // 모바일에서 스크롤 비활성화
         boxSizing: 'border-box',
+        touchAction: { xs: 'none', md: 'auto' }, // 모바일에서 터치 스크롤 비활성화
         '& .dragging': {
           zIndex: 99999,
           position: 'relative',

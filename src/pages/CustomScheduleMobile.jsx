@@ -897,13 +897,16 @@ const CustomScheduleMobile = () => {
     <MobileLayout>
       <Box sx={{
         bgcolor: '#181a20',
-        minHeight: '100vh',
+        height: 'calc(100vh - 80px)', // 전체 높이에서 80px 줄임
         width: '100vw',
-        overflow: 'auto',
-        position: 'relative',
+        overflow: 'hidden',
+        position: 'fixed',
         padding: 0,
         margin: 0,
-        pt: '0px'
+        pt: '-30px', // 위로 50px 이동 (20px → -30px)
+        touchAction: 'none',
+        WebkitOverflowScrolling: 'none',
+        userSelect: 'none'
       }}>
 
         
@@ -1014,8 +1017,9 @@ const CustomScheduleMobile = () => {
                 const isToday = date && date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
                 const isSelected = isCurrentMonth && day === selectedDay;
                 const dayOfWeek = colIdx;
-                // 기본 높이 고정 적용
-                const cellHeight = 69;
+                // 6줄일 때는 높이를 줄여서 전체 크기 유지
+                const totalRows = monthMatrix.length;
+                const cellHeight = totalRows === 6 ? 57 : 69;
                 return (
                   <Box
                     key={`${rowIdx}-${colIdx}`}
@@ -1134,7 +1138,9 @@ const CustomScheduleMobile = () => {
           height: '240px',
           overflow: 'hidden',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          position: 'relative',
+          top: '0px' // 원래 위치로 복원
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
             <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 700 }}>
@@ -1163,26 +1169,11 @@ const CustomScheduleMobile = () => {
                 flexDirection: 'column', 
                 gap: 0.3,
                 flex: 1,
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                scrollbarWidth: 'thin', // Firefox - 얇은 스크롤바
-                msOverflowStyle: 'auto', // IE/Edge - 스크롤바 표시
-                '&::-webkit-scrollbar': { 
-                  width: '6px',
-                  backgroundColor: 'transparent'
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  backgroundColor: '#555',
-                  borderRadius: '3px',
-                  '&:hover': {
-                    backgroundColor: '#777'
-                  }
-                },
-                '&::-webkit-scrollbar-track': {
-                  backgroundColor: 'transparent'
-                },
-                WebkitOverflowScrolling: 'touch', // iOS 스크롤 개선
-                maxHeight: '280px', // 헤더와 패딩을 제외한 최대 높이
+                overflow: 'hidden',
+                touchAction: 'none',
+                WebkitOverflowScrolling: 'none',
+                maxHeight: '200px',
+                height: '200px',
               }}
             >
               {selectedSchedules.map((item, i) => {

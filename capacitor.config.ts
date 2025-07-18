@@ -15,6 +15,7 @@ const config: CapacitorConfig = {
     allowMixedContent: true,
     captureInput: true,
     webContentsDebuggingEnabled: true,
+    initialFocus: false,
     buildOptions: {
       keystorePath: 'my-release-key.keystore',
       keystoreAlias: 'my-key-alias',
@@ -30,7 +31,7 @@ const config: CapacitorConfig = {
   },
   plugins: {
     Keyboard: {
-      resize: KeyboardResize.Body,
+      resize: KeyboardResize.Ionic,
       style: KeyboardStyle.Default,
       resizeOnFullScreen: true
     },

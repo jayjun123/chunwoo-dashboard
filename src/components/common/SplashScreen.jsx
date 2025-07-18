@@ -43,7 +43,7 @@ const SplashScreen = ({ onComplete }) => {
     }, 1000);
 
     // 최소 표시 시간 보장 (PWA에서는 더 짧게)
-    const minDisplayTime = isPWA() ? 1500 : 2000;
+    const minDisplayTime = isPWA() ? 800 : 1000;
     const minDisplayTimer = setTimeout(() => {
       devLog('스플래시 최소 표시 시간 완료');
     }, minDisplayTime);
@@ -64,7 +64,7 @@ const SplashScreen = ({ onComplete }) => {
       setLoadingMessage('준비 완료!');
       
       // PWA에서는 더 빠르게 전환
-      const transitionDelay = isPWA() ? 300 : 500;
+      const transitionDelay = isPWA() ? 200 : 300;
       const timer = setTimeout(() => {
         onComplete();
       }, transitionDelay);

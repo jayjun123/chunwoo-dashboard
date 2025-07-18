@@ -18,7 +18,7 @@ import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
 import { Keyboard } from '@capacitor/keyboard';
 
 
-const DiscussionChat = ({ roomId }) => {
+const DiscussionChat = ({ roomId, onBack }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [files, setFiles] = useState([]);
@@ -37,6 +37,50 @@ const DiscussionChat = ({ roomId }) => {
   const inputRef = useRef();
   const [scrolled, setScrolled] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
+
+  useEffect(() => {
+    // 키보드 이벤트 리스너 등록 (모바일용)
+    if (isMobile) {
+      const keyboardWillShow = (info) => {
+        console.log('키보드 표시됨:', info);
+        // 키보드 높이를 정확하게 설정하여 입력창이 키보드 바로 붙도록
+        const height = info.keyboardHeight || 280;
+        setKeyboardHeight(height);
+      };
+      
+      const keyboardDidHide = () => {
+        console.log('키보드 숨겨짐');
+        setKeyboardHeight(0);
+      };
+
+      const keyboardWillShowListener = Keyboard.addListener('keyboardWillShow', keyboardWillShow);
+      const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', keyboardDidHide);
+
+      // 추가: visualViewport API를 사용한 키보드 감지 (더 정확함)
+      const handleViewportChange = () => {
+        if (window.visualViewport) {
+          const keyboardHeight = window.innerHeight - window.visualViewport.height;
+          if (keyboardHeight > 150) {
+            setKeyboardHeight(keyboardHeight);
+          } else {
+            setKeyboardHeight(0);
+          }
+        }
+      };
+
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', handleViewportChange);
+      }
+
+      return () => {
+        keyboardWillShowListener.remove();
+        keyboardDidHideListener.remove();
+        if (window.visualViewport) {
+          window.visualViewport.removeEventListener('resize', handleViewportChange);
+        }
+      };
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -89,20 +133,7 @@ const DiscussionChat = ({ roomId }) => {
     }
   }, [messages, roomId]);
 
-  useEffect(() => {
-    Keyboard.addListener('keyboardWillShow', (info) => {
-      setKeyboardHeight(info.keyboardHeight);
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }, 200);
-    });
-    Keyboard.addListener('keyboardWillHide', () => {
-      setKeyboardHeight(0);
-    });
-    return () => {
-      Keyboard.removeAllListeners();
-    };
-  }, []);
+  // 중복 키보드 리스너 제거 - 위에서 이미 처리함
 
   const handleFocus = () => {
     if (!scrolled) {
@@ -141,10 +172,42 @@ const DiscussionChat = ({ roomId }) => {
       
       // 메시지 저장 - 올바른 컬렉션 경로 사용
       console.log('메시지 저장 시작...');
+      console.log('현재 사용자 정보:', currentUser);
+      
+      // 사용자 이름 결정 로직 개선
+      let userName = '익명';
+      if (currentUser) {
+        // 1. Firestore에서 가져온 name 필드 우선
+        if (currentUser.name) {
+          userName = currentUser.name;
+        }
+        // 2. Firebase Auth의 displayName
+        else if (currentUser.displayName) {
+          userName = currentUser.displayName;
+        }
+        // 3. 이메일에서 @ 앞부분을 사용자명으로 사용
+        else if (currentUser.email) {
+          userName = currentUser.email.split('@')[0];
+        }
+        // 4. UID의 마지막 8자리를 사용자명으로 사용
+        else if (currentUser.uid) {
+          userName = `사용자${currentUser.uid.slice(-8)}`;
+        }
+      }
+      
+      console.log('결정된 사용자 이름:', userName);
+      console.log('현재 사용자 정보 상세:', {
+        uid: currentUser?.uid,
+        email: currentUser?.email,
+        displayName: currentUser?.displayName,
+        name: currentUser?.name,
+        organization: currentUser?.organization
+      });
+      
       const messageData = {
         text: newMessage,
         userId: currentUser?.uid || 'anonymous',
-        userName: currentUser?.displayName || '익명',
+        userName: userName,
         timestamp: serverTimestamp(),
       };
       
@@ -262,34 +325,48 @@ const DiscussionChat = ({ roomId }) => {
   return (
     <Box sx={{
       height: '100vh', width: '100%', maxWidth: '100%', minWidth: '100%',
-      display: 'flex', flexDirection: 'column', background: 'transparent',
+      display: 'flex', flexDirection: 'column', background: '#181a20',
       position: 'relative', zIndex: 2000,
-      mt: isMobile ? 2.5 : 0 // 모바일에서 상단에 20px 여백 추가
+      mt: 0, // 상단 여백 제거
+      overflow: 'hidden' // 전체 화면에서 스크롤 방지
     }}>
-      {/* 상단 바 */}
+      {/* 상단 바 - 고정 위치 */}
       <Box sx={{
-        height: 56, minHeight: 56, background: '#1976d2', color: '#fff',
-        display: 'flex', alignItems: 'center', px: 2, boxShadow: 2
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 56, 
+        minHeight: 56, 
+        background: '#1976d2', 
+        color: '#fff',
+        display: 'flex', 
+        alignItems: 'center', 
+        px: 2, 
+        boxShadow: 2,
+        zIndex: 1300,
+        width: '100%'
       }}>
-        <IconButton onClick={() => navigate('/discussions')} sx={{ color: '#fff', mr: 1 }}>
+        <IconButton onClick={onBack || (() => navigate('/discussions'))} sx={{ color: '#fff', mr: 1 }}>
           <ArrowBackIcon />
         </IconButton>
         <Typography variant="h6" sx={{ fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{roomName}</Typography>
       </Box>
       {/* 메시지 영역 */}
       <Box 
-
         sx={{
           flex: 1,
           overflowY: 'auto',
           px: 1, py: 2,
           background: 'transparent',
           display: 'flex', flexDirection: 'column',
-          position: 'absolute',
+          position: 'fixed',
           top: 56, // 상단바 높이
-          bottom: isMobile ? 80 : 80, // 입력창 높이를 늘려서 아래로 내림
+          bottom: isMobile ? (keyboardHeight > 0 ? `${keyboardHeight + 80}px` : '80px') : 80, // 키보드가 올라오면 입력창 바로 위까지
           left: 0, right: 0,
           height: 'auto',
+          transition: 'bottom 0.2s ease-out', // 더 빠른 애니메이션
+          WebkitOverflowScrolling: 'touch', // iOS 스크롤 최적화
         }}
       >
         {loading ? (
@@ -331,22 +408,35 @@ const DiscussionChat = ({ roomId }) => {
                       {msg.userName || '익명'}
                     </Typography>
                   </Box>
-                  <Box sx={{
-                    bgcolor: isMe ? '#FFF066' : '#232323',
-                    color: isMe ? '#222' : '#fff',
-                    borderRadius: isMobile ? 3 : 4,
-                    px: isMobile ? 0.8 : 1.4, py: isMobile ? 0.8 : 0.9,
-                    minWidth: isMobile ? 28 : 36,
-                    maxWidth: isMobile ? '90vw' : '80vw',
-                    fontSize: isMobile ? '0.85rem' : '1rem',
-                    position: 'relative',
-                    boxShadow: isMe ? 2 : 1,
-                    fontFamily: 'NanumGothic, Malgun Gothic, Apple SD Gothic Neo, sans-serif',
-                    mb: isMobile ? 0.1 : 0.2,
-                    wordBreak: 'break-word',
-                    display: 'inline-block',
-                  }}>
-                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', fontSize: isMobile ? '0.85rem' : '1rem', p: 0 }}>{msg.text}</Typography>
+                  <Box 
+                    className="chat-message-box"
+                    sx={{
+                      bgcolor: isMe ? '#FFF9C4' : '#2a2b32',
+                      color: isMe ? '#000' : '#fff',
+                      borderRadius: isMobile ? 3 : 4,
+                      px: isMobile ? 0.8 : 1.4, py: isMobile ? 0.8 : 0.9,
+                      minWidth: isMobile ? 28 : 36,
+                      maxWidth: isMobile ? '90vw' : '80vw',
+                      fontSize: isMobile ? '0.85rem' : '1rem',
+                      position: 'relative',
+                      boxShadow: isMe ? 2 : 1,
+                      fontFamily: 'NanumGothic, Malgun Gothic, Apple SD Gothic Neo, sans-serif',
+                      mb: isMobile ? 0.1 : 0.2,
+                      wordBreak: 'break-word',
+                      display: 'inline-block',
+                      border: isMe ? '1px solid #FFD600' : '1px solid #444',
+                    }}
+                  >
+                    <span 
+                      style={{ 
+                        whiteSpace: 'pre-wrap', 
+                        fontSize: isMobile ? '0.85rem' : '1rem', 
+                        padding: 0,
+                        color: isMe ? '#000' : '#fff',
+                        fontWeight: 400,
+                        display: 'block'
+                      }}
+                    >{msg.text}</span>
                     {msg.attachment && (
                       <Box mt={isMobile ? 0.5 : 1}>
                         {msg.attachment.type.startsWith('image/') ? (
@@ -399,24 +489,24 @@ const DiscussionChat = ({ roomId }) => {
         )}
         <div ref={messagesEndRef} />
       </Box>
-      {/* 파일 미리보기 영역 - 모바일에서만 표시 */}
-      {files.length > 0 && isMobile && (
+      {/* 파일 미리보기 영역 - 첨부파일이 있을 때만 표시 */}
+      {files && files.length > 0 && (
         <Box 
-
           sx={{
             p: 0.2,
             background: 'rgba(255, 255, 255, 0.9)',
             borderRadius: 1,
             border: '1px solid rgba(221, 221, 221, 0.5)',
             boxShadow: 1,
-            position: 'absolute',
+            position: 'fixed',
             left: 0,
             right: 0,
-            bottom: 48,
+            bottom: keyboardHeight > 0 ? `${keyboardHeight + 80}px` : '80px', // 키보드 높이에 맞춰 조정
             zIndex: 1200,
             width: '100%',
             minHeight: 28,
             backdropFilter: 'blur(10px)',
+            transition: 'bottom 0.2s ease-out', // 애니메이션 추가
           }}
         >
           <Typography variant="subtitle2" sx={{ mb: 0.2, fontWeight: 'bold', fontSize: '0.75rem' }}>
@@ -447,20 +537,20 @@ const DiscussionChat = ({ roomId }) => {
           py: 1, 
           bgcolor: 'rgba(24, 26, 32, 0.95)', 
           borderTop: '1px solid rgba(255,255,255,0.1)', 
-          position: isMobile ? 'sticky' : 'absolute', // 모바일에서는 sticky 사용
-          bottom: isMobile ? 0 : '50px', // 모바일: 하단 고정, PC: 50px 위에 위치
+          position: 'fixed',
+          bottom: isMobile ? (keyboardHeight > 0 ? `${keyboardHeight}px` : '0px') : '50px', // 키보드가 올라오면 바로 붙어서 올라가기
           left: 0,
           right: 0,
-          zIndex: 1200,
+          zIndex: 9999, // 더 높은 z-index로 설정
           width: '100%',
-          minHeight: isMobile ? 56 : 64,
+          minHeight: isMobile ? 80 : 64, // 모바일에서 높이를 80px로 증가
           height: 'auto',
-          display: isMobile ? 'flex' : 'none', // PC에서 입력창 숨김 (중복 제거)
+          display: 'flex', // 모바일과 데스크톱 모두 표시
           alignItems: 'center',
           backdropFilter: 'blur(10px)',
+          transition: 'bottom 0.2s ease-out', // 더 빠른 애니메이션
+          WebkitTransform: 'translateZ(0)', // 하드웨어 가속
           boxShadow: '0 -2px 10px rgba(0,0,0,0.3)',
-          // 키보드가 올라올 때 적절한 위치 유지
-          transform: isMobile ? 'translateY(0)' : 'none',
         }}
       >
         {!isMobile && (
@@ -475,7 +565,7 @@ const DiscussionChat = ({ roomId }) => {
           minHeight: isMobile ? 36 : 48, 
           width: '100%',
           position: 'relative',
-          zIndex: 1
+          zIndex: 10000
         }}>
           {/* 첨부파일 버튼 */}
           <IconButton
@@ -509,13 +599,14 @@ const DiscussionChat = ({ roomId }) => {
             fullWidth
             size="small"
             autoComplete="off"
+            autoFocus={false}
             sx={{ 
               bgcolor: 'rgba(24, 26, 32, 0.8)', 
               borderRadius: 2, 
               flex: 1,
-              fontSize: isMobile ? '0.8rem' : '1rem',
-              minHeight: isMobile ? 28 : 40,
-              maxHeight: isMobile ? 28 : 40,
+              fontSize: isMobile ? '16px' : '1rem',
+              minHeight: isMobile ? 36 : 40,
+              maxHeight: isMobile ? 36 : 40,
               backdropFilter: 'blur(10px)',
               '& .MuiOutlinedInput-root': {
                 '& fieldset': {
@@ -527,17 +618,19 @@ const DiscussionChat = ({ roomId }) => {
                 '&.Mui-focused fieldset': {
                   borderColor: '#1976d2',
                 },
-                fontSize: isMobile ? '0.8rem' : '1rem',
-                minHeight: isMobile ? 28 : 40,
-                maxHeight: isMobile ? 28 : 40,
-                padding: isMobile ? '0 4px' : '6px 12px',
+                fontSize: isMobile ? '16px' : '1rem',
+                minHeight: isMobile ? 36 : 40,
+                maxHeight: isMobile ? 36 : 40,
+                padding: isMobile ? '0 8px' : '6px 12px',
               },
               '& .MuiInputBase-input': {
                 color: '#fff',
-                fontSize: isMobile ? '0.8rem' : '1rem',
-                padding: isMobile ? '4px 2px' : '10px 8px',
+                fontSize: isMobile ? '16px' : '1rem',
+                padding: isMobile ? '8px 4px' : '10px 8px',
                 minHeight: isMobile ? 20 : 32,
                 maxHeight: isMobile ? 20 : 32,
+                WebkitAppearance: 'none',
+                WebkitBorderRadius: '0',
               }
             }}
             InputProps={{
