@@ -635,9 +635,10 @@ const ScheduleManagement = ({
       margin: 0,
       padding: 0,
       position: 'relative',
-      mt: isMobile ? '140px' : '54px',
+      mt: isMobile ? '80px' : '54px', // 모바일에서 위로 60px 이동 (140px → 80px)
       mb: '20px',
-      overflow: isMobile ? 'hidden' : 'visible'
+      overflow: isMobile ? 'hidden' : 'visible',
+      bgcolor: '#23242a'
     }}>
       <DragDropContext onDragEnd={onDragEnd}>
                   <Box sx={{ 
@@ -648,22 +649,40 @@ const ScheduleManagement = ({
             width: '100%',
             mx: 0,
             px: 0,
-            overflow: isMobile ? 'hidden' : 'visible'
+            overflow: isMobile ? 'hidden' : 'visible',
+            bgcolor: '#23242a'
           }}>
           {/* 왼쪽 편 레이아웃 - 진행중현장리스트 */}
           <Box sx={{
             width: { xs: '100%', md: 280 },
-            border: '1px solid', borderColor: 'divider', borderRadius: 2, display: 'flex',
+            border: '1px solid #444', 
+            borderRadius: 2, 
+            display: 'flex',
             flexDirection: 'column', 
             height: 'calc(100% - 30px)',
-            maxHeight: { xs: '270px', md: 'calc(100% - 30px)' },
+            maxHeight: { xs: '290px', md: 'calc(100% - 30px)' }, // 모바일에서 20px 키움 (270px → 290px)
             position: { xs: 'static', md: 'static' },
             transform: { xs: 'none', md: 'none' },
             mt: { xs: 0, md: '15px' }, // PC에서만 위쪽 여백 15px 추가
-            overflow: isMobile ? 'hidden' : 'visible'
+            overflow: isMobile ? 'hidden' : 'visible',
+            bgcolor: '#23242a'
           }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', position: { xs: 'static', md: 'static' }, transform: { xs: 'none', md: 'none' }, display: { xs: 'none', md: 'block' } }}>
-              <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, display: { xs: 'none', md: 'block' } }}>이달의 현장</Typography>
+            <Box sx={{ 
+              p: 2, 
+              borderBottom: '1px solid', 
+              borderColor: 'divider', 
+              position: { xs: 'static', md: 'static' }, 
+              transform: { xs: 'none', md: 'none' }, 
+              display: { xs: 'none', md: 'block' },
+              bgcolor: '#23242a',
+              color: '#fff'
+            }}>
+              <Typography variant="h6" sx={{ 
+                mb: 1, 
+                fontWeight: 600, 
+                display: { xs: 'none', md: 'block' },
+                color: '#fff'
+              }}>이달의 현장</Typography>
               <TextField
                 size="small"
                 placeholder="현장명 검색"
@@ -671,7 +690,22 @@ const ScheduleManagement = ({
                 sx={{ 
                   width: '100%',
                   '& .MuiOutlinedInput-root': {
-                    fontSize: '0.875rem'
+                    fontSize: '0.875rem',
+                    '& fieldset': {
+                      borderColor: '#444'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#666'
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#1976d2'
+                    }
+                  },
+                  '& .MuiInputBase-input': {
+                    color: '#fff'
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: '#ccc'
                   }
                 }}
                 onChange={(e) => {
@@ -685,8 +719,8 @@ const ScheduleManagement = ({
                   flex: 1, 
                   overflowY: isMobile ? 'hidden' : 'auto', // 스크롤은 되지만 스크롤바는 숨김
                   p: isMobile ? 0.5 : 1,
-                  bgcolor: snapshot.isDraggingOver ? 'action.hover' : 'background.paper',
-                  maxHeight: isMobile ? '200px' : 'none',
+                  bgcolor: snapshot.isDraggingOver ? '#2a2b32' : '#23242a',
+                  maxHeight: isMobile ? '220px' : 'none', // 모바일에서 20px 키움 (200px → 220px)
                   position: { xs: 'static', md: 'static' },
                   transform: { xs: 'none', md: 'none' },
                   scrollbarWidth: 'none', // Firefox에서 스크롤바 숨기기
@@ -725,21 +759,21 @@ const ScheduleManagement = ({
                                 p: 1.5, 
                                 bgcolor: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') 
                                   ? '#3b82f6' 
-                                  : 'background.default',
+                                  : '#2a2b32',
                                 color: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') 
                                   ? '#fff' 
-                                  : 'text.primary',
+                                  : '#fff',
                                 borderRadius: 2,
                                 cursor: 'grab',
                                 border: '1px solid',
                                 borderColor: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') 
                                   ? '#3b82f6' 
-                                  : 'divider',
+                                  : '#444',
                                 transition: 'all 0.2s',
                                 '&:hover': {
                                   bgcolor: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') 
                                     ? '#2563eb' 
-                                    : 'action.hover'
+                                    : '#333'
                                 }
                               }}
                             >
@@ -755,7 +789,7 @@ const ScheduleManagement = ({
                       )
                     ))
                   ) : (
-                    <Typography sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+                    <Typography sx={{ p: 2, textAlign: 'center', color: '#ccc' }}>
                       이번 달 현장이 없습니다.
                     </Typography>
                   )}

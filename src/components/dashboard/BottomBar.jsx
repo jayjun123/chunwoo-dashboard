@@ -772,21 +772,44 @@ const BottomBar = ({
 
       devLog('전날 날짜:', yesterdayStr);
 
-      // 전날 미완료 투두들을 date 필드로 정확히 가져오기
+      // 전날 미완료 투두들을 createdAt 필드로 가져오기 (더 정확한 조회)
+      const yesterdayStart = new Date(yesterday);
+      yesterdayStart.setHours(0, 0, 0, 0);
+      const yesterdayEnd = new Date(yesterday);
+      yesterdayEnd.setHours(23, 59, 59, 999);
+
       const yesterdayQuery = query(
         collection(db, 'todos'),
         where('userId', '==', currentUser.uid),
-        where('date', '==', yesterdayStr),
-        where('completed', '==', false)
+        where('completed', '==', false),
+        orderBy('createdAt', 'desc')
       );
       
       const yesterdaySnapshot = await getDocs(yesterdayQuery);
-      const incompleteTodos = yesterdaySnapshot.docs.map(doc => ({
+      const allIncompleteTodos = yesterdaySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
 
+      // 클라이언트에서 전날 데이터 필터링
+      const incompleteTodos = allIncompleteTodos.filter(todo => {
+        if (!todo.createdAt) return false;
+        
+        let todoDate;
+        if (todo.createdAt.toDate) {
+          todoDate = todo.createdAt.toDate();
+        } else if (todo.createdAt instanceof Date) {
+          todoDate = todo.createdAt;
+        } else {
+          todoDate = new Date(todo.createdAt);
+        }
+        
+        return todoDate >= yesterdayStart && todoDate <= yesterdayEnd;
+      });
+
       devLog('전날 미완료 투두 개수:', incompleteTodos.length);
+      devLog('전날 범위:', { start: yesterdayStart, end: yesterdayEnd });
+      devLog('전체 미완료 투두:', allIncompleteTodos.length);
 
       if (incompleteTodos.length === 0) {
         setError('불러올 전날 미완료 항목이 없습니다.');
@@ -1281,7 +1304,17 @@ const BottomBar = ({
                   성현준
                 </Typography>
               )}
-              <Button variant="outlined" size="small" sx={{ fontWeight: 600, fontSize: isMobile ? '0.7rem' : '0.875rem', py: isMobile ? 0.5 : 1 }} onClick={() => navigate('/todo/all')}>
+              <Button variant="outlined" size="small" sx={{ 
+                fontWeight: 600, 
+                fontSize: isMobile ? '0.7rem' : '0.875rem', 
+                py: isMobile ? 0.5 : 1,
+                color: '#1976d2',
+                borderColor: '#1976d2',
+                '&:hover': {
+                  borderColor: '#1565c0',
+                  bgcolor: 'rgba(25, 118, 210, 0.04)',
+                }
+              }} onClick={() => navigate('/todo/all')}>
                 LIST
               </Button>
               <Button 
@@ -1678,7 +1711,9 @@ const BottomBar = ({
         sx={{
           '& .MuiDialog-paper': {
             borderRadius: 2,
-            minHeight: 400
+            minHeight: isMobile ? 300 : 400,
+            maxHeight: isMobile ? '80vh' : '70vh',
+            width: isMobile ? '95vw' : '100%'
           }
         }}
       >
@@ -1718,14 +1753,14 @@ const BottomBar = ({
           </Box>
           
           <Box sx={{ 
-            maxHeight: 300, 
+            maxHeight: isMobile ? 200 : 300, 
             overflowY: 'auto',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             '&::-webkit-scrollbar': { display: 'none' },
             border: '1px solid #e0e0e0',
             borderRadius: 1,
-            p: 1
+            p: isMobile ? 0.5 : 1
           }}>
             {yesterdayTodos.length === 0 ? (
               <Typography sx={{ color: '#666', textAlign: 'center', py: 2 }}>
@@ -1738,20 +1773,42 @@ const BottomBar = ({
                   sx={{ 
                     display: 'flex', 
                     alignItems: 'center', 
-                    p: 0.5, 
-                    mb: 0.25,
+                    p: 1, 
+                    mb: 0.5,
                     borderRadius: 1,
                     bgcolor: selectedTodos.includes(todo.id) ? '#e3f2fd' : '#fff',
-                    border: '1px solid #e0e0e0'
+                    border: '1px solid #e0e0e0',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      bgcolor: selectedTodos.includes(todo.id) ? '#e3f2fd' : '#f5f5f5'
+                    }
                   }}
+                  onClick={() => handleTodoSelection(todo.id)}
                 >
                   <Checkbox
                     checked={selectedTodos.includes(todo.id)}
-                    onChange={() => handleTodoSelection(todo.id)}
-                    sx={{ mr: 0.5, p: 0.25 }}
-                    size="small"
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      handleTodoSelection(todo.id);
+                    }}
+                    sx={{ 
+                      mr: 1, 
+                      p: isMobile ? 1 : 0.5,
+                      minWidth: isMobile ? 48 : 32,
+                      minHeight: isMobile ? 48 : 32,
+                      '& .MuiSvgIcon-root': {
+                        fontSize: isMobile ? '1.5rem' : '1.25rem'
+                      }
+                    }}
+                    size={isMobile ? "medium" : "small"}
                   />
-                  <Typography sx={{ flex: 1, fontSize: '0.75rem', color: '#000', lineHeight: 1.2 }}>
+                  <Typography sx={{ 
+                    flex: 1, 
+                    fontSize: isMobile ? '0.9rem' : '0.75rem', 
+                    color: '#000', 
+                    lineHeight: 1.2,
+                    userSelect: 'none'
+                  }}>
                     {todo.text}
                   </Typography>
                 </Box>
@@ -1759,7 +1816,14 @@ const BottomBar = ({
             )}
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2, gap: 1 }}>
+        <DialogActions sx={{ 
+          p: isMobile ? 1 : 2, 
+          gap: isMobile ? 0.5 : 1,
+          flexDirection: isMobile ? 'column' : 'row',
+          '& > *': {
+            width: isMobile ? '100%' : 'auto'
+          }
+        }}>
           <Button 
             onClick={() => setLoadTodoDialog(false)}
             variant="outlined"

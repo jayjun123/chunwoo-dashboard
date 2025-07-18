@@ -96,7 +96,7 @@
     "capacitor:copy": "npx cap copy",
     "capacitor:open:android": "npx cap open android",
     "capacitor:open:ios": "npx cap open ios",
-    "capacitor:build:android": "npm run build && npx cap sync && npx cap build android",
+    "capacitor:build:android": "npm run build && npx cap sync android && npx cap copy android",
     "capacitor:build:ios": "npm run build && npx cap sync && npx cap build ios",
     "android:build:debug": "npm run capacitor:build:android && cd android && ./gradlew assembleDebug",
     "android:build:release": "npm run capacitor:build:android && cd android && ./gradlew assembleRelease",

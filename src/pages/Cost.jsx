@@ -298,7 +298,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   };
 
   const StatCard = ({ title, value, color }) => (
-    <Grid item xs={6} sm={6} md={3}>
+    <Grid xs={6} sm={6} md={3}>
       <Card sx={{ 
         p: 2, 
         height: '100%', 

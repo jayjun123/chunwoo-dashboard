@@ -203,7 +203,7 @@ const Todo = () => {
                               <input
                                 type="checkbox"
                                 checked={todo.completed}
-                                onChange={(e) => handleToggleTodo(todo.id, e.target.checked)}
+                                onChange={() => handleToggleTodo(todo.id, todo.completed)}
                                 className="todo-checkbox"
                               />
                               <span className="todo-title">{todo.text}</span>

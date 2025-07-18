@@ -825,7 +825,7 @@ const SafetyPage = () => {
   return (
     <Box sx={{ 
       p: isMobile ? 0 : 3,
-      mt: isMobile ? '0px' : 8,
+      mt: isMobile ? '30px' : 8,
       position: isMobile ? 'relative' : 'relative',
       top: isMobile ? 'auto' : 'auto',
       left: isMobile ? 'auto' : 'auto',

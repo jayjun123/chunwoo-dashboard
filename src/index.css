@@ -43,6 +43,78 @@
   box-sizing: border-box;
 }
 
+
+
+/* 채팅 메시지 텍스트는 검은색으로 */
+.chat-message-text {
+  color: #000000 !important;
+  WebkitTextFillColor: #000000 !important;
+  textFillColor: #000000 !important;
+}
+
+/* Material-UI Typography 내의 모든 텍스트를 검은색으로 강제 */
+.MuiTypography-root {
+  color: inherit !important;
+}
+
+/* 토론의견 채팅 메시지 텍스트는 검은색으로 */
+.chat-message-box .MuiTypography-root {
+  color: #000000 !important;
+  WebkitTextFillColor: #000000 !important;
+  textFillColor: #000000 !important;
+}
+
+/* aria-hidden 경고 완화 */
+[aria-hidden="true"] {
+  pointer-events: none !important;
+}
+
+/* Material-UI 내부 aria-hidden 요소 스타일링 */
+.MuiButtonBase-root[aria-hidden="true"],
+.MuiIconButton-root[aria-hidden="true"],
+.MuiCheckbox-root[aria-hidden="true"] {
+  display: none !important;
+}
+
+/* 흰색 배경의 Typography는 검은색으로 */
+div[style*="bgcolor: #fff"] .MuiTypography-root,
+div[style*="background-color: #fff"] .MuiTypography-root {
+  color: #000000 !important;
+  WebkitTextFillColor: #000000 !important;
+  textFillColor: #000000 !important;
+}
+
+
+
+
+
+/* 입력 필드는 배경색도 다크로 */
+.MuiTextField-root .MuiInputBase-root,
+.MuiInputBase-root {
+  background-color: #2a2b32 !important;
+}
+
+.MuiTextField-root .MuiInputLabel-root,
+.MuiInputLabel-root {
+  color: #cccccc !important;
+}
+
+/* 테두리도 다크 테마에 맞게 */
+.MuiTextField-root .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline,
+.MuiOutlinedInput-notchedOutline {
+  border-color: #444444 !important;
+}
+
+.MuiTextField-root .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline,
+.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #666666 !important;
+}
+
+.MuiTextField-root .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline,
+.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #1976d2 !important;
+}
+
 html, body, #root {
   width: 100vw !important;
   min-width: 100vw !important;
@@ -50,6 +122,7 @@ html, body, #root {
   margin: 0 !important;
   padding: 0 !important;
   overflow-x: hidden !important;
+  background-color: #23242a !important;
 }
 
 body {
@@ -59,10 +132,9 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--bg-main);
+  background-color: #23242a !important;
   /* 개발용 그리드 (CSS 변수로 제어) */
   position: relative;
-  color: var(--text-main);
   overflow-x: hidden;
   overflow-y: auto;
   height: 100vh;
@@ -91,23 +163,24 @@ code {
   margin: 0 auto;
   text-align: center;
   margin-top: 0 !important;
+  background-color: #23242a !important;
 }
 
 /* 모바일에서 상태바 고려한 올바른 레이아웃 */
 @media (max-width: 600px) {
   body {
-    padding-top: env(safe-area-inset-top, 0px) !important;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 5px) !important;
     margin-top: 0 !important;
   }
   
   #root {
-    margin-top: 0 !important;
+    margin-top: 5px !important;
     padding-top: 0 !important;
   }
   
   /* 모바일에서 컨텐츠 레이아웃 */
   .app, .main-content {
-    margin-top: 0 !important;
+    margin-top: 5px !important;
     padding-top: 0 !important;
   }
 }

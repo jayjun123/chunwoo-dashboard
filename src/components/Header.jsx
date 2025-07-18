@@ -125,7 +125,7 @@ const Header = ({ user, onLogout }) => {
   return (
     <header 
       className={`header ${theme}`}
-      style={isMobile ? { height: '38px', minHeight: '38px', maxHeight: '38px' } : {}}
+      style={isMobile ? { height: '53px', minHeight: '53px', maxHeight: '53px' } : {}}
     >
       <div className="header-container">
         {/* 좌측: 메뉴(데스크탑/태블릿) */}

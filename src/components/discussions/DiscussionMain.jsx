@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Box, Grid, Button, Typography, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Autocomplete, useMediaQuery } from '@mui/material';
 import DiscussionRoomList from './DiscussionRoomList';
 import DiscussionChat from './DiscussionChat';
-import MobileDiscussionChat from './MobileDiscussionChat';
-import MobileDiscussionRoomList from './MobileDiscussionRoomList';
-import { collection, addDoc, serverTimestamp, onSnapshot, query } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, onSnapshot, query, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useTheme } from '@mui/material/styles';
+import { useParams, useNavigate } from 'react-router-dom';
 
 const DiscussionMain = () => {
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -14,8 +13,11 @@ const DiscussionMain = () => {
   const [newRoomName, setNewRoomName] = useState('');
   const [newSiteName, setNewSiteName] = useState('');
   const [siteOptions, setSiteOptions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { roomId } = useParams();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // 현장 목록 실시간으로 가져오기
@@ -25,6 +27,32 @@ const DiscussionMain = () => {
     });
     return () => unsubscribe();
   }, []);
+
+  // URL 파라미터에서 roomId가 있으면 해당 채팅방 자동 선택
+  useEffect(() => {
+    if (roomId) {
+      const fetchRoom = async () => {
+        try {
+          setLoading(true);
+          const roomDoc = await getDoc(doc(db, 'discussions', roomId));
+          if (roomDoc.exists()) {
+            setSelectedRoom({ id: roomDoc.id, ...roomDoc.data() });
+          } else {
+            // 채팅방이 존재하지 않으면 목록으로 이동
+            navigate('/discussions');
+          }
+        } catch (error) {
+          console.error('채팅방 로딩 오류:', error);
+          navigate('/discussions');
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchRoom();
+    } else {
+      setLoading(false);
+    }
+  }, [roomId, navigate]);
 
   const handleCreateRoom = async () => {
     if (!newRoomName.trim() || !newSiteName.trim()) return;
@@ -63,13 +91,19 @@ const DiscussionMain = () => {
       {isMobile ? (
         // 모바일 레이아웃
         selectedRoom ? (
-          <MobileDiscussionChat 
+          <DiscussionChat 
             roomId={selectedRoom.id} 
             roomName={selectedRoom.name} 
-            onBack={() => setSelectedRoom(null)}
+            onBack={() => navigate('/discussions')}
           />
         ) : (
-          <MobileDiscussionRoomList onSelectRoom={setSelectedRoom} />
+          <DiscussionRoomList onSelectRoom={(room) => {
+            if (isMobile) {
+              navigate(`/discussions/chat/${room.id}`);
+            } else {
+              setSelectedRoom(room);
+            }
+          }} />
         )
       ) : (
         // 데스크톱 레이아웃

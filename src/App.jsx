@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useParams, createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { configureIME } from './utils/imeHandler.jsx';
 import { initKeyboardManager } from './utils/pwaKeyboardUtils';
 import { initMobileOptimization, useViewportHeight } from './utils/mobileOptimization';
@@ -26,6 +26,7 @@ import SafetyReports from './components/safety/SafetyReports';
 import Documents from './pages/Documents';
 import Reports from './pages/Reports';
 import Discussions from './pages/Discussions';
+import DiscussionMain from './components/discussions/DiscussionMain';
 import Vendors from './pages/Vendors';
 import Progress from './pages/Progress';
 import Members from './pages/Members';
@@ -41,7 +42,7 @@ import WholeList from './pages/WholeList';
 import Profile from './components/Profile';
 import NewsFavorites from './pages/NewsFavorites';
 import PDFTest from './pages/PDFTest';
-import DiscussionChat from './components/discussions/DiscussionChat';
+
 import NotFound from './components/NotFound';
 import Register from './components/Register';
 import RegisterSuccess from './components/RegisterSuccess';
@@ -72,10 +73,7 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-const DiscussionChatWrapper = () => {
-  const { roomId } = useParams();
-  return <DiscussionChat roomId={roomId} />;
-};
+
 
 const App = () => {
   const isMobile = useMediaQuery('(max-width:600px)');
@@ -110,8 +108,8 @@ const App = () => {
             <ThemeProvider>
               <LoadingProvider>
                 <PopupProvider>
-                  <Router>
-                    <Routes>
+                                  <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                  <Routes>
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />
                       <Route path="/register-success" element={<RegisterSuccess />} />
@@ -300,6 +298,20 @@ const App = () => {
                               <MobileLayout>
                                 <Discussions />
                               </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Discussions />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/discussions/chat/:roomId"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <DiscussionMain />
                             ) : (
                               <Layout>
                                 <Discussions />
@@ -549,7 +561,7 @@ const App = () => {
                           </ProtectedRoute>
                         }
                       />
-                      <Route path="/chat/:roomId" element={<DiscussionChatWrapper />} />
+
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Router>

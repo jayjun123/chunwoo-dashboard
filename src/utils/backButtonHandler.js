@@ -145,6 +145,12 @@ class EnhancedBackButtonHandler {
   handleBackSwipe() {
     const currentTime = Date.now();
     
+    // 채팅방에서 스와이프 시 채팅방 나가기
+    if (window.location.pathname.includes('/discussions/chat/')) {
+      this.handleChatRoomExit();
+      return;
+    }
+    
     // 첫 번째 스와이프
     if (this.backPressCount === 0) {
       this.backPressCount = 1;
@@ -168,6 +174,14 @@ class EnhancedBackButtonHandler {
     if (this.backPressCount === 1 && (currentTime - this.lastBackPressTime) <= BACK_BUTTON_CONFIG.DOUBLE_PRESS_DELAY) {
       this.resetBackPressCount();
       this.handleAppExit();
+    }
+  }
+
+  // 채팅방 나가기 처리
+  handleChatRoomExit() {
+    if (confirm('채팅방을 나가시겠습니까?')) {
+      // 채팅방 목록으로 이동
+      window.location.href = '/discussions';
     }
   }
 

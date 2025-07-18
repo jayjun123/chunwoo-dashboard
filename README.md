@@ -89,6 +89,9 @@ VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 
 # 날씨 API 키 (기상청 공공데이터 포털에서 발급)
 VITE_WEATHER_API_KEY=your_weather_api_key_here
+
+# OpenAI API 키 (선택사항 - AI 기능 사용 시)
+VITE_OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 **날씨 API 키 발급 방법:**
@@ -96,6 +99,12 @@ VITE_WEATHER_API_KEY=your_weather_api_key_here
 2. 회원가입 및 로그인
 3. "단기예보 조회서비스" 신청
 4. 발급받은 서비스 키를 `VITE_WEATHER_API_KEY`에 설정
+
+**OpenAI API 키 발급 방법 (선택사항):**
+1. [OpenAI Platform](https://platform.openai.com/) 접속
+2. 계정 생성 및 로그인
+3. API Keys 메뉴에서 새 키 생성
+4. 발급받은 키를 `VITE_OPENAI_API_KEY`에 설정
 
 ### 4. 개발 서버 실행
 ```bash

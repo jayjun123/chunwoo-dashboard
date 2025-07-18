@@ -188,18 +188,19 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let unsubscribeFirestore = null;
     
-    // 로딩 타임아웃 설정 (10초 후 강제 로딩 종료)
+    // 로딩 타임아웃 설정 (5초 후 강제 로딩 종료)
     const loadingTimeout = setTimeout(() => {
       console.warn('AuthContext - 로딩 타임아웃, 강제로 로딩 종료');
       setLoading(false);
-    }, 10000);
+    }, 5000);
     
     // 초기 로딩 시 로컬 스토리지에서 사용자 정보 복원
     const storedUser = getStoredUser();
     if (storedUser && !currentUser) {
       console.log('AuthContext - 로컬 스토리지에서 사용자 정보 복원:', storedUser);
       setCurrentUser(storedUser);
-      clearTimeout(loadingTimeout); // 사용자 정보가 있으면 타임아웃 클리어
+      setLoading(false); // 즉시 로딩 종료
+      clearTimeout(loadingTimeout);
     }
     
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -212,10 +213,23 @@ export const AuthProvider = ({ children }) => {
           const token = await user.getIdToken(true);
           console.log('AuthContext - 토큰 새로고침 완료');
           
-          // Firestore 실시간 리스너 추가
+          // Firestore 실시간 리스너 추가 (타임아웃 설정)
+          const firestoreTimeout = setTimeout(() => {
+            console.warn('AuthContext - Firestore 타임아웃, 기본 정보로 설정');
+            const userInfo = { 
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+            };
+            setCurrentUser(userInfo);
+            storeUser(userInfo);
+            setLoading(false);
+          }, 3000);
+          
           unsubscribeFirestore = onSnapshot(doc(db, 'members', user.uid), 
             (doc) => { // Success callback
               try {
+                clearTimeout(firestoreTimeout);
                 const userData = doc.exists() ? doc.data() : {};
                 const userInfo = {
                   uid: user.uid,
@@ -224,7 +238,6 @@ export const AuthProvider = ({ children }) => {
                   ...userData,
                 };
 
-                // 기본값 설정하지 않음 - Firestore에서 실제 값 사용
                 console.log('AuthContext - Firestore에서 로드된 사용자 정보:', userData);
 
                 setCurrentUser(userInfo);
@@ -232,12 +245,12 @@ export const AuthProvider = ({ children }) => {
                 console.log('AuthContext - 실시간 업데이트:', userInfo);
                 setLoading(false); // 정보 로드 완료, 로딩 종료
               } catch (error) {
+                clearTimeout(firestoreTimeout);
                 console.error('사용자 데이터 처리 오류:', error);
                 const userInfo = { 
                   uid: user.uid,
                   email: user.email,
                   displayName: user.displayName,
-                  // 기본값 설정하지 않음
                 };
                 setCurrentUser(userInfo);
                 storeUser(userInfo);
@@ -245,13 +258,13 @@ export const AuthProvider = ({ children }) => {
               }
             },
             (error) => { // Error callback
+              clearTimeout(firestoreTimeout);
               console.error('Firestore 스냅샷 에러:', error);
               // 에러 발생 시 기본 사용자 정보로 설정
               const userInfo = { 
                 uid: user.uid,
                 email: user.email,
                 displayName: user.displayName,
-                // 기본값 설정하지 않음
               };
               setCurrentUser(userInfo);
               storeUser(userInfo);
@@ -264,7 +277,6 @@ export const AuthProvider = ({ children }) => {
             uid: user.uid,
             email: user.email,
             displayName: user.displayName,
-            // 기본값 설정하지 않음
           };
           setCurrentUser(userInfo);
           storeUser(userInfo);
@@ -297,8 +309,6 @@ export const AuthProvider = ({ children }) => {
       }
     };
   }, []);
-
-
 
   const value = {
     currentUser,

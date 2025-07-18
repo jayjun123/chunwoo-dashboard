@@ -49,11 +49,9 @@ html::-webkit-scrollbar-track, body::-webkit-scrollbar-track {
   background: transparent !important;
 }
 
-/* 모든 div, section, article 등에도 적용 */
+/* 스크롤바는 숨기되 스크롤은 허용 */
 div, section, article, main, aside, nav, header, footer {
-  overflow: hidden !important;
-  overflow-x: hidden !important;
-  overflow-y: hidden !important;
+  overflow-x: hidden !important; /* 가로 스크롤만 숨김 */
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
@@ -160,7 +158,8 @@ input, select, textarea {
 }
 
 #root, .app, .main-content {
-  overflow: hidden !important;
+  overflow-y: auto !important; /* 세로 스크롤 허용 */
+  overflow-x: hidden !important; /* 가로 스크롤만 숨김 */
   width: 100% !important;
 }
 #root::-webkit-scrollbar, .app::-webkit-scrollbar, .main-content::-webkit-scrollbar {

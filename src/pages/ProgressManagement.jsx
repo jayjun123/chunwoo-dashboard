@@ -41,6 +41,8 @@ import {
   Snackbar,
   Chip,
   LinearProgress,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { OptimizedTextField, useIMEHandler, usePWAKeyboardOptimization } from '../utils/imeHandler.jsx';
 import { useKeyboardManager } from '../utils/pwaKeyboardUtils';
@@ -294,6 +296,8 @@ const useProgressStats = (progressData, selectedSite, sites) => {
 
 // 메인 컴포넌트
 const ProgressManagement = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { setLoading, setLoadingMessage } = useLoading();
   const [selectedSite, setSelectedSite] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
@@ -711,7 +715,10 @@ const ProgressManagement = () => {
               {selectedSite && (
                 <>
                   {/* 통계 카드 */}
-                  <Grid container spacing={3} sx={{ mt: 2 }}>
+                  <Grid container spacing={3} sx={{ 
+                    mt: 2,
+                    ...(isMobile && { mt: '30px' }) // 모바일에서 스마트카드를 30px 아래로 이동
+                  }}>
                     <Grid item xs={12} md={4}>
                       <Card sx={{ width: '100%', minWidth: '100%', maxWidth: '100%', boxSizing: 'border-box', m: 0, p: 0 }}>
                         <CardContent>

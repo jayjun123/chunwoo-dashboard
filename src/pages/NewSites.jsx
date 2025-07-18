@@ -265,12 +265,18 @@ const NewSites = () => {
         bgcolor: '#1a1d21', 
         p: 0, 
         gap: 2, 
-        overflow: { xs: 'visible', md: 'auto' },
-        width: isMobile ? '100%' : '100%',
+        overflow: { xs: 'auto', md: 'auto' },
+        width: isMobile ? 'calc(100% - 5px)' : '100%',
+        maxWidth: isMobile ? 'calc(100% - 5px)' : '100%',
         WebkitOverflowScrolling: isMobile ? 'touch' : 'auto',
         scrollBehavior: isMobile ? 'smooth' : 'auto',
-        mt: isMobile ? '0px' : 8,
-        position: 'relative'
+        mt: isMobile ? '34px' : 8,
+        ml: isMobile ? '2px' : 0,
+        mr: isMobile ? '5px' : 0,
+        position: 'relative',
+        right: isMobile ? '0px' : 'auto',
+        height: isMobile ? 'calc(100vh - 34px)' : 'auto',
+        pb: isMobile ? '20px' : 0
       }}
     >
       {/* Left Panel */}
@@ -284,9 +290,10 @@ const NewSites = () => {
         p: isMobile ? 1 : 2, 
         borderRadius: 2, 
         position: isMobile ? 'relative' : 'static',
-        top: isMobile ? '-10px' : 'auto',
-        left: isMobile ? '-8px' : 'auto',
-        overflow: 'hidden'
+        top: isMobile ? '0px' : 'auto',
+        left: isMobile ? '0px' : 'auto',
+        overflow: 'hidden',
+        flexShrink: 0
       }}>
         <Tabs 
           value={statusTab} 
@@ -324,10 +331,9 @@ const NewSites = () => {
           overflowY: 'auto', 
           flex: 1,
           minHeight: 0,
-          maxHeight: '100%',
-          WebkitOverflowScrolling: 'touch',
-          '-webkit-overflow-scrolling': 'touch',
-          touchAction: 'pan-y',
+                      maxHeight: '100%',
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-y',
           '&::-webkit-scrollbar': {
             width: '6px'
           },
@@ -390,8 +396,9 @@ const NewSites = () => {
         minWidth: 0, 
         height: 'auto',
         position: isMobile ? 'relative' : 'static',
-        top: isMobile ? '-10px' : 'auto',
-        left: isMobile ? '-8px' : 'auto'
+        top: isMobile ? '0px' : 'auto',
+        left: isMobile ? '0px' : 'auto',
+        overflowY: isMobile ? 'visible' : 'visible'
       }}>
          <Box sx={{ display: 'flex', alignItems: 'center', mb: isMobile ? 1 : 2 }}>
            <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>
@@ -658,8 +665,8 @@ const NewSites = () => {
         p: isMobile ? 2 : 3, 
         borderRadius: 2, 
         position: isMobile ? 'relative' : 'static',
-        top: isMobile ? '-10px' : 'auto',
-        left: isMobile ? '-8px' : 'auto'
+        top: isMobile ? '0px' : 'auto',
+        left: isMobile ? '2px' : 'auto'
       }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
           <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>

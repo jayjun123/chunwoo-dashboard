@@ -175,7 +175,7 @@ const SiteManagement = () => {
       handleCloseDialog();
       fetchSites();
       
-      // 성공 메시지 - 현장명과 진행상황 포함
+      // 성공 메시지 - 현장명과 계획 포함
       const statusLabel = statusOptions.find(option => option.value === formData.status)?.label || '진행중';
       const successMessage = selectedSite 
         ? `${formData.name} [${statusLabel}] 현장수정 완료했습니다.`
@@ -236,26 +236,43 @@ const SiteManagement = () => {
 
   return (
     <Box sx={{
-      width: '100%',
-      maxWidth: '100%',
+      width: isMobile ? 'calc(100% - 5px)' : '100%',
+      maxWidth: isMobile ? 'calc(100% - 5px)' : '100%',
       minWidth: 0,
       p: isMobile ? 0 : 3,
       m: 0,
-      ml: isMobile ? '30px' : 0,
+      ml: isMobile ? '2px' : 0,
+      mr: isMobile ? '5px' : 0,
       boxSizing: 'border-box',
-      mt: isMobile ? '200px' : '130px',
-      height: isMobile ? 'calc(100vh - 200px)' : 'auto',
+      mt: isMobile ? '34px' : '130px',
+      position: isMobile ? 'relative' : 'static',
+      right: isMobile ? '0px' : 'auto',
       overflowY: isMobile ? 'auto' : 'visible',
-      WebkitOverflowScrolling: isMobile ? 'touch' : 'auto'
+      height: isMobile ? 'calc(100vh - 34px)' : 'auto',
+      WebkitOverflowScrolling: isMobile ? 'touch' : 'auto',
+      pb: isMobile ? '20px' : 0
     }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3,
+        position: isMobile ? 'sticky' : 'static',
+        top: isMobile ? '0px' : 'auto',
+        bgcolor: isMobile ? '#1a1d21' : 'transparent',
+        zIndex: isMobile ? 10 : 'auto',
+        pt: isMobile ? '10px' : 0,
+        pb: isMobile ? '10px' : 0
+      }}>
+        <Typography variant="h4" sx={{ fontSize: isMobile ? '1.5rem' : 'inherit' }}>
           현장 관리
         </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => handleOpenDialog()}
+          size={isMobile ? 'small' : 'medium'}
+          sx={{ fontSize: isMobile ? '0.8rem' : 'inherit' }}
         >
           새 현장 등록
         </Button>
@@ -269,9 +286,8 @@ const SiteManagement = () => {
 
       <TableContainer component={Paper} sx={{ 
         overflowX: 'auto',
-        overflowY: isMobile ? 'auto' : 'visible',
-        maxHeight: isMobile ? 'calc(100vh - 300px)' : 'none',
-        WebkitOverflowScrolling: isMobile ? 'touch' : 'auto'
+        overflowY: isMobile ? 'visible' : 'auto',
+        maxHeight: isMobile ? 'none' : '400px'
       }}>
         <Table>
           <TableHead>

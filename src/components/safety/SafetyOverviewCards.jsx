@@ -150,7 +150,7 @@ function SafetyOverviewCards() {
 
       <Grid container spacing={2.5}>
         {filtered.map(site => (
-          <Grid item xs={12} md={4} lg={4} key={site.siteName}>
+          <Grid xs={12} md={4} lg={4} key={site.siteName}>
             <Paper sx={{ 
               p: isMobile ? 1.5 : 2.5, 
               bgcolor: '#181c24', 

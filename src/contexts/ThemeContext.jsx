@@ -13,15 +13,7 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  const [darkMode, setDarkMode] = useState(() => {
-    // 로컬 스토리지에서 테마 설정 불러오기
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      return savedTheme === 'dark';
-    }
-    // 시스템 설정 확인
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
+  const [darkMode, setDarkMode] = useState(true); // 강제로 다크 모드
 
   // 라이트 테마
   const lightTheme = createTheme({
@@ -78,9 +70,9 @@ export const ThemeProvider = ({ children }) => {
     palette: {
       mode: 'dark',
       primary: {
-        main: '#90caf9',
-        light: '#e3f2fd',
-        dark: '#42a5f5',
+        main: '#1976d2',
+        light: '#42a5f5',
+        dark: '#1565c0',
       },
       secondary: {
         main: '#f48fb1',
@@ -88,42 +80,82 @@ export const ThemeProvider = ({ children }) => {
         dark: '#ec407a',
       },
       background: {
-        default: '#121212',
-        paper: '#1e1e1e',
+        default: '#23242a',
+        paper: '#2a2b32',
       },
       text: {
         primary: '#ffffff',
-        secondary: '#b0b0b0',
+        secondary: '#cccccc',
       },
-      divider: '#333333',
+      divider: '#444444',
     },
     components: {
       MuiCard: {
         styleOverrides: {
           root: {
-            backgroundColor: '#1e1e1e',
+            backgroundColor: '#2a2b32',
             boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            color: '#ffffff',
           },
         },
       },
       MuiPaper: {
         styleOverrides: {
           root: {
-            backgroundColor: '#1e1e1e',
+            backgroundColor: '#2a2b32',
+            color: '#ffffff',
           },
         },
       },
       MuiAppBar: {
         styleOverrides: {
           root: {
-            backgroundColor: '#1e1e1e',
+            backgroundColor: '#0f0f0f',
+            color: '#ffffff',
           },
         },
       },
       MuiDrawer: {
         styleOverrides: {
           paper: {
-            backgroundColor: '#1e1e1e',
+            backgroundColor: '#23242a',
+            color: '#ffffff',
+          },
+        },
+      },
+      MuiTextField: {
+        styleOverrides: {
+          root: {
+            '& .MuiInputBase-root': {
+              backgroundColor: '#2a2b32',
+              color: '#ffffff',
+            },
+            '& .MuiInputLabel-root': {
+              color: '#cccccc',
+            },
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: '#444444',
+            },
+            '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
+              borderColor: '#666666',
+            },
+            '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderColor: '#1976d2',
+            },
+          },
+        },
+      },
+      MuiTypography: {
+        styleOverrides: {
+          root: {
+            color: '#ffffff',
+          },
+        },
+      },
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            color: '#ffffff',
           },
         },
       },
@@ -170,4 +202,4 @@ export const ThemeProvider = ({ children }) => {
   );
 };
 
-export default ThemeContext; 
+// export default ThemeContext; 
