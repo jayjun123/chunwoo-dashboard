@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, useParams, createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { configureIME } from './utils/imeHandler.jsx';
 import { initKeyboardManager } from './utils/pwaKeyboardUtils';
 import { initMobileOptimization, useViewportHeight } from './utils/mobileOptimization';
@@ -26,7 +26,6 @@ import SafetyReports from './components/safety/SafetyReports';
 import Documents from './pages/Documents';
 import Reports from './pages/Reports';
 import Discussions from './pages/Discussions';
-import DiscussionMain from './components/discussions/DiscussionMain';
 import Vendors from './pages/Vendors';
 import Progress from './pages/Progress';
 import Members from './pages/Members';
@@ -42,7 +41,6 @@ import WholeList from './pages/WholeList';
 import Profile from './components/Profile';
 import NewsFavorites from './pages/NewsFavorites';
 import PDFTest from './pages/PDFTest';
-
 import NotFound from './components/NotFound';
 import Register from './components/Register';
 import RegisterSuccess from './components/RegisterSuccess';
@@ -51,7 +49,6 @@ import CustomSchedule from './pages/CustomSchedule';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
 import ScheduleManagement from './components/schedule/ScheduleManagement';
 import GanttChartPage from './pages/GanttChart';
-
 import useMediaQuery from '@mui/material/useMediaQuery';
 
 const ProtectedRoute = ({ children }) => {
@@ -73,31 +70,41 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-
-
 const App = () => {
   const isMobile = useMediaQuery('(max-width:600px)');
 
   // 모바일 최적화 초기화
   useEffect(() => {
-    const deviceInfo = initMobileOptimization();
-    console.log('Device Info:', deviceInfo);
+    try {
+      const deviceInfo = initMobileOptimization();
+      console.log('Device Info:', deviceInfo);
+    } catch (error) {
+      console.error('Mobile optimization error:', error);
+    }
   }, []);
 
   // 뷰포트 높이 최적화
-  useViewportHeight();
+  try {
+    useViewportHeight();
+  } catch (error) {
+    console.error('Viewport height error:', error);
+  }
 
   // IME 및 키보드 매니저 초기화
   useEffect(() => {
-    configureIME({
-      enableLogging: process.env.NODE_ENV === 'development',
-      enableViewportAdjustment: true,
-      enableCursorFix: true,
-      keyboardDetectionThreshold: 150
-    });
-    
-    // PWA 환경에서 키보드 매니저 초기화
-    initKeyboardManager();
+    try {
+      configureIME({
+        enableLogging: process.env.NODE_ENV === 'development',
+        enableViewportAdjustment: true,
+        enableCursorFix: true,
+        keyboardDetectionThreshold: 150
+      });
+      
+      // PWA 환경에서 키보드 매니저 초기화
+      initKeyboardManager();
+    } catch (error) {
+      console.error('IME/Keyboard initialization error:', error);
+    }
   }, []);
 
   return (
@@ -108,8 +115,8 @@ const App = () => {
             <ThemeProvider>
               <LoadingProvider>
                 <PopupProvider>
-                                  <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                  <Routes>
+                  <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                    <Routes>
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />
                       <Route path="/register-success" element={<RegisterSuccess />} />
@@ -307,20 +314,6 @@ const App = () => {
                         }
                       />
                       <Route
-                        path="/discussions/chat/:roomId"
-                        element={
-                          <ProtectedRoute>
-                            {isMobile ? (
-                              <DiscussionMain />
-                            ) : (
-                              <Layout>
-                                <Discussions />
-                              </Layout>
-                            )}
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
                         path="/vendors"
                         element={
                           <ProtectedRoute>
@@ -432,7 +425,6 @@ const App = () => {
                           </ProtectedRoute>
                         } 
                       />
-
                       <Route
                         path="/importantsite"
                         element={
@@ -561,7 +553,6 @@ const App = () => {
                           </ProtectedRoute>
                         }
                       />
-
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Router>

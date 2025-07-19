@@ -27,6 +27,16 @@ const CustomCalendar = (props) => {
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
   const isLargeDesktop = useMediaQuery(theme.breakpoints.up('xl'));
 
+  console.log('🔍 CustomCalendar 렌더링:', {
+    calendarItems: props.calendarItems,
+    calendarItemsCount: Object.keys(props.calendarItems || {}).length,
+    sites: props.sites,
+    sitesCount: props.sites?.length || 0,
+    year: props.year,
+    month: props.month,
+    viewMode: props.viewMode
+  });
+
 
 
   const {
@@ -194,7 +204,7 @@ const CustomCalendar = (props) => {
         type === '회의' ? '[회의]' : 
         type === '입찰' ? '[입찰]' : 
         type === '현설' ? '[현설]' : 
-        type === '지원' ? '[지원]' : 
+        type === '견적' ? '[견적]' : 
         type === '기타' ? '[기타]' : '';
       
       const fullText = typePrefix + (text || '');
@@ -967,7 +977,7 @@ const CustomCalendar = (props) => {
                                           item.type === '회의' ? '[회의]' : 
                                           item.type === '입찰' ? '[입찰]' : 
                                           item.type === '현설' ? '[현설]' : 
-                                          item.type === '지원' ? '[지원]' : 
+                                          item.type === '견적' ? '[견적]' : 
                                           item.type === '기타' ? '[기타]' : '';
                                         return typePrefix + (item.text || '') + (item.desc ? `\n${item.desc}` : '');
                                       })()}
@@ -1098,8 +1108,8 @@ const CustomCalendar = (props) => {
                 label="현설"
               />
               <FormControlLabel
-                control={<Checkbox checked={editPopup.item?.type === '지원'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '지원' } }))} />}
-                label="지원"
+                control={<Checkbox checked={editPopup.item?.type === '견적'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '견적' } }))} />}
+                label="견적"
               />
               <FormControlLabel
                 control={<Checkbox checked={editPopup.item?.type === '기타'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '기타' } }))} />}

@@ -69,10 +69,15 @@ const ScheduleManagement = ({
     new Date().toISOString().slice(0, 10)
   );
   const [siteSearchTerm, setSiteSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('🔍 ScheduleManagement: 사이트 데이터 로딩 시작');
+    console.log('🔍 현재 사용자:', auth.currentUser);
+    
     // props로 전달받은 sites가 있으면 사용, 없으면 기존 로직 사용
     if (propSites && propSites.length > 0) {
+      console.log('🔍 props로 전달받은 사이트 사용:', propSites.length);
       setSites(propSites);
       return;
     }
@@ -84,6 +89,7 @@ const ScheduleManagement = ({
       unsubscribe = onSnapshot(q, (snapshot) => {
         try {
           const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          console.log('🔍 사이트 데이터 로드됨:', sitesData.length, '개');
           
           // 이전 상태와 비교하여 실제로 변경되었을 때만 업데이트
           setSites(prev => {
@@ -121,9 +127,14 @@ const ScheduleManagement = ({
   // 실시간 일정 데이터 구독
   useEffect(() => {
     const user = auth.currentUser;
+    console.log('🔍 ScheduleManagement: 일정 데이터 로딩 시작');
+    console.log('🔍 현재 사용자:', user);
+    
     if (!user) {
+      console.log('🔍 사용자가 로그인하지 않음 - 일정 데이터 초기화');
       setCalendarItems({});
       setCheckedItems({});
+      setLoading(false);
       return;
     }
 
@@ -135,7 +146,7 @@ const ScheduleManagement = ({
       unsubscribe = onSnapshot(schedulesQuery, async (snapshot) => {
         try {
           const schedulesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          console.log('PC 일정 데이터 로드:', schedulesData);
+          console.log('🔍 PC 일정 데이터 로드:', schedulesData.length, '개');
           
           // 날짜별로 일정을 그룹화하고 입력순서대로 정렬
           const newCalendarItems = {};
@@ -179,13 +190,16 @@ const ScheduleManagement = ({
           
           console.log('PC 달력 아이템 업데이트:', newCalendarItems);
           setCalendarItems(newCalendarItems);
+          setLoading(false);
         } catch (error) {
           console.error('일정 데이터 처리 오류:', error);
           setCalendarItems({});
+          setLoading(false);
         }
       }, (error) => {
         console.error('일정 구독 오류:', error);
         setCalendarItems({});
+        setLoading(false);
       });
 
       // 체크 상태 실시간 구독
@@ -236,11 +250,38 @@ const ScheduleManagement = ({
 
   const filteredSites = useMemo(() => {
     const monthFiltered = sites.filter(site => isInMonth(site, year, month));
-    if (!siteSearchTerm) return monthFiltered;
+    let searchFiltered = monthFiltered;
     
-    return monthFiltered.filter(site => 
-      site.name && site.name.toLowerCase().includes(siteSearchTerm.toLowerCase())
-    );
+    if (siteSearchTerm) {
+      searchFiltered = monthFiltered.filter(site => 
+        site.name && site.name.toLowerCase().includes(siteSearchTerm.toLowerCase())
+      );
+    }
+    
+    // 정렬 로직: 1순위 - 상태별 정렬 (진행중 → 예정 → 완료), 2순위 - 가나다순
+    return searchFiltered.sort((a, b) => {
+      // 상태별 우선순위 정의
+      const statusPriority = {
+        '진행중': 1,
+        '예정': 2,
+        '완료': 3
+      };
+      
+      // 1순위: 상태별 정렬
+      const aStatus = a.status || '';
+      const bStatus = b.status || '';
+      const aPriority = statusPriority[aStatus] || 999; // 상태가 없으면 맨 뒤로
+      const bPriority = statusPriority[bStatus] || 999;
+      
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      
+      // 2순위: 가나다순 정렬
+      const aName = a.name || '';
+      const bName = b.name || '';
+      return aName.localeCompare(bName, 'ko');
+    });
   }, [sites, year, month, siteSearchTerm]);
 
   const onDragEnd = async (result) => {
@@ -640,6 +681,22 @@ const ScheduleManagement = ({
       overflow: isMobile ? 'hidden' : 'visible',
       bgcolor: '#23242a'
     }}>
+      {loading && (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '200px',
+          color: 'white',
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 1000
+        }}>
+          <Typography>일정을 불러오는 중...</Typography>
+        </Box>
+      )}
       <DragDropContext onDragEnd={onDragEnd}>
                   <Box sx={{ 
             display: 'flex', 
@@ -677,12 +734,72 @@ const ScheduleManagement = ({
               bgcolor: '#23242a',
               color: '#fff'
             }}>
-              <Typography variant="h6" sx={{ 
-                mb: 1, 
-                fontWeight: 600, 
-                display: { xs: 'none', md: 'block' },
-                color: '#fff'
-              }}>이달의 현장</Typography>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                mb: 1
+              }}>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 600, 
+                  display: { xs: 'none', md: 'block' },
+                  color: '#fff'
+                }}>이달의 현장</Typography>
+                
+                {/* 견적/청구 버튼 - 오른쪽에 컴팩트하게 */}
+                <Box sx={{ 
+                  display: 'flex', 
+                  gap: 0.5,
+                  display: { xs: 'none', md: 'flex' }
+                }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    sx={{
+                      borderColor: '#3b82f6',
+                      color: '#3b82f6',
+                      fontSize: '0.9rem',
+                      py: 0.3,
+                      px: 1,
+                      minWidth: 'auto',
+                      height: 24,
+                      '&:hover': {
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)'
+                      }
+                    }}
+                    onClick={() => {
+                      console.log('견적 버튼 클릭');
+                      // TODO: 견적 페이지로 라우팅
+                    }}
+                  >
+                    견적
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    sx={{
+                      borderColor: '#ef4444',
+                      color: '#ef4444',
+                      fontSize: '0.9rem',
+                      py: 0.3,
+                      px: 1,
+                      minWidth: 'auto',
+                      height: 24,
+                      '&:hover': {
+                        borderColor: '#dc2626',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)'
+                      }
+                    }}
+                    onClick={() => {
+                      console.log('청구 버튼 클릭');
+                      // TODO: 청구 페이지로 라우팅
+                    }}
+                  >
+                    청구
+                  </Button>
+                </Box>
+              </Box>
               <TextField
                 size="small"
                 placeholder="현장명 검색"
@@ -778,7 +895,22 @@ const ScheduleManagement = ({
                               }}
                             >
                               <Typography sx={{ 
-                                fontWeight: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') ? 600 : 400
+                                fontWeight: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') ? 600 : 400,
+                                color: (() => {
+                                  // 선택된 상태일 때는 흰색 유지
+                                  if (selectedItems.some(sel => sel.id === site.id && sel.type === 'site')) {
+                                    return '#fff';
+                                  }
+                                  // 상태별 색상 적용 (왼쪽 리스트에서만)
+                                  switch (site.status) {
+                                    case '예정':
+                                      return '#ef4444'; // 빨간색
+                                    case '완료':
+                                      return '#22c55e'; // 초록색
+                                    default:
+                                      return '#fff'; // 기본 흰색
+                                  }
+                                })()
                               }}>
                                 {site.name.slice(0, 10)}
                                 {site.status ? ` (${site.status})` : ''}
@@ -846,6 +978,14 @@ const ScheduleManagement = ({
               onExcel={handleExcel}
               onAddSchedule={onAddSchedule}
             />
+            {console.log('🔍 CustomCalendar에 전달되는 props:', {
+              year,
+              month,
+              viewMode,
+              calendarItemsCount: Object.keys(calendarItems).length,
+              sitesCount: filteredSites.length,
+              selectedDate
+            })}
           </Box>
         </Box>
       </DragDropContext>
@@ -889,8 +1029,8 @@ const ScheduleManagement = ({
                   label="현설"
                 />
                 <FormControlLabel
-                  control={<Checkbox checked={selectedTypes.includes('지원')} onChange={() => handleTypeChange('지원')} />}
-                  label="지원"
+                  control={<Checkbox checked={selectedTypes.includes('견적')} onChange={() => handleTypeChange('견적')} />}
+                  label="견적"
                 />
                 <FormControlLabel
                   control={<Checkbox checked={selectedTypes.includes('기타')} onChange={() => handleTypeChange('기타')} />}
@@ -959,8 +1099,8 @@ const ScheduleManagement = ({
                   label="현설"
                 />
                 <FormControlLabel
-                  control={<Checkbox checked={editPopup.item?.type === '지원'} onChange={() => handleEditTypeChange('지원')} />}
-                  label="지원"
+                  control={<Checkbox checked={editPopup.item?.type === '견적'} onChange={() => handleEditTypeChange('견적')} />}
+                  label="견적"
                 />
                 <FormControlLabel
                   control={<Checkbox checked={editPopup.item?.type === '기타'} onChange={() => handleEditTypeChange('기타')} />}
