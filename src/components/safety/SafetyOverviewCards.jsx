@@ -121,7 +121,7 @@ function SafetyOverviewCards() {
       width: '100%', 
       mb: 3, 
       maxWidth: isMobile ? '100vw' : '100%',
-      px: isMobile ? 1 : 0
+      px: isMobile ? '16px' : 0
     }}>
       <Box sx={{ 
         display: 'flex', 
@@ -148,17 +148,18 @@ function SafetyOverviewCards() {
       
 
 
-      <Grid container spacing={2.5}>
+      <Grid container spacing={isMobile ? 2 : 2.5}>
         {filtered.map(site => (
-          <Grid xs={12} md={4} lg={4} key={site.siteName}>
+          <Grid item xs={12} md={4} lg={4} key={site.siteName} sx={{ width: '100%', px: isMobile ? 0 : 0 }}>
             <Paper sx={{ 
               p: isMobile ? 1.5 : 2.5, 
               bgcolor: '#181c24', 
-              borderRadius: 3, 
+              borderRadius: isMobile ? 2 : 3, 
               minHeight: isMobile ? 200 : 210, 
               boxShadow: 3,
               position: 'relative',
-              ml: isMobile ? '-5px' : 0
+              ml: isMobile ? 0 : 0,
+              width: '100%'
             }}>
               {/* 그리드 오버레이 */}
               <Box sx={{
@@ -218,26 +219,34 @@ function SafetyOverviewCards() {
                         component="span"
                       />
                     </Box>
-                    {isMobile ? (
-                      <Button
-                        variant="contained"
-                        size="small"
-                        sx={{ width: 60, ml: 1, fontSize: '0.8rem', minWidth: 0, p: 0.5 }}
-                        onClick={() => navigate('/safety-inspections')}
-                      >
-                        이동
-                      </Button>
-                    ) : (
-                      <TextField
-                        size="small"
-                        variant="outlined"
-                        placeholder="입력"
-                        value={inputs[site.siteName]?.inspection || ''}
-                        onChange={e => handleInputChange(site.siteName, 'inspection', e.target.value)}
-                        sx={{ width: 105, height: 28, ml: -0.625, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 28, p: 0 } }}
-                        InputProps={{ style: { height: 28, padding: 0, fontSize: '1rem', textAlign: 'center', lineHeight: 1 } }}
-                      />
-                    )}
+                    <TextField
+                      size="small"
+                      variant="outlined"
+                      placeholder="입력"
+                      value={inputs[site.siteName]?.inspection || ''}
+                      onChange={e => handleInputChange(site.siteName, 'inspection', e.target.value)}
+                      sx={{ 
+                        width: isMobile ? 80 : 105, 
+                        height: 28, 
+                        ml: isMobile ? 0 : -0.625, 
+                        mr: 1, 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: 1, 
+                          height: 28, 
+                          p: 0,
+                          fontSize: isMobile ? '0.8rem' : '1rem'
+                        } 
+                      }}
+                      InputProps={{ 
+                        style: { 
+                          height: 28, 
+                          padding: 0, 
+                          fontSize: isMobile ? '0.8rem' : '1rem', 
+                          textAlign: 'center', 
+                          lineHeight: 1 
+                        } 
+                      }}
+                    />
                   </Box>
                 </Box>
                 {/* 사고예방 */}
@@ -265,26 +274,34 @@ function SafetyOverviewCards() {
                         component="span"
                       />
                     </Box>
-                    {isMobile ? (
-                      <Button
-                        variant="contained"
-                        size="small"
-                        sx={{ width: 60, ml: 1, fontSize: '0.8rem', minWidth: 0, p: 0.5 }}
-                        onClick={() => navigate('/safety-accidents')}
-                      >
-                        이동
-                      </Button>
-                    ) : (
-                      <TextField
-                        size="small"
-                        variant="outlined"
-                        placeholder="입력"
-                        value={inputs[site.siteName]?.accident || ''}
-                        onChange={e => handleInputChange(site.siteName, 'accident', e.target.value)}
-                        sx={{ width: 105, height: 28, ml: -0.625, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 28, p: 0 } }}
-                        InputProps={{ style: { height: 28, padding: 0, fontSize: '1rem', textAlign: 'center', lineHeight: 1 } }}
-                      />
-                    )}
+                    <TextField
+                      size="small"
+                      variant="outlined"
+                      placeholder="입력"
+                      value={inputs[site.siteName]?.accident || ''}
+                      onChange={e => handleInputChange(site.siteName, 'accident', e.target.value)}
+                      sx={{ 
+                        width: isMobile ? 80 : 105, 
+                        height: 28, 
+                        ml: isMobile ? 0 : -0.625, 
+                        mr: 1, 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: 1, 
+                          height: 28, 
+                          p: 0,
+                          fontSize: isMobile ? '0.8rem' : '1rem'
+                        } 
+                      }}
+                      InputProps={{ 
+                        style: { 
+                          height: 28, 
+                          padding: 0, 
+                          fontSize: isMobile ? '0.8rem' : '1rem', 
+                          textAlign: 'center', 
+                          lineHeight: 1 
+                        } 
+                      }}
+                    />
                   </Box>
                 </Box>
                 {/* 안전교육 */}
@@ -312,26 +329,34 @@ function SafetyOverviewCards() {
                         component="span"
                       />
                     </Box>
-                    {isMobile ? (
-                      <Button
-                        variant="contained"
-                        size="small"
-                        sx={{ width: 60, ml: 1, fontSize: '0.8rem', minWidth: 0, p: 0.5 }}
-                        onClick={() => navigate('/safety-education')}
-                      >
-                        이동
-                      </Button>
-                    ) : (
-                      <TextField
-                        size="small"
-                        variant="outlined"
-                        placeholder="입력"
-                        value={inputs[site.siteName]?.education || ''}
-                        onChange={e => handleInputChange(site.siteName, 'education', e.target.value)}
-                        sx={{ width: 105, height: 28, ml: -0.625, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 28, p: 0 } }}
-                        InputProps={{ style: { height: 28, padding: 0, fontSize: '1rem', textAlign: 'center', lineHeight: 1 } }}
-                      />
-                    )}
+                    <TextField
+                      size="small"
+                      variant="outlined"
+                      placeholder="입력"
+                      value={inputs[site.siteName]?.education || ''}
+                      onChange={e => handleInputChange(site.siteName, 'education', e.target.value)}
+                      sx={{ 
+                        width: isMobile ? 80 : 105, 
+                        height: 28, 
+                        ml: isMobile ? 0 : -0.625, 
+                        mr: 1, 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: 1, 
+                          height: 28, 
+                          p: 0,
+                          fontSize: isMobile ? '0.8rem' : '1rem'
+                        } 
+                      }}
+                      InputProps={{ 
+                        style: { 
+                          height: 28, 
+                          padding: 0, 
+                          fontSize: isMobile ? '0.8rem' : '1rem', 
+                          textAlign: 'center', 
+                          lineHeight: 1 
+                        } 
+                      }}
+                    />
                   </Box>
                 </Box>
                 {/* 안전관리비 */}
@@ -359,26 +384,34 @@ function SafetyOverviewCards() {
                         component="span"
                       />
                     </Box>
-                    {isMobile ? (
-                      <Button
-                        variant="contained"
-                        size="small"
-                        sx={{ width: 60, ml: 1, fontSize: '0.8rem', minWidth: 0, p: 0.5 }}
-                        onClick={() => navigate('/safety-costs')}
-                      >
-                        이동
-                      </Button>
-                    ) : (
-                      <TextField
-                        size="small"
-                        variant="outlined"
-                        placeholder="입력"
-                        value={inputs[site.siteName]?.cost || ''}
-                        onChange={e => handleInputChange(site.siteName, 'cost', e.target.value)}
-                        sx={{ width: 105, height: 28, ml: -0.625, mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 1, height: 28, p: 0 } }}
-                        InputProps={{ style: { height: 28, padding: 0, fontSize: '1rem', textAlign: 'center', lineHeight: 1 } }}
-                      />
-                    )}
+                    <TextField
+                      size="small"
+                      variant="outlined"
+                      placeholder="입력"
+                      value={inputs[site.siteName]?.cost || ''}
+                      onChange={e => handleInputChange(site.siteName, 'cost', e.target.value)}
+                      sx={{ 
+                        width: isMobile ? 80 : 105, 
+                        height: 28, 
+                        ml: isMobile ? 0 : -0.625, 
+                        mr: 1, 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: 1, 
+                          height: 28, 
+                          p: 0,
+                          fontSize: isMobile ? '0.8rem' : '1rem'
+                        } 
+                      }}
+                      InputProps={{ 
+                        style: { 
+                          height: 28, 
+                          padding: 0, 
+                          fontSize: isMobile ? '0.8rem' : '1rem', 
+                          textAlign: 'center', 
+                          lineHeight: 1 
+                        } 
+                      }}
+                    />
                   </Box>
                 </Box>
               </Box>

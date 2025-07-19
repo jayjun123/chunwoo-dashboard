@@ -388,93 +388,12 @@ const SafetyPage = () => {
       );
     }
 
-    // 모바일에서는 카드 형태로 표시
-    if (isMobile) {
-      return (
-        <Grid container spacing={2} sx={{ p: 1 }}>
-          {filteredData.map((row) => (
-            <Grid item xs={12} key={row.id}>
-              <Paper
-                sx={{
-                  p: 2,
-                  bgcolor: '#232b3b',
-                  borderRadius: 2,
-                  border: '1px solid #333',
-                  '&:hover': {
-                    bgcolor: '#2a3441',
-                    borderColor: '#90caf9'
-                  }
-                }}
-              >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                  <Typography variant="h6" sx={{ color: '#fff', fontSize: '1rem', fontWeight: 600 }}>
-                    {tab === 4 ? row.name : row.title}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => {
-                        // 각 탭에 맞는 상세 페이지로 이동
-                        const routes = {
-                          1: '/safety-inspections', // 안전 점검
-                          2: '/safety-accidents',   // 사고/사고예방
-                          3: '/safety-education',  // 안전 교육
-                          4: '/safety-costs'       // 안전관리비
-                        };
-                        navigate(routes[tab]);
-                      }}
-                      sx={{
-                        color: '#90caf9',
-                        borderColor: '#90caf9',
-                        fontSize: '0.7rem',
-                        px: 1,
-                        py: 0.5,
-                        '&:hover': {
-                          bgcolor: '#90caf9',
-                          color: '#000'
-                        }
-                      }}
-                    >
-                      상세보기
-                    </Button>
-                  </Box>
-                </Box>
-                
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                  <Typography sx={{ color: '#ccc', fontSize: '0.8rem' }}>
-                    현장: {row.siteName}
-                  </Typography>
-                  <Typography sx={{ color: '#ccc', fontSize: '0.8rem' }}>
-                    날짜: {row.date}
-                  </Typography>
-                  {tab === 4 && (
-                    <>
-                      <Typography sx={{ color: '#ccc', fontSize: '0.8rem' }}>
-                        안전장비: {row.equipment}
-                      </Typography>
-                      <Typography sx={{ color: '#ccc', fontSize: '0.8rem' }}>
-                        금액: {row.amount ? Number(row.amount).toLocaleString() : '-'}
-                      </Typography>
-                    </>
-                  )}
-                  {row.description && (
-                    <Typography sx={{ color: '#ccc', fontSize: '0.8rem' }}>
-                      비고: {row.description}
-                    </Typography>
-                  )}
-                </Box>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
-      );
-    }
+    // 모바일에서도 테이블 형태로 표시 (PC와 동일)
     
     const tableHeaders = {
-      1: ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 안전 점검
-      2: ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 사고/사고예방
-      3: ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 안전 교육
+      1: isMobile ? ['현장명', '제목', '일자'] : ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 안전 점검
+      2: isMobile ? ['현장명', '제목', '일자'] : ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 사고/사고예방
+      3: isMobile ? ['현장명', '제목', '일자'] : ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 안전 교육
       4: ['현장명', '이름', '날짜', '안전장비', '분출여부', '첨부파일', '영수증', '분출대장', '비고', '금액', '관리'] // 안전관리비
     };
 
@@ -509,63 +428,67 @@ const SafetyPage = () => {
             }}>
               {row.date}
             </TableCell>
-            <TableCell sx={{ 
-              fontSize: isMobile ? '0.6rem' : 'inherit', 
-              padding: isMobile ? '4px 2px' : 'auto',
-              width: 'auto',
-              minWidth: 0,
-              maxWidth: '100%'
-            }}>
-              {row.preview ? (
-                <Button 
-                  size={isMobile ? 'small' : 'small'} 
-                  href={row.preview} 
-                  target="_blank" 
-                  download={row.attachment || ''}
-                  sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}
-                >
-                  {row.attachment || '다운로드'}
-                </Button>
-              ) : '-'}
-            </TableCell>
-            <TableCell sx={{ 
-              fontSize: isMobile ? '0.6rem' : 'inherit', 
-              padding: isMobile ? '4px 2px' : 'auto',
-              width: 'auto',
-              minWidth: 0,
-              maxWidth: '100%'
-            }}>
-              {row.preview && (row.attachment && row.attachment.match(/\.(jpg|jpeg|png|gif)$/i)) ? (
-                <img src={row.preview} alt="미리보기" style={{ maxWidth: isMobile ? 40 : 60, maxHeight: isMobile ? 30 : 40 }} />
-              ) : row.preview ? (
-                <a href={row.preview} target="_blank" rel="noopener noreferrer" style={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}>
-                  미리보기
-                </a>
-              ) : '-'}
-            </TableCell>
-            <TableCell sx={{ 
-              fontSize: isMobile ? '0.6rem' : 'inherit', 
-              padding: isMobile ? '4px 2px' : 'auto',
-              width: 'auto',
-              minWidth: 0,
-              maxWidth: '100%'
-            }}>
-              {row.description}
-            </TableCell>
-            <TableCell sx={{ 
-              fontSize: isMobile ? '0.6rem' : 'inherit', 
-              padding: isMobile ? '4px 2px' : 'auto',
-              width: 'auto',
-              minWidth: 0,
-              maxWidth: '100%'
-            }}>
-              <IconButton size={isMobile ? 'small' : 'small'} onClick={() => openDialog(row)}>
-                <EditIcon sx={{ fontSize: isMobile ? '1rem' : 'inherit' }} />
-              </IconButton>
-              <IconButton size={isMobile ? 'small' : 'small'} onClick={() => handleDelete(row)}>
-                <DeleteIcon sx={{ fontSize: isMobile ? '1rem' : 'inherit' }} />
-              </IconButton>
-            </TableCell>
+            {!isMobile && (
+              <>
+                <TableCell sx={{ 
+                  fontSize: isMobile ? '0.6rem' : 'inherit', 
+                  padding: isMobile ? '4px 2px' : 'auto',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>
+                  {row.preview ? (
+                    <Button 
+                      size={isMobile ? 'small' : 'small'} 
+                      href={row.preview} 
+                      target="_blank" 
+                      download={row.attachment || ''}
+                      sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}
+                    >
+                      {row.attachment || '다운로드'}
+                    </Button>
+                  ) : '-'}
+                </TableCell>
+                <TableCell sx={{ 
+                  fontSize: isMobile ? '0.6rem' : 'inherit', 
+                  padding: isMobile ? '4px 2px' : 'auto',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>
+                  {row.preview && (row.attachment && row.attachment.match(/\.(jpg|jpeg|png|gif)$/i)) ? (
+                    <img src={row.preview} alt="미리보기" style={{ maxWidth: isMobile ? 40 : 60, maxHeight: isMobile ? 30 : 40 }} />
+                  ) : row.preview ? (
+                    <a href={row.preview} target="_blank" rel="noopener noreferrer" style={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}>
+                      미리보기
+                    </a>
+                  ) : '-'}
+                </TableCell>
+                <TableCell sx={{ 
+                  fontSize: isMobile ? '0.6rem' : 'inherit', 
+                  padding: isMobile ? '4px 2px' : 'auto',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>
+                  {row.description}
+                </TableCell>
+                <TableCell sx={{ 
+                  fontSize: isMobile ? '0.6rem' : 'inherit', 
+                  padding: isMobile ? '4px 2px' : 'auto',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>
+                  <IconButton size={isMobile ? 'small' : 'small'} onClick={() => openDialog(row)}>
+                    <EditIcon sx={{ fontSize: isMobile ? '1rem' : 'inherit' }} />
+                  </IconButton>
+                  <IconButton size={isMobile ? 'small' : 'small'} onClick={() => handleDelete(row)}>
+                    <DeleteIcon sx={{ fontSize: isMobile ? '1rem' : 'inherit' }} />
+                  </IconButton>
+                </TableCell>
+              </>
+            )}
           </TableRow>
         );
       }
@@ -753,9 +676,20 @@ const SafetyPage = () => {
               >
                 추가
               </Button>
-              {!isMobile && (
-                <Button variant="outlined" startIcon={<CloudDownloadIcon />} onClick={handleExcelExport}>
-                  엑셀 다운로드
+              {(!isMobile || (tab !== 1 && tab !== 2 && tab !== 3)) && (
+                <Button 
+                  variant="outlined" 
+                  startIcon={<CloudDownloadIcon />} 
+                  onClick={handleExcelExport}
+                  sx={{
+                    ...(isMobile && {
+                      fontSize: '0.7rem',
+                      padding: '4px 8px',
+                      minWidth: 'auto'
+                    })
+                  }}
+                >
+                  {isMobile ? '엑셀' : '엑셀 다운로드'}
                 </Button>
               )}
             </Box>
@@ -765,9 +699,14 @@ const SafetyPage = () => {
             maxWidth: '100%', 
             minWidth: 0, 
             overflowX: 'auto',
+            ...(isMobile && {
+              maxHeight: '60vh',
+              overflowY: 'auto',
+              overflowX: 'hidden' // 모바일에서 가로 스크롤 숨김
+            }),
             '& .MuiTable-root': {
               width: '100%',
-              minWidth: 0,
+              minWidth: isMobile ? 'auto' : 0, // 모바일에서 최소 너비 자동
               maxWidth: '100%'
             }
           }}>
@@ -856,17 +795,17 @@ const SafetyPage = () => {
               bgcolor: '#232b3b',
               borderRadius: 2,
               boxShadow: 2,
-              display: isMobile ? 'none' : 'flex',
+              display: 'flex', // 모바일에서도 탭 표시
               width: '100%',
               '& .MuiTab-root': {
                 color: '#fff',
                 fontWeight: 700,
-                fontSize: '1rem',
-                px: 3,
-                py: 1.5,
+                fontSize: isMobile ? '0.8rem' : '1rem',
+                px: isMobile ? 1 : 3,
+                py: isMobile ? 1 : 1.5,
                 borderRadius: 2,
-                minHeight: 48,
-                              minWidth: 120,
+                minHeight: isMobile ? 40 : 48,
+                minWidth: isMobile ? 80 : 120,
                 flex: 1,
                 '&.Mui-selected': {
                   color: '#90caf9',
@@ -875,7 +814,7 @@ const SafetyPage = () => {
                 },
               },
               '& .MuiTabs-flexContainer': {
-                gap: 2,
+                gap: isMobile ? 1 : 2,
                 width: '100%',
                 justifyContent: 'space-between',
               },
@@ -905,8 +844,8 @@ const SafetyPage = () => {
           </Tabs>
         </Paper>
         <Grid container spacing={2} sx={{
-          height: 'calc(100vh - 120px)',
-          overflowY: 'hidden',
+          height: isMobile ? 'auto' : 'calc(100vh - 120px)',
+          overflowY: isMobile ? 'auto' : 'hidden',
           overflowX: 'hidden',
           width: '100%',
           maxWidth: '100%'

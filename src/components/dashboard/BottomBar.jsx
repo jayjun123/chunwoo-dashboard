@@ -27,6 +27,8 @@ import EngineeringIcon from '@mui/icons-material/Engineering';
 import SafetyHelmetIcon from '@mui/icons-material/SafetyCheck';
 import AddIcon from '@mui/icons-material/Add';
 import SecurityIcon from '@mui/icons-material/Security';
+import CalculateIcon from '@mui/icons-material/Calculate';
+import CategoryIcon from '@mui/icons-material/Category';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useNavigate } from 'react-router-dom';
@@ -68,6 +70,8 @@ const BottomBar = ({
     progressCount: 0,
     discussionCount: 0,
     safetyCount: 0,
+    estimateCount: 0,
+    etcCount: 0,
     todoDone: 0,
     todoTotal: 0
   });
@@ -84,6 +88,8 @@ const BottomBar = ({
   const [safetyList, setSafetyList] = useState([]);
   const [todoList, setTodoList] = useState([]);
   const [setupList, setSetupList] = useState([]); // 금일현설용 별도 상태
+  const [estimateList, setEstimateList] = useState([]); // 금일견적용 별도 상태
+  const [etcList, setEtcList] = useState([]); // 금일기타용 별도 상태
   const [sitesList, setSitesList] = useState([]); // 현장 목록
 
   // 햄버거 메뉴 Drawer 상태
@@ -507,12 +513,28 @@ const BottomBar = ({
       );
       console.log('🔥 금일현설:', todaySetup.length, '개', todaySetup);
       
+      // 금일견적 (type에 '견적' 포함)
+      const todayEstimate = todaySchedules.filter(item => 
+        item.type && 
+        item.type.includes('견적')
+      );
+      console.log('🔥 금일견적:', todayEstimate.length, '개', todayEstimate);
+      
+      // 금일기타 (type에 '기타' 포함)
+      const todayEtc = todaySchedules.filter(item => 
+        item.type && 
+        item.type.includes('기타')
+      );
+      console.log('🔥 금일기타:', todayEtc.length, '개', todayEtc);
+      
       // stats를 한 번에 업데이트
       const newStats = {
         todaySites: todaySites.length,
         progressCount: todayBids.length,
         discussionCount: todayMeetings.length,
-        safetyCount: todaySetup.length
+        safetyCount: todaySetup.length,
+        estimateCount: todayEstimate.length,
+        etcCount: todayEtc.length
       };
       
       console.log('🔥 하단바 stats 업데이트:', newStats);
@@ -526,6 +548,8 @@ const BottomBar = ({
       setDiscussionList(todayBids.slice(-5).reverse());
       setSafetyList(todayMeetings.slice(-5).reverse());
       setSetupList(todaySetup.slice(-5).reverse());
+      setEstimateList(todayEstimate.slice(-5).reverse());
+      setEtcList(todayEtc.slice(-5).reverse());
     }, (err) => {
       console.error('🔥 하단바 일정 연동 오류:', err);
       setError('일정관리 데이터를 불러오는 중 오류가 발생했습니다.');
@@ -1104,26 +1128,36 @@ const BottomBar = ({
         <Box sx={{ 
           display: 'flex', 
           alignItems: 'center', 
-          gap: { xs: 1, md: 4 }, 
+          gap: { xs: 0.5, md: 2 }, 
           flex: 1, 
-          justifyContent: 'center', 
+          justifyContent: { xs: 'flex-start', md: 'center' }, 
+          pl: { xs: 2, md: 0 },
           cursor: 'pointer' 
         }} onClick={(e) => { e.stopPropagation(); handleOpenPanel('center'); }}>
           <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {!isMobile && <span style={{ marginRight: '16px' }}>TODAY'S</span>}
             <EngineeringIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FFD600', mr: 0.5 }} />
-            {!isMobile && '[금일현장]'} {stats.todaySites ?? 0}
+            {!isMobile && '[현장]'} {stats.todaySites ?? 0}
           </Typography>
           <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <TrendingUpIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#4FC3F7', mr: 0.5 }} />
-            {!isMobile && '[금일입찰]'} {stats.progressCount ?? 0}
+            {!isMobile && '[입찰]'} {stats.progressCount ?? 0}
           </Typography>
           <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <ForumIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF7043', mr: 0.5 }} />
-            {!isMobile && '[금일회의]'} {stats.discussionCount ?? 0}
+            {!isMobile && '[회의]'} {stats.discussionCount ?? 0}
           </Typography>
           <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <SafetyHelmetIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#81C784', mr: 0.5 }} />
-            {!isMobile && '[금일현설]'} {stats.safetyCount ?? 0}
+            {!isMobile && '[현설]'} {stats.safetyCount ?? 0}
+          </Typography>
+          <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <CalculateIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF9800', mr: 0.5 }} />
+            {!isMobile && '[견적]'} {stats.estimateCount ?? 0}
+          </Typography>
+          <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <CategoryIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#9E9E9E', mr: 0.5 }} />
+            {!isMobile && '[기타]'} {stats.etcCount ?? 0}
           </Typography>
         </Box>
         {/* 우측: ToDoList + 설정 아이콘 */}
@@ -1537,7 +1571,7 @@ const BottomBar = ({
             <CloseIcon />
           </IconButton>
           <Typography variant="h6" sx={{ mb: { xs: 1, md: 2 }, fontWeight: 700, fontSize: { xs: 16, md: 18 } }}>
-            금일현장/기성/협의/안전 실시간 현황
+            {isMobile ? '오늘의 주요일정' : '금일현장/기성/협의/안전 실시간 현황'}
           </Typography>
           
           {/* PC에서는 가로 배치, 모바일에서는 세로 배치 */}
@@ -1548,156 +1582,244 @@ const BottomBar = ({
             justifyContent: 'space-between'
           }}>
             {/* 금일현장 목록 */}
-            <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
-              <Typography variant="h6" sx={{ mb: 1, color: '#FFD600', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
-                🏗️ 금일현장 ({progressList.length}개)
-              </Typography>
-              {progressList.length === 0 ? (
-                <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 현장 일정이 없습니다.</Typography>
-              ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
-                  {progressList.map((item, index) => (
-                    <Box key={item.id} sx={{ 
-                      p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
-                      bgcolor: '#2a2a2a', 
-                      borderRadius: 1, 
-                      border: '1px solid #444',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.title || item.text || item.description || item.desc || '설명 없음'}
-                        </Typography>
-                        {(item.description || item.desc) && (item.description || item.desc).trim() && (
-                          <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.description || item.desc}
+            {(!isMobile || progressList.length > 0) && (
+              <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
+                <Typography variant="h6" sx={{ mb: 1, color: '#FFD600', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
+                  🏗️ {isMobile ? '현장' : '금일현장'} ({progressList.length}개)
+                </Typography>
+                {progressList.length === 0 ? (
+                  <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 현장 일정이 없습니다.</Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
+                    {progressList.map((item, index) => (
+                      <Box key={item.id} sx={{ 
+                        p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
+                        bgcolor: '#2a2a2a', 
+                        borderRadius: 1, 
+                        border: '1px solid #444',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.title || item.text || item.description || item.desc || '설명 없음'}
                           </Typography>
-                        )}
+                          {(item.description || item.desc) && (item.description || item.desc).trim() && (
+                            <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.description || item.desc}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Typography sx={{ color: '#FFD600', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
+                          {item.startDate}
+                        </Typography>
                       </Box>
-                      <Typography sx={{ color: '#FFD600', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
-                        {item.startDate}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-            </Box>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            )}
 
             {/* 금일입찰 목록 */}
-            <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
-              <Typography variant="h6" sx={{ mb: 1, color: '#4FC3F7', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
-                📈 금일입찰 ({discussionList.length}개)
-              </Typography>
-              {discussionList.length === 0 ? (
-                <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 입찰 일정이 없습니다.</Typography>
-              ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
-                  {discussionList.map((item, index) => (
-                    <Box key={index} sx={{ 
-                      p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
-                      bgcolor: '#2a2a2a', 
-                      borderRadius: 1, 
-                      border: '1px solid #444',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.title || item.text || item.description || item.desc || '설명 없음'}
-                        </Typography>
-                        {(item.description || item.desc) && (item.description || item.desc).trim() && (
-                          <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.description || item.desc}
+            {(!isMobile || discussionList.length > 0) && (
+              <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
+                <Typography variant="h6" sx={{ mb: 1, color: '#4FC3F7', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
+                  📈 {isMobile ? '입찰' : '금일입찰'} ({discussionList.length}개)
+                </Typography>
+                {discussionList.length === 0 ? (
+                  <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 입찰 일정이 없습니다.</Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
+                    {discussionList.map((item, index) => (
+                      <Box key={index} sx={{ 
+                        p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
+                        bgcolor: '#2a2a2a', 
+                        borderRadius: 1, 
+                        border: '1px solid #444',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.title || item.text || item.description || item.desc || '설명 없음'}
                           </Typography>
-                        )}
+                          {(item.description || item.desc) && (item.description || item.desc).trim() && (
+                            <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.description || item.desc}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Typography sx={{ color: '#4FC3F7', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
+                          {item.startDate}
+                        </Typography>
                       </Box>
-                      <Typography sx={{ color: '#4FC3F7', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
-                        {item.startDate}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-            </Box>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            )}
 
             {/* 금일회의 목록 */}
-            <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
-              <Typography variant="h6" sx={{ mb: 1, color: '#FF7043', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
-                💬 금일회의 ({safetyList.length}개)
-              </Typography>
-              {safetyList.length === 0 ? (
-                <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 회의 일정이 없습니다.</Typography>
-              ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
-                  {safetyList.map((item, index) => (
-                    <Box key={index} sx={{ 
-                      p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
-                      bgcolor: '#2a2a2a', 
-                      borderRadius: 1, 
-                      border: '1px solid #444',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.title || item.text || item.description || item.desc || '설명 없음'}
-                        </Typography>
-                        {(item.description || item.desc) && (item.description || item.desc).trim() && (
-                          <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.description || item.desc}
+            {(!isMobile || safetyList.length > 0) && (
+              <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
+                <Typography variant="h6" sx={{ mb: 1, color: '#FF7043', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
+                  💬 {isMobile ? '회의' : '금일회의'} ({safetyList.length}개)
+                </Typography>
+                {safetyList.length === 0 ? (
+                  <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 회의 일정이 없습니다.</Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
+                    {safetyList.map((item, index) => (
+                      <Box key={index} sx={{ 
+                        p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
+                        bgcolor: '#2a2a2a', 
+                        borderRadius: 1, 
+                        border: '1px solid #444',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.title || item.text || item.description || item.desc || '설명 없음'}
                           </Typography>
-                        )}
+                          {(item.description || item.desc) && (item.description || item.desc).trim() && (
+                            <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.description || item.desc}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Typography sx={{ color: '#FF7043', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
+                          {item.startDate}
+                        </Typography>
                       </Box>
-                      <Typography sx={{ color: '#FF7043', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
-                        {item.startDate}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-            </Box>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            )}
 
             {/* 금일현설 목록 */}
-            <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
-              <Typography variant="h6" sx={{ mb: 1, color: '#81C784', fontWeight: 600, fontSize: { xs: 16, md: 14 } }}>
-                🛡️ 금일현설 ({setupList.length}개)
-              </Typography>
-              {setupList.length === 0 ? (
-                <Typography sx={{ color: '#ccc', fontSize: { xs: 14, md: 12 } }}>오늘 현설 일정이 없습니다.</Typography>
-              ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {setupList.map((item, index) => (
-                    <Box key={index} sx={{ 
-                      p: { xs: 1.5, md: 1 }, 
-                      bgcolor: '#2a2a2a', 
-                      borderRadius: 1, 
-                      border: '1px solid #444',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 600, fontSize: { xs: 16, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.title || item.text || item.description || item.desc || '설명 없음'}
-                        </Typography>
-                        {(item.description || item.desc) && (item.description || item.desc).trim() && (
-                          <Typography sx={{ color: '#ccc', fontSize: { xs: 14, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.description || item.desc}
+            {(!isMobile || setupList.length > 0) && (
+              <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
+                <Typography variant="h6" sx={{ mb: 1, color: '#81C784', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
+                  🛡️ {isMobile ? '현설' : '금일현설'} ({setupList.length}개)
+                </Typography>
+                {setupList.length === 0 ? (
+                  <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 현설 일정이 없습니다.</Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
+                    {setupList.map((item, index) => (
+                      <Box key={index} sx={{ 
+                        p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
+                        bgcolor: '#2a2a2a', 
+                        borderRadius: 1, 
+                        border: '1px solid #444',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.title || item.text || item.description || item.desc || '설명 없음'}
                           </Typography>
-                        )}
+                          {(item.description || item.desc) && (item.description || item.desc).trim() && (
+                            <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.description || item.desc}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Typography sx={{ color: '#81C784', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
+                          {item.startDate}
+                        </Typography>
                       </Box>
-                      <Typography sx={{ color: '#81C784', fontSize: { xs: 14, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
-                        {item.startDate}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-            </Box>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            )}
+
+            {/* 금일견적 목록 */}
+            {(!isMobile || estimateList.length > 0) && (
+              <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
+                <Typography variant="h6" sx={{ mb: 1, color: '#FF9800', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
+                  🧮 {isMobile ? '견적' : '금일견적'} ({estimateList.length}개)
+                </Typography>
+                {estimateList.length === 0 ? (
+                  <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 견적 일정이 없습니다.</Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
+                    {estimateList.map((item, index) => (
+                      <Box key={index} sx={{ 
+                        p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
+                        bgcolor: '#2a2a2a', 
+                        borderRadius: 1, 
+                        border: '1px solid #444',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.title || item.text || item.description || item.desc || '설명 없음'}
+                          </Typography>
+                          {(item.description || item.desc) && (item.description || item.desc).trim() && (
+                            <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.description || item.desc}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Typography sx={{ color: '#FF9800', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
+                          {item.startDate}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            )}
+
+            {/* 금일기타 목록 */}
+            {(!isMobile || etcList.length > 0) && (
+              <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
+                <Typography variant="h6" sx={{ mb: 1, color: '#9E9E9E', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
+                  📂 {isMobile ? '기타' : '금일기타'} ({etcList.length}개)
+                </Typography>
+                {etcList.length === 0 ? (
+                  <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 기타 일정이 없습니다.</Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
+                    {etcList.map((item, index) => (
+                      <Box key={index} sx={{ 
+                        p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
+                        bgcolor: '#2a2a2a', 
+                        borderRadius: 1, 
+                        border: '1px solid #444',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.title || item.text || item.description || item.desc || '설명 없음'}
+                          </Typography>
+                          {(item.description || item.desc) && (item.description || item.desc).trim() && (
+                            <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.description || item.desc}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Typography sx={{ color: '#9E9E9E', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
+                          {item.startDate}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            )}
           </Box>
         </Box>
       </Slide>

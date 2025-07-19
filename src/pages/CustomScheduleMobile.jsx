@@ -98,10 +98,11 @@ const CustomScheduleMobile = () => {
   const [editScheduleTypes, setEditScheduleTypes] = useState([]);
   const [editScheduleColor, setEditScheduleColor] = useState('#3b82f6');
   const [sites, setSites] = useState([]);
-  const [viewMode, setViewMode] = useState('month'); // 'day', '3day', 'month'
+  const [viewMode, setViewMode] = useState('month'); // 이제 'month'만 사용
   const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
   const [checkedItems, setCheckedItems] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   // 네비게이션 아이템들
   const navigationItems = [
@@ -121,6 +122,7 @@ const CustomScheduleMobile = () => {
       setSchedules([]);
       setCheckedItems({});
       setCurrentUser(null);
+      setLoading(false);
       return;
     }
     
@@ -135,6 +137,7 @@ const CustomScheduleMobile = () => {
         const scheduleData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log('모바일 일정 데이터 로드:', scheduleData);
         setSchedules(scheduleData);
+        setLoading(false);
       });
 
       // 체크 상태 실시간 구독
@@ -222,12 +225,11 @@ const CustomScheduleMobile = () => {
       currentMonth: month
     });
     
-    if (d.getFullYear() === year && d.getMonth() === month) {
-      const day = d.getDate();
-      const key = getScheduleKey(d.getFullYear(), d.getMonth(), day);
-      if (!scheduleMap[key]) scheduleMap[key] = [];
-      scheduleMap[key].push(item);
-    }
+    // 모든 일정을 매핑 (현재 월 제한 제거)
+    const day = d.getDate();
+    const key = getScheduleKey(d.getFullYear(), d.getMonth(), day);
+    if (!scheduleMap[key]) scheduleMap[key] = [];
+    scheduleMap[key].push(item);
   });
   
   // 현재 선택된 날짜의 일정을 가져오는 헬퍼 함수
@@ -392,7 +394,7 @@ const CustomScheduleMobile = () => {
                               item.type === '회의' ? '[회의]' : 
                               item.type === '입찰' ? '[입찰]' : 
                               item.type === '현설' ? '[현설]' : 
-                              item.type === '지원' ? '[지원]' : 
+                              item.type === '견적' ? '[견적]' : 
                               item.type === '기타' ? '[기타]' : '';
                             return typePrefix + (item.text || item.title || '제목 없음').slice(0, 15);
                           })()}
@@ -603,7 +605,7 @@ const CustomScheduleMobile = () => {
                                 item.type === '회의' ? '[회의]' : 
                                 item.type === '입찰' ? '[입찰]' : 
                                 item.type === '현설' ? '[현설]' : 
-                                item.type === '지원' ? '[지원]' : 
+                                item.type === '견적' ? '[견적]' : 
                                 item.type === '기타' ? '[기타]' : '';
                               return typePrefix + (item.text || item.title || '제목 없음').slice(0, 6);
                             })()}
@@ -903,11 +905,27 @@ const CustomScheduleMobile = () => {
         position: 'fixed',
         padding: 0,
         margin: 0,
-        pt: '-30px', // 위로 50px 이동 (20px → -30px)
+        mt: '-30px', // 위로 30px 이동
         touchAction: 'none',
         WebkitOverflowScrolling: 'none',
         userSelect: 'none'
       }}>
+        {loading && (
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '200px',
+            color: 'white',
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 1000
+          }}>
+            <Typography>일정을 불러오는 중...</Typography>
+          </Box>
+        )}
 
         
         {/* 월/연도 네비 */}
@@ -918,60 +936,53 @@ const CustomScheduleMobile = () => {
             <IconButton onClick={handleNextMonth} color="primary" size="small"><ChevronRight /></IconButton>
           </Box>
           <Box sx={{ display: 'flex', gap: 0.5 }}>
-            <IconButton
+            {/* 견적/청구 버튼 */}
+            <Button
+              variant="outlined"
               size="small"
-              onClick={() => setViewMode('day')}
               sx={{
-                color: '#fff',
-                bgcolor: viewMode === 'day' ? '#232634' : 'transparent',
-                borderRadius: 1,
-                border: viewMode === 'day' ? '1.5px solid #fff' : '1px solid #333',
-                width: 36, height: 36,
-                boxShadow: viewMode === 'day' ? '0 0 0 2px #2196f3' : 'none',
+                borderColor: '#3b82f6',
+                color: '#3b82f6',
+                fontSize: '0.6rem',
+                py: 0.3,
+                px: 1,
+                minWidth: 'auto',
+                height: 28,
                 '&:hover': {
-                  bgcolor: '#232634',
-                  borderColor: '#2196f3',
+                  borderColor: '#2563eb',
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)'
                 }
               }}
-            >
-              <ViewWeek />
-            </IconButton>
-            <IconButton
-              size="small"
-              onClick={() => setViewMode('3day')}
-              sx={{
-                color: '#fff',
-                bgcolor: viewMode === '3day' ? '#232634' : 'transparent',
-                borderRadius: 1,
-                border: viewMode === '3day' ? '1.5px solid #fff' : '1px solid #333',
-                width: 36, height: 36,
-                boxShadow: viewMode === '3day' ? '0 0 0 2px #2196f3' : 'none',
-                '&:hover': {
-                  bgcolor: '#232634',
-                  borderColor: '#2196f3',
-                }
+              onClick={() => {
+                console.log('모바일 견적 버튼 클릭');
+                // TODO: 견적 페이지로 라우팅
               }}
             >
-              <ViewModule />
-            </IconButton>
-            <IconButton
+              견적
+            </Button>
+            <Button
+              variant="outlined"
               size="small"
-              onClick={() => setViewMode('month')}
               sx={{
-                color: '#fff',
-                bgcolor: viewMode === 'month' ? '#232634' : 'transparent',
-                borderRadius: 1,
-                border: viewMode === 'month' ? '1.5px solid #fff' : '1px solid #333',
-                width: 36, height: 36,
-                boxShadow: viewMode === 'month' ? '0 0 0 2px #2196f3' : 'none',
+                borderColor: '#ef4444',
+                color: '#ef4444',
+                fontSize: '0.6rem',
+                py: 0.3,
+                px: 1,
+                minWidth: 'auto',
+                height: 28,
                 '&:hover': {
-                  bgcolor: '#232634',
-                  borderColor: '#2196f3',
+                  borderColor: '#dc2626',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)'
                 }
               }}
+              onClick={() => {
+                console.log('모바일 청구 버튼 클릭');
+                // TODO: 청구 페이지로 라우팅
+              }}
             >
-              <CalendarViewMonth />
-            </IconButton>
+              청구
+            </Button>
           </Box>
         </Box>
         
@@ -997,9 +1008,7 @@ const CustomScheduleMobile = () => {
           </Box>
         )}
         
-        {/* 달력 그리드 - 뷰 모드에 따라 렌더링 */}
-        {viewMode === 'day' && renderDayView()}
-        {viewMode === '3day' && render3DayView()}
+        {/* 달력 그리드 - 월간보기만 사용 */}
         {viewMode === 'month' && (
           <Box sx={{ px: 0, mb: 1, width: '100%', overflow: 'hidden', mt: 0, pt: 0 }}>
             <Box sx={{ 
@@ -1109,6 +1118,8 @@ const CustomScheduleMobile = () => {
                                 lineHeight: 1.2,
                                 minHeight: 18,
                                 maxHeight: 18,
+                                // 이전/다음 달 일정은 더 선명하게 표시
+                                opacity: isCurrentMonth ? 1 : 0.8,
                               }}
                             >
                               {(item.text || item.title || '제목 없음').slice(0, 8)}
@@ -1218,7 +1229,7 @@ const CustomScheduleMobile = () => {
                             item.type === '회의' ? '[회의]' : 
                             item.type === '입찰' ? '[입찰]' : 
                             item.type === '현설' ? '[현설]' : 
-                            item.type === '지원' ? '[지원]' : 
+                            item.type === '견적' ? '[견적]' : 
                             item.type === '기타' ? '[기타]' : '';
                           const fullText = typePrefix + (item.text || item.title || '제목 없음');
                           return fullText;
@@ -1384,8 +1395,8 @@ const CustomScheduleMobile = () => {
                   label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>현설</Typography>}
                 />
                 <FormControlLabel
-                  control={<Checkbox checked={editScheduleTypes.includes('지원')} onChange={() => handleEditTypeChange('지원')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
-                  label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>지원</Typography>}
+                  control={<Checkbox checked={editScheduleTypes.includes('견적')} onChange={() => handleEditTypeChange('견적')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>견적</Typography>}
                 />
                 <FormControlLabel
                   control={<Checkbox checked={editScheduleTypes.includes('기타')} onChange={() => handleEditTypeChange('기타')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
@@ -1648,8 +1659,8 @@ const CustomScheduleMobile = () => {
                   label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>현설</Typography>}
                 />
                 <FormControlLabel
-                  control={<Checkbox checked={newScheduleTypes.includes('지원')} onChange={() => handleTypeChange('지원')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
-                  label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>지원</Typography>}
+                  control={<Checkbox checked={newScheduleTypes.includes('견적')} onChange={() => handleTypeChange('견적')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
+                  label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>견적</Typography>}
                 />
                 <FormControlLabel
                   control={<Checkbox checked={newScheduleTypes.includes('기타')} onChange={() => handleTypeChange('기타')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
