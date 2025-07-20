@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, IconButton, Grid, Paper, Divider, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Checkbox, FormControlLabel, Tooltip } from '@mui/material';
-import { ChevronLeft, ChevronRight, ArrowBack, Add, Today, Edit, Delete, ViewWeek, ViewModule, CalendarViewMonth, Home, Business, Security, Assignment, Chat, Description, Assessment, Settings, Person, Star, Timeline } from '@mui/icons-material';
+import { ChevronLeft, ChevronRight, ArrowBack, Add, Today, Edit, Delete, ViewWeek, ViewModule, CalendarViewMonth, Home, Business, Security, Assignment, Chat, Description, Assessment, Settings, Person, Star, Timeline, Search } from '@mui/icons-material';
 import { collection, onSnapshot, doc, deleteDoc, updateDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -105,6 +105,8 @@ const CustomScheduleMobile = () => {
   const [checkedItems, setCheckedItems] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [siteDetailDialogOpen, setSiteDetailDialogOpen] = useState(false);
+  const [selectedSiteDetail, setSelectedSiteDetail] = useState(null);
 
   // 네비게이션 아이템들
   const navigationItems = [
@@ -902,17 +904,46 @@ const CustomScheduleMobile = () => {
     }
   };
 
+  // 현장 상세내역 보기 핸들러
+  const handleViewSiteDetail = (schedule) => {
+    // 일정에서 현장명 추출
+    const siteName = schedule.siteName || schedule.text?.replace(/\[.*?\]/, '').trim() || '현장명 없음';
+    
+    // 현장 데이터 찾기
+    const siteData = sites.find(site => site.name === siteName);
+    
+    if (siteData) {
+      setSelectedSiteDetail(siteData);
+      setSiteDetailDialogOpen(true);
+    } else {
+      // 현장 데이터가 없으면 기본 정보로 표시
+      setSelectedSiteDetail({
+        name: siteName,
+        company: '회사명 없음',
+        manager: '소장명 없음',
+        constructionTeam: '시공팀 없음',
+        address: '주소 없음',
+        contractAmount: 0,
+        startDate: '날짜 없음',
+        endDate: '날짜 없음',
+        description: '상세내역 없음',
+        items: []
+      });
+      setSiteDetailDialogOpen(true);
+    }
+  };
+
   return (
     <MobileLayout>
       <Box sx={{
         bgcolor: '#181a20',
-        height: 'calc(100vh - 80px)', // 전체 높이에서 80px 줄임
+        height: 'calc(100vh - 60px)', // 전체 높이에서 20px 더 줄임 (80px → 60px)
         width: '100vw',
         overflow: 'hidden',
         position: 'fixed',
         padding: 0,
         margin: 0,
-        mt: '-30px', // 위로 30px 이동
+        mt: '-50px', // 위로 20px 더 이동 (30px → 50px)
         touchAction: 'none',
         WebkitOverflowScrolling: 'none',
         userSelect: 'none',
@@ -1257,6 +1288,20 @@ const CustomScheduleMobile = () => {
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 0.3 }}>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleViewSiteDetail(item)}
+                        sx={{ 
+                          color: '#fff', 
+                          p: 0.05,
+                          minWidth: 'auto',
+                          width: '16px',
+                          height: '16px',
+                          '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+                        }}
+                      >
+                        <Search sx={{ fontSize: '0.6rem' }} />
+                      </IconButton>
                       <IconButton 
                         size="small" 
                         onClick={() => handleEditSchedule(item)}
@@ -1761,6 +1806,135 @@ const CustomScheduleMobile = () => {
               }}
             >
               추가
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* 현장 상세내역 팝업 */}
+        <Dialog 
+          open={siteDetailDialogOpen} 
+          onClose={() => setSiteDetailDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: { 
+              bgcolor: '#232634', 
+              color: '#fff',
+              width: '95%',
+              maxWidth: '400px',
+              mx: 'auto'
+            }
+          }}
+        >
+          <DialogTitle sx={{ color: '#fff', fontWeight: 700, borderBottom: '1px solid #444' }}>
+            현장 상세내역
+          </DialogTitle>
+          <DialogContent sx={{ p: 2 }}>
+            {selectedSiteDetail && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* 기본 정보 */}
+                <Box>
+                  <Typography variant="h6" sx={{ color: '#2196f3', mb: 1, fontWeight: 700 }}>
+                    {selectedSiteDetail.name}
+                  </Typography>
+                  
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>회사명:</Typography>
+                      <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>{selectedSiteDetail.company}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>현장소장:</Typography>
+                      <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>{selectedSiteDetail.manager}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>시공팀:</Typography>
+                      <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>{selectedSiteDetail.constructionTeam}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>주소:</Typography>
+                      <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>{selectedSiteDetail.address}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>계약금액:</Typography>
+                      <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>
+                        {selectedSiteDetail.contractAmount ? selectedSiteDetail.contractAmount.toLocaleString() + '원' : '정보 없음'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>공사기간:</Typography>
+                      <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>
+                        {selectedSiteDetail.startDate} ~ {selectedSiteDetail.endDate}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                {/* 상세내역 */}
+                <Box>
+                  <Typography variant="subtitle1" sx={{ color: '#2196f3', mb: 1, fontWeight: 600 }}>
+                    상세내역
+                  </Typography>
+                  <Typography sx={{ color: '#fff', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                    {selectedSiteDetail.description}
+                  </Typography>
+                </Box>
+
+                {/* 물량 내역 */}
+                {selectedSiteDetail.items && selectedSiteDetail.items.length > 0 && (
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ color: '#2196f3', mb: 1, fontWeight: 600 }}>
+                      물량 내역
+                    </Typography>
+                    <Box sx={{ 
+                      bgcolor: '#1a1a1a', 
+                      borderRadius: 1, 
+                      p: 1,
+                      maxHeight: '200px',
+                      overflow: 'auto'
+                    }}>
+                      <Box sx={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: '1fr auto auto', 
+                        gap: 1,
+                        borderBottom: '1px solid #444',
+                        pb: 0.5,
+                        mb: 0.5
+                      }}>
+                        <Typography sx={{ color: '#b0b0b0', fontSize: '0.75rem', fontWeight: 600 }}>항목</Typography>
+                        <Typography sx={{ color: '#b0b0b0', fontSize: '0.75rem', fontWeight: 600 }}>물량</Typography>
+                        <Typography sx={{ color: '#b0b0b0', fontSize: '0.75rem', fontWeight: 600 }}>단가</Typography>
+                      </Box>
+                      {selectedSiteDetail.items.map((item, index) => (
+                        <Box key={index} sx={{ 
+                          display: 'grid', 
+                          gridTemplateColumns: '1fr auto auto', 
+                          gap: 1,
+                          py: 0.5,
+                          borderBottom: index < selectedSiteDetail.items.length - 1 ? '1px solid #333' : 'none'
+                        }}>
+                          <Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>{item.name}</Typography>
+                          <Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>{item.qty}</Typography>
+                          <Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>{item.price?.toLocaleString()}</Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ p: 2, borderTop: '1px solid #444' }}>
+            <Button 
+              onClick={() => setSiteDetailDialogOpen(false)}
+              variant="contained"
+              sx={{ 
+                bgcolor: '#2196f3',
+                color: '#fff',
+                '&:hover': { bgcolor: '#1976d2' }
+              }}
+            >
+              닫기
             </Button>
           </DialogActions>
         </Dialog>

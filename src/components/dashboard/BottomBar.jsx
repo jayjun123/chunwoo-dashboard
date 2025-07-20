@@ -1243,7 +1243,7 @@ const BottomBar = ({
                   fontSize: isMobile ? 12 : 15, // 모바일 글씨 크기 줄임
                   '&:hover': { bgcolor: '#29B6F6' }
                 }}
-                startIcon={<GroupIcon />}
+                startIcon={<EngineeringIcon />}
               >
                 회원관리
               </Button>
@@ -1265,7 +1265,7 @@ const BottomBar = ({
                   fontSize: isMobile ? 12 : 15, // 모바일 글씨 크기 줄임
                   '&:hover': { bgcolor: '#F4511E' }
                 }}
-                startIcon={<SecurityIcon />}
+                startIcon={<TrendingUpIcon />}
               >
                 권한관리
               </Button>
@@ -1286,7 +1286,7 @@ const BottomBar = ({
                 fontSize: isMobile ? 12 : 15, // 모바일 글씨 크기 줄임
                 '&:hover': { bgcolor: '#66BB6A' }
               }}
-              startIcon={<SettingsIcon />}
+                              startIcon={<ForumIcon />}
             >
               설정
             </Button>

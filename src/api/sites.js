@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const COLLECTION_NAME = 'sites';
@@ -51,7 +51,7 @@ export async function getSites({ name = '', company = '', manager = '', page = 1
 export async function getSiteById(id) {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
-    const docSnap = await getDocs(docRef);
+    const docSnap = await getDoc(docRef);
     
     if (!docSnap.exists()) {
       throw new Error('현장을 찾을 수 없습니다.');

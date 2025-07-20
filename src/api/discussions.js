@@ -11,7 +11,8 @@ import {
   onSnapshot,
   serverTimestamp,
   getDocs,
-  getDoc
+  getDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { 
   ref, 
@@ -25,57 +26,95 @@ import { db, storage } from '../firebase';
 const discussionsCollection = collection(db, 'discussions');
 const messagesCollection = collection(db, 'discussion_messages');
 
-// 실시간 토론 목록 구독
+// 실시간 토론 목록 구독 (개선된 버전)
 export const subscribeToDiscussions = (callback) => {
-  const q = query(
-    discussionsCollection,
-    orderBy('lastMessageTime', 'desc')
-  );
+  try {
+    const q = query(
+      discussionsCollection,
+      orderBy('lastMessageTime', 'desc')
+    );
 
-  return onSnapshot(q, (snapshot) => {
-    const discussions = [];
-    snapshot.forEach((doc) => {
-      discussions.push({
-        id: doc.id,
-        ...doc.data()
+    return onSnapshot(q, (snapshot) => {
+      const discussions = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        discussions.push({
+          id: doc.id,
+          ...data,
+          // 타임스탬프 변환
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+          lastMessageTime: data.lastMessageTime?.toDate ? data.lastMessageTime.toDate() : data.lastMessageTime,
+          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt
+        });
       });
+      console.log('🔥 실시간 토론 목록 업데이트:', discussions.length, '개');
+      callback(discussions);
+    }, (error) => {
+      console.error('🔥 토론 목록 구독 오류:', error);
+      // 오류 발생 시 빈 배열로 콜백 호출
+      callback([]);
     });
-    callback(discussions);
-  });
+  } catch (error) {
+    console.error('🔥 토론 목록 구독 설정 오류:', error);
+    // 오류 발생 시 빈 배열로 콜백 호출
+    callback([]);
+    return () => {};
+  }
 };
 
-// 실시간 메시지 구독
+// 실시간 메시지 구독 (개선된 버전)
 export const subscribeToMessages = (discussionId, callback) => {
-  const q = query(
-    messagesCollection,
-    where('discussionId', '==', discussionId),
-    orderBy('timestamp', 'asc')
-  );
+  if (!discussionId) {
+    console.warn('🔥 discussionId가 없어서 메시지 구독을 시작할 수 없습니다.');
+    return () => {};
+  }
 
-  return onSnapshot(q, (snapshot) => {
-    const messages = [];
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      messages.push({
-        id: doc.id,
-        ...data,
-        // 타임스탬프가 서버 타임스탬프인 경우 클라이언트 시간으로 변환
-        timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : data.timestamp
+  try {
+    const q = query(
+      messagesCollection,
+      where('discussionId', '==', discussionId),
+      orderBy('timestamp', 'asc')
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const messages = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        messages.push({
+          id: doc.id,
+          ...data,
+          // 타임스탬프 변환
+          timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : data.timestamp,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt
+        });
       });
+      console.log('🔥 실시간 메시지 업데이트:', discussionId, messages.length, '개');
+      callback(messages);
+    }, (error) => {
+      console.error('🔥 메시지 구독 오류:', error);
+      // 오류 발생 시 빈 배열로 콜백 호출
+      callback([]);
     });
-    callback(messages);
-  }, (error) => {
-    console.error('메시지 구독 오류:', error);
-  });
+  } catch (error) {
+    console.error('🔥 메시지 구독 설정 오류:', error);
+    // 오류 발생 시 빈 배열로 콜백 호출
+    callback([]);
+    return () => {};
+  }
 };
 
-// 새 토론 생성
+// 새 토론 생성 (개선된 버전)
 export const createDiscussion = async (discussionData) => {
   try {
-    const docRef = await addDoc(discussionsCollection, {
+    const batch = writeBatch(db);
+    const timestamp = serverTimestamp();
+    
+    // 토론 문서 생성
+    const discussionRef = doc(discussionsCollection);
+    batch.set(discussionRef, {
       ...discussionData,
-      createdAt: serverTimestamp(),
-      lastMessageTime: serverTimestamp(),
+      createdAt: timestamp,
+      lastMessageTime: timestamp,
       lastMessage: '새로운 토론이 시작되었습니다.',
       participants: 1,
       unreadCount: 0,
@@ -83,32 +122,38 @@ export const createDiscussion = async (discussionData) => {
     });
 
     // 첫 번째 메시지 추가
-    await addDoc(messagesCollection, {
-      discussionId: docRef.id,
+    const messageRef = doc(messagesCollection);
+    batch.set(messageRef, {
+      discussionId: discussionRef.id,
       content: '새로운 토론이 시작되었습니다.',
       author: '시스템',
       authorId: 'system',
-      timestamp: serverTimestamp(),
+      timestamp: timestamp,
       type: 'system'
     });
 
-    return docRef.id;
+    // 배치 커밋
+    await batch.commit();
+    console.log('🔥 새 토론 생성 완료:', discussionRef.id);
+    return discussionRef.id;
   } catch (error) {
-    console.error('토론 생성 실패:', error);
+    console.error('🔥 토론 생성 실패:', error);
     throw error;
   }
 };
 
-// 파일 업로드
+// 파일 업로드 (개선된 버전)
 export const uploadFile = async (file, discussionId) => {
   try {
     const timestamp = Date.now();
     const fileName = `${discussionId}/${timestamp}_${file.name}`;
     const storageRef = ref(storage, `discussion_files/${fileName}`);
     
+    console.log('🔥 파일 업로드 시작:', file.name);
     const snapshot = await uploadBytes(storageRef, file);
     const downloadURL = await getDownloadURL(snapshot.ref);
     
+    console.log('🔥 파일 업로드 완료:', file.name);
     return {
       name: file.name,
       url: downloadURL,
@@ -117,7 +162,7 @@ export const uploadFile = async (file, discussionId) => {
       path: fileName
     };
   } catch (error) {
-    console.error('파일 업로드 실패:', error);
+    console.error('🔥 파일 업로드 실패:', error);
     throw error;
   }
 };
@@ -127,48 +172,65 @@ export const deleteFile = async (filePath) => {
   try {
     const storageRef = ref(storage, `discussion_files/${filePath}`);
     await deleteObject(storageRef);
+    console.log('🔥 파일 삭제 완료:', filePath);
   } catch (error) {
-    console.error('파일 삭제 실패:', error);
+    console.error('🔥 파일 삭제 실패:', error);
     throw error;
   }
 };
 
-// 메시지 전송 (파일 포함)
+// 메시지 전송 (즉시 연동 개선 버전)
 export const sendMessage = async (discussionId, messageData) => {
+  if (!discussionId) {
+    throw new Error('discussionId가 필요합니다.');
+  }
+
   try {
     const timestamp = serverTimestamp();
+    console.log('🔥 메시지 전송 시작:', discussionId, messageData.content?.substring(0, 20));
     
     // 파일이 있는 경우 업로드
     let uploadedFiles = [];
     if (messageData.files && messageData.files.length > 0) {
+      console.log('🔥 파일 업로드 시작:', messageData.files.length, '개');
       const uploadPromises = messageData.files.map(file => uploadFile(file, discussionId));
       uploadedFiles = await Promise.all(uploadPromises);
+      console.log('🔥 파일 업로드 완료:', uploadedFiles.length, '개');
     }
     
     // 메시지 데이터에서 파일 제거하고 업로드된 파일 정보로 교체
     const { files, ...messageWithoutFiles } = messageData;
     const finalMessageData = {
       ...messageWithoutFiles,
-      files: uploadedFiles
+      files: uploadedFiles,
+      timestamp: timestamp
     };
     
-    // 메시지 추가와 토론 정보 업데이트를 병렬로 실행
-    const [messageRef] = await Promise.all([
-      addDoc(messagesCollection, {
-        discussionId,
-        ...finalMessageData,
-        timestamp
-      }),
-      updateDoc(doc(db, 'discussions', discussionId), {
-        lastMessage: messageData.content || `파일 ${uploadedFiles.length}개`,
-        lastMessageTime: timestamp,
-        unreadCount: 0
-      })
-    ]);
-
+    // 배치 작업으로 메시지 추가와 토론 정보 업데이트를 원자적으로 실행
+    const batch = writeBatch(db);
+    
+    // 메시지 추가
+    const messageRef = doc(messagesCollection);
+    batch.set(messageRef, {
+      discussionId,
+      ...finalMessageData
+    });
+    
+    // 토론 정보 업데이트
+    const discussionRef = doc(db, 'discussions', discussionId);
+    batch.update(discussionRef, {
+      lastMessage: messageData.content || `파일 ${uploadedFiles.length}개`,
+      lastMessageTime: timestamp,
+      unreadCount: 0
+    });
+    
+    // 배치 커밋
+    await batch.commit();
+    
+    console.log('🔥 메시지 전송 완료:', messageRef.id);
     return messageRef.id;
   } catch (error) {
-    console.error('메시지 전송 실패:', error);
+    console.error('🔥 메시지 전송 실패:', error);
     throw error;
   }
 };
@@ -181,30 +243,42 @@ export const updateDiscussion = async (discussionId, updateData) => {
       ...updateData,
       updatedAt: serverTimestamp()
     });
+    console.log('🔥 토론 정보 업데이트 완료:', discussionId);
   } catch (error) {
-    console.error('토론 업데이트 실패:', error);
+    console.error('🔥 토론 업데이트 실패:', error);
     throw error;
   }
 };
 
-// 토론 삭제
+// 토론 삭제 (개선된 버전)
 export const deleteDiscussion = async (discussionId) => {
   try {
-    // 토론 삭제
-    const discussionRef = doc(db, 'discussions', discussionId);
-    await deleteDoc(discussionRef);
-
-    // 관련 메시지들 삭제
+    console.log('🔥 토론 삭제 시작:', discussionId);
+    
+    // 관련 메시지들 먼저 삭제
     const messagesQuery = query(
       messagesCollection,
       where('discussionId', '==', discussionId)
     );
     const messagesSnapshot = await getDocs(messagesQuery);
     
-    const deletePromises = messagesSnapshot.docs.map(doc => deleteDoc(doc.ref));
-    await Promise.all(deletePromises);
+    const batch = writeBatch(db);
+    
+    // 메시지들 삭제
+    messagesSnapshot.docs.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    
+    // 토론 삭제
+    const discussionRef = doc(db, 'discussions', discussionId);
+    batch.delete(discussionRef);
+    
+    // 배치 커밋
+    await batch.commit();
+    
+    console.log('🔥 토론 삭제 완료:', discussionId);
   } catch (error) {
-    console.error('토론 삭제 실패:', error);
+    console.error('🔥 토론 삭제 실패:', error);
     throw error;
   }
 };
@@ -220,9 +294,10 @@ export const addParticipant = async (discussionId, userId, userName) => {
       await updateDoc(discussionRef, {
         participants: currentParticipants + 1
       });
+      console.log('🔥 참여자 추가 완료:', discussionId, userName);
     }
   } catch (error) {
-    console.error('참여자 추가 실패:', error);
+    console.error('🔥 참여자 추가 실패:', error);
     throw error;
   }
 };
@@ -240,22 +315,52 @@ export const removeParticipant = async (discussionId) => {
       await updateDoc(discussionRef, {
         participants: newParticipants
       });
+      console.log('🔥 참여자 제거 완료:', discussionId);
     }
   } catch (error) {
-    console.error('참여자 제거 실패:', error);
+    console.error('🔥 참여자 제거 실패:', error);
     throw error;
   }
 };
 
 // 읽지 않은 메시지 수 업데이트
-export const updateUnreadCount = async (discussionId, count) => {
+export const updateUnreadCount = async (discussionId, count = 0) => {
   try {
     const discussionRef = doc(db, 'discussions', discussionId);
     await updateDoc(discussionRef, {
       unreadCount: count
     });
+    console.log('🔥 읽지 않은 메시지 수 업데이트:', discussionId, count);
   } catch (error) {
-    console.error('읽지 않은 메시지 수 업데이트 실패:', error);
+    console.error('🔥 읽지 않은 메시지 수 업데이트 실패:', error);
+    throw error;
+  }
+};
+
+// 메시지 검색
+export const searchMessages = async (discussionId, searchTerm) => {
+  try {
+    const q = query(
+      messagesCollection,
+      where('discussionId', '==', discussionId),
+      where('content', '>=', searchTerm),
+      where('content', '<=', searchTerm + '\uf8ff')
+    );
+    
+    const snapshot = await getDocs(q);
+    const messages = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      messages.push({
+        id: doc.id,
+        ...data,
+        timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : data.timestamp
+      });
+    });
+    
+    return messages;
+  } catch (error) {
+    console.error('🔥 메시지 검색 실패:', error);
     throw error;
   }
 };
@@ -266,23 +371,24 @@ export const searchDiscussions = async (searchTerm) => {
     const q = query(
       discussionsCollection,
       where('title', '>=', searchTerm),
-      where('title', '<=', searchTerm + '\uf8ff'),
-      orderBy('title'),
-      limit(20)
+      where('title', '<=', searchTerm + '\uf8ff')
     );
-
+    
     const snapshot = await getDocs(q);
     const discussions = [];
     snapshot.forEach((doc) => {
+      const data = doc.data();
       discussions.push({
         id: doc.id,
-        ...doc.data()
+        ...data,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+        lastMessageTime: data.lastMessageTime?.toDate ? data.lastMessageTime.toDate() : data.lastMessageTime
       });
     });
-
+    
     return discussions;
   } catch (error) {
-    console.error('토론 검색 실패:', error);
+    console.error('🔥 토론 검색 실패:', error);
     throw error;
   }
 };
@@ -293,22 +399,24 @@ export const getDiscussionsByCategory = async (category) => {
     const q = query(
       discussionsCollection,
       where('category', '==', category),
-      orderBy('lastMessageTime', 'desc'),
-      limit(20)
+      orderBy('lastMessageTime', 'desc')
     );
-
+    
     const snapshot = await getDocs(q);
     const discussions = [];
     snapshot.forEach((doc) => {
+      const data = doc.data();
       discussions.push({
         id: doc.id,
-        ...doc.data()
+        ...data,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+        lastMessageTime: data.lastMessageTime?.toDate ? data.lastMessageTime.toDate() : data.lastMessageTime
       });
     });
-
+    
     return discussions;
   } catch (error) {
-    console.error('카테고리별 토론 조회 실패:', error);
+    console.error('🔥 카테고리별 토론 조회 실패:', error);
     throw error;
   }
 };
@@ -318,23 +426,25 @@ export const getDiscussionsByUser = async (userId) => {
   try {
     const q = query(
       discussionsCollection,
-      where('createdBy', '==', userId),
-      orderBy('createdAt', 'desc'),
-      limit(20)
+      where('authorId', '==', userId),
+      orderBy('createdAt', 'desc')
     );
-
+    
     const snapshot = await getDocs(q);
     const discussions = [];
     snapshot.forEach((doc) => {
+      const data = doc.data();
       discussions.push({
         id: doc.id,
-        ...doc.data()
+        ...data,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+        lastMessageTime: data.lastMessageTime?.toDate ? data.lastMessageTime.toDate() : data.lastMessageTime
       });
     });
-
+    
     return discussions;
   } catch (error) {
-    console.error('사용자별 토론 조회 실패:', error);
+    console.error('🔥 사용자별 토론 조회 실패:', error);
     throw error;
   }
 };
@@ -342,23 +452,29 @@ export const getDiscussionsByUser = async (userId) => {
 // 토론 통계 조회
 export const getDiscussionStats = async () => {
   try {
-    const totalQuery = query(discussionsCollection);
-    const activeQuery = query(
-      discussionsCollection,
-      where('status', '==', 'active')
-    );
-
-    const [totalSnapshot, activeSnapshot] = await Promise.all([
-      getDocs(totalQuery),
-      getDocs(activeQuery)
-    ]);
-
+    const snapshot = await getDocs(discussionsCollection);
+    const totalDiscussions = snapshot.size;
+    
+    let totalMessages = 0;
+    let totalParticipants = 0;
+    
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      totalParticipants += data.participants || 0;
+    });
+    
+    // 메시지 수는 별도로 계산
+    const messagesSnapshot = await getDocs(messagesCollection);
+    totalMessages = messagesSnapshot.size;
+    
     return {
-      total: totalSnapshot.size,
-      active: activeSnapshot.size
+      totalDiscussions,
+      totalMessages,
+      totalParticipants,
+      averageMessagesPerDiscussion: totalDiscussions > 0 ? Math.round(totalMessages / totalDiscussions) : 0
     };
   } catch (error) {
-    console.error('토론 통계 조회 실패:', error);
+    console.error('🔥 토론 통계 조회 실패:', error);
     throw error;
   }
 }; 
