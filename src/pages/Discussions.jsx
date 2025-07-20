@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTheme, useMediaQuery } from '@mui/material';
-import PCKakaoDiscussion from '../components/discussions/PCKakaoDiscussion';
+import PCKakaoDiscussion from '../components/discussions/TestDiscussion';
 import MobileKakaoDiscussion from '../components/discussions/MobileKakaoDiscussion';
 
 const Discussions = () => {

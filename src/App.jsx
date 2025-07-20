@@ -4,6 +4,8 @@ import { configureIME } from './utils/imeHandler.jsx';
 import { initKeyboardManager } from './utils/pwaKeyboardUtils';
 import { initMobileOptimization, useViewportHeight } from './utils/mobileOptimization';
 import './styles/IME.css';
+// 임시 테스트 스크립트 import
+import './scripts/testDiscussion';
 import { AuthProvider } from './contexts/AuthContext';
 import { TodoProvider } from './contexts/TodoContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -26,6 +28,7 @@ import SafetyReports from './components/safety/SafetyReports';
 import Documents from './pages/Documents';
 import Reports from './pages/Reports';
 import Discussions from './pages/Discussions';
+import SimpleChat from './components/discussions/SimpleChat';
 import Vendors from './pages/Vendors';
 import Progress from './pages/Progress';
 import Members from './pages/Members';

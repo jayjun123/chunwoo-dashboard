@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Box,
   Typography,
   TextField,
-  Button,
   Avatar,
   Paper,
   Card,
@@ -12,26 +11,24 @@ import {
 } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
 
-const PCKakaoDiscussion = () => {
-  // 가장 기본적인 상태 관리
-  const [currentDiscussion, setCurrentDiscussion] = useState(null);
-  const [messageList, setMessageList] = useState([]);
+const SimpleDiscussion = () => {
+  console.log('🔥 SimpleDiscussion 컴포넌트 로드됨');
+  
+  const [selectedDiscussion, setSelectedDiscussion] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef(null);
 
-  // 토론 목록 (정적 데이터)
-  const discussionList = [
+  const discussions = [
     { id: 1, title: '안전 관리 토론', color: '#FF6B6B' },
     { id: 2, title: '일정 관리 토론', color: '#4ECDC4' },
     { id: 3, title: '자재 관리 토론', color: '#45B7D1' }
   ];
 
-  // 토론 선택 시 초기 메시지 설정
-  const selectDiscussion = (discussion) => {
-    console.log('🔥 토론 선택됨:', discussion.title);
+  const handleDiscussionSelect = (discussion) => {
+    console.log('토론 선택:', discussion.title);
     
-    // 초기 메시지 설정
-    const initialMessages = [
+    const sampleMessages = [
       {
         id: 1,
         content: '안녕하세요! 토론의견에 오신 것을 환영합니다.',
@@ -55,22 +52,16 @@ const PCKakaoDiscussion = () => {
       }
     ];
 
-    console.log('🔥 초기 메시지 설정:', initialMessages.length, '개');
+    setSelectedDiscussion(discussion);
+    setMessages(sampleMessages);
     
-    setCurrentDiscussion(discussion);
-    setMessageList(initialMessages);
-    
-    // 스크롤을 맨 아래로
     setTimeout(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
   };
 
-  // 메시지 전송
-  const sendMessage = () => {
-    if (!inputText.trim() || !currentDiscussion) return;
+  const handleSendMessage = () => {
+    if (!inputText.trim() || !selectedDiscussion) return;
 
     const newMessage = {
       id: Date.now(),
@@ -84,25 +75,19 @@ const PCKakaoDiscussion = () => {
       })
     };
 
-    console.log('🔥 새 메시지 전송:', newMessage);
-
-    // 메시지 리스트에 추가
-    setMessageList(prev => [...prev, newMessage]);
+    console.log('메시지 전송:', newMessage);
+    setMessages(prev => [...prev, newMessage]);
     setInputText('');
 
-    // 스크롤을 맨 아래로
     setTimeout(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
   };
 
-  // Enter 키로 메시지 전송
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      handleSendMessage();
     }
   };
 
@@ -112,16 +97,10 @@ const PCKakaoDiscussion = () => {
       <Box sx={{ 
         p: 2, 
         backgroundColor: '#FEE500', 
-        borderBottom: '1px solid #E0E0E0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
+        borderBottom: '1px solid #E0E0E0'
       }}>
         <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1A1A1A' }}>
           토론의견
-        </Typography>
-        <Typography variant="body2" sx={{ color: '#666' }}>
-          {currentDiscussion ? currentDiscussion.title : '토론을 선택하세요'}
         </Typography>
       </Box>
 
@@ -137,16 +116,16 @@ const PCKakaoDiscussion = () => {
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
               토론 목록
             </Typography>
-            {discussionList.map((discussion) => (
+            {discussions.map((discussion) => (
               <Card 
                 key={discussion.id}
                 sx={{ 
                   mb: 1, 
                   cursor: 'pointer',
-                  backgroundColor: currentDiscussion?.id === discussion.id ? '#E3F2FD' : 'white',
+                  backgroundColor: selectedDiscussion?.id === discussion.id ? '#E3F2FD' : 'white',
                   '&:hover': { backgroundColor: '#F5F5F5' }
                 }}
-                onClick={() => selectDiscussion(discussion)}
+                onClick={() => handleDiscussionSelect(discussion)}
               >
                 <CardContent sx={{ py: 1.5, px: 2 }}>
                   <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
@@ -160,7 +139,7 @@ const PCKakaoDiscussion = () => {
 
         {/* 채팅 영역 */}
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {currentDiscussion ? (
+          {selectedDiscussion ? (
             <>
               {/* 메시지 영역 */}
               <Box sx={{ 
@@ -178,12 +157,12 @@ const PCKakaoDiscussion = () => {
                   mb: 2,
                   fontSize: '12px'
                 }}>
-                  <strong>디버깅:</strong> 메시지 {messageList.length}개, 
-                  토론: {currentDiscussion.title}
+                  <strong>디버깅:</strong> 메시지 {messages.length}개, 
+                  토론: {selectedDiscussion.title}
                 </Box>
 
                 {/* 메시지 목록 */}
-                {messageList.map((message) => (
+                {messages.map((message) => (
                   <Box 
                     key={message.id} 
                     sx={{ 
@@ -198,7 +177,7 @@ const PCKakaoDiscussion = () => {
                           width: 32, 
                           height: 32, 
                           mr: 1,
-                          backgroundColor: currentDiscussion.color,
+                          backgroundColor: selectedDiscussion.color,
                           fontSize: '12px',
                           color: 'white'
                         }}
@@ -271,7 +250,7 @@ const PCKakaoDiscussion = () => {
                   }}
                 />
                 <IconButton 
-                  onClick={sendMessage}
+                  onClick={handleSendMessage}
                   disabled={!inputText.trim()}
                   sx={{ 
                     backgroundColor: '#FEE500',
@@ -303,4 +282,4 @@ const PCKakaoDiscussion = () => {
   );
 };
 
-export default PCKakaoDiscussion; 
+export default SimpleDiscussion; 

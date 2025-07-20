@@ -922,9 +922,10 @@ const GanttChart = () => {
         maxHeight: isFullscreen ? 'calc(100vh - 80px)' : isMobile ? '60vh' : '70vh',
         height: isFullscreen ? 'calc(100vh - 80px)' : 'auto',
         // 모바일 터치 개선
-                  touchAction: isMobile ? 'pan-x pan-y' : 'auto',
-          WebkitOverflowScrolling: 'touch',
-          userSelect: 'none',
+        touchAction: isMobile ? 'pan-x pan-y' : 'auto',
+        WebkitOverflowScrolling: 'touch',
+        '-webkit-overflow-scrolling': 'touch',
+        userSelect: 'none',
         '&::-webkit-scrollbar': {
           width: '8px',
           height: '8px'
@@ -950,8 +951,7 @@ const GanttChart = () => {
       }} 
       ref={chartContainerRef} 
       className="gantt-timeline"
-      onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}>
+      onMouseDown={handleMouseDown}>
         <Box sx={{ 
           position: 'relative', 
           minHeight: isMobile ? 400 : 600,
@@ -979,7 +979,7 @@ const GanttChart = () => {
             }}>
               {/* 현장명 열 */}
               {!isMobile && (
-                <Grid xs={2} sx={{ 
+                <Grid item xs={2} sx={{ 
                   borderRight: 1, 
                   borderColor: 'divider',
                   backgroundColor: 'grey.50',
@@ -992,7 +992,7 @@ const GanttChart = () => {
               )}
               
               {/* 날짜 열들 */}
-              <Grid xs={isMobile ? 12 : 10} sx={{ display: 'flex' }}>
+              <Grid item xs={isMobile ? 12 : 10} sx={{ display: 'flex' }}>
                 {dateArray.map((date, index) => (
                   <Box
                     key={index}
@@ -1103,7 +1103,7 @@ const GanttChart = () => {
               >
                 {/* 현장명 열 */}
                 {!isMobile && (
-                  <Grid xs={2} sx={{ 
+                  <Grid item xs={2} sx={{ 
                     borderRight: 1, 
                     borderColor: 'divider',
                     p: 1,
@@ -1125,7 +1125,7 @@ const GanttChart = () => {
                 )}
                 
                 {/* 공사기간 차트 영역 */}
-                <Grid xs={isMobile ? 12 : 10} sx={{ position: 'relative', minHeight: isMobile ? 40 : 60 }}>
+                <Grid item xs={isMobile ? 12 : 10} sx={{ position: 'relative', minHeight: isMobile ? 40 : 60 }}>
                     {schedule && (
                                               <Box
                           sx={{
@@ -1190,7 +1190,7 @@ const GanttChart = () => {
         <DialogContent>
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
             <Grid container spacing={2}>
-              <Grid xs={12}>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="현장명"
@@ -1199,7 +1199,7 @@ const GanttChart = () => {
                   required
                 />
               </Grid>
-              <Grid xs={6}>
+              <Grid item xs={6}>
                 <TextField
                   fullWidth
                   label="착공일"
@@ -1210,7 +1210,7 @@ const GanttChart = () => {
                   required
                 />
               </Grid>
-              <Grid xs={6}>
+              <Grid item xs={6}>
                 <TextField
                   fullWidth
                   label="준공예정일"
@@ -1221,7 +1221,7 @@ const GanttChart = () => {
                   required
                 />
               </Grid>
-              <Grid xs={6}>
+              <Grid item xs={6}>
                 <FormControl fullWidth>
                   <InputLabel>상태</InputLabel>
                   <Select
@@ -1237,7 +1237,7 @@ const GanttChart = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid xs={6}>
+              <Grid item xs={6}>
                 <TextField
                   fullWidth
                   label="현장장"
@@ -1245,7 +1245,7 @@ const GanttChart = () => {
                   onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
                 />
               </Grid>
-              <Grid xs={12}>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="주소"

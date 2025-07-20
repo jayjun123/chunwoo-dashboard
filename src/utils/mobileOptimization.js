@@ -166,35 +166,7 @@ export const useTouchFeedback = () => {
   return { handleTouchStart, handleTouchEnd };
 };
 
-// 스와이프 제스처 감지
-export const useSwipeGesture = (onSwipeLeft, onSwipeRight, threshold = 50) => {
-  let startX = 0;
-  let startY = 0;
-  
-  const handleTouchStart = useCallback((event) => {
-    startX = event.touches[0].clientX;
-    startY = event.touches[0].clientY;
-  }, []);
-  
-  const handleTouchEnd = useCallback((event) => {
-    const endX = event.changedTouches[0].clientX;
-    const endY = event.changedTouches[0].clientY;
-    
-    const deltaX = endX - startX;
-    const deltaY = endY - startY;
-    
-    // 수평 스와이프인지 확인
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > threshold) {
-      if (deltaX > 0) {
-        onSwipeRight?.();
-      } else {
-        onSwipeLeft?.();
-      }
-    }
-  }, [onSwipeLeft, onSwipeRight, threshold]);
-  
-  return { handleTouchStart, handleTouchEnd };
-};
+// 스와이프 제스처 기능 제거됨 - 모바일에서 화면전환 제스처 비활성화
 
 // 뷰포트 높이 최적화 (모바일 브라우저 주소창 대응)
 export const useViewportHeight = () => {
