@@ -14,6 +14,9 @@ export default function MobileLayout({ children }) {
   const isCustomScheduleMobile = location.pathname === '/';
   const isWholeList = location.pathname === '/whole-list';
   
+  // 토론의견 페이지에서 하단바 숨김 여부 확인
+  const shouldHideBottomBar = location.pathname === '/discussions';
+  
   // 모바일에서 상태바와 헤더 높이를 고려한 올바른 레이아웃
   React.useEffect(() => {
     // 상태바 높이 고려
@@ -55,21 +58,23 @@ export default function MobileLayout({ children }) {
       
       <SwipeableContainer>
         <Box sx={{ 
-          minHeight: { xs: 'calc(100vh - 53px - 70px)', sm: 'calc(100dvh - 53px - 70px)' }, // 헤더 높이 48px에서 53px로 변경
+          minHeight: shouldHideBottomBar 
+            ? { xs: 'calc(100vh - 53px)', sm: 'calc(100dvh - 53px)' } // 하단바 숨김 시
+            : { xs: 'calc(100vh - 53px - 70px)', sm: 'calc(100dvh - 53px - 70px)' }, // 기존
           width: '100%',
           paddingTop: { xs: '33px', sm: getPaddingTop() }, // 모바일에서 33px로 변경 (28px + 5px)
           paddingBottom: '0px', // 패딩 완전 제거
-                      overflow: 'auto',
-            WebkitOverflowScrolling: 'touch',
-            touchAction: 'auto', // 더 유연한 터치 액션
+          overflow: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'auto', // 더 유연한 터치 액션
           overscrollBehavior: 'contain'
         }}>
           {children}
         </Box>
       </SwipeableContainer>
       
-      {/* 모바일 하단바 - 항상 표시 */}
-      <BottomBar />
+      {/* 모바일 하단바 - 토론의견 페이지에서는 숨김 */}
+      {!shouldHideBottomBar && <BottomBar />}
     </Box>
   );
 } 

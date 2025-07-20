@@ -5,9 +5,12 @@ import CustomCalendar from '../CustomCalendar';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
+import { useAuth } from '../../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { exportCalendarToExcel, exportToExcel } from '../../utils/exportUtils';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import { useNavigate } from 'react-router-dom';
+import { subscribeToEstimates } from '../../api/estimates';
 
 function isInMonth(site, year, month) {
   if (!site.startDate || !site.endDate) return false;
@@ -29,6 +32,27 @@ function formatKoreanDate(dateStr) {
   return `${month}월 ${day}일(${dayOfWeek}) 일정`;
 }
 
+// 견적 데이터를 일정으로 변환하는 함수
+function convertEstimateToSchedule(estimate) {
+  if (!estimate.submissionDeadline) return null;
+  
+  return {
+    id: `estimate_${estimate.id}`,
+    title: `견적: ${estimate.siteName || estimate.company}`,
+    description: `${estimate.requester} - ${estimate.requestContent || '견적요청'}`,
+    date: estimate.submissionDeadline,
+    type: '견적',
+    color: '#f59e42', // 주황색
+    siteName: estimate.siteName,
+    company: estimate.company,
+    requester: estimate.requester,
+    submissionStatus: estimate.submissionStatus,
+    contractStatus: estimate.contractStatus,
+    isEstimate: true, // 견적 데이터임을 표시
+    estimateId: estimate.id // 원본 견적 ID 저장
+  };
+}
+
 const ScheduleManagement = ({ 
   sites: propSites = [], 
   schedules: propSchedules = [], 
@@ -44,6 +68,8 @@ const ScheduleManagement = ({
 }) => {
 
   const isMobile = useMediaQuery('(max-width:600px)');
+  const authUser = useAuth();
+  const navigate = useNavigate();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -70,10 +96,11 @@ const ScheduleManagement = ({
   );
   const [siteSearchTerm, setSiteSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [estimates, setEstimates] = useState([]);
 
   useEffect(() => {
     console.log('🔍 ScheduleManagement: 사이트 데이터 로딩 시작');
-    console.log('🔍 현재 사용자:', auth.currentUser);
+    console.log('🔍 현재 사용자:', authUser.currentUser);
     
     // props로 전달받은 sites가 있으면 사용, 없으면 기존 로직 사용
     if (propSites && propSites.length > 0) {
@@ -124,19 +151,41 @@ const ScheduleManagement = ({
     };
   }, [propSites?.length]); // propSites.length만 의존성으로 사용
 
-  // 실시간 일정 데이터 구독
+  // 견적 데이터 구독
   useEffect(() => {
-    const user = auth.currentUser;
+    console.log('🔍 ScheduleManagement: 견적 데이터 로딩 시작');
+    
+    const unsubscribe = subscribeToEstimates((estimatesData) => {
+      console.log('🔍 견적 데이터 로드됨:', estimatesData.length, '개');
+      setEstimates(estimatesData);
+    });
+
+    return () => {
+      if (unsubscribe && typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, []);
+
+  // 인증 상태와 로딩 상태를 모두 고려한 일정 데이터 로딩
+  useEffect(() => {
+    const user = authUser.currentUser;
+    const authLoading = authUser.loading;
+    
     console.log('🔍 ScheduleManagement: 일정 데이터 로딩 시작');
     console.log('🔍 현재 사용자:', user);
+    console.log('🔍 인증 로딩 상태:', authLoading);
     
-    if (!user) {
-      console.log('🔍 사용자가 로그인하지 않음 - 일정 데이터 초기화');
+    // 로딩 중이거나 사용자가 없으면 데이터 초기화
+    if (authLoading || !user) {
+      console.log('🔍 사용자가 로그인하지 않음 또는 로딩 중 - 일정 데이터 초기화');
       setCalendarItems({});
       setCheckedItems({});
       setLoading(false);
       return;
     }
+
+    console.log('🔍 일정 데이터 구독 시작 - 사용자:', user.uid);
 
     const schedulesQuery = query(collection(db, 'schedules'));
     let unsubscribe = null;
@@ -146,10 +195,12 @@ const ScheduleManagement = ({
       unsubscribe = onSnapshot(schedulesQuery, async (snapshot) => {
         try {
           const schedulesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          console.log('🔍 PC 일정 데이터 로드:', schedulesData.length, '개');
+          console.log('🔍 PC 일정 데이터 로드 완료:', schedulesData.length, '개');
           
           // 날짜별로 일정을 그룹화하고 입력순서대로 정렬
           const newCalendarItems = {};
+          
+          // 기존 일정 데이터 처리
           schedulesData.forEach(schedule => {
             if (!schedule.date) {
               console.log('날짜가 없는 일정:', schedule);
@@ -175,6 +226,30 @@ const ScheduleManagement = ({
             newCalendarItems[dateStr].push(schedule);
           });
           
+          // 견적 데이터를 일정으로 변환하여 추가
+          estimates.forEach(estimate => {
+            const schedule = convertEstimateToSchedule(estimate);
+            if (schedule) {
+              let dateStr;
+              if (schedule.date.toDate) {
+                // Firestore Timestamp인 경우
+                const date = schedule.date.toDate();
+                dateStr = date.toISOString().slice(0, 10);
+              } else if (schedule.date instanceof Date) {
+                // JavaScript Date인 경우
+                dateStr = schedule.date.toISOString().slice(0, 10);
+              } else {
+                // 문자열인 경우
+                dateStr = schedule.date;
+              }
+              
+              if (!newCalendarItems[dateStr]) {
+                newCalendarItems[dateStr] = [];
+              }
+              newCalendarItems[dateStr].push(schedule);
+            }
+          });
+          
           // 각 날짜별로 입력순서대로 정렬 (createdAt 기준)
           Object.keys(newCalendarItems).forEach(dateStr => {
             newCalendarItems[dateStr].sort((a, b) => {
@@ -188,7 +263,7 @@ const ScheduleManagement = ({
             });
           });
           
-          console.log('PC 달력 아이템 업데이트:', newCalendarItems);
+          console.log('PC 달력 아이템 업데이트 완료:', Object.keys(newCalendarItems).length, '개 날짜');
           setCalendarItems(newCalendarItems);
           setLoading(false);
         } catch (error) {
@@ -221,7 +296,7 @@ const ScheduleManagement = ({
           });
           
           setCheckedItems(newCheckedItems);
-          console.log('PC 체크 상태 실시간 업데이트:', newCheckedItems);
+          console.log('PC 체크 상태 실시간 업데이트:', Object.keys(newCheckedItems).length, '개 항목');
         } catch (error) {
           console.error('체크 상태 처리 오류:', error);
         }
@@ -232,6 +307,7 @@ const ScheduleManagement = ({
       console.error('구독 설정 오류:', error);
       setCalendarItems({});
       setCheckedItems({});
+      setLoading(false);
     }
     
     return () => {
@@ -246,7 +322,7 @@ const ScheduleManagement = ({
         console.error('구독 해제 오류:', error);
       }
     };
-  }, []); // 빈 의존성 배열로 컴포넌트 마운트 시에만 실행
+  }, [authUser.currentUser, authUser.loading, estimates]); // 견적 데이터도 의존성에 추가
 
   const filteredSites = useMemo(() => {
     const monthFiltered = sites.filter(site => isInMonth(site, year, month));
@@ -287,7 +363,7 @@ const ScheduleManagement = ({
   const onDragEnd = async (result) => {
     if (!result.destination) return;
     const { source, destination, draggableId } = result;
-    const user = auth.currentUser;
+    const user = authUser.currentUser;
     if (!user) {
       alert('로그인이 필요합니다.');
       return;
@@ -376,7 +452,7 @@ const ScheduleManagement = ({
 
   const handleAddSchedule = async () => {
     if ((!popupTitle.trim() && !popupSiteName.trim()) || selectedTypes.length === 0) return;
-    const user = auth.currentUser;
+    const user = authUser.currentUser;
     if (!user) {
       alert('로그인이 필요합니다.');
       return;
@@ -420,14 +496,25 @@ const ScheduleManagement = ({
   };
 
   const handleItemClick = (date, id) => {
-    // 일정 클릭 시 선택 상태 토글 (삭제용)
-    setSelectedItems(prev => {
-      const exists = prev.find(sel => sel.date === date && sel.id === id && sel.type !== 'site');
-      if (exists) {
-        return prev.filter(sel => !(sel.date === date && sel.id === id && sel.type !== 'site'));
-      }
-      return [...prev, { date, id, type: 'schedule' }];
-    });
+    const items = calendarItems[date] || [];
+    const item = items.find(item => item.id === id);
+    
+    // 견적 일정인 경우 견적 페이지로 이동
+    if (item && item.isEstimate) {
+      navigate('/estimates');
+      return;
+    }
+    
+    // 견적 일정이 아닌 경우에만 선택 상태 토글 (삭제용)
+    if (!item || !item.isEstimate) {
+      setSelectedItems(prev => {
+        const exists = prev.find(sel => sel.date === date && sel.id === id && sel.type !== 'site');
+        if (exists) {
+          return prev.filter(sel => !(sel.date === date && sel.id === id && sel.type !== 'site'));
+        }
+        return [...prev, { date, id, type: 'schedule' }];
+      });
+    }
   };
 
   const handleItemDoubleClick = (date, item) => {
@@ -443,10 +530,20 @@ const ScheduleManagement = ({
 
   const handleItemTouchEnd = () => clearTimeout(touchTimer);
 
-
-
   const handleDeleteSelected = async () => {
     if (selectedItems.length === 0) return;
+    
+    // 견적 일정이 선택되었는지 확인
+    const hasEstimateItems = selectedItems.some(item => {
+      const items = calendarItems[item.date] || [];
+      const scheduleItem = items.find(schedule => schedule.id === item.id);
+      return scheduleItem && scheduleItem.isEstimate;
+    });
+    
+    if (hasEstimateItems) {
+      alert('견적 일정은 견적 페이지에서 관리해주세요.');
+      return;
+    }
     
     const siteItems = selectedItems.filter(item => item.type === 'site');
     const scheduleItems = selectedItems.filter(item => item.type !== 'site');
@@ -490,6 +587,15 @@ const ScheduleManagement = ({
   };
 
   const handleDeleteItem = async (date, itemId) => {
+    const items = calendarItems[date] || [];
+    const item = items.find(item => item.id === itemId);
+    
+    // 견적 일정은 삭제 불가
+    if (item && item.isEstimate) {
+      alert('견적 일정은 견적 페이지에서 관리해주세요.');
+      return;
+    }
+    
     if (!window.confirm('이 일정을 삭제하시겠습니까?')) return;
     
     try {
@@ -565,7 +671,7 @@ const ScheduleManagement = ({
   };
 
   const handleCheckItem = async (date, id, checked) => {
-    const user = auth.currentUser;
+    const user = authUser.currentUser;
     if (!user) {
       alert('로그인이 필요합니다.');
       return;
@@ -770,7 +876,7 @@ const ScheduleManagement = ({
                     }}
                     onClick={() => {
                       console.log('견적 버튼 클릭');
-                      // TODO: 견적 페이지로 라우팅
+                      navigate('/estimates');
                     }}
                   >
                     견적
@@ -793,7 +899,7 @@ const ScheduleManagement = ({
                     }}
                     onClick={() => {
                       console.log('청구 버튼 클릭');
-                      // TODO: 청구 페이지로 라우팅
+                      navigate('/claims');
                     }}
                   >
                     청구
@@ -1029,10 +1135,6 @@ const ScheduleManagement = ({
                   label="현설"
                 />
                 <FormControlLabel
-                  control={<Checkbox checked={selectedTypes.includes('견적')} onChange={() => handleTypeChange('견적')} />}
-                  label="견적"
-                />
-                <FormControlLabel
                   control={<Checkbox checked={selectedTypes.includes('기타')} onChange={() => handleTypeChange('기타')} />}
                   label="기타"
                 />
@@ -1097,10 +1199,6 @@ const ScheduleManagement = ({
                 <FormControlLabel
                   control={<Checkbox checked={editPopup.item?.type === '현설'} onChange={() => handleEditTypeChange('현설')} />}
                   label="현설"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={editPopup.item?.type === '견적'} onChange={() => handleEditTypeChange('견적')} />}
-                  label="견적"
                 />
                 <FormControlLabel
                   control={<Checkbox checked={editPopup.item?.type === '기타'} onChange={() => handleEditTypeChange('기타')} />}

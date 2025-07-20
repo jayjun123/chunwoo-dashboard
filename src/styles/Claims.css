@@ -1,0 +1,353 @@
+/* 청구예정 페이지 스타일 */
+.claims-container {
+  background-color: #181a20;
+  min-height: 100vh;
+  color: white;
+  padding: 24px;
+}
+
+.claims-header {
+  margin-bottom: 24px;
+}
+
+.claims-title {
+  color: #90caf9;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.claims-subtitle {
+  color: #ccc;
+  margin-bottom: 24px;
+}
+
+.month-navigation {
+  background-color: #2d3748;
+  padding: 16px;
+  margin-bottom: 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.month-navigation-title {
+  color: #fff;
+  font-weight: bold;
+  font-size: 1.25rem;
+}
+
+.month-navigation-button {
+  color: #90caf9;
+  transition: color 0.2s;
+}
+
+.month-navigation-button:hover {
+  color: #64b5f6;
+}
+
+.stats-grid {
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background-color: #2d3748;
+  color: white;
+  text-align: center;
+  padding: 16px;
+  border-radius: 8px;
+  transition: transform 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+
+.stat-number {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #ccc;
+}
+
+.search-filter-section {
+  background-color: #2d3748;
+  padding: 16px;
+  margin-bottom: 24px;
+  border-radius: 8px;
+}
+
+.table-container {
+  background-color: #2d3748;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table-header {
+  background-color: #444;
+}
+
+.table-header-cell {
+  color: white;
+  font-weight: bold;
+}
+
+.table-body-row {
+  transition: background-color 0.2s;
+}
+
+.table-body-row:hover {
+  background-color: #444;
+}
+
+.table-body-cell {
+  color: white;
+}
+
+.status-chip {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.action-button {
+  min-width: auto;
+  padding: 4px;
+}
+
+.progress-registration-button {
+  color: #4caf50;
+  transition: color 0.2s;
+}
+
+.progress-registration-button:hover {
+  color: #45a049;
+}
+
+.dialog-content {
+  background-color: #2d3748;
+  color: white;
+}
+
+.dialog-title {
+  color: white;
+}
+
+.form-field {
+  margin-bottom: 16px;
+}
+
+.form-field .MuiInputBase-root {
+  background-color: #444;
+}
+
+.form-field .MuiInputLabel-root {
+  color: #ccc;
+}
+
+.form-field .MuiInputBase-input {
+  color: white;
+}
+
+.form-field .MuiSelect-select {
+  color: white;
+}
+
+.form-field .MuiOutlinedInput-notchedOutline {
+  border-color: #666;
+}
+
+.form-field .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #999;
+}
+
+.form-field .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #1976d2;
+}
+
+.pagination-container {
+  color: white;
+}
+
+.pagination-container .MuiTablePagination-select {
+  color: white;
+}
+
+.pagination-container .MuiTablePagination-selectIcon {
+  color: white;
+}
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+  .claims-container {
+    padding: 16px;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  .search-filter-section {
+    padding: 12px;
+  }
+  
+  .table-container {
+    font-size: 0.875rem;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .month-navigation {
+    padding: 12px;
+  }
+  
+  .month-navigation-title {
+    font-size: 1rem;
+  }
+}
+
+/* 다크 테마 호환성 */
+[data-theme="dark"] .claims-container {
+  background-color: #181a20;
+}
+
+[data-theme="dark"] .stat-card {
+  background-color: #2d3748;
+}
+
+[data-theme="dark"] .search-filter-section {
+  background-color: #2d3748;
+}
+
+[data-theme="dark"] .table-container {
+  background-color: #2d3748;
+}
+
+[data-theme="dark"] .month-navigation {
+  background-color: #2d3748;
+}
+
+/* 애니메이션 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.claims-container {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* 스크롤바 스타일링 */
+.table-container ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-container ::-webkit-scrollbar-track {
+  background: #444;
+}
+
+.table-container ::-webkit-scrollbar-thumb {
+  background: #666;
+  border-radius: 4px;
+}
+
+.table-container ::-webkit-scrollbar-thumb:hover {
+  background: #888;
+}
+
+/* 금액 포맷팅 */
+.amount-cell {
+  font-family: 'Courier New', monospace;
+  font-weight: 500;
+}
+
+/* 기성율 표시 */
+.progress-rate-cell {
+  text-align: center;
+  font-weight: 500;
+}
+
+/* 청구여부 상태 표시 */
+.claim-status-chip {
+  min-width: 40px;
+  justify-content: center;
+}
+
+.claim-status-chip.success {
+  background-color: #4caf50;
+  color: white;
+}
+
+.claim-status-chip.error {
+  background-color: #f44336;
+  color: white;
+}
+
+/* 월별 네비게이션 애니메이션 */
+.month-navigation {
+  transition: all 0.3s ease;
+}
+
+.month-navigation:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 툴팁 스타일링 */
+.MuiTooltip-tooltip {
+  background-color: #333 !important;
+  color: white !important;
+  font-size: 0.75rem !important;
+}
+
+/* 버튼 호버 효과 */
+.action-button:hover {
+  transform: scale(1.1);
+  transition: transform 0.2s ease;
+}
+
+/* 테이블 행 선택 효과 */
+.table-body-row.selected {
+  background-color: #3b82f6 !important;
+  color: white !important;
+}
+
+/* 로딩 상태 */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: #90caf9;
+}
+
+/* 빈 상태 */
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #ccc;
+}
+
+.empty-state-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+} 

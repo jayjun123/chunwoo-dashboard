@@ -4,6 +4,7 @@ import CustomCalendar from '../components/CustomCalendar';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { exportCalendarToExcel } from '../utils/exportUtils';
 
@@ -44,6 +45,8 @@ const CustomSchedule = () => {
     return todayStr;
   });
 
+  const authUser = useAuth();
+
   useEffect(() => {
     const q = query(collection(db, 'sites'));
     let unsubscribe = null;
@@ -82,7 +85,7 @@ const CustomSchedule = () => {
   const onDragEnd = async (result) => {
     if (!result.destination) return;
     const { source, destination, draggableId } = result;
-    const user = auth.currentUser;
+    const user = authUser.currentUser;
     if (!user) {
       alert('로그인이 필요합니다.');
       return;
@@ -161,7 +164,7 @@ const CustomSchedule = () => {
 
   const handleAddSchedule = async () => {
     if (!popupTitle.trim() || selectedTypes.length === 0) return;
-    const user = auth.currentUser;
+    const user = authUser.currentUser;
     if (!user) {
       alert('로그인이 필요합니다.');
       return;
@@ -217,13 +220,19 @@ const CustomSchedule = () => {
   };
   const handleItemTouchEnd = () => clearTimeout(touchTimer);
 
+  // 인증 상태와 로딩 상태를 모두 고려한 데이터 로딩
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) {
+    const user = authUser.currentUser;
+    const loading = authUser.loading;
+    
+    // 로딩 중이거나 사용자가 없으면 데이터 초기화
+    if (loading || !user) {
       setCalendarItems({});
       setCheckedItems({});
       return;
     }
+    
+    console.log('일정 데이터 로딩 시작 - 사용자:', user.uid);
     
     const q = query(collection(db, 'schedules'));
     let unsubscribe = null;
@@ -248,6 +257,7 @@ const CustomSchedule = () => {
           });
 
           setCalendarItems(newCalendarItems);
+          console.log('일정 데이터 로드 완료:', Object.keys(newCalendarItems).length, '개 날짜, 총', allSchedules.length, '개 일정');
         } catch (error) {
           console.error('일정 데이터 처리 오류:', error);
           setCalendarItems({});
@@ -276,7 +286,7 @@ const CustomSchedule = () => {
           });
           
           setCheckedItems(newCheckedItems);
-          console.log('체크 상태 실시간 업데이트:', newCheckedItems);
+          console.log('체크 상태 실시간 업데이트:', Object.keys(newCheckedItems).length, '개 항목');
         } catch (error) {
           console.error('체크 상태 처리 오류:', error);
         }
@@ -301,7 +311,7 @@ const CustomSchedule = () => {
         console.error('구독 해제 오류:', error);
       }
     };
-  }, []);
+  }, [authUser.currentUser, authUser.loading]); // 인증 상태와 로딩 상태 모두 추적
 
   const handleDeleteSelected = async () => {
     if (selectedItems.length === 0) return;
@@ -364,7 +374,7 @@ const CustomSchedule = () => {
 
   const handleEditSave = async () => {
     if (!editPopup.item?.text?.trim() || selectedTypes.length === 0) return;
-    const user = auth.currentUser;
+    const user = authUser.currentUser;
     if (!user) {
       alert('로그인이 필요합니다.');
       return;
@@ -430,7 +440,7 @@ const CustomSchedule = () => {
   };
 
   const handleCheckItem = async (date, id, checked) => {
-    const user = auth.currentUser;
+    const user = authUser.currentUser;
     if (!user) {
       alert('로그인이 필요합니다.');
       return;
@@ -573,7 +583,7 @@ const CustomSchedule = () => {
   const handlePasteItem = async (targetDate) => {
     if (!copiedItem) return;
     
-    const user = auth.currentUser;
+    const user = authUser.currentUser;
     if (!user) {
       alert('로그인이 필요합니다.');
       return;

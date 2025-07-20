@@ -49,6 +49,8 @@ import CustomSchedule from './pages/CustomSchedule';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
 import ScheduleManagement from './components/schedule/ScheduleManagement';
 import GanttChartPage from './pages/GanttChart';
+import Estimates from './pages/Estimates';
+import Claims from './pages/Claims';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
 const ProtectedRoute = ({ children }) => {
@@ -81,6 +83,32 @@ const App = () => {
     } catch (error) {
       console.error('Mobile optimization error:', error);
     }
+  }, []);
+
+  // 브라우저 확장프로그램 오류 필터링
+  useEffect(() => {
+    // 원래 console.error 함수 저장
+    const originalError = console.error;
+    
+    // console.error 재정의
+    console.error = (...args) => {
+      const message = args.join(' ');
+      
+      // 확장프로그램 관련 오류는 무시
+      if (message.includes('runtime.lastError') || 
+          message.includes('extension port') || 
+          message.includes('message channel is closed')) {
+        return; // 오류 로그 출력하지 않음
+      }
+      
+      // 다른 오류는 정상적으로 출력
+      originalError.apply(console, args);
+    };
+    
+    // 컴포넌트 언마운트 시 원래 함수로 복원
+    return () => {
+      console.error = originalError;
+    };
   }, []);
 
   // 뷰포트 높이 최적화
@@ -484,6 +512,38 @@ const App = () => {
                             ) : (
                               <Layout>
                                 <Cost />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/estimates"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Estimates />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Estimates />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/claims"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Claims />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Claims />
                               </Layout>
                             )}
                           </ProtectedRoute>

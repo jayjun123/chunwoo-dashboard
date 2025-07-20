@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { getSites } from '../../api/sites';
 import { 
   subscribeToDiscussions, 
@@ -47,7 +47,8 @@ import {
   Settings as SettingsIcon,
   ExitToApp as ExitToAppIcon,
   Download as DownloadIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 
 const PCKakaoDiscussion = () => {
@@ -56,6 +57,7 @@ const PCKakaoDiscussion = () => {
   const [selectedDiscussion, setSelectedDiscussion] = useState(null);
   const [messages, setMessages] = useState({});
   const [newMessage, setNewMessage] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState([]);
   const [newDiscussion, setNewDiscussion] = useState({
     title: '',
     subtitle: '',
@@ -72,6 +74,9 @@ const PCKakaoDiscussion = () => {
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [isParticipantsDialogOpen, setIsParticipantsDialogOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const [passwordDialog, setPasswordDialog] = useState({ open: false, discussion: null, password: '' });
+  const [editDialog, setEditDialog] = useState({ open: false, discussion: null });
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, discussion: null, password: '' });
   const messagesEndRef = useRef(null);
 
   // 실시간 데이터 구독
@@ -127,20 +132,67 @@ const PCKakaoDiscussion = () => {
     };
   }, [selectedDiscussion]);
 
-  // 메시지 전송
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedDiscussion) return;
+  // 채팅방 선택 시 하단바 숨김 처리 (PC에서는 필요 없지만 일관성을 위해 추가)
+  useEffect(() => {
+    if (selectedDiscussion) {
+      // PC에서는 하단바가 항상 표시되므로 별도 처리 불필요
+      // 하지만 모바일과의 일관성을 위해 클래스 추가
+      document.body.classList.add('hide-bottom-bar');
+    } else {
+      document.body.classList.remove('hide-bottom-bar');
+    }
+
+    // 컴포넌트 언마운트 시 하단바 복원
+    return () => {
+      document.body.classList.remove('hide-bottom-bar');
+    };
+  }, [selectedDiscussion]);
+
+  // 첨부파일 처리
+  const handleFileAttach = (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length > 0) {
+      setAttachedFiles(prev => [...prev, ...files]);
+    }
+  };
+
+  // 첨부파일 제거
+  const handleRemoveFile = (index) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // 메시지 전송 (메모이제이션)
+  const handleSendMessage = useCallback(async () => {
+    if ((!newMessage.trim() && attachedFiles.length === 0) || !selectedDiscussion) return;
+
+    const messageContent = newMessage.trim();
+    const filesToSend = [...attachedFiles];
+    
+    // 즉시 UI 업데이트
+    setNewMessage('');
+    setAttachedFiles([]);
 
     try {
       const messageData = {
-        content: newMessage,
+        content: messageContent,
         author: '나',
         authorId: 'current-user',
-        type: 'text'
+        type: filesToSend.length > 0 ? 'file' : 'text',
+        files: filesToSend
       };
 
-      await sendMessage(selectedDiscussion.id, messageData);
-      setNewMessage('');
+      // 비동기로 메시지 전송 (UI 블로킹 방지)
+      sendMessage(selectedDiscussion.id, messageData).catch(error => {
+        console.error('메시지 전송 실패:', error);
+        setSnackbar({
+          open: true,
+          message: '메시지 전송에 실패했습니다.',
+          severity: 'error'
+        });
+        // 실패 시 입력창에 다시 넣기
+        setNewMessage(messageContent);
+        setAttachedFiles(filesToSend);
+      });
     } catch (error) {
       console.error('메시지 전송 실패:', error);
       setSnackbar({
@@ -148,20 +200,14 @@ const PCKakaoDiscussion = () => {
         message: '메시지 전송에 실패했습니다.',
         severity: 'error'
       });
+      // 실패 시 입력창에 다시 넣기
+      setNewMessage(messageContent);
+      setAttachedFiles(filesToSend);
     }
-  };
+  }, [newMessage, attachedFiles, selectedDiscussion]);
 
   // 새 토론 생성
   const handleCreateDiscussion = async () => {
-    if (!newDiscussion.subtitle.trim()) {
-      setSnackbar({
-        open: true,
-        message: '부제목을 입력해주세요.',
-        severity: 'warning'
-      });
-      return;
-    }
-
     if (!newDiscussion.siteName.trim()) {
       setSnackbar({
         open: true,
@@ -173,14 +219,14 @@ const PCKakaoDiscussion = () => {
 
     try {
       const discussionData = {
-        title: newDiscussion.subtitle, // 부제목을 제목으로 사용
-        subtitle: newDiscussion.subtitle,
+        title: newDiscussion.subtitle || newDiscussion.siteName, // 부제목이 없으면 현장명 사용
+        subtitle: newDiscussion.subtitle || '',
         siteName: newDiscussion.siteName,
         password: newDiscussion.password,
         category: newDiscussion.category,
         priority: newDiscussion.priority,
         createdBy: 'current-user',
-        avatar: newDiscussion.subtitle.charAt(0),
+        avatar: (newDiscussion.subtitle || newDiscussion.siteName).charAt(0),
         color: `hsl(${Math.random() * 360}, 70%, 60%)`
       };
 
@@ -211,11 +257,7 @@ const PCKakaoDiscussion = () => {
     }
   };
 
-  // 필터링
-  const filteredDiscussions = discussions.filter(d => 
-    d.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.lastMessage.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+
 
   // 카테고리 옵션
   const categories = ['안전', '일정', '자재', '품질', '환경', '기타'];
@@ -258,7 +300,7 @@ const PCKakaoDiscussion = () => {
         handleLeaveDiscussion();
         break;
       case 'delete':
-        handleDeleteDiscussion();
+        setDeleteDialog({ open: true, discussion: selectedDiscussion });
         break;
       default:
         break;
@@ -316,18 +358,103 @@ const PCKakaoDiscussion = () => {
     }
   };
 
+  // 중요도 색상 매핑 (메모이제이션)
+  const getPriorityColor = useCallback((priority) => {
+    switch (priority) {
+      case 'urgent': return '#ff4444'; // 빨간색 (긴급)
+      case 'important': return '#ff8800'; // 주황색 (중요)
+      case 'normal': return '#44ff44'; // 초록색 (보통)
+      case 'low': return '#4488ff'; // 파란색 (여유)
+      case 'planned': return '#8844ff'; // 보라색 (예정)
+      default: return '#44ff44';
+    }
+  }, []);
+
+  // 필터링된 토론 목록 (메모이제이션)
+  const filteredDiscussions = useMemo(() => {
+    return discussions.filter(discussion => {
+      const matchesSearch = !searchTerm || 
+        discussion.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        discussion.subtitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        discussion.siteName?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      return matchesSearch;
+    });
+  }, [discussions, searchTerm]);
+
+  // 비밀번호 확인
+  const handlePasswordCheck = async () => {
+    if (passwordDialog.password === passwordDialog.discussion.password) {
+      setPasswordDialog({ open: false, discussion: null, password: '' });
+      setSelectedDiscussion(passwordDialog.discussion);
+    } else {
+      setSnackbar({
+        open: true,
+        message: '비밀번호가 올바르지 않습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
+  // 채팅방 선택
+  const handleDiscussionSelect = (discussion) => {
+    // 비밀번호가 있고, 비어있지 않은 경우에만 비밀번호 체크
+    if (discussion.password && discussion.password.trim() !== '' && discussion.password !== null && discussion.password !== undefined) {
+      setPasswordDialog({ open: true, discussion, password: '' });
+    } else {
+      setSelectedDiscussion(discussion);
+    }
+  };
+
+  // 채팅방 수정
+  const handleEditDiscussion = async () => {
+    try {
+      // 수정 로직 구현
+      setEditDialog({ open: false, discussion: null });
+      setSnackbar({
+        open: true,
+        message: '채팅방이 수정되었습니다.',
+        severity: 'success'
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: '채팅방 수정에 실패했습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
   // 채팅방 삭제
   const handleDeleteDiscussion = async () => {
-    if (!selectedDiscussion) return;
-    
     try {
-      await deleteDiscussion(selectedDiscussion.id);
-      setSelectedDiscussion(null);
+      if (!deleteDialog.discussion) return;
       
+      // 비밀번호가 있는 경우 비밀번호 검증
+      if (deleteDialog.discussion.password && deleteDialog.discussion.password.trim() !== '') {
+        if (deleteDialog.password !== deleteDialog.discussion.password) {
+          setSnackbar({
+            open: true,
+            message: '비밀번호가 올바르지 않습니다.',
+            severity: 'error'
+          });
+          return;
+        }
+      }
+      
+      // 실제 삭제 API 호출
+      await deleteDiscussion(deleteDialog.discussion.id);
+      
+      // 선택된 토론이 삭제된 토론이면 선택 해제
+      if (selectedDiscussion?.id === deleteDialog.discussion.id) {
+        setSelectedDiscussion(null);
+      }
+      
+      setDeleteDialog({ open: false, discussion: null, password: '' });
       setSnackbar({
         open: true,
         message: '채팅방이 삭제되었습니다.',
-        severity: 'warning'
+        severity: 'success'
       });
     } catch (error) {
       console.error('채팅방 삭제 실패:', error);
@@ -418,56 +545,77 @@ const PCKakaoDiscussion = () => {
           overflowY: 'auto',
           p: 1
         }}>
-                     {filteredDiscussions.length === 0 ? (
-             <Paper sx={{ p: 4, textAlign: 'center', backgroundColor: '#444444', m: 2 }}>
-               <Typography variant="h6" sx={{ color: '#CCCCCC', mb: 1 }}>
-                 토론이 없습니다
-               </Typography>
-               <Typography variant="body2" sx={{ color: '#999' }}>
-                 첫 번째 토론을 시작해보세요!
-               </Typography>
-             </Paper>
+          {filteredDiscussions.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center', backgroundColor: '#444444', m: 2 }}>
+              <Typography variant="h6" sx={{ color: '#CCCCCC', mb: 1 }}>
+                토론이 없습니다
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#999' }}>
+                첫 번째 토론을 시작해보세요!
+              </Typography>
+            </Paper>
           ) : (
             filteredDiscussions.map((discussion) => (
-                             <Card 
-                 key={discussion.id} 
-                 sx={{ 
-                   mb: 1, 
-                   backgroundColor: selectedDiscussion?.id === discussion.id ? '#444444' : '#2D2D2D',
-                   borderRadius: 0,
-                   borderBottom: '1px solid #333333',
-                   boxShadow: 'none',
-                   '&:hover': { backgroundColor: '#444444' },
-                   cursor: 'pointer'
-                 }}
-                onClick={() => setSelectedDiscussion(discussion)}
+              <Card 
+                key={discussion.id} 
+                sx={{ 
+                  mb: 1, 
+                  backgroundColor: selectedDiscussion?.id === discussion.id ? '#444444' : '#2D2D2D',
+                  borderRadius: 0,
+                  borderBottom: '1px solid #333333',
+                  boxShadow: 'none',
+                  '&:hover': { backgroundColor: '#444444' },
+                  cursor: 'pointer',
+                  position: 'relative'
+                }}
+                onClick={() => handleDiscussionSelect(discussion)}
               >
-                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Badge
-                      badgeContent={discussion.unreadCount}
-                      color="error"
-                      invisible={discussion.unreadCount === 0}
-                    >
-                      <Avatar 
-                        sx={{ 
-                          width: 50, 
-                          height: 50, 
-                          backgroundColor: discussion.color,
-                          fontSize: '18px',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        {discussion.avatar}
-                      </Avatar>
-                    </Badge>
-                    
-                    <Box sx={{ ml: 2, flex: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                        <Typography variant="h6" sx={{ fontSize: '16px', fontWeight: 'bold' }}>
-                          {discussion.title}
+                {/* 중요도 표시 (왼쪽 세로막대) */}
+                <Box sx={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: '4px',
+                  backgroundColor: getPriorityColor(discussion.priority)
+                }} />
+                
+                <CardContent sx={{ p: 2, pl: 3, '&:last-child': { pb: 2 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <Box sx={{ flex: 1 }}>
+                      {/* 현장명 */}
+                      <Typography variant="h6" sx={{ 
+                        fontSize: '16px', 
+                        fontWeight: 'bold',
+                        color: '#FFFFFF',
+                        mb: 0.5
+                      }}>
+                        {discussion.siteName || discussion.title}
+                      </Typography>
+                      
+                      {/* 부제목 (선택사항) */}
+                      {discussion.subtitle && (
+                        <Typography variant="body2" sx={{ 
+                          color: '#CCCCCC', 
+                          fontSize: '14px',
+                          mb: 0.5
+                        }}>
+                          {discussion.subtitle}
                         </Typography>
-                        <Typography variant="body2" sx={{ color: '#999', fontSize: '12px' }}>
+                      )}
+                      
+                      {/* 마지막 작성자와 시간 */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Typography variant="body2" sx={{ 
+                          color: '#999', 
+                          fontSize: '12px'
+                        }}>
+                          {discussion.lastAuthor || '작성자 없음'}
+                        </Typography>
+                        <Typography variant="body2" sx={{ 
+                          color: '#999', 
+                          fontSize: '12px'
+                        }}>
                           {discussion.lastMessageTime?.toDate ? 
                             discussion.lastMessageTime.toDate().toLocaleTimeString('ko-KR', { 
                               hour: '2-digit', 
@@ -479,25 +627,61 @@ const PCKakaoDiscussion = () => {
                         </Typography>
                       </Box>
                       
-                                             <Typography variant="body2" sx={{ color: '#CCCCCC', fontSize: '14px', mb: 0.5 }}>
-                         {discussion.lastMessage}
-                       </Typography>
-                      
+                      {/* 비밀번호 유무 표시 */}
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {discussion.password && discussion.password.trim() !== '' && (
+                          <Chip
+                            label="🔒 비밀번호"
+                            size="small"
+                            sx={{ 
+                              backgroundColor: '#666',
+                              color: 'white',
+                              fontSize: '10px',
+                              height: '18px'
+                            }}
+                          />
+                        )}
                         <Chip
-                          label={discussion.category}
+                          label={discussion.category || '일반'}
                           size="small"
                           sx={{ 
-                            backgroundColor: discussion.color,
+                            backgroundColor: discussion.color || '#666',
                             color: 'white',
                             fontSize: '10px',
-                            height: '20px'
+                            height: '18px'
                           }}
                         />
-                        <Typography variant="caption" sx={{ color: '#999' }}>
-                          참여자 {discussion.participants}명
-                        </Typography>
                       </Box>
+                    </Box>
+                    
+                    {/* 수정/삭제 버튼 */}
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditDialog({ open: true, discussion });
+                        }}
+                        sx={{ 
+                          color: '#999',
+                          '&:hover': { color: '#fff' }
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteDialog({ open: true, discussion });
+                        }}
+                        sx={{ 
+                          color: '#999',
+                          '&:hover': { color: '#ff4444' }
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
                     </Box>
                   </Box>
                 </CardContent>
@@ -567,7 +751,14 @@ const PCKakaoDiscussion = () => {
                   minute: '2-digit',
                   hour12: true 
                 }) : 
-                message.timestamp || '';
+                (message.timestamp instanceof Date ? 
+                  message.timestamp.toLocaleTimeString('ko-KR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true 
+                  }) : 
+                  message.timestamp || ''
+                );
 
               return (
                 <Box 
@@ -608,13 +799,55 @@ const PCKakaoDiscussion = () => {
                       wordBreak: 'break-word',
                       maxWidth: '100%'
                     }}>
-                      <Typography variant="body2" sx={{ 
-                        fontSize: '14px',
-                        color: '#FFFFFF',
-                        lineHeight: 1.4
-                      }}>
-                        {message.content}
-                      </Typography>
+                      {/* 텍스트 메시지 */}
+                      {message.content && (
+                        <Typography variant="body2" sx={{ 
+                          fontSize: '14px',
+                          color: '#FFFFFF',
+                          lineHeight: 1.4,
+                          mb: message.files && message.files.length > 0 ? 1 : 0
+                        }}>
+                          {message.content}
+                        </Typography>
+                      )}
+                      
+                      {/* 첨부파일 */}
+                      {message.files && message.files.length > 0 && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          {message.files.map((file, index) => (
+                            <Box
+                              key={index}
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                                p: 1,
+                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                borderRadius: 1,
+                                cursor: 'pointer',
+                                '&:hover': {
+                                  backgroundColor: 'rgba(255,255,255,0.2)'
+                                }
+                              }}
+                              onClick={() => window.open(file.url, '_blank')}
+                            >
+                              <AttachFileIcon sx={{ fontSize: 16, color: '#90CAF9' }} />
+                              <Typography variant="caption" sx={{ 
+                                color: '#FFFFFF',
+                                flex: 1,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {file.name}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#CCC' }}>
+                                {(file.size / 1024).toFixed(1)}KB
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
                     </Paper>
                     
                     <Typography variant="caption" sx={{ 
@@ -640,10 +873,42 @@ const PCKakaoDiscussion = () => {
              borderTop: '1px solid #444444',
              p: 2
            }}>
-                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-               <IconButton sx={{ color: '#CCCCCC', flexShrink: 0 }}>
-                 <AttachFileIcon />
-               </IconButton>
+             {/* 첨부파일 표시 영역 */}
+             {attachedFiles.length > 0 && (
+               <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                 {attachedFiles.map((file, index) => (
+                   <Chip
+                     key={index}
+                     label={file.name}
+                     onDelete={() => handleRemoveFile(index)}
+                     sx={{
+                       backgroundColor: '#444444',
+                       color: '#FFFFFF',
+                       '& .MuiChip-deleteIcon': {
+                         color: '#FF6B6B'
+                       }
+                     }}
+                   />
+                 ))}
+               </Box>
+             )}
+             
+             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+               <input
+                 type="file"
+                 multiple
+                 onChange={handleFileAttach}
+                 style={{ display: 'none' }}
+                 id="file-attach"
+               />
+               <label htmlFor="file-attach">
+                 <IconButton 
+                   component="span"
+                   sx={{ color: '#CCCCCC', flexShrink: 0 }}
+                 >
+                   <AttachFileIcon />
+                 </IconButton>
+               </label>
                <TextField
                  fullWidth
                  placeholder="메시지를 입력하세요..."
@@ -668,10 +933,10 @@ const PCKakaoDiscussion = () => {
                />
                <IconButton 
                  onClick={handleSendMessage}
-                 disabled={!newMessage.trim()}
+                 disabled={!newMessage.trim() && attachedFiles.length === 0}
                  sx={{ 
-                   color: newMessage.trim() ? '#FFFFFF' : '#666',
-                   backgroundColor: newMessage.trim() ? '#4CAF50' : '#444444',
+                   color: (newMessage.trim() || attachedFiles.length > 0) ? '#FFFFFF' : '#666',
+                   backgroundColor: (newMessage.trim() || attachedFiles.length > 0) ? '#4CAF50' : '#444444',
                    flexShrink: 0,
                    width: 40,
                    height: 40
@@ -742,7 +1007,7 @@ const PCKakaoDiscussion = () => {
           {/* 부제목 */}
           <TextField
             fullWidth
-            label="부제목 *"
+            label="부제목 (선택사항)"
             value={newDiscussion.subtitle}
             onChange={(e) => setNewDiscussion({...newDiscussion, subtitle: e.target.value})}
             sx={{ mb: 2 }}
@@ -781,7 +1046,7 @@ const PCKakaoDiscussion = () => {
           />
           
           <Grid container spacing={2}>
-            <Grid item xs={6}>
+            <Grid item xs={8}>
               <FormControl fullWidth>
                 <InputLabel sx={{ color: '#CCCCCC' }}>카테고리</InputLabel>
                 <Select
@@ -800,7 +1065,7 @@ const PCKakaoDiscussion = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={6}>
+            <Grid item xs={4}>
               <FormControl fullWidth>
                 <InputLabel sx={{ color: '#CCCCCC' }}>우선순위</InputLabel>
                 <Select
@@ -1073,6 +1338,140 @@ const PCKakaoDiscussion = () => {
             }}
           >
             저장
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 비밀번호 확인 다이얼로그 */}
+      <Dialog open={passwordDialog.open} onClose={() => setPasswordDialog({ open: false, discussion: null, password: '' })}>
+        <DialogTitle>비밀번호 입력</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            "{passwordDialog.discussion?.siteName || passwordDialog.discussion?.title}" 채팅방에 입장하려면 비밀번호를 입력하세요.
+          </Typography>
+          <TextField
+            fullWidth
+            type="password"
+            placeholder="비밀번호를 입력하세요"
+            value={passwordDialog.password}
+            onChange={(e) => setPasswordDialog(prev => ({ ...prev, password: e.target.value }))}
+            onKeyPress={(e) => e.key === 'Enter' && handlePasswordCheck()}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPasswordDialog({ open: false, discussion: null, password: '' })}>
+            취소
+          </Button>
+          <Button onClick={handlePasswordCheck} variant="contained">
+            입장
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 수정 다이얼로그 */}
+      <Dialog open={editDialog.open} onClose={() => setEditDialog({ open: false, discussion: null })} maxWidth="sm" fullWidth>
+        <DialogTitle>채팅방 수정</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="현장명"
+            value={editDialog.discussion?.siteName || ''}
+            onChange={(e) => setEditDialog(prev => ({
+              ...prev,
+              discussion: { ...prev.discussion, siteName: e.target.value }
+            }))}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="부제목 (선택사항)"
+            value={editDialog.discussion?.subtitle || ''}
+            onChange={(e) => setEditDialog(prev => ({
+              ...prev,
+              discussion: { ...prev.discussion, subtitle: e.target.value }
+            }))}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="비밀번호 (선택사항)"
+            type="password"
+            value={editDialog.discussion?.password || ''}
+            onChange={(e) => setEditDialog(prev => ({
+              ...prev,
+              discussion: { ...prev.discussion, password: e.target.value }
+            }))}
+            sx={{ mb: 2 }}
+          />
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>중요도</InputLabel>
+            <Select
+              value={editDialog.discussion?.priority || 'normal'}
+              onChange={(e) => setEditDialog(prev => ({
+                ...prev,
+                discussion: { ...prev.discussion, priority: e.target.value }
+              }))}
+            >
+              <MenuItem value="urgent">긴급 (빨간색)</MenuItem>
+              <MenuItem value="important">중요 (주황색)</MenuItem>
+              <MenuItem value="normal">보통 (초록색)</MenuItem>
+              <MenuItem value="low">여유 (파란색)</MenuItem>
+              <MenuItem value="planned">예정 (보라색)</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialog({ open: false, discussion: null })}>
+            취소
+          </Button>
+          <Button onClick={handleEditDiscussion} variant="contained">
+            수정
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, discussion: null, password: '' })}>
+        <DialogTitle>채팅방 삭제</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            "{deleteDialog.discussion?.siteName || deleteDialog.discussion?.title}" 채팅방을 삭제하시겠습니까?
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#ff4444', mt: 1 }}>
+            이 작업은 되돌릴 수 없습니다.
+          </Typography>
+          
+          {/* 비밀번호가 있는 경우 비밀번호 입력 필드 */}
+          {deleteDialog.discussion?.password && deleteDialog.discussion.password.trim() !== '' && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body2" sx={{ mb: 1, color: '#CCCCCC' }}>
+                이 채팅방은 비밀번호가 설정되어 있습니다. 삭제하려면 비밀번호를 입력하세요.
+              </Typography>
+              <TextField
+                fullWidth
+                type="password"
+                placeholder="비밀번호를 입력하세요"
+                value={deleteDialog.password}
+                onChange={(e) => setDeleteDialog(prev => ({ ...prev, password: e.target.value }))}
+                onKeyPress={(e) => e.key === 'Enter' && handleDeleteDiscussion()}
+                InputProps={{
+                  sx: { 
+                    backgroundColor: '#444444',
+                    '& input': {
+                      color: '#FFFFFF'
+                    }
+                  }
+                }}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialog({ open: false, discussion: null, password: '' })}>
+            취소
+          </Button>
+          <Button onClick={handleDeleteDiscussion} variant="contained" color="error">
+            삭제
           </Button>
         </DialogActions>
       </Dialog>

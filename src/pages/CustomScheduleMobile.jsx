@@ -3,6 +3,7 @@ import { Box, Typography, IconButton, Grid, Paper, Divider, Dialog, DialogTitle,
 import { ChevronLeft, ChevronRight, ArrowBack, Add, Today, Edit, Delete, ViewWeek, ViewModule, CalendarViewMonth, Home, Business, Security, Assignment, Chat, Description, Assessment, Settings, Person, Star, Timeline } from '@mui/icons-material';
 import { collection, onSnapshot, doc, deleteDoc, updateDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import MobileLayout from '../components/common/MobileLayout';
 
@@ -76,6 +77,7 @@ function getMonthMatrix(year, month) {
 
 const CustomScheduleMobile = () => {
   const navigate = useNavigate();
+  const authUser = useAuth();
   const today = new Date();
   const [year, setYear] = useState(2025); // 2025년으로 설정
   const [month, setMonth] = useState(today.getMonth());
@@ -116,9 +118,13 @@ const CustomScheduleMobile = () => {
     { icon: <Person />, path: '/profile', label: '프로필' },
   ];
 
+  // 인증 상태와 로딩 상태를 모두 고려한 데이터 로딩
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) {
+    const user = authUser.currentUser;
+    const authLoading = authUser.loading;
+    
+    // 로딩 중이거나 사용자가 없으면 데이터 초기화
+    if (authLoading || !user) {
       setSchedules([]);
       setCheckedItems({});
       setCurrentUser(null);
@@ -127,6 +133,7 @@ const CustomScheduleMobile = () => {
     }
     
     setCurrentUser(user);
+    console.log('모바일 일정 데이터 로딩 시작 - 사용자:', user.uid);
 
     let schedulesUnsubscribe = null;
     let checksUnsubscribe = null;
@@ -135,7 +142,7 @@ const CustomScheduleMobile = () => {
       // 일정 데이터 실시간 구독
       schedulesUnsubscribe = onSnapshot(collection(db, 'schedules'), (snapshot) => {
         const scheduleData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log('모바일 일정 데이터 로드:', scheduleData);
+        console.log('모바일 일정 데이터 로드 완료:', scheduleData.length, '개 일정');
         setSchedules(scheduleData);
         setLoading(false);
       });
@@ -159,7 +166,7 @@ const CustomScheduleMobile = () => {
           });
           
           setCheckedItems(newCheckedItems);
-          console.log('모바일 체크 상태 실시간 업데이트:', newCheckedItems);
+          console.log('모바일 체크 상태 실시간 업데이트:', Object.keys(newCheckedItems).length, '개 항목');
         } catch (error) {
           console.error('모바일 체크 상태 처리 오류:', error);
         }
@@ -182,7 +189,7 @@ const CustomScheduleMobile = () => {
         console.error('모바일 구독 해제 오류:', error);
       }
     };
-  }, []);
+  }, [authUser.currentUser, authUser.loading]); // 인증 상태와 로딩 상태 모두 추적
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'sites'), (snapshot) => {
@@ -813,7 +820,7 @@ const CustomScheduleMobile = () => {
 
   // 체크박스 상태 저장 함수
   const handleCheckItem = async (date, id, checked) => {
-    const user = auth.currentUser;
+    const user = authUser.currentUser;
     if (!user) {
       alert('로그인이 필요합니다.');
       return;
@@ -908,7 +915,9 @@ const CustomScheduleMobile = () => {
         mt: '-30px', // 위로 30px 이동
         touchAction: 'none',
         WebkitOverflowScrolling: 'none',
-        userSelect: 'none'
+        userSelect: 'none',
+        display: 'flex',
+        flexDirection: 'column'
       }}>
         {loading && (
           <Box sx={{ 
@@ -927,226 +936,237 @@ const CustomScheduleMobile = () => {
           </Box>
         )}
 
+        {/* 헤더(지금위치) - 여백 없음 */}
         
-        {/* 월/연도 네비 */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 0, px: 1, position: 'relative', top: 0, mt: 0, pt: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton onClick={handlePrevMonth} color="primary" size="small"><ChevronLeft /></IconButton>
-            <Typography variant="h6" sx={{ color: '#2196f3', fontWeight: 700, fontSize: '1.1rem', minWidth: 90, textAlign: 'center' }}>{year}년 {month + 1}월</Typography>
-            <IconButton onClick={handleNextMonth} color="primary" size="small"><ChevronRight /></IconButton>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            {/* 견적/청구 버튼 */}
-            <Button
-              variant="outlined"
-              size="small"
-              sx={{
-                borderColor: '#3b82f6',
-                color: '#3b82f6',
-                fontSize: '0.6rem',
-                py: 0.3,
-                px: 1,
-                minWidth: 'auto',
-                height: 28,
-                '&:hover': {
-                  borderColor: '#2563eb',
-                  backgroundColor: 'rgba(59, 130, 246, 0.1)'
-                }
-              }}
-              onClick={() => {
-                console.log('모바일 견적 버튼 클릭');
-                // TODO: 견적 페이지로 라우팅
-              }}
-            >
-              견적
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              sx={{
-                borderColor: '#ef4444',
-                color: '#ef4444',
-                fontSize: '0.6rem',
-                py: 0.3,
-                px: 1,
-                minWidth: 'auto',
-                height: 28,
-                '&:hover': {
-                  borderColor: '#dc2626',
-                  backgroundColor: 'rgba(239, 68, 68, 0.1)'
-                }
-              }}
-              onClick={() => {
-                console.log('모바일 청구 버튼 클릭');
-                // TODO: 청구 페이지로 라우팅
-              }}
-            >
-              청구
-            </Button>
-          </Box>
-        </Box>
+        {/* 5px 여백 */}
+        <Box sx={{ height: '5px' }} />
         
-        {/* 요일 헤더 - 월간보기에서만 표시 */}
-        {viewMode === 'month' && (
-          <Box sx={{ display: 'flex', mb: 0, px: 1, mt: 0, pt: 0 }}>
-            {dayNames.map((d, i) => (
-              <Box
-                key={d}
+        {/* 달력 네비게이션 + 달력 */}
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* 월/연도 네비 */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 0, px: 1, position: 'relative', top: 0, mt: 0, pt: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <IconButton onClick={handlePrevMonth} color="primary" size="small"><ChevronLeft /></IconButton>
+              <Typography variant="h6" sx={{ color: '#2196f3', fontWeight: 700, fontSize: '1.1rem', minWidth: 90, textAlign: 'center' }}>{year}년 {month + 1}월</Typography>
+              <IconButton onClick={handleNextMonth} color="primary" size="small"><ChevronRight /></IconButton>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              {/* 견적/청구 버튼 */}
+              <Button
+                variant="outlined"
+                size="small"
                 sx={{
-                  flex: 1, // 모든 요일이 동일한 너비
-                  textAlign: 'center',
-                  color: i === 0 ? '#ef5350' : i === 6 ? '#42a5f5' : '#b0b0b0',
-                  fontWeight: 700,
-                  fontSize: '0.95rem',
-                  letterSpacing: 0.5,
-                  mx: 0.1, // 날짜 셀과 동일한 간격 (0.25 → 0.1)
+                  borderColor: '#3b82f6',
+                  color: '#3b82f6',
+                  fontSize: '0.6rem',
+                  py: 0.3,
+                  px: 1,
+                  minWidth: 'auto',
+                  height: 28,
+                  '&:hover': {
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)'
+                  }
+                }}
+                onClick={() => {
+                  console.log('모바일 견적 버튼 클릭');
+                  navigate('/estimates');
                 }}
               >
-                {d}
-              </Box>
-            ))}
-          </Box>
-        )}
-        
-        {/* 달력 그리드 - 월간보기만 사용 */}
-        {viewMode === 'month' && (
-          <Box sx={{ px: 0, mb: 1, width: '100%', overflow: 'hidden', mt: 0, pt: 0 }}>
-            <Box sx={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(7, 1fr)', 
-              gap: 0, 
-              width: '100%',
-              minWidth: '100%',
-              maxWidth: '100%'
-            }}>
-              {monthMatrix.flat().map((cell, index) => {
-                const { day, isCurrentMonth, year: cellYear, month: cellMonth, date } = cell;
-                const rowIdx = Math.floor(index / 7);
-                const colIdx = index % 7;
-                const isToday = date && date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
-                const isSelected = isCurrentMonth && day === selectedDay;
-                const dayOfWeek = colIdx;
-                // 6줄일 때는 높이를 줄여서 전체 크기 유지
-                const totalRows = monthMatrix.length;
-                const cellHeight = totalRows === 6 ? 57 : 69;
-                return (
-                  <Box
-                    key={`${rowIdx}-${colIdx}`}
-                    sx={{
-                      width: '100%',
-                      minWidth: 0,
-                      height: cellHeight,
-                      bgcolor: 'transparent',
-                      borderRadius: 1.5,
-                      border: isToday
-                        ? '2px solid #ef5350'
-                        : isSelected
-                          ? '2px solid #42a5f5'
-                          : '1px solid #333',
-                      p: 0.2,
-                      m: 0,
-                      position: 'relative',
-                      opacity: isCurrentMonth ? 1 : 0.3,
-                      boxShadow: isSelected ? '0 0 0 2px #2196f3' : 'none',
-                      cursor: day ? 'pointer' : 'default',
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'flex-start',
-                      alignItems: 'stretch',
-                      overflow: 'hidden',
-                      '&:hover': {
-                        bgcolor: 'rgba(35, 38, 52, 0.06)',
-                      }
-                    }}
-                    onClick={() => isCurrentMonth && day && setSelectedDay(day)}
-                  >
-                    {day ? (
-                      <>
-                        {/* 날짜 숫자와 일정 카운트 - 더 컴팩트하게 */}
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0, mt: 0, gap: 0 }}>
-                          <Typography
-                            sx={{
-                              color: '#888',
-                              fontSize: '0.5rem',
-                              fontWeight: 400,
-                              opacity: 0.7,
-                              ml: 0.1,
-                              mt: 0,
-                              mb: 0,
-                              p: 0,
-                              lineHeight: 1,
-                            }}
-                          >
-                            [{getSchedulesForDate(cellYear, cellMonth, day).length || 0}]
-                          </Typography>
-                          <Box
-                            sx={{
-                              color: dayOfWeek === 0 ? '#ef5350' : dayOfWeek === 6 ? '#42a5f5' : isToday ? '#fff' : '#888',
-                              fontWeight: 700,
-                              fontSize: '0.7rem',
-                              mr: 0.1,
-                              mt: 0,
-                              mb: 0,
-                              p: 0,
-                              lineHeight: 1,
-                            }}
-                          >
-                            {day}
-                          </Box>
-                        </Box>
-                        {/* 일정 바 - 더 컴팩트하게 */}
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1, mt: 0.2, flex: 1, height: '100%', overflow: 'auto' }}>
-                          {getSchedulesForDate(cellYear, cellMonth, day).slice(0, 8).map((item, i) => (
-                            <Box
-                              key={item.id}
-                              sx={{
-                                borderRadius: 0.5,
-                                px: 0.4,
-                                py: 0.2,
-                                fontSize: '0.7rem',
-                                fontWeight: 500,
-                                bgcolor: item.color || colorList[i % colorList.length],
-                                color: '#fff',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                boxShadow: '0 1px 1px 0 #0002',
-                                textAlign: 'center',
-                                width: '100%',
-                                mb: 0.1,
-                                lineHeight: 1.2,
-                                minHeight: 18,
-                                maxHeight: 18,
-                                // 이전/다음 달 일정은 더 선명하게 표시
-                                opacity: isCurrentMonth ? 1 : 0.8,
-                              }}
-                            >
-                              {(item.text || item.title || '제목 없음').slice(0, 8)}
-                            </Box>
-                          ))}
-                        </Box>
-                      </>
-                    ) : (
-                      // 빈 날짜셀을 위한 공간 확보
-                      <Box sx={{ height: cellHeight - 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      </Box>
-                    )}
-                  </Box>
-                );
-              })}
+                견적
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                sx={{
+                  borderColor: '#ef4444',
+                  color: '#ef4444',
+                  fontSize: '0.6rem',
+                  py: 0.3,
+                  px: 1,
+                  minWidth: 'auto',
+                  height: 28,
+                  '&:hover': {
+                    borderColor: '#dc2626',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)'
+                  }
+                }}
+                onClick={() => {
+                  console.log('모바일 청구 버튼 클릭');
+                  navigate('/claims');
+                }}
+              >
+                청구
+              </Button>
             </Box>
           </Box>
-        )}
+          
+          {/* 요일 헤더 - 월간보기에서만 표시 */}
+          {viewMode === 'month' && (
+            <Box sx={{ display: 'flex', mb: 0, px: 1, mt: 0, pt: 0 }}>
+              {dayNames.map((d, i) => (
+                <Box
+                  key={d}
+                  sx={{
+                    flex: 1, // 모든 요일이 동일한 너비
+                    textAlign: 'center',
+                    color: i === 0 ? '#ef5350' : i === 6 ? '#42a5f5' : '#b0b0b0',
+                    fontWeight: 700,
+                    fontSize: '0.95rem',
+                    letterSpacing: 0.5,
+                    mx: 0.1, // 날짜 셀과 동일한 간격 (0.25 → 0.1)
+                  }}
+                >
+                  {d}
+                </Box>
+              ))}
+            </Box>
+          )}
+          
+          {/* 달력 그리드 - 월간보기만 사용 */}
+          {viewMode === 'month' && (
+            <Box sx={{ px: 0, mb: 0, width: '100%', overflow: 'hidden', mt: 0, pt: 0, flex: 1 }}>
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(7, 1fr)', 
+                gap: 0, 
+                width: '100%',
+                minWidth: '100%',
+                maxWidth: '100%',
+                height: '100%'
+              }}>
+                {monthMatrix.flat().map((cell, index) => {
+                  const { day, isCurrentMonth, year: cellYear, month: cellMonth, date } = cell;
+                  const rowIdx = Math.floor(index / 7);
+                  const colIdx = index % 7;
+                  const isToday = date && date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
+                  const isSelected = isCurrentMonth && day === selectedDay;
+                  const dayOfWeek = colIdx;
+                  // 날짜셀 세로를 키움 - 6줄일 때는 높이를 늘려서 전체 크기 유지
+                  const totalRows = monthMatrix.length;
+                  const cellHeight = totalRows === 6 ? 75 : 85; // 높이 증가
+                  return (
+                    <Box
+                      key={`${rowIdx}-${colIdx}`}
+                      sx={{
+                        width: '100%',
+                        minWidth: 0,
+                        height: cellHeight,
+                        bgcolor: 'transparent',
+                        borderRadius: 1.5,
+                        border: isToday
+                          ? '2px solid #ef5350'
+                          : isSelected
+                            ? '2px solid #42a5f5'
+                            : '1px solid #333',
+                        p: 0.2,
+                        m: 0,
+                        position: 'relative',
+                        opacity: isCurrentMonth ? 1 : 0.3,
+                        boxShadow: isSelected ? '0 0 0 2px #2196f3' : 'none',
+                        cursor: day ? 'pointer' : 'default',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'flex-start',
+                        alignItems: 'stretch',
+                        overflow: 'hidden',
+                        '&:hover': {
+                          bgcolor: 'rgba(35, 38, 52, 0.06)',
+                        }
+                      }}
+                      onClick={() => isCurrentMonth && day && setSelectedDay(day)}
+                    >
+                      {day ? (
+                        <>
+                          {/* 날짜 숫자와 일정 카운트 - 더 컴팩트하게 */}
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0, mt: 0, gap: 0 }}>
+                            <Typography
+                              sx={{
+                                color: '#888',
+                                fontSize: '0.5rem',
+                                fontWeight: 400,
+                                opacity: 0.7,
+                                ml: 0.1,
+                                mt: 0,
+                                mb: 0,
+                                p: 0,
+                                lineHeight: 1,
+                              }}
+                            >
+                              [{getSchedulesForDate(cellYear, cellMonth, day).length || 0}]
+                            </Typography>
+                            <Box
+                              sx={{
+                                color: dayOfWeek === 0 ? '#ef5350' : dayOfWeek === 6 ? '#42a5f5' : isToday ? '#fff' : '#888',
+                                fontWeight: 700,
+                                fontSize: '0.7rem',
+                                mr: 0.1,
+                                mt: 0,
+                                mb: 0,
+                                p: 0,
+                                lineHeight: 1,
+                              }}
+                            >
+                              {day}
+                            </Box>
+                          </Box>
+                          {/* 일정 바 - 더 컴팩트하게 */}
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1, mt: 0.2, flex: 1, height: '100%', overflow: 'auto' }}>
+                            {getSchedulesForDate(cellYear, cellMonth, day).slice(0, 8).map((item, i) => (
+                              <Box
+                                key={item.id}
+                                sx={{
+                                  borderRadius: 0.5,
+                                  px: 0.4,
+                                  py: 0.2,
+                                  fontSize: '0.7rem',
+                                  fontWeight: 500,
+                                  bgcolor: item.color || colorList[i % colorList.length],
+                                  color: '#fff',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  boxShadow: '0 1px 1px 0 #0002',
+                                  textAlign: 'center',
+                                  width: '100%',
+                                  mb: 0.1,
+                                  lineHeight: 1.2,
+                                  minHeight: 18,
+                                  maxHeight: 18,
+                                  // 이전/다음 달 일정은 더 선명하게 표시
+                                  opacity: isCurrentMonth ? 1 : 0.8,
+                                }}
+                              >
+                                {(item.text || item.title || '제목 없음').slice(0, 8)}
+                              </Box>
+                            ))}
+                          </Box>
+                        </>
+                      ) : (
+                        // 빈 날짜셀을 위한 공간 확보
+                        <Box sx={{ height: cellHeight - 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        </Box>
+                      )}
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
+          )}
+        </Box>
         
-        {/* 하단 상세 일정 */}
+        {/* 5px 여백 */}
+        <Box sx={{ height: '5px' }} />
+        
+        {/* 세부내역 - 스크롤되게 수정 */}
         <Paper sx={{ 
           bgcolor: '#232634', 
           borderRadius: 3, 
           mx: 0, 
           p: 1.5, 
           boxShadow: 3,
-          height: '240px',
+          height: '280px', // 높이 증가
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -1180,11 +1200,11 @@ const CustomScheduleMobile = () => {
                 flexDirection: 'column', 
                 gap: 0.3,
                 flex: 1,
-                overflow: 'hidden',
-                touchAction: 'none',
-                WebkitOverflowScrolling: 'none',
-                maxHeight: '200px',
-                height: '200px',
+                overflow: 'auto', // 스크롤 가능하게 변경
+                touchAction: 'auto', // 터치 스크롤 활성화
+                WebkitOverflowScrolling: 'touch', // iOS 스크롤 활성화
+                maxHeight: '240px', // 최대 높이 설정
+                height: '240px',
               }}
             >
               {selectedSchedules.map((item, i) => {
@@ -1272,6 +1292,11 @@ const CustomScheduleMobile = () => {
             </Box>
           )}
         </Paper>
+        
+        {/* 5px 여백 */}
+        <Box sx={{ height: '5px' }} />
+        
+        {/* 하단바(지금위치) - 여백 없음 */}
         
         {/* 수정 다이얼로그 */}
         <Dialog 
@@ -1393,10 +1418,6 @@ const CustomScheduleMobile = () => {
                 <FormControlLabel
                   control={<Checkbox checked={editScheduleTypes.includes('현설')} onChange={() => handleEditTypeChange('현설')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
                   label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>현설</Typography>}
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={editScheduleTypes.includes('견적')} onChange={() => handleEditTypeChange('견적')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
-                  label={<Typography sx={{ color: '#fff', fontSize: '0.8rem' }}>견적</Typography>}
                 />
                 <FormControlLabel
                   control={<Checkbox checked={editScheduleTypes.includes('기타')} onChange={() => handleEditTypeChange('기타')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.5 }} />}
@@ -1657,10 +1678,6 @@ const CustomScheduleMobile = () => {
                 <FormControlLabel
                   control={<Checkbox checked={newScheduleTypes.includes('현설')} onChange={() => handleTypeChange('현설')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
                   label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>현설</Typography>}
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={newScheduleTypes.includes('견적')} onChange={() => handleTypeChange('견적')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}
-                  label={<Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>견적</Typography>}
                 />
                 <FormControlLabel
                   control={<Checkbox checked={newScheduleTypes.includes('기타')} onChange={() => handleTypeChange('기타')} sx={{ color: '#2196f3', '&.Mui-checked': { color: '#2196f3' }, p: 0.3 }} />}

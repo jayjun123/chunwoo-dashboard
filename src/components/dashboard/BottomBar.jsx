@@ -1109,7 +1109,9 @@ const BottomBar = ({
         top: 'calc(100vh - 46px - 300px)', // 키보드 높이를 고려한 위치
         transform: 'translateY(-100%)'
       })
-    }} onClick={() => { setExpandWeather(false); setExpandCenter(false); setExpandTodo(false); setExpandSettings(false); }}>
+    }}
+    data-bottom-bar="true"
+  >
       {/* 기본 하단바 내용 */}
       <Box sx={{ 
         display: 'flex', 
@@ -1151,7 +1153,10 @@ const BottomBar = ({
             <SafetyHelmetIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#81C784', mr: 0.5 }} />
             {!isMobile && '[현설]'} {stats.safetyCount ?? 0}
           </Typography>
-          <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography 
+            sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+            onClick={() => navigate('/claims')}
+          >
             <CalculateIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF9800', mr: 0.5 }} />
             {!isMobile && '[견적]'} {stats.estimateCount ?? 0}
           </Typography>
