@@ -88,6 +88,10 @@ const MobileKakaoDiscussion = () => {
   const [sites, setSites] = useState([]);
   const [sitesLoading, setSitesLoading] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [exportDialog, setExportDialog] = useState({ open: false });
   const messagesEndRef = useRef(null);
 
   // 실시간 데이터 구독
@@ -433,27 +437,128 @@ const MobileKakaoDiscussion = () => {
   const handleExportMessages = () => {
     if (!selectedDiscussion) return;
     
-    const messagesToExport = messages[selectedDiscussion.id] || [];
-    const exportData = {
-      discussion: selectedDiscussion,
-      messages: messagesToExport,
-      exportDate: new Date().toISOString()
+    const messagesList = messages[selectedDiscussion.id] || [];
+    if (messagesList.length === 0) {
+      setSnackbar({
+        open: true,
+        message: '내보낼 메시지가 없습니다.',
+        severity: 'warning'
+      });
+      return;
+    }
+    
+    // 대화 형식으로 데이터 준비
+    const chatData = messagesList.map(msg => ({
+      timestamp: msg.timestamp ? new Date(msg.timestamp.seconds * 1000).toLocaleString('ko-KR') : '',
+      username: msg.author || '익명',
+      content: msg.content || '',
+      fileName: msg.fileName || ''
+    }));
+    
+    // 엑셀 내보내기
+    const exportToExcel = () => {
+      const csvContent = [
+        ['시간', '사용자', '내용', '첨부파일'],
+        ...chatData.map(msg => [
+          msg.timestamp,
+          msg.username,
+          msg.content,
+          msg.fileName
+        ])
+      ].map(row => row.map(field => `"${field}"`).join(',')).join('\n');
+      
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${selectedDiscussion.siteName}_채팅내역.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     };
     
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${selectedDiscussion.title}_메시지_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // PDF 내보내기
+    const exportToPDF = () => {
+      const { jsPDF } = require('jspdf');
+      const doc = new jsPDF();
+      
+      // 제목
+      doc.setFontSize(16);
+      doc.text(`${selectedDiscussion.siteName} 채팅방 대화내역`, 20, 20);
+      
+      // 대화 내용
+      doc.setFontSize(10);
+      let yPosition = 40;
+      
+      chatData.forEach((msg, index) => {
+        const timeText = `${msg.timestamp}`;
+        const userText = `${msg.username}:`;
+        const contentText = msg.content;
+        const fileText = msg.fileName ? `[첨부파일: ${msg.fileName}]` : '';
+        
+        // 시간
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text(timeText, 20, yPosition);
+        yPosition += 5;
+        
+        // 사용자명
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, 'bold');
+        doc.text(userText, 20, yPosition);
+        yPosition += 5;
+        
+        // 메시지 내용
+        doc.setFont(undefined, 'normal');
+        const lines = doc.splitTextToSize(contentText, 170);
+        lines.forEach(line => {
+          doc.text(line, 20, yPosition);
+          yPosition += 5;
+        });
+        
+        // 첨부파일
+        if (fileText) {
+          doc.setTextColor(0, 0, 255);
+          doc.text(fileText, 20, yPosition);
+          yPosition += 5;
+          doc.setTextColor(0, 0, 0);
+        }
+        
+        yPosition += 3;
+        
+        // 페이지 나누기
+        if (yPosition > 280) {
+          doc.addPage();
+          yPosition = 20;
+        }
+      });
+      
+      doc.save(`${selectedDiscussion.siteName}_채팅내역.pdf`);
+    };
     
-    setSnackbar({
+    // 내보내기 옵션 다이얼로그 표시
+    setExportDialog({
       open: true,
-      message: '메시지가 성공적으로 내보내졌습니다.',
-      severity: 'success'
+      onExcel: () => {
+        exportToExcel();
+        setExportDialog({ open: false });
+        setSnackbar({
+          open: true,
+          message: '메시지가 엑셀 파일로 내보내졌습니다.',
+          severity: 'success'
+        });
+      },
+      onPDF: () => {
+        exportToPDF();
+        setExportDialog({ open: false });
+        setSnackbar({
+          open: true,
+          message: '메시지가 PDF 파일로 내보내졌습니다.',
+          severity: 'success'
+        });
+      }
     });
   };
 
@@ -583,6 +688,65 @@ const MobileKakaoDiscussion = () => {
       setSnackbar({
         open: true,
         message: '채팅방 삭제에 실패했습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
+  // 비밀번호 재설정
+  const handlePasswordReset = async () => {
+    try {
+      if (!selectedDiscussion) return;
+      
+      // 현재 비밀번호 확인
+      if (selectedDiscussion.password && selectedDiscussion.password.trim() !== '') {
+        if (currentPassword !== selectedDiscussion.password) {
+          setSnackbar({
+            open: true,
+            message: '현재 비밀번호가 올바르지 않습니다.',
+            severity: 'error'
+          });
+          return;
+        }
+      }
+      
+      // 새 비밀번호 확인
+      if (newPassword !== confirmPassword) {
+        setSnackbar({
+          open: true,
+          message: '새 비밀번호가 일치하지 않습니다.',
+          severity: 'error'
+        });
+        return;
+      }
+      
+      if (newPassword.length < 4) {
+        setSnackbar({
+          open: true,
+          message: '비밀번호는 4자 이상이어야 합니다.',
+          severity: 'error'
+        });
+        return;
+      }
+      
+      // 비밀번호 업데이트
+      await updateDiscussion(selectedDiscussion.id, { password: newPassword });
+      
+      // 상태 초기화
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      
+      setSnackbar({
+        open: true,
+        message: '비밀번호가 성공적으로 변경되었습니다.',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('비밀번호 재설정 실패:', error);
+      setSnackbar({
+        open: true,
+        message: '비밀번호 재설정에 실패했습니다.',
         severity: 'error'
       });
     }
@@ -1397,7 +1561,82 @@ const MobileKakaoDiscussion = () => {
               <Typography variant="body2" sx={{ color: '#CCCCCC', mb: 1 }}>
                 마지막 메시지: {selectedDiscussion.lastMessageTime}
               </Typography>
-              <Typography variant="body2" sx={{ color: '#CCCCCC' }}>
+              <Typography variant="body2" sx={{ color: '#CCCCCC', mb: 2 }}>
+                생성일: {selectedDiscussion.createdAt ? new Date(selectedDiscussion.createdAt.seconds * 1000).toLocaleDateString('ko-KR') : '알 수 없음'}
+              </Typography>
+              
+              {/* 비밀번호 설정 섹션 */}
+              <Divider sx={{ backgroundColor: '#444444', my: 2 }} />
+              <Typography variant="h6" sx={{ color: '#FFFFFF', mb: 2 }}>
+                비밀번호 설정
+              </Typography>
+              <TextField
+                fullWidth
+                label="현재 비밀번호"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                sx={{ mb: 2 }}
+                InputProps={{
+                  sx: { 
+                    backgroundColor: '#444444',
+                    color: '#FFFFFF',
+                    '& fieldset': { borderColor: '#666666' }
+                  }
+                }}
+                InputLabelProps={{
+                  sx: { color: '#CCCCCC' }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="새 비밀번호"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                sx={{ mb: 2 }}
+                InputProps={{
+                  sx: { 
+                    backgroundColor: '#444444',
+                    color: '#FFFFFF',
+                    '& fieldset': { borderColor: '#666666' }
+                  }
+                }}
+                InputLabelProps={{
+                  sx: { color: '#CCCCCC' }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="새 비밀번호 확인"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                sx={{ mb: 2 }}
+                InputProps={{
+                  sx: { 
+                    backgroundColor: '#444444',
+                    color: '#FFFFFF',
+                    '& fieldset': { borderColor: '#666666' }
+                  }
+                }}
+                InputLabelProps={{
+                  sx: { color: '#CCCCCC' }
+                }}
+              />
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={handlePasswordReset}
+                sx={{
+                  backgroundColor: '#4CAF50',
+                  color: '#FFFFFF',
+                  '&:hover': { backgroundColor: '#45A049' }
+                }}
+              >
+                비밀번호 재설정
+              </Button>
+              <Typography variant="body2" sx={{ color: '#CCCCCC', mt: 2 }}>
                 메시지 수: {messages[selectedDiscussion.id]?.length || 0}개
               </Typography>
             </Box>
@@ -1427,27 +1666,11 @@ const MobileKakaoDiscussion = () => {
           {selectedDiscussion && (
             <Box>
               <Typography variant="body2" sx={{ color: '#CCCCCC', mb: 2 }}>
-                총 {selectedDiscussion.participants}명이 참여 중입니다.
+                참여자 목록이 비어있습니다.
               </Typography>
-              {/* 샘플 참여자 목록 */}
-              {['김현장', '최안전', '박감독', '이자재', '정품질'].map((name, index) => (
-                <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1, p: 1, backgroundColor: '#2D2D2D', borderRadius: 1 }}>
-                  <Avatar 
-                    sx={{ 
-                      width: 32, 
-                      height: 32, 
-                      backgroundColor: `hsl(${index * 60}, 70%, 60%)`,
-                      fontSize: '12px',
-                      mr: 2
-                    }}
-                  >
-                    {name.charAt(0)}
-                  </Avatar>
-                  <Typography variant="body2" sx={{ color: '#FFFFFF' }}>
-                    {name}
-                  </Typography>
-                </Box>
-              ))}
+              <Typography variant="body2" sx={{ color: '#999999', fontStyle: 'italic' }}>
+                실제 참여자 데이터는 추후 구현 예정입니다.
+              </Typography>
             </Box>
           )}
         </DialogContent>
@@ -1512,6 +1735,86 @@ const MobileKakaoDiscussion = () => {
                   <MenuItem value="all">모든 메시지</MenuItem>
                   <MenuItem value="text">텍스트만</MenuItem>
                   <MenuItem value="files">파일만</MenuItem>
+                </Select>
+              </FormControl>
+              
+              {/* 말풍선 색상 설정 */}
+              <Typography variant="h6" sx={{ color: '#FFFFFF', mb: 2, mt: 3 }}>
+                말풍선 커스터마이징
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel sx={{ color: '#CCCCCC' }}>내 말풍선 색상</InputLabel>
+                <Select
+                  defaultValue="#4CAF50"
+                  sx={{ 
+                    backgroundColor: '#444444',
+                    '& .MuiSelect-select': {
+                      color: '#FFFFFF'
+                    }
+                  }}
+                >
+                  <MenuItem value="#4CAF50">초록색</MenuItem>
+                  <MenuItem value="#2196F3">파란색</MenuItem>
+                  <MenuItem value="#FF9800">주황색</MenuItem>
+                  <MenuItem value="#9C27B0">보라색</MenuItem>
+                  <MenuItem value="#F44336">빨간색</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel sx={{ color: '#CCCCCC' }}>상대방 말풍선 색상</InputLabel>
+                <Select
+                  defaultValue="#666666"
+                  sx={{ 
+                    backgroundColor: '#444444',
+                    '& .MuiSelect-select': {
+                      color: '#FFFFFF'
+                    }
+                  }}
+                >
+                  <MenuItem value="#666666">회색</MenuItem>
+                  <MenuItem value="#E3F2FD">연한 파란색</MenuItem>
+                  <MenuItem value="#FFF3E0">연한 주황색</MenuItem>
+                  <MenuItem value="#F3E5F5">연한 보라색</MenuItem>
+                  <MenuItem value="#FFEBEE">연한 빨간색</MenuItem>
+                </Select>
+              </FormControl>
+              
+              {/* 글자색 설정 */}
+              <Typography variant="h6" sx={{ color: '#FFFFFF', mb: 2, mt: 3 }}>
+                글자색 설정
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel sx={{ color: '#CCCCCC' }}>내 메시지 글자색</InputLabel>
+                <Select
+                  defaultValue="#FFFFFF"
+                  sx={{ 
+                    backgroundColor: '#444444',
+                    '& .MuiSelect-select': {
+                      color: '#FFFFFF'
+                    }
+                  }}
+                >
+                  <MenuItem value="#FFFFFF">흰색</MenuItem>
+                  <MenuItem value="#000000">검은색</MenuItem>
+                  <MenuItem value="#FFD700">금색</MenuItem>
+                  <MenuItem value="#00FFFF">청록색</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel sx={{ color: '#CCCCCC' }}>상대방 메시지 글자색</InputLabel>
+                <Select
+                  defaultValue="#FFFFFF"
+                  sx={{ 
+                    backgroundColor: '#444444',
+                    '& .MuiSelect-select': {
+                      color: '#FFFFFF'
+                    }
+                  }}
+                >
+                  <MenuItem value="#FFFFFF">흰색</MenuItem>
+                  <MenuItem value="#000000">검은색</MenuItem>
+                  <MenuItem value="#CCCCCC">회색</MenuItem>
+                  <MenuItem value="#E0E0E0">연한 회색</MenuItem>
                 </Select>
               </FormControl>
             </Box>
@@ -1665,6 +1968,62 @@ const MobileKakaoDiscussion = () => {
           </Button>
           <Button onClick={handlePasswordCheck} variant="contained">
             입장
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 메시지 내보내기 다이얼로그 */}
+      <Dialog 
+        open={exportDialog.open} 
+        onClose={() => setExportDialog({ open: false })}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: { backgroundColor: '#1A1A1A' }
+        }}
+      >
+        <DialogTitle sx={{ backgroundColor: '#333333', color: '#FFFFFF' }}>
+          메시지 내보내기
+        </DialogTitle>
+        <DialogContent sx={{ p: 2 }}>
+          <Typography variant="body2" sx={{ color: '#CCCCCC', mb: 3 }}>
+            채팅방 메시지를 어떤 형식으로 내보내시겠습니까?
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={exportDialog.onExcel}
+              sx={{
+                backgroundColor: '#4CAF50',
+                color: '#FFFFFF',
+                py: 1.5,
+                '&:hover': { backgroundColor: '#45A049' }
+              }}
+            >
+              📊 엑셀 파일로 내보내기 (CSV)
+            </Button>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={exportDialog.onPDF}
+              sx={{
+                backgroundColor: '#F44336',
+                color: '#FFFFFF',
+                py: 1.5,
+                '&:hover': { backgroundColor: '#D32F2F' }
+              }}
+            >
+              📄 PDF 파일로 내보내기
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button 
+            onClick={() => setExportDialog({ open: false })}
+            sx={{ color: '#CCCCCC' }}
+          >
+            취소
           </Button>
         </DialogActions>
       </Dialog>

@@ -19,8 +19,8 @@ const config: CapacitorConfig = {
     buildOptions: {
       keystorePath: 'my-release-key.keystore',
       keystoreAlias: 'my-key-alias',
-      keystorePassword: 'your-keystore-password',
-      keystoreAliasPassword: 'your-key-password'
+      keystorePassword: 'mypassword',
+      keystoreAliasPassword: 'mypassword'
     }
   },
   ios: {
