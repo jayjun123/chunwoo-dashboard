@@ -13,7 +13,13 @@ import {
   getDocs,
   getDoc
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { 
+  ref, 
+  uploadBytes, 
+  getDownloadURL, 
+  deleteObject 
+} from 'firebase/storage';
+import { db, storage } from '../firebase';
 
 // 토론의견 컬렉션 참조
 const discussionsCollection = collection(db, 'discussions');
@@ -49,12 +55,17 @@ export const subscribeToMessages = (discussionId, callback) => {
   return onSnapshot(q, (snapshot) => {
     const messages = [];
     snapshot.forEach((doc) => {
+      const data = doc.data();
       messages.push({
         id: doc.id,
-        ...doc.data()
+        ...data,
+        // 타임스탬프가 서버 타임스탬프인 경우 클라이언트 시간으로 변환
+        timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : data.timestamp
       });
     });
     callback(messages);
+  }, (error) => {
+    console.error('메시지 구독 오류:', error);
   });
 };
 
@@ -88,23 +99,72 @@ export const createDiscussion = async (discussionData) => {
   }
 };
 
-// 메시지 전송
+// 파일 업로드
+export const uploadFile = async (file, discussionId) => {
+  try {
+    const timestamp = Date.now();
+    const fileName = `${discussionId}/${timestamp}_${file.name}`;
+    const storageRef = ref(storage, `discussion_files/${fileName}`);
+    
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    
+    return {
+      name: file.name,
+      url: downloadURL,
+      size: file.size,
+      type: file.type,
+      path: fileName
+    };
+  } catch (error) {
+    console.error('파일 업로드 실패:', error);
+    throw error;
+  }
+};
+
+// 파일 삭제
+export const deleteFile = async (filePath) => {
+  try {
+    const storageRef = ref(storage, `discussion_files/${filePath}`);
+    await deleteObject(storageRef);
+  } catch (error) {
+    console.error('파일 삭제 실패:', error);
+    throw error;
+  }
+};
+
+// 메시지 전송 (파일 포함)
 export const sendMessage = async (discussionId, messageData) => {
   try {
-    // 메시지 추가
-    const messageRef = await addDoc(messagesCollection, {
-      discussionId,
-      ...messageData,
-      timestamp: serverTimestamp()
-    });
-
-    // 토론 정보 업데이트
-    const discussionRef = doc(db, 'discussions', discussionId);
-    await updateDoc(discussionRef, {
-      lastMessage: messageData.content,
-      lastMessageTime: serverTimestamp(),
-      unreadCount: 0
-    });
+    const timestamp = serverTimestamp();
+    
+    // 파일이 있는 경우 업로드
+    let uploadedFiles = [];
+    if (messageData.files && messageData.files.length > 0) {
+      const uploadPromises = messageData.files.map(file => uploadFile(file, discussionId));
+      uploadedFiles = await Promise.all(uploadPromises);
+    }
+    
+    // 메시지 데이터에서 파일 제거하고 업로드된 파일 정보로 교체
+    const { files, ...messageWithoutFiles } = messageData;
+    const finalMessageData = {
+      ...messageWithoutFiles,
+      files: uploadedFiles
+    };
+    
+    // 메시지 추가와 토론 정보 업데이트를 병렬로 실행
+    const [messageRef] = await Promise.all([
+      addDoc(messagesCollection, {
+        discussionId,
+        ...finalMessageData,
+        timestamp
+      }),
+      updateDoc(doc(db, 'discussions', discussionId), {
+        lastMessage: messageData.content || `파일 ${uploadedFiles.length}개`,
+        lastMessageTime: timestamp,
+        unreadCount: 0
+      })
+    ]);
 
     return messageRef.id;
   } catch (error) {

@@ -1,0 +1,229 @@
+/* 견적요청 페이지 스타일 */
+.estimates-container {
+  background-color: #181a20;
+  min-height: 100vh;
+  color: white;
+  padding: 24px;
+}
+
+.estimates-header {
+  margin-bottom: 24px;
+}
+
+.estimates-title {
+  color: #90caf9;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.estimates-subtitle {
+  color: #ccc;
+  margin-bottom: 24px;
+}
+
+.stats-grid {
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background-color: #2d3748;
+  color: white;
+  text-align: center;
+  padding: 16px;
+  border-radius: 8px;
+  transition: transform 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+
+.stat-number {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #ccc;
+}
+
+.search-filter-section {
+  background-color: #2d3748;
+  padding: 16px;
+  margin-bottom: 24px;
+  border-radius: 8px;
+}
+
+.table-container {
+  background-color: #2d3748;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table-header {
+  background-color: #444;
+}
+
+.table-header-cell {
+  color: white;
+  font-weight: bold;
+}
+
+.table-body-row {
+  transition: background-color 0.2s;
+}
+
+.table-body-row:hover {
+  background-color: #444;
+}
+
+.table-body-cell {
+  color: white;
+}
+
+.status-chip {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.action-button {
+  min-width: auto;
+  padding: 4px;
+}
+
+.dialog-content {
+  background-color: #2d3748;
+  color: white;
+}
+
+.dialog-title {
+  color: white;
+}
+
+.form-field {
+  margin-bottom: 16px;
+}
+
+.form-field .MuiInputBase-root {
+  background-color: #444;
+}
+
+.form-field .MuiInputLabel-root {
+  color: #ccc;
+}
+
+.form-field .MuiInputBase-input {
+  color: white;
+}
+
+.form-field .MuiSelect-select {
+  color: white;
+}
+
+.form-field .MuiOutlinedInput-notchedOutline {
+  border-color: #666;
+}
+
+.form-field .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #999;
+}
+
+.form-field .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #1976d2;
+}
+
+.pagination-container {
+  color: white;
+}
+
+.pagination-container .MuiTablePagination-select {
+  color: white;
+}
+
+.pagination-container .MuiTablePagination-selectIcon {
+  color: white;
+}
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+  .estimates-container {
+    padding: 16px;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  .search-filter-section {
+    padding: 12px;
+  }
+  
+  .table-container {
+    font-size: 0.875rem;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
+/* 다크 테마 호환성 */
+[data-theme="dark"] .estimates-container {
+  background-color: #181a20;
+}
+
+[data-theme="dark"] .stat-card {
+  background-color: #2d3748;
+}
+
+[data-theme="dark"] .search-filter-section {
+  background-color: #2d3748;
+}
+
+[data-theme="dark"] .table-container {
+  background-color: #2d3748;
+}
+
+/* 애니메이션 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.estimates-container {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* 스크롤바 스타일링 */
+.table-container ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-container ::-webkit-scrollbar-track {
+  background: #444;
+}
+
+.table-container ::-webkit-scrollbar-thumb {
+  background: #666;
+  border-radius: 4px;
+}
+
+.table-container ::-webkit-scrollbar-thumb:hover {
+  background: #888;
+} 

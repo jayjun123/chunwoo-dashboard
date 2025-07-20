@@ -46,7 +46,7 @@ import {
 } from '@mui/icons-material';
 import { format, addMonths, subMonths } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
 import { PieChart, Pie, Cell } from 'recharts';
@@ -55,7 +55,7 @@ import GisungStatusTable from '../components/GisungStatusTable';
 import GisungStatusPage from '../components/GisungStatusPage';
 import * as XLSX from 'xlsx';
 import Cost from './Cost';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 
 // 핀치 줌 훅
 const usePinchZoom = () => {
@@ -212,6 +212,7 @@ const Progress = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const [progressList, setProgressList] = useState([]);
   const [allCostData, setAllCostData] = useState([]);
   const [open, setOpen] = useState(false);
@@ -258,6 +259,35 @@ const Progress = () => {
       }
     }
   }, [searchParams, sites]);
+
+  // 청구예정 페이지에서 전달받은 현장명과 월 정보 처리
+  useEffect(() => {
+    if (location.state) {
+      const { selectedSite, selectedMonth } = location.state;
+      
+      if (selectedSite) {
+        // 현장명으로 현장 찾기
+        const site = sites.find(s => s.name === selectedSite);
+        if (site) {
+          setFilteredSiteId(site.id);
+          setFilteredSiteName(site.name);
+          setSelectedSites([site.name]);
+          setStatusView('site');
+          setTab('gisung');
+        }
+      }
+      
+      if (selectedMonth) {
+        // 월 정보 파싱 (YYYY-MM 형식)
+        const [year, month] = selectedMonth.split('-');
+        const monthDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+        setCurrentMonth(monthDate);
+      }
+      
+      // location state 초기화 (중복 실행 방지)
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, sites]);
 
   // 현장 검색 필터링
   const filteredSites = useMemo(() => {
@@ -380,11 +410,43 @@ const Progress = () => {
       } else {
         await addDoc(collection(db, 'progress'), formData);
       }
+      
+      // 기성 등록 후 청구예정 상태 업데이트
+      await updateClaimStatus(formData.name, currentMonth);
+      
       handleClose();
       fetchProgress();
     } catch (e) {
       console.error('기성 데이터 저장 실패:', e);
       alert('저장에 실패했습니다.');
+    }
+  };
+
+  // 청구예정 상태 업데이트 함수
+  const updateClaimStatus = async (siteName, month) => {
+    try {
+      const monthStr = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
+      
+      // 해당 현장과 월의 청구예정 찾기
+      const claimQuery = query(
+        collection(db, 'claims'),
+        where('siteName', '==', siteName),
+        where('claimMonth', '==', monthStr)
+      );
+      
+      const claimSnapshot = await getDocs(claimQuery);
+      
+      if (!claimSnapshot.empty) {
+        const claimDoc = claimSnapshot.docs[0];
+        // 청구여부를 'O'로 업데이트
+        await updateDoc(doc(db, 'claims', claimDoc.id), {
+          claimStatus: 'O',
+          updatedAt: new Date()
+        });
+        console.log('청구예정 상태가 업데이트되었습니다:', siteName, monthStr);
+      }
+    } catch (error) {
+      console.error('청구예정 상태 업데이트 실패:', error);
     }
   };
 

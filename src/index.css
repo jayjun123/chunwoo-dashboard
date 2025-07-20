@@ -534,6 +534,17 @@ html {
   }
 }
 
+/* 토론의견에서 하단바 숨김 */
+.hide-bottom-bar [data-bottom-bar="true"] {
+  display: none !important;
+}
+
+/* 토론의견 채팅방에서 하단 여백 제거 */
+.hide-bottom-bar .main-content {
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+
 /* 메인 콘텐츠 영역 스크롤 설정 */
 .main-content {
   height: calc(100vh - 60px - 48px); /* 헤더(60px) + 대시보드바(48px) 제외 */
