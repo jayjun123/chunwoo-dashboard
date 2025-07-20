@@ -157,10 +157,20 @@ const MobileKakaoDiscussion = () => {
           };
         });
         
-        // 스크롤을 맨 아래로
+        // 스크롤을 맨 아래로 (조건부로 실행)
         setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
+          const messagesContainer = document.querySelector('[data-messages-container]');
+          if (messagesContainer) {
+            const isAtBottom = messagesContainer.scrollTop + messagesContainer.clientHeight >= messagesContainer.scrollHeight - 50;
+            const currentMessages = messages[selectedDiscussion.id] || [];
+            const hasNewMessages = messages.length > currentMessages.length;
+            
+            // 스크롤이 맨 아래에 있고 새 메시지가 있는 경우에만 스크롤
+            if (isAtBottom && hasNewMessages) {
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }
+          }
+        }, 200);
       });
     } catch (error) {
       console.error('메시지 구독 설정 실패:', error);
@@ -265,8 +275,8 @@ const MobileKakaoDiscussion = () => {
     const tempMessage = {
       id: tempMessageId,
       content: messageContent,
-      author: '나',
-      authorId: 'current-user',
+      author: currentUser?.displayName || currentUser?.name || '익명',
+      authorId: currentUser?.uid || 'anonymous',
       type: filesToSend.length > 0 ? 'file' : 'text',
       files: filesToSend,
       timestamp: new Date(),
@@ -320,7 +330,7 @@ const MobileKakaoDiscussion = () => {
         severity: 'error'
       });
     }
-  }, [newMessage, attachedFiles, selectedDiscussion, messages]);
+  }, [newMessage, attachedFiles, selectedDiscussion]);
 
   // 새 토론 생성
   const handleCreateDiscussion = async () => {
@@ -714,18 +724,14 @@ const MobileKakaoDiscussion = () => {
                           }}>
                             {discussion.lastAuthor || '작성자 없음'}
                           </Typography>
-                          <Typography variant="body2" sx={{ 
-                            color: '#999', 
-                            fontSize: '12px'
-                          }}>
-                            {discussion.lastMessageTime?.toDate ? 
-                              discussion.lastMessageTime.toDate().toLocaleTimeString('ko-KR', { 
-                                hour: '2-digit', 
-                                minute: '2-digit',
-                                hour12: true 
-                              }) : 
-                              discussion.lastMessageTime || ''
-                            }
+                          <Typography variant="body2" sx={{ color: '#999', fontSize: '12px' }}>
+                            {discussion.lastMessageTime?.toDate
+                              ? discussion.lastMessageTime.toDate().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
+                              : (discussion.lastMessageTime instanceof Date
+                                  ? discussion.lastMessageTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
+                                  : (discussion.lastMessageTime ? String(discussion.lastMessageTime) : '')
+                                )
+                          }
                           </Typography>
                         </Box>
                         
@@ -858,7 +864,9 @@ const MobileKakaoDiscussion = () => {
           </AppBar>
 
           {/* 메시지 영역 */}
-          <Box sx={{ 
+          <Box 
+            data-messages-container
+            sx={{ 
             flex: 1, 
             overflowY: 'auto', 
             backgroundColor: '#1A1A1A',
@@ -867,14 +875,13 @@ const MobileKakaoDiscussion = () => {
             margin: 0 // 마진 제거로 딱 붙게
           }}>
             {messages[selectedDiscussion.id]?.map((message) => {
-              const isMyMessage = message.authorId === 'current-user';
-              const timestamp = message.timestamp?.toDate ? 
-                message.timestamp.toDate().toLocaleTimeString('ko-KR', { 
-                  hour: '2-digit', 
-                  minute: '2-digit',
-                  hour12: true 
-                }) : 
-                message.timestamp || '';
+              const isMyMessage = message.authorId === currentUser?.uid;
+              const timestamp = message.timestamp?.toDate 
+                ? message.timestamp.toDate().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
+                : (message.timestamp instanceof Date
+                    ? message.timestamp.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
+                    : (message.timestamp ? String(message.timestamp) : '')
+                  );
 
               return (
                 <Box 
@@ -1190,7 +1197,7 @@ const MobileKakaoDiscussion = () => {
           />
           
           <Grid container spacing={2}>
-            <Grid item xs={8}>
+            <Grid item size={8}>
               <FormControl fullWidth>
                 <InputLabel sx={{ color: '#CCCCCC' }}>카테고리</InputLabel>
                 <Select
@@ -1209,7 +1216,7 @@ const MobileKakaoDiscussion = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={4}>
+            <Grid item size={4}>
               <FormControl fullWidth>
                 <InputLabel sx={{ color: '#CCCCCC' }}>우선순위</InputLabel>
                 <Select

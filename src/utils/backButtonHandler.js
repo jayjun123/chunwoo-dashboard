@@ -97,34 +97,18 @@ class NotificationManager {
   }
 }
 
-// 터치 이벤트 관리자
+// 터치 이벤트 관리자 - 스와이프 기능 제거됨
 class TouchEventManager {
   constructor() {
-    this.touchStartX = 0;
-    this.touchStartY = 0;
-    this.touchEndX = 0;
-    this.touchEndY = 0;
+    // 스와이프 기능 비활성화
   }
 
   handleTouchStart(event) {
-    this.touchStartX = event.touches[0].clientX;
-    this.touchStartY = event.touches[0].clientY;
+    // 스와이프 감지 비활성화
   }
 
   handleTouchEnd(event) {
-    this.touchEndX = event.changedTouches[0].clientX;
-    this.touchEndY = event.changedTouches[0].clientY;
-    
-    const deltaX = this.touchEndX - this.touchStartX;
-    const deltaY = this.touchEndY - this.touchStartY;
-    
-    // 수평 스와이프 감지 (세로 스와이프보다 큰 경우)
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > BACK_BUTTON_CONFIG.SWIPE_THRESHOLD) {
-      if (deltaX > 0) {
-        return { isBackSwipe: true, direction: 'right' };
-      }
-    }
-    
+    // 스와이프 감지 비활성화
     return { isBackSwipe: false };
   }
 }
@@ -141,40 +125,10 @@ class EnhancedBackButtonHandler {
     this.isInitialized = false;
   }
 
-  // 뒤로가기 스와이프 처리
+  // 뒤로가기 스와이프 처리 - 기능 제거됨
   handleBackSwipe() {
-    const currentTime = Date.now();
-    
-    // 채팅방에서 스와이프 시 채팅방 나가기
-    if (window.location.pathname.includes('/discussions/chat/')) {
-      this.handleChatRoomExit();
-      return;
-    }
-    
-    // 첫 번째 스와이프
-    if (this.backPressCount === 0) {
-      this.backPressCount = 1;
-      this.lastBackPressTime = currentTime;
-      
-      const result = this.strategy.execute();
-      
-      if (result.shouldExit) {
-        this.notificationManager.show(result.message);
-      }
-      
-      // 타이머 설정
-      this.backPressTimer = setTimeout(() => {
-        this.resetBackPressCount();
-      }, BACK_BUTTON_CONFIG.DOUBLE_PRESS_DELAY);
-      
-      return;
-    }
-    
-    // 두 번째 스와이프 (시간 내에)
-    if (this.backPressCount === 1 && (currentTime - this.lastBackPressTime) <= BACK_BUTTON_CONFIG.DOUBLE_PRESS_DELAY) {
-      this.resetBackPressCount();
-      this.handleAppExit();
-    }
+    // 스와이프 화면전환 기능 비활성화
+    console.log('스와이프 화면전환 기능이 비활성화되었습니다.');
   }
 
   // 채팅방 나가기 처리
