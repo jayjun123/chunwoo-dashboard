@@ -8,6 +8,7 @@ import {
   deleteDiscussion,
   removeParticipant
 } from '../../api/discussions';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   Box,
   Typography,
@@ -52,6 +53,7 @@ import {
 } from '@mui/icons-material';
 
 const PCKakaoDiscussion = () => {
+  const { currentUser } = useAuth();
   // 상태 관리
   const [discussions, setDiscussions] = useState([]);
   const [selectedDiscussion, setSelectedDiscussion] = useState(null);
@@ -233,8 +235,8 @@ const PCKakaoDiscussion = () => {
     try {
       const messageData = {
         content: messageContent,
-        author: '나',
-        authorId: 'current-user',
+        author: currentUser?.displayName || currentUser?.name || '익명',
+        authorId: currentUser?.uid || 'anonymous',
         type: filesToSend.length > 0 ? 'file' : 'text',
         files: filesToSend
       };
@@ -288,7 +290,8 @@ const PCKakaoDiscussion = () => {
         password: newDiscussion.password,
         category: newDiscussion.category,
         priority: newDiscussion.priority,
-        createdBy: 'current-user',
+        createdBy: currentUser?.uid || 'anonymous',
+        authorName: currentUser?.displayName || currentUser?.name || '익명',
         avatar: (newDiscussion.subtitle || newDiscussion.siteName).charAt(0),
         color: `hsl(${Math.random() * 360}, 70%, 60%)`
       };

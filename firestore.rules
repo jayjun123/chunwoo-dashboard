@@ -95,6 +95,14 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && (isOwner(resource.data.senderId) || isProjectManager());
     }
 
+    // 토론 메시지 (discussion_messages 컬렉션)
+    match /discussion_messages/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && isOwner(resource.data.authorId);
+      allow delete: if isAuthenticated() && (isOwner(resource.data.authorId) || isProjectManager());
+    }
+
     // 알림 (notifications 컬렉션)
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && isOwner(resource.data.userId);
