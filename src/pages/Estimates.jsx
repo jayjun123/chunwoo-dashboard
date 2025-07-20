@@ -374,7 +374,7 @@ const Estimates = () => {
       minHeight: '100vh',
       color: 'white',
       p: { xs: 1, md: 3 },
-      pt: { xs: 1, md: 8 } // 헤더 아래로 74px 이동 (56px + 18px)
+      pt: { xs: '94px', md: 8 } // 모바일에서 아래로 20px 이동 (74px → 94px)
     }}>
       {/* 헤더 */}
       <Box sx={{ mb: 3 }}>

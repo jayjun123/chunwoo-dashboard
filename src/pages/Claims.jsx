@@ -437,7 +437,7 @@ const Claims = () => {
       minHeight: '100vh',
       color: 'white',
       p: { xs: 1, md: 3 },
-      pt: { xs: '74px', md: '74px' }
+      pt: { xs: '59px', md: '74px' } // 모바일에서 위로 15px 이동 (74px → 59px)
     }}>
       {/* 헤더와 스마트카드 */}
       <Box sx={{ mb: 3 }}>

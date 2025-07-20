@@ -17,6 +17,11 @@ import {
   Chat as ChatIcon,
   AttachMoney as ProgressIcon,
   Engineering as EngineeringIcon,
+  TrendingUp as TrendingUpIcon,
+  Forum as ForumIcon,
+  SafetyCheck as SafetyHelmetIcon,
+  Calculate as CalculateIcon,
+  Category as CategoryIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
@@ -227,8 +232,9 @@ const MobileBottomNav = () => {
           
           {/* 금일현장 목록 */}
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" sx={{ mb: 1, color: '#FFD600', fontWeight: 600 }}>
-              🏗️ 금일현장 ({sitesList.length}개)
+            <Typography variant="h6" sx={{ mb: 1, color: '#FFD600', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <EngineeringIcon sx={{ fontSize: 18, color: '#FFD600' }} />
+              금일현장 ({sitesList.length}개)
             </Typography>
             {sitesList.length === 0 ? (
               <Typography sx={{ color: '#ccc', fontSize: 14 }}>오늘 현장 일정이 없습니다.</Typography>
@@ -267,24 +273,27 @@ const MobileBottomNav = () => {
 
           {/* 금일입찰 목록 */}
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" sx={{ mb: 1, color: '#4FC3F7', fontWeight: 600 }}>
-              📈 금일입찰 (0개)
+            <Typography variant="h6" sx={{ mb: 1, color: '#4FC3F7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <TrendingUpIcon sx={{ fontSize: 18, color: '#4FC3F7' }} />
+              금일입찰 (0개)
             </Typography>
             <Typography sx={{ color: '#ccc', fontSize: 14 }}>오늘 입찰 일정이 없습니다.</Typography>
           </Box>
 
           {/* 금일회의 목록 */}
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" sx={{ mb: 1, color: '#FF7043', fontWeight: 600 }}>
-              💬 금일회의 (0개)
+            <Typography variant="h6" sx={{ mb: 1, color: '#FF7043', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <ForumIcon sx={{ fontSize: 18, color: '#FF7043' }} />
+              금일회의 (0개)
             </Typography>
             <Typography sx={{ color: '#ccc', fontSize: 14 }}>오늘 회의 일정이 없습니다.</Typography>
           </Box>
 
           {/* 금일현설 목록 */}
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" sx={{ mb: 1, color: '#81C784', fontWeight: 600 }}>
-              🛡️ 금일현설 (0개)
+            <Typography variant="h6" sx={{ mb: 1, color: '#81C784', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <SafetyHelmetIcon sx={{ fontSize: 18, color: '#81C784' }} />
+              금일현설 (0개)
             </Typography>
             <Typography sx={{ color: '#ccc', fontSize: 14 }}>오늘 현설 일정이 없습니다.</Typography>
           </Box>

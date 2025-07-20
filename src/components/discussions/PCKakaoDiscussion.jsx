@@ -85,7 +85,7 @@ const PCKakaoDiscussion = () => {
     const fetchSites = async () => {
       try {
         setSitesLoading(true);
-        const sitesData = await getSites();
+        const sitesData = await getSites({});
         setSites(sitesData);
       } catch (error) {
         console.error('현장 데이터 로드 실패:', error);
@@ -102,12 +102,28 @@ const PCKakaoDiscussion = () => {
     fetchSites();
 
     // 실시간 토론 목록 구독
-    const unsubscribeDiscussions = subscribeToDiscussions((discussions) => {
-      setDiscussions(discussions);
-    });
+    let unsubscribeDiscussions;
+    try {
+      unsubscribeDiscussions = subscribeToDiscussions((discussions) => {
+        setDiscussions(discussions);
+      });
+    } catch (error) {
+      console.error('토론 목록 구독 설정 실패:', error);
+      setSnackbar({
+        open: true,
+        message: '실시간 연결에 실패했습니다.',
+        severity: 'error'
+      });
+    }
 
     return () => {
-      unsubscribeDiscussions();
+      if (unsubscribeDiscussions && typeof unsubscribeDiscussions === 'function') {
+        try {
+          unsubscribeDiscussions();
+        } catch (error) {
+          console.error('토론 목록 구독 해제 실패:', error);
+        }
+      }
     };
   }, []);
 
@@ -115,20 +131,43 @@ const PCKakaoDiscussion = () => {
   useEffect(() => {
     if (!selectedDiscussion) return;
 
-    const unsubscribeMessages = subscribeToMessages(selectedDiscussion.id, (messages) => {
-      setMessages(prev => ({
-        ...prev,
-        [selectedDiscussion.id]: messages
-      }));
-      
-      // 스크롤을 맨 아래로
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    });
+    let unsubscribeMessages;
+    try {
+      unsubscribeMessages = subscribeToMessages(selectedDiscussion.id, (messages) => {
+        setMessages(prev => {
+          // 임시 메시지들은 유지하고 실제 메시지만 업데이트
+          const currentMessages = prev[selectedDiscussion.id] || [];
+          const tempMessages = currentMessages.filter(msg => msg.isPending);
+          const realMessages = messages.filter(msg => !msg.isPending);
+          
+          return {
+            ...prev,
+            [selectedDiscussion.id]: [...tempMessages, ...realMessages]
+          };
+        });
+        
+        // 스크롤을 맨 아래로
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      });
+    } catch (error) {
+      console.error('메시지 구독 설정 실패:', error);
+      setSnackbar({
+        open: true,
+        message: '메시지 실시간 연결에 실패했습니다.',
+        severity: 'error'
+      });
+    }
 
     return () => {
-      unsubscribeMessages();
+      if (unsubscribeMessages && typeof unsubscribeMessages === 'function') {
+        try {
+          unsubscribeMessages();
+        } catch (error) {
+          console.error('메시지 구독 해제 실패:', error);
+        }
+      }
     };
   }, [selectedDiscussion]);
 
@@ -168,7 +207,26 @@ const PCKakaoDiscussion = () => {
     const messageContent = newMessage.trim();
     const filesToSend = [...attachedFiles];
     
-    // 즉시 UI 업데이트
+    // 즉시 UI 업데이트 (Optimistic Update)
+    const tempMessageId = `temp_${Date.now()}`;
+    const tempMessage = {
+      id: tempMessageId,
+      content: messageContent,
+      author: '나',
+      authorId: 'current-user',
+      type: filesToSend.length > 0 ? 'file' : 'text',
+      files: filesToSend,
+      timestamp: new Date(),
+      isPending: true
+    };
+
+    // 로컬 상태에 임시 메시지 추가
+    setMessages(prev => ({
+      ...prev,
+      [selectedDiscussion.id]: [...(prev[selectedDiscussion.id] || []), tempMessage]
+    }));
+    
+    // 입력창 초기화
     setNewMessage('');
     setAttachedFiles([]);
 
@@ -181,30 +239,35 @@ const PCKakaoDiscussion = () => {
         files: filesToSend
       };
 
-      // 비동기로 메시지 전송 (UI 블로킹 방지)
-      sendMessage(selectedDiscussion.id, messageData).catch(error => {
-        console.error('메시지 전송 실패:', error);
-        setSnackbar({
-          open: true,
-          message: '메시지 전송에 실패했습니다.',
-          severity: 'error'
-        });
-        // 실패 시 입력창에 다시 넣기
-        setNewMessage(messageContent);
-        setAttachedFiles(filesToSend);
-      });
+      // 메시지 전송
+      const messageId = await sendMessage(selectedDiscussion.id, messageData);
+      
+      console.log('🔥 PC 메시지 전송 성공:', messageId);
+      
+      // 성공 시 임시 메시지 제거 (실시간 구독에서 실제 메시지가 올 것)
+      setMessages(prev => ({
+        ...prev,
+        [selectedDiscussion.id]: (prev[selectedDiscussion.id] || []).filter(msg => msg.id !== tempMessageId)
+      }));
+      
     } catch (error) {
-      console.error('메시지 전송 실패:', error);
+      console.error('🔥 PC 메시지 전송 실패:', error);
+      
+      // 실패 시 임시 메시지 제거하고 입력창에 다시 넣기
+      setMessages(prev => ({
+        ...prev,
+        [selectedDiscussion.id]: (prev[selectedDiscussion.id] || []).filter(msg => msg.id !== tempMessageId)
+      }));
+      setNewMessage(messageContent);
+      setAttachedFiles(filesToSend);
+      
       setSnackbar({
         open: true,
         message: '메시지 전송에 실패했습니다.',
         severity: 'error'
       });
-      // 실패 시 입력창에 다시 넣기
-      setNewMessage(messageContent);
-      setAttachedFiles(filesToSend);
     }
-  }, [newMessage, attachedFiles, selectedDiscussion]);
+  }, [newMessage, attachedFiles, selectedDiscussion, messages]);
 
   // 새 토론 생성
   const handleCreateDiscussion = async () => {
@@ -256,8 +319,6 @@ const PCKakaoDiscussion = () => {
       });
     }
   };
-
-
 
   // 카테고리 옵션
   const categories = ['안전', '일정', '자재', '품질', '환경', '기타'];
@@ -721,13 +782,25 @@ const PCKakaoDiscussion = () => {
               {selectedDiscussion.avatar}
             </Avatar>
             <Box sx={{ flex: 1 }}>
-                           <Typography variant="h6" sx={{ fontSize: '16px', fontWeight: 'bold', color: '#FFFFFF' }}>
-               {selectedDiscussion.title}
-             </Typography>
-             <Typography variant="body2" sx={{ color: '#CCCCCC', fontSize: '12px' }}>
-               참여자 {selectedDiscussion.participants}명
-             </Typography>
-           </Box>
+              <Typography variant="h6" sx={{ fontSize: '16px', fontWeight: 'bold', color: '#FFFFFF' }}>
+                {selectedDiscussion.title}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ 
+                  width: 6, 
+                  height: 6, 
+                  borderRadius: '50%', 
+                  backgroundColor: '#4CAF50',
+                  animation: 'pulse 2s infinite'
+                }} />
+                <Typography variant="body2" sx={{ color: '#4CAF50', fontSize: '11px' }}>
+                  실시간 연결됨
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#CCCCCC', fontSize: '12px', ml: 1 }}>
+                  • 참여자 {selectedDiscussion.participants}명
+                </Typography>
+              </Box>
+            </Box>
            <IconButton 
              onClick={handleMenuOpen}
              sx={{ color: '#FFFFFF' }}
@@ -766,7 +839,8 @@ const PCKakaoDiscussion = () => {
                   sx={{ 
                     display: 'flex', 
                     justifyContent: isMyMessage ? 'flex-end' : 'flex-start',
-                    mb: 2
+                    mb: 2,
+                    opacity: message.isPending ? 0.7 : 1
                   }}
                 >
                   {!isMyMessage && (
@@ -797,7 +871,8 @@ const PCKakaoDiscussion = () => {
                       borderRadius: isMyMessage ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                       boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
                       wordBreak: 'break-word',
-                      maxWidth: '100%'
+                      maxWidth: '100%',
+                      border: message.isPending ? '1px dashed #90caf9' : 'none'
                     }}>
                       {/* 텍스트 메시지 */}
                       {message.content && (
@@ -808,6 +883,11 @@ const PCKakaoDiscussion = () => {
                           mb: message.files && message.files.length > 0 ? 1 : 0
                         }}>
                           {message.content}
+                          {message.isPending && (
+                            <span style={{ marginLeft: '8px', fontSize: '12px', color: '#90caf9' }}>
+                              전송 중...
+                            </span>
+                          )}
                         </Typography>
                       )}
                       
@@ -1490,6 +1570,17 @@ const PCKakaoDiscussion = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      
+      {/* 실시간 연결 상태 애니메이션 */}
+      <style>
+        {`
+          @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+          }
+        `}
+      </style>
     </Box>
   );
 };

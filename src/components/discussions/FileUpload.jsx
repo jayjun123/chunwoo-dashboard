@@ -181,7 +181,15 @@ const FileUpload = ({ onFilesChange, maxFiles = 5, maxFileSize = 10 }) => {
           };
         } catch (error) {
           console.error('Upload error:', error);
-          return fileData;
+          setSnackbar({
+            open: true,
+            message: `파일 "${fileData.name}" 업로드 실패: ${error.message}`,
+            severity: 'error'
+          });
+          return {
+            ...fileData,
+            error: error.message
+          };
         }
       });
 

@@ -775,14 +775,14 @@ const ScheduleManagement = ({
   return (
     <Box sx={{ 
       p: 0, 
-      height: isMobile ? 'calc(100vh - 140px)' : 'calc(100vh - 80px)',
+      height: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 80px)', // 모바일에서 20px 더 줄임 (140px → 120px)
       width: '100%',
       mx: 0,
       px: 0,
       margin: 0,
       padding: 0,
       position: 'relative',
-      mt: isMobile ? '80px' : '54px', // 모바일에서 위로 60px 이동 (140px → 80px)
+      mt: isMobile ? '60px' : '54px', // 모바일에서 위로 20px 더 이동 (80px → 60px)
       mb: '20px',
       overflow: isMobile ? 'hidden' : 'visible',
       bgcolor: '#23242a'
@@ -854,9 +854,8 @@ const ScheduleManagement = ({
                 
                 {/* 견적/청구 버튼 - 오른쪽에 컴팩트하게 */}
                 <Box sx={{ 
-                  display: 'flex', 
-                  gap: 0.5,
-                  display: { xs: 'none', md: 'flex' }
+                  display: { xs: 'none', md: 'flex' },
+                  gap: 0.5
                 }}>
                   <Button
                     variant="outlined"
