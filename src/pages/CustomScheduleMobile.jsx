@@ -1073,9 +1073,9 @@ const CustomScheduleMobile = () => {
                   const isToday = date && date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
                   const isSelected = isCurrentMonth && day === selectedDay;
                   const dayOfWeek = colIdx;
-                  // 날짜셀 세로를 키움 - 6줄일 때는 높이를 늘려서 전체 크기 유지
+                  // 날짜셀 세로를 줄임 - 달력 크기 축소
                   const totalRows = monthMatrix.length;
-                  const cellHeight = totalRows === 6 ? 75 : 85; // 높이 증가
+                  const cellHeight = totalRows === 6 ? 55 : 65; // 높이 감소
                   return (
                     <Box
                       key={`${rowIdx}-${colIdx}`}
@@ -1163,8 +1163,8 @@ const CustomScheduleMobile = () => {
                                   width: '100%',
                                   mb: 0.1,
                                   lineHeight: 1.2,
-                                  minHeight: 18,
-                                  maxHeight: 18,
+                                  minHeight: 22,
+                                  maxHeight: 22,
                                   // 이전/다음 달 일정은 더 선명하게 표시
                                   opacity: isCurrentMonth ? 1 : 0.8,
                                 }}
@@ -1197,7 +1197,7 @@ const CustomScheduleMobile = () => {
           mx: 0, 
           p: 1.5, 
           boxShadow: 3,
-          height: '280px', // 높이 증가
+          height: '320px', // 높이 더 증가
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -1251,23 +1251,23 @@ const CustomScheduleMobile = () => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      p: 0.2, // 패딩 더 줄임
+                      p: 0.5, // 패딩 증가
                       borderRadius: 1, 
                       bgcolor: item.color || colorList[i % colorList.length], 
                       color: '#fff', 
                       fontWeight: 500, 
-                      fontSize: '0.7rem', // 폰트 더 작게
+                      fontSize: '0.8rem', // 폰트 크기 증가
                       boxShadow: '0 1px 2px 0 #0002',
-                      mb: 0.05, // 마진 더 줄임
+                      mb: 0.2, // 마진 증가
                       flexShrink: 0, // 스크롤 시 크기 유지
-                      minHeight: 18, // 최소 높이도 줄임
-                      maxHeight: 18, // 최대 높이도 제한
+                      minHeight: 24, // 최소 높이 증가
+                      maxHeight: 24, // 최대 높이 증가
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, gap: 0.3 }}>
                       <Typography sx={{ 
                         flex: 1, 
-                        fontSize: '0.7rem',
+                        fontSize: '0.8rem',
                         textAlign: 'left',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
