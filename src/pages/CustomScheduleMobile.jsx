@@ -567,9 +567,9 @@ const CustomScheduleMobile = () => {
                         key={item.id}
                         sx={{
                           borderRadius: 1,
-                          px: 0.3,
-                          py: 0.1,
-                          fontSize: '0.6rem',
+                          px: 0.2,
+                          py: 0.05,
+                          fontSize: '0.55rem',
                           fontWeight: 500,
                           bgcolor: item.color || colorList[j % colorList.length],
                           color: '#fff',
@@ -579,12 +579,12 @@ const CustomScheduleMobile = () => {
                           boxShadow: '0 1px 2px 0 #0003',
                           textAlign: 'center',
                           width: '100%',
-                          mb: 0.05,
+                          mb: 0.02,
                           display: 'flex',
                           alignItems: 'center',
-                          gap: 0.2,
-                          minHeight: 12,
-                          maxHeight: 12,
+                          gap: 0.1,
+                          minHeight: 10,
+                          maxHeight: 10,
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1151,9 +1151,9 @@ const CustomScheduleMobile = () => {
                                 key={item.id}
                                 sx={{
                                   borderRadius: 0.5,
-                                  px: 0.3,
-                                  py: 0.1,
-                                  fontSize: '0.6rem',
+                                  px: 0.2,
+                                  py: 0.05,
+                                  fontSize: '0.55rem',
                                   fontWeight: 500,
                                   bgcolor: item.color || colorList[i % colorList.length],
                                   color: '#fff',
@@ -1163,10 +1163,10 @@ const CustomScheduleMobile = () => {
                                   boxShadow: '0 1px 1px 0 #0002',
                                   textAlign: 'center',
                                   width: '100%',
-                                  mb: 0.05,
-                                  lineHeight: 1.0,
-                                  minHeight: 14,
-                                  maxHeight: 14,
+                                  mb: 0.02,
+                                  lineHeight: 0.9,
+                                  minHeight: 10,
+                                  maxHeight: 10,
                                   // 이전/다음 달 일정은 더 선명하게 표시
                                   opacity: isCurrentMonth ? 1 : 0.8,
                                 }}
@@ -1231,7 +1231,7 @@ const CustomScheduleMobile = () => {
               sx={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
-                gap: 0.3,
+                gap: 0.4,
                 flex: 1,
                 overflow: 'auto', // 스크롤 가능하게 변경
                 touchAction: 'auto', // 터치 스크롤 활성화
@@ -1253,23 +1253,23 @@ const CustomScheduleMobile = () => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      p: 0.3, // 패딩 증가
+                      p: 0.4, // 패딩 더 증가
                       borderRadius: 0.8, 
                       bgcolor: item.color || colorList[i % colorList.length], 
                       color: '#fff', 
                       fontWeight: 500, 
-                      fontSize: '0.85rem', // 폰트 크기 더 증가
+                      fontSize: '0.9rem', // 폰트 크기 더 증가
                       boxShadow: '0 1px 2px 0 #0002',
-                      mb: 0.1, // 마진 증가
+                      mb: 0.15, // 마진 더 증가
                       flexShrink: 0, // 스크롤 시 크기 유지
-                      minHeight: 24, // 최소 높이 더 증가
-                      maxHeight: 24, // 최대 높이 더 증가
+                      minHeight: 28, // 최소 높이 더 증가
+                      maxHeight: 28, // 최대 높이 더 증가
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, gap: 0.3 }}>
                       <Typography sx={{ 
                         flex: 1, 
-                        fontSize: '0.85rem',
+                        fontSize: '0.9rem',
                         textAlign: 'left',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -1295,42 +1295,42 @@ const CustomScheduleMobile = () => {
                         onClick={() => handleViewSiteDetail(item)}
                         sx={{ 
                           color: '#fff', 
-                          p: 0.02,
+                          p: 0.1,
                           minWidth: 'auto',
-                          width: '14px',
-                          height: '14px',
+                          width: '18px',
+                          height: '18px',
                           '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
                         }}
                       >
-                        <Search sx={{ fontSize: '0.5rem' }} />
+                        <Search sx={{ fontSize: '0.7rem' }} />
                       </IconButton>
                       <IconButton 
                         size="small" 
                         onClick={() => handleEditSchedule(item)}
                         sx={{ 
                           color: '#fff', 
-                          p: 0.02,
+                          p: 0.1,
                           minWidth: 'auto',
-                          width: '14px',
-                          height: '14px',
+                          width: '18px',
+                          height: '18px',
                           '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
                         }}
                       >
-                        <Edit sx={{ fontSize: '0.5rem' }} />
+                        <Edit sx={{ fontSize: '0.7rem' }} />
                       </IconButton>
                       <IconButton 
                         size="small" 
                         onClick={() => handleDeleteConfirm(item)}
                         sx={{ 
                           color: '#fff', 
-                          p: 0.02,
+                          p: 0.1,
                           minWidth: 'auto',
-                          width: '14px',
-                          height: '14px',
+                          width: '18px',
+                          height: '18px',
                           '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
                         }}
                       >
-                        <Delete sx={{ fontSize: '0.5rem' }} />
+                        <Delete sx={{ fontSize: '0.7rem' }} />
                       </IconButton>
                     </Box>
                   </Box>
