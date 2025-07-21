@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, Typography, IconButton, Grid, Paper, Divider, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Checkbox, FormControlLabel, Tooltip } from '@mui/material';
 import { ChevronLeft, ChevronRight, ArrowBack, Add, Today, Edit, Delete, ViewWeek, ViewModule, CalendarViewMonth, Home, Business, Security, Assignment, Chat, Description, Assessment, Settings, Person, Star, Timeline, Search } from '@mui/icons-material';
 import { collection, onSnapshot, doc, deleteDoc, updateDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { subscribeToEstimates } from '../api/estimates';
 import { db, auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -100,6 +101,7 @@ const CustomScheduleMobile = () => {
   const [editScheduleTypes, setEditScheduleTypes] = useState([]);
   const [editScheduleColor, setEditScheduleColor] = useState('#3b82f6');
   const [sites, setSites] = useState([]);
+  const [estimates, setEstimates] = useState([]);
   const [viewMode, setViewMode] = useState('month'); // 이제 'month'만 사용
   const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
   const [checkedItems, setCheckedItems] = useState({});
@@ -145,6 +147,7 @@ const CustomScheduleMobile = () => {
       schedulesUnsubscribe = onSnapshot(collection(db, 'schedules'), (snapshot) => {
         const scheduleData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log('모바일 일정 데이터 로드 완료:', scheduleData.length, '개 일정');
+        console.log('일정 데이터 샘플:', scheduleData.slice(0, 3));
         setSchedules(scheduleData);
         setLoading(false);
       });
@@ -200,7 +203,39 @@ const CustomScheduleMobile = () => {
     return () => unsubscribe();
   }, []);
 
+  // 견적 데이터 가져오기
+  useEffect(() => {
+    const unsubscribe = subscribeToEstimates((estimatesData) => {
+      console.log('견적 데이터 로드 완료:', estimatesData.length, '개');
+      setEstimates(estimatesData);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const monthMatrix = getMonthMatrix(year, month);
+
+  // 견적 데이터에서 현장명 가져오기
+  const getSiteNameFromEstimates = (schedule) => {
+    // 일정의 제목이나 텍스트에서 견적 번호나 현장명을 찾아서 매칭
+    const scheduleText = (schedule.text || schedule.title || '').toLowerCase();
+    
+    // 견적 데이터에서 매칭되는 현장명 찾기
+    for (const estimate of estimates) {
+      const estimateSiteName = (estimate.siteName || '').toLowerCase();
+      const estimateCompany = (estimate.company || '').toLowerCase();
+      
+      // 일정 텍스트에 견적의 현장명이나 회사명이 포함되어 있는지 확인
+      if (estimateSiteName && scheduleText.includes(estimateSiteName)) {
+        return estimate.siteName;
+      }
+      if (estimateCompany && scheduleText.includes(estimateCompany)) {
+        return estimate.siteName || estimate.company;
+      }
+    }
+    
+    // 매칭되지 않으면 기존 siteName 반환
+    return schedule.siteName || '';
+  };
 
   // 날짜별 일정 매핑 (월과 연도를 고려한 개선된 버전)
   const scheduleMap = {};
@@ -238,7 +273,14 @@ const CustomScheduleMobile = () => {
     const day = d.getDate();
     const key = getScheduleKey(d.getFullYear(), d.getMonth(), day);
     if (!scheduleMap[key]) scheduleMap[key] = [];
-    scheduleMap[key].push(item);
+    
+    // 견적 데이터에서 현장명 가져와서 일정에 추가
+    const enrichedItem = {
+      ...item,
+      siteName: getSiteNameFromEstimates(item)
+    };
+    
+    scheduleMap[key].push(enrichedItem);
   });
   
   // 현재 선택된 날짜의 일정을 가져오는 헬퍼 함수
@@ -1171,7 +1213,15 @@ const CustomScheduleMobile = () => {
                                   opacity: isCurrentMonth ? 1 : 0.8,
                                 }}
                               >
-                                {(item.text || item.title || '제목 없음').slice(0, 8)}
+                                {(() => {
+                                  const siteName = item.siteName || '';
+                                  const title = item.text || item.title || '제목 없음';
+                                  if (siteName) {
+                                    return `${siteName} ${title.slice(0, 6)}`;
+                                  } else {
+                                    return title.slice(0, 8);
+                                  }
+                                })()}
                               </Box>
                             ))}
                           </Box>
@@ -1284,7 +1334,9 @@ const CustomScheduleMobile = () => {
                             item.type === '현설' ? '[현설]' : 
                             item.type === '견적' ? '[견적]' : 
                             item.type === '기타' ? '[기타]' : '';
-                          const fullText = typePrefix + (item.text || item.title || '제목 없음');
+                          const siteName = item.siteName || '';
+                          const title = item.text || item.title || '제목 없음';
+                          const fullText = typePrefix + (siteName ? `${siteName} ` : '') + title;
                           return fullText;
                         })()}
                       </Typography>
