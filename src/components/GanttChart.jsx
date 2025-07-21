@@ -1276,7 +1276,7 @@ const GanttChart = () => {
           }
           
           /* 지정된 div 요소 숨기기 */
-          .MuiGrid-root.MuiGrid-direction-xs-row.css-1fbyy2u-MuiGrid-root {
+          .MuiGrid-root.MuiGrid-direction-xs-row.css-ril70s-MuiGrid-root {
             display: none !important;
           }
         `}

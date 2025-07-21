@@ -533,18 +533,6 @@ const Claims = () => {
 
           {/* 중앙: 액션 버튼들 */}
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => {
-                setEditingClaim(null);
-                resetForm();
-                setDialogOpen(true);
-              }}
-              sx={{ backgroundColor: '#4caf50' }}
-            >
-              새 청구예정
-            </Button>
             {!isMobile && (
               <>
                 <Button
@@ -574,6 +562,18 @@ const Claims = () => {
                 </label>
               </>
             )}
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setEditingClaim(null);
+                resetForm();
+                setDialogOpen(true);
+              }}
+              sx={{ backgroundColor: '#4caf50' }}
+            >
+              새 청구예정
+            </Button>
           </Box>
 
           {/* 오른쪽 끝: 월별 네비게이션 */}

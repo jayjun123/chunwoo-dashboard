@@ -1229,7 +1229,7 @@ const CustomScheduleMobile = () => {
               sx={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
-                gap: 0.3,
+                gap: 0.2,
                 flex: 1,
                 overflow: 'auto', // 스크롤 가능하게 변경
                 touchAction: 'auto', // 터치 스크롤 활성화
@@ -1251,28 +1251,28 @@ const CustomScheduleMobile = () => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      p: 0.5, // 패딩 증가
+                      p: 0.3, // 패딩 감소
                       borderRadius: 1, 
                       bgcolor: item.color || colorList[i % colorList.length], 
                       color: '#fff', 
                       fontWeight: 500, 
-                      fontSize: '0.8rem', // 폰트 크기 증가
+                      fontSize: '0.7rem', // 폰트 크기 감소
                       boxShadow: '0 1px 2px 0 #0002',
-                      mb: 0.2, // 마진 증가
+                      mb: 0.1, // 마진 감소
                       flexShrink: 0, // 스크롤 시 크기 유지
-                      minHeight: 24, // 최소 높이 증가
-                      maxHeight: 24, // 최대 높이 증가
+                      minHeight: 18, // 최소 높이 감소
+                      maxHeight: 18, // 최대 높이 감소
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, gap: 0.3 }}>
                       <Typography sx={{ 
                         flex: 1, 
-                        fontSize: '0.8rem',
+                        fontSize: '0.7rem',
                         textAlign: 'left',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
-                        lineHeight: 1.2
+                        lineHeight: 1.1
                       }}>
                         {(() => {
                           const typePrefix = 
@@ -1293,42 +1293,42 @@ const CustomScheduleMobile = () => {
                         onClick={() => handleViewSiteDetail(item)}
                         sx={{ 
                           color: '#fff', 
-                          p: 0.05,
+                          p: 0.02,
                           minWidth: 'auto',
-                          width: '16px',
-                          height: '16px',
+                          width: '14px',
+                          height: '14px',
                           '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
                         }}
                       >
-                        <Search sx={{ fontSize: '0.6rem' }} />
+                        <Search sx={{ fontSize: '0.5rem' }} />
                       </IconButton>
                       <IconButton 
                         size="small" 
                         onClick={() => handleEditSchedule(item)}
                         sx={{ 
                           color: '#fff', 
-                          p: 0.05,
+                          p: 0.02,
                           minWidth: 'auto',
-                          width: '16px',
-                          height: '16px',
+                          width: '14px',
+                          height: '14px',
                           '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
                         }}
                       >
-                        <Edit sx={{ fontSize: '0.6rem' }} />
+                        <Edit sx={{ fontSize: '0.5rem' }} />
                       </IconButton>
                       <IconButton 
                         size="small" 
                         onClick={() => handleDeleteConfirm(item)}
                         sx={{ 
                           color: '#fff', 
-                          p: 0.05,
+                          p: 0.02,
                           minWidth: 'auto',
-                          width: '16px',
-                          height: '16px',
+                          width: '14px',
+                          height: '14px',
                           '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
                         }}
                       >
-                        <Delete sx={{ fontSize: '0.6rem' }} />
+                        <Delete sx={{ fontSize: '0.5rem' }} />
                       </IconButton>
                     </Box>
                   </Box>
