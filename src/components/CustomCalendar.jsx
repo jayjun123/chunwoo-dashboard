@@ -728,7 +728,7 @@ const CustomCalendar = (props) => {
                     maxWidth: '100%',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: { xs: 0.2, md: 0.3 },
+                    gap: { xs: 0.1, md: 0.2 },
                     cursor: dateStr ? 'pointer' : 'default',
                     position: 'relative',
                     border: snapshot.isDraggingOver 
@@ -862,7 +862,7 @@ const CustomCalendar = (props) => {
                             flex: 1,
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: { xs: 0.1, md: 0.2 },
+                            gap: { xs: 0.1, md: 0.3 },
                             overflowY: 'auto',
                             overflowX: 'hidden',
                             maxHeight: { xs: '280px', md: '240px' },
@@ -936,14 +936,14 @@ const CustomCalendar = (props) => {
                                     }}
                                     className={snapshot.isDragging ? 'dragging' : ''}
                                     sx={{
-                                      p: { xs: 0.3, md: 0.4 },
+                                      p: { xs: 0.1, sm: 0.1, md: 0.4 },
                                       bgcolor: item.color || (isSelected ? '#3b82f6' : '#181c24'),
                                       color: '#fff',
                                       borderRadius: 1,
                                       fontWeight: 500,
                                       fontSize: viewMode === '3days' 
                                         ? { xs: '1.3rem', md: '1.3rem' }  // 3일 보기에서는 더 큰 글씨
-                                        : { xs: '0.6rem', md: '0.75rem' }, // 기타 보기에서는 기존 크기
+                                        : { xs: '0.5rem', sm: '0.5rem', md: '0.75rem' }, // 스마트폰은 적당하게
                                       boxShadow: snapshot.isDragging ? 3 : 0,
                                       cursor: 'grab',
                                       border: isSelected
@@ -956,11 +956,11 @@ const CustomCalendar = (props) => {
                                       textAlign: 'left',
                                       minHeight: viewMode === '3days' 
                                         ? { xs: 'auto', md: '28px' }  // 3일 보기에서는 더 높은 높이
-                                        : { xs: 'auto', md: '24px' }, // 기타 보기에서는 기존 높이
+                                        : { xs: '18px', sm: '16px', md: '24px' }, // 스마트폰은 적당하게
                                       maxHeight: viewMode === '3days' 
                                         ? { xs: 'auto', md: '28px' }  // 3일 보기에서는 더 높은 높이
-                                        : { xs: 'auto', md: '24px' }, // 기타 보기에서는 기존 높이
-                                      lineHeight: { xs: 'auto', md: '1.2' },
+                                        : { xs: '18px', sm: '16px', md: '24px' }, // 스마트폰은 적당하게
+                                      lineHeight: { xs: '1.0', sm: '1.0', md: '1.2' },
                                       whiteSpace: 'nowrap',
                                       overflow: 'hidden',
                                       textOverflow: 'ellipsis',

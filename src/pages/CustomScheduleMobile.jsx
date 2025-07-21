@@ -373,15 +373,15 @@ const CustomScheduleMobile = () => {
                         {selectedDay}
                       </Box>
                     </Box>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2, mt: 0.5 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1, mt: 0.3 }}>
                       {getSchedulesForDate(year, month, selectedDay).slice(0, 12).map((item, i) => (
                         <Box
                           key={item.id}
                           sx={{
-                            borderRadius: 0.5,
-                            px: 0.4,
-                            py: 0.2,
-                            fontSize: '0.7rem',
+                            borderRadius: 0.3,
+                            px: 0.3,
+                            py: 0.1,
+                            fontSize: '0.65rem',
                             fontWeight: 500,
                             bgcolor: item.color || colorList[i % colorList.length],
                             color: '#fff',
@@ -391,10 +391,10 @@ const CustomScheduleMobile = () => {
                             boxShadow: '0 1px 1px 0 #0002',
                             textAlign: 'center',
                             width: '100%',
-                            mb: 0.1,
-                            lineHeight: 1.2,
-                            minHeight: 18,
-                            maxHeight: 18,
+                            mb: 0.05,
+                            lineHeight: 1.1,
+                            minHeight: 12,
+                            maxHeight: 12,
                           }}
                         >
                           {(() => {
@@ -567,9 +567,9 @@ const CustomScheduleMobile = () => {
                         key={item.id}
                         sx={{
                           borderRadius: 1,
-                          px: 0.6,
-                          py: 0.2,
-                          fontSize: '0.75rem',
+                          px: 0.3,
+                          py: 0.1,
+                          fontSize: '0.6rem',
                           fontWeight: 500,
                           bgcolor: item.color || colorList[j % colorList.length],
                           color: '#fff',
@@ -579,10 +579,12 @@ const CustomScheduleMobile = () => {
                           boxShadow: '0 1px 2px 0 #0003',
                           textAlign: 'center',
                           width: '100%',
-                          mb: 0.1,
+                          mb: 0.05,
                           display: 'flex',
                           alignItems: 'center',
-                          gap: 0.3,
+                          gap: 0.2,
+                          minHeight: 12,
+                          maxHeight: 12,
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1149,9 +1151,9 @@ const CustomScheduleMobile = () => {
                                 key={item.id}
                                 sx={{
                                   borderRadius: 0.5,
-                                  px: 0.4,
-                                  py: 0.2,
-                                  fontSize: '0.7rem',
+                                  px: 0.3,
+                                  py: 0.1,
+                                  fontSize: '0.6rem',
                                   fontWeight: 500,
                                   bgcolor: item.color || colorList[i % colorList.length],
                                   color: '#fff',
@@ -1161,10 +1163,10 @@ const CustomScheduleMobile = () => {
                                   boxShadow: '0 1px 1px 0 #0002',
                                   textAlign: 'center',
                                   width: '100%',
-                                  mb: 0.1,
-                                  lineHeight: 1.2,
-                                  minHeight: 22,
-                                  maxHeight: 22,
+                                  mb: 0.05,
+                                  lineHeight: 1.0,
+                                  minHeight: 14,
+                                  maxHeight: 14,
                                   // 이전/다음 달 일정은 더 선명하게 표시
                                   opacity: isCurrentMonth ? 1 : 0.8,
                                 }}
@@ -1229,7 +1231,7 @@ const CustomScheduleMobile = () => {
               sx={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
-                gap: 0.2,
+                gap: 0.3,
                 flex: 1,
                 overflow: 'auto', // 스크롤 가능하게 변경
                 touchAction: 'auto', // 터치 스크롤 활성화
@@ -1251,28 +1253,28 @@ const CustomScheduleMobile = () => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      p: 0.3, // 패딩 감소
-                      borderRadius: 1, 
+                      p: 0.3, // 패딩 증가
+                      borderRadius: 0.8, 
                       bgcolor: item.color || colorList[i % colorList.length], 
                       color: '#fff', 
                       fontWeight: 500, 
-                      fontSize: '0.7rem', // 폰트 크기 감소
+                      fontSize: '0.85rem', // 폰트 크기 더 증가
                       boxShadow: '0 1px 2px 0 #0002',
-                      mb: 0.1, // 마진 감소
+                      mb: 0.1, // 마진 증가
                       flexShrink: 0, // 스크롤 시 크기 유지
-                      minHeight: 18, // 최소 높이 감소
-                      maxHeight: 18, // 최대 높이 감소
+                      minHeight: 24, // 최소 높이 더 증가
+                      maxHeight: 24, // 최대 높이 더 증가
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, gap: 0.3 }}>
                       <Typography sx={{ 
                         flex: 1, 
-                        fontSize: '0.7rem',
+                        fontSize: '0.85rem',
                         textAlign: 'left',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
-                        lineHeight: 1.1
+                        lineHeight: 1.2
                       }}>
                         {(() => {
                           const typePrefix = 

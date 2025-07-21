@@ -561,7 +561,13 @@ const Estimates = () => {
                   resetForm();
                   setDialogOpen(true);
                 }}
-                sx={{ backgroundColor: '#4caf50' }}
+                sx={{ 
+                  backgroundColor: '#4caf50',
+                  height: isMobile ? '40px' : '48px',
+                  minWidth: isMobile ? '120px' : 'auto',
+                  fontSize: isMobile ? '14px' : '16px',
+                  fontWeight: 'bold'
+                }}
               >
                 새 견적요청
               </Button>
@@ -800,14 +806,17 @@ const Estimates = () => {
                 fullWidth
                 label="요청내용"
                 multiline
-                rows={3}
+                rows={isMobile ? 4 : 3}
                 value={formData.requestContent}
                 onChange={(e) => setFormData(prev => ({ ...prev, requestContent: e.target.value }))}
                 disabled={editingEstimate}
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: 'white' }
+                  '& .MuiInputBase-input': { 
+                    color: 'white',
+                    fontSize: isMobile ? '16px' : '14px'
+                  }
                 }}
               />
             </Grid>
@@ -857,14 +866,17 @@ const Estimates = () => {
                 fullWidth
                 label="비고"
                 multiline
-                rows={2}
+                rows={isMobile ? 3 : 2}
                 value={formData.notes}
                 onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                 disabled={editingEstimate}
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: 'white' }
+                  '& .MuiInputBase-input': { 
+                    color: 'white',
+                    fontSize: isMobile ? '16px' : '14px'
+                  }
                 }}
               />
             </Grid>
