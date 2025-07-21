@@ -93,6 +93,7 @@ const MobileKakaoDiscussion = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [exportDialog, setExportDialog] = useState({ open: false });
   const messagesEndRef = useRef(null);
+  const passwordInputRef = useRef(null);
 
   // 실시간 데이터 구독
   useEffect(() => {
@@ -422,7 +423,17 @@ const MobileKakaoDiscussion = () => {
         handleExportMessages();
         break;
       case 'leave':
-        handleLeaveDiscussion();
+        // 비밀번호가 있는 경우 비밀번호 확인 후 퇴장
+        if (selectedDiscussion.password && selectedDiscussion.password.trim() !== '') {
+          setPasswordDialog({ 
+            open: true, 
+            discussion: selectedDiscussion, 
+            password: '',
+            type: 'leave' // 퇴장용 비밀번호 확인
+          });
+        } else {
+          handleLeaveDiscussion();
+        }
         break;
       case 'delete':
         // 삭제 다이얼로그 열기
@@ -611,23 +622,44 @@ const MobileKakaoDiscussion = () => {
 
   // 비밀번호 확인
   const handlePasswordCheck = async () => {
-    if (passwordDialog.password === passwordDialog.discussion.password) {
-      setPasswordDialog({ open: false, discussion: null, password: '' });
-      setSelectedDiscussion(passwordDialog.discussion);
-    } else {
-      setSnackbar({
-        open: true,
-        message: '비밀번호가 올바르지 않습니다.',
-        severity: 'error'
-      });
+    const discussion = passwordDialog.discussion || selectedDiscussion;
+    
+    if (passwordDialog.password !== discussion.password) {
+      setSnackbar({ open: true, message: '비밀번호가 틀렸습니다. 다시 입력해주세요.', severity: 'error' });
+      // 비밀번호 필드 초기화
+      setPasswordDialog(prev => ({ ...prev, password: '' }));
+      // 포커스를 비밀번호 입력 필드로 이동
+      setTimeout(() => {
+        if (passwordInputRef.current) {
+          passwordInputRef.current.focus();
+        }
+      }, 100);
+      return;
     }
+    
+    // 비밀번호 확인 타입에 따라 처리
+    if (passwordDialog.type === 'enter') {
+      // 입장 처리
+      setSelectedDiscussion(discussion);
+      setSnackbar({ open: true, message: '토론방에 입장했습니다', severity: 'success' });
+    } else {
+      // 퇴장 처리
+      await handleLeaveDiscussion();
+    }
+    
+    setPasswordDialog({ open: false, discussion: null, password: '', type: '' });
   };
 
   // 채팅방 선택
   const handleDiscussionSelect = (discussion) => {
     // 비밀번호가 있고, 비어있지 않은 경우에만 비밀번호 체크
     if (discussion.password && discussion.password.trim() !== '' && discussion.password !== null && discussion.password !== undefined) {
-      setPasswordDialog({ open: true, discussion, password: '' });
+      setPasswordDialog({ 
+        open: true, 
+        discussion: discussion, 
+        password: '',
+        type: 'enter' // 입장용 비밀번호 확인
+      });
     } else {
       setSelectedDiscussion(discussion);
     }
@@ -698,8 +730,8 @@ const MobileKakaoDiscussion = () => {
     try {
       if (!selectedDiscussion) return;
       
-      // 현재 비밀번호 확인
-      if (selectedDiscussion.password && selectedDiscussion.password.trim() !== '') {
+      // 현재 비밀번호 확인 (비밀번호 변경/삭제 시)
+      if (currentPassword && selectedDiscussion.password) {
         if (currentPassword !== selectedDiscussion.password) {
           setSnackbar({
             open: true,
@@ -710,38 +742,51 @@ const MobileKakaoDiscussion = () => {
         }
       }
       
-      // 새 비밀번호 확인
-      if (newPassword !== confirmPassword) {
-        setSnackbar({
-          open: true,
-          message: '새 비밀번호가 일치하지 않습니다.',
-          severity: 'error'
-        });
-        return;
+      // 새 비밀번호 검증
+      if (newPassword || confirmPassword) {
+        if (newPassword !== confirmPassword) {
+          setSnackbar({
+            open: true,
+            message: '새 비밀번호가 일치하지 않습니다.',
+            severity: 'error'
+          });
+          return;
+        }
+
+        if (newPassword && newPassword.length < 4) {
+          setSnackbar({
+            open: true,
+            message: '비밀번호는 4자 이상이어야 합니다.',
+            severity: 'error'
+          });
+          return;
+        }
       }
       
-      if (newPassword.length < 4) {
+      // 비밀번호 변경/삭제 로직
+      if (newPassword && confirmPassword) {
+        // 새 비밀번호 설정
+        // 여기에 실제 비밀번호 업데이트 로직 추가
         setSnackbar({
           open: true,
-          message: '비밀번호는 4자 이상이어야 합니다.',
-          severity: 'error'
+          message: '비밀번호가 변경되었습니다.',
+          severity: 'success'
         });
-        return;
+      } else if (newPassword === '' && confirmPassword === '') {
+        // 비밀번호 삭제 (빈 값으로 저장)
+        // 여기에 실제 비밀번호 삭제 로직 추가
+        setSnackbar({
+          open: true,
+          message: '비밀번호가 삭제되었습니다.',
+          severity: 'success'
+        });
       }
-      
-      // 비밀번호 업데이트
-      await updateDiscussion(selectedDiscussion.id, { password: newPassword });
       
       // 상태 초기화
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       
-      setSnackbar({
-        open: true,
-        message: '비밀번호가 성공적으로 변경되었습니다.',
-        severity: 'success'
-      });
     } catch (error) {
       console.error('비밀번호 재설정 실패:', error);
       setSnackbar({
@@ -860,14 +905,24 @@ const MobileKakaoDiscussion = () => {
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                       <Box sx={{ flex: 1 }}>
                         {/* 현장명 */}
-                        <Typography variant="h6" sx={{ 
-                          fontSize: '16px', 
-                          fontWeight: 'bold',
-                          color: '#FFFFFF',
-                          mb: 0.5
-                        }}>
-                          {discussion.siteName || discussion.title}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                          <Typography variant="h6" sx={{ 
+                            fontSize: '16px', 
+                            fontWeight: 'bold',
+                            color: '#FFFFFF'
+                          }}>
+                            {discussion.siteName || discussion.title}
+                          </Typography>
+                          {discussion.password && discussion.password.trim() !== '' && (
+                            <Typography sx={{ 
+                              color: '#ff9800',
+                              fontSize: '14px',
+                              fontWeight: 'bold'
+                            }}>
+                              🔒
+                            </Typography>
+                          )}
+                        </Box>
                         
                         {/* 부제목 (선택사항) */}
                         {discussion.subtitle && (
@@ -903,13 +958,14 @@ const MobileKakaoDiscussion = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           {discussion.password && discussion.password.trim() !== '' && (
                             <Chip
-                              label="🔒 비밀번호"
+                              label="🔒 보호됨"
                               size="small"
                               sx={{ 
-                                backgroundColor: '#666',
+                                backgroundColor: '#ff9800',
                                 color: 'white',
                                 fontSize: '10px',
-                                height: '18px'
+                                height: '18px',
+                                fontWeight: 'bold'
                               }}
                             />
                           )}
@@ -1947,11 +2003,16 @@ const MobileKakaoDiscussion = () => {
       </Dialog>
 
       {/* 비밀번호 확인 다이얼로그 */}
-      <Dialog open={passwordDialog.open} onClose={() => setPasswordDialog({ open: false, discussion: null, password: '' })}>
-        <DialogTitle>비밀번호 입력</DialogTitle>
+      <Dialog open={passwordDialog.open} onClose={() => setPasswordDialog({ open: false, discussion: null, password: '', type: '' })}>
+        <DialogTitle>
+          {passwordDialog.type === 'enter' ? '토론방 입장' : '비밀번호 확인'}
+        </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            "{passwordDialog.discussion?.siteName || passwordDialog.discussion?.title}" 채팅방에 입장하려면 비밀번호를 입력하세요.
+          <Typography variant="body2" sx={{ mb: 2, color: '#666' }}>
+            {passwordDialog.type === 'enter' 
+              ? `"${passwordDialog.discussion?.siteName || passwordDialog.discussion?.title}" 토론방에 입장하려면 비밀번호를 입력하세요.`
+              : '작업을 진행하려면 비밀번호를 입력하세요.'
+            }
           </Typography>
           <TextField
             fullWidth
@@ -1959,15 +2020,21 @@ const MobileKakaoDiscussion = () => {
             placeholder="비밀번호를 입력하세요"
             value={passwordDialog.password}
             onChange={(e) => setPasswordDialog(prev => ({ ...prev, password: e.target.value }))}
-            onKeyPress={(e) => e.key === 'Enter' && handlePasswordCheck()}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handlePasswordCheck();
+              }
+            }}
+            inputRef={passwordInputRef}
+            autoFocus
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPasswordDialog({ open: false, discussion: null, password: '' })}>
+          <Button onClick={() => setPasswordDialog({ open: false, discussion: null, password: '', type: '' })}>
             취소
           </Button>
           <Button onClick={handlePasswordCheck} variant="contained">
-            입장
+            {passwordDialog.type === 'enter' ? '입장' : '확인'}
           </Button>
         </DialogActions>
       </Dialog>

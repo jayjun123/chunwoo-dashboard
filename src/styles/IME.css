@@ -32,6 +32,7 @@
     font-size: 16px !important; /* iOS에서 줌 방지 */
     line-height: 1.5;
     -webkit-appearance: none;
+    appearance: none;
     border-radius: 0;
     transform: translateZ(0); /* 하드웨어 가속 */
   }
@@ -132,6 +133,7 @@
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
+    appearance: none;
     margin: 0;
   }
   
@@ -282,6 +284,7 @@
   input, textarea, select {
     font-size: 16px !important;
     -webkit-user-select: text;
+    user-select: text;
     -webkit-touch-callout: none;
   }
   

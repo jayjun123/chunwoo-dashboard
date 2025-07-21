@@ -438,9 +438,9 @@ const Estimates = () => {
         )}
       </Box>
 
-      {/* 검색 및 필터 */}
+      {/* 검색, 필터 및 액션 버튼 - 한 줄에 배치 */}
       <Paper sx={{ backgroundColor: '#2d3748', p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
+        <Grid container spacing={3} alignItems="center">
           <Grid item xs={12} md={2}>
             <TextField
               fullWidth
@@ -456,7 +456,7 @@ const Estimates = () => {
               }}
             />
           </Grid>
-          <Grid item xs={6} md={4}>
+          <Grid item xs={6} md={3}>
             <FormControl fullWidth>
               <InputLabel sx={{ color: '#ccc' }}>제출여부</InputLabel>
               <Select
@@ -464,6 +464,7 @@ const Estimates = () => {
                 onChange={(e) => setFilters(prev => ({ ...prev, submissionStatus: e.target.value }))}
                 sx={{ 
                   backgroundColor: '#444',
+                  minWidth: 200,
                   '& .MuiSelect-select': { 
                     color: 'white',
                     padding: '8px 16px',
@@ -488,7 +489,7 @@ const Estimates = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={6} md={4}>
+          <Grid item xs={6} md={3}>
             <FormControl fullWidth>
               <InputLabel sx={{ color: '#ccc' }}>수주여부</InputLabel>
               <Select
@@ -496,6 +497,7 @@ const Estimates = () => {
                 onChange={(e) => setFilters(prev => ({ ...prev, contractStatus: e.target.value }))}
                 sx={{ 
                   backgroundColor: '#444',
+                  minWidth: 200,
                   '& .MuiSelect-select': { 
                     color: 'white',
                     padding: '8px 16px',
@@ -520,20 +522,8 @@ const Estimates = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={2}>
-            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => {
-                  setEditingEstimate(null);
-                  resetForm();
-                  setDialogOpen(true);
-                }}
-                sx={{ backgroundColor: '#4caf50' }}
-              >
-                새 견적요청
-              </Button>
+          <Grid item xs={12} md={4}>
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
               {!isMobile && (
                 <>
                   <Button
@@ -563,6 +553,18 @@ const Estimates = () => {
                   </label>
                 </>
               )}
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  setEditingEstimate(null);
+                  resetForm();
+                  setDialogOpen(true);
+                }}
+                sx={{ backgroundColor: '#4caf50' }}
+              >
+                새 견적요청
+              </Button>
             </Box>
           </Grid>
         </Grid>

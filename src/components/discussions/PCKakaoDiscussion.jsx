@@ -1,283 +1,852 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { getSites } from '../../api/sites';
+import { 
+  subscribeToDiscussions, 
+  subscribeToMessages, 
+  createDiscussion, 
+  sendMessage, 
+  deleteDiscussion,
+  removeParticipant
+} from '../../api/discussions';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   Box,
   Typography,
+  Card,
+  CardContent,
   TextField,
   Button,
   Avatar,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   Paper,
-  Card,
-  CardContent,
-  IconButton
+  Chip,
+  Badge,
+  Alert,
+  Snackbar,
+  Grid,
+  Menu,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  AppBar,
+  Toolbar,
+  Fab,
+  Checkbox,
+  FormControlLabel,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemButton,
+  ListItemSecondaryAction
 } from '@mui/material';
-import { Send as SendIcon } from '@mui/icons-material';
+import {
+  Send as SendIcon,
+  Add as AddIcon,
+  Search as SearchIcon,
+  AttachFile as AttachFileIcon,
+  MoreVert as MoreVertIcon,
+  Info as InfoIcon,
+  People as PeopleIcon,
+  Settings as SettingsIcon,
+  ExitToApp as ExitToAppIcon,
+  Download as DownloadIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  ArrowBack as ArrowBackIcon,
+  KeyboardArrowUp as ArrowUpIcon,
+  ColorLens as ColorLensIcon,
+  Palette as PaletteIcon
+} from '@mui/icons-material';
 
 const PCKakaoDiscussion = () => {
-  // 가장 기본적인 상태 관리
-  const [currentDiscussion, setCurrentDiscussion] = useState(null);
-  const [messageList, setMessageList] = useState([]);
-  const [inputText, setInputText] = useState('');
+  const { currentUser } = useAuth();
+  // 상태 관리
+  const [discussions, setDiscussions] = useState([]);
+  const [selectedDiscussion, setSelectedDiscussion] = useState(null);
+  const [messages, setMessages] = useState({});
+  const [newMessage, setNewMessage] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [newDiscussion, setNewDiscussion] = useState({
+    title: '',
+    subtitle: '',
+    siteName: '',
+    password: '',
+    category: '',
+    priority: 'normal',
+    files: []
+  });
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
+  const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
+  const [isParticipantsDialogOpen, setIsParticipantsDialogOpen] = useState(false);
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const [passwordDialog, setPasswordDialog] = useState({ open: false, discussion: null, password: '' });
+  const [editDialog, setEditDialog] = useState({ open: false, discussion: null });
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, discussion: null, password: '' });
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [sites, setSites] = useState([]);
+  const [sitesLoading, setSitesLoading] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [exportDialog, setExportDialog] = useState({ open: false });
+  const [selectedMessages, setSelectedMessages] = useState([]);
+  const [bubbleColor, setBubbleColor] = useState('#4caf50');
+  const [textColor, setTextColor] = useState('#ffffff');
+  const [backgroundColor, setBackgroundColor] = useState('#1a202c');
   const messagesEndRef = useRef(null);
+  const passwordInputRef = useRef(null);
 
-  // 토론 목록 (정적 데이터)
-  const discussionList = [
-    { id: 1, title: '안전 관리 토론', color: '#FF6B6B' },
-    { id: 2, title: '일정 관리 토론', color: '#4ECDC4' },
-    { id: 3, title: '자재 관리 토론', color: '#45B7D1' }
-  ];
-
-  // 토론 선택 시 초기 메시지 설정
-  const selectDiscussion = (discussion) => {
-    console.log('🔥 토론 선택됨:', discussion.title);
+  // 저장된 스타일 설정 불러오기
+  useEffect(() => {
+    const savedBubbleColor = localStorage.getItem('chatBubbleColor');
+    const savedTextColor = localStorage.getItem('chatTextColor');
+    const savedBackgroundColor = localStorage.getItem('chatBackgroundColor');
     
-    // 초기 메시지 설정
-    const initialMessages = [
-      {
-        id: 1,
-        content: '안녕하세요! 토론의견에 오신 것을 환영합니다.',
-        author: '시스템',
-        isMyMessage: false,
-        timestamp: '오후 2:00'
-      },
-      {
-        id: 2,
-        content: '현재 현장의 안전 관리 시스템을 개선하기 위한 의견을 수렴하고자 합니다.',
-        author: '김현장',
-        isMyMessage: false,
-        timestamp: '오후 2:15'
-      },
-      {
-        id: 3,
-        content: '개인보호구 착용률 향상을 위해서는 매일 아침 점검 시간을 확보하는 것이 좋겠습니다.',
-        author: '최안전',
-        isMyMessage: false,
-        timestamp: '오후 2:30'
+    if (savedBubbleColor) setBubbleColor(savedBubbleColor);
+    if (savedTextColor) setTextColor(savedTextColor);
+    if (savedBackgroundColor) setBackgroundColor(savedBackgroundColor);
+  }, []);
+
+  // 실시간 데이터 구독
+  useEffect(() => {
+    // 현장 데이터 로드
+    const fetchSites = async () => {
+      setSitesLoading(true);
+      try {
+        const sitesData = await getSites();
+        setSites(sitesData);
+      } catch (error) {
+        console.error('현장 데이터 로드 실패:', error);
+        setSnackbar({ open: true, message: '현장 데이터 로드 실패', severity: 'error' });
+      } finally {
+        setSitesLoading(false);
       }
-    ];
-
-    console.log('🔥 초기 메시지 설정:', initialMessages.length, '개');
-    
-    setCurrentDiscussion(discussion);
-    setMessageList(initialMessages);
-    
-    // 스크롤을 맨 아래로
-    setTimeout(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, 100);
-  };
-
-  // 메시지 전송
-  const sendMessage = () => {
-    if (!inputText.trim() || !currentDiscussion) return;
-
-    const newMessage = {
-      id: Date.now(),
-      content: inputText,
-      author: '나',
-      isMyMessage: true,
-      timestamp: new Date().toLocaleTimeString('ko-KR', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: true 
-      })
     };
 
-    console.log('🔥 새 메시지 전송:', newMessage);
+    fetchSites();
 
-    // 메시지 리스트에 추가
-    setMessageList(prev => [...prev, newMessage]);
-    setInputText('');
+    // 토론 목록 구독
+    const unsubscribeDiscussions = subscribeToDiscussions((discussionsData) => {
+      setDiscussions(discussionsData);
+    });
 
-    // 스크롤을 맨 아래로
-    setTimeout(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    return () => {
+      unsubscribeDiscussions();
+    };
+  }, []);
+
+  // 선택된 토론의 메시지 구독
+  useEffect(() => {
+    if (selectedDiscussion) {
+      const unsubscribeMessages = subscribeToMessages(selectedDiscussion.id, (messagesData) => {
+        setMessages(prev => ({
+          ...prev,
+          [selectedDiscussion.id]: messagesData
+        }));
+      });
+
+      return () => unsubscribeMessages();
+    }
+  }, [selectedDiscussion]);
+
+  // 스크롤 이벤트 처리
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      setShowScrollTop(scrollTop > 300);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // 키보드 높이 감지
+  useEffect(() => {
+    const handleResize = () => {
+      const visualViewport = window.visualViewport;
+      if (visualViewport) {
+        const keyboardHeight = window.innerHeight - visualViewport.height;
+        // PC에서는 키보드 높이를 고려하지 않음
       }
-    }, 100);
+    };
+
+    window.visualViewport?.addEventListener('resize', handleResize);
+    return () => window.visualViewport?.removeEventListener('resize', handleResize);
+  }, []);
+
+  // 파일 첨부 처리
+  const handleFileAttach = (event) => {
+    const files = Array.from(event.target.files);
+    setAttachedFiles(prev => [...prev, ...files]);
   };
 
-  // Enter 키로 메시지 전송
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+  const handleRemoveFile = (index) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // 토론 생성
+  const handleCreateDiscussion = async () => {
+    if (!newDiscussion.siteName.trim()) {
+      setSnackbar({ open: true, message: '현장명을 선택해주세요', severity: 'warning' });
+      return;
+    }
+
+    try {
+      await createDiscussion({
+        ...newDiscussion,
+        title: newDiscussion.siteName, // 현장명을 제목으로 사용
+        createdBy: currentUser.uid,
+        createdAt: new Date(),
+        participants: [currentUser.uid]
+      });
+
+      setNewDiscussion({
+        title: '',
+        subtitle: '',
+        siteName: '',
+        password: '',
+        category: '',
+        priority: 'normal',
+        files: []
+      });
+      setIsCreateDialogOpen(false);
+      setSnackbar({ open: true, message: '토론이 생성되었습니다', severity: 'success' });
+    } catch (error) {
+      console.error('토론 생성 실패:', error);
+      setSnackbar({ open: true, message: '토론 생성에 실패했습니다', severity: 'error' });
     }
   };
 
-  return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* 헤더 */}
-      <Box sx={{ 
-        p: 2, 
-        backgroundColor: '#FEE500', 
-        borderBottom: '1px solid #E0E0E0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
-      }}>
-        <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1A1A1A' }}>
-          토론의견
-        </Typography>
-        <Typography variant="body2" sx={{ color: '#666' }}>
-          {currentDiscussion ? currentDiscussion.title : '토론을 선택하세요'}
-        </Typography>
-      </Box>
+  // 메뉴 처리
+  const handleMenuOpen = (event) => {
+    setMenuAnchorEl(event.currentTarget);
+  };
 
-      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* 토론 목록 */}
+  const handleMenuClose = () => {
+    setMenuAnchorEl(null);
+  };
+
+  const handleMenuAction = (action) => {
+    handleMenuClose();
+    
+    switch (action) {
+      case 'info':
+        setIsInfoDialogOpen(true);
+        break;
+      case 'participants':
+        setIsParticipantsDialogOpen(true);
+        break;
+      case 'settings':
+        setIsSettingsDialogOpen(true);
+        break;
+      case 'export':
+        setExportDialog({ open: true });
+        break;
+      case 'leave':
+        setPasswordDialog({ 
+          open: true, 
+          discussion: selectedDiscussion, 
+          password: '',
+          type: 'leave' // 퇴장용 비밀번호 확인
+        });
+        break;
+      default:
+        break;
+    }
+  };
+
+  // 메시지 내보내기
+  const handleExportMessages = () => {
+    if (!selectedDiscussion || !messages[selectedDiscussion.id]) {
+      setSnackbar({ open: true, message: '내보낼 메시지가 없습니다', severity: 'warning' });
+      return;
+    }
+
+    const exportToExcel = () => {
+      const messageList = messages[selectedDiscussion.id];
+      let csvContent = 'data:text/csv;charset=utf-8,';
+      csvContent += '사용자,내용,시간\n';
+      
+      messageList.forEach(msg => {
+        const row = [
+          msg.author || '알 수 없음',
+          `"${msg.content.replace(/"/g, '""')}"`,
+          msg.timestamp || new Date().toLocaleString()
+        ].join(',');
+        csvContent += row + '\n';
+      });
+      
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `${selectedDiscussion.title}_대화내용.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    const exportToPDF = () => {
+      // PDF 내보내기 로직 (jsPDF 사용)
+      const messageList = messages[selectedDiscussion.id];
+      let pdfContent = '';
+      
+      messageList.forEach(msg => {
+        pdfContent += `${msg.author || '알 수 없음'} (${msg.timestamp || new Date().toLocaleString()})\n`;
+        pdfContent += `${msg.content}\n\n`;
+      });
+      
+      // 실제 PDF 생성은 별도 라이브러리 필요
+      console.log('PDF 내보내기:', pdfContent);
+    };
+
+    if (exportDialog.format === 'excel') {
+      exportToExcel();
+    } else {
+      exportToPDF();
+    }
+    
+    setExportDialog({ open: false });
+    setSnackbar({ open: true, message: '메시지가 내보내기되었습니다', severity: 'success' });
+  };
+
+  // 토론 나가기
+  const handleLeaveDiscussion = async () => {
+    if (!selectedDiscussion) return;
+
+    try {
+      await removeParticipant(selectedDiscussion.id, currentUser.uid);
+      setSelectedDiscussion(null);
+      setSnackbar({ open: true, message: '토론에서 나갔습니다', severity: 'success' });
+    } catch (error) {
+      console.error('토론 나가기 실패:', error);
+      setSnackbar({ open: true, message: '토론 나가기에 실패했습니다', severity: 'error' });
+    }
+  };
+
+  // 비밀번호 확인
+  const handlePasswordCheck = async () => {
+    const discussion = passwordDialog.discussion || selectedDiscussion;
+    
+    if (passwordDialog.password !== discussion.password) {
+      setSnackbar({ open: true, message: '비밀번호가 틀렸습니다. 다시 입력해주세요.', severity: 'error' });
+      // 비밀번호 필드 초기화
+      setPasswordDialog(prev => ({ ...prev, password: '' }));
+      // 포커스를 비밀번호 입력 필드로 이동
+      setTimeout(() => {
+        if (passwordInputRef.current) {
+          passwordInputRef.current.focus();
+        }
+      }, 100);
+      return;
+    }
+    
+    // 비밀번호 확인 타입에 따라 처리
+    if (passwordDialog.type === 'enter') {
+      // 입장 처리
+      setSelectedDiscussion(discussion);
+      setSelectedMessages([]);
+      setSnackbar({ open: true, message: '토론방에 입장했습니다', severity: 'success' });
+    } else {
+      // 퇴장 처리
+      await handleLeaveDiscussion();
+    }
+    
+    setPasswordDialog({ open: false, discussion: null, password: '', type: '' });
+  };
+
+  // 토론 선택
+  const handleDiscussionSelect = (discussion) => {
+    // 비밀번호가 있는 방인지 확인
+    if (discussion.password && discussion.password.trim() !== '') {
+      // 비밀번호 확인 다이얼로그 열기
+      setPasswordDialog({ 
+        open: true, 
+        discussion: discussion, 
+        password: '',
+        type: 'enter' // 입장용 비밀번호 확인
+      });
+    } else {
+      // 비밀번호가 없으면 바로 입장
+      setSelectedDiscussion(discussion);
+      setSelectedMessages([]);
+    }
+  };
+
+  // 토론 편집
+  const handleEditDiscussion = async () => {
+    if (!editDialog.discussion) return;
+
+    try {
+      // 토론 편집 로직
+      setSnackbar({ open: true, message: '토론이 수정되었습니다', severity: 'success' });
+      setEditDialog({ open: false, discussion: null });
+    } catch (error) {
+      console.error('토론 편집 실패:', error);
+      setSnackbar({ open: true, message: '토론 편집에 실패했습니다', severity: 'error' });
+    }
+  };
+
+  // 토론 삭제
+  const handleDeleteDiscussion = async () => {
+    if (!deleteDialog.discussion) return;
+
+    if (deleteDialog.password !== selectedDiscussion.password) {
+      setSnackbar({ open: true, message: '비밀번호가 올바르지 않습니다', severity: 'error' });
+      return;
+    }
+
+    try {
+      await deleteDiscussion(selectedDiscussion.id);
+      setSelectedDiscussion(null);
+      setSnackbar({ open: true, message: '토론이 삭제되었습니다', severity: 'success' });
+      setDeleteDialog({ open: false, discussion: null, password: '' });
+    } catch (error) {
+      console.error('토론 삭제 실패:', error);
+      setSnackbar({ open: true, message: '토론 삭제에 실패했습니다', severity: 'error' });
+    }
+  };
+
+  // 설정 저장 (비밀번호 + 스타일)
+  const handlePasswordReset = async () => {
+    // 현재 비밀번호 확인 (비밀번호 변경/삭제 시)
+    if (currentPassword && selectedDiscussion.password) {
+      if (currentPassword !== selectedDiscussion.password) {
+        setSnackbar({ open: true, message: '현재 비밀번호가 올바르지 않습니다', severity: 'error' });
+        return;
+      }
+    }
+
+    // 새 비밀번호 검증
+    if (newPassword || confirmPassword) {
+      if (newPassword !== confirmPassword) {
+        setSnackbar({ open: true, message: '새 비밀번호가 일치하지 않습니다', severity: 'error' });
+        return;
+      }
+
+      if (newPassword && newPassword.length < 4) {
+        setSnackbar({ open: true, message: '비밀번호는 4자 이상이어야 합니다', severity: 'warning' });
+        return;
+      }
+    }
+
+    try {
+      // 비밀번호 변경/삭제 로직
+      if (selectedDiscussion) {
+        if (newPassword && confirmPassword) {
+          // 새 비밀번호 설정
+          // 여기에 실제 비밀번호 업데이트 로직 추가
+          setSnackbar({ open: true, message: '비밀번호가 변경되었습니다', severity: 'success' });
+        } else if (newPassword === '' && confirmPassword === '') {
+          // 비밀번호 삭제 (빈 값으로 저장)
+          // 여기에 실제 비밀번호 삭제 로직 추가
+          setSnackbar({ open: true, message: '비밀번호가 삭제되었습니다', severity: 'success' });
+        }
+        
+        setNewPassword('');
+        setConfirmPassword('');
+        setCurrentPassword('');
+      }
+
+      // 스타일 설정 저장 (로컬 스토리지)
+      localStorage.setItem('chatBubbleColor', bubbleColor);
+      localStorage.setItem('chatTextColor', textColor);
+      localStorage.setItem('chatBackgroundColor', backgroundColor);
+      
+      setSnackbar({ open: true, message: '설정이 저장되었습니다', severity: 'success' });
+      setIsSettingsDialogOpen(false);
+    } catch (error) {
+      console.error('설정 저장 실패:', error);
+      setSnackbar({ open: true, message: '설정 저장에 실패했습니다', severity: 'error' });
+    }
+  };
+
+  // 스크롤 맨 위로
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // 메시지 전송
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedDiscussion) return;
+
+    try {
+      await sendMessage(selectedDiscussion.id, {
+        content: newMessage,
+        author: currentUser.displayName || currentUser.email,
+        timestamp: new Date().toLocaleString(),
+        files: attachedFiles,
+        isMyMessage: true // 내 메시지 표시
+      });
+
+      setNewMessage('');
+      setAttachedFiles([]);
+      
+      // 스크롤을 맨 아래로
+      setTimeout(() => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    } catch (error) {
+      console.error('메시지 전송 실패:', error);
+      setSnackbar({ open: true, message: '메시지 전송에 실패했습니다', severity: 'error' });
+    }
+  };
+
+  // 메시지 선택/해제
+  const handleMessageSelect = (messageId) => {
+    setSelectedMessages(prev => 
+      prev.includes(messageId) 
+        ? prev.filter(id => id !== messageId)
+        : [...prev, messageId]
+    );
+  };
+
+  // 전체 선택/해제
+  const handleSelectAll = () => {
+    if (!selectedDiscussion || !messages[selectedDiscussion.id]) return;
+    
+    const allMessageIds = messages[selectedDiscussion.id].map(msg => msg.id);
+    setSelectedMessages(prev => 
+      prev.length === allMessageIds.length ? [] : allMessageIds
+    );
+  };
+
+  // 선택된 메시지 삭제
+  const handleDeleteSelectedMessages = () => {
+    if (selectedMessages.length === 0) {
+      setSnackbar({ open: true, message: '삭제할 메시지를 선택해주세요', severity: 'warning' });
+      return;
+    }
+
+    // 메시지 삭제 로직
+    setSelectedMessages([]);
+    setSnackbar({ open: true, message: '선택된 메시지가 삭제되었습니다', severity: 'success' });
+  };
+
+  // 필터링된 토론 목록
+  const filteredDiscussions = useMemo(() => {
+    return discussions.filter(discussion =>
+      discussion.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      discussion.subtitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      discussion.siteName?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [discussions, searchTerm]);
+
+  return (
+    <Box sx={{ 
+      height: 'calc(100vh - 90px)', // 헤더(56px) + 하단바(34px) 제외
+      display: 'flex', 
+      flexDirection: 'column', 
+      backgroundColor: '#1a202c',
+      mt: '56px', // 헤더 높이만큼 아래로 이동
+      mb: '34px' // 하단바 높이만큼 위로 이동
+    }}>
+      {/* PC용 레이아웃: 오른쪽에 채팅방 목록, 왼쪽에 채팅 내용 */}
+      <Box sx={{ display: 'flex', height: '100%' }}>
+        {/* 오른쪽: 채팅방 목록 */}
         <Box sx={{ 
-          width: 300, 
-          borderRight: '1px solid #E0E0E0',
-          backgroundColor: '#F8F9FA',
-          overflow: 'auto'
+          width: '350px', 
+          borderRight: '1px solid #4a5568',
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: '#2d3748'
         }}>
-          <Box sx={{ p: 2 }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+          {/* 헤더 */}
+          <Box sx={{ 
+            p: 2, 
+            borderBottom: '1px solid #4a5568',
+            backgroundColor: '#2d3748'
+          }}>
+            <Typography variant="h6" sx={{ mb: 1, color: 'white' }}>
               토론 목록
             </Typography>
-            {discussionList.map((discussion) => (
-              <Card 
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="토론 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: <SearchIcon sx={{ mr: 1, color: '#a0aec0' }} />,
+                sx: { 
+                  backgroundColor: '#4a5568',
+                  '& input': { color: 'white' },
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#4a5568' },
+                    '&:hover fieldset': { borderColor: '#718096' },
+                    '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                  }
+                }
+              }}
+            />
+            <Button
+              fullWidth
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setIsCreateDialogOpen(true)}
+              sx={{ mt: 1, backgroundColor: '#4caf50' }}
+            >
+              새 토론 만들기
+            </Button>
+          </Box>
+
+          {/* 채팅방 목록 */}
+          <Box sx={{ flex: 1, overflow: 'auto' }}>
+            {filteredDiscussions.map((discussion) => (
+              <Card
                 key={discussion.id}
-                sx={{ 
-                  mb: 1, 
+                sx={{
+                  m: 1,
                   cursor: 'pointer',
-                  backgroundColor: currentDiscussion?.id === discussion.id ? '#E3F2FD' : 'white',
-                  '&:hover': { backgroundColor: '#F5F5F5' }
+                  backgroundColor: selectedDiscussion?.id === discussion.id ? '#4a5568' : '#2d3748',
+                  '&:hover': { backgroundColor: '#4a5568' },
+                  border: '1px solid #4a5568'
                 }}
-                onClick={() => selectDiscussion(discussion)}
+                onClick={() => handleDiscussionSelect(discussion)}
               >
-                <CardContent sx={{ py: 1.5, px: 2 }}>
-                  <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                    {discussion.title}
-                  </Typography>
+                <CardContent sx={{ py: 1.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: 'white', flex: 1 }}>
+                      {discussion.siteName || discussion.title}
+                    </Typography>
+                    {discussion.password && discussion.password.trim() !== '' && (
+                      <Chip 
+                        label="🔒" 
+                        size="small"
+                        sx={{ 
+                          backgroundColor: '#ff9800',
+                          color: 'white',
+                          fontSize: '12px',
+                          height: '20px',
+                          minWidth: '24px'
+                        }}
+                        title="비밀번호 보호됨"
+                      />
+                    )}
+                  </Box>
+                  {discussion.subtitle && (
+                    <Typography variant="body2" sx={{ mb: 1, color: '#a0aec0' }}>
+                      {discussion.subtitle}
+                    </Typography>
+                  )}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption" sx={{ color: '#a0aec0' }}>
+                      {discussion.title !== discussion.siteName ? discussion.title : '토론방'}
+                    </Typography>
+                    <Chip 
+                      label={discussion.priority} 
+                      size="small"
+                      sx={{ 
+                        backgroundColor: discussion.priority === 'high' ? '#e53e3e' : '#4a5568',
+                        color: 'white'
+                      }}
+                    />
+                  </Box>
                 </CardContent>
               </Card>
             ))}
           </Box>
         </Box>
 
-        {/* 채팅 영역 */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {currentDiscussion ? (
+        {/* 왼쪽: 채팅 내용 */}
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#1a202c' }}>
+          {selectedDiscussion ? (
             <>
+              {/* 채팅방 헤더 */}
+              <Box sx={{ 
+                p: 2, 
+                borderBottom: '1px solid #4a5568',
+                backgroundColor: '#2d3748',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <Box>
+                  <Typography variant="h6" sx={{ color: 'white' }}>
+                    {selectedDiscussion.siteName || selectedDiscussion.title}
+                  </Typography>
+                  {selectedDiscussion.subtitle && (
+                    <Typography variant="body2" sx={{ color: '#a0aec0' }}>
+                      {selectedDiscussion.subtitle}
+                    </Typography>
+                  )}
+                </Box>
+                <Box>
+                  <IconButton onClick={handleMenuOpen} sx={{ color: 'white' }}>
+                    <MoreVertIcon />
+                  </IconButton>
+                </Box>
+              </Box>
+
               {/* 메시지 영역 */}
               <Box sx={{ 
                 flex: 1, 
-                p: 2, 
                 overflow: 'auto',
-                backgroundColor: '#F5F5F5'
+                p: 2,
+                backgroundColor: backgroundColor
               }}>
-                {/* 디버깅 정보 */}
-                <Box sx={{ 
-                  backgroundColor: '#FFF3CD', 
-                  border: '1px solid #FFEAA7', 
-                  borderRadius: '4px', 
-                  p: 1, 
-                  mb: 2,
-                  fontSize: '12px'
-                }}>
-                  <strong>디버깅:</strong> 메시지 {messageList.length}개, 
-                  토론: {currentDiscussion.title}
-                </Box>
-
-                {/* 메시지 목록 */}
-                {messageList.map((message) => (
-                  <Box 
-                    key={message.id} 
-                    sx={{ 
-                      display: 'flex', 
-                      justifyContent: message.isMyMessage ? 'flex-end' : 'flex-start',
-                      mb: 2
-                    }}
-                  >
-                    {!message.isMyMessage && (
-                      <Avatar 
-                        sx={{ 
-                          width: 32, 
-                          height: 32, 
-                          mr: 1,
-                          backgroundColor: currentDiscussion.color,
-                          fontSize: '12px',
-                          color: 'white'
-                        }}
-                      >
-                        {message.author.charAt(0)}
-                      </Avatar>
-                    )}
-                    
-                    <Box sx={{ maxWidth: '70%' }}>
-                      {!message.isMyMessage && (
-                        <Typography variant="caption" sx={{ color: '#666', ml: 1, mb: 0.5, display: 'block', fontSize: '11px' }}>
-                          {message.author}
-                        </Typography>
+                {messages[selectedDiscussion.id]?.map((message) => {
+                  // 현재 사용자가 작성한 메시지인지 확인
+                  const isMyMessage = message.author === (currentUser.displayName || currentUser.email);
+                  
+                  return (
+                    <Box
+                      key={message.id}
+                      sx={{
+                        display: 'flex',
+                        justifyContent: isMyMessage ? 'flex-end' : 'flex-start',
+                        mb: 2
+                      }}
+                    >
+                      {isMyMessage ? (
+                        // 내 메시지 (오른쪽)
+                        <Box sx={{ display: 'flex', alignItems: 'flex-end', maxWidth: '70%' }}>
+                          <Box>
+                                                      <Paper sx={{
+                            p: 1.5,
+                            backgroundColor: bubbleColor,
+                            borderRadius: '18px 18px 4px 18px',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                            wordBreak: 'break-word',
+                            border: '1px solid #4a5568'
+                          }}>
+                            <Typography variant="body2" sx={{ 
+                              fontSize: '14px',
+                              color: textColor,
+                              lineHeight: 1.4
+                            }}>
+                              {message.content}
+                            </Typography>
+                          </Paper>
+                            
+                            <Typography variant="caption" sx={{ 
+                              color: '#718096', 
+                              mr: 1, 
+                              mt: 0.5, 
+                              display: 'block',
+                              textAlign: 'right'
+                            }}>
+                              {message.timestamp?.toDate
+                                ? message.timestamp.toDate().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
+                                : (message.timestamp instanceof Date
+                                    ? message.timestamp.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
+                                    : (message.timestamp ? String(message.timestamp) : '')
+                                  )
+                              }
+                            </Typography>
+                          </Box>
+                        </Box>
+                      ) : (
+                        // 다른 사람 메시지 (왼쪽)
+                        <Box sx={{ display: 'flex', alignItems: 'flex-end', maxWidth: '70%' }}>
+                          <Avatar
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              mr: 1,
+                              backgroundColor: '#90caf9',
+                              fontSize: '12px'
+                            }}
+                          >
+                            {message.author?.charAt(0) || '?'}
+                          </Avatar>
+                          
+                          <Box>
+                            <Typography variant="caption" sx={{ color: '#a0aec0', ml: 1, mb: 0.5, display: 'block' }}>
+                              {message.author}
+                            </Typography>
+                            
+                            <Paper sx={{
+                              p: 1.5,
+                              backgroundColor: '#2d3748',
+                              borderRadius: '18px 18px 18px 4px',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                              wordBreak: 'break-word',
+                              border: '1px solid #4a5568'
+                            }}>
+                              <Typography variant="body2" sx={{ 
+                                fontSize: '14px',
+                                color: 'white',
+                                lineHeight: 1.4
+                              }}>
+                                {message.content}
+                              </Typography>
+                            </Paper>
+                            
+                            <Typography variant="caption" sx={{ 
+                              color: '#718096', 
+                              ml: 1, 
+                              mt: 0.5, 
+                              display: 'block',
+                              textAlign: 'left'
+                            }}>
+                              {message.timestamp?.toDate
+                                ? message.timestamp.toDate().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
+                                : (message.timestamp instanceof Date
+                                    ? message.timestamp.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
+                                    : (message.timestamp ? String(message.timestamp) : '')
+                                  )
+                              }
+                            </Typography>
+                          </Box>
+                        </Box>
                       )}
-                      
-                      <Paper sx={{
-                        p: 1.5,
-                        backgroundColor: message.isMyMessage ? '#FEE500' : 'white',
-                        borderRadius: message.isMyMessage ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                        wordBreak: 'break-word',
-                        maxWidth: '100%'
-                      }}>
-                        <Typography variant="body2" sx={{ 
-                          fontSize: '14px',
-                          color: message.isMyMessage ? '#1A1A1A' : '#333',
-                          lineHeight: 1.4
-                        }}>
-                          {message.content}
-                        </Typography>
-                      </Paper>
-                      
-                      <Typography variant="caption" sx={{ 
-                        color: '#999', 
-                        ml: 1, 
-                        mt: 0.5, 
-                        display: 'block',
-                        textAlign: message.isMyMessage ? 'right' : 'left',
-                        fontSize: '11px'
-                      }}>
-                        {message.timestamp}
-                      </Typography>
                     </Box>
-                  </Box>
-                ))}
+                  );
+                })}
                 <div ref={messagesEndRef} />
               </Box>
 
-              {/* 입력 영역 */}
+              {/* 입력 영역 - 하단바 바로 위에 고정 */}
               <Box sx={{ 
                 p: 2, 
-                backgroundColor: 'white',
-                borderTop: '1px solid #E0E0E0',
+                backgroundColor: '#2d3748',
+                borderTop: '1px solid #4a5568',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 1
+                gap: 1,
+                position: 'sticky',
+                bottom: 0,
+                zIndex: 1000
               }}>
                 <TextField
                   fullWidth
                   variant="outlined"
                   placeholder="메시지를 입력하세요..."
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '20px',
-                      backgroundColor: '#F5F5F5'
-                    }
+                      backgroundColor: '#4a5568',
+                      '& fieldset': { borderColor: '#4a5568' },
+                      '&:hover fieldset': { borderColor: '#718096' },
+                      '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                    },
+                    '& input': { color: 'white' }
                   }}
                 />
                 <IconButton 
-                  onClick={sendMessage}
-                  disabled={!inputText.trim()}
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim()}
                   sx={{ 
-                    backgroundColor: '#FEE500',
-                    color: '#1A1A1A',
-                    '&:hover': { backgroundColor: '#FFD700' },
-                    '&:disabled': { backgroundColor: '#E0E0E0', color: '#999' }
+                    backgroundColor: '#4caf50',
+                    color: '#fff',
+                    '&:hover': { backgroundColor: '#45a049' },
+                    '&:disabled': { backgroundColor: '#4a5568', color: '#718096' }
                   }}
                 >
                   <SendIcon />
@@ -290,15 +859,424 @@ const PCKakaoDiscussion = () => {
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center',
-              backgroundColor: '#F5F5F5'
+              backgroundColor: '#1a202c'
             }}>
-              <Typography variant="h6" sx={{ color: '#666' }}>
-                왼쪽에서 토론을 선택하세요
+              <Typography variant="h6" sx={{ color: '#a0aec0' }}>
+                오른쪽에서 토론을 선택하세요
               </Typography>
             </Box>
           )}
         </Box>
       </Box>
+
+      {/* 메뉴 */}
+      <Menu
+        anchorEl={menuAnchorEl}
+        open={Boolean(menuAnchorEl)}
+        onClose={handleMenuClose}
+      >
+        <MenuItem onClick={() => handleMenuAction('info')}>
+          <ListItemIcon><InfoIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>토론 정보</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('participants')}>
+          <ListItemIcon><PeopleIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>참여자</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('settings')}>
+          <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>설정</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('export')}>
+          <ListItemIcon><DownloadIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>내보내기</ListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => handleMenuAction('leave')}>
+          <ListItemIcon><ExitToAppIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>나가기</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      {/* 다이얼로그들 */}
+      {/* 토론 생성 다이얼로그 */}
+      <Dialog 
+        open={isCreateDialogOpen} 
+        onClose={() => setIsCreateDialogOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#2d3748',
+            color: 'white'
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: 'white' }}>새 토론 만들기</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth sx={{ mb: 2, mt: 1 }}>
+            <InputLabel sx={{ color: '#a0aec0' }}>현장 선택 *</InputLabel>
+            <Select
+              value={newDiscussion.siteName}
+              onChange={(e) => setNewDiscussion(prev => ({ ...prev, siteName: e.target.value }))}
+              sx={{
+                color: 'white',
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#4a5568' },
+                  '&:hover fieldset': { borderColor: '#718096' },
+                  '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                }
+              }}
+            >
+              {sites.map((site) => (
+                <MenuItem key={site.id} value={site.name} sx={{ color: 'white' }}>
+                  {site.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <TextField
+            fullWidth
+            label="부제목 (선택사항)"
+            value={newDiscussion.subtitle}
+            onChange={(e) => setNewDiscussion(prev => ({ ...prev, subtitle: e.target.value }))}
+            sx={{ mb: 2 }}
+            InputProps={{
+              sx: { 
+                color: 'white',
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#4a5568' },
+                  '&:hover fieldset': { borderColor: '#718096' },
+                  '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                }
+              }
+            }}
+            InputLabelProps={{
+              sx: { color: '#a0aec0' }
+            }}
+          />
+          <TextField
+            fullWidth
+            label="비밀번호 (선택사항)"
+            type="password"
+            value={newDiscussion.password}
+            onChange={(e) => setNewDiscussion(prev => ({ ...prev, password: e.target.value }))}
+            sx={{ mb: 2 }}
+            InputProps={{
+              sx: { 
+                color: 'white',
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#4a5568' },
+                  '&:hover fieldset': { borderColor: '#718096' },
+                  '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                }
+              }
+            }}
+            InputLabelProps={{
+              sx: { color: '#a0aec0' }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsCreateDialogOpen(false)} sx={{ color: '#a0aec0' }}>취소</Button>
+          <Button onClick={handleCreateDiscussion} variant="contained" sx={{ backgroundColor: '#4caf50' }}>생성</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 토론 정보 다이얼로그 */}
+      <Dialog 
+        open={isInfoDialogOpen} 
+        onClose={() => setIsInfoDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            backgroundColor: '#2d3748',
+            color: 'white'
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: 'white' }}>토론 정보</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mb: 1, color: 'white' }}>
+            <strong>제목:</strong> {selectedDiscussion?.title}
+          </Typography>
+          {selectedDiscussion?.subtitle && (
+            <Typography variant="body1" sx={{ mb: 1, color: 'white' }}>
+              <strong>부제목:</strong> {selectedDiscussion.subtitle}
+            </Typography>
+          )}
+          <Typography variant="body1" sx={{ mb: 1, color: 'white' }}>
+            <strong>현장:</strong> {selectedDiscussion?.siteName || '미지정'}
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 1, color: 'white' }}>
+            <strong>생성일:</strong> {selectedDiscussion?.createdAt?.toLocaleDateString()}
+          </Typography>
+          <Typography variant="body1" sx={{ color: 'white' }}>
+            <strong>우선순위:</strong> {selectedDiscussion?.priority}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsInfoDialogOpen(false)} sx={{ color: '#a0aec0' }}>닫기</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 설정 다이얼로그 */}
+      <Dialog 
+        open={isSettingsDialogOpen} 
+        onClose={() => setIsSettingsDialogOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#2d3748',
+            color: 'white'
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: 'white' }}>채팅방 설정</DialogTitle>
+        <DialogContent>
+          {/* 비밀번호 재설정 섹션 */}
+          <Typography variant="h6" sx={{ mb: 2, color: 'white' }}>비밀번호 재설정 (선택사항)</Typography>
+          <TextField
+            fullWidth
+            label="현재 비밀번호"
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            sx={{ mb: 2 }}
+            InputProps={{
+              sx: { 
+                color: 'white',
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#4a5568' },
+                  '&:hover fieldset': { borderColor: '#718096' },
+                  '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                }
+              }
+            }}
+            InputLabelProps={{
+              sx: { color: '#a0aec0' }
+            }}
+          />
+          <TextField
+            fullWidth
+            label="새 비밀번호"
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            sx={{ mb: 2 }}
+            InputProps={{
+              sx: { 
+                color: 'white',
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#4a5568' },
+                  '&:hover fieldset': { borderColor: '#718096' },
+                  '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                }
+              }
+            }}
+            InputLabelProps={{
+              sx: { color: '#a0aec0' }
+            }}
+          />
+          <TextField
+            fullWidth
+            label="새 비밀번호 확인"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            sx={{ mb: 3 }}
+            InputProps={{
+              sx: { 
+                color: 'white',
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#4a5568' },
+                  '&:hover fieldset': { borderColor: '#718096' },
+                  '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                }
+              }
+            }}
+            InputLabelProps={{
+              sx: { color: '#a0aec0' }
+            }}
+          />
+          
+          <Divider sx={{ my: 3, borderColor: '#4a5568' }} />
+          
+          {/* 채팅 스타일 섹션 */}
+          <Typography variant="h6" sx={{ mb: 2, color: 'white' }}>채팅 스타일</Typography>
+          
+          {/* 내 메시지 말풍선 색상 */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ mb: 1, color: 'white' }}>내 메시지 말풍선 색상</Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {['#4caf50', '#2196f3', '#ff9800', '#e91e63', '#9c27b0', '#00bcd4', '#ff5722', '#795548'].map((color) => (
+                <IconButton
+                  key={color}
+                  onClick={() => setBubbleColor(color)}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    backgroundColor: color,
+                    border: bubbleColor === color ? '3px solid #90caf9' : '2px solid #4a5568',
+                    '&:hover': { 
+                      backgroundColor: color,
+                      border: '3px solid #90caf9'
+                    }
+                  }}
+                >
+                  {bubbleColor === color && <ColorLensIcon sx={{ fontSize: 18, color: '#fff' }} />}
+                </IconButton>
+              ))}
+            </Box>
+          </Box>
+          
+          {/* 배경색 선택 */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ mb: 1, color: 'white' }}>채팅방 배경색</Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {['#1a202c', '#2d3748', '#1e293b', '#0f172a', '#1f2937', '#374151'].map((color) => (
+                <IconButton
+                  key={color}
+                  onClick={() => setBackgroundColor(color)}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    backgroundColor: color,
+                    border: backgroundColor === color ? '3px solid #90caf9' : '2px solid #4a5568',
+                    '&:hover': { 
+                      backgroundColor: color,
+                      border: '3px solid #90caf9'
+                    }
+                  }}
+                >
+                  {backgroundColor === color && <ColorLensIcon sx={{ fontSize: 18, color: '#fff' }} />}
+                </IconButton>
+              ))}
+            </Box>
+          </Box>
+          
+          {/* 글자 색상 */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ mb: 1, color: 'white' }}>글자 색상</Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {['#ffffff', '#e2e8f0', '#cbd5e0', '#a0aec0', '#718096'].map((color) => (
+                <IconButton
+                  key={color}
+                  onClick={() => setTextColor(color)}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    backgroundColor: color,
+                    border: textColor === color ? '3px solid #90caf9' : '2px solid #4a5568',
+                    '&:hover': { 
+                      backgroundColor: color,
+                      border: '3px solid #90caf9'
+                    }
+                  }}
+                >
+                  {textColor === color && <PaletteIcon sx={{ fontSize: 18, color: color === '#ffffff' ? '#000' : '#fff' }} />}
+                </IconButton>
+              ))}
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsSettingsDialogOpen(false)} sx={{ color: '#a0aec0' }}>취소</Button>
+          <Button onClick={handlePasswordReset} variant="contained" sx={{ backgroundColor: '#4caf50' }}>저장</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 내보내기 다이얼로그 */}
+      <Dialog open={exportDialog.open} onClose={() => setExportDialog({ open: false })}>
+        <DialogTitle>메시지 내보내기</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            어떤 형식으로 내보내시겠습니까?
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={() => setExportDialog({ open: true, format: 'excel' })}
+            >
+              Excel (.csv)
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setExportDialog({ open: true, format: 'pdf' })}
+            >
+              PDF
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExportDialog({ open: false })}>취소</Button>
+          <Button onClick={handleExportMessages} variant="contained">내보내기</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 비밀번호 확인 다이얼로그 */}
+      <Dialog open={passwordDialog.open} onClose={() => setPasswordDialog({ open: false, discussion: null, password: '', type: '' })}>
+        <DialogTitle>
+          {passwordDialog.type === 'enter' ? '토론방 입장' : '비밀번호 확인'}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2, color: '#666' }}>
+            {passwordDialog.type === 'enter' 
+              ? '토론방에 입장하려면 비밀번호를 입력하세요.' 
+              : '작업을 진행하려면 비밀번호를 입력하세요.'
+            }
+          </Typography>
+          <TextField
+            fullWidth
+            label="비밀번호"
+            type="password"
+            value={passwordDialog.password}
+            onChange={(e) => setPasswordDialog(prev => ({ ...prev, password: e.target.value }))}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handlePasswordCheck();
+              }
+            }}
+            inputRef={passwordInputRef}
+            autoFocus
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPasswordDialog({ open: false, discussion: null, password: '', type: '' })}>취소</Button>
+          <Button onClick={handlePasswordCheck} variant="contained">
+            {passwordDialog.type === 'enter' ? '입장' : '확인'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 스낵바 */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+      {/* 스크롤 맨 위 버튼 */}
+      {showScrollTop && (
+        <Fab
+          color="primary"
+          size="small"
+          onClick={scrollToTop}
+          sx={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+          }}
+        >
+          <ArrowUpIcon />
+        </Fab>
+      )}
     </Box>
   );
 };
