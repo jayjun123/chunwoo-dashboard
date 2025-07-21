@@ -6,7 +6,8 @@ import {
   createDiscussion, 
   sendMessage, 
   deleteDiscussion,
-  removeParticipant
+  removeParticipant,
+  getDiscussionParticipants
 } from '../../api/discussions';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -98,6 +99,8 @@ const PCKakaoDiscussion = () => {
   const [sitesLoading, setSitesLoading] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [participants, setParticipants] = useState([]);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [exportDialog, setExportDialog] = useState({ open: false });
   const [selectedMessages, setSelectedMessages] = useState([]);
@@ -245,6 +248,7 @@ const PCKakaoDiscussion = () => {
         setIsInfoDialogOpen(true);
         break;
       case 'participants':
+        handleLoadParticipants();
         setIsParticipantsDialogOpen(true);
         break;
       case 'settings':
@@ -331,6 +335,22 @@ const PCKakaoDiscussion = () => {
     } catch (error) {
       console.error('토론 나가기 실패:', error);
       setSnackbar({ open: true, message: '토론 나가기에 실패했습니다', severity: 'error' });
+    }
+  };
+
+  // 참여자 정보 로드
+  const handleLoadParticipants = async () => {
+    if (!selectedDiscussion) return;
+
+    setParticipantsLoading(true);
+    try {
+      const participantsData = await getDiscussionParticipants(selectedDiscussion.id);
+      setParticipants(participantsData.participants);
+    } catch (error) {
+      console.error('참여자 정보 로드 실패:', error);
+      setSnackbar({ open: true, message: '참여자 정보를 불러오는데 실패했습니다', severity: 'error' });
+    } finally {
+      setParticipantsLoading(false);
     }
   };
 
@@ -478,7 +498,7 @@ const PCKakaoDiscussion = () => {
 
   // 메시지 전송
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedDiscussion) return;
+    if ((!newMessage.trim() && attachedFiles.length === 0) || !selectedDiscussion) return;
 
     try {
       await sendMessage(selectedDiscussion.id, {
@@ -722,6 +742,30 @@ const PCKakaoDiscussion = () => {
                             wordBreak: 'break-word',
                             border: '1px solid #4a5568'
                           }}>
+                            {/* 첨부된 이미지들 표시 */}
+                            {message.files && message.files.length > 0 && (
+                              <Box sx={{ mb: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {message.files.map((file, index) => (
+                                  file.type?.startsWith('image/') && (
+                                    <img
+                                      key={index}
+                                      src={file.url}
+                                      alt="첨부된 이미지"
+                                      style={{
+                                        width: '120px',
+                                        height: '120px',
+                                        objectFit: 'cover',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        border: '2px solid rgba(255,255,255,0.2)'
+                                      }}
+                                      onClick={() => window.open(file.url, '_blank')}
+                                    />
+                                  )
+                                ))}
+                              </Box>
+                            )}
+                            
                             <Typography variant="body2" sx={{ 
                               fontSize: '14px',
                               color: textColor,
@@ -776,6 +820,30 @@ const PCKakaoDiscussion = () => {
                               wordBreak: 'break-word',
                               border: '1px solid #4a5568'
                             }}>
+                              {/* 첨부된 이미지들 표시 */}
+                              {message.files && message.files.length > 0 && (
+                                <Box sx={{ mb: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                  {message.files.map((file, index) => (
+                                    file.type?.startsWith('image/') && (
+                                      <img
+                                        key={index}
+                                        src={file.url}
+                                        alt="첨부된 이미지"
+                                        style={{
+                                          width: '120px',
+                                          height: '120px',
+                                          objectFit: 'cover',
+                                          borderRadius: '8px',
+                                          cursor: 'pointer',
+                                          border: '2px solid rgba(255,255,255,0.2)'
+                                        }}
+                                        onClick={() => window.open(file.url, '_blank')}
+                                      />
+                                    )
+                                  ))}
+                                </Box>
+                              )}
+                              
                               <Typography variant="body2" sx={{ 
                                 fontSize: '14px',
                                 color: 'white',
@@ -811,46 +879,92 @@ const PCKakaoDiscussion = () => {
 
               {/* 입력 영역 - 하단바 바로 위에 고정 */}
               <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                gap: 1, 
                 p: 2, 
                 backgroundColor: '#2d3748',
                 borderTop: '1px solid #4a5568',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
                 position: 'sticky',
                 bottom: 0,
                 zIndex: 1000
               }}>
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  placeholder="메시지를 입력하세요..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '20px',
-                      backgroundColor: '#4a5568',
-                      '& fieldset': { borderColor: '#4a5568' },
-                      '&:hover fieldset': { borderColor: '#718096' },
-                      '&.Mui-focused fieldset': { borderColor: '#90caf9' }
-                    },
-                    '& input': { color: 'white' }
-                  }}
-                />
-                <IconButton 
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim()}
-                  sx={{ 
-                    backgroundColor: '#4caf50',
-                    color: '#fff',
-                    '&:hover': { backgroundColor: '#45a049' },
-                    '&:disabled': { backgroundColor: '#4a5568', color: '#718096' }
-                  }}
-                >
-                  <SendIcon />
-                </IconButton>
+                {/* 첨부된 파일 표시 */}
+                {attachedFiles.length > 0 && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                    {attachedFiles.map((file, index) => (
+                      <Chip
+                        key={index}
+                        label={file.name}
+                        onDelete={() => handleRemoveFile(index)}
+                        sx={{
+                          backgroundColor: '#4a5568',
+                          color: 'white',
+                          '& .MuiChip-deleteIcon': { color: '#e53e3e' }
+                        }}
+                      />
+                    ))}
+                  </Box>
+                )}
+                
+                {/* 메시지 입력 및 버튼들 */}
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+                  <TextField
+                    fullWidth
+                    variant="outlined"
+                    placeholder="메시지를 입력하세요..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    multiline
+                    maxRows={4}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '20px',
+                        backgroundColor: '#4a5568',
+                        '& fieldset': { borderColor: '#4a5568' },
+                        '&:hover fieldset': { borderColor: '#718096' },
+                        '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                      },
+                      '& textarea': { color: 'white' }
+                    }}
+                  />
+                  
+                  {/* 파일 첨부 버튼 */}
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileAttach}
+                    style={{ display: 'none' }}
+                    id="file-attach-input"
+                    accept="image/*"
+                  />
+                  <label htmlFor="file-attach-input">
+                    <IconButton
+                      component="span"
+                      sx={{ 
+                        backgroundColor: '#718096',
+                        color: '#fff',
+                        '&:hover': { backgroundColor: '#4a5568' }
+                      }}
+                    >
+                      <AttachFileIcon />
+                    </IconButton>
+                  </label>
+                  
+                  <IconButton 
+                    onClick={handleSendMessage}
+                    disabled={!newMessage.trim() && attachedFiles.length === 0}
+                    sx={{ 
+                      backgroundColor: '#4caf50',
+                      color: '#fff',
+                      '&:hover': { backgroundColor: '#45a049' },
+                      '&:disabled': { backgroundColor: '#4a5568', color: '#718096' }
+                    }}
+                  >
+                    <SendIcon />
+                  </IconButton>
+                </Box>
               </Box>
             </>
           ) : (
@@ -1261,6 +1375,125 @@ const PCKakaoDiscussion = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* 참여자 목록 다이얼로그 */}
+      <Dialog 
+        open={isParticipantsDialogOpen} 
+        onClose={() => setIsParticipantsDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#2d3748',
+            color: 'white'
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: 'white', borderBottom: '1px solid #4a5568' }}>
+          참여자 목록
+          {selectedDiscussion && (
+            <Typography variant="body2" sx={{ color: '#a0aec0', mt: 1 }}>
+              {selectedDiscussion.title} • 총 {participants.length}명
+            </Typography>
+          )}
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          {participantsLoading ? (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body1" sx={{ color: '#a0aec0' }}>
+                참여자 정보를 불러오는 중...
+              </Typography>
+            </Box>
+          ) : participants.length > 0 ? (
+            <List sx={{ p: 0 }}>
+              {participants.map((participant, index) => (
+                <React.Fragment key={participant.id}>
+                  <ListItem sx={{ 
+                    px: 3, 
+                    py: 2,
+                    '&:hover': { backgroundColor: '#4a5568' }
+                  }}>
+                    <ListItemAvatar>
+                      <Avatar 
+                        src={participant.avatar} 
+                        sx={{ 
+                          width: 48, 
+                          height: 48,
+                          backgroundColor: participant.isOnline ? '#4caf50' : '#718096'
+                        }}
+                      >
+                        {participant.name.charAt(0)}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body1" sx={{ color: 'white', fontWeight: 500 }}>
+                            {participant.name}
+                          </Typography>
+                          <Chip 
+                            label={participant.role} 
+                            size="small" 
+                            sx={{ 
+                              backgroundColor: participant.role === '관리자' ? '#e53e3e' : 
+                                              participant.role === '하이그' ? '#3182ce' : '#38a169',
+                              color: 'white',
+                              fontSize: '0.75rem'
+                            }}
+                          />
+                          {participant.isOnline && (
+                            <Chip 
+                              label="온라인" 
+                              size="small" 
+                              sx={{ 
+                                backgroundColor: '#4caf50',
+                                color: 'white',
+                                fontSize: '0.75rem'
+                              }}
+                            />
+                          )}
+                        </Box>
+                      }
+                      secondary={
+                        <Box>
+                          <Typography variant="body2" sx={{ color: '#a0aec0' }}>
+                            {participant.email}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#718096' }}>
+                            참여일: {participant.joinTime?.toDate ? 
+                              participant.joinTime.toDate().toLocaleDateString() : 
+                              new Date(participant.joinTime).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                  {index < participants.length - 1 && (
+                    <Divider sx={{ backgroundColor: '#4a5568' }} />
+                  )}
+                </React.Fragment>
+              ))}
+            </List>
+          ) : (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body1" sx={{ color: '#a0aec0', mb: 1 }}>
+                참여자가 없습니다.
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#718096' }}>
+                아직 참여자가 등록되지 않았습니다.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, borderTop: '1px solid #4a5568' }}>
+          <Button 
+            onClick={() => setIsParticipantsDialogOpen(false)} 
+            sx={{ color: '#a0aec0' }}
+          >
+            닫기
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* 스크롤 맨 위 버튼 */}
       {showScrollTop && (
