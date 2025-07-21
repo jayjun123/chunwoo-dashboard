@@ -477,4 +477,64 @@ export const getDiscussionStats = async () => {
     console.error('🔥 토론 통계 조회 실패:', error);
     throw error;
   }
+};
+
+// 토론 참여자 정보 조회
+export const getDiscussionParticipants = async (discussionId) => {
+  try {
+    const discussionDoc = await getDoc(doc(db, 'discussions', discussionId));
+    if (!discussionDoc.exists()) {
+      throw new Error('토론을 찾을 수 없습니다.');
+    }
+
+    const discussionData = discussionDoc.data();
+    const participants = discussionData.participants || [];
+    const participantDetails = discussionData.participantDetails || {};
+
+    // 참여자 상세 정보 조회
+    const participantList = [];
+    for (const participantId of participants) {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', participantId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          participantList.push({
+            id: participantId,
+            name: userData.name || userData.displayName || '알 수 없음',
+            email: userData.email || '',
+            role: userData.role || '일반',
+            avatar: userData.photoURL || '',
+            joinTime: participantDetails[participantId]?.joinTime || discussionData.createdAt,
+            isOnline: false // 실시간 온라인 상태는 추후 구현
+          });
+        }
+      } catch (error) {
+        console.error('참여자 정보 조회 실패:', participantId, error);
+        // 조회 실패한 참여자는 기본 정보로 추가
+        participantList.push({
+          id: participantId,
+          name: '알 수 없음',
+          email: '',
+          role: '일반',
+          avatar: '',
+          joinTime: discussionData.createdAt,
+          isOnline: false
+        });
+      }
+    }
+
+    return {
+      totalCount: participants.length,
+      participants: participantList,
+      discussionInfo: {
+        title: discussionData.title,
+        subtitle: discussionData.subtitle,
+        siteName: discussionData.siteName,
+        createdAt: discussionData.createdAt
+      }
+    };
+  } catch (error) {
+    console.error('🔥 참여자 정보 조회 실패:', error);
+    throw error;
+  }
 }; 

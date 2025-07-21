@@ -6,7 +6,8 @@ import {
   createDiscussion, 
   sendMessage, 
   deleteDiscussion,
-  removeParticipant
+  removeParticipant,
+  getDiscussionParticipants
 } from '../../api/discussions';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -90,6 +91,8 @@ const MobileKakaoDiscussion = () => {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [participants, setParticipants] = useState([]);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [exportDialog, setExportDialog] = useState({ open: false });
   const messagesEndRef = useRef(null);
@@ -414,6 +417,7 @@ const MobileKakaoDiscussion = () => {
         setIsInfoDialogOpen(true);
         break;
       case 'participants':
+        handleLoadParticipants();
         setIsParticipantsDialogOpen(true);
         break;
       case 'settings':
@@ -593,6 +597,22 @@ const MobileKakaoDiscussion = () => {
         message: '채팅방 나가기에 실패했습니다.',
         severity: 'error'
       });
+    }
+  };
+
+  // 참여자 정보 로드
+  const handleLoadParticipants = async () => {
+    if (!selectedDiscussion) return;
+
+    setParticipantsLoading(true);
+    try {
+      const participantsData = await getDiscussionParticipants(selectedDiscussion.id);
+      setParticipants(participantsData.participants);
+    } catch (error) {
+      console.error('참여자 정보 로드 실패:', error);
+      setSnackbar({ open: true, message: '참여자 정보를 불러오는데 실패했습니다', severity: 'error' });
+    } finally {
+      setParticipantsLoading(false);
     }
   };
 
@@ -1144,13 +1164,36 @@ const MobileKakaoDiscussion = () => {
                       maxWidth: '100%',
                       border: message.isPending ? '1px dashed #90caf9' : 'none'
                     }}>
+                      {/* 첨부된 이미지들 표시 */}
+                      {message.files && message.files.length > 0 && (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                          {message.files.map((file, index) => (
+                            file.type?.startsWith('image/') && (
+                              <img
+                                key={index}
+                                src={file.url}
+                                alt="첨부된 이미지"
+                                style={{
+                                  width: '80px',
+                                  height: '80px',
+                                  objectFit: 'cover',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  border: '2px solid rgba(255,255,255,0.2)'
+                                }}
+                                onClick={() => window.open(file.url, '_blank')}
+                              />
+                            )
+                          ))}
+                        </Box>
+                      )}
+                      
                       {/* 텍스트 메시지 */}
                       {message.content && (
                         <Typography variant="body2" sx={{ 
                           fontSize: '14px',
                           color: '#FFFFFF',
-                          lineHeight: 1.4,
-                          mb: message.files && message.files.length > 0 ? 1 : 0
+                          lineHeight: 1.4
                         }}>
                           {message.content}
                           {message.isPending && (
@@ -1159,44 +1202,6 @@ const MobileKakaoDiscussion = () => {
                             </span>
                           )}
                         </Typography>
-                      )}
-                      
-                      {/* 첨부파일 */}
-                      {message.files && message.files.length > 0 && (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          {message.files.map((file, index) => (
-                            <Box
-                              key={index}
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1,
-                                p: 1,
-                                backgroundColor: 'rgba(255,255,255,0.1)',
-                                borderRadius: 1,
-                                cursor: 'pointer',
-                                '&:hover': {
-                                  backgroundColor: 'rgba(255,255,255,0.2)'
-                                }
-                              }}
-                              onClick={() => window.open(file.url, '_blank')}
-                            >
-                              <AttachFileIcon sx={{ fontSize: 16, color: '#90CAF9' }} />
-                              <Typography variant="caption" sx={{ 
-                                color: '#FFFFFF',
-                                flex: 1,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}>
-                                {file.name}
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: '#CCC' }}>
-                                {(file.size / 1024).toFixed(1)}KB
-                              </Typography>
-                            </Box>
-                          ))}
-                        </Box>
                       )}
                     </Paper>
                     
@@ -1274,6 +1279,7 @@ const MobileKakaoDiscussion = () => {
                 onChange={handleFileAttach}
                 style={{ display: 'none' }}
                 id="mobile-file-attach"
+                accept="image/*"
               />
               <label htmlFor="mobile-file-attach">
                 <IconButton 
@@ -1718,14 +1724,92 @@ const MobileKakaoDiscussion = () => {
         <DialogTitle sx={{ backgroundColor: '#333333', color: '#FFFFFF' }}>
           참여자 목록
         </DialogTitle>
-        <DialogContent sx={{ p: 2 }}>
-          {selectedDiscussion && (
-            <Box>
-              <Typography variant="body2" sx={{ color: '#CCCCCC', mb: 2 }}>
-                참여자 목록이 비어있습니다.
+        <DialogContent sx={{ p: 0 }}>
+          {participantsLoading ? (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body1" sx={{ color: '#CCCCCC' }}>
+                참여자 정보를 불러오는 중...
               </Typography>
-              <Typography variant="body2" sx={{ color: '#999999', fontStyle: 'italic' }}>
-                실제 참여자 데이터는 추후 구현 예정입니다.
+            </Box>
+          ) : participants.length > 0 ? (
+            <List sx={{ p: 0 }}>
+              {participants.map((participant, index) => (
+                <React.Fragment key={participant.id}>
+                  <ListItem sx={{ 
+                    px: 2, 
+                    py: 1.5,
+                    '&:hover': { backgroundColor: '#333333' }
+                  }}>
+                    <ListItemAvatar>
+                      <Avatar 
+                        src={participant.avatar} 
+                        sx={{ 
+                          width: 40, 
+                          height: 40,
+                          backgroundColor: participant.isOnline ? '#4caf50' : '#666666'
+                        }}
+                      >
+                        {participant.name.charAt(0)}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                          <Typography variant="body2" sx={{ color: '#FFFFFF', fontWeight: 500 }}>
+                            {participant.name}
+                          </Typography>
+                          <Chip 
+                            label={participant.role} 
+                            size="small" 
+                            sx={{ 
+                              backgroundColor: participant.role === '관리자' ? '#e53e3e' : 
+                                              participant.role === '하이그' ? '#3182ce' : '#38a169',
+                              color: 'white',
+                              fontSize: '0.7rem',
+                              height: '20px'
+                            }}
+                          />
+                          {participant.isOnline && (
+                            <Chip 
+                              label="온라인" 
+                              size="small" 
+                              sx={{ 
+                                backgroundColor: '#4caf50',
+                                color: 'white',
+                                fontSize: '0.7rem',
+                                height: '20px'
+                              }}
+                            />
+                          )}
+                        </Box>
+                      }
+                      secondary={
+                        <Box>
+                          <Typography variant="caption" sx={{ color: '#CCCCCC', display: 'block' }}>
+                            {participant.email}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#999999' }}>
+                            참여일: {participant.joinTime?.toDate ? 
+                              participant.joinTime.toDate().toLocaleDateString() : 
+                              new Date(participant.joinTime).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                  {index < participants.length - 1 && (
+                    <Divider sx={{ backgroundColor: '#444444' }} />
+                  )}
+                </React.Fragment>
+              ))}
+            </List>
+          ) : (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body2" sx={{ color: '#CCCCCC', mb: 1 }}>
+                참여자가 없습니다.
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#999999' }}>
+                아직 참여자가 등록되지 않았습니다.
               </Typography>
             </Box>
           )}
