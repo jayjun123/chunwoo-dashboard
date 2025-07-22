@@ -101,6 +101,8 @@ const App = () => {
     }
   }, []);
 
+
+
   // 브라우저 확장프로그램 오류 필터링
   useEffect(() => {
     // 원래 console.error 함수 저장

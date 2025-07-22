@@ -49,6 +49,24 @@ const NewSites = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const containerRef = useRef(null);
 
+  // 상태별 카운트 계산
+  const statusCounts = useMemo(() => {
+    const counts = {
+      '예정': 0,
+      '진행중': 0,
+      '완료': 0,
+      '미정': 0
+    };
+    
+    sites.forEach(site => {
+      if (counts.hasOwnProperty(site.status)) {
+        counts[site.status]++;
+      }
+    });
+    
+    return counts;
+  }, [sites]);
+
   // 모바일에서 키보드가 올라올 때 뷰포트 조정 (간소화)
   useEffect(() => {
     if (isMobile) {
@@ -314,7 +332,20 @@ const NewSites = () => {
             } 
           }}
         >
-          {STATUS_OPTIONS.map(opt => <Tab key={opt} label={opt} value={opt} />)}
+          {STATUS_OPTIONS.map(opt => (
+            <Tab 
+              key={opt} 
+              label={`${opt} (${statusCounts[opt]})`} 
+              value={opt}
+              sx={{
+                '& .MuiTab-label': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '2px'
+                }
+              }}
+            />
+          ))}
         </Tabs>
         <TextField 
           placeholder="현장명, 담당자 검색" 

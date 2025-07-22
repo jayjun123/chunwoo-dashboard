@@ -721,47 +721,70 @@ const MobileKakaoDiscussion = () => {
     try {
       console.log('🔥 참여자 정보 로드 시작:', selectedDiscussion.id);
       
-      // 먼저 현재 토론 정보를 다시 가져와서 최신 참여자 수 확인
-      const discussionRef = doc(db, 'discussions', selectedDiscussion.id);
-      const discussionDoc = await getDoc(discussionRef);
-      
-      if (!discussionDoc.exists()) {
-        throw new Error('토론을 찾을 수 없습니다.');
-      }
-      
-      const discussionData = discussionDoc.data();
-      console.log('🔥 토론 데이터:', discussionData);
-      
       // 참여자 정보 가져오기
       const participantsData = await getDiscussionParticipants(selectedDiscussion.id);
       console.log('🔥 참여자 데이터:', participantsData);
       
-      if (participantsData && participantsData.participants) {
+      if (participantsData && participantsData.participants && participantsData.participants.length > 0) {
         setParticipants(participantsData.participants);
+        setSnackbar({ 
+          open: true, 
+          message: `참여자 ${participantsData.participants.length}명이 조회되었습니다.`, 
+          severity: 'success' 
+        });
       } else {
-        // 참여자 정보가 없는 경우 기본 정보로 설정
-        setParticipants([{
+        // 참여자 정보가 없는 경우 현재 사용자를 기본 참여자로 설정
+        const defaultParticipant = {
           id: currentUser?.uid || 'unknown',
           name: currentUser?.displayName || currentUser?.email || '현재 사용자',
           email: currentUser?.email || '',
           role: '참여자',
           avatar: currentUser?.photoURL || '',
-          joinTime: discussionData.createdAt || new Date(),
+          joinTime: selectedDiscussion.createdAt || new Date(),
           isOnline: true
-        }]);
+        };
+        
+        setParticipants([defaultParticipant]);
+        
+        // 참여자 정보가 없으면 현재 사용자를 참여자로 추가
+        try {
+          // 사용자의 실제 이름을 가져오기 위한 로직
+          let userName = '현재 사용자';
+          
+          if (currentUser.displayName && currentUser.displayName.trim() !== '') {
+            userName = currentUser.displayName;
+          } else if (currentUser.email) {
+            // 이메일에서 @ 앞부분을 이름으로 사용
+            const emailName = currentUser.email.split('@')[0];
+            // 이메일 이름을 더 읽기 쉽게 변환 (예: john.doe -> John Doe)
+            userName = emailName
+              .split(/[._-]/)
+              .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+              .join(' ');
+          }
+          
+          await addParticipant(
+            selectedDiscussion.id, 
+            currentUser.uid, 
+            userName
+          );
+          console.log('🔥 현재 사용자를 참여자로 추가했습니다:', userName);
+        } catch (addError) {
+          console.error('🔥 참여자 추가 실패:', addError);
+        }
+        
+        setSnackbar({ 
+          open: true, 
+          message: '참여자 정보를 초기화했습니다.', 
+          severity: 'info' 
+        });
       }
-      
-      setSnackbar({ 
-        open: true, 
-        message: `참여자 ${participantsData?.participants?.length || 1}명이 조회되었습니다.`, 
-        severity: 'success' 
-      });
       
     } catch (error) {
       console.error('🔥 참여자 정보 로드 실패:', error);
       
-      // 에러 발생 시 기본 참여자 정보 설정
-      setParticipants([{
+      // 에러 발생 시 현재 사용자를 기본 참여자로 설정
+      const defaultParticipant = {
         id: currentUser?.uid || 'unknown',
         name: currentUser?.displayName || currentUser?.email || '현재 사용자',
         email: currentUser?.email || '',
@@ -769,7 +792,9 @@ const MobileKakaoDiscussion = () => {
         avatar: currentUser?.photoURL || '',
         joinTime: new Date(),
         isOnline: true
-      }]);
+      };
+      
+      setParticipants([defaultParticipant]);
       
       setSnackbar({ 
         open: true, 
@@ -784,12 +809,11 @@ const MobileKakaoDiscussion = () => {
   // 중요도 색상 매핑 (메모이제이션)
   const getPriorityColor = useCallback((priority) => {
     switch (priority) {
-      case 'urgent': return '#ff4444'; // 빨간색 (긴급)
-      case 'important': return '#ff8800'; // 주황색 (중요)
-      case 'normal': return '#44ff44'; // 초록색 (보통)
-      case 'low': return '#4488ff'; // 파란색 (여유)
-      case 'planned': return '#8844ff'; // 보라색 (예정)
-      default: return '#44ff44';
+      case 'urgent': return '#e53e3e'; // 빨간색 (긴급)
+      case 'high': return '#f56565'; // 주황색 (높음)
+      case 'normal': return '#4a5568'; // 회색 (보통)
+      case 'low': return '#718096'; // 연한 회색 (낮음)
+      default: return '#4a5568';
     }
   }, []);
 
@@ -829,10 +853,25 @@ const MobileKakaoDiscussion = () => {
       
       // 참여자로 추가
       try {
+        // 사용자의 실제 이름을 가져오기 위한 로직
+        let userName = '현재 사용자';
+        
+        if (currentUser.displayName && currentUser.displayName.trim() !== '') {
+          userName = currentUser.displayName;
+        } else if (currentUser.email) {
+          // 이메일에서 @ 앞부분을 이름으로 사용
+          const emailName = currentUser.email.split('@')[0];
+          // 이메일 이름을 더 읽기 쉽게 변환 (예: john.doe -> John Doe)
+          userName = emailName
+            .split(/[._-]/)
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+            .join(' ');
+        }
+        
         await addParticipant(
           discussion.id, 
           currentUser.uid, 
-          currentUser.displayName || currentUser.email
+          userName
         );
       } catch (error) {
         console.error('참여자 추가 실패:', error);
@@ -866,10 +905,25 @@ const MobileKakaoDiscussion = () => {
       
       // 참여자로 추가
       try {
+        // 사용자의 실제 이름을 가져오기 위한 로직
+        let userName = '현재 사용자';
+        
+        if (currentUser.displayName && currentUser.displayName.trim() !== '') {
+          userName = currentUser.displayName;
+        } else if (currentUser.email) {
+          // 이메일에서 @ 앞부분을 이름으로 사용
+          const emailName = currentUser.email.split('@')[0];
+          // 이메일 이름을 더 읽기 쉽게 변환 (예: john.doe -> John Doe)
+          userName = emailName
+            .split(/[._-]/)
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+            .join(' ');
+        }
+        
         await addParticipant(
           discussion.id, 
           currentUser.uid, 
-          currentUser.displayName || currentUser.email
+          userName
         );
       } catch (error) {
         console.error('참여자 추가 실패:', error);
@@ -1244,6 +1298,21 @@ const MobileKakaoDiscussion = () => {
                             size="small"
                             sx={{ 
                               backgroundColor: discussion.color || '#666',
+                              color: 'white',
+                              fontSize: '10px',
+                              height: '18px'
+                            }}
+                          />
+                          <Chip
+                            label={
+                              discussion.priority === 'low' ? '낮음' :
+                              discussion.priority === 'normal' ? '보통' :
+                              discussion.priority === 'high' ? '높음' :
+                              discussion.priority === 'urgent' ? '긴급' : discussion.priority
+                            }
+                            size="small"
+                            sx={{ 
+                              backgroundColor: getPriorityColor(discussion.priority),
                               color: 'white',
                               fontSize: '10px',
                               height: '18px'
@@ -1886,77 +1955,94 @@ const MobileKakaoDiscussion = () => {
                 생성일: {selectedDiscussion.createdAt ? new Date(selectedDiscussion.createdAt.seconds * 1000).toLocaleDateString('ko-KR') : '알 수 없음'}
               </Typography>
               
-              {/* 비밀번호 설정 섹션 */}
-              <Divider sx={{ backgroundColor: '#444444', my: 2 }} />
-              <Typography variant="h6" sx={{ color: '#FFFFFF', mb: 2 }}>
-                비밀번호 설정
-              </Typography>
-              <TextField
-                fullWidth
-                label="현재 비밀번호"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                sx={{ mb: 2 }}
-                InputProps={{
-                  sx: { 
-                    backgroundColor: '#444444',
-                    color: '#FFFFFF',
-                    '& fieldset': { borderColor: '#666666' }
-                  }
-                }}
-                InputLabelProps={{
-                  sx: { color: '#CCCCCC' }
-                }}
-              />
-              <TextField
-                fullWidth
-                label="새 비밀번호"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                sx={{ mb: 2 }}
-                InputProps={{
-                  sx: { 
-                    backgroundColor: '#444444',
-                    color: '#FFFFFF',
-                    '& fieldset': { borderColor: '#666666' }
-                  }
-                }}
-                InputLabelProps={{
-                  sx: { color: '#CCCCCC' }
-                }}
-              />
-              <TextField
-                fullWidth
-                label="새 비밀번호 확인"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                sx={{ mb: 2 }}
-                InputProps={{
-                  sx: { 
-                    backgroundColor: '#444444',
-                    color: '#FFFFFF',
-                    '& fieldset': { borderColor: '#666666' }
-                  }
-                }}
-                InputLabelProps={{
-                  sx: { color: '#CCCCCC' }
-                }}
-              />
-              <Button
-                fullWidth
-                variant="contained"
-                onClick={handlePasswordReset}
-                sx={{
-                  backgroundColor: '#4CAF50',
-                  color: '#FFFFFF',
-                  '&:hover': { backgroundColor: '#45A049' }
-                }}
-              >
-                비밀번호 재설정
-              </Button>
+              {/* 비밀번호 설정 섹션 - 비밀번호가 있는 경우에만 표시 */}
+              {selectedDiscussion?.password && selectedDiscussion.password.trim() !== '' && (
+                <>
+                  <Divider sx={{ backgroundColor: '#444444', my: 2 }} />
+                  <Typography variant="h6" sx={{ color: '#FFFFFF', mb: 2 }}>
+                    비밀번호 설정
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    label="현재 비밀번호"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    sx={{ mb: 2 }}
+                    InputProps={{
+                      sx: { 
+                        backgroundColor: '#444444',
+                        color: '#FFFFFF',
+                        '& fieldset': { borderColor: '#666666' }
+                      }
+                    }}
+                    InputLabelProps={{
+                      sx: { color: '#CCCCCC' }
+                    }}
+                  />
+                  <TextField
+                    fullWidth
+                    label="새 비밀번호"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    sx={{ mb: 2 }}
+                    InputProps={{
+                      sx: { 
+                        backgroundColor: '#444444',
+                        color: '#FFFFFF',
+                        '& fieldset': { borderColor: '#666666' }
+                      }
+                    }}
+                    InputLabelProps={{
+                      sx: { color: '#CCCCCC' }
+                    }}
+                  />
+                  <TextField
+                    fullWidth
+                    label="새 비밀번호 확인"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    sx={{ mb: 2 }}
+                    InputProps={{
+                      sx: { 
+                        backgroundColor: '#444444',
+                        color: '#FFFFFF',
+                        '& fieldset': { borderColor: '#666666' }
+                      }
+                    }}
+                    InputLabelProps={{
+                      sx: { color: '#CCCCCC' }
+                    }}
+                  />
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    onClick={handlePasswordReset}
+                    sx={{
+                      backgroundColor: '#4CAF50',
+                      color: '#FFFFFF',
+                      '&:hover': { backgroundColor: '#45A049' }
+                    }}
+                  >
+                    비밀번호 재설정
+                  </Button>
+                </>
+              )}
+              
+              {/* 공개 방인 경우 안내 메시지 */}
+              {(!selectedDiscussion?.password || selectedDiscussion.password.trim() === '') && (
+                <>
+                  <Divider sx={{ backgroundColor: '#444444', my: 2 }} />
+                  <Typography variant="h6" sx={{ color: '#FFFFFF', mb: 2 }}>
+                    채팅방 정보
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#CCCCCC', mb: 2 }}>
+                    이 채팅방은 공개 방입니다. 비밀번호 설정이 필요하지 않습니다.
+                  </Typography>
+                </>
+              )}
               <Typography variant="body2" sx={{ color: '#CCCCCC', mt: 2 }}>
                 메시지 수: {messages[selectedDiscussion.id]?.length || 0}개
               </Typography>

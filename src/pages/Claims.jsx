@@ -437,7 +437,7 @@ const Claims = () => {
       minHeight: '100vh',
       color: 'white',
       p: { xs: 1, md: 3 },
-      pt: { xs: '59px', md: '74px' } // 모바일에서 위로 15px 이동 (74px → 59px)
+      pt: { xs: '49px', md: '74px' } // 모바일에서 위로 10px 이동 (59px → 49px)
     }}>
       {/* 헤더와 스마트카드 */}
       <Box sx={{ mb: 3 }}>
@@ -727,16 +727,27 @@ const Claims = () => {
           <Table sx={{ minWidth: isMobile ? 900 : 'auto' }}>
             <TableHead>
               <TableRow sx={{ backgroundColor: '#444' }}>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60 }}>No.</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구월</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>현장명</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80 }}>소장</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80 }}>차수</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>기성율(%)</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>청구금액</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구여부</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>비고</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>관리</TableCell>
+                {isMobile ? (
+                  <>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60 }}>No.</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>현장명</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>청구금액</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구여부</TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60 }}>No.</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구월</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>현장명</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80 }}>소장</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80 }}>차수</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>기성율(%)</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>청구금액</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구여부</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>비고</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>관리</TableCell>
+                  </>
+                )}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -745,51 +756,67 @@ const Claims = () => {
                 .map((claim, index) => (
                   <TableRow key={claim.id} sx={{ '&:hover': { backgroundColor: '#444' } }}>
                     <TableCell sx={{ color: 'white' }}>{page * rowsPerPage + index + 1}</TableCell>
-                    <TableCell sx={{ color: 'white' }}>{claim.claimMonth}</TableCell>
-                    <TableCell sx={{ color: 'white' }}>{claim.siteName}</TableCell>
-                    <TableCell sx={{ color: 'white' }}>{claim.manager}</TableCell>
-                    <TableCell sx={{ color: 'white' }}>{claim.sequence}</TableCell>
-                    <TableCell sx={{ color: 'white' }}>{claim.progressRate}%</TableCell>
-                    <TableCell sx={{ color: 'white' }}>{formatAmount(claim.claimAmount)}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={claim.claimStatus}
-                        color={getStatusColor(claim.claimStatus)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell sx={{ color: 'white' }}>{claim.notes}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Tooltip title="기성등록">
-                          <IconButton
+                    {isMobile ? (
+                      <>
+                        <TableCell sx={{ color: 'white' }}>{claim.siteName}</TableCell>
+                        <TableCell sx={{ color: 'white' }}>{formatAmount(claim.claimAmount)}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={claim.claimStatus}
+                            color={getStatusColor(claim.claimStatus)}
                             size="small"
-                            onClick={() => handleProgressRegistration(claim)}
-                            sx={{ color: '#4caf50' }}
-                          >
-                            <AssignmentIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="수정">
-                          <IconButton
+                          />
+                        </TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell sx={{ color: 'white' }}>{claim.claimMonth}</TableCell>
+                        <TableCell sx={{ color: 'white' }}>{claim.siteName}</TableCell>
+                        <TableCell sx={{ color: 'white' }}>{claim.manager}</TableCell>
+                        <TableCell sx={{ color: 'white' }}>{claim.sequence}</TableCell>
+                        <TableCell sx={{ color: 'white' }}>{claim.progressRate}%</TableCell>
+                        <TableCell sx={{ color: 'white' }}>{formatAmount(claim.claimAmount)}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={claim.claimStatus}
+                            color={getStatusColor(claim.claimStatus)}
                             size="small"
-                            onClick={() => handleEdit(claim)}
-                            sx={{ color: '#90caf9' }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="삭제">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteClick(claim)}
-                            sx={{ color: '#f44336' }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
+                          />
+                        </TableCell>
+                        <TableCell sx={{ color: 'white' }}>{claim.notes}</TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <Tooltip title="기성등록">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleProgressRegistration(claim)}
+                                sx={{ color: '#4caf50' }}
+                              >
+                                <AssignmentIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="수정">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleEdit(claim)}
+                                sx={{ color: '#90caf9' }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="삭제">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDeleteClick(claim)}
+                                sx={{ color: '#f44336' }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </TableCell>
+                      </>
+                    )}
                   </TableRow>
                 ))}
             </TableBody>
