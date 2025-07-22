@@ -993,92 +993,100 @@ const GanttChart = () => {
               
               {/* 날짜 열들 */}
               <Grid item xs={isMobile ? 12 : 10} sx={{ display: 'flex' }}>
-                {dateArray.map((date, index) => (
-                  <Box
-                    key={index}
-                    sx={{
-                      width: isMobile ? 30 * zoomLevel : 40 * zoomLevel,
-                      minWidth: isMobile ? 30 * zoomLevel : 40 * zoomLevel,
-                      borderRight: 1,
-                      borderColor: 'divider',
-                      p: isMobile ? 0.25 : 0.5,
-                      textAlign: 'center',
-                      backgroundColor: date.getDay() === 0 ? 'primary.dark' : 'background.paper',
-                      position: 'relative'
-                    }}
-                  >
-                    <Typography variant={isMobile ? "caption" : "body2"} display="block" color={date.getDay() === 0 ? 'error.main' : 'white'} fontWeight="bold" sx={{ pt: isMobile ? 1.5 : 2.5, fontSize: isMobile ? '0.6rem' : 'inherit' }}>
-                      {date.getDate()}
-                    </Typography>
-                    <Typography variant={isMobile ? "caption" : "body2"} color={date.getDay() === 0 ? 'error.main' : 'white'} sx={{ pt: isMobile ? 0.25 : 0.5, fontSize: isMobile ? '0.5rem' : 'inherit' }}>
-                      {isMobile ? `${date.getMonth() + 1}/${date.getDate()}` : date.toLocaleDateString('ko-KR', { weekday: 'short' })}
-                    </Typography>
-                    
-                    {/* 월 표시 */}
-                    {date.getDate() === 1 && (
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: -30,
-                          left: 0,
-                          width: 120 * zoomLevel,
-                          textAlign: 'center',
-                          zIndex: 5
-                        }}
-                      >
-                        <Typography 
-                          variant="h5" 
-                          sx={{ 
-                            backgroundColor: 'white',
-                            color: 'black',
-                            px: 2,
-                            py: 1,
-                            borderRadius: 2,
-                            fontWeight: 'bold',
-                            fontSize: '1.2rem',
-                            border: 1,
-                            borderColor: 'primary.main'
+                {dateArray.map((date, index) => {
+                  const today = new Date();
+                  const isToday = date.toDateString() === today.toDateString();
+                  
+                  return (
+                    <Box
+                      key={index}
+                      sx={{
+                        width: isMobile ? 30 * zoomLevel : 40 * zoomLevel,
+                        minWidth: isMobile ? 30 * zoomLevel : 40 * zoomLevel,
+                        borderRight: 1,
+                        borderColor: 'divider',
+                        p: isMobile ? 0.25 : 0.5,
+                        textAlign: 'center',
+                        backgroundColor: date.getDay() === 0 ? 'primary.dark' : 'background.paper',
+                        position: 'relative',
+                        border: isToday ? '2px solid #ff0000' : 'none',
+                        boxShadow: isToday ? '0 0 5px rgba(255, 0, 0, 0.5)' : 'none'
+                      }}
+                    >
+                      <Typography variant={isMobile ? "caption" : "body2"} display="block" color={date.getDay() === 0 ? 'error.main' : 'white'} fontWeight="bold" sx={{ pt: isMobile ? 1.5 : 2.5, fontSize: isMobile ? '0.6rem' : 'inherit' }}>
+                        {date.getDate()}
+                      </Typography>
+                      <Typography variant={isMobile ? "caption" : "body2"} color={date.getDay() === 0 ? 'error.main' : 'white'} sx={{ pt: isMobile ? 0.25 : 0.5, fontSize: isMobile ? '0.5rem' : 'inherit' }}>
+                        {isMobile ? `${date.getMonth() + 1}/${date.getDate()}` : date.toLocaleDateString('ko-KR', { weekday: 'short' })}
+                      </Typography>
+                      
+                      {/* 월 표시 */}
+                      {date.getDate() === 1 && (
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: -30,
+                            left: 0,
+                            width: 120 * zoomLevel,
+                            textAlign: 'center',
+                            zIndex: 5
                           }}
                         >
-                          {date.getMonth() + 1}월
-                        </Typography>
-                      </Box>
-                    )}
-                    
-                    {/* 월 구분선 */}
-                    {date.getDate() === 1 && (
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          height: '2px',
-                          backgroundColor: 'primary.main',
-                          opacity: 0.7
-                        }}
-                      />
-                    )}
-                    
-                    {/* 오늘 날짜 표시 */}
-                    {index === todayIndex && (
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          border: 2,
-                          borderColor: 'error.main',
-                          backgroundColor: 'error.main',
-                          opacity: 0.2,
-                          pointerEvents: 'none'
-                        }}
-                      />
-                    )}
-                  </Box>
-                ))}
+                          <Typography 
+                            variant="h5" 
+                            sx={{ 
+                              backgroundColor: 'white',
+                              color: 'black',
+                              px: 2,
+                              py: 1,
+                              borderRadius: 2,
+                              fontWeight: 'bold',
+                              fontSize: '1.2rem',
+                              border: 1,
+                              borderColor: 'primary.main'
+                            }}
+                          >
+                            {date.getMonth() + 1}월
+                          </Typography>
+                        </Box>
+                      )}
+                      
+                      {/* 월 구분선 */}
+                      {date.getDate() === 1 && (
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '2px',
+                            backgroundColor: 'primary.main',
+                            opacity: 0.7
+                          }}
+                        />
+                      )}
+                      
+                      {/* 오늘 날짜 표시 */}
+                      {isToday && (
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            border: 2,
+                            borderColor: '#ff0000',
+                            backgroundColor: 'transparent',
+                            opacity: 1,
+                            pointerEvents: 'none',
+                            boxShadow: '0 0 5px rgba(255, 0, 0, 0.5)'
+                          }}
+                        />
+                      )}
+                    </Box>
+                  );
+                })}
               </Grid>
             </Grid>
           </Box>
