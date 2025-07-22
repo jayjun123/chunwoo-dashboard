@@ -201,19 +201,37 @@ const SafetyPage = () => {
     let previewUrl = form.preview;
     if (form.attachment) {
       const storageRef = ref(storage, `safety/${Date.now()}_${form.attachment.name}`);
-      await uploadBytes(storageRef, form.attachment);
+      await uploadBytes(storageRef, form.attachment, {
+        customMetadata: {
+          userId: currentUser.uid,
+          uploadedAt: new Date().toISOString(),
+          type: 'safety_attachment'
+        }
+      });
       previewUrl = await getDownloadURL(storageRef);
     }
     let receiptUrl = form.receiptUrl;
     if (form.receipt) {
       const storageRef = ref(storage, `safety/receipt_${Date.now()}_${form.receipt.name}`);
-      await uploadBytes(storageRef, form.receipt);
+      await uploadBytes(storageRef, form.receipt, {
+        customMetadata: {
+          userId: currentUser.uid,
+          uploadedAt: new Date().toISOString(),
+          type: 'safety_receipt'
+        }
+      });
       receiptUrl = await getDownloadURL(storageRef);
     }
     let issueDocUrl = form.issueDocUrl;
     if (form.issueDoc) {
       const storageRef = ref(storage, `safety/issueDoc_${Date.now()}_${form.issueDoc.name}`);
-      await uploadBytes(storageRef, form.issueDoc);
+      await uploadBytes(storageRef, form.issueDoc, {
+        customMetadata: {
+          userId: currentUser.uid,
+          uploadedAt: new Date().toISOString(),
+          type: 'safety_issueDoc'
+        }
+      });
       issueDocUrl = await getDownloadURL(storageRef);
     }
     // 안전한 데이터 정리 함수

@@ -158,7 +158,13 @@ const SafetyInspections = () => {
     try {
       const uploadPromises = files.map(async (file) => {
         const storageRef = ref(storage, `safety_photos/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, file);
+        await uploadBytes(storageRef, file, {
+          customMetadata: {
+            userId: currentUser.uid,
+            uploadedAt: new Date().toISOString(),
+            type: 'safety_inspection_photo'
+          }
+        });
         const downloadURL = await getDownloadURL(storageRef);
         return {
           url: downloadURL,

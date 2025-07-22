@@ -149,14 +149,24 @@ export const createDiscussion = async (discussionData) => {
 };
 
 // 파일 업로드 (개선된 버전)
-export const uploadFile = async (file, discussionId) => {
+export const uploadFile = async (file, discussionId, userId) => {
   try {
     const timestamp = Date.now();
     const fileName = `${discussionId}/${timestamp}_${file.name}`;
     const storageRef = ref(storage, `discussion_files/${fileName}`);
     
     console.log('🔥 파일 업로드 시작:', file.name);
-    const snapshot = await uploadBytes(storageRef, file);
+    
+    // 메타데이터에 사용자 ID 추가
+    const metadata = {
+      customMetadata: {
+        userId: userId,
+        discussionId: discussionId,
+        uploadedAt: timestamp.toString()
+      }
+    };
+    
+    const snapshot = await uploadBytes(storageRef, file, metadata);
     const downloadURL = await getDownloadURL(snapshot.ref);
     
     console.log('🔥 파일 업로드 완료:', file.name);
@@ -199,7 +209,7 @@ export const sendMessage = async (discussionId, messageData) => {
     let uploadedFiles = [];
     if (messageData.files && messageData.files.length > 0) {
       console.log('🔥 파일 업로드 시작:', messageData.files.length, '개');
-      const uploadPromises = messageData.files.map(file => uploadFile(file, discussionId));
+      const uploadPromises = messageData.files.map(file => uploadFile(file, discussionId, messageData.authorId || messageData.userId));
       uploadedFiles = await Promise.all(uploadPromises);
       console.log('🔥 파일 업로드 완료:', uploadedFiles.length, '개');
     }
