@@ -3,9 +3,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { configureIME } from './utils/imeHandler.jsx';
 import { initKeyboardManager } from './utils/pwaKeyboardUtils';
 import { initMobileOptimization, useViewportHeight } from './utils/mobileOptimization';
+import { initializeWindow } from './utils/windowManager';
 import './styles/IME.css';
-// 임시 테스트 스크립트 import
-import './scripts/testDiscussion';
 import { AuthProvider } from './contexts/AuthContext';
 import { TodoProvider } from './contexts/TodoContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -28,7 +27,6 @@ import SafetyReports from './components/safety/SafetyReports';
 import Documents from './pages/Documents';
 import Reports from './pages/Reports';
 import Discussions from './pages/Discussions';
-import SimpleChat from './components/discussions/SimpleChat';
 import Vendors from './pages/Vendors';
 import Progress from './pages/Progress';
 import Members from './pages/Members';
@@ -85,6 +83,21 @@ const App = () => {
       console.log('Device Info:', deviceInfo);
     } catch (error) {
       console.error('Mobile optimization error:', error);
+    }
+  }, []);
+
+  // 윈도우 위치 및 크기 관리 초기화 (PWA 모드에서만)
+  useEffect(() => {
+    if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+      try {
+        const cleanup = initializeWindow();
+        console.log('윈도우 관리자 초기화 완료');
+        
+        // 컴포넌트 언마운트 시 클린업
+        return cleanup;
+      } catch (error) {
+        console.error('윈도우 관리자 초기화 오류:', error);
+      }
     }
   }, []);
 

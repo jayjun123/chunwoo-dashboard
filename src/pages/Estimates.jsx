@@ -374,20 +374,29 @@ const Estimates = () => {
       minHeight: '100vh',
       color: 'white',
       p: { xs: 1, md: 3 },
-      pt: { xs: '94px', md: 8 } // 모바일에서 아래로 20px 이동 (74px → 94px)
+      pt: { xs: '64px', md: 8 } // 모바일에서 위로 30px 이동 (94px → 64px)
     }}>
       {/* 헤더 */}
       <Box sx={{ mb: 3 }}>
         {isMobile ? (
-          // 모바일 버전: 스마트카드 숨김
-          <>
-            <Typography variant="h4" sx={{ color: '#90caf9', mb: 2, fontWeight: 'bold' }}>
+          // 모바일 버전: 제목과 돌아가기 버튼을 한 줄에 배치
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h4" sx={{ color: '#90caf9', fontWeight: 'bold' }}>
               🧮 견적요청
             </Typography>
-            <Typography variant="body1" sx={{ color: '#ccc', mb: 3 }}>
-              견적요청을 관리하고 추적하는 공간입니다.
-            </Typography>
-          </>
+            <Button
+              variant="outlined"
+              onClick={() => window.history.back()}
+              sx={{ 
+                color: '#90caf9', 
+                borderColor: '#90caf9',
+                minWidth: 'auto',
+                px: 2
+              }}
+            >
+              돌아가기
+            </Button>
+          </Box>
         ) : (
           // PC 버전: 제목과 스마트 카드를 같은 줄에 배치
           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 3 }}>
@@ -438,12 +447,12 @@ const Estimates = () => {
         )}
       </Box>
 
-      {/* 검색, 필터 및 액션 버튼 - 한 줄에 배치 */}
+      {/* 검색, 필터 및 액션 버튼 - 모바일에서는 한 줄에 배치 */}
       <Paper sx={{ backgroundColor: '#2d3748', p: 2, mb: 3 }}>
-        <Grid container spacing={3} alignItems="center">
-          <Grid item xs={12} md={2}>
+        {isMobile ? (
+          // 모바일: 검색창과 새견적요청 버튼을 한 줄에 배치
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <TextField
-              fullWidth
               placeholder="검색..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -454,50 +463,88 @@ const Estimates = () => {
                   '& input': { color: 'white' }
                 }
               }}
+              sx={{ flex: 1 }}
             />
-          </Grid>
-          <Grid item xs={6} md={3}>
-            <FormControl fullWidth>
-              <InputLabel sx={{ color: '#ccc' }}>제출여부</InputLabel>
-              <Select
-                value={filters.submissionStatus}
-                onChange={(e) => setFilters(prev => ({ ...prev, submissionStatus: e.target.value }))}
-                sx={{ 
-                  backgroundColor: '#444',
-                  minWidth: 200,
-                  '& .MuiSelect-select': { 
-                    color: 'white',
-                    padding: '8px 16px',
-                    fontSize: '14px'
-                  },
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
-                      borderColor: '#666'
-                    },
-                    '&:hover fieldset': {
-                      borderColor: '#888'
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#90caf9'
-                    }
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setEditingEstimate(null);
+                resetForm();
+                setDialogOpen(true);
+              }}
+              sx={{ 
+                backgroundColor: '#4caf50',
+                height: '40px',
+                minWidth: '120px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              새견적요청
+            </Button>
+          </Box>
+        ) : (
+          // PC: 기존 레이아웃 유지
+          <Grid container spacing={3} alignItems="center">
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                placeholder="검색..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: <SearchIcon sx={{ color: '#666', mr: 1 }} />,
+                  sx: { 
+                    backgroundColor: '#444',
+                    '& input': { color: 'white' }
                   }
                 }}
-              >
-                <MenuItem value="">전체</MenuItem>
-                <MenuItem value="제출완료">제출완료</MenuItem>
-                <MenuItem value="제출대기">제출대기</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={6} md={3}>
-            <FormControl fullWidth>
-              <InputLabel sx={{ color: '#ccc' }}>수주여부</InputLabel>
-              <Select
-                value={filters.contractStatus}
-                onChange={(e) => setFilters(prev => ({ ...prev, contractStatus: e.target.value }))}
-                sx={{ 
-                  backgroundColor: '#444',
-                  minWidth: 200,
+              />
+            </Grid>
+            <Grid item xs={6} md={3}>
+              <FormControl fullWidth>
+                <InputLabel sx={{ color: '#ccc' }}>제출여부</InputLabel>
+                <Select
+                  value={filters.submissionStatus}
+                  onChange={(e) => setFilters(prev => ({ ...prev, submissionStatus: e.target.value }))}
+                  sx={{ 
+                    backgroundColor: '#444',
+                    minWidth: 200,
+                    '& .MuiSelect-select': { 
+                      color: 'white',
+                      padding: '8px 16px',
+                      fontSize: '14px'
+                    },
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': {
+                        borderColor: '#666'
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#888'
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#90caf9'
+                      }
+                    }
+                  }}
+                >
+                  <MenuItem value="">전체</MenuItem>
+                  <MenuItem value="제출완료">제출완료</MenuItem>
+                  <MenuItem value="제출대기">제출대기</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6} md={3}>
+              <FormControl fullWidth>
+                <InputLabel sx={{ color: '#ccc' }}>수주여부</InputLabel>
+                <Select
+                  value={filters.contractStatus}
+                  onChange={(e) => setFilters(prev => ({ ...prev, contractStatus: e.target.value }))}
+                  sx={{ 
+                    backgroundColor: '#444',
+                    minWidth: 200,
                   '& .MuiSelect-select': { 
                     color: 'white',
                     padding: '8px 16px',
@@ -574,7 +621,54 @@ const Estimates = () => {
             </Box>
           </Grid>
         </Grid>
+        )}
       </Paper>
+
+      {/* 모바일 필터 섹션 */}
+      {isMobile && (
+        <Paper sx={{ backgroundColor: '#2d3748', p: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <FormControl size="small" sx={{ flex: 1 }}>
+              <InputLabel sx={{ color: '#ccc', fontSize: '12px' }}>제출여부</InputLabel>
+              <Select
+                value={filters.submissionStatus}
+                onChange={(e) => setFilters(prev => ({ ...prev, submissionStatus: e.target.value }))}
+                sx={{ 
+                  backgroundColor: '#444',
+                  '& .MuiSelect-select': { 
+                    color: 'white',
+                    fontSize: '12px',
+                    py: 0.5
+                  }
+                }}
+              >
+                <MenuItem value="">전체</MenuItem>
+                <MenuItem value="제출완료">제출완료</MenuItem>
+                <MenuItem value="제출대기">제출대기</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ flex: 1 }}>
+              <InputLabel sx={{ color: '#ccc', fontSize: '12px' }}>수주여부</InputLabel>
+              <Select
+                value={filters.contractStatus}
+                onChange={(e) => setFilters(prev => ({ ...prev, contractStatus: e.target.value }))}
+                sx={{ 
+                  backgroundColor: '#444',
+                  '& .MuiSelect-select': { 
+                    color: 'white',
+                    fontSize: '12px',
+                    py: 0.5
+                  }
+                }}
+              >
+                <MenuItem value="">전체</MenuItem>
+                <MenuItem value="수주">수주</MenuItem>
+                <MenuItem value="미수주">미수주</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </Paper>
+      )}
 
       {/* 테이블 */}
       <Paper sx={{ backgroundColor: '#2d3748', overflow: 'hidden' }}>
