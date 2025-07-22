@@ -7,6 +7,7 @@ import { db, auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import MobileLayout from '../components/common/MobileLayout';
+import { formatContractAmount } from '../utils/formatUtils';
 
 // 헤더/하단바 높이(px)
 const HEADER_HEIGHT = 56;
@@ -981,13 +982,13 @@ const CustomScheduleMobile = () => {
     <MobileLayout>
       <Box sx={{
         bgcolor: '#181a20',
-        height: 'calc(100vh - 60px)', // 전체 높이에서 20px 더 줄임 (80px → 60px)
+        height: 'calc(100vh - 50px)', // 전체 높이에서 30px 더 줄임 (80px → 50px)
         width: '100vw',
         overflow: 'hidden',
         position: 'fixed',
         padding: 0,
         margin: 0,
-        mt: '-50px', // 위로 20px 더 이동 (30px → 50px)
+        mt: '-60px', // 위로 30px 더 이동 (30px → 60px)
         touchAction: 'none',
         WebkitOverflowScrolling: 'none',
         userSelect: 'none',
@@ -1034,10 +1035,10 @@ const CustomScheduleMobile = () => {
                   borderColor: '#3b82f6',
                   color: '#3b82f6',
                   fontSize: '0.6rem',
-                  py: 0.3,
-                  px: 1,
+                  py: 0.1,
+                  px: 0.8,
                   minWidth: 'auto',
-                  height: 28,
+                  height: 24,
                   '&:hover': {
                     borderColor: '#2563eb',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)'
@@ -1057,10 +1058,10 @@ const CustomScheduleMobile = () => {
                   borderColor: '#ef4444',
                   color: '#ef4444',
                   fontSize: '0.6rem',
-                  py: 0.3,
-                  px: 1,
+                  py: 0.1,
+                  px: 0.8,
                   minWidth: 'auto',
-                  height: 28,
+                  height: 24,
                   '&:hover': {
                     borderColor: '#dc2626',
                     backgroundColor: 'rgba(239, 68, 68, 0.1)'
@@ -1249,7 +1250,7 @@ const CustomScheduleMobile = () => {
           mx: 0, 
           p: 1.5, 
           boxShadow: 3,
-          height: '320px', // 높이 더 증가
+          height: '400px', // 높이 더 증가 (320px → 400px)
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -1286,8 +1287,8 @@ const CustomScheduleMobile = () => {
                 overflow: 'auto', // 스크롤 가능하게 변경
                 touchAction: 'auto', // 터치 스크롤 활성화
                 WebkitOverflowScrolling: 'touch', // iOS 스크롤 활성화
-                maxHeight: '240px', // 최대 높이 설정
-                height: '240px',
+                maxHeight: '320px', // 최대 높이 설정 (240px → 320px)
+                height: '320px',
               }}
             >
               {selectedSchedules.map((item, i) => {
@@ -1314,9 +1315,18 @@ const CustomScheduleMobile = () => {
                       flexShrink: 0, // 스크롤 시 크기 유지
                       minHeight: 28, // 최소 높이 더 증가
                       maxHeight: 28, // 최대 높이 더 증가
+                      width: '100%', // 전체 너비 사용
+                      overflow: 'hidden' // 넘치는 내용 숨김
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, gap: 0.3 }}>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      flex: 1, 
+                      gap: 0.3, 
+                      minWidth: 0,
+                      overflow: 'hidden' // 넘치는 내용 숨김
+                    }}>
                       <Typography sx={{ 
                         flex: 1, 
                         fontSize: '0.9rem',
@@ -1324,7 +1334,11 @@ const CustomScheduleMobile = () => {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
-                        lineHeight: 1.2
+                        lineHeight: 1.2,
+                        minWidth: 0, // flex 아이템이 축소될 수 있도록
+                        maxWidth: '254px', // 현장명 공간을 254px로 고정
+                        wordBreak: 'keep-all', // 단어 단위로 줄바꿈 방지
+                        wordWrap: 'normal' // 단어 줄바꿈 방지
                       }}>
                         {(() => {
                           const typePrefix = 
@@ -1336,12 +1350,26 @@ const CustomScheduleMobile = () => {
                             item.type === '기타' ? '[기타]' : '';
                           const siteName = item.siteName || '';
                           const title = item.text || item.title || '제목 없음';
-                          const fullText = typePrefix + (siteName ? `${siteName} ` : '') + title;
+                          
+                          // 현장이름과 제목이 중복되는 경우 제목에서 현장이름 제거
+                          let displayTitle = title;
+                          if (siteName && title.includes(siteName)) {
+                            displayTitle = title.replace(siteName, '').trim();
+                          }
+                          
+                          const fullText = typePrefix + (siteName ? `${siteName} ` : '') + displayTitle;
                           return fullText;
                         })()}
                       </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 0.3 }}>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      gap: 0.3,
+                      flexShrink: 0, // 버튼 영역이 축소되지 않도록
+                      minWidth: '60px', // 버튼 영역 여백 줄임
+                      alignItems: 'center',
+                      justifyContent: 'flex-end'
+                    }}>
                       <IconButton 
                         size="small" 
                         onClick={() => handleViewSiteDetail(item)}
@@ -1912,7 +1940,7 @@ const CustomScheduleMobile = () => {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>계약금액:</Typography>
                       <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>
-                        {selectedSiteDetail.contractAmount ? selectedSiteDetail.contractAmount.toLocaleString() + '원' : '정보 없음'}
+                        {selectedSiteDetail.contractAmount ? formatContractAmount(selectedSiteDetail.contractAmount) : '정보 없음'}
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

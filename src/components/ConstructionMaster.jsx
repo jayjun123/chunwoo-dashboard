@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSites } from '../contexts/SiteContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { formatContractAmount } from '../utils/formatUtils';
 
 const statusList = ['진행중', '예정', '완료', '미정'];
 
@@ -96,7 +97,7 @@ function ConstructionMaster() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ color: '#aaa', fontSize: 14 }}>계약금액</label>
-                  <input value={selectedSite.contract.toLocaleString()} readOnly style={{ width: '100%', padding: 8, borderRadius: 6, border: `1px solid ${borderColor}`, background: inputBg, color: textColor, fontSize: 15, marginBottom: 8 }} />
+                  <input value={formatContractAmount(selectedSite.contract)} readOnly style={{ width: '100%', padding: 8, borderRadius: 6, border: `1px solid ${borderColor}`, background: inputBg, color: textColor, fontSize: 15, marginBottom: 8 }} />
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>

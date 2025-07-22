@@ -41,6 +41,7 @@ import { devLog, devError, useCleanup } from '../utils/performanceUtils';
 import * as XLSX from 'xlsx';
 import { addMonths, subMonths, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { formatContractAmount, formatGisungAmount, formatAdvanceAmount } from '../utils/formatUtils';
 
 const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurrentMonth, monthText: initialMonthText, selectedSites, filteredData }) => {
   const theme = useTheme();
@@ -291,11 +292,11 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   const handleExcelDownload = () => {
     const data = filteredAndSortedGisung.map(row => ({
       '현장명': row.name,
-      '계약금액': Number(row.contractAmount || 0).toLocaleString(),
-      '선급금': Number(row.advance || 0).toLocaleString(),
-      '전회기성': Number(row.prevGisung || 0).toLocaleString(),
+      '계약금액': formatContractAmount(row.contractAmount),
+      '선급금': formatAdvanceAmount(row.advance),
+      '전회기성': formatGisungAmount(row.prevGisung),
       '기성월': row.gisungMonth || '-',
-      '기성금액': Number(row.gisungAmount || 0).toLocaleString(),
+      '기성금액': formatGisungAmount(row.gisungAmount),
       '비고': row.note || '-',
     }));
 
@@ -1124,7 +1125,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         <DialogTitle>
           {monthText} 총계약금액 상세
           <Typography variant="body2" sx={{ color: '#bbb', mt: 1 }}>
-            총 {contractDetailData.length}개 현장 • {contractDetailData.reduce((sum, site) => sum + site.contractAmount, 0).toLocaleString()}원
+            총 {contractDetailData.length}개 현장 • {formatContractAmount(contractDetailData.reduce((sum, site) => sum + site.contractAmount, 0))}
           </Typography>
         </DialogTitle>
         <DialogContent>
@@ -1153,7 +1154,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                       <TableCell sx={{ color: '#fff' }}>{index + 1}</TableCell>
                       <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{site.name}</TableCell>
                       <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
-                        {site.contractAmount.toLocaleString()}원
+                        {formatContractAmount(site.contractAmount)}
                       </TableCell>
                       <TableCell sx={{ color: '#fff' }}>
                         {typeof site.startDate === 'string' ? site.startDate : 

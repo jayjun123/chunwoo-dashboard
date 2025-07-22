@@ -9,6 +9,8 @@ import {
   removeParticipant,
   getDiscussionParticipants
 } from '../../api/discussions';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   Box,
@@ -165,20 +167,10 @@ const MobileKakaoDiscussion = () => {
           };
         });
         
-        // 스크롤을 맨 아래로 (조건부로 실행)
+        // 항상 마지막 메시지가 보이도록 스크롤
         setTimeout(() => {
-          const messagesContainer = document.querySelector('[data-messages-container]');
-          if (messagesContainer) {
-            const isAtBottom = messagesContainer.scrollTop + messagesContainer.clientHeight >= messagesContainer.scrollHeight - 50;
-            const currentMessages = messages[selectedDiscussion.id] || [];
-            const hasNewMessages = messages.length > currentMessages.length;
-            
-            // 스크롤이 맨 아래에 있고 새 메시지가 있는 경우에만 스크롤
-            if (isAtBottom && hasNewMessages) {
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }
-          }
-        }, 200);
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
       });
     } catch (error) {
       console.error('메시지 구독 설정 실패:', error);
@@ -228,32 +220,150 @@ const MobileKakaoDiscussion = () => {
 
   // 채팅방 선택 시 하단바 숨김 처리
   useEffect(() => {
-    if (selectedDiscussion) {
+    // 하단바 상태 모니터링
+    const monitorBottomBar = () => {
+      const bottomBar = document.querySelector('[data-bottom-bar]');
+      if (bottomBar) {
+        const isVisible = bottomBar.style.display !== 'none' && 
+                         bottomBar.style.visibility !== 'hidden' && 
+                         bottomBar.style.opacity !== '0';
+        console.log('🔥 하단바 상태 모니터링:', {
+          display: bottomBar.style.display,
+          visibility: bottomBar.style.visibility,
+          opacity: bottomBar.style.opacity,
+          position: bottomBar.style.position,
+          zIndex: bottomBar.style.zIndex,
+          isVisible: isVisible
+        });
+      }
+    };
+    
+    // 1초 후 하단바 상태 확인
+    setTimeout(monitorBottomBar, 1000);
+    const hideBottomBar = () => {
       // 하단바 숨김
       const bottomBar = document.querySelector('[data-bottom-bar]');
       if (bottomBar) {
         bottomBar.style.display = 'none';
+        bottomBar.style.visibility = 'hidden';
+        bottomBar.style.opacity = '0';
+        bottomBar.style.position = 'absolute';
+        bottomBar.style.zIndex = '-1';
+        bottomBar.style.transform = 'translateY(100%)';
+        bottomBar.style.transition = 'all 0.3s ease';
+        bottomBar.style.pointerEvents = 'none';
       }
       
       // body에 클래스 추가로 하단바 숨김
       document.body.classList.add('hide-bottom-bar');
-    } else {
+      
+      // CSS 변수로 하단바 높이 설정 (0으로)
+      document.documentElement.style.setProperty('--bottom-bar-height', '0px');
+      
+      // 추가 CSS 스타일 적용
+      const style = document.createElement('style');
+      style.id = 'mobile-discussion-bottom-bar-hide';
+      style.textContent = `
+        [data-bottom-bar] {
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+          transform: translateY(100%) !important;
+          pointer-events: none !important;
+        }
+        body.hide-bottom-bar {
+          padding-bottom: 0 !important;
+        }
+      `;
+      document.head.appendChild(style);
+    };
+
+    const showBottomBar = () => {
       // 하단바 표시
       const bottomBar = document.querySelector('[data-bottom-bar]');
       if (bottomBar) {
         bottomBar.style.display = 'block';
+        bottomBar.style.visibility = 'visible';
+        bottomBar.style.opacity = '1';
+        bottomBar.style.position = 'fixed';
+        bottomBar.style.zIndex = '1000';
+        bottomBar.style.transform = 'translateY(0)';
+        bottomBar.style.transition = 'all 0.3s ease';
+        bottomBar.style.pointerEvents = 'auto';
       }
       
       // body에서 클래스 제거
       document.body.classList.remove('hide-bottom-bar');
-    }
+      
+      // CSS 변수로 하단바 높이 복원 (기본값 34px)
+      document.documentElement.style.setProperty('--bottom-bar-height', '34px');
+      
+      // 추가 CSS 스타일 제거
+      const existingStyle = document.getElementById('mobile-discussion-bottom-bar-hide');
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+    };
+
+    // 하단바 제어 함수
+    const controlBottomBar = () => {
+      // 하단바 요소 찾기 (여러 번 시도)
+      let bottomBar = document.querySelector('[data-bottom-bar]');
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      const findBottomBar = () => {
+        if (!bottomBar && attempts < maxAttempts) {
+          attempts++;
+          setTimeout(() => {
+            bottomBar = document.querySelector('[data-bottom-bar]');
+            if (bottomBar) {
+              console.log('🔥 하단바 요소 찾음 (시도 횟수:', attempts, ')');
+              executeBottomBarControl();
+            } else {
+              findBottomBar();
+            }
+          }, 50);
+        } else if (bottomBar) {
+          executeBottomBarControl();
+        } else {
+          console.warn('🔥 하단바 요소를 찾을 수 없음');
+        }
+      };
+      
+      const executeBottomBarControl = () => {
+        console.log('🔥 하단바 제어 실행 - selectedDiscussion:', selectedDiscussion ? selectedDiscussion.id : 'null');
+        
+        if (selectedDiscussion) {
+          // 채팅방에 들어갔을 때 하단바 숨김
+          console.log('🔥 채팅방 입장 - 하단바 숨김');
+          hideBottomBar();
+        } else {
+          // 채팅방 목록 화면일 때 하단바 표시
+          console.log('🔥 채팅방 목록 - 하단바 표시');
+          showBottomBar();
+        }
+      };
+      
+      findBottomBar();
+    };
+    
+    // 약간의 지연을 두어 상태 변경이 완료된 후 하단바 제어
+    const timer = setTimeout(controlBottomBar, 100);
 
     // 컴포넌트 언마운트 시 하단바 복원
     return () => {
-      const bottomBar = document.querySelector('[data-bottom-bar]');
-      if (bottomBar) {
-        bottomBar.style.display = 'block';
+      clearTimeout(timer);
+      console.log('🔥 컴포넌트 언마운트 - 하단바 복원');
+      showBottomBar();
+      
+      // 추가 CSS 스타일 정리
+      const existingStyle = document.getElementById('mobile-discussion-bottom-bar-hide');
+      if (existingStyle) {
+        existingStyle.remove();
       }
+      
+      // body 클래스 정리
       document.body.classList.remove('hide-bottom-bar');
     };
   }, [selectedDiscussion]);
@@ -422,6 +532,9 @@ const MobileKakaoDiscussion = () => {
         break;
       case 'settings':
         setIsSettingsDialogOpen(true);
+        break;
+      case 'edit':
+        handleEditDiscussion();
         break;
       case 'export':
         handleExportMessages();
@@ -606,11 +719,63 @@ const MobileKakaoDiscussion = () => {
 
     setParticipantsLoading(true);
     try {
+      console.log('🔥 참여자 정보 로드 시작:', selectedDiscussion.id);
+      
+      // 먼저 현재 토론 정보를 다시 가져와서 최신 참여자 수 확인
+      const discussionRef = doc(db, 'discussions', selectedDiscussion.id);
+      const discussionDoc = await getDoc(discussionRef);
+      
+      if (!discussionDoc.exists()) {
+        throw new Error('토론을 찾을 수 없습니다.');
+      }
+      
+      const discussionData = discussionDoc.data();
+      console.log('🔥 토론 데이터:', discussionData);
+      
+      // 참여자 정보 가져오기
       const participantsData = await getDiscussionParticipants(selectedDiscussion.id);
-      setParticipants(participantsData.participants);
+      console.log('🔥 참여자 데이터:', participantsData);
+      
+      if (participantsData && participantsData.participants) {
+        setParticipants(participantsData.participants);
+      } else {
+        // 참여자 정보가 없는 경우 기본 정보로 설정
+        setParticipants([{
+          id: currentUser?.uid || 'unknown',
+          name: currentUser?.displayName || currentUser?.email || '현재 사용자',
+          email: currentUser?.email || '',
+          role: '참여자',
+          avatar: currentUser?.photoURL || '',
+          joinTime: discussionData.createdAt || new Date(),
+          isOnline: true
+        }]);
+      }
+      
+      setSnackbar({ 
+        open: true, 
+        message: `참여자 ${participantsData?.participants?.length || 1}명이 조회되었습니다.`, 
+        severity: 'success' 
+      });
+      
     } catch (error) {
-      console.error('참여자 정보 로드 실패:', error);
-      setSnackbar({ open: true, message: '참여자 정보를 불러오는데 실패했습니다', severity: 'error' });
+      console.error('🔥 참여자 정보 로드 실패:', error);
+      
+      // 에러 발생 시 기본 참여자 정보 설정
+      setParticipants([{
+        id: currentUser?.uid || 'unknown',
+        name: currentUser?.displayName || currentUser?.email || '현재 사용자',
+        email: currentUser?.email || '',
+        role: '참여자',
+        avatar: currentUser?.photoURL || '',
+        joinTime: new Date(),
+        isOnline: true
+      }]);
+      
+      setSnackbar({ 
+        open: true, 
+        message: '참여자 정보를 불러오는데 실패했습니다. 기본 정보를 표시합니다.', 
+        severity: 'warning' 
+      });
     } finally {
       setParticipantsLoading(false);
     }
@@ -662,6 +827,10 @@ const MobileKakaoDiscussion = () => {
       // 입장 처리
       setSelectedDiscussion(discussion);
       setSnackbar({ open: true, message: '토론방에 입장했습니다', severity: 'success' });
+      // 입장 후 마지막 메시지로 스크롤
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
     } else {
       // 퇴장 처리
       await handleLeaveDiscussion();
@@ -682,13 +851,69 @@ const MobileKakaoDiscussion = () => {
       });
     } else {
       setSelectedDiscussion(discussion);
+      // 채팅방 입장 시 마지막 메시지로 스크롤
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
     }
   };
 
   // 채팅방 수정
   const handleEditDiscussion = async () => {
+    if (!selectedDiscussion) return;
+    
+    // 수정 다이얼로그 열기
+    setEditDialog({ 
+      open: true, 
+      discussion: selectedDiscussion 
+    });
+  };
+
+  // 채팅방 수정 저장
+  const handleEditSave = async () => {
     try {
-      // 수정 로직 구현
+      if (!editDialog.discussion) return;
+      
+      const { title, subtitle, siteName, password } = editDialog.discussion;
+      
+      // 필수 필드 검증
+      if (!title || !title.trim()) {
+        setSnackbar({
+          open: true,
+          message: '채팅방 이름을 입력해주세요.',
+          severity: 'error'
+        });
+        return;
+      }
+      
+      if (!siteName || !siteName.trim()) {
+        setSnackbar({
+          open: true,
+          message: '현장명을 입력해주세요.',
+          severity: 'error'
+        });
+        return;
+      }
+      
+      // 수정 API 호출
+      const discussionRef = doc(db, 'discussions', editDialog.discussion.id);
+      await updateDoc(discussionRef, {
+        title: title.trim(),
+        subtitle: subtitle?.trim() || '',
+        siteName: siteName.trim(),
+        password: password?.trim() || '',
+        updatedAt: new Date()
+      });
+      
+      // 선택된 토론 정보 업데이트
+      setSelectedDiscussion(prev => ({
+        ...prev,
+        title: title.trim(),
+        subtitle: subtitle?.trim() || '',
+        siteName: siteName.trim(),
+        password: password?.trim() || ''
+      }));
+      
       setEditDialog({ open: false, discussion: null });
       setSnackbar({
         open: true,
@@ -696,6 +921,7 @@ const MobileKakaoDiscussion = () => {
         severity: 'success'
       });
     } catch (error) {
+      console.error('채팅방 수정 실패:', error);
       setSnackbar({
         open: true,
         message: '채팅방 수정에 실패했습니다.',
@@ -824,7 +1050,7 @@ const MobileKakaoDiscussion = () => {
   return (
     <Box sx={{ 
       backgroundColor: '#000000', 
-      height: 'calc(100vh - 90px)', // 헤더(56px) + 하단바(34px) 제외 - 화면 키움
+      height: selectedDiscussion ? 'calc(100vh - 90px)' : 'calc(100vh - 90px - 34px)', // 채팅방일 때만 하단바 제외
       color: '#FFFFFF',
       position: 'relative',
       mt: '26px' // 헤더 높이만큼 위로 여백 - 30px 위로 이동
@@ -882,9 +1108,9 @@ const MobileKakaoDiscussion = () => {
           {/* 채팅방 목록 */}
           <Box sx={{ 
             p: 1,
-            height: 'calc(100vh - 200px)', // 실제 높이를 키움
+            height: 'calc(100vh - 200px - 34px)', // 하단바 높이(34px) 제외
             overflowY: 'auto',
-            pb: 10 // 하단바 높이(38px) + 더 큰 여백
+            pb: 2 // 하단 여백 줄임
           }}>
             {filteredDiscussions.length === 0 ? (
               <Paper sx={{ p: 4, textAlign: 'center', backgroundColor: '#2D2D2D', m: 2 }}>
@@ -1041,11 +1267,11 @@ const MobileKakaoDiscussion = () => {
         ) : (
         /* 채팅 화면 */
         <Box sx={{ 
-          height: 'calc(100vh - 90px)', // 헤더 + 하단바 제외 - 화면 키움
+          height: 'calc(100vh - 90px)', // 헤더 높이만큼 제외 (하단바는 숨김)
           display: 'flex', 
           flexDirection: 'column',
           backgroundColor: '#1A1A1A',
-          mt: '26px' // 헤더 높이만큼 위로 여백 - 30px 위로 이동
+          mt: '26px' // 헤더 높이만큼 위로 여백
         }}>
           {/* 채팅 헤더 */}
           <AppBar 
@@ -1114,7 +1340,16 @@ const MobileKakaoDiscussion = () => {
             pb: keyboardHeight > 0 ? `${keyboardHeight + 80}px` : '80px', // 입력칸 높이(60px) + 여백(20px) 추가
             margin: 0 // 마진 제거로 딱 붙게
           }}>
-            {messages[selectedDiscussion.id]?.map((message) => {
+            {messages[selectedDiscussion.id]?.sort((a, b) => {
+              // timestamp를 기준으로 정렬 (오래된 메시지가 위로, 최신 메시지가 아래로)
+              const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 
+                           (a.timestamp instanceof Date ? a.timestamp.getTime() : 
+                           (a.timestamp ? new Date(a.timestamp).getTime() : 0));
+              const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 
+                           (b.timestamp instanceof Date ? b.timestamp.getTime() : 
+                           (b.timestamp ? new Date(b.timestamp).getTime() : 0));
+              return timeA - timeB;
+            }).map((message) => {
               const isMyMessage = message.authorId === currentUser?.uid;
               const timestamp = message.timestamp?.toDate 
                 ? message.timestamp.toDate().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
@@ -2119,6 +2354,120 @@ const MobileKakaoDiscussion = () => {
           </Button>
           <Button onClick={handlePasswordCheck} variant="contained">
             {passwordDialog.type === 'enter' ? '입장' : '확인'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 채팅방 수정 다이얼로그 */}
+      <Dialog 
+        open={editDialog.open} 
+        onClose={() => setEditDialog({ open: false, discussion: null })}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: { backgroundColor: '#1A1A1A' }
+        }}
+      >
+        <DialogTitle sx={{ backgroundColor: '#333333', color: '#FFFFFF' }}>
+          채팅방 수정
+        </DialogTitle>
+        <DialogContent sx={{ p: 2 }}>
+          {editDialog.discussion && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                fullWidth
+                label="채팅방 이름"
+                value={editDialog.discussion.title || ''}
+                onChange={(e) => setEditDialog(prev => ({
+                  ...prev,
+                  discussion: { ...prev.discussion, title: e.target.value }
+                }))}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#444444' },
+                    '&:hover fieldset': { borderColor: '#666666' },
+                    '&.Mui-focused fieldset': { borderColor: '#4CAF50' }
+                  },
+                  '& .MuiInputLabel-root': { color: '#CCCCCC' },
+                  '& .MuiInputBase-input': { color: '#FFFFFF' }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="현장명"
+                value={editDialog.discussion.siteName || ''}
+                onChange={(e) => setEditDialog(prev => ({
+                  ...prev,
+                  discussion: { ...prev.discussion, siteName: e.target.value }
+                }))}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#444444' },
+                    '&:hover fieldset': { borderColor: '#666666' },
+                    '&.Mui-focused fieldset': { borderColor: '#4CAF50' }
+                  },
+                  '& .MuiInputLabel-root': { color: '#CCCCCC' },
+                  '& .MuiInputBase-input': { color: '#FFFFFF' }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="부제목 (선택사항)"
+                value={editDialog.discussion.subtitle || ''}
+                onChange={(e) => setEditDialog(prev => ({
+                  ...prev,
+                  discussion: { ...prev.discussion, subtitle: e.target.value }
+                }))}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#444444' },
+                    '&:hover fieldset': { borderColor: '#666666' },
+                    '&.Mui-focused fieldset': { borderColor: '#4CAF50' }
+                  },
+                  '& .MuiInputLabel-root': { color: '#CCCCCC' },
+                  '& .MuiInputBase-input': { color: '#FFFFFF' }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="비밀번호 (선택사항)"
+                type="password"
+                value={editDialog.discussion.password || ''}
+                onChange={(e) => setEditDialog(prev => ({
+                  ...prev,
+                  discussion: { ...prev.discussion, password: e.target.value }
+                }))}
+                placeholder="비밀번호를 설정하지 않으려면 비워두세요"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#444444' },
+                    '&:hover fieldset': { borderColor: '#666666' },
+                    '&.Mui-focused fieldset': { borderColor: '#4CAF50' }
+                  },
+                  '& .MuiInputLabel-root': { color: '#CCCCCC' },
+                  '& .MuiInputBase-input': { color: '#FFFFFF' }
+                }}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button 
+            onClick={() => setEditDialog({ open: false, discussion: null })}
+            sx={{ color: '#CCCCCC' }}
+          >
+            취소
+          </Button>
+          <Button 
+            onClick={handleEditSave}
+            variant="contained"
+            sx={{
+              backgroundColor: '#4CAF50',
+              color: '#FFFFFF',
+              '&:hover': { backgroundColor: '#45A049' }
+            }}
+          >
+            수정
           </Button>
         </DialogActions>
       </Dialog>
