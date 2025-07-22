@@ -116,7 +116,13 @@ export const createDiscussion = async (discussionData) => {
       createdAt: timestamp,
       lastMessageTime: timestamp,
       lastMessage: '새로운 토론이 시작되었습니다.',
-      participants: 1,
+      participants: [discussionData.createdBy || 'anonymous'], // 참여자 ID 배열로 저장
+      participantDetails: {
+        [discussionData.createdBy || 'anonymous']: {
+          joinTime: timestamp,
+          name: discussionData.authorName || '익명'
+        }
+      },
       unreadCount: 0,
       status: 'active'
     });
@@ -200,8 +206,14 @@ export const sendMessage = async (discussionId, messageData) => {
     
     // 메시지 데이터에서 파일 제거하고 업로드된 파일 정보로 교체
     const { files, ...messageWithoutFiles } = messageData;
+    
+    // 사용자 이름이 없으면 기본값 설정
+    const authorName = messageData.author || messageData.userName || messageData.displayName || '익명';
+    
     const finalMessageData = {
       ...messageWithoutFiles,
+      author: authorName, // 명시적으로 author 필드 설정
+      userName: authorName, // userName 필드도 설정 (호환성)
       files: uploadedFiles,
       timestamp: timestamp
     };
@@ -290,11 +302,32 @@ export const addParticipant = async (discussionId, userId, userName) => {
     const discussionDoc = await getDoc(discussionRef);
     
     if (discussionDoc.exists()) {
-      const currentParticipants = discussionDoc.data().participants || 1;
-      await updateDoc(discussionRef, {
-        participants: currentParticipants + 1
-      });
-      console.log('🔥 참여자 추가 완료:', discussionId, userName);
+      const discussionData = discussionDoc.data();
+      const currentParticipants = discussionData.participants || [];
+      const currentParticipantDetails = discussionData.participantDetails || {};
+      
+      // 이미 참여자인지 확인
+      if (!Array.isArray(currentParticipants) || !currentParticipants.includes(userId)) {
+        const updatedParticipants = Array.isArray(currentParticipants) 
+          ? [...currentParticipants, userId] 
+          : [userId];
+        
+        const updatedParticipantDetails = {
+          ...currentParticipantDetails,
+          [userId]: {
+            joinTime: serverTimestamp(),
+            name: userName || '익명'
+          }
+        };
+        
+        await updateDoc(discussionRef, {
+          participants: updatedParticipants,
+          participantDetails: updatedParticipantDetails
+        });
+        console.log('🔥 참여자 추가 완료:', discussionId, userName);
+      } else {
+        console.log('🔥 이미 참여중인 사용자:', discussionId, userName);
+      }
     }
   } catch (error) {
     console.error('🔥 참여자 추가 실패:', error);
@@ -303,19 +336,27 @@ export const addParticipant = async (discussionId, userId, userName) => {
 };
 
 // 토론 참여자 제거
-export const removeParticipant = async (discussionId) => {
+export const removeParticipant = async (discussionId, userId) => {
   try {
     const discussionRef = doc(db, 'discussions', discussionId);
     const discussionDoc = await getDoc(discussionRef);
     
     if (discussionDoc.exists()) {
-      const currentParticipants = discussionDoc.data().participants || 1;
-      const newParticipants = Math.max(0, currentParticipants - 1);
+      const discussionData = discussionDoc.data();
+      const currentParticipants = discussionData.participants || [];
+      const currentParticipantDetails = discussionData.participantDetails || {};
       
-      await updateDoc(discussionRef, {
-        participants: newParticipants
-      });
-      console.log('🔥 참여자 제거 완료:', discussionId);
+      if (Array.isArray(currentParticipants)) {
+        const updatedParticipants = currentParticipants.filter(id => id !== userId);
+        const updatedParticipantDetails = { ...currentParticipantDetails };
+        delete updatedParticipantDetails[userId];
+        
+        await updateDoc(discussionRef, {
+          participants: updatedParticipants,
+          participantDetails: updatedParticipantDetails
+        });
+        console.log('🔥 참여자 제거 완료:', discussionId, userId);
+      }
     }
   } catch (error) {
     console.error('🔥 참여자 제거 실패:', error);
@@ -493,20 +534,50 @@ export const getDiscussionParticipants = async (discussionId) => {
 
     // 참여자 상세 정보 조회
     const participantList = [];
-    for (const participantId of participants) {
+    
+    // participants가 배열인지 숫자인지 확인
+    const participantIds = Array.isArray(participants) ? participants : [];
+    
+    for (const participantId of participantIds) {
       try {
-        const userDoc = await getDoc(doc(db, 'users', participantId));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
+        // 먼저 participantDetails에서 정보 확인
+        const detailInfo = participantDetails[participantId];
+        if (detailInfo) {
           participantList.push({
             id: participantId,
-            name: userData.name || userData.displayName || '알 수 없음',
-            email: userData.email || '',
-            role: userData.role || '일반',
-            avatar: userData.photoURL || '',
-            joinTime: participantDetails[participantId]?.joinTime || discussionData.createdAt,
-            isOnline: false // 실시간 온라인 상태는 추후 구현
+            name: detailInfo.name || '익명',
+            email: detailInfo.email || '',
+            role: detailInfo.role || '일반',
+            avatar: detailInfo.avatar || '',
+            joinTime: detailInfo.joinTime || discussionData.createdAt,
+            isOnline: false
           });
+        } else {
+          // users 컬렉션에서 정보 조회
+          const userDoc = await getDoc(doc(db, 'users', participantId));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            participantList.push({
+              id: participantId,
+              name: userData.name || userData.displayName || '알 수 없음',
+              email: userData.email || '',
+              role: userData.role || '일반',
+              avatar: userData.photoURL || '',
+              joinTime: discussionData.createdAt,
+              isOnline: false
+            });
+          } else {
+            // 사용자 정보가 없는 경우 기본 정보로 추가
+            participantList.push({
+              id: participantId,
+              name: '알 수 없음',
+              email: '',
+              role: '일반',
+              avatar: '',
+              joinTime: discussionData.createdAt,
+              isOnline: false
+            });
+          }
         }
       } catch (error) {
         console.error('참여자 정보 조회 실패:', participantId, error);
@@ -524,7 +595,7 @@ export const getDiscussionParticipants = async (discussionId) => {
     }
 
     return {
-      totalCount: participants.length,
+      totalCount: participantIds.length,
       participants: participantList,
       discussionInfo: {
         title: discussionData.title,

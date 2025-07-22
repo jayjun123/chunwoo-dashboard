@@ -438,6 +438,18 @@ const PCKakaoDiscussion = () => {
       // 입장 처리
       setSelectedDiscussion(discussion);
       setSelectedMessages([]);
+      
+      // 참여자로 추가
+      try {
+        await addParticipant(
+          discussion.id, 
+          currentUser.uid, 
+          currentUser.displayName || currentUser.email
+        );
+      } catch (error) {
+        console.error('참여자 추가 실패:', error);
+      }
+      
       setSnackbar({ open: true, message: '토론방에 입장했습니다', severity: 'success' });
       // 입장 후 마지막 메시지로 스크롤
       setTimeout(() => {
@@ -452,7 +464,7 @@ const PCKakaoDiscussion = () => {
   };
 
   // 토론 선택
-  const handleDiscussionSelect = (discussion) => {
+  const handleDiscussionSelect = async (discussion) => {
     // 비밀번호가 있는 방인지 확인
     if (discussion.password && discussion.password.trim() !== '') {
       // 비밀번호 확인 다이얼로그 열기
@@ -466,6 +478,18 @@ const PCKakaoDiscussion = () => {
       // 비밀번호가 없으면 바로 입장
       setSelectedDiscussion(discussion);
       setSelectedMessages([]);
+      
+      // 참여자로 추가
+      try {
+        await addParticipant(
+          discussion.id, 
+          currentUser.uid, 
+          currentUser.displayName || currentUser.email
+        );
+      } catch (error) {
+        console.error('참여자 추가 실패:', error);
+      }
+      
       // 채팅방 입장 시 마지막 메시지로 스크롤
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

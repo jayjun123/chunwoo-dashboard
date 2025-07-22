@@ -32,8 +32,7 @@ export const subscribeToClaims = (callback, month = null) => {
   } else {
     q = query(
       claimsCollection,
-      orderBy('claimMonth', 'desc'),
-      orderBy('siteName', 'asc')
+      orderBy('claimMonth', 'desc')
     );
   }
 
@@ -134,8 +133,8 @@ export const getClaims = async (filters = {}) => {
       q = query(q, where('siteName', '==', filters.siteName));
     }
     
-    // 정렬
-    q = query(q, orderBy('claimMonth', 'desc'), orderBy('siteName', 'asc'));
+    // 정렬 - 복합 인덱스 오류 방지를 위해 단일 필드로 정렬
+    q = query(q, orderBy('claimMonth', 'desc'));
     
     const snapshot = await getDocs(q);
     const claims = [];
