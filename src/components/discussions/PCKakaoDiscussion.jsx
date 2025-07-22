@@ -9,6 +9,8 @@ import {
   removeParticipant,
   getDiscussionParticipants
 } from '../../api/discussions';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   Box,
@@ -157,6 +159,11 @@ const PCKakaoDiscussion = () => {
           ...prev,
           [selectedDiscussion.id]: messagesData
         }));
+        
+        // 항상 마지막 메시지가 보이도록 스크롤
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
       });
 
       return () => unsubscribeMessages();
@@ -254,6 +261,9 @@ const PCKakaoDiscussion = () => {
       case 'settings':
         setIsSettingsDialogOpen(true);
         break;
+      case 'edit':
+        handleEditDiscussion();
+        break;
       case 'export':
         setExportDialog({ open: true });
         break;
@@ -344,11 +354,63 @@ const PCKakaoDiscussion = () => {
 
     setParticipantsLoading(true);
     try {
+      console.log('🔥 참여자 정보 로드 시작:', selectedDiscussion.id);
+      
+      // 먼저 현재 토론 정보를 다시 가져와서 최신 참여자 수 확인
+      const discussionRef = doc(db, 'discussions', selectedDiscussion.id);
+      const discussionDoc = await getDoc(discussionRef);
+      
+      if (!discussionDoc.exists()) {
+        throw new Error('토론을 찾을 수 없습니다.');
+      }
+      
+      const discussionData = discussionDoc.data();
+      console.log('🔥 토론 데이터:', discussionData);
+      
+      // 참여자 정보 가져오기
       const participantsData = await getDiscussionParticipants(selectedDiscussion.id);
-      setParticipants(participantsData.participants);
+      console.log('🔥 참여자 데이터:', participantsData);
+      
+      if (participantsData && participantsData.participants) {
+        setParticipants(participantsData.participants);
+      } else {
+        // 참여자 정보가 없는 경우 기본 정보로 설정
+        setParticipants([{
+          id: currentUser?.uid || 'unknown',
+          name: currentUser?.displayName || currentUser?.email || '현재 사용자',
+          email: currentUser?.email || '',
+          role: '참여자',
+          avatar: currentUser?.photoURL || '',
+          joinTime: discussionData.createdAt || new Date(),
+          isOnline: true
+        }]);
+      }
+      
+      setSnackbar({ 
+        open: true, 
+        message: `참여자 ${participantsData?.participants?.length || 1}명이 조회되었습니다.`, 
+        severity: 'success' 
+      });
+      
     } catch (error) {
-      console.error('참여자 정보 로드 실패:', error);
-      setSnackbar({ open: true, message: '참여자 정보를 불러오는데 실패했습니다', severity: 'error' });
+      console.error('🔥 참여자 정보 로드 실패:', error);
+      
+      // 에러 발생 시 기본 참여자 정보 설정
+      setParticipants([{
+        id: currentUser?.uid || 'unknown',
+        name: currentUser?.displayName || currentUser?.email || '현재 사용자',
+        email: currentUser?.email || '',
+        role: '참여자',
+        avatar: currentUser?.photoURL || '',
+        joinTime: new Date(),
+        isOnline: true
+      }]);
+      
+      setSnackbar({ 
+        open: true, 
+        message: '참여자 정보를 불러오는데 실패했습니다. 기본 정보를 표시합니다.', 
+        severity: 'warning' 
+      });
     } finally {
       setParticipantsLoading(false);
     }
@@ -377,6 +439,10 @@ const PCKakaoDiscussion = () => {
       setSelectedDiscussion(discussion);
       setSelectedMessages([]);
       setSnackbar({ open: true, message: '토론방에 입장했습니다', severity: 'success' });
+      // 입장 후 마지막 메시지로 스크롤
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
     } else {
       // 퇴장 처리
       await handleLeaveDiscussion();
@@ -400,17 +466,63 @@ const PCKakaoDiscussion = () => {
       // 비밀번호가 없으면 바로 입장
       setSelectedDiscussion(discussion);
       setSelectedMessages([]);
+      // 채팅방 입장 시 마지막 메시지로 스크롤
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
     }
   };
 
   // 토론 편집
   const handleEditDiscussion = async () => {
+    if (!selectedDiscussion) return;
+    
+    // 수정 다이얼로그 열기
+    setEditDialog({ 
+      open: true, 
+      discussion: selectedDiscussion 
+    });
+  };
+
+  // 토론 편집 저장
+  const handleEditSave = async () => {
     if (!editDialog.discussion) return;
 
     try {
-      // 토론 편집 로직
-      setSnackbar({ open: true, message: '토론이 수정되었습니다', severity: 'success' });
+      const { title, subtitle, siteName, password } = editDialog.discussion;
+      
+      // 필수 필드 검증
+      if (!title || !title.trim()) {
+        setSnackbar({ open: true, message: '토론 제목을 입력해주세요', severity: 'error' });
+        return;
+      }
+      
+      if (!siteName || !siteName.trim()) {
+        setSnackbar({ open: true, message: '현장명을 입력해주세요', severity: 'error' });
+        return;
+      }
+      
+      // 수정 API 호출
+      const discussionRef = doc(db, 'discussions', editDialog.discussion.id);
+      await updateDoc(discussionRef, {
+        title: title.trim(),
+        subtitle: subtitle?.trim() || '',
+        siteName: siteName.trim(),
+        password: password?.trim() || '',
+        updatedAt: new Date()
+      });
+      
+      // 선택된 토론 정보 업데이트
+      setSelectedDiscussion(prev => ({
+        ...prev,
+        title: title.trim(),
+        subtitle: subtitle?.trim() || '',
+        siteName: siteName.trim(),
+        password: password?.trim() || ''
+      }));
+      
       setEditDialog({ open: false, discussion: null });
+      setSnackbar({ open: true, message: '토론이 수정되었습니다', severity: 'success' });
     } catch (error) {
       console.error('토론 편집 실패:', error);
       setSnackbar({ open: true, message: '토론 편집에 실패했습니다', severity: 'error' });
@@ -717,7 +829,16 @@ const PCKakaoDiscussion = () => {
                 p: 2,
                 backgroundColor: backgroundColor
               }}>
-                {messages[selectedDiscussion.id]?.map((message) => {
+                {messages[selectedDiscussion.id]?.sort((a, b) => {
+                  // timestamp를 기준으로 정렬 (오래된 메시지가 위로, 최신 메시지가 아래로)
+                  const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 
+                               (a.timestamp instanceof Date ? a.timestamp.getTime() : 
+                               (a.timestamp ? new Date(a.timestamp).getTime() : 0));
+                  const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 
+                               (b.timestamp instanceof Date ? b.timestamp.getTime() : 
+                               (b.timestamp ? new Date(b.timestamp).getTime() : 0));
+                  return timeA - timeB;
+                }).map((message) => {
                   // 현재 사용자가 작성한 메시지인지 확인
                   const isMyMessage = message.author === (currentUser.displayName || currentUser.email);
                   
@@ -1361,6 +1482,123 @@ const PCKakaoDiscussion = () => {
           <Button onClick={() => setPasswordDialog({ open: false, discussion: null, password: '', type: '' })}>취소</Button>
           <Button onClick={handlePasswordCheck} variant="contained">
             {passwordDialog.type === 'enter' ? '입장' : '확인'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 토론 수정 다이얼로그 */}
+      <Dialog 
+        open={editDialog.open} 
+        onClose={() => setEditDialog({ open: false, discussion: null })}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#2d3748',
+            color: 'white'
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: 'white', borderBottom: '1px solid #4a5568' }}>
+          토론 수정
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          {editDialog.discussion && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                fullWidth
+                label="토론 제목"
+                value={editDialog.discussion.title || ''}
+                onChange={(e) => setEditDialog(prev => ({
+                  ...prev,
+                  discussion: { ...prev.discussion, title: e.target.value }
+                }))}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#4a5568' },
+                    '&:hover fieldset': { borderColor: '#718096' },
+                    '&.Mui-focused fieldset': { borderColor: '#4299e1' }
+                  },
+                  '& .MuiInputLabel-root': { color: '#a0aec0' },
+                  '& .MuiInputBase-input': { color: 'white' }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="현장명"
+                value={editDialog.discussion.siteName || ''}
+                onChange={(e) => setEditDialog(prev => ({
+                  ...prev,
+                  discussion: { ...prev.discussion, siteName: e.target.value }
+                }))}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#4a5568' },
+                    '&:hover fieldset': { borderColor: '#718096' },
+                    '&.Mui-focused fieldset': { borderColor: '#4299e1' }
+                  },
+                  '& .MuiInputLabel-root': { color: '#a0aec0' },
+                  '& .MuiInputBase-input': { color: 'white' }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="부제목 (선택사항)"
+                value={editDialog.discussion.subtitle || ''}
+                onChange={(e) => setEditDialog(prev => ({
+                  ...prev,
+                  discussion: { ...prev.discussion, subtitle: e.target.value }
+                }))}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#4a5568' },
+                    '&:hover fieldset': { borderColor: '#718096' },
+                    '&.Mui-focused fieldset': { borderColor: '#4299e1' }
+                  },
+                  '& .MuiInputLabel-root': { color: '#a0aec0' },
+                  '& .MuiInputBase-input': { color: 'white' }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="비밀번호 (선택사항)"
+                type="password"
+                value={editDialog.discussion.password || ''}
+                onChange={(e) => setEditDialog(prev => ({
+                  ...prev,
+                  discussion: { ...prev.discussion, password: e.target.value }
+                }))}
+                placeholder="비밀번호를 설정하지 않으려면 비워두세요"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#4a5568' },
+                    '&:hover fieldset': { borderColor: '#718096' },
+                    '&.Mui-focused fieldset': { borderColor: '#4299e1' }
+                  },
+                  '& .MuiInputLabel-root': { color: '#a0aec0' },
+                  '& .MuiInputBase-input': { color: 'white' }
+                }}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, borderTop: '1px solid #4a5568' }}>
+          <Button 
+            onClick={() => setEditDialog({ open: false, discussion: null })}
+            sx={{ color: '#a0aec0' }}
+          >
+            취소
+          </Button>
+          <Button 
+            onClick={handleEditSave}
+            variant="contained"
+            sx={{
+              backgroundColor: '#4299e1',
+              color: 'white',
+              '&:hover': { backgroundColor: '#3182ce' }
+            }}
+          >
+            수정
           </Button>
         </DialogActions>
       </Dialog>

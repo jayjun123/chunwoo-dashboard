@@ -11,6 +11,7 @@ import {
   signInWithPopup
 } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
+import { saveSessionInfo, loadSessionInfo, clearSessionInfo, checkSessionSync } from '../utils/sessionUtils';
 
 const AuthContext = createContext();
 
@@ -27,9 +28,16 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // 로컬 스토리지에서 로그인 상태 확인
+  // 로컬 스토리지에서 로그인 상태 확인 (Firebase Auth와 동기화)
   const getStoredUser = () => {
     try {
+      // Firebase Auth의 현재 상태를 우선 확인
+      const currentAuthUser = auth.currentUser;
+      if (currentAuthUser) {
+        console.log('AuthContext - Firebase Auth에서 현재 사용자 확인:', currentAuthUser.uid);
+        return null; // Firebase Auth가 있으면 로컬 스토리지는 무시
+      }
+      
       const stored = localStorage.getItem('user');
       return stored ? JSON.parse(stored) : null;
     } catch (error) {
@@ -38,13 +46,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 로컬 스토리지에 사용자 정보 저장
+  // 로컬 스토리지에 사용자 정보 저장 (Firebase Auth와 동기화)
   const storeUser = (user) => {
     try {
       if (user) {
-        localStorage.setItem('user', JSON.stringify(user));
+        // Firebase Auth와 동기화 확인
+        const currentAuthUser = auth.currentUser;
+        if (currentAuthUser && currentAuthUser.uid === user.uid) {
+          localStorage.setItem('user', JSON.stringify(user));
+          console.log('AuthContext - 사용자 정보 저장 (Firebase Auth와 동기화됨):', user.uid);
+        } else {
+          console.warn('AuthContext - Firebase Auth와 사용자 정보가 일치하지 않음, 저장하지 않음');
+        }
       } else {
         localStorage.removeItem('user');
+        console.log('AuthContext - 사용자 정보 제거');
       }
     } catch (error) {
       console.error('로컬 스토리지 저장 실패:', error);
@@ -103,6 +119,9 @@ export const AuthProvider = ({ children }) => {
       
       setCurrentUser(userInfo);
       storeUser(userInfo);
+      saveSessionInfo(userInfo);
+      
+      console.log('AuthContext - 로그인 완료 및 세션 저장:', userInfo.uid);
       return userCredential;
     } catch (error) {
       console.error('로그인 실패:', error);
@@ -131,6 +150,9 @@ export const AuthProvider = ({ children }) => {
       
       setCurrentUser(userInfo);
       storeUser(userInfo);
+      saveSessionInfo(userInfo);
+      
+      console.log('AuthContext - Google 로그인 완료 및 세션 저장:', userInfo.uid);
       return userCredential;
     } catch (error) {
       console.error('Google 로그인 실패:', error);
@@ -139,10 +161,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   // 로그아웃
-  const logout = () => {
-    setCurrentUser(null);
-    storeUser(null);
-    return signOut(auth);
+  const logout = async () => {
+    try {
+      console.log('AuthContext - 로그아웃 시작');
+      setCurrentUser(null);
+      storeUser(null);
+      clearSessionInfo();
+      await signOut(auth);
+      console.log('AuthContext - 로그아웃 완료');
+    } catch (error) {
+      console.error('AuthContext - 로그아웃 실패:', error);
+      throw error;
+    }
   };
 
   // 사용자 정보 새로고침 (Firebase에서 최신 정보 가져오기)
@@ -194,101 +224,61 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }, 5000);
     
-    // 초기 로딩 시 로컬 스토리지에서 사용자 정보 복원
-    const storedUser = getStoredUser();
-    if (storedUser && !currentUser) {
-      console.log('AuthContext - 로컬 스토리지에서 사용자 정보 복원:', storedUser);
-      setCurrentUser(storedUser);
-      setLoading(false); // 즉시 로딩 종료
-      clearTimeout(loadingTimeout);
+      // 세션 동기화 함수
+  const syncSession = async (user) => {
+    if (user) {
+      try {
+        // 토큰 새로고침으로 세션 유지
+        const token = await user.getIdToken(true);
+        console.log('AuthContext - 세션 동기화 완료 (토큰 새로고침)');
+        
+        // Firestore에서 최신 사용자 정보 가져오기
+        const userDoc = await getDoc(doc(db, 'members', user.uid));
+        const userData = userDoc.exists() ? userDoc.data() : {};
+        
+        const userInfo = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          ...userData,
+        };
+        
+        setCurrentUser(userInfo);
+        storeUser(userInfo);
+        console.log('AuthContext - 사용자 정보 동기화 완료:', userInfo.uid);
+        
+        // 세션 정보 저장
+        saveSessionInfo(userInfo);
+        
+      } catch (error) {
+        console.error('AuthContext - 세션 동기화 실패:', error);
+        // 기본 사용자 정보로 설정
+        const userInfo = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+        };
+        setCurrentUser(userInfo);
+        storeUser(userInfo);
+      }
+    } else {
+      setCurrentUser(null);
+      storeUser(null);
+      console.log('AuthContext - 로그아웃 상태로 동기화');
+      
+      // 세션 정보 제거
+      clearSessionInfo();
     }
+    setLoading(false);
+  };
     
+        // Firebase Auth 상태 변경 리스너
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('AuthContext - Firebase Auth 상태 변경:', user ? '로그인' : '로그아웃');
+      console.log('AuthContext - Firebase Auth 상태 변경:', user ? `로그인 (${user.uid})` : '로그아웃');
       clearTimeout(loadingTimeout); // Auth 상태 변경 시 타임아웃 클리어
       
-      if (user) {
-        try {
-          // 토큰 새로고침 (세션 유지)
-          const token = await user.getIdToken(true);
-          console.log('AuthContext - 토큰 새로고침 완료');
-          
-          // Firestore 실시간 리스너 추가 (타임아웃 설정)
-          const firestoreTimeout = setTimeout(() => {
-            console.warn('AuthContext - Firestore 타임아웃, 기본 정보로 설정');
-            const userInfo = { 
-              uid: user.uid,
-              email: user.email,
-              displayName: user.displayName,
-            };
-            setCurrentUser(userInfo);
-            storeUser(userInfo);
-            setLoading(false);
-          }, 3000);
-          
-          unsubscribeFirestore = onSnapshot(doc(db, 'members', user.uid), 
-            (doc) => { // Success callback
-              try {
-                clearTimeout(firestoreTimeout);
-                const userData = doc.exists() ? doc.data() : {};
-                const userInfo = {
-                  uid: user.uid,
-                  email: user.email,
-                  displayName: user.displayName,
-                  ...userData,
-                };
-
-                console.log('AuthContext - Firestore에서 로드된 사용자 정보:', userData);
-
-                setCurrentUser(userInfo);
-                storeUser(userInfo);
-                console.log('AuthContext - 실시간 업데이트:', userInfo);
-                setLoading(false); // 정보 로드 완료, 로딩 종료
-              } catch (error) {
-                clearTimeout(firestoreTimeout);
-                console.error('사용자 데이터 처리 오류:', error);
-                const userInfo = { 
-                  uid: user.uid,
-                  email: user.email,
-                  displayName: user.displayName,
-                };
-                setCurrentUser(userInfo);
-                storeUser(userInfo);
-                setLoading(false);
-              }
-            },
-            (error) => { // Error callback
-              clearTimeout(firestoreTimeout);
-              console.error('Firestore 스냅샷 에러:', error);
-              // 에러 발생 시 기본 사용자 정보로 설정
-              const userInfo = { 
-                uid: user.uid,
-                email: user.email,
-                displayName: user.displayName,
-              };
-              setCurrentUser(userInfo);
-              storeUser(userInfo);
-              setLoading(false); // 에러 발생 시에도 로딩 종료
-            }
-          );
-        } catch (error) {
-          console.error('Firestore 구독 설정 오류:', error);
-          const userInfo = { 
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-          };
-          setCurrentUser(userInfo);
-          storeUser(userInfo);
-          setLoading(false);
-        }
-      } else {
-        // 로그아웃 상태
-        console.log('AuthContext - 로그아웃 상태로 변경');
-        setCurrentUser(null);
-        storeUser(null);
-        setLoading(false); // 로딩 종료
-      }
+      // 세션 동기화 실행
+      await syncSession(user);
     }, (error) => {
       // Firebase Auth 초기화 오류 처리
       console.error('Firebase Auth 초기화 오류:', error);
@@ -297,6 +287,25 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
+    // 브라우저 탭 간 세션 동기화
+    const handleStorageChange = (e) => {
+      if (e.key === 'userSession') {
+        console.log('AuthContext - 다른 탭에서 세션 변경 감지');
+        // 세션 동기화 상태 확인
+        const currentAuthUser = auth.currentUser;
+        if (currentAuthUser) {
+          const syncStatus = checkSessionSync(currentAuthUser);
+          if (!syncStatus.synced) {
+            console.log('AuthContext - 세션 동기화 필요:', syncStatus.reason);
+            syncSession(currentAuthUser);
+          }
+        }
+      }
+    };
+
+    // storage 이벤트 리스너 추가
+    window.addEventListener('storage', handleStorageChange);
+
     return () => {
       try {
         clearTimeout(loadingTimeout); // 타임아웃 클리어
@@ -304,6 +313,7 @@ export const AuthProvider = ({ children }) => {
         if (unsubscribeFirestore) {
           unsubscribeFirestore();
         }
+        window.removeEventListener('storage', handleStorageChange);
       } catch (error) {
         console.error('구독 해제 오류:', error);
       }

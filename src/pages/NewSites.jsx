@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/material';
+import { formatContractAmount, formatAdvanceAmount, formatGisungAmount } from '../utils/formatUtils';
 
 const STATUS_OPTIONS = ['예정', '진행중', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급', '관급'];
@@ -477,19 +478,19 @@ const NewSites = () => {
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  계약금액
                </Typography>
-               <TextField name="contractAmount" value={isReadOnly ? (Number(form.contractAmount || 0)).toLocaleString() : (form.contractAmount ?? '')} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} inputRef={inputRef2} onFocus={scrollFocus(inputRef2)} />
+               <TextField name="contractAmount" value={isReadOnly ? formatContractAmount(form.contractAmount) : (form.contractAmount ?? '')} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} inputRef={inputRef2} onFocus={scrollFocus(inputRef2)} />
              </Box>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  선급금
                </Typography>
-               <TextField name="advance" value={isReadOnly ? (Number(form.advance || 0)).toLocaleString() : (form.advance ?? '')} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
+               <TextField name="advance" value={isReadOnly ? formatAdvanceAmount(form.advance) : (form.advance ?? '')} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
              </Box>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  누계기성
                </Typography>
-               <TextField name="totalProgress" value={(Number(form.totalProgress || 0)).toLocaleString()} onChange={handleChange} fullWidth size="small" disabled={true} sx={{ '& .MuiInputBase-input': { color: '#4caf50', fontWeight: 'bold' } }} />
+               <TextField name="totalProgress" value={formatGisungAmount(form.totalProgress)} onChange={handleChange} fullWidth size="small" disabled={true} sx={{ '& .MuiInputBase-input': { color: '#4caf50', fontWeight: 'bold' } }} />
              </Box>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>

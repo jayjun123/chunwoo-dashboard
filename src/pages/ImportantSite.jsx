@@ -46,6 +46,7 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "fire
 import CircularProgress from '@mui/material/CircularProgress';
 import { useNavigate } from 'react-router-dom';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import { formatContractAmount, formatGisungAmount, formatBalanceAmount } from '../utils/formatUtils';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -705,26 +706,26 @@ export default function ImportantSite() {
                   mb: isMobile ? 0.3 : 0.6 
                 }}>공사기간: {site.startDate} ~ {site.endDate}</Typography>
                 <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
-                  <Typography sx={{ 
-                    fontSize: isMobile ? '0.7rem' : 15, 
-                    textAlign: 'left', 
-                    minWidth: isMobile ? '60px' : '120px' 
-                  }}>계약금: {Number(site.contractAmount || 0).toLocaleString()}원</Typography>
-                  <Typography sx={{ 
-                    fontSize: isMobile ? '0.7rem' : 15, 
-                    textAlign: 'left', 
-                    color: '#43e97b', 
-                    fontWeight: 'bold' 
-                  }}>기성: {Number(totalGisung).toLocaleString()}원</Typography>
+                                  <Typography sx={{ 
+                  fontSize: isMobile ? '0.7rem' : 15, 
+                  textAlign: 'left', 
+                  minWidth: isMobile ? '60px' : '120px' 
+                }}>계약금: {formatContractAmount(site.contractAmount)}</Typography>
+                <Typography sx={{ 
+                  fontSize: isMobile ? '0.7rem' : 15, 
+                  textAlign: 'left', 
+                  color: '#43e97b', 
+                  fontWeight: 'bold' 
+                }}>기성: {formatGisungAmount(totalGisung)}</Typography>
                 </Box>
                 {/* 잔액을 시공팀 위로 이동 */}
                 <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
-                  <Typography sx={{ 
-                    fontSize: isMobile ? '0.7rem' : 15, 
-                    textAlign: 'left', 
-                    color: '#f44336', 
-                    fontWeight: 'bold' 
-                  }}>잔액: {Number((site.contractAmount || 0) - totalGisung).toLocaleString()}원</Typography>
+                                  <Typography sx={{ 
+                  fontSize: isMobile ? '0.7rem' : 15, 
+                  textAlign: 'left', 
+                  color: '#f44336', 
+                  fontWeight: 'bold' 
+                }}>잔액: {formatBalanceAmount((site.contractAmount || 0) - totalGisung)}</Typography>
                 </Box>
                 <Typography sx={{ 
                   fontSize: isMobile ? '0.7rem' : 15, 

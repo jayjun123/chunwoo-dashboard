@@ -875,17 +875,30 @@ const BottomBar = ({
       
       let addedCount = 0;
       let skippedCount = 0;
+      let errorCount = 0;
       
       // 선택된 투두들을 오늘로 추가 (중복 체크)
       for (const todoId of selectedTodos) {
-        const todo = yesterdayTodos.find(t => t.id === todoId);
-        if (todo) {
-          // 중복 체크
-          if (existingTodos.includes(todo.text)) {
+        try {
+          const todo = yesterdayTodos.find(t => t.id === todoId);
+          if (!todo) {
+            console.warn('투두를 찾을 수 없음:', todoId);
+            errorCount++;
+            continue;
+          }
+          
+          // 중복 체크 (대소문자 무시, 공백 제거 후 비교)
+          const normalizedTodoText = todo.text.trim().toLowerCase();
+          const isDuplicate = existingTodos.some(existing => 
+            existing.trim().toLowerCase() === normalizedTodoText
+          );
+          
+          if (isDuplicate) {
             skippedCount++;
             continue;
           }
           
+          // 새 투두 추가
           await addDoc(collection(db, 'todos'), {
             text: todo.text,
             completed: false,
@@ -893,26 +906,52 @@ const BottomBar = ({
             date: today,
             createdAt: new Date(),
             updatedAt: new Date(),
-            fromYesterday: true
+            fromYesterday: true,
+            originalTodoId: todo.id // 원본 투두 ID 저장
           });
           addedCount++;
+          
+          // 기존 목록에 추가하여 중복 체크 업데이트
+          existingTodos.push(todo.text);
+          
+        } catch (todoError) {
+          console.error('개별 투두 처리 실패:', todoError);
+          errorCount++;
         }
       }
       
+      // 다이얼로그 닫기
       setLoadTodoDialog(false);
+      setSelectedTodos([]); // 선택 상태 초기화
       
+      // 결과 메시지 생성
       let message = '';
       if (addedCount > 0) {
-        message += `${addedCount}개의 항목을 성공적으로 불러왔습니다.`;
+        message += `✅ ${addedCount}개의 항목을 성공적으로 불러왔습니다.`;
       }
       if (skippedCount > 0) {
-        message += ` ${skippedCount}개의 중복 항목은 건너뛰었습니다.`;
+        message += `\n⚠️ ${skippedCount}개의 중복 항목은 건너뛰었습니다.`;
+      }
+      if (errorCount > 0) {
+        message += `\n❌ ${errorCount}개의 항목 처리 중 오류가 발생했습니다.`;
       }
       
-      setError(message || '처리 완료되었습니다.');
+      if (!message) {
+        message = '처리할 항목이 없습니다.';
+      }
+      
+      setError(message);
+      
+      // 성공적으로 추가된 경우 잠시 후 메시지 지우기
+      if (addedCount > 0) {
+        setTimeout(() => {
+          setError('');
+        }, 5000);
+      }
+      
     } catch (error) {
       devError('투두 불러오기 실패:', error);
-      setError('투두를 불러오는데 실패했습니다.');
+      setError(`투두를 불러오는데 실패했습니다: ${error.message}`);
     }
   };
 
@@ -1856,6 +1895,11 @@ const BottomBar = ({
           <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="body2" color="text.secondary">
               불러올 항목을 선택하거나 삭제할 항목을 선택하세요
+              {selectedTodos.length > 0 && (
+                <span style={{ color: '#2196f3', fontWeight: 600 }}>
+                  {' '}({selectedTodos.length}개 선택됨)
+                </span>
+              )}
             </Typography>
             <Button
               size="small"
@@ -1865,12 +1909,13 @@ const BottomBar = ({
                 px: 1.5,
                 py: 0.5,
                 minWidth: 'auto',
-                bgcolor: '#424242',
+                bgcolor: selectedTodos.length > 0 ? '#2196f3' : '#424242',
                 color: '#fff',
                 borderColor: '#666',
                 whiteSpace: 'nowrap',
+                fontWeight: 600,
                 '&:hover': {
-                  bgcolor: '#616161',
+                  bgcolor: selectedTodos.length > 0 ? '#1976d2' : '#616161',
                   borderColor: '#888'
                 }
               }}
@@ -1890,9 +1935,14 @@ const BottomBar = ({
             p: isMobile ? 0.5 : 1
           }}>
             {yesterdayTodos.length === 0 ? (
-              <Typography sx={{ color: '#666', textAlign: 'center', py: 2 }}>
-                불러올 전날 미완료 항목이 없습니다.
-              </Typography>
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography sx={{ color: '#666', mb: 1, fontSize: '0.9rem' }}>
+                  📭 불러올 전날 미완료 항목이 없습니다.
+                </Typography>
+                <Typography sx={{ color: '#999', fontSize: '0.8rem' }}>
+                  전날 모든 투두가 완료되었거나 미완료 항목이 없습니다.
+                </Typography>
+              </Box>
             ) : (
               yesterdayTodos.map(todo => (
                 <Box 
@@ -1904,10 +1954,12 @@ const BottomBar = ({
                     mb: 0.5,
                     borderRadius: 1,
                     bgcolor: selectedTodos.includes(todo.id) ? '#e3f2fd' : '#fff',
-                    border: '1px solid #e0e0e0',
+                    border: selectedTodos.includes(todo.id) ? '2px solid #2196f3' : '1px solid #e0e0e0',
                     cursor: 'pointer',
+                    transition: 'all 0.2s ease',
                     '&:hover': {
-                      bgcolor: selectedTodos.includes(todo.id) ? '#e3f2fd' : '#f5f5f5'
+                      bgcolor: selectedTodos.includes(todo.id) ? '#e3f2fd' : '#f5f5f5',
+                      borderColor: selectedTodos.includes(todo.id) ? '#1976d2' : '#ccc'
                     }
                   }}
                   onClick={() => handleTodoSelection(todo.id)}
@@ -2009,10 +2061,11 @@ const BottomBar = ({
               px: 1.5,
               py: 0.5,
               minWidth: 'auto',
-              bgcolor: '#424242',
+              bgcolor: selectedTodos.length > 0 ? '#2196f3' : '#424242',
               color: '#fff',
+              fontWeight: 600,
               '&:hover': {
-                bgcolor: '#616161'
+                bgcolor: selectedTodos.length > 0 ? '#1976d2' : '#616161'
               },
               '&:disabled': {
                 bgcolor: '#2a2a2a',
@@ -2020,7 +2073,7 @@ const BottomBar = ({
               }
             }}
           >
-            선택불러오기({selectedTodos.length})
+            📥 선택불러오기 ({selectedTodos.length})
           </Button>
         </DialogActions>
       </Dialog>

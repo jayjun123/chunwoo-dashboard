@@ -979,7 +979,17 @@ const CustomCalendar = (props) => {
                                           item.type === '현설' ? '[현설]' : 
                                           item.type === '견적' ? '[견적]' : 
                                           item.type === '기타' ? '[기타]' : '';
-                                        return typePrefix + (item.text || '') + (item.desc ? `\n${item.desc}` : '');
+                                        const siteName = item.siteName || '';
+                                        const title = item.text || '';
+                                        
+                                        // 현장이름과 제목이 중복되는 경우 제목에서 현장이름 제거
+                                        let displayTitle = title;
+                                        if (siteName && title.includes(siteName)) {
+                                          displayTitle = title.replace(siteName, '').trim();
+                                        }
+                                        
+                                        const fullText = typePrefix + (siteName ? `${siteName} ` : '') + displayTitle;
+                                        return fullText + (item.desc ? `\n${item.desc}` : '');
                                       })()}
                                       placement="top"
                                       arrow

@@ -6,6 +6,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js';
+import { formatContractAmount, formatGisungAmount, formatAdvanceAmount } from '../utils/formatUtils';
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 const sampleSites = [
@@ -47,15 +48,15 @@ export default function ConstructionProgress() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ background: '#232837', borderRadius: 10, padding: '16px 24px', minWidth: 180 }}>
             <div style={{ color: '#90caf9', fontSize: 14 }}>계약금액</div>
-            <div style={{ fontWeight: 700, fontSize: 20 }}>{site.contract.toLocaleString()} 원</div>
+            <div style={{ fontWeight: 700, fontSize: 20 }}>{formatContractAmount(site.contract)}</div>
           </div>
           <div style={{ background: '#232837', borderRadius: 10, padding: '16px 24px', minWidth: 180 }}>
             <div style={{ color: '#90caf9', fontSize: 14 }}>누적 기성금</div>
-            <div style={{ fontWeight: 700, fontSize: 20 }}>{site.progress.toLocaleString()} 원</div>
+            <div style={{ fontWeight: 700, fontSize: 20 }}>{formatGisungAmount(site.progress)}</div>
           </div>
           <div style={{ background: '#232837', borderRadius: 10, padding: '16px 24px', minWidth: 180 }}>
             <div style={{ color: '#90caf9', fontSize: 14 }}>선급금</div>
-            <div style={{ fontWeight: 700, fontSize: 20 }}>{site.advance.toLocaleString()} 원</div>
+            <div style={{ fontWeight: 700, fontSize: 20 }}>{formatAdvanceAmount(site.advance)}</div>
           </div>
         </div>
         {/* 도넛형 그래프 */}
@@ -82,9 +83,9 @@ export default function ConstructionProgress() {
             {filtered.map((s, idx) => (
               <tr key={idx} style={{ borderTop: '1px solid #333' }}>
                 <td style={{ padding: 10 }}>{s.name}</td>
-                <td style={{ padding: 10 }}>{s.contract.toLocaleString()} 원</td>
-                <td style={{ padding: 10 }}>{s.advance.toLocaleString()} 원</td>
-                <td style={{ padding: 10 }}>{s.progress.toLocaleString()} 원</td>
+                <td style={{ padding: 10 }}>{formatContractAmount(s.contract)}</td>
+                <td style={{ padding: 10 }}>{formatAdvanceAmount(s.advance)}</td>
+                <td style={{ padding: 10 }}>{formatGisungAmount(s.progress)}</td>
                 <td style={{ padding: 10 }}>{Math.round((s.progress / s.contract) * 100)}%</td>
               </tr>
             ))}

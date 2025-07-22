@@ -782,7 +782,7 @@ const ScheduleManagement = ({
       margin: 0,
       padding: 0,
       position: 'relative',
-      mt: isMobile ? '60px' : '54px', // 모바일에서 위로 20px 더 이동 (80px → 60px)
+      mt: isMobile ? '50px' : '54px', // 모바일에서 위로 30px 더 이동 (80px → 50px)
       mb: '20px',
       overflow: isMobile ? 'hidden' : 'visible',
       bgcolor: '#23242a'
@@ -864,10 +864,10 @@ const ScheduleManagement = ({
                       borderColor: '#3b82f6',
                       color: '#3b82f6',
                       fontSize: '0.9rem',
-                      py: 0.3,
-                      px: 1,
+                      py: 0.1,
+                      px: 0.8,
                       minWidth: 'auto',
-                      height: 24,
+                      height: 20,
                       '&:hover': {
                         borderColor: '#2563eb',
                         backgroundColor: 'rgba(59, 130, 246, 0.1)'
@@ -887,10 +887,10 @@ const ScheduleManagement = ({
                       borderColor: '#ef4444',
                       color: '#ef4444',
                       fontSize: '0.9rem',
-                      py: 0.3,
-                      px: 1,
+                      py: 0.1,
+                      px: 0.8,
                       minWidth: 'auto',
-                      height: 24,
+                      height: 20,
                       '&:hover': {
                         borderColor: '#dc2626',
                         backgroundColor: 'rgba(239, 68, 68, 0.1)'

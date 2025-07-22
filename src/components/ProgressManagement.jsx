@@ -3,6 +3,7 @@ import { progressAPI, sitesAPI, permissionsAPI } from '../api/database';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import '../styles/ProgressManagement.css';
+import { formatContractAmount, formatGisungAmount, formatAdvanceAmount, formatBalanceAmount } from '../utils/formatUtils';
 
 const ProgressManagement = () => {
   const { isDarkMode } = useTheme();
@@ -180,26 +181,26 @@ const ProgressManagement = () => {
           <div className="progress-summary" style={{ width: '100vw', maxWidth: '100vw', margin: 0, padding: 0, boxSizing: 'border-box' }}>
             <div className="summary-card" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <h3>계약금액</h3>
-              <p>{progressData.contractAmount?.toLocaleString()}원</p>
+              <p>{formatContractAmount(progressData.contractAmount)}</p>
             </div>
             <div className="summary-card" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <h3>선급금</h3>
-              <p>{progressData.advancePayment?.toLocaleString()}원</p>
+              <p>{formatAdvanceAmount(progressData.advancePayment)}</p>
             </div>
             <div className="summary-card" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <h3>기성금</h3>
-              <p>{progressData.progressPayments.reduce(
+              <p>{formatGisungAmount(progressData.progressPayments.reduce(
                 (sum, payment) => sum + Number(payment.amount),
                 0
-              )?.toLocaleString()}원</p>
+              ))}</p>
             </div>
             <div className="summary-card" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <h3>유지보수금</h3>
-              <p>{progressData.retentionMoney?.toLocaleString()}원</p>
+              <p>{formatBalanceAmount(progressData.retentionMoney)}</p>
             </div>
             <div className="summary-card" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <h3>총 지급액</h3>
-              <p>{progressData.totalPaid?.toLocaleString()}원</p>
+              <p>{formatBalanceAmount(progressData.totalPaid)}</p>
             </div>
             <div className="summary-card" style={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <h3>잔여금액</h3>
