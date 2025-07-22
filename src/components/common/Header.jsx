@@ -29,6 +29,7 @@ const Header = () => {
     { path: '/safety', label: '안전관리', icon: <span role="img" aria-label="safety">⚠️</span> },
     { path: '/discussions', label: '토론의견', icon: <span role="img" aria-label="discuss">💬</span> },
     { path: '/vendors', label: '거래처현황', icon: <PeopleIcon /> },
+    { path: '/vendor-management', label: '거래처관리', icon: <span role="img" aria-label="vendor">👥</span> },
     { path: '/progress', label: '기성관리', icon: <span role="img" aria-label="money">💰</span> },
     { path: '/documents', label: '문서관리', icon: <span role="img" aria-label="doc">📄</span> },
     { path: '/reports', label: '보고서', icon: <span role="img" aria-label="report">📊</span> }

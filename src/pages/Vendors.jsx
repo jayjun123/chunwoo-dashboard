@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useMediaQuery, useTheme } from '@mui/material';
 import {
   Box,
   Typography,
@@ -26,27 +25,28 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Download as DownloadIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
+import * as XLSX from 'xlsx';
 
 const Vendors = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [vendors, setVendors] = useState([]);
   const [open, setOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState(null);
   const [formData, setFormData] = useState({
+    companyName: '',
+    bidDate: '',
     siteName: '',
-    date: '',
-    name: '',
-    type: '',
-    description: ''
+    amount: '',
+    item: '',
+    quantity: '',
+    note: ''
   });
+  const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     fetchVendors();
@@ -69,20 +69,24 @@ const Vendors = () => {
     if (vendor) {
       setEditingVendor(vendor);
       setFormData({
+        companyName: vendor.companyName || '',
+        bidDate: vendor.bidDate || '',
         siteName: vendor.siteName || '',
-        date: vendor.date || '',
-        name: vendor.name || '',
-        type: vendor.type || '',
-        description: vendor.description || ''
+        amount: vendor.amount || '',
+        item: vendor.item || '',
+        quantity: vendor.quantity || '',
+        note: vendor.note || ''
       });
     } else {
       setEditingVendor(null);
       setFormData({
+        companyName: '',
+        bidDate: '',
         siteName: '',
-        date: '',
-        name: '',
-        type: '',
-        description: ''
+        amount: '',
+        item: '',
+        quantity: '',
+        note: ''
       });
     }
     setOpen(true);
@@ -119,83 +123,49 @@ const Vendors = () => {
     }
   };
 
-  const handleExcelDownload = () => {
-    // 엑셀 다운로드 로직
-    const csvContent = [
-      ['현장명', '낙찰일', '업체명', '분류', '비고'],
-      ...vendors.map(vendor => [
-        vendor.siteName || '',
-        vendor.date || '',
-        vendor.name || '',
-        vendor.type || '',
-        vendor.description || ''
-      ])
-    ].map(row => row.join(',')).join('\n');
+  const handleDownload = () => {
+    const data = vendors.map((vendor, index) => ({
+      'NO.': index + 1,
+      '업체명': vendor.companyName || '',
+      '낙찰일': vendor.bidDate || '',
+      '현장명': vendor.siteName || '',
+      '금액': vendor.amount || '',
+      '품목': vendor.item || '',
+      '물량': vendor.quantity || '',
+      '비고': vendor.note || ''
+    }));
 
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `거래처현황_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '입찰현황');
+    XLSX.writeFile(wb, `입찰현황_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
-
-  const handleSearch = () => {
-    setSearchOpen(!searchOpen);
-  };
-
-  const filteredVendors = vendors.filter(vendor =>
-    vendor.siteName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vendor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vendor.type?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
-    <Box sx={{ p: { xs: 0, md: 3 }, pt: { xs: 0, md: 8 } }}>
+    <Box sx={{ p: 3, marginTop: '64px' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h4">거래처현황</Typography>
+        <Typography variant="h4">입찰현황</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <IconButton
-            variant="outlined"
-            onClick={handleSearch}
-            sx={{ border: 1, borderColor: 'divider' }}
-          >
+          <IconButton onClick={() => setShowSearch(!showSearch)}>
             <SearchIcon />
           </IconButton>
-          <IconButton
-            variant="outlined"
-            onClick={handleExcelDownload}
-            sx={{ border: 1, borderColor: 'divider' }}
-          >
+          <IconButton onClick={handleDownload}>
             <DownloadIcon />
           </IconButton>
-          <IconButton
-            variant="contained"
-            onClick={() => handleOpen()}
-            sx={{ 
-              bgcolor: 'primary.main', 
-              color: 'white',
-              '&:hover': { bgcolor: 'primary.dark' }
-            }}
-          >
+          <IconButton onClick={() => handleOpen()}>
             <AddIcon />
           </IconButton>
         </Box>
       </Box>
 
-      {searchOpen && (
-        <Box sx={{ mb: 3 }}>
+      {showSearch && (
+        <Box sx={{ mb: 2 }}>
           <TextField
             fullWidth
-            label="검색어 입력"
+            placeholder="검색어를 입력하세요..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="현장명, 업체명, 분류로 검색"
-            variant="outlined"
-            size="small"
+            sx={{ mb: 2 }}
           />
         </Box>
       )}
@@ -204,32 +174,41 @@ const Vendors = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>현장명</TableCell>
-              {!isMobile && <TableCell>낙찰일</TableCell>}
               <TableCell>업체명</TableCell>
-              {!isMobile && <TableCell>분류</TableCell>}
+              <TableCell>낙찰일</TableCell>
+              <TableCell>현장명</TableCell>
+              <TableCell>금액</TableCell>
+              <TableCell>품목</TableCell>
+              <TableCell>물량</TableCell>
               <TableCell>비고</TableCell>
-              {!isMobile && <TableCell>관리</TableCell>}
+              <TableCell>관리</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredVendors.map((vendor) => (
+            {vendors
+              .filter(vendor => 
+                !searchTerm || 
+                vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                vendor.siteName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                vendor.item?.toLowerCase().includes(searchTerm.toLowerCase())
+              )
+              .map((vendor) => (
               <TableRow key={vendor.id}>
+                <TableCell>{vendor.companyName}</TableCell>
+                <TableCell>{vendor.bidDate}</TableCell>
                 <TableCell>{vendor.siteName}</TableCell>
-                {!isMobile && <TableCell>{vendor.date}</TableCell>}
-                <TableCell>{vendor.name}</TableCell>
-                {!isMobile && <TableCell>{vendor.type}</TableCell>}
-                <TableCell>{vendor.description}</TableCell>
-                {!isMobile && (
-                  <TableCell>
-                    <IconButton size="small" onClick={() => handleOpen(vendor)}>
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton size="small" onClick={() => handleDelete(vendor.id)}>
-                      <DeleteIcon />
-                    </IconButton>
-                  </TableCell>
-                )}
+                <TableCell>{vendor.amount}</TableCell>
+                <TableCell>{vendor.item}</TableCell>
+                <TableCell>{vendor.quantity}</TableCell>
+                <TableCell>{vendor.note}</TableCell>
+                <TableCell>
+                  <IconButton onClick={() => handleOpen(vendor)}>
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleDelete(vendor.id)}>
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -244,6 +223,24 @@ const Vendors = () => {
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
             <TextField
               fullWidth
+              label="업체명"
+              value={formData.companyName}
+              onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              label="낙찰일"
+              type="date"
+              value={formData.bidDate}
+              onChange={(e) => setFormData({ ...formData, bidDate: e.target.value })}
+              margin="normal"
+              required
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              fullWidth
               label="현장명"
               value={formData.siteName}
               onChange={(e) => setFormData({ ...formData, siteName: e.target.value })}
@@ -252,40 +249,33 @@ const Vendors = () => {
             />
             <TextField
               fullWidth
-              label="낙찰일"
-              type="date"
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              label="금액"
+              value={formData.amount}
+              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
               margin="normal"
               required
-              InputLabelProps={{ shrink: true }}
             />
             <TextField
               fullWidth
-              label="업체명"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              label="품목"
+              value={formData.item}
+              onChange={(e) => setFormData({ ...formData, item: e.target.value })}
               margin="normal"
               required
             />
-            <FormControl fullWidth margin="normal" required>
-              <InputLabel>분류</InputLabel>
-              <Select
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                label="분류"
-              >
-                <MenuItem value="시공">시공</MenuItem>
-                <MenuItem value="자재">자재</MenuItem>
-                <MenuItem value="장비">장비</MenuItem>
-                <MenuItem value="기타">기타</MenuItem>
-              </Select>
-            </FormControl>
+            <TextField
+              fullWidth
+              label="물량"
+              value={formData.quantity}
+              onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+              margin="normal"
+              required
+            />
             <TextField
               fullWidth
               label="비고"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              value={formData.note}
+              onChange={(e) => setFormData({ ...formData, note: e.target.value })}
               margin="normal"
               multiline
               rows={2}
@@ -301,6 +291,6 @@ const Vendors = () => {
       </Dialog>
     </Box>
   );
-  };
-  
-  export default Vendors; 
+};
+
+export default Vendors; 

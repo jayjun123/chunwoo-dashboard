@@ -28,6 +28,7 @@ import Documents from './pages/Documents';
 import Reports from './pages/Reports';
 import Discussions from './pages/Discussions';
 import Vendors from './pages/Vendors';
+import VendorManagement from './pages/VendorManagement';
 import Progress from './pages/Progress';
 import Members from './pages/Members';
 import Permissions from './pages/Permissions';
@@ -372,6 +373,16 @@ const App = () => {
                                 <Vendors />
                               </Layout>
                             )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/vendor-management"
+                        element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <VendorManagement />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />

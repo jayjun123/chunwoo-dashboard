@@ -12,6 +12,7 @@ import {
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import SearchableSiteSelect from '../common/SearchableSiteSelect';
 import {
   Box,
   Typography,
@@ -112,16 +113,7 @@ const PCKakaoDiscussion = () => {
   const messagesEndRef = useRef(null);
   const passwordInputRef = useRef(null);
 
-  // 저장된 스타일 설정 불러오기
-  useEffect(() => {
-    const savedBubbleColor = localStorage.getItem('chatBubbleColor');
-    const savedTextColor = localStorage.getItem('chatTextColor');
-    const savedBackgroundColor = localStorage.getItem('chatBackgroundColor');
-    
-    if (savedBubbleColor) setBubbleColor(savedBubbleColor);
-    if (savedTextColor) setTextColor(savedTextColor);
-    if (savedBackgroundColor) setBackgroundColor(savedBackgroundColor);
-  }, []);
+
 
   // 실시간 데이터 구독
   useEffect(() => {
@@ -1238,27 +1230,24 @@ const PCKakaoDiscussion = () => {
       >
         <DialogTitle sx={{ color: 'white' }}>새 토론 만들기</DialogTitle>
         <DialogContent>
-          <FormControl fullWidth sx={{ mb: 2, mt: 1 }}>
-            <InputLabel sx={{ color: '#a0aec0' }}>현장 선택 *</InputLabel>
-            <Select
+          <Box sx={{ mb: 2, mt: 1 }}>
+            <SearchableSiteSelect
+              sites={sites}
               value={newDiscussion.siteName}
-              onChange={(e) => setNewDiscussion(prev => ({ ...prev, siteName: e.target.value }))}
+              onChange={(value) => setNewDiscussion(prev => ({ ...prev, siteName: value }))}
+              label="현장 선택 *"
+              placeholder="현장명을 입력하거나 선택하세요"
               sx={{
-                color: 'white',
                 '& .MuiOutlinedInput-root': {
                   '& fieldset': { borderColor: '#4a5568' },
                   '&:hover fieldset': { borderColor: '#718096' },
                   '&.Mui-focused fieldset': { borderColor: '#90caf9' }
-                }
+                },
+                '& .MuiInputLabel-root': { color: '#a0aec0' },
+                '& .MuiInputBase-input': { color: 'white' }
               }}
-            >
-              {sites.map((site) => (
-                <MenuItem key={site.id} value={site.name} sx={{ color: 'white' }}>
-                  {site.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+            />
+          </Box>
           
           <TextField
             fullWidth
@@ -1652,14 +1641,15 @@ const PCKakaoDiscussion = () => {
                   '& .MuiInputBase-input': { color: 'white' }
                 }}
               />
-              <TextField
-                fullWidth
-                label="현장명"
+              <SearchableSiteSelect
+                sites={sites}
                 value={editDialog.discussion.siteName || ''}
-                onChange={(e) => setEditDialog(prev => ({
+                onChange={(value) => setEditDialog(prev => ({
                   ...prev,
-                  discussion: { ...prev.discussion, siteName: e.target.value }
+                  discussion: { ...prev.discussion, siteName: value }
                 }))}
+                label="현장명"
+                placeholder="현장명을 입력하거나 선택하세요"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#4a5568' },

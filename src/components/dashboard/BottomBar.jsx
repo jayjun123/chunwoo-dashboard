@@ -119,62 +119,18 @@ const BottomBar = ({
   const [expandTodo, setExpandTodo] = useState(false);
   const [expandSettings, setExpandSettings] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false); // 하단바 전체 확장/축소 상태
-  const [weatherLocation, setWeatherLocation] = useState('대구');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [weatherData, setWeatherData] = useState({
-    current: {
-      temp: 0,
-      weather: '',
-      icon: '01d'
-    },
-    daily: []
-  });
-  const [weatherLoading, setWeatherLoading] = useState(false);
 
   const [settingsTab, setSettingsTab] = useState(0); // 0:회원, 1:권한, 2:설정
 
-  const [inputValue, setInputValue] = useState(weatherLocation);
-
   // Popover 앵커 상태
   const [anchorElSettings, setAnchorElSettings] = useState(null);
-  const [anchorElWeather, setAnchorElWeather] = useState(null);
 
   // todoList의 최신 값을 참조하기 위한 ref
   const todoListRef = useRef(todoList);
   todoListRef.current = todoList;
 
-  // 날씨 아이콘 매핑 - 각 상태에 맞는 아이콘 사용
-  const weatherIcons = {
-    '01d': <WbSunnyIcon sx={{ color: '#FFD600', fontSize: 28 }} />, // 맑음 - 노란색 해
-    '01n': <WbSunnyIcon sx={{ color: '#FFD600', fontSize: 28 }} />, // 맑음(밤) - 노란색 해
-    '02d': <CloudIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 구름많음 - 파란색 구름
-    '02n': <CloudIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 구름많음(밤) - 파란색 구름
-    '03d': <CloudIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 흐림 - 파란색 구름
-    '03n': <CloudIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 흐림(밤) - 파란색 구름
-    '04d': <CloudIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 흐림 - 파란색 구름
-    '04n': <CloudIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 흐림(밤) - 파란색 구름
-    '09d': <OpacityIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 소나기 - 파란색 물방울
-    '09n': <OpacityIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 소나기(밤) - 파란색 물방울
-    '10d': <OpacityIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 비 - 파란색 물방울
-    '10n': <OpacityIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 비(밤) - 파란색 물방울
-    '11d': <ThunderstormIcon sx={{ color: '#FFD600', fontSize: 28 }} />, // 번개 - 노란색 번개
-    '11n': <ThunderstormIcon sx={{ color: '#FFD600', fontSize: 28 }} />, // 번개(밤) - 노란색 번개
-    '13d': <AcUnitIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 눈 - 파란색 눈송이
-    '13n': <AcUnitIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 눈(밤) - 파란색 눈송이
-    '50d': <VisibilityIcon sx={{ color: '#90CAF9', fontSize: 28 }} />, // 안개 - 파란색 안개
-    '50n': <VisibilityIcon sx={{ color: '#90CAF9', fontSize: 28 }} />  // 안개(밤) - 파란색 안개
-  };
 
-  // 날씨 상태 한글 매핑
-  const weatherStatus = {
-    'Clear': '맑음',
-    'Clouds': '구름',
-    'Rain': '비',
-    'Snow': '눈',
-    'Thunderstorm': '번개',
-    'Drizzle': '이슬비',
-    'Mist': '안개'
-  };
 
   // 날짜를 'YYYY. M. D (요일)' 한글로 포맷팅하는 함수
   function formatDate(date) {
@@ -183,238 +139,12 @@ const BottomBar = ({
     return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()} (${week[d.getDay()]})`;
   }
 
-  // 기상청 날씨 코드 변환 함수(상태/아이콘) - 실제 API 코드에 맞게 수정
-  const getWeatherStatus = (code) => {
-    const status = {
-      '1': '맑음',
-      '3': '구름많음',
-      '4': '흐림'
-    };
-    return status[code] || '날씨 정보 없음';
-  };
-  const getWeatherIcon = (code) => {
-    const icons = {
-      '1': '01d', // 맑음
-      '3': '02d', // 구름많음
-      '4': '04d'  // 흐림
-    };
-    return icons[code] || '01d';
-  };
 
-  // 기상청 PTY(강수형태) + SKY(하늘상태) 조합으로 아이콘 결정
-  function getWeatherIconByKMA(sky, pty) {
-    if (pty && pty !== '0') {
-      if (pty === '1' || pty === '4') return '10d'; // 비, 소나기
-      if (pty === '2') return '13d'; // 비/눈
-      if (pty === '3') return '13d'; // 눈
-    }
-    if (sky === '1') return '01d'; // 맑음
-    if (sky === '3') return '02d'; // 구름많음
-    if (sky === '4') return '04d'; // 흐림
-    return '01d';
-  }
 
-  // 대구 달서구 nx, ny: 89, 90
-  const getLocationCoords = (location) => {
-    // 주요 도시별 좌표 (기상청 격자 좌표)
-    const locationCoords = {
-      '서울': { nx: 60, ny: 127 },
-      '부산': { nx: 98, ny: 76 },
-      '대구': { nx: 89, ny: 90 },
-      '인천': { nx: 55, ny: 124 },
-      '광주': { nx: 58, ny: 74 },
-      '대전': { nx: 67, ny: 100 },
-      '울산': { nx: 102, ny: 84 },
-      '세종': { nx: 66, ny: 103 },
-      '수원': { nx: 60, ny: 120 },
-      '성남': { nx: 62, ny: 123 },
-      '안양': { nx: 59, ny: 123 },
-      '안산': { nx: 58, ny: 121 },
-      '고양': { nx: 57, ny: 128 },
-      '용인': { nx: 64, ny: 119 },
-      '부천': { nx: 56, ny: 125 },
-      '광명': { nx: 58, ny: 125 },
-      '평택': { nx: 62, ny: 114 },
-      '과천': { nx: 60, ny: 124 },
-      '오산': { nx: 62, ny: 118 },
-      '시흥': { nx: 57, ny: 123 },
-      '군포': { nx: 59, ny: 122 },
-      '의왕': { nx: 60, ny: 122 },
-      '하남': { nx: 64, ny: 126 },
-      '이천': { nx: 68, ny: 121 },
-      '안성': { nx: 65, ny: 115 },
-      '김포': { nx: 55, ny: 128 },
-      '화성': { nx: 57, ny: 119 },
-      '여주': { nx: 71, ny: 121 },
-      '양평': { nx: 69, ny: 125 },
-      '포천': { nx: 64, ny: 134 },
-      '연천': { nx: 61, ny: 138 },
-      '가평': { nx: 69, ny: 133 },
-      '춘천': { nx: 73, ny: 134 },
-      '원주': { nx: 76, ny: 122 },
-      '강릉': { nx: 92, ny: 131 },
-      '태백': { nx: 95, ny: 119 },
-      '정선': { nx: 89, ny: 123 },
-      '속초': { nx: 87, ny: 141 },
-      '삼척': { nx: 98, ny: 125 },
-      '동해': { nx: 97, ny: 127 },
-      '횡성': { nx: 75, ny: 125 },
-      '영월': { nx: 86, ny: 119 },
-      '평창': { nx: 84, ny: 123 },
-      '철원': { nx: 65, ny: 139 },
-      '화천': { nx: 72, ny: 139 },
-      '양구': { nx: 77, ny: 139 },
-      '인제': { nx: 80, ny: 138 },
-      '고성': { nx: 85, ny: 145 },
-      '양양': { nx: 88, ny: 138 },
-      '제주': { nx: 53, ny: 38 },
-      '서귀포': { nx: 52, ny: 33 }
-    };
-    
-    // 입력된 지역명에서 매칭되는 좌표 찾기
-    for (const [city, coords] of Object.entries(locationCoords)) {
-      if (location.includes(city)) {
-        return coords;
-      }
-    }
-    
-    // 기본값: 대구
-    return { nx: 89, ny: 90 };
-  };
-  const fetchWeatherData = useCallback(async (location) => {
-    try {
-      setWeatherLoading(true);
-      const { nx, ny } = getLocationCoords(location);
-      const serviceKey = import.meta.env.VITE_WEATHER_API_KEY;
-      
-      if (!serviceKey) {
-        console.warn('날씨 API 키가 설정되지 않았습니다. 날씨 기능이 비활성화됩니다.');
-        setWeatherLoading(false);
-        return; // 에러를 throw하지 않고 조용히 종료
-      }
-      
-      const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${serviceKey}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${format(new Date(), 'yyyyMMdd')}&base_time=0500&nx=${nx}&ny=${ny}`;
-      console.log('기상청 fetch URL:', url);
-      const response = await fetch(url);
-      const text = await response.text();
-      console.log('기상청 날씨 API 원본 응답:', text);
-      let data;
-      try {
-        data = JSON.parse(text);
-        console.log('기상청 날씨 API 응답(JSON):', data);
-      } catch (jsonErr) {
-        console.warn('날씨 API 응답이 JSON 형식이 아닙니다. 기본 날씨 정보를 사용합니다.');
-        // API 오류 시 기본 날씨 정보 사용
-        const defaultWeatherData = {
-          current: {
-            temp: 20,
-            weather: '맑음',
-            icon: '01d'
-          },
-          daily: [
-            {
-              date: new Date(),
-              temp: 20,
-              icon: '01d',
-              weather: '맑음',
-              pop: 0
-            }
-          ]
-        };
-        setWeatherData(defaultWeatherData);
-        setWeatherLoading(false);
-        return;
-      }
-      const weatherItems = data?.response?.body?.items?.item || [];
-      // 실제로 데이터가 있는 날짜만 추출해서 3일치만 표시
-      const uniqueDates = [...new Set(weatherItems.map(item => item.fcstDate))].slice(0, 3);
-      const days = uniqueDates.map(dateStr => {
-        const d = new Date(dateStr.slice(0,4), dateStr.slice(4,6)-1, dateStr.slice(6,8));
-        const dayItems = weatherItems.filter(item => item.fcstDate === dateStr);
-        const tempItem = dayItems.find(item => item.category === 'TMP');
-        // 가장 가까운 시간대의 PTY/SKY 선택
-        const nowHour = new Date().getHours();
-        const getClosest = (cat) => {
-          const arr = dayItems.filter(item => item.category === cat);
-          if (arr.length === 0) return null;
-          return arr.sort((a, b) => Math.abs(Number(a.fcstTime) - nowHour*100) - Math.abs(Number(b.fcstTime) - nowHour*100))[0];
-        };
-        const skyItem = getClosest('SKY');
-        const ptyItem = getClosest('PTY');
-        // POP(강수확률) 중 최대값
-        const popItems = dayItems.filter(item => item.category === 'POP');
-        const maxPop = popItems.length > 0 ? Math.max(...popItems.map(item => Number(item.fcstValue))) : '-';
-        return {
-          date: d,
-          temp: tempItem ? Math.round(parseFloat(tempItem.fcstValue)) : '-',
-          icon: getWeatherIconByKMA(skyItem?.fcstValue, ptyItem?.fcstValue),
-          weather: getWeatherStatus(skyItem?.fcstValue),
-          pop: maxPop
-        };
-      });
-      // 현재 날씨(가장 가까운 PTY, SKY)
-      const now = format(new Date(), 'yyyyMMddHHmm');
-      const getClosestNow = (cat) => {
-        const arr = weatherItems.filter(item => item.category === cat && item.fcstDate === format(new Date(), 'yyyyMMdd'));
-        if (arr.length === 0) return null;
-        const nowHour = new Date().getHours();
-        return arr.sort((a, b) => Math.abs(Number(a.fcstTime) - nowHour*100) - Math.abs(Number(b.fcstTime) - nowHour*100))[0];
-      };
-      const currentSky = getClosestNow('SKY');
-      const currentPty = getClosestNow('PTY');
-      const currentTemp = weatherItems.find(item => item.category === 'TMP');
-      const weatherDataObj = {
-        current: {
-          temp: currentTemp ? Math.round(parseFloat(currentTemp.fcstValue)) : '-',
-          weather: getWeatherStatus(currentSky?.fcstValue),
-          icon: getWeatherIconByKMA(currentSky?.fcstValue, currentPty?.fcstValue)
-        },
-        daily: days
-      };
-      // 지역별 캐시 키
-      const cacheKey = `cachedWeatherData_${location}`;
-      const cacheTimeKey = `cachedWeatherTime_${location}`;
-      localStorage.setItem(cacheKey, JSON.stringify(weatherDataObj));
-      localStorage.setItem(cacheTimeKey, new Date().toISOString());
-      setWeatherData(weatherDataObj);
-    } catch (error) {
-      console.error('날씨 데이터 조회 실패:', error);
-      // 날씨 오류 알림 제거
-    } finally {
-      setWeatherLoading(false);
-    }
-  }, []);
 
-  // 날씨 기능 비활성화 (필요 없음)
-  /*
-  useEffect(() => {
-    const checkAndFetchWeather = () => {
-      const now = new Date();
-      const hour = now.getHours();
-      const cacheKey = `cachedWeatherData_${weatherLocation}`;
-      const cacheTimeKey = `cachedWeatherTime_${weatherLocation}`;
-      const shouldFetchFromAPI = hour === 3 || hour === 12 || hour === 16;
-      const cachedWeather = localStorage.getItem(cacheKey);
-      const cachedTime = localStorage.getItem(cacheTimeKey);
-      if (shouldFetchFromAPI) {
-        fetchWeatherData(weatherLocation);
-      } else if (cachedWeather && cachedTime) {
-        const cacheTime = new Date(cachedTime);
-        const hoursSinceCache = (now - cacheTime) / (1000 * 60 * 60);
-        if (hoursSinceCache < 24) {
-          setWeatherData(JSON.parse(cachedWeather));
-        } else {
-          fetchWeatherData(weatherLocation);
-        }
-      } else {
-        fetchWeatherData(weatherLocation);
-      }
-    };
-    checkAndFetchWeather();
-    const interval = setInterval(checkAndFetchWeather, 60 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [weatherLocation, fetchWeatherData]);
-  */
+
+
+
 
   // 현장 데이터 fetch (stats용)
   useEffect(() => {
@@ -1088,13 +818,7 @@ const BottomBar = ({
   const handleSettingsClose = () => {
     setAnchorElSettings(null);
   };
-  // 날씨 아이콘 클릭 핸들러
-  const handleWeatherIconClick = (e) => {
-    setAnchorElWeather(e.currentTarget);
-  };
-  const handleWeatherClose = () => {
-    setAnchorElWeather(null);
-  };
+
 
   // 하단바 전체 확장/축소 토글 함수
   const handleBottomBarToggle = () => {
@@ -1194,10 +918,7 @@ const BottomBar = ({
           </Typography>
           <Typography 
             sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
-            onClick={() => {
-              console.log('하단바 견적 버튼 클릭 - 견적 페이지로 이동');
-              navigate('/estimates');
-            }}
+            onClick={(e) => { e.stopPropagation(); handleOpenPanel('center'); }}
           >
             <CalculateIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF9800', mr: 0.5 }} />
             {!isMobile && '[견적]'} {stats.estimateCount ?? 0}

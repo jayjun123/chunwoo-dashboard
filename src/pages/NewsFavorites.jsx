@@ -50,7 +50,7 @@ const NewsFavorites = () => {
   // 즐겨찾기 로드
   const loadFavorites = () => {
     try {
-      const saved = localStorage.getItem('news_favorites');
+  
       return saved ? JSON.parse(saved) : [];
     } catch (error) {
       console.error('즐겨찾기 로드 실패:', error);
@@ -61,8 +61,7 @@ const NewsFavorites = () => {
   // 즐겨찾기 저장
   const saveFavorites = (favoritesList) => {
     try {
-      localStorage.setItem('news_favorites', JSON.stringify(favoritesList));
-      // localStorage 변경 이벤트 발생
+
       window.dispatchEvent(new StorageEvent('storage', {
         key: 'news_favorites',
         newValue: JSON.stringify(favoritesList)

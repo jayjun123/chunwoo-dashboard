@@ -236,43 +236,23 @@ const SiteManagement = () => {
 
   return (
     <Box sx={{
-      width: isMobile ? 'calc(100% - 5px)' : '100%',
-      maxWidth: isMobile ? 'calc(100% - 5px)' : '100%',
+      width: '100%',
+      maxWidth: '100%',
       minWidth: 0,
       p: isMobile ? 0 : 3,
       m: 0,
-      ml: isMobile ? '2px' : 0,
-      mr: isMobile ? '5px' : 0,
+      ml: isMobile ? '30px' : 0,
       boxSizing: 'border-box',
-      mt: isMobile ? '34px' : '130px',
-      position: isMobile ? 'relative' : 'static',
-      right: isMobile ? '0px' : 'auto',
-      overflowY: isMobile ? 'auto' : 'visible',
-      height: isMobile ? 'calc(100vh - 34px)' : 'auto',
-      WebkitOverflowScrolling: isMobile ? 'touch' : 'auto',
-      pb: isMobile ? '20px' : 0
+      mt: isMobile ? 0 : '130px'
     }}>
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: 3,
-        position: isMobile ? 'sticky' : 'static',
-        top: isMobile ? '0px' : 'auto',
-        bgcolor: isMobile ? '#1a1d21' : 'transparent',
-        zIndex: isMobile ? 10 : 'auto',
-        pt: isMobile ? '10px' : 0,
-        pb: isMobile ? '10px' : 0
-      }}>
-        <Typography variant="h4" sx={{ fontSize: isMobile ? '1.5rem' : 'inherit' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">
           현장 관리
         </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => handleOpenDialog()}
-          size={isMobile ? 'small' : 'medium'}
-          sx={{ fontSize: isMobile ? '0.8rem' : 'inherit' }}
         >
           새 현장 등록
         </Button>
@@ -284,11 +264,7 @@ const SiteManagement = () => {
         </Alert>
       )}
 
-      <TableContainer component={Paper} sx={{ 
-        overflowX: 'auto',
-        overflowY: isMobile ? 'visible' : 'auto',
-        maxHeight: isMobile ? 'none' : '400px'
-      }}>
+      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
         <Table>
           <TableHead>
             <TableRow>

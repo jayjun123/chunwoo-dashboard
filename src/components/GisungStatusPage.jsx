@@ -36,6 +36,7 @@ import {
   Search as SearchIcon
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp } from 'firebase/firestore';
+import { getClaimStats, getClaimsByMonth } from '../api/claims';
 import { db } from '../firebase';
 import { devLog, devError, useCleanup } from '../utils/performanceUtils';
 import * as XLSX from 'xlsx';
@@ -57,6 +58,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   const [sortField, setSortField] = useState('gisungMonth');
   const [sortDirection, setSortDirection] = useState('desc');
   const [selectedItems, setSelectedItems] = useState([]);
+  const [claimStats, setClaimStats] = useState({ totalAmount: 0 });
+  const [claimsBySite, setClaimsBySite] = useState({});
   
   // 네비게이션 상태
   const [viewType, setViewType] = useState(initialViewType || 'month');
@@ -110,6 +113,35 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     fetchGisung();
     fetchSites();
   }, [viewType, currentMonth, selectedSites]); // 의존성 배열 수정
+
+  // 청구예정 데이터 가져오기
+  useEffect(() => {
+    const fetchClaimData = async () => {
+      try {
+        const currentMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+        
+        // 통계 데이터 가져오기
+        const stats = await getClaimStats(currentMonthStr);
+        setClaimStats(stats);
+        
+        // 현장별 청구예정 데이터 가져오기
+        const claims = await getClaimsByMonth(currentMonthStr);
+        const claimsMap = {};
+        claims.forEach(claim => {
+          claimsMap[claim.siteName] = claim.claimAmount || 0;
+        });
+        setClaimsBySite(claimsMap);
+        
+        devLog('청구예정 데이터 로드:', { stats, claimsMap });
+      } catch (error) {
+        devError('청구예정 데이터 로드 오류:', error);
+        setClaimStats({ totalAmount: 0 });
+        setClaimsBySite({});
+      }
+    };
+    
+    fetchClaimData();
+  }, [currentMonth]);
 
   // props.currentMonth가 바뀔 때마다 내부 currentMonth 동기화
   useEffect(() => {
@@ -285,9 +317,10 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     
     const totalPrevGisung = gisungList.reduce((sum, gisung) => sum + (Number(gisung.prevGisung) || 0), 0);
     const totalGisungAmount = gisungList.reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
+    const totalClaimAmount = claimStats.totalAmount || 0;
     
-    return { totalContractAmount, totalAdvance, totalPrevGisung, totalGisungAmount };
-  }, [sites, gisungList, currentMonth, viewType, selectedSites]);
+    return { totalContractAmount, totalAdvance, totalPrevGisung, totalGisungAmount, totalClaimAmount };
+  }, [sites, gisungList, currentMonth, viewType, selectedSites, claimStats, claimsBySite]);
 
   const handleExcelDownload = () => {
     const data = filteredAndSortedGisung.map(row => ({
@@ -412,6 +445,59 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   };
 
   // 현장명 선택 시 해당 현장의 누계기성(전회기성) 자동 합산
+  // 차수 계산 함수
+  const calculateSequence = (siteName, currentItem = null) => {
+    const siteGisungList = gisungList.filter(item => item.name === siteName);
+    
+    if (siteGisungList.length === 0) return '1차';
+    
+    // 같은 현장의 기성 데이터를 등록 순서대로 정렬
+    const sortedList = siteGisungList.sort((a, b) => {
+      const dateA = new Date(a.createdAt?.toDate?.() || a.createdAt || 0);
+      const dateB = new Date(b.createdAt?.toDate?.() || b.createdAt || 0);
+      return dateA - dateB;
+    });
+    
+    // 현재 항목의 인덱스 찾기
+    const currentIndex = sortedList.findIndex(item => 
+      currentItem && item.id === currentItem.id
+    );
+    
+    if (currentIndex === -1) {
+      // 현재 항목을 찾을 수 없는 경우, 전체 리스트에서 찾기
+      const allSortedList = gisungList.filter(item => item.name === siteName)
+        .sort((a, b) => {
+          const dateA = new Date(a.createdAt?.toDate?.() || a.createdAt || 0);
+          const dateB = new Date(b.createdAt?.toDate?.() || b.createdAt || 0);
+          return dateA - dateB;
+        });
+      
+      const allIndex = allSortedList.findIndex(item => 
+        currentItem && item.id === currentItem.id
+      );
+      
+      if (allIndex === -1) return '1차';
+      return `${allIndex + 1}차`;
+    }
+    
+    return `${currentIndex + 1}차`;
+  };
+
+  // 기성율 계산 함수 (총 기성금액 / 총 계약금액 * 100)
+  const calculateProgressRate = (siteName) => {
+    const siteGisungList = gisungList.filter(item => item.name === siteName);
+    const siteData = sites.find(site => site.name === siteName);
+    
+    if (!siteData || !siteData.contractAmount) return 0;
+    
+    const totalGisungAmount = siteGisungList.reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
+    const contractAmount = Number(siteData.contractAmount);
+    
+    if (contractAmount === 0) return 0;
+    
+    return Math.round((totalGisungAmount / contractAmount) * 100);
+  };
+
   const handleSiteChange = (e) => {
     const siteName = e.target.value;
     const selectedSite = sites.find(s => s.name === siteName);
@@ -642,7 +728,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           onClick={handleContractCardClick}
         />
         <StatCard title="총 선급금" value={stats.totalAdvance} color="#ffd600" />
-        <StatCard title="총 전회기성" value={stats.totalPrevGisung} color="#a084e8" />
+        <StatCard title="청구예정금액" value={stats.totalClaimAmount} color="#a084e8" />
         <StatCard title="총 기성금액" value={stats.totalGisungAmount} color="#ef5350" />
       </Grid>
 
@@ -745,7 +831,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 <TableCell sx={{ color: '#fff', fontWeight: 700 }}>기성금액</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>결제방법</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>입금확인</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>비고</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>차수</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>관리</TableCell>
               </TableRow>
             </TableHead>
@@ -831,7 +917,9 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                         </Select>
                       </FormControl>
                     </TableCell>
-                    <TableCell sx={{ color: '#bbb', display: isMobile ? 'none' : 'table-cell' }}>{row.note || '-'}</TableCell>
+                    <TableCell sx={{ color: '#90caf9', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>
+                      {calculateSequence(row.name, row)}
+                    </TableCell>
                     <TableCell sx={{ display: isMobile ? 'none' : 'table-cell' }}>
                       <IconButton 
                         size="small" 

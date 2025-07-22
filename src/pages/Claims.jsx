@@ -58,6 +58,9 @@ import {
 } from '../api/claims';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
+import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const Claims = () => {
   const theme = useTheme();
@@ -93,6 +96,10 @@ const Claims = () => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+
+  // 현장 데이터
+  const [sites, setSites] = useState([]);
+  const [gisungData, setGisungData] = useState([]);
 
   // 폼 데이터
   const [formData, setFormData] = useState({
@@ -150,6 +157,34 @@ const Claims = () => {
     }
   }, [currentMonth]);
 
+  // 현장 데이터 로드
+  useEffect(() => {
+    const fetchSites = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'sites'));
+        const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setSites(sitesData);
+      } catch (error) {
+        console.error('현장 데이터 로드 실패:', error);
+      }
+    };
+    fetchSites();
+  }, []);
+
+  // 기성 데이터 로드
+  useEffect(() => {
+    const fetchGisungData = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'gisung'));
+        const gisungData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setGisungData(gisungData);
+      } catch (error) {
+        console.error('기성 데이터 로드 실패:', error);
+      }
+    };
+    fetchGisungData();
+  }, []);
+
   // 통계 데이터 로드
   useEffect(() => {
     const loadStats = async () => {
@@ -203,6 +238,68 @@ const Claims = () => {
   }, [claims, searchTerm, filters, sortBy, sortOrder]);
 
   // 폼 데이터 초기화
+  // 차수 계산 함수
+  const calculateSequence = (siteName) => {
+    const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
+    
+    if (siteGisungData.length === 0) return '1차';
+    
+    // 같은 현장의 기성 데이터를 등록 순서대로 정렬
+    const sortedList = siteGisungData.sort((a, b) => {
+      const dateA = new Date(a.createdAt?.toDate?.() || a.createdAt || 0);
+      const dateB = new Date(b.createdAt?.toDate?.() || b.createdAt || 0);
+      return dateA - dateB;
+    });
+    
+    // 다음 차수 계산
+    return `${sortedList.length + 1}차`;
+  };
+
+  // 기성율 계산 함수 (총 기성금액 / 총 계약금액 * 100)
+  const calculateProgressRate = (siteName) => {
+    // 기성 데이터에서 해당 현장의 기성금액 합계 계산
+    const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
+    const siteData = sites.find(site => site.name === siteName);
+    
+    if (!siteData || !siteData.contractAmount) return 0;
+    
+    const totalGisungAmount = siteGisungData.reduce((sum, gisung) => sum + Number(gisung.gisungAmount || 0), 0);
+    const contractAmount = Number(siteData.contractAmount);
+    
+    if (contractAmount === 0) return 0;
+    
+    return Math.round((totalGisungAmount / contractAmount) * 100);
+  };
+
+  // 현장 선택 시 자동 기입 함수
+  const handleSiteSelect = (selectedSite) => {
+    if (selectedSite && typeof selectedSite === 'object') {
+      const progressRate = calculateProgressRate(selectedSite.name);
+      const sequence = calculateSequence(selectedSite.name);
+      setFormData(prev => ({
+        ...prev,
+        siteName: selectedSite.name || '',
+        manager: selectedSite.manager || '',
+        sequence: sequence,
+        progressRate: progressRate.toString()
+      }));
+    } else if (typeof selectedSite === 'string') {
+      // 문자열인 경우 해당 현장을 찾아서 정보 기입
+      const foundSite = sites.find(site => site.name === selectedSite);
+      if (foundSite) {
+        const progressRate = calculateProgressRate(foundSite.name);
+        const sequence = calculateSequence(foundSite.name);
+        setFormData(prev => ({
+          ...prev,
+          siteName: foundSite.name || '',
+          manager: foundSite.manager || '',
+          sequence: sequence,
+          progressRate: progressRate.toString()
+        }));
+      }
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       claimMonth: currentMonth,
@@ -873,13 +970,16 @@ const Claims = () => {
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="현장명"
+              <SearchableSiteSelect
+                sites={sites}
                 value={formData.siteName}
-                onChange={(e) => setFormData(prev => ({ ...prev, siteName: e.target.value }))}
+                onChange={handleSiteSelect}
+                label="현장명"
+                placeholder="현장명을 검색하세요"
+                size="medium"
+                isMobile={isMobile}
                 sx={{ 
-                  '& .MuiInputBase-root': { backgroundColor: '#444' },
+                  '& .MuiOutlinedInput-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
                   '& .MuiInputBase-input': { color: 'white' }
                 }}
@@ -890,11 +990,13 @@ const Claims = () => {
                 fullWidth
                 label="소장"
                 value={formData.manager}
-                onChange={(e) => setFormData(prev => ({ ...prev, manager: e.target.value }))}
+                InputProps={{
+                  readOnly: true,
+                }}
                 sx={{ 
-                  '& .MuiInputBase-root': { backgroundColor: '#444' },
+                  '& .MuiInputBase-root': { backgroundColor: '#333' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: 'white' }
+                  '& .MuiInputBase-input': { color: '#aaa' }
                 }}
               />
             </Grid>
@@ -903,11 +1005,13 @@ const Claims = () => {
                 fullWidth
                 label="차수"
                 value={formData.sequence}
-                onChange={(e) => setFormData(prev => ({ ...prev, sequence: e.target.value }))}
+                InputProps={{
+                  readOnly: true,
+                }}
                 sx={{ 
-                  '& .MuiInputBase-root': { backgroundColor: '#444' },
+                  '& .MuiInputBase-root': { backgroundColor: '#333' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: 'white' }
+                  '& .MuiInputBase-input': { color: '#aaa' }
                 }}
               />
             </Grid>
@@ -917,14 +1021,14 @@ const Claims = () => {
                 label="기성율(%)"
                 type="number"
                 value={formData.progressRate}
-                onChange={(e) => setFormData(prev => ({ ...prev, progressRate: e.target.value }))}
                 InputProps={{
+                  readOnly: true,
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
                 sx={{ 
-                  '& .MuiInputBase-root': { backgroundColor: '#444' },
+                  '& .MuiInputBase-root': { backgroundColor: '#333' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: 'white' }
+                  '& .MuiInputBase-input': { color: '#aaa' }
                 }}
               />
             </Grid>
