@@ -924,7 +924,6 @@ const GanttChart = () => {
         // 모바일 터치 개선
         touchAction: isMobile ? 'pan-x pan-y' : 'auto',
         WebkitOverflowScrolling: 'touch',
-        '-webkit-overflow-scrolling': 'touch',
         userSelect: 'none',
         '&::-webkit-scrollbar': {
           width: '8px',
@@ -1283,9 +1282,10 @@ const GanttChart = () => {
             100% { transform: translateY(-50%) scale(1); }
           }
           
-          /* 지정된 div 요소 숨기기 */
+          /* 지정된 div 요소 투명하게 만들기 */
           .MuiGrid-root.MuiGrid-direction-xs-row.css-ril70s-MuiGrid-root {
-            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
           }
         `}
       </style>

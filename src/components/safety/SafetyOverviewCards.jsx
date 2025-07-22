@@ -150,7 +150,16 @@ function SafetyOverviewCards() {
 
       <Grid container spacing={isMobile ? 2 : 2.5}>
         {filtered.map(site => (
-          <Grid item xs={12} md={4} lg={4} key={site.siteName} sx={{ width: '100%', px: isMobile ? 0 : 0 }}>
+          <Grid item xs={12} key={site.siteName} sx={{ 
+            width: '100%', 
+            px: isMobile ? 0 : 0,
+            '@media (min-width: 900px)': {
+              width: '33.333%'
+            },
+            '@media (min-width: 1200px)': {
+              width: '33.333%'
+            }
+          }}>
             <Paper sx={{ 
               p: isMobile ? 1.5 : 2.5, 
               bgcolor: '#181c24', 
