@@ -12,6 +12,7 @@ import {
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import SearchableSiteSelect from '../common/SearchableSiteSelect';
 import {
   Box,
   Typography,
@@ -1682,32 +1683,27 @@ const MobileKakaoDiscussion = () => {
         
         <Box sx={{ p: 2, pb: 8 }}>
           {/* 현장명 검색 */}
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel sx={{ color: '#CCCCCC' }}>현장명 *</InputLabel>
-            <Select
+          <Box sx={{ mb: 2 }}>
+            <SearchableSiteSelect
+              sites={sites}
               value={newDiscussion.siteName}
-              onChange={(e) => setNewDiscussion({...newDiscussion, siteName: e.target.value})}
+              onChange={(value) => setNewDiscussion({...newDiscussion, siteName: value})}
+              label="현장명 *"
+              placeholder="현장명을 입력하거나 선택하세요"
               disabled={sitesLoading}
-              sx={{ 
-                backgroundColor: '#444444',
-                '& .MuiSelect-select': {
-                  color: '#FFFFFF'
-                }
+              isMobile={true}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: '#444444',
+                  '& fieldset': { borderColor: '#666' },
+                  '&:hover fieldset': { borderColor: '#888' },
+                  '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                },
+                '& .MuiInputLabel-root': { color: '#CCCCCC' },
+                '& .MuiInputBase-input': { color: '#FFFFFF' }
               }}
-            >
-              {sitesLoading ? (
-                <MenuItem disabled>현장 데이터 로딩 중...</MenuItem>
-              ) : sites.length === 0 ? (
-                <MenuItem disabled>등록된 현장이 없습니다</MenuItem>
-              ) : (
-                sites.map(site => (
-                  <MenuItem key={site.id} value={site.name}>
-                    {site.name}
-                  </MenuItem>
-                ))
-              )}
-            </Select>
-          </FormControl>
+            />
+          </Box>
 
           {/* 부제목 */}
           <TextField
@@ -2502,14 +2498,16 @@ const MobileKakaoDiscussion = () => {
                   '& .MuiInputBase-input': { color: '#FFFFFF' }
                 }}
               />
-              <TextField
-                fullWidth
-                label="현장명"
+              <SearchableSiteSelect
+                sites={sites}
                 value={editDialog.discussion.siteName || ''}
-                onChange={(e) => setEditDialog(prev => ({
+                onChange={(value) => setEditDialog(prev => ({
                   ...prev,
-                  discussion: { ...prev.discussion, siteName: e.target.value }
+                  discussion: { ...prev.discussion, siteName: value }
                 }))}
+                label="현장명"
+                placeholder="현장명을 입력하거나 선택하세요"
+                isMobile={true}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#444444' },

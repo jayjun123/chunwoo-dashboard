@@ -99,6 +99,21 @@ div[style*="background-color: #fff"] .MuiTypography-root {
   color: #cccccc !important;
 }
 
+/* 특정 Grid 컴포넌트 완전히 제거 */
+.css-1fbyy2u-MuiGrid-root,
+.MuiGrid-root.MuiGrid-direction-xs-row.css-1fbyy2u-MuiGrid-root {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
 /* 테두리도 다크 테마에 맞게 */
 .MuiTextField-root .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline,
 .MuiOutlinedInput-notchedOutline {
@@ -1102,4 +1117,21 @@ body {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* 특정 Grid 컴포넌트 숨기기 */
+.MuiGrid-root.MuiGrid-direction-xs-row.css-1fbyy2u-MuiGrid-root {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+/* 또는 모든 Grid 컴포넌트 중 특정 조건의 것만 숨기기 */
+.MuiGrid-root.MuiGrid-direction-xs-row {
+  display: none !important;
 } 

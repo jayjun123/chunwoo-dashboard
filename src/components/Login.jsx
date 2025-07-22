@@ -46,7 +46,7 @@ const Login = () => {
 
   // 컴포넌트 마운트 시 저장된 이메일 불러오기
   React.useEffect(() => {
-    const savedEmail = localStorage.getItem('savedEmail');
+
     if (savedEmail) {
       setEmail(savedEmail);
       setRememberEmail(true);
@@ -68,9 +68,9 @@ const Login = () => {
       
       // 로그인 성공 시 이메일 저장 처리
       if (rememberEmail) {
-        localStorage.setItem('savedEmail', email);
+
       } else {
-        localStorage.removeItem('savedEmail');
+        
       }
       
       navigate('/');

@@ -56,6 +56,7 @@ import GisungStatusPage from '../components/GisungStatusPage';
 import * as XLSX from 'xlsx';
 import Cost from './Cost';
 import { useSearchParams, useLocation } from 'react-router-dom';
+import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
 
 // 핀치 줌 훅
 const usePinchZoom = () => {
@@ -867,106 +868,33 @@ const Progress = () => {
             )}
           </Box>
           
-          {/* 현장명 검색 입력칸 */}
-          <Box sx={{ position: 'relative' }}>
-            <TextField
+          {/* 현장명 검색 드롭다운 */}
+          <Box sx={{ minWidth: isMobile ? 200 : 300 }}>
+            <SearchableSiteSelect
+              sites={sites}
+              value=""
+              onChange={(selectedSite) => {
+                // selectedSite가 객체인 경우 name만 추출
+                const siteName = typeof selectedSite === 'string' ? selectedSite : selectedSite?.name;
+                if (siteName && !selectedSites.includes(siteName)) {
+                  if (selectedSites.length >= 4) {
+                    alert('현장은 최대 4개까지 선택할 수 있습니다.');
+                    return;
+                  }
+                  setSelectedSites([...selectedSites, siteName]);
+                }
+              }}
+              label=""
               placeholder="현장명 검색..."
-              value={siteSearchTerm}
-              onChange={(e) => {
-                setSiteSearchTerm(e.target.value);
-                setSearchDropdownOpen(true);
-              }}
-              onFocus={() => {
-                setSearchDropdownOpen(true);
-              }}
               size="small"
+              isMobile={isMobile}
               sx={{
-                minWidth: isMobile ? 200 : 300,
                 '& .MuiOutlinedInput-root': {
                   bgcolor: '#232b3b',
                   py: isMobile ? 0.5 : 1,
-                  '& fieldset': { borderColor: '#333' },
-                  '&:hover fieldset': { borderColor: '#555' },
-                  '&.Mui-focused fieldset': { borderColor: '#90caf9' }
-                },
-                '& .MuiInputLabel-root': { color: '#bbb' },
-                '& .MuiInputBase-input': { 
-                  color: '#fff',
-                  fontSize: isMobile ? '0.7rem' : '1rem',
-                  '&::placeholder': {
-                    color: '#bbb',
-                    opacity: 1,
-                    fontSize: isMobile ? '0.7rem' : '1rem'
-                  }
                 }
               }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: '#bbb', fontSize: isMobile ? '1rem' : '1.5rem' }} />
-                  </InputAdornment>
-                )
-              }}
             />
-            
-            {/* 검색 결과 드롭다운 */}
-            {searchDropdownOpen && (
-              <Paper
-                sx={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  zIndex: 1000,
-                  bgcolor: '#232b3b',
-                  maxHeight: 300,
-                  overflow: 'auto',
-                  border: '1px solid #555',
-                  borderRadius: 1,
-                  mt: 0.5
-                }}
-              >
-              {sites
-                .filter(site => 
-                  !siteSearchTerm || site.name.toLowerCase().includes(siteSearchTerm.toLowerCase())
-                )
-                .map(site => (
-                                     <Box
-                     key={site.id}
-                     sx={{
-                       p: isMobile ? 0.5 : 1,
-                       cursor: 'pointer',
-                       color: '#fff',
-                       fontSize: isMobile ? '0.8rem' : '1rem',
-                       borderBottom: '1px solid #444',
-                       '&:hover': { bgcolor: '#2c3446' },
-                       '&:last-child': { borderBottom: 'none' }
-                     }}
-                    onClick={() => {
-                      if (!selectedSites.includes(site.name)) {
-                        if (selectedSites.length >= 4) {
-                          alert('현장은 최대 4개까지 선택할 수 있습니다.');
-                          return;
-                        }
-                        setSelectedSites([...selectedSites, site.name]);
-                      }
-                      setSiteSearchTerm('');
-                      setSearchDropdownOpen(false);
-                    }}
-                  >
-                    {site.name}
-                  </Box>
-                ))
-              }
-                             {sites.filter(site => 
-                 !siteSearchTerm || site.name.toLowerCase().includes(siteSearchTerm.toLowerCase())
-               ).length === 0 && (
-                 <Box sx={{ p: isMobile ? 0.5 : 1, color: '#bbb', fontSize: isMobile ? '0.8rem' : '1rem', textAlign: 'center' }}>
-                   검색 결과가 없습니다.
-                 </Box>
-               )}
-            </Paper>
-            )}
           </Box>
 
         </Box>
@@ -1189,21 +1117,17 @@ const Progress = () => {
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>{selected ? '기성 수정' : '기성 등록'}</DialogTitle>
         <DialogContent>
-          {/* 현장명(공사명) 오토컴플릿/드롭다운: 현장관리 데이터 연동 */}
-          <TextField
-            select
-            label="공사명"
+          {/* 현장명(공사명) 검색 드롭다운: 현장관리 데이터 연동 */}
+          <SearchableSiteSelect
+            sites={filteredSites}
             value={formData.name}
-            onChange={e => setFormData({ ...formData, name: e.target.value })}
+            onChange={(newValue) => setFormData({ ...formData, name: newValue })}
+            label="공사명"
+            placeholder="현장명을 검색하세요"
             fullWidth
+            isMobile={isMobile}
             sx={{ mb: 2 }}
-            inputRef={inputRef1}
-            onFocus={scrollFocus(inputRef1)}
-          >
-            {filteredSites.map(site => (
-              <MenuItem key={site.id} value={site.name}>{site.name}</MenuItem>
-            ))}
-          </TextField>
+          />
           <TextField
             label="계약금액"
             value={formData.contractAmount}

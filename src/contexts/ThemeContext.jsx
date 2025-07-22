@@ -13,7 +13,10 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  const [darkMode, setDarkMode] = useState(true); // 강제로 다크 모드
+  const [darkMode, setDarkMode] = useState(() => {
+    // 시스템 설정 확인
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
   // 라이트 테마
   const lightTheme = createTheme({
@@ -70,9 +73,9 @@ export const ThemeProvider = ({ children }) => {
     palette: {
       mode: 'dark',
       primary: {
-        main: '#1976d2',
-        light: '#42a5f5',
-        dark: '#1565c0',
+        main: '#90caf9',
+        light: '#e3f2fd',
+        dark: '#42a5f5',
       },
       secondary: {
         main: '#f48fb1',
@@ -80,82 +83,42 @@ export const ThemeProvider = ({ children }) => {
         dark: '#ec407a',
       },
       background: {
-        default: '#23242a',
-        paper: '#2a2b32',
+        default: '#121212',
+        paper: '#1e1e1e',
       },
       text: {
         primary: '#ffffff',
-        secondary: '#cccccc',
+        secondary: '#b0b0b0',
       },
-      divider: '#444444',
+      divider: '#333333',
     },
     components: {
       MuiCard: {
         styleOverrides: {
           root: {
-            backgroundColor: '#2a2b32',
+            backgroundColor: '#1e1e1e',
             boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-            color: '#ffffff',
           },
         },
       },
       MuiPaper: {
         styleOverrides: {
           root: {
-            backgroundColor: '#2a2b32',
-            color: '#ffffff',
+            backgroundColor: '#1e1e1e',
           },
         },
       },
       MuiAppBar: {
         styleOverrides: {
           root: {
-            backgroundColor: '#0f0f0f',
-            color: '#ffffff',
+            backgroundColor: '#1e1e1e',
           },
         },
       },
       MuiDrawer: {
         styleOverrides: {
           paper: {
-            backgroundColor: '#23242a',
-            color: '#ffffff',
-          },
-        },
-      },
-      MuiTextField: {
-        styleOverrides: {
-          root: {
-            '& .MuiInputBase-root': {
-              backgroundColor: '#2a2b32',
-              color: '#ffffff',
-            },
-            '& .MuiInputLabel-root': {
-              color: '#cccccc',
-            },
-            '& .MuiOutlinedInput-notchedOutline': {
-              borderColor: '#444444',
-            },
-            '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
-              borderColor: '#666666',
-            },
-            '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
-              borderColor: '#1976d2',
-            },
-          },
-        },
-      },
-      MuiTypography: {
-        styleOverrides: {
-          root: {
-            color: '#ffffff',
-          },
-        },
-      },
-      MuiButton: {
-        styleOverrides: {
-          root: {
-            color: '#ffffff',
+            backgroundColor: '#1e1e1e',
           },
         },
       },
@@ -169,17 +132,15 @@ export const ThemeProvider = ({ children }) => {
 
   // 테마 설정 저장
   useEffect(() => {
-    localStorage.setItem('theme', darkMode ? 'dark' : 'light');
+    
   }, [darkMode]);
 
   // 시스템 테마 변경 감지
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e) => {
-      // 로컬 스토리지에 저장된 설정이 없을 때만 시스템 설정 따름
-      if (!localStorage.getItem('theme')) {
-        setDarkMode(e.matches);
-      }
+      // 시스템 설정 변경 시 테마 업데이트
+      setDarkMode(e.matches);
     };
 
     mediaQuery.addEventListener('change', handleChange);
@@ -202,4 +163,4 @@ export const ThemeProvider = ({ children }) => {
   );
 };
 
-// export default ThemeContext; 
+export default ThemeContext; 

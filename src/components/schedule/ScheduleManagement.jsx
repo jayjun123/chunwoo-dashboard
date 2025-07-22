@@ -11,6 +11,7 @@ import { exportCalendarToExcel, exportToExcel } from '../../utils/exportUtils';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useNavigate } from 'react-router-dom';
 import { subscribeToEstimates } from '../../api/estimates';
+import SiteInfoPopup from '../common/SiteInfoPopup';
 
 function isInMonth(site, year, month) {
   if (!site.startDate || !site.endDate) return false;
@@ -97,6 +98,9 @@ const ScheduleManagement = ({
   const [siteSearchTerm, setSiteSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [estimates, setEstimates] = useState([]);
+  
+  // 현장 정보 팝업 상태
+  const [siteInfoPopup, setSiteInfoPopup] = useState({ open: false, site: null });
 
   useEffect(() => {
     console.log('🔍 ScheduleManagement: 사이트 데이터 로딩 시작');
@@ -792,6 +796,16 @@ const ScheduleManagement = ({
     setListPopupDate(dateStr); 
   };
   const handleCloseListPopup = () => { setShowListPopup(false); setListPopupDate(''); };
+  
+  // 현장 더블클릭 핸들러
+  const handleSiteDoubleClick = (site) => {
+    setSiteInfoPopup({ open: true, site });
+  };
+  
+  // 현장 정보 팝업 닫기
+  const handleCloseSiteInfoPopup = () => {
+    setSiteInfoPopup({ open: false, site: null });
+  };
 
   return (
     <Box sx={{ 
@@ -867,11 +881,21 @@ const ScheduleManagement = ({
                 justifyContent: 'space-between',
                 mb: 1
               }}>
-                <Typography variant="h6" sx={{ 
-                  fontWeight: 600, 
-                  display: { xs: 'none', md: 'block' },
-                  color: '#fff'
-                }}>이달의 현장 ({filteredSites.length})</Typography>
+                <Box>
+                  <Typography variant="h6" sx={{ 
+                    fontWeight: 600, 
+                    display: { xs: 'none', md: 'block' },
+                    color: '#fff',
+                    mb: 0.5
+                  }}>이달의 현장 ({filteredSites.length})</Typography>
+                  <Typography variant="caption" sx={{ 
+                    color: '#bbb', 
+                    fontSize: '0.7rem',
+                    display: { xs: 'none', md: 'block' }
+                  }}>
+                    더블클릭하여 현장 정보 확인
+                  </Typography>
+                </Box>
                 
                 {/* 견적/청구 버튼 - 오른쪽에 컴팩트하게 */}
                 <Box sx={{ 
@@ -987,46 +1011,24 @@ const ScheduleManagement = ({
                               ref={provided.innerRef} 
                               {...provided.draggableProps} 
                               {...provided.dragHandleProps}
-                              onClick={() => {
-                                // 현장 클릭 시 선택 상태 토글
-                                setSelectedItems(prev => {
-                                  const exists = prev.find(sel => sel.id === site.id && sel.type === 'site');
-                                  if (exists) {
-                                    return prev.filter(sel => !(sel.id === site.id && sel.type === 'site'));
-                                  }
-                                  return [...prev, { id: site.id, type: 'site', name: site.name }];
-                                });
-                              }}
+                              onDoubleClick={() => handleSiteDoubleClick(site)}
                               sx={{ 
                                 mb: 1, 
                                 p: 1.5, 
-                                bgcolor: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') 
-                                  ? '#3b82f6' 
-                                  : '#2a2b32',
-                                color: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') 
-                                  ? '#fff' 
-                                  : '#fff',
+                                bgcolor: '#2a2b32',
+                                color: '#fff',
                                 borderRadius: 2,
                                 cursor: 'grab',
-                                border: '1px solid',
-                                borderColor: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') 
-                                  ? '#3b82f6' 
-                                  : '#444',
+                                border: '1px solid #444',
                                 transition: 'all 0.2s',
                                 '&:hover': {
-                                  bgcolor: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') 
-                                    ? '#2563eb' 
-                                    : '#333'
+                                  bgcolor: '#333'
                                 }
                               }}
                             >
                               <Typography sx={{ 
-                                fontWeight: selectedItems.some(sel => sel.id === site.id && sel.type === 'site') ? 600 : 400,
+                                fontWeight: 400,
                                 color: (() => {
-                                  // 선택된 상태일 때는 흰색 유지
-                                  if (selectedItems.some(sel => sel.id === site.id && sel.type === 'site')) {
-                                    return '#fff';
-                                  }
                                   // 상태별 색상 적용 (왼쪽 리스트에서만)
                                   switch (site.status) {
                                     case '예정':
@@ -1115,6 +1117,13 @@ const ScheduleManagement = ({
           </Box>
         </Box>
       </DragDropContext>
+      
+      {/* 현장 정보 팝업 */}
+      <SiteInfoPopup
+        open={siteInfoPopup.open}
+        onClose={handleCloseSiteInfoPopup}
+        site={siteInfoPopup.site}
+      />
       
       {/* 일정 추가 팝업 */}
       {popupOpen && (

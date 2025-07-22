@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, Card, CardContent, Link, CircularProgress, Button, IconButton, Tooltip, Fade, Grid, ToggleButton, useMediaQuery } from '@mui/material';
 import { Refresh as RefreshIcon, OpenInNew as OpenInNewIcon, Bookmark as BookmarkIcon, BookmarkBorder as BookmarkBorderIcon, List as ListIcon } from '@mui/icons-material';
-import { getNews, saveNewsToFirestore } from '../../services/newsService';
+
 import { useNavigate } from 'react-router-dom';
 
 const NewsPanel = () => {
@@ -57,19 +57,12 @@ const NewsPanel = () => {
   const fetchAndSaveNews = useCallback(async () => {
     try {
       setRefreshing(true);
-      const naverNews = await getNews(true); // 강제 새로고침
-      if (naverNews && naverNews.length > 0) {
-        await saveNewsToFirestore(naverNews);
-        setNews(naverNews);
-        setError('');
-        console.log('뉴스 갱신 성공:', naverNews.length, '개');
-      } else {
-        console.log('뉴스 데이터가 없습니다.');
-        setError('뉴스를 불러오지 못했습니다.');
-      }
+      // 뉴스 기능 비활성화
+      setNews([]);
+      setError('뉴스 기능이 비활성화되었습니다.');
     } catch (err) {
       console.error('뉴스 갱신 실패:', err);
-      setError('뉴스를 불러오지 못했습니다.');
+      setError('뉴스 기능이 비활성화되었습니다.');
     } finally {
       setRefreshing(false);
     }
@@ -80,20 +73,12 @@ const NewsPanel = () => {
       setLoading(true);
       setError('');
       try {
-        // 로컬 스토리지 우선, 없으면 새로 검색
-        const newsData = await getNews(false);
-        console.log('뉴스 데이터 로드 결과:', newsData);
-        
-        if (newsData && newsData.length > 0) {
-          console.log('뉴스 데이터 설정:', newsData.length, '개');
-          setNews(newsData);
-        } else {
-          console.log('뉴스 데이터가 없습니다.');
-          setError('뉴스를 불러오지 못했습니다.');
-        }
+        // 뉴스 기능 비활성화
+        setNews([]);
+        setError('뉴스 기능이 비활성화되었습니다.');
       } catch (err) {
         console.error('뉴스 로딩 실패:', err);
-        setError('뉴스를 불러오지 못했습니다.');
+        setError('뉴스 기능이 비활성화되었습니다.');
       } finally {
         setLoading(false);
       }

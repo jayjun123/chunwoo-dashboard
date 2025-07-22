@@ -43,6 +43,7 @@ import { db } from '../firebase';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy, serverTimestamp, getDocs } from 'firebase/firestore';
 import { exportToExcel } from '../utils/exportUtils';
 import { useAuth } from '../contexts/AuthContext';
+import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
 
 const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }) => {
   const { currentUser } = useAuth();
@@ -326,7 +327,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             lineHeight: 1.2
           }}
         >
-          {Number(value || 0).toLocaleString()}원
+          {Number(value || 0).toLocaleString()}{title === '건수' ? '건' : '원'}
         </Typography>
       </Card>
     </Grid>
@@ -663,43 +664,18 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
           <Box display="flex" flexDirection="column" alignItems="center" gap={3}>
             {/* 1줄: 현장명(검색/드롭다운) + 항목(드롭다운) */}
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
-              <FormControl sx={{ flex: 1, minWidth: 140 }} size="medium">
-                <InputLabel sx={{ color: '#bbb', fontSize: '1rem' }}>현장명</InputLabel>
-                <Select
+              <Box sx={{ flex: 1, minWidth: 140 }}>
+                <SearchableSiteSelect
+                  sites={sites}
                   value={form.site ?? ''}
+                  onChange={(newValue) => setForm({ ...form, site: newValue })}
                   label="현장명"
-                  onChange={e => setForm({ ...form, site: e.target.value })}
-                  sx={{
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
-                    '& .MuiSelect-icon': { color: '#fff' },
-                    '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        bgcolor: '#232b3b',
-                        '& .MuiMenuItem-root': {
-                          color: '#fff',
-                          fontSize: '1rem',
-                          py: 1.5,
-                          '&:hover': { bgcolor: '#2c3446' },
-                          '&.Mui-selected': { bgcolor: '#1976d2' }
-                        }
-                      }
-                    }
-                  }}
-                >
-                  {sites.length === 0 ? (
-                    <MenuItem value="" disabled>현장 없음</MenuItem>
-                  ) : (
-                    sites.map(site => (
-                      <MenuItem key={site.id} value={site.name}>{site.name}</MenuItem>
-                    ))
-                  )}
-                </Select>
-              </FormControl>
+                  placeholder="현장명을 검색하세요"
+                  size="medium"
+                  isMobile={isMobile}
+                  sx={{ width: '100%' }}
+                />
+              </Box>
               <FormControl sx={{ flex: 1, minWidth: 140 }} size="medium">
                 <InputLabel sx={{ color: '#bbb', fontSize: '1rem' }}>항목</InputLabel>
                 <Select

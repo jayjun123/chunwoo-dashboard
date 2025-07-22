@@ -69,6 +69,8 @@ export default function ImportantSite() {
   const fileInputRefs = useRef({});
   const [uploadingSiteId, setUploadingSiteId] = useState(null);
   const [hoveredSiteId, setHoveredSiteId] = useState(null);
+  const [draggedSiteId, setDraggedSiteId] = useState(null);
+  const [siteOrder, setSiteOrder] = useState([]);
   const navigate = useNavigate();
 
   const scrollFocus = (ref) => () => {
@@ -76,6 +78,28 @@ export default function ImportantSite() {
       ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 300);
   };
+
+  // 정렬된 사이트 목록 생성
+  const sortedSites = useMemo(() => {
+    if (siteOrder.length === 0) return sites;
+    
+    const siteMap = new Map(sites.map(site => [site.id, site]));
+    const sorted = [];
+    
+    // siteOrder에 따라 정렬
+    siteOrder.forEach(siteId => {
+      const site = siteMap.get(siteId);
+      if (site) {
+        sorted.push(site);
+        siteMap.delete(siteId);
+      }
+    });
+    
+    // 남은 사이트들을 뒤에 추가
+    siteMap.forEach(site => sorted.push(site));
+    
+    return sorted;
+  }, [sites, siteOrder]);
 
   useEffect(() => {
     // 모든 현장을 가져온 후 클라이언트에서 필터링 (디버깅용)
@@ -109,24 +133,28 @@ export default function ImportantSite() {
       const limitedSitesData = importantSitesData.slice(0, 10);
       console.log('🔍 ImportantSite - 최종 표시할 주요현장:', limitedSitesData);
       
-      // progressRate가 없는 현장들 자동 마이그레이션
-      limitedSitesData.forEach(async (site) => {
-        if (site.progressRate === undefined && site.totalProgress && site.contractAmount) {
-          const contract = Number(site.contractAmount) || 0;
-          const progress = Number(site.totalProgress) || 0;
-          if (contract > 0) {
-            const calculatedRate = Math.round((progress / contract) * 100);
-            console.log(`✅ ${site.name} 진행률 자동 설정: ${calculatedRate}%`);
-            try {
-              await updateDoc(doc(db, 'sites', site.id), { progressRate: calculatedRate });
-            } catch (error) {
-              console.error('❌ 진행률 자동 설정 실패:', site.name, error);
-            }
-          }
-        }
-      });
+
       
       setSites(limitedSitesData);
+      
+      // 사이트 순서 초기화 - 사이트 데이터가 로드된 후에 실행
+      setTimeout(() => {
+    
+        if (savedOrder) {
+          const orderArray = JSON.parse(savedOrder);
+          // 현재 사이트 목록에 있는 ID만 필터링
+          const validOrder = orderArray.filter(id => 
+            limitedSitesData.some(site => site.id === id)
+          );
+          console.log('저장된 순서 로드:', validOrder);
+          setSiteOrder(validOrder);
+        } else {
+          // 저장된 순서가 없으면 현재 순서로 초기화
+          const initialOrder = limitedSitesData.map(site => site.id);
+          console.log('초기 순서 설정:', initialOrder);
+          setSiteOrder(initialOrder);
+        }
+      }, 100);
     }, (error) => {
       devError("Error fetching sites in real-time:", error);
       console.error('❌ ImportantSite - 데이터 로드 실패:', error);
@@ -320,8 +348,8 @@ export default function ImportantSite() {
 
   // 검색어에 따라 필터링합니다.
   const filteredSites = search.trim()
-    ? sites.filter(site => site.name.includes(search.trim()))
-    : sites;
+    ? sortedSites.filter(site => site.name.includes(search.trim()))
+    : sortedSites;
 
   const handleRemarkChange = (id, value) => {
     setRemarks(prev => ({ ...prev, [id]: value }));
@@ -511,11 +539,10 @@ export default function ImportantSite() {
     console.log('저장할 진행률:', percent);
 
     try {
-      // Firestore 업데이트 - 진행률 퍼센트 저장 (기존 totalProgress와 분리)
+      // Firestore 업데이트 - 진행률 퍼센트 저장
       console.log('Firestore 업데이트 시도...');
       await updateDoc(doc(db, 'sites', site.id), { 
-        progressRate: percent,
-        totalProgress: contract > 0 ? contract * (percent / 100) : (site.totalProgress || 0)
+        progressRate: percent
       });
       console.log('Firestore 업데이트 성공');
       
@@ -591,15 +618,78 @@ export default function ImportantSite() {
     setUploadingSiteId(null);
   };
 
+  // 드래그 앤 드롭 관련 함수들
+  const handleDragStart = (e, siteId) => {
+    console.log('드래그 시작:', siteId);
+    setDraggedSiteId(siteId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.target.outerHTML);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, targetSiteId) => {
+    e.preventDefault();
+    console.log('드롭:', draggedSiteId, '->', targetSiteId);
+    console.log('현재 siteOrder:', siteOrder);
+    
+    if (draggedSiteId && draggedSiteId !== targetSiteId) {
+      const newOrder = [...siteOrder];
+      const draggedIndex = newOrder.indexOf(draggedSiteId);
+      const targetIndex = newOrder.indexOf(targetSiteId);
+      
+      console.log('인덱스:', draggedIndex, targetIndex);
+      
+      if (draggedIndex > -1 && targetIndex > -1) {
+        // 드래그된 아이템을 제거하고 타겟 위치에 삽입
+        newOrder.splice(draggedIndex, 1);
+        newOrder.splice(targetIndex, 0, draggedSiteId);
+        console.log('새로운 순서:', newOrder);
+        setSiteOrder(newOrder);
+        
+        // 로컬 스토리지에 순서 저장
+
+      }
+    }
+    setDraggedSiteId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedSiteId(null);
+  };
+
   return (
     <Box sx={{ height: 'auto', overflow: 'visible', pb: 4, mt: isMobile ? '30px' : 8 }}>
-      {/* 상단 검색창 - 모바일에서 간소화 */}
+      {/* 페이지 제목 */}
       <Box sx={{ 
         display: 'flex', 
-        justifyContent: 'flex-end', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
         mb: 3,
         px: isMobile ? 1 : 0
       }}>
+        {!isMobile && (
+          <Typography 
+            variant="h4" 
+            sx={{ 
+              color: '#fff', 
+              fontWeight: 600,
+              fontSize: '2rem',
+              transform: 'translate(30px, 10px)'
+            }}
+          >
+            주요현장
+          </Typography>
+        )}
+        
+        {/* 상단 검색창 - 모바일에서 간소화 */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end'
+        }}>
         <TextField
           size="small"
           placeholder={isMobile ? "현장명, 소장으로 검색" : "현장명, 소장, 주소 검색"}
@@ -622,6 +712,7 @@ export default function ImportantSite() {
           }}
           inputRef={scrollFocus(null)}
         />
+        </Box>
       </Box>
       <Box sx={{ 
         width: '100%', 
@@ -646,23 +737,46 @@ export default function ImportantSite() {
           // 기성 데이터 계산 완료 (로그 제거됨)
           
           return (
-            <Paper key={site.id} sx={{ 
-              mb: 2.5, // 카드간 간격 20px (2.5 * 8px = 20px)
-              borderRadius: 4, 
-              boxShadow: 6, 
-              bgcolor: '#181f2e', 
-              color: '#fff', 
-              display: 'flex', 
-              flexDirection: { xs: 'column', md: 'row' }, 
-              alignItems: 'stretch', 
-              minHeight: isMobile ? 'auto' : 380, 
-              minWidth: isMobile ? 'calc(100vw - 20px)' : 1000, 
-              width: isMobile ? 'calc(100vw - 20px)' : '100%', 
-              p: 0, 
-              overflow: 'hidden',
-              marginLeft: isMobile ? '2px' : 0,
-              marginRight: isMobile ? '5px' : 0
-            }}>
+            <Paper 
+              key={site.id} 
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleDragOver(e);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleDrop(e, site.id);
+              }}
+              sx={{ 
+                mb: 2.5, // 카드간 간격 20px (2.5 * 8px = 20px)
+                borderRadius: 4, 
+                boxShadow: 6, 
+                bgcolor: '#181f2e', 
+                color: '#fff', 
+                display: 'flex', 
+                flexDirection: { xs: 'column', md: 'row' }, 
+                alignItems: 'stretch', 
+                minHeight: isMobile ? 'auto' : 380, 
+                minWidth: isMobile ? 'calc(100vw - 20px)' : 1000, 
+                width: isMobile ? 'calc(100vw - 20px)' : '100%', 
+                p: 0, 
+                overflow: 'hidden',
+                marginLeft: isMobile ? '2px' : 0,
+                marginRight: isMobile ? '5px' : 0,
+                cursor: 'grab',
+                '&:active': {
+                  cursor: 'grabbing'
+                },
+                opacity: draggedSiteId === site.id ? 0.5 : 1,
+                transform: draggedSiteId === site.id ? 'rotate(5deg)' : 'none',
+                transition: 'opacity 0.2s, transform 0.2s',
+                '&:hover': {
+                  boxShadow: 8
+                }
+              }}
+            >
               {/* 왼쪽: 정보/버튼 */}
               <Box sx={{ 
                 flex: 2.5, 
@@ -676,14 +790,33 @@ export default function ImportantSite() {
                 justifyContent: 'flex-start', 
                 alignItems: 'flex-start' 
               }}>
-                <Typography variant="h5" sx={{ 
-                  fontWeight: 800, 
-                  mb: isMobile ? 0.5 : 1, 
-                  color: '#90caf9', 
-                  textAlign: 'left', 
-                  width: '100%',
-                  fontSize: isMobile ? '1rem' : '1.5rem'
-                }}>{site.name}</Typography>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  width: '100%', 
+                  mb: isMobile ? 0.5 : 1 
+                }}>
+                  <Typography variant="h5" sx={{ 
+                    fontWeight: 800, 
+                    color: '#90caf9', 
+                    textAlign: 'left', 
+                    flex: 1,
+                    fontSize: isMobile ? '1rem' : '1.5rem'
+                  }}>{site.name}</Typography>
+                  <Box 
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, site.id)}
+                    sx={{ 
+                      cursor: 'grab', 
+                      p: 0.5, 
+                      borderRadius: 1,
+                      '&:active': { cursor: 'grabbing' },
+                      '&:hover': { bgcolor: '#232b3b' }
+                    }}
+                  >
+                    ⋮⋮
+                  </Box>
+                </Box>
                 <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
                   <Typography sx={{ 
                     fontSize: isMobile ? '0.75rem' : 16, 
@@ -789,17 +922,13 @@ export default function ImportantSite() {
                   <Box sx={{ width: '90%', mb: 2 }}>
                     <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: 15, mb: 0.5 }}>공사진행률</Typography>
                     {(() => {
-                      // progressRate가 없으면 기존 totalProgress로부터 계산
-                      let defaultPercent = 0;
-                      if (site.progressRate === undefined && site.totalProgress && site.contractAmount) {
-                        const contract = Number(site.contractAmount) || 0;
-                        const progress = Number(site.totalProgress) || 0;
-                        defaultPercent = contract > 0 ? Math.round((progress / contract) * 100) : 0;
-                      }
+                      // 기성 데이터 기반으로 진행율 계산
+                      const contract = Number(site.contractAmount) || 0;
+                      const calculatedPercent = contract > 0 ? Math.round((totalGisung / contract) * 100) : 0;
                       
                       const percent = editingProgress[site.id]
-                        ? (progressInput[site.id] ?? 0)
-                        : (site.progressRate ?? defaultPercent);
+                        ? (progressInput[site.id] ?? calculatedPercent)
+                        : calculatedPercent;
                       return (
                         <LinearProgress
                           variant="determinate"
@@ -811,30 +940,26 @@ export default function ImportantSite() {
                   </Box>
                   {/* 진행률 바(숫자 입력) - 상단 고정 */}
                   {(() => {
-                    // progressRate가 없으면 기존 totalProgress로부터 계산
-                    let defaultPercent = 0;
-                    if (site.progressRate === undefined && site.totalProgress && site.contractAmount) {
-                      const contract = Number(site.contractAmount) || 0;
-                      const progress = Number(site.totalProgress) || 0;
-                      defaultPercent = contract > 0 ? Math.round((progress / contract) * 100) : 0;
-                    }
+                    // 기성 데이터 기반으로 진행율 계산
+                    const contract = Number(site.contractAmount) || 0;
+                    const calculatedPercent = contract > 0 ? Math.round((totalGisung / contract) * 100) : 0;
                     
                     const isEditing = editingProgress[site.id];
                     const percent = isEditing
-                      ? (progressInput[site.id] ?? 0)
-                      : (site.progressRate ?? defaultPercent);
+                      ? (progressInput[site.id] ?? calculatedPercent)
+                      : calculatedPercent;
                     return (
                       <Box sx={{ width: '90%', mb: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
                         {isEditing ? (
                           <>
                             <TextField
-                              type="number"
+                              type="text"
                               size="small"
                               autoFocus
-                              inputProps={{ min: 0, max: 100, style: { color: '#43e97b', fontWeight: 700, fontSize: 15, textAlign: 'center' } }}
-                              value={progressInput[site.id] ?? percent}
+                              inputProps={{ style: { color: '#43e97b', fontWeight: 700, fontSize: 15, textAlign: 'center' } }}
+                              value={progressInput[site.id] !== undefined && progressInput[site.id] !== '' ? progressInput[site.id].toLocaleString() : percent.toLocaleString()}
                               onChange={e => {
-                                let v = e.target.value;
+                                let v = e.target.value.replace(/,/g, ''); // 콤마 제거
                                 console.log('진행률 입력 변경:', site.id, '값:', v);
                                 if (v === '') {
                                   setProgressInput(prev => ({ ...prev, [site.id]: '' }));
@@ -844,6 +969,15 @@ export default function ImportantSite() {
                                     const clampedValue = Math.max(0, Math.min(100, numValue));
                                     setProgressInput(prev => ({ ...prev, [site.id]: clampedValue }));
                                     console.log('설정된 값:', clampedValue);
+                                    
+                                    // 실시간으로 진행률 바 업데이트
+                                    setSites(prevSites => 
+                                      prevSites.map(s => 
+                                        s.id === site.id 
+                                          ? { ...s, progressRate: clampedValue }
+                                          : s
+                                      )
+                                    );
                                   }
                                 }
                               }}
@@ -854,6 +988,15 @@ export default function ImportantSite() {
                                   handleSaveProgress(site);
                                 }
                               }}
+                              onBlur={() => {
+                                // 포커스를 잃을 때 자동 저장 (1초 후)
+                                setTimeout(() => {
+                                  if (progressInput[site.id] !== undefined && progressInput[site.id] !== '') {
+                                    console.log('포커스 아웃 - 자동 저장');
+                                    handleSaveProgress(site);
+                                  }
+                                }, 1000);
+                              }}
                               sx={{ width: 90, bgcolor: '#232b3b', borderRadius: 1, mr: 1 }}
                               inputRef={scrollFocus(null)}
                             />
@@ -863,7 +1006,9 @@ export default function ImportantSite() {
                               size="small"
                               sx={{ minWidth: 60, fontWeight: 700, borderRadius: 2, bgcolor: '#43e97b', color: '#222', '&:hover': { bgcolor: '#38f9d7' } }}
                               onClick={() => handleSaveProgress(site)}
-                            >저장</Button>
+                            >
+                              {progressInput[site.id] !== undefined && progressInput[site.id] !== '' ? '저장' : '취소'}
+                            </Button>
                           </>
                         ) : (
                           <Typography
@@ -873,7 +1018,7 @@ export default function ImportantSite() {
                               setProgressInput(prev => ({ ...prev, [site.id]: percent }));
                             }}
                           >
-                            {`공사 진행률: ${percent}%`}
+                            {`공사 진행률: ${percent.toLocaleString()}%`}
                           </Typography>
                         )}
                       </Box>

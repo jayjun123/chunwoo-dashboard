@@ -974,7 +974,7 @@ const GanttChart = () => {
             <Grid container sx={{ 
               minWidth: isMobile ? 
                 dateArray.length * (30 * zoomLevel) + 150 : 
-                dateArray.length * (40 * zoomLevel) + 200 
+                dateArray.length * (40 * zoomLevel) + 200
             }}>
               {/* 현장명 열 */}
               {!isMobile && (
@@ -1125,7 +1125,7 @@ const GanttChart = () => {
                     <Typography variant="body2" fontWeight="bold" noWrap color="black">
                       {site.name}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" noWrap>
+                    <Typography variant="caption" color="black" noWrap>
                       {getConstructionPeriod(site)}
                     </Typography>
                   </Grid>
@@ -1282,10 +1282,19 @@ const GanttChart = () => {
             100% { transform: translateY(-50%) scale(1); }
           }
           
-          /* 지정된 div 요소 투명하게 만들기 */
-          .MuiGrid-root.MuiGrid-direction-xs-row.css-ril70s-MuiGrid-root {
+          /* 지정된 div 요소 완전히 제거 */
+          .MuiGrid-root.MuiGrid-direction-xs-row.css-ril70s-MuiGrid-root,
+          .css-1fbyy2u-MuiGrid-root {
+            display: none !important;
             opacity: 0 !important;
             visibility: hidden !important;
+            position: absolute !important;
+            left: -9999px !important;
+            top: -9999px !important;
+            width: 0 !important;
+            height: 0 !important;
+            overflow: hidden !important;
+            pointer-events: none !important;
           }
         `}
       </style>

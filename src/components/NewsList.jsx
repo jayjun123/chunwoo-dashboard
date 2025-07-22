@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import '../styles/NewsList.css';
-import { getNews } from '../services/newsService';
+
 
 export default function NewsList() {
   const [news, setNews] = useState([]);
@@ -12,14 +12,11 @@ export default function NewsList() {
     const fetchNews = async () => {
       try {
         setLoading(true);
-        const newsData = await getNews(false); // 로컬 스토리지 우선
-        if (newsData && newsData.length > 0) {
-          setNews(newsData);
-        } else {
-          setError('뉴스를 불러오는데 실패했습니다.');
-        }
+        // 뉴스 기능 비활성화
+        setNews([]);
+        setError('뉴스 기능이 비활성화되었습니다.');
       } catch (err) {
-        setError('뉴스를 불러오는데 실패했습니다.');
+        setError('뉴스 기능이 비활성화되었습니다.');
         console.error('뉴스 로딩 실패:', err);
       } finally {
         setLoading(false);
