@@ -19,6 +19,13 @@ import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { 
+  centerWindow, 
+  setWindowToMonitor, 
+  resetWindowSettings,
+  loadWindowPosition,
+  loadWindowSize
+} from '../utils/windowManager';
 
 const Settings = () => {
   const { currentUser } = useAuth();
@@ -408,6 +415,86 @@ const Settings = () => {
                     </Grid>
                   </Paper>
                 </Grid>
+
+                {/* 윈도우 관리 (PWA 모드에서만 표시) */}
+                {(window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) && (
+                  <Grid>
+                    <Paper sx={{ p: 3 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <SecurityIcon sx={{ mr: 1 }} />
+                        <Typography variant="h6">윈도우 관리</Typography>
+                      </Box>
+                      <Grid container spacing={2}>
+                        <Grid>
+                          <Button
+                            variant="outlined"
+                            onClick={() => {
+                              centerWindow();
+                              setSnackbar({
+                                open: true,
+                                message: '윈도우가 화면 중앙에 배치되었습니다.',
+                                severity: 'success'
+                              });
+                            }}
+                            sx={{ mr: 1 }}
+                          >
+                            화면 중앙 배치
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            onClick={() => {
+                              setWindowToMonitor(0);
+                              setSnackbar({
+                                open: true,
+                                message: '윈도우가 첫 번째 모니터에 배치되었습니다.',
+                                severity: 'success'
+                              });
+                            }}
+                            sx={{ mr: 1 }}
+                          >
+                            첫 번째 모니터
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            onClick={() => {
+                              setWindowToMonitor(1);
+                              setSnackbar({
+                                open: true,
+                                message: '윈도우가 두 번째 모니터에 배치되었습니다.',
+                                severity: 'success'
+                              });
+                            }}
+                            sx={{ mr: 1 }}
+                          >
+                            두 번째 모니터
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="warning"
+                            onClick={() => {
+                              resetWindowSettings();
+                              setSnackbar({
+                                open: true,
+                                message: '윈도우 설정이 초기화되었습니다.',
+                                severity: 'info'
+                              });
+                            }}
+                          >
+                            설정 초기화
+                          </Button>
+                        </Grid>
+                        <Grid xs={12}>
+                          <Typography variant="body2" color="textSecondary">
+                            현재 위치: X={loadWindowPosition().x}, Y={loadWindowPosition().y}
+                          </Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            현재 크기: {loadWindowSize().width} x {loadWindowSize().height}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </Paper>
+                  </Grid>
+                )}
               </Grid>
             </Grid>
 

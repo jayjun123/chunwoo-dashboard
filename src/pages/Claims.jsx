@@ -442,15 +442,24 @@ const Claims = () => {
       {/* 헤더와 스마트카드 */}
       <Box sx={{ mb: 3 }}>
         {isMobile ? (
-          // 모바일 버전: 스마트카드 숨김
-          <>
-            <Typography variant="h4" sx={{ color: '#90caf9', fontWeight: 'bold', mb: 2 }}>
-              📋 {getMonthLabel(currentMonth)}
+          // 모바일 버전: 제목과 돌아가기 버튼을 한 줄에 배치
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h4" sx={{ color: '#90caf9', fontWeight: 'bold' }}>
+              📋 {getMonthLabel(currentMonth).replace('리스트', '')}
             </Typography>
-            <Typography variant="body1" sx={{ color: '#ccc', mb: 3 }}>
-              월별 청구예정을 관리하고 기성 등록과 연동하는 공간입니다.
-            </Typography>
-          </>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/schedule')}
+              sx={{ 
+                color: '#90caf9', 
+                borderColor: '#90caf9',
+                minWidth: 'auto',
+                px: 2
+              }}
+            >
+              돌아가기
+            </Button>
+          </Box>
         ) : (
           // PC 버전: 제목과 스마트카드 같은 줄
           <>
@@ -496,11 +505,11 @@ const Claims = () => {
         )}
       </Box>
 
-            {/* 검색 및 필터 */}
+            {/* 검색 및 필터 - 모바일에서는 한 줄에 배치 */}
       <Paper sx={{ backgroundColor: '#2d3748', p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          {/* 왼쪽: 검색과 필터 */}
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        {isMobile ? (
+          // 모바일: 검색창과 새청구 버튼을 한 줄에 배치
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <TextField
               placeholder="검색..."
               value={searchTerm}
@@ -512,56 +521,8 @@ const Claims = () => {
                   '& input': { color: 'white' }
                 }
               }}
-              sx={{ width: '200px' }}
+              sx={{ flex: 1 }}
             />
-            <FormControl sx={{ width: '150px' }}>
-              <InputLabel sx={{ color: '#ccc' }}>청구여부</InputLabel>
-              <Select
-                value={filters.claimStatus}
-                onChange={(e) => setFilters(prev => ({ ...prev, claimStatus: e.target.value }))}
-                sx={{ 
-                  backgroundColor: '#444',
-                  '& .MuiSelect-select': { color: 'white' }
-                }}
-              >
-                <MenuItem value="">전체</MenuItem>
-                <MenuItem value="O">청구완료</MenuItem>
-                <MenuItem value="X">청구대기</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* 중앙: 액션 버튼들 */}
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            {!isMobile && (
-              <>
-                <Button
-                  variant="outlined"
-                  startIcon={<DownloadIcon />}
-                  onClick={handleExportExcel}
-                  sx={{ color: '#90caf9', borderColor: '#90caf9' }}
-                >
-                  엑셀 다운로드
-                </Button>
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleImportExcel}
-                  style={{ display: 'none' }}
-                  id="excel-upload"
-                />
-                <label htmlFor="excel-upload">
-                  <Button
-                    variant="outlined"
-                    startIcon={<UploadIcon />}
-                    component="span"
-                    sx={{ color: '#90caf9', borderColor: '#90caf9' }}
-                  >
-                    엑셀 업로드
-                  </Button>
-                </label>
-              </>
-            )}
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -570,25 +531,107 @@ const Claims = () => {
                 resetForm();
                 setDialogOpen(true);
               }}
-              sx={{ backgroundColor: '#4caf50' }}
-            >
-              새 청구예정
-            </Button>
-          </Box>
-
-          {/* 오른쪽 끝: 월별 네비게이션 */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => setCurrentMonth(getPreviousMonth(currentMonth))}
               sx={{ 
-                color: '#90caf9', 
-                borderColor: '#90caf9',
-                '&:hover': { borderColor: '#64b5f6' },
-                minWidth: '50px'
+                backgroundColor: '#4caf50',
+                height: '40px',
+                minWidth: '100px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                whiteSpace: 'nowrap'
               }}
             >
+              새청구
+            </Button>
+          </Box>
+        ) : (
+          // PC: 기존 레이아웃 유지
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            {/* 왼쪽: 검색과 필터 */}
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <TextField
+                placeholder="검색..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: <SearchIcon sx={{ color: '#666', mr: 1 }} />,
+                  sx: { 
+                    backgroundColor: '#444',
+                    '& input': { color: 'white' }
+                  }
+                }}
+                sx={{ width: '200px' }}
+              />
+              <FormControl sx={{ width: '150px' }}>
+                <InputLabel sx={{ color: '#ccc' }}>청구여부</InputLabel>
+                <Select
+                  value={filters.claimStatus}
+                  onChange={(e) => setFilters(prev => ({ ...prev, claimStatus: e.target.value }))}
+                  sx={{ 
+                    backgroundColor: '#444',
+                    '& .MuiSelect-select': { color: 'white' }
+                  }}
+                >
+                  <MenuItem value="">전체</MenuItem>
+                  <MenuItem value="O">청구완료</MenuItem>
+                  <MenuItem value="X">청구대기</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* 중앙: 액션 버튼들 */}
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={handleExportExcel}
+                sx={{ color: '#90caf9', borderColor: '#90caf9' }}
+              >
+                엑셀 다운로드
+              </Button>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleImportExcel}
+                style={{ display: 'none' }}
+                id="excel-upload"
+              />
+              <label htmlFor="excel-upload">
+                <Button
+                  variant="outlined"
+                  startIcon={<UploadIcon />}
+                  component="span"
+                  sx={{ color: '#90caf9', borderColor: '#90caf9' }}
+                >
+                  엑셀 업로드
+                </Button>
+              </label>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  setEditingClaim(null);
+                  resetForm();
+                  setDialogOpen(true);
+                }}
+                sx={{ backgroundColor: '#4caf50' }}
+              >
+                새 청구예정
+              </Button>
+            </Box>
+
+            {/* 오른쪽 끝: 월별 네비게이션 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setCurrentMonth(getPreviousMonth(currentMonth))}
+                sx={{ 
+                  color: '#90caf9', 
+                  borderColor: '#90caf9',
+                  '&:hover': { borderColor: '#64b5f6' },
+                  minWidth: '50px'
+                }}
+              >
               이전
             </Button>
             
@@ -611,7 +654,69 @@ const Claims = () => {
             </Button>
           </Box>
         </Box>
+        )}
       </Paper>
+
+      {/* 모바일 필터 및 월 네비게이션 */}
+      {isMobile && (
+        <Paper sx={{ backgroundColor: '#2d3748', p: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* 청구여부 드롭다운 */}
+            <FormControl size="small" fullWidth>
+              <InputLabel sx={{ color: '#ccc', fontSize: '12px' }}>청구여부</InputLabel>
+              <Select
+                value={filters.claimStatus}
+                onChange={(e) => setFilters(prev => ({ ...prev, claimStatus: e.target.value }))}
+                sx={{ 
+                  backgroundColor: '#444',
+                  '& .MuiSelect-select': { 
+                    color: 'white',
+                    fontSize: '12px',
+                    py: 0.5
+                  }
+                }}
+              >
+                <MenuItem value="">전체</MenuItem>
+                <MenuItem value="O">청구완료</MenuItem>
+                <MenuItem value="X">청구대기</MenuItem>
+              </Select>
+            </FormControl>
+            
+            {/* 월 네비게이션 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center' }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setCurrentMonth(getPreviousMonth(currentMonth))}
+                sx={{ 
+                  color: '#90caf9', 
+                  borderColor: '#90caf9',
+                  minWidth: '50px',
+                  fontSize: '12px'
+                }}
+              >
+                이전
+              </Button>
+              <Typography variant="body2" sx={{ color: 'white', px: 2, fontWeight: 'bold' }}>
+                {getMonthLabel(currentMonth).replace('리스트', '')}
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setCurrentMonth(getNextMonth(currentMonth))}
+                sx={{ 
+                  color: '#90caf9', 
+                  borderColor: '#90caf9',
+                  minWidth: '50px',
+                  fontSize: '12px'
+                }}
+              >
+                다음
+              </Button>
+            </Box>
+          </Box>
+        </Paper>
+      )}
 
       {/* 테이블 */}
       <Paper sx={{ backgroundColor: '#2d3748', overflow: 'hidden' }}>

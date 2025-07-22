@@ -12,7 +12,8 @@ import { exportToExcel } from '../utils/exportUtils';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
 
-const TAB_LABELS = ['안전관리', '안전 점검', '사고/사고예방', '안전 교육', '안전관리비'];
+const TAB_LABELS = ['안전관리', '안전 점검', '사고예방', '안전 교육', '안전관리비'];
+const MOBILE_TAB_LABELS = ['안전 점검', '사고예방', '안전 교육', '안전관리비'];
 
 const SafetyPage = () => {
   const [tab, setTab] = useState(0);
@@ -39,6 +40,21 @@ const SafetyPage = () => {
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const isMobile = useMediaQuery('(max-width:900px)');
+  
+  // 모바일에서는 안전관리 탭이 없으므로 인덱스 조정
+  const getActualTabIndex = () => {
+    if (isMobile && tab === 0) {
+      return 1; // 모바일에서 첫 번째 탭(안전 점검)은 실제로는 인덱스 1
+    }
+    return tab;
+  };
+  
+  // 모바일에서는 안전 점검 탭(인덱스 1)을 기본으로 설정
+  useEffect(() => {
+    if (isMobile && tab === 0) {
+      setTab(1);
+    }
+  }, [isMobile, tab]);
   const [siteOptions, setSiteOptions] = useState([]);
   const [search, setSearch] = useState('');
   const [searchParams] = useSearchParams();
@@ -50,13 +66,14 @@ const SafetyPage = () => {
   const collectionMap = ['sites', 'safety_inspections', 'safety_accidents', 'safety_education', 'safety_costs'];
 
   useEffect(() => {
-    const q = query(collection(db, collectionMap[tab]));
+    const actualTabIndex = getActualTabIndex();
+    const q = query(collection(db, collectionMap[actualTabIndex]));
     const unsub = onSnapshot(q, (snapshot) => {
       setData(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
     return () => unsub();
     // eslint-disable-next-line
-  }, [tab]);
+  }, [tab, isMobile]);
 
   // 전체 현장명 목록 불러오기
   useEffect(() => {
@@ -394,7 +411,7 @@ const SafetyPage = () => {
       1: isMobile ? ['현장명', '제목', '일자'] : ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 안전 점검
       2: isMobile ? ['현장명', '제목', '일자'] : ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 사고/사고예방
       3: isMobile ? ['현장명', '제목', '일자'] : ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 안전 교육
-      4: ['현장명', '이름', '날짜', '안전장비', '분출여부', '첨부파일', '영수증', '분출대장', '비고', '금액', '관리'] // 안전관리비
+      4: isMobile ? ['현장명', '날짜', '안전장비'] : ['현장명', '이름', '날짜', '안전장비', '분출여부', '첨부파일', '영수증', '분출대장', '비고', '금액', '관리'] // 안전관리비
     };
 
     const renderRow = (row) => {
@@ -504,15 +521,17 @@ const SafetyPage = () => {
             }}>
               {row.siteName}
             </TableCell>
-            <TableCell sx={{ 
-              fontSize: isMobile ? '0.6rem' : 'inherit', 
-              padding: isMobile ? '4px 2px' : 'auto',
-              width: 'auto',
-              minWidth: 0,
-              maxWidth: '100%'
-            }}>
-              {row.name}
-            </TableCell>
+            {!isMobile && (
+              <TableCell sx={{ 
+                fontSize: isMobile ? '0.6rem' : 'inherit', 
+                padding: isMobile ? '4px 2px' : 'auto',
+                width: 'auto',
+                minWidth: 0,
+                maxWidth: '100%'
+              }}>
+                {row.name}
+              </TableCell>
+            )}
             <TableCell sx={{ 
               fontSize: isMobile ? '0.7rem' : 'inherit', 
               padding: isMobile ? '8px 4px' : 'auto',
@@ -531,107 +550,113 @@ const SafetyPage = () => {
             }}>
               {row.equipment}
             </TableCell>
-            <TableCell sx={{ 
-              fontSize: isMobile ? '0.6rem' : 'inherit', 
-              padding: isMobile ? '4px 2px' : 'auto',
-              width: 'auto',
-              minWidth: 0,
-              maxWidth: '100%'
-            }}>
-              {row.isIssued || '아니요'}
-            </TableCell>
-            <TableCell sx={{ 
-              fontSize: isMobile ? '0.6rem' : 'inherit', 
-              padding: isMobile ? '4px 2px' : 'auto',
-              width: 'auto',
-              minWidth: 0,
-              maxWidth: '100%'
-            }}>
-              {row.preview ? (
-                <img 
-                  src={row.preview} 
-                  alt="첨부파일" 
-                  style={{ 
-                    maxWidth: isMobile ? 40 : 60, 
-                    maxHeight: isMobile ? 30 : 40, 
-                    cursor: 'pointer'
-                  }} 
-                  onClick={() => window.open(row.preview, '_blank')}
-                />
-              ) : '-'}
-            </TableCell>
-            <TableCell sx={{ 
-              fontSize: isMobile ? '0.6rem' : 'inherit', 
-              padding: isMobile ? '4px 2px' : 'auto',
-              width: 'auto',
-              minWidth: 0,
-              maxWidth: '100%'
-            }}>
-              {row.receiptUrl ? (
-                <img 
-                  src={row.receiptUrl} 
-                  alt="영수증" 
-                  style={{ 
-                    maxWidth: isMobile ? 40 : 60, 
-                    maxHeight: isMobile ? 30 : 40, 
-                    cursor: 'pointer'
-                  }} 
-                  onClick={() => window.open(row.receiptUrl, '_blank')}
-                />
-              ) : '-'}
-            </TableCell>
-            <TableCell sx={{ 
-              fontSize: isMobile ? '0.6rem' : 'inherit', 
-              padding: isMobile ? '4px 2px' : 'auto',
-              width: 'auto',
-              minWidth: 0,
-              maxWidth: '100%'
-            }}>
-              {row.issueDocUrl ? (
-                <img 
-                  src={row.issueDocUrl} 
-                  alt="분출대장" 
-                  style={{ 
-                    maxWidth: isMobile ? 40 : 60, 
-                    maxHeight: isMobile ? 30 : 40, 
-                    cursor: 'pointer'
-                  }} 
-                  onClick={() => window.open(row.issueDocUrl, '_blank')}
-                />
-              ) : '-'}
-            </TableCell>
-            <TableCell sx={{ 
-              fontSize: isMobile ? '0.6rem' : 'inherit', 
-              padding: isMobile ? '4px 2px' : 'auto',
-              width: 'auto',
-              minWidth: 0,
-              maxWidth: '100%'
-            }}>
-              {row.note}
-            </TableCell>
-            <TableCell sx={{ 
-              fontSize: isMobile ? '0.6rem' : 'inherit', 
-              padding: isMobile ? '4px 2px' : 'auto',
-              width: 'auto',
-              minWidth: 0,
-              maxWidth: '100%'
-            }}>
-              {row.amount ? Number(row.amount).toLocaleString() : ''}
-            </TableCell>
-            <TableCell sx={{ 
-              fontSize: isMobile ? '0.6rem' : 'inherit', 
-              padding: isMobile ? '4px 2px' : 'auto',
-              width: 'auto',
-              minWidth: 0,
-              maxWidth: '100%'
-            }}>
-              <IconButton size={isMobile ? 'small' : 'small'} onClick={() => openDialog(row)}>
-                <EditIcon sx={{ fontSize: isMobile ? '1rem' : 'inherit' }} />
-              </IconButton>
-              <IconButton size={isMobile ? 'small' : 'small'} onClick={() => handleDelete(row)}>
-                <DeleteIcon sx={{ fontSize: isMobile ? '1rem' : 'inherit' }} />
-              </IconButton>
-            </TableCell>
+            {!isMobile && (
+              <>
+                <TableCell sx={{ 
+                  fontSize: isMobile ? '0.6rem' : 'inherit', 
+                  padding: isMobile ? '4px 2px' : 'auto',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>
+                  {row.isIssued || '아니요'}
+                </TableCell>
+                <TableCell sx={{ 
+                  fontSize: isMobile ? '0.6rem' : 'inherit', 
+                  padding: isMobile ? '4px 2px' : 'auto',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>
+                  {row.preview ? (
+                    <img 
+                      src={row.preview} 
+                      alt="첨부파일" 
+                      style={{ 
+                        maxWidth: isMobile ? 40 : 60, 
+                        maxHeight: isMobile ? 30 : 40, 
+                        cursor: 'pointer'
+                      }} 
+                      onClick={() => window.open(row.preview, '_blank')}
+                    />
+                  ) : '-'}
+                </TableCell>
+                <TableCell sx={{ 
+                  fontSize: isMobile ? '0.6rem' : 'inherit', 
+                  padding: isMobile ? '4px 2px' : 'auto',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>
+                  {row.receiptUrl ? (
+                    <img 
+                      src={row.receiptUrl} 
+                      alt="영수증" 
+                      style={{ 
+                        maxWidth: isMobile ? 40 : 60, 
+                        maxHeight: isMobile ? 30 : 40, 
+                        cursor: 'pointer'
+                      }} 
+                      onClick={() => window.open(row.receiptUrl, '_blank')}
+                    />
+                  ) : '-'}
+                </TableCell>
+                <TableCell sx={{ 
+                  fontSize: isMobile ? '0.6rem' : 'inherit', 
+                  padding: isMobile ? '4px 2px' : 'auto',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>
+                  {row.issueDocUrl ? (
+                    <img 
+                      src={row.issueDocUrl} 
+                      alt="분출대장" 
+                      style={{ 
+                        maxWidth: isMobile ? 40 : 60, 
+                        maxHeight: isMobile ? 30 : 40, 
+                        cursor: 'pointer'
+                      }} 
+                      onClick={() => window.open(row.issueDocUrl, '_blank')}
+                    />
+                  ) : '-'}
+                </TableCell>
+                <TableCell sx={{ 
+                  fontSize: isMobile ? '0.6rem' : 'inherit', 
+                  padding: isMobile ? '4px 2px' : 'auto',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>
+                  {row.note}
+                </TableCell>
+                <TableCell sx={{ 
+                  fontSize: isMobile ? '0.6rem' : 'inherit', 
+                  padding: isMobile ? '4px 2px' : 'auto',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%'
+                }}>
+                  {row.amount ? Number(row.amount).toLocaleString() : ''}
+                </TableCell>
+              </>
+            )}
+            {!isMobile && (
+              <TableCell sx={{ 
+                fontSize: isMobile ? '0.6rem' : 'inherit', 
+                padding: isMobile ? '4px 2px' : 'auto',
+                width: 'auto',
+                minWidth: 0,
+                maxWidth: '100%'
+              }}>
+                <IconButton size={isMobile ? 'small' : 'small'} onClick={() => openDialog(row)}>
+                  <EditIcon sx={{ fontSize: isMobile ? '1rem' : 'inherit' }} />
+                </IconButton>
+                <IconButton size={isMobile ? 'small' : 'small'} onClick={() => handleDelete(row)}>
+                  <DeleteIcon sx={{ fontSize: isMobile ? '1rem' : 'inherit' }} />
+                </IconButton>
+              </TableCell>
+            )}
           </TableRow>
         );
       }
@@ -676,7 +701,7 @@ const SafetyPage = () => {
               >
                 추가
               </Button>
-              {(!isMobile || (tab !== 1 && tab !== 2 && tab !== 3)) && (
+              {(!isMobile || (tab !== 1 && tab !== 2 && tab !== 3 && tab !== 4)) && (
                 <Button 
                   variant="outlined" 
                   startIcon={<CloudDownloadIcon />} 
@@ -788,8 +813,15 @@ const SafetyPage = () => {
           backgroundColor: '#1a1d21'
         }}>
           <Tabs
-            value={tab}
-            onChange={(e, v) => setTab(v)}
+            value={isMobile ? tab - 1 : tab}
+            onChange={(e, v) => {
+              if (isMobile) {
+                // 모바일에서는 인덱스를 1씩 증가시켜서 실제 탭 인덱스와 매칭
+                setTab(v + 1);
+              } else {
+                setTab(v);
+              }
+            }}
             sx={{
               mb: 2,
               bgcolor: '#232b3b',
@@ -820,19 +852,19 @@ const SafetyPage = () => {
               },
             }}
           >
-            {TAB_LABELS.map((label, index) => (
+            {(isMobile ? MOBILE_TAB_LABELS : TAB_LABELS).map((label, index) => (
               <Tab
                 key={label}
                 label={label}
                 sx={{
                   color: '#fff',
                   fontWeight: 700,
-                  fontSize: '1rem',
-                  px: 3,
-                  py: 1.5,
+                  fontSize: isMobile ? '0.8rem' : '1rem',
+                  px: isMobile ? 1 : 3,
+                  py: isMobile ? 1 : 1.5,
                   borderRadius: 2,
-                  minHeight: 48,
-                  minWidth: 120,
+                  minHeight: isMobile ? 40 : 48,
+                  minWidth: isMobile ? 80 : 120,
                   '&.Mui-selected': {
                     color: '#90caf9',
                     bgcolor: '#181c24',
