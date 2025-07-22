@@ -871,7 +871,7 @@ const ScheduleManagement = ({
                   fontWeight: 600, 
                   display: { xs: 'none', md: 'block' },
                   color: '#fff'
-                }}>이달의 현장</Typography>
+                }}>이달의 현장 ({filteredSites.length})</Typography>
                 
                 {/* 견적/청구 버튼 - 오른쪽에 컴팩트하게 */}
                 <Box sx={{ 

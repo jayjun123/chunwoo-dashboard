@@ -356,47 +356,70 @@ const PCKakaoDiscussion = () => {
     try {
       console.log('🔥 참여자 정보 로드 시작:', selectedDiscussion.id);
       
-      // 먼저 현재 토론 정보를 다시 가져와서 최신 참여자 수 확인
-      const discussionRef = doc(db, 'discussions', selectedDiscussion.id);
-      const discussionDoc = await getDoc(discussionRef);
-      
-      if (!discussionDoc.exists()) {
-        throw new Error('토론을 찾을 수 없습니다.');
-      }
-      
-      const discussionData = discussionDoc.data();
-      console.log('🔥 토론 데이터:', discussionData);
-      
       // 참여자 정보 가져오기
       const participantsData = await getDiscussionParticipants(selectedDiscussion.id);
       console.log('🔥 참여자 데이터:', participantsData);
       
-      if (participantsData && participantsData.participants) {
+      if (participantsData && participantsData.participants && participantsData.participants.length > 0) {
         setParticipants(participantsData.participants);
+        setSnackbar({ 
+          open: true, 
+          message: `참여자 ${participantsData.participants.length}명이 조회되었습니다.`, 
+          severity: 'success' 
+        });
       } else {
-        // 참여자 정보가 없는 경우 기본 정보로 설정
-        setParticipants([{
+        // 참여자 정보가 없는 경우 현재 사용자를 기본 참여자로 설정
+        const defaultParticipant = {
           id: currentUser?.uid || 'unknown',
           name: currentUser?.displayName || currentUser?.email || '현재 사용자',
           email: currentUser?.email || '',
           role: '참여자',
           avatar: currentUser?.photoURL || '',
-          joinTime: discussionData.createdAt || new Date(),
+          joinTime: selectedDiscussion.createdAt || new Date(),
           isOnline: true
-        }]);
+        };
+        
+        setParticipants([defaultParticipant]);
+        
+        // 참여자 정보가 없으면 현재 사용자를 참여자로 추가
+        try {
+          // 사용자의 실제 이름을 가져오기 위한 로직
+          let userName = '현재 사용자';
+          
+          if (currentUser.displayName && currentUser.displayName.trim() !== '') {
+            userName = currentUser.displayName;
+          } else if (currentUser.email) {
+            // 이메일에서 @ 앞부분을 이름으로 사용
+            const emailName = currentUser.email.split('@')[0];
+            // 이메일 이름을 더 읽기 쉽게 변환 (예: john.doe -> John Doe)
+            userName = emailName
+              .split(/[._-]/)
+              .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+              .join(' ');
+          }
+          
+          await addParticipant(
+            selectedDiscussion.id, 
+            currentUser.uid, 
+            userName
+          );
+          console.log('🔥 현재 사용자를 참여자로 추가했습니다:', userName);
+        } catch (addError) {
+          console.error('🔥 참여자 추가 실패:', addError);
+        }
+        
+        setSnackbar({ 
+          open: true, 
+          message: '참여자 정보를 초기화했습니다.', 
+          severity: 'info' 
+        });
       }
-      
-      setSnackbar({ 
-        open: true, 
-        message: `참여자 ${participantsData?.participants?.length || 1}명이 조회되었습니다.`, 
-        severity: 'success' 
-      });
       
     } catch (error) {
       console.error('🔥 참여자 정보 로드 실패:', error);
       
-      // 에러 발생 시 기본 참여자 정보 설정
-      setParticipants([{
+      // 에러 발생 시 현재 사용자를 기본 참여자로 설정
+      const defaultParticipant = {
         id: currentUser?.uid || 'unknown',
         name: currentUser?.displayName || currentUser?.email || '현재 사용자',
         email: currentUser?.email || '',
@@ -404,7 +427,9 @@ const PCKakaoDiscussion = () => {
         avatar: currentUser?.photoURL || '',
         joinTime: new Date(),
         isOnline: true
-      }]);
+      };
+      
+      setParticipants([defaultParticipant]);
       
       setSnackbar({ 
         open: true, 
@@ -441,10 +466,25 @@ const PCKakaoDiscussion = () => {
       
       // 참여자로 추가
       try {
+        // 사용자의 실제 이름을 가져오기 위한 로직
+        let userName = '현재 사용자';
+        
+        if (currentUser.displayName && currentUser.displayName.trim() !== '') {
+          userName = currentUser.displayName;
+        } else if (currentUser.email) {
+          // 이메일에서 @ 앞부분을 이름으로 사용
+          const emailName = currentUser.email.split('@')[0];
+          // 이메일 이름을 더 읽기 쉽게 변환 (예: john.doe -> John Doe)
+          userName = emailName
+            .split(/[._-]/)
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+            .join(' ');
+        }
+        
         await addParticipant(
           discussion.id, 
           currentUser.uid, 
-          currentUser.displayName || currentUser.email
+          userName
         );
       } catch (error) {
         console.error('참여자 추가 실패:', error);
@@ -481,10 +521,25 @@ const PCKakaoDiscussion = () => {
       
       // 참여자로 추가
       try {
+        // 사용자의 실제 이름을 가져오기 위한 로직
+        let userName = '현재 사용자';
+        
+        if (currentUser.displayName && currentUser.displayName.trim() !== '') {
+          userName = currentUser.displayName;
+        } else if (currentUser.email) {
+          // 이메일에서 @ 앞부분을 이름으로 사용
+          const emailName = currentUser.email.split('@')[0];
+          // 이메일 이름을 더 읽기 쉽게 변환 (예: john.doe -> John Doe)
+          userName = emailName
+            .split(/[._-]/)
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+            .join(' ');
+        }
+        
         await addParticipant(
           discussion.id, 
           currentUser.uid, 
-          currentUser.displayName || currentUser.email
+          userName
         );
       } catch (error) {
         console.error('참여자 추가 실패:', error);
@@ -802,11 +857,21 @@ const PCKakaoDiscussion = () => {
                       {discussion.title !== discussion.siteName ? discussion.title : '토론방'}
                     </Typography>
                     <Chip 
-                      label={discussion.priority} 
+                      label={
+                        discussion.priority === 'low' ? '낮음' :
+                        discussion.priority === 'normal' ? '보통' :
+                        discussion.priority === 'high' ? '높음' :
+                        discussion.priority === 'urgent' ? '긴급' : discussion.priority
+                      } 
                       size="small"
                       sx={{ 
-                        backgroundColor: discussion.priority === 'high' ? '#e53e3e' : '#4a5568',
-                        color: 'white'
+                        backgroundColor: 
+                          discussion.priority === 'urgent' ? '#e53e3e' :
+                          discussion.priority === 'high' ? '#f56565' :
+                          discussion.priority === 'normal' ? '#4a5568' :
+                          discussion.priority === 'low' ? '#718096' : '#4a5568',
+                        color: 'white',
+                        fontSize: '0.75rem'
                       }}
                     />
                   </Box>
@@ -1236,6 +1301,27 @@ const PCKakaoDiscussion = () => {
               sx: { color: '#a0aec0' }
             }}
           />
+          
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel sx={{ color: '#a0aec0' }}>우선순위</InputLabel>
+            <Select
+              value={newDiscussion.priority}
+              onChange={(e) => setNewDiscussion(prev => ({ ...prev, priority: e.target.value }))}
+              sx={{
+                color: 'white',
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#4a5568' },
+                  '&:hover fieldset': { borderColor: '#718096' },
+                  '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                }
+              }}
+            >
+              <MenuItem value="low" sx={{ color: 'white' }}>낮음</MenuItem>
+              <MenuItem value="normal" sx={{ color: 'white' }}>보통</MenuItem>
+              <MenuItem value="high" sx={{ color: 'white' }}>높음</MenuItem>
+              <MenuItem value="urgent" sx={{ color: 'white' }}>긴급</MenuItem>
+            </Select>
+          </FormControl>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsCreateDialogOpen(false)} sx={{ color: '#a0aec0' }}>취소</Button>
@@ -1271,7 +1357,12 @@ const PCKakaoDiscussion = () => {
             <strong>생성일:</strong> {selectedDiscussion?.createdAt?.toLocaleDateString()}
           </Typography>
           <Typography variant="body1" sx={{ color: 'white' }}>
-            <strong>우선순위:</strong> {selectedDiscussion?.priority}
+            <strong>우선순위:</strong> {
+              selectedDiscussion?.priority === 'low' ? '낮음' :
+              selectedDiscussion?.priority === 'normal' ? '보통' :
+              selectedDiscussion?.priority === 'high' ? '높음' :
+              selectedDiscussion?.priority === 'urgent' ? '긴급' : selectedDiscussion?.priority
+            }
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -1294,71 +1385,85 @@ const PCKakaoDiscussion = () => {
       >
         <DialogTitle sx={{ color: 'white' }}>채팅방 설정</DialogTitle>
         <DialogContent>
-          {/* 비밀번호 재설정 섹션 */}
-          <Typography variant="h6" sx={{ mb: 2, color: 'white' }}>비밀번호 재설정 (선택사항)</Typography>
-          <TextField
-            fullWidth
-            label="현재 비밀번호"
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            sx={{ mb: 2 }}
-            InputProps={{
-              sx: { 
-                color: 'white',
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': { borderColor: '#4a5568' },
-                  '&:hover fieldset': { borderColor: '#718096' },
-                  '&.Mui-focused fieldset': { borderColor: '#90caf9' }
-                }
-              }
-            }}
-            InputLabelProps={{
-              sx: { color: '#a0aec0' }
-            }}
-          />
-          <TextField
-            fullWidth
-            label="새 비밀번호"
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            sx={{ mb: 2 }}
-            InputProps={{
-              sx: { 
-                color: 'white',
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': { borderColor: '#4a5568' },
-                  '&:hover fieldset': { borderColor: '#718096' },
-                  '&.Mui-focused fieldset': { borderColor: '#90caf9' }
-                }
-              }
-            }}
-            InputLabelProps={{
-              sx: { color: '#a0aec0' }
-            }}
-          />
-          <TextField
-            fullWidth
-            label="새 비밀번호 확인"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            sx={{ mb: 3 }}
-            InputProps={{
-              sx: { 
-                color: 'white',
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': { borderColor: '#4a5568' },
-                  '&:hover fieldset': { borderColor: '#718096' },
-                  '&.Mui-focused fieldset': { borderColor: '#90caf9' }
-                }
-              }
-            }}
-            InputLabelProps={{
-              sx: { color: '#a0aec0' }
-            }}
-          />
+          {/* 비밀번호 재설정 섹션 - 비밀번호가 있는 경우에만 표시 */}
+          {selectedDiscussion?.password && selectedDiscussion.password.trim() !== '' && (
+            <>
+              <Typography variant="h6" sx={{ mb: 2, color: 'white' }}>비밀번호 재설정</Typography>
+              <TextField
+                fullWidth
+                label="현재 비밀번호"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                sx={{ mb: 2 }}
+                InputProps={{
+                  sx: { 
+                    color: 'white',
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#4a5568' },
+                      '&:hover fieldset': { borderColor: '#718096' },
+                      '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                    }
+                  }
+                }}
+                InputLabelProps={{
+                  sx: { color: '#a0aec0' }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="새 비밀번호"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                sx={{ mb: 2 }}
+                InputProps={{
+                  sx: { 
+                    color: 'white',
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#4a5568' },
+                      '&:hover fieldset': { borderColor: '#718096' },
+                      '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                    }
+                  }
+                }}
+                InputLabelProps={{
+                  sx: { color: '#a0aec0' }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="새 비밀번호 확인"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                sx={{ mb: 3 }}
+                InputProps={{
+                  sx: { 
+                    color: 'white',
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#4a5568' },
+                      '&:hover fieldset': { borderColor: '#718096' },
+                      '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                    }
+                  }
+                }}
+                InputLabelProps={{
+                  sx: { color: '#a0aec0' }
+                }}
+              />
+            </>
+          )}
+          
+          {/* 공개 방인 경우 안내 메시지 */}
+          {(!selectedDiscussion?.password || selectedDiscussion.password.trim() === '') && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2, color: 'white' }}>채팅방 정보</Typography>
+              <Typography variant="body2" sx={{ color: '#a0aec0' }}>
+                이 채팅방은 공개 방입니다. 비밀번호 설정이 필요하지 않습니다.
+              </Typography>
+            </Box>
+          )}
           
           <Divider sx={{ my: 3, borderColor: '#4a5568' }} />
           

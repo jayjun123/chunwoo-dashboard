@@ -1207,8 +1207,8 @@ const CustomScheduleMobile = () => {
                   }
                 }}
                 onClick={() => {
-                  console.log('모바일 견적 버튼 클릭 - 하단바 확장');
-                  // 하단바 확장만 하도록 수정 (페이지 이동 제거)
+                  console.log('모바일 견적 버튼 클릭 - 견적 페이지로 이동');
+                  navigate('/estimates');
                 }}
               >
                 견적

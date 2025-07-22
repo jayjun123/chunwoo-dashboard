@@ -323,20 +323,22 @@ const Profile = () => {
             </CardContent>
           </Card>
 
-          {/* 비밀번호 변경 버튼 */}
-          <Card sx={{ mt: 2 }}>
-            <CardContent>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<LockIcon />}
-                onClick={() => setIsChangingPassword(true)}
-                sx={{ mb: 2 }}
-              >
-                비밀번호 변경
-              </Button>
-            </CardContent>
-          </Card>
+          {/* 비밀번호 변경 버튼 - 소셜 로그인이 아닌 경우에만 표시 */}
+          {currentUser.providerData && currentUser.providerData[0]?.providerId === 'password' && (
+            <Card sx={{ mt: 2 }}>
+              <CardContent>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<LockIcon />}
+                  onClick={() => setIsChangingPassword(true)}
+                  sx={{ mb: 2 }}
+                >
+                  비밀번호 변경
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </Grid>
       </Grid>
 
