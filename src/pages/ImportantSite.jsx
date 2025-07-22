@@ -565,7 +565,14 @@ export default function ImportantSite() {
     setUploadingSiteId(siteId);
     const storage = getStorage();
     const sRef = storageRef(storage, `siteImages/${siteId}_${file.name}`);
-    await uploadBytes(sRef, file);
+    await uploadBytes(sRef, file, {
+      customMetadata: {
+        userId: currentUser.uid,
+        uploadedAt: new Date().toISOString(),
+        type: 'site_image',
+        siteId: siteId
+      }
+    });
     const url = await getDownloadURL(sRef);
     await updateDoc(doc(db, "sites", siteId), { imageUrl: url });
     setUploadingSiteId(null);

@@ -152,7 +152,13 @@ const DocumentManagement = () => {
       if (formData.file) {
         // 새 파일 업로드
         const storageRef = ref(storage, `documents/${formData.file.name}`);
-        await uploadBytes(storageRef, formData.file);
+        await uploadBytes(storageRef, formData.file, {
+          customMetadata: {
+            userId: currentUser.uid,
+            uploadedAt: new Date().toISOString(),
+            type: 'document'
+          }
+        });
         fileUrl = await getDownloadURL(storageRef);
 
         // 기존 파일 삭제
