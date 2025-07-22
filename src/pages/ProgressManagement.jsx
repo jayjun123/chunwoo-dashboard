@@ -41,8 +41,6 @@ import {
   Snackbar,
   Chip,
   LinearProgress,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import { OptimizedTextField, useIMEHandler, usePWAKeyboardOptimization } from '../utils/imeHandler.jsx';
 import { useKeyboardManager } from '../utils/pwaKeyboardUtils';
@@ -296,8 +294,6 @@ const useProgressStats = (progressData, selectedSite, sites) => {
 
 // 메인 컴포넌트
 const ProgressManagement = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { setLoading, setLoadingMessage } = useLoading();
   const [selectedSite, setSelectedSite] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
@@ -566,7 +562,11 @@ const ProgressManagement = () => {
 
         <Grid container spacing={3} sx={{ width: '100vw', maxWidth: '100vw', margin: 0, padding: 0, boxSizing: 'border-box' }}>
           {/* 사이드바 */}
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sx={{ 
+            '@media (min-width: 900px)': {
+              width: '25%'
+            }
+          }}>
             <Box sx={{ bgcolor: '#181c24', borderRadius: 3, p: 3, minHeight: 600 }}>
               <Typography variant="h6" sx={{ color: '#2196f3', fontWeight: 700, mb: 2, textAlign: 'left' }}>
                 진행중현장 LIST
@@ -641,11 +641,19 @@ const ProgressManagement = () => {
           </Grid>
 
           {/* 메인 콘텐츠 */}
-          <Grid item xs={12} md={9}>
+          <Grid item xs={12} sx={{ 
+            '@media (min-width: 900px)': {
+              width: '75%'
+            }
+          }}>
             <Box sx={{ bgcolor: '#23242a', borderRadius: 3, p: 3, minHeight: 600, maxWidth: 'calc(100% - 100px)', width: 'calc(100% - 100px)' }}>
               {/* 컨트롤 패널 */}
               <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sx={{ 
+                  '@media (min-width: 900px)': {
+                    width: '33.333%'
+                  }
+                }}>
                   <FormControl fullWidth>
                     <InputLabel>현장 선택</InputLabel>
                     <Select
@@ -662,7 +670,11 @@ const ProgressManagement = () => {
                   </FormControl>
                 </Grid>
                 
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sx={{ 
+                  '@media (min-width: 900px)': {
+                    width: '33.333%'
+                  }
+                }}>
                   <OptimizedTextField
                     fullWidth
                     type="month"
@@ -673,7 +685,12 @@ const ProgressManagement = () => {
                   />
                 </Grid>
                 
-                <Grid item xs={12} md={4} sx={{ textAlign: 'right' }}>
+                <Grid item xs={12} sx={{ 
+                  textAlign: 'right',
+                  '@media (min-width: 900px)': {
+                    width: '33.333%'
+                  }
+                }}>
                   <Button
                     variant="contained"
                     startIcon={<AddIcon />}
@@ -715,11 +732,12 @@ const ProgressManagement = () => {
               {selectedSite && (
                 <>
                   {/* 통계 카드 */}
-                  <Grid container spacing={3} sx={{ 
-                    mt: 2,
-                    ...(isMobile && { mt: '30px' }) // 모바일에서 스마트카드를 30px 아래로 이동
-                  }}>
-                    <Grid item xs={12} md={4}>
+                  <Grid container spacing={3} sx={{ mt: 2 }}>
+                    <Grid item xs={12} sx={{ 
+                      '@media (min-width: 900px)': {
+                        width: '33.333%'
+                      }
+                    }}>
                       <Card sx={{ width: '100%', minWidth: '100%', maxWidth: '100%', boxSizing: 'border-box', m: 0, p: 0 }}>
                         <CardContent>
                           <Typography variant="h6" gutterBottom>
@@ -731,7 +749,11 @@ const ProgressManagement = () => {
                         </CardContent>
                       </Card>
                     </Grid>
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} sx={{ 
+                      '@media (min-width: 900px)': {
+                        width: '33.333%'
+                      }
+                    }}>
                       <Card sx={{ width: '100%', minWidth: '100%', maxWidth: '100%', boxSizing: 'border-box', m: 0, p: 0 }}>
                         <CardContent>
                           <Typography variant="h6" gutterBottom>
@@ -743,7 +765,11 @@ const ProgressManagement = () => {
                         </CardContent>
                       </Card>
                     </Grid>
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} sx={{ 
+                      '@media (min-width: 900px)': {
+                        width: '33.333%'
+                      }
+                    }}>
                       <Card sx={{ width: '100%', minWidth: '100%', maxWidth: '100%', boxSizing: 'border-box', m: 0, p: 0 }}>
                         <CardContent>
                           <Typography variant="h6" gutterBottom>
