@@ -150,15 +150,9 @@ function SafetyOverviewCards() {
 
       <Grid container spacing={isMobile ? 2 : 2.5}>
         {filtered.map(site => (
-          <Grid item xs={12} key={site.siteName} sx={{ 
+          <Grid item xs={12} sm={6} md={4} lg={3} key={site.siteName} sx={{ 
             width: '100%', 
-            px: isMobile ? 0 : 0,
-            '@media (min-width: 900px)': {
-              width: '33.333%'
-            },
-            '@media (min-width: 1200px)': {
-              width: '33.333%'
-            }
+            px: isMobile ? 0 : 0
           }}>
             <Paper sx={{ 
               p: isMobile ? 1.5 : 2.5, 
@@ -243,8 +237,16 @@ function SafetyOverviewCards() {
                           borderRadius: 1, 
                           height: 28, 
                           p: 0,
-                          fontSize: isMobile ? '0.8rem' : '1rem'
-                        } 
+                          fontSize: isMobile ? '0.8rem' : '1rem',
+                          bgcolor: '#23272f',
+                          border: '1px solid #374151'
+                        },
+                        '& .MuiOutlinedInput-root:hover': {
+                          border: '1px solid #4ade80'
+                        },
+                        '& .MuiOutlinedInput-root.Mui-focused': {
+                          border: '1px solid #4ade80'
+                        }
                       }}
                       InputProps={{ 
                         style: { 
@@ -252,7 +254,8 @@ function SafetyOverviewCards() {
                           padding: 0, 
                           fontSize: isMobile ? '0.8rem' : '1rem', 
                           textAlign: 'center', 
-                          lineHeight: 1 
+                          lineHeight: 1,
+                          color: '#fff'
                         } 
                       }}
                     />

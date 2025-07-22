@@ -38,7 +38,7 @@ function convertEstimateToSchedule(estimate) {
   
   return {
     id: `estimate_${estimate.id}`,
-    title: `견적: ${estimate.siteName || estimate.company}`,
+    title: `${estimate.siteName || estimate.company}`,
     description: `${estimate.requester} - ${estimate.requestContent || '견적요청'}`,
     date: estimate.submissionDeadline,
     type: '견적',
@@ -157,6 +157,20 @@ const ScheduleManagement = ({
     
     const unsubscribe = subscribeToEstimates((estimatesData) => {
       console.log('🔍 견적 데이터 로드됨:', estimatesData.length, '개');
+      
+      // 견적 데이터의 구조 확인
+      if (estimatesData.length > 0) {
+        console.log('🔍 견적 데이터 샘플:', estimatesData[0]);
+        console.log('🔍 견적 데이터 필드 확인:', {
+          id: estimatesData[0].id,
+          siteName: estimatesData[0].siteName,
+          company: estimatesData[0].company,
+          submissionDeadline: estimatesData[0].submissionDeadline,
+          requester: estimatesData[0].requester,
+          requestContent: estimatesData[0].requestContent
+        });
+      }
+      
       setEstimates(estimatesData);
     });
 
@@ -227,9 +241,12 @@ const ScheduleManagement = ({
           });
           
           // 견적 데이터를 일정으로 변환하여 추가
+          console.log('🔍 견적 데이터 변환 시작, 개수:', estimates.length);
           estimates.forEach(estimate => {
+            console.log('🔍 견적 변환 중:', estimate);
             const schedule = convertEstimateToSchedule(estimate);
             if (schedule) {
+              console.log('🔍 변환된 일정:', schedule);
               let dateStr;
               if (schedule.date.toDate) {
                 // Firestore Timestamp인 경우
@@ -243,10 +260,14 @@ const ScheduleManagement = ({
                 dateStr = schedule.date;
               }
               
+              console.log('🔍 견적 일정 날짜:', dateStr);
               if (!newCalendarItems[dateStr]) {
                 newCalendarItems[dateStr] = [];
               }
               newCalendarItems[dateStr].push(schedule);
+              console.log('🔍 견적 일정 추가됨:', schedule.title, '날짜:', dateStr);
+            } else {
+              console.log('🔍 견적 변환 실패:', estimate);
             }
           });
           

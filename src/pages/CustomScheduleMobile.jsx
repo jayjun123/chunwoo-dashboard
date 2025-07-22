@@ -206,14 +206,66 @@ const CustomScheduleMobile = () => {
 
   // 견적 데이터 가져오기
   useEffect(() => {
+    console.log('🔍 견적 데이터 구독 시작');
     const unsubscribe = subscribeToEstimates((estimatesData) => {
-      console.log('견적 데이터 로드 완료:', estimatesData.length, '개');
+      console.log('🔍 견적 데이터 로드 완료:', estimatesData.length, '개');
+      console.log('🔍 견적 데이터 샘플:', estimatesData.slice(0, 3));
+      
+      // 견적 데이터의 필드 구조 확인
+      if (estimatesData.length > 0) {
+        const sample = estimatesData[0];
+        console.log('🔍 견적 데이터 필드 구조:', {
+          id: sample.id,
+          siteName: sample.siteName,
+          company: sample.company,
+          submissionDeadline: sample.submissionDeadline,
+          requester: sample.requester,
+          requestContent: sample.requestContent
+        });
+      }
+      
       setEstimates(estimatesData);
     });
-    return () => unsubscribe();
+    return () => {
+      console.log('🔍 견적 데이터 구독 해제');
+      unsubscribe();
+    };
   }, []);
 
   const monthMatrix = getMonthMatrix(year, month);
+
+  // 견적 데이터를 일정으로 변환하는 함수
+  const convertEstimateToSchedule = (estimate) => {
+    console.log('🔍 견적 변환 시작:', estimate);
+    if (!estimate.submissionDeadline) {
+      console.log('🔍 submissionDeadline이 없음:', estimate);
+      return null;
+    }
+    
+    // 현장명 우선순위: siteName > company > '견적'
+    const siteName = estimate.siteName || estimate.company || '견적';
+    
+    const schedule = {
+      id: `estimate_${estimate.id}`,
+      text: `${siteName}`,
+      title: `${siteName}`,
+      description: `${estimate.requester} - ${estimate.requestContent || '견적요청'}`,
+      date: estimate.submissionDeadline,
+      type: '견적',
+      color: '#f59e42', // 주황색
+      siteName: siteName, // 명시적으로 siteName 설정
+      company: estimate.company,
+      requester: estimate.requester,
+      submissionStatus: estimate.submissionStatus,
+      contractStatus: estimate.contractStatus,
+      isEstimate: true, // 견적 데이터임을 표시
+      estimateId: estimate.id // 원본 견적 ID 저장
+    };
+    
+    console.log('🔍 변환된 일정:', schedule);
+    console.log('🔍 설정된 siteName:', schedule.siteName);
+    return schedule;
+  };
 
   // 견적 데이터에서 현장명 가져오기
   const getSiteNameFromEstimates = (schedule) => {
@@ -242,6 +294,7 @@ const CustomScheduleMobile = () => {
   const scheduleMap = {};
   const getScheduleKey = (year, month, day) => `${year}-${month}-${day}`;
   
+  // 기존 일정 데이터 처리
   schedules.forEach(item => {
     if (!item.date) {
       console.log('날짜가 없는 일정:', item);
@@ -283,11 +336,56 @@ const CustomScheduleMobile = () => {
     
     scheduleMap[key].push(enrichedItem);
   });
+
+  // 견적 데이터를 일정으로 변환하여 추가
+  console.log('🔍 견적 데이터 개수:', estimates.length);
+  estimates.forEach(estimate => {
+    console.log('🔍 견적 데이터 확인:', estimate);
+    const schedule = convertEstimateToSchedule(estimate);
+    if (schedule) {
+      let d;
+      if (schedule.date.toDate) {
+        // Firestore Timestamp인 경우
+        d = schedule.date.toDate();
+      } else if (schedule.date instanceof Date) {
+        // JavaScript Date인 경우
+        d = schedule.date;
+      } else {
+        // 문자열이나 다른 형식인 경우
+        d = new Date(schedule.date);
+      }
+      
+      const day = d.getDate();
+      const key = getScheduleKey(d.getFullYear(), d.getMonth(), day);
+      if (!scheduleMap[key]) scheduleMap[key] = [];
+      
+      // 견적 일정 추가
+      scheduleMap[key].push(schedule);
+      console.log('🔍 견적 일정 추가됨:', schedule.text, '날짜:', key, '전체 데이터:', schedule);
+    } else {
+      console.log('🔍 견적 일정 변환 실패:', estimate);
+    }
+  });
   
   // 현재 선택된 날짜의 일정을 가져오는 헬퍼 함수
   const getSchedulesForDate = (targetYear, targetMonth, targetDay) => {
     const key = getScheduleKey(targetYear, targetMonth, targetDay);
-    return scheduleMap[key] || [];
+    const schedules = scheduleMap[key] || [];
+    
+    // 디버깅을 위한 로그 추가
+    if (schedules.length > 0) {
+      console.log(`📅 ${targetYear}-${targetMonth + 1}-${targetDay} 일정:`, schedules.map(s => ({
+        id: s.id,
+        text: s.text,
+        title: s.title,
+        siteName: s.siteName,
+        type: s.type,
+        isEstimate: s.isEstimate,
+        company: s.company
+      })));
+    }
+    
+    return schedules;
   };
   
   console.log('현재 월 일정 매핑:', scheduleMap);
@@ -448,7 +546,54 @@ const CustomScheduleMobile = () => {
                               item.type === '현설' ? '[현설]' : 
                               item.type === '견적' ? '[견적]' : 
                               item.type === '기타' ? '[기타]' : '';
-                            return typePrefix + (item.text || item.title || '제목 없음').slice(0, 15);
+                            const title = item.text || item.title || '제목 없음';
+                            
+                            // 디버깅 로그 추가
+                            if (!title || title === '제목 없음' || title.trim() === '') {
+                              console.log('🔍 빈 제목 일정:', { id: item.id, siteName: item.siteName, type: item.type });
+                            }
+                            
+                            // 견적 일정인 경우 특별 처리
+                            if (item.isEstimate) {
+                              console.log('🔍 견적 일정 표시:', item);
+                              console.log('🔍 견적 siteName:', item.siteName);
+                              console.log('🔍 견적 company:', item.company);
+                              console.log('🔍 견적 text:', item.text);
+                              console.log('🔍 견적 title:', item.title);
+                              
+                              // 견적 일정의 경우 현장명을 우선적으로 표시
+                              const siteName = item.siteName || item.company || '견적';
+                              const estimateText = `[견적]${siteName}`;
+                              console.log('🔍 견적 텍스트:', estimateText);
+                              return estimateText.length > 15 ? estimateText.slice(0, 15) + '...' : estimateText;
+                            }
+                            
+                            // 견적 타입이지만 isEstimate가 없는 경우도 처리
+                            if (item.type === '견적') {
+                              console.log('🔍 견적 타입 일정 (isEstimate 없음):', item);
+                              const siteName = item.siteName || item.company || '견적';
+                              const estimateText = `[견적]${siteName}`;
+                              console.log('🔍 견적 텍스트 (타입 기반):', estimateText);
+                              return estimateText.length > 15 ? estimateText.slice(0, 15) + '...' : estimateText;
+                            }
+                            
+                            // 일반 일정의 경우
+                            console.log('🔍 일반 일정 표시:', item);
+                            console.log('🔍 item.text:', item.text);
+                            console.log('🔍 item.title:', item.title);
+                            console.log('🔍 item.siteName:', item.siteName);
+                            
+                            // 제목이 없거나 너무 짧은 경우 처리
+                            if (!title || title === '제목 없음' || title.trim() === '') {
+                              const fallbackText = typePrefix + (item.siteName || '일정');
+                              console.log('🔍 대체 텍스트 사용:', fallbackText);
+                              return fallbackText;
+                            }
+                            
+                            const fullText = typePrefix + title;
+                            const displayText = fullText.length > 15 ? fullText.slice(0, 15) + '...' : fullText;
+                            console.log('🔍 표시 텍스트:', displayText, '원본:', { title, type: item.type });
+                            return displayText;
                           })()}
                         </Box>
                       ))}
@@ -654,6 +799,13 @@ const CustomScheduleMobile = () => {
                         />
                                                   <span style={{ flex: 1, textAlign: 'left' }}>
                             {(() => {
+                              // 견적 일정인 경우 특별 처리
+                              if (item.isEstimate) {
+                                const siteName = item.siteName || item.company || '견적';
+                                const estimateText = `[견적]${siteName}`;
+                                return estimateText.length > 6 ? estimateText.slice(0, 6) + '...' : estimateText;
+                              }
+                              
                               const typePrefix = 
                                 item.type === '현장' ? '[현장]' : 
                                 item.type === '회의' ? '[회의]' : 
@@ -661,7 +813,15 @@ const CustomScheduleMobile = () => {
                                 item.type === '현설' ? '[현설]' : 
                                 item.type === '견적' ? '[견적]' : 
                                 item.type === '기타' ? '[기타]' : '';
-                              return typePrefix + (item.text || item.title || '제목 없음').slice(0, 6);
+                              const title = item.text || item.title || '제목 없음';
+                              
+                              // 제목이 없거나 너무 짧은 경우 처리
+                              if (!title || title === '제목 없음' || title.trim() === '') {
+                                return typePrefix + (item.siteName || '일정');
+                              }
+                              
+                              const fullText = typePrefix + title;
+                              return fullText.length > 6 ? fullText.slice(0, 6) + '...' : fullText;
                             })()}
                           </span>
                       </Box>
@@ -1047,8 +1207,8 @@ const CustomScheduleMobile = () => {
                   }
                 }}
                 onClick={() => {
-                  console.log('모바일 견적 버튼 클릭');
-                  navigate('/estimates');
+                  console.log('모바일 견적 버튼 클릭 - 하단바 확장');
+                  // 하단바 확장만 하도록 수정 (페이지 이동 제거)
                 }}
               >
                 견적
@@ -1217,12 +1377,26 @@ const CustomScheduleMobile = () => {
                                 }}
                               >
                                 {(() => {
+                                  // 견적 일정인 경우 특별 처리
+                                  if (item.isEstimate) {
+                                    const siteName = item.siteName || item.company || '견적';
+                                    const estimateText = `[견적]${siteName}`;
+                                    return estimateText.length > 8 ? estimateText.slice(0, 8) + '...' : estimateText;
+                                  }
+                                  
                                   const siteName = item.siteName || '';
                                   const title = item.text || item.title || '제목 없음';
+                                  
+                                  // 제목이 없거나 너무 짧은 경우 처리
+                                  if (!title || title === '제목 없음' || title.trim() === '') {
+                                    return siteName || '[일정]';
+                                  }
+                                  
                                   if (siteName) {
-                                    return `${siteName} ${title.slice(0, 6)}`;
+                                    const combinedText = `${siteName} ${title}`;
+                                    return combinedText.length > 8 ? combinedText.slice(0, 8) + '...' : combinedText;
                                   } else {
-                                    return title.slice(0, 8);
+                                    return title.length > 8 ? title.slice(0, 8) + '...' : title;
                                   }
                                 })()}
                               </Box>
@@ -1353,10 +1527,19 @@ const CustomScheduleMobile = () => {
                           const siteName = item.siteName || '';
                           const title = item.text || item.title || '제목 없음';
                           
+                          // 제목이 없거나 너무 짧은 경우 처리
+                          if (!title || title === '제목 없음' || title.trim() === '') {
+                            return typePrefix + (siteName || '일정');
+                          }
+                          
                           // 현장이름과 제목이 중복되는 경우 제목에서 현장이름 제거
                           let displayTitle = title;
                           if (siteName && title.includes(siteName)) {
                             displayTitle = title.replace(siteName, '').trim();
+                            // 제거 후 제목이 비어있으면 현장명만 표시
+                            if (!displayTitle || displayTitle.trim() === '') {
+                              return typePrefix + siteName;
+                            }
                           }
                           
                           const fullText = typePrefix + (siteName ? `${siteName} ` : '') + displayTitle;

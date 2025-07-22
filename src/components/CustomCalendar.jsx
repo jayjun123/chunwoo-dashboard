@@ -198,7 +198,7 @@ const CustomCalendar = (props) => {
 
   // 반응형 글자수 조절 함수
   const getResponsiveText = useMemo(() => {
-    return (text, type) => {
+    return (text, type, item) => {
       const typePrefix = 
         type === '현장' ? '[현장]' : 
         type === '회의' ? '[회의]' : 
@@ -207,7 +207,13 @@ const CustomCalendar = (props) => {
         type === '견적' ? '[견적]' : 
         type === '기타' ? '[기타]' : '';
       
-      const fullText = typePrefix + (text || '');
+      // 견적 일정의 경우 title 필드도 확인
+      let displayText = text || '';
+      if (type === '견적' && item && item.title) {
+        displayText = item.title;
+      }
+      
+      const fullText = typePrefix + (displayText || '');
       
       // 보기 모드에 따른 처리
       if (viewMode === '3days' || viewMode === 'week') {
@@ -1007,7 +1013,7 @@ const CustomCalendar = (props) => {
                                           display: 'block'
                                         }}
                                       >
-                                        {getResponsiveText(item.text, item.type)}
+                                        {getResponsiveText(item.text, item.type, item)}
                                       </span>
                                     </Tooltip>
                                     <Box

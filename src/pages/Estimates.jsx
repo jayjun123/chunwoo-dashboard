@@ -721,7 +721,7 @@ const Estimates = () => {
                 value={formData.receptionDate}
                 onChange={(e) => setFormData(prev => ({ ...prev, receptionDate: e.target.value }))}
                 InputLabelProps={{ shrink: true }}
-                disabled={editingEstimate}
+                disabled={false}
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
@@ -735,7 +735,7 @@ const Estimates = () => {
                 label="의뢰자"
                 value={formData.requester}
                 onChange={(e) => setFormData(prev => ({ ...prev, requester: e.target.value }))}
-                disabled={editingEstimate}
+                disabled={false}
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
@@ -749,7 +749,7 @@ const Estimates = () => {
                 label="제출방법"
                 value={formData.submissionMethod}
                 onChange={(e) => setFormData(prev => ({ ...prev, submissionMethod: e.target.value }))}
-                disabled={editingEstimate}
+                disabled={false}
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
@@ -763,7 +763,7 @@ const Estimates = () => {
                 label="회사명"
                 value={formData.company}
                 onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
-                disabled={editingEstimate}
+                disabled={false}
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
@@ -777,7 +777,7 @@ const Estimates = () => {
                 label="현장명"
                 value={formData.siteName}
                 onChange={(e) => setFormData(prev => ({ ...prev, siteName: e.target.value }))}
-                disabled={editingEstimate}
+                disabled={false}
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
@@ -793,7 +793,7 @@ const Estimates = () => {
                 value={formData.submissionDeadline}
                 onChange={(e) => setFormData(prev => ({ ...prev, submissionDeadline: e.target.value }))}
                 InputLabelProps={{ shrink: true }}
-                disabled={editingEstimate}
+                disabled={false}
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
@@ -809,7 +809,7 @@ const Estimates = () => {
                 rows={isMobile ? 4 : 3}
                 value={formData.requestContent}
                 onChange={(e) => setFormData(prev => ({ ...prev, requestContent: e.target.value }))}
-                disabled={editingEstimate}
+                disabled={false}
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
@@ -856,7 +856,7 @@ const Estimates = () => {
               <Grid item xs={12}>
                 <Alert severity="info" sx={{ backgroundColor: '#1e3a8a', color: '#93c5fd' }}>
                   <Typography variant="body2">
-                    제출여부와 수주여부만 수정 가능합니다. 다른 정보는 새로 생성해야 합니다.
+                    모든 정보를 수정할 수 있습니다. 변경사항을 저장하려면 '수정' 버튼을 클릭하세요.
                   </Typography>
                 </Alert>
               </Grid>
@@ -869,7 +869,7 @@ const Estimates = () => {
                 rows={isMobile ? 3 : 2}
                 value={formData.notes}
                 onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                disabled={editingEstimate}
+                disabled={false}
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },

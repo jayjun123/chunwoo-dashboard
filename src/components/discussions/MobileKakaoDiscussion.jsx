@@ -695,7 +695,7 @@ const MobileKakaoDiscussion = () => {
     if (!selectedDiscussion) return;
     
     try {
-      await removeParticipant(selectedDiscussion.id);
+      await removeParticipant(selectedDiscussion.id, currentUser.uid);
       setSelectedDiscussion(null);
       
       setSnackbar({
@@ -826,6 +826,18 @@ const MobileKakaoDiscussion = () => {
     if (passwordDialog.type === 'enter') {
       // 입장 처리
       setSelectedDiscussion(discussion);
+      
+      // 참여자로 추가
+      try {
+        await addParticipant(
+          discussion.id, 
+          currentUser.uid, 
+          currentUser.displayName || currentUser.email
+        );
+      } catch (error) {
+        console.error('참여자 추가 실패:', error);
+      }
+      
       setSnackbar({ open: true, message: '토론방에 입장했습니다', severity: 'success' });
       // 입장 후 마지막 메시지로 스크롤
       setTimeout(() => {
@@ -840,7 +852,7 @@ const MobileKakaoDiscussion = () => {
   };
 
   // 채팅방 선택
-  const handleDiscussionSelect = (discussion) => {
+  const handleDiscussionSelect = async (discussion) => {
     // 비밀번호가 있고, 비어있지 않은 경우에만 비밀번호 체크
     if (discussion.password && discussion.password.trim() !== '' && discussion.password !== null && discussion.password !== undefined) {
       setPasswordDialog({ 
@@ -851,6 +863,18 @@ const MobileKakaoDiscussion = () => {
       });
     } else {
       setSelectedDiscussion(discussion);
+      
+      // 참여자로 추가
+      try {
+        await addParticipant(
+          discussion.id, 
+          currentUser.uid, 
+          currentUser.displayName || currentUser.email
+        );
+      } catch (error) {
+        console.error('참여자 추가 실패:', error);
+      }
+      
       // 채팅방 입장 시 마지막 메시지로 스크롤
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

@@ -1194,7 +1194,10 @@ const BottomBar = ({
           </Typography>
           <Typography 
             sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
-            onClick={() => navigate('/claims')}
+            onClick={() => {
+              console.log('하단바 견적 버튼 클릭 - 하단바 확장');
+              // 하단바 확장만 하도록 수정 (페이지 이동 제거)
+            }}
           >
             <CalculateIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF9800', mr: 0.5 }} />
             {!isMobile && '[견적]'} {stats.estimateCount ?? 0}
