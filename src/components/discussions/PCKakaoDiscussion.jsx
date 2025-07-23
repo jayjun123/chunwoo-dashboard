@@ -806,7 +806,16 @@ const PCKakaoDiscussion = () => {
           </Box>
 
           {/* 채팅방 목록 */}
-          <Box sx={{ flex: 1, overflow: 'auto' }}>
+          <Box sx={{ 
+            flex: 1, 
+            overflow: 'auto',
+            // 스크롤바 숨기기
+            '&::-webkit-scrollbar': {
+              display: 'none'
+            },
+            msOverflowStyle: 'none',  // IE and Edge
+            'scrollbarWidth': 'none',  // Firefox
+          }}>
             {filteredDiscussions.map((discussion) => (
               <Card
                 key={discussion.id}
@@ -908,7 +917,13 @@ const PCKakaoDiscussion = () => {
                 flex: 1, 
                 overflow: 'auto',
                 p: 2,
-                backgroundColor: backgroundColor
+                backgroundColor: backgroundColor,
+                // 스크롤바 숨기기
+                '&::-webkit-scrollbar': {
+                  display: 'none'
+                },
+                msOverflowStyle: 'none',  // IE and Edge
+                'scrollbarWidth': 'none',  // Firefox
               }}>
                 {messages[selectedDiscussion.id]?.sort((a, b) => {
                   // timestamp를 기준으로 정렬 (오래된 메시지가 위로, 최신 메시지가 아래로)

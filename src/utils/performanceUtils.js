@@ -460,6 +460,226 @@ export class MemoryLeakPrevention {
 // 전역 메모리 누수 방지 인스턴스
 export const memoryLeakPrevention = new MemoryLeakPrevention();
 
+// 전역 cleanup 매니저
+class GlobalCleanupManager {
+  constructor() {
+    this.cleanupFunctions = new Map();
+    this.timers = new Set();
+    this.subscriptions = new Set();
+    this.eventListeners = new Set();
+  }
+
+  // cleanup 함수 등록
+  registerCleanup(id, cleanupFn) {
+    this.cleanupFunctions.set(id, cleanupFn);
+  }
+
+  // cleanup 함수 해제
+  unregisterCleanup(id) {
+    this.cleanupFunctions.delete(id);
+  }
+
+  // 타이머 등록
+  registerTimer(timerId) {
+    this.timers.add(timerId);
+  }
+
+  // 타이머 해제
+  unregisterTimer(timerId) {
+    this.timers.delete(timerId);
+  }
+
+  // 구독 등록
+  registerSubscription(subscription) {
+    this.subscriptions.add(subscription);
+  }
+
+  // 구독 해제
+  unregisterSubscription(subscription) {
+    this.subscriptions.delete(subscription);
+  }
+
+  // 이벤트 리스너 등록
+  registerEventListener(element, event, handler, options) {
+    const listener = { element, event, handler, options };
+    this.eventListeners.add(listener);
+    element.addEventListener(event, handler, options);
+  }
+
+  // 이벤트 리스너 해제
+  unregisterEventListener(element, event, handler, options) {
+    const listener = { element, event, handler, options };
+    this.eventListeners.delete(listener);
+    element.removeEventListener(event, handler, options);
+  }
+
+  // 모든 cleanup 실행
+  cleanup() {
+    // cleanup 함수들 실행
+    this.cleanupFunctions.forEach((cleanupFn, id) => {
+      try {
+        cleanupFn();
+      } catch (error) {
+        console.error(`Cleanup error for ${id}:`, error);
+      }
+    });
+    this.cleanupFunctions.clear();
+
+    // 타이머들 정리
+    this.timers.forEach(timerId => {
+      try {
+        clearTimeout(timerId);
+        clearInterval(timerId);
+      } catch (error) {
+        console.error('Timer cleanup error:', error);
+      }
+    });
+    this.timers.clear();
+
+    // 구독들 정리
+    this.subscriptions.forEach(subscription => {
+      try {
+        if (subscription && typeof subscription === 'function') {
+          subscription();
+        }
+      } catch (error) {
+        console.error('Subscription cleanup error:', error);
+      }
+    });
+    this.subscriptions.clear();
+
+    // 이벤트 리스너들 정리
+    this.eventListeners.forEach(listener => {
+      try {
+        listener.element.removeEventListener(listener.event, listener.handler, listener.options);
+      } catch (error) {
+        console.error('EventListener cleanup error:', error);
+      }
+    });
+    this.eventListeners.clear();
+  }
+
+  // 메모리 사용량 모니터링
+  getMemoryUsage() {
+    if ('memory' in performance) {
+      return {
+        usedJSHeapSize: performance.memory.usedJSHeapSize,
+        totalJSHeapSize: performance.memory.totalJSHeapSize,
+        jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
+      };
+    }
+    return null;
+  }
+
+  // 메모리 누수 감지
+  detectMemoryLeak() {
+    const memory = this.getMemoryUsage();
+    if (memory) {
+      const usagePercentage = (memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100;
+      if (usagePercentage > 80) {
+        console.warn('Memory usage is high:', usagePercentage.toFixed(2) + '%');
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+// 전역 cleanup 매니저 인스턴스
+export const globalCleanupManager = new GlobalCleanupManager();
+
+// React Hook으로 cleanup 매니저 사용
+export const useGlobalCleanup = () => {
+  const cleanupId = useRef(`cleanup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+
+  useEffect(() => {
+    return () => {
+      const cleanupFn = globalCleanupManager.cleanupFunctions.get(cleanupId.current);
+      if (cleanupFn) {
+        cleanupFn();
+        globalCleanupManager.unregisterCleanup(cleanupId.current);
+      }
+    };
+  }, []);
+
+  const registerCleanup = useCallback((cleanupFn) => {
+    globalCleanupManager.registerCleanup(cleanupId.current, cleanupFn);
+  }, []);
+
+  const registerTimer = useCallback((timerId) => {
+    globalCleanupManager.registerTimer(timerId);
+  }, []);
+
+  const registerSubscription = useCallback((subscription) => {
+    globalCleanupManager.registerSubscription(subscription);
+  }, []);
+
+  return {
+    registerCleanup,
+    registerTimer,
+    registerSubscription,
+    cleanupId: cleanupId.current
+  };
+};
+
+// 성능 모니터링 개선
+export class EnhancedPerformanceMonitor extends PerformanceMonitor {
+  constructor() {
+    super();
+    this.memoryThreshold = 80; // 80% 메모리 사용량 임계값
+    this.performanceThreshold = 100; // 100ms 성능 임계값
+    this.memoryCheckInterval = null;
+  }
+
+  startMemoryMonitoring(interval = 30000) { // 30초마다 체크
+    this.memoryCheckInterval = setInterval(() => {
+      const memory = globalCleanupManager.getMemoryUsage();
+      if (memory) {
+        const usagePercentage = (memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100;
+        if (usagePercentage > this.memoryThreshold) {
+          console.warn(`High memory usage detected: ${usagePercentage.toFixed(2)}%`);
+          // 메모리 정리 시도
+          global.gc && global.gc();
+        }
+      }
+    }, interval);
+  }
+
+  stopMemoryMonitoring() {
+    if (this.memoryCheckInterval) {
+      clearInterval(this.memoryCheckInterval);
+      this.memoryCheckInterval = null;
+    }
+  }
+
+  endTimer(name) {
+    const metric = this.metrics.get(name);
+    if (metric) {
+      metric.endTime = performance.now();
+      metric.duration = metric.endTime - metric.startTime;
+      
+      // 성능 임계값 체크
+      if (metric.duration > this.performanceThreshold) {
+        devWarn(`Performance warning: ${name} took ${metric.duration.toFixed(2)}ms`);
+        
+        // 메모리 사용량도 함께 체크
+        const memory = globalCleanupManager.getMemoryUsage();
+        if (memory) {
+          const usagePercentage = (memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100;
+          if (usagePercentage > this.memoryThreshold) {
+            devWarn(`High memory usage during ${name}: ${usagePercentage.toFixed(2)}%`);
+          }
+        }
+      }
+      
+      this.notifyObservers(name, metric);
+    }
+  }
+}
+
+// 향상된 성능 모니터 인스턴스
+export const enhancedPerformanceMonitor = new EnhancedPerformanceMonitor();
+
 // 개발 환경에서 성능 모니터링 활성화
 if (process.env.NODE_ENV === 'development') {
   performanceMonitor.addObserver((name, metric) => {

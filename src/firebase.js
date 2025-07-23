@@ -28,27 +28,52 @@ try {
   console.log('✅ Firebase 앱이 성공적으로 초기화되었습니다.');
 } catch (error) {
   console.error('❌ Firebase 앱 초기화 실패:', error);
-  throw error;
+  // 초기화 실패 시에도 기본 설정으로 진행
+  try {
+    app = initializeApp(firebaseConfig, 'fallback-app');
+    console.log('✅ Firebase 앱이 fallback으로 초기화되었습니다.');
+  } catch (fallbackError) {
+    console.error('❌ Firebase fallback 초기화도 실패:', fallbackError);
+    throw fallbackError;
+  }
 }
 
 // Firebase 서비스 초기화
 export const auth = getAuth(app);
 
 // 강력한 지속성 설정 (새로고침 시 로그인 유지)
-setPersistence(auth, browserLocalPersistence)
-  .then(() => {
-    console.log('✅ Firebase Auth 지속성 설정 완료 (browserLocalPersistence)');
-  })
-  .catch((error) => {
-    console.error('❌ Firebase Auth 지속성 설정 실패:', error);
-  });
+try {
+  setPersistence(auth, browserLocalPersistence)
+    .then(() => {
+      console.log('✅ Firebase Auth 지속성 설정 완료 (browserLocalPersistence)');
+    })
+    .catch((error) => {
+      console.error('❌ Firebase Auth 지속성 설정 실패:', error);
+      // 지속성 설정 실패해도 계속 진행
+    });
+} catch (error) {
+  console.error('❌ Firebase Auth 지속성 설정 중 오류:', error);
+}
 
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
 // Analytics 초기화 (지원되는 환경에서만)
 let analytics = null;
-isSupported().then(yes => yes ? analytics = getAnalytics(app) : null);
+try {
+  isSupported().then(yes => {
+    if (yes) {
+      analytics = getAnalytics(app);
+      console.log('✅ Firebase Analytics 초기화 완료');
+    } else {
+      console.log('⚠️ Firebase Analytics가 지원되지 않는 환경입니다.');
+    }
+  }).catch(error => {
+    console.warn('⚠️ Firebase Analytics 초기화 실패:', error);
+  });
+} catch (error) {
+  console.warn('⚠️ Firebase Analytics 설정 중 오류:', error);
+}
 
 export { analytics };
 

@@ -13,7 +13,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import { useAuth } from '../../contexts/AuthContext';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
-import { exportToExcel, exportChatToPDF } from '../../utils/exportUtils';
+import { exportToExcel } from '../../utils/excelUtils';
+import { exportChatToPDF } from '../../utils/pdfUtils';
 
 const DiscussionRoomList = ({ onSelectRoom }) => {
   const [rooms, setRooms] = useState([]);

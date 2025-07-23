@@ -7,7 +7,7 @@ import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, write
 import { db, auth } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import * as XLSX from 'xlsx';
-import { exportCalendarToExcel, exportToExcel } from '../../utils/exportUtils';
+import { exportCalendarToExcel, exportToExcel } from '../../utils/excelUtils';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useNavigate } from 'react-router-dom';
 import { subscribeToEstimates } from '../../api/estimates';
@@ -236,6 +236,11 @@ const ScheduleManagement = ({
             } else {
               // 문자열인 경우
               dateStr = schedule.date;
+            }
+            
+            // 입찰 항목에 bid_ 접두사 추가
+            if (schedule.type === '입찰') {
+              schedule.id = `bid_${schedule.id}`;
             }
             
             if (!newCalendarItems[dateStr]) {
@@ -715,6 +720,34 @@ const ScheduleManagement = ({
         console.log('PC 로컬 상태 업데이트:', newState);
         return newState;
       });
+
+      // 견적 항목인지 확인하고 견적 상태 업데이트
+      if (id.startsWith('estimate_')) {
+        const estimateId = id.replace('estimate_', '');
+        console.log('견적 항목 체크 - 견적 ID:', estimateId, '체크 상태:', checked);
+        
+        // 견적 상태 업데이트
+        const estimateRef = doc(db, 'estimates', estimateId);
+        await updateDoc(estimateRef, {
+          submissionStatus: checked ? '제출완료' : '제출대기',
+          updatedAt: new Date()
+        });
+        console.log('견적 상태 업데이트 완료:', estimateId, checked ? '제출완료' : '제출대기');
+      }
+      
+      // 입찰 항목인지 확인하고 입찰 상태 업데이트
+      if (id.startsWith('bid_')) {
+        const bidId = id.replace('bid_', '');
+        console.log('입찰 항목 체크 - 입찰 ID:', bidId, '체크 상태:', checked);
+        
+        // 입찰 상태 업데이트
+        const scheduleRef = doc(db, 'schedules', bidId);
+        await updateDoc(scheduleRef, {
+          bidStatus: checked ? '입찰완료' : '입찰대기',
+          updatedAt: new Date()
+        });
+        console.log('입찰 상태 업데이트 완료:', bidId, checked ? '입찰완료' : '입찰대기');
+      }
 
       // Firestore에 체크 상태 저장
       const checkData = {

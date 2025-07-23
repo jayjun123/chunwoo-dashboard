@@ -140,9 +140,10 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
-      sourcemap: true,
+      sourcemap: false,
       assetsDir: 'assets',
       base: '/',
+      chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {
           assetFileNames: 'assets/[name]-[hash][extname]',
@@ -151,27 +152,70 @@ export default defineConfig(({ mode }) => {
           manualChunks: (id) => {
             if (id.includes('node_modules')) {
               if (id.includes('react') || id.includes('react-dom')) {
-                return 'vendor';
+                return 'react-vendor';
               }
-              if (id.includes('@mui')) {
-                return 'mui';
+              if (id.includes('@mui/material') || id.includes('@mui/icons-material') || id.includes('@emotion')) {
+                return 'mui-vendor';
               }
               if (id.includes('firebase') || id.includes('@firebase')) {
-                return 'firebase';
+                return 'firebase-vendor';
               }
-              // 차트 라이브러리별로 분리하여 초기화 순서 문제 해결
-              if (id.includes('chart.js')) {
-                return 'chartjs';
+              if (id.includes('chart.js') || id.includes('react-chartjs-2') || id.includes('recharts')) {
+                return 'charts-vendor';
               }
-              if (id.includes('recharts')) {
-                return 'recharts';
+              if (id.includes('date-fns') || id.includes('@date-io')) {
+                return 'date-vendor';
               }
-              if (id.includes('react-chartjs-2')) {
-                return 'chartjs';
+              if (id.includes('react-beautiful-dnd') || id.includes('@hello-pangea/dnd')) {
+                return 'dnd-vendor';
+              }
+              if (id.includes('leaflet') || id.includes('react-leaflet')) {
+                return 'map-vendor';
+              }
+              if (id.includes('xlsx') || id.includes('jspdf')) {
+                return 'export-vendor';
               }
               return 'vendor';
             }
+            if (id.includes('src/')) {
+              if (id.includes('pages/')) {
+                return 'pages';
+              }
+              if (id.includes('components/')) {
+                return 'components';
+              }
+              if (id.includes('utils/')) {
+                // utils를 더 작은 청크로 분할
+                if (id.includes('utils/excelUtils')) {
+                  return 'utils-excel';
+                }
+                if (id.includes('utils/pdfUtils')) {
+                  return 'utils-pdf';
+                }
+                if (id.includes('utils/formatUtils')) {
+                  return 'utils-format';
+                }
+                if (id.includes('utils/performanceUtils') || id.includes('utils/mobileOptimization')) {
+                  return 'utils-performance';
+                }
+                if (id.includes('utils/errorHandler') || id.includes('utils/commonUtils')) {
+                  return 'utils-common';
+                }
+                return 'utils';
+              }
+              if (id.includes('contexts/')) {
+                return 'contexts';
+              }
+            }
           }
+        }
+      },
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+          pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn']
         }
       }
     },

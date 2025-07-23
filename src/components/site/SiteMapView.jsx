@@ -154,7 +154,7 @@ const SiteMapView = ({ sites, onSiteUpdate, onSiteAdd }) => {
     const colors = {
       '진행중': '#4CAF50',
       '완료': '#2196F3',
-      '예정': '#FFC107',
+      '진행상황': '#FFC107',
       '미정': '#9E9E9E'
     };
 
@@ -199,7 +199,7 @@ const SiteMapView = ({ sites, onSiteUpdate, onSiteAdd }) => {
       address: '',
       latitude: mapCenter.lat,
       longitude: mapCenter.lng,
-      status: '예정',
+      status: '진행상황',
       description: ''
     });
 
@@ -272,8 +272,7 @@ const SiteMapView = ({ sites, onSiteUpdate, onSiteAdd }) => {
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                   label="상태"
                 >
-                  <MenuItem value="예정">예정</MenuItem>
-                  <MenuItem value="진행중">진행중</MenuItem>
+                  <MenuItem value="진행상황">진행상황</MenuItem>
                   <MenuItem value="완료">완료</MenuItem>
                   <MenuItem value="미정">미정</MenuItem>
                 </Select>

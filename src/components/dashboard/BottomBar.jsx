@@ -243,13 +243,6 @@ const BottomBar = ({
       );
       console.log('🔥 금일현설:', todaySetup.length, '개', todaySetup);
       
-      // 금일견적 (type에 '견적' 포함)
-      const todayEstimate = todaySchedules.filter(item => 
-        item.type && 
-        item.type.includes('견적')
-      );
-      console.log('🔥 금일견적:', todayEstimate.length, '개', todayEstimate);
-      
       // 금일기타 (type에 '기타' 포함)
       const todayEtc = todaySchedules.filter(item => 
         item.type && 
@@ -257,13 +250,12 @@ const BottomBar = ({
       );
       console.log('🔥 금일기타:', todayEtc.length, '개', todayEtc);
       
-      // stats를 한 번에 업데이트
+      // stats를 한 번에 업데이트 (견적은 별도로 처리)
       const newStats = {
         todaySites: todaySites.length,
         progressCount: todayBids.length,
         discussionCount: todayMeetings.length,
         safetyCount: todaySetup.length,
-        estimateCount: todayEstimate.length,
         etcCount: todayEtc.length
       };
       
@@ -278,7 +270,6 @@ const BottomBar = ({
       setDiscussionList(todayBids.slice(-5).reverse());
       setSafetyList(todayMeetings.slice(-5).reverse());
       setSetupList(todaySetup.slice(-5).reverse());
-      setEstimateList(todayEstimate.slice(-5).reverse());
       setEtcList(todayEtc.slice(-5).reverse());
     }, (err) => {
       console.error('🔥 하단바 일정 연동 오류:', err);
@@ -288,6 +279,46 @@ const BottomBar = ({
     return () => {
       console.log('🔥 하단바 일정 연동 해제');
       unsubSchedules();
+    };
+  }, []);
+
+  // 견적 데이터 별도 처리 (estimates 컬렉션에서)
+  useEffect(() => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD 형식
+    
+    console.log('🔥 하단바 견적 연동 시작 - 오늘 날짜:', todayStr);
+    
+    const q = query(collection(db, 'estimates'));
+    
+    const unsubEstimates = onSnapshot(q, (snapshot) => {
+      const allEstimates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 제출기한이 오늘인 견적 필터링
+      const todayEstimates = allEstimates.filter(estimate => {
+        if (!estimate.submissionDeadline) return false;
+        
+        // submissionDeadline이 오늘 날짜와 일치하는지 확인
+        return estimate.submissionDeadline === todayStr;
+      });
+      
+      console.log('🔥 금일제출견적:', todayEstimates.length, '개', todayEstimates);
+      
+      // stats 업데이트
+      setStats(prev => ({
+        ...prev,
+        estimateCount: todayEstimates.length
+      }));
+      
+      setEstimateList(todayEstimates.slice(-5).reverse());
+    }, (err) => {
+      console.error('🔥 하단바 견적 연동 오류:', err);
+      setError('견적 데이터를 불러오는 중 오류가 발생했습니다.');
+    });
+
+    return () => {
+      console.log('🔥 하단바 견적 연동 해제');
+      unsubEstimates();
     };
   }, []);
 
@@ -1410,18 +1441,55 @@ const BottomBar = ({
                         alignItems: 'center'
                       }}>
                         <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <Typography sx={{ 
+                            fontWeight: 600, 
+                            fontSize: { xs: 13, md: 14 }, 
+                            overflow: 'hidden', 
+                            textOverflow: 'ellipsis', 
+                            whiteSpace: 'nowrap',
+                            opacity: item.bidStatus === '입찰완료' ? 0.6 : 1
+                          }}>
                             {item.title || item.text || item.description || item.desc || '설명 없음'}
                           </Typography>
-                          {(item.description || item.desc) && (item.description || item.desc).trim() && (
-                            <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {(item.description || item.desc) && (
+                            <Typography sx={{ 
+                              color: '#ccc', 
+                              fontSize: { xs: 11, md: 12 }, 
+                              mt: 0.5, 
+                              overflow: 'hidden', 
+                              textOverflow: 'ellipsis', 
+                              whiteSpace: 'nowrap',
+                              opacity: item.bidStatus === '입찰완료' ? 0.6 : 1
+                            }}>
                               {item.description || item.desc}
                             </Typography>
                           )}
                         </Box>
-                        <Typography sx={{ color: '#4FC3F7', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
-                          {item.startDate}
-                        </Typography>
+                        {item.bidStatus === '입찰완료' ? (
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 0.5,
+                            backgroundColor: 'rgba(79, 195, 247, 0.15)',
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: 1,
+                            flexShrink: 0,
+                            border: '1px solid rgba(79, 195, 247, 0.3)'
+                          }}>
+                            <Typography sx={{ 
+                              color: '#4FC3F7', 
+                              fontSize: { xs: 10, md: 11 }, 
+                              fontWeight: 600
+                            }}>
+                              ✓ 입찰완료
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography sx={{ color: '#4FC3F7', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
+                            {item.startDate}
+                          </Typography>
+                        )}
                       </Box>
                     ))}
                   </Box>
@@ -1509,14 +1577,14 @@ const BottomBar = ({
               </Box>
             )}
 
-            {/* 금일견적 목록 */}
+            {/* 금일제출견적 목록 */}
             {(!isMobile || estimateList.length > 0) && (
               <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
                 <Typography variant="h6" sx={{ mb: 1, color: '#FF9800', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
-                  🧮 {isMobile ? '견적' : '금일견적'} ({estimateList.length}개)
+                  🧮 {isMobile ? '견적' : '금일제출견적'} ({estimateList.length}개)
                 </Typography>
                 {estimateList.length === 0 ? (
-                  <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 견적 일정이 없습니다.</Typography>
+                  <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 제출기한인 견적이 없습니다.</Typography>
                 ) : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
                     {estimateList.map((item, index) => (
@@ -1530,18 +1598,64 @@ const BottomBar = ({
                         alignItems: 'center'
                       }}>
                         <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.title || item.text || item.description || item.desc || '설명 없음'}
+                          <Typography sx={{ 
+                            fontWeight: 600, 
+                            fontSize: { xs: 13, md: 14 }, 
+                            overflow: 'hidden', 
+                            textOverflow: 'ellipsis', 
+                            whiteSpace: 'nowrap',
+                            opacity: item.submissionStatus === '제출완료' ? 0.6 : 1
+                          }}>
+                            {item.siteName || item.title || item.text || item.description || item.desc || '설명 없음'}
                           </Typography>
-                          {(item.description || item.desc) && (item.description || item.desc).trim() && (
-                            <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {item.description || item.desc}
-                            </Typography>
-                          )}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                            {(item.company || item.description || item.desc) && (
+                              <Typography sx={{ 
+                                color: '#ccc', 
+                                fontSize: { xs: 11, md: 12 }, 
+                                overflow: 'hidden', 
+                                textOverflow: 'ellipsis', 
+                                whiteSpace: 'nowrap',
+                                opacity: item.submissionStatus === '제출완료' ? 0.6 : 1,
+                                flex: 1
+                              }}>
+                                {item.company || item.description || item.desc}
+                              </Typography>
+                            )}
+
+                          </Box>
                         </Box>
-                        <Typography sx={{ color: '#FF9800', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
-                          {item.startDate}
-                        </Typography>
+                        {item.submissionStatus === '제출완료' ? (
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 0.5,
+                            backgroundColor: 'rgba(244, 67, 54, 0.15)',
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: 1,
+                            flexShrink: 0,
+                            border: '1px solid rgba(244, 67, 54, 0.3)'
+                          }}>
+                            <Typography sx={{ 
+                              color: '#f44336', 
+                              fontSize: { xs: 10, md: 11 }, 
+                              fontWeight: 600
+                            }}>
+                              ✓ 제출완료
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography sx={{ 
+                            color: '#FF9800', 
+                            fontSize: { xs: 12, md: 12 }, 
+                            fontWeight: 600, 
+                            ml: 1, 
+                            flexShrink: 0
+                          }}>
+                            {item.submissionDeadline || item.startDate}
+                          </Typography>
+                        )}
                       </Box>
                     ))}
                   </Box>

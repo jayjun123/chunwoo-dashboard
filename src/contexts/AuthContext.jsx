@@ -174,72 +174,86 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let unsubscribeFirestore = null;
     
-    // 로딩 타임아웃 설정 (5초 후 강제 로딩 종료)
+    // 로딩 타임아웃 설정 (10초 후 강제 로딩 종료)
     const loadingTimeout = setTimeout(() => {
       console.warn('AuthContext - 로딩 타임아웃, 강제로 로딩 종료');
       setLoading(false);
-    }, 5000);
+    }, 10000);
     
-      // 세션 동기화 함수
-  const syncSession = async (user) => {
-    if (user) {
+    // 세션 동기화 함수
+    const syncSession = async (user) => {
       try {
-        // 토큰 새로고침으로 세션 유지
-        const token = await user.getIdToken(true);
-        console.log('AuthContext - 세션 동기화 완료 (토큰 새로고침)');
-        
-        // Firestore에서 최신 사용자 정보 가져오기
-        const userDoc = await getDoc(doc(db, 'members', user.uid));
-        const userData = userDoc.exists() ? userDoc.data() : {};
-        
-        const userInfo = {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          ...userData,
-        };
-        
-        setCurrentUser(userInfo);
-        console.log('AuthContext - 사용자 정보 동기화 완료:', userInfo.uid);
-        
+        if (user) {
+          // 토큰 새로고침으로 세션 유지
+          const token = await user.getIdToken(true);
+          console.log('AuthContext - 세션 동기화 완료 (토큰 새로고침)');
+          
+          // Firestore에서 최신 사용자 정보 가져오기
+          const userDoc = await getDoc(doc(db, 'members', user.uid));
+          const userData = userDoc.exists() ? userDoc.data() : {};
+          
+          const userInfo = {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            ...userData,
+          };
+          
+          setCurrentUser(userInfo);
+          console.log('AuthContext - 사용자 정보 동기화 완료:', userInfo.uid);
+          
+        } else {
+          setCurrentUser(null);
+          console.log('AuthContext - 로그아웃 상태로 동기화');
+        }
       } catch (error) {
         console.error('AuthContext - 세션 동기화 실패:', error);
         // 기본 사용자 정보로 설정
-        const userInfo = {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-        };
-        setCurrentUser(userInfo);
+        if (user) {
+          const userInfo = {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+          };
+          setCurrentUser(userInfo);
+        } else {
+          setCurrentUser(null);
+        }
+      } finally {
+        setLoading(false);
       }
-    } else {
-      setCurrentUser(null);
-      console.log('AuthContext - 로그아웃 상태로 동기화');
-    }
-    setLoading(false);
-  };
+    };
     
-        // Firebase Auth 상태 변경 리스너
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('AuthContext - Firebase Auth 상태 변경:', user ? `로그인 (${user.uid})` : '로그아웃');
-      clearTimeout(loadingTimeout); // Auth 상태 변경 시 타임아웃 클리어
-      
-      // 세션 동기화 실행
-      await syncSession(user);
-    }, (error) => {
-      // Firebase Auth 초기화 오류 처리
-      console.error('Firebase Auth 초기화 오류:', error);
+    // Firebase Auth 상태 변경 리스너
+    let unsubscribe;
+    try {
+      unsubscribe = onAuthStateChanged(auth, async (user) => {
+        console.log('AuthContext - Firebase Auth 상태 변경:', user ? `로그인 (${user.uid})` : '로그아웃');
+        clearTimeout(loadingTimeout); // Auth 상태 변경 시 타임아웃 클리어
+        
+        // 세션 동기화 실행
+        await syncSession(user);
+      }, (error) => {
+        // Firebase Auth 초기화 오류 처리
+        console.error('Firebase Auth 초기화 오류:', error);
+        setCurrentUser(null);
+        setLoading(false);
+        clearTimeout(loadingTimeout);
+      });
+    } catch (error) {
+      console.error('Auth 상태 리스너 설정 실패:', error);
       setCurrentUser(null);
       setLoading(false);
-    });
-
-
+      clearTimeout(loadingTimeout);
+    }
 
     return () => {
       try {
         clearTimeout(loadingTimeout); // 타임아웃 클리어
-        unsubscribe();
-        if (unsubscribeFirestore) {
+        if (unsubscribe && typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+        if (unsubscribeFirestore && typeof unsubscribeFirestore === 'function') {
           unsubscribeFirestore();
         }
       } catch (error) {

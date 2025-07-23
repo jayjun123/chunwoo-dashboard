@@ -8,7 +8,7 @@ import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as XLSX from 'xlsx';
 import SafetyOverviewCards from '../components/safety/SafetyOverviewCards';
-import { exportToExcel } from '../utils/exportUtils';
+import { exportToExcel } from '../utils/excelUtils';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
 
@@ -831,7 +831,7 @@ const SafetyPage = () => {
           backgroundColor: '#1a1d21'
         }}>
           <Tabs
-            value={isMobile ? tab - 1 : tab}
+            value={isMobile ? Math.max(0, tab - 1) : tab}
             onChange={(e, v) => {
               if (isMobile) {
                 // 모바일에서는 인덱스를 1씩 증가시켜서 실제 탭 인덱스와 매칭

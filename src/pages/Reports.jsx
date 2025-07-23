@@ -7,7 +7,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } fro
 // Firestore 연동 예시
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
-import { exportToExcel, exportReportToPDF } from '../utils/exportUtils';
+import { exportToExcel } from '../utils/excelUtils';
+import { exportReportToPDF } from '../utils/pdfUtils';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -58,7 +59,7 @@ const getAISummary = async (data, setSummaryCallback = null) => {
   // API 키 검증
   const keyValidation = validateOpenAIKey(OPENAI_API_KEY);
   if (!keyValidation.valid) {
-    const errorMsg = `OpenAI API 키 오류: ${keyValidation.error}\n\n.env 파일 또는 넷틀리파이 환경변수에서 VITE_OPENAI_API_KEY를 확인해주세요.`;
+    const errorMsg = `🤖 AI 분석 기능을 사용하려면 OpenAI API 키가 필요합니다.\n\n📝 설정 방법:\n1. .env 파일에 VITE_OPENAI_API_KEY=your_api_key 추가\n2. 또는 넷틀리파이 환경변수 설정\n\n💡 API 키가 없어도 기본 보고서 기능은 정상 작동합니다.`;
     if (setSummaryCallback) setSummaryCallback(errorMsg);
     return errorMsg;
   }
@@ -128,13 +129,24 @@ const Reports = () => {
   const [typeFilter, setTypeFilter] = useState('');
   const [rateLimitCooldown, setRateLimitCooldown] = useState(false);
 
-  // API 키 상태 확인 (개발용)
+  // API 키 상태 확인 (개발용) - 조용하게 처리
   useEffect(() => {
     const keyValidation = validateOpenAIKey(OPENAI_API_KEY);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 OpenAI API 키 디버깅:');
+      console.log('- API 키 존재:', !!OPENAI_API_KEY);
+      console.log('- API 키 길이:', OPENAI_API_KEY?.length || 0);
+      console.log('- API 키 시작:', OPENAI_API_KEY?.substring(0, 7) || '없음');
+      console.log('- 검증 결과:', keyValidation);
+    }
+    
     if (!keyValidation.valid) {
-      console.warn('OpenAI API 키 상태:', keyValidation.error);
-    } else {
-      console.log('OpenAI API 키가 정상적으로 설정되었습니다.');
+      // 개발 환경에서만 경고 출력
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('OpenAI API 키 상태:', keyValidation.error);
+      }
+    } else if (process.env.NODE_ENV === 'development') {
+      console.log('✅ OpenAI API 키가 정상적으로 설정되었습니다.');
     }
   }, []);
 
@@ -186,7 +198,7 @@ const Reports = () => {
     // API 키 검증
     const keyValidation = validateOpenAIKey(OPENAI_API_KEY);
     if (!keyValidation.valid) {
-      setSummary(`OpenAI API 키 오류: ${keyValidation.error}\n\n.env 파일 또는 넷틀리파이 환경변수에서 VITE_OPENAI_API_KEY를 확인해주세요.`);
+      setSummary(`🤖 AI 분석 기능을 사용하려면 OpenAI API 키가 필요합니다.\n\n📝 설정 방법:\n1. .env 파일에 VITE_OPENAI_API_KEY=your_api_key 추가\n2. 또는 넷틀리파이 환경변수 설정\n\n💡 API 키가 없어도 기본 보고서 기능은 정상 작동합니다.`);
       return;
     }
     

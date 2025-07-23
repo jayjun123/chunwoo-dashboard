@@ -183,7 +183,62 @@ const Estimates = () => {
   const handleSubmit = async () => {
     try {
       if (editingEstimate) {
+        const oldStatus = editingEstimate.submissionStatus;
         await updateEstimate(editingEstimate.id, formData);
+        
+        // 제출상태가 변경된 경우 일정관리의 체크박스 상태도 업데이트
+        if (oldStatus !== formData.submissionStatus && formData.submissionDeadline) {
+          const scheduleId = `estimate_${editingEstimate.id}`;
+          const dateStr = formData.submissionDeadline;
+          const checked = formData.submissionStatus === '제출완료';
+          
+          console.log('견적 수정에서 체크박스 상태 업데이트:', {
+            scheduleId,
+            dateStr,
+            checked,
+            estimateId: editingEstimate.id
+          });
+          
+          // scheduleChecks 컬렉션에 체크 상태 저장
+          const { collection, addDoc, updateDoc, doc, query, where, getDocs } = await import('firebase/firestore');
+          const { db, auth } = await import('../firebase');
+          
+          const user = auth.currentUser;
+          if (user) {
+            const checkData = {
+              scheduleId: scheduleId,
+              date: dateStr,
+              checked: checked,
+              userId: user.uid,
+              updatedAt: new Date()
+            };
+            
+            // 기존 체크 데이터가 있는지 확인
+            const existingCheckQuery = query(
+              collection(db, 'scheduleChecks'),
+              where('scheduleId', '==', scheduleId),
+              where('date', '==', dateStr),
+              where('userId', '==', user.uid)
+            );
+            
+            const existingCheckSnapshot = await getDocs(existingCheckQuery);
+            
+            if (existingCheckSnapshot.docs.length > 0) {
+              // 기존 데이터 업데이트
+              const existingDoc = existingCheckSnapshot.docs[0];
+              await updateDoc(doc(db, 'scheduleChecks', existingDoc.id), {
+                checked: checked,
+                updatedAt: new Date()
+              });
+              console.log('견적 수정에서 체크 상태 업데이트 완료');
+            } else {
+              // 새 데이터 추가
+              await addDoc(collection(db, 'scheduleChecks'), checkData);
+              console.log('견적 수정에서 체크 상태 추가 완료');
+            }
+          }
+        }
+        
         setSnackbar({
           open: true,
           message: '견적요청이 수정되었습니다.',
@@ -201,6 +256,7 @@ const Estimates = () => {
       setEditingEstimate(null);
       resetForm();
     } catch (error) {
+      console.error('견적 저장 실패:', error);
       setSnackbar({
         open: true,
         message: '견적요청 저장에 실패했습니다.',
@@ -213,12 +269,70 @@ const Estimates = () => {
   const handleQuickUpdate = async (estimateId, field, value) => {
     try {
       await updateEstimate(estimateId, { [field]: value });
+      
+      // 제출상태가 변경된 경우 일정관리의 체크박스 상태도 업데이트
+      if (field === 'submissionStatus') {
+        const estimate = estimates.find(e => e.id === estimateId);
+        if (estimate && estimate.submissionDeadline) {
+          const scheduleId = `estimate_${estimateId}`;
+          const dateStr = estimate.submissionDeadline;
+          const checked = value === '제출완료';
+          
+          console.log('견적 페이지에서 체크박스 상태 업데이트:', {
+            scheduleId,
+            dateStr,
+            checked,
+            estimateId
+          });
+          
+          // scheduleChecks 컬렉션에 체크 상태 저장
+          const { collection, addDoc, updateDoc, doc, query, where, getDocs } = await import('firebase/firestore');
+          const { db, auth } = await import('../firebase');
+          
+          const user = auth.currentUser;
+          if (user) {
+            const checkData = {
+              scheduleId: scheduleId,
+              date: dateStr,
+              checked: checked,
+              userId: user.uid,
+              updatedAt: new Date()
+            };
+            
+            // 기존 체크 데이터가 있는지 확인
+            const existingCheckQuery = query(
+              collection(db, 'scheduleChecks'),
+              where('scheduleId', '==', scheduleId),
+              where('date', '==', dateStr),
+              where('userId', '==', user.uid)
+            );
+            
+            const existingCheckSnapshot = await getDocs(existingCheckQuery);
+            
+            if (existingCheckSnapshot.docs.length > 0) {
+              // 기존 데이터 업데이트
+              const existingDoc = existingCheckSnapshot.docs[0];
+              await updateDoc(doc(db, 'scheduleChecks', existingDoc.id), {
+                checked: checked,
+                updatedAt: new Date()
+              });
+              console.log('견적 페이지에서 체크 상태 업데이트 완료');
+            } else {
+              // 새 데이터 추가
+              await addDoc(collection(db, 'scheduleChecks'), checkData);
+              console.log('견적 페이지에서 체크 상태 추가 완료');
+            }
+          }
+        }
+      }
+      
       setSnackbar({
         open: true,
         message: '상태가 업데이트되었습니다.',
         severity: 'success'
       });
     } catch (error) {
+      console.error('견적 상태 업데이트 실패:', error);
       setSnackbar({
         open: true,
         message: '상태 업데이트에 실패했습니다.',
@@ -343,8 +457,8 @@ const Estimates = () => {
   // 상태별 색상
   const getStatusColor = (status) => {
     switch (status) {
-      case '제출완료': return 'success';
-      case '제출대기': return 'warning';
+      case '제출완료': return 'error';
+      case '제출대기': return 'success';
       case '수주': return 'success';
       case '미수주': return 'error';
       default: return 'default';
@@ -420,13 +534,13 @@ const Estimates = () => {
               </Card>
               <Card sx={{ backgroundColor: '#2d3748', color: 'white', minWidth: 80 }}>
                 <CardContent sx={{ textAlign: 'center', p: 1.5 }}>
-                  <Typography variant="h6" sx={{ color: '#4caf50' }}>{stats.submitted}</Typography>
+                  <Typography variant="h6" sx={{ color: '#f44336' }}>{stats.submitted}</Typography>
                   <Typography variant="caption">제출완료</Typography>
                 </CardContent>
               </Card>
               <Card sx={{ backgroundColor: '#2d3748', color: 'white', minWidth: 80 }}>
                 <CardContent sx={{ textAlign: 'center', p: 1.5 }}>
-                  <Typography variant="h6" sx={{ color: '#ff9800' }}>{stats.pending}</Typography>
+                  <Typography variant="h6" sx={{ color: '#4caf50' }}>{stats.pending}</Typography>
                   <Typography variant="caption">제출대기</Typography>
                 </CardContent>
               </Card>
@@ -491,20 +605,38 @@ const Estimates = () => {
             <Grid item xs={12} md={2}>
               <TextField
                 fullWidth
-                placeholder="검색..."
+                placeholder="Q 검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                size="small"
                 InputProps={{
                   startAdornment: <SearchIcon sx={{ color: '#666', mr: 1 }} />,
                   sx: { 
                     backgroundColor: '#444',
-                    '& input': { color: 'white' }
+                    height: '40px',
+                    '& input': { 
+                      color: 'white',
+                      height: '40px',
+                      padding: '8px 16px'
+                    },
+                    '& .MuiOutlinedInput-root': {
+                      height: '40px',
+                      '& fieldset': {
+                        borderColor: '#666'
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#888'
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#90caf9'
+                      }
+                    }
                   }
                 }}
               />
             </Grid>
             <Grid item xs={6} md={3}>
-              <FormControl fullWidth>
+              <FormControl fullWidth size="small">
                 <InputLabel sx={{ color: '#ccc' }}>제출여부</InputLabel>
                 <Select
                   value={filters.submissionStatus}
@@ -512,12 +644,18 @@ const Estimates = () => {
                   sx={{ 
                     backgroundColor: '#444',
                     minWidth: 200,
+                    height: '40px',
                     '& .MuiSelect-select': { 
-                      color: 'white',
+                      color: filters.submissionStatus === '제출완료' ? '#f44336' : 
+                              filters.submissionStatus === '제출대기' ? '#4caf50' : 'white',
                       padding: '8px 16px',
-                      fontSize: '14px'
+                      fontSize: '14px',
+                      height: '40px',
+                      display: 'flex',
+                      alignItems: 'center'
                     },
                     '& .MuiOutlinedInput-root': {
+                      height: '40px',
                       '& fieldset': {
                         borderColor: '#666'
                       },
@@ -531,13 +669,13 @@ const Estimates = () => {
                   }}
                 >
                   <MenuItem value="">전체</MenuItem>
-                  <MenuItem value="제출완료">제출완료</MenuItem>
-                  <MenuItem value="제출대기">제출대기</MenuItem>
+                  <MenuItem value="제출완료" sx={{ color: '#f44336' }}>제출완료</MenuItem>
+                  <MenuItem value="제출대기" sx={{ color: '#4caf50' }}>제출대기</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={6} md={3}>
-              <FormControl fullWidth>
+              <FormControl fullWidth size="small">
                 <InputLabel sx={{ color: '#ccc' }}>수주여부</InputLabel>
                 <Select
                   value={filters.contractStatus}
@@ -545,30 +683,35 @@ const Estimates = () => {
                   sx={{ 
                     backgroundColor: '#444',
                     minWidth: 200,
-                  '& .MuiSelect-select': { 
-                    color: 'white',
-                    padding: '8px 16px',
-                    fontSize: '14px'
-                  },
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
-                      borderColor: '#666'
+                    height: '40px',
+                    '& .MuiSelect-select': { 
+                      color: 'white',
+                      padding: '8px 16px',
+                      fontSize: '14px',
+                      height: '40px',
+                      display: 'flex',
+                      alignItems: 'center'
                     },
-                    '&:hover fieldset': {
-                      borderColor: '#888'
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#90caf9'
+                    '& .MuiOutlinedInput-root': {
+                      height: '40px',
+                      '& fieldset': {
+                        borderColor: '#666'
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#888'
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#90caf9'
+                      }
                     }
-                  }
-                }}
-              >
-                <MenuItem value="">전체</MenuItem>
-                <MenuItem value="수주">수주</MenuItem>
-                <MenuItem value="미수주">미수주</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
+                  }}
+                >
+                  <MenuItem value="">전체</MenuItem>
+                  <MenuItem value="수주">수주</MenuItem>
+                  <MenuItem value="미수주">미수주</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
           <Grid item xs={12} md={4}>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
               {!isMobile && (
@@ -577,7 +720,13 @@ const Estimates = () => {
                     variant="outlined"
                     startIcon={<DownloadIcon />}
                     onClick={handleExportExcel}
-                    sx={{ color: '#90caf9', borderColor: '#90caf9' }}
+                    size="small"
+                    sx={{ 
+                      color: '#90caf9', 
+                      borderColor: '#90caf9',
+                      height: '40px',
+                      fontSize: '14px'
+                    }}
                   >
                     엑셀 다운로드
                   </Button>
@@ -593,7 +742,13 @@ const Estimates = () => {
                       variant="outlined"
                       startIcon={<UploadIcon />}
                       component="span"
-                      sx={{ color: '#90caf9', borderColor: '#90caf9' }}
+                      size="small"
+                      sx={{ 
+                        color: '#90caf9', 
+                        borderColor: '#90caf9',
+                        height: '40px',
+                        fontSize: '14px'
+                      }}
                     >
                       엑셀 업로드
                     </Button>
@@ -608,11 +763,12 @@ const Estimates = () => {
                   resetForm();
                   setDialogOpen(true);
                 }}
+                size="small"
                 sx={{ 
                   backgroundColor: '#4caf50',
-                  height: isMobile ? '40px' : '48px',
+                  height: '40px',
                   minWidth: isMobile ? '120px' : 'auto',
-                  fontSize: isMobile ? '14px' : '16px',
+                  fontSize: '14px',
                   fontWeight: 'bold'
                 }}
               >
@@ -636,15 +792,16 @@ const Estimates = () => {
                 sx={{ 
                   backgroundColor: '#444',
                   '& .MuiSelect-select': { 
-                    color: 'white',
+                    color: filters.submissionStatus === '제출완료' ? '#f44336' : 
+                            filters.submissionStatus === '제출대기' ? '#4caf50' : 'white',
                     fontSize: '12px',
                     py: 0.5
                   }
                 }}
               >
                 <MenuItem value="">전체</MenuItem>
-                <MenuItem value="제출완료">제출완료</MenuItem>
-                <MenuItem value="제출대기">제출대기</MenuItem>
+                <MenuItem value="제출완료" sx={{ color: '#f44336' }}>제출완료</MenuItem>
+                <MenuItem value="제출대기" sx={{ color: '#4caf50' }}>제출대기</MenuItem>
               </Select>
             </FormControl>
             <FormControl size="small" sx={{ flex: 1 }}>
@@ -707,23 +864,24 @@ const Estimates = () => {
                     <TableCell sx={{ color: 'white' }}>{estimate.requestContent}</TableCell>
                     <TableCell sx={{ color: 'white' }}>{estimate.submissionDeadline}</TableCell>
                     <TableCell>
-                      <FormControl size="small" fullWidth>
-                        <Select
-                          value={estimate.submissionStatus || '제출대기'}
-                          onChange={(e) => handleQuickUpdate(estimate.id, 'submissionStatus', e.target.value)}
-                          sx={{ 
-                            backgroundColor: '#444',
-                            '& .MuiSelect-select': { 
-                              color: 'white',
-                              fontSize: '0.75rem',
-                              py: 0.5
-                            }
-                          }}
-                        >
-                          <MenuItem value="제출대기">제출대기</MenuItem>
-                          <MenuItem value="제출완료">제출완료</MenuItem>
-                        </Select>
-                      </FormControl>
+                      <FormControl size="small">
+                          <Select
+                            value={estimate.submissionStatus || '제출대기'}
+                            onChange={(e) => handleQuickUpdate(estimate.id, 'submissionStatus', e.target.value)}
+                            sx={{ 
+                              backgroundColor: '#444',
+                              '& .MuiSelect-select': { 
+                                color: estimate.submissionStatus === '제출완료' ? '#f44336' : 
+                                        estimate.submissionStatus === '제출대기' ? '#4caf50' : 'white',
+                                fontSize: '0.75rem',
+                                py: 0.5
+                              }
+                            }}
+                          >
+                            <MenuItem value="제출대기" sx={{ color: '#4caf50' }}>제출대기</MenuItem>
+                            <MenuItem value="제출완료" sx={{ color: '#f44336' }}>제출완료</MenuItem>
+                          </Select>
+                        </FormControl>
                     </TableCell>
                     <TableCell sx={{ color: 'white' }}>{estimate.notes}</TableCell>
                     <TableCell>
@@ -922,11 +1080,14 @@ const Estimates = () => {
                   onChange={(e) => setFormData(prev => ({ ...prev, submissionStatus: e.target.value }))}
                   sx={{ 
                     backgroundColor: '#444',
-                    '& .MuiSelect-select': { color: 'white' }
+                    '& .MuiSelect-select': { 
+                      color: formData.submissionStatus === '제출완료' ? '#f44336' : 
+                              formData.submissionStatus === '제출대기' ? '#4caf50' : 'white'
+                    }
                   }}
                 >
-                  <MenuItem value="제출대기">제출대기</MenuItem>
-                  <MenuItem value="제출완료">제출완료</MenuItem>
+                  <MenuItem value="제출대기" sx={{ color: '#4caf50' }}>제출대기</MenuItem>
+                  <MenuItem value="제출완료" sx={{ color: '#f44336' }}>제출완료</MenuItem>
                 </Select>
               </FormControl>
             </Grid>

@@ -45,8 +45,9 @@ import {
 import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useLoading } from './common/LoadingProvider';
-import { exportToPDF } from '../utils/exportUtils';
+import { exportToPDF } from '../utils/pdfUtils';
 import { useMediaQuery } from '@mui/material';
+import SearchableSiteSelect from './common/SearchableSiteSelect';
 import '../styles/GanttChart.css';
 
 const GanttChart = () => {
@@ -63,7 +64,9 @@ const GanttChart = () => {
   const [editingSite, setEditingSite] = useState(null);
   const [useYearMode, setUseYearMode] = useState(true); // 연도 모드 사용 여부
   const [isFullscreen, setIsFullscreen] = useState(false); // 전체화면 모드
-  const [viewMode, setViewMode] = useState('halfyear'); // halfyear, quarter, mobile
+  const [viewMode, setViewMode] = useState('quarter'); // halfyear, quarter, year, mobile
+  const [colorDialogOpen, setColorDialogOpen] = useState(false);
+  const [selectedSiteForColor, setSelectedSiteForColor] = useState(null);
   const chartContainerRef = useRef(null);
   
   // 드래그 관련 상태
@@ -102,6 +105,17 @@ const GanttChart = () => {
       endDate: new Date(currentYear, quarterEndMonth + 1, 0).toISOString().slice(0, 10)
     };
   };
+
+  // 1년 모드 계산 (52주)
+  const getCurrentYear = () => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    
+    return {
+      startDate: new Date(currentYear, 0, 1).toISOString().slice(0, 10),
+      endDate: new Date(currentYear, 11, 31).toISOString().slice(0, 10)
+    };
+  };
   
   // 모바일용 1개월 계산
   const getCurrentMonth = () => {
@@ -115,7 +129,7 @@ const GanttChart = () => {
     };
   };
 
-  const [dateRange, setDateRange] = useState(isMobile ? getCurrentMonth() : getCurrentHalfYear());
+  const [dateRange, setDateRange] = useState(isMobile ? getCurrentMonth() : getCurrentQuarter());
   const [formData, setFormData] = useState({
     name: '',
     startDate: '',
@@ -167,14 +181,26 @@ const GanttChart = () => {
     const dates = [];
     const current = new Date(dateRangeObj.start);
     
-    while (current <= dateRangeObj.end) {
-      dates.push(new Date(current));
-      // 모바일에서도 1일 단위로 표시
-      current.setDate(current.getDate() + 1);
+    // 1년 모드에서는 주 단위로 표시
+    if (viewMode === 'year') {
+      // 첫 주의 시작일(일요일)로 조정
+      const dayOfWeek = current.getDay();
+      current.setDate(current.getDate() - dayOfWeek);
+      
+      while (current <= dateRangeObj.end) {
+        dates.push(new Date(current));
+        current.setDate(current.getDate() + 7); // 7일씩 증가
+      }
+    } else {
+      // 기존 로직: 1일 단위
+      while (current <= dateRangeObj.end) {
+        dates.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+      }
     }
     
     return dates;
-  }, [dateRangeObj]);
+  }, [dateRangeObj, viewMode]);
 
   // 오늘 날짜 인덱스 계산
   const todayIndex = useMemo(() => {
@@ -259,13 +285,27 @@ const GanttChart = () => {
 
   // 현장의 위치와 너비 계산 (기간 경계 고려)
   const getSitePosition = (schedule) => {
-    const startIndex = Math.floor((schedule.startDate - dateRangeObj.start) / (1000 * 60 * 60 * 24));
-    const endIndex = Math.floor((schedule.endDate - dateRangeObj.start) / (1000 * 60 * 60 * 24));
-    const duration = Math.max(1, endIndex - startIndex + 1);
+    let startIndex, endIndex, duration;
     
-    // 모바일에서는 1일 단위로 표시하도록 수정
+    if (viewMode === 'year') {
+      // 1년 모드: 주 단위로 계산
+      const startWeek = Math.floor((schedule.startDate - dateRangeObj.start) / (1000 * 60 * 60 * 24 * 7));
+      const endWeek = Math.floor((schedule.endDate - dateRangeObj.start) / (1000 * 60 * 60 * 24 * 7));
+      startIndex = startWeek;
+      endIndex = endWeek;
+      duration = Math.max(1, endIndex - startIndex + 1);
+    } else {
+      // 기존 로직: 일 단위로 계산
+      startIndex = Math.floor((schedule.startDate - dateRangeObj.start) / (1000 * 60 * 60 * 24));
+      endIndex = Math.floor((schedule.endDate - dateRangeObj.start) / (1000 * 60 * 60 * 24));
+      duration = Math.max(1, endIndex - startIndex + 1);
+    }
+    
     const adjustedStartIndex = startIndex;
     const adjustedDuration = duration;
+    
+    // 1년 모드에서도 컴팩트한 너비 사용
+    const unitWidth = isMobile ? 30 * zoomLevel : 40 * zoomLevel;
     
     console.log('🔥 위치 계산:', {
       siteName: schedule.text,
@@ -277,13 +317,15 @@ const GanttChart = () => {
       duration,
       adjustedStartIndex,
       adjustedDuration,
-      left: adjustedStartIndex * (isMobile ? 30 * zoomLevel : 40 * zoomLevel),
-      width: adjustedDuration * (isMobile ? 30 * zoomLevel : 40 * zoomLevel)
+      viewMode,
+      unitWidth,
+      left: adjustedStartIndex * unitWidth,
+      width: adjustedDuration * unitWidth
     });
     
     return {
-      left: Math.max(0, adjustedStartIndex * (isMobile ? 30 * zoomLevel : 40 * zoomLevel)),
-      width: Math.max(isMobile ? 30 * zoomLevel : 40 * zoomLevel, adjustedDuration * (isMobile ? 30 * zoomLevel : 40 * zoomLevel)),
+      left: Math.max(0, adjustedStartIndex * unitWidth),
+      width: Math.max(unitWidth, adjustedDuration * unitWidth),
       startIndex: adjustedStartIndex,
       duration: adjustedDuration
     };
@@ -307,30 +349,25 @@ const GanttChart = () => {
     return site?.customColor || siteColors[siteId] || getStatusColor(status);
   };
 
+  // 더블클릭 처리
+  const handleSiteDoubleClick = (site, e) => {
+    e.stopPropagation();
+    handleColorDialogOpen(site.id);
+  };
+
+  // 색상 선택 다이얼로그 열기
+  const handleColorDialogOpen = (siteId) => {
+    setSelectedSiteForColor(siteId);
+    setColorDialogOpen(true);
+  };
+
   // 색상 변경
-  const handleColorChange = async (siteId) => {
-    const colors = [
-      theme.palette.primary.main,
-      theme.palette.secondary.main,
-      theme.palette.success.main,
-      theme.palette.error.main,
-      theme.palette.warning.main,
-      theme.palette.info.main,
-      '#9c27b0', // 보라색
-      '#ff9800', // 주황색
-      '#795548', // 갈색
-      '#607d8b'  // 청회색
-    ];
-    
-    const site = sites.find(s => s.id === siteId);
-    const currentColor = siteColors[siteId] || getStatusColor(site?.status || '진행중');
-    const currentIndex = colors.indexOf(currentColor);
-    const nextIndex = (currentIndex + 1) % colors.length;
-    const newColor = colors[nextIndex];
+  const handleColorChange = async (newColor) => {
+    if (!selectedSiteForColor) return;
     
     try {
       // Firebase에 색상 저장
-      await updateDoc(doc(db, 'sites', siteId), {
+      await updateDoc(doc(db, 'sites', selectedSiteForColor), {
         customColor: newColor,
         updatedAt: new Date()
       });
@@ -338,13 +375,36 @@ const GanttChart = () => {
       // 로컬 상태 업데이트
       setSiteColors(prev => ({
         ...prev,
-        [siteId]: newColor
+        [selectedSiteForColor]: newColor
       }));
+      
+      setColorDialogOpen(false);
+      setSelectedSiteForColor(null);
     } catch (error) {
       console.error('색상 저장 실패:', error);
       setError('색상 저장에 실패했습니다.');
     }
   };
+
+  // 색상 옵션들
+  const colorOptions = [
+    { name: '파란색', value: theme.palette.primary.main },
+    { name: '보라색', value: theme.palette.secondary.main },
+    { name: '초록색', value: theme.palette.success.main },
+    { name: '빨간색', value: theme.palette.error.main },
+    { name: '주황색', value: theme.palette.warning.main },
+    { name: '하늘색', value: theme.palette.info.main },
+    { name: '자주색', value: '#9c27b0' },
+    { name: '주황색', value: '#ff9800' },
+    { name: '갈색', value: '#795548' },
+    { name: '청회색', value: '#607d8b' },
+    { name: '핑크색', value: '#e91e63' },
+    { name: '연두색', value: '#8bc34a' },
+    { name: '청록색', value: '#00bcd4' },
+    { name: '보라색', value: '#673ab7' },
+    { name: '회색', value: '#9e9e9e' },
+    { name: '검정색', value: '#000000' }
+  ];
 
   // 진행률에 따른 색상
   const getProgressColor = (progress) => {
@@ -472,6 +532,9 @@ const GanttChart = () => {
         break;
       case 'quarter':
         setDateRange(getCurrentQuarter());
+        break;
+      case 'year':
+        setDateRange(getCurrentYear());
         break;
       case 'mobile':
         setDateRange(getCurrentMonth());
@@ -711,6 +774,8 @@ const GanttChart = () => {
             '(반기 보기)' : 
             viewMode === 'quarter' ? 
               '(분기 보기)' : 
+            viewMode === 'year' ? 
+              '(1년 보기)' : 
               `(${dateRange.startDate} ~ ${dateRange.endDate})`
           )
         }
@@ -774,45 +839,15 @@ const GanttChart = () => {
                     ))}
                   </Select>
                 </FormControl>
-                <FormControl size="small" sx={{ minWidth: isMobile ? 80 : 200 }}>
-                  <InputLabel sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>현장</InputLabel>
-                  <Select
-                    multiple
-                    value={selectedSites}
-                    onChange={(e) => setSelectedSites(e.target.value)}
-                    label="현장"
-                    sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.length === 0 && <Typography variant="body2" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>모든 현장</Typography>}
-                        {selected.length > 0 && selected.length <= 2 && selected.map((siteId) => {
-                          const site = sites.find(s => s.id === siteId);
-                          return <Chip key={siteId} label={site?.name} size="small" sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }} />;
-                        })}
-                        {selected.length > 2 && (
-                          <Chip label={`${selected.length}개`} size="small" sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }} />
-                        )}
-                      </Box>
-                    )}
-                  >
-                    <MenuItem onClick={handleSelectAllSites}>
-                      <Typography variant="body2" fontWeight="bold" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
-                        {selectedSites.length === sites.length ? '전체 해제' : '전체 선택'}
-                      </Typography>
-                    </MenuItem>
-                    <Divider />
-                    {sites.map((site) => (
-                      <MenuItem key={site.id} value={site.id} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="body2" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>{site.name}</Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}>
-                            ({getConstructionPeriod(site)})
-                          </Typography>
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <SearchableSiteSelect
+                  sites={sites}
+                  selectedSites={selectedSites}
+                  onSiteSelection={setSelectedSites}
+                  onSelectAll={handleSelectAllSites}
+                  size="small"
+                  sx={{ minWidth: isMobile ? 80 : 200 }}
+                  getConstructionPeriod={getConstructionPeriod}
+                />
                 <TextField
                   size="small"
                   label="시작일"
@@ -871,6 +906,7 @@ const GanttChart = () => {
                     >
                       <MenuItem value="halfyear">반기 (6개월)</MenuItem>
                       <MenuItem value="quarter">분기 (3개월)</MenuItem>
+                      <MenuItem value="year">1년 (52주)</MenuItem>
                     </Select>
                   </FormControl>
                   <Tooltip title={isFullscreen ? "전체화면 해제" : "전체화면"}>
@@ -1000,8 +1036,8 @@ const GanttChart = () => {
                     <Box
                       key={index}
                       sx={{
-                        width: isMobile ? 30 * zoomLevel : 40 * zoomLevel,
-                        minWidth: isMobile ? 30 * zoomLevel : 40 * zoomLevel,
+                        width: viewMode === 'year' ? (isMobile ? 30 * zoomLevel : 40 * zoomLevel) : (isMobile ? 30 * zoomLevel : 40 * zoomLevel),
+                        minWidth: viewMode === 'year' ? (isMobile ? 30 * zoomLevel : 40 * zoomLevel) : (isMobile ? 30 * zoomLevel : 40 * zoomLevel),
                         borderRight: 1,
                         borderColor: 'divider',
                         p: isMobile ? 0.25 : 0.5,
@@ -1012,11 +1048,14 @@ const GanttChart = () => {
                         boxShadow: isToday ? '0 0 5px rgba(255, 0, 0, 0.5)' : 'none'
                       }}
                     >
-                      <Typography variant={isMobile ? "caption" : "body2"} display="block" color={date.getDay() === 0 ? 'error.main' : 'white'} fontWeight="bold" sx={{ pt: isMobile ? 1.5 : 2.5, fontSize: isMobile ? '0.6rem' : 'inherit' }}>
-                        {date.getDate()}
+                      <Typography variant={isMobile ? "caption" : "body2"} display="block" color={date.getDay() === 0 ? 'yellow.300' : 'white'} fontWeight="bold" sx={{ pt: viewMode === 'year' ? (isMobile ? 1 : 1.5) : (isMobile ? 1.5 : 2.5), fontSize: viewMode === 'year' ? (isMobile ? '0.7rem' : '0.8rem') : (isMobile ? '0.6rem' : 'inherit') }}>
+                        {viewMode === 'year' ? `${date.getMonth() + 1}/${date.getDate()}` : date.getDate()}
                       </Typography>
-                      <Typography variant={isMobile ? "caption" : "body2"} color={date.getDay() === 0 ? 'error.main' : 'white'} sx={{ pt: isMobile ? 0.25 : 0.5, fontSize: isMobile ? '0.5rem' : 'inherit' }}>
-                        {isMobile ? `${date.getMonth() + 1}/${date.getDate()}` : date.toLocaleDateString('ko-KR', { weekday: 'short' })}
+                      <Typography variant={isMobile ? "caption" : "body2"} color={date.getDay() === 0 ? 'yellow.300' : 'white'} sx={{ pt: viewMode === 'year' ? 0.25 : (isMobile ? 0.25 : 0.5), fontSize: viewMode === 'year' ? (isMobile ? '0.6rem' : '0.7rem') : (isMobile ? '0.5rem' : 'inherit') }}>
+                        {viewMode === 'year' ? 
+                          `${Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1}주` : 
+                          (isMobile ? `${date.getMonth() + 1}/${date.getDate()}` : date.toLocaleDateString('ko-KR', { weekday: 'short' }))
+                        }
                       </Typography>
                       
                       {/* 월 표시 */}
@@ -1132,7 +1171,7 @@ const GanttChart = () => {
                 )}
                 
                 {/* 공사기간 차트 영역 */}
-                <Grid item xs={isMobile ? 12 : 10} sx={{ position: 'relative', minHeight: isMobile ? 40 : 60 }}>
+                <Grid item xs={isMobile ? 12 : 10} sx={{ position: 'relative', minHeight: viewMode === 'year' ? (isMobile ? 30 : 40) : (isMobile ? 40 : 60) }}>
                     {schedule && (
                                               <Box
                           sx={{
@@ -1141,7 +1180,7 @@ const GanttChart = () => {
                             transform: 'translateY(-50%)',
                             left: getSitePosition(schedule).left,
                             width: getSitePosition(schedule).width,
-                            height: isMobile ? 16 : 20,
+                            height: viewMode === 'year' ? (isMobile ? 12 : 16) : (isMobile ? 16 : 20),
                             backgroundColor: getSiteColor(site.id, schedule.status),
                             borderRadius: 1,
                             display: 'flex',
@@ -1155,11 +1194,7 @@ const GanttChart = () => {
                             },
                             transition: 'all 0.2s ease-in-out'
                           }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleColorChange(site.id);
-                        }}
-                        onDoubleClick={() => handleEdit(site)}
+                        onDoubleClick={(e) => handleSiteDoubleClick(site, e)}
                       >
                         {/* 현장명 */}
                         <Typography 
@@ -1168,7 +1203,7 @@ const GanttChart = () => {
                             color: isMobile ? 'black' : 'white',
                             fontWeight: 'bold',
                             textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
-                            fontSize: isMobile ? '0.5rem' : '0.6rem',
+                            fontSize: viewMode === 'year' ? (isMobile ? '0.4rem' : '0.5rem') : (isMobile ? '0.5rem' : '0.6rem'),
                             textAlign: 'center',
                             px: isMobile ? 0.25 : 0.5,
                             overflow: 'hidden',
@@ -1270,6 +1305,62 @@ const GanttChart = () => {
           <Button onClick={handleSubmit} variant="contained">
             {editingSite ? '수정' : '추가'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 색상 선택 다이얼로그 */}
+      <Dialog open={colorDialogOpen} onClose={() => setColorDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          현장 색상 선택
+          {selectedSiteForColor && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {sites.find(s => s.id === selectedSiteForColor)?.name}
+            </Typography>
+          )}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <Grid container spacing={2}>
+              {colorOptions.map((colorOption) => (
+                <Grid item xs={3} key={colorOption.value}>
+                  <Box
+                    sx={{
+                      width: '100%',
+                      height: 60,
+                      backgroundColor: colorOption.value,
+                      borderRadius: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      border: '2px solid transparent',
+                      '&:hover': {
+                        border: '2px solid #1976d2',
+                        transform: 'scale(1.05)'
+                      },
+                      transition: 'all 0.2s ease-in-out'
+                    }}
+                    onClick={() => handleColorChange(colorOption.value)}
+                  >
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        color: colorOption.value === '#000000' ? 'white' : 
+                               colorOption.value === '#9e9e9e' ? 'white' : 'black',
+                        fontWeight: 'bold',
+                        textShadow: '1px 1px 2px rgba(255,255,255,0.8)'
+                      }}
+                    >
+                      {colorOption.name}
+                    </Typography>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setColorDialogOpen(false)}>취소</Button>
         </DialogActions>
       </Dialog>
 

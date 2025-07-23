@@ -29,7 +29,7 @@ const SiteDetail = ({ site, onClose, onEdit }) => {
     switch (status) {
       case '진행중':
         return '#1976d2';
-      case '예정':
+      case '진행상황':
         return '#ffa000';
       case '완료':
         return '#43a047';

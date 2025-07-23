@@ -23,7 +23,18 @@ const GlobalErrorHandler = () => {
           message.includes('The node to be removed is not a child of this node') ||
           message.includes('Failed to execute \'removeChild\' on \'Node\'') ||
           message.includes('appendChild') ||
-          message.includes('insertBefore')) {
+          message.includes('insertBefore') ||
+          // 모바일 관련 오류 추가
+          message.includes('touch') ||
+          message.includes('TouchEvent') ||
+          message.includes('passive') ||
+          message.includes('preventDefault') ||
+          message.includes('webkit') ||
+          message.includes('webkitOverflowScrolling') ||
+          message.includes('getBattery') ||
+          message.includes('BatteryManager') ||
+          message.includes('connection') ||
+          message.includes('NetworkInformation')) {
         return; // 이런 오류들은 콘솔에 출력하지 않음
       }
       
@@ -47,7 +58,14 @@ const GlobalErrorHandler = () => {
            event.error.message.includes('The node to be removed is not a child of this node') ||
            event.error.message.includes('Failed to execute \'removeChild\' on \'Node\'') ||
            event.error.message.includes('appendChild') ||
-           event.error.message.includes('insertBefore'))) {
+           event.error.message.includes('insertBefore') ||
+           // 모바일 관련 오류 추가
+           event.error.message.includes('touch') ||
+           event.error.message.includes('TouchEvent') ||
+           event.error.message.includes('passive') ||
+           event.error.message.includes('preventDefault') ||
+           event.error.message.includes('webkit') ||
+           event.error.message.includes('webkitOverflowScrolling'))) {
         event.preventDefault();
         event.stopPropagation();
         return;

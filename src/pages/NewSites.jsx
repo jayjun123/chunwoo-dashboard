@@ -12,12 +12,12 @@ import { useTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/material';
 import { formatContractAmount, formatAdvanceAmount, formatGisungAmount } from '../utils/formatUtils';
 
-const STATUS_OPTIONS = ['예정', '진행중', '완료', '미정'];
+const STATUS_OPTIONS = ['진행상황', '진행중', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급', '관급'];
 
 const initialFormState = {
   name: '',
-  status: '예정',
+  status: '진행상황',
   contractType: '관급',
   subcontractGuardian: false,
   installment: '',
@@ -52,7 +52,7 @@ const NewSites = () => {
   // 상태별 카운트 계산
   const statusCounts = useMemo(() => {
     const counts = {
-      '예정': 0,
+      '진행상황': 0,
       '진행중': 0,
       '완료': 0,
       '미정': 0
@@ -116,7 +116,7 @@ const NewSites = () => {
       const sitesData = snapshot.docs.map(doc => {
         const data = { id: doc.id, ...doc.data() };
         if (data.status === '진행') data.status = '진행중';
-        else if (data.status === '예정') data.status = '예정';
+        else if (data.status === '예정') data.status = '진행상황';
         return data;
       });
 
@@ -187,7 +187,7 @@ const NewSites = () => {
       manager: '',
       startDate: '',
       endDate: '',
-      status: '진행중',
+      status: '진행상황',
       isFavorite: false,
       items: []
     });
@@ -494,10 +494,10 @@ const NewSites = () => {
              </Box>
              <Box sx={{ flex: isMobile ? 1 : 3 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
-                 예정
+                 진행상황
                </Typography>
                <FormControl fullWidth size="small">
-                 <Select name="status" value={form.status ?? '예정'} onChange={handleChange} disabled={isReadOnly}>
+                 <Select name="status" value={form.status ?? '진행상황'} onChange={handleChange} disabled={isReadOnly}>
                    {STATUS_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
                  </Select>
                </FormControl>
