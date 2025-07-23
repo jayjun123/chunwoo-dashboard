@@ -213,9 +213,9 @@ export default defineConfig(({ mode }) => {
       minify: 'terser',
       terserOptions: {
         compress: {
-          drop_console: true,
+          drop_console: false, // 배포 환경에서도 콘솔 로그 유지
           drop_debugger: true,
-          pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn']
+          pure_funcs: [] // 콘솔 함수 제거하지 않음
         }
       }
     },

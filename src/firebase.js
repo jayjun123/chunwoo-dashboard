@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, collection, query, orderBy, limit, where, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
@@ -24,8 +24,15 @@ console.log('Firebase 설정 로드:', {
 // Firebase 앱 초기화
 let app;
 try {
-  app = initializeApp(firebaseConfig);
-  console.log('✅ Firebase 앱이 성공적으로 초기화되었습니다.');
+  // 이미 초기화된 앱이 있는지 확인
+  const existingApps = getApps();
+  if (existingApps.length > 0) {
+    app = existingApps[0];
+    console.log('✅ 기존 Firebase 앱을 재사용합니다.');
+  } else {
+    app = initializeApp(firebaseConfig);
+    console.log('✅ Firebase 앱이 성공적으로 초기화되었습니다.');
+  }
 } catch (error) {
   console.error('❌ Firebase 앱 초기화 실패:', error);
   // 초기화 실패 시에도 기본 설정으로 진행
@@ -34,7 +41,16 @@ try {
     console.log('✅ Firebase 앱이 fallback으로 초기화되었습니다.');
   } catch (fallbackError) {
     console.error('❌ Firebase fallback 초기화도 실패:', fallbackError);
-    throw fallbackError;
+    // 최후의 수단: 기본 설정으로 진행
+    app = initializeApp({
+      apiKey: "AIzaSyATCGXGD2_teiJFdpng9J2_fvZRItPef0w",
+      authDomain: "chunwooo-ebaseapp.com",
+      projectId: "chunwooo-edf9f",
+      storageBucket: "chunwooo-edf9f.firebasestorage.app",
+      messagingSenderId: "417029078660",
+      appId: "1:417029078660:web:00e23d79af77876e598cd1"
+    }, 'emergency-app');
+    console.log('✅ Firebase 앱이 emergency 모드로 초기화되었습니다.');
   }
 }
 
