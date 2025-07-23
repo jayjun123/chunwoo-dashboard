@@ -48,7 +48,7 @@ const Dashboard = () => {
       const sites = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       const activeSites = sites.filter(site => site.status === '진행중').length;
       const completedSites = sites.filter(site => site.status === '완료').length;
-      const pendingSites = sites.filter(site => site.status === '진행상황').length;
+      const pendingSites = sites.filter(site => site.status === '예정').length;
       const totalProgress = sites.reduce((acc, site) => acc + (parseFloat(site.totalProgress) || 0), 0) / sites.length;
       const avgProgress = isNaN(totalProgress) ? 0 : totalProgress;
 
@@ -106,7 +106,7 @@ const Dashboard = () => {
     const siteStatus = [
       { name: '진행중', value: stats.activeSites },
       { name: '완료', value: stats.completedSites },
-      { name: '진행상황', value: stats.pendingSites },
+      { name: '예정', value: stats.pendingSites },
       { name: '미정', value: stats.totalSites - stats.activeSites - stats.completedSites - stats.pendingSites }
     ].filter(item => item.value > 0);
 
@@ -128,7 +128,7 @@ const Dashboard = () => {
 
   // 도넛 차트 데이터
   const doughnutChartData = {
-    labels: ['진행중', '완료', '진행상황', '미정'],
+    labels: ['진행중', '완료', '예정', '미정'],
     datasets: [{
       data: [
         stats.activeSites,

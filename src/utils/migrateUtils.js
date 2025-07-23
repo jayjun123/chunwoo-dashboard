@@ -1,7 +1,7 @@
-import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase.js';
+import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
 
-// 상태값 마이그레이션 함수
+// 현장 상태 마이그레이션 함수
 export const migrateSiteStatus = async () => {
   try {
     console.log('🚀 현장 상태 마이그레이션 시작...');
@@ -59,10 +59,22 @@ export const migrateSiteStatus = async () => {
     
     console.log('\n🎉 현장 상태 마이그레이션 완료!');
     
+    // 성공한 경우 페이지 새로고침
+    if (successCount > 0) {
+      setTimeout(() => {
+        if (confirm('마이그레이션이 완료되었습니다. 페이지를 새로고침하시겠습니까?')) {
+          window.location.reload();
+        }
+      }, 1000);
+    }
+    
   } catch (error) {
     console.error('💥 마이그레이션 중 오류 발생:', error);
   }
 };
 
-// 스크립트 실행
-migrateSiteStatus(); 
+// 전역 함수로 등록 (브라우저 콘솔에서 실행 가능)
+if (typeof window !== 'undefined') {
+  window.migrateSiteStatus = migrateSiteStatus;
+  console.log('🔧 마이그레이션 함수가 등록되었습니다. 브라우저 콘솔에서 migrateSiteStatus()를 실행하세요.');
+} 

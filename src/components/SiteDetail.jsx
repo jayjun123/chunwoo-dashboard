@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import '../styles/SiteDetail.css';
 
-const SiteDetail = ({ site, onClose, onEdit }) => {
+const SiteDetail = ({ site, onClose, onEdit, onUpdate }) => {
   const { isDarkMode } = useTheme();
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [progressStatus, setProgressStatus] = useState(site.progressStatus || '진행중');
 
   if (!site) return null;
 
@@ -35,6 +39,33 @@ const SiteDetail = ({ site, onClose, onEdit }) => {
         return '#43a047';
       default:
         return '#757575';
+    }
+  };
+
+  const handleStatusChange = async (newStatus) => {
+    if (newStatus === progressStatus) return;
+    
+    setIsUpdating(true);
+    try {
+      const siteRef = doc(db, 'sites', site.id);
+      await updateDoc(siteRef, {
+        progressStatus: newStatus,
+        updatedAt: new Date()
+      });
+      
+      setProgressStatus(newStatus);
+      
+      // 부모 컴포넌트에 업데이트 알림
+      if (onUpdate) {
+        onUpdate({ ...site, progressStatus: newStatus });
+      }
+      
+      console.log('진행상황 업데이트 완료:', newStatus);
+    } catch (error) {
+      console.error('진행상황 업데이트 실패:', error);
+      alert('진행상황 업데이트에 실패했습니다.');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -70,12 +101,34 @@ const SiteDetail = ({ site, onClose, onEdit }) => {
             </div>
             <div className="detail-item">
               <label>진행상태</label>
-              <span
-                className="status-badge"
-                style={{ backgroundColor: getStatusColor(site.progressStatus) }}
-              >
-                {site.progressStatus}
-              </span>
+              <div className="status-selector">
+                <select
+                  value={progressStatus}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                  disabled={isUpdating}
+                  style={{
+                    backgroundColor: getStatusColor(progressStatus),
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '4px 8px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    cursor: isUpdating ? 'not-allowed' : 'pointer',
+                    opacity: isUpdating ? 0.7 : 1
+                  }}
+                >
+                  <option value="진행중">진행중</option>
+                  <option value="진행상황">진행상황</option>
+                  <option value="완료">완료</option>
+                  <option value="중단">중단</option>
+                </select>
+                {isUpdating && (
+                  <span style={{ marginLeft: '8px', fontSize: '12px', color: '#666' }}>
+                    업데이트 중...
+                  </span>
+                )}
+              </div>
             </div>
             <div className="detail-item">
               <label>진행률</label>

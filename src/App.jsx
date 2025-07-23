@@ -5,6 +5,7 @@ import { initKeyboardManager } from './utils/pwaKeyboardUtils';
 import { initMobileOptimization, initViewportHeight } from './utils/mobileOptimization';
 import { initializeWindow } from './utils/windowManager';
 import { globalCleanupManager, enhancedPerformanceMonitor } from './utils/performanceUtils';
+import './utils/migrateUtils';
 import './styles/IME.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { TodoProvider } from './contexts/TodoContext';
