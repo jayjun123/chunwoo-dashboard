@@ -178,7 +178,7 @@ const App = React.memo(() => {
   useEffect(() => {
     try {
       configureIME({
-        enableLogging: process.env.NODE_ENV === 'development',
+        enableLogging: import.meta.env.DEV,
         enableViewportAdjustment: true,
         enableCursorFix: true,
         keyboardDetectionThreshold: 150
@@ -198,7 +198,36 @@ const App = React.memo(() => {
         <AuthProvider>
           <TodoProvider>
             <ThemeProvider>
-              <MuiThemeProvider theme={createTheme()}>
+              <MuiThemeProvider theme={createTheme({
+                palette: {
+                  mode: 'dark',
+                  primary: {
+                    main: '#3b82f6',
+                  },
+                  secondary: {
+                    main: '#f59e0b',
+                  },
+                  background: {
+                    default: '#181c24',
+                    paper: '#232837',
+                  },
+                  text: {
+                    primary: '#ffffff',
+                    secondary: '#b3b8c5',
+                  },
+                  divider: '#2d3344',
+                },
+                components: {
+                  MuiCssBaseline: {
+                    styleOverrides: {
+                      body: {
+                        backgroundColor: '#181c24',
+                        color: '#ffffff',
+                      },
+                    },
+                  },
+                },
+              })}>
                 <CssBaseline />
                 <LoadingProvider>
                   <PopupProvider>

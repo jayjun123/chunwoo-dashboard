@@ -236,7 +236,7 @@ const Dashboard = React.memo(() => {
       pt: 0,
       pb: 0,
       px: 2, 
-      height: '100vh',
+      height: '90vh', // 100vh에서 90vh로 줄임
       bgcolor: theme.palette.background.default,
       display: 'flex',
       justifyContent: 'center',

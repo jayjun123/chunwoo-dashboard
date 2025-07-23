@@ -376,9 +376,9 @@ const CustomCalendar = (props) => {
       tabIndex={0}
       sx={{
         width: '100%',
-        height: { xs: 'calc(100vh - 53px - 70px)', md: '100%' }, // 모바일에서 헤더(53px) + 하단바(70px) 제외
-        minHeight: { xs: 'calc(100vh - 53px - 70px)', md: 'auto' },
-        maxHeight: { xs: 'calc(100vh - 53px - 70px)', md: 'none' },
+        height: { xs: 'calc(100vh - 53px - 70px)', md: 'calc(100vh - 100px)' }, // PC에서 100px 줄임
+        minHeight: { xs: 'calc(100vh - 53px - 70px)', md: 'calc(100vh - 100px)' },
+        maxHeight: { xs: 'calc(100vh - 53px - 70px)', md: 'calc(100vh - 100px)' },
         position: { xs: 'relative', md: 'static' },
         top: { xs: '-30px', md: '0' },
         mr: { xs: '0', md: '0' },

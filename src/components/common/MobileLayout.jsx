@@ -57,7 +57,7 @@ export default function MobileLayout({ children }) {
 
   return (
     <Box sx={{ 
-      minHeight: { xs: '100vh', sm: '100dvh' }, // 모바일에서는 안전한 100vh 사용
+      minHeight: { xs: '90vh', sm: '90dvh' }, // 100vh에서 90vh로 줄임
       width: '100vw', 
       bgcolor: '#181a20', 
       position: 'relative', 
@@ -71,8 +71,8 @@ export default function MobileLayout({ children }) {
       <SwipeableContainer enableSwipeBack={true}>
         <Box sx={{ 
           minHeight: shouldHideBottomBar 
-            ? { xs: 'calc(100vh - 53px)', sm: 'calc(100dvh - 53px)' } // 하단바 숨김 시
-            : { xs: 'calc(100vh - 53px - 70px)', sm: 'calc(100dvh - 53px - 70px)' }, // 기존
+            ? { xs: 'calc(90vh - 53px)', sm: 'calc(90dvh - 53px)' } // 100vh에서 90vh로 줄임, 하단바 숨김 시
+            : { xs: 'calc(90vh - 53px - 70px)', sm: 'calc(90dvh - 53px - 70px)' }, // 100vh에서 90vh로 줄임
           width: '100%',
           paddingTop: { xs: '33px', sm: getPaddingTop() }, // 모바일에서 33px로 변경 (28px + 5px)
           paddingBottom: '0px', // 패딩 완전 제거

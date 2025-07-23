@@ -808,16 +808,16 @@ const SafetyPage = () => {
     <Box sx={{ 
       p: isMobile ? 0 : 3,
       mt: isMobile ? '30px' : 8,
-      position: isMobile ? 'relative' : 'relative',
-      top: isMobile ? 'auto' : 'auto',
-      left: isMobile ? 'auto' : 'auto',
-      right: isMobile ? 'auto' : 'auto',
-      bottom: isMobile ? 'auto' : 'auto',
-      width: isMobile ? '100%' : '100%',
-      height: isMobile ? 'auto' : 'auto',
-      overflow: 'auto',
+      position: 'fixed',
+      top: isMobile ? '60px' : '4px',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: '100%',
+      height: isMobile ? 'calc(100vh - 60px)' : 'calc(100vh - 4px)',
+      overflow: 'hidden',
       overflowX: 'hidden',
-      zIndex: isMobile ? 'auto' : 'auto',
+      zIndex: 1,
       padding: isMobile ? '0px' : '16px',
       bgcolor: '#1a1d21'
     }}>
@@ -827,8 +827,9 @@ const SafetyPage = () => {
           borderRadius: '12px',
           position: 'sticky',
           top: 0,
-          zIndex: 10,
-          backgroundColor: '#1a1d21'
+          zIndex: 20,
+          backgroundColor: '#1a1d21',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
         }}>
           <Tabs
             value={isMobile ? Math.max(0, tab - 1) : tab}
@@ -894,10 +895,25 @@ const SafetyPage = () => {
           </Tabs>
         </Paper>
         <Grid container spacing={2} sx={{
-          height: isMobile ? 'auto' : 'calc(100vh - 120px)',
-          overflowY: isMobile ? 'auto' : 'hidden',
+          height: isMobile ? 'calc(100vh - 140px)' : 'calc(100vh - 200px)',
+          overflowY: 'auto',
           overflowX: 'hidden',
           width: '100%',
+          paddingBottom: '20px',
+          '&::-webkit-scrollbar': {
+            width: '8px'
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: '#2d3748',
+            borderRadius: '4px'
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: '#4a5568',
+            borderRadius: '4px',
+            '&:hover': {
+              backgroundColor: '#718096'
+            }
+          },
           maxWidth: '100%'
         }}>
           {renderContent()}

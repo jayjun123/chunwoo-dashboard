@@ -930,34 +930,34 @@ const BottomBar = ({
           pl: { xs: 2, md: 0 },
           cursor: 'pointer' 
         }} onClick={(e) => { e.stopPropagation(); handleOpenPanel('center'); }}>
-          <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             {!isMobile && <span style={{ marginRight: '16px' }}>TODAY'S</span>}
             <EngineeringIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FFD600', mr: 0.5 }} />
             {!isMobile && '[현장]'} {stats.todaySites ?? 0}
-          </Typography>
-          <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          </Box>
+          <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <TrendingUpIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#4FC3F7', mr: 0.5 }} />
             {!isMobile && '[입찰]'} {stats.progressCount ?? 0}
-          </Typography>
-          <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          </Box>
+          <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <ForumIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF7043', mr: 0.5 }} />
             {!isMobile && '[회의]'} {stats.discussionCount ?? 0}
-          </Typography>
-          <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          </Box>
+          <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <SafetyHelmetIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#81C784', mr: 0.5 }} />
             {!isMobile && '[현설]'} {stats.safetyCount ?? 0}
-          </Typography>
-          <Typography 
+          </Box>
+          <Box 
             sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
             onClick={(e) => { e.stopPropagation(); handleOpenPanel('center'); }}
           >
             <CalculateIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF9800', mr: 0.5 }} />
             {!isMobile && '[견적]'} {stats.estimateCount ?? 0}
-          </Typography>
-          <Typography sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          </Box>
+          <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <CategoryIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#9E9E9E', mr: 0.5 }} />
             {!isMobile && '[기타]'} {stats.etcCount ?? 0}
-          </Typography>
+          </Box>
         </Box>
         {/* 우측: ToDoList + 설정 아이콘 */}
         <Box sx={{ 
@@ -1143,6 +1143,7 @@ const BottomBar = ({
                 py: isMobile ? 0.5 : 1,
                 color: '#1976d2',
                 borderColor: '#1976d2',
+                height: '32px', // 높이 고정
                 '&:hover': {
                   borderColor: '#1565c0',
                   bgcolor: 'rgba(25, 118, 210, 0.04)',
@@ -1162,6 +1163,7 @@ const BottomBar = ({
                   bgcolor: '#424242',
                   color: '#fff',
                   borderColor: '#666',
+                  height: '32px', // 높이 고정
                   '&:hover': {
                     bgcolor: '#616161',
                     borderColor: '#888'
@@ -1684,18 +1686,56 @@ const BottomBar = ({
                         alignItems: 'center'
                       }}>
                         <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <Typography sx={{ 
+                            fontWeight: 600, 
+                            fontSize: { xs: 13, md: 14 }, 
+                            overflow: 'hidden', 
+                            textOverflow: 'ellipsis', 
+                            whiteSpace: 'nowrap',
+                            textDecoration: item.completed ? 'line-through' : 'none',
+                            opacity: item.completed ? 0.6 : 1
+                          }}>
                             {item.title || item.text || item.description || item.desc || '설명 없음'}
                           </Typography>
                           {(item.description || item.desc) && (item.description || item.desc).trim() && (
-                            <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <Typography sx={{ 
+                              color: '#ccc', 
+                              fontSize: { xs: 11, md: 12 }, 
+                              mt: 0.5, 
+                              overflow: 'hidden', 
+                              textOverflow: 'ellipsis', 
+                              whiteSpace: 'nowrap',
+                              opacity: item.completed ? 0.6 : 1
+                            }}>
                               {item.description || item.desc}
                             </Typography>
                           )}
                         </Box>
-                        <Typography sx={{ color: '#9E9E9E', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
-                          {item.startDate}
-                        </Typography>
+                        {item.completed ? (
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 0.5,
+                            backgroundColor: 'rgba(76, 175, 80, 0.15)',
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: 1,
+                            flexShrink: 0,
+                            border: '1px solid rgba(76, 175, 80, 0.3)'
+                          }}>
+                            <Typography sx={{ 
+                              color: '#4CAF50', 
+                              fontSize: { xs: 10, md: 11 }, 
+                              fontWeight: 600
+                            }}>
+                              ✓ 완료
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography sx={{ color: '#9E9E9E', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
+                            {item.startDate}
+                          </Typography>
+                        )}
                       </Box>
                     ))}
                   </Box>

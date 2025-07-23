@@ -627,16 +627,17 @@ const CustomSchedule = () => {
       tabIndex={0}
       sx={{ 
         p: 0, 
-        height: isMobile ? 'calc(100vh - 90px)' : 'calc(100vh - 120px)',
+        height: isMobile ? 'calc(90vh - 90px)' : 'calc(90vh - 320px)', // PC에서 200px 더 줄임 (220px + 100px)
         width: isMobile ? '100vw' : '100%',
         mx: 0,
         px: 0,
         margin: 0,
         padding: 0,
-        position: isMobile ? 'relative' : 'static',
-        top: isMobile ? '-100px' : 'auto',
-        left: isMobile ? '-30px' : 'auto',
-        right: isMobile ? 0 : 'auto',
+        position: isMobile ? 'relative' : 'fixed', // PC에서 fixed로 변경
+        top: isMobile ? '-100px' : '60px', // PC에서 60px 아래로 이동
+        left: isMobile ? '-30px' : 0, // PC에서 0으로 설정
+        right: isMobile ? 0 : 0, // PC에서 0으로 설정
+        bottom: isMobile ? 'auto' : '100px', // PC에서 하단 100px 여백
         outline: 'none' // 포커스 테두리 제거
       }}>
       <DragDropContext onDragEnd={onDragEnd}>

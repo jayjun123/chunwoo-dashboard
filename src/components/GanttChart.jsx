@@ -31,7 +31,6 @@ import {
   Delete as DeleteIcon,
   Save as SaveIcon,
   Print as PrintIcon,
-  PictureAsPdf as PdfIcon,
   Timeline as TimelineIcon,
   CheckCircle as CheckCircleIcon,
 
@@ -45,7 +44,9 @@ import {
 import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useLoading } from './common/LoadingProvider';
-import { exportToPDF } from '../utils/pdfUtils';
+
+import { exportToExcel } from '../utils/excelUtils';
+import * as XLSX from 'xlsx';
 import { useMediaQuery } from '@mui/material';
 import SearchableSiteSelect from './common/SearchableSiteSelect';
 import '../styles/GanttChart.css';
@@ -744,28 +745,187 @@ const GanttChart = () => {
     setIsModalOpen(true);
   };
 
+  // 엑셀 내보내기 함수 (막대 차트 포함)
+  const handleExportExcel = () => {
+    try {
+      console.log('현장현황표 엑셀 내보내기 시작');
+      
+      // 현재 표시된 현장들의 데이터 준비
+      const displaySites = selectedSites.length > 0 
+        ? sites.filter(site => selectedSites.includes(site.id))
+        : sites;
+
+      if (displaySites.length === 0) {
+        alert('내보낼 현장 데이터가 없습니다.');
+        return;
+      }
+
+      // 엑셀 데이터 생성 (진행률을 숫자로 포함)
+      const exportData = displaySites.map((site, index) => {
+        const startDate = site.startDate ? new Date(site.startDate).toLocaleDateString('ko-KR') : '';
+        const endDate = site.endDate ? new Date(site.endDate).toLocaleDateString('ko-KR') : '';
+        const progressValue = site.progress ? Number(site.progress) : 0;
+        
+        return {
+          'No.': index + 1,
+          '현장명': site.name || '',
+          '현장장': site.manager || '',
+          '주소': site.address || '',
+          '상태': site.status || '',
+          '착공일': startDate,
+          '준공예정일': endDate,
+          '계약금액': site.contractAmount ? Number(site.contractAmount) : 0,
+          '진행률(%)': progressValue,
+          '진행률_표시': progressValue + '%',
+          '비고': site.note || ''
+        };
+      });
+
+      // 요약 정보 추가
+      const summaryData = [
+        { '항목': '총 현장 수', '값': displaySites.length },
+        { '항목': '진행중 현장', '값': displaySites.filter(site => site.status === '진행중').length },
+        { '항목': '완료 현장', '값': displaySites.filter(site => site.status === '완료').length },
+        { '항목': '계획중 현장', '값': displaySites.filter(site => site.status === '계획중').length },
+        { '항목': '현재 보기 모드', '값': viewMode === 'halfyear' ? '반기 보기' : 
+                                        viewMode === 'quarter' ? '분기 보기' : 
+                                        viewMode === 'year' ? '1년 보기' : '기간 보기' },
+        { '항목': '선택된 연도', '값': selectedYear + '년' }
+      ];
+
+      // 차트 데이터 생성 (더 상세한 정보 포함)
+      const chartData = displaySites.map(site => ({
+        '현장명': site.name || '',
+        '진행률(%)': site.progress ? Number(site.progress) : 0,
+        '계약금액(백만원)': site.contractAmount ? Math.round(Number(site.contractAmount) / 1000000) : 0,
+        '상태': site.status || '',
+        '현장장': site.manager || '',
+        '착공일': site.startDate ? new Date(site.startDate).toLocaleDateString('ko-KR') : '',
+        '준공예정일': site.endDate ? new Date(site.endDate).toLocaleDateString('ko-KR') : ''
+      }));
+
+      // 상태별 통계 데이터
+      const statusStats = [
+        { '상태': '진행중', '개수': displaySites.filter(site => site.status === '진행중').length },
+        { '상태': '완료', '개수': displaySites.filter(site => site.status === '완료').length },
+        { '상태': '계획중', '개수': displaySites.filter(site => site.status === '계획중').length },
+        { '상태': '지연', '개수': displaySites.filter(site => site.status === '지연').length },
+        { '상태': '예정', '개수': displaySites.filter(site => site.status === '예정').length }
+      ];
+
+      // 진행률 구간별 통계
+      const progressRanges = [
+        { '구간': '0-20%', '개수': displaySites.filter(site => (site.progress || 0) >= 0 && (site.progress || 0) <= 20).length },
+        { '구간': '21-40%', '개수': displaySites.filter(site => (site.progress || 0) >= 21 && (site.progress || 0) <= 40).length },
+        { '구간': '41-60%', '개수': displaySites.filter(site => (site.progress || 0) >= 41 && (site.progress || 0) <= 60).length },
+        { '구간': '61-80%', '개수': displaySites.filter(site => (site.progress || 0) >= 61 && (site.progress || 0) <= 80).length },
+        { '구간': '81-100%', '개수': displaySites.filter(site => (site.progress || 0) >= 81 && (site.progress || 0) <= 100).length }
+      ];
+
+      // 컬럼 너비 설정 (한글 텍스트 고려)
+      const columnWidths = [
+        { wch: 8 },   // No.
+        { wch: 25 },  // 현장명
+        { wch: 15 },  // 현장장
+        { wch: 40 },  // 주소
+        { wch: 12 },  // 상태
+        { wch: 12 },  // 착공일
+        { wch: 12 },  // 준공예정일
+        { wch: 20 },  // 계약금액
+        { wch: 10 },  // 진행률(%)
+        { wch: 12 },  // 진행률_표시
+        { wch: 30 }   // 비고
+      ];
+
+      // 워크북 생성
+      const wb = XLSX.utils.book_new();
+      
+      // 메인 데이터 시트
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      ws['!cols'] = columnWidths;
+      XLSX.utils.book_append_sheet(wb, ws, '현장현황표');
+      
+      // 요약 시트
+      const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, wsSummary, '요약');
+      
+      // 차트용 데이터 시트
+      const wsChart = XLSX.utils.json_to_sheet(chartData);
+      XLSX.utils.book_append_sheet(wb, wsChart, '차트데이터');
+      
+      // 상태별 통계 시트
+      const wsStatusStats = XLSX.utils.json_to_sheet(statusStats);
+      XLSX.utils.book_append_sheet(wb, wsStatusStats, '상태통계');
+      
+      // 진행률 구간별 통계 시트
+      const wsProgressRanges = XLSX.utils.json_to_sheet(progressRanges);
+      XLSX.utils.book_append_sheet(wb, wsProgressRanges, '진행률통계');
+
+      // 간트 차트 데이터 생성 (각 현장의 공사기간을 가로 막대기로 표시)
+      const ganttData = displaySites.map(site => {
+        const startDate = site.startDate ? new Date(site.startDate) : null;
+        const endDate = site.endDate ? new Date(site.endDate) : null;
+        
+        return {
+          '현장명': site.name || '',
+          '현장장': site.manager || '',
+          '착공일': startDate ? startDate.toISOString().split('T')[0] : '',
+          '준공예정일': endDate ? endDate.toISOString().split('T')[0] : '',
+          '공사기간(일)': startDate && endDate ? Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) : 0,
+          '상태': site.status || '',
+          '진행률(%)': site.progress ? Number(site.progress) : 0,
+          '계약금액(백만원)': site.contractAmount ? Math.round(Number(site.contractAmount) / 1000000) : 0
+        };
+      });
+
+      // 간트 차트 시트
+      const wsGantt = XLSX.utils.json_to_sheet(ganttData);
+      XLSX.utils.book_append_sheet(wb, wsGantt, '간트차트');
+
+      // 파일명 생성
+      const dateStr = new Date().toISOString().split('T')[0];
+      const finalFileName = `현장현황표_${dateStr}.xlsx`;
+
+      // 엑셀 파일 다운로드
+      XLSX.writeFile(wb, finalFileName);
+
+      alert('현장현황표가 엑셀 파일로 다운로드되었습니다.\n\n📊 차트 만들기 가이드:\n\n🎯 간트 차트 (현장별 공사기간):\n   - "간트차트" 시트 선택\n   - A1:H' + (ganttData.length + 1) + ' 범위 선택\n   - 삽입 → 차트 → 막대 차트 (가로 막대)\n   - 가로축: 날짜, 세로축: 현장명\n\n1️⃣ 진행률 막대 차트:\n   - "차트데이터" 시트 선택\n   - A1:B' + (chartData.length + 1) + ' 범위 선택\n   - 삽입 → 차트 → 막대 차트\n\n2️⃣ 계약금액 막대 차트:\n   - "차트데이터" 시트 선택\n   - A1:C' + (chartData.length + 1) + ' 범위 선택\n   - 삽입 → 차트 → 막대 차트\n\n3️⃣ 상태별 파이 차트:\n   - "상태통계" 시트 선택\n   - A1:B6 범위 선택\n   - 삽입 → 차트 → 파이 차트\n\n4️⃣ 진행률 구간별 차트:\n   - "진행률통계" 시트 선택\n   - A1:B6 범위 선택\n   - 삽입 → 차트 → 막대 차트');
+      console.log('엑셀 파일명:', finalFileName);
+      
+      return { success: true, fileName: finalFileName };
+    } catch (error) {
+      console.error('현장현황표 엑셀 내보내기 오류:', error);
+      alert('엑셀 내보내기 중 오류가 발생했습니다.');
+    }
+  };
+
+
+
   return (
     <Box sx={{ 
       p: isFullscreen ? 0 : 3, 
-      mt: isFullscreen ? 0 : (isMobile ? 0.75 : 5.75),
-      height: isFullscreen ? '100vh' : 'auto',
-      width: isFullscreen ? '100vw' : 'auto',
-      position: isFullscreen ? 'fixed' : 'relative',
-      top: isFullscreen ? 0 : 'auto',
-      left: isFullscreen ? 0 : 'auto',
-      zIndex: isFullscreen ? 9999 : 'auto',
-      backgroundColor: isFullscreen ? 'background.paper' : 'transparent',
-      overflow: isFullscreen ? 'hidden' : 'visible'
+      top: '68px', // 상단에서 68px 떨어진 위치
+      height: isFullscreen ? '100vh' : 'calc(100vh - 68px)', // 전체 화면 높이에서 68px 뺀 값
+      width: isFullscreen ? '100vw' : '100%',
+      position: 'fixed', // 화면 고정
+      left: 0,
+      zIndex: 1000,
+      backgroundColor: 'background.paper',
+      overflow: 'auto' // 스크롤 가능하도록 설정
     }}>
       <Typography variant={isMobile ? "h6" : "h4"} sx={{ 
         display: 'flex', 
         alignItems: 'center', 
         gap: 1,
         p: isFullscreen ? 2 : 0,
-        borderBottom: isFullscreen ? 1 : 0,
-        borderColor: isFullscreen ? 'divider' : 'transparent',
+        borderBottom: 1,
+        borderColor: 'divider',
         pt: 0,
-        pb: 0
+        pb: 1,
+        position: 'sticky', // 상단에 고정
+        top: 0, // 최상단에 고정
+        zIndex: 1001, // 다른 요소들 위에 표시
+        backgroundColor: 'background.paper' // 배경색 설정
       }}>
         <TimelineIcon color="primary" />
         현장 현황표 {isMobile ? 
@@ -797,7 +957,13 @@ const GanttChart = () => {
       )}
 
       {/* 컨트롤 패널 */}
-      <Card sx={{ mb: 3 }}>
+      <Card sx={{ 
+        mb: 3,
+        position: 'sticky', // 상단에 고정
+        top: isMobile ? '40px' : '60px', // 제목 아래에 고정
+        zIndex: 999, // 제목보다 낮은 z-index
+        backgroundColor: 'background.paper' // 배경색 설정
+      }}>
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <Box sx={{ 
@@ -904,8 +1070,8 @@ const GanttChart = () => {
                       onChange={(e) => handleViewModeChange(e.target.value)}
                       label="보기 모드"
                     >
-                      <MenuItem value="halfyear">반기 (6개월)</MenuItem>
                       <MenuItem value="quarter">분기 (3개월)</MenuItem>
+                      <MenuItem value="halfyear">반기 (6개월)</MenuItem>
                       <MenuItem value="year">1년 (52주)</MenuItem>
                     </Select>
                   </FormControl>
@@ -929,6 +1095,12 @@ const GanttChart = () => {
                       <ZoomInIcon />
                     </IconButton>
                   </Tooltip>
+                  <Tooltip title="엑셀 내보내기">
+                    <IconButton onClick={handleExportExcel} size="small" color="success">
+                      <SaveIcon />
+                    </IconButton>
+                  </Tooltip>
+
                 </>
               )}
               
@@ -943,6 +1115,12 @@ const GanttChart = () => {
                       <TodayIcon />
                     </IconButton>
                   </Tooltip>
+                  <Tooltip title="엑셀 내보내기">
+                    <IconButton onClick={handleExportExcel} size="small" color="success">
+                      <SaveIcon />
+                    </IconButton>
+                  </Tooltip>
+
                 </>
               )}
             </Box>
@@ -955,7 +1133,7 @@ const GanttChart = () => {
         p: isMobile ? 1 : 3, 
         overflow: 'auto', 
         mt: isMobile ? 1 : 2.5, 
-        maxHeight: isFullscreen ? 'calc(100vh - 80px)' : isMobile ? '60vh' : '70vh',
+        maxHeight: isFullscreen ? 'calc(100vh - 80px)' : isMobile ? 'calc(60vh + 50px)' : 'calc(70vh + 50px)',
         height: isFullscreen ? 'calc(100vh - 80px)' : 'auto',
         // 모바일 터치 개선
         touchAction: isMobile ? 'pan-x pan-y' : 'auto',
@@ -990,9 +1168,8 @@ const GanttChart = () => {
         <Box sx={{ 
           position: 'relative', 
           minHeight: isMobile ? 400 : 600,
-          minWidth: isMobile ? 
-            dateArray.length * (30 * zoomLevel) + 150 : 
-            dateArray.length * (40 * zoomLevel) + 200,
+          width: '100%',
+          maxWidth: '100%',
           border: 1,
           borderColor: 'divider',
           borderRadius: 1
@@ -1008,26 +1185,11 @@ const GanttChart = () => {
             mt: 5
           }}>
             <Grid container sx={{ 
-              minWidth: isMobile ? 
-                dateArray.length * (30 * zoomLevel) + 150 : 
-                dateArray.length * (40 * zoomLevel) + 200
+              width: '100%',
+              maxWidth: '100%'
             }}>
-              {/* 현장명 열 */}
-              {!isMobile && (
-                <Grid item xs={2} sx={{ 
-                  borderRight: 1, 
-                  borderColor: 'divider',
-                  backgroundColor: 'grey.50',
-                  p: 2,
-                  position: 'sticky',
-                  left: 0,
-                  zIndex: 15
-                }}>
-                </Grid>
-              )}
-              
               {/* 날짜 열들 */}
-              <Grid item xs={isMobile ? 12 : 10} sx={{ display: 'flex' }}>
+              <Grid item xs={12} sx={{ display: 'flex' }}>
                 {dateArray.map((date, index) => {
                   const today = new Date();
                   const isToday = date.toDateString() === today.toDateString();
@@ -1036,8 +1198,8 @@ const GanttChart = () => {
                     <Box
                       key={index}
                       sx={{
-                        width: viewMode === 'year' ? (isMobile ? 30 * zoomLevel : 40 * zoomLevel) : (isMobile ? 30 * zoomLevel : 40 * zoomLevel),
-                        minWidth: viewMode === 'year' ? (isMobile ? 30 * zoomLevel : 40 * zoomLevel) : (isMobile ? 30 * zoomLevel : 40 * zoomLevel),
+                        flex: 1,
+                        minWidth: isMobile ? 25 : 35,
                         borderRight: 1,
                         borderColor: 'divider',
                         p: isMobile ? 0.25 : 0.5,
@@ -1371,21 +1533,6 @@ const GanttChart = () => {
             0% { transform: translateY(-50%) scale(1); }
             50% { transform: translateY(-50%) scale(1.2); }
             100% { transform: translateY(-50%) scale(1); }
-          }
-          
-          /* 지정된 div 요소 완전히 제거 */
-          .MuiGrid-root.MuiGrid-direction-xs-row.css-ril70s-MuiGrid-root,
-          .css-1fbyy2u-MuiGrid-root {
-            display: none !important;
-            opacity: 0 !important;
-            visibility: hidden !important;
-            position: absolute !important;
-            left: -9999px !important;
-            top: -9999px !important;
-            width: 0 !important;
-            height: 0 !important;
-            overflow: hidden !important;
-            pointer-events: none !important;
           }
         `}
       </style>

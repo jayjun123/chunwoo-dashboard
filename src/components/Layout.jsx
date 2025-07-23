@@ -155,7 +155,7 @@ const Layout = React.memo(({ children }) => {
     <Box sx={{ 
       display: 'flex', 
       flexDirection: 'column', 
-      minHeight: '100vh',
+      minHeight: '90vh', // 100vh에서 90vh로 줄임
       width: '100%',
       margin: 0,
       padding: 0
@@ -374,9 +374,15 @@ const Layout = React.memo(({ children }) => {
           boxSizing: 'border-box', 
           overflowX: 'hidden',
           bgcolor: '#23242a',
-          minHeight: '100vh',
-          ...(isMobile && { height: '100vh', maxHeight: '100vh' }),
-          ...(isMobile && { marginTop: '5px' }) 
+          minHeight: '90vh', // 100vh에서 90vh로 줄임
+          ...(isMobile && { height: '90vh', maxHeight: '90vh' }), // 100vh에서 90vh로 줄임
+          ...(isMobile && { marginTop: '5px' }),
+          // 일정관리 페이지일 때만 특별한 스타일 적용
+          ...(location.pathname === '/schedule' && !isMobile && {
+            marginTop: '60px',
+            height: 'calc(90vh - 160px)',
+            maxHeight: 'calc(90vh - 160px)'
+          })
         }}>
           {children}
         </Box>

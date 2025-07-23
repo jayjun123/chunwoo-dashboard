@@ -14,19 +14,19 @@ import { onSnapshot } from 'firebase/firestore';
 
 // 개발 환경에서만 로깅하는 함수
 export const devLog = (...args) => {
-  if (process.env.NODE_ENV === 'development') {
+  if (import.meta.env.DEV) {
     console.log(...args);
   }
 };
 
 export const devWarn = (...args) => {
-  if (process.env.NODE_ENV === 'development') {
+  if (import.meta.env.DEV) {
     console.warn(...args);
   }
 };
 
 export const devError = (...args) => {
-  if (process.env.NODE_ENV === 'development') {
+  if (import.meta.env.DEV) {
     console.error(...args);
   }
 };
@@ -681,7 +681,7 @@ export class EnhancedPerformanceMonitor extends PerformanceMonitor {
 export const enhancedPerformanceMonitor = new EnhancedPerformanceMonitor();
 
 // 개발 환경에서 성능 모니터링 활성화
-if (process.env.NODE_ENV === 'development') {
+if (import.meta.env.DEV) {
   performanceMonitor.addObserver((name, metric) => {
     console.log(`Performance: ${name} took ${metric.duration.toFixed(2)}ms`);
   });

@@ -1144,7 +1144,7 @@ const CustomScheduleMobile = () => {
     <MobileLayout>
       <Box sx={{
         bgcolor: '#181a20',
-        height: 'calc(100vh - 50px)', // 전체 높이에서 30px 더 줄임 (80px → 50px)
+        height: 'calc(90vh - 50px)', // 100vh에서 90vh로 줄임
         width: '100vw',
         overflow: 'hidden',
         position: 'fixed',

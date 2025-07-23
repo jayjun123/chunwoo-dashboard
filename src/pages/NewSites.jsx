@@ -297,7 +297,7 @@ const NewSites = () => {
       sx={{ 
         display: 'flex', 
         flexDirection: { xs: 'column', md: 'row' }, 
-        minHeight: { xs: 'auto', md: 'calc(100vh - 64px - 52px)' }, 
+        minHeight: { xs: 'auto', md: 'calc(90vh - 64px - 52px)' }, // 100vh에서 90vh로 줄임
         bgcolor: '#1a1d21', 
         p: 0, 
         gap: 2, 
@@ -311,7 +311,7 @@ const NewSites = () => {
         mr: isMobile ? '5px' : 0,
         position: 'relative',
         right: isMobile ? '0px' : 'auto',
-        height: isMobile ? 'calc(100vh - 34px)' : 'auto',
+        height: isMobile ? 'calc(90vh - 34px)' : 'auto', // 100vh에서 90vh로 줄임
         pb: isMobile ? '20px' : 0
       }}
     >

@@ -315,7 +315,7 @@ const Reports = () => {
 
   return (
     <Box sx={{ 
-      height: 'calc(100vh - 65px - 51px)',
+      height: 'calc(90vh - 65px - 51px)', // 100vh에서 90vh로 줄임
       display: 'flex',
       flexDirection: 'column',
       position: 'fixed',
