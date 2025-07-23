@@ -1,5 +1,7 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { CircularProgress } from '@mui/material';
 import { configureIME } from './utils/imeHandler.jsx';
 import { initKeyboardManager } from './utils/pwaKeyboardUtils';
 import { initMobileOptimization, initViewportHeight } from './utils/mobileOptimization';
@@ -56,8 +58,6 @@ import ScheduleManagement from './components/schedule/ScheduleManagement';
 const GanttChartPage = React.lazy(() => import('./pages/GanttChart'));
 const Estimates = React.lazy(() => import('./pages/Estimates'));
 const Claims = React.lazy(() => import('./pages/Claims'));
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { CircularProgress } from '@mui/material';
 
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
