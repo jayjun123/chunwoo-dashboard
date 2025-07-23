@@ -1,3 +1,4 @@
+import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import {
@@ -53,6 +54,7 @@ import {
   Newspaper as NewspaperIcon,
   Timeline as TimelineIcon,
   Star as StarIcon,
+  Gavel as GavelIcon,
 } from '@mui/icons-material';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -68,7 +70,7 @@ const menuItems = [
   { text: '현장관리', icon: <BusinessIcon />, path: '/sites' },
   { text: '안전관리', icon: <SecurityIcon />, path: '/safety' },
   { text: '토론의견', icon: <ForumIcon />, path: '/discussions' },
-  { text: '입찰현황', icon: <PeopleIcon />, path: '/vendors' },
+  { text: '입찰현황', icon: <GavelIcon />, path: '/vendors' },
   { text: '거래처관리', icon: <PeopleIcon />, path: '/vendor-management' },
   { text: '기성관리', icon: <MonetizationOnIcon />, path: '/progress' },
   { text: '보고서', icon: <AssessmentIcon />, path: '/reports' },
@@ -85,7 +87,7 @@ const bottomMenuItems = [
   { text: '관리', icon: <AdminIcon />, path: '/admin' },
 ];
 
-const Layout = ({ children }) => {
+const Layout = React.memo(({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme: themeMode, toggleTheme } = useThemeContext();
@@ -117,7 +119,7 @@ const Layout = ({ children }) => {
       case '관리자': return 'warning';
       case '대마팀': return 'info';
       case '일반회원': return 'default';
-      case '예정': return 'secondary';
+      case '진행상황': return 'secondary';
       default: return 'default';
     }
   };
@@ -502,6 +504,6 @@ const Layout = ({ children }) => {
       </Menu>
     </Box>
   );
-};
+});
 
 export default Layout; 

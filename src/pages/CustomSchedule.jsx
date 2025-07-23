@@ -6,7 +6,7 @@ import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, write
 import { db, auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
-import { exportCalendarToExcel } from '../utils/exportUtils';
+import { exportCalendarToExcel } from '../utils/excelUtils';
 
 
 function isInMonth(site, year, month) {

@@ -26,7 +26,10 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Search as SearchIcon,
-  Download as DownloadIcon
+  Download as DownloadIcon,
+  Upload as UploadIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -47,6 +50,9 @@ const Vendors = () => {
   });
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [sortField, setSortField] = useState('bidDate');
+  const [sortDirection, setSortDirection] = useState('desc');
 
   useEffect(() => {
     fetchVendors();
@@ -141,6 +147,87 @@ const Vendors = () => {
     XLSX.writeFile(wb, `입찰현황_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        // 데이터 매핑 및 변환
+        const vendorsToAdd = jsonData.map(row => ({
+          companyName: row['업체명'] || row['companyName'] || '',
+          bidDate: row['낙찰일'] || row['bidDate'] || '',
+          siteName: row['현장명'] || row['siteName'] || '',
+          amount: row['금액'] || row['amount'] || '',
+          item: row['품목'] || row['item'] || '',
+          quantity: row['물량'] || row['quantity'] || '',
+          note: row['비고'] || row['note'] || ''
+        })).filter(vendor => vendor.companyName && vendor.siteName); // 필수 필드가 있는 데이터만
+
+        // Firestore에 데이터 추가
+        for (const vendor of vendorsToAdd) {
+          await addDoc(collection(db, 'vendors'), vendor);
+        }
+
+        alert(`${vendorsToAdd.length}개의 입찰현황 데이터가 성공적으로 업로드되었습니다.`);
+        fetchVendors();
+        setUploadDialogOpen(false);
+      };
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+      console.error('파일 업로드 오류:', error);
+      alert('파일 업로드 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortedVendors = () => {
+    const filteredVendors = vendors.filter(vendor => 
+      !searchTerm || 
+      vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vendor.siteName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vendor.item?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return filteredVendors.sort((a, b) => {
+      let aValue = a[sortField] || '';
+      let bValue = b[sortField] || '';
+
+      // 숫자 필드 처리 (금액, 물량)
+      if (sortField === 'amount' || sortField === 'quantity') {
+        aValue = parseFloat(aValue.replace(/[^\d.-]/g, '')) || 0;
+        bValue = parseFloat(bValue.replace(/[^\d.-]/g, '')) || 0;
+      }
+
+      // 날짜 필드 처리
+      if (sortField === 'bidDate') {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      }
+
+      if (sortDirection === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  };
+
   return (
     <Box sx={{ p: 3, marginTop: '64px' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
@@ -148,6 +235,9 @@ const Vendors = () => {
         <Box sx={{ display: 'flex', gap: 1 }}>
           <IconButton onClick={() => setShowSearch(!showSearch)}>
             <SearchIcon />
+          </IconButton>
+          <IconButton onClick={() => setUploadDialogOpen(true)}>
+            <UploadIcon />
           </IconButton>
           <IconButton onClick={handleDownload}>
             <DownloadIcon />
@@ -174,25 +264,78 @@ const Vendors = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>업체명</TableCell>
-              <TableCell>낙찰일</TableCell>
-              <TableCell>현장명</TableCell>
-              <TableCell>금액</TableCell>
-              <TableCell>품목</TableCell>
-              <TableCell>물량</TableCell>
+              <TableCell 
+                onClick={() => handleSort('companyName')}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  업체명
+                  {sortField === 'companyName' && (
+                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
+              <TableCell 
+                onClick={() => handleSort('bidDate')}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  낙찰일
+                  {sortField === 'bidDate' && (
+                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
+              <TableCell 
+                onClick={() => handleSort('siteName')}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  현장명
+                  {sortField === 'siteName' && (
+                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
+              <TableCell 
+                onClick={() => handleSort('amount')}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  금액
+                  {sortField === 'amount' && (
+                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
+              <TableCell 
+                onClick={() => handleSort('item')}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  품목
+                  {sortField === 'item' && (
+                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
+              <TableCell 
+                onClick={() => handleSort('quantity')}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  물량
+                  {sortField === 'quantity' && (
+                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
               <TableCell>비고</TableCell>
               <TableCell>관리</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {vendors
-              .filter(vendor => 
-                !searchTerm || 
-                vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                vendor.siteName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                vendor.item?.toLowerCase().includes(searchTerm.toLowerCase())
-              )
-              .map((vendor) => (
+            {getSortedVendors().map((vendor) => (
               <TableRow key={vendor.id}>
                 <TableCell>{vendor.companyName}</TableCell>
                 <TableCell>{vendor.bidDate}</TableCell>
@@ -287,6 +430,43 @@ const Vendors = () => {
           <Button onClick={handleSubmit} variant="contained">
             {editingVendor ? '수정' : '등록'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 파일 업로드 다이얼로그 */}
+      <Dialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>입찰현황 파일 업로드</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              Excel 파일을 업로드하여 입찰현황 데이터를 일괄 등록할 수 있습니다.
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+              지원 형식: .xlsx, .xls<br/>
+              필수 컬럼: 업체명, 현장명<br/>
+              선택 컬럼: 낙찰일, 금액, 품목, 물량, 비고
+            </Typography>
+            <input
+              accept=".xlsx,.xls"
+              style={{ display: 'none' }}
+              id="upload-file"
+              type="file"
+              onChange={handleFileUpload}
+            />
+            <label htmlFor="upload-file">
+              <Button
+                variant="contained"
+                component="span"
+                startIcon={<UploadIcon />}
+                fullWidth
+              >
+                파일 선택
+              </Button>
+            </label>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setUploadDialogOpen(false)}>취소</Button>
         </DialogActions>
       </Dialog>
     </Box>

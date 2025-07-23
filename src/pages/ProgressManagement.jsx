@@ -77,7 +77,7 @@ import {
   Line,
 } from 'recharts';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { exportToPDF } from '../utils/exportUtils';
+import { exportToPDF } from '../utils/pdfUtils';
 
 // 상수 정의
 const CONSTANTS = {

@@ -196,10 +196,20 @@ const MobileBottomNav = () => {
         </BottomNavigation>
       </Paper>
 
-      {/* 금일현장 확장 패널 */}
+      {/* 백드롭 */}
       {expandCenter && (
-        <Box position="fixed" top={0} left={0} right={0} bottom={0} zIndex={1201} onClick={() => setExpandCenter(false)} />
+        <Box 
+          position="fixed" 
+          top={0} 
+          left={0} 
+          right={0} 
+          bottom={0} 
+          zIndex={1201} 
+          onClick={() => setExpandCenter(false)} 
+        />
       )}
+      
+      {/* 금일현장 확장 패널 */}
       <Slide direction="up" in={expandCenter} mountOnEnter unmountOnExit>
         <Box
           sx={{
@@ -217,21 +227,36 @@ const MobileBottomNav = () => {
             margin: '0 auto',
             minHeight: 260
           }}
-          onClick={e => handleBackdropClick(e, setExpandCenter)}
           data-panel="center"
         >
-          <IconButton 
+          {/* 패널 내부 백드롭 - 빈 공간 클릭 시 닫기 */}
+          <Box 
+            sx={{ 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0, 
+              zIndex: -1 
+            }} 
             onClick={() => setExpandCenter(false)} 
-            sx={{ position: 'absolute', right: 16, top: 16, color: '#fff' }}
+          />
+          
+          <IconButton 
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpandCenter(false);
+            }} 
+            sx={{ position: 'absolute', right: 16, top: 16, color: '#fff', zIndex: 1 }}
           >
             <CloseIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, position: 'relative', zIndex: 1 }}>
             금일현장/기성/협의/안전 실시간 현황
           </Typography>
           
           {/* 금일현장 목록 */}
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 3, position: 'relative', zIndex: 1 }}>
             <Typography variant="h6" sx={{ mb: 1, color: '#FFD600', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <EngineeringIcon sx={{ fontSize: 18, color: '#FFD600' }} />
               금일현장 ({sitesList.length}개)
@@ -272,7 +297,7 @@ const MobileBottomNav = () => {
           </Box>
 
           {/* 금일입찰 목록 */}
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 3, position: 'relative', zIndex: 1 }}>
             <Typography variant="h6" sx={{ mb: 1, color: '#4FC3F7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <TrendingUpIcon sx={{ fontSize: 18, color: '#4FC3F7' }} />
               금일입찰 (0개)
@@ -281,7 +306,7 @@ const MobileBottomNav = () => {
           </Box>
 
           {/* 금일회의 목록 */}
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 3, position: 'relative', zIndex: 1 }}>
             <Typography variant="h6" sx={{ mb: 1, color: '#FF7043', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <ForumIcon sx={{ fontSize: 18, color: '#FF7043' }} />
               금일회의 (0개)
@@ -290,7 +315,7 @@ const MobileBottomNav = () => {
           </Box>
 
           {/* 금일현설 목록 */}
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 3, position: 'relative', zIndex: 1 }}>
             <Typography variant="h6" sx={{ mb: 1, color: '#81C784', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <SafetyHelmetIcon sx={{ fontSize: 18, color: '#81C784' }} />
               금일현설 (0개)

@@ -1432,7 +1432,13 @@ const MobileKakaoDiscussion = () => {
             backgroundColor: '#1A1A1A',
             p: 2,
             pb: keyboardHeight > 0 ? `${keyboardHeight + 80}px` : '80px', // 입력칸 높이(60px) + 여백(20px) 추가
-            margin: 0 // 마진 제거로 딱 붙게
+            margin: 0, // 마진 제거로 딱 붙게
+            // 스크롤바 숨기기
+            '&::-webkit-scrollbar': {
+              display: 'none'
+            },
+            '-ms-overflow-style': 'none',  // IE and Edge
+            'scrollbarWidth': 'none',  // Firefox
           }}>
             {messages[selectedDiscussion.id]?.sort((a, b) => {
               // timestamp를 기준으로 정렬 (오래된 메시지가 위로, 최신 메시지가 아래로)

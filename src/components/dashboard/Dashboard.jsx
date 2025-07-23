@@ -156,7 +156,7 @@ function ManageDetail({ onGoMembers, onGoPermissions }) {
   );
 }
 
-const Dashboard = () => {
+const Dashboard = React.memo(() => {
   const theme = useTheme();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -278,7 +278,7 @@ const Dashboard = () => {
       </Modal>
     </Box>
   );
-};
+});
 
 export default Dashboard;
   

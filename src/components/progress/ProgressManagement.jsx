@@ -55,7 +55,7 @@ import {
 } from 'recharts';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useRef } from 'react';
-import { exportToPDF } from '../../utils/exportUtils';
+import { exportToPDF } from '../../utils/pdfUtils';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 

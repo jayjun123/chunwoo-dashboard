@@ -1261,7 +1261,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                           sx={{
                             bgcolor: site.status === '완료' ? '#4caf50' : 
                                     site.status === '진행중' ? '#2196f3' : 
-                                    site.status === '예정' ? '#ff9800' : '#9e9e9e',
+                                    site.status === '진행상황' ? '#ff9800' : '#9e9e9e',
                             color: '#fff',
                             fontWeight: 500
                           }}

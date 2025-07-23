@@ -1,9 +1,10 @@
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { configureIME } from './utils/imeHandler.jsx';
 import { initKeyboardManager } from './utils/pwaKeyboardUtils';
-import { initMobileOptimization, useViewportHeight } from './utils/mobileOptimization';
+import { initMobileOptimization, initViewportHeight } from './utils/mobileOptimization';
 import { initializeWindow } from './utils/windowManager';
+import { globalCleanupManager, enhancedPerformanceMonitor } from './utils/performanceUtils';
 import './styles/IME.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { TodoProvider } from './contexts/TodoContext';
@@ -12,6 +13,7 @@ import { Provider } from 'react-redux';
 import { store } from './store/index';
 import Layout from './components/Layout';
 import MobileLayout from './components/common/MobileLayout';
+import SwipeableContainer from './components/common/SwipeableContainer';
 import Login from './components/Login';
 import Dashboard from './components/dashboard/Dashboard';
 import { useAuth } from './contexts/AuthContext';
@@ -19,11 +21,11 @@ import LoadingProvider from './components/common/LoadingProvider';
 import PopupProvider from './contexts/PopupContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import SplashScreen from './components/common/SplashScreen';
-import Safety from './pages/Safety';
-import SafetyInspections from './components/safety/SafetyInspections';
-import SafetyIncidents from './components/safety/SafetyIncidents';
-import SafetyTraining from './components/safety/SafetyTraining';
-import SafetyReports from './components/safety/SafetyReports';
+const Safety = React.lazy(() => import('./pages/Safety'));
+const SafetyInspections = React.lazy(() => import('./components/safety/SafetyInspections'));
+const SafetyIncidents = React.lazy(() => import('./components/safety/SafetyIncidents'));
+const SafetyTraining = React.lazy(() => import('./components/safety/SafetyTraining'));
+const SafetyReports = React.lazy(() => import('./components/safety/SafetyReports'));
 import Documents from './pages/Documents';
 import Reports from './pages/Reports';
 import Discussions from './pages/Discussions';
@@ -50,10 +52,11 @@ import ForgotPassword from './components/ForgotPassword';
 import CustomSchedule from './pages/CustomSchedule';
 import CustomScheduleMobile from './pages/CustomScheduleMobile';
 import ScheduleManagement from './components/schedule/ScheduleManagement';
-import GanttChartPage from './pages/GanttChart';
-import Estimates from './pages/Estimates';
-import Claims from './pages/Claims';
+const GanttChartPage = React.lazy(() => import('./pages/GanttChart'));
+const Estimates = React.lazy(() => import('./pages/Estimates'));
+const Claims = React.lazy(() => import('./pages/Claims'));
 import useMediaQuery from '@mui/material/useMediaQuery';
+import { CircularProgress } from '@mui/material';
 
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
@@ -74,8 +77,32 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-const App = () => {
+const App = React.memo(() => {
   const isMobile = useMediaQuery('(max-width:600px)');
+
+  // 전역 cleanup 매니저 및 성능 모니터링 초기화
+  useEffect(() => {
+    try {
+      // 성능 모니터링 시작
+      enhancedPerformanceMonitor.startMemoryMonitoring();
+      
+      // 페이지 언로드 시 cleanup 실행
+      const handleBeforeUnload = () => {
+        globalCleanupManager.cleanup();
+        enhancedPerformanceMonitor.stopMemoryMonitoring();
+      };
+      
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        globalCleanupManager.cleanup();
+        enhancedPerformanceMonitor.stopMemoryMonitoring();
+      };
+    } catch (error) {
+      console.error('전역 cleanup 매니저 초기화 오류:', error);
+    }
+  }, []);
 
   // 모바일 최적화 초기화
   useEffect(() => {
@@ -84,6 +111,7 @@ const App = () => {
       console.log('Device Info:', deviceInfo);
     } catch (error) {
       console.error('Mobile optimization error:', error);
+      // 오류가 발생해도 앱은 계속 실행
     }
   }, []);
 
@@ -98,44 +126,50 @@ const App = () => {
         return cleanup;
       } catch (error) {
         console.error('윈도우 관리자 초기화 오류:', error);
+        // 오류가 발생해도 앱은 계속 실행
       }
     }
   }, []);
 
-
-
   // 브라우저 확장프로그램 오류 필터링
   useEffect(() => {
-    // 원래 console.error 함수 저장
-    const originalError = console.error;
-    
-    // console.error 재정의
-    console.error = (...args) => {
-      const message = args.join(' ');
+    try {
+      // 원래 console.error 함수 저장
+      const originalError = console.error;
       
-      // 확장프로그램 관련 오류는 무시
-      if (message.includes('runtime.lastError') || 
-          message.includes('extension port') || 
-          message.includes('message channel is closed')) {
-        return; // 오류 로그 출력하지 않음
-      }
+      // console.error 재정의
+      console.error = (...args) => {
+        const message = args.join(' ');
+        
+        // 확장프로그램 관련 오류는 무시
+        if (message.includes('runtime.lastError') || 
+            message.includes('extension port') || 
+            message.includes('message channel is closed')) {
+          return; // 오류 로그 출력하지 않음
+        }
+        
+        // 다른 오류는 정상적으로 출력
+        originalError.apply(console, args);
+      };
       
-      // 다른 오류는 정상적으로 출력
-      originalError.apply(console, args);
-    };
-    
-    // 컴포넌트 언마운트 시 원래 함수로 복원
-    return () => {
-      console.error = originalError;
-    };
+      // 컴포넌트 언마운트 시 원래 함수로 복원
+      return () => {
+        console.error = originalError;
+      };
+    } catch (error) {
+      console.warn('콘솔 오류 필터링 설정 실패:', error);
+    }
   }, []);
 
   // 뷰포트 높이 최적화
-  try {
-    useViewportHeight();
-  } catch (error) {
-    console.error('Viewport height error:', error);
-  }
+  useEffect(() => {
+    try {
+      const cleanup = initViewportHeight();
+      return cleanup; // 클린업 함수 반환
+    } catch (error) {
+      console.error('Viewport height error:', error);
+    }
+  }, []);
 
   // IME 및 키보드 매니저 초기화
   useEffect(() => {
@@ -151,6 +185,7 @@ const App = () => {
       initKeyboardManager();
     } catch (error) {
       console.error('IME/Keyboard initialization error:', error);
+      // 오류가 발생해도 앱은 계속 실행
     }
   }, []);
 
@@ -206,11 +241,15 @@ const App = () => {
                           <ProtectedRoute>
                             {isMobile ? (
                               <MobileLayout>
-                                <Safety />
+                                <Suspense fallback={<div>로딩 중...</div>}>
+                                  <Safety />
+                                </Suspense>
                               </MobileLayout>
                             ) : (
                               <Layout>
-                                <Safety />
+                                <Suspense fallback={<div>로딩 중...</div>}>
+                                  <Safety />
+                                </Suspense>
                               </Layout>
                             )}
                           </ProtectedRoute>
@@ -653,6 +692,6 @@ const App = () => {
       </Provider>
     </ErrorBoundary>
   );
-};
+});
 
 export default App; 

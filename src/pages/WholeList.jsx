@@ -43,7 +43,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy,
 import { db } from '../firebase';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
-import { exportToExcel } from '../utils/exportUtils';
+import { exportToExcel } from '../utils/excelUtils';
 
 const STATUS_OPTIONS = ['계획', '진행중', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급'];
@@ -109,9 +109,9 @@ const WholeList = () => {
         const data = { id: doc.id, ...doc.data() };
         
         // 기존 상태값을 새로운 옵션에 맞게 마이그레이션
-        if (data.status === '진행') {
+        if (data.status === '진행상황') {
           data.status = '진행중';
-        } else if (data.status === '예정') {
+        } else if (data.status === '계획') {
           data.status = '계획';
         }
         

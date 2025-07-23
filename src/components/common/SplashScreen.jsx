@@ -13,47 +13,62 @@ const SplashScreen = ({ onComplete }) => {
 
   // PWA 환경 감지
   const isPWA = useCallback(() => {
-    return window.matchMedia('(display-mode: standalone)').matches || 
-           window.navigator.standalone === true;
+    try {
+      return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || 
+             window.navigator.standalone === true;
+    } catch (error) {
+      console.warn('PWA 환경 감지 실패:', error);
+      return false;
+    }
   }, []);
 
   useEffect(() => {
-    // 스플래시 화면 표시 시작
-    const timer = setTimeout(() => {
-      setShowContent(true);
-    }, 100);
+    try {
+      // 스플래시 화면 표시 시작
+      const timer = setTimeout(() => {
+        setShowContent(true);
+      }, 100);
 
-    // 진행률 애니메이션 (PWA에서는 더 빠르게)
-    const progressInterval = isPWA() ? 80 : 100;
-    const progressStep = isPWA() ? 20 : 15;
-    
-    const progressTimer = setInterval(() => {
-      setProgress((prevProgress) => {
-        if (prevProgress >= 100) {
-          clearInterval(progressTimer);
-          return 100;
-        }
-        return prevProgress + progressStep;
-      });
-    }, progressInterval);
+      // 진행률 애니메이션 (PWA에서는 더 빠르게)
+      const progressInterval = isPWA() ? 80 : 100;
+      const progressStep = isPWA() ? 20 : 15;
+      
+      const progressTimer = setInterval(() => {
+        setProgress((prevProgress) => {
+          if (prevProgress >= 100) {
+            clearInterval(progressTimer);
+            return 100;
+          }
+          return prevProgress + progressStep;
+        });
+      }, progressInterval);
 
-    // 로딩 메시지 변경
-    const messageTimer = setTimeout(() => {
-      setLoadingMessage('사용자 정보를 확인하고 있습니다...');
-    }, 1000);
+      // 로딩 메시지 변경
+      const messageTimer = setTimeout(() => {
+        setLoadingMessage('사용자 정보를 확인하고 있습니다...');
+      }, 1000);
 
-    // 최소 표시 시간 보장 (PWA에서는 더 짧게)
-    const minDisplayTime = isPWA() ? 800 : 1000;
-    const minDisplayTimer = setTimeout(() => {
-      devLog('스플래시 최소 표시 시간 완료');
-    }, minDisplayTime);
+      // 최소 표시 시간 보장 (PWA에서는 더 짧게)
+      const minDisplayTime = isPWA() ? 800 : 1000;
+      const minDisplayTimer = setTimeout(() => {
+        devLog('스플래시 최소 표시 시간 완료');
+      }, minDisplayTime);
 
-    return () => {
-      clearTimeout(timer);
-      clearInterval(progressTimer);
-      clearTimeout(messageTimer);
-      clearTimeout(minDisplayTimer);
-    };
+      return () => {
+        clearTimeout(timer);
+        clearInterval(progressTimer);
+        clearTimeout(messageTimer);
+        clearTimeout(minDisplayTimer);
+      };
+    } catch (error) {
+      console.warn('SplashScreen 초기화 실패:', error);
+      // 오류가 발생해도 기본 동작은 유지
+      const timer = setTimeout(() => {
+        setShowContent(true);
+        setProgress(100);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
   }, [isPWA]);
 
   useEffect(() => {

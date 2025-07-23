@@ -19,22 +19,34 @@ export default function MobileLayout({ children }) {
   
   // 모바일에서 상태바와 헤더 높이를 고려한 올바른 레이아웃
   React.useEffect(() => {
-    // 상태바 높이 고려
-    const statusBarHeight = 'env(safe-area-inset-top, 0px)';
-    document.body.style.paddingTop = statusBarHeight;
-    const root = document.getElementById('root');
-    if (root) {
-      root.style.paddingTop = statusBarHeight;
-    }
-
-    // 컴포넌트 언마운트 시 원래대로 복원
-    return () => {
-      document.body.style.paddingTop = '';
+    try {
+      // 상태바 높이 고려
+      const statusBarHeight = 'env(safe-area-inset-top, 0px)';
+      if (document.body) {
+        document.body.style.paddingTop = statusBarHeight;
+      }
       const root = document.getElementById('root');
       if (root) {
-        root.style.paddingTop = '';
+        root.style.paddingTop = statusBarHeight;
       }
-    };
+
+      // 컴포넌트 언마운트 시 원래대로 복원
+      return () => {
+        try {
+          if (document.body) {
+            document.body.style.paddingTop = '';
+          }
+          const root = document.getElementById('root');
+          if (root) {
+            root.style.paddingTop = '';
+          }
+        } catch (error) {
+          console.warn('MobileLayout cleanup error:', error);
+        }
+      };
+    } catch (error) {
+      console.warn('MobileLayout setup error:', error);
+    }
   }, []);
 
   // 패딩 값 결정 - 모바일 최적화
@@ -56,7 +68,7 @@ export default function MobileLayout({ children }) {
       {/* 모바일 헤더 - 항상 표시 */}
       <MobileHeader />
       
-      <SwipeableContainer>
+      <SwipeableContainer enableSwipeBack={true}>
         <Box sx={{ 
           minHeight: shouldHideBottomBar 
             ? { xs: 'calc(100vh - 53px)', sm: 'calc(100dvh - 53px)' } // 하단바 숨김 시

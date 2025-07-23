@@ -6,21 +6,18 @@ const SiteForm = ({ site, onSubmit, onCancel }) => {
   const { isDarkMode } = useTheme();
   const [formData, setFormData] = useState({
     name: '',
-    type: '공사',
+    type: '하도급',
     company: '',
     total: '',
+    progressStatus: '진행상황',
+    progressPercent: 0,
     startDate: '',
     endDate: '',
-    address: '',
     manager: '',
-    team: '',
     phone: '',
-    email: '',
+    address: '',
     description: '',
-    progressStatus: '예정',
-    progressPercent: 0,
-    advance: '',
-    totalProgress: '',
+    team: '',
     isFavorite: false
   });
   const [items, setItems] = useState(site?.items || []);
@@ -217,7 +214,7 @@ const SiteForm = ({ site, onSubmit, onCancel }) => {
           <div className="form-group">
             <label>진행상태</label>
             <select name="progressStatus" value={formData.progressStatus} onChange={handleChange}>
-              <option value="예정">예정</option>
+              <option value="진행상황">진행상황</option>
               <option value="진행중">진행중</option>
               <option value="완료">완료</option>
             </select>

@@ -611,11 +611,29 @@ const Claims = () => {
               placeholder="검색..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              size="small"
               InputProps={{
                 startAdornment: <SearchIcon sx={{ color: '#666', mr: 1 }} />,
                 sx: { 
                   backgroundColor: '#444',
-                  '& input': { color: 'white' }
+                  height: '40px',
+                  '& input': { 
+                    color: 'white',
+                    height: '40px',
+                    padding: '8px 16px'
+                  },
+                  '& .MuiOutlinedInput-root': {
+                    height: '40px',
+                    '& fieldset': {
+                      borderColor: '#666'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#888'
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#90caf9'
+                    }
+                  }
                 }
               }}
               sx={{ flex: 1 }}
@@ -649,23 +667,61 @@ const Claims = () => {
                 placeholder="검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                size="small"
                 InputProps={{
                   startAdornment: <SearchIcon sx={{ color: '#666', mr: 1 }} />,
                   sx: { 
                     backgroundColor: '#444',
-                    '& input': { color: 'white' }
+                    height: '40px',
+                    '& input': { 
+                      color: 'white',
+                      height: '40px',
+                      padding: '8px 16px'
+                    },
+                    '& .MuiOutlinedInput-root': {
+                      height: '40px',
+                      '& fieldset': {
+                        borderColor: '#666'
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#888'
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#90caf9'
+                      }
+                    }
                   }
                 }}
                 sx={{ width: '200px' }}
               />
-              <FormControl sx={{ width: '150px' }}>
+              <FormControl size="small" sx={{ width: '150px' }}>
                 <InputLabel sx={{ color: '#ccc' }}>청구여부</InputLabel>
                 <Select
                   value={filters.claimStatus}
                   onChange={(e) => setFilters(prev => ({ ...prev, claimStatus: e.target.value }))}
                   sx={{ 
                     backgroundColor: '#444',
-                    '& .MuiSelect-select': { color: 'white' }
+                    height: '40px',
+                    '& .MuiSelect-select': { 
+                      color: 'white',
+                      height: '40px',
+                      padding: '8px 16px',
+                      fontSize: '14px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    },
+                    '& .MuiOutlinedInput-root': {
+                      height: '40px',
+                      '& fieldset': {
+                        borderColor: '#666'
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#888'
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#90caf9'
+                      }
+                    }
                   }}
                 >
                   <MenuItem value="">전체</MenuItem>
@@ -681,7 +737,13 @@ const Claims = () => {
                 variant="outlined"
                 startIcon={<DownloadIcon />}
                 onClick={handleExportExcel}
-                sx={{ color: '#90caf9', borderColor: '#90caf9' }}
+                size="small"
+                sx={{ 
+                  color: '#90caf9', 
+                  borderColor: '#90caf9',
+                  height: '40px',
+                  fontSize: '14px'
+                }}
               >
                 엑셀 다운로드
               </Button>
@@ -697,7 +759,13 @@ const Claims = () => {
                   variant="outlined"
                   startIcon={<UploadIcon />}
                   component="span"
-                  sx={{ color: '#90caf9', borderColor: '#90caf9' }}
+                  size="small"
+                  sx={{ 
+                    color: '#90caf9', 
+                    borderColor: '#90caf9',
+                    height: '40px',
+                    fontSize: '14px'
+                  }}
                 >
                   엑셀 업로드
                 </Button>
@@ -710,7 +778,13 @@ const Claims = () => {
                   resetForm();
                   setDialogOpen(true);
                 }}
-                sx={{ backgroundColor: '#4caf50' }}
+                size="small"
+                sx={{ 
+                  backgroundColor: '#4caf50',
+                  height: '40px',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
               >
                 새 청구예정
               </Button>
@@ -726,7 +800,9 @@ const Claims = () => {
                   color: '#90caf9', 
                   borderColor: '#90caf9',
                   '&:hover': { borderColor: '#64b5f6' },
-                  minWidth: '50px'
+                  minWidth: '50px',
+                  height: '40px',
+                  fontSize: '14px'
                 }}
               >
               이전
@@ -744,7 +820,9 @@ const Claims = () => {
                 color: '#90caf9', 
                 borderColor: '#90caf9',
                 '&:hover': { borderColor: '#64b5f6' },
-                minWidth: '50px'
+                minWidth: '50px',
+                height: '40px',
+                fontSize: '14px'
               }}
             >
               다음
@@ -766,10 +844,26 @@ const Claims = () => {
                 onChange={(e) => setFilters(prev => ({ ...prev, claimStatus: e.target.value }))}
                 sx={{ 
                   backgroundColor: '#444',
+                  height: '40px',
                   '& .MuiSelect-select': { 
                     color: 'white',
                     fontSize: '12px',
-                    py: 0.5
+                    height: '40px',
+                    padding: '8px 16px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  },
+                  '& .MuiOutlinedInput-root': {
+                    height: '40px',
+                    '& fieldset': {
+                      borderColor: '#666'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#888'
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#90caf9'
+                    }
                   }
                 }}
               >
@@ -789,7 +883,8 @@ const Claims = () => {
                   color: '#90caf9', 
                   borderColor: '#90caf9',
                   minWidth: '50px',
-                  fontSize: '12px'
+                  fontSize: '12px',
+                  height: '40px'
                 }}
               >
                 이전
@@ -805,7 +900,8 @@ const Claims = () => {
                   color: '#90caf9', 
                   borderColor: '#90caf9',
                   minWidth: '50px',
-                  fontSize: '12px'
+                  fontSize: '12px',
+                  height: '40px'
                 }}
               >
                 다음

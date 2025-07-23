@@ -139,6 +139,7 @@ export default function ImportantSite() {
       
       // 사이트 순서 초기화 - 사이트 데이터가 로드된 후에 실행
       setTimeout(() => {
+        const savedOrder = localStorage.getItem('importantSiteOrder');
     
         if (savedOrder) {
           const orderArray = JSON.parse(savedOrder);

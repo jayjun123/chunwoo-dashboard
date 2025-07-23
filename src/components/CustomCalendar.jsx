@@ -6,7 +6,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CalendarViewWeekIcon from '@mui/icons-material/ViewWeek';
 import CalendarViewDayIcon from '@mui/icons-material/ViewDay';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import { exportCalendarToExcel } from "../utils/exportUtils";
+import { exportCalendarToExcel } from "../utils/excelUtils";
 
 import DeleteIcon from '@mui/icons-material/Delete';
 import Dialog from '@mui/material/Dialog';

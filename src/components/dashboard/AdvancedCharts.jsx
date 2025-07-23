@@ -306,7 +306,7 @@ export const RealTimeStatusCard = ({ stats }) => {
           <Typography variant="h6" color="success.main">{stats.completedSites}</Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography>예정 현장</Typography>
+          <Typography>진행상황 현장</Typography>
           <Typography variant="h6" color="warning.main">{stats.pendingSites}</Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
