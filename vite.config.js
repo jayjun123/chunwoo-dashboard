@@ -216,6 +216,9 @@ export default defineConfig(({ mode }) => {
           drop_console: false, // 배포 환경에서도 콘솔 로그 유지
           drop_debugger: true,
           pure_funcs: [] // 콘솔 함수 제거하지 않음
+        },
+        mangle: {
+          keep_fnames: true // 함수명 유지
         }
       }
     },
@@ -225,7 +228,11 @@ export default defineConfig(({ mode }) => {
       }
     },
     define: {
-      'process.env': {}
+      'process.env': {},
+      'global': 'globalThis'
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', '@mui/material', '@mui/icons-material']
     }
   }
 }); 
