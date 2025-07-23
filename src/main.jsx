@@ -1,16 +1,10 @@
-console.log('🚀 main.jsx 파일이 로드되었습니다!');
-console.log('📍 현재 환경:', import.meta.env.MODE);
-console.log('📍 현재 URL:', window.location.href);
-
-// MUI 라이브러리 미리 로드
-import '@mui/material/styles';
-import '@mui/material/CssBaseline';
-
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 
-console.log('🚀 main.jsx 로딩 시작');
+console.log('🚀 main.jsx 파일이 로드되었습니다!');
+console.log('📍 현재 환경:', import.meta.env.MODE);
+console.log('📍 현재 URL:', window.location.href);
 
 // 전역 오류 핸들러 설정
 window.addEventListener('error', (event) => {
@@ -22,64 +16,36 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('🔥 처리되지 않은 Promise 오류:', event.reason);
 });
 
+// 즉시 렌더링 시도
 try {
-  console.log('📍 DOM이 준비되었는지 확인...');
-  console.log('📍 document.readyState:', document.readyState);
+  const rootElement = document.getElementById('root');
+  console.log('📍 Root element:', rootElement);
   
-  // DOM이 완전히 로드될 때까지 대기
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('📍 DOMContentLoaded 이벤트 발생');
-      initializeApp();
-    });
-  } else {
-    console.log('📍 DOM이 이미 로드됨');
-    initializeApp();
+  if (!rootElement) {
+    console.error('❌ Root element를 찾을 수 없습니다!');
+    document.body.innerHTML = '<h1 style="color: red; text-align: center; margin-top: 50px;">ERROR: Root element not found!</h1>';
+    throw new Error('Root element not found');
   }
   
-  function initializeApp() {
-    try {
-      const rootElement = document.getElementById('root');
-      console.log('📍 Root element:', rootElement);
-      
-      if (!rootElement) {
-        console.error('❌ Root element를 찾을 수 없습니다!');
-        document.body.innerHTML = '<h1 style="color: red; text-align: center; margin-top: 50px;">ERROR: Root element not found!</h1>';
-        throw new Error('Root element not found');
-      }
-      
-      console.log('✅ Root element 찾음, React 앱 렌더링 시작');
-      
-      const root = ReactDOM.createRoot(rootElement);
-      console.log('✅ ReactDOM.createRoot 완료');
-      
-      root.render(<App />);
-      console.log('🎉 React 앱 렌더링 완료');
-      
-    } catch (error) {
-      console.error('❌ React 앱 렌더링 중 오류 발생:', error);
-      document.body.innerHTML = `
-        <h1 style="color: red; text-align: center; margin-top: 50px;">
-          ERROR: React App Failed to Load
-        </h1>
-        <p style="text-align: center; color: #666;">
-          ${error.message}
-        </p>
-        <p style="text-align: center; color: #999; font-size: 12px;">
-          Stack: ${error.stack}
-        </p>
-      `;
-    }
-  }
+  console.log('✅ Root element 찾음, React 앱 렌더링 시작');
+  
+  const root = ReactDOM.createRoot(rootElement);
+  console.log('✅ ReactDOM.createRoot 완료');
+  
+  root.render(<App />);
+  console.log('🎉 React 앱 렌더링 완료');
   
 } catch (error) {
-  console.error('❌ main.jsx 초기화 중 오류 발생:', error);
+  console.error('❌ React 앱 렌더링 중 오류 발생:', error);
   document.body.innerHTML = `
     <h1 style="color: red; text-align: center; margin-top: 50px;">
-      ERROR: Main.jsx Failed to Load
+      ERROR: React App Failed to Load
     </h1>
     <p style="text-align: center; color: #666;">
       ${error.message}
+    </p>
+    <p style="text-align: center; color: #999; font-size: 12px;">
+      Stack: ${error.stack}
     </p>
   `;
 } 
