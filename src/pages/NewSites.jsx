@@ -12,7 +12,7 @@ import { useTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/material';
 import { formatContractAmount, formatAdvanceAmount, formatGisungAmount } from '../utils/formatUtils';
 
-const STATUS_OPTIONS = ['진행상황', '진행중', '완료', '미정'];
+const STATUS_OPTIONS = ['예정', '진행중', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급', '관급'];
 
 const initialFormState = {
@@ -52,7 +52,7 @@ const NewSites = () => {
   // 상태별 카운트 계산
   const statusCounts = useMemo(() => {
     const counts = {
-      '진행상황': 0,
+      '예정': 0,
       '진행중': 0,
       '완료': 0,
       '미정': 0
@@ -116,7 +116,7 @@ const NewSites = () => {
       const sitesData = snapshot.docs.map(doc => {
         const data = { id: doc.id, ...doc.data() };
         if (data.status === '진행') data.status = '진행중';
-        else if (data.status === '예정') data.status = '진행상황';
+        else if (data.status === '진행상황') data.status = '예정';
         return data;
       });
 
@@ -165,9 +165,26 @@ const NewSites = () => {
   }, [sites, statusTab, searchTerm]);
 
   const handleSelectSite = (site) => setSelectedSite(site);
-  const handleChange = (e) => {
+  const handleChange = async (e) => {
     const { name, value, type, checked } = e.target;
-    setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    const newValue = type === 'checkbox' ? checked : value;
+    
+    setForm(prev => ({ ...prev, [name]: newValue }));
+    
+    // 진행상황이 변경되고 현재 현장이 선택되어 있으면 자동 저장
+    if (name === 'status' && selectedSite && !isEditing) {
+      try {
+        await updateSite(selectedSite.id, { 
+          ...form, 
+          status: newValue,
+          updatedAt: new Date()
+        });
+        console.log('진행상황 자동 저장 완료:', newValue);
+      } catch (error) {
+        console.error('진행상황 자동 저장 실패:', error);
+        alert('진행상황 저장에 실패했습니다.');
+      }
+    }
   };
   const handleItemsChange = (index, field, value) => {
     const newItems = [...form.items];
@@ -187,7 +204,7 @@ const NewSites = () => {
       manager: '',
       startDate: '',
       endDate: '',
-      status: '진행상황',
+      status: '진행중',
       isFavorite: false,
       items: []
     });
@@ -497,8 +514,39 @@ const NewSites = () => {
                  진행상황
                </Typography>
                <FormControl fullWidth size="small">
-                 <Select name="status" value={form.status ?? '진행상황'} onChange={handleChange} disabled={isReadOnly}>
-                   {STATUS_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                 <Select 
+                   name="status" 
+                   value={form.status ?? '진행중'} 
+                   onChange={handleChange} 
+                   disabled={false}
+                   sx={{
+                     '& .MuiSelect-select': {
+                       backgroundColor: form.status === '예정' ? '#ff9800' : 
+                                      form.status === '진행중' ? '#1976d2' : 
+                                      form.status === '완료' ? '#43a047' : 
+                                      form.status === '미정' ? '#757575' : '#757575',
+                       color: 'white',
+                       fontWeight: 'bold'
+                     }
+                   }}
+                 >
+                   {STATUS_OPTIONS.map(opt => (
+                     <MenuItem key={opt} value={opt} sx={{ 
+                       backgroundColor: opt === '예정' ? '#ff9800' : 
+                                     opt === '진행중' ? '#1976d2' : 
+                                     opt === '완료' ? '#43a047' : 
+                                     opt === '미정' ? '#757575' : '#757575',
+                       color: 'white',
+                       '&:hover': {
+                         backgroundColor: opt === '예정' ? '#f57c00' : 
+                                        opt === '진행중' ? '#1565c0' : 
+                                        opt === '완료' ? '#388e3c' : 
+                                        opt === '미정' ? '#616161' : '#616161'
+                       }
+                     }}>
+                       {opt}
+                     </MenuItem>
+                   ))}
                  </Select>
                </FormControl>
              </Box>
