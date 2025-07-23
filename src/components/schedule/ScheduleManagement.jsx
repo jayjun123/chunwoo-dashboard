@@ -749,6 +749,19 @@ const ScheduleManagement = ({
         console.log('입찰 상태 업데이트 완료:', bidId, checked ? '입찰완료' : '입찰대기');
       }
 
+      // 일반 일정 항목인지 확인하고 completed 상태 업데이트
+      if (!id.startsWith('estimate_') && !id.startsWith('bid_')) {
+        console.log('일반 일정 항목 체크 - 일정 ID:', id, '체크 상태:', checked);
+        
+        // 일정 상태 업데이트
+        const scheduleRef = doc(db, 'schedules', id);
+        await updateDoc(scheduleRef, {
+          completed: checked,
+          updatedAt: new Date()
+        });
+        console.log('일정 상태 업데이트 완료:', id, checked ? '완료' : '미완료');
+      }
+
       // Firestore에 체크 상태 저장
       const checkData = {
         scheduleId: id,
@@ -843,17 +856,20 @@ const ScheduleManagement = ({
   return (
     <Box sx={{ 
       p: 0, 
-      height: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 80px)', // 모바일에서 20px 더 줄임 (140px → 120px)
+      height: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 4px)', // PC에서 4px로 고정
       width: '100%',
       mx: 0,
       px: 0,
       margin: 0,
       padding: 0,
-      position: 'relative',
-      mt: isMobile ? '50px' : '54px', // 모바일에서 위로 30px 더 이동 (80px → 50px)
-      mb: '20px',
-      overflow: isMobile ? 'hidden' : 'visible',
-      bgcolor: '#23242a'
+      position: 'fixed',
+      top: isMobile ? '60px' : '60px', // PC에서 60px로 변경
+      left: 0,
+      right: 0,
+      bottom: '160px', // 화면 크기 160px 줄임 (100px + 60px)
+      overflow: isMobile ? 'hidden' : 'auto',
+      bgcolor: '#23242a',
+      zIndex: 1
     }}>
       {loading && (
         <Box sx={{ 
@@ -880,8 +896,22 @@ const ScheduleManagement = ({
             width: '100%',
             mx: 0,
             px: 0,
-            overflow: isMobile ? 'hidden' : 'visible',
-            bgcolor: '#23242a'
+            overflow: isMobile ? 'hidden' : 'auto',
+            bgcolor: '#23242a',
+            '&::-webkit-scrollbar': {
+              width: '8px'
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: '#2d3748',
+              borderRadius: '4px'
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: '#4a5568',
+              borderRadius: '4px',
+              '&:hover': {
+                backgroundColor: '#718096'
+              }
+            }
           }}>
           {/* 왼쪽 편 레이아웃 - 진행중현장리스트 */}
           <Box sx={{

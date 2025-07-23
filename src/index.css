@@ -48,8 +48,7 @@
 /* 채팅 메시지 텍스트는 검은색으로 */
 .chat-message-text {
   color: #000000 !important;
-  WebkitTextFillColor: #000000 !important;
-  textFillColor: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
 }
 
 /* Material-UI Typography 내의 모든 텍스트를 검은색으로 강제 */
@@ -60,8 +59,7 @@
 /* 토론의견 채팅 메시지 텍스트는 검은색으로 */
 .chat-message-box .MuiTypography-root {
   color: #000000 !important;
-  WebkitTextFillColor: #000000 !important;
-  textFillColor: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
 }
 
 /* aria-hidden 경고 완화 */
@@ -80,8 +78,7 @@
 div[style*="bgcolor: #fff"] .MuiTypography-root,
 div[style*="background-color: #fff"] .MuiTypography-root {
   color: #000000 !important;
-  WebkitTextFillColor: #000000 !important;
-  textFillColor: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
 }
 
 
@@ -99,19 +96,109 @@ div[style*="background-color: #fff"] .MuiTypography-root {
   color: #cccccc !important;
 }
 
-/* 특정 Grid 컴포넌트 완전히 제거 */
-.css-1fbyy2u-MuiGrid-root,
-.MuiGrid-root.MuiGrid-direction-xs-row.css-1fbyy2u-MuiGrid-root {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  position: absolute !important;
-  left: -9999px !important;
-  top: -9999px !important;
-  width: 0 !important;
-  height: 0 !important;
-  overflow: hidden !important;
-  pointer-events: none !important;
+/* GanttChart 다크 UI 처리 */
+.gantt-timeline {
+  background-color: #232837 !important;
+  color: #ffffff !important;
+}
+
+.gantt-timeline .MuiPaper-root {
+  background-color: #232837 !important;
+  color: #ffffff !important;
+}
+
+.gantt-timeline .MuiTypography-root {
+  color: #ffffff !important;
+}
+
+.gantt-timeline .MuiBox-root {
+  background-color: #232837 !important;
+}
+
+/* GanttChart 헤더 다크 처리 */
+.gantt-timeline .MuiBox-root[style*="sticky"] {
+  background-color: #181c24 !important;
+  border-bottom-color: #2d3344 !important;
+}
+
+/* GanttChart 날짜 열 다크 처리 */
+.gantt-timeline .MuiBox-root[style*="border-right"] {
+  border-right-color: #2d3344 !important;
+  background-color: #232837 !important;
+}
+
+/* GanttChart 현장명 열 다크 처리 */
+.gantt-timeline .MuiGrid-root[style*="border-right"] {
+  border-right-color: #2d3344 !important;
+  background-color: #181c24 !important;
+}
+
+.gantt-timeline .MuiGrid-root[style*="border-right"] .MuiTypography-root {
+  color: #ffffff !important;
+}
+
+/* GanttChart 행 다크 처리 */
+.gantt-timeline .MuiGrid-container {
+  border-bottom-color: #2d3344 !important;
+}
+
+.gantt-timeline .MuiGrid-container:hover {
+  background-color: #2d3344 !important;
+}
+
+/* GanttChart 컨트롤 패널 다크 처리 */
+.MuiCard-root .MuiCardContent-root {
+  background-color: #232837 !important;
+  color: #ffffff !important;
+}
+
+.MuiCard-root .MuiCardContent-root .MuiTypography-root {
+  color: #ffffff !important;
+}
+
+/* GanttChart 입력 필드 다크 처리 */
+.MuiCard-root .MuiTextField-root .MuiInputBase-root {
+  background-color: #181c24 !important;
+  color: #ffffff !important;
+}
+
+.MuiCard-root .MuiTextField-root .MuiInputLabel-root {
+  color: #b3b8c5 !important;
+}
+
+.MuiCard-root .MuiTextField-root .MuiOutlinedInput-notchedOutline {
+  border-color: #2d3344 !important;
+}
+
+.MuiCard-root .MuiTextField-root .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #3b82f6 !important;
+}
+
+.MuiCard-root .MuiTextField-root .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #3b82f6 !important;
+}
+
+/* GanttChart Select 다크 처리 */
+.MuiCard-root .MuiFormControl-root .MuiInputBase-root {
+  background-color: #181c24 !important;
+  color: #ffffff !important;
+}
+
+.MuiCard-root .MuiFormControl-root .MuiInputLabel-root {
+  color: #b3b8c5 !important;
+}
+
+.MuiCard-root .MuiFormControl-root .MuiOutlinedInput-notchedOutline {
+  border-color: #2d3344 !important;
+}
+
+/* GanttChart 아이콘 버튼 다크 처리 */
+.MuiCard-root .MuiIconButton-root {
+  color: #ffffff !important;
+}
+
+.MuiCard-root .MuiIconButton-root:hover {
+  background-color: #2d3344 !important;
 }
 
 /* 테두리도 다크 테마에 맞게 */
@@ -152,7 +239,7 @@ body {
   position: relative;
   overflow-x: hidden;
   overflow-y: auto;
-  height: 100vh;
+  height: 90vh; /* 100vh에서 90vh로 줄임 */
   line-height: 1.5;
   /* 상태바 영역 고려 */
   padding-top: var(--status-bar-height);
@@ -169,7 +256,7 @@ code {
 }
 
 #root {
-  height: 100vh;
+  height: 90vh; /* 100vh에서 90vh로 줄임 */
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
@@ -211,7 +298,7 @@ code {
   #root {
     margin-top: 0 !important;
     padding-top: 0 !important;
-    height: 100vh;
+    height: 90vh; /* 100vh에서 90vh로 줄임 */
   }
   
   .header {
@@ -234,7 +321,7 @@ code {
   }
   
   body.keyboard-open #root {
-    height: 100vh;
+    height: 90vh; /* 100vh에서 90vh로 줄임 */
     overflow: hidden;
     margin-top: 0 !important;
     padding-top: 0 !important;
@@ -309,7 +396,6 @@ input, textarea, select {
   text-transform: none;
   /* 자동 완성 방지 */
   -webkit-autofill: none;
-  autocomplete: off;
   /* 입력 중 재렌더링 방지 */
   -webkit-user-select: text;
   user-select: text;
@@ -488,65 +574,40 @@ textarea[data-composing="true"] {
   }
 }
 
-/* 전역 스크롤바 스타일 - 오른쪽 끝, 다크UI */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* 전역 스크롤바 숨기기 */
+* {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--bg-main);
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
-::-webkit-scrollbar-thumb {
-  background: #404040;
-  border-radius: 4px;
+html, body {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #505050;
+/* 터치 최적화 */
+* {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-::-webkit-scrollbar-corner {
-  background: var(--bg-main);
-}
-
-/* 스크롤바를 오른쪽 끝으로 이동 */
-html {
-  scrollbar-width: thin;
-  scrollbar-color: #404040 var(--bg-main);
-}
-
-/* 모바일에서 스크롤바 숨기기 */
-@media (max-width: 600px) {
-  * {
-    -ms-overflow-style: none !important;
-    scrollbar-width: none !important;
-  }
-  *::-webkit-scrollbar {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
-  }
-  
-  /* 모바일에서 터치 최적화 */
-  * {
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    -khtml-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-  
-  /* 입력 필드는 선택 가능 */
-  input, textarea, select {
-    -webkit-user-select: text;
-    -moz-user-select: text;
-    -ms-user-select: text;
-    user-select: text;
-  }
+/* 입력 필드는 선택 가능 */
+input, textarea, select {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 }
 
 /* 토론의견에서 하단바 숨김 */
@@ -562,7 +623,7 @@ html {
 
 /* 메인 콘텐츠 영역 스크롤 설정 */
 .main-content {
-  height: calc(100vh - 60px - 48px); /* 헤더(60px) + 대시보드바(48px) 제외 */
+  height: calc(90vh - 60px - 48px); /* 100vh에서 90vh로 줄임, 헤더(60px) + 대시보드바(48px) 제외 */
   overflow-y: auto;
   overflow-x: hidden;
   padding-top: 0;
@@ -574,7 +635,7 @@ html {
 /* 모바일에서 메인 콘텐츠 영역 */
 @media (max-width: 600px) {
   .main-content {
-    height: calc(100vh - 64px - 44px); /* 모바일 헤더(64px) + 하단바(44px) 제외 */
+    height: calc(90vh - 64px - 44px); /* 100vh에서 90vh로 줄임, 모바일 헤더(64px) + 하단바(44px) 제외 */
     padding-top: 0;
     margin-top: 0;
   }
@@ -707,7 +768,6 @@ body.popup-open {
   text-size-adjust: 100%;
   text-transform: none;
   -webkit-autofill: none;
-  autocomplete: off;
   -webkit-user-select: text;
   user-select: text;
   /* 모바일에서 폰트 크기 고정 */
@@ -1004,38 +1064,12 @@ body.popup-open {
   }
 }
 
-/* 모바일 최적화 CSS 변수 */
-:root {
-  --vh: 1vh;
-  --mobile-header-height: 60px;
-  --mobile-bottom-nav-height: 60px;
-  --touch-target-size: 44px;
-  --border-radius-mobile: 12px;
-  --shadow-mobile: 0 2px 8px rgba(0, 0, 0, 0.15);
-  --animation-duration: 0.3s;
-}
-
-/* 기본 스타일 */
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
-}
-
 /* 모바일 최적화 */
 @media (max-width: 768px) {
   /* 터치 최적화 */
   button, a, [role="button"], input[type="button"], input[type="submit"] {
-    min-height: var(--touch-target-size);
-    min-width: var(--touch-target-size);
+    min-height: 44px;
+    min-width: 44px;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
@@ -1048,53 +1082,16 @@ body {
 
   /* 입력 필드 최적화 */
   input, textarea, select {
-    font-size: 16px !important; /* iOS 줌 방지 */
+    font-size: 16px !important;
     -webkit-appearance: none;
-    border-radius: var(--border-radius-mobile);
+    appearance: none;
+    border-radius: 12px;
   }
 
   /* 터치 피드백 */
   .touch-feedback:active {
     transform: scale(0.95);
     transition: transform 0.1s ease;
-  }
-
-  /* 모바일 전용 높이 */
-  .mobile-full-height {
-    height: calc(var(--vh, 1vh) * 100);
-  }
-
-  /* 모바일 헤더 높이 고려 */
-  .mobile-content {
-    padding-top: var(--mobile-header-height);
-    padding-bottom: var(--mobile-bottom-nav-height);
-  }
-  
-  /* 안전한 뷰포트 설정 */
-  html, body {
-    overflow-x: hidden;
-    position: relative;
-    width: 100%;
-    height: 100%;
-  }
-  
-  /* 터치 이벤트 최적화 */
-  * {
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    -khtml-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-  }
-  
-  /* 입력 필드는 선택 가능하도록 */
-  input, textarea {
-    -webkit-user-select: text;
-    -khtml-user-select: text;
-    -moz-user-select: text;
-    -ms-user-select: text;
-    user-select: text;
   }
 }
 
@@ -1141,24 +1138,310 @@ body {
   }
 }
 
+/* 프린트용 스타일 - 다크 UI 제거 */
+@media print {
+  /* 전체 배경을 흰색으로 */
+  * {
+    background-color: white !important;
+    color: black !important;
+    border-color: #ccc !important;
+    box-shadow: none !important;
+  }
+  
+  /* 다크 테마 변수 무시 */
+  :root[data-theme="dark"] {
+    --bg-main: white !important;
+    --bg-card: white !important;
+    --bg-header: white !important;
+    --text-main: black !important;
+    --text-sub: #666 !important;
+    --border: #ccc !important;
+  }
+  
+  /* GanttChart 프린트 최적화 */
+  .gantt-timeline {
+    background-color: white !important;
+    color: black !important;
+  }
+  
+  .gantt-timeline .MuiPaper-root {
+    background-color: white !important;
+    color: black !important;
+  }
+  
+  .gantt-timeline .MuiTypography-root {
+    color: black !important;
+  }
+  
+  .gantt-timeline .MuiBox-root {
+    background-color: white !important;
+  }
+  
+  /* GanttChart 헤더 프린트 최적화 */
+  .gantt-timeline .MuiBox-root[style*="sticky"] {
+    background-color: #f5f5f5 !important;
+    border-bottom-color: #ccc !important;
+  }
+  
+  /* GanttChart 날짜 열 프린트 최적화 */
+  .gantt-timeline .MuiBox-root[style*="border-right"] {
+    border-right-color: #ccc !important;
+    background-color: white !important;
+  }
+  
+  /* GanttChart 현장명 열 프린트 최적화 */
+  .gantt-timeline .MuiGrid-root[style*="border-right"] {
+    border-right-color: #ccc !important;
+    background-color: #f5f5f5 !important;
+  }
+  
+  .gantt-timeline .MuiGrid-root[style*="border-right"] .MuiTypography-root {
+    color: black !important;
+  }
+  
+  /* GanttChart 행 프린트 최적화 */
+  .gantt-timeline .MuiGrid-container {
+    border-bottom-color: #ccc !important;
+  }
+  
+  .gantt-timeline .MuiGrid-container:hover {
+    background-color: #f9f9f9 !important;
+  }
+  
+  /* GanttChart 컨트롤 패널 프린트 최적화 */
+  .MuiCard-root .MuiCardContent-root {
+    background-color: white !important;
+    color: black !important;
+  }
+  
+  .MuiCard-root .MuiCardContent-root .MuiTypography-root {
+    color: black !important;
+  }
+  
+  /* GanttChart 입력 필드 프린트 최적화 */
+  .MuiCard-root .MuiTextField-root .MuiInputBase-root {
+    background-color: white !important;
+    color: black !important;
+    border: 1px solid #ccc !important;
+  }
+  
+  .MuiCard-root .MuiTextField-root .MuiInputLabel-root {
+    color: #666 !important;
+  }
+  
+  .MuiCard-root .MuiTextField-root .MuiOutlinedInput-notchedOutline {
+    border-color: #ccc !important;
+  }
+  
+  /* GanttChart Select 프린트 최적화 */
+  .MuiCard-root .MuiFormControl-root .MuiInputBase-root {
+    background-color: white !important;
+    color: black !important;
+    border: 1px solid #ccc !important;
+  }
+  
+  .MuiCard-root .MuiFormControl-root .MuiInputLabel-root {
+    color: #666 !important;
+  }
+  
+  .MuiCard-root .MuiFormControl-root .MuiOutlinedInput-notchedOutline {
+    border-color: #ccc !important;
+  }
+  
+  /* GanttChart 아이콘 버튼 프린트 최적화 */
+  .MuiCard-root .MuiIconButton-root {
+    color: black !important;
+  }
+  
+  .MuiCard-root .MuiIconButton-root:hover {
+    background-color: #f5f5f5 !important;
+  }
+  
+  /* 입력 필드 프린트 최적화 */
+  .MuiTextField-root .MuiInputBase-root,
+  .MuiInputBase-root {
+    background-color: white !important;
+    color: black !important;
+    border: 1px solid #ccc !important;
+  }
+  
+  .MuiTextField-root .MuiInputLabel-root,
+  .MuiInputLabel-root {
+    color: #666 !important;
+  }
+  
+  /* 테두리 프린트 최적화 */
+  .MuiTextField-root .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline,
+  .MuiOutlinedInput-notchedOutline {
+    border-color: #ccc !important;
+  }
+  
+  .MuiTextField-root .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline,
+  .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+    border-color: #999 !important;
+  }
+  
+  .MuiTextField-root .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline,
+  .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: #1976d2 !important;
+  }
+  
+  /* 전체 페이지 프린트 최적화 */
+  html, body, #root {
+    background-color: white !important;
+    color: black !important;
+  }
+  
+  body {
+    background-color: white !important;
+  }
+  
+  #root {
+    background-color: white !important;
+  }
+  
+  /* 헤더 프린트 최적화 */
+  .header {
+    background-color: white !important;
+    color: black !important;
+    border-bottom: 1px solid #ccc !important;
+  }
+  
+  /* 팝업 프린트 숨김 */
+  .popup-overlay,
+  .popup-content {
+    display: none !important;
+  }
+  
+  /* 불필요한 요소들 프린트 숨김 */
+  .MuiIconButton-root,
+  button[type="button"],
+  .print-hide {
+    display: none !important;
+  }
+  
+  /* 페이지 나누기 방지 */
+  .gantt-timeline,
+  .MuiCard-root,
+  .MuiPaper-root {
+    page-break-inside: avoid;
+  }
+  
+  /* 프린트 시 여백 최적화 */
+  @page {
+    margin: 1cm;
+  }
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
 
-/* 특정 Grid 컴포넌트 숨기기 */
-.MuiGrid-root.MuiGrid-direction-xs-row.css-1fbyy2u-MuiGrid-root {
+/* GanttChart 현장명 텍스트 다크 처리 */
+.gantt-timeline .MuiTypography-root[style*="fontWeight: bold"] {
+  color: #ffffff !important;
+}
+
+.gantt-timeline .MuiTypography-root[style*="fontWeight: bold"][style*="noWrap"] {
+  color: #ffffff !important;
+}
+
+/* GanttChart 현장명 캡션 다크 처리 */
+.gantt-timeline .MuiTypography-root[style*="caption"] {
+  color: #b3b8c5 !important;
+}
+
+/* GanttChart 월 표시 다크 처리 */
+.gantt-timeline .MuiTypography-root[style*="h5"] {
+  background-color: #181c24 !important;
+  color: #ffffff !important;
+  border-color: #3b82f6 !important;
+}
+
+/* GanttChart 오늘 날짜 표시 다크 처리 */
+.gantt-timeline .MuiBox-root[style*="border: 2px solid #ff0000"] {
+  border-color: #ff0000 !important;
+  background-color: transparent !important;
+}
+
+/* GanttChart 현장 바 다크 처리 */
+.gantt-timeline .MuiBox-root[style*="position: absolute"][style*="top: 50%"] {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+.gantt-timeline .MuiBox-root[style*="position: absolute"][style*="top: 50%"]:hover {
+  background-color: #2563eb !important;
+  transform: translateY(-50%) scale(1.02) !important;
+}
+
+/* 빈 Grid 요소 제거 */
+.MuiGrid-root.MuiGrid-direction-xs-row:empty,
+.MuiGrid-root.MuiGrid-direction-xs-row:blank,
+.MuiGrid-root.MuiGrid-direction-xs-row:not(:has(*)),
+.MuiGrid-root.css-1uo269c-MuiGrid-root,
+.css-1uo269c-MuiGrid-root {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
-  height: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
   width: 0 !important;
+  height: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;
+  pointer-events: none !important;
+  z-index: -9999 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
-/* 또는 모든 Grid 컴포넌트 중 특정 조건의 것만 숨기기 */
-.MuiGrid-root.MuiGrid-direction-xs-row {
+/* 하얀 배경 요소 제거 */
+.MuiBox-root[style*="background: white"],
+.MuiBox-root[style*="background: #fff"],
+.MuiBox-root[style*="background: #ffffff"],
+.MuiBox-root[style*="bgcolor: white"],
+.MuiBox-root[style*="bgcolor: #fff"],
+.MuiBox-root[style*="bgcolor: #ffffff"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* 빈 Grid 요소 완전 제거 */
+.MuiGrid-root[class*="css-1uo269c"],
+.MuiGrid-root[class*="css-1uo269c"]:empty,
+.MuiGrid-root[class*="css-1uo269c"]:not(:has(*)),
+.MuiGrid-root:empty,
+.MuiGrid-root:blank,
+.MuiGrid-root:not(:has(*)) {
   display: none !important;
-} 
+  visibility: hidden !important;
+  opacity: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  z-index: -9999 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}

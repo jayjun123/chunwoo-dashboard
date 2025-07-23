@@ -594,7 +594,7 @@ export const IMEUtils = {
 
 // 기본 설정 적용
 configureIME({
-  enableLogging: process.env.NODE_ENV === 'development',
+          enableLogging: import.meta.env.DEV,
   enableViewportAdjustment: true,
   enableCursorFix: true,
   keyboardDetectionThreshold: 150

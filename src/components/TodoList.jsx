@@ -634,7 +634,7 @@ const TodoList = () => {
       p: { xs: 1, sm: 2, md: 3 }, 
       pt: { xs: -59, sm: 5, md: 5 }, // 모바일에서 64px 위로 이동
       mt: { xs: 0, sm: 3, md: 3 }, // PC에서 24px 아래로 이동
-      minHeight: '100vh', 
+      minHeight: '90vh', // 100vh에서 90vh로 줄임
       background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)', 
       position: 'relative' 
     }}>
@@ -690,7 +690,8 @@ const TodoList = () => {
             },
             fontSize: { xs: '0.7rem', sm: '0.8rem' },
             px: { xs: 1, sm: 2 },
-            py: { xs: 0.5, sm: 1 }
+            py: { xs: 0.5, sm: 1 },
+            height: '36px' // 높이 고정
           }}
         >
           📊 엑셀 다운로드
@@ -729,7 +730,8 @@ const TodoList = () => {
                   },
                   fontSize: { xs: '0.7rem', sm: '0.8rem' },
                   px: { xs: 1, sm: 2 },
-                  py: { xs: 0.5, sm: 1 }
+                  py: { xs: 0.5, sm: 1 },
+                  height: '36px' // 높이 고정
                 }}
               >
                 {syncing ? '동기화 중...' : '동기화'}
@@ -747,7 +749,9 @@ const TodoList = () => {
             '&:hover': {
               bgcolor: 'rgba(255,255,255,0.2)'
             },
-            border: '1px solid rgba(255,255,255,0.3)'
+            border: '1px solid rgba(255,255,255,0.3)',
+            height: '36px', // 높이 고정
+            width: '36px' // 너비도 고정
           }}
         >
           <SettingsIcon />

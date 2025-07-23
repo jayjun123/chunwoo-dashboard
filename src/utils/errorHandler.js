@@ -300,7 +300,7 @@ export class ErrorHandler {
   // 경미한 에러 처리
   async handleMinorError(error) {
     // 개발 환경에서만 로깅
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.warn('Minor error:', error);
     }
   }

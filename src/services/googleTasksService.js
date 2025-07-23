@@ -4,10 +4,10 @@
  */
 
 // 마스터 아이디 설정 (환경변수에서 가져오기)
-const MASTER_EMAIL = process.env.REACT_APP_MASTER_EMAIL || 'master@chunwoo.com';
+const MASTER_EMAIL = import.meta.env.VITE_MASTER_EMAIL || 'master@chunwoo.com';
 
 // Google Tasks API 클라이언트 ID (환경변수에서 가져오기)
-const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || 'your-google-client-id.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'your-google-client-id.apps.googleusercontent.com';
 
 class GoogleTasksService {
   constructor() {
