@@ -2,6 +2,10 @@ console.log('🚀 main.jsx 파일이 로드되었습니다!');
 console.log('📍 현재 환경:', import.meta.env.MODE);
 console.log('📍 현재 URL:', window.location.href);
 
+// MUI 라이브러리 미리 로드
+import '@mui/material/styles';
+import '@mui/material/CssBaseline';
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'

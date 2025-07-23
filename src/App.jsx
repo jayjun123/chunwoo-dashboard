@@ -1,5 +1,7 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material/styles';
+import { CssBaseline } from '@mui/material';
 import { configureIME } from './utils/imeHandler.jsx';
 import { initKeyboardManager } from './utils/pwaKeyboardUtils';
 import { initMobileOptimization, initViewportHeight } from './utils/mobileOptimization';
@@ -196,497 +198,500 @@ const App = React.memo(() => {
         <AuthProvider>
           <TodoProvider>
             <ThemeProvider>
-              <LoadingProvider>
-                <PopupProvider>
-                  <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                  <Routes>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                    <Route path="/register-success" element={<RegisterSuccess />} />
-                    <Route path="/forgot-password" element={<ForgotPassword />} />
-                    <Route
-                      path="/"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <CustomScheduleMobile />
-                            </MobileLayout>
-                          ) : (
+              <MuiThemeProvider theme={createTheme()}>
+                <CssBaseline />
+                <LoadingProvider>
+                  <PopupProvider>
+                    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                    <Routes>
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/register" element={<Register />} />
+                      <Route path="/register-success" element={<RegisterSuccess />} />
+                      <Route path="/forgot-password" element={<ForgotPassword />} />
+                      <Route
+                        path="/"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <CustomScheduleMobile />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <ScheduleManagement />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/sites"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <NewSites />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <NewSites />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/safety"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Suspense fallback={<div>로딩 중...</div>}>
+                                  <Safety />
+                                </Suspense>
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Suspense fallback={<div>로딩 중...</div>}>
+                                  <Safety />
+                                </Suspense>
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/safety-inspections"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <SafetyInspections />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <SafetyInspections />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/safety-accidents"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <SafetyIncidents />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <SafetyIncidents />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/safety-education"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <SafetyTraining />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <SafetyTraining />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/safety-costs"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <SafetyReports />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <SafetyReports />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/schedule"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <CustomScheduleMobile />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <ScheduleManagement />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/gantt"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <GanttChartPage />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <GanttChartPage />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/documents"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Documents />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Documents />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Reports />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Reports />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/discussions"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Discussions />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Discussions />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/vendors"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Vendors />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Vendors />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/vendor-management"
+                        element={
+                          <ProtectedRoute>
                             <Layout>
-                              <ScheduleManagement />
+                              <VendorManagement />
                             </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/sites"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <NewSites />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <NewSites />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/safety"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Suspense fallback={<div>로딩 중...</div>}>
-                                <Safety />
-                              </Suspense>
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Suspense fallback={<div>로딩 중...</div>}>
-                                <Safety />
-                              </Suspense>
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/safety-inspections"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <SafetyInspections />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <SafetyInspections />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/safety-accidents"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <SafetyIncidents />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <SafetyIncidents />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/safety-education"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <SafetyTraining />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <SafetyTraining />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/safety-costs"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <SafetyReports />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <SafetyReports />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/schedule"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <CustomScheduleMobile />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <ScheduleManagement />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/gantt"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <GanttChartPage />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <GanttChartPage />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/documents"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Documents />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Documents />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/reports"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Reports />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Reports />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/discussions"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Discussions />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Discussions />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/vendors"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Vendors />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Vendors />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/vendor-management"
-                      element={
-                        <ProtectedRoute>
-                          <Layout>
-                            <VendorManagement />
-                          </Layout>
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/progress"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Progress />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Progress />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/members"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Members />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Members />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/permissions"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Permissions />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Permissions />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/todo-list"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <TodoList />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <TodoList />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/todo/all"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <TodoList />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <TodoList />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route 
-                      path="/settings" 
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Settings />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Settings />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      } 
-                    />
-                    <Route
-                      path="/importantsite"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <ImportantSite />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <ImportantSite />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/gisung"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <GisungManagement />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <GisungManagement />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/whole-list"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <WholeList />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <WholeList />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/cost"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Cost />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Cost />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/estimates"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Estimates />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Estimates />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/claims"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Claims />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Claims />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/users"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Users />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Users />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/profile"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <Profile />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <Profile />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/news-favorites"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <NewsFavorites />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <NewsFavorites />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/pdf-test"
-                      element={
-                        <ProtectedRoute>
-                          {isMobile ? (
-                            <MobileLayout>
-                              <PDFTest />
-                            </MobileLayout>
-                          ) : (
-                            <Layout>
-                              <PDFTest />
-                            </Layout>
-                          )}
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Router>
-              </PopupProvider>
-            </LoadingProvider>
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/progress"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Progress />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Progress />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/members"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Members />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Members />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/permissions"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Permissions />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Permissions />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/todo-list"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <TodoList />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <TodoList />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/todo/all"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <TodoList />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <TodoList />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route 
+                        path="/settings" 
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Settings />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Settings />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        } 
+                      />
+                      <Route
+                        path="/importantsite"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <ImportantSite />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <ImportantSite />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/gisung"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <GisungManagement />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <GisungManagement />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/whole-list"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <WholeList />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <WholeList />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/cost"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Cost />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Cost />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/estimates"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Estimates />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Estimates />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/claims"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Claims />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Claims />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/users"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Users />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Users />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/profile"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Profile />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Profile />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/news-favorites"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <NewsFavorites />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <NewsFavorites />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/pdf-test"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <PDFTest />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <PDFTest />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Router>
+                </PopupProvider>
+              </LoadingProvider>
+            </MuiThemeProvider>
           </ThemeProvider>
         </TodoProvider>
       </AuthProvider>
