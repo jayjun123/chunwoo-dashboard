@@ -13,11 +13,118 @@ import {
   getDocs,
   getDoc
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, collections } from '../firebase';
 import { normalizeDate } from '../utils/dateUtils';
 
+// 거래처 연동 함수: 의뢰자와 회사명을 vendors 컬렉션에 자동 추가
+const syncVendorData = async (requester, company) => {
+  try {
+    console.log('API 거래처 연동 시작:', { requester, company });
+    
+    // 1. 의뢰자 연동
+    if (requester && requester.trim()) {
+      const requesterQuery = query(
+        collection(db, collections.vendors),
+        where('name', '==', requester.trim())
+      );
+      const requesterSnapshot = await getDocs(requesterQuery);
+      
+      if (requesterSnapshot.empty) {
+        console.log('API 의뢰자를 거래처에 추가:', requester);
+        await addDoc(collection(db, collections.vendors), {
+          name: requester.trim(),
+          companyName: company || '',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+      } else {
+        console.log('API 의뢰자가 이미 거래처에 존재함:', requester);
+      }
+    }
+    
+    // 2. 회사명 연동 (의뢰자와 다른 경우)
+    if (company && company.trim() && company.trim() !== requester?.trim()) {
+      const companyQuery = query(
+        collection(db, collections.vendors),
+        where('companyName', '==', company.trim())
+      );
+      const companySnapshot = await getDocs(companyQuery);
+      
+      if (companySnapshot.empty) {
+        console.log('API 회사명을 거래처에 추가:', company);
+        await addDoc(collection(db, collections.vendors), {
+          name: company.trim(),
+          companyName: company.trim(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+      } else {
+        console.log('API 회사명이 이미 거래처에 존재함:', company);
+      }
+    }
+    
+    console.log('API 거래처 연동 완료');
+  } catch (error) {
+    console.error('API 거래처 연동 오류:', error);
+    // 거래처 연동 실패해도 견적 저장은 계속 진행
+  }
+};
+
+// 현장관리 연동 함수: 견적 상태를 현장 정보에 반영
+const syncSiteData = async (siteName, submissionStatus, contractStatus) => {
+  try {
+    if (!siteName || !siteName.trim()) {
+      console.log('API 현장명이 없어 현장 연동 건너뜀');
+      return;
+    }
+    
+    console.log('API 현장관리 연동 시작:', { siteName, submissionStatus, contractStatus });
+    
+    // 현장명으로 현장 찾기
+    const siteQuery = query(
+      collection(db, collections.sites),
+      where('name', '==', siteName.trim())
+    );
+    const siteSnapshot = await getDocs(siteQuery);
+    
+    if (!siteSnapshot.empty) {
+      const siteDoc = siteSnapshot.docs[0];
+      const siteData = siteDoc.data();
+      
+      // 업데이트할 데이터 준비
+      const updateData = {};
+      
+      // 제출상태 연동
+      if (submissionStatus) {
+        updateData.estimateStatus = submissionStatus;
+        console.log('API 현장 제출상태 업데이트:', submissionStatus);
+      }
+      
+      // 수주상태 연동
+      if (contractStatus) {
+        updateData.contractStatus = contractStatus;
+        console.log('API 현장 수주상태 업데이트:', contractStatus);
+      }
+      
+      // 업데이트할 데이터가 있으면 현장 정보 업데이트
+      if (Object.keys(updateData).length > 0) {
+        updateData.updatedAt = new Date();
+        await updateDoc(doc(db, collections.sites, siteDoc.id), updateData);
+        console.log('API 현장 정보 업데이트 완료');
+      }
+    } else {
+      console.log('API 현장을 찾을 수 없음:', siteName);
+    }
+    
+    console.log('API 현장관리 연동 완료');
+  } catch (error) {
+    console.error('API 현장관리 연동 오류:', error);
+    // 현장 연동 실패해도 견적 저장은 계속 진행
+  }
+};
+
 // 견적요청 컬렉션 참조
-const estimatesCollection = collection(db, 'estimates');
+const estimatesCollection = collection(db, collections.estimates);
 
 // 실시간 견적요청 목록 구독
 export const subscribeToEstimates = (callback) => {
@@ -54,7 +161,14 @@ export const createEstimate = async (estimateData) => {
     
     console.log('견적 생성 - 정규화된 데이터:', normalizedData);
     
+    // 1. 거래처 연동: 의뢰자와 회사명을 vendors 컬렉션에 자동 추가
+    await syncVendorData(estimateData.requester, estimateData.company);
+    
     const docRef = await addDoc(estimatesCollection, normalizedData);
+    
+    // 2. 현장관리 연동: 견적 추가 시 현장 정보 업데이트
+    await syncSiteData(estimateData.siteName, estimateData.submissionStatus, estimateData.contractStatus);
+    
     return docRef.id;
   } catch (error) {
     console.error('견적요청 생성 실패:', error);
@@ -82,8 +196,14 @@ export const updateEstimate = async (estimateId, updateData) => {
     
     console.log('견적 수정 - 정규화된 데이터:', normalizedData);
     
-    const estimateRef = doc(db, 'estimates', estimateId);
+    // 1. 거래처 연동: 의뢰자와 회사명을 vendors 컬렉션에 자동 추가
+    await syncVendorData(updateData.requester, updateData.company);
+    
+    const estimateRef = doc(db, collections.estimates, estimateId);
     await updateDoc(estimateRef, normalizedData);
+    
+    // 2. 현장관리 연동: 견적 상태 변경 시 현장 정보 업데이트
+    await syncSiteData(updateData.siteName, updateData.submissionStatus, updateData.contractStatus);
   } catch (error) {
     console.error('견적요청 수정 실패:', error);
     throw error;
@@ -93,7 +213,7 @@ export const updateEstimate = async (estimateId, updateData) => {
 // 견적요청 삭제
 export const deleteEstimate = async (estimateId) => {
   try {
-    const estimateRef = doc(db, 'estimates', estimateId);
+    const estimateRef = doc(db, collections.estimates, estimateId);
     await deleteDoc(estimateRef);
   } catch (error) {
     console.error('견적요청 삭제 실패:', error);
@@ -104,7 +224,7 @@ export const deleteEstimate = async (estimateId) => {
 // 견적요청 조회
 export const getEstimate = async (estimateId) => {
   try {
-    const estimateRef = doc(db, 'estimates', estimateId);
+    const estimateRef = doc(db, collections.estimates, estimateId);
     const estimateSnap = await getDoc(estimateRef);
     
     if (estimateSnap.exists()) {

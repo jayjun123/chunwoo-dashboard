@@ -245,6 +245,9 @@ const CustomScheduleMobile = () => {
     // 현장명 우선순위: siteName > company > '견적'
     const siteName = estimate.siteName || estimate.company || '견적';
     
+    // 견적 상태에 따른 체크 상태 결정
+    const isChecked = estimate.submissionStatus === '제출완료';
+    
     const schedule = {
       id: `estimate_${estimate.id}`,
       text: `${siteName}`,
@@ -252,19 +255,44 @@ const CustomScheduleMobile = () => {
       description: `${estimate.requester} - ${estimate.requestContent || '견적요청'}`,
       date: estimate.submissionDeadline,
       type: '견적',
-      color: '#f59e42', // 주황색
+      color: isChecked ? '#22c55e' : '#f59e42', // 체크되면 초록색, 아니면 주황색
       siteName: siteName, // 명시적으로 siteName 설정
       company: estimate.company,
       requester: estimate.requester,
       submissionStatus: estimate.submissionStatus,
       contractStatus: estimate.contractStatus,
       isEstimate: true, // 견적 데이터임을 표시
-      estimateId: estimate.id // 원본 견적 ID 저장
+      estimateId: estimate.id, // 원본 견적 ID 저장
+      checked: isChecked // 체크 상태 추가
     };
     
     console.log('🔍 변환된 일정:', schedule);
     console.log('🔍 설정된 siteName:', schedule.siteName);
+    console.log('🔍 체크 상태:', isChecked);
     return schedule;
+  };
+
+  const convertBidToSchedule = (schedule) => {
+    console.log('🔍 입찰 변환 시작:', schedule);
+    if (!schedule.date) {
+      console.log('🔍 date가 없음:', schedule);
+      return null;
+    }
+    
+    // 입찰 상태에 따른 체크 상태 결정
+    const isChecked = schedule.bidStatus === '입찰완료';
+    
+    const bidSchedule = {
+      ...schedule,
+      id: `bid_${schedule.id}`, // 입찰 ID에 bid_ 접두사 추가
+      color: isChecked ? '#22c55e' : '#ef4444', // 체크되면 초록색, 아니면 빨간색
+      checked: isChecked, // 체크 상태 추가
+      isBid: true // 입찰 데이터임을 표시
+    };
+    
+    console.log('🔍 변환된 입찰 일정:', bidSchedule);
+    console.log('🔍 체크 상태:', isChecked);
+    return bidSchedule;
   };
 
   // 견적 데이터에서 현장명 가져오기
@@ -328,13 +356,25 @@ const CustomScheduleMobile = () => {
     const key = getScheduleKey(d.getFullYear(), d.getMonth(), day);
     if (!scheduleMap[key]) scheduleMap[key] = [];
     
-    // 견적 데이터에서 현장명 가져와서 일정에 추가
-    const enrichedItem = {
-      ...item,
-      siteName: getSiteNameFromEstimates(item)
-    };
-    
-    scheduleMap[key].push(enrichedItem);
+    // 입찰 일정인지 확인하고 변환
+    if (item.type === '입찰') {
+      const bidSchedule = convertBidToSchedule(item);
+      if (bidSchedule) {
+        const enrichedBidItem = {
+          ...bidSchedule,
+          siteName: getSiteNameFromEstimates(bidSchedule)
+        };
+        scheduleMap[key].push(enrichedBidItem);
+      }
+    } else {
+      // 견적 데이터에서 현장명 가져와서 일정에 추가
+      const enrichedItem = {
+        ...item,
+        siteName: getSiteNameFromEstimates(item)
+      };
+      
+      scheduleMap[key].push(enrichedItem);
+    }
   });
 
   // 견적 데이터를 일정으로 변환하여 추가
@@ -1047,6 +1087,47 @@ const CustomScheduleMobile = () => {
         return newState;
       });
 
+      // 견적 항목인지 확인하고 견적 상태 업데이트
+      if (id.startsWith('estimate_')) {
+        const estimateId = id.replace('estimate_', '');
+        console.log('견적 항목 체크 - 견적 ID:', estimateId, '체크 상태:', checked);
+        
+        // 견적 상태 업데이트
+        const estimateRef = doc(db, 'estimates', estimateId);
+        await updateDoc(estimateRef, {
+          submissionStatus: checked ? '제출완료' : '제출대기',
+          updatedAt: new Date()
+        });
+        console.log('견적 상태 업데이트 완료:', estimateId, checked ? '제출완료' : '제출대기');
+      }
+      
+      // 입찰 항목인지 확인하고 입찰 상태 업데이트
+      if (id.startsWith('bid_')) {
+        const bidId = id.replace('bid_', '');
+        console.log('입찰 항목 체크 - 입찰 ID:', bidId, '체크 상태:', checked);
+        
+        // 입찰 상태 업데이트
+        const scheduleRef = doc(db, 'schedules', bidId);
+        await updateDoc(scheduleRef, {
+          bidStatus: checked ? '입찰완료' : '입찰대기',
+          updatedAt: new Date()
+        });
+        console.log('입찰 상태 업데이트 완료:', bidId, checked ? '입찰완료' : '입찰대기');
+      }
+
+      // 일반 일정 항목인지 확인하고 completed 상태 업데이트
+      if (!id.startsWith('estimate_') && !id.startsWith('bid_')) {
+        console.log('일반 일정 항목 체크 - 일정 ID:', id, '체크 상태:', checked);
+        
+        // 일정 상태 업데이트
+        const scheduleRef = doc(db, 'schedules', id);
+        await updateDoc(scheduleRef, {
+          completed: checked,
+          updatedAt: new Date()
+        });
+        console.log('일정 상태 업데이트 완료:', id, checked ? '완료' : '미완료');
+      }
+
       // Firestore에 체크 상태 저장
       const checkData = {
         scheduleId: id,
@@ -1282,7 +1363,7 @@ const CustomScheduleMobile = () => {
                   const dayOfWeek = colIdx;
                   // 날짜셀 세로를 줄임 - 달력 크기 축소
                   const totalRows = monthMatrix.length;
-                  const cellHeight = totalRows === 6 ? 55 : 65; // 높이 감소
+                  const cellHeight = totalRows === 6 ? 57 : 67; // 높이 2px씩 증가
                   return (
                     <Box
                       key={`${rowIdx}-${colIdx}`}
@@ -1351,37 +1432,70 @@ const CustomScheduleMobile = () => {
                           </Box>
                           {/* 일정 바 - 더 컴팩트하게 */}
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.1, mt: 0.2, flex: 1, height: '100%', overflow: 'auto' }}>
-                            {getSchedulesForDate(cellYear, cellMonth, day).slice(0, 8).map((item, i) => (
-                              <Box
-                                key={item.id}
-                                sx={{
-                                  borderRadius: 0.5,
-                                  px: 0.2,
-                                  py: 0.05,
-                                  fontSize: '0.55rem',
-                                  fontWeight: 500,
-                                  bgcolor: item.color || colorList[i % colorList.length],
-                                  color: '#fff',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  boxShadow: '0 1px 1px 0 #0002',
-                                  textAlign: 'center',
-                                  width: '100%',
-                                  mb: 0.02,
-                                  lineHeight: 0.9,
-                                  minHeight: 10,
-                                  maxHeight: 10,
-                                  // 이전/다음 달 일정은 더 선명하게 표시
-                                  opacity: isCurrentMonth ? 1 : 0.8,
-                                }}
-                              >
-                                {(() => {
+                            {getSchedulesForDate(cellYear, cellMonth, day).slice(0, 8).map((item, i) => {
+                              const dateStr = `${cellYear}-${String(cellMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                              const checkKey = `${dateStr}-${item.id}`;
+                              const isChecked = checkedItems[checkKey] || item.checked || false;
+                              
+                              return (
+                                <Box
+                                  key={item.id}
+                                  sx={{
+                                    borderRadius: 0.5,
+                                    px: 0.2,
+                                    py: 0.05,
+                                    fontSize: '0.55rem',
+                                    fontWeight: 500,
+                                    bgcolor: item.color || colorList[i % colorList.length],
+                                    color: '#fff',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    boxShadow: '0 1px 1px 0 #0002',
+                                    textAlign: 'center',
+                                    width: '100%',
+                                    mb: 0.02,
+                                    lineHeight: 0.9,
+                                    minHeight: 10,
+                                    maxHeight: 10,
+                                    // 이전/다음 달 일정은 더 선명하게 표시
+                                    opacity: isCurrentMonth ? 1 : 0.8,
+                                    position: 'relative',
+                                    cursor: 'pointer',
+                                    '&:hover': {
+                                      opacity: 0.8,
+                                    }
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCheckItem(dateStr, item.id, !isChecked);
+                                  }}
+                                >
+                                  <Box sx={{ 
+                                    position: 'absolute', 
+                                    left: 1, 
+                                    top: '50%', 
+                                    transform: 'translateY(-50%)',
+                                    width: 6,
+                                    height: 6,
+                                    border: '1px solid #fff',
+                                    borderRadius: '50%',
+                                    bgcolor: isChecked ? '#fff' : 'transparent',
+                                    zIndex: 1
+                                  }} />
+                                                                  {(() => {
                                   // 견적 일정인 경우 특별 처리
                                   if (item.isEstimate) {
                                     const siteName = item.siteName || item.company || '견적';
                                     const estimateText = `[견적]${siteName}`;
                                     return estimateText.length > 8 ? estimateText.slice(0, 8) + '...' : estimateText;
+                                  }
+                                  
+                                  // 입찰 일정인 경우 특별 처리
+                                  if (item.isBid) {
+                                    const siteName = item.siteName || item.company || '입찰';
+                                    const bidText = `[입찰]${siteName}`;
+                                    return bidText.length > 8 ? bidText.slice(0, 8) + '...' : bidText;
                                   }
                                   
                                   const siteName = item.siteName || '';
@@ -1399,8 +1513,9 @@ const CustomScheduleMobile = () => {
                                     return title.length > 8 ? title.slice(0, 8) + '...' : title;
                                   }
                                 })()}
-                              </Box>
-                            ))}
+                                </Box>
+                              );
+                            })}
                           </Box>
                         </>
                       ) : (
@@ -2145,6 +2260,95 @@ const CustomScheduleMobile = () => {
                   <Typography sx={{ color: '#fff', fontSize: '0.85rem', lineHeight: 1.5 }}>
                     {selectedSiteDetail.description}
                   </Typography>
+                </Box>
+
+                {/* 견적/입찰 상태 */}
+                <Box>
+                  <Typography variant="subtitle1" sx={{ color: '#f59e42', mb: 1, fontWeight: 600 }}>
+                    견적/입찰 상태
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox 
+                          checked={selectedSiteDetail.estimateStatus === '제출완료'}
+                          onChange={async (e) => {
+                            try {
+                              const newStatus = e.target.checked ? '제출완료' : '제출대기';
+                              console.log('견적 상태 업데이트:', selectedSiteDetail.name, newStatus);
+                              
+                              // 현장 데이터에서 견적 상태 업데이트
+                              const siteRef = doc(db, 'sites', selectedSiteDetail.id);
+                              await updateDoc(siteRef, {
+                                estimateStatus: newStatus,
+                                updatedAt: new Date()
+                              });
+                              
+                              // 로컬 상태 업데이트
+                              setSelectedSiteDetail(prev => ({
+                                ...prev,
+                                estimateStatus: newStatus
+                              }));
+                              
+                              console.log('견적 상태 업데이트 완료');
+                            } catch (error) {
+                              console.error('견적 상태 업데이트 실패:', error);
+                              alert('견적 상태 업데이트에 실패했습니다.');
+                            }
+                          }}
+                          sx={{ 
+                            color: '#f59e42', 
+                            '&.Mui-checked': { color: '#22c55e' } 
+                          }}
+                        />
+                      }
+                      label={
+                        <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>
+                          견적 제출 완료
+                        </Typography>
+                      }
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox 
+                          checked={selectedSiteDetail.bidStatus === '입찰완료'}
+                          onChange={async (e) => {
+                            try {
+                              const newStatus = e.target.checked ? '입찰완료' : '입찰대기';
+                              console.log('입찰 상태 업데이트:', selectedSiteDetail.name, newStatus);
+                              
+                              // 현장 데이터에서 입찰 상태 업데이트
+                              const siteRef = doc(db, 'sites', selectedSiteDetail.id);
+                              await updateDoc(siteRef, {
+                                bidStatus: newStatus,
+                                updatedAt: new Date()
+                              });
+                              
+                              // 로컬 상태 업데이트
+                              setSelectedSiteDetail(prev => ({
+                                ...prev,
+                                bidStatus: newStatus
+                              }));
+                              
+                              console.log('입찰 상태 업데이트 완료');
+                            } catch (error) {
+                              console.error('입찰 상태 업데이트 실패:', error);
+                              alert('입찰 상태 업데이트에 실패했습니다.');
+                            }
+                          }}
+                          sx={{ 
+                            color: '#ef4444', 
+                            '&.Mui-checked': { color: '#22c55e' } 
+                          }}
+                        />
+                      }
+                      label={
+                        <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>
+                          입찰 완료
+                        </Typography>
+                      }
+                    />
+                  </Box>
                 </Box>
 
                 {/* 물량 내역 */}

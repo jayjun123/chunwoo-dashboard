@@ -19,8 +19,9 @@ android {
     buildTypes {
         release {
             minifyEnabled false
+            shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            // 키스토어 없이 디버그 서명 사용
+            signingConfig signingConfigs.debug
         }
     }
     

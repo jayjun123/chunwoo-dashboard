@@ -37,20 +37,39 @@ function formatKoreanDate(dateStr) {
 function convertEstimateToSchedule(estimate) {
   if (!estimate.submissionDeadline) return null;
   
+  // 견적 상태에 따른 체크 상태 결정
+  const isChecked = estimate.submissionStatus === '제출완료';
+  
   return {
     id: `estimate_${estimate.id}`,
     title: `${estimate.siteName || estimate.company}`,
     description: `${estimate.requester} - ${estimate.requestContent || '견적요청'}`,
     date: estimate.submissionDeadline,
     type: '견적',
-    color: '#f59e42', // 주황색
+    color: isChecked ? '#22c55e' : '#f59e42', // 체크되면 초록색, 아니면 주황색
     siteName: estimate.siteName,
     company: estimate.company,
     requester: estimate.requester,
     submissionStatus: estimate.submissionStatus,
     contractStatus: estimate.contractStatus,
     isEstimate: true, // 견적 데이터임을 표시
-    estimateId: estimate.id // 원본 견적 ID 저장
+    estimateId: estimate.id, // 원본 견적 ID 저장
+    checked: isChecked // 체크 상태 추가
+  };
+}
+
+function convertBidToSchedule(schedule) {
+  if (!schedule.date) return null;
+  
+  // 입찰 상태에 따른 체크 상태 결정
+  const isChecked = schedule.bidStatus === '입찰완료';
+  
+  return {
+    ...schedule,
+    id: `bid_${schedule.id}`, // 입찰 ID에 bid_ 접두사 추가
+    color: isChecked ? '#22c55e' : '#ef4444', // 체크되면 초록색, 아니면 빨간색
+    checked: isChecked, // 체크 상태 추가
+    isBid: true // 입찰 데이터임을 표시
   };
 }
 
@@ -238,15 +257,21 @@ const ScheduleManagement = ({
               dateStr = schedule.date;
             }
             
-            // 입찰 항목에 bid_ 접두사 추가
+            // 입찰 항목 변환
             if (schedule.type === '입찰') {
-              schedule.id = `bid_${schedule.id}`;
+              const bidSchedule = convertBidToSchedule(schedule);
+              if (bidSchedule) {
+                if (!newCalendarItems[dateStr]) {
+                  newCalendarItems[dateStr] = [];
+                }
+                newCalendarItems[dateStr].push(bidSchedule);
+              }
+            } else {
+              if (!newCalendarItems[dateStr]) {
+                newCalendarItems[dateStr] = [];
+              }
+              newCalendarItems[dateStr].push(schedule);
             }
-            
-            if (!newCalendarItems[dateStr]) {
-              newCalendarItems[dateStr] = [];
-            }
-            newCalendarItems[dateStr].push(schedule);
           });
           
           // 견적 데이터를 일정으로 변환하여 추가

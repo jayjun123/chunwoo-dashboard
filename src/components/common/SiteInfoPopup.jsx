@@ -12,9 +12,11 @@ import {
   Card,
   CardContent,
   useMediaQuery,
-  useTheme
+  useTheme,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import {
   Close as CloseIcon,
@@ -396,6 +398,94 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                     }}>
                       {site.items || '-'}
                     </Typography>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* 견적/입찰 상태 */}
+          <Grid item xs={12}>
+            <Card sx={{ bgcolor: '#232b3b', border: '1px solid #333' }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                  <CheckCircleIcon sx={{ color: '#f59e42', fontSize: '1.5rem' }} />
+                  <Typography variant="h6" sx={{ color: '#f59e42', fontWeight: 700 }}>
+                    견적/입찰 상태
+                  </Typography>
+                </Box>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox 
+                          checked={site.estimateStatus === '제출완료'}
+                          onChange={async (e) => {
+                            try {
+                              const newStatus = e.target.checked ? '제출완료' : '제출대기';
+                              console.log('견적 상태 업데이트:', site.name, newStatus);
+                              
+                              // 현장 데이터에서 견적 상태 업데이트
+                              const siteRef = doc(db, 'sites', site.id);
+                              await updateDoc(siteRef, {
+                                estimateStatus: newStatus,
+                                updatedAt: new Date()
+                              });
+                              
+                              console.log('견적 상태 업데이트 완료');
+                            } catch (error) {
+                              console.error('견적 상태 업데이트 실패:', error);
+                              alert('견적 상태 업데이트에 실패했습니다.');
+                            }
+                          }}
+                          sx={{ 
+                            color: '#f59e42', 
+                            '&.Mui-checked': { color: '#22c55e' } 
+                          }}
+                        />
+                      }
+                      label={
+                        <Typography sx={{ color: '#fff', fontSize: '0.9rem' }}>
+                          견적 제출 완료
+                        </Typography>
+                      }
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox 
+                          checked={site.bidStatus === '입찰완료'}
+                          onChange={async (e) => {
+                            try {
+                              const newStatus = e.target.checked ? '입찰완료' : '입찰대기';
+                              console.log('입찰 상태 업데이트:', site.name, newStatus);
+                              
+                              // 현장 데이터에서 입찰 상태 업데이트
+                              const siteRef = doc(db, 'sites', site.id);
+                              await updateDoc(siteRef, {
+                                bidStatus: newStatus,
+                                updatedAt: new Date()
+                              });
+                              
+                              console.log('입찰 상태 업데이트 완료');
+                            } catch (error) {
+                              console.error('입찰 상태 업데이트 실패:', error);
+                              alert('입찰 상태 업데이트에 실패했습니다.');
+                            }
+                          }}
+                          sx={{ 
+                            color: '#ef4444', 
+                            '&.Mui-checked': { color: '#22c55e' } 
+                          }}
+                        />
+                      }
+                      label={
+                        <Typography sx={{ color: '#fff', fontSize: '0.9rem' }}>
+                          입찰 완료
+                        </Typography>
+                      }
+                    />
                   </Grid>
                 </Grid>
               </CardContent>

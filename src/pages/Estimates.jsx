@@ -42,13 +42,15 @@ import {
   Assignment as AssignmentIcon
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, collections } from '../firebase';
 import * as XLSX from 'xlsx';
 import { getKoreanDate, normalizeDate } from '../utils/dateUtils';
+import { useAuth } from '../contexts/AuthContext';
 
 const Estimates = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { currentUser } = useAuth();
 
   // 상태 관리
   const [estimates, setEstimates] = useState([]);
@@ -82,7 +84,7 @@ const Estimates = () => {
   // 거래처 데이터 로드
   const loadVendors = async () => {
     try {
-      const vendorsQuery = query(collection(db, 'vendorManagement'), orderBy('companyName', 'asc'));
+      const vendorsQuery = query(collection(db, collections.vendors), orderBy('companyName', 'asc'));
       const querySnapshot = await getDocs(vendorsQuery);
       const vendorsData = querySnapshot.docs.map(doc => ({
         id: doc.id,
@@ -96,20 +98,46 @@ const Estimates = () => {
 
   // 견적 데이터 로드
   const loadEstimates = async () => {
+    console.log('견적 데이터 로드 시작');
+    console.log('현재 사용자:', currentUser);
+    
+    if (!currentUser) {
+      console.log('사용자 인증 없음, 견적 로드 중단');
+      setEstimates([]);
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
-      const estimatesQuery = query(collection(db, 'estimates'), orderBy(sortField, sortDirection));
+      const estimatesQuery = query(
+        collection(db, collections.estimates), 
+        where('userId', '==', currentUser?.uid),
+        orderBy(sortField, sortDirection)
+      );
+      console.log('견적 쿼리 생성:', estimatesQuery);
+      
       const querySnapshot = await getDocs(estimatesQuery);
+      console.log('견적 쿼리 결과:', querySnapshot.size, '개 문서');
+      
       const estimatesData = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+      console.log('견적 데이터 변환 완료:', estimatesData.length, '개');
+      
       setEstimates(estimatesData);
     } catch (error) {
       console.error('견적 데이터 로드 오류:', error);
-      setSnackbar({ open: true, message: '견적 데이터를 불러오는데 실패했습니다.', severity: 'error' });
+      console.error('오류 상세:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      setSnackbar({ open: true, message: `견적 데이터를 불러오는데 실패했습니다: ${error.message}`, severity: 'error' });
     } finally {
       setLoading(false);
+      console.log('견적 데이터 로드 완료');
     }
   };
 
@@ -175,9 +203,11 @@ const Estimates = () => {
   }, [isMobile]);
 
   useEffect(() => {
-    loadEstimates();
-    loadVendors(); // 거래처 데이터도 함께 로드
-  }, [sortField, sortDirection]);
+    if (currentUser) {
+      loadEstimates();
+      loadVendors(); // 거래처 데이터도 함께 로드
+    }
+  }, [currentUser, sortField, sortDirection]);
 
   // 폼 초기화
   const resetForm = () => {
@@ -198,6 +228,8 @@ const Estimates = () => {
 
   // 다이얼로그 열기
   const handleOpenDialog = (estimate = null) => {
+    console.log('견적 다이얼로그 열기:', estimate ? '수정 모드' : '추가 모드');
+    
     if (estimate) {
       setFormData({
         receptionDate: estimate.receptionDate || getKoreanDate(),
@@ -216,6 +248,7 @@ const Estimates = () => {
       resetForm();
     }
     setDialogOpen(true);
+    console.log('견적 다이얼로그 상태:', { dialogOpen: true, editingEstimate: estimate });
   };
 
   // 다이얼로그 닫기
@@ -226,22 +259,53 @@ const Estimates = () => {
 
   // 견적 저장
   const handleSave = async () => {
+    console.log('견적 저장 시작:', formData);
+    console.log('현재 사용자:', currentUser);
+    
     try {
+      if (!currentUser) {
+        console.log('사용자 인증 오류');
+        setSnackbar({ open: true, message: '로그인이 필요합니다.', severity: 'error' });
+        return;
+      }
+
       if (!formData.requester.trim()) {
+        console.log('의뢰자 필수 입력 오류');
         setSnackbar({ open: true, message: '의뢰자를 입력해주세요.', severity: 'warning' });
         return;
       }
 
+      console.log('견적 데이터 검증 완료, 저장 시작');
+
+      // 1. 거래처 연동: 의뢰자와 회사명을 vendors 컬렉션에 자동 추가
+      await syncVendorData(formData.requester, formData.company);
+
       if (editingEstimate) {
         // 수정
-        await updateDoc(doc(db, 'estimates', editingEstimate.id), formData);
+        console.log('견적 수정 모드:', editingEstimate.id);
+        await updateDoc(doc(db, collections.estimates, editingEstimate.id), formData);
+        console.log('견적 수정 완료');
+        
+        // 2. 현장관리 연동: 견적 상태 변경 시 현장 정보 업데이트
+        await syncSiteData(formData.siteName, formData.submissionStatus, formData.contractStatus);
+        
         setSnackbar({ open: true, message: '견적이 수정되었습니다.', severity: 'success' });
       } else {
         // 추가
-        await addDoc(collection(db, 'estimates'), {
+        console.log('견적 추가 모드');
+        const estimateData = {
           ...formData,
+          userId: currentUser.uid,
           createdAt: new Date()
-        });
+        };
+        console.log('저장할 견적 데이터:', estimateData);
+        
+        const docRef = await addDoc(collection(db, collections.estimates), estimateData);
+        console.log('견적 추가 완료, 문서 ID:', docRef.id);
+        
+        // 2. 현장관리 연동: 견적 추가 시 현장 정보 업데이트
+        await syncSiteData(formData.siteName, formData.submissionStatus, formData.contractStatus);
+        
         setSnackbar({ open: true, message: '견적이 추가되었습니다.', severity: 'success' });
       }
 
@@ -249,7 +313,119 @@ const Estimates = () => {
       loadEstimates();
     } catch (error) {
       console.error('견적 저장 오류:', error);
-      setSnackbar({ open: true, message: '견적 저장에 실패했습니다.', severity: 'error' });
+      console.error('오류 상세:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      setSnackbar({ open: true, message: `견적 저장에 실패했습니다: ${error.message}`, severity: 'error' });
+    }
+  };
+
+  // 거래처 연동 함수: 의뢰자와 회사명을 vendors 컬렉션에 자동 추가
+  const syncVendorData = async (requester, company) => {
+    try {
+      console.log('거래처 연동 시작:', { requester, company });
+      
+      // 1. 의뢰자 연동
+      if (requester && requester.trim()) {
+        const requesterQuery = query(
+          collection(db, collections.vendors),
+          where('name', '==', requester.trim())
+        );
+        const requesterSnapshot = await getDocs(requesterQuery);
+        
+        if (requesterSnapshot.empty) {
+          console.log('의뢰자를 거래처에 추가:', requester);
+          await addDoc(collection(db, collections.vendors), {
+            name: requester.trim(),
+            companyName: company || '',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        } else {
+          console.log('의뢰자가 이미 거래처에 존재함:', requester);
+        }
+      }
+      
+      // 2. 회사명 연동 (의뢰자와 다른 경우)
+      if (company && company.trim() && company.trim() !== requester?.trim()) {
+        const companyQuery = query(
+          collection(db, collections.vendors),
+          where('companyName', '==', company.trim())
+        );
+        const companySnapshot = await getDocs(companyQuery);
+        
+        if (companySnapshot.empty) {
+          console.log('회사명을 거래처에 추가:', company);
+          await addDoc(collection(db, collections.vendors), {
+            name: company.trim(),
+            companyName: company.trim(),
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        } else {
+          console.log('회사명이 이미 거래처에 존재함:', company);
+        }
+      }
+      
+      console.log('거래처 연동 완료');
+    } catch (error) {
+      console.error('거래처 연동 오류:', error);
+      // 거래처 연동 실패해도 견적 저장은 계속 진행
+    }
+  };
+
+  // 현장관리 연동 함수: 견적 상태를 현장 정보에 반영
+  const syncSiteData = async (siteName, submissionStatus, contractStatus) => {
+    try {
+      if (!siteName || !siteName.trim()) {
+        console.log('현장명이 없어 현장 연동 건너뜀');
+        return;
+      }
+      
+      console.log('현장관리 연동 시작:', { siteName, submissionStatus, contractStatus });
+      
+      // 현장명으로 현장 찾기
+      const siteQuery = query(
+        collection(db, collections.sites),
+        where('name', '==', siteName.trim())
+      );
+      const siteSnapshot = await getDocs(siteQuery);
+      
+      if (!siteSnapshot.empty) {
+        const siteDoc = siteSnapshot.docs[0];
+        const siteData = siteDoc.data();
+        
+        // 업데이트할 데이터 준비
+        const updateData = {};
+        
+        // 제출상태 연동
+        if (submissionStatus) {
+          updateData.estimateStatus = submissionStatus;
+          console.log('현장 제출상태 업데이트:', submissionStatus);
+        }
+        
+        // 수주상태 연동
+        if (contractStatus) {
+          updateData.contractStatus = contractStatus;
+          console.log('현장 수주상태 업데이트:', contractStatus);
+        }
+        
+        // 업데이트할 데이터가 있으면 현장 정보 업데이트
+        if (Object.keys(updateData).length > 0) {
+          updateData.updatedAt = new Date();
+          await updateDoc(doc(db, collections.sites, siteDoc.id), updateData);
+          console.log('현장 정보 업데이트 완료');
+        }
+      } else {
+        console.log('현장을 찾을 수 없음:', siteName);
+      }
+      
+      console.log('현장관리 연동 완료');
+    } catch (error) {
+      console.error('현장관리 연동 오류:', error);
+      // 현장 연동 실패해도 견적 저장은 계속 진행
     }
   };
 
@@ -257,7 +433,7 @@ const Estimates = () => {
   const handleDelete = async (estimate) => {
     if (window.confirm(`"${estimate.siteName || estimate.company}" 견적을 삭제하시겠습니까?`)) {
       try {
-        await deleteDoc(doc(db, 'estimates', estimate.id));
+        await deleteDoc(doc(db, collections.estimates, estimate.id));
         setSnackbar({ open: true, message: '견적이 삭제되었습니다.', severity: 'success' });
         loadEstimates();
       } catch (error) {
@@ -338,7 +514,10 @@ const Estimates = () => {
             };
 
             if (estimateData.requester) {
-              await addDoc(collection(db, 'estimates'), estimateData);
+              // 엑셀 업로드 시에도 연동 기능 적용
+              await syncVendorData(estimateData.requester, estimateData.company);
+              await addDoc(collection(db, collections.estimates), estimateData);
+              await syncSiteData(estimateData.siteName, estimateData.submissionStatus, estimateData.contractStatus);
               successCount++;
             }
           } catch (error) {
@@ -422,7 +601,14 @@ const Estimates = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('견적 추가 버튼 클릭됨');
+              console.log('이벤트 타겟:', e.target);
+              console.log('현재 사용자:', currentUser);
+              handleOpenDialog();
+            }}
             sx={{
               backgroundColor: '#ff9800',
               '&:hover': { backgroundColor: '#f57c00' }
