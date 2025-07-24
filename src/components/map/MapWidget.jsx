@@ -50,7 +50,7 @@ const MapWidget = ({ onLocationSelect }) => {
     };
 
     const script = document.createElement('script');
-    script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=8vxq8q8q8q8q8q8q8q8q&submodules=geocoder`;
+    script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${import.meta.env.VITE_NAVER_CLIENT_ID}&submodules=geocoder`;
     script.async = true;
     script.onload = initMap;
     document.head.appendChild(script);

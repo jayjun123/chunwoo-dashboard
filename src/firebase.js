@@ -4,18 +4,56 @@ import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth'
 import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 
-// Firebase 설정 (직접 설정값 사용)
-const firebaseConfig = {
-  apiKey: "AIzaSyATCGXGD2_teiJFdpng9J2_fvZRItPef0w",
-  authDomain: "chunwooo-ebaseapp.com",
-  projectId: "chunwooo-edf9f",
-  storageBucket: "chunwooo-edf9f.firebasestorage.app",
-  messagingSenderId: "417029078660",
-  appId: "1:417029078660:web:00e23d79af77876e598cd1",
-  measurementId: "G-653CL9XWFH"
-};
+// Firebase 설정 (개발 환경에서는 하드코딩, 프로덕션에서는 환경변수)
+let firebaseConfig;
 
-console.log('Firebase 설정 로드:', {
+if (import.meta.env.DEV) {
+  // 개발 환경용 임시 설정 (실제 값으로 교체 필요)
+  firebaseConfig = {
+    apiKey: "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    authDomain: "your-project.firebaseapp.com",
+    projectId: "your-project-id",
+    storageBucket: "your-project.appspot.com",
+    messagingSenderId: "123456789",
+    appId: "1:123456789:web:abcdef123456",
+    measurementId: "G-XXXXXXXXXX"
+  };
+  console.warn('⚠️ 개발 환경에서 임시 Firebase 설정을 사용합니다.');
+} else {
+  // 프로덕션 환경에서는 환경변수 사용
+  firebaseConfig = {
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  };
+
+  // 프로덕션에서만 환경변수 검증
+  const requiredEnvVars = [
+    'VITE_FIREBASE_API_KEY',
+    'VITE_FIREBASE_AUTH_DOMAIN',
+    'VITE_FIREBASE_PROJECT_ID',
+    'VITE_FIREBASE_STORAGE_BUCKET',
+    'VITE_FIREBASE_MESSAGING_SENDER_ID',
+    'VITE_FIREBASE_APP_ID'
+  ];
+
+  const missingEnvVars = requiredEnvVars.filter(varName => !import.meta.env[varName]);
+
+  if (missingEnvVars.length > 0) {
+    console.error('❌ 누락된 환경변수:', missingEnvVars);
+    console.error('📝 .env 파일에 다음 변수들을 추가해주세요:');
+    missingEnvVars.forEach(varName => {
+      console.error(`   ${varName}=your_value_here`);
+    });
+    throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  }
+}
+
+console.log('✅ Firebase 설정 완료:', {
   projectId: firebaseConfig.projectId,
   authDomain: firebaseConfig.authDomain,
   apiKey: firebaseConfig.apiKey ? '설정됨' : '설정되지 않음'
@@ -35,23 +73,7 @@ try {
   }
 } catch (error) {
   console.error('❌ Firebase 앱 초기화 실패:', error);
-  // 초기화 실패 시에도 기본 설정으로 진행
-  try {
-    app = initializeApp(firebaseConfig, 'fallback-app');
-    console.log('✅ Firebase 앱이 fallback으로 초기화되었습니다.');
-  } catch (fallbackError) {
-    console.error('❌ Firebase fallback 초기화도 실패:', fallbackError);
-    // 최후의 수단: 기본 설정으로 진행
-    app = initializeApp({
-      apiKey: "AIzaSyATCGXGD2_teiJFdpng9J2_fvZRItPef0w",
-      authDomain: "chunwooo-ebaseapp.com",
-      projectId: "chunwooo-edf9f",
-      storageBucket: "chunwooo-edf9f.firebasestorage.app",
-      messagingSenderId: "417029078660",
-      appId: "1:417029078660:web:00e23d79af77876e598cd1"
-    }, 'emergency-app');
-    console.log('✅ Firebase 앱이 emergency 모드로 초기화되었습니다.');
-  }
+  throw new Error('Firebase 초기화에 실패했습니다. 환경변수를 확인해주세요.');
 }
 
 // Firebase 서비스 초기화

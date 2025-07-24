@@ -77,6 +77,13 @@ npm install
 ### 3. 환경변수 설정
 프로젝트 루트에 `.env` 파일을 생성하고 다음 설정을 추가하세요:
 
+```bash
+# 환경변수 템플릿 복사
+cp env.example .env
+```
+
+또는 직접 `.env` 파일을 생성하고 다음 설정을 추가하세요:
+
 ```env
 # Firebase 설정
 VITE_FIREBASE_API_KEY=your_api_key
@@ -89,6 +96,10 @@ VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 
 # 날씨 API 키 (기상청 공공데이터 포털에서 발급)
 VITE_WEATHER_API_KEY=your_weather_api_key_here
+
+# 네이버 API 키 (뉴스 검색)
+VITE_NAVER_CLIENT_ID=your_naver_client_id_here
+VITE_NAVER_CLIENT_SECRET=your_naver_client_secret_here
 
 # OpenAI API 키 (선택사항 - AI 기능 사용 시)
 VITE_OPENAI_API_KEY=your_openai_api_key_here

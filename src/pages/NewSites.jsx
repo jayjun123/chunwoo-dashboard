@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Grid, Paper, Tabs, Tab, TextField, List, ListItem, ListItemText, Button, IconButton, Typography, Box, FormControl, Select, MenuItem, Checkbox, FormControlLabel, InputLabel } from '@mui/material';
+import { Grid, Paper, Tabs, Tab, TextField, List, ListItem, ListItemText, Button, IconButton, Typography, Box, FormControl, Select, MenuItem, Checkbox, FormControlLabel, InputLabel, Autocomplete } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -43,6 +43,7 @@ const NewSites = () => {
   const [statusTab, setStatusTab] = useState('진행중');
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [vendors, setVendors] = useState([]); // 거래처 데이터 상태 추가
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const theme = useTheme();
@@ -110,6 +111,21 @@ const NewSites = () => {
     return dateString;
   };
 
+  // 거래처 데이터 로드
+  const loadVendors = async () => {
+    try {
+      const vendorsQuery = query(collection(db, 'vendorManagement'), orderBy('companyName', 'asc'));
+      const querySnapshot = await getDocs(vendorsQuery);
+      const vendorsData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setVendors(vendorsData);
+    } catch (error) {
+      console.error('거래처 데이터 로드 오류:', error);
+    }
+  };
+
   useEffect(() => {
     const q = query(collection(db, 'sites'), orderBy('name'));
     const unsubscribe = onSnapshot(q, async (snapshot) => {
@@ -137,6 +153,10 @@ const NewSites = () => {
     }, (error) => {
       console.error("Error fetching sites in real-time:", error);
     });
+
+    // 거래처 데이터도 함께 로드
+    loadVendors();
+
     return () => unsubscribe();
   }, []);
 
@@ -637,17 +657,25 @@ const NewSites = () => {
            <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
-                 회사명
+                 회사명 (거래처 선택 또는 입력)
                </Typography>
-               <TextField 
-                 name="companyName" 
-                 value={form.companyName ?? ''} 
-                 onChange={handleChange} 
-                 fullWidth 
-                 size="small" 
-                 disabled={isReadOnly} 
-                 inputRef={companyNameRef}
-                 onFocus={scrollFocus(companyNameRef)}
+               <Autocomplete
+                 options={vendors.map(vendor => vendor.companyName)}
+                 value={form.companyName ?? ''}
+                 onChange={(event, newValue) => {
+                   const e = { target: { name: 'companyName', value: newValue || '' } };
+                   handleChange(e);
+                 }}
+                 freeSolo
+                 disabled={isReadOnly}
+                 renderInput={(params) => (
+                   <TextField
+                     {...params}
+                     size="small"
+                     inputRef={companyNameRef}
+                     onFocus={scrollFocus(companyNameRef)}
+                   />
+                 )}
                />
              </Box>
              <Box sx={{ flex: 1 }}>

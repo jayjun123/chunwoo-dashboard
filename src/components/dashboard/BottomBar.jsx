@@ -35,6 +35,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePopup } from '../../contexts/PopupContext';
 import { format } from 'date-fns';
+import { getKoreanDate, isSameDate } from '../../utils/dateUtils';
 
 // 관리자/마스터 권한 체크 함수
 function isAdminOrMaster(user) {
@@ -146,31 +147,7 @@ const BottomBar = ({
 
 
 
-  // 현장 데이터 fetch (stats용)
-  useEffect(() => {
-    const unsubSites = onSnapshot(collection(db, 'sites'), (snapshot) => {
-      const arr = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      // 진행중인 현장만 필터링
-      const activeSites = arr.filter(site => site.status === '진행중');
-      
-      console.log('🔥 현장 데이터:', activeSites.length, '개', activeSites);
-      
-      // stats 업데이트 (현장 수)
-      setStats(prev => ({
-        ...prev,
-        todaySites: activeSites.length
-      }));
-    }, (err) => {
-      console.error('🔥 현장 데이터 연동 오류:', err);
-      setError('현장 데이터를 불러오는 중 오류가 발생했습니다.');
-    });
-
-    return () => {
-      console.log('🔥 현장 데이터 연동 해제');
-      unsubSites();
-    };
-  }, []);
+  // 현장 데이터 fetch (stats용) - 제거: 일정 기반으로 통일
 
   useEffect(() => {
     // 일정관리에서 금일 데이터 fetch + 최근 5개
@@ -284,25 +261,60 @@ const BottomBar = ({
 
   // 견적 데이터 별도 처리 (estimates 컬렉션에서)
   useEffect(() => {
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD 형식
-    
-    console.log('🔥 하단바 견적 연동 시작 - 오늘 날짜:', todayStr);
+    const todayStr = getKoreanDate();
+    console.log('🔥 하단바 견적 연동 시작 - 한국 시간 기준 오늘 날짜:', todayStr);
     
     const q = query(collection(db, 'estimates'));
     
     const unsubEstimates = onSnapshot(q, (snapshot) => {
       const allEstimates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
-      // 제출기한이 오늘인 견적 필터링
+      // 제출기한이 오늘인 견적 필터링 (제출상태 상관없이 모든 견적 카운트)
       const todayEstimates = allEstimates.filter(estimate => {
         if (!estimate.submissionDeadline) return false;
         
-        // submissionDeadline이 오늘 날짜와 일치하는지 확인
-        return estimate.submissionDeadline === todayStr;
+        // 개선된 날짜 비교 사용
+        const isToday = isSameDate(estimate.submissionDeadline, todayStr);
+        
+        // 디버깅 로그 추가
+        if (isToday) {
+          console.log('🔥 오늘 견적 발견:', estimate, '제출상태:', estimate.submissionStatus);
+        }
+        
+        // 오늘 날짜인 견적만 카운트 (제출상태 상관없음)
+        return isToday;
       });
       
+      console.log('🔥 전체 견적 개수:', allEstimates.length);
+      console.log('🔥 한국 시간 기준 오늘 날짜:', todayStr);
       console.log('🔥 금일제출견적:', todayEstimates.length, '개', todayEstimates);
+      
+      // 모든 견적의 submissionDeadline 상세 확인
+      console.log('🔥 === 모든 견적 데이터 상세 분석 ===');
+      allEstimates.forEach((estimate, index) => {
+        const parsedDate = new Date(estimate.submissionDeadline);
+        const isToday = isSameDate(estimate.submissionDeadline, todayStr);
+        
+        console.log(`🔥 견적 ${index + 1}:`, {
+          id: estimate.id,
+          siteName: estimate.siteName,
+          submissionDeadline: estimate.submissionDeadline,
+          submissionDeadlineType: typeof estimate.submissionDeadline,
+          parsedDate: parsedDate.toISOString().split('T')[0],
+          parsedDateValid: !isNaN(parsedDate.getTime()),
+          submissionStatus: estimate.submissionStatus,
+          isToday: isToday
+        });
+      });
+      console.log('🔥 === 오늘 견적만 ===');
+      todayEstimates.forEach((estimate, index) => {
+        console.log(`🔥 오늘 견적 ${index + 1}:`, {
+          id: estimate.id,
+          siteName: estimate.siteName,
+          submissionDeadline: estimate.submissionDeadline,
+          submissionStatus: estimate.submissionStatus
+        });
+      });
       
       // stats 업데이트
       setStats(prev => ({
@@ -336,22 +348,34 @@ const BottomBar = ({
       const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
       
       const todayTodos = userTodos.filter(item => {
-        if (!item.createdAt) return false;
+        // 한국 시간 기준으로 오늘 날짜 생성
+        const todayYear = today.getFullYear();
+        const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
+        const todayDay = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
         
-        let itemDate;
-        if (item.createdAt.toDate) {
-          // Firestore Timestamp
-          itemDate = item.createdAt.toDate();
-        } else if (item.createdAt instanceof Date) {
-          // Date 객체
-          itemDate = item.createdAt;
-        } else {
-          // 문자열이나 숫자
-          itemDate = new Date(item.createdAt);
+        // 1. date 필드가 있으면 date로 체크 (우선순위)
+        if (item.date === todayStr) return true;
+        
+        // 2. createdAt 필드가 있으면 createdAt으로 체크
+        if (item.createdAt) {
+          let itemDate;
+          if (item.createdAt.toDate) {
+            // Firestore Timestamp
+            itemDate = item.createdAt.toDate();
+          } else if (item.createdAt instanceof Date) {
+            // Date 객체
+            itemDate = item.createdAt;
+          } else {
+            // 문자열이나 숫자
+            itemDate = new Date(item.createdAt);
+          }
+          
+          // 오늘 00:00:00 ~ 23:59:59 사이에 생성된 항목만
+          return itemDate >= todayStart && itemDate <= todayEnd;
         }
         
-        // 오늘 00:00:00 ~ 23:59:59 사이에 생성된 항목만
-        return itemDate >= todayStart && itemDate <= todayEnd;
+        return false;
       });
       
       const filtered = todayTodos.filter(item => !['샘플','테스트','임시'].some(word => (item.text||item.title||'').includes(word)));
@@ -551,11 +575,24 @@ const BottomBar = ({
       }
 
       // 전날 날짜 계산 (한국 시간 기준)
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().slice(0, 10); // YYYY-MM-DD 형식
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      
+      // 한국 시간 기준으로 날짜 문자열 생성
+      const year = yesterday.getFullYear();
+      const month = String(yesterday.getMonth() + 1).padStart(2, '0');
+      const day = String(yesterday.getDate()).padStart(2, '0');
+      const yesterdayStr = `${year}-${month}-${day}`;
+      
+      // 오늘 날짜도 한국 시간 기준으로
+      const todayYear = today.getFullYear();
+      const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
+      const todayDay = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
 
       devLog('전날 날짜:', yesterdayStr);
+      devLog('오늘 날짜:', todayStr);
 
       // 전날 미완료 투두들을 createdAt 필드로 가져오기 (더 정확한 조회)
       const yesterdayStart = new Date(yesterday);
@@ -578,18 +615,24 @@ const BottomBar = ({
 
       // 클라이언트에서 전날 데이터 필터링
       const incompleteTodos = allIncompleteTodos.filter(todo => {
-        if (!todo.createdAt) return false;
+        // date 필드가 있으면 date로 체크
+        if (todo.date === yesterdayStr) return true;
         
-        let todoDate;
-        if (todo.createdAt.toDate) {
-          todoDate = todo.createdAt.toDate();
-        } else if (todo.createdAt instanceof Date) {
-          todoDate = todo.createdAt;
-        } else {
-          todoDate = new Date(todo.createdAt);
+        // createdAt 필드가 있으면 createdAt으로 체크
+        if (todo.createdAt) {
+          let todoDate;
+          if (todo.createdAt.toDate) {
+            todoDate = todo.createdAt.toDate();
+          } else if (todo.createdAt instanceof Date) {
+            todoDate = todo.createdAt;
+          } else {
+            todoDate = new Date(todo.createdAt);
+          }
+          
+          return todoDate >= yesterdayStart && todoDate <= yesterdayEnd;
         }
         
-        return todoDate >= yesterdayStart && todoDate <= yesterdayEnd;
+        return false;
       });
 
       devLog('전날 미완료 투두 개수:', incompleteTodos.length);
@@ -623,16 +666,45 @@ const BottomBar = ({
         return;
       }
       
-      const today = new Date().toISOString().slice(0, 10);
+      // 한국 시간 기준으로 오늘 날짜 생성
+      const today = new Date();
+      const todayYear = today.getFullYear();
+      const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
+      const todayDay = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
       
       // 오늘 이미 존재하는 투두 체크 (중복 방지)
       const todayQuery = query(
         collection(db, 'todos'),
-        where('userId', '==', currentUser.uid),
-        where('date', '==', today)
+        where('userId', '==', currentUser.uid)
       );
       const todaySnapshot = await getDocs(todayQuery);
-      const existingTodos = todaySnapshot.docs.map(doc => doc.data().text);
+      
+      // 오늘 날짜 필터링 (date 필드 또는 createdAt 필드로)
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+      
+      const existingTodos = todaySnapshot.docs
+        .map(doc => doc.data())
+        .filter(todo => {
+          // date 필드가 있으면 date로 체크
+          if (todo.date === todayStr) return true;
+          
+          // date 필드가 없으면 createdAt으로 체크
+          if (todo.createdAt) {
+            let todoDate;
+            if (todo.createdAt.toDate) {
+              todoDate = todo.createdAt.toDate();
+            } else if (todo.createdAt instanceof Date) {
+              todoDate = todo.createdAt;
+            } else {
+              todoDate = new Date(todo.createdAt);
+            }
+            return todoDate >= todayStart && todoDate <= todayEnd;
+          }
+          return false;
+        })
+        .map(todo => todo.text);
       
       let addedCount = 0;
       let skippedCount = 0;
@@ -664,7 +736,7 @@ const BottomBar = ({
             text: todo.text,
             completed: false,
             userId: currentUser.uid,
-            date: today,
+            date: todayStr,
             createdAt: new Date(),
             updatedAt: new Date(),
             fromYesterday: true,
@@ -953,6 +1025,8 @@ const BottomBar = ({
           >
             <CalculateIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF9800', mr: 0.5 }} />
             {!isMobile && '[견적]'} {stats.estimateCount ?? 0}
+            {/* 디버깅용 로그 */}
+            {console.log('🔥 하단바 견적 카운트 표시:', stats.estimateCount)}
           </Box>
           <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <CategoryIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#9E9E9E', mr: 0.5 }} />
@@ -1272,22 +1346,34 @@ const BottomBar = ({
               const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
               
               const todayTodos = todoList.filter(item => {
-                if (!item.createdAt) return false;
+                // 한국 시간 기준으로 오늘 날짜 생성
+                const todayYear = today.getFullYear();
+                const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
+                const todayDay = String(today.getDate()).padStart(2, '0');
+                const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
                 
-                let itemDate;
-                if (item.createdAt.toDate) {
-                  // Firestore Timestamp
-                  itemDate = item.createdAt.toDate();
-                } else if (item.createdAt instanceof Date) {
-                  // Date 객체
-                  itemDate = item.createdAt;
-                } else {
-                  // 문자열이나 숫자
-                  itemDate = new Date(item.createdAt);
+                // 1. date 필드가 있으면 date로 체크 (우선순위)
+                if (item.date === todayStr) return true;
+                
+                // 2. createdAt 필드가 있으면 createdAt으로 체크
+                if (item.createdAt) {
+                  let itemDate;
+                  if (item.createdAt.toDate) {
+                    // Firestore Timestamp
+                    itemDate = item.createdAt.toDate();
+                  } else if (item.createdAt instanceof Date) {
+                    // Date 객체
+                    itemDate = item.createdAt;
+                  } else {
+                    // 문자열이나 숫자
+                    itemDate = new Date(item.createdAt);
+                  }
+                  
+                  // 오늘 00:00:00 ~ 23:59:59 사이에 생성된 항목만
+                  return itemDate >= todayStart && itemDate <= todayEnd;
                 }
                 
-                // 오늘 00:00:00 ~ 23:59:59 사이에 생성된 항목만
-                return itemDate >= todayStart && itemDate <= todayEnd;
+                return false;
               });
               
               // 최신 순서로 정렬 (확장 팝업에서도 동일한 정렬 적용)

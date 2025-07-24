@@ -131,6 +131,67 @@ const Claims = () => {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   };
 
+  // 모바일 스와이프 뒤로가기 비활성화 (안전한 방법)
+  useEffect(() => {
+    if (isMobile) {
+      let startX = 0;
+      let startY = 0;
+      let isSwiping = false;
+      
+      const handleTouchStart = (e) => {
+        // 버튼이나 입력 필드에서는 스와이프 방지하지 않음
+        const target = e.target;
+        if (target.tagName === 'BUTTON' || 
+            target.tagName === 'INPUT' || 
+            target.tagName === 'TEXTAREA' ||
+            target.closest('button') ||
+            target.closest('input') ||
+            target.closest('textarea') ||
+            target.closest('[role="button"]') ||
+            target.closest('.MuiButton-root') ||
+            target.closest('.MuiIconButton-root') ||
+            target.closest('.MuiAutocomplete-root')) {
+          return;
+        }
+        
+        if (e.touches.length === 1) {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+          isSwiping = false;
+        }
+      };
+      
+      const handleTouchMove = (e) => {
+        if (!startX || !startY) return;
+        
+        const deltaX = e.touches[0].clientX - startX;
+        const deltaY = e.touches[0].clientY - startY;
+        
+        // 좌우 스와이프가 상하보다 크고, 충분한 거리를 이동했을 때만 방지
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 100) {
+          isSwiping = true;
+          e.preventDefault();
+        }
+      };
+      
+      const handleTouchEnd = () => {
+        startX = 0;
+        startY = 0;
+        isSwiping = false;
+      };
+      
+      document.addEventListener('touchstart', handleTouchStart, { passive: true });
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchend', handleTouchEnd, { passive: true });
+      
+      return () => {
+        document.removeEventListener('touchstart', handleTouchStart);
+        document.removeEventListener('touchmove', handleTouchMove);
+        document.removeEventListener('touchend', handleTouchEnd);
+      };
+    }
+  }, [isMobile]);
+
   // 실시간 데이터 구독
   useEffect(() => {
     console.log('Claims 컴포넌트 마운트됨, currentMonth:', currentMonth);

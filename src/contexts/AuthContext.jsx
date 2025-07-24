@@ -231,17 +231,69 @@ export const AuthProvider = ({ children }) => {
         console.log('AuthContext - Firebase Auth 상태 변경:', user ? `로그인 (${user.uid})` : '로그아웃');
         clearTimeout(loadingTimeout); // Auth 상태 변경 시 타임아웃 클리어
         
+        // 개발 환경에서는 자동 로그인
+        if (!user && import.meta.env.DEV) {
+          console.log('AuthContext - 개발 환경에서 자동 로그인 설정');
+          const mockUser = {
+            uid: 'dev-user-123',
+            email: 'dev@example.com',
+            displayName: '개발자',
+            role: 'admin',
+            name: '개발자',
+            organization: '개발팀'
+          };
+          setCurrentUser(mockUser);
+          setLoading(false);
+          return;
+        }
+        
         // 세션 동기화 실행
         await syncSession(user);
       }, (error) => {
         // Firebase Auth 초기화 오류 처리
         console.error('Firebase Auth 초기화 오류:', error);
+        
+        // 개발 환경에서는 오류 무시하고 자동 로그인
+        if (import.meta.env.DEV) {
+          console.log('AuthContext - 개발 환경에서 Firebase 오류 무시하고 자동 로그인');
+          const mockUser = {
+            uid: 'dev-user-123',
+            email: 'dev@example.com',
+            displayName: '개발자',
+            role: 'admin',
+            name: '개발자',
+            organization: '개발팀'
+          };
+          setCurrentUser(mockUser);
+          setLoading(false);
+          clearTimeout(loadingTimeout);
+          return;
+        }
+        
         setCurrentUser(null);
         setLoading(false);
         clearTimeout(loadingTimeout);
       });
     } catch (error) {
       console.error('Auth 상태 리스너 설정 실패:', error);
+      
+      // 개발 환경에서는 오류 무시하고 자동 로그인
+      if (import.meta.env.DEV) {
+        console.log('AuthContext - 개발 환경에서 Auth 리스너 오류 무시하고 자동 로그인');
+        const mockUser = {
+          uid: 'dev-user-123',
+          email: 'dev@example.com',
+          displayName: '개발자',
+          role: 'admin',
+          name: '개발자',
+          organization: '개발팀'
+        };
+        setCurrentUser(mockUser);
+        setLoading(false);
+        clearTimeout(loadingTimeout);
+        return;
+      }
+      
       setCurrentUser(null);
       setLoading(false);
       clearTimeout(loadingTimeout);

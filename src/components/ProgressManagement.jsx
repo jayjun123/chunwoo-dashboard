@@ -96,7 +96,11 @@ const ProgressManagement = () => {
       progressPayments: [
         ...formData.progressPayments,
         {
-          date: new Date().toISOString().split('T')[0],
+          date: (() => {
+            const now = new Date();
+            const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+            return koreanTime.toISOString().split('T')[0];
+          })(),
           amount: 0,
           description: ''
         }
