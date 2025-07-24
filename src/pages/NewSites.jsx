@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Grid, Paper, Tabs, Tab, TextField, List, ListItem, ListItemText, Button, IconButton, Typography, Box, FormControl, Select, MenuItem, Checkbox, FormControlLabel, InputLabel, Autocomplete } from '@mui/material';
+import { Grid, Paper, Tabs, Tab, TextField, List, ListItem, ListItemText, Button, IconButton, Typography, Box, FormControl, Select, MenuItem, Checkbox, FormControlLabel, InputLabel, Autocomplete, Chip } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -14,6 +14,7 @@ import { formatContractAmount, formatAdvanceAmount, formatGisungAmount } from '.
 
 const STATUS_OPTIONS = ['예정', '진행중', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급', '관급'];
+const ESTIMATE_STATUS_OPTIONS = ['있음', '없음', '입찰', '현설', '기타'];
 
 const initialFormState = {
   name: '',
@@ -34,6 +35,8 @@ const initialFormState = {
   desc: '',
   isFavorite: false,
   items: [],
+  estimateStatus: '',
+  estimateNote: '',
 };
 
 const NewSites = () => {
@@ -233,6 +236,13 @@ const NewSites = () => {
   const handleEditClick = () => setIsEditing(true);
 
   const handleSave = async () => {
+    // 기타 선택 시 견적 비고 필수 검증
+    if (form.estimateStatus === '기타' && !form.estimateNote?.trim()) {
+      alert('기타 선택 시 견적 비고를 반드시 입력해야 합니다.');
+      estimateNoteRef.current?.focus();
+      return;
+    }
+
     const formDataToSave = { ...form, startDate: formatDateForStorage(form.startDate), endDate: formatDateForStorage(form.endDate) };
     if (selectedSite) {
       if (window.confirm('수정하시겠습니까?')) {
@@ -300,6 +310,24 @@ const NewSites = () => {
     }
   };
 
+  // 견적 유무 색상 반환 함수
+  const getEstimateStatusColor = (status) => {
+    switch (status) {
+      case '있음':
+        return '#4caf50';
+      case '없음':
+        return '#f44336';
+      case '입찰':
+        return '#9c27b0';
+      case '현설':
+        return '#00bcd4';
+      case '기타':
+        return '#ff9800';
+      default:
+        return '#757575';
+    }
+  };
+
   const inputRef1 = useRef();
   const inputRef2 = useRef();
   const addressRef = useRef();
@@ -310,6 +338,8 @@ const NewSites = () => {
   const phoneRef = useRef();
   const teamRef = useRef();
   const descRef = useRef();
+  const estimateStatusRef = useRef();
+  const estimateNoteRef = useRef();
 
   return (
     <Box 
@@ -438,15 +468,39 @@ const NewSites = () => {
             >
               <ListItemText 
                 primary={site.name} 
-                secondary={site.status}
+                secondary={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <Typography 
+                      sx={{ 
+                        fontSize: isMobile ? '0.7rem' : 'inherit',
+                        color: selectedSite?.id === site.id ? '#90caf9' : '#aaa'
+                      }}
+                    >
+                      {site.status}
+                    </Typography>
+                    {site.estimateStatus && (
+                      <Chip
+                        label={site.estimateStatus}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          borderColor: getEstimateStatusColor(site.estimateStatus),
+                          color: getEstimateStatusColor(site.estimateStatus),
+                          fontSize: isMobile ? '0.6rem' : '0.7rem',
+                          height: isMobile ? '16px' : '20px',
+                          '& .MuiChip-label': {
+                            px: isMobile ? 0.5 : 1
+                          }
+                        }}
+                        title={`견적 유무: ${site.estimateStatus}`}
+                      />
+                    )}
+                  </Box>
+                }
                 primaryTypographyProps={{ 
                   fontSize: isMobile ? '0.8rem' : 'inherit',
                   fontWeight: selectedSite?.id === site.id ? 'bold' : 'normal',
                   color: selectedSite?.id === site.id ? '#90caf9' : '#fff'
-                }}
-                secondaryTypographyProps={{ 
-                  fontSize: isMobile ? '0.7rem' : 'inherit',
-                  color: selectedSite?.id === site.id ? '#90caf9' : '#aaa'
                 }}
               />
             </ListItem>
@@ -726,7 +780,62 @@ const NewSites = () => {
                  onFocus={scrollFocus(teamRef)}
                />
              </Box>
-             <Box sx={{ flex: isMobile ? 'none' : 8 }}>
+             <Box sx={{ flex: isMobile ? 'none' : 4 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 견적유무
+               </Typography>
+               <FormControl fullWidth size="small">
+                 <Select 
+                   name="estimateStatus" 
+                   value={form.estimateStatus ?? ''} 
+                   onChange={handleChange} 
+                   disabled={isReadOnly}
+                   inputRef={estimateStatusRef}
+                   onFocus={scrollFocus(estimateStatusRef)}
+                   sx={{
+                     '& .MuiSelect-select': {
+                       color: form.estimateStatus ? getEstimateStatusColor(form.estimateStatus) : 'inherit',
+                       fontWeight: form.estimateStatus ? 'bold' : 'normal'
+                     }
+                   }}
+                 >
+                   <MenuItem value="">선택하세요</MenuItem>
+                   {ESTIMATE_STATUS_OPTIONS.map(opt => (
+                     <MenuItem key={opt} value={opt} sx={{ 
+                       color: getEstimateStatusColor(opt),
+                       fontWeight: 'bold',
+                       '&:hover': {
+                         backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                       }
+                     }}>
+                       {opt}
+                     </MenuItem>
+                   ))}
+                 </Select>
+               </FormControl>
+             </Box>
+             <Box sx={{ flex: isMobile ? 'none' : 4 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 견적비고 {form.estimateStatus === '기타' && <span style={{color: '#f44336'}}>*</span>}
+               </Typography>
+               <TextField 
+                 name="estimateNote" 
+                 value={form.estimateNote ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 disabled={isReadOnly} 
+                 inputRef={estimateNoteRef}
+                 onFocus={scrollFocus(estimateNoteRef)}
+                 placeholder={form.estimateStatus === '기타' ? "기타 선택 시 반드시 입력하세요" : "견적 관련 메모"}
+                 error={form.estimateStatus === '기타' && !form.estimateNote?.trim()}
+                 helperText={form.estimateStatus === '기타' && !form.estimateNote?.trim() ? "기타 선택 시 비고를 입력해야 합니다" : ""}
+               />
+             </Box>
+           </Box>
+           
+           <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
+             <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  기타사항
                </Typography>
