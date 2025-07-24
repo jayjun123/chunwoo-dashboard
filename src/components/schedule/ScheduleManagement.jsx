@@ -920,8 +920,8 @@ const ScheduleManagement = ({
             borderRadius: 2, 
             display: 'flex',
             flexDirection: 'column', 
-            height: 'calc(100% - 30px)',
-            maxHeight: { xs: '290px', md: 'calc(100% - 30px)' }, // 모바일에서 20px 키움 (270px → 290px)
+            height: 'calc(100vh - 120px)',
+            maxHeight: { xs: '290px', md: 'calc(100vh - 120px)' }, // 하단바 고려하여 높이 조정
             position: { xs: 'static', md: 'static' },
             transform: { xs: 'none', md: 'none' },
             mt: { xs: 0, md: '15px' }, // PC에서만 위쪽 여백 15px 추가

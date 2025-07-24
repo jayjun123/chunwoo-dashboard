@@ -654,8 +654,8 @@ const CustomSchedule = () => {
             width: { xs: '100%', md: 280 },
             border: '1px solid', borderColor: 'divider', borderRadius: 2,
             flexDirection: 'column', 
-            height: 'calc(100% - 30px)',
-            maxHeight: { xs: '270px', md: 'calc(100% - 30px)' },
+            height: 'calc(100vh - 120px)',
+            maxHeight: { xs: '270px', md: 'calc(100vh - 120px)' },
             position: { xs: 'relative', md: 'static' },
             display: 'flex',
           }}>
