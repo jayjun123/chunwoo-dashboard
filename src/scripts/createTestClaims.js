@@ -1,15 +1,15 @@
 const { initializeApp } = require('firebase/app');
 const { getFirestore, collection, addDoc, serverTimestamp } = require('firebase/firestore');
 
-// Firebase 설정
+// Firebase 설정 (환경변수 사용)
 const firebaseConfig = {
-  apiKey: "AIzaSyATCGXGD2_teiJFdpng9J2_fvZRItPef0w",
-  authDomain: "chunwooo-ebaseapp.com",
-  projectId: "chunwooo-edf9f",
-  storageBucket: "chunwooo-edf9f.firebasestorage.app",
-  messagingSenderId: "417029078660",
-  appId: "1:417029078660:web:00e23d79af77876e598cd1",
-  measurementId: "G-653CL9XWFH"
+  apiKey: process.env.VITE_FIREBASE_API_KEY,
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.VITE_FIREBASE_APP_ID,
+  measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Firebase 초기화

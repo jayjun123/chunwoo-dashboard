@@ -715,7 +715,7 @@ export default function ImportantSite() {
         />
         </Box>
       </Box>
-      <Box sx={{ 
+      <Grid container spacing={2} sx={{ 
         width: '100%', 
         height: 'calc(100vh - 200px)', 
         overflowY: 'auto',
@@ -738,46 +738,46 @@ export default function ImportantSite() {
           // 기성 데이터 계산 완료 (로그 제거됨)
           
           return (
-            <Paper 
-              key={site.id} 
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleDragOver(e);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleDrop(e, site.id);
-              }}
-              sx={{ 
-                mb: 2.5, // 카드간 간격 20px (2.5 * 8px = 20px)
-                borderRadius: 4, 
-                boxShadow: 6, 
-                bgcolor: '#181f2e', 
-                color: '#fff', 
-                display: 'flex', 
-                flexDirection: { xs: 'column', md: 'row' }, 
-                alignItems: 'stretch', 
-                minHeight: isMobile ? 'auto' : 380, 
-                minWidth: isMobile ? 'calc(100vw - 20px)' : 1000, 
-                width: isMobile ? 'calc(100vw - 20px)' : '100%', 
-                p: 0, 
-                overflow: 'hidden',
-                marginLeft: isMobile ? '2px' : 0,
-                marginRight: isMobile ? '5px' : 0,
-                cursor: 'grab',
-                '&:active': {
-                  cursor: 'grabbing'
-                },
-                opacity: draggedSiteId === site.id ? 0.5 : 1,
-                transform: draggedSiteId === site.id ? 'rotate(5deg)' : 'none',
-                transition: 'opacity 0.2s, transform 0.2s',
-                '&:hover': {
-                  boxShadow: 8
-                }
-              }}
-            >
+            <Grid item xs={12} md={6} key={site.id}>
+              <Paper 
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDragOver(e);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDrop(e, site.id);
+                }}
+                sx={{ 
+                  mb: 2.5, // 카드간 간격 20px (2.5 * 8px = 20px)
+                  borderRadius: 4, 
+                  boxShadow: 6, 
+                  bgcolor: '#181f2e', 
+                  color: '#fff', 
+                  display: 'flex', 
+                  flexDirection: { xs: 'column', md: 'row' }, 
+                  alignItems: 'stretch', 
+                  minHeight: isMobile ? 'auto' : 380, 
+                  minWidth: isMobile ? 'calc(100vw - 20px)' : 'auto', 
+                  width: '100%', 
+                  p: 0, 
+                  overflow: 'hidden',
+                  marginLeft: isMobile ? '2px' : 0,
+                  marginRight: isMobile ? '5px' : 0,
+                  cursor: 'grab',
+                  '&:active': {
+                    cursor: 'grabbing'
+                  },
+                  opacity: draggedSiteId === site.id ? 0.5 : 1,
+                  transform: draggedSiteId === site.id ? 'rotate(5deg)' : 'none',
+                  transition: 'opacity 0.2s, transform 0.2s',
+                  '&:hover': {
+                    boxShadow: 8
+                  }
+                }}
+              >
               {/* 왼쪽: 정보/버튼 */}
               <Box sx={{ 
                 flex: 2.5, 
@@ -1087,9 +1087,10 @@ export default function ImportantSite() {
                 </Box>
               )}
             </Paper>
-          );
-        })}
-      </Box>
+          </Grid>
+        );
+      })}
+      </Grid>
     </Box>
   );
 } 

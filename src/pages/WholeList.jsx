@@ -26,12 +26,12 @@ import {
   Tooltip,
   Checkbox,
   FormControlLabel,
-  TableSortLabel
+  TableSortLabel,
+  Autocomplete
 } from '@mui/material';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Visibility as ViewIcon,
   Download as DownloadIcon,
   Upload as UploadIcon,
   Add as AddIcon,
@@ -98,7 +98,23 @@ const WholeList = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [sortBy, setSortBy] = useState('createdAt');
   const [order, setOrder] = useState('desc');
+  const [vendors, setVendors] = useState([]); // 거래처 데이터 상태 추가
   const navigate = useNavigate();
+
+  // 거래처 데이터 로드
+  const loadVendors = async () => {
+    try {
+      const vendorsQuery = query(collection(db, 'vendorManagement'), orderBy('companyName', 'asc'));
+      const querySnapshot = await getDocs(vendorsQuery);
+      const vendorsData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setVendors(vendorsData);
+    } catch (error) {
+      console.error('거래처 데이터 로드 오류:', error);
+    }
+  };
 
   // Firebase에서 데이터 실시간 가져오기
   useEffect(() => {
@@ -120,6 +136,9 @@ const WholeList = () => {
       setSites(sitesData);
       setLoading(false);
     });
+
+    // 거래처 데이터도 함께 로드
+    loadVendors();
 
     return () => unsubscribe();
   }, []);
@@ -353,9 +372,7 @@ const WholeList = () => {
   };
 
   // 현장 상세 페이지로 이동
-  const handleViewDetail = (siteId) => {
-    window.location.href = `/sites/${siteId}`;
-  };
+
 
   // 주요현장(별) 토글
   const handleToggleFavorite = async (site) => {
@@ -610,9 +627,9 @@ const WholeList = () => {
                       />
                     </TableCell>
                     <TableCell>{site.contractType}</TableCell>
-                    <TableCell>{site.contractAmount}</TableCell>
-                    <TableCell>{site.advance}</TableCell>
-                    <TableCell>{site.totalProgress}</TableCell>
+                    <TableCell>{Number(site.contractAmount || 0).toLocaleString()}</TableCell>
+                    <TableCell>{Number(site.advance || 0).toLocaleString()}</TableCell>
+                    <TableCell>{Number(site.totalProgress || 0).toLocaleString()}</TableCell>
                     <TableCell>{site.address}</TableCell>
                     <TableCell>{site.startDate}</TableCell>
                     <TableCell>{site.endDate}</TableCell>
@@ -630,11 +647,6 @@ const WholeList = () => {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Tooltip title="상세보기">
-                          <IconButton size="small" onClick={() => handleViewDetail(site.id)}>
-                            <ViewIcon />
-                          </IconButton>
-                        </Tooltip>
                         <Tooltip title="수정">
                           <IconButton size="small" onClick={() => handleEdit(site)}>
                             <EditIcon />
@@ -671,6 +683,7 @@ const WholeList = () => {
         site={selectedSite}
         onClose={handleCloseEdit}
         onSave={handleSave}
+        vendors={vendors}
       />
 
       {/* 엑셀 업로드 다이얼로그 */}
@@ -717,7 +730,7 @@ const WholeList = () => {
 };
 
 // 편집 다이얼로그 컴포넌트
-const EditDialog = ({ open, site, onClose, onSave }) => {
+const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
   const [form, setForm] = useState({
     name: '',
     status: '',
@@ -907,14 +920,22 @@ const EditDialog = ({ open, site, onClose, onSave }) => {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField
-              name="companyName"
-              label="회사명"
+            <Autocomplete
+              options={vendors.map(vendor => vendor.companyName)}
               value={form.companyName}
-              onChange={handleChange}
-              fullWidth
-              inputRef={inputRef9}
-              onFocus={scrollFocus(inputRef9)}
+              onChange={(event, newValue) => {
+                const e = { target: { name: 'companyName', value: newValue || '' } };
+                handleChange(e);
+              }}
+              freeSolo
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="회사명 (거래처 선택 또는 입력)"
+                  inputRef={inputRef9}
+                  onFocus={scrollFocus(inputRef9)}
+                />
+              )}
             />
             <TextField
               name="manager"

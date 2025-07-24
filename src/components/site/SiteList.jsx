@@ -119,6 +119,29 @@ const SiteList = () => {
     }
   };
 
+  const getEstimateStatusColor = (status) => {
+    if (!status) return '#757575';
+    
+    switch (status) {
+      case '제출':
+        return '#43a047';
+      case '미제출':
+        return '#f44336';
+      case '예정':
+        return '#2e7d32';
+      case '미정':
+        return '#d32f2f';
+      case '입찰':
+        return '#ff9800';
+      case '현설':
+        return '#2196f3';
+      case '기타':
+        return '#9c27b0';
+      default:
+        return '#757575';
+    }
+  };
+
   return (
     <Box sx={{ p: 3, ml: isMobile ? '4px' : 0, mt: isMobile ? '200px' : 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
@@ -153,12 +176,25 @@ const SiteList = () => {
                 <Typography color="textSecondary" gutterBottom>
                   {site.location}
                 </Typography>
-                <Chip
-                  label={site.status}
-                  color={getStatusColor(site.status)}
-                  size="small"
-                  sx={{ mb: 1 }}
-                />
+                <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                  <Chip
+                    label={site.status}
+                    color={getStatusColor(site.status)}
+                    size="small"
+                  />
+                  {site.estimateStatus && (
+                    <Chip
+                      label={site.estimateStatus}
+                      size="small"
+                      sx={{
+                        backgroundColor: getEstimateStatusColor(site.estimateStatus),
+                        color: 'white',
+                        fontSize: '0.75rem'
+                      }}
+                      title={`견적 상태: ${site.estimateStatus}`}
+                    />
+                  )}
+                </Box>
                 <Typography variant="body2" color="textSecondary">
                   담당자: {site.manager}
                 </Typography>

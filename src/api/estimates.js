@@ -14,6 +14,7 @@ import {
   getDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { normalizeDate } from '../utils/dateUtils';
 
 // 견적요청 컬렉션 참조
 const estimatesCollection = collection(db, 'estimates');
@@ -37,14 +38,23 @@ export const subscribeToEstimates = (callback) => {
   });
 };
 
+
+
 // 견적요청 생성
 export const createEstimate = async (estimateData) => {
   try {
-    const docRef = await addDoc(estimatesCollection, {
+    // 날짜 필드 정규화
+    const normalizedData = {
       ...estimateData,
+      receptionDate: normalizeDate(estimateData.receptionDate),
+      submissionDeadline: normalizeDate(estimateData.submissionDeadline),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
+    };
+    
+    console.log('견적 생성 - 정규화된 데이터:', normalizedData);
+    
+    const docRef = await addDoc(estimatesCollection, normalizedData);
     return docRef.id;
   } catch (error) {
     console.error('견적요청 생성 실패:', error);
@@ -55,11 +65,25 @@ export const createEstimate = async (estimateData) => {
 // 견적요청 수정
 export const updateEstimate = async (estimateId, updateData) => {
   try {
-    const estimateRef = doc(db, 'estimates', estimateId);
-    await updateDoc(estimateRef, {
+    // 날짜 필드 정규화
+    const normalizedData = {
       ...updateData,
+      receptionDate: updateData.receptionDate ? normalizeDate(updateData.receptionDate) : undefined,
+      submissionDeadline: updateData.submissionDeadline ? normalizeDate(updateData.submissionDeadline) : undefined,
       updatedAt: serverTimestamp()
+    };
+    
+    // undefined 값 제거
+    Object.keys(normalizedData).forEach(key => {
+      if (normalizedData[key] === undefined) {
+        delete normalizedData[key];
+      }
     });
+    
+    console.log('견적 수정 - 정규화된 데이터:', normalizedData);
+    
+    const estimateRef = doc(db, 'estimates', estimateId);
+    await updateDoc(estimateRef, normalizedData);
   } catch (error) {
     console.error('견적요청 수정 실패:', error);
     throw error;

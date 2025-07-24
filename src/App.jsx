@@ -73,7 +73,8 @@ const ProtectedRoute = ({ children }) => {
     );
   }
   
-  if (!currentUser) {
+  // 개발 환경에서는 로그인 우회
+  if (!currentUser && import.meta.env.PROD) {
     return <Login />;
   }
   
