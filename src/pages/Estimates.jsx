@@ -601,20 +601,30 @@ const Estimates = () => {
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="의뢰자"
+              <Autocomplete
+                options={vendors.map(vendor => vendor.name).filter(name => name)} // 빈 값 제거
                 value={formData.requester}
-                onChange={(e) => setFormData({ ...formData, requester: e.target.value })}
-                required
+                onChange={(event, newValue) => setFormData({ ...formData, requester: newValue || '' })}
+                freeSolo
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="의뢰자 (거래처 선택 또는 입력)"
+                    required
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '& fieldset': { borderColor: '#444' },
+                        '&:hover fieldset': { borderColor: '#666' },
+                        '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                      },
+                      '& .MuiInputLabel-root': { color: '#ccc' },
+                      '& .MuiInputBase-input': { color: '#fff' }
+                    }}
+                  />
+                )}
                 sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#444' },
-                    '&:hover fieldset': { borderColor: '#666' },
-                    '&.Mui-focused fieldset': { borderColor: '#ff9800' }
-                  },
-                  '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: '#fff' }
+                  '& .MuiAutocomplete-popupIndicator': { color: '#ccc' },
+                  '& .MuiAutocomplete-clearIndicator': { color: '#ccc' }
                 }}
               />
             </Grid>

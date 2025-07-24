@@ -62,6 +62,29 @@ const SiteManagement = () => {
     { value: 'suspended', label: '중단', color: 'error' },
   ];
 
+  const getEstimateStatusColor = (status) => {
+    if (!status) return '#757575';
+    
+    switch (status) {
+      case '제출':
+        return '#43a047';
+      case '미제출':
+        return '#f44336';
+      case '예정':
+        return '#2e7d32';
+      case '미정':
+        return '#d32f2f';
+      case '입찰':
+        return '#ff9800';
+      case '현설':
+        return '#2196f3';
+      case '기타':
+        return '#9c27b0';
+      default:
+        return '#757575';
+    }
+  };
+
   useEffect(() => {
     fetchSites();
   }, []);
@@ -265,36 +288,51 @@ const SiteManagement = () => {
       )}
 
       <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-        <Table>
+        <Table sx={{ '& .MuiTableCell-root': { borderBottom: '1px solid #e0e0e0' } }}>
           <TableHead>
             <TableRow>
-              <TableCell>현장명</TableCell>
-              <TableCell>주소</TableCell>
-              <TableCell>담당자</TableCell>
-              <TableCell>연락처</TableCell>
-              <TableCell>상태</TableCell>
-              <TableCell>시작일</TableCell>
-              <TableCell>종료일</TableCell>
-              <TableCell>관리</TableCell>
+              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>현장명</TableCell>
+              {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>주소</TableCell>}
+              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>담당자</TableCell>
+              {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>연락처</TableCell>}
+              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>상태</TableCell>
+              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>견적</TableCell>
+              {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>시작일</TableCell>}
+              {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>종료일</TableCell>}
+              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>관리</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {sites.map((site) => (
               <TableRow key={site.id}>
-                <TableCell>{site.name}</TableCell>
-                <TableCell>{site.address}</TableCell>
-                <TableCell>{site.manager}</TableCell>
-                <TableCell>{site.phone}</TableCell>
-                <TableCell>
+                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.name}</TableCell>
+                {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.address}</TableCell>}
+                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.manager}</TableCell>
+                {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.phone}</TableCell>}
+                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>
                   <Chip
                     label={statusOptions.find(option => option.value === site.status)?.label}
                     color={statusOptions.find(option => option.value === site.status)?.color}
                     size="small"
                   />
                 </TableCell>
-                <TableCell>{site.startDate}</TableCell>
-                <TableCell>{site.endDate}</TableCell>
-                <TableCell>
+                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>
+                  {site.estimateStatus && (
+                    <Chip
+                      label={site.estimateStatus}
+                      size="small"
+                      sx={{
+                        backgroundColor: getEstimateStatusColor(site.estimateStatus),
+                        color: 'white',
+                        fontSize: '0.75rem'
+                      }}
+                      title={`견적 상태: ${site.estimateStatus}`}
+                    />
+                  )}
+                </TableCell>
+                {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.startDate}</TableCell>}
+                {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.endDate}</TableCell>}
+                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>
                   <IconButton
                     size="small"
                     onClick={() => navigate(`/sites/${site.id}`)}
@@ -318,7 +356,7 @@ const SiteManagement = () => {
             ))}
             {sites.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={isMobile ? 5 : 9} align="center" sx={{ height: '60px', verticalAlign: 'middle' }}>
                   등록된 현장이 없습니다.
                 </TableCell>
               </TableRow>
