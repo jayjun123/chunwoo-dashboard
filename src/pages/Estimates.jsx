@@ -110,10 +110,10 @@ const Estimates = () => {
     
     try {
       setLoading(true);
+      // 인덱스 생성 전까지 임시로 정렬 없이 로드
       const estimatesQuery = query(
         collection(db, collections.estimates), 
-        where('userId', '==', currentUser?.uid),
-        orderBy(sortField, sortDirection)
+        where('userId', '==', currentUser?.uid)
       );
       console.log('견적 쿼리 생성:', estimatesQuery);
       
@@ -126,7 +126,19 @@ const Estimates = () => {
       }));
       console.log('견적 데이터 변환 완료:', estimatesData.length, '개');
       
-      setEstimates(estimatesData);
+      // 클라이언트에서 정렬
+      const sortedEstimates = estimatesData.sort((a, b) => {
+        const aValue = a[sortField] || '';
+        const bValue = b[sortField] || '';
+        
+        if (sortDirection === 'asc') {
+          return aValue > bValue ? 1 : -1;
+        } else {
+          return aValue < bValue ? 1 : -1;
+        }
+      });
+      
+      setEstimates(sortedEstimates);
     } catch (error) {
       console.error('견적 데이터 로드 오류:', error);
       console.error('오류 상세:', {
