@@ -8,17 +8,22 @@ import { getAnalytics, isSupported } from 'firebase/analytics';
 let firebaseConfig;
 
 if (import.meta.env.DEV) {
-  // 개발 환경용 임시 설정 (실제 값으로 교체 필요)
+  // 개발 환경에서도 환경변수 사용 (없으면 기본값 사용)
   firebaseConfig = {
-    apiKey: "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-    authDomain: "your-project.firebaseapp.com",
-    projectId: "your-project-id",
-    storageBucket: "your-project.appspot.com",
-    messagingSenderId: "123456789",
-    appId: "1:123456789:web:abcdef123456",
-    measurementId: "G-XXXXXXXXXX"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "your-project.firebaseapp.com",
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "your-project-id",
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "your-project.appspot.com",
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789",
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789:web:abcdef123456",
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-XXXXXXXXXX"
   };
-  console.warn('⚠️ 개발 환경에서 임시 Firebase 설정을 사용합니다.');
+  
+  if (!import.meta.env.VITE_FIREBASE_API_KEY) {
+    console.warn('⚠️ 개발 환경에서 기본 Firebase 설정을 사용합니다. .env 파일을 확인해주세요.');
+  } else {
+    console.log('✅ 개발 환경에서 환경변수 Firebase 설정을 사용합니다.');
+  }
 } else {
   // 프로덕션 환경에서는 환경변수 사용
   firebaseConfig = {
@@ -141,7 +146,8 @@ export const collections = {
   documents: 'documents',   // 문서 관리
   schedules: 'schedules',   // 일정 관리
   vendors: 'vendors',       // 거래처 관리
-  gisung: 'gisung'          // 기성 관리
+  gisung: 'gisung',         // 기성 관리
+  estimates: 'estimates'    // 견적 관리
 };
 
 // 최적화된 쿼리 함수들
