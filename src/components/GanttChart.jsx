@@ -351,13 +351,15 @@ const GanttChart = () => {
   };
 
   // 더블클릭 처리
-  const handleSiteDoubleClick = (site, e) => {
+  const handleSiteDoubleClick = (schedule, e) => {
     e.stopPropagation();
-    handleColorDialogOpen(site.id);
+    console.log('더블클릭된 현장:', schedule);
+    handleColorDialogOpen(schedule.id);
   };
 
   // 색상 선택 다이얼로그 열기
   const handleColorDialogOpen = (siteId) => {
+    console.log('색상 다이얼로그 열기 - 현장 ID:', siteId);
     setSelectedSiteForColor(siteId);
     setColorDialogOpen(true);
   };
@@ -365,6 +367,8 @@ const GanttChart = () => {
   // 색상 변경
   const handleColorChange = async (newColor) => {
     if (!selectedSiteForColor) return;
+    
+    console.log('색상 변경 시도:', { siteId: selectedSiteForColor, newColor });
     
     try {
       // Firebase에 색상 저장
@@ -379,6 +383,7 @@ const GanttChart = () => {
         [selectedSiteForColor]: newColor
       }));
       
+      console.log('색상 변경 성공:', newColor);
       setColorDialogOpen(false);
       setSelectedSiteForColor(null);
     } catch (error) {
@@ -1356,7 +1361,7 @@ const GanttChart = () => {
                             },
                             transition: 'all 0.2s ease-in-out'
                           }}
-                        onDoubleClick={(e) => handleSiteDoubleClick(site, e)}
+                        onDoubleClick={(e) => handleSiteDoubleClick(schedule, e)}
                       >
                         {/* 현장명 */}
                         <Typography 
@@ -1476,7 +1481,7 @@ const GanttChart = () => {
           현장 색상 선택
           {selectedSiteForColor && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              {sites.find(s => s.id === selectedSiteForColor)?.name}
+              {sites.find(s => s.id === selectedSiteForColor)?.name || '선택된 현장'}
             </Typography>
           )}
         </DialogTitle>
