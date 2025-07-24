@@ -11,6 +11,7 @@ import {
 } from '../../api/discussions';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { sendNewPostNotification, checkNotificationPermission, loadNotificationSettings } from '../../utils/notificationUtils';
 import { useAuth } from '../../contexts/AuthContext';
 import SearchableSiteSelect from '../common/SearchableSiteSelect';
 import {
@@ -98,6 +99,7 @@ const PCKakaoDiscussion = () => {
   const [editDialog, setEditDialog] = useState({ open: false, discussion: null });
   const [deleteDialog, setDeleteDialog] = useState({ open: false, discussion: null, password: '' });
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState({});
   const [sites, setSites] = useState([]);
   const [sitesLoading, setSitesLoading] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -114,6 +116,12 @@ const PCKakaoDiscussion = () => {
   const passwordInputRef = useRef(null);
 
 
+
+  // 알림 설정 로드
+  useEffect(() => {
+    const settings = loadNotificationSettings();
+    setNotificationSettings(settings);
+  }, []);
 
   // 실시간 데이터 구독
   useEffect(() => {
@@ -205,13 +213,20 @@ const PCKakaoDiscussion = () => {
     }
 
     try {
-      await createDiscussion({
+      const discussionData = {
         ...newDiscussion,
         title: newDiscussion.siteName, // 현장명을 제목으로 사용
         createdBy: currentUser.uid,
         createdAt: new Date(),
         participants: [currentUser.uid]
-      });
+      };
+
+      await createDiscussion(discussionData);
+
+      // 알림 설정이 활성화되어 있고 권한이 허용된 경우 알림 보내기
+      if (notificationSettings.newPost && checkNotificationPermission() === 'granted') {
+        sendNewPostNotification('discussion', discussionData.title);
+      }
 
       setNewDiscussion({
         title: '',

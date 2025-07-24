@@ -36,6 +36,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePopup } from '../../contexts/PopupContext';
 import { format } from 'date-fns';
 import { getKoreanDate, isSameDate } from '../../utils/dateUtils';
+import { 
+  sendCountNotification, 
+  checkNotificationPermission,
+  loadNotificationSettings 
+} from '../../utils/notificationUtils';
 
 // 관리자/마스터 권한 체크 함수
 function isAdminOrMaster(user) {
@@ -92,6 +97,8 @@ const BottomBar = ({
   const [estimateList, setEstimateList] = useState([]); // 금일견적용 별도 상태
   const [etcList, setEtcList] = useState([]); // 금일기타용 별도 상태
   const [sitesList, setSitesList] = useState([]); // 현장 목록
+  const [notificationSettings, setNotificationSettings] = useState({});
+  const [lastNotificationTime, setLastNotificationTime] = useState({});
 
   // 햄버거 메뉴 Drawer 상태
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -99,6 +106,37 @@ const BottomBar = ({
   // PopupProvider 컨텍스트 사용하지 않음 (필요시 나중에 추가)
   const registerPopup = () => {};
   const unregisterPopup = () => {};
+
+  // 알림 설정 로드
+  useEffect(() => {
+    const settings = loadNotificationSettings();
+    setNotificationSettings(settings);
+  }, []);
+
+  // 알림 보내기 함수
+  const sendCountNotificationIfNeeded = (type, count) => {
+    if (!notificationSettings.count || checkNotificationPermission() !== 'granted') {
+      return;
+    }
+
+    const now = Date.now();
+    const lastTime = lastNotificationTime[type] || 0;
+    const timeDiff = now - lastTime;
+
+    // 5분(300000ms) 이내에 같은 타입의 알림을 보낸 적이 있으면 스킵
+    if (timeDiff < 300000) {
+      return;
+    }
+
+    // 카운트가 0보다 클 때만 알림
+    if (count > 0) {
+      sendCountNotification(type, count);
+      setLastNotificationTime(prev => ({
+        ...prev,
+        [type]: now
+      }));
+    }
+  };
   const navigate = useNavigate();
   const theme = useTheme();
   const [isMaster, setIsMaster] = useState(false);
@@ -238,10 +276,20 @@ const BottomBar = ({
       
       console.log('🔥 하단바 stats 업데이트:', newStats);
       
-      setStats(prev => ({
-        ...prev,
-        ...newStats
-      }));
+      setStats(prev => {
+        const updatedStats = {
+          ...prev,
+          ...newStats
+        };
+        
+        // 알림 보내기
+        sendCountNotificationIfNeeded('sites', newStats.todaySites);
+        sendCountNotificationIfNeeded('progress', newStats.progressCount);
+        sendCountNotificationIfNeeded('discussion', newStats.discussionCount);
+        sendCountNotificationIfNeeded('safety', newStats.safetyCount);
+        
+        return updatedStats;
+      });
       
       setProgressList(todaySites.slice(-5).reverse());
       setDiscussionList(todayBids.slice(-5).reverse());
@@ -317,10 +365,17 @@ const BottomBar = ({
       });
       
       // stats 업데이트
-      setStats(prev => ({
-        ...prev,
-        estimateCount: todayEstimates.length
-      }));
+      setStats(prev => {
+        const updatedStats = {
+          ...prev,
+          estimateCount: todayEstimates.length
+        };
+        
+        // 견적 알림 보내기
+        sendCountNotificationIfNeeded('estimates', todayEstimates.length);
+        
+        return updatedStats;
+      });
       
       setEstimateList(todayEstimates.slice(-5).reverse());
     }, (err) => {
@@ -399,7 +454,15 @@ const BottomBar = ({
         완료: done
       });
       
-      setStats(prev => ({ ...prev, todoDone: done, todoTotal: sorted.length }));
+      setStats(prev => {
+        const updatedStats = { ...prev, todoDone: done, todoTotal: sorted.length };
+        
+        // 투두 알림 보내기 (완료되지 않은 투두가 있을 때)
+        const incompleteCount = sorted.length - done;
+        sendCountNotificationIfNeeded('todos', incompleteCount);
+        
+        return updatedStats;
+      });
       setTodoList(sorted.slice(0, 20)); // 최신 20개만 표시
     }, (err) => setError('ToDoList 데이터를 불러오는 중 오류가 발생했습니다.'));
 

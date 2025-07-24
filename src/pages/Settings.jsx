@@ -26,6 +26,13 @@ import {
   loadWindowPosition,
   loadWindowSize
 } from '../utils/windowManager';
+import { 
+  requestNotificationPermission, 
+  saveNotificationSettings, 
+  loadNotificationSettings,
+  checkNotificationPermission,
+  sendNotification 
+} from '../utils/notificationUtils';
 
 const Settings = () => {
   const { currentUser } = useAuth();
@@ -62,6 +69,13 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [notificationSettings, setNotificationSettings] = useState({
+    todo: true,
+    schedule: true,
+    count: true,
+    newPost: true,
+    sound: true
+  });
 
   // fire8803@naver.com은 무조건 마스터 권한
   const isMaster = currentUser?.email === 'fire8803@naver.com' || currentUser?.grade === '마스터';
@@ -74,6 +88,10 @@ const Settings = () => {
     if (!currentUser) return;
     setLoading(true);
     try {
+      // 알림 설정 로드
+      const loadedNotificationSettings = loadNotificationSettings();
+      setNotificationSettings(loadedNotificationSettings);
+      
       // Firestore에서 사용자 정보 fetch
       const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
       if (userDoc.exists()) {
@@ -134,6 +152,52 @@ const Settings = () => {
         [key]: event.target.checked
       }
     }));
+  };
+
+  const handleNotificationSettingChange = (key) => (event) => {
+    const newSettings = {
+      ...notificationSettings,
+      [key]: event.target.checked
+    };
+    setNotificationSettings(newSettings);
+    saveNotificationSettings(newSettings);
+  };
+
+  const handleRequestNotificationPermission = async () => {
+    const granted = await requestNotificationPermission();
+    if (granted) {
+      setSnackbar({
+        open: true,
+        message: '알림 권한이 허용되었습니다.',
+        severity: 'success'
+      });
+    } else {
+      setSnackbar({
+        open: true,
+        message: '알림 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.',
+        severity: 'warning'
+      });
+    }
+  };
+
+  const handleTestNotification = () => {
+    if (checkNotificationPermission() === 'granted') {
+      sendNotification('테스트 알림', {
+        body: '알림 기능이 정상적으로 작동합니다!',
+        tag: 'test-notification'
+      });
+      setSnackbar({
+        open: true,
+        message: '테스트 알림을 보냈습니다.',
+        severity: 'success'
+      });
+    } else {
+      setSnackbar({
+        open: true,
+        message: '알림 권한이 필요합니다.',
+        severity: 'warning'
+      });
+    }
   };
 
   const handleAppearanceChange = (key) => (event) => {
@@ -283,6 +347,26 @@ const Settings = () => {
                       <NotificationsIcon sx={{ mr: 1 }} />
                       <Typography variant="h6">알림 설정</Typography>
                     </Box>
+                    <Box sx={{ mb: 2 }}>
+                      <Button 
+                        variant="outlined" 
+                        onClick={handleRequestNotificationPermission}
+                        sx={{ mb: 1, mr: 1 }}
+                      >
+                        알림 권한 요청
+                      </Button>
+                      <Button 
+                        variant="outlined" 
+                        onClick={handleTestNotification}
+                        sx={{ mb: 1 }}
+                      >
+                        테스트 알림
+                      </Button>
+                      <Typography variant="body2" color="textSecondary">
+                        현재 권한: {checkNotificationPermission() === 'granted' ? '허용됨' : 
+                                   checkNotificationPermission() === 'denied' ? '거부됨' : '요청 필요'}
+                      </Typography>
+                    </Box>
                     <Grid container spacing={2}>
                       <Grid>
                         <FormControlLabel
@@ -326,6 +410,61 @@ const Settings = () => {
                             />
                           }
                           label="주간 보고서"
+                        />
+                      </Grid>
+                      <Grid>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={notificationSettings.todo}
+                              onChange={handleNotificationSettingChange('todo')}
+                            />
+                          }
+                          label="할일 알림"
+                        />
+                      </Grid>
+                      <Grid>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={notificationSettings.schedule}
+                              onChange={handleNotificationSettingChange('schedule')}
+                            />
+                          }
+                          label="일정 알림"
+                        />
+                      </Grid>
+                      <Grid>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={notificationSettings.count}
+                              onChange={handleNotificationSettingChange('count')}
+                            />
+                          }
+                          label="하단바 카운트 알림"
+                        />
+                      </Grid>
+                      <Grid>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={notificationSettings.newPost}
+                              onChange={handleNotificationSettingChange('newPost')}
+                            />
+                          }
+                          label="새글 알림"
+                        />
+                      </Grid>
+                      <Grid>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={notificationSettings.sound}
+                              onChange={handleNotificationSettingChange('sound')}
+                            />
+                          }
+                          label="알림 소리"
                         />
                       </Grid>
                     </Grid>

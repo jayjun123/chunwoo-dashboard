@@ -46,6 +46,12 @@ import { format, startOfDay, endOfDay, isToday, isYesterday, subDays } from 'dat
 import { ko } from 'date-fns/locale';
 
 import { auth } from '../firebase';
+import { 
+  requestNotificationPermission, 
+  sendTodoNotification, 
+  checkNotificationPermission,
+  loadNotificationSettings 
+} from '../utils/notificationUtils';
 
 const statusColor = (completed, planned) => {
   if (completed) return 'success.main';
@@ -69,6 +75,7 @@ const TodoList = () => {
   
   const [syncing, setSyncing] = useState(false);
   const [loadingPreviousDay, setLoadingPreviousDay] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState({});
   
   const { currentUser, loginWithGoogle } = useAuth();
   const { isGoogleTasksEnabled, isMasterUser, syncWithGoogleTasks, loadIncompleteFromPreviousDay } = useTodo();
@@ -187,6 +194,23 @@ const TodoList = () => {
   }, [isAdminOrMasterUser]);
 
 
+
+  // 알림 권한 요청 및 설정 로드
+  useEffect(() => {
+    const initializeNotifications = async () => {
+      const settings = loadNotificationSettings();
+      setNotificationSettings(settings);
+      
+      if (settings.todo && checkNotificationPermission() === 'default') {
+        const granted = await requestNotificationPermission();
+        if (granted) {
+          console.log('알림 권한이 허용되었습니다.');
+        }
+      }
+    };
+    
+    initializeNotifications();
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
@@ -555,14 +579,25 @@ const TodoList = () => {
     }
     
     try {
-      await addDoc(collection(db, collections.todos), {
+      const newTodo = {
         text: todoText,
         completed: false,
         userId: targetUserId,
         date: date,
         createdAt: new Date(),
         carriedOver: false
-      });
+      };
+      
+      const docRef = await addDoc(collection(db, collections.todos), newTodo);
+      
+      // 알림 설정이 활성화되어 있고 권한이 허용된 경우 알림 보내기
+      if (notificationSettings.todo && checkNotificationPermission() === 'granted') {
+        sendTodoNotification({
+          id: docRef.id,
+          ...newTodo
+        });
+      }
+      
       // 해당 날짜의 입력값만 초기화
       setNewTodoInputs(prev => ({
         ...prev,
