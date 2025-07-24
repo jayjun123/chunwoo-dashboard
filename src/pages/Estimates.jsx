@@ -46,6 +46,7 @@ import { db, collections } from '../firebase';
 import * as XLSX from 'xlsx';
 import { getKoreanDate, normalizeDate } from '../utils/dateUtils';
 import { useAuth } from '../contexts/AuthContext';
+import { migrateEstimatesUserId } from '../scripts/migrateEstimatesUserId';
 
 const Estimates = () => {
   const theme = useTheme();
@@ -110,10 +111,9 @@ const Estimates = () => {
     
     try {
       setLoading(true);
-      // 인덱스 생성 전까지 임시로 정렬 없이 로드
+      // 임시로 모든 견적 데이터 로드 (userId 필터링 제거)
       const estimatesQuery = query(
-        collection(db, collections.estimates), 
-        where('userId', '==', currentUser?.uid)
+        collection(db, collections.estimates)
       );
       console.log('견적 쿼리 생성:', estimatesQuery);
       
@@ -627,6 +627,35 @@ const Estimates = () => {
             }}
           >
             견적 추가
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={async () => {
+              if (currentUser) {
+                try {
+                  const count = await migrateEstimatesUserId(currentUser.uid);
+                  setSnackbar({ 
+                    open: true, 
+                    message: `${count}개의 견적 데이터에 userId가 추가되었습니다.`, 
+                    severity: 'success' 
+                  });
+                  loadEstimates(); // 데이터 다시 로드
+                } catch (error) {
+                  setSnackbar({ 
+                    open: true, 
+                    message: `마이그레이션 실패: ${error.message}`, 
+                    severity: 'error' 
+                  });
+                }
+              }
+            }}
+            sx={{
+              borderColor: '#666',
+              color: '#fff',
+              '&:hover': { borderColor: '#ff9800' }
+            }}
+          >
+            데이터 마이그레이션
           </Button>
         </Box>
       </Box>
