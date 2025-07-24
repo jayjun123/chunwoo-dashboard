@@ -663,7 +663,14 @@ export default function ImportantSite() {
   };
 
   return (
-    <Box sx={{ height: 'auto', overflow: 'visible', pb: 4, mt: isMobile ? '30px' : 8 }}>
+    <Box sx={{ 
+      height: '100vh', 
+      overflow: 'hidden', 
+      pb: 4, 
+      mt: isMobile ? '30px' : 8,
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
       {/* 페이지 제목 */}
       <Box sx={{ 
         display: 'flex', 
@@ -717,7 +724,7 @@ export default function ImportantSite() {
       </Box>
       <Grid container spacing={2} sx={{ 
         width: '100%', 
-        height: 'calc(100vh - 200px)', 
+        flex: 1,
         overflowY: 'auto',
         overflowX: 'hidden',
         padding: isMobile ? '0 0 0 6px' : '0 10px',

@@ -4,7 +4,11 @@ import { Box } from '@mui/material';
 
 const GanttChartPage = () => {
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
+    <Box sx={{ 
+      height: '100vh', 
+      backgroundColor: 'background.default',
+      overflow: 'hidden'
+    }}>
       <GanttChart />
     </Box>
   );
