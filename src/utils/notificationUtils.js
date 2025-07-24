@@ -231,3 +231,116 @@ export const checkSiteProgressNotifications = async (sites) => {
     }
   });
 }; 
+
+// 알림 권한 요청
+export const requestNotificationPermission = async () => {
+  if ('Notification' in window) {
+    const permission = await Notification.requestPermission();
+    return permission === 'granted';
+  }
+  return false;
+};
+
+// 브라우저 알림 보내기
+export const sendNotification = (title, options = {}) => {
+  if (Notification.permission === 'granted') {
+    const notification = new Notification(title, {
+      icon: '/icon-192x192.png',
+      badge: '/icon-72x72.png',
+      requireInteraction: false,
+      silent: false,
+      ...options
+    });
+
+    // 알림 클릭 시 앱으로 포커스
+    notification.onclick = () => {
+      window.focus();
+      notification.close();
+    };
+
+    return notification;
+  }
+  return null;
+};
+
+// 일정 알림 스케줄링
+export const scheduleNotification = (date, title, body, reminderMinutes = 30) => {
+  const now = new Date().getTime();
+  const scheduleTime = new Date(date).getTime();
+  const reminderTime = scheduleTime - (reminderMinutes * 60 * 1000); // X분 전
+  const delay = reminderTime - now;
+  
+  if (delay > 0) {
+    setTimeout(() => {
+      sendNotification(title, { 
+        body,
+        tag: 'schedule-reminder',
+        data: { type: 'schedule', date }
+      });
+    }, delay);
+  }
+};
+
+// 투두 알림
+export const sendTodoNotification = (todo) => {
+  sendNotification('할일 알림', {
+    body: `"${todo.text}" 할일이 있습니다.`,
+    tag: 'todo-reminder',
+    data: { type: 'todo', id: todo.id }
+  });
+};
+
+// 하단바 카운트 알림
+export const sendCountNotification = (type, count) => {
+  const messages = {
+    sites: `현재 ${count}개의 현장이 진행 중입니다.`,
+    estimates: `오늘 제출 기한인 견적이 ${count}개 있습니다.`,
+    todos: `완료되지 않은 할일이 ${count}개 있습니다.`
+  };
+
+  sendNotification('현황 알림', {
+    body: messages[type] || `새로운 ${type}가 ${count}개 있습니다.`,
+    tag: `count-${type}`,
+    data: { type: 'count', category: type, count }
+  });
+};
+
+// 새글 알림
+export const sendNewPostNotification = (postType, title) => {
+  const messages = {
+    discussion: '새로운 협의 글이 등록되었습니다.',
+    safety: '새로운 안전 관련 글이 등록되었습니다.',
+    news: '새로운 뉴스가 등록되었습니다.'
+  };
+
+  sendNotification('새글 알림', {
+    body: `${messages[postType] || '새로운 글이 등록되었습니다.'}\n${title}`,
+    tag: `new-post-${postType}`,
+    data: { type: 'new-post', category: postType, title }
+  });
+};
+
+// 알림 권한 확인
+export const checkNotificationPermission = () => {
+  if ('Notification' in window) {
+    return Notification.permission;
+  }
+  return 'denied';
+};
+
+// 알림 설정 저장
+export const saveNotificationSettings = (settings) => {
+  localStorage.setItem('notificationSettings', JSON.stringify(settings));
+};
+
+// 알림 설정 불러오기
+export const loadNotificationSettings = () => {
+  const settings = localStorage.getItem('notificationSettings');
+  return settings ? JSON.parse(settings) : {
+    todo: true,
+    schedule: true,
+    count: true,
+    newPost: true,
+    sound: true
+  };
+}; 
