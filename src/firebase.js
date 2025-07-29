@@ -10,12 +10,12 @@ let firebaseConfig;
 if (import.meta.env.DEV) {
   // 개발 환경에서도 환경변수 사용 (없으면 기본값 사용)
   firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "your-project.firebaseapp.com",
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "your-project-id",
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "your-project.appspot.com",
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789",
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789:web:abcdef123456",
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyATCGXGD2_teiJFdpng9J2_fvZRItPef0w",
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "chunwooo-edf9f.firebaseapp.com",
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "chunwooo-edf9f",
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "chunwooo-edf9f.firebasestorage.app",
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "417029078660",
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:417029078660:web:00e23d79af77876e598cd1",
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-XXXXXXXXXX"
   };
   

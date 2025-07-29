@@ -120,7 +120,6 @@ function SafetyOverviewCards() {
     <Box sx={{ 
       width: '100%', 
       mb: 3, 
-      maxWidth: isMobile ? '100vw' : '800px',
       px: isMobile ? '16px' : 0
     }}>
       <Box sx={{ 
@@ -145,14 +144,18 @@ function SafetyOverviewCards() {
           }}
         />
       </Box>
-      
 
-
-      <Grid container spacing={isMobile ? 2 : 2.5}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexWrap: 'wrap', 
+        gap: isMobile ? 2 : 2.5,
+        justifyContent: 'flex-start'
+      }}>
         {filtered.map(site => (
-          <Grid xs={12} sm={6} md={3} lg={3} xl={3} key={site.siteName} sx={{ 
-            width: '100%', 
-            px: isMobile ? 0 : 0
+          <Box key={site.siteName} sx={{ 
+            flex: '0 0 auto',
+            width: isMobile ? 'calc(50% - 8px)' : '400px',
+            minWidth: isMobile ? 'calc(50% - 8px)' : '400px'
           }}>
             <Paper sx={{ 
               p: isMobile ? 1.5 : 2.5, 
@@ -162,8 +165,7 @@ function SafetyOverviewCards() {
               boxShadow: 3,
               position: 'relative',
               ml: isMobile ? 0 : 0,
-              width: '100%',
-              maxWidth: isMobile ? '100%' : '400px'
+              width: '100%'
             }}>
               {/* 그리드 오버레이 */}
               <Box sx={{
@@ -197,16 +199,17 @@ function SafetyOverviewCards() {
                 </Typography>
               </Box>
               <Divider sx={{ mb: 1.5, bgcolor: '#23272f' }} />
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 0.1 : 0.15, position: 'relative', zIndex: 2 }}>
-                {/* 안전점검 */}
+              
+              <Box sx={{ position: 'relative', zIndex: 2 }}>
+                {/* 안전 점검 */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minHeight: 35, position: 'relative' }}>
                   {icons.inspection}
-                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>{isMobile ? ' 안전점검' : ' 안 전 점 검'}</Typography>
+                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>안전 점검</Typography>
                   <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start', gap: 0 }}>
                     <Box sx={{ ml: isMobile ? -1.25 : -0.625, width: 110, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Box sx={{ width: isMobile ? 50 : 60 }} />
                       <Chip
-                        label={`${site.inspection.count || 0}건`}
+                        label={site.inspection.count + '건'}
                         size="small"
                         sx={{
                           bgcolor: '#23272f',
@@ -216,8 +219,8 @@ function SafetyOverviewCards() {
                           minWidth: 'unset',
                           borderRadius: 1,
                           height: isMobile ? 28 : 32,
-                          fontSize: isMobile ? '0.7rem' : '0.9rem',
                           '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
+                          fontSize: isMobile ? '0.7rem' : '0.9rem',
                           alignSelf: 'center'
                         }}
                         component="span"
@@ -238,16 +241,8 @@ function SafetyOverviewCards() {
                           borderRadius: 1, 
                           height: 28, 
                           p: 0,
-                          fontSize: isMobile ? '0.8rem' : '1rem',
-                          bgcolor: '#23272f',
-                          border: '1px solid #374151'
-                        },
-                        '& .MuiOutlinedInput-root:hover': {
-                          border: '1px solid #4ade80'
-                        },
-                        '& .MuiOutlinedInput-root.Mui-focused': {
-                          border: '1px solid #4ade80'
-                        }
+                          fontSize: isMobile ? '0.8rem' : '1rem'
+                        } 
                       }}
                       InputProps={{ 
                         style: { 
@@ -255,22 +250,21 @@ function SafetyOverviewCards() {
                           padding: 0, 
                           fontSize: isMobile ? '0.8rem' : '1rem', 
                           textAlign: 'center', 
-                          lineHeight: 1,
-                          color: '#fff'
+                          lineHeight: 1 
                         } 
                       }}
                     />
                   </Box>
                 </Box>
-                {/* 사고예방 */}
+                {/* 사고 예방 */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minHeight: 35, position: 'relative' }}>
                   {icons.accident}
-                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>{isMobile ? ' 사고예방' : ' 사 고 예 방'}</Typography>
+                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>사고 예방</Typography>
                   <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start', gap: 0 }}>
                     <Box sx={{ ml: isMobile ? -1.25 : -0.625, width: 110, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Box sx={{ width: isMobile ? 50 : 60 }} />
                       <Chip
-                        label={`${site.accident.count || 0}건`}
+                        label={site.accident.count + '건'}
                         size="small"
                         sx={{
                           bgcolor: '#23272f',
@@ -280,8 +274,8 @@ function SafetyOverviewCards() {
                           minWidth: 'unset',
                           borderRadius: 1,
                           height: isMobile ? 28 : 32,
-                          fontSize: isMobile ? '0.7rem' : '0.9rem',
                           '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
+                          fontSize: isMobile ? '0.7rem' : '0.9rem',
                           alignSelf: 'center'
                         }}
                         component="span"
@@ -317,15 +311,15 @@ function SafetyOverviewCards() {
                     />
                   </Box>
                 </Box>
-                {/* 안전교육 */}
+                {/* 안전 교육 */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minHeight: 35, position: 'relative' }}>
                   {icons.education}
-                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>{isMobile ? ' 안전교육' : ' 안 전 교 육'}</Typography>
+                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>안전 교육</Typography>
                   <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start', gap: 0 }}>
                     <Box sx={{ ml: isMobile ? -1.25 : -0.625, width: 110, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Box sx={{ width: isMobile ? 50 : 60 }} />
                       <Chip
-                        label={`${site.education.count || 0}건`}
+                        label={site.education.count + '건'}
                         size="small"
                         sx={{
                           bgcolor: '#23272f',
@@ -335,8 +329,8 @@ function SafetyOverviewCards() {
                           minWidth: 'unset',
                           borderRadius: 1,
                           height: isMobile ? 28 : 32,
-                          fontSize: isMobile ? '0.7rem' : '0.9rem',
                           '& .MuiChip-label': { p: 0, m: 0, lineHeight: 1, display: 'inline-block' },
+                          fontSize: isMobile ? '0.7rem' : '0.9rem',
                           alignSelf: 'center'
                         }}
                         component="span"
@@ -429,9 +423,9 @@ function SafetyOverviewCards() {
                 </Box>
               </Box>
             </Paper>
-          </Grid>
+          </Box>
         ))}
-      </Grid>
+      </Box>
     </Box>
   );
 }

@@ -759,7 +759,7 @@ export default function ImportantSite() {
                   handleDrop(e, site.id);
                 }}
                 sx={{ 
-                  mb: 2.5, // 카드간 간격 20px (2.5 * 8px = 20px)
+                  mb: isMobile ? 0.625 : 2.5, // 모바일에서 5px (0.625 * 8px = 5px), PC에서 20px
                   borderRadius: 4, 
                   boxShadow: 6, 
                   bgcolor: '#181f2e', 
