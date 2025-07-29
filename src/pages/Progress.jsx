@@ -57,6 +57,7 @@ import * as XLSX from 'xlsx';
 import Cost from './Cost';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
+import { syncProgressToCost } from '../utils/integrationUtils';
 
 // 핀치 줌 훅
 const usePinchZoom = () => {
@@ -414,6 +415,12 @@ const Progress = () => {
       
       // 기성 등록 후 청구예정 상태 업데이트
       await updateClaimStatus(formData.name, currentMonth);
+      
+      // 기성 → 지출 연동
+      if (formData.payments && formData.payments.length > 0) {
+        const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+        await syncProgressToCost(formData.name, monthStr, formData.payments);
+      }
       
       handleClose();
       fetchProgress();

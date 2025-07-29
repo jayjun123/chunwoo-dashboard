@@ -427,6 +427,44 @@ textarea[data-composing="true"] {
     position: relative;
     z-index: 1000;
   }
+
+  /* Material-UI TextField 모바일 최적화 */
+  .MuiTextField-root input,
+  .MuiTextField-root textarea {
+    font-size: 16px !important;
+    padding: 12px 16px !important;
+    line-height: 1.5 !important;
+  }
+
+  /* 모바일 다이얼로그 입력 필드 최적화 */
+  .MuiDialog-root .MuiTextField-root input,
+  .MuiDialog-root .MuiTextField-root textarea {
+    font-size: 16px !important;
+    padding: 12px 16px !important;
+    border-radius: 8px !important;
+  }
+
+  /* 모바일에서 키보드 열림 시 뷰포트 조정 */
+  @media (max-height: 600px) {
+    .MuiDialog-root {
+      height: 100vh !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+    }
+    
+    .MuiDialog-paper {
+      height: 100vh !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+    }
+  }
+
+  /* 모바일 입력 필드 포커스 시 스크롤 최적화 */
+  .MuiTextField-root input:focus,
+  .MuiTextField-root textarea:focus {
+    scroll-margin-top: 100px;
+    scroll-margin-bottom: 100px;
+  }
 }
 
 /* 로그인 박스 스타일 */

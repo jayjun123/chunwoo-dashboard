@@ -28,7 +28,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  Checkbox
+  Checkbox,
+  Autocomplete
 } from '@mui/material';
 import { 
   Add as AddIcon, 
@@ -44,6 +45,7 @@ import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where
 import { exportToExcel } from '../utils/excelUtils';
 import { useAuth } from '../contexts/AuthContext';
 import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
+import { syncCostToSite } from '../utils/integrationUtils';
 
 const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }) => {
   const { currentUser } = useAuth();
@@ -270,6 +272,10 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         });
         setSnackbar({ open: true, message: '지출 항목이 추가되었습니다.', severity: 'success' });
       }
+
+      // 지출 → 현장관리 연동
+      await syncCostToSite(form.site);
+      
       closeDialog();
     } catch (error) {
       console.error('지출 항목 저장 실패:', error);
@@ -457,7 +463,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   display: isMobile ? 'none' : 'table-cell',
                   width: 'auto',
                   minWidth: 0,
-                  maxWidth: '100%'
+                  maxWidth: '100%',
+                  fontSize: isMobile ? '0.7rem' : '0.95rem'
                 }}>사용날짜</TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
@@ -565,7 +572,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       display: isMobile ? 'none' : 'table-cell',
                       width: 'auto',
                       minWidth: 0,
-                      maxWidth: '100%'
+                      maxWidth: '100%',
+                      fontSize: isMobile ? '0.7rem' : '0.95rem'
                     }}>{cost.date || '-'}</TableCell>
                     <TableCell sx={{ 
                       color: '#ef5350', 
@@ -676,40 +684,39 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   sx={{ width: '100%' }}
                 />
               </Box>
-              <FormControl sx={{ flex: 1, minWidth: 140 }} size="medium">
-                <InputLabel sx={{ color: '#bbb', fontSize: '1rem' }}>항목</InputLabel>
-                <Select
-                  value={form.itemType ?? ''}
-                  label="항목"
-                  onChange={e => setForm({ ...form, itemType: e.target.value })}
-                  sx={{
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
-                    '& .MuiSelect-icon': { color: '#fff' },
-                    '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        bgcolor: '#232b3b',
-                        '& .MuiMenuItem-root': {
-                          color: '#fff',
-                          fontSize: '1rem',
-                          py: 1.5,
-                          '&:hover': { bgcolor: '#2c3446' },
-                          '&.Mui-selected': { bgcolor: '#1976d2' }
-                        }
-                      }
-                    }
-                  }}
-                >
-                  <MenuItem value="노무비">노무비</MenuItem>
-                  <MenuItem value="경비">경비</MenuItem>
-                  <MenuItem value="RnD">RnD</MenuItem>
-                  <MenuItem value="기타">기타</MenuItem>
-                </Select>
-              </FormControl>
+              <Autocomplete
+                options={['노무비', '경비', 'RnD', '기타']}
+                value={form.itemType ?? ''}
+                onChange={(event, newValue) => setForm({ ...form, itemType: newValue || '' })}
+                onInputChange={(event, newInputValue) => setForm({ ...form, itemType: newInputValue })}
+                freeSolo
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="항목"
+                    placeholder="선택하거나 직접 입력"
+                    size="medium"
+                    sx={{
+                      flex: 1,
+                      minWidth: 140,
+                      '& .MuiOutlinedInput-root': {
+                        '& fieldset': { borderColor: '#333' },
+                        '&:hover fieldset': { borderColor: '#555' },
+                        '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                      },
+                      '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
+                      '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                    }}
+                  />
+                )}
+                sx={{
+                  flex: 1,
+                  minWidth: 140,
+                  '& .MuiAutocomplete-popupIndicator': { color: '#fff' },
+                  '& .MuiAutocomplete-clearIndicator': { color: '#fff' },
+                  '& .MuiAutocomplete-option': { color: '#fff' }
+                }}
+              />
             </Box>
             {/* 2줄: 사용날짜(날짜선택) + 결제방법(드롭다운) */}
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
@@ -732,41 +739,39 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                 }}
                 InputLabelProps={{ shrink: true }}
               />
-              <FormControl sx={{ flex: 1, minWidth: 140 }} size="medium">
-                <InputLabel sx={{ color: '#bbb', fontSize: '1rem' }}>결제방법</InputLabel>
-                <Select
-                  value={form.paymentType ?? ''}
-                  label="결제방법"
-                  onChange={e => setForm({ ...form, paymentType: e.target.value })}
-                  sx={{
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
-                    '& .MuiSelect-icon': { color: '#fff' },
-                    '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        bgcolor: '#232b3b',
-                        '& .MuiMenuItem-root': {
-                          color: '#fff',
-                          fontSize: '1rem',
-                          py: 1.5,
-                          '&:hover': { bgcolor: '#2c3446' },
-                          '&.Mui-selected': { bgcolor: '#1976d2' }
-                        }
-                      }
-                    }
-                  }}
-                >
-                  <MenuItem value="카드">카드</MenuItem>
-                  <MenuItem value="세금계산서">세금계산서</MenuItem>
-                  <MenuItem value="영수증">영수증</MenuItem>
-                  <MenuItem value="노무자료">노무자료</MenuItem>
-                  <MenuItem value="기타">기타</MenuItem>
-                </Select>
-              </FormControl>
+              <Autocomplete
+                options={['카드', '세금계산서', '영수증', '노무자료', '기타']}
+                value={form.paymentType ?? ''}
+                onChange={(event, newValue) => setForm({ ...form, paymentType: newValue || '' })}
+                onInputChange={(event, newInputValue) => setForm({ ...form, paymentType: newInputValue })}
+                freeSolo
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="결제방법"
+                    placeholder="선택하거나 직접 입력"
+                    size="medium"
+                    sx={{
+                      flex: 1,
+                      minWidth: 140,
+                      '& .MuiOutlinedInput-root': {
+                        '& fieldset': { borderColor: '#333' },
+                        '&:hover fieldset': { borderColor: '#555' },
+                        '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                      },
+                      '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
+                      '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                    }}
+                  />
+                )}
+                sx={{
+                  flex: 1,
+                  minWidth: 140,
+                  '& .MuiAutocomplete-popupIndicator': { color: '#fff' },
+                  '& .MuiAutocomplete-clearIndicator': { color: '#fff' },
+                  '& .MuiAutocomplete-option': { color: '#fff' }
+                }}
+              />
             </Box>
             {/* 3줄: 금액 + 기타사항 */}
             <Box display="flex" width="100%" justifyContent="center" gap={2}>

@@ -26,6 +26,7 @@ import {
   Alert,
   CircularProgress,
   Divider,
+  Autocomplete,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -669,90 +670,66 @@ const ProgressManagement = () => {
                 />
               </Grid>
               <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel sx={{ color: '#ccc' }}>구분</InputLabel>
-                  <Select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    label="구분"
-                    required
-                    sx={{
-                      color: '#fff',
-                      '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#555',
-                      },
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#888',
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#2196f3',
-                      },
-                      '& .MuiSvgIcon-root': {
-                        color: '#ccc',
-                      },
-                    }}
-                    MenuProps={{
-                      PaperProps: {
-                        sx: {
-                          bgcolor: '#23242a',
-                          '& .MuiMenuItem-root': {
-                            color: '#fff',
-                            '&:hover': {
-                              bgcolor: '#333',
-                            },
-                          },
+                <Autocomplete
+                  options={['청구', '지급']}
+                  value={formData.type}
+                  onChange={(event, newValue) => setFormData({ ...formData, type: newValue || '' })}
+                  onInputChange={(event, newInputValue) => setFormData({ ...formData, type: newInputValue })}
+                  freeSolo
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="구분"
+                      placeholder="선택하거나 직접 입력"
+                      required
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': { borderColor: '#555' },
+                          '&:hover fieldset': { borderColor: '#888' },
+                          '&.Mui-focused fieldset': { borderColor: '#2196f3' }
                         },
-                      },
-                    }}
-                  >
-                    <MenuItem value="청구">청구</MenuItem>
-                    <MenuItem value="지급">지급</MenuItem>
-                  </Select>
-                </FormControl>
+                        '& .MuiInputLabel-root': { color: '#ccc' },
+                        '& .MuiInputBase-input': { color: '#fff' }
+                      }}
+                    />
+                  )}
+                  sx={{
+                    '& .MuiAutocomplete-popupIndicator': { color: '#ccc' },
+                    '& .MuiAutocomplete-clearIndicator': { color: '#ccc' },
+                    '& .MuiAutocomplete-option': { color: '#fff' }
+                  }}
+                />
               </Grid>
               <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel sx={{ color: '#ccc' }}>카테고리</InputLabel>
-                  <Select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    label="카테고리"
-                    required
-                    sx={{
-                      color: '#fff',
-                      '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#555',
-                      },
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#888',
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#2196f3',
-                      },
-                      '& .MuiSvgIcon-root': {
-                        color: '#ccc',
-                      },
-                    }}
-                    MenuProps={{
-                      PaperProps: {
-                        sx: {
-                          bgcolor: '#23242a',
-                          '& .MuiMenuItem-root': {
-                            color: '#fff',
-                            '&:hover': {
-                              bgcolor: '#333',
-                            },
-                          },
+                <Autocomplete
+                  options={['일반', '자재비', '인건비', '기타']}
+                  value={formData.category}
+                  onChange={(event, newValue) => setFormData({ ...formData, category: newValue || '' })}
+                  onInputChange={(event, newInputValue) => setFormData({ ...formData, category: newInputValue })}
+                  freeSolo
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="카테고리"
+                      placeholder="선택하거나 직접 입력"
+                      required
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': { borderColor: '#555' },
+                          '&:hover fieldset': { borderColor: '#888' },
+                          '&.Mui-focused fieldset': { borderColor: '#2196f3' }
                         },
-                      },
-                    }}
-                  >
-                    <MenuItem value="일반">일반</MenuItem>
-                    <MenuItem value="자재비">자재비</MenuItem>
-                    <MenuItem value="인건비">인건비</MenuItem>
-                    <MenuItem value="기타">기타</MenuItem>
-                  </Select>
-                </FormControl>
+                        '& .MuiInputLabel-root': { color: '#ccc' },
+                        '& .MuiInputBase-input': { color: '#fff' }
+                      }}
+                    />
+                  )}
+                  sx={{
+                    '& .MuiAutocomplete-popupIndicator': { color: '#ccc' },
+                    '& .MuiAutocomplete-clearIndicator': { color: '#ccc' },
+                    '& .MuiAutocomplete-option': { color: '#fff' }
+                  }}
+                />
               </Grid>
               <Grid item xs={12}>
                 <TextField

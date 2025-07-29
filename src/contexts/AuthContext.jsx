@@ -171,61 +171,62 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  // 세션 동기화 함수
+  const syncSession = async (user) => {
+    try {
+      if (user) {
+        // 토큰 새로고침으로 세션 유지
+        const token = await user.getIdToken(true);
+        console.log('AuthContext - 세션 동기화 완료 (토큰 새로고침)');
+        
+        // Firestore에서 최신 사용자 정보 가져오기
+        const userDoc = await getDoc(doc(db, 'members', user.uid));
+        const userData = userDoc.exists() ? userDoc.data() : {};
+        
+        const userInfo = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          ...userData,
+        };
+        
+        setCurrentUser(userInfo);
+        console.log('AuthContext - 사용자 정보 동기화 완료:', userInfo.uid);
+        
+      } else {
+        setCurrentUser(null);
+        console.log('AuthContext - 로그아웃 상태로 동기화');
+      }
+    } catch (error) {
+      console.error('AuthContext - 세션 동기화 실패:', error);
+      // 기본 사용자 정보로 설정
+      if (user) {
+        const userInfo = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+        };
+        setCurrentUser(userInfo);
+      } else {
+        setCurrentUser(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Firebase Auth 상태 변경 감지
   useEffect(() => {
-    let unsubscribeFirestore = null;
-    
-    // 로딩 타임아웃 설정 (10초 후 강제 로딩 종료)
-    const loadingTimeout = setTimeout(() => {
-      console.warn('AuthContext - 로딩 타임아웃, 강제로 로딩 종료');
+    console.log('AuthContext - Firebase Auth 상태 감지 시작');
+    let unsubscribe = null;
+    let loadingTimeout = null;
+
+    // 로딩 타임아웃 설정 (10초 후 강제로 로딩 해제)
+    loadingTimeout = setTimeout(() => {
+      console.log('AuthContext - 로딩 타임아웃 발생, 강제 로딩 해제');
       setLoading(false);
     }, 10000);
-    
-    // 세션 동기화 함수
-    const syncSession = async (user) => {
-      try {
-        if (user) {
-          // 토큰 새로고침으로 세션 유지
-          const token = await user.getIdToken(true);
-          console.log('AuthContext - 세션 동기화 완료 (토큰 새로고침)');
-          
-          // Firestore에서 최신 사용자 정보 가져오기
-          const userDoc = await getDoc(doc(db, 'members', user.uid));
-          const userData = userDoc.exists() ? userDoc.data() : {};
-          
-          const userInfo = {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-            ...userData,
-          };
-          
-          setCurrentUser(userInfo);
-          console.log('AuthContext - 사용자 정보 동기화 완료:', userInfo.uid);
-          
-        } else {
-          setCurrentUser(null);
-          console.log('AuthContext - 로그아웃 상태로 동기화');
-        }
-      } catch (error) {
-        console.error('AuthContext - 세션 동기화 실패:', error);
-        // 기본 사용자 정보로 설정
-        if (user) {
-          const userInfo = {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-          };
-          setCurrentUser(userInfo);
-        } else {
-          setCurrentUser(null);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    // Firebase Auth 상태 변경 리스너
-    let unsubscribe;
+
     try {
       unsubscribe = onAuthStateChanged(auth, async (user) => {
         console.log('AuthContext - Firebase Auth 상태 변경:', user ? `로그인 (${user.uid})` : '로그아웃');
@@ -252,6 +253,7 @@ export const AuthProvider = ({ children }) => {
       }, (error) => {
         // Firebase Auth 초기화 오류 처리
         console.error('Firebase Auth 초기화 오류:', error);
+        clearTimeout(loadingTimeout);
         
         // 개발 환경에서는 오류 무시하고 자동 로그인
         if (import.meta.env.DEV) {
@@ -266,50 +268,28 @@ export const AuthProvider = ({ children }) => {
           };
           setCurrentUser(mockUser);
           setLoading(false);
-          clearTimeout(loadingTimeout);
           return;
         }
         
         setCurrentUser(null);
         setLoading(false);
-        clearTimeout(loadingTimeout);
       });
     } catch (error) {
-      console.error('Auth 상태 리스너 설정 실패:', error);
-      
-      // 개발 환경에서는 오류 무시하고 자동 로그인
-      if (import.meta.env.DEV) {
-        console.log('AuthContext - 개발 환경에서 Auth 리스너 오류 무시하고 자동 로그인');
-        const mockUser = {
-          uid: 'dev-user-123',
-          email: 'dev@example.com',
-          displayName: '개발자',
-          role: 'admin',
-          name: '개발자',
-          organization: '개발팀'
-        };
-        setCurrentUser(mockUser);
-        setLoading(false);
-        clearTimeout(loadingTimeout);
-        return;
-      }
-      
-      setCurrentUser(null);
-      setLoading(false);
+      console.error('AuthContext - onAuthStateChanged 설정 오류:', error);
       clearTimeout(loadingTimeout);
+      setLoading(false);
     }
-
+    
     return () => {
       try {
-        clearTimeout(loadingTimeout); // 타임아웃 클리어
         if (unsubscribe && typeof unsubscribe === 'function') {
           unsubscribe();
         }
-        if (unsubscribeFirestore && typeof unsubscribeFirestore === 'function') {
-          unsubscribeFirestore();
+        if (loadingTimeout) {
+          clearTimeout(loadingTimeout);
         }
       } catch (error) {
-        console.error('구독 해제 오류:', error);
+        console.error('AuthContext cleanup 오류:', error);
       }
     };
   }, []);

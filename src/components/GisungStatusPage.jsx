@@ -44,7 +44,13 @@ import { addMonths, subMonths, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { formatContractAmount, formatGisungAmount, formatAdvanceAmount } from '../utils/formatUtils';
 
-const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurrentMonth, monthText: initialMonthText, selectedSites, filteredData }) => {
+const GisungStatusPage = ({ 
+  viewType: initialViewType = 'month', 
+  currentMonth: initialCurrentMonth = new Date(), 
+  monthText: initialMonthText, 
+  selectedSites = [], 
+  filteredData = [] 
+}) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { addCleanup } = useCleanup();
@@ -169,10 +175,14 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
 
   const fetchSites = useCallback(async () => {
     try {
+      devLog('현장 데이터 로드 시작');
       const snapshot = await getDocs(collection(db, 'sites'));
-      setSites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      devLog('로드된 현장 데이터:', sitesData);
+      setSites(sitesData);
     } catch (e) {
       devError('현장 데이터 로드 오류:', e);
+      console.error('현장 데이터를 불러오는데 실패했습니다:', e.message);
       setSites([]); // 오류 발생 시 빈 배열로 설정
     }
   }, []);
@@ -197,6 +207,13 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       devLog('viewType:', viewType);
       devLog('currentMonth:', currentMonth);
       devLog('selectedSites:', selectedSites);
+      
+      // currentMonth가 유효하지 않은 경우 기본값 사용
+      if (!currentMonth || isNaN(currentMonth.getTime())) {
+        devLog('currentMonth가 유효하지 않음, 기본값 사용');
+        setCurrentMonth(new Date());
+        return;
+      }
       
       let q;
       const gisungCollection = collection(db, 'gisung');
@@ -225,6 +242,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     } catch (e) {
       devError('기성 데이터 로드 오류:', e);
       setGisungList([]);
+      // 오류 발생 시 사용자에게 알림 (모바일에서는 콘솔만)
+      console.error('기성 데이터를 불러오는데 실패했습니다:', e.message);
     }
   }, [viewType, currentMonth, selectedSites]);
 
@@ -266,86 +285,104 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
 
   // 통계 데이터
   const stats = useMemo(() => {
-    // 현재 월 문자열 (예: "2024-07")
-    const currentMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-    
-    let totalContractAmount = 0;
-    let totalAdvance = 0;
-    
-    if (viewType === 'month') {
-      // 월별: 해당 월에 공사가 시작된 현장들의 계약금액만 합산
-      totalContractAmount = sites.reduce((sum, site) => {
-        if (!site.startDate) return sum;
-        
-        try {
-          // startDate가 문자열인 경우 Date 객체로 변환
-          const startDate = typeof site.startDate === 'string' 
-            ? new Date(site.startDate) 
-            : site.startDate.toDate ? site.startDate.toDate() : site.startDate;
-          
-          // 시작 월 문자열 (예: "2024-07")
-          const startMonthStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
-          
-          // 현재 월과 시작 월이 같으면 계약금액 포함
-          if (startMonthStr === currentMonthStr) {
-            return sum + (Number(site.contractAmount) || 0);
-          }
-        } catch (e) {
-          devError('날짜 파싱 오류:', e, site);
-        }
-        
-        return sum;
-      }, 0);
+    try {
+      // 현재 월 문자열 (예: "2024-07")
+      const currentMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
       
-      // 해당 월에 시작된 현장들의 선급금만 합산
-      totalAdvance = sites.reduce((sum, site) => {
-        if (!site.startDate) return sum;
-        
-        try {
-          // startDate가 문자열인 경우 Date 객체로 변환
-          const startDate = typeof site.startDate === 'string' 
-            ? new Date(site.startDate) 
-            : site.startDate.toDate ? site.startDate.toDate() : site.startDate;
+      let totalContractAmount = 0;
+      let totalAdvance = 0;
+      
+      if (viewType === 'month') {
+        // 월별: 해당 월에 공사가 시작된 현장들의 계약금액만 합산
+        totalContractAmount = sites.reduce((sum, site) => {
+          if (!site.startDate) return sum;
           
-          // 시작 월 문자열 (예: "2024-07")
-          const startMonthStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
-          
-          // 현재 월과 시작 월이 같으면 선급금 포함
-          if (startMonthStr === currentMonthStr) {
-            return sum + (Number(site.advance) || 0);
+          try {
+            // startDate가 문자열인 경우 Date 객체로 변환
+            const startDate = typeof site.startDate === 'string' 
+              ? new Date(site.startDate) 
+              : site.startDate.toDate ? site.startDate.toDate() : site.startDate;
+            
+            // startDate가 유효하지 않은 경우 건너뛰기
+            if (!startDate || isNaN(startDate.getTime())) {
+              return sum;
+            }
+            
+            const siteStartMonth = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
+            
+            // 해당 월에 시작된 현장만 포함
+            if (siteStartMonth <= currentMonthStr) {
+              return sum + (Number(site.contractAmount) || 0);
+            }
+            return sum;
+          } catch (error) {
+            devError('현장 시작일 파싱 오류:', error);
+            return sum;
           }
-        } catch (e) {
-          devError('날짜 파싱 오류:', e, site);
-        }
+        }, 0);
         
-        return sum;
-      }, 0);
-    } else if (viewType === 'site') {
-      // 현장별: 선택된 현장들의 계약금액만 합산
-      if (selectedSites && selectedSites.length > 0) {
-        totalContractAmount = sites
-          .filter(site => selectedSites.includes(site.name))
-          .reduce((sum, site) => sum + (Number(site.contractAmount) || 0), 0);
-        
-        totalAdvance = sites
-          .filter(site => selectedSites.includes(site.name))
-          .reduce((sum, site) => sum + (Number(site.advance) || 0), 0);
+        totalAdvance = sites.reduce((sum, site) => {
+          if (!site.startDate) return sum;
+          
+          try {
+            const startDate = typeof site.startDate === 'string' 
+              ? new Date(site.startDate) 
+              : site.startDate.toDate ? site.startDate.toDate() : site.startDate;
+            
+            if (!startDate || isNaN(startDate.getTime())) {
+              return sum;
+            }
+            
+            const siteStartMonth = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
+            
+            if (siteStartMonth <= currentMonthStr) {
+              return sum + (Number(site.advance) || 0);
+            }
+            return sum;
+          } catch (error) {
+            devError('현장 시작일 파싱 오류:', error);
+            return sum;
+          }
+        }, 0);
       } else {
-        // 선택된 현장이 없으면 0
-        totalContractAmount = 0;
-        totalAdvance = 0;
+        // 현장별: 선택된 현장들의 계약금액 합산
+        totalContractAmount = sites.reduce((sum, site) => {
+          return sum + (Number(site.contractAmount) || 0);
+        }, 0);
+        
+        totalAdvance = sites.reduce((sum, site) => {
+          return sum + (Number(site.advance) || 0);
+        }, 0);
       }
+      
+      // 기성 데이터 통계
+      const gisungStats = filteredAndSortedGisung.reduce((acc, gisung) => {
+        acc.totalGisungAmount += Number(gisung.gisungAmount) || 0;
+        acc.totalPrevGisung += Number(gisung.prevGisung) || 0;
+        acc.totalCurrentGisung += Number(gisung.currentGisung) || 0;
+        return acc;
+      }, { totalGisungAmount: 0, totalPrevGisung: 0, totalCurrentGisung: 0 });
+      
+      return {
+        totalContractAmount,
+        totalAdvance,
+        totalGisungAmount: gisungStats.totalGisungAmount,
+        totalPrevGisung: gisungStats.totalPrevGisung,
+        totalCurrentGisung: gisungStats.totalCurrentGisung,
+        totalClaimAmount: claimStats.totalAmount || 0
+      };
+    } catch (error) {
+      devError('통계 계산 오류:', error);
+      return {
+        totalContractAmount: 0,
+        totalAdvance: 0,
+        totalGisungAmount: 0,
+        totalPrevGisung: 0,
+        totalCurrentGisung: 0,
+        totalClaimAmount: 0
+      };
     }
-    
-    // 해당 월의 기성 데이터만 필터링
-    const currentMonthGisung = gisungList.filter(gisung => gisung.gisungMonth === currentMonthStr);
-    
-    const totalPrevGisung = currentMonthGisung.reduce((sum, gisung) => sum + (Number(gisung.prevGisung) || 0), 0);
-    const totalGisungAmount = currentMonthGisung.reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
-    const totalClaimAmount = currentMonthGisung.reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
-    
-    return { totalContractAmount, totalAdvance, totalPrevGisung, totalGisungAmount, totalClaimAmount };
-  }, [sites, gisungList, currentMonth, viewType, selectedSites, claimStats, claimsBySite]);
+  }, [currentMonth, viewType, sites, filteredAndSortedGisung, claimStats.totalAmount]);
 
   const handleExcelDownload = () => {
     const data = filteredAndSortedGisung.map(row => ({
@@ -864,51 +901,47 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       width: isMobile ? '100%' : 'calc(100% - 20px)', 
       maxWidth: isMobile ? '100%' : 'calc(100% - 20px)', 
       mx: isMobile ? 0 : '10px',
-      p: isMobile ? 0 : 2,
-      mt: isMobile ? '-50px' : 0
+      p: isMobile ? 1 : 2,
+      mt: isMobile ? '10px' : 0
     }}>
-      {/* 상단 제목 및 통계 */}
-      {viewType === 'month' && !isMobile && (
-        <Typography variant="h4" sx={{ 
-          mb: 3, 
-          fontWeight: 800, 
-          color: '#90caf9',
-          textAlign: 'center'
-        }}>
-          {monthText || '기성현황'}
-        </Typography>
-      )}
-
       {/* 통계 카드 */}
-      <Grid container spacing={isMobile ? 0 : 2} sx={{ 
+      <Grid container spacing={isMobile ? 1 : 2} sx={{ 
         mb: 3,
-        mt: isMobile ? '50px' : 0,
+        mt: isMobile ? '20px' : 0,
         justifyContent: isMobile ? 'center' : 'flex-start'
       }}>
-        <StatCard 
-          title="총 계약금액" 
-          value={stats.totalContractAmount} 
-          color="#43e97b" 
-          onClick={handleContractCardClick}
-        />
-        <StatCard 
-          title="총 선급금" 
-          value={stats.totalAdvance} 
-          color="#ffd600" 
-          onClick={() => handleAdvanceCardClick()}
-        />
-        <StatCard 
-          title="청구예정금액" 
-          value={stats.totalClaimAmount} 
-          color="#a084e8" 
-          onClick={() => handleClaimCardClick()}
-        />
-        <StatCard 
-          title="총 기성금액" 
-          value={stats.totalGisungAmount} 
-          color="#ef5350" 
-          onClick={() => handleGisungCardClick()}
-        />
+        <Grid item xs={6} sm={3}>
+          <StatCard
+            title="계약금액"
+            value={formatContractAmount(stats.totalContractAmount)}
+            color="#3b82f6"
+            onClick={handleContractCardClick}
+          />
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <StatCard
+            title="선급금"
+            value={formatAdvanceAmount(stats.totalAdvance)}
+            color="#f59e0b"
+            onClick={handleAdvanceCardClick}
+          />
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <StatCard
+            title="청구예정"
+            value={formatGisungAmount(stats.totalClaimAmount)}
+            color="#ef4444"
+            onClick={handleClaimCardClick}
+          />
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <StatCard
+            title="기성금액"
+            value={formatGisungAmount(stats.totalGisungAmount)}
+            color="#10b981"
+            onClick={handleGisungCardClick}
+          />
+        </Grid>
       </Grid>
 
       {/* 검색 및 버튼들 */}
@@ -920,197 +953,156 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         justifyContent: 'space-between',
         flexDirection: isMobile ? 'column' : 'row'
       }}>
-
+        
+        {/* 검색 */}
+        <TextField
+          placeholder="현장명, 기성월, 비고 검색"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          size="small"
+          sx={{ 
+            minWidth: isMobile ? '100%' : '300px',
+            '& .MuiOutlinedInput-root': {
+              bgcolor: '#232b3b',
+              color: '#fff',
+              '& fieldset': {
+                borderColor: '#444',
+              },
+              '&:hover fieldset': {
+                borderColor: '#666',
+              },
+              '&.Mui-focused fieldset': {
+                borderColor: '#3b82f6',
+              },
+            },
+            '& .MuiInputLabel-root': {
+              color: '#ccc',
+            },
+            '& .MuiInputBase-input': {
+              color: '#fff',
+            },
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ color: '#ccc' }} />
+              </InputAdornment>
+            ),
+          }}
+        />
         
         {/* 버튼들 */}
-        <Box sx={{ 
-          display: 'flex', 
-          gap: 2, 
-          alignItems: 'center',
-          justifyContent: isMobile ? 'center' : 'flex-end'
-        }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpen()}
+            sx={{
+              bgcolor: '#3b82f6',
+              '&:hover': { bgcolor: '#2563eb' },
+              fontSize: isMobile ? '0.8rem' : '0.875rem',
+              px: isMobile ? 1 : 2
+            }}
+          >
+            새 기성
+          </Button>
+          
+          {!isMobile && (
+            <Button
+              variant="outlined"
+              startIcon={<CloudDownloadIcon />}
+              onClick={handleExcelDownload}
+              sx={{
+                borderColor: '#666',
+                color: '#fff',
+                '&:hover': { borderColor: '#888' },
+                fontSize: '0.875rem'
+              }}
+            >
+              엑셀 다운로드
+            </Button>
+          )}
+          
           {selectedItems.length > 0 && (
-            <Button 
-              variant="contained" 
-              color="error" 
+            <Button
+              variant="outlined"
+              color="error"
               onClick={handleBulkDelete}
-              sx={{ 
-                bgcolor: '#d32f2f',
-                '&:hover': { bgcolor: '#c62828' }
+              sx={{
+                borderColor: '#ef4444',
+                color: '#ef4444',
+                '&:hover': { borderColor: '#dc2626' },
+                fontSize: isMobile ? '0.8rem' : '0.875rem'
               }}
             >
               선택 삭제 ({selectedItems.length})
             </Button>
           )}
-          
-          <Button 
-            variant="contained" 
-            color="primary" 
-            startIcon={<CloudDownloadIcon />}
-            onClick={handleExcelDownload}
-            sx={{ 
-              bgcolor: '#1976d2',
-              '&:hover': { bgcolor: '#1565c0' },
-              display: isMobile ? 'none' : 'flex'
-            }}
-          >
-            엑셀 다운로드
-          </Button>
-          <Button 
-            variant="contained" 
-            color="success" 
-            startIcon={<AddIcon />}
-            onClick={() => handleOpen()}
-            sx={{ 
-              bgcolor: '#2e7d32',
-              '&:hover': { bgcolor: '#1b5e20' }
-            }}
-          >
-            새 기성
-          </Button>
         </Box>
       </Box>
 
-      {/* 테이블 */}
-      <Paper sx={{ 
-        borderRadius: 4, 
-        boxShadow: 6, 
-        bgcolor: '#181f2e', 
-        color: '#fff',
-        overflow: 'hidden',
-        width: '100%',
-        maxWidth: '100%',
-        boxSizing: 'border-box'
-      }}>
-        <TableContainer sx={{ 
-          width: '100%',
-          maxWidth: '100%',
-          overflowX: 'auto'
-        }}>
-          <Table sx={{ 
-            width: '100%',
-            minWidth: '100%',
-            tableLayout: 'auto'
-          }}>
+      {/* 데이터 테이블 */}
+      <Paper sx={{ bgcolor: '#232b3b', color: '#fff' }}>
+        <TableContainer>
+          <Table>
             <TableHead>
-              <TableRow sx={{ bgcolor: '#232b3b' }}>
-                <TableCell padding="checkbox" sx={{ display: isMobile ? 'none' : 'table-cell' }}>
+              <TableRow>
+                <TableCell padding="checkbox">
                   <Checkbox
+                    checked={selectedItems.length === filteredAndSortedGisung.length && filteredAndSortedGisung.length > 0}
                     indeterminate={selectedItems.length > 0 && selectedItems.length < filteredAndSortedGisung.length}
-                    checked={filteredAndSortedGisung.length > 0 && selectedItems.length === filteredAndSortedGisung.length}
                     onChange={handleSelectAll}
-                    sx={{ color: '#fff' }}
+                    sx={{ color: '#666', '&.Mui-checked': { color: '#3b82f6' } }}
                   />
                 </TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700 }}>기성월</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700 }}>현장명</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>계약금액</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>선급금</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>전회기성</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700 }}>기성금액</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>결제방법</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>입금확인</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>차수</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>관리</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>현장명</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>계약금액</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>선급금</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>이전 기성</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>기성월</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>기성금액</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>현재 기성</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>비고</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>작업</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredAndSortedGisung.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isMobile ? 3 : 11} sx={{ textAlign: 'center', color: '#bbb', py: 4 }}>
-                    {search ? '검색 결과가 없습니다.' : '기성 데이터가 없습니다.'}
+                  <TableCell colSpan={10} sx={{ textAlign: 'center', color: '#ccc', py: 4 }}>
+                    데이터가 없습니다.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredAndSortedGisung.map(row => (
-                  <TableRow 
-                    key={row.id}
-                    sx={{ 
-                      '&:hover': { bgcolor: '#232b3b' },
-                      borderBottom: '1px solid #333'
-                    }}
-                  >
-                    <TableCell padding="checkbox" sx={{ display: isMobile ? 'none' : 'table-cell' }}>
+                filteredAndSortedGisung.map((row) => (
+                  <TableRow key={row.id} hover>
+                    <TableCell padding="checkbox">
                       <Checkbox
                         checked={selectedItems.includes(row.id)}
                         onChange={() => handleSelectItem(row.id)}
-                        sx={{ color: '#90caf9' }}
+                        sx={{ color: '#666', '&.Mui-checked': { color: '#3b82f6' } }}
                       />
                     </TableCell>
+                    <TableCell sx={{ color: '#fff' }}>{row.name || '-'}</TableCell>
+                    <TableCell sx={{ color: '#fff' }}>{formatContractAmount(row.contractAmount)}</TableCell>
+                    <TableCell sx={{ color: '#fff' }}>{formatAdvanceAmount(row.advance)}</TableCell>
+                    <TableCell sx={{ color: '#fff' }}>{formatGisungAmount(row.prevGisung)}</TableCell>
+                    <TableCell sx={{ color: '#fff' }}>{row.gisungMonth || '-'}</TableCell>
+                    <TableCell sx={{ color: '#fff' }}>{formatGisungAmount(row.gisungAmount)}</TableCell>
+                    <TableCell sx={{ color: '#fff' }}>{formatGisungAmount(row.currentGisung)}</TableCell>
+                    <TableCell sx={{ color: '#fff' }}>{row.note || '-'}</TableCell>
                     <TableCell>
-                      <Chip 
-                        label={row.gisungMonth || '-'} 
-                        size="small" 
-                        sx={{ 
-                          bgcolor: '#1976d2',
-                          color: '#fff',
-                          fontWeight: 700
-                        }} 
-                      />
-                    </TableCell>
-                    <TableCell sx={{ color: '#fff' }}>{row.name}</TableCell>
-                    <TableCell sx={{ color: '#43e97b', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>
-                      {Number(row.contractAmount || 0).toLocaleString()}원
-                    </TableCell>
-                    <TableCell sx={{ color: '#ffd600', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>
-                      {Number(row.advance || 0).toLocaleString()}원
-                    </TableCell>
-                    <TableCell sx={{ color: '#a084e8', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>
-                      {Number(row.prevGisung || 0).toLocaleString()}원
-                    </TableCell>
-                    <TableCell sx={{ color: '#ef5350', fontWeight: 700 }}>
-                      {Number(row.gisungAmount || 0).toLocaleString()}원
-                    </TableCell>
-                    <TableCell sx={{ color: '#bbb', display: isMobile ? 'none' : 'table-cell' }}>{row.paymentMethod || '-'}</TableCell>
-                    <TableCell sx={{ display: isMobile ? 'none' : 'table-cell' }}>
-                      <FormControl size="small" sx={{ minWidth: 120 }}>
-                        <Select
-                          value={row.paymentStatus || '미입금'}
-                          onChange={(e) => handlePaymentStatusChange(row.id, e.target.value)}
-                          sx={{
-                            bgcolor: '#232b3b',
-                            color: '#fff',
-                            fontSize: '0.8rem',
-                            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
-                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
-                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
-                            '& .MuiSelect-icon': { color: '#fff' }
-                          }}
-                          MenuProps={{
-                            PaperProps: {
-                              sx: {
-                                bgcolor: '#232b3b',
-                                '& .MuiMenuItem-root': {
-                                  color: '#fff',
-                                  fontSize: '0.8rem',
-                                  '&:hover': { bgcolor: '#2c3446' },
-                                  '&.Mui-selected': { bgcolor: '#1976d2' }
-                                }
-                              }
-                            }
-                          }}
-                        >
-                          <MenuItem value="미입금">미입금</MenuItem>
-                          <MenuItem value="입금완료">입금완료</MenuItem>
-                          <MenuItem value="일부분">일부분</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </TableCell>
-                    <TableCell sx={{ color: '#90caf9', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>
-                      {calculateSequence(row.name, row)}
-                    </TableCell>
-                    <TableCell sx={{ display: isMobile ? 'none' : 'table-cell' }}>
-                      <IconButton 
-                        size="small" 
+                      <IconButton
                         onClick={() => handleOpen(row)}
-                        sx={{ color: '#90caf9' }}
+                        size="small"
+                        sx={{ color: '#3b82f6' }}
                       >
                         <EditIcon />
                       </IconButton>
-                      <IconButton 
-                        size="small" 
+                      <IconButton
                         onClick={() => handleDelete(row)}
-                        sx={{ color: '#ef5350' }}
+                        size="small"
+                        sx={{ color: '#ef4444' }}
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -1123,617 +1115,157 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         </TableContainer>
       </Paper>
 
-      {/* 등록/수정 다이얼로그 */}
-      <Dialog 
-        open={open} 
-        onClose={handleClose} 
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: {
-            bgcolor: '#181f2e',
-            color: '#fff',
-            borderRadius: 4,
-            minHeight: isMobile ? 'auto' : '480px',
-            width: '100%',
-            maxHeight: isMobile ? '90vh' : '80vh',
-            overflow: 'auto'
-          }
-        }}
-      >
-        <DialogTitle sx={{ 
-          bgcolor: '#232b3b', 
-          color: '#90caf9',
-          fontWeight: 700,
-          fontSize: { xs: '1.1rem', md: '1.3rem' },
-          py: { xs: 1.5, md: 2 },
-          textAlign: 'center'
-        }}>
-          기성 등록(vat포함)
+      {/* 다이얼로그 */}
+      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ bgcolor: '#1a1d21', color: '#fff', borderBottom: '1px solid #444' }}>
+          {selected ? '기성 수정' : '새 기성 추가'}
         </DialogTitle>
-        <DialogContent sx={{ pt: { xs: 2, md: 4 }, pb: 2, mt: { xs: 2, md: 6 } }}>
-          <Box display="flex" flexDirection="column" alignItems="center" gap={isMobile ? 2 : 3}>
-            {/* 1줄: 현장명(검색,드롭다운) + 기성월 */}
-            <Box display="flex" width="100%" flexDirection={isMobile ? "column" : "row"} justifyContent={isMobile ? "flex-start" : "center"} gap={isMobile ? 1 : 2}>
-              <FormControl sx={{ minWidth: isMobile ? '100%' : 220 }} size={isMobile ? "small" : "medium"}>
-                <InputLabel sx={{ color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } }}>현장명</InputLabel>
-                <Select
-                  value={formData.name}
-                  label="현장명"
-                  onChange={handleSiteChange}
-                  sx={{
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
-                    '& .MuiSelect-icon': { color: '#fff' },
-                    '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        bgcolor: '#232b3b',
-                        '& .MuiMenuItem-root': {
-                          color: '#fff',
-                          fontSize: { xs: '0.9rem', md: '1rem' },
-                          py: isMobile ? 1 : 1.5,
-                          '&:hover': { bgcolor: '#2c3446' },
-                          '&.Mui-selected': { bgcolor: '#1976d2' }
-                        }
-                      }
-                    }
-                  }}
-                  displayEmpty
-                >
-                  {sites.map(site => (
-                    <MenuItem key={site.id} value={site.name}>{site.name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                label="기성월"
-                value={formData.gisungMonth}
-                onChange={e => setFormData({ ...formData, gisungMonth: e.target.value })}
-                size={isMobile ? "small" : "medium"}
-                sx={{
-                  minWidth: isMobile ? '100%' : 120,
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#333' },
-                    '&:hover fieldset': { borderColor: '#555' },
-                    '&.Mui-focused fieldset': { borderColor: '#90caf9' }
-                  },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
-                }}
-              />
-            </Box>
-            {/* 2줄: 계약금액 + 선급금 */}
-            <Box display="flex" width="100%" flexDirection={isMobile ? "column" : "row"} justifyContent="center" gap={isMobile ? 1 : 2}>
-              <TextField
-                label="계약금액"
-                value={Number(formData.contractAmount || 0).toLocaleString()}
-                size={isMobile ? "small" : "medium"}
-                sx={{
-                  minWidth: isMobile ? '100%' : 180,
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#333' },
-                    '&:hover fieldset': { borderColor: '#555' },
-                    '&.Mui-focused fieldset': { borderColor: '#90caf9' }
-                  },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
-                }}
-                InputProps={{ readOnly: true }}
-              />
-              <TextField
-                label="선급금"
-                value={Number(formData.advance || 0).toLocaleString()}
-                size={isMobile ? "small" : "medium"}
-                sx={{
-                  minWidth: isMobile ? '100%' : 180,
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#333' },
-                    '&:hover fieldset': { borderColor: '#555' },
-                    '&.Mui-focused fieldset': { borderColor: '#90caf9' }
-                  },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
-                }}
-                InputProps={{ readOnly: true }}
-              />
-            </Box>
-            {/* 3줄: 전회기성 + 금회기성 */}
-            <Box display="flex" width="100%" flexDirection={isMobile ? "column" : "row"} justifyContent="center" gap={isMobile ? 1 : 2}>
-              <TextField
-                label="전회기성"
-                value={Number(formData.prevGisung || 0).toLocaleString()}
-                size={isMobile ? "small" : "medium"}
-                sx={{
-                  minWidth: isMobile ? '100%' : 180,
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#333' },
-                    '&:hover fieldset': { borderColor: '#555' },
-                    '&.Mui-focused fieldset': { borderColor: '#90caf9' }
-                  },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
-                }}
-                InputProps={{ readOnly: true }}
-              />
-              <TextField
-                label="금회기성"
-                value={formData.currentGisung}
-                onChange={e => setFormData({ ...formData, currentGisung: e.target.value })}
-                size={isMobile ? "small" : "medium"}
-                sx={{
-                  minWidth: isMobile ? '100%' : 180,
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#333' },
-                    '&:hover fieldset': { borderColor: '#555' },
-                    '&.Mui-focused fieldset': { borderColor: '#90caf9' }
-                  },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
-                }}
-              />
-            </Box>
-            {/* 4줄: 결제방법 */}
-            <Box display="flex" width="100%" justifyContent="center">
-              <FormControl sx={{ minWidth: isMobile ? '100%' : 400 }} size={isMobile ? "small" : "medium"}>
-                <InputLabel sx={{ color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } }}>결제방법</InputLabel>
-                <Select
-                  value={formData.paymentMethod || ''}
-                  label="결제방법"
-                  onChange={e => setFormData({ ...formData, paymentMethod: e.target.value })}
-                  sx={{
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#333' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
-                    '& .MuiSelect-icon': { color: '#fff' },
-                    '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' }, py: isMobile ? 1 : 1.5 }
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        bgcolor: '#232b3b',
-                        '& .MuiMenuItem-root': {
-                          color: '#fff',
-                          fontSize: { xs: '0.9rem', md: '1rem' },
-                          py: isMobile ? 1 : 1.5,
-                          '&:hover': { bgcolor: '#2c3446' },
-                          '&.Mui-selected': { bgcolor: '#1976d2' }
-                        }
-                      }
-                    }
-                  }}
-                >
-                  <MenuItem value="세금계산서">세금계산서</MenuItem>
-                  <MenuItem value="노무자료">노무자료</MenuItem>
-                  <MenuItem value="노무비닷컴">노무비닷컴</MenuItem>
-                  <MenuItem value="무자료">무자료</MenuItem>
-                  <MenuItem value="기타">기타</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-            {/* 5줄: 비고 */}
-            <Box display="flex" width="100%" justifyContent="center">
-              <TextField
-                label="비고"
-                value={formData.note}
-                onChange={e => setFormData({ ...formData, note: e.target.value })}
-                fullWidth
-                multiline
-                rows={isMobile ? 2 : 3}
-                size={isMobile ? "small" : "medium"}
-                sx={{
-                  maxWidth: isMobile ? '100%' : 400,
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#333' },
-                    '&:hover fieldset': { borderColor: '#555' },
-                    '&.Mui-focused fieldset': { borderColor: '#90caf9' }
-                  },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: { xs: '0.9rem', md: '1rem' } },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: { xs: '0.9rem', md: '1rem' } }
-                }}
-              />
-            </Box>
+        <DialogContent sx={{ bgcolor: '#1a1d21', color: '#fff' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 2, mt: 2 }}>
+            <TextField
+              label="현장명"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              fullWidth
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#232b3b',
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+              }}
+            />
+            <TextField
+              label="계약금액"
+              value={formData.contractAmount}
+              onChange={(e) => setFormData({ ...formData, contractAmount: e.target.value })}
+              fullWidth
+              type="number"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#232b3b',
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+              }}
+            />
+            <TextField
+              label="선급금"
+              value={formData.advance}
+              onChange={(e) => setFormData({ ...formData, advance: e.target.value })}
+              fullWidth
+              type="number"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#232b3b',
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+              }}
+            />
+            <TextField
+              label="이전 기성"
+              value={formData.prevGisung}
+              onChange={(e) => setFormData({ ...formData, prevGisung: e.target.value })}
+              fullWidth
+              type="number"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#232b3b',
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+              }}
+            />
+            <TextField
+              label="기성월"
+              value={formData.gisungMonth}
+              onChange={(e) => setFormData({ ...formData, gisungMonth: e.target.value })}
+              fullWidth
+              type="month"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#232b3b',
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+              }}
+            />
+            <TextField
+              label="기성금액"
+              value={formData.gisungAmount}
+              onChange={(e) => setFormData({ ...formData, gisungAmount: e.target.value })}
+              fullWidth
+              type="number"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#232b3b',
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+              }}
+            />
+            <TextField
+              label="현재 기성"
+              value={formData.currentGisung}
+              onChange={(e) => setFormData({ ...formData, currentGisung: e.target.value })}
+              fullWidth
+              type="number"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#232b3b',
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+              }}
+            />
+            <TextField
+              label="비고"
+              value={formData.note}
+              onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+              fullWidth
+              multiline
+              rows={2}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#232b3b',
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+              }}
+            />
           </Box>
         </DialogContent>
-        <DialogActions sx={{ bgcolor: '#232b3b', p: { xs: 2, md: 3 }, justifyContent: 'center' }}>
-          <Button 
-            onClick={handleClose}
-            sx={{ 
-              color: '#bbb', 
-              fontSize: { xs: '0.9rem', md: '1rem' }, 
-              px: { xs: 2, md: 3 }, 
-              py: { xs: 0.8, md: 1 } 
-            }}
-          >
+        <DialogActions sx={{ bgcolor: '#1a1d21', borderTop: '1px solid #444' }}>
+          <Button onClick={handleClose} sx={{ color: '#ccc' }}>
             취소
           </Button>
-          <Button 
-            onClick={handleSubmit} 
-            variant="contained"
-            sx={{ 
-              bgcolor: '#2e7d32',
-              fontSize: { xs: '0.9rem', md: '1rem' },
-              px: { xs: 2, md: 3 },
-              py: { xs: 0.8, md: 1 },
-              '&:hover': { bgcolor: '#1b5e20' }
-            }}
-          >
-            저장
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* 계약금액 상세 모달 */}
-      <Dialog 
-        open={contractDetailModal} 
-        onClose={() => setContractDetailModal(false)} 
-        maxWidth="md" 
-        fullWidth
-        PaperProps={{
-          sx: {
-            bgcolor: '#23242a',
-            color: '#fff',
-            '& .MuiDialogTitle-root': {
-              color: '#fff',
-              borderBottom: '1px solid #444',
-            },
-            '& .MuiDialogContent-root': {
-              color: '#fff',
-            },
-            '& .MuiDialogActions-root': {
-              borderTop: '1px solid #444',
-            },
-          }
-        }}
-      >
-        <DialogTitle>
-          {monthText} 총계약금액 상세
-          <Typography variant="body2" sx={{ color: '#bbb', mt: 1 }}>
-            총 {contractDetailData.length}개 현장 • {formatContractAmount(contractDetailData.reduce((sum, site) => sum + site.contractAmount, 0))}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          {contractDetailData.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography variant="h6" sx={{ color: '#bbb' }}>
-                해당 월에 시작된 현장이 없습니다.
-              </Typography>
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#2c3446' }}>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>순번</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>현장명</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>계약금액</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>시작일</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>종료일</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>상태</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {contractDetailData.map((site, index) => (
-                    <TableRow key={index} sx={{ '&:hover': { bgcolor: '#2c3446' } }}>
-                      <TableCell sx={{ color: '#fff' }}>{index + 1}</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{site.name}</TableCell>
-                      <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
-                        {formatContractAmount(site.contractAmount)}
-                      </TableCell>
-                      <TableCell sx={{ color: '#fff' }}>
-                        {typeof site.startDate === 'string' ? site.startDate : 
-                         site.startDate?.toDate ? site.startDate.toDate().toLocaleDateString() : 
-                         site.startDate?.toLocaleDateString?.() || '-'}
-                      </TableCell>
-                      <TableCell sx={{ color: '#fff' }}>
-                        {typeof site.endDate === 'string' ? site.endDate : 
-                         site.endDate?.toDate ? site.endDate.toDate().toLocaleDateString() : 
-                         site.endDate?.toLocaleDateString?.() || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={site.status} 
-                          size="small"
-                          sx={{
-                            bgcolor: site.status === '완료' ? '#4caf50' : 
-                                    site.status === '진행중' ? '#2196f3' : 
-                                    site.status === '진행상황' ? '#ff9800' : '#9e9e9e',
-                            color: '#fff',
-                            fontWeight: 500
-                          }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setContractDetailModal(false)}
-            sx={{ color: '#ccc' }}
-          >
-            닫기
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* 선급금 상세 모달 */}
-      <Dialog 
-        open={advanceDetailModal} 
-        onClose={() => setAdvanceDetailModal(false)} 
-        maxWidth="md" 
-        fullWidth
-        PaperProps={{
-          sx: {
-            bgcolor: '#23242a',
-            color: '#fff',
-            '& .MuiDialogTitle-root': {
-              color: '#fff',
-              borderBottom: '1px solid #444',
-            },
-            '& .MuiDialogContent-root': {
-              color: '#fff',
-            },
-            '& .MuiDialogActions-root': {
-              borderTop: '1px solid #444',
-            },
-          }
-        }}
-      >
-        <DialogTitle>
-          {monthText} 총선급금 상세
-          <Typography variant="body2" sx={{ color: '#bbb', mt: 1 }}>
-            총 {advanceDetailData.length}개 현장 • {formatContractAmount(advanceDetailData.reduce((sum, site) => sum + site.advance, 0))}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          {advanceDetailData.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography variant="h6" sx={{ color: '#bbb' }}>
-                해당 월에 시작된 현장이 없습니다.
-              </Typography>
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#2c3446' }}>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>순번</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>현장명</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>선급금</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>시작일</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>종료일</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>상태</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {advanceDetailData.map((site, index) => (
-                    <TableRow key={index} sx={{ '&:hover': { bgcolor: '#2c3446' } }}>
-                      <TableCell sx={{ color: '#fff' }}>{index + 1}</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{site.name}</TableCell>
-                      <TableCell sx={{ color: '#ffd600', fontWeight: 700 }}>
-                        {formatContractAmount(site.advance)}
-                      </TableCell>
-                      <TableCell sx={{ color: '#fff' }}>
-                        {typeof site.startDate === 'string' ? site.startDate : 
-                         site.startDate?.toDate ? site.startDate.toDate().toLocaleDateString() : 
-                         site.startDate?.toLocaleDateString?.() || '-'}
-                      </TableCell>
-                      <TableCell sx={{ color: '#fff' }}>
-                        {typeof site.endDate === 'string' ? site.endDate : 
-                         site.endDate?.toDate ? site.endDate.toDate().toLocaleDateString() : 
-                         site.endDate?.toLocaleDateString?.() || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={site.status} 
-                          size="small"
-                          sx={{
-                            bgcolor: site.status === '완료' ? '#4caf50' : 
-                                    site.status === '진행중' ? '#2196f3' : 
-                                    site.status === '진행상황' ? '#ff9800' : '#9e9e9e',
-                            color: '#fff',
-                            fontWeight: 500
-                          }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setAdvanceDetailModal(false)}
-            sx={{ color: '#ccc' }}
-          >
-            닫기
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* 청구예정 상세 모달 */}
-      <Dialog 
-        open={claimDetailModal} 
-        onClose={() => setClaimDetailModal(false)} 
-        maxWidth="md" 
-        fullWidth
-        PaperProps={{
-          sx: {
-            bgcolor: '#23242a',
-            color: '#fff',
-            '& .MuiDialogTitle-root': {
-              color: '#fff',
-              borderBottom: '1px solid #444',
-            },
-            '& .MuiDialogContent-root': {
-              color: '#fff',
-            },
-            '& .MuiDialogActions-root': {
-              borderTop: '1px solid #444',
-            },
-          }
-        }}
-      >
-        <DialogTitle>
-          {monthText} 청구예정금액 상세
-          <Typography variant="body2" sx={{ color: '#bbb', mt: 1 }}>
-            총 {claimDetailData.length}개 항목 • {formatContractAmount(claimDetailData.reduce((sum, item) => sum + item.claimAmount, 0))}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          {claimDetailData.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography variant="h6" sx={{ color: '#bbb' }}>
-                해당 월의 청구예정 항목이 없습니다.
-              </Typography>
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#2c3446' }}>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>순번</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>현장명</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>청구예정금액</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>기성월</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>결제방법</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>상태</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {claimDetailData.map((item, index) => (
-                    <TableRow key={index} sx={{ '&:hover': { bgcolor: '#2c3446' } }}>
-                      <TableCell sx={{ color: '#fff' }}>{index + 1}</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{item.name}</TableCell>
-                      <TableCell sx={{ color: '#a084e8', fontWeight: 700 }}>
-                        {formatContractAmount(item.claimAmount)}
-                      </TableCell>
-                      <TableCell sx={{ color: '#fff' }}>{item.gisungMonth}</TableCell>
-                      <TableCell sx={{ color: '#fff' }}>{item.paymentMethod}</TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={item.status} 
-                          size="small"
-                          sx={{
-                            bgcolor: item.status === '결제완료' ? '#4caf50' : 
-                                    item.status === '결제대기' ? '#2196f3' : 
-                                    item.status === '미결제' ? '#ff9800' : '#9e9e9e',
-                            color: '#fff',
-                            fontWeight: 500
-                          }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setClaimDetailModal(false)}
-            sx={{ color: '#ccc' }}
-          >
-            닫기
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* 기성금액 상세 모달 */}
-      <Dialog 
-        open={gisungDetailModal} 
-        onClose={() => setGisungDetailModal(false)} 
-        maxWidth="md" 
-        fullWidth
-        PaperProps={{
-          sx: {
-            bgcolor: '#23242a',
-            color: '#fff',
-            '& .MuiDialogTitle-root': {
-              color: '#fff',
-              borderBottom: '1px solid #444',
-            },
-            '& .MuiDialogContent-root': {
-              color: '#fff',
-            },
-            '& .MuiDialogActions-root': {
-              borderTop: '1px solid #444',
-            },
-          }
-        }}
-      >
-        <DialogTitle>
-          {monthText} 총기성금액 상세
-          <Typography variant="body2" sx={{ color: '#bbb', mt: 1 }}>
-            총 {gisungDetailData.length}개 항목 • {formatContractAmount(gisungDetailData.reduce((sum, item) => sum + item.gisungAmount, 0))}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          {gisungDetailData.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography variant="h6" sx={{ color: '#bbb' }}>
-                해당 월의 기성 항목이 없습니다.
-              </Typography>
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#2c3446' }}>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>순번</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>현장명</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>기성금액</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>기성월</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>결제방법</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 700 }}>상태</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {gisungDetailData.map((item, index) => (
-                    <TableRow key={index} sx={{ '&:hover': { bgcolor: '#2c3446' } }}>
-                      <TableCell sx={{ color: '#fff' }}>{index + 1}</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{item.name}</TableCell>
-                      <TableCell sx={{ color: '#ef5350', fontWeight: 700 }}>
-                        {formatContractAmount(item.gisungAmount)}
-                      </TableCell>
-                      <TableCell sx={{ color: '#fff' }}>{item.gisungMonth}</TableCell>
-                      <TableCell sx={{ color: '#fff' }}>{item.paymentMethod}</TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={item.status} 
-                          size="small"
-                          sx={{
-                            bgcolor: item.status === '결제완료' ? '#4caf50' : 
-                                    item.status === '결제대기' ? '#2196f3' : 
-                                    item.status === '미결제' ? '#ff9800' : '#9e9e9e',
-                            color: '#fff',
-                            fontWeight: 500
-                          }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setGisungDetailModal(false)}
-            sx={{ color: '#ccc' }}
-          >
-            닫기
+          <Button onClick={handleSubmit} variant="contained" sx={{ bgcolor: '#3b82f6', '&:hover': { bgcolor: '#2563eb' } }}>
+            {selected ? '수정' : '추가'}
           </Button>
         </DialogActions>
       </Dialog>

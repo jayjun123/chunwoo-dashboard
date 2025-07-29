@@ -61,6 +61,7 @@ import { useNavigate } from 'react-router-dom';
 import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { syncClaimToProgress } from '../utils/integrationUtils';
 
 const Claims = () => {
   const theme = useTheme();
@@ -100,6 +101,85 @@ const Claims = () => {
   // 현장 데이터
   const [sites, setSites] = useState([]);
   const [gisungData, setGisungData] = useState([]);
+
+  // 임시저장 관련 상태
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pendingData, setPendingData] = useState([]);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+
+  // 임시저장 관련 함수들
+  const saveToLocalStorage = (key, data) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+      console.log(`${key} 로컬 저장 완료`);
+    } catch (error) {
+      console.error('로컬 저장 오류:', error);
+    }
+  };
+
+  const loadFromLocalStorage = (key) => {
+    try {
+      const data = localStorage.getItem(key);
+      return data ? JSON.parse(data) : null;
+    } catch (error) {
+      console.error('로컬 로드 오류:', error);
+      return null;
+    }
+  };
+
+  const addToPendingData = (data) => {
+    const newPending = {
+      id: `temp_${Date.now()}`,
+      ...data,
+      timestamp: new Date().toISOString(),
+      type: 'claim'
+    };
+    setPendingData(prev => [...prev, newPending]);
+    saveToLocalStorage('pendingClaims', [...pendingData, newPending]);
+  };
+
+  const syncPendingData = async () => {
+    if (!isOnline || pendingData.length === 0) return;
+
+    try {
+      const successData = [];
+      const failedData = [];
+
+      for (const data of pendingData) {
+        try {
+          await createClaim(data);
+          successData.push(data.id);
+          console.log('임시저장 데이터 동기화 성공:', data.id);
+        } catch (error) {
+          console.error('임시저장 데이터 동기화 실패:', error);
+          failedData.push(data);
+        }
+      }
+
+      // 성공한 데이터는 pendingData에서 제거
+      if (successData.length > 0) {
+        const remainingData = pendingData.filter(data => !successData.includes(data.id));
+        setPendingData(remainingData);
+        saveToLocalStorage('pendingClaims', remainingData);
+        setSnackbar({
+          open: true,
+          message: `${successData.length}개의 임시저장 데이터가 동기화되었습니다.`,
+          severity: 'success'
+        });
+      }
+
+      // 실패한 데이터는 다시 시도할 수 있도록 유지
+      if (failedData.length > 0) {
+        setSnackbar({
+          open: true,
+          message: `${failedData.length}개의 데이터 동기화에 실패했습니다.`,
+          severity: 'warning'
+        });
+      }
+    } catch (error) {
+      console.error('임시저장 데이터 동기화 오류:', error);
+    }
+  };
 
   // 폼 데이터
   const [formData, setFormData] = useState({
@@ -377,8 +457,27 @@ const Claims = () => {
   // 청구예정 생성/수정
   const handleSubmit = async () => {
     try {
+      // 오프라인 상태 체크
+      if (!isOnline) {
+        console.log('오프라인 상태 - 임시저장 실행');
+        addToPendingData(formData);
+        setSnackbar({ 
+          open: true, 
+          message: '오프라인 상태입니다. 데이터가 임시저장되었습니다. 온라인 복구 시 자동으로 동기화됩니다.', 
+          severity: 'info' 
+        });
+        
+        setDialogOpen(false);
+        setEditingClaim(null);
+        resetForm();
+        return;
+      }
+
+      // 온라인 상태 - 정상 저장
       if (editingClaim) {
         await updateClaim(editingClaim.id, formData);
+        // 청구 → 기성 연동
+        await syncClaimToProgress(formData.claimMonth, formData.siteName, formData.claimAmount);
         setSnackbar({
           open: true,
           message: '청구예정이 수정되었습니다.',
@@ -386,6 +485,8 @@ const Claims = () => {
         });
       } else {
         await createClaim(formData);
+        // 청구 → 기성 연동
+        await syncClaimToProgress(formData.claimMonth, formData.siteName, formData.claimAmount);
         setSnackbar({
           open: true,
           message: '청구예정이 생성되었습니다.',
@@ -396,11 +497,24 @@ const Claims = () => {
       setEditingClaim(null);
       resetForm();
     } catch (error) {
-      setSnackbar({
-        open: true,
-        message: '청구예정 저장에 실패했습니다.',
-        severity: 'error'
-      });
+      console.error('청구예정 저장 오류:', error);
+      
+      // 오류 발생 시에도 임시저장 시도
+      if (autoSaveEnabled) {
+        console.log('오류 발생 - 임시저장 시도');
+        addToPendingData(formData);
+        setSnackbar({ 
+          open: true, 
+          message: `저장에 실패했습니다. 데이터가 임시저장되었습니다. 오류: ${error.message}`, 
+          severity: 'warning' 
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: '청구예정 저장에 실패했습니다.',
+          severity: 'error'
+        });
+      }
     }
   };
 
@@ -1100,18 +1214,37 @@ const Claims = () => {
       <Dialog 
         open={dialogOpen} 
         onClose={() => setDialogOpen(false)}
-        maxWidth="md"
+        maxWidth={isMobile ? "xs" : "md"}
         fullWidth
+        fullScreen={isMobile}
         PaperProps={{
-          sx: { backgroundColor: '#2d3748', color: 'white' }
+          sx: { 
+            backgroundColor: '#2d3748', 
+            color: 'white',
+            ...(isMobile && {
+              margin: 0,
+              borderRadius: 0,
+              height: '100vh'
+            })
+          }
         }}
       >
-        <DialogTitle>
-          {editingClaim ? '청구예정 수정' : '새 청구예정'}
+        <DialogTitle sx={{ ...(isMobile && { borderBottom: '1px solid #555', pb: 1 }) }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant={isMobile ? "h6" : "h5"}>
+              {editingClaim ? '청구예정 수정' : '새 청구예정'}
+            </Typography>
+            {isMobile && (
+              <IconButton onClick={() => setDialogOpen(false)} sx={{ color: '#ccc' }}>
+                <DeleteIcon />
+              </IconButton>
+            )}
+          </Box>
         </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} md={6}>
+        <DialogContent sx={{ ...(isMobile && { p: 2 }) }}>
+          {isMobile ? (
+            // 모바일 레이아웃
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField
                 fullWidth
                 label="청구월"
@@ -1119,21 +1252,21 @@ const Claims = () => {
                 value={formData.claimMonth}
                 onChange={(e) => setFormData(prev => ({ ...prev, claimMonth: e.target.value }))}
                 InputLabelProps={{ shrink: true }}
+                size="small"
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
                   '& .MuiInputBase-input': { color: 'white' }
                 }}
               />
-            </Grid>
-            <Grid item xs={12} md={6}>
+              
               <SearchableSiteSelect
                 sites={sites}
                 value={formData.siteName}
                 onChange={handleSiteSelect}
                 label="현장명"
                 placeholder="현장명을 검색하세요"
-                size="medium"
+                size="small"
                 isMobile={isMobile}
                 sx={{ 
                   '& .MuiOutlinedInput-root': { backgroundColor: '#444' },
@@ -1141,8 +1274,7 @@ const Claims = () => {
                   '& .MuiInputBase-input': { color: 'white' }
                 }}
               />
-            </Grid>
-            <Grid item xs={12} md={6}>
+              
               <TextField
                 fullWidth
                 label="소장"
@@ -1150,14 +1282,14 @@ const Claims = () => {
                 InputProps={{
                   readOnly: true,
                 }}
+                size="small"
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#333' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
                   '& .MuiInputBase-input': { color: '#aaa' }
                 }}
               />
-            </Grid>
-            <Grid item xs={12} md={6}>
+              
               <TextField
                 fullWidth
                 label="차수"
@@ -1165,14 +1297,14 @@ const Claims = () => {
                 InputProps={{
                   readOnly: true,
                 }}
+                size="small"
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#333' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
                   '& .MuiInputBase-input': { color: '#aaa' }
                 }}
               />
-            </Grid>
-            <Grid item xs={12} md={6}>
+              
               <TextField
                 fullWidth
                 label="기성율(%)"
@@ -1182,14 +1314,14 @@ const Claims = () => {
                   readOnly: true,
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
+                size="small"
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#333' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
                   '& .MuiInputBase-input': { color: '#aaa' }
                 }}
               />
-            </Grid>
-            <Grid item xs={12} md={6}>
+              
               <TextField
                 fullWidth
                 label="청구금액"
@@ -1199,31 +1331,146 @@ const Claims = () => {
                 InputProps={{
                   endAdornment: <InputAdornment position="end">원</InputAdornment>,
                 }}
+                size="small"
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
                   '& .MuiInputBase-input': { color: 'white' }
                 }}
               />
-            </Grid>
-            <Grid item xs={12}>
+              
               <TextField
                 fullWidth
                 label="비고"
                 multiline
-                rows={2}
+                rows={3}
                 value={formData.notes}
                 onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                size="small"
                 sx={{ 
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
                   '& .MuiInputBase-input': { color: 'white' }
                 }}
               />
+            </Box>
+          ) : (
+            // 데스크톱 레이아웃
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="청구월"
+                  type="month"
+                  value={formData.claimMonth}
+                  onChange={(e) => setFormData(prev => ({ ...prev, claimMonth: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ 
+                    '& .MuiInputBase-root': { backgroundColor: '#444' },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: 'white' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <SearchableSiteSelect
+                  sites={sites}
+                  value={formData.siteName}
+                  onChange={handleSiteSelect}
+                  label="현장명"
+                  placeholder="현장명을 검색하세요"
+                  size="medium"
+                  isMobile={isMobile}
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { backgroundColor: '#444' },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: 'white' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="소장"
+                  value={formData.manager}
+                  InputProps={{
+                    readOnly: true,
+                  }}
+                  sx={{ 
+                    '& .MuiInputBase-root': { backgroundColor: '#333' },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#aaa' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="차수"
+                  value={formData.sequence}
+                  InputProps={{
+                    readOnly: true,
+                  }}
+                  sx={{ 
+                    '& .MuiInputBase-root': { backgroundColor: '#333' },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#aaa' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="기성율(%)"
+                  type="number"
+                  value={formData.progressRate}
+                  InputProps={{
+                    readOnly: true,
+                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                  }}
+                  sx={{ 
+                    '& .MuiInputBase-root': { backgroundColor: '#333' },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#aaa' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="청구금액"
+                  type="number"
+                  value={formData.claimAmount}
+                  onChange={(e) => setFormData(prev => ({ ...prev, claimAmount: e.target.value }))}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">원</InputAdornment>,
+                  }}
+                  sx={{ 
+                    '& .MuiInputBase-root': { backgroundColor: '#444' },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: 'white' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="비고"
+                  multiline
+                  rows={2}
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  sx={{ 
+                    '& .MuiInputBase-root': { backgroundColor: '#444' },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: 'white' }
+                  }}
+                />
+              </Grid>
             </Grid>
-          </Grid>
+          )}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ ...(isMobile && { p: 2, borderTop: '1px solid #555' }) }}>
           <Button onClick={() => setDialogOpen(false)} sx={{ color: '#ccc' }}>
             취소
           </Button>

@@ -1,55 +1,59 @@
 @echo off
-echo Building Chunwoo APK...
+echo ========================================
+echo 천우시스템 APK 빌드 시작
+echo ========================================
 
-echo 1. Cleaning previous build...
-if exist dist rmdir /s /q dist
-if exist android\app\build rmdir /s /q android\app\build
-
-echo 2. Installing dependencies...
-call npm install --legacy-peer-deps
-if errorlevel 1 (
-    echo Error: npm install failed
-    pause
-    exit /b 1
-)
-
-echo 3. Building production...
+echo.
+echo 1. 프로젝트 빌드 중...
 call npm run build
-if errorlevel 1 (
-    echo Error: npm run build failed
+if %errorlevel% neq 0 (
+    echo ❌ 프로젝트 빌드 실패
+    pause
+    exit /b 1
+)
+echo ✅ 프로젝트 빌드 완료
+
+echo.
+echo 2. Capacitor 동기화 중...
+call npx cap sync
+if %errorlevel% neq 0 (
+    echo ❌ Capacitor 동기화 실패
+    pause
+    exit /b 1
+)
+echo ✅ Capacitor 동기화 완료
+
+echo.
+echo 3. Android APK 빌드 중...
+cd android
+call gradlew.bat assembleRelease
+if %errorlevel% neq 0 (
+    echo ❌ APK 빌드 실패
+    pause
+    exit /b 1
+)
+echo ✅ APK 빌드 완료
+
+echo.
+echo 4. APK 파일 확인 중...
+if exist "app\build\outputs\apk\release\app-release.apk" (
+    echo ✅ APK 파일 생성 완료
+    echo 📱 파일 위치: android\app\build\outputs\apk\release\app-release.apk
+    echo 📦 파일 크기: 
+    for %%A in ("app\build\outputs\apk\release\app-release.apk") do echo    %%~zA bytes
+) else (
+    echo ❌ APK 파일을 찾을 수 없습니다
     pause
     exit /b 1
 )
 
-echo 4. Syncing with Android...
-call npx cap sync android
-if errorlevel 1 (
-    echo Error: cap sync failed
-    pause
-    exit /b 1
-)
-
-echo 5. Copying web assets...
-call npx cap copy android
-if errorlevel 1 (
-    echo Error: cap copy failed
-    pause
-    exit /b 1
-)
-
-echo 6. Opening Android Studio...
-call npx cap open android
-
 echo.
-echo Please complete the following steps in Android Studio:
-echo 1. Build -^> Generate Signed Bundle / APK
-echo 2. Select APK and create keystore
-echo 3. Build the release APK
+echo ========================================
+echo 🎉 APK 빌드 완료!
+echo ========================================
 echo.
-echo APK will be located at: android/app/build/outputs/apk/release/app-release.apk
-echo.
-echo Troubleshooting:
-echo - If build fails, try: cd android && ./gradlew clean && cd ..
-echo - If sync fails, try: npx cap sync android --force
+echo 📱 APK 파일: android\app\build\outputs\apk\release\app-release.apk
+echo 📋 패키지명: com.chunwoo.ai
+echo 🏷️  앱명: 천우시스템
 echo.
 pause 

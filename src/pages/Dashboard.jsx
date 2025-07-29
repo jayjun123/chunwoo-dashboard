@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Grid, Paper, Typography, CircularProgress, Card, CardContent,
-  List, ListItem, ListItemText, Divider, Chip, Tabs, Tab
+  List, ListItem, ListItemText, Divider, Chip, Tabs, Tab, Button,
+  Alert, IconButton, Tooltip
 } from '@mui/material';
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -17,6 +18,22 @@ import {
   BudgetVsActualChart,
   RealTimeStatusCard
 } from '../components/dashboard/AdvancedCharts';
+import {
+  getSiteIntegratedStatus,
+  getMonthlyIntegratedStatus,
+  checkDataConsistency,
+  autoSyncData
+} from '../utils/integrationUtils';
+import {
+  Refresh as RefreshIcon,
+  Warning as WarningIcon,
+  CheckCircle as CheckCircleIcon,
+  TrendingUp as TrendingUpIcon,
+  AccountBalance as AccountBalanceIcon,
+  Assignment as AssignmentIcon,
+  Receipt as ReceiptIcon,
+  Timeline as TimelineIcon
+} from '@mui/icons-material';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -40,6 +57,50 @@ const Dashboard = () => {
     siteStatus: [],
     budgetVsActual: []
   });
+  const [integratedStats, setIntegratedStats] = useState({
+    totalEstimates: 0,
+    totalClaims: 0,
+    totalProgress: 0,
+    totalCosts: 0,
+    totalEstimateAmount: 0,
+    totalClaimAmount: 0,
+    totalCostAmount: 0
+  });
+  const [dataIssues, setDataIssues] = useState([]);
+  const [syncing, setSyncing] = useState(false);
+
+  // 통합 데이터 로드
+  const loadIntegratedData = async () => {
+    try {
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM 형식
+      const monthlyData = await getMonthlyIntegratedStatus(currentMonth);
+      
+      if (monthlyData) {
+        setIntegratedStats(monthlyData.summary);
+      }
+
+      // 데이터 일관성 검사
+      const issues = await checkDataConsistency();
+      setDataIssues(issues);
+    } catch (error) {
+      console.error('통합 데이터 로드 오류:', error);
+    }
+  };
+
+  // 자동 동기화 실행
+  const handleAutoSync = async () => {
+    setSyncing(true);
+    try {
+      const success = await autoSyncData();
+      if (success) {
+        await loadIntegratedData();
+      }
+    } catch (error) {
+      console.error('자동 동기화 오류:', error);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Firestore 실시간 데이터 구독
   useEffect(() => {
@@ -66,6 +127,9 @@ const Dashboard = () => {
       generateChartData(sites);
       setLoading(false);
     });
+
+    // 통합 데이터 로드
+    loadIntegratedData();
 
     return () => unsubscribe();
   }, []);
@@ -170,8 +234,28 @@ const Dashboard = () => {
       mt: isMobile ? '0px' : '90px'
     }}>
       <Grid container spacing={3}>
+        {/* 데이터 동기화 및 일관성 검사 */}
+        <Grid xs={12}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
+            <Button
+              variant="contained"
+              startIcon={<RefreshIcon />}
+              onClick={handleAutoSync}
+              disabled={syncing}
+              sx={{ minWidth: 120 }}
+            >
+              {syncing ? '동기화 중...' : '데이터 동기화'}
+            </Button>
+            {dataIssues.length > 0 && (
+              <Alert severity="warning" sx={{ flex: 1 }}>
+                {dataIssues.length}개의 데이터 일관성 문제가 발견되었습니다.
+              </Alert>
+            )}
+          </Box>
+        </Grid>
+
         {/* 상단 통계 카드 */}
-        <Grid item xs={12} md={3}>
+        <Grid xs={12} md={3}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>전체 현장</Typography>
@@ -179,7 +263,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={3}>
+        <Grid xs={12} md={3}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>진행중 현장</Typography>
@@ -187,7 +271,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={3}>
+        <Grid xs={12} md={3}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>완료 현장</Typography>
@@ -195,7 +279,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={3}>
+        <Grid xs={12} md={3}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>평균 진행률</Typography>
@@ -204,8 +288,74 @@ const Dashboard = () => {
           </Card>
         </Grid>
 
+        {/* 통합 현황 카드 */}
+        <Grid xs={12} md={3}>
+          <Card sx={{ bgcolor: '#e3f2fd' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <AssignmentIcon sx={{ color: '#1976d2', mr: 1 }} />
+                <Typography variant="h6">견적 현황</Typography>
+              </Box>
+              <Typography variant="h4" sx={{ color: '#1976d2' }}>
+                {integratedStats.totalEstimates}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#666' }}>
+                총 {integratedStats.totalEstimateAmount.toLocaleString()}원
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid xs={12} md={3}>
+          <Card sx={{ bgcolor: '#f3e5f5' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <ReceiptIcon sx={{ color: '#7b1fa2', mr: 1 }} />
+                <Typography variant="h6">청구 현황</Typography>
+              </Box>
+              <Typography variant="h4" sx={{ color: '#7b1fa2' }}>
+                {integratedStats.totalClaims}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#666' }}>
+                총 {integratedStats.totalClaimAmount.toLocaleString()}원
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid xs={12} md={3}>
+          <Card sx={{ bgcolor: '#e8f5e8' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <TimelineIcon sx={{ color: '#388e3c', mr: 1 }} />
+                <Typography variant="h6">기성 현황</Typography>
+              </Box>
+              <Typography variant="h4" sx={{ color: '#388e3c' }}>
+                {integratedStats.totalProgress}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#666' }}>
+                기성 등록 완료
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid xs={12} md={3}>
+          <Card sx={{ bgcolor: '#fff3e0' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <AccountBalanceIcon sx={{ color: '#f57c00', mr: 1 }} />
+                <Typography variant="h6">지출 현황</Typography>
+              </Box>
+              <Typography variant="h4" sx={{ color: '#f57c00' }}>
+                {integratedStats.totalCosts}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#666' }}>
+                총 {integratedStats.totalCostAmount.toLocaleString()}원
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
         {/* 고급 차트 섹션 */}
-        <Grid item xs={12}>
+        <Grid xs={12}>
           <Card>
             <CardContent sx={{ p: 0 }}>
               <Tabs 
@@ -229,7 +379,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* 현장 상태 분포 */}
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Card>
             <CardContent>
               <SiteStatusPieChart data={chartData.siteStatus} />
@@ -238,12 +388,12 @@ const Dashboard = () => {
         </Grid>
 
         {/* 실시간 현장 현황 */}
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <RealTimeStatusCard stats={stats} />
         </Grid>
 
         {/* 기존 도넛 차트 */}
-        <Grid item xs={12} md={8}>
+        <Grid xs={12} md={8}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>현장 상태</Typography>
@@ -255,7 +405,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* 날씨 정보 */}
-        <Grid item xs={12} md={4}>
+        <Grid xs={12} md={4}>
           <Card>
             <CardContent sx={{ p: 0 }}>
               <WeatherWidget />
@@ -264,7 +414,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* 최근 활동 */}
-        <Grid item xs={12}>
+        <Grid xs={12}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>최근 활동</Typography>

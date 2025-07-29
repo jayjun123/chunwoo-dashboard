@@ -173,18 +173,31 @@ const SafetyPage = () => {
   };
 
   const handleSave = async () => {
-    console.log('=== 안전관리비 저장 시작 ===');
+    console.log('=== 안전관리 저장 시작 ===');
     console.log('현재 탭:', tab);
     console.log('폼 데이터:', form);
     console.log('편집 ID:', editId);
     
-    if (tab === 1 || tab === 2 || tab === 3) {
+    // 탭별 필수 필드 검증
+    if (tab === 1) { // 안전 점검
       if (!form.title || !form.date) {
-        console.log('필수 필드 누락 (탭 1-3)');
+        console.log('필수 필드 누락 (안전 점검)');
+        setSnackbar({ open: true, message: '제목과 날짜를 입력해주세요.', severity: 'warning' });
         return;
       }
-    }
-    if (tab === 4) {
+    } else if (tab === 2) { // 사고/사고예방
+      if (!form.title || !form.date) {
+        console.log('필수 필드 누락 (사고/사고예방)');
+        setSnackbar({ open: true, message: '제목과 날짜를 입력해주세요.', severity: 'warning' });
+        return;
+      }
+    } else if (tab === 3) { // 안전 교육
+      if (!form.title || !form.date) {
+        console.log('필수 필드 누락 (안전 교육)');
+        setSnackbar({ open: true, message: '제목과 날짜를 입력해주세요.', severity: 'warning' });
+        return;
+      }
+    } else if (tab === 4) { // 안전관리비
       console.log('안전관리비 필드 검증:');
       console.log('- siteName:', form.siteName);
       console.log('- name:', form.name);
@@ -417,7 +430,7 @@ const SafetyPage = () => {
     
     if (tab === 0) {
       return (
-        <Grid item xs={12}>
+        <Grid xs={12} md={4} lg={3} xl={2}>
           <SafetyOverviewCards />
         </Grid>
       );
@@ -455,7 +468,7 @@ const SafetyPage = () => {
               {row.title}
             </TableCell>
             <TableCell sx={{ 
-              fontSize: isMobile ? '0.7rem' : 'inherit', 
+              fontSize: isMobile ? '0.7rem' : '0.95rem', 
               padding: isMobile ? '8px 4px' : 'auto',
               width: 'auto',
               minWidth: 0,
@@ -682,7 +695,7 @@ const SafetyPage = () => {
     };
     
     return (
-      <Grid item xs={12} sx={{
+      <Grid xs={12} sx={{
         width: '100%',
         maxWidth: '100%',
         minWidth: 0

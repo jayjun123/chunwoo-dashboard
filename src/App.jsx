@@ -7,6 +7,7 @@ import { initKeyboardManager } from './utils/pwaKeyboardUtils';
 import { initMobileOptimization, initViewportHeight } from './utils/mobileOptimization';
 import { initializeWindow } from './utils/windowManager';
 import { globalCleanupManager, enhancedPerformanceMonitor } from './utils/performanceUtils';
+import { initializeMobileInputOptimization } from './utils/mobileInputOptimization';
 import './utils/migrateUtils';
 import './styles/IME.css';
 import { AuthProvider } from './contexts/AuthContext';
@@ -58,6 +59,8 @@ import ScheduleManagement from './components/schedule/ScheduleManagement';
 const GanttChartPage = React.lazy(() => import('./pages/GanttChart'));
 const Estimates = React.lazy(() => import('./pages/Estimates'));
 const Claims = React.lazy(() => import('./pages/Claims'));
+const EstimatesMobile = React.lazy(() => import('./pages/EstimatesMobile'));
+const ClaimsMobile = React.lazy(() => import('./pages/ClaimsMobile'));
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { CircularProgress } from '@mui/material';
 
@@ -73,11 +76,13 @@ const ProtectedRoute = ({ children }) => {
     );
   }
   
-  // 개발 환경에서는 로그인 우회
-  if (!currentUser && import.meta.env.PROD) {
+  // 로그인하지 않은 경우 로그인 화면 표시
+  if (!currentUser) {
+    console.log('로그인 필요 - 로그인 페이지로 이동');
     return <Login />;
   }
   
+  console.log('로그인 완료 - 메인 페이지로 이동');
   return children;
 };
 
@@ -113,6 +118,11 @@ const App = React.memo(() => {
     try {
       const deviceInfo = initMobileOptimization();
       console.log('Device Info:', deviceInfo);
+      
+      // 모바일 입력 최적화 초기화
+      const cleanupMobileInput = initializeMobileInputOptimization();
+      
+      return cleanupMobileInput;
     } catch (error) {
       console.error('Mobile optimization error:', error);
       // 오류가 발생해도 앱은 계속 실행
@@ -626,7 +636,7 @@ const App = React.memo(() => {
                           <ProtectedRoute>
                             {isMobile ? (
                               <MobileLayout>
-                                <Estimates />
+                                <EstimatesMobile />
                               </MobileLayout>
                             ) : (
                               <Layout>
@@ -642,7 +652,7 @@ const App = React.memo(() => {
                           <ProtectedRoute>
                             {isMobile ? (
                               <MobileLayout>
-                                <Claims />
+                                <ClaimsMobile />
                               </MobileLayout>
                             ) : (
                               <Layout>

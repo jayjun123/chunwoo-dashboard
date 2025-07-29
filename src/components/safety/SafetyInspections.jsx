@@ -525,7 +525,7 @@ const SafetyInspections = () => {
       {activeTab === 0 && (
         <Grid container spacing={3}>
           {inspections.map(inspection => (
-            <Grid item xs={12} sm={6} md={4} key={inspection.id}>
+            <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={inspection.id}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -570,7 +570,7 @@ const SafetyInspections = () => {
       {activeTab === 1 && (
         <Grid container spacing={3}>
           {trainings.map(training => (
-            <Grid item xs={12} sm={6} md={4} key={training.id}>
+            <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={training.id}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -615,7 +615,7 @@ const SafetyInspections = () => {
       {activeTab === 2 && (
         <Grid container spacing={3}>
           {accidents.map(accident => (
-            <Grid item xs={12} sm={6} md={4} key={accident.id}>
+            <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={accident.id}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>

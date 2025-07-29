@@ -27,6 +27,12 @@ const Login = () => {
   const [rememberEmail, setRememberEmail] = useState(false);
   const navigate = useNavigate();
   
+  // 컴포넌트 마운트 시 로그
+  React.useEffect(() => {
+    console.log('로그인 페이지 로드됨');
+    console.log('isMobile:', isMobile);
+  }, [isMobile]);
+  
   // useAuth 훅 사용 시 에러 처리
   let auth = null;
   try {
