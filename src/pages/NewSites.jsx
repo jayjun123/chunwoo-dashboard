@@ -11,6 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/material';
 import { formatContractAmount, formatAdvanceAmount, formatGisungAmount } from '../utils/formatUtils';
+import { getSiteIntegratedStatus } from '../utils/integrationUtils';
 
 const STATUS_OPTIONS = ['예정', '진행중', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급', '관급'];
@@ -18,7 +19,7 @@ const ESTIMATE_STATUS_OPTIONS = ['있음', '없음', '입찰', '현설', '기타
 
 const initialFormState = {
   name: '',
-  status: '진행상황',
+  status: '진행중',
   contractType: '관급',
   subcontractGuardian: false,
   installment: '',
@@ -47,6 +48,7 @@ const NewSites = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [vendors, setVendors] = useState([]); // 거래처 데이터 상태 추가
+  const [siteIntegratedStatus, setSiteIntegratedStatus] = useState(null);
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const theme = useTheme();
@@ -187,7 +189,22 @@ const NewSites = () => {
       );
   }, [sites, statusTab, searchTerm]);
 
-  const handleSelectSite = (site) => setSelectedSite(site);
+  const handleSelectSite = async (site) => {
+    setSelectedSite(site);
+    
+    // 선택된 현장의 통합 현황 조회
+    if (site) {
+      try {
+        const integratedStatus = await getSiteIntegratedStatus(site.name);
+        setSiteIntegratedStatus(integratedStatus);
+      } catch (error) {
+        console.error('현장 통합 현황 조회 오류:', error);
+        setSiteIntegratedStatus(null);
+      }
+    } else {
+      setSiteIntegratedStatus(null);
+    }
+  };
   const handleChange = async (e) => {
     const { name, value, type, checked } = e.target;
     const newValue = type === 'checkbox' ? checked : value;
@@ -536,6 +553,74 @@ const NewSites = () => {
              </Button>
            </Box>
          </Box>
+         {/* 통합 현황 표시 */}
+         {siteIntegratedStatus && (
+           <Box sx={{ 
+             mb: 2, 
+             p: 2, 
+             bgcolor: '#f5f5f5', 
+             borderRadius: 1,
+             border: '1px solid #e0e0e0'
+           }}>
+             <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', color: '#1976d2' }}>
+               {selectedSite?.name} 통합 현황
+             </Typography>
+             <Grid container spacing={2}>
+               <Grid xs={6} sm={3}>
+                 <Box sx={{ textAlign: 'center' }}>
+                   <Typography variant="h4" sx={{ color: '#1976d2', fontWeight: 'bold' }}>
+                     {siteIntegratedStatus.summary.totalEstimates}
+                   </Typography>
+                   <Typography variant="body2" sx={{ color: '#666' }}>견적</Typography>
+                 </Box>
+               </Grid>
+               <Grid xs={6} sm={3}>
+                 <Box sx={{ textAlign: 'center' }}>
+                   <Typography variant="h4" sx={{ color: '#7b1fa2', fontWeight: 'bold' }}>
+                     {siteIntegratedStatus.summary.totalClaims}
+                   </Typography>
+                   <Typography variant="body2" sx={{ color: '#666' }}>청구</Typography>
+                 </Box>
+               </Grid>
+               <Grid xs={6} sm={3}>
+                 <Box sx={{ textAlign: 'center' }}>
+                   <Typography variant="h4" sx={{ color: '#388e3c', fontWeight: 'bold' }}>
+                     {siteIntegratedStatus.summary.totalProgress}
+                   </Typography>
+                   <Typography variant="body2" sx={{ color: '#666' }}>기성</Typography>
+                 </Box>
+               </Grid>
+               <Grid xs={6} sm={3}>
+                 <Box sx={{ textAlign: 'center' }}>
+                   <Typography variant="h4" sx={{ color: '#f57c00', fontWeight: 'bold' }}>
+                     {siteIntegratedStatus.summary.totalCosts}
+                   </Typography>
+                   <Typography variant="body2" sx={{ color: '#666' }}>지출</Typography>
+                 </Box>
+               </Grid>
+             </Grid>
+             <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #e0e0e0' }}>
+               <Grid container spacing={2}>
+                 <Grid xs={12} sm={4}>
+                   <Typography variant="body2" sx={{ color: '#666' }}>
+                     견적 총액: {siteIntegratedStatus.summary.totalEstimateAmount.toLocaleString()}원
+                   </Typography>
+                 </Grid>
+                 <Grid xs={12} sm={4}>
+                   <Typography variant="body2" sx={{ color: '#666' }}>
+                     청구 총액: {siteIntegratedStatus.summary.totalClaimAmount.toLocaleString()}원
+                   </Typography>
+                 </Grid>
+                 <Grid xs={12} sm={4}>
+                   <Typography variant="body2" sx={{ color: '#666' }}>
+                     지출 총액: {siteIntegratedStatus.summary.totalCostAmount.toLocaleString()}원
+                   </Typography>
+                 </Grid>
+               </Grid>
+             </Box>
+           </Box>
+         )}
+
          <Box sx={{ 
            pr: 1, 
            display: 'flex', 

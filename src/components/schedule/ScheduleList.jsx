@@ -16,7 +16,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Autocomplete
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
@@ -377,45 +378,57 @@ const ScheduleList = () => {
               required
               InputLabelProps={{ shrink: true }}
             />
-            <FormControl fullWidth margin="normal" required>
-              <InputLabel>유형</InputLabel>
-              <Select
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                label="유형"
-              >
-                <MenuItem value="일반">일반</MenuItem>
-                <MenuItem value="회의">회의</MenuItem>
-                <MenuItem value="점검">점검</MenuItem>
-                <MenuItem value="교육">교육</MenuItem>
-                <MenuItem value="기타">기타</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl fullWidth margin="normal" required>
-              <InputLabel>우선순위</InputLabel>
-              <Select
-                value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                label="우선순위"
-              >
-                <MenuItem value="높음">높음</MenuItem>
-                <MenuItem value="중간">중간</MenuItem>
-                <MenuItem value="낮음">낮음</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl fullWidth margin="normal" required>
-              <InputLabel>상태</InputLabel>
-              <Select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                label="상태"
-              >
-                <MenuItem value="예정">예정</MenuItem>
-                <MenuItem value="진행중">진행중</MenuItem>
-                <MenuItem value="완료">완료</MenuItem>
-                <MenuItem value="취소">취소</MenuItem>
-              </Select>
-            </FormControl>
+            <Autocomplete
+              options={['일반', '회의', '점검', '교육', '기타']}
+              value={formData.type}
+              onChange={(event, newValue) => setFormData({ ...formData, type: newValue || '' })}
+              onInputChange={(event, newInputValue) => setFormData({ ...formData, type: newInputValue })}
+              freeSolo
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="유형"
+                  placeholder="선택하거나 직접 입력"
+                  margin="normal"
+                  required
+                  fullWidth
+                />
+              )}
+            />
+            <Autocomplete
+              options={['높음', '중간', '낮음']}
+              value={formData.priority}
+              onChange={(event, newValue) => setFormData({ ...formData, priority: newValue || '' })}
+              onInputChange={(event, newInputValue) => setFormData({ ...formData, priority: newInputValue })}
+              freeSolo
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="우선순위"
+                  placeholder="선택하거나 직접 입력"
+                  margin="normal"
+                  required
+                  fullWidth
+                />
+              )}
+            />
+            <Autocomplete
+              options={['예정', '진행중', '완료', '취소']}
+              value={formData.status}
+              onChange={(event, newValue) => setFormData({ ...formData, status: newValue || '' })}
+              onInputChange={(event, newInputValue) => setFormData({ ...formData, status: newInputValue })}
+              freeSolo
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="상태"
+                  placeholder="선택하거나 직접 입력"
+                  margin="normal"
+                  required
+                  fullWidth
+                />
+              )}
+            />
             <TextField
               fullWidth
               label="장소"

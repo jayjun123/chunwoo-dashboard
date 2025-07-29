@@ -174,7 +174,7 @@ const SafetyIncidents = () => {
 
       <Grid container spacing={3}>
         {incidents.map((incident) => (
-          <Grid item xs={12} md={6} lg={4} key={incident.id}>
+          <Grid item xs={12} md={6} lg={2} key={incident.id}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

@@ -120,7 +120,7 @@ function SafetyOverviewCards() {
     <Box sx={{ 
       width: '100%', 
       mb: 3, 
-      maxWidth: isMobile ? '100vw' : '100%',
+      maxWidth: isMobile ? '100vw' : '800px',
       px: isMobile ? '16px' : 0
     }}>
       <Box sx={{ 
@@ -150,7 +150,7 @@ function SafetyOverviewCards() {
 
       <Grid container spacing={isMobile ? 2 : 2.5}>
         {filtered.map(site => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={site.siteName} sx={{ 
+          <Grid xs={12} sm={6} md={3} lg={3} xl={3} key={site.siteName} sx={{ 
             width: '100%', 
             px: isMobile ? 0 : 0
           }}>
@@ -162,7 +162,8 @@ function SafetyOverviewCards() {
               boxShadow: 3,
               position: 'relative',
               ml: isMobile ? 0 : 0,
-              width: '100%'
+              width: '100%',
+              maxWidth: isMobile ? '100%' : '400px'
             }}>
               {/* 그리드 오버레이 */}
               <Box sx={{

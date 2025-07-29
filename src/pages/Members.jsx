@@ -34,7 +34,8 @@ import {
   Switch,
   FormControlLabel,
   Tooltip,
-  Badge
+  Badge,
+  Autocomplete
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -804,35 +805,42 @@ const Members = () => {
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>역할</InputLabel>
-                <Select
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                  label="역할"
-                >
-                  {Object.entries(roles).map(([role, { label, hidden }]) => (
-                    <MenuItem key={role} value={role} disabled={hidden}>
-                      {label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                options={Object.entries(roles).map(([role, { label }]) => ({ value: role, label }))}
+                value={Object.entries(roles).find(([role]) => role === selectedRole)?.[1]?.label || ''}
+                onChange={(event, newValue) => setSelectedRole(newValue?.value || '')}
+                onInputChange={(event, newInputValue) => {
+                  const roleEntry = Object.entries(roles).find(([role, { label }]) => label === newInputValue);
+                  if (roleEntry) setSelectedRole(roleEntry[0]);
+                }}
+                freeSolo
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="역할"
+                    placeholder="선택하거나 직접 입력"
+                    fullWidth
+                  />
+                )}
+              />
             </Grid>
             {selectedRole === 'team' && (
               <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel>팀 등급</InputLabel>
-                  <Select
-                    value={selectedTeamGrade}
-                    onChange={(e) => setSelectedTeamGrade(e.target.value)}
-                    label="팀 등급"
-                  >
-                    {teamGrades.map((grade) => (
-                      <MenuItem key={grade} value={grade}>{grade}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  options={teamGrades}
+                  value={selectedTeamGrade}
+                  onChange={(event, newValue) => setSelectedTeamGrade(newValue || '')}
+                  onInputChange={(event, newInputValue) => setSelectedTeamGrade(newInputValue)}
+                  freeSolo
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="팀 등급"
+                      placeholder="선택하거나 직접 입력"
+                      fullWidth
+                    />
+                  )}
+                />
               </Grid>
             )}
           </Grid>
@@ -865,33 +873,42 @@ const Members = () => {
                </Typography>
              </Grid>
              <Grid item xs={12}>
-               <FormControl fullWidth>
-                 <InputLabel>역할</InputLabel>
-                 <Select
-                   value={approvalRole}
-                   onChange={(e) => setApprovalRole(e.target.value)}
-                   label="역할"
-                 >
-                   {Object.entries(roles).filter(([role, { hidden }]) => !hidden).map(([role, { label }]) => (
-                     <MenuItem key={role} value={role}>{label}</MenuItem>
-                   ))}
-                 </Select>
-               </FormControl>
+               <Autocomplete
+                 options={Object.entries(roles).filter(([role, { hidden }]) => !hidden).map(([role, { label }]) => ({ value: role, label }))}
+                 value={Object.entries(roles).find(([role]) => role === approvalRole)?.[1]?.label || ''}
+                 onChange={(event, newValue) => setApprovalRole(newValue?.value || '')}
+                 onInputChange={(event, newInputValue) => {
+                   const roleEntry = Object.entries(roles).find(([role, { label }]) => label === newInputValue);
+                   if (roleEntry) setApprovalRole(roleEntry[0]);
+                 }}
+                 freeSolo
+                 renderInput={(params) => (
+                   <TextField
+                     {...params}
+                     label="역할"
+                     placeholder="선택하거나 직접 입력"
+                     fullWidth
+                   />
+                 )}
+               />
              </Grid>
              {approvalRole === 'team' && (
                <Grid item xs={12}>
-                 <FormControl fullWidth>
-                   <InputLabel>팀 등급</InputLabel>
-                   <Select
-                     value={approvalTeamGrade}
-                     onChange={(e) => setApprovalTeamGrade(e.target.value)}
-                     label="팀 등급"
-                   >
-                     {teamGrades.map((grade) => (
-                       <MenuItem key={grade} value={grade}>{grade}</MenuItem>
-                     ))}
-                   </Select>
-                 </FormControl>
+                 <Autocomplete
+                   options={teamGrades}
+                   value={approvalTeamGrade}
+                   onChange={(event, newValue) => setApprovalTeamGrade(newValue || '')}
+                   onInputChange={(event, newInputValue) => setApprovalTeamGrade(newInputValue)}
+                   freeSolo
+                   renderInput={(params) => (
+                     <TextField
+                       {...params}
+                       label="팀 등급"
+                       placeholder="선택하거나 직접 입력"
+                       fullWidth
+                     />
+                   )}
+                 />
                </Grid>
              )}
            </Grid>

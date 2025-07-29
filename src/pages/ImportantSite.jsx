@@ -727,10 +727,11 @@ export default function ImportantSite() {
         flex: 1,
         overflowY: 'auto',
         overflowX: 'hidden',
-        padding: isMobile ? '0 0 0 6px' : '0 10px',
+        padding: isMobile ? '10px 0 0 6px' : '10px 10px 0 10px',
         border: '1px solid #333',
         borderRadius: 2,
-        bgcolor: '#1a1a1a'
+        bgcolor: '#1a1a1a',
+        mt: 0 // 마진 제거
       }}>
         {filteredSites.length === 0 && (
           <Typography sx={{ color: '#bbb', mt: 4 }}>
@@ -766,7 +767,7 @@ export default function ImportantSite() {
                   display: 'flex', 
                   flexDirection: { xs: 'column', md: 'row' }, 
                   alignItems: 'stretch', 
-                  minHeight: isMobile ? 'auto' : 380, 
+                  height: isMobile ? 'auto' : 400, // 높이를 380에서 400으로 통일
                   minWidth: isMobile ? 'calc(100vw - 20px)' : 'auto', 
                   width: '100%', 
                   p: 0, 

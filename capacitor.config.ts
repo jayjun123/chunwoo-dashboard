@@ -15,13 +15,7 @@ const config: CapacitorConfig = {
     allowMixedContent: true,
     captureInput: true,
     webContentsDebuggingEnabled: false,
-    initialFocus: false,
-    buildOptions: {
-      keystorePath: 'my-release-key.keystore',
-      keystoreAlias: 'my-key-alias',
-      keystorePassword: 'mypassword',
-      keystoreAliasPassword: 'mypassword'
-    }
+    initialFocus: false
   },
   ios: {
     backgroundColor: '#181A20',

@@ -816,10 +816,10 @@ const CustomScheduleMobile = () => {
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleCheckItem(dateStr, item.id, !isChecked);
+                          // 체크박스 기능 제거 - 클릭 시 아무 동작 안함
                         }}
                       >
-
+                        {/* 체크박스 제거 */}
                                                   <span style={{ flex: 1, textAlign: 'left' }}>
                             {(() => {
                               // 견적 일정인 경우 특별 처리
@@ -1174,154 +1174,61 @@ const CustomScheduleMobile = () => {
   };
 
   // 현장 상세내역 보기 핸들러
-  const handleViewSiteDetail = async (schedule) => {
-    // 일정에서 현장명 추출
+  const handleViewSiteDetail = (schedule) => {
+    // 견적 일정인 경우
+    if (schedule.type === '견적' || schedule.isEstimate) {
+      const siteName = schedule.siteName || schedule.company || '견적 현장';
+      setSelectedSiteDetail({
+        name: siteName,
+        type: '견적',
+        status: schedule.submissionStatus || '제출대기',
+        content: schedule.requestContent || '견적 요청 내용 없음',
+        deadline: schedule.submissionDeadline || '기한 없음',
+        notes: schedule.notes || '비고 없음'
+      });
+      setSiteDetailDialogOpen(true);
+      return;
+    }
+    
+    // 입찰 일정인 경우
+    if (schedule.type === '입찰' || schedule.isBid) {
+      const siteName = schedule.siteName || schedule.company || '입찰 현장';
+      setSelectedSiteDetail({
+        name: siteName,
+        type: '입찰',
+        status: schedule.bidStatus || '입찰대기',
+        content: schedule.text || schedule.title || '입찰 내용 없음',
+        deadline: schedule.deadline || '기한 없음',
+        notes: schedule.notes || '비고 없음'
+      });
+      setSiteDetailDialogOpen(true);
+      return;
+    }
+    
+    // 일반 일정인 경우 (기존 로직)
     const siteName = schedule.siteName || schedule.text?.replace(/\[.*?\]/, '').trim() || '현장명 없음';
     
-    // 일정 타입 확인
-    const scheduleType = schedule.type || '';
-    let type = '현장'; // 기본값
+    // 현장 데이터 찾기
+    const siteData = sites.find(site => site.name === siteName);
     
-    if (scheduleType.includes('견적')) {
-      type = '견적';
-    } else if (scheduleType.includes('현설')) {
-      type = '현설';
-    } else if (scheduleType.includes('입찰')) {
-      type = '입찰';
-    }
-
-    try {
-      if (type === '견적') {
-        // 견적 데이터 찾기
-        const estimatesQuery = query(
-          collection(db, 'estimates'),
-          where('siteName', '==', siteName)
-        );
-        const estimatesSnapshot = await getDocs(estimatesQuery);
-        
-        if (!estimatesSnapshot.empty) {
-          const estimateData = estimatesSnapshot.docs[0].data();
-          setSelectedSiteDetail({
-            name: siteName,
-            company: estimateData.company || '회사명 없음',
-            manager: estimateData.manager || '소장명 없음',
-            constructionTeam: estimateData.constructionTeam || '시공팀 없음',
-            address: estimateData.address || '주소 없음',
-            contractAmount: estimateData.contractAmount || 0,
-            startDate: estimateData.startDate || '날짜 없음',
-            endDate: estimateData.endDate || '날짜 없음',
-            estimateDetails: estimateData.description || estimateData.estimateDetails || '견적 상세내역이 없습니다.',
-            type: '견적',
-            estimateStatus: estimateData.status || '제출대기'
-          });
-        } else {
-          // 견적 데이터가 없으면 기본 정보로 표시
-          setSelectedSiteDetail({
-            name: siteName,
-            company: '회사명 없음',
-            manager: '소장명 없음',
-            constructionTeam: '시공팀 없음',
-            address: '주소 없음',
-            contractAmount: 0,
-            startDate: '날짜 없음',
-            endDate: '날짜 없음',
-            estimateDetails: '견적 상세내역이 없습니다.',
-            type: '견적',
-            estimateStatus: '제출대기'
-          });
-        }
-      } else if (type === '입찰') {
-        // 입찰 데이터 찾기 (bids 컬렉션이 있다면)
-        const bidsQuery = query(
-          collection(db, 'bids'),
-          where('siteName', '==', siteName)
-        );
-        const bidsSnapshot = await getDocs(bidsQuery);
-        
-        if (!bidsSnapshot.empty) {
-          const bidData = bidsSnapshot.docs[0].data();
-          setSelectedSiteDetail({
-            name: siteName,
-            company: bidData.company || '회사명 없음',
-            manager: bidData.manager || '소장명 없음',
-            constructionTeam: bidData.constructionTeam || '시공팀 없음',
-            address: bidData.address || '주소 없음',
-            contractAmount: bidData.contractAmount || 0,
-            startDate: bidData.startDate || '날짜 없음',
-            endDate: bidData.endDate || '날짜 없음',
-            bidDetails: bidData.description || bidData.bidDetails || '입찰 상세내역이 없습니다.',
-            type: '입찰',
-            bidStatus: bidData.status || '입찰대기'
-          });
-        } else {
-          // 입찰 데이터가 없으면 기본 정보로 표시
-          setSelectedSiteDetail({
-            name: siteName,
-            company: '회사명 없음',
-            manager: '소장명 없음',
-            constructionTeam: '시공팀 없음',
-            address: '주소 없음',
-            contractAmount: 0,
-            startDate: '날짜 없음',
-            endDate: '날짜 없음',
-            bidDetails: '입찰 상세내역이 없습니다.',
-            type: '입찰',
-            bidStatus: '입찰대기'
-          });
-        }
-      } else if (type === '현설') {
-        // 현설 데이터 찾기 (현장 데이터에서 현설 관련 정보 추출)
-        const siteData = sites.find(site => site.name === siteName);
-        
-        if (siteData) {
-          setSelectedSiteDetail({
-            ...siteData,
-            constructionDetails: siteData.constructionDetails || siteData.description || '현설 상세내역이 없습니다.',
-            type: '현설'
-          });
-        } else {
-          setSelectedSiteDetail({
-            name: siteName,
-            company: '회사명 없음',
-            manager: '소장명 없음',
-            constructionTeam: '시공팀 없음',
-            address: '주소 없음',
-            contractAmount: 0,
-            startDate: '날짜 없음',
-            endDate: '날짜 없음',
-            constructionDetails: '현설 상세내역이 없습니다.',
-            type: '현설'
-          });
-        }
-      } else {
-        // 현장 데이터 찾기 (기본 현장 정보)
-        const siteData = sites.find(site => site.name === siteName);
-        
-        if (siteData) {
-          setSelectedSiteDetail({
-            ...siteData,
-            type: '현장'
-          });
-        } else {
-          setSelectedSiteDetail({
-            name: siteName,
-            company: '회사명 없음',
-            manager: '소장명 없음',
-            constructionTeam: '시공팀 없음',
-            address: '주소 없음',
-            contractAmount: 0,
-            startDate: '날짜 없음',
-            endDate: '날짜 없음',
-            description: '현장 상세내역이 없습니다.',
-            type: '현장'
-          });
-        }
-      }
-      
+    if (siteData) {
+      setSelectedSiteDetail(siteData);
       setSiteDetailDialogOpen(true);
-    } catch (error) {
-      console.error('일정 상세정보 조회 실패:', error);
-      alert('일정 상세정보를 불러오는데 실패했습니다.');
+    } else {
+      // 현장 데이터가 없으면 기본 정보로 표시
+      setSelectedSiteDetail({
+        name: siteName,
+        company: '회사명 없음',
+        manager: '소장명 없음',
+        constructionTeam: '시공팀 없음',
+        address: '주소 없음',
+        contractAmount: 0,
+        startDate: '날짜 없음',
+        endDate: '날짜 없음',
+        description: '상세내역 없음',
+        items: []
+      });
+      setSiteDetailDialogOpen(true);
     }
   };
 
@@ -1550,7 +1457,7 @@ const CustomScheduleMobile = () => {
                                     borderRadius: 0.5,
                                     px: 0.2,
                                     py: 0.05,
-                                    fontSize: '0.7rem', // 0.55rem에서 0.7rem으로 증가
+                                    fontSize: '0.55rem',
                                     fontWeight: 500,
                                     bgcolor: item.color || colorList[i % colorList.length],
                                     color: '#fff',
@@ -1561,9 +1468,9 @@ const CustomScheduleMobile = () => {
                                     textAlign: 'center',
                                     width: '100%',
                                     mb: 0.02,
-                                    lineHeight: 1.1, // 0.9에서 1.1로 증가
-                                    minHeight: 12, // 10에서 12로 증가
-                                    maxHeight: 12, // 10에서 12로 증가
+                                    lineHeight: 0.9,
+                                    minHeight: 10,
+                                    maxHeight: 10,
                                     // 이전/다음 달 일정은 더 선명하게 표시
                                     opacity: isCurrentMonth ? 1 : 0.8,
                                     position: 'relative',
@@ -1574,10 +1481,10 @@ const CustomScheduleMobile = () => {
                                   }}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleCheckItem(dateStr, item.id, !isChecked);
+                                    // 체크박스 기능 제거 - 클릭 시 아무 동작 안함
                                   }}
                                 >
-
+                                  {/* 체크박스 제거 */}
                                                                   {(() => {
                                   // 견적 일정인 경우 특별 처리
                                   if (item.isEstimate) {
@@ -1765,6 +1672,7 @@ const CustomScheduleMobile = () => {
                       alignItems: 'center',
                       justifyContent: 'flex-end'
                     }}>
+                      {/* 모든 일정에 돋보기 버튼 추가 */}
                       <IconButton 
                         size="small" 
                         onClick={() => handleViewSiteDetail(item)}
@@ -2287,7 +2195,7 @@ const CustomScheduleMobile = () => {
           </DialogActions>
         </Dialog>
 
-        {/* 현장 상세내역 팝업 */}
+        {/* 세부내역 팝업 */}
         <Dialog 
           open={siteDetailDialogOpen} 
           onClose={() => setSiteDetailDialogOpen(false)}
@@ -2305,256 +2213,160 @@ const CustomScheduleMobile = () => {
         >
           <DialogTitle sx={{ color: '#fff', fontWeight: 700, borderBottom: '1px solid #444' }}>
             {selectedSiteDetail?.type === '견적' ? '견적 상세내역' : 
-             selectedSiteDetail?.type === '현설' ? '현설 상세내역' :
              selectedSiteDetail?.type === '입찰' ? '입찰 상세내역' : '현장 상세내역'}
           </DialogTitle>
           <DialogContent sx={{ p: 2 }}>
             {selectedSiteDetail && (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {/* 기본 정보 */}
-                <Box>
-                  <Typography variant="h6" sx={{ color: '#2196f3', mb: 1, fontWeight: 700 }}>
-                    {selectedSiteDetail.name}
-                  </Typography>
-                  
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>회사명:</Typography>
-                      <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>{selectedSiteDetail.company}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>현장소장:</Typography>
-                      <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>{selectedSiteDetail.manager}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>시공팀:</Typography>
-                      <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>{selectedSiteDetail.constructionTeam}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>주소:</Typography>
-                      <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>{selectedSiteDetail.address}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>계약금액:</Typography>
-                      <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>
-                        {selectedSiteDetail.contractAmount ? formatContractAmount(selectedSiteDetail.contractAmount) : '정보 없음'}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>공사기간:</Typography>
-                      <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>
-                        {selectedSiteDetail.startDate} ~ {selectedSiteDetail.endDate}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
                 {/* 견적 상세내역 */}
                 {selectedSiteDetail.type === '견적' && (
-                  <Box>
-                    <Typography variant="subtitle1" sx={{ color: '#f59e42', mb: 1, fontWeight: 600 }}>
-                      견적 상세내역
-                    </Typography>
-                    <Typography sx={{ color: '#fff', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                      {selectedSiteDetail.estimateDetails || '견적 상세내역이 없습니다.'}
-                    </Typography>
-                  </Box>
-                )}
+                  <>
+                    <Box>
+                      <Typography variant="h6" sx={{ color: '#2196f3', mb: 1, fontWeight: 700 }}>
+                        {selectedSiteDetail.name}
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>견적 상태:</Typography>
+                          <Typography sx={{ 
+                            color: selectedSiteDetail.status === '제출완료' ? '#22c55e' : '#f59e42', 
+                            fontSize: '0.85rem',
+                            fontWeight: 'bold'
+                          }}>
+                            {selectedSiteDetail.status}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>제출기한:</Typography>
+                          <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>
+                            {selectedSiteDetail.deadline}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
 
-                {/* 현설 상세내역 */}
-                {selectedSiteDetail.type === '현설' && (
-                  <Box>
-                    <Typography variant="subtitle1" sx={{ color: '#22c55e', mb: 1, fontWeight: 600 }}>
-                      현설 상세내역
-                    </Typography>
-                    <Typography sx={{ color: '#fff', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                      {selectedSiteDetail.constructionDetails || '현설 상세내역이 없습니다.'}
-                    </Typography>
-                  </Box>
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ color: '#2196f3', mb: 1, fontWeight: 600 }}>
+                        견적 요청 내용
+                      </Typography>
+                      <Typography sx={{ color: '#fff', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                        {selectedSiteDetail.content}
+                      </Typography>
+                    </Box>
+
+                    {selectedSiteDetail.notes && (
+                      <Box>
+                        <Typography variant="subtitle1" sx={{ color: '#f59e42', mb: 1, fontWeight: 600 }}>
+                          비고
+                        </Typography>
+                        <Typography sx={{ color: '#fff', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                          {selectedSiteDetail.notes}
+                        </Typography>
+                      </Box>
+                    )}
+                  </>
                 )}
 
                 {/* 입찰 상세내역 */}
                 {selectedSiteDetail.type === '입찰' && (
-                  <Box>
-                    <Typography variant="subtitle1" sx={{ color: '#ef4444', mb: 1, fontWeight: 600 }}>
-                      입찰 상세내역
-                    </Typography>
-                    <Typography sx={{ color: '#fff', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                      {selectedSiteDetail.bidDetails || '입찰 상세내역이 없습니다.'}
-                    </Typography>
-                  </Box>
-                )}
-
-                {/* 현장 상세내역 (원래내용) */}
-                {(!selectedSiteDetail.type || selectedSiteDetail.type === '현장') && (
-                  <Box>
-                    <Typography variant="subtitle1" sx={{ color: '#2196f3', mb: 1, fontWeight: 600 }}>
-                      현장 상세내역
-                    </Typography>
-                    <Typography sx={{ color: '#fff', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                      {selectedSiteDetail.description || '현장 상세내역이 없습니다.'}
-                    </Typography>
-                  </Box>
-                )}
-
-                {/* 견적 상태 - 견적 타입일 때만 */}
-                {selectedSiteDetail.type === '견적' && (
-                  <Box>
-                    <Typography variant="subtitle1" sx={{ color: '#f59e42', mb: 1, fontWeight: 600 }}>
-                      견적 상태
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox 
-                            checked={selectedSiteDetail.estimateStatus === '제출완료'}
-                            onChange={async (e) => {
-                              try {
-                                const newStatus = e.target.checked ? '제출완료' : '제출대기';
-                                console.log('견적 상태 업데이트:', selectedSiteDetail.name, newStatus);
-                                
-                                // 견적 데이터에서 상태 업데이트
-                                const estimatesQuery = query(
-                                  collection(db, 'estimates'),
-                                  where('siteName', '==', selectedSiteDetail.name)
-                                );
-                                const estimatesSnapshot = await getDocs(estimatesQuery);
-                                
-                                if (!estimatesSnapshot.empty) {
-                                  const estimateRef = doc(db, 'estimates', estimatesSnapshot.docs[0].id);
-                                  await updateDoc(estimateRef, {
-                                    status: newStatus,
-                                    updatedAt: new Date()
-                                  });
-                                }
-                                
-                                // 로컬 상태 업데이트
-                                setSelectedSiteDetail(prev => ({
-                                  ...prev,
-                                  estimateStatus: newStatus
-                                }));
-                                
-                                console.log('견적 상태 업데이트 완료');
-                              } catch (error) {
-                                console.error('견적 상태 업데이트 실패:', error);
-                                alert('견적 상태 업데이트에 실패했습니다.');
-                              }
-                            }}
-                            sx={{ 
-                              color: '#f59e42', 
-                              '&.Mui-checked': { color: '#22c55e' } 
-                            }}
-                          />
-                        }
-                        label={
-                          <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>
-                            견적 제출 완료
+                  <>
+                    <Box>
+                      <Typography variant="h6" sx={{ color: '#2196f3', mb: 1, fontWeight: 700 }}>
+                        {selectedSiteDetail.name}
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>입찰 상태:</Typography>
+                          <Typography sx={{ 
+                            color: selectedSiteDetail.status === '입찰완료' ? '#22c55e' : '#f59e42', 
+                            fontSize: '0.85rem',
+                            fontWeight: 'bold'
+                          }}>
+                            {selectedSiteDetail.status}
                           </Typography>
-                        }
-                      />
-                    </Box>
-                  </Box>
-                )}
-
-                {/* 입찰 상태 - 입찰 타입일 때만 */}
-                {selectedSiteDetail.type === '입찰' && (
-                  <Box>
-                    <Typography variant="subtitle1" sx={{ color: '#ef4444', mb: 1, fontWeight: 600 }}>
-                      입찰 상태
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox 
-                            checked={selectedSiteDetail.bidStatus === '입찰완료'}
-                            onChange={async (e) => {
-                              try {
-                                const newStatus = e.target.checked ? '입찰완료' : '입찰대기';
-                                console.log('입찰 상태 업데이트:', selectedSiteDetail.name, newStatus);
-                                
-                                // 입찰 데이터에서 상태 업데이트
-                                const bidsQuery = query(
-                                  collection(db, 'bids'),
-                                  where('siteName', '==', selectedSiteDetail.name)
-                                );
-                                const bidsSnapshot = await getDocs(bidsQuery);
-                                
-                                if (!bidsSnapshot.empty) {
-                                  const bidRef = doc(db, 'bids', bidsSnapshot.docs[0].id);
-                                  await updateDoc(bidRef, {
-                                    status: newStatus,
-                                    updatedAt: new Date()
-                                  });
-                                }
-                                
-                                // 로컬 상태 업데이트
-                                setSelectedSiteDetail(prev => ({
-                                  ...prev,
-                                  bidStatus: newStatus
-                                }));
-                                
-                                console.log('입찰 상태 업데이트 완료');
-                              } catch (error) {
-                                console.error('입찰 상태 업데이트 실패:', error);
-                                alert('입찰 상태 업데이트에 실패했습니다.');
-                              }
-                            }}
-                            sx={{ 
-                              color: '#ef4444', 
-                              '&.Mui-checked': { color: '#22c55e' } 
-                            }}
-                          />
-                        }
-                        label={
-                          <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>
-                            입찰 완료
-                          </Typography>
-                        }
-                      />
-                    </Box>
-                  </Box>
-                )}
-
-                {/* 물량 내역 */}
-                {selectedSiteDetail.items && selectedSiteDetail.items.length > 0 && (
-                  <Box>
-                    <Typography variant="subtitle1" sx={{ color: '#2196f3', mb: 1, fontWeight: 600 }}>
-                      물량 내역
-                    </Typography>
-                    <Box sx={{ 
-                      bgcolor: '#1a1a1a', 
-                      borderRadius: 1, 
-                      p: 1,
-                      maxHeight: '200px',
-                      overflow: 'auto'
-                    }}>
-                      <Box sx={{ 
-                        display: 'grid', 
-                        gridTemplateColumns: '1fr auto auto', 
-                        gap: 1,
-                        borderBottom: '1px solid #444',
-                        pb: 0.5,
-                        mb: 0.5
-                      }}>
-                        <Typography sx={{ color: '#b0b0b0', fontSize: '0.75rem', fontWeight: 600 }}>항목</Typography>
-                        <Typography sx={{ color: '#b0b0b0', fontSize: '0.75rem', fontWeight: 600 }}>물량</Typography>
-                        <Typography sx={{ color: '#b0b0b0', fontSize: '0.75rem', fontWeight: 600 }}>단가</Typography>
-                      </Box>
-                      {selectedSiteDetail.items.map((item, index) => (
-                        <Box key={index} sx={{ 
-                          display: 'grid', 
-                          gridTemplateColumns: '1fr auto auto', 
-                          gap: 1,
-                          py: 0.5,
-                          borderBottom: index < selectedSiteDetail.items.length - 1 ? '1px solid #333' : 'none'
-                        }}>
-                          <Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>{item.name}</Typography>
-                          <Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>{item.qty}</Typography>
-                          <Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>{item.price?.toLocaleString()}</Typography>
                         </Box>
-                      ))}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>입찰기한:</Typography>
+                          <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>
+                            {selectedSiteDetail.deadline}
+                          </Typography>
+                        </Box>
+                      </Box>
                     </Box>
-                  </Box>
+
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ color: '#2196f3', mb: 1, fontWeight: 600 }}>
+                        입찰 내용
+                      </Typography>
+                      <Typography sx={{ color: '#fff', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                        {selectedSiteDetail.content}
+                      </Typography>
+                    </Box>
+
+                    {selectedSiteDetail.notes && (
+                      <Box>
+                        <Typography variant="subtitle1" sx={{ color: '#f59e42', mb: 1, fontWeight: 600 }}>
+                          비고
+                        </Typography>
+                        <Typography sx={{ color: '#fff', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                          {selectedSiteDetail.notes}
+                        </Typography>
+                      </Box>
+                    )}
+                  </>
+                )}
+
+                {/* 일반 현장 상세내역 */}
+                {!selectedSiteDetail.type && (
+                  <>
+                    <Box>
+                      <Typography variant="h6" sx={{ color: '#2196f3', mb: 1, fontWeight: 700 }}>
+                        {selectedSiteDetail.name}
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>회사명:</Typography>
+                          <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>{selectedSiteDetail.company}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>현장소장:</Typography>
+                          <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>{selectedSiteDetail.manager}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>시공팀:</Typography>
+                          <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>{selectedSiteDetail.constructionTeam}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>주소:</Typography>
+                          <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>{selectedSiteDetail.address}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>계약금액:</Typography>
+                          <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>
+                            {selectedSiteDetail.contractAmount ? formatContractAmount(selectedSiteDetail.contractAmount) : '정보 없음'}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography sx={{ color: '#b0b0b0', fontSize: '0.85rem' }}>공사기간:</Typography>
+                          <Typography sx={{ color: '#fff', fontSize: '0.85rem' }}>
+                            {selectedSiteDetail.startDate} ~ {selectedSiteDetail.endDate}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ color: '#2196f3', mb: 1, fontWeight: 600 }}>
+                        상세내역
+                      </Typography>
+                      <Typography sx={{ color: '#fff', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                        {selectedSiteDetail.description}
+                      </Typography>
+                    </Box>
+                  </>
                 )}
               </Box>
             )}

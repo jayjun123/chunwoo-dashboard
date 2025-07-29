@@ -81,9 +81,12 @@ const sortData = (data, orderBy, order) => {
 };
 
 const scrollFocus = (ref) => () => {
-  setTimeout(() => {
+  const timeoutId = setTimeout(() => {
     ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 300);
+  
+  // cleanup 함수 반환
+  return () => clearTimeout(timeoutId);
 };
 
 const WholeList = () => {

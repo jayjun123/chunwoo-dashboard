@@ -64,6 +64,16 @@ console.log('✅ Firebase 설정 완료:', {
   apiKey: firebaseConfig.apiKey ? '설정됨' : '설정되지 않음'
 });
 
+// 환경변수 디버깅 (개발 환경에서만)
+if (import.meta.env.DEV) {
+  console.log('🔍 환경변수 디버깅:');
+  console.log('- VITE_FIREBASE_API_KEY:', import.meta.env.VITE_FIREBASE_API_KEY ? '설정됨' : '설정되지 않음');
+  console.log('- VITE_FIREBASE_AUTH_DOMAIN:', import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ? '설정됨' : '설정되지 않음');
+  console.log('- VITE_FIREBASE_PROJECT_ID:', import.meta.env.VITE_FIREBASE_PROJECT_ID ? '설정됨' : '설정되지 않음');
+  console.log('- NODE_ENV:', import.meta.env.NODE_ENV);
+  console.log('- MODE:', import.meta.env.MODE);
+}
+
 // Firebase 앱 초기화
 let app;
 try {
