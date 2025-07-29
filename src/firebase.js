@@ -16,7 +16,7 @@ if (import.meta.env.DEV) {
     storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "chunwooo-edf9f.firebasestorage.app",
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "417029078660",
     appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:417029078660:web:00e23d79af77876e598cd1",
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-XXXXXXXXXX"
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-653CL9XWFH"
   };
   
   if (!import.meta.env.VITE_FIREBASE_API_KEY) {
