@@ -419,7 +419,7 @@ const EstimatesMobile = () => {
           </DialogTitle>
           <DialogContent sx={{ p: 2 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={6} sm={2}>
                 <TextField
                   fullWidth
                   label="접수일"
@@ -436,7 +436,7 @@ const EstimatesMobile = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={8}>
+              <Grid item xs={6} sm={2}>
                 <Autocomplete
                   options={vendors.map(vendor => vendor.name).filter(name => name)}
                   value={formData.requester}
@@ -454,7 +454,7 @@ const EstimatesMobile = () => {
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="의뢰자 (거래처 선택 또는 입력)"
+                      label="의뢰자"
                       required
                       sx={{
                         '& .MuiOutlinedInput-root': {
@@ -473,7 +473,7 @@ const EstimatesMobile = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={6} sm={1}>
                 <TextField
                   fullWidth
                   label="제출방법"
@@ -490,7 +490,7 @@ const EstimatesMobile = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={8}>
+              <Grid item xs={6} sm={2}>
                 <Autocomplete
                   options={vendors.map(vendor => vendor.companyName).filter(company => company)}
                   value={formData.company}
@@ -499,7 +499,7 @@ const EstimatesMobile = () => {
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="회사명 (거래처 선택 또는 입력)"
+                      label="회사명"
                       sx={{
                         '& .MuiOutlinedInput-root': {
                           '& fieldset': { borderColor: '#444' },
@@ -520,23 +520,6 @@ const EstimatesMobile = () => {
               <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
-                  label="제출기한"
-                  value={formData.submissionDeadline}
-                  onChange={(e) => setFormData({ ...formData, submissionDeadline: e.target.value })}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': { borderColor: '#444' },
-                      '&:hover fieldset': { borderColor: '#666' },
-                      '&.Mui-focused fieldset': { borderColor: '#ff9800' }
-                    },
-                    '& .MuiInputLabel-root': { color: '#ccc' },
-                    '& .MuiInputBase-input': { color: '#fff' }
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
                   label="현장명"
                   value={formData.siteName}
                   onChange={(e) => setFormData({ ...formData, siteName: e.target.value })}
@@ -551,7 +534,24 @@ const EstimatesMobile = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid item xs={6} sm={2}>
+                <TextField
+                  fullWidth
+                  label="제출기한"
+                  value={formData.submissionDeadline}
+                  onChange={(e) => setFormData({ ...formData, submissionDeadline: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#fff' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={2}>
                 <TextField
                   fullWidth
                   label="요청내용"
@@ -570,24 +570,7 @@ const EstimatesMobile = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="제출기한"
-                  value={formData.submissionDeadline}
-                  onChange={(e) => setFormData({ ...formData, submissionDeadline: e.target.value })}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': { borderColor: '#444' },
-                      '&:hover fieldset': { borderColor: '#666' },
-                      '&.Mui-focused fieldset': { borderColor: '#ff9800' }
-                    },
-                    '& .MuiInputLabel-root': { color: '#ccc' },
-                    '& .MuiInputBase-input': { color: '#fff' }
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={6} sm={1}>
                 <FormControl fullWidth>
                   <InputLabel sx={{ color: '#ccc' }}>제출상태</InputLabel>
                   <Select
@@ -608,7 +591,7 @@ const EstimatesMobile = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={6} sm={1}>
                 <FormControl fullWidth>
                   <InputLabel sx={{ color: '#ccc' }}>수주상태</InputLabel>
                   <Select
@@ -628,7 +611,7 @@ const EstimatesMobile = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12}>
+              <Grid item xs={12} sm={2}>
                 <TextField
                   fullWidth
                   label="비고"
