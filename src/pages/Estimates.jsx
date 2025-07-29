@@ -806,11 +806,20 @@ const Estimates = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={8}>
               <Autocomplete
                 options={vendors.map(vendor => vendor.name).filter(name => name)} // 빈 값 제거
                 value={formData.requester}
-                onChange={(event, newValue) => setFormData({ ...formData, requester: newValue || '' })}
+                onChange={(event, newValue) => {
+                  setFormData({ ...formData, requester: newValue || '' });
+                  // 선택된 거래처의 회사명도 자동으로 설정
+                  if (newValue) {
+                    const selectedVendor = vendors.find(vendor => vendor.name === newValue);
+                    if (selectedVendor && selectedVendor.companyName) {
+                      setFormData(prev => ({ ...prev, company: selectedVendor.companyName }));
+                    }
+                  }
+                }}
                 freeSolo
                 renderInput={(params) => (
                   <TextField
@@ -834,7 +843,7 @@ const Estimates = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
                 label="제출방법"
@@ -851,7 +860,7 @@ const Estimates = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={8}>
               <Autocomplete
                 options={vendors.map(vendor => vendor.companyName)}
                 value={formData.company}
@@ -878,7 +887,26 @@ const Estimates = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="제출기한"
+                type="date"
+                value={formData.submissionDeadline}
+                onChange={(e) => setFormData({ ...formData, submissionDeadline: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#444' },
+                    '&:hover fieldset': { borderColor: '#666' },
+                    '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                  },
+                  '& .MuiInputLabel-root': { color: '#ccc' },
+                  '& .MuiInputBase-input': { color: '#fff' }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="현장명"

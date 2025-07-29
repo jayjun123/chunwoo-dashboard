@@ -23,7 +23,8 @@ import {
   Grid,
   Card,
   CardContent,
-  Divider
+  Divider,
+  Autocomplete
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -37,6 +38,8 @@ import {
   Cancel as CancelIcon,
   ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { db, collections } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import MobileLayout from '../components/common/MobileLayout';
@@ -78,6 +81,24 @@ const EstimatesMobile = () => {
     contractStatus: '미수주'
   });
 
+  // 거래처 데이터 상태 추가
+  const [vendors, setVendors] = useState([]);
+
+  // 거래처 데이터 로드
+  const loadVendors = async () => {
+    try {
+      const vendorsQuery = query(collection(db, collections.vendors), orderBy('name', 'asc'));
+      const querySnapshot = await getDocs(vendorsQuery);
+      const vendorsData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setVendors(vendorsData);
+    } catch (error) {
+      console.error('거래처 데이터 로드 오류:', error);
+    }
+  };
+
   // 견적 데이터 구독
   useEffect(() => {
     console.log('견적 데이터 구독 시작');
@@ -107,6 +128,11 @@ const EstimatesMobile = () => {
       setLoading(false);
     }
   }, [currentUser]);
+
+  // 거래처 데이터 로드
+  useEffect(() => {
+    loadVendors();
+  }, []);
 
   // 폼 초기화
   const resetForm = () => {
@@ -410,30 +436,49 @@ const EstimatesMobile = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="의뢰자"
+              <Grid item xs={12} sm={8}>
+                <Autocomplete
+                  options={vendors.map(vendor => vendor.name).filter(name => name)}
                   value={formData.requester}
-                  onChange={(e) => setFormData({ ...formData, requester: e.target.value })}
-                  required
+                  onChange={(event, newValue) => {
+                    setFormData({ ...formData, requester: newValue || '' });
+                    // 선택된 거래처의 회사명도 자동으로 설정
+                    if (newValue) {
+                      const selectedVendor = vendors.find(vendor => vendor.name === newValue);
+                      if (selectedVendor && selectedVendor.companyName) {
+                        setFormData(prev => ({ ...prev, company: selectedVendor.companyName }));
+                      }
+                    }
+                  }}
+                  freeSolo
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="의뢰자 (거래처 선택 또는 입력)"
+                      required
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': { borderColor: '#444' },
+                          '&:hover fieldset': { borderColor: '#666' },
+                          '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                        },
+                        '& .MuiInputLabel-root': { color: '#ccc' },
+                        '& .MuiInputBase-input': { color: '#fff' }
+                      }}
+                    />
+                  )}
                   sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': { borderColor: '#444' },
-                      '&:hover fieldset': { borderColor: '#666' },
-                      '&.Mui-focused fieldset': { borderColor: '#ff9800' }
-                    },
-                    '& .MuiInputLabel-root': { color: '#ccc' },
-                    '& .MuiInputBase-input': { color: '#fff' }
+                    '& .MuiAutocomplete-popupIndicator': { color: '#ccc' },
+                    '& .MuiAutocomplete-clearIndicator': { color: '#ccc' }
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
-                  label="회사명"
-                  value={formData.company}
-                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                  label="제출방법"
+                  value={formData.submissionMethod}
+                  onChange={(e) => setFormData({ ...formData, submissionMethod: e.target.value })}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       '& fieldset': { borderColor: '#444' },
@@ -445,7 +490,51 @@ const EstimatesMobile = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={8}>
+                <Autocomplete
+                  options={vendors.map(vendor => vendor.companyName).filter(company => company)}
+                  value={formData.company}
+                  onChange={(event, newValue) => setFormData({ ...formData, company: newValue || '' })}
+                  freeSolo
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="회사명 (거래처 선택 또는 입력)"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': { borderColor: '#444' },
+                          '&:hover fieldset': { borderColor: '#666' },
+                          '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                        },
+                        '& .MuiInputLabel-root': { color: '#ccc' },
+                        '& .MuiInputBase-input': { color: '#fff' }
+                      }}
+                    />
+                  )}
+                  sx={{
+                    '& .MuiAutocomplete-popupIndicator': { color: '#ccc' },
+                    '& .MuiAutocomplete-clearIndicator': { color: '#ccc' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="제출기한"
+                  value={formData.submissionDeadline}
+                  onChange={(e) => setFormData({ ...formData, submissionDeadline: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#fff' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="현장명"
