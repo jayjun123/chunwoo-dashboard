@@ -1483,3 +1483,53 @@ code {
   border: none !important;
   box-shadow: none !important;
 }
+
+/* 화면 크기 고정 기능 */
+body.fixed-size {
+  width: 1200px !important;
+  height: 800px !important;
+  margin: 0 auto !important;
+  overflow: auto !important;
+  position: relative !important;
+  box-shadow: 0 0 20px rgba(0,0,0,0.3) !important;
+  border-radius: 8px !important;
+}
+
+body.fixed-size #root {
+  width: 100% !important;
+  height: 100% !important;
+  overflow: auto !important;
+}
+
+/* 모바일에서는 고정 크기 비활성화 */
+@media (max-width: 768px) {
+  body.fixed-size {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+}
+
+/* 페이지 로드 시 고정 크기 자동 해제 */
+body {
+  transition: all 0.3s ease;
+}
+
+/* 브라우저 새로고침 시 고정 크기 해제 */
+@media (prefers-reduced-motion: no-preference) {
+  body.fixed-size {
+    animation: resetFixedSize 0.1s ease-out;
+  }
+}
+
+@keyframes resetFixedSize {
+  to {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+}
