@@ -77,18 +77,15 @@ if (import.meta.env.DEV) {
 // Firebase 앱 초기화
 let app;
 try {
-  // 기존 앱들을 모두 삭제하고 새로 초기화
+  // 기존 앱이 있으면 재사용, 없으면 새로 생성
   const existingApps = getApps();
-  existingApps.forEach(existingApp => {
-    try {
-      deleteApp(existingApp);
-    } catch (e) {
-      console.log('기존 앱 삭제 중 오류:', e);
-    }
-  });
-  
-  app = initializeApp(firebaseConfig);
-  console.log('✅ Firebase 앱이 성공적으로 초기화되었습니다.');
+  if (existingApps.length > 0) {
+    app = existingApps[0];
+    console.log('✅ 기존 Firebase 앱을 재사용합니다.');
+  } else {
+    app = initializeApp(firebaseConfig);
+    console.log('✅ Firebase 앱이 성공적으로 초기화되었습니다.');
+  }
 } catch (error) {
   console.error('❌ Firebase 앱 초기화 실패:', error);
   throw new Error('Firebase 초기화에 실패했습니다. 환경변수를 확인해주세요.');
