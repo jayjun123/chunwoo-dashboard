@@ -600,8 +600,9 @@ const Estimates = () => {
 
   // 엑셀 다운로드
   const handleDownload = () => {
-    const data = filteredEstimates.map((estimate, index) => ({
-      'NO.': index + 1,
+    // 데이터가 없어도 기본 헤더를 포함한 데이터 생성
+    const data = filteredEstimates.length > 0 ? filteredEstimates.map((estimate, index) => ({
+      'NO.': filteredEstimates.length - filteredEstimates.findIndex(e => e.id === estimate.id),
       '접수일': estimate.receptionDate || '',
       '의뢰자': estimate.requester || '',
       '제출방법': estimate.submissionMethod || '',
@@ -612,9 +613,43 @@ const Estimates = () => {
       '제출여부': estimate.submissionStatus || '',
       '비고': estimate.notes || '',
       '수주여부': estimate.contractStatus || ''
-    }));
+    })) : [
+      {
+        'NO.': '',
+        '접수일': '',
+        '의뢰자': '',
+        '제출방법': '',
+        '회사명': '',
+        '현장명': '',
+        '요청내용': '',
+        '제출기한': '',
+        '제출여부': '',
+        '비고': '',
+        '수주여부': ''
+      }
+    ];
 
     const ws = XLSX.utils.json_to_sheet(data);
+    
+    // 테두리 스타일 설정
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cell_address]) {
+          ws[cell_address] = { v: '', t: 's' };
+        }
+        ws[cell_address].s = {
+          border: {
+            top: { style: 'thin', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } }
+          }
+        };
+      }
+    }
+    
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '견적목록');
     XLSX.writeFile(wb, `견적목록_${new Date().toISOString().split('T')[0]}.xlsx`);

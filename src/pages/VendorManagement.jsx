@@ -453,7 +453,8 @@ const VendorManagement = () => {
 
   // 엑셀 다운로드
   const handleDownload = () => {
-    const data = filteredVendors.map((vendor, index) => {
+    // 데이터가 없어도 기본 헤더를 포함한 데이터 생성
+    const data = filteredVendors.length > 0 ? filteredVendors.map((vendor, index) => {
       // 전체 목록에서의 순서 번호 계산 (최신 순서)
       const globalIndex = filteredVendors.length - index;
       return {
@@ -467,9 +468,41 @@ const VendorManagement = () => {
         '주소': vendor.address || '',
         '비고': vendor.note || ''
       };
-    });
+    }) : [
+      {
+        'NO.': '',
+        '이름': '',
+        '직위': '',
+        '번호': '',
+        '메일': '',
+        '회사명': '',
+        '사업자번호': '',
+        '주소': '',
+        '비고': ''
+      }
+    ];
 
     const ws = XLSX.utils.json_to_sheet(data);
+    
+    // 테두리 스타일 설정
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cell_address]) {
+          ws[cell_address] = { v: '', t: 's' };
+        }
+        ws[cell_address].s = {
+          border: {
+            top: { style: 'thin', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } }
+          }
+        };
+      }
+    }
+    
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '거래처목록');
     XLSX.writeFile(wb, `거래처목록_${new Date().toISOString().split('T')[0]}.xlsx`);

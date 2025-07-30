@@ -606,7 +606,8 @@ const Claims = () => {
 
   // 엑셀 다운로드
   const handleExportExcel = () => {
-    const exportData = filteredClaims.map((claim, index) => ({
+    // 데이터가 없어도 기본 헤더를 포함한 데이터 생성
+    const exportData = filteredClaims.length > 0 ? filteredClaims.map((claim, index) => ({
       'No.': filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id),
       '청구월': claim.claimMonth,
       '현장명': claim.siteName,
@@ -616,9 +617,41 @@ const Claims = () => {
       '청구금액': claim.claimAmount,
       '청구여부': claim.claimStatus,
       '비고': claim.notes
-    }));
+    })) : [
+      {
+        'No.': '',
+        '청구월': '',
+        '현장명': '',
+        '소장': '',
+        '차수': '',
+        '기성율(%)': '',
+        '청구금액': '',
+        '청구여부': '',
+        '비고': ''
+      }
+    ];
 
     const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // 테두리 스타일 설정
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cell_address]) {
+          ws[cell_address] = { v: '', t: 's' };
+        }
+        ws[cell_address].s = {
+          border: {
+            top: { style: 'thin', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } }
+          }
+        };
+      }
+    }
+    
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '청구예정');
     XLSX.writeFile(wb, `청구예정_${currentMonth}_${new Date().toISOString().split('T')[0]}.xlsx`);
