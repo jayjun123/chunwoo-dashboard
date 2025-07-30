@@ -619,15 +619,15 @@ const Claims = () => {
       '비고': claim.notes
     })) : [
       {
-        'No.': '',
-        '청구월': '',
-        '현장명': '',
-        '소장/회사명': '',
-        '차수': '',
-        '기성율(%)': '',
-        '청구금액': '',
-        '청구여부': '',
-        '비고': ''
+        'No.': '(자동)',
+        '청구월': '(자동)',
+        '현장명': '(입력필요)',
+        '소장/회사명': '(입력필요)',
+        '차수': '(자동)',
+        '기성율(%)': '(자동)',
+        '청구금액': '(입력필요)',
+        '청구여부': '(자동)',
+        '비고': '(선택)'
       }
     ];
 
@@ -673,14 +673,24 @@ const Claims = () => {
 
         // 데이터 변환 및 저장
         for (const row of jsonData) {
+          // 필수 입력 필드 검증
+          if (!row['현장명'] || !row['소장/회사명'] || !row['청구금액']) {
+            console.warn('필수 입력 필드가 누락된 행:', row);
+            continue; // 필수 필드가 없으면 해당 행 건너뛰기
+          }
+
+          // 현장명으로 차수와 기성율 자동 계산
+          const autoSequence = calculateSequence(row['현장명']);
+          const autoProgressRate = calculateProgressRate(row['현장명']);
+
           const claimData = {
-            claimMonth: row['청구월'] || currentMonth,
-            siteName: row['현장명'] || '',
+            claimMonth: currentMonth, // 현재 선택된 월로 자동 설정
+            siteName: row['현장명'],
             manager: row['소장/회사명'] || row['소장'] || '', // 기존 '소장' 컬럼도 호환성 유지
-            sequence: row['차수'] || '',
-            progressRate: row['기성율(%)'] || '',
-            claimAmount: row['청구금액'] || '',
-            claimStatus: row['청구여부'] || 'X',
+            sequence: autoSequence, // 자동 계산된 차수
+            progressRate: autoProgressRate, // 자동 계산된 기성율
+            claimAmount: row['청구금액'],
+            claimStatus: 'X', // 기본값으로 청구대기 설정
             notes: row['비고'] || ''
           };
           await createClaim(claimData);
@@ -688,7 +698,7 @@ const Claims = () => {
 
         setSnackbar({
           open: true,
-          message: '엑셀 데이터가 성공적으로 업로드되었습니다.',
+          message: '엑셀 데이터가 성공적으로 업로드되었습니다. (자동입력: No., 청구월, 차수, 기성율, 청구여부 / 수동입력: 현장명, 소장/회사명, 청구금액)',
           severity: 'success'
         });
       } catch (error) {
