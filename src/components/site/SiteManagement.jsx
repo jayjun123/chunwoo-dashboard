@@ -29,11 +29,13 @@ import {
   LocationOn as LocationIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
+  Upload as UploadIcon,
 } from '@mui/icons-material';
 import { collection, query, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useNavigate } from 'react-router-dom';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import * as XLSX from 'xlsx';
 
 const SiteManagement = () => {
   const navigate = useNavigate();
@@ -55,6 +57,12 @@ const SiteManagement = () => {
     endDate: '',
     description: '',
   });
+
+  // 물량내역 관련 상태
+  const [items, setItems] = useState([]);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadedItems, setUploadedItems] = useState([]);
+  const [selectedSiteForUpload, setSelectedSiteForUpload] = useState('');
 
   const statusOptions = [
     { value: 'active', label: '진행중', color: 'success' },
@@ -295,6 +303,109 @@ const SiteManagement = () => {
     }
   };
 
+  // 물량내역 업로드 관련 함수들
+  const handleOpenUploadDialog = (site) => {
+    setSelectedSiteForUpload(site);
+    setUploadedItems([]);
+    setUploadDialogOpen(true);
+  };
+
+  const handleCloseUploadDialog = () => {
+    setUploadDialogOpen(false);
+    setSelectedSiteForUpload('');
+    setUploadedItems([]);
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        // "내역서" 시트 찾기
+        const sheetName = workbook.SheetNames.find(name => name.includes('내역서'));
+        if (!sheetName) {
+          alert('엑셀 파일에서 "내역서" 시트를 찾을 수 없습니다.');
+          return;
+        }
+
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        // 5번째 줄부터 데이터 추출 (B, D, K, L 열)
+        const extractedItems = [];
+        for (let i = 4; i < jsonData.length; i++) { // 5번째 줄부터 (인덱스 4)
+          const row = jsonData[i];
+          if (row && row.length > 11) { // L열까지 있으려면 최소 12개 열 필요
+            const itemName = row[1]; // B열 (인덱스 1)
+            const quantity = row[3]; // D열 (인덱스 3)
+            const unitPrice = row[10]; // K열 (인덱스 10)
+            const totalPrice = row[11]; // L열 (인덱스 11)
+
+            // 빈 행이 아닌 경우만 추가
+            if (itemName && (quantity || unitPrice || totalPrice)) {
+              extractedItems.push({
+                id: Date.now() + i,
+                name: itemName || '',
+                quantity: quantity || 0,
+                unitPrice: unitPrice || 0,
+                totalPrice: totalPrice || 0
+              });
+            }
+          }
+        }
+
+        setUploadedItems(extractedItems);
+        console.log('추출된 물량내역:', extractedItems);
+      } catch (error) {
+        console.error('엑셀 파일 처리 오류:', error);
+        alert('엑셀 파일 처리 중 오류가 발생했습니다.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleSaveItems = async () => {
+    if (!selectedSiteForUpload || uploadedItems.length === 0) {
+      alert('저장할 데이터가 없습니다.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 선택된 현장에 물량내역 저장
+      const siteRef = doc(db, 'sites', selectedSiteForUpload.id);
+      await updateDoc(siteRef, {
+        items: uploadedItems,
+        updatedAt: new Date()
+      });
+
+      alert('물량내역이 성공적으로 저장되었습니다.');
+      handleCloseUploadDialog();
+      fetchSites(); // 현장 목록 새로고침
+    } catch (error) {
+      console.error('물량내역 저장 오류:', error);
+      alert('물량내역 저장에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditItem = (index, field, value) => {
+    const updatedItems = [...uploadedItems];
+    updatedItems[index] = { ...updatedItems[index], [field]: value };
+    setUploadedItems(updatedItems);
+  };
+
+  const handleDeleteItem = (index) => {
+    const updatedItems = uploadedItems.filter((_, i) => i !== index);
+    setUploadedItems(updatedItems);
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -390,6 +501,13 @@ const SiteManagement = () => {
                     onClick={() => handleOpenDialog(site)}
                   >
                     <EditIcon />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleOpenUploadDialog(site)}
+                    title="물량내역 업로드"
+                  >
+                    <UploadIcon />
                   </IconButton>
                   <IconButton
                     size="small"
@@ -595,6 +713,120 @@ const SiteManagement = () => {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* 물량내역 업로드 다이얼로그 */}
+      <Dialog open={uploadDialogOpen} onClose={handleCloseUploadDialog} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          물량내역 업로드 - {selectedSiteForUpload?.name}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+              엑셀 파일의 "내역서" 시트에서 B, D, K, L열의 데이터를 추출합니다. (5번째 줄부터)
+            </Typography>
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileUpload}
+              style={{ display: 'none' }}
+              id="excel-upload"
+            />
+            <label htmlFor="excel-upload">
+              <Button
+                variant="outlined"
+                component="span"
+                startIcon={<UploadIcon />}
+                sx={{ mb: 2 }}
+              >
+                엑셀 파일 선택
+              </Button>
+            </label>
+          </Box>
+
+          {uploadedItems.length > 0 && (
+            <Box>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                추출된 물량내역 ({uploadedItems.length}개)
+              </Typography>
+              <TableContainer component={Paper} sx={{ maxHeight: 400, overflow: 'auto' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>항목명</TableCell>
+                      <TableCell>물량</TableCell>
+                      <TableCell>단가</TableCell>
+                      <TableCell>금액</TableCell>
+                      <TableCell>관리</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {uploadedItems.map((item, index) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            value={item.name}
+                            onChange={(e) => handleEditItem(index, 'name', e.target.value)}
+                            fullWidth
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => handleEditItem(index, 'quantity', Number(e.target.value))}
+                            fullWidth
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            type="number"
+                            value={item.unitPrice}
+                            onChange={(e) => handleEditItem(index, 'unitPrice', Number(e.target.value))}
+                            fullWidth
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            type="number"
+                            value={item.totalPrice}
+                            onChange={(e) => handleEditItem(index, 'totalPrice', Number(e.target.value))}
+                            fullWidth
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteItem(index)}
+                            color="error"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseUploadDialog}>
+            취소
+          </Button>
+          <Button
+            onClick={handleSaveItems}
+            variant="contained"
+            disabled={uploadedItems.length === 0 || loading}
+          >
+            {loading ? <CircularProgress size={24} /> : '저장'}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

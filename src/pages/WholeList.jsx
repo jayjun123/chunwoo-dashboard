@@ -99,8 +99,8 @@ const WholeList = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [uploadDialog, setUploadDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [sortBy, setSortBy] = useState('createdAt');
-  const [order, setOrder] = useState('desc');
+  const [sortBy, setSortBy] = useState('startDate');
+  const [order, setOrder] = useState('asc');
   const [vendors, setVendors] = useState([]); // 거래처 데이터 상태 추가
   const navigate = useNavigate();
 
@@ -153,8 +153,8 @@ const WholeList = () => {
     setSortBy(property);
   };
 
-  // 정렬된 데이터
-  const sortedSites = sortData([...sites], sortBy, order);
+  // 정렬된 데이터 (최근순)
+  const sortedSites = sortData([...sites], 'createdAt', 'desc');
 
   // 페이지 변경
   const handleChangePage = (event, newPage) => {
@@ -452,10 +452,13 @@ const WholeList = () => {
 
       {/* 데이터 테이블 */}
       <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-        <TableContainer sx={{ maxHeight: 600 }}>
+        <TableContainer sx={{ maxHeight: 900 }}>
           <Table stickyHeader>
             <TableHead>
               <TableRow>
+                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, width: '60px' }}>
+                  번호
+                </TableCell>
                 <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
                   <TableSortLabel
                     active={sortBy === 'isFavorite'}
@@ -606,8 +609,17 @@ const WholeList = () => {
             <TableBody>
               {sortedSites
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((site) => (
-                  <TableRow key={site.id} hover>
+                .map((site, index) => {
+                  return (
+                    <TableRow key={site.id} hover>
+                      <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center' }}>
+                        {(() => {
+                          // 등록일 순서로 정렬된 배열에서 현재 사이트의 인덱스 찾기 (먼저 입력한 것이 1번)
+                          const numberedSites = sortData([...sites], 'createdAt', 'asc');
+                          const numberedIndex = numberedSites.findIndex(s => s.id === site.id);
+                          return numberedIndex + 1;
+                        })()}
+                      </TableCell>
                     <TableCell>
                       <IconButton size="small" onClick={() => handleToggleFavorite(site)}>
                         {site.isFavorite ? (
@@ -663,7 +675,8 @@ const WholeList = () => {
                       </Box>
                     </TableCell>
                   </TableRow>
-                ))}
+                );
+                })}
             </TableBody>
           </Table>
         </TableContainer>
