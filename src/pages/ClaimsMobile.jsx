@@ -334,7 +334,7 @@ const ClaimsMobile = () => {
                   <Box sx={{ mb: 1 }}>
                     <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
                       <BusinessIcon sx={{ fontSize: '0.8rem', mr: 0.5 }} />
-                      소장: {claim.manager}
+                      소장/회사명: {claim.manager}
                     </Typography>
                     <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
                       차수: {claim.sequence}
@@ -443,21 +443,21 @@ const ClaimsMobile = () => {
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="소장"
-                  value={formData.manager}
-                  onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': { borderColor: '#444' },
-                      '&:hover fieldset': { borderColor: '#666' },
-                      '&.Mui-focused fieldset': { borderColor: '#ef4444' }
-                    },
-                    '& .MuiInputLabel-root': { color: '#ccc' },
-                    '& .MuiInputBase-input': { color: '#fff' }
-                  }}
-                />
+                                 <TextField
+                   fullWidth
+                   label="소장/회사명"
+                   value={formData.manager}
+                   onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
+                   sx={{
+                     '& .MuiOutlinedInput-root': {
+                       '& fieldset': { borderColor: '#444' },
+                       '&:hover fieldset': { borderColor: '#666' },
+                       '&.Mui-focused fieldset': { borderColor: '#ef4444' }
+                     },
+                     '& .MuiInputLabel-root': { color: '#ccc' },
+                     '& .MuiInputBase-input': { color: '#fff' }
+                   }}
+                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField

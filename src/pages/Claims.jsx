@@ -611,7 +611,7 @@ const Claims = () => {
       'No.': filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id),
       '청구월': claim.claimMonth,
       '현장명': claim.siteName,
-      '소장': claim.manager,
+      '소장/회사명': claim.manager,
       '차수': claim.sequence,
       '기성율(%)': claim.progressRate,
       '청구금액': claim.claimAmount,
@@ -622,7 +622,7 @@ const Claims = () => {
         'No.': '',
         '청구월': '',
         '현장명': '',
-        '소장': '',
+        '소장/회사명': '',
         '차수': '',
         '기성율(%)': '',
         '청구금액': '',
@@ -676,7 +676,7 @@ const Claims = () => {
           const claimData = {
             claimMonth: row['청구월'] || currentMonth,
             siteName: row['현장명'] || '',
-            manager: row['소장'] || '',
+            manager: row['소장/회사명'] || row['소장'] || '', // 기존 '소장' 컬럼도 호환성 유지
             sequence: row['차수'] || '',
             progressRate: row['기성율(%)'] || '',
             claimAmount: row['청구금액'] || '',
@@ -1187,7 +1187,7 @@ const Claims = () => {
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60 }}>No.</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구월</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>현장명</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80 }}>소장</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80 }}>소장/회사명</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80 }}>차수</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>기성율(%)</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>청구금액</TableCell>
@@ -1451,7 +1451,7 @@ const Claims = () => {
               
               <TextField
                 fullWidth
-                label="소장"
+                label="소장/회사명"
                 value={formData.manager}
                 InputProps={{
                   readOnly: true,
