@@ -118,7 +118,14 @@ const GisungStatusPage = ({
   useEffect(() => {
     fetchGisung();
     fetchSites();
-  }, [viewType, currentMonth, selectedSites]); // 의존성 배열 수정
+  }, [viewType, currentMonth]); // selectedSites 제거
+
+  // selectedSites가 변경될 때만 기성 데이터 다시 로드
+  useEffect(() => {
+    if (viewType === 'site') {
+      fetchGisung();
+    }
+  }, [selectedSites, viewType]);
 
   // 청구예정 데이터 가져오기
   useEffect(() => {
@@ -179,6 +186,12 @@ const GisungStatusPage = ({
       const snapshot = await getDocs(collection(db, 'sites'));
       const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       devLog('로드된 현장 데이터:', sitesData);
+      console.log('현장 데이터 상세:', sitesData.map(site => ({
+        name: site.name,
+        id: site.id,
+        contractAmount: site.contractAmount,
+        advance: site.advance
+      })));
       setSites(sitesData);
     } catch (e) {
       devError('현장 데이터 로드 오류:', e);
@@ -245,7 +258,7 @@ const GisungStatusPage = ({
       // 오류 발생 시 사용자에게 알림 (모바일에서는 콘솔만)
       console.error('기성 데이터를 불러오는데 실패했습니다:', e.message);
     }
-  }, [viewType, currentMonth, selectedSites]);
+  }, [viewType, currentMonth]);
 
 
 
@@ -256,6 +269,14 @@ const GisungStatusPage = ({
       gisung.gisungMonth?.toLowerCase().includes(search.toLowerCase()) ||
       gisung.note?.toLowerCase().includes(search.toLowerCase())
     );
+
+    // 현장별 보기에서 선택된 현장만 필터링
+    if (viewType === 'site' && selectedSites.length > 0) {
+      filtered = filtered.filter(gisung => {
+        const isSelected = selectedSites.includes(gisung.siteId) || selectedSites.includes(gisung.name);
+        return isSelected;
+      });
+    }
 
     // 클라이언트 사이드 정렬
     filtered.sort((a, b) => {
@@ -281,7 +302,7 @@ const GisungStatusPage = ({
     });
 
     return filtered;
-  }, [gisungList, search, sortField, sortDirection]);
+  }, [gisungList, search, sortField, sortDirection, viewType, selectedSites]);
 
   // 통계 데이터
   const stats = useMemo(() => {
@@ -346,24 +367,84 @@ const GisungStatusPage = ({
         }, 0);
       } else {
         // 현장별: 선택된 현장들의 계약금액 합산
-        totalContractAmount = sites.reduce((sum, site) => {
-          return sum + (Number(site.contractAmount) || 0);
-        }, 0);
-        
-        totalAdvance = sites.reduce((sum, site) => {
-          return sum + (Number(site.advance) || 0);
-        }, 0);
+        // selectedSites가 비어있으면 0원, 아니면 선택된 현장만 포함
+        if (selectedSites.length === 0) {
+          totalContractAmount = 0;
+          totalAdvance = 0;
+          console.log('현장별 보기: 선택된 현장 없음 - 계약금액 0원');
+        } else {
+          console.log('현장별 보기 통계 계산:', {
+            selectedSites,
+            sitesCount: sites.length,
+            sites: sites.map(s => ({ name: s.name, id: s.id, contractAmount: s.contractAmount }))
+          });
+          
+          totalContractAmount = sites.reduce((sum, site) => {
+            // 현장 ID 또는 현장명으로 비교
+            const isSelected = selectedSites.includes(site.id) || selectedSites.includes(site.name);
+            console.log(`현장 ${site.name} (${site.id}) 체크:`, {
+              siteName: site.name,
+              siteId: site.id,
+              selectedSites,
+              isSelected,
+              contractAmount: site.contractAmount
+            });
+            
+            if (!isSelected) {
+              console.log(`현장 ${site.name} (${site.id}) 제외됨`);
+              return sum;
+            }
+            const contractAmount = Number(site.contractAmount) || 0;
+            console.log(`현장 ${site.name} (${site.id}) 포함됨 - 계약금액: ${contractAmount}`);
+            return sum + contractAmount;
+          }, 0);
+          
+          totalAdvance = sites.reduce((sum, site) => {
+            // 현장 ID 또는 현장명으로 비교
+            const isSelected = selectedSites.includes(site.id) || selectedSites.includes(site.name);
+            if (!isSelected) {
+              return sum;
+            }
+            return sum + (Number(site.advance) || 0);
+          }, 0);
+          
+          console.log('현장별 보기 최종 결과:', {
+            totalContractAmount,
+            totalAdvance,
+            selectedSites
+          });
+        }
       }
       
       // 기성 데이터 통계
+      console.log('기성 데이터 통계 계산:', {
+        viewType,
+        selectedSites,
+        gisungDataCount: filteredAndSortedGisung.length
+      });
+      
       const gisungStats = filteredAndSortedGisung.reduce((acc, gisung) => {
+        // 현장별 보기에서 선택된 현장만 포함
+        if (viewType === 'site') {
+          if (selectedSites.length === 0) {
+            // 선택된 현장이 없으면 기성 데이터도 포함하지 않음
+            return acc;
+          }
+          // 현장 ID 또는 현장명으로 비교
+          const isSelected = selectedSites.includes(gisung.siteId) || selectedSites.includes(gisung.name);
+          if (!isSelected) {
+            console.log(`기성 데이터 ${gisung.name} (${gisung.siteId}) 제외됨`);
+            return acc;
+          }
+          console.log(`기성 데이터 ${gisung.name} (${gisung.siteId}) 포함됨 - 기성금액: ${gisung.gisungAmount}`);
+        }
         acc.totalGisungAmount += Number(gisung.gisungAmount) || 0;
         acc.totalPrevGisung += Number(gisung.prevGisung) || 0;
         acc.totalCurrentGisung += Number(gisung.currentGisung) || 0;
         return acc;
       }, { totalGisungAmount: 0, totalPrevGisung: 0, totalCurrentGisung: 0 });
       
-      return {
+      const result = {
         totalContractAmount,
         totalAdvance,
         totalGisungAmount: gisungStats.totalGisungAmount,
@@ -371,6 +452,10 @@ const GisungStatusPage = ({
         totalCurrentGisung: gisungStats.totalCurrentGisung,
         totalClaimAmount: claimStats.totalAmount || 0
       };
+      
+      console.log('최종 통계 결과:', result);
+      
+      return result;
     } catch (error) {
       devError('통계 계산 오류:', error);
       return {
@@ -382,7 +467,7 @@ const GisungStatusPage = ({
         totalClaimAmount: 0
       };
     }
-  }, [currentMonth, viewType, sites, filteredAndSortedGisung, claimStats.totalAmount]);
+  }, [currentMonth, viewType, sites, filteredAndSortedGisung, claimStats.totalAmount, selectedSites]);
 
   const handleExcelDownload = () => {
     const data = filteredAndSortedGisung.map(row => ({
@@ -877,7 +962,7 @@ const GisungStatusPage = ({
             lineHeight: isMobile ? 1.1 : 'inherit'
           }}
         >
-          {Number(value || 0).toLocaleString()}원
+          {value}
         </Typography>
       </Card>
     </Grid>

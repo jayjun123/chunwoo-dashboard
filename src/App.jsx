@@ -281,6 +281,22 @@ const App = React.memo(() => {
                         }
                       />
                       <Route
+                        path="/sites/:siteName"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <NewSites />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <NewSites />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
                         path="/safety"
                         element={
                           <ProtectedRoute>

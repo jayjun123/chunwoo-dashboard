@@ -36,9 +36,13 @@ import {
   Download as DownloadIcon,
   Upload as UploadIcon,
   Sort as SortIcon,
-  Business as BusinessIcon
+  Business as BusinessIcon,
+  NavigateBefore as NavigateBeforeIcon,
+  NavigateNext as NavigateNextIcon,
+  FirstPage as FirstPageIcon,
+  LastPage as LastPageIcon
 } from '@mui/icons-material';
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, orderBy, where, getDocs as getFirestoreDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import * as XLSX from 'xlsx';
 
@@ -90,6 +94,10 @@ const VendorManagement = () => {
   const [sortDirection, setSortDirection] = useState('asc');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   // 폼 상태
   const [formData, setFormData] = useState({
     name: '',
@@ -106,12 +114,15 @@ const VendorManagement = () => {
   const loadVendors = async () => {
     try {
       setLoading(true);
-      const vendorsQuery = query(collection(db, 'vendorManagement'), orderBy(sortField, sortDirection));
+      console.log('=== 거래처 데이터 로드 시작 ===');
+      const vendorsQuery = query(collection(db, 'vendors'), orderBy(sortField, sortDirection));
       const querySnapshot = await getDocs(vendorsQuery);
       const vendorsData = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+      console.log('거래처 데이터 로드 완료:', vendorsData.length, '개');
+      console.log('거래처 데이터 샘플:', vendorsData.slice(0, 3));
       setVendors(vendorsData);
     } catch (error) {
       console.error('거래처 데이터 로드 오류:', error);
@@ -158,6 +169,170 @@ const VendorManagement = () => {
   };
 
   // 거래처 저장
+  // 놓친 데이터들을 거래처관리로 마이그레이션하는 함수
+  const migrateMissedData = async () => {
+    try {
+      console.log('=== 놓친 데이터 마이그레이션 시작 ===');
+      let migratedCount = 0;
+      
+      // 1. sites 컬렉션에서 놓친 데이터 찾기
+      console.log('1. sites 컬렉션 확인...');
+      const sitesQuery = query(collection(db, 'sites'), orderBy('name', 'asc'));
+      const sitesSnapshot = await getDocs(sitesQuery);
+      
+      for (const siteDoc of sitesSnapshot.docs) {
+        const siteData = siteDoc.data();
+        if (siteData.manager && siteData.manager.trim()) {
+          // 기존에 같은 이름의 거래처가 있는지 확인
+          const existingVendorQuery = query(
+            collection(db, 'vendors'),
+            where('name', '==', siteData.manager.trim())
+          );
+          const existingVendorSnapshot = await getDocs(existingVendorQuery);
+          
+          if (existingVendorSnapshot.empty) {
+            const vendorData = {
+              name: siteData.manager.trim(),
+              position: '',
+              companyName: siteData.companyName && siteData.companyName.trim() ? siteData.companyName.trim() : '',
+              source: 'migration_sites',
+              createdAt: siteData.createdAt || new Date(),
+              updatedAt: new Date()
+            };
+            
+            await addDoc(collection(db, 'vendors'), vendorData);
+            migratedCount++;
+            console.log(`sites에서 거래처 추가: ${siteData.manager}`);
+          }
+        }
+      }
+      
+      // 2. estimates 컬렉션에서 놓친 데이터 찾기
+      console.log('2. estimates 컬렉션 확인...');
+      const estimatesQuery = query(collection(db, 'estimates'), orderBy('receptionDate', 'desc'));
+      const estimatesSnapshot = await getDocs(estimatesQuery);
+      
+      for (const estimateDoc of estimatesSnapshot.docs) {
+        const estimateData = estimateDoc.data();
+        if (estimateData.requester && estimateData.requester.trim()) {
+          // 의뢰자에서 이름과 직위 분리 (괄호 안의 회사명 제거)
+          let cleanRequester = estimateData.requester.trim();
+          const companyMatch = cleanRequester.match(/\(([^)]+)\)$/);
+          if (companyMatch) {
+            cleanRequester = cleanRequester.replace(/\([^)]+\)$/, '').trim();
+          }
+          
+          const parts = cleanRequester.split(' ');
+          const personName = parts[0];
+          const title = parts.length >= 2 ? parts.slice(1).join(' ') : '';
+          
+          // 기존에 같은 이름의 거래처가 있는지 확인
+          const existingVendorQuery = query(
+            collection(db, 'vendors'),
+            where('name', '==', personName)
+          );
+          const existingVendorSnapshot = await getDocs(existingVendorQuery);
+          
+          if (existingVendorSnapshot.empty) {
+            const vendorData = {
+              name: personName,
+              position: title,
+              companyName: estimateData.company && estimateData.company.trim() ? estimateData.company.trim() : '',
+              source: 'migration_estimates',
+              createdAt: estimateData.createdAt || new Date(),
+              updatedAt: new Date()
+            };
+            
+            await addDoc(collection(db, 'vendors'), vendorData);
+            migratedCount++;
+            console.log(`estimates에서 거래처 추가: ${personName}`);
+          }
+        }
+      }
+      
+      // 3. requesters 컬렉션에서 놓친 데이터 찾기
+      console.log('3. requesters 컬렉션 확인...');
+      const requestersQuery = query(collection(db, 'requesters'), orderBy('name', 'asc'));
+      const requestersSnapshot = await getDocs(requestersQuery);
+      
+      for (const requesterDoc of requestersSnapshot.docs) {
+        const requesterData = requesterDoc.data();
+        if (requesterData.name && requesterData.name.trim()) {
+          // 기존에 같은 이름의 거래처가 있는지 확인
+          const existingVendorQuery = query(
+            collection(db, 'vendors'),
+            where('name', '==', requesterData.name.trim())
+          );
+          const existingVendorSnapshot = await getDocs(existingVendorQuery);
+          
+          if (existingVendorSnapshot.empty) {
+            const vendorData = {
+              name: requesterData.name.trim(),
+              position: requesterData.title && requesterData.title.trim() ? requesterData.title.trim() : '',
+              companyName: requesterData.company && requesterData.company.trim() ? requesterData.company.trim() : '',
+              source: 'migration_requesters',
+              createdAt: requesterData.createdAt || new Date(),
+              updatedAt: new Date()
+            };
+            
+            await addDoc(collection(db, 'vendors'), vendorData);
+            migratedCount++;
+            console.log(`requesters에서 거래처 추가: ${requesterData.name}`);
+          }
+        }
+      }
+      
+      console.log('=== 마이그레이션 완료 ===');
+      console.log(`총 ${migratedCount}개의 거래처가 추가되었습니다.`);
+      
+      return migratedCount;
+    } catch (error) {
+      console.error('마이그레이션 오류:', error);
+      throw error;
+    }
+  };
+
+  // 견적페이지와 연동하는 함수
+  const syncWithEstimates = async (name, position, companyName) => {
+    if (name && name.trim()) {
+      try {
+        // 견적페이지에서 사용할 의뢰자 데이터 생성
+        const requesterData = {
+          name: name.trim(),
+          title: position && position.trim() ? position.trim() : '',
+          fullName: position && position.trim() ? `${name.trim()} ${position.trim()}` : name.trim(),
+          company: companyName && companyName.trim() ? companyName.trim() : '',
+          source: 'vendor_management',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        // 기존에 같은 이름의 의뢰자가 있는지 확인
+        const existingQuery = query(
+          collection(db, 'requesters'),
+          where('name', '==', name.trim())
+        );
+        const existingSnapshot = await getDocs(existingQuery);
+        
+        if (existingSnapshot.empty) {
+          console.log('새로운 의뢰자 추가:', requesterData);
+          await addDoc(collection(db, 'requesters'), requesterData);
+        } else {
+          console.log('기존 의뢰자 업데이트:', requesterData);
+          const existingDoc = existingSnapshot.docs[0];
+          await updateDoc(doc(db, 'requesters', existingDoc.id), {
+            title: requesterData.title,
+            fullName: requesterData.fullName,
+            company: requesterData.company,
+            updatedAt: new Date()
+          });
+        }
+      } catch (error) {
+        console.error('의뢰자 데이터 저장 오류:', error);
+      }
+    }
+  };
+
   const handleSave = async () => {
     try {
       if (!formData.name.trim() && !formData.companyName.trim()) {
@@ -167,14 +342,18 @@ const VendorManagement = () => {
 
       if (editingVendor) {
         // 수정
-        await updateDoc(doc(db, 'vendorManagement', editingVendor.id), formData);
+        await updateDoc(doc(db, 'vendors', editingVendor.id), formData);
+        // 견적페이지와 연동
+        await syncWithEstimates(formData.name, formData.position, formData.companyName);
         setSnackbar({ open: true, message: '거래처가 수정되었습니다.', severity: 'success' });
       } else {
         // 추가
-        await addDoc(collection(db, 'vendorManagement'), {
+        await addDoc(collection(db, 'vendors'), {
           ...formData,
           createdAt: new Date()
         });
+        // 견적페이지와 연동
+        await syncWithEstimates(formData.name, formData.position, formData.companyName);
         setSnackbar({ open: true, message: '거래처가 추가되었습니다.', severity: 'success' });
       }
 
@@ -190,7 +369,7 @@ const VendorManagement = () => {
   const handleDelete = async (vendor) => {
     if (window.confirm(`"${vendor.name}" 거래처를 삭제하시겠습니까?`)) {
       try {
-        await deleteDoc(doc(db, 'vendorManagement', vendor.id));
+        await deleteDoc(doc(db, 'vendors', vendor.id));
         setSnackbar({ open: true, message: '거래처가 삭제되었습니다.', severity: 'success' });
         loadVendors();
       } catch (error) {
@@ -208,30 +387,87 @@ const VendorManagement = () => {
       setSortField(field);
       setSortDirection('asc');
     }
+    setCurrentPage(1); // 정렬 변경 시 첫 페이지로 이동
   };
 
-  // 검색 필터링
-  const filteredVendors = vendors.filter(vendor =>
-    vendor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vendor.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vendor.phone?.includes(searchTerm) ||
-    vendor.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // 검색어 변경 시 페이지 리셋
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  // 검색 필터링 및 등록 순서대로 정렬
+  const filteredVendors = vendors
+    .filter(vendor =>
+      vendor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vendor.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vendor.phone?.includes(searchTerm) ||
+      vendor.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      // 최신 등록 순서대로 정렬 (createdAt 기준, 내림차순)
+      const dateA = a.createdAt ? new Date(a.createdAt.seconds * 1000) : new Date(0);
+      const dateB = b.createdAt ? new Date(b.createdAt.seconds * 1000) : new Date(0);
+      return dateB - dateA; // 내림차순으로 변경
+    });
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(filteredVendors.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentVendors = filteredVendors.slice(startIndex, endIndex);
+
+  // 페이지 변경 함수
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+  };
+
+  // 페이지당 항목 수 변경 함수
+  const handleItemsPerPageChange = (event) => {
+    setItemsPerPage(parseInt(event.target.value));
+    setCurrentPage(1); // 페이지당 항목 수가 변경되면 첫 페이지로 이동
+  };
+
+  // 페이지 번호 배열 생성
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      // 전체 페이지가 5개 이하면 모든 페이지 표시
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // 현재 페이지 주변의 페이지들만 표시
+      const startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
+  };
 
   // 엑셀 다운로드
   const handleDownload = () => {
-    const data = filteredVendors.map((vendor, index) => ({
-      'NO.': index + 1,
-      '이름': vendor.name || '',
-      '직위': vendor.position || '',
-      '번호': vendor.phone || '',
-      '메일': vendor.email || '',
-      '회사명': vendor.companyName || '',
-      '사업자번호': vendor.businessNumber || '',
-      '주소': vendor.address || '',
-      '비고': vendor.note || ''
-    }));
+    const data = filteredVendors.map((vendor, index) => {
+      // 전체 목록에서의 순서 번호 계산 (최신 순서)
+      const globalIndex = filteredVendors.length - index;
+      return {
+        'NO.': globalIndex,
+        '이름': vendor.name || '',
+        '직위': vendor.position || '',
+        '번호': vendor.phone || '',
+        '메일': vendor.email || '',
+        '회사명': vendor.companyName || '',
+        '사업자번호': vendor.businessNumber || '',
+        '주소': vendor.address || '',
+        '비고': vendor.note || ''
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -269,7 +505,7 @@ const VendorManagement = () => {
             };
 
             if (vendorData.name && vendorData.companyName) {
-              await addDoc(collection(db, 'vendorManagement'), vendorData);
+              await addDoc(collection(db, 'vendors'), vendorData);
               successCount++;
             }
           } catch (error) {
@@ -361,6 +597,42 @@ const VendorManagement = () => {
           >
             거래처 추가
           </Button>
+          <Button
+            variant="outlined"
+            onClick={async () => {
+              try {
+                setSnackbar({ 
+                  open: true, 
+                  message: '마이그레이션을 시작합니다...', 
+                  severity: 'info' 
+                });
+                
+                const migratedCount = await migrateMissedData();
+                
+                setSnackbar({ 
+                  open: true, 
+                  message: `마이그레이션 완료! ${migratedCount}개의 거래처가 추가되었습니다.`, 
+                  severity: 'success' 
+                });
+                
+                // 거래처 목록 다시 로드
+                await loadVendors();
+              } catch (error) {
+                setSnackbar({ 
+                  open: true, 
+                  message: `마이그레이션 실패: ${error.message}`, 
+                  severity: 'error' 
+                });
+              }
+            }}
+            sx={{
+              borderColor: '#666',
+              color: '#fff',
+              '&:hover': { borderColor: '#4caf50' }
+            }}
+          >
+            마이그레이션
+          </Button>
         </Box>
       </Box>
 
@@ -438,9 +710,12 @@ const VendorManagement = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredVendors.map((vendor, index) => (
-              <TableRow key={vendor.id} sx={{ '&:hover': { backgroundColor: '#333' } }}>
-                <TableCell sx={{ color: '#fff' }}>{index + 1}</TableCell>
+            {currentVendors.map((vendor, index) => {
+              // 최신 등록 순서대로 번호 계산 (마지막 번호부터)
+              const globalIndex = filteredVendors.length - filteredVendors.findIndex(v => v.id === vendor.id);
+              return (
+                <TableRow key={vendor.id} sx={{ '&:hover': { backgroundColor: '#333' } }}>
+                  <TableCell sx={{ color: '#fff' }}>{globalIndex}</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{vendor.name}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{vendor.position}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{vendor.phone}</TableCell>
@@ -472,10 +747,125 @@ const VendorManagement = () => {
                   </Box>
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* 페이지네이션 */}
+      {totalPages > 1 && (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mt: 3, 
+          p: 2, 
+          backgroundColor: '#2a2a2a',
+          borderRadius: 1
+        }}>
+          {/* 페이지당 항목 수 선택 */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography sx={{ color: '#ccc', fontSize: '0.875rem' }}>
+              페이지당:
+            </Typography>
+            <FormControl size="small" sx={{ minWidth: 80 }}>
+              <Select
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
+                sx={{
+                  color: '#fff',
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#444' },
+                    '&:hover fieldset': { borderColor: '#666' },
+                    '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                  }
+                }}
+              >
+                <MenuItem value={5}>5개</MenuItem>
+                <MenuItem value={10}>10개</MenuItem>
+                <MenuItem value={20}>20개</MenuItem>
+                <MenuItem value={50}>50개</MenuItem>
+              </Select>
+            </FormControl>
+            <Typography sx={{ color: '#ccc', fontSize: '0.875rem' }}>
+              총 {filteredVendors.length}개 중 {startIndex + 1}-{Math.min(endIndex, filteredVendors.length)}개
+            </Typography>
+          </Box>
+
+          {/* 페이지 네비게이션 */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* 첫 페이지 버튼 */}
+            <IconButton
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+              sx={{
+                color: currentPage === 1 ? '#666' : '#4caf50',
+                '&:hover': { backgroundColor: currentPage === 1 ? 'transparent' : '#4caf50' + '20' }
+              }}
+            >
+              <FirstPageIcon />
+            </IconButton>
+
+            {/* 이전 페이지 버튼 */}
+            <IconButton
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              sx={{
+                color: currentPage === 1 ? '#666' : '#4caf50',
+                '&:hover': { backgroundColor: currentPage === 1 ? 'transparent' : '#4caf50' + '20' }
+              }}
+            >
+              <NavigateBeforeIcon />
+            </IconButton>
+
+            {/* 페이지 번호들 */}
+            {getPageNumbers().map((page) => (
+              <Button
+                key={page}
+                onClick={() => handlePageChange(page)}
+                variant={currentPage === page ? 'contained' : 'outlined'}
+                sx={{
+                  minWidth: 40,
+                  height: 40,
+                  backgroundColor: currentPage === page ? '#4caf50' : 'transparent',
+                  color: currentPage === page ? '#fff' : '#4caf50',
+                  borderColor: '#4caf50',
+                  '&:hover': {
+                    backgroundColor: currentPage === page ? '#45a049' : '#4caf50' + '20'
+                  }
+                }}
+              >
+                {page}
+              </Button>
+            ))}
+
+            {/* 다음 페이지 버튼 */}
+            <IconButton
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              sx={{
+                color: currentPage === totalPages ? '#666' : '#4caf50',
+                '&:hover': { backgroundColor: currentPage === totalPages ? 'transparent' : '#4caf50' + '20' }
+              }}
+            >
+              <NavigateNextIcon />
+            </IconButton>
+
+            {/* 마지막 페이지 버튼 */}
+            <IconButton
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+              sx={{
+                color: currentPage === totalPages ? '#666' : '#4caf50',
+                '&:hover': { backgroundColor: currentPage === totalPages ? 'transparent' : '#4caf50' + '20' }
+              }}
+            >
+              <LastPageIcon />
+            </IconButton>
+          </Box>
+        </Box>
+      )}
 
       {/* 거래처 추가/수정 다이얼로그 */}
       <Dialog 

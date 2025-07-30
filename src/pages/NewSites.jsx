@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, startTransition } from 'react';
 import { Grid, Paper, Tabs, Tab, TextField, List, ListItem, ListItemText, Button, IconButton, Typography, Box, FormControl, Select, MenuItem, Checkbox, FormControlLabel, InputLabel, Autocomplete, Chip } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { collection, onSnapshot, query, orderBy, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { addSite, updateSite, deleteSite } from '../api/sites';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/material';
@@ -15,7 +15,7 @@ import { getSiteIntegratedStatus } from '../utils/integrationUtils';
 
 const STATUS_OPTIONS = ['예정', '진행중', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급', '관급'];
-const ESTIMATE_STATUS_OPTIONS = ['있음', '없음', '입찰', '현설', '기타'];
+const ESTIMATE_STATUS_OPTIONS = ['제출대기', '제출완료', '수주', '미수주', '기타'];
 
 const initialFormState = {
   name: '',
@@ -49,7 +49,9 @@ const NewSites = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [vendors, setVendors] = useState([]); // 거래처 데이터 상태 추가
   const [siteIntegratedStatus, setSiteIntegratedStatus] = useState(null);
+  const [totalIntegratedStatus, setTotalIntegratedStatus] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentUser } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -72,6 +74,106 @@ const NewSites = () => {
     
     return counts;
   }, [sites]);
+
+  // URL 파라미터에서 현장명 확인 및 자동 선택
+  useEffect(() => {
+    const pathSegments = location.pathname.split('/');
+    if (pathSegments.length > 2 && pathSegments[1] === 'sites') {
+      const siteName = decodeURIComponent(pathSegments[2]);
+      const targetSite = sites.find(site => site.name === siteName);
+      if (targetSite) {
+        startTransition(() => {
+          setSelectedSite(targetSite);
+          setForm(targetSite);
+          setIsEditing(false);
+        });
+      }
+    }
+  }, [location.pathname, sites]);
+
+
+
+  // 현장 데이터가 변경될 때마다 전체 통합현황 재계산 (캐싱 적용)
+  const [gisungData, setGisungData] = useState([]);
+  const [costData, setCostData] = useState([]);
+  
+  // 기성 데이터 로드
+  useEffect(() => {
+    const loadGisungData = async () => {
+      try {
+        const gisungQuery = query(collection(db, 'gisung'));
+        const gisungSnapshot = await getDocs(gisungQuery);
+        const data = gisungSnapshot.docs.map(doc => doc.data());
+        setGisungData(data);
+      } catch (error) {
+        console.error('기성 데이터 로드 오류:', error);
+      }
+    };
+    
+    const loadCostData = async () => {
+      try {
+        const costQuery = query(collection(db, 'costs'));
+        const costSnapshot = await getDocs(costQuery);
+        const data = costSnapshot.docs.map(doc => doc.data());
+        setCostData(data);
+      } catch (error) {
+        console.error('지출 데이터 로드 오류:', error);
+      }
+    };
+    
+    loadGisungData();
+    loadCostData();
+  }, []);
+  
+  // 캐시된 데이터를 사용한 통합현황 계산
+  useEffect(() => {
+    if (sites.length === 0 || gisungData.length === 0) return;
+    
+    try {
+      let totalContractAmount = 0;
+      let totalProgressAmount = 0;
+      let totalCostAmount = 0;
+
+      // 1. 계약금액: 현장상세정보에서 직접 가져오기 (로컬 계산)
+      totalContractAmount = sites.reduce((sum, site) => {
+        return sum + (Number(site.contractAmount) || 0);
+      }, 0);
+      
+      // 2. 누계기성: 캐시된 데이터 사용
+      const siteNames = sites.map(site => site.name);
+      
+      totalProgressAmount = gisungData.reduce((sum, gisung) => {
+        if (siteNames.includes(gisung.name)) {
+          return sum + (Number(gisung.gisungAmount) || 0);
+        }
+        return sum;
+      }, 0);
+      
+      totalCostAmount = costData.reduce((sum, cost) => {
+        if (siteNames.includes(cost.siteName)) {
+          return sum + (Number(cost.amount) || 0);
+        }
+        return sum;
+      }, 0);
+
+      console.log('통합현황 계산 결과 (캐시 사용):', {
+        totalContractAmount,
+        totalProgressAmount,
+        totalCostAmount,
+        sitesCount: sites.length
+      });
+
+      setTotalIntegratedStatus({
+        summary: {
+          totalEstimateAmount: totalContractAmount,
+          totalClaimAmount: totalProgressAmount,
+          totalCostAmount: totalCostAmount
+        }
+      });
+    } catch (error) {
+      console.error('전체 통합현황 계산 오류:', error);
+    }
+  }, [sites, gisungData, costData]);
 
   // 모바일에서 키보드가 올라올 때 뷰포트 조정 (간소화)
   useEffect(() => {
@@ -195,7 +297,40 @@ const NewSites = () => {
     // 선택된 현장의 통합 현황 조회
     if (site) {
       try {
-        const integratedStatus = await getSiteIntegratedStatus(site.name);
+        // 1. 계약금액: 현장상세정보에서 직접 가져오기
+        const contractAmount = Number(site.contractAmount) || 0;
+        
+        // 2. 누계기성: 캐시된 데이터 사용
+        const totalGisungAmount = gisungData.reduce((sum, gisung) => {
+          if (gisung.name === site.name) {
+            return sum + (Number(gisung.gisungAmount) || 0);
+          }
+          return sum;
+        }, 0);
+        
+        // 3. 지출: 캐시된 데이터 사용
+        const totalCostAmount = costData.reduce((sum, cost) => {
+          if (cost.siteName === site.name) {
+            return sum + (Number(cost.amount) || 0);
+          }
+          return sum;
+        }, 0);
+        
+        const integratedStatus = {
+          summary: {
+            totalEstimateAmount: contractAmount,
+            totalClaimAmount: totalGisungAmount,
+            totalCostAmount: totalCostAmount
+          }
+        };
+        
+        console.log('현장 통합현황 계산 (캐시 사용):', {
+          siteName: site.name,
+          contractAmount,
+          totalGisungAmount,
+          totalCostAmount
+        });
+        
         setSiteIntegratedStatus(integratedStatus);
       } catch (error) {
         console.error('현장 통합 현황 조회 오류:', error);
@@ -238,6 +373,7 @@ const NewSites = () => {
   };
   const handleNewSite = () => {
     setSelectedSite(null);
+    setSiteIntegratedStatus(null);
     setForm({
       name: '',
       contractType: '관급',
@@ -252,6 +388,74 @@ const NewSites = () => {
   };
   const handleEditClick = () => setIsEditing(true);
 
+  // 견적페이지와 연동하는 함수
+  const syncWithEstimates = async (manager, companyName) => {
+    if (manager && manager.trim()) {
+      try {
+        // 1. 거래처관리(vendors)에 저장
+        const vendorData = {
+          name: manager.trim(),
+          position: '', // 현장관리에서는 직위 정보가 없음
+          companyName: companyName && companyName.trim() ? companyName.trim() : '',
+          source: 'new_sites',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        // 기존에 같은 이름의 거래처가 있는지 확인
+        const existingVendorQuery = query(
+          collection(db, 'vendors'),
+          where('name', '==', manager.trim())
+        );
+        const existingVendorSnapshot = await getDocs(existingVendorQuery);
+        
+        if (existingVendorSnapshot.empty) {
+          console.log('새로운 거래처 추가:', vendorData);
+          await addDoc(collection(db, 'vendors'), vendorData);
+        } else {
+          console.log('기존 거래처 업데이트:', vendorData);
+          const existingVendorDoc = existingVendorSnapshot.docs[0];
+          await updateDoc(doc(db, 'vendors', existingVendorDoc.id), {
+            companyName: vendorData.companyName,
+            updatedAt: new Date()
+          });
+        }
+        
+        // 2. 견적페이지에서 사용할 의뢰자 데이터 생성
+        const requesterData = {
+          name: manager.trim(),
+          title: '', // 현장관리에서는 직위 정보가 없음
+          fullName: manager.trim(),
+          company: companyName && companyName.trim() ? companyName.trim() : '',
+          source: 'new_sites',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        // 기존에 같은 이름의 의뢰자가 있는지 확인
+        const existingRequesterQuery = query(
+          collection(db, 'requesters'),
+          where('name', '==', manager.trim())
+        );
+        const existingRequesterSnapshot = await getDocs(existingRequesterQuery);
+        
+        if (existingRequesterSnapshot.empty) {
+          console.log('새로운 의뢰자 추가:', requesterData);
+          await addDoc(collection(db, 'requesters'), requesterData);
+        } else {
+          console.log('기존 의뢰자 업데이트:', requesterData);
+          const existingRequesterDoc = existingRequesterSnapshot.docs[0];
+          await updateDoc(doc(db, 'requesters', existingRequesterDoc.id), {
+            company: requesterData.company,
+            updatedAt: new Date()
+          });
+        }
+      } catch (error) {
+        console.error('의뢰자 데이터 저장 오류:', error);
+      }
+    }
+  };
+
   const handleSave = async () => {
     // 기타 선택 시 견적 비고 필수 검증
     if (form.estimateStatus === '기타' && !form.estimateNote?.trim()) {
@@ -265,6 +469,8 @@ const NewSites = () => {
       if (window.confirm('수정하시겠습니까?')) {
         try {
           await updateSite(selectedSite.id, formDataToSave);
+          // 견적페이지와 연동
+          await syncWithEstimates(form.manager, form.companyName);
           setIsEditing(false);
         } catch (error) { console.error("Failed to update site:", error); }
       }
@@ -278,6 +484,8 @@ const NewSites = () => {
       
       try {
         await addSite(formDataToSave);
+        // 견적페이지와 연동
+        await syncWithEstimates(form.manager, form.companyName);
         alert('현장이 성공적으로 등록되었습니다.');
         handleNewSite();
       } catch (error) { 
@@ -495,23 +703,6 @@ const NewSites = () => {
                     >
                       {site.status}
                     </Typography>
-                    {site.estimateStatus && (
-                      <Chip
-                        label={site.estimateStatus}
-                        size="small"
-                        variant="outlined"
-                        sx={{
-                          borderColor: getEstimateStatusColor(site.estimateStatus),
-                          color: getEstimateStatusColor(site.estimateStatus),
-                          fontSize: isMobile ? '0.6rem' : '0.7rem',
-                          height: isMobile ? '16px' : '20px',
-                          '& .MuiChip-label': {
-                            px: isMobile ? 0.5 : 1
-                          }
-                        }}
-                        title={`견적 유무: ${site.estimateStatus}`}
-                      />
-                    )}
                   </Box>
                 }
                 primaryTypographyProps={{ 
@@ -554,7 +745,7 @@ const NewSites = () => {
            </Box>
          </Box>
          {/* 통합 현황 표시 */}
-         {siteIntegratedStatus && (
+         {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite)) && (
            <Box sx={{ 
              mb: 2, 
              p: 2, 
@@ -563,37 +754,29 @@ const NewSites = () => {
              border: '1px solid #e0e0e0'
            }}>
              <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', color: '#1976d2' }}>
-               {selectedSite?.name} 통합 현황
+               {selectedSite ? `${selectedSite.name} 통합 현황` : '전체 현장 통합 현황'}
              </Typography>
              <Grid container spacing={2}>
-               <Grid xs={6} sm={3}>
+               <Grid xs={4}>
                  <Box sx={{ textAlign: 'center' }}>
                    <Typography variant="h4" sx={{ color: '#1976d2', fontWeight: 'bold' }}>
-                     {siteIntegratedStatus.summary.totalEstimates}
+                     {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount?.toLocaleString() || '0'}
                    </Typography>
-                   <Typography variant="body2" sx={{ color: '#666' }}>견적</Typography>
+                   <Typography variant="body2" sx={{ color: '#666' }}>계약금액</Typography>
                  </Box>
                </Grid>
-               <Grid xs={6} sm={3}>
+               <Grid xs={4}>
                  <Box sx={{ textAlign: 'center' }}>
                    <Typography variant="h4" sx={{ color: '#7b1fa2', fontWeight: 'bold' }}>
-                     {siteIntegratedStatus.summary.totalClaims}
+                     {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount?.toLocaleString() || '0'}
                    </Typography>
-                   <Typography variant="body2" sx={{ color: '#666' }}>청구</Typography>
+                   <Typography variant="body2" sx={{ color: '#666' }}>누계기성</Typography>
                  </Box>
                </Grid>
-               <Grid xs={6} sm={3}>
-                 <Box sx={{ textAlign: 'center' }}>
-                   <Typography variant="h4" sx={{ color: '#388e3c', fontWeight: 'bold' }}>
-                     {siteIntegratedStatus.summary.totalProgress}
-                   </Typography>
-                   <Typography variant="body2" sx={{ color: '#666' }}>기성</Typography>
-                 </Box>
-               </Grid>
-               <Grid xs={6} sm={3}>
+               <Grid xs={4}>
                  <Box sx={{ textAlign: 'center' }}>
                    <Typography variant="h4" sx={{ color: '#f57c00', fontWeight: 'bold' }}>
-                     {siteIntegratedStatus.summary.totalCosts}
+                     {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount?.toLocaleString() || '0'}
                    </Typography>
                    <Typography variant="body2" sx={{ color: '#666' }}>지출</Typography>
                  </Box>
@@ -603,17 +786,17 @@ const NewSites = () => {
                <Grid container spacing={2}>
                  <Grid xs={12} sm={4}>
                    <Typography variant="body2" sx={{ color: '#666' }}>
-                     견적 총액: {siteIntegratedStatus.summary.totalEstimateAmount.toLocaleString()}원
+                     계약금액: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount?.toLocaleString() || '0'}원
                    </Typography>
                  </Grid>
                  <Grid xs={12} sm={4}>
                    <Typography variant="body2" sx={{ color: '#666' }}>
-                     청구 총액: {siteIntegratedStatus.summary.totalClaimAmount.toLocaleString()}원
+                     누계기성: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount?.toLocaleString() || '0'}원
                    </Typography>
                  </Grid>
                  <Grid xs={12} sm={4}>
                    <Typography variant="body2" sx={{ color: '#666' }}>
-                     지출 총액: {siteIntegratedStatus.summary.totalCostAmount.toLocaleString()}원
+                     지출 총액: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount?.toLocaleString() || '0'}원
                    </Typography>
                  </Grid>
                </Grid>

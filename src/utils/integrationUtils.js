@@ -170,7 +170,7 @@ export const getSiteIntegratedStatus = async (siteName) => {
     const [estimates, claims, progress, costs] = await Promise.all([
       getDocs(query(collection(db, collections.estimates), where('siteName', '==', siteName.trim()))),
       getDocs(query(collection(db, collections.claims), where('siteName', '==', siteName.trim()))),
-      getDocs(query(collection(db, collections.progress), where('siteName', '==', siteName.trim()))),
+      getDocs(query(collection(db, 'gisung'), where('name', '==', siteName.trim()))), // 기성관리 컬렉션
       getDocs(query(collection(db, collections.costs), where('site', '==', siteName.trim())))
     ]);
 
@@ -178,6 +178,31 @@ export const getSiteIntegratedStatus = async (siteName) => {
     const claimData = claims.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const progressData = progress.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const costData = costs.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // 현장 정보에서 계약금액 가져오기
+    const siteQuery = query(collection(db, collections.sites), where('name', '==', siteName.trim()));
+    const siteSnapshot = await getDocs(siteQuery);
+    const siteData = siteSnapshot.docs[0]?.data() || {};
+    
+    // 기성 데이터에서 누계 계산 (기성관리에서 가져온 데이터)
+    console.log('=== 기성 데이터 디버깅 ===');
+    console.log('기성 데이터 개수:', progressData.length);
+    console.log('기성 데이터:', progressData);
+    
+    const totalProgressAmount = progressData.reduce((sum, progress) => {
+      // 기성관리에서 사용하는 gisungAmount 필드 사용
+      const gisungAmount = parseFloat(progress.gisungAmount) || 0;
+      console.log('기성 항목:', progress.name, '차수:', progress.sequence, '금액:', gisungAmount);
+      return sum + gisungAmount;
+    }, 0);
+    
+    // 선급금을 누계기성에 포함
+    const advanceAmount = parseFloat(siteData.advance) || 0;
+    const totalWithAdvance = totalProgressAmount + advanceAmount;
+    
+    console.log('기성 누계:', totalProgressAmount);
+    console.log('선급금:', advanceAmount);
+    console.log('총 누계기성 (기성+선급금):', totalWithAdvance);
 
     return {
       siteName: siteName.trim(),
@@ -190,8 +215,8 @@ export const getSiteIntegratedStatus = async (siteName) => {
         totalClaims: claimData.length,
         totalProgress: progressData.length,
         totalCosts: costData.length,
-        totalEstimateAmount: estimateData.reduce((sum, est) => sum + (parseFloat(est.contractAmount) || 0), 0),
-        totalClaimAmount: claimData.reduce((sum, claim) => sum + (parseFloat(claim.claimAmount) || 0), 0),
+        totalEstimateAmount: parseFloat(siteData.contractAmount) || 0, // 현장의 계약금액
+        totalClaimAmount: totalWithAdvance, // 기성 누계 + 선급금
         totalCostAmount: costData.reduce((sum, cost) => sum + (parseFloat(cost.totalValue) || 0), 0)
       }
     };

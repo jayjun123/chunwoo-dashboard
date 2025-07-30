@@ -409,7 +409,7 @@ const EstimatesMobile = () => {
           open={dialogOpen} 
           onClose={handleCloseDialog}
           fullWidth
-          maxWidth="sm"
+          maxWidth="md"
           PaperProps={{
             sx: { backgroundColor: '#2a2a2a' }
           }}
@@ -436,7 +436,7 @@ const EstimatesMobile = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={6} sm={2}>
+              <Grid item xs={6} sm={3}>
                 <Autocomplete
                   options={vendors.map(vendor => vendor.name).filter(name => name)}
                   value={formData.requester}
@@ -490,7 +490,7 @@ const EstimatesMobile = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={6} sm={2}>
+              <Grid item xs={6} sm={3}>
                 <Autocomplete
                   options={vendors.map(vendor => vendor.companyName).filter(company => company)}
                   value={formData.company}
@@ -517,7 +517,7 @@ const EstimatesMobile = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={8}>
                 <TextField
                   fullWidth
                   label="현장명"

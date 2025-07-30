@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, startTransition } from 'react';
 import {
   Box,
   Typography,
@@ -39,19 +39,25 @@ import {
   Upload as UploadIcon,
   Sort as SortIcon,
   Business as BusinessIcon,
-  Assignment as AssignmentIcon
+  Assignment as AssignmentIcon,
+  NavigateBefore as NavigateBeforeIcon,
+  NavigateNext as NavigateNextIcon,
+  FirstPage as FirstPageIcon,
+  LastPage as LastPageIcon,
+  CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
 import { db, collections } from '../firebase';
 import * as XLSX from 'xlsx';
 import { getKoreanDate, normalizeDate } from '../utils/dateUtils';
 import { useAuth } from '../contexts/AuthContext';
-import { migrateEstimatesUserId } from '../scripts/migrateEstimatesUserId';
+import { useNavigate } from 'react-router-dom';
 
 const Estimates = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   // 상태 관리
   const [estimates, setEstimates] = useState([]);
@@ -65,8 +71,12 @@ const Estimates = () => {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
 
-  // 거래처 데이터 상태 추가
-  const [vendors, setVendors] = useState([]);
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // 의뢰자 데이터 상태
+  const [requesters, setRequesters] = useState([]);
 
   // 폼 데이터
   const [formData, setFormData] = useState({
@@ -82,18 +92,25 @@ const Estimates = () => {
     contractStatus: '미수주'
   });
 
-  // 거래처 데이터 로드
-  const loadVendors = async () => {
+
+
+  // 의뢰자 데이터 로드 (거래처관리, 현장관리에서 가져옴)
+  const loadRequesters = async () => {
     try {
-      const vendorsQuery = query(collection(db, collections.vendors), orderBy('companyName', 'asc'));
-      const querySnapshot = await getDocs(vendorsQuery);
-      const vendorsData = querySnapshot.docs.map(doc => ({
+      console.log('=== 의뢰자 데이터 로드 시작 ===');
+      
+      // requesters 컬렉션에서 데이터 로드
+      const requestersQuery = query(collection(db, 'requesters'), orderBy('name', 'asc'));
+      const requestersSnapshot = await getDocs(requestersQuery);
+      const requestersData = requestersSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      setVendors(vendorsData);
+      
+      console.log('의뢰자 데이터 로드 완료:', requestersData.length, '개');
+      setRequesters(requestersData);
     } catch (error) {
-      console.error('거래처 데이터 로드 오류:', error);
+      console.error('의뢰자 데이터 로드 오류:', error);
     }
   };
 
@@ -205,9 +222,9 @@ const Estimates = () => {
   }, [isMobile]);
 
   useEffect(() => {
-    if (currentUser) {
+        if (currentUser) {
       loadEstimates();
-      loadVendors(); // 거래처 데이터도 함께 로드
+      loadRequesters(); // 의뢰자 데이터도 함께 로드
     }
   }, [currentUser, sortField, sortDirection]);
 
@@ -230,10 +247,12 @@ const Estimates = () => {
 
   // 다이얼로그 열기
   const handleOpenDialog = (estimate = null) => {
-    console.log('견적 다이얼로그 열기:', estimate ? '수정 모드' : '추가 모드');
+    console.log('=== 견적 다이얼로그 열기 ===');
+    console.log('수정 모드인가?:', !!estimate);
+    console.log('선택된 견적:', estimate);
     
     if (estimate) {
-      setFormData({
+      const formDataToSet = {
         receptionDate: estimate.receptionDate || getKoreanDate(),
         requester: estimate.requester || '',
         submissionMethod: estimate.submissionMethod || '',
@@ -244,7 +263,9 @@ const Estimates = () => {
         submissionStatus: estimate.submissionStatus || '제출대기',
         notes: estimate.notes || '',
         contractStatus: estimate.contractStatus || '미수주'
-      });
+      };
+      console.log('설정할 formData:', formDataToSet);
+      setFormData(formDataToSet);
       setEditingEstimate(estimate);
     } else {
       resetForm();
@@ -261,7 +282,11 @@ const Estimates = () => {
 
   // 견적 저장
   const handleSave = async () => {
-    console.log('견적 저장 시작:', formData);
+    console.log('=== 견적 저장 시작 ===');
+    console.log('formData 전체:', formData);
+    console.log('formData.requester:', formData.requester);
+    console.log('formData.company:', formData.company);
+    console.log('formData.siteName:', formData.siteName);
     console.log('현재 사용자:', currentUser);
     
     try {
@@ -279,8 +304,11 @@ const Estimates = () => {
 
       console.log('견적 데이터 검증 완료, 저장 시작');
 
-      // 1. 거래처 연동: 의뢰자와 회사명을 vendors 컬렉션에 자동 추가
+      // 1. 의뢰자와 회사명 데이터 처리
       await syncVendorData(formData.requester, formData.company);
+      
+      // 2. 의뢰자 데이터 다시 로드
+      await loadRequesters();
 
       if (editingEstimate) {
         // 수정
@@ -324,57 +352,91 @@ const Estimates = () => {
     }
   };
 
-  // 거래처 연동 함수: 의뢰자와 회사명을 vendors 컬렉션에 자동 추가
+  // 견적페이지에서 거래처관리와 requesters 컬렉션에 저장
   const syncVendorData = async (requester, company) => {
-    try {
-      console.log('거래처 연동 시작:', { requester, company });
-      
-      // 1. 의뢰자 연동
-      if (requester && requester.trim()) {
-        const requesterQuery = query(
-          collection(db, collections.vendors),
-          where('name', '==', requester.trim())
-        );
-        const requesterSnapshot = await getDocs(requesterQuery);
+    console.log('=== 견적 데이터 저장 ===');
+    console.log('의뢰자(이름+직위):', requester);
+    console.log('회사명:', company);
+    
+    if (requester && requester.trim()) {
+      try {
+        // 의뢰자에서 이름과 직위 분리 (괄호 안의 회사명 제거)
+        let cleanRequester = requester.trim();
+        const companyMatch = cleanRequester.match(/\(([^)]+)\)$/);
+        if (companyMatch) {
+          cleanRequester = cleanRequester.replace(/\([^)]+\)$/, '').trim();
+        }
         
-        if (requesterSnapshot.empty) {
-          console.log('의뢰자를 거래처에 추가:', requester);
-          await addDoc(collection(db, collections.vendors), {
-            name: requester.trim(),
-            companyName: company || '',
-            createdAt: new Date(),
+        const parts = cleanRequester.split(' ');
+        const personName = parts[0];
+        const title = parts.length >= 2 ? parts.slice(1).join(' ') : '';
+        
+        console.log('분리된 정보:', { 이름: personName, 직위: title, 회사명: company });
+        
+        // 1. 거래처관리(vendors)에 저장
+        const vendorData = {
+          name: personName,
+          position: title,
+          companyName: company && company.trim() ? company.trim() : '',
+          source: 'estimates_page',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        // 기존에 같은 이름의 거래처가 있는지 확인
+        const existingVendorQuery = query(
+          collection(db, 'vendors'),
+          where('name', '==', personName)
+        );
+        const existingVendorSnapshot = await getDocs(existingVendorQuery);
+        
+        if (existingVendorSnapshot.empty) {
+          console.log('새로운 거래처 추가:', vendorData);
+          await addDoc(collection(db, 'vendors'), vendorData);
+        } else {
+          console.log('기존 거래처 업데이트:', vendorData);
+          const existingVendorDoc = existingVendorSnapshot.docs[0];
+          await updateDoc(doc(db, 'vendors', existingVendorDoc.id), {
+            position: vendorData.position,
+            companyName: vendorData.companyName,
             updatedAt: new Date()
           });
-        } else {
-          console.log('의뢰자가 이미 거래처에 존재함:', requester);
         }
-      }
-      
-      // 2. 회사명 연동 (의뢰자와 다른 경우)
-      if (company && company.trim() && company.trim() !== requester?.trim()) {
-        const companyQuery = query(
-          collection(db, collections.vendors),
-          where('companyName', '==', company.trim())
-        );
-        const companySnapshot = await getDocs(companyQuery);
         
-        if (companySnapshot.empty) {
-          console.log('회사명을 거래처에 추가:', company);
-          await addDoc(collection(db, collections.vendors), {
-            name: company.trim(),
-            companyName: company.trim(),
-            createdAt: new Date(),
+        // 2. requesters 컬렉션에 저장
+        const requesterData = {
+          name: personName,
+          title: title,
+          fullName: cleanRequester,
+          company: company && company.trim() ? company.trim() : '',
+          source: 'estimates',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        // 기존에 같은 이름의 의뢰자가 있는지 확인
+        const existingRequesterQuery = query(
+          collection(db, 'requesters'),
+          where('name', '==', personName)
+        );
+        const existingRequesterSnapshot = await getDocs(existingRequesterQuery);
+        
+        if (existingRequesterSnapshot.empty) {
+          console.log('새로운 의뢰자 추가:', requesterData);
+          await addDoc(collection(db, 'requesters'), requesterData);
+        } else {
+          console.log('기존 의뢰자 업데이트:', requesterData);
+          const existingRequesterDoc = existingRequesterSnapshot.docs[0];
+          await updateDoc(doc(db, 'requesters', existingRequesterDoc.id), {
+            title: title,
+            fullName: cleanRequester,
+            company: requesterData.company,
             updatedAt: new Date()
           });
-        } else {
-          console.log('회사명이 이미 거래처에 존재함:', company);
         }
+      } catch (error) {
+        console.error('의뢰자 데이터 저장 오류:', error);
       }
-      
-      console.log('거래처 연동 완료');
-    } catch (error) {
-      console.error('거래처 연동 오류:', error);
-      // 거래처 연동 실패해도 견적 저장은 계속 진행
     }
   };
 
@@ -445,6 +507,29 @@ const Estimates = () => {
     }
   };
 
+  // 수주 버튼 클릭 함수
+  const handleAwardContract = async (estimate) => {
+    try {
+      setSnackbar({ open: true, message: '현장관리로 이동합니다.', severity: 'success' });
+      
+      // 현장관리(뉴사이트)의 해당 현장 상세페이지로 즉시 이동
+      if (estimate.siteName) {
+        // startTransition으로 네비게이션을 감싸서 Suspense 오류 방지
+        startTransition(() => {
+          navigate(`/sites/${encodeURIComponent(estimate.siteName)}`);
+        });
+      } else {
+        // 현장명이 없으면 일반 현장관리 페이지로 이동
+        startTransition(() => {
+          navigate('/sites');
+        });
+      }
+    } catch (error) {
+      console.error('수주 버튼 클릭 오류:', error);
+      setSnackbar({ open: true, message: '이동에 실패했습니다.', severity: 'error' });
+    }
+  };
+
   // 정렬 변경
   const handleSort = (field) => {
     if (sortField === field) {
@@ -455,13 +540,63 @@ const Estimates = () => {
     }
   };
 
+  // 검색어 변경 시 페이지 리셋
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   // 검색 필터링
   const filteredEstimates = estimates.filter(estimate =>
     estimate.siteName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     estimate.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     estimate.requester?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     estimate.requestContent?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ).sort((a, b) => {
+    // createdAt 기준으로 내림차순 정렬 (최신 입력순)
+    const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+    const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+    return dateB - dateA;
+  });
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(filteredEstimates.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentEstimates = filteredEstimates.slice(startIndex, endIndex);
+
+  // 페이지 변경 함수
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+  };
+
+  // 페이지당 항목 수 변경 함수
+  const handleItemsPerPageChange = (event) => {
+    setItemsPerPage(parseInt(event.target.value));
+    setCurrentPage(1); // 페이지당 항목 수가 변경되면 첫 페이지로 이동
+  };
+
+  // 페이지 번호 배열 생성
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      // 전체 페이지가 5개 이하면 모든 페이지 표시
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // 현재 페이지 주변의 페이지들만 표시
+      const startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
+  };
 
   // 엑셀 다운로드
   const handleDownload = () => {
@@ -590,6 +725,36 @@ const Estimates = () => {
             다운로드
           </Button>
           <Button
+            variant="outlined"
+            onClick={async () => {
+              try {
+                // 기존 데이터 연동 스크립트 실행
+                const { syncExistingData } = await import('../scripts/syncExistingData.js');
+                await syncExistingData();
+                setSnackbar({ 
+                  open: true, 
+                  message: '기존 데이터 연동이 완료되었습니다.', 
+                  severity: 'success' 
+                });
+                // 의뢰자 데이터 다시 로드
+                await loadRequesters();
+              } catch (error) {
+                setSnackbar({ 
+                  open: true, 
+                  message: `기존 데이터 연동 실패: ${error.message}`, 
+                  severity: 'error' 
+                });
+              }
+            }}
+            sx={{
+              borderColor: '#666',
+              color: '#fff',
+              '&:hover': { borderColor: '#ff9800' }
+            }}
+          >
+            기존 데이터 연동
+          </Button>
+          <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={(e) => {
@@ -606,35 +771,6 @@ const Estimates = () => {
             }}
           >
             견적 추가
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={async () => {
-              if (currentUser) {
-                try {
-                  const count = await migrateEstimatesUserId(currentUser.uid);
-                  setSnackbar({ 
-                    open: true, 
-                    message: `${count}개의 견적 데이터에 userId가 추가되었습니다.`, 
-                    severity: 'success' 
-                  });
-                  loadEstimates(); // 데이터 다시 로드
-                } catch (error) {
-                  setSnackbar({ 
-                    open: true, 
-                    message: `마이그레이션 실패: ${error.message}`, 
-                    severity: 'error' 
-                  });
-                }
-              }
-            }}
-            sx={{
-              borderColor: '#666',
-              color: '#fff',
-              '&:hover': { borderColor: '#ff9800' }
-            }}
-          >
-            데이터 마이그레이션
           </Button>
         </Box>
       </Box>
@@ -719,9 +855,9 @@ const Estimates = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredEstimates.map((estimate, index) => (
+            {currentEstimates.map((estimate, index) => (
               <TableRow key={estimate.id} sx={{ '&:hover': { backgroundColor: '#333' } }}>
-                <TableCell sx={{ color: '#fff' }}>{index + 1}</TableCell>
+                <TableCell sx={{ color: '#fff' }}>{filteredEstimates.length - filteredEstimates.findIndex(e => e.id === estimate.id)}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{estimate.receptionDate}</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{estimate.requester}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{estimate.submissionMethod}</TableCell>
@@ -764,6 +900,18 @@ const Estimates = () => {
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
+                    <Tooltip title="수주">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleAwardContract(estimate)}
+                        sx={{ 
+                          color: estimate.contractStatus === '수주' ? '#4caf50' : '#90caf9',
+                          backgroundColor: estimate.contractStatus === '수주' ? '#4caf50' + '20' : 'transparent'
+                        }}
+                      >
+                        <CheckCircleIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </Box>
                 </TableCell>
               </TableRow>
@@ -771,6 +919,120 @@ const Estimates = () => {
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* 페이지네이션 */}
+      {totalPages > 1 && (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mt: 3, 
+          p: 2, 
+          backgroundColor: '#2a2a2a',
+          borderRadius: 1
+        }}>
+          {/* 페이지당 항목 수 선택 */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography sx={{ color: '#ccc', fontSize: '0.875rem' }}>
+              페이지당:
+            </Typography>
+            <FormControl size="small" sx={{ minWidth: 80 }}>
+              <Select
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
+                sx={{
+                  color: '#fff',
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#444' },
+                    '&:hover fieldset': { borderColor: '#666' },
+                    '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                  }
+                }}
+              >
+                <MenuItem value={5}>5개</MenuItem>
+                <MenuItem value={10}>10개</MenuItem>
+                <MenuItem value={20}>20개</MenuItem>
+                <MenuItem value={50}>50개</MenuItem>
+              </Select>
+            </FormControl>
+            <Typography sx={{ color: '#ccc', fontSize: '0.875rem' }}>
+              총 {filteredEstimates.length}개 중 {startIndex + 1}-{Math.min(endIndex, filteredEstimates.length)}개
+            </Typography>
+          </Box>
+
+          {/* 페이지 네비게이션 */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* 첫 페이지 버튼 */}
+            <IconButton
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+              sx={{
+                color: currentPage === 1 ? '#666' : '#ff9800',
+                '&:hover': { backgroundColor: currentPage === 1 ? 'transparent' : '#ff9800' + '20' }
+              }}
+            >
+              <FirstPageIcon />
+            </IconButton>
+
+            {/* 이전 페이지 버튼 */}
+            <IconButton
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              sx={{
+                color: currentPage === 1 ? '#666' : '#ff9800',
+                '&:hover': { backgroundColor: currentPage === 1 ? 'transparent' : '#ff9800' + '20' }
+              }}
+            >
+              <NavigateBeforeIcon />
+            </IconButton>
+
+            {/* 페이지 번호들 */}
+            {getPageNumbers().map((page) => (
+              <Button
+                key={page}
+                onClick={() => handlePageChange(page)}
+                variant={currentPage === page ? 'contained' : 'outlined'}
+                sx={{
+                  minWidth: 40,
+                  height: 40,
+                  backgroundColor: currentPage === page ? '#ff9800' : 'transparent',
+                  color: currentPage === page ? '#fff' : '#ff9800',
+                  borderColor: '#ff9800',
+                  '&:hover': {
+                    backgroundColor: currentPage === page ? '#f57c00' : '#ff9800' + '20'
+                  }
+                }}
+              >
+                {page}
+              </Button>
+            ))}
+
+            {/* 다음 페이지 버튼 */}
+            <IconButton
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              sx={{
+                color: currentPage === totalPages ? '#666' : '#ff9800',
+                '&:hover': { backgroundColor: currentPage === totalPages ? 'transparent' : '#ff9800' + '20' }
+              }}
+            >
+              <NavigateNextIcon />
+            </IconButton>
+
+            {/* 마지막 페이지 버튼 */}
+            <IconButton
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+              sx={{
+                color: currentPage === totalPages ? '#666' : '#ff9800',
+                '&:hover': { backgroundColor: currentPage === totalPages ? 'transparent' : '#ff9800' + '20' }
+              }}
+            >
+              <LastPageIcon />
+            </IconButton>
+          </Box>
+        </Box>
+      )}
 
       {/* 견적 추가/수정 다이얼로그 */}
       <Dialog 
@@ -808,23 +1070,44 @@ const Estimates = () => {
             </Grid>
             <Grid item xs={6} md={2}>
               <Autocomplete
-                options={vendors.map(vendor => vendor.name).filter(name => name)}
+                options={requesters.map(requester => {
+                  // 이름, 직위, 회사명을 모두 표시하여 동명이인 구분
+                  let displayName = requester.name;
+                  if (requester.title) displayName += ` ${requester.title}`;
+                  if (requester.company) displayName += ` (${requester.company})`;
+                  return displayName;
+                }).filter(name => name)}
                 value={formData.requester}
                 onChange={(event, newValue) => {
+                  console.log('=== 의뢰자 변경 ===');
+                  console.log('새로운 값:', newValue);
                   setFormData({ ...formData, requester: newValue || '' });
-                  // 선택된 거래처의 회사명도 자동으로 설정
+                  
+                  // 선택된 의뢰자의 회사명도 자동으로 설정
                   if (newValue) {
-                    const selectedVendor = vendors.find(vendor => vendor.name === newValue);
-                    if (selectedVendor && selectedVendor.companyName) {
-                      setFormData(prev => ({ ...prev, company: selectedVendor.companyName }));
+                    const selectedRequester = requesters.find(requester => {
+                      let displayName = requester.name;
+                      if (requester.title) displayName += ` ${requester.title}`;
+                      if (requester.company) displayName += ` (${requester.company})`;
+                      return displayName === newValue;
+                    });
+                    if (selectedRequester && selectedRequester.company) {
+                      console.log('선택된 의뢰자의 회사명:', selectedRequester.company);
+                      setFormData(prev => ({ ...prev, company: selectedRequester.company }));
                     }
                   }
+                }}
+                onInputChange={(event, newInputValue) => {
+                  console.log('=== 의뢰자 입력 변경 ===');
+                  console.log('입력값:', newInputValue);
+                  setFormData({ ...formData, requester: newInputValue || '' });
                 }}
                 freeSolo
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="의뢰자"
+                    label="의뢰자 (이름 직위)"
+                    placeholder="예: 홍길동 대리"
                     required
                     sx={{
                       '& .MuiOutlinedInput-root': {
@@ -848,7 +1131,11 @@ const Estimates = () => {
                 fullWidth
                 label="제출방법"
                 value={formData.submissionMethod}
-                onChange={(e) => setFormData({ ...formData, submissionMethod: e.target.value })}
+                onChange={(e) => {
+                  console.log('=== 제출방법 변경 ===');
+                  console.log('새로운 값:', e.target.value);
+                  setFormData({ ...formData, submissionMethod: e.target.value });
+                }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#444' },
@@ -861,29 +1148,23 @@ const Estimates = () => {
               />
             </Grid>
             <Grid item xs={6} md={2}>
-              <Autocomplete
-                options={vendors.map(vendor => vendor.companyName)}
+              <TextField
+                fullWidth
+                label="회사명"
                 value={formData.company}
-                onChange={(event, newValue) => setFormData({ ...formData, company: newValue || '' })}
-                freeSolo
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="회사명"
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        '& fieldset': { borderColor: '#444' },
-                        '&:hover fieldset': { borderColor: '#666' },
-                        '&.Mui-focused fieldset': { borderColor: '#ff9800' }
-                      },
-                      '& .MuiInputLabel-root': { color: '#ccc' },
-                      '& .MuiInputBase-input': { color: '#fff' }
-                    }}
-                  />
-                )}
+                onChange={(e) => {
+                  console.log('=== 회사명 변경 ===');
+                  console.log('새로운 값:', e.target.value);
+                  setFormData({ ...formData, company: e.target.value });
+                }}
                 sx={{
-                  '& .MuiAutocomplete-popupIndicator': { color: '#ccc' },
-                  '& .MuiAutocomplete-clearIndicator': { color: '#ccc' }
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#444' },
+                    '&:hover fieldset': { borderColor: '#666' },
+                    '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                  },
+                  '& .MuiInputLabel-root': { color: '#ccc' },
+                  '& .MuiInputBase-input': { color: '#fff' }
                 }}
               />
             </Grid>
@@ -892,7 +1173,11 @@ const Estimates = () => {
                 fullWidth
                 label="현장명"
                 value={formData.siteName}
-                onChange={(e) => setFormData({ ...formData, siteName: e.target.value })}
+                onChange={(e) => {
+                  console.log('=== 현장명 변경 ===');
+                  console.log('새로운 값:', e.target.value);
+                  setFormData({ ...formData, siteName: e.target.value });
+                }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#444' },
@@ -910,26 +1195,11 @@ const Estimates = () => {
                 label="제출기한"
                 type="date"
                 value={formData.submissionDeadline}
-                onChange={(e) => setFormData({ ...formData, submissionDeadline: e.target.value })}
-                InputLabelProps={{ shrink: true }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#444' },
-                    '&:hover fieldset': { borderColor: '#666' },
-                    '&.Mui-focused fieldset': { borderColor: '#ff9800' }
-                  },
-                  '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: '#fff' }
+                onChange={(e) => {
+                  console.log('=== 제출기한 변경 ===');
+                  console.log('새로운 값:', e.target.value);
+                  setFormData({ ...formData, submissionDeadline: e.target.value });
                 }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="제출기한"
-                type="date"
-                value={formData.submissionDeadline}
-                onChange={(e) => setFormData({ ...formData, submissionDeadline: e.target.value })}
                 InputLabelProps={{ shrink: true }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -947,7 +1217,11 @@ const Estimates = () => {
                 fullWidth
                 label="요청내용"
                 value={formData.requestContent}
-                onChange={(e) => setFormData({ ...formData, requestContent: e.target.value })}
+                onChange={(e) => {
+                  console.log('=== 요청내용 변경 ===');
+                  console.log('새로운 값:', e.target.value);
+                  setFormData({ ...formData, requestContent: e.target.value });
+                }}
                 multiline
                 rows={3}
                 sx={{
@@ -966,7 +1240,11 @@ const Estimates = () => {
                 <InputLabel sx={{ color: '#ccc' }}>제출상태</InputLabel>
                 <Select
                   value={formData.submissionStatus}
-                  onChange={(e) => setFormData({ ...formData, submissionStatus: e.target.value })}
+                  onChange={(e) => {
+                    console.log('=== 제출상태 변경 ===');
+                    console.log('새로운 값:', e.target.value);
+                    setFormData({ ...formData, submissionStatus: e.target.value });
+                  }}
                   sx={{
                     color: '#fff',
                     '& .MuiOutlinedInput-root': {
@@ -987,7 +1265,11 @@ const Estimates = () => {
                 <InputLabel sx={{ color: '#ccc' }}>수주상태</InputLabel>
                 <Select
                   value={formData.contractStatus}
-                  onChange={(e) => setFormData({ ...formData, contractStatus: e.target.value })}
+                  onChange={(e) => {
+                    console.log('=== 수주상태 변경 ===');
+                    console.log('새로운 값:', e.target.value);
+                    setFormData({ ...formData, contractStatus: e.target.value });
+                  }}
                   sx={{
                     color: '#fff',
                     '& .MuiOutlinedInput-root': {
