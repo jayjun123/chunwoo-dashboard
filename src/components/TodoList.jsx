@@ -350,12 +350,39 @@ const TodoList = () => {
         });
       });
     }
+    
+    // 데이터가 없어도 기본 헤더를 포함한 데이터 생성
     if (rows.length === 0) {
-      setShowNoChangeAlert(true);
-      setTimeout(() => setShowNoChangeAlert(false), 3000);
-      return;
+      rows = [{
+        날짜: '',
+        내용: '',
+        상태: '',
+        담당자: '',
+        이월여부: ''
+      }];
     }
+    
     const ws = XLSX.utils.json_to_sheet(rows);
+    
+    // 테두리 스타일 설정
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cell_address]) {
+          ws[cell_address] = { v: '', t: 's' };
+        }
+        ws[cell_address].s = {
+          border: {
+            top: { style: 'thin', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } }
+          }
+        };
+      }
+    }
+    
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'ToDo리스트');
     XLSX.writeFile(wb, isAdminOrMasterUser ? '전체_ToDo리스트.xlsx' : '내_ToDo리스트.xlsx');

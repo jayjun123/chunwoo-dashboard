@@ -470,7 +470,8 @@ const GisungStatusPage = ({
   }, [currentMonth, viewType, sites, filteredAndSortedGisung, claimStats.totalAmount, selectedSites]);
 
   const handleExcelDownload = () => {
-    const data = filteredAndSortedGisung.map(row => ({
+    // 데이터가 없어도 기본 헤더를 포함한 데이터 생성
+    const data = filteredAndSortedGisung.length > 0 ? filteredAndSortedGisung.map(row => ({
       '현장명': row.name,
       '계약금액': formatContractAmount(row.contractAmount),
       '선급금': formatAdvanceAmount(row.advance),
@@ -478,10 +479,40 @@ const GisungStatusPage = ({
       '기성월': row.gisungMonth || '-',
       '기성금액': formatGisungAmount(row.gisungAmount),
       '비고': row.note || '-',
-    }));
+    })) : [
+      {
+        '현장명': '',
+        '계약금액': '',
+        '선급금': '',
+        '전회기성': '',
+        '기성월': '',
+        '기성금액': '',
+        '비고': ''
+      }
+    ];
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
+    
+    // 테두리 스타일 설정
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cell_address]) {
+          ws[cell_address] = { v: '', t: 's' };
+        }
+        ws[cell_address].s = {
+          border: {
+            top: { style: 'thin', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } }
+          }
+        };
+      }
+    }
+    
     XLSX.utils.book_append_sheet(wb, ws, '기성현황');
     XLSX.writeFile(wb, `기성현황_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
