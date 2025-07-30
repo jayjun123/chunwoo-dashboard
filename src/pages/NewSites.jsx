@@ -127,7 +127,7 @@ const NewSites = () => {
   
   // 캐시된 데이터를 사용한 통합현황 계산
   useEffect(() => {
-    if (sites.length === 0 || gisungData.length === 0) return;
+    if (sites.length === 0) return;
     
     try {
       let totalContractAmount = 0;
@@ -160,7 +160,10 @@ const NewSites = () => {
         totalContractAmount,
         totalProgressAmount,
         totalCostAmount,
-        sitesCount: sites.length
+        sitesCount: sites.length,
+        gisungDataLength: gisungData.length,
+        costDataLength: costData.length,
+        siteNames: siteNames
       });
 
       setTotalIntegratedStatus({
@@ -749,53 +752,53 @@ const NewSites = () => {
            <Box sx={{ 
              mb: 2, 
              p: 2, 
-             bgcolor: '#f5f5f5', 
+             bgcolor: '#424242', 
              borderRadius: 1,
-             border: '1px solid #e0e0e0'
+             border: '1px solid #616161'
            }}>
-             <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', color: '#1976d2' }}>
+             <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', color: '#ffffff' }}>
                {selectedSite ? `${selectedSite.name} 통합 현황` : '전체 현장 통합 현황'}
              </Typography>
              <Grid container spacing={2}>
                <Grid xs={4}>
                  <Box sx={{ textAlign: 'center' }}>
-                   <Typography variant="h4" sx={{ color: '#1976d2', fontWeight: 'bold' }}>
+                   <Typography variant="h4" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
                      {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount?.toLocaleString() || '0'}
                    </Typography>
-                   <Typography variant="body2" sx={{ color: '#666' }}>계약금액</Typography>
+                   <Typography variant="body2" sx={{ color: '#ffffff' }}>계약금액</Typography>
                  </Box>
                </Grid>
                <Grid xs={4}>
                  <Box sx={{ textAlign: 'center' }}>
-                   <Typography variant="h4" sx={{ color: '#7b1fa2', fontWeight: 'bold' }}>
+                   <Typography variant="h4" sx={{ color: '#2196f3', fontWeight: 'bold' }}>
                      {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount?.toLocaleString() || '0'}
                    </Typography>
-                   <Typography variant="body2" sx={{ color: '#666' }}>누계기성</Typography>
+                   <Typography variant="body2" sx={{ color: '#ffffff' }}>누계기성</Typography>
                  </Box>
                </Grid>
                <Grid xs={4}>
                  <Box sx={{ textAlign: 'center' }}>
-                   <Typography variant="h4" sx={{ color: '#f57c00', fontWeight: 'bold' }}>
+                   <Typography variant="h4" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
                      {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount?.toLocaleString() || '0'}
                    </Typography>
-                   <Typography variant="body2" sx={{ color: '#666' }}>지출</Typography>
+                   <Typography variant="body2" sx={{ color: '#ffffff' }}>지출</Typography>
                  </Box>
                </Grid>
              </Grid>
-             <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #e0e0e0' }}>
+             <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #616161' }}>
                <Grid container spacing={2}>
                  <Grid xs={12} sm={4}>
-                   <Typography variant="body2" sx={{ color: '#666' }}>
+                   <Typography variant="body2" sx={{ color: '#ffffff' }}>
                      계약금액: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount?.toLocaleString() || '0'}원
                    </Typography>
                  </Grid>
                  <Grid xs={12} sm={4}>
-                   <Typography variant="body2" sx={{ color: '#666' }}>
+                   <Typography variant="body2" sx={{ color: '#ffffff' }}>
                      누계기성: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount?.toLocaleString() || '0'}원
                    </Typography>
                  </Grid>
                  <Grid xs={12} sm={4}>
-                   <Typography variant="body2" sx={{ color: '#666' }}>
+                   <Typography variant="body2" sx={{ color: '#ffffff' }}>
                      지출 총액: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount?.toLocaleString() || '0'}원
                    </Typography>
                  </Grid>
