@@ -963,36 +963,176 @@ const SafetyPage = () => {
               padding: '16px 20px'
             })
           }}>
-            <Autocomplete
-              options={siteOptions}
-              value={form.siteName}
-              onChange={(event, newValue) => {
-                setForm(prev => ({ ...prev, siteName: newValue || '' }));
-              }}
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="현장명" 
-                  margin="dense" 
-                  fullWidth 
-                  sx={{
-                    ...(isMobile && {
-                      '& .MuiInputBase-root': {
-                        height: '40px'
-                      }
-                    })
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Autocomplete
+                  options={siteOptions}
+                  value={form.siteName}
+                  onChange={(event, newValue) => {
+                    setForm(prev => ({ ...prev, siteName: newValue || '' }));
                   }}
+                  renderInput={(params) => (
+                    <TextField 
+                      {...params} 
+                      label="현장명" 
+                      margin="dense" 
+                      fullWidth 
+                      sx={{
+                        ...(isMobile && {
+                          '& .MuiInputBase-root': {
+                            height: '40px'
+                          }
+                        })
+                      }}
+                    />
+                  )}
                 />
+              </Grid>
+              {tab === 4 && (
+                <>
+                  <Grid item xs={6}>
+                    <TextField 
+                      margin="dense" 
+                      label="이름" 
+                      fullWidth 
+                      value={form.name} 
+                      onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                      sx={{
+                        ...(isMobile && {
+                          '& .MuiInputBase-root': {
+                            height: '40px'
+                          }
+                        })
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <TextField 
+                      margin="dense" 
+                      label="안전장비" 
+                      fullWidth 
+                      value={form.equipment} 
+                      onChange={e => setForm(prev => ({ ...prev, equipment: e.target.value }))}
+                      sx={{
+                        ...(isMobile && {
+                          '& .MuiInputBase-root': {
+                            height: '40px'
+                          }
+                        })
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <FormControl 
+                      fullWidth 
+                      margin="dense"
+                      sx={{
+                        ...(isMobile && {
+                          '& .MuiInputBase-root': {
+                            height: '40px'
+                          }
+                        })
+                      }}
+                    >
+                      <InputLabel>분출여부</InputLabel>
+                      <Select
+                        value={form.isIssued}
+                        onChange={e => setForm(prev => ({ ...prev, isIssued: e.target.value }))}
+                        label="분출여부"
+                      >
+                        <MenuItem value="아니요">아니요</MenuItem>
+                        <MenuItem value="예">예</MenuItem>
+                        <MenuItem value="일부분출">일부분출</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <TextField 
+                      margin="dense" 
+                      label="금액" 
+                      fullWidth 
+                      value={form.amount} 
+                      onChange={e => setForm(prev => ({ ...prev, amount: e.target.value }))}
+                      sx={{
+                        ...(isMobile && {
+                          '& .MuiInputBase-root': {
+                            height: '40px'
+                          }
+                        })
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField 
+                      margin="dense" 
+                      label="비고" 
+                      fullWidth 
+                      multiline
+                      rows={2}
+                      value={form.note} 
+                      onChange={e => setForm(prev => ({ ...prev, note: e.target.value }))}
+                      sx={{
+                        ...(isMobile && {
+                          '& .MuiInputBase-root': {
+                            minHeight: '60px'
+                          }
+                        })
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Box sx={{ mt: 1, mb: 1 }}>
+                      <Button 
+                        variant="outlined" 
+                        component="label" 
+                        sx={{ 
+                          mr: 1,
+                          ...(isMobile && {
+                            height: '40px',
+                            fontSize: '0.9rem'
+                          })
+                        }}
+                      >
+                        첨부파일 선택
+                        <input 
+                          type="file" 
+                          hidden 
+                          onChange={e => setForm(prev => ({ ...prev, attachment: e.target.files[0] }))} 
+                        />
+                      </Button>
+                      {form.attachment && (
+                        <Typography variant="body2" sx={{ mt: 1, color: '#4caf50' }}>
+                          선택된 파일: {form.attachment.name}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField 
+                      margin="dense" 
+                      label="미리보기 URL" 
+                      fullWidth 
+                      value={form.preview || ''} 
+                      onChange={e => setForm(prev => ({ ...prev, preview: e.target.value }))}
+                      placeholder="첨부파일의 미리보기 URL을 입력하세요"
+                      sx={{
+                        ...(isMobile && {
+                          '& .MuiInputBase-root': {
+                            height: '40px'
+                          }
+                        })
+                      }}
+                    />
+                  </Grid>
+                </>
               )}
-            />
-            {tab === 4 && (
-              <>
+              <Grid item xs={12}>
                 <TextField 
                   margin="dense" 
-                  label="이름" 
+                  label="제목" 
                   fullWidth 
-                  value={form.name} 
-                  onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                  value={form.title} 
+                  onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
                   sx={{
                     ...(isMobile && {
                       '& .MuiInputBase-root': {
@@ -1001,12 +1141,15 @@ const SafetyPage = () => {
                     })
                   }}
                 />
+              </Grid>
+              <Grid item xs={6}>
                 <TextField 
                   margin="dense" 
-                  label="안전장비" 
+                  type="date" 
                   fullWidth 
-                  value={form.equipment} 
-                  onChange={e => setForm(prev => ({ ...prev, equipment: e.target.value }))}
+                  value={form.date} 
+                  onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))} 
+                  InputLabelProps={{ shrink: true }}
                   sx={{
                     ...(isMobile && {
                       '& .MuiInputBase-root': {
@@ -1015,145 +1158,26 @@ const SafetyPage = () => {
                     })
                   }}
                 />
-                <FormControl 
-                  fullWidth 
-                  margin="dense"
-                  sx={{
-                    ...(isMobile && {
-                      '& .MuiInputBase-root': {
-                        height: '40px'
-                      }
-                    })
-                  }}
-                >
-                  <InputLabel>분출여부</InputLabel>
-                  <Select
-                    value={form.isIssued}
-                    onChange={e => setForm(prev => ({ ...prev, isIssued: e.target.value }))}
-                    label="분출여부"
-                  >
-                    <MenuItem value="아니요">아니요</MenuItem>
-                    <MenuItem value="예">예</MenuItem>
-                    <MenuItem value="일부분출">일부분출</MenuItem>
-                  </Select>
-                </FormControl>
-                <TextField 
-                  margin="dense" 
-                  label="금액" 
-                  fullWidth 
-                  value={form.amount} 
-                  onChange={e => setForm(prev => ({ ...prev, amount: e.target.value }))}
-                  sx={{
-                    ...(isMobile && {
-                      '& .MuiInputBase-root': {
-                        height: '40px'
-                      }
-                    })
-                  }}
-                />
+              </Grid>
+              <Grid item xs={12}>
                 <TextField 
                   margin="dense" 
                   label="비고" 
                   fullWidth 
-                  multiline
-                  rows={2}
-                  value={form.note} 
-                  onChange={e => setForm(prev => ({ ...prev, note: e.target.value }))}
+                  multiline 
+                  rows={3} 
+                  value={form.description} 
+                  onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
                   sx={{
                     ...(isMobile && {
                       '& .MuiInputBase-root': {
-                        minHeight: '60px'
+                        minHeight: '80px'
                       }
                     })
                   }}
                 />
-                <Box sx={{ mt: 1, mb: 1 }}>
-                  <Button 
-                    variant="outlined" 
-                    component="label" 
-                    sx={{ 
-                      mr: 1,
-                      ...(isMobile && {
-                        height: '40px',
-                        fontSize: '0.9rem'
-                      })
-                    }}
-                  >
-                    첨부파일 선택
-                    <input 
-                      type="file" 
-                      hidden 
-                      onChange={e => setForm(prev => ({ ...prev, attachment: e.target.files[0] }))} 
-                    />
-                  </Button>
-                  {form.attachment && (
-                    <Typography variant="body2" sx={{ mt: 1, color: '#4caf50' }}>
-                      선택된 파일: {form.attachment.name}
-                    </Typography>
-                  )}
-                </Box>
-                <TextField 
-                  margin="dense" 
-                  label="미리보기 URL" 
-                  fullWidth 
-                  value={form.preview || ''} 
-                  onChange={e => setForm(prev => ({ ...prev, preview: e.target.value }))}
-                  placeholder="첨부파일의 미리보기 URL을 입력하세요"
-                  sx={{
-                    ...(isMobile && {
-                      '& .MuiInputBase-root': {
-                        height: '40px'
-                      }
-                    })
-                  }}
-                />
-              </>
-            )}
-            <TextField 
-              margin="dense" 
-              label="제목" 
-              fullWidth 
-              value={form.title} 
-              onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
-              sx={{
-                ...(isMobile && {
-                  '& .MuiInputBase-root': {
-                    height: '40px'
-                  }
-                })
-              }}
-            />
-            <TextField 
-              margin="dense" 
-              type="date" 
-              fullWidth 
-              value={form.date} 
-              onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))} 
-              InputLabelProps={{ shrink: true }}
-              sx={{
-                ...(isMobile && {
-                  '& .MuiInputBase-root': {
-                    height: '40px'
-                  }
-                })
-              }}
-            />
-            <TextField 
-              margin="dense" 
-              label="비고" 
-              fullWidth 
-              multiline 
-              rows={3} 
-              value={form.description} 
-              onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
-              sx={{
-                ...(isMobile && {
-                  '& .MuiInputBase-root': {
-                    minHeight: '80px'
-                  }
-                })
-              }}
-            />
+              </Grid>
+            </Grid>
             <Box sx={{
               ...(isMobile && {
                 display: 'flex',

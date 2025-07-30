@@ -46,7 +46,11 @@ import {
   Sort as SortIcon,
   ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
-  Assignment as AssignmentIcon
+  Assignment as AssignmentIcon,
+  NavigateBefore as NavigateBeforeIcon,
+  NavigateNext as NavigateNextIcon,
+  FirstPage as FirstPageIcon,
+  LastPage as LastPageIcon
 } from '@mui/icons-material';
 import { 
   subscribeToClaims, 
@@ -83,8 +87,9 @@ const Claims = () => {
   });
   const [sortBy, setSortBy] = useState('siteName');
   const [sortOrder, setSortOrder] = useState('asc');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [stats, setStats] = useState({
     total: 0,
     claimed: 0,
@@ -357,8 +362,18 @@ const Claims = () => {
       filtered = filtered.filter(claim => claim.claimStatus === filters.claimStatus);
     }
 
-    // 정렬
+    // 정렬 (createdAt 기준으로 최신 입력순 정렬 추가)
     filtered.sort((a, b) => {
+      // 먼저 createdAt 기준으로 최신 입력순 정렬
+      const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+      const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+      const dateComparison = dateB - dateA;
+      
+      if (dateComparison !== 0) {
+        return dateComparison;
+      }
+      
+      // createdAt이 같으면 기존 정렬 기준 사용
       let aValue = a[sortBy];
       let bValue = b[sortBy];
       
@@ -375,7 +390,7 @@ const Claims = () => {
     });
 
     setFilteredClaims(filtered);
-    setPage(0);
+    setCurrentPage(1);
   }, [claims, searchTerm, filters, sortBy, sortOrder]);
 
   // 폼 데이터 초기화
@@ -592,7 +607,7 @@ const Claims = () => {
   // 엑셀 다운로드
   const handleExportExcel = () => {
     const exportData = filteredClaims.map((claim, index) => ({
-      'No.': page * rowsPerPage + index + 1,
+      'No.': filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id),
       '청구월': claim.claimMonth,
       '현장명': claim.siteName,
       '소장': claim.manager,
@@ -668,6 +683,38 @@ const Claims = () => {
     if (!amount) return '0';
     return new Intl.NumberFormat('ko-KR').format(amount);
   };
+
+  // 페이지네이션 핸들러
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+  };
+
+  const handleItemsPerPageChange = (event) => {
+    setItemsPerPage(Number(event.target.value));
+    setCurrentPage(1);
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(filteredClaims.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentClaims = filteredClaims.slice(startIndex, endIndex);
 
   console.log('Claims 렌더링, loading:', loading, 'claims:', claims.length);
   
@@ -1119,11 +1166,9 @@ const Claims = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredClaims
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((claim, index) => (
+              {currentClaims.map((claim, index) => (
                   <TableRow key={claim.id} sx={{ '&:hover': { backgroundColor: '#444' } }}>
-                    <TableCell sx={{ color: 'white' }}>{page * rowsPerPage + index + 1}</TableCell>
+                    <TableCell sx={{ color: 'white' }}>{filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id)}</TableCell>
                     {isMobile ? (
                       <>
                         <TableCell sx={{ color: 'white' }}>{claim.siteName}</TableCell>
@@ -1191,23 +1236,119 @@ const Claims = () => {
           </Table>
         </TableContainer>
         
-        {/* 페이지네이션 */}
-        <TablePagination
-          component="div"
-          count={filteredClaims.length}
-          page={page}
-          onPageChange={(event, newPage) => setPage(newPage)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(event) => {
-            setRowsPerPage(parseInt(event.target.value, 10));
-            setPage(0);
-          }}
-          sx={{ 
-            color: 'white',
-            '& .MuiTablePagination-select': { color: 'white' },
-            '& .MuiTablePagination-selectIcon': { color: 'white' }
-          }}
-        />
+        {/* 커스텀 페이지네이션 */}
+        {totalPages > 1 && (
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            mt: 3, 
+            p: 2, 
+            backgroundColor: '#2a2a2a',
+            borderRadius: 1
+          }}>
+            {/* 페이지당 항목 수 선택 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography sx={{ color: '#ccc', fontSize: '0.875rem' }}>
+                페이지당:
+              </Typography>
+              <FormControl size="small" sx={{ minWidth: 80 }}>
+                <Select
+                  value={itemsPerPage}
+                  onChange={handleItemsPerPageChange}
+                  sx={{
+                    color: '#fff',
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                    }
+                  }}
+                >
+                  <MenuItem value={5}>5개</MenuItem>
+                  <MenuItem value={10}>10개</MenuItem>
+                  <MenuItem value={20}>20개</MenuItem>
+                  <MenuItem value={50}>50개</MenuItem>
+                </Select>
+              </FormControl>
+              <Typography sx={{ color: '#ccc', fontSize: '0.875rem' }}>
+                총 {filteredClaims.length}개 중 {startIndex + 1}-{Math.min(endIndex, filteredClaims.length)}개
+              </Typography>
+            </Box>
+
+            {/* 페이지 네비게이션 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {/* 첫 페이지 버튼 */}
+              <IconButton
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1}
+                sx={{
+                  color: currentPage === 1 ? '#666' : '#90caf9',
+                  '&:hover': { backgroundColor: currentPage === 1 ? 'transparent' : '#90caf9' + '20' }
+                }}
+              >
+                <FirstPageIcon />
+              </IconButton>
+
+              {/* 이전 페이지 버튼 */}
+              <IconButton
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                sx={{
+                  color: currentPage === 1 ? '#666' : '#90caf9',
+                  '&:hover': { backgroundColor: currentPage === 1 ? 'transparent' : '#90caf9' + '20' }
+                }}
+              >
+                <NavigateBeforeIcon />
+              </IconButton>
+
+              {/* 페이지 번호들 */}
+              {getPageNumbers().map((page) => (
+                <Button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  variant={currentPage === page ? 'contained' : 'outlined'}
+                  sx={{
+                    minWidth: 40,
+                    height: 40,
+                    backgroundColor: currentPage === page ? '#90caf9' : 'transparent',
+                    color: currentPage === page ? '#fff' : '#90caf9',
+                    borderColor: '#90caf9',
+                    '&:hover': {
+                      backgroundColor: currentPage === page ? '#42a5f5' : '#90caf9' + '20'
+                    }
+                  }}
+                >
+                  {page}
+                </Button>
+              ))}
+
+              {/* 다음 페이지 버튼 */}
+              <IconButton
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                sx={{
+                  color: currentPage === totalPages ? '#666' : '#90caf9',
+                  '&:hover': { backgroundColor: currentPage === totalPages ? 'transparent' : '#90caf9' + '20' }
+                }}
+              >
+                <NavigateNextIcon />
+              </IconButton>
+
+              {/* 마지막 페이지 버튼 */}
+              <IconButton
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                sx={{
+                  color: currentPage === totalPages ? '#666' : '#90caf9',
+                  '&:hover': { backgroundColor: currentPage === totalPages ? 'transparent' : '#90caf9' + '20' }
+                }}
+              >
+                <LastPageIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        )}
       </Paper>
 
       {/* 청구예정 생성/수정 다이얼로그 */}

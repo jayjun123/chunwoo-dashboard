@@ -245,6 +245,11 @@ const Progress = () => {
   const [filteredSiteName, setFilteredSiteName] = useState('');
   const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
 
+  // 탭 상태 변화 추적
+  useEffect(() => {
+    console.log('탭 상태 변화:', { tab, statusView });
+  }, [tab, statusView]);
+
   // URL 파라미터에서 siteId 읽기
   useEffect(() => {
     const siteId = searchParams.get('siteId');
@@ -733,19 +738,28 @@ const Progress = () => {
           }}
         >
           <Button 
-            onClick={() => setTab('chart')}
+            onClick={() => {
+              console.log('기성관리 탭 클릭 - 현재 탭:', tab);
+              setTab('chart');
+            }}
             variant={tab === 'chart' ? 'contained' : 'outlined'}
           >
             기성관리
           </Button>
           <Button 
-            onClick={() => setTab('gisung')}
+            onClick={() => {
+              console.log('기성현황 탭 클릭 - 현재 탭:', tab);
+              setTab('gisung');
+            }}
             variant={tab === 'gisung' ? 'contained' : 'outlined'}
           >
             기성현황
           </Button>
           <Button 
-            onClick={() => setTab('cost')}
+            onClick={() => {
+              console.log('지출 탭 클릭 - 현재 탭:', tab);
+              setTab('cost');
+            }}
             variant={tab === 'cost' ? 'contained' : 'outlined'}
           >
             지출
@@ -787,7 +801,7 @@ const Progress = () => {
             variant={statusView === 'site' ? 'contained' : 'outlined'}
             color="success"
             sx={{ 
-              px: isMobile ? 0.5 : 1, 
+              px: isMobile ? 0.5 : 0.5, 
               fontSize: isMobile ? '0.7rem' : 'inherit',
               flex: isMobile ? 1 : 'auto'
             }}
@@ -855,12 +869,16 @@ const Progress = () => {
                 <Checkbox
                   checked={selectedSites.includes(siteName)}
                   onChange={e => {
+                    console.log('체크박스 변경:', { siteName, checked: e.target.checked, currentSelectedSites: selectedSites });
+                    
                     if (e.target.checked) {
                       // 이미 선택된 상태이므로 아무 동작 안 함
                       return;
                     } else {
                       // 체크 해제 시 선택 해제
-                      setSelectedSites(selectedSites.filter(name => name !== siteName));
+                      const newSelectedSites = selectedSites.filter(name => name !== siteName);
+                      console.log('체크 해제 후 새로운 선택된 현장들:', newSelectedSites);
+                      setSelectedSites(newSelectedSites);
                     }
                   }}
                   sx={{ p: isMobile ? 0.2 : 0.5, color: '#90caf9' }}
@@ -883,12 +901,16 @@ const Progress = () => {
               onChange={(selectedSite) => {
                 // selectedSite가 객체인 경우 name만 추출
                 const siteName = typeof selectedSite === 'string' ? selectedSite : selectedSite?.name;
+                console.log('현장 선택:', { selectedSite, siteName, currentSelectedSites: selectedSites });
+                
                 if (siteName && !selectedSites.includes(siteName)) {
                   if (selectedSites.length >= 4) {
                     alert('현장은 최대 4개까지 선택할 수 있습니다.');
                     return;
                   }
-                  setSelectedSites([...selectedSites, siteName]);
+                  const newSelectedSites = [...selectedSites, siteName];
+                  console.log('새로운 선택된 현장들:', newSelectedSites);
+                  setSelectedSites(newSelectedSites);
                 }
               }}
               label=""

@@ -204,7 +204,7 @@ function SafetyOverviewCards() {
                 {/* 안전 점검 */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minHeight: 35, position: 'relative' }}>
                   {icons.inspection}
-                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>안전 점검</Typography>
+                  <Typography sx={{ minWidth: 80, fontSize: isMobile ? '0.8rem' : '1rem' }}>안전   점검</Typography>
                   <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start', gap: 0 }}>
                     <Box sx={{ ml: isMobile ? -1.25 : -0.625, width: 110, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Box sx={{ width: isMobile ? 50 : 60 }} />
@@ -259,7 +259,7 @@ function SafetyOverviewCards() {
                 {/* 사고 예방 */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minHeight: 35, position: 'relative' }}>
                   {icons.accident}
-                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>사고 예방</Typography>
+                  <Typography sx={{ minWidth: 80, fontSize: isMobile ? '0.8rem' : '1rem' }}>사고   예방</Typography>
                   <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start', gap: 0 }}>
                     <Box sx={{ ml: isMobile ? -1.25 : -0.625, width: 110, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Box sx={{ width: isMobile ? 50 : 60 }} />
@@ -314,7 +314,7 @@ function SafetyOverviewCards() {
                 {/* 안전 교육 */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minHeight: 35, position: 'relative' }}>
                   {icons.education}
-                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>안전 교육</Typography>
+                  <Typography sx={{ minWidth: 80, fontSize: isMobile ? '0.8rem' : '1rem' }}>안전   교육</Typography>
                   <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start', gap: 0 }}>
                     <Box sx={{ ml: isMobile ? -1.25 : -0.625, width: 110, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Box sx={{ width: isMobile ? 50 : 60 }} />
@@ -369,7 +369,7 @@ function SafetyOverviewCards() {
                 {/* 안전관리비 */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minHeight: 35, position: 'relative' }}>
                   {icons.cost}
-                  <Typography sx={{ minWidth: 60, fontSize: isMobile ? '0.8rem' : '1rem' }}>안전관리비</Typography>
+                  <Typography sx={{ minWidth: 80, fontSize: isMobile ? '0.8rem' : '1rem' }}>안전관리비</Typography>
                   <Box sx={{ flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start', gap: 0 }}>
                     <Box sx={{ ml: isMobile ? -1.25 : -0.625, width: 110, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Box sx={{ width: isMobile ? 50 : 60 }} />

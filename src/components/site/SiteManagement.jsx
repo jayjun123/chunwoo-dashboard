@@ -30,7 +30,7 @@ import {
   Phone as PhoneIcon,
   Email as EmailIcon,
 } from '@mui/icons-material';
-import { collection, query, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useNavigate } from 'react-router-dom';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -47,6 +47,7 @@ const SiteManagement = () => {
     name: '',
     address: '',
     manager: '',
+    company: '', // 회사명 필드 추가
     phone: '',
     email: '',
     status: 'active',
@@ -186,6 +187,9 @@ const SiteManagement = () => {
         updatedAt: new Date().toISOString(),
       };
 
+      // 거래처 연동: 현장 관리자와 회사명을 vendors 컬렉션에 자동 추가
+      await syncVendorData(formData.manager, formData.name);
+
       if (selectedSite) {
         // 현장 정보 수정
         await updateDoc(doc(db, 'sites', selectedSite.id), siteData);
@@ -227,6 +231,48 @@ const SiteManagement = () => {
       setError(failMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 현장관리에서 소장과 회사명을 견적페이지와 연동
+  const syncVendorData = async (manager, company) => {
+    console.log('=== 현장관리 데이터 저장 ===');
+    console.log('소장:', manager);
+    console.log('회사명:', company);
+    
+    // 견적페이지에서 사용할 수 있도록 데이터 저장
+    if (manager && manager.trim()) {
+      try {
+        // 견적페이지에서 사용할 의뢰자 데이터 생성
+        const requesterData = {
+          name: manager.trim(),
+          company: company && company.trim() ? company.trim() : '',
+          source: 'site_management',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        // 기존에 같은 이름의 의뢰자가 있는지 확인
+        const existingQuery = query(
+          collection(db, 'requesters'),
+          where('name', '==', manager.trim())
+        );
+        const existingSnapshot = await getDocs(existingQuery);
+        
+        if (existingSnapshot.empty) {
+          console.log('새로운 의뢰자 추가:', requesterData);
+          await addDoc(collection(db, 'requesters'), requesterData);
+        } else {
+          console.log('기존 의뢰자 업데이트:', requesterData);
+          const existingDoc = existingSnapshot.docs[0];
+          await updateDoc(doc(db, 'requesters', existingDoc.id), {
+            company: requesterData.company,
+            updatedAt: new Date()
+          });
+        }
+      } catch (error) {
+        console.error('의뢰자 데이터 저장 오류:', error);
+      }
     }
   };
 

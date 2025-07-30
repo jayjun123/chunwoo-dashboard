@@ -60,14 +60,14 @@ const Vendors = () => {
 
   const fetchVendors = async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, 'vendors'));
+      const querySnapshot = await getDocs(collection(db, 'bids'));
       const vendorList = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
       setVendors(vendorList);
     } catch (error) {
-      console.error('Error fetching vendors:', error);
+      console.error('Error fetching bids:', error);
     }
   };
 
@@ -107,9 +107,9 @@ const Vendors = () => {
     e.preventDefault();
     try {
       if (editingVendor) {
-        await updateDoc(doc(db, 'vendors', editingVendor.id), formData);
+        await updateDoc(doc(db, 'bids', editingVendor.id), formData);
       } else {
-        await addDoc(collection(db, 'vendors'), formData);
+        await addDoc(collection(db, 'bids'), formData);
       }
       handleClose();
       fetchVendors();
@@ -121,7 +121,7 @@ const Vendors = () => {
   const handleDelete = async (vendorId) => {
     if (window.confirm('정말 삭제하시겠습니까?')) {
       try {
-        await deleteDoc(doc(db, 'vendors', vendorId));
+        await deleteDoc(doc(db, 'bids', vendorId));
         fetchVendors();
       } catch (error) {
         console.error('Error deleting vendor:', error);
