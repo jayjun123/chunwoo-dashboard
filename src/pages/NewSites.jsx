@@ -4,7 +4,7 @@ import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UploadIcon from '@mui/icons-material/Upload';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
+
 import { collection, onSnapshot, query, orderBy, where, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { addSite, updateSite, deleteSite } from '../api/sites';
@@ -1266,175 +1266,7 @@ const NewSites = () => {
 
   // 중복 단수정리 항목 정리 함수
   // 엑셀 다운로드 함수 (gisung.xlsx 템플릿 사용)
-  const handleExcelDownload = async () => {
-    if (!selectedSite) {
-      alert('현장을 선택해주세요.');
-      return;
-    }
 
-    try {
-      // gisung.xlsx 템플릿 파일 가져오기
-      const response = await fetch('/gisung.xlsx');
-      const arrayBuffer = await response.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { 
-        type: 'array',
-        cellFormula: true, // 수식 유지
-        cellStyles: true,  // 서식 유지
-        cellDates: true,   // 날짜 유지
-        cellNF: true,      // 숫자 서식 유지
-        cellHTML: true     // HTML 서식 유지
-      });
-      
-      // "내역서" 시트 찾기
-      const sheetName = workbook.SheetNames.find(name => name.includes('내역서'));
-      if (!sheetName) {
-        alert('템플릿 파일에서 "내역서" 시트를 찾을 수 없습니다.');
-        return;
-      }
-
-      const worksheet = workbook.Sheets[sheetName];
-      
-      // 물량 내역 데이터 준비
-      const items = form.items || [];
-      const validItems = items.filter(item => !item.isSpacer); // 보이지 않는 빈칸 제외
-      
-      // 데이터를 시트에 채우기 (5번째 줄부터)
-      let rowIndex = 4; // 5번째 줄 (인덱스 4)
-      
-      validItems.forEach(item => {
-        // A열: 품명
-        const cellA = XLSX.utils.encode_cell({ r: rowIndex, c: 0 });
-        if (worksheet[cellA]) {
-          worksheet[cellA].v = item.name || '';
-          worksheet[cellA].t = 's';
-        } else {
-          worksheet[cellA] = { v: item.name || '', t: 's' };
-        }
-        
-        // B열: 규격
-        const cellB = XLSX.utils.encode_cell({ r: rowIndex, c: 1 });
-        if (worksheet[cellB]) {
-          worksheet[cellB].v = item.specification || '';
-          worksheet[cellB].t = 's';
-        } else {
-          worksheet[cellB] = { v: item.specification || '', t: 's' };
-        }
-        
-        // C열: 단위
-        const cellC = XLSX.utils.encode_cell({ r: rowIndex, c: 2 });
-        if (worksheet[cellC]) {
-          worksheet[cellC].v = item.unit || '';
-          worksheet[cellC].t = 's';
-        } else {
-          worksheet[cellC] = { v: item.unit || '', t: 's' };
-        }
-        
-        // D열: 수량
-        const cellD = XLSX.utils.encode_cell({ r: rowIndex, c: 3 });
-        if (worksheet[cellD]) {
-          worksheet[cellD].v = parseFloat(item.quantity) || 0;
-          worksheet[cellD].t = 'n';
-        } else {
-          worksheet[cellD] = { v: parseFloat(item.quantity) || 0, t: 'n' };
-        }
-        
-        // E열: 금액
-        const cellE = XLSX.utils.encode_cell({ r: rowIndex, c: 4 });
-        if (worksheet[cellE]) {
-          worksheet[cellE].v = parseFloat(item.amount) || 0;
-          worksheet[cellE].t = 'n';
-        } else {
-          worksheet[cellE] = { v: parseFloat(item.amount) || 0, t: 'n' };
-        }
-        
-        // K열: 단가
-        const cellK = XLSX.utils.encode_cell({ r: rowIndex, c: 10 });
-        if (worksheet[cellK]) {
-          worksheet[cellK].v = parseFloat(item.price) || 0;
-          worksheet[cellK].t = 'n';
-        } else {
-          worksheet[cellK] = { v: parseFloat(item.price) || 0, t: 'n' };
-        }
-        
-        // L열: 금액 (K열과 동일)
-        const cellL = XLSX.utils.encode_cell({ r: rowIndex, c: 11 });
-        if (worksheet[cellL]) {
-          worksheet[cellL].v = parseFloat(item.amount) || 0;
-          worksheet[cellL].t = 'n';
-        } else {
-          worksheet[cellL] = { v: parseFloat(item.amount) || 0, t: 'n' };
-        }
-        
-        rowIndex++;
-      });
-
-      // 고정값과 수식 추가
-      // 현장명 추가 (A1 셀)
-      const cellA1 = XLSX.utils.encode_cell({ r: 0, c: 0 });
-      if (worksheet[cellA1]) {
-        worksheet[cellA1].v = selectedSite.name || '';
-        worksheet[cellA1].t = 's';
-      } else {
-        worksheet[cellA1] = { v: selectedSite.name || '', t: 's' };
-      }
-
-      // 계약금액 추가 (F1 셀)
-      const cellF1 = XLSX.utils.encode_cell({ r: 0, c: 5 });
-      if (worksheet[cellF1]) {
-        worksheet[cellF1].v = parseFloat(form.contractAmount) || 0;
-        worksheet[cellF1].t = 'n';
-      } else {
-        worksheet[cellF1] = { v: parseFloat(form.contractAmount) || 0, t: 'n' };
-      }
-
-      // 총 공사계 수식 추가 (마지막 행 다음)
-      const totalRow = rowIndex;
-      const cellATotal = XLSX.utils.encode_cell({ r: totalRow, c: 0 });
-      worksheet[cellATotal] = { v: '총 공사계(부가세별도)', t: 's' };
-      
-      const cellLTotal = XLSX.utils.encode_cell({ r: totalRow, c: 11 });
-      worksheet[cellLTotal] = { 
-        f: `=SUM(L5:L${totalRow})`, // L5부터 마지막 데이터 행까지 합계
-        t: 'n' 
-      };
-
-      // 부가세 수식 추가
-      const vatRow = totalRow + 1;
-      const cellAVat = XLSX.utils.encode_cell({ r: vatRow, c: 0 });
-      worksheet[cellAVat] = { v: '부가세', t: 's' };
-      
-      const cellLVat = XLSX.utils.encode_cell({ r: vatRow, c: 11 });
-      worksheet[cellLVat] = { 
-        f: `=${XLSX.utils.encode_cell({ r: totalRow, c: 11 })}*0.1`, // 총 공사계의 10%
-        t: 'n' 
-      };
-
-      // 계약금액(부가세포함) 수식 추가
-      const totalWithVatRow = vatRow + 1;
-      const cellATotalWithVat = XLSX.utils.encode_cell({ r: totalWithVatRow, c: 0 });
-      worksheet[cellATotalWithVat] = { v: '계약금액(부가세포함)', t: 's' };
-      
-      const cellLTotalWithVat = XLSX.utils.encode_cell({ r: totalWithVatRow, c: 11 });
-      worksheet[cellLTotalWithVat] = { 
-        f: `=${XLSX.utils.encode_cell({ r: totalRow, c: 11 })}+${XLSX.utils.encode_cell({ r: vatRow, c: 11 })}`, // 총 공사계 + 부가세
-        t: 'n' 
-      };
-
-      // 파일 다운로드 (서식 유지 옵션 포함)
-      const filename = `${selectedSite.name}_물량내역_${new Date().toISOString().split('T')[0]}.xlsx`;
-      XLSX.writeFile(workbook, filename, {
-        bookType: 'xlsx',
-        bookSST: false,
-        type: 'binary',
-        compression: true
-      });
-
-      alert('엑셀 파일이 다운로드되었습니다.');
-    } catch (error) {
-      console.error('엑셀 다운로드 실패:', error);
-      alert('엑셀 다운로드에 실패했습니다: ' + error.message);
-    }
-  };
 
   const handleCleanupDuplicateAdjustments = async () => {
     if (!selectedSite) {
@@ -2200,24 +2032,7 @@ const NewSites = () => {
             >
               업로드
             </Button>
-            <Button 
-              variant="outlined" 
-              onClick={handleExcelDownload} 
-              size={isMobile ? 'small' : 'medium'} 
-              sx={{ 
-                fontSize: isMobile ? '0.7rem' : 'inherit',
-                color: '#2196f3',
-                borderColor: '#2196f3',
-                '&:hover': {
-                  borderColor: '#1976d2',
-                  backgroundColor: 'rgba(33, 150, 243, 0.04)'
-                }
-              }}
-              startIcon={<CloudDownloadIcon />}
-              disabled={isReadOnly}
-            >
-              엑셀
-            </Button>
+
             <Button 
               variant="outlined" 
               onClick={handleClearItems} 

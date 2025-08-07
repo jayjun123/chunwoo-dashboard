@@ -532,19 +532,68 @@ const Estimates = () => {
     }
   };
 
-  // 검색어 변경 시 페이지 리셋
+  // 검색어 또는 정렬 변경 시 페이지 리셋
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, sortField, sortDirection]);
 
-  // 검색 필터링
+  // 검색 필터링 및 정렬
   const filteredEstimates = estimates.filter(estimate =>
     estimate.siteName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     estimate.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     estimate.requester?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     estimate.requestContent?.toLowerCase().includes(searchTerm.toLowerCase())
   ).sort((a, b) => {
-    // createdAt 기준으로 내림차순 정렬 (최신 입력순)
+    let aValue, bValue;
+    
+    switch (sortField) {
+      case 'receptionDate':
+        aValue = a.receptionDate || '';
+        bValue = b.receptionDate || '';
+        break;
+      case 'submissionDeadline':
+        aValue = a.submissionDeadline || '';
+        bValue = b.submissionDeadline || '';
+        break;
+      case 'submissionStatus':
+        aValue = a.submissionStatus || '';
+        bValue = b.submissionStatus || '';
+        break;
+      case 'contractStatus':
+        aValue = a.contractStatus || '';
+        bValue = b.contractStatus || '';
+        break;
+      case 'siteName':
+        aValue = a.siteName || '';
+        bValue = b.siteName || '';
+        break;
+      case 'company':
+        aValue = a.company || '';
+        bValue = b.company || '';
+        break;
+      case 'type':
+        aValue = a.type || '';
+        bValue = b.type || '';
+        break;
+      default:
+        // 기본값: createdAt 기준으로 내림차순 정렬 (최신 입력순)
+        const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+        const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+        return dateB - dateA;
+    }
+    
+    // 문자열 비교
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      const comparison = aValue.localeCompare(bValue);
+      return sortDirection === 'asc' ? comparison : -comparison;
+    }
+    
+    // 숫자 비교
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+    }
+    
+    // 기본값: createdAt 기준으로 내림차순 정렬
     const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
     const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
     return dateB - dateA;
@@ -881,8 +930,12 @@ const Estimates = () => {
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('submissionDeadline')}>
                 제출기한 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
               </TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>제출상태</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>수주상태</TableCell>
+              <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('submissionStatus')}>
+                제출상태 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+              </TableCell>
+              <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('contractStatus')}>
+                수주상태 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+              </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>비고</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, width: 120 }}>관리</TableCell>
             </TableRow>
