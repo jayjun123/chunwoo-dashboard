@@ -73,7 +73,7 @@ const menuItems = [
   { text: '입찰현황', icon: <GavelIcon />, path: '/vendors' },
   { text: '거래처관리', icon: <PeopleIcon />, path: '/vendor-management' },
   { text: '기성관리', icon: <MonetizationOnIcon />, path: '/progress' },
-  { text: '보고서', icon: <AssessmentIcon />, path: '/reports' },
+  { text: '시공팀', icon: <AssessmentIcon />, path: '/daema-team' },
   { text: '문서관리', icon: <DescriptionIcon />, path: '/documents' }
 ];
 

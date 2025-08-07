@@ -4,9 +4,12 @@ import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import SchoolIcon from '@mui/icons-material/School';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { db } from '../../firebase';
 import { collection, query, getDocs } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const icons = {
   inspection: <AssignmentTurnedInIcon sx={{ color: '#4ade80', mr: 0.5 }} fontSize="small" />,
@@ -98,6 +101,109 @@ function SafetyOverviewCards() {
     site.cost.last.toLowerCase().includes(search.toLowerCase())
   );
 
+  // PDF 다운로드 함수
+  const handleDownloadPDF = async () => {
+    try {
+      // 임시로 색상을 반전시킨 카드들을 생성
+      const originalCards = document.querySelectorAll('[data-testid="safety-cards-container"] .MuiPaper-root');
+      const originalStyles = [];
+      
+      // 원본 스타일 저장 및 색상 반전 적용
+      originalCards.forEach((card, index) => {
+        originalStyles[index] = {
+          backgroundColor: card.style.backgroundColor,
+          color: card.style.color,
+          border: card.style.border
+        };
+        
+        // 카드 배경을 흰색으로, 텍스트를 검은색으로 변경
+        card.style.backgroundColor = '#ffffff';
+        card.style.color = '#000000';
+        card.style.border = '1px solid #000000';
+        
+        // 내부 모든 요소들의 색상과 배경 변경
+        const allElements = card.querySelectorAll('*');
+        allElements.forEach(element => {
+          // 텍스트 색상을 검은색으로
+          if (element.style && element.style.color) {
+            element.style.color = '#000000';
+          }
+          
+          // Chip 요소들의 배경을 하얀색으로, 테두리를 검은색으로
+          if (element.classList && element.classList.contains('MuiChip-root')) {
+            element.style.backgroundColor = '#ffffff';
+            element.style.border = '1px solid #000000';
+            element.style.color = '#000000';
+          }
+          
+          // Typography 요소들의 색상을 검은색으로
+          if (element.classList && element.classList.contains('MuiTypography-root')) {
+            element.style.color = '#000000';
+          }
+          
+          // Divider 색상을 검은색으로
+          if (element.classList && element.classList.contains('MuiDivider-root')) {
+            element.style.backgroundColor = '#000000';
+          }
+        });
+      });
+
+      // 현재 화면의 카드들을 캡처
+      const cardsContainer = document.querySelector('[data-testid="safety-cards-container"]') || 
+                           document.querySelector('.MuiBox-root');
+      
+      if (!cardsContainer) {
+        alert('카드 컨테이너를 찾을 수 없습니다.');
+        return;
+      }
+
+      const canvas = await html2canvas(cardsContainer, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false
+      });
+
+      // 원본 스타일 복원
+      originalCards.forEach((card, index) => {
+        if (originalStyles[index]) {
+          card.style.backgroundColor = originalStyles[index].backgroundColor;
+          card.style.color = originalStyles[index].color;
+          card.style.border = originalStyles[index].border;
+        }
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      
+      // 이미지 크기 계산 (A4에 맞게 조정)
+      const imgWidth = pageWidth - 20; // 여백 10mm씩
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // 첫 페이지에 이미지 추가
+      pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+      
+      // 이미지가 페이지보다 크면 여러 페이지로 분할
+      if (imgHeight > pageHeight - 20) {
+        const pagesNeeded = Math.ceil(imgHeight / (pageHeight - 20));
+        
+        for (let i = 1; i < pagesNeeded; i++) {
+          pdf.addPage();
+          const yOffset = -(i * (pageHeight - 20));
+          pdf.addImage(imgData, 'PNG', 10, 10 + yOffset, imgWidth, imgHeight);
+        }
+      }
+      
+      pdf.save('안전관리_현황.pdf');
+    } catch (error) {
+      console.error('PDF 생성 오류:', error);
+      alert('PDF 생성 중 오류가 발생했습니다.');
+    }
+  };
+
   // 입력값 변경 핸들러
   const handleInputChange = (siteName, type, value) => {
     setInputs(prev => ({
@@ -122,12 +228,13 @@ function SafetyOverviewCards() {
       mb: 3, 
       px: isMobile ? '16px' : 0
     }}>
-      <Box sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        mb: 2,
-        justifyContent: isMobile ? 'center' : 'flex-start'
-      }}>
+             <Box sx={{ 
+         display: 'flex', 
+         alignItems: 'center', 
+         mb: 2,
+         justifyContent: isMobile ? 'center' : 'flex-start',
+         gap: 1
+       }}>
         <TextField
           size="small"
           placeholder="현장명 또는 키워드 검색"
@@ -143,14 +250,35 @@ function SafetyOverviewCards() {
             }
           }}
         />
+                 <Button
+           variant="contained"
+           startIcon={<CloudDownloadIcon />}
+           onClick={handleDownloadPDF}
+           sx={{
+             bgcolor: '#4ade80',
+             color: '#fff',
+             '&:hover': {
+               bgcolor: '#22c55e'
+             },
+             fontSize: isMobile ? '0.8rem' : 'inherit',
+             px: isMobile ? 2 : 3,
+             py: isMobile ? 1 : 1.5,
+             height: '40px' // TextField와 동일한 높이로 설정
+           }}
+         >
+           다운로드
+         </Button>
       </Box>
 
-      <Box sx={{ 
-        display: 'flex', 
-        flexWrap: 'wrap', 
-        gap: isMobile ? 2 : 2.5,
-        justifyContent: 'flex-start'
-      }}>
+             <Box 
+         data-testid="safety-cards-container"
+         sx={{ 
+           display: 'flex', 
+           flexWrap: 'wrap', 
+           gap: isMobile ? 2 : 2.5,
+           justifyContent: 'flex-start'
+         }}
+       >
         {filtered.map(site => (
           <Box key={site.siteName} sx={{ 
             flex: '0 0 auto',

@@ -143,16 +143,15 @@ const SplashScreen = ({ onComplete }) => {
               },
             }}
           >
-            <Typography
-              variant="h3"
-              sx={{
-                color: '#1976d2',
-                fontWeight: 700,
-                fontSize: { xs: '2rem', sm: '2.5rem' },
+            <img 
+              src="/loding.png" 
+              alt="로딩 이미지"
+              style={{
+                width: '80%',
+                height: '80%',
+                objectFit: 'contain'
               }}
-            >
-              천우
-            </Typography>
+            />
           </Box>
 
           {/* 앱 이름 */}

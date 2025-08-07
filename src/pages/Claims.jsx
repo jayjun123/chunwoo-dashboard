@@ -1575,7 +1575,7 @@ const Claims = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="소장"
+                  label="소장/회사명"
                   value={formData.manager}
                   InputProps={{
                     readOnly: true,

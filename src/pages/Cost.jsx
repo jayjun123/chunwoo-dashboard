@@ -64,15 +64,27 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     totalValue: '',
     paymentType: '',
     description: '',
-    etcNote: '',
+    sequence: '',
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const isMobile = useMediaQuery('(max-width:900px)');
 
-  // 필터링된 데이터가 전달되면 사용
+  // 실시간 지출 데이터 리스너
   useEffect(() => {
     if (filteredData) {
+      // 상위 컴포넌트에서 필터링된 데이터가 전달되면 사용
       setCosts(filteredData);
+    } else {
+      // 실시간 리스너 설정
+      const unsubscribe = onSnapshot(collection(db, 'costs'), (snapshot) => {
+        const costsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log('실시간 데이터 업데이트:', costsData.length, '개');
+        setCosts(costsData);
+      }, (error) => {
+        console.error('지출 데이터 실시간 리스너 오류:', error);
+      });
+
+      return () => unsubscribe();
     }
   }, [filteredData]);
 
@@ -98,6 +110,61 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       cost.description?.toLowerCase().includes(search.toLowerCase())
     );
 
+    // 월별 뷰에서는 모든 데이터 표시
+    if (viewType === 'month') {
+      console.log('월별 뷰 - 모든 지출 데이터 표시');
+      // 월별 뷰에서는 모든 데이터 표시 (기본 검색 필터만 적용)
+    } else if (viewType === 'site') {
+      console.log('지출 현장별 필터링 적용:', selectedSites);
+      
+      // 현장이 선택되지 않은 경우 빈 배열 반환
+      if (!selectedSites || selectedSites.length === 0) {
+        console.log('현장 미선택 - 지출 데이터 없음');
+        return [];
+      }
+      
+      // 전체선택인지 확인
+      const isAllSelected = selectedSites.some(site => {
+        if (typeof site === 'string') {
+          return site === '전체선택' || site === 'all';
+        }
+        if (site && typeof site === 'object') {
+          return site.name === '전체선택' || site.id === 'all';
+        }
+        return false;
+      });
+      
+      if (isAllSelected) {
+        console.log('전체선택 - 모든 지출 데이터 표시');
+        // 전체선택이 있으면 모든 데이터 표시 (기본 검색 필터만 적용)
+      } else {
+        // 특정 현장이 선택된 경우 해당 현장만 필터링
+        console.log('특정 현장 선택됨 - 지출 필터링 적용');
+        filtered = filtered.filter(cost => {
+          const isSelected = selectedSites.some(selectedSite => {
+            // 문자열인 경우 (현장명)
+            if (typeof selectedSite === 'string') {
+              return cost.site === selectedSite || cost.siteId === selectedSite;
+            }
+            // 객체인 경우 (현장 객체)
+            if (selectedSite && typeof selectedSite === 'object') {
+              return cost.site === selectedSite.name || cost.siteId === selectedSite.id;
+            }
+            return false;
+          });
+          
+          console.log('지출 데이터 체크:', {
+            costSite: cost.site,
+            costSiteId: cost.siteId,
+            selectedSites: selectedSites,
+            isSelected: isSelected
+          });
+          return isSelected;
+        });
+        console.log('필터링된 지출 결과:', filtered.length, '개');
+      }
+    }
+
     // 클라이언트 사이드 정렬
     filtered.sort((a, b) => {
       let aValue = a[sortField];
@@ -122,15 +189,21 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     });
 
     return filtered;
-  }, [costs, search, sortField, sortDirection]);
+  }, [costs, search, sortField, sortDirection, viewType, selectedSites]);
 
   // 통계 데이터
   const stats = useMemo(() => {
     const filtered = filteredData || filteredAndSortedCosts;
+    
+    // 현장별 탭에서 현장이 선택되지 않은 경우 0으로 표시
+    if (viewType === 'site' && (!selectedSites || selectedSites.length === 0)) {
+      return { totalValue: 0 };
+    }
+    
     const totalValue = filtered.reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
     
     return { totalValue };
-  }, [filteredData, filteredAndSortedCosts]);
+  }, [filteredData, filteredAndSortedCosts, selectedSites, viewType]);
 
   // 체크박스 관련 함수들
   const handleSelectAll = (event) => {
@@ -160,12 +233,19 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
 
     if (window.confirm(`선택된 ${selectedItems.length}개 항목을 삭제하시겠습니까?`)) {
       try {
-        const deletePromises = selectedItems.map(id => deleteDoc(doc(db, 'costs', id)));
-        await Promise.all(deletePromises);
+        // 로컬 상태 즉시 업데이트 (낙관적 업데이트)
+        setCosts(prev => prev.filter(cost => !selectedItems.includes(cost.id)));
+        const selectedItemsCopy = [...selectedItems];
         setSelectedItems([]);
-        setSnackbar({ open: true, message: `${selectedItems.length}개 항목이 삭제되었습니다.`, severity: 'success' });
+        
+        const deletePromises = selectedItemsCopy.map(id => deleteDoc(doc(db, 'costs', id)));
+        await Promise.all(deletePromises);
+        
+        setSnackbar({ open: true, message: `${selectedItemsCopy.length}개 항목이 삭제되었습니다.`, severity: 'success' });
       } catch (error) {
         console.error('일괄 삭제 실패:', error);
+        // 실패 시 원래 상태로 복원
+        setCosts(prev => [...prev]);
         setSnackbar({ open: true, message: '삭제에 실패했습니다.', severity: 'error' });
       }
     }
@@ -180,7 +260,6 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         '금액': Number(cost.totalValue || 0).toLocaleString(),
         '결제': cost.paymentType || '-',
         '비고': cost.description || '-',
-        '기타': cost.etcNote || '-',
       }));
 
       // 컬럼 너비 설정 (한글 텍스트 고려)
@@ -191,7 +270,6 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         { wch: 15 }, // 금액
         { wch: 12 }, // 결제
         { wch: 25 }, // 비고
-        { wch: 20 }, // 기타
       ];
 
       const result = exportToExcel(data, '지출현황', '지출현황', { columnWidths });
@@ -217,7 +295,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         totalValue: cost.totalValue || '',
         paymentType: cost.paymentType || '',
         description: cost.description || '',
-        etcNote: cost.etcNote || '',
+        sequence: cost.sequence || '',
       });
     } else {
       setEditId(null);
@@ -228,7 +306,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         totalValue: '',
         paymentType: '',
         description: '',
-        etcNote: '',
+        sequence: '',
       });
     }
     setDialogOpen(true);
@@ -244,7 +322,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       totalValue: '',
       paymentType: '',
       description: '',
-      etcNote: '',
+      sequence: '',
     });
   };
 
@@ -255,28 +333,68 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     }
 
     try {
+      // 새 지출인 경우 차수 자동 설정
+      let finalForm = { ...form };
+      if (!editId && !form.sequence) {
+        console.log('저장 시 차수 계산:', { site: form.site, itemType: form.itemType, date: form.date });
+        finalForm.sequence = calculateNextSequence(form.site, form.itemType, form.date);
+        console.log('저장 시 설정된 차수:', finalForm.sequence);
+      }
+
       const costData = {
-        ...form,
+        ...finalForm,
         updatedAt: serverTimestamp(),
         updatedBy: currentUser.uid
       };
 
       if (editId) {
         await updateDoc(doc(db, 'costs', editId), costData);
+        
+        // 로컬 상태 즉시 업데이트
+        setCosts(prev => prev.map(cost => 
+          cost.id === editId ? { ...cost, ...costData, id: cost.id } : cost
+        ));
+        
         setSnackbar({ open: true, message: '지출 항목이 수정되었습니다.', severity: 'success' });
       } else {
-        await addDoc(collection(db, 'costs'), {
+        const docRef = await addDoc(collection(db, 'costs'), {
           ...costData,
           createdAt: serverTimestamp(),
           createdBy: currentUser.uid
         });
+        
+        // 로컬 상태 즉시 업데이트
+        const newCost = { 
+          id: docRef.id, 
+          ...costData,
+          createdAt: new Date(),
+          createdBy: currentUser.uid
+        };
+        setCosts(prev => [newCost, ...prev]);
+        
         setSnackbar({ open: true, message: '지출 항목이 추가되었습니다.', severity: 'success' });
       }
 
-      // 지출 → 현장관리 연동
-      await syncCostToSite(form.site);
+      // 지출 → 현장관리 연동 (에러 무시)
+      try {
+        await syncCostToSite(form.site);
+      } catch (syncError) {
+        console.error('현장관리 연동 실패:', syncError);
+        // 연동 실패해도 지출 저장은 성공으로 처리
+      }
       
-      closeDialog();
+      // 다이얼로그 즉시 닫기
+      setDialogOpen(false);
+      setEditId(null);
+      setForm({
+        site: '',
+        itemType: '',
+        date: '',
+        totalValue: '',
+        paymentType: '',
+        description: '',
+        sequence: '',
+      });
     } catch (error) {
       console.error('지출 항목 저장 실패:', error);
       setSnackbar({ open: true, message: '저장에 실패했습니다.', severity: 'error' });
@@ -286,12 +404,185 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   const handleDelete = async (id) => {
     if (window.confirm('정말로 삭제하시겠습니까?')) {
       try {
+        // 로컬 상태 즉시 업데이트 (낙관적 업데이트)
+        setCosts(prev => prev.filter(cost => cost.id !== id));
+        
         await deleteDoc(doc(db, 'costs', id));
+        
         setSnackbar({ open: true, message: '삭제되었습니다.', severity: 'success' });
       } catch (error) {
         console.error('지출 항목 삭제 실패:', error);
+        // 실패 시 원래 상태로 복원
+        setCosts(prev => [...prev]);
         setSnackbar({ open: true, message: '삭제에 실패했습니다.', severity: 'error' });
       }
+    }
+  };
+
+  // 차수 계산 함수 (새 지출 등록용)
+  const calculateNextSequence = (siteName, itemType, selectedDate = null) => {
+    if (!siteName || !itemType) return '';
+    
+    console.log('차수 계산 시작:', { siteName, itemType, selectedDate });
+    
+    // 해당 현장과 항목의 기존 지출 데이터 필터링
+    const existingCosts = costs.filter(cost => 
+      cost.site === siteName && cost.itemType === itemType
+    );
+    
+    console.log('기존 지출 데이터:', existingCosts);
+    
+    if (existingCosts.length === 0) {
+      console.log('기존 데이터 없음, 1차 반환');
+      return '1차';
+    }
+    
+    // 사용날짜 순으로 정렬
+    const sortedCosts = existingCosts.sort((a, b) => {
+      const dateA = new Date(a.date || 0);
+      const dateB = new Date(b.date || 0);
+      return dateA - dateB;
+    });
+    
+    console.log('날짜순 정렬된 데이터:', sortedCosts);
+    
+    // 선택된 날짜가 있으면 해당 날짜 기준으로 차수 계산
+    if (selectedDate) {
+      const selectedDateObj = new Date(selectedDate);
+      console.log('선택된 날짜:', selectedDateObj);
+      
+      // 선택된 날짜보다 이전인 항목들만 필터링
+      const previousCosts = sortedCosts.filter(cost => {
+        const costDate = new Date(cost.date || 0);
+        return costDate <= selectedDateObj;
+      });
+      
+      console.log('선택 날짜 이전 데이터:', previousCosts);
+      
+      if (previousCosts.length === 0) {
+        console.log('이전 데이터 없음, 1차 반환');
+        return '1차';
+      }
+      
+      // 이전 항목들 중 가장 큰 차수 찾기
+      let maxSequence = 0;
+      previousCosts.forEach(cost => {
+        const match = (cost.sequence || '').match(/(\d+)차/);
+        if (match) {
+          const sequenceNum = parseInt(match[1]);
+          if (sequenceNum > maxSequence) {
+            maxSequence = sequenceNum;
+          }
+        }
+      });
+      
+      console.log('최대 차수:', maxSequence, '다음 차수:', `${maxSequence + 1}차`);
+      return `${maxSequence + 1}차`;
+    }
+    
+    // 날짜가 선택되지 않은 경우 기존 로직
+    const lastSequence = sortedCosts[sortedCosts.length - 1].sequence || '';
+    const match = lastSequence.match(/(\d+)차/);
+    
+    if (match) {
+      const nextNumber = parseInt(match[1]) + 1;
+      console.log('마지막 차수:', lastSequence, '다음 차수:', `${nextNumber}차`);
+      return `${nextNumber}차`;
+    }
+    
+    console.log('차수 패턴 없음, 1차 반환');
+    return '1차';
+  };
+
+  // 차수 계산 함수 (테이블 표시용)
+  const calculateSequence = (cost) => {
+    if (!cost || !cost.site || !cost.itemType) return '1차';
+    
+    // 저장된 차수가 있으면 그대로 사용
+    if (cost.sequence) {
+      return cost.sequence;
+    }
+    
+    // 차수가 없으면 사용날짜 순서로 계산
+    const siteItemCosts = costs.filter(item => 
+      item.site === cost.site && item.itemType === cost.itemType
+    );
+    
+    const sortedList = siteItemCosts
+      .filter(item => item.date) // 사용날짜가 있는 항목만
+      .sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateA - dateB;
+      });
+    
+    const currentIndex = sortedList.findIndex(item => 
+      item.id === cost.id
+    );
+    
+    if (currentIndex === -1) return '1차';
+    return `${currentIndex + 1}차`;
+  };
+
+  // 차수 정리 함수 (기존 데이터의 차수를 올바르게 재정렬)
+  const fixSequences = async () => {
+    try {
+      // 현장별, 항목별로 그룹화
+      const groupedCosts = {};
+      costs.forEach(cost => {
+        const key = `${cost.site}_${cost.itemType}`;
+        if (!groupedCosts[key]) {
+          groupedCosts[key] = [];
+        }
+        groupedCosts[key].push(cost);
+      });
+
+      // 각 그룹별로 차수 재정렬
+      for (const [key, groupCosts] of Object.entries(groupedCosts)) {
+        const [siteName, itemType] = key.split('_');
+        
+        // 사용날짜 순서로 정렬
+        const sortedCosts = groupCosts
+          .filter(cost => cost.date)
+          .sort((a, b) => {
+            const dateA = new Date(a.date);
+            const dateB = new Date(b.date);
+            return dateA - dateB;
+          });
+
+        // 차수 재할당
+        for (let i = 0; i < sortedCosts.length; i++) {
+          const cost = sortedCosts[i];
+          const newSequence = `${i + 1}차`;
+          
+          if (cost.sequence !== newSequence) {
+            await updateDoc(doc(db, 'costs', cost.id), {
+              sequence: newSequence,
+              updatedAt: serverTimestamp()
+            });
+            
+            // 로컬 상태 업데이트
+            setCosts(prev => prev.map(c => 
+              c.id === cost.id 
+                ? { ...c, sequence: newSequence, updatedAt: new Date() }
+                : c
+            ));
+          }
+        }
+      }
+
+      setSnackbar({
+        open: true,
+        message: '지출 차수가 올바르게 정리되었습니다.',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('차수 정리 중 오류:', error);
+      setSnackbar({
+        open: true,
+        message: '차수 정리 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
     }
   };
 
@@ -329,7 +620,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
           color={color || '#43e97b'} 
           sx={{ 
             fontWeight: 'bold',
-            fontSize: '1rem',
+            fontSize: isMobile ? '0.8rem' : '0.9rem',
             lineHeight: 1.2
           }}
         >
@@ -351,12 +642,14 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       overflow: 'hidden',
       mt: isMobile ? '0px' : '90px'
     }}>
+
+      
       {/* 통계 카드 + 새지출 버튼 한 줄 배치 (모바일만) */}
       {isMobile ? (
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, position: 'relative' }}>
           <Grid container spacing={2} sx={{ flex: 1 }}>
             <StatCard title="총 지출액" value={stats.totalValue} color="#ef5350" />
-            <StatCard title="건수" value={filtered.length} color="#a084e8" />
+            <StatCard title="건수" value={!selectedSites || selectedSites.length === 0 ? 0 : filtered.length} color="#a084e8" />
           </Grid>
           <Button 
             variant="contained" 
@@ -371,7 +664,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         <Box sx={{ mb: 3 }}>
           <Grid container spacing={2}>
             <StatCard title="총 지출액" value={stats.totalValue} color="#ef5350" />
-            <StatCard title="건수" value={filtered.length} color="#a084e8" />
+            <StatCard title="건수" value={!selectedSites || selectedSites.length === 0 ? 0 : filtered.length} color="#a084e8" />
           </Grid>
         </Box>
       )}
@@ -399,6 +692,13 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             flex: 1, 
             display: isMobile ? 'none' : 'block',
           }}>지출현황</Typography>
+          
+
+          
+          <Button variant="contained" color="success" startIcon={<AddIcon />} sx={{ 
+            ml: 1, 
+            display: isMobile ? 'none' : 'flex',
+          }} onClick={() => openDialog()}>새 지출</Button>
           <Button variant="contained" color="primary" startIcon={<CloudDownloadIcon />} sx={{ 
             ml: 1, 
             display: isMobile ? 'none' : 'flex',
@@ -407,6 +707,13 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             ml: 1, 
             display: isMobile ? 'none' : 'flex',
           }}>엑셀 업로드</Button>
+          <Button variant="outlined" onClick={fixSequences} sx={{ 
+            ml: 1, 
+            display: isMobile ? 'none' : 'flex',
+            borderColor: '#10b981',
+            color: '#10b981',
+            '&:hover': { borderColor: '#059669' }
+          }}>차수 정리</Button>
         </Box>
         <TableContainer sx={{ 
           width: '100%',
@@ -465,6 +772,15 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   minWidth: 0,
                   maxWidth: '100%',
                   fontSize: isMobile ? '0.7rem' : '0.95rem'
+                }}>차수</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff', 
+                  fontWeight: 700, 
+                  display: isMobile ? 'none' : 'table-cell',
+                  width: 'auto',
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  fontSize: isMobile ? '0.7rem' : '0.95rem'
                 }}>사용날짜</TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
@@ -490,14 +806,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   minWidth: 0,
                   maxWidth: '100%'
                 }}>비고</TableCell>
-                <TableCell sx={{ 
-                  color: '#fff', 
-                  fontWeight: 700, 
-                  display: isMobile ? 'none' : 'table-cell',
-                  width: 'auto',
-                  minWidth: 0,
-                  maxWidth: '100%'
-                }}>기타</TableCell>
+
                 <TableCell sx={{ 
                   color: '#fff', 
                   fontWeight: 700, 
@@ -509,9 +818,9 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtered.length === 0 ? (
+              {viewType === 'site' && (!selectedSites || selectedSites.length === 0) ? (
                 <TableRow>
-                  <TableCell colSpan={isMobile ? 3 : 9} sx={{ 
+                  <TableCell colSpan={isMobile ? 3 : 8} sx={{ 
                     textAlign: 'center', 
                     color: '#bbb', 
                     py: 4, 
@@ -520,7 +829,25 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                     minWidth: 0,
                     maxWidth: '100%'
                   }}>
-                    {search ? '검색 결과가 없습니다.' : '지출 데이터가 없습니다.'}
+                    현장을 선택해주세요
+                  </TableCell>
+                </TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={isMobile ? 3 : 8} sx={{ 
+                    textAlign: 'center', 
+                    color: '#bbb', 
+                    py: 4, 
+                    ml: isMobile ? '-8px' : 0,
+                    width: 'auto',
+                    minWidth: 0,
+                    maxWidth: '100%'
+                  }}>
+                    {viewType === 'site' && (!selectedSites || selectedSites.length === 0) 
+                      ? '현장을 선택하거나 전체선택을 눌러주세요' 
+                      : viewType === 'site' && selectedSites.length > 0
+                      ? '선택된 현장의 지출 데이터가 없습니다'
+                      : search ? '검색 결과가 없습니다.' : '지출 데이터가 없습니다.'}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -574,6 +901,14 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       minWidth: 0,
                       maxWidth: '100%',
                       fontSize: isMobile ? '0.7rem' : '0.95rem'
+                    }}>{calculateSequence(cost)}</TableCell>
+                    <TableCell sx={{ 
+                      color: '#fff', 
+                      display: isMobile ? 'none' : 'table-cell',
+                      width: 'auto',
+                      minWidth: 0,
+                      maxWidth: '100%',
+                      fontSize: isMobile ? '0.7rem' : '0.95rem'
                     }}>{cost.date || '-'}</TableCell>
                     <TableCell sx={{ 
                       color: '#ef5350', 
@@ -607,13 +942,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       minWidth: 0,
                       maxWidth: '100%'
                     }}>{cost.description || '-'}</TableCell>
-                    <TableCell sx={{ 
-                      color: '#bbb', 
-                      display: isMobile ? 'none' : 'table-cell',
-                      width: 'auto',
-                      minWidth: 0,
-                      maxWidth: '100%'
-                    }}>{cost.etcNote || '-'}</TableCell>
+
                     <TableCell sx={{ 
                       display: isMobile ? 'none' : 'table-cell',
                       width: 'auto',
@@ -676,7 +1005,17 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                 <SearchableSiteSelect
                   sites={sites}
                   value={form.site ?? ''}
-                  onChange={(newValue) => setForm({ ...form, site: newValue })}
+                  onChange={(newValue) => {
+                    console.log('현장명 변경:', newValue);
+                    setForm({ ...form, site: newValue });
+                    // 현장명이 변경되면 차수 자동 업데이트
+                    if (newValue && form.itemType && !editId) {
+                      console.log('차수 계산 호출:', { site: newValue, itemType: form.itemType, date: form.date });
+                      const nextSequence = calculateNextSequence(newValue, form.itemType, form.date);
+                      console.log('계산된 차수:', nextSequence);
+                      setForm(prev => ({ ...prev, sequence: nextSequence }));
+                    }
+                  }}
                   label="현장명"
                   placeholder="현장명을 검색하세요"
                   size="medium"
@@ -687,7 +1026,17 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
               <Autocomplete
                 options={['노무비', '경비', 'RnD', '기타']}
                 value={form.itemType ?? ''}
-                onChange={(event, newValue) => setForm({ ...form, itemType: newValue || '' })}
+                onChange={(event, newValue) => {
+                  console.log('항목 변경:', newValue);
+                  setForm({ ...form, itemType: newValue || '' });
+                  // 항목이 변경되면 차수 자동 업데이트
+                  if (newValue && form.site && !editId) {
+                    console.log('차수 계산 호출:', { site: form.site, itemType: newValue, date: form.date });
+                    const nextSequence = calculateNextSequence(form.site, newValue, form.date);
+                    console.log('계산된 차수:', nextSequence);
+                    setForm(prev => ({ ...prev, sequence: nextSequence }));
+                  }
+                }}
                 onInputChange={(event, newInputValue) => setForm({ ...form, itemType: newInputValue })}
                 freeSolo
                 renderInput={(params) => (
@@ -718,13 +1067,41 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                 }}
               />
             </Box>
-            {/* 2줄: 사용날짜(날짜선택) + 결제방법(드롭다운) */}
+            {/* 2줄: 차수 + 사용날짜 */}
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
+              <TextField
+                label="차수"
+                value={form.sequence ?? ''}
+                onChange={e => setForm({ ...form, sequence: e.target.value })}
+                placeholder="자동으로 설정됩니다"
+                size="medium"
+                sx={{
+                  flex: 1,
+                  minWidth: 140,
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#333' },
+                    '&:hover fieldset': { borderColor: '#555' },
+                    '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                  },
+                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
+                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                }}
+              />
               <TextField
                 label="사용날짜"
                 type="date"
                 value={form.date ?? ''}
-                onChange={e => setForm({ ...form, date: e.target.value })}
+                onChange={e => {
+                  console.log('날짜 변경:', e.target.value);
+                  setForm({ ...form, date: e.target.value });
+                  // 날짜가 변경되면 차수 자동 업데이트
+                  if (e.target.value && form.site && form.itemType && !editId) {
+                    console.log('차수 계산 호출:', { site: form.site, itemType: form.itemType, date: e.target.value });
+                    const nextSequence = calculateNextSequence(form.site, form.itemType, e.target.value);
+                    console.log('계산된 차수:', nextSequence);
+                    setForm(prev => ({ ...prev, sequence: nextSequence }));
+                  }
+                }}
                 size="medium"
                 sx={{
                   flex: 1,
@@ -739,6 +1116,9 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                 }}
                 InputLabelProps={{ shrink: true }}
               />
+            </Box>
+            {/* 3줄: 결제방법 + 금액 */}
+            <Box display="flex" width="100%" justifyContent="center" gap={2}>
               <Autocomplete
                 options={['카드', '세금계산서', '영수증', '노무자료', '기타']}
                 value={form.paymentType ?? ''}
@@ -772,31 +1152,11 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   '& .MuiAutocomplete-option': { color: '#fff' }
                 }}
               />
-            </Box>
-            {/* 3줄: 금액 + 기타사항 */}
-            <Box display="flex" width="100%" justifyContent="center" gap={2}>
               <TextField
                 label="금액"
                 type="number"
                 value={form.totalValue ?? ''}
                 onChange={e => setForm({ ...form, totalValue: e.target.value })}
-                size="medium"
-                sx={{
-                  flex: 1,
-                  minWidth: 140,
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#333' },
-                    '&:hover fieldset': { borderColor: '#555' },
-                    '&.Mui-focused fieldset': { borderColor: '#90caf9' }
-                  },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
-                }}
-              />
-              <TextField
-                label="기타사항"
-                value={form.etcNote ?? ''}
-                onChange={e => setForm({ ...form, etcNote: e.target.value })}
                 size="medium"
                 sx={{
                   flex: 1,

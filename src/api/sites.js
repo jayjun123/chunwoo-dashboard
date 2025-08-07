@@ -87,10 +87,46 @@ export async function addSite(siteData) {
 export async function updateSite(id, siteData) {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
+    
+    // 기존 현장 데이터 조회
+    const siteSnap = await getDoc(docRef);
+    if (!siteSnap.exists()) {
+      throw new Error('현장을 찾을 수 없습니다.');
+    }
+    
+    const oldSiteData = siteSnap.data();
+    const oldName = oldSiteData.name;
+    const newName = siteData.name;
+    
+    // 현장 정보 업데이트
     await updateDoc(docRef, {
       ...siteData,
       updatedAt: new Date()
     });
+    
+    // 현장명이 변경된 경우 기성 데이터도 함께 업데이트
+    if (oldName !== newName) {
+      console.log('현장명 변경 감지:', { oldName, newName });
+      
+      // 기성 데이터에서 해당 현장명을 가진 모든 문서 찾기
+      const gisungQuery = query(
+        collection(db, 'gisung'),
+        where('name', '==', oldName)
+      );
+      const gisungSnapshot = await getDocs(gisungQuery);
+      
+      // 기성 데이터 업데이트
+      const updatePromises = gisungSnapshot.docs.map(doc => {
+        return updateDoc(doc.ref, {
+          name: newName,
+          updatedAt: new Date()
+        });
+      });
+      
+      await Promise.all(updatePromises);
+      console.log(`${gisungSnapshot.docs.length}개의 기성 데이터 업데이트 완료`);
+    }
+    
     return { id, ...siteData };
   } catch (err) {
     console.error('현장 수정 실패:', err);

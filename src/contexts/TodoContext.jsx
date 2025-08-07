@@ -183,10 +183,65 @@ export const TodoProvider = ({ children }) => {
   // 초기 데이터 로드 (한 번만 실행)
   useEffect(() => {
     if (!initialized && currentUser?.uid) {
-      fetchTodos();
+      const loadInitialData = async () => {
+        try {
+          setLoading(true);
+          
+          // 마스터 사용자이고 Google Tasks가 활성화된 경우
+          if (isMasterUser() && isGoogleTasksEnabled) {
+            try {
+              const googleTasks = await googleTasksService.syncGoogleToLocal();
+              const localTodos = googleTasks.map(task => ({
+                id: task.id,
+                text: task.text,
+                completed: task.completed,
+                userId: currentUser.uid,
+                date: format(new Date(), 'yyyy-MM-dd'),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                source: 'google',
+                googleTaskId: task.googleTaskId
+              }));
+              
+              setTodos(localTodos);
+              setError(null);
+              return;
+            } catch (error) {
+              console.error('Google Tasks 동기화 실패, 로컬 투두 사용:', error);
+            }
+          }
+          
+          // 일반 사용자 또는 Google Tasks 실패 시 로컬 투두 사용
+          const q = query(
+            collection(db, 'todos'),
+            where('userId', '==', currentUser.uid)
+          );
+          
+          const snapshot = await getDocs(q);
+          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          
+          // 클라이언트에서 정렬
+          const sortedData = data.sort((a, b) => {
+            const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
+            const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
+            return dateB - dateA; // 내림차순
+          });
+          
+          setTodos(sortedData);
+          setError(null);
+        } catch (error) {
+          console.error('투두 데이터 로드 오류:', error);
+          setTodos([]);
+          setError(null);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      loadInitialData();
       setInitialized(true);
     }
-  }, [fetchTodos, initialized, currentUser?.uid]);
+  }, [initialized, currentUser?.uid, isMasterUser, isGoogleTasksEnabled]);
 
   // 투두 추가
   const addTodo = async (text, date = null) => {

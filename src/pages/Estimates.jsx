@@ -43,10 +43,9 @@ import {
   NavigateBefore as NavigateBeforeIcon,
   NavigateNext as NavigateNextIcon,
   FirstPage as FirstPageIcon,
-  LastPage as LastPageIcon,
-  CheckCircle as CheckCircleIcon
+  LastPage as LastPageIcon
 } from '@mui/icons-material';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, onSnapshot } from 'firebase/firestore';
 import { db, collections } from '../firebase';
 import * as XLSX from 'xlsx';
 import { getKoreanDate, normalizeDate } from '../utils/dateUtils';
@@ -81,6 +80,7 @@ const Estimates = () => {
   // 폼 데이터
   const [formData, setFormData] = useState({
     receptionDate: getKoreanDate(),
+    type: '견적', // 견적 또는 입찰 구분
     requester: '',
     submissionMethod: '',
     company: '',
@@ -115,60 +115,51 @@ const Estimates = () => {
   };
 
   // 견적 데이터 로드
-  const loadEstimates = async () => {
-    console.log('견적 데이터 로드 시작');
+  // 실시간 견적 데이터 구독
+  useEffect(() => {
+    console.log('견적 실시간 구독 시작');
     console.log('현재 사용자:', currentUser);
     
     if (!currentUser) {
-      console.log('사용자 인증 없음, 견적 로드 중단');
+      console.log('사용자 인증 없음, 견적 구독 중단');
       setEstimates([]);
       setLoading(false);
       return;
     }
     
-    try {
-      setLoading(true);
-      // 임시로 모든 견적 데이터 로드 (userId 필터링 제거)
-      const estimatesQuery = query(
-        collection(db, collections.estimates)
-      );
-      console.log('견적 쿼리 생성:', estimatesQuery);
+    setLoading(true);
+    
+    // 실시간 구독 설정
+    const estimatesQuery = query(
+      collection(db, collections.estimates),
+      orderBy(sortField, sortDirection)
+    );
+    
+    console.log('견적 실시간 쿼리 생성:', estimatesQuery);
+    
+    const unsubscribe = onSnapshot(estimatesQuery, (snapshot) => {
+      console.log('견적 실시간 업데이트:', snapshot.size, '개 문서');
       
-      const querySnapshot = await getDocs(estimatesQuery);
-      console.log('견적 쿼리 결과:', querySnapshot.size, '개 문서');
-      
-      const estimatesData = querySnapshot.docs.map(doc => ({
+      const estimatesData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+      
       console.log('견적 데이터 변환 완료:', estimatesData.length, '개');
       
-      // 클라이언트에서 정렬
-      const sortedEstimates = estimatesData.sort((a, b) => {
-        const aValue = a[sortField] || '';
-        const bValue = b[sortField] || '';
-        
-        if (sortDirection === 'asc') {
-          return aValue > bValue ? 1 : -1;
-        } else {
-          return aValue < bValue ? 1 : -1;
-        }
-      });
-      
-      setEstimates(sortedEstimates);
-    } catch (error) {
-      console.error('견적 데이터 로드 오류:', error);
-      console.error('오류 상세:', {
-        message: error.message,
-        code: error.code,
-        stack: error.stack
-      });
-      setSnackbar({ open: true, message: `견적 데이터를 불러오는데 실패했습니다: ${error.message}`, severity: 'error' });
-    } finally {
+      setEstimates(estimatesData);
       setLoading(false);
-      console.log('견적 데이터 로드 완료');
-    }
-  };
+    }, (error) => {
+      console.error('견적 실시간 구독 오류:', error);
+      setSnackbar({ open: true, message: `견적 데이터를 불러오는데 실패했습니다: ${error.message}`, severity: 'error' });
+      setLoading(false);
+    });
+    
+    return () => {
+      console.log('견적 실시간 구독 해제');
+      unsubscribe();
+    };
+  }, [currentUser, sortField, sortDirection]);
 
   // 모바일 스와이프 뒤로가기 비활성화 (안전한 방법)
   useEffect(() => {
@@ -223,7 +214,6 @@ const Estimates = () => {
 
   useEffect(() => {
         if (currentUser) {
-      loadEstimates();
       loadRequesters(); // 의뢰자 데이터도 함께 로드
     }
   }, [currentUser, sortField, sortDirection]);
@@ -232,6 +222,7 @@ const Estimates = () => {
   const resetForm = () => {
     setFormData({
       receptionDate: getKoreanDate(),
+      type: '견적',
       requester: '',
       submissionMethod: '',
       company: '',
@@ -254,6 +245,7 @@ const Estimates = () => {
     if (estimate) {
       const formDataToSet = {
         receptionDate: estimate.receptionDate || getKoreanDate(),
+        type: estimate.type || '견적',
         requester: estimate.requester || '',
         submissionMethod: estimate.submissionMethod || '',
         company: estimate.company || '',
@@ -313,8 +305,30 @@ const Estimates = () => {
       if (editingEstimate) {
         // 수정
         console.log('견적 수정 모드:', editingEstimate.id);
-        await updateDoc(doc(db, collections.estimates, editingEstimate.id), formData);
-        console.log('견적 수정 완료');
+        console.log('수정 전 견적 데이터:', editingEstimate);
+        console.log('수정 후 견적 데이터:', formData);
+        console.log('타입 변경 확인:', {
+          이전타입: editingEstimate.type,
+          새로운타입: formData.type,
+          변경됨: editingEstimate.type !== formData.type
+        });
+        
+        // updatedAt 필드 추가
+        const updateData = {
+          ...formData,
+          updatedAt: new Date()
+        };
+        
+        console.log('Firestore에 업데이트할 데이터:', updateData);
+        
+        await updateDoc(doc(db, collections.estimates, editingEstimate.id), updateData);
+        console.log('견적 수정 완료 - 실시간 업데이트 대기 중');
+        
+        // 실시간 업데이트 확인을 위한 추가 로깅
+        console.log('=== 실시간 업데이트 확인 ===');
+        console.log('수정된 견적 ID:', editingEstimate.id);
+        console.log('수정된 데이터:', updateData);
+        console.log('타입 변경:', editingEstimate.type, '->', formData.type);
         
         // 2. 현장관리 연동: 견적 상태 변경 시 현장 정보 업데이트
         await syncSiteData(formData.siteName, formData.submissionStatus, formData.contractStatus);
@@ -326,7 +340,8 @@ const Estimates = () => {
         const estimateData = {
           ...formData,
           userId: currentUser.uid,
-          createdAt: new Date()
+          createdAt: new Date(),
+          updatedAt: new Date()
         };
         console.log('저장할 견적 데이터:', estimateData);
         
@@ -340,7 +355,6 @@ const Estimates = () => {
       }
 
       handleCloseDialog();
-      loadEstimates();
     } catch (error) {
       console.error('견적 저장 오류:', error);
       console.error('오류 상세:', {
@@ -499,7 +513,6 @@ const Estimates = () => {
       try {
         await deleteDoc(doc(db, collections.estimates, estimate.id));
         setSnackbar({ open: true, message: '견적이 삭제되었습니다.', severity: 'success' });
-        loadEstimates();
       } catch (error) {
         console.error('견적 삭제 오류:', error);
         setSnackbar({ open: true, message: '견적 삭제에 실패했습니다.', severity: 'error' });
@@ -507,28 +520,7 @@ const Estimates = () => {
     }
   };
 
-  // 수주 버튼 클릭 함수
-  const handleAwardContract = async (estimate) => {
-    try {
-      setSnackbar({ open: true, message: '현장관리로 이동합니다.', severity: 'success' });
-      
-      // 현장관리(뉴사이트)의 해당 현장 상세페이지로 즉시 이동
-      if (estimate.siteName) {
-        // startTransition으로 네비게이션을 감싸서 Suspense 오류 방지
-        startTransition(() => {
-          navigate(`/sites/${encodeURIComponent(estimate.siteName)}`);
-        });
-      } else {
-        // 현장명이 없으면 일반 현장관리 페이지로 이동
-        startTransition(() => {
-          navigate('/sites');
-        });
-      }
-    } catch (error) {
-      console.error('수주 버튼 클릭 오류:', error);
-      setSnackbar({ open: true, message: '이동에 실패했습니다.', severity: 'error' });
-    }
-  };
+
 
   // 정렬 변경
   const handleSort = (field) => {
@@ -702,7 +694,6 @@ const Estimates = () => {
           message: `${successCount}개의 견적이 업로드되었습니다.`, 
           severity: 'success' 
         });
-        loadEstimates();
       } catch (error) {
         console.error('파일 업로드 오류:', error);
         setSnackbar({ open: true, message: '파일 업로드에 실패했습니다.', severity: 'error' });
@@ -856,6 +847,10 @@ const Estimates = () => {
             <MenuItem value="receptionDate-asc">접수일 ↑</MenuItem>
             <MenuItem value="submissionDeadline-desc">제출기한 ↓</MenuItem>
             <MenuItem value="submissionDeadline-asc">제출기한 ↑</MenuItem>
+            <MenuItem value="submissionStatus-asc">제출상태 ↑</MenuItem>
+            <MenuItem value="submissionStatus-desc">제출상태 ↓</MenuItem>
+            <MenuItem value="contractStatus-asc">수주상태 ↑</MenuItem>
+            <MenuItem value="contractStatus-desc">수주상태 ↓</MenuItem>
             <MenuItem value="siteName-asc">현장명 ↑</MenuItem>
             <MenuItem value="siteName-desc">현장명 ↓</MenuItem>
           </Select>
@@ -870,6 +865,9 @@ const Estimates = () => {
               <TableCell sx={{ color: '#fff', fontWeight: 600, width: 80 }}>NO.</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('receptionDate')}>
                 접수일 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+              </TableCell>
+              <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('type')}>
+                타입 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
               </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>의뢰자</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>제출방법</TableCell>
@@ -894,6 +892,14 @@ const Estimates = () => {
               <TableRow key={estimate.id} sx={{ '&:hover': { backgroundColor: '#333' } }}>
                 <TableCell sx={{ color: '#fff' }}>{filteredEstimates.length - filteredEstimates.findIndex(e => e.id === estimate.id)}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{estimate.receptionDate}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={estimate.type || '견적'}
+                    color={estimate.type === '입찰' ? 'secondary' : 'primary'}
+                    size="small"
+                    sx={{ fontWeight: 500 }}
+                  />
+                </TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{estimate.requester}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{estimate.submissionMethod}</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{estimate.company}</TableCell>
@@ -905,6 +911,29 @@ const Estimates = () => {
                     label={estimate.submissionStatus}
                     color={estimate.submissionStatus === '제출완료' ? 'success' : 'warning'}
                     size="small"
+                    onClick={async () => {
+                      try {
+                        const newStatus = estimate.submissionStatus === '제출완료' ? '제출대기' : '제출완료';
+                        const estimateRef = doc(db, 'estimates', estimate.id);
+                        await updateDoc(estimateRef, {
+                          submissionStatus: newStatus,
+                          updatedAt: new Date()
+                        });
+                        
+                        // 로컬 상태 업데이트
+                        setEstimates(prev => 
+                          prev.map(e => 
+                            e.id === estimate.id 
+                              ? { ...e, submissionStatus: newStatus }
+                              : e
+                          )
+                        );
+                      } catch (error) {
+                        console.error('견적 상태 업데이트 실패:', error);
+                        alert('상태 업데이트에 실패했습니다.');
+                      }
+                    }}
+                    sx={{ cursor: 'pointer' }}
                   />
                 </TableCell>
                 <TableCell>
@@ -912,6 +941,29 @@ const Estimates = () => {
                     label={estimate.contractStatus}
                     color={estimate.contractStatus === '수주' ? 'success' : 'default'}
                     size="small"
+                    onClick={async () => {
+                      try {
+                        const newStatus = estimate.contractStatus === '수주' ? '미수주' : '수주';
+                        const estimateRef = doc(db, 'estimates', estimate.id);
+                        await updateDoc(estimateRef, {
+                          contractStatus: newStatus,
+                          updatedAt: new Date()
+                        });
+                        
+                        // 로컬 상태 업데이트
+                        setEstimates(prev => 
+                          prev.map(e => 
+                            e.id === estimate.id 
+                              ? { ...e, contractStatus: newStatus }
+                              : e
+                          )
+                        );
+                      } catch (error) {
+                        console.error('견적 수주상태 업데이트 실패:', error);
+                        alert('수주상태 업데이트에 실패했습니다.');
+                      }
+                    }}
+                    sx={{ cursor: 'pointer' }}
                   />
                 </TableCell>
                 <TableCell sx={{ color: '#fff' }}>{estimate.notes}</TableCell>
@@ -933,18 +985,6 @@ const Estimates = () => {
                         sx={{ color: '#f44336' }}
                       >
                         <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="수주">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleAwardContract(estimate)}
-                        sx={{ 
-                          color: estimate.contractStatus === '수주' ? '#4caf50' : '#90caf9',
-                          backgroundColor: estimate.contractStatus === '수주' ? '#4caf50' + '20' : 'transparent'
-                        }}
-                      >
-                        <CheckCircleIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                   </Box>
@@ -1102,6 +1142,26 @@ const Estimates = () => {
                   '& .MuiInputBase-input': { color: '#fff' }
                 }}
               />
+            </Grid>
+            <Grid item xs={6} md={1}>
+              <FormControl fullWidth>
+                <InputLabel sx={{ color: '#ccc' }}>타입</InputLabel>
+                <Select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  sx={{
+                    color: '#fff',
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                    }
+                  }}
+                >
+                  <MenuItem value="견적">견적</MenuItem>
+                  <MenuItem value="입찰">입찰</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={6} md={2}>
               <Autocomplete

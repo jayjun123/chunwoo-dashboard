@@ -7,7 +7,7 @@ import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, write
 import { db, auth } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import * as XLSX from 'xlsx';
-import { exportCalendarToExcel, exportToExcel } from '../../utils/excelUtils';
+import { exportCalendarToExcel, exportToExcel, exportScheduleToExcel } from '../../utils/excelUtils';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useNavigate } from 'react-router-dom';
 import { subscribeToEstimates } from '../../api/estimates';
@@ -40,13 +40,24 @@ function convertEstimateToSchedule(estimate) {
   // 견적 상태에 따른 체크 상태 결정
   const isChecked = estimate.submissionStatus === '제출완료';
   
+  // 타입에 따른 색상과 제목 결정
+  let color, title;
+  if (estimate.type === '입찰') {
+    color = isChecked ? '#22c55e' : '#ef4444'; // 입찰: 체크되면 초록색, 아니면 빨간색
+    title = estimate.siteName || estimate.company || '입찰';
+  } else {
+    color = isChecked ? '#22c55e' : '#f59e42'; // 견적: 체크되면 초록색, 아니면 주황색
+    title = estimate.siteName || estimate.company || '견적';
+  }
+  
   return {
     id: `estimate_${estimate.id}`,
-    title: `${estimate.siteName || estimate.company}`,
-    description: `${estimate.requester} - ${estimate.requestContent || '견적요청'}`,
+    title: title,
+    text: title, // CustomCalendar에서 사용하는 text 필드 추가
+    description: `${estimate.requester} - ${estimate.requestContent || (estimate.type === '입찰' ? '입찰요청' : '견적요청')}`,
     date: estimate.submissionDeadline,
-    type: '견적',
-    color: isChecked ? '#22c55e' : '#f59e42', // 체크되면 초록색, 아니면 주황색
+    type: estimate.type || '견적',
+    color: color,
     siteName: estimate.siteName,
     company: estimate.company,
     requester: estimate.requester,
@@ -54,7 +65,8 @@ function convertEstimateToSchedule(estimate) {
     contractStatus: estimate.contractStatus,
     isEstimate: true, // 견적 데이터임을 표시
     estimateId: estimate.id, // 원본 견적 ID 저장
-    checked: isChecked // 체크 상태 추가
+    checked: isChecked, // 체크 상태 추가
+    estimateType: estimate.type || '견적' // 견적/입찰 타입 저장
   };
 }
 
@@ -64,9 +76,14 @@ function convertBidToSchedule(schedule) {
   // 입찰 상태에 따른 체크 상태 결정
   const isChecked = schedule.bidStatus === '입찰완료';
   
+  // 입찰 제목 설정
+  const title = schedule.siteName || schedule.company || '입찰';
+  
   return {
     ...schedule,
     id: `bid_${schedule.id}`, // 입찰 ID에 bid_ 접두사 추가
+    title: title,
+    text: title, // CustomCalendar에서 사용하는 text 필드 추가
     color: isChecked ? '#22c55e' : '#ef4444', // 체크되면 초록색, 아니면 빨간색
     checked: isChecked, // 체크 상태 추가
     isBid: true // 입찰 데이터임을 표시
@@ -180,6 +197,7 @@ const ScheduleManagement = ({
     
     const unsubscribe = subscribeToEstimates((estimatesData) => {
       console.log('🔍 견적 데이터 로드됨:', estimatesData.length, '개');
+      console.log('🔍 견적 데이터 전체:', estimatesData);
       
       // 견적 데이터의 구조 확인
       if (estimatesData.length > 0) {
@@ -190,7 +208,19 @@ const ScheduleManagement = ({
           company: estimatesData[0].company,
           submissionDeadline: estimatesData[0].submissionDeadline,
           requester: estimatesData[0].requester,
-          requestContent: estimatesData[0].requestContent
+          requestContent: estimatesData[0].requestContent,
+          type: estimatesData[0].type,
+          submissionStatus: estimatesData[0].submissionStatus,
+          updatedAt: estimatesData[0].updatedAt
+        });
+        
+        // 타입별 분류 확인
+        const estimates = estimatesData.filter(e => e.type !== '입찰');
+        const bids = estimatesData.filter(e => e.type === '입찰');
+        console.log('🔍 타입별 분류:', {
+          전체: estimatesData.length,
+          견적: estimates.length,
+          입찰: bids.length
         });
       }
       
@@ -199,6 +229,7 @@ const ScheduleManagement = ({
 
     return () => {
       if (unsubscribe && typeof unsubscribe === 'function') {
+        console.log('🔍 ScheduleManagement: 견적 데이터 구독 해제');
         unsubscribe();
       }
     };
@@ -554,9 +585,8 @@ const ScheduleManagement = ({
     const items = calendarItems[date] || [];
     const item = items.find(item => item.id === id);
     
-    // 견적 일정인 경우 견적 페이지로 이동
+    // 견적 일정인 경우 클릭으로는 이동하지 않음 (더블클릭으로만 이동)
     if (item && item.isEstimate) {
-      navigate('/estimates');
       return;
     }
     
@@ -573,6 +603,13 @@ const ScheduleManagement = ({
   };
 
   const handleItemDoubleClick = (date, item) => {
+    // 견적 일정인 경우 견적 페이지로 이동
+    if (item && item.isEstimate) {
+      navigate('/estimates');
+      return;
+    }
+    
+    // 견적 일정이 아닌 경우 편집 팝업 열기
     setEditPopup({ open: true, item, date });
   };
 
@@ -584,6 +621,20 @@ const ScheduleManagement = ({
   };
 
   const handleItemTouchEnd = () => clearTimeout(touchTimer);
+
+  // ESC 키를 눌렀을 때 선택된 항목들을 모두 해제
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setSelectedItems([]);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   const handleDeleteSelected = async () => {
     if (selectedItems.length === 0) return;
@@ -619,7 +670,12 @@ const ScheduleManagement = ({
       
       // 일정 삭제
       scheduleItems.forEach(item => {
-        const docRef = doc(db, 'schedules', item.id);
+        // 입찰 일정인 경우 원본 ID로 삭제
+        let scheduleId = item.id;
+        if (item.id.startsWith('bid_')) {
+          scheduleId = item.id.replace('bid_', '');
+        }
+        const docRef = doc(db, 'schedules', scheduleId);
         batch.delete(docRef);
       });
       
@@ -654,10 +710,16 @@ const ScheduleManagement = ({
     if (!window.confirm('이 일정을 삭제하시겠습니까?')) return;
     
     try {
+      // 입찰 일정인 경우 원본 ID로 삭제
+      let scheduleId = itemId;
+      if (itemId.startsWith('bid_')) {
+        scheduleId = itemId.replace('bid_', '');
+      }
+      
       if (onDeleteSchedule) {
-        await onDeleteSchedule(itemId);
+        await onDeleteSchedule(scheduleId);
       } else {
-        await deleteDoc(doc(db, 'schedules', itemId));
+        await deleteDoc(doc(db, 'schedules', scheduleId));
       }
     } catch (error) {
       console.error('일정 삭제 실패:', error);
@@ -712,17 +774,51 @@ const ScheduleManagement = ({
       return;
     }
     
-    const data = Object.entries(calendarItems).flatMap(([date, items]) =>
-      items.map(item => ({
-        일자: date,
-        분류: item.type || '현장',
-        현장명: item.text || '',
-        설명: item.desc || '',
-        체크박스유무: checkedItems[`${date}-${item.id}`] ? '체크' : '미체크'
-      }))
-    );
+    // 현재 월의 첫날과 마지막날 계산
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
     
-    exportToExcel(data, '일정관리', '일정관리');
+    // 월별 데이터 정리
+    const monthlyData = [];
+    let currentDate = null;
+    let currentDateStr = '';
+    
+    // 날짜별로 정렬된 데이터 생성
+    const sortedEntries = Object.entries(calendarItems)
+      .filter(([date]) => {
+        const itemDate = new Date(date);
+        return itemDate >= firstDay && itemDate <= lastDay;
+      })
+      .sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB));
+    
+    sortedEntries.forEach(([date, items]) => {
+      items.forEach((item, index) => {
+        const dateStr = date;
+        
+        // 같은 날짜인 경우 첫 번째 항목에만 날짜 표시
+        if (dateStr !== currentDateStr) {
+          currentDateStr = dateStr;
+          currentDate = dateStr;
+        } else {
+          currentDate = ''; // 같은 날짜의 두 번째 항목부터는 빈 문자열
+        }
+        
+        monthlyData.push({
+          일자: currentDate,
+          분류: item.type || '현장',
+          현장명: item.text || '',
+          설명: item.desc || '',
+          체크박스유무: checkedItems[`${date}-${item.id}`] ? '체크' : '미체크'
+        });
+      });
+    });
+    
+    // 파일명에 월 정보 포함
+    const monthStr = `${year}년 ${month + 1}월`;
+    const fileName = `일정관리_${monthStr}`;
+    
+    // 새로운 스타일링이 적용된 함수 사용
+    exportScheduleToExcel(monthlyData, fileName);
   };
 
   const handleCheckItem = async (date, id, checked) => {
@@ -1244,12 +1340,16 @@ const ScheduleManagement = ({
                   label="회의"
                 />
                 <FormControlLabel
-                  control={<Checkbox checked={selectedTypes.includes('입찰')} onChange={() => handleTypeChange('입찰')} />}
-                  label="입찰"
+                  control={<Checkbox checked={selectedTypes.includes('전자입찰')} onChange={() => handleTypeChange('전자입찰')} />}
+                  label="전자입찰"
                 />
                 <FormControlLabel
                   control={<Checkbox checked={selectedTypes.includes('현설')} onChange={() => handleTypeChange('현설')} />}
                   label="현설"
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={selectedTypes.includes('실측')} onChange={() => handleTypeChange('실측')} />}
+                  label="실측"
                 />
                 <FormControlLabel
                   control={<Checkbox checked={selectedTypes.includes('기타')} onChange={() => handleTypeChange('기타')} />}
@@ -1310,12 +1410,16 @@ const ScheduleManagement = ({
                   label="회의"
                 />
                 <FormControlLabel
-                  control={<Checkbox checked={editPopup.item?.type === '입찰'} onChange={() => handleEditTypeChange('입찰')} />}
-                  label="입찰"
+                  control={<Checkbox checked={editPopup.item?.type === '전자입찰'} onChange={() => handleEditTypeChange('전자입찰')} />}
+                  label="전자입찰"
                 />
                 <FormControlLabel
                   control={<Checkbox checked={editPopup.item?.type === '현설'} onChange={() => handleEditTypeChange('현설')} />}
                   label="현설"
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={editPopup.item?.type === '실측'} onChange={() => handleEditTypeChange('실측')} />}
+                  label="실측"
                 />
                 <FormControlLabel
                   control={<Checkbox checked={editPopup.item?.type === '기타'} onChange={() => handleEditTypeChange('기타')} />}

@@ -19,18 +19,48 @@ const SearchableSiteSelect = ({
   disabled = false,
   multiple = false,
   sx = {},
-  isMobile = false
+  isMobile = false,
+  openOnFocus = true,
+  clearOnBlur = false,
+  selectOnFocus = false
 }) => {
   const [inputValue, setInputValue] = useState('');
 
   const handleChange = (event, newValue) => {
+    console.log('SearchableSiteSelect handleChange:', newValue);
+    console.log('SearchableSiteSelect multiple:', multiple);
+    
     if (multiple) {
-      onChange(newValue);
+      // 다중 선택인 경우
+      if (Array.isArray(newValue)) {
+        console.log('일반 다중 선택:', newValue);
+        // 선택된 값들을 문자열 배열로 변환
+        const selectedValues = newValue.map(item => {
+          if (typeof item === 'string') {
+            return item;
+          }
+          if (item && typeof item === 'object') {
+            return item.name || '';
+          }
+          return '';
+        }).filter(item => item !== '');
+        
+        console.log('변환된 선택값:', selectedValues);
+        onChange(selectedValues);
+      } else {
+        console.log('빈 배열 또는 null:', newValue);
+        onChange(newValue || []);
+      }
     } else {
-      // 객체인 경우 name만 반환, 문자열인 경우 그대로 반환
-      if (newValue && typeof newValue === 'object') {
+      // 단일 선택인 경우
+      if (newValue && typeof newValue === 'object' && newValue.name === '전체선택') {
+        console.log('전체선택 선택됨');
+        onChange('전체선택');
+      } else if (newValue && typeof newValue === 'object') {
+        console.log('단일 선택 (객체):', newValue.name);
         onChange(newValue.name || '');
       } else {
+        console.log('단일 선택 (문자열):', newValue);
         onChange(newValue || '');
       }
     }
@@ -67,6 +97,12 @@ const SearchableSiteSelect = ({
   };
 
   const filterOptions = (options, { inputValue }) => {
+    if (!inputValue) {
+      // 전체선택 옵션을 맨 위에 추가
+      const allSitesOption = { name: '전체선택', id: 'all', isAllOption: true };
+      return [allSitesOption, ...options];
+    }
+    
     const filtered = options.filter(option => {
       let siteName = '';
       if (typeof option === 'string') {
@@ -76,27 +112,50 @@ const SearchableSiteSelect = ({
       }
       return siteName.toLowerCase().includes(inputValue.toLowerCase());
     });
+    
+    // 검색 결과가 없을 때 안내 메시지
+    if (filtered.length === 0) {
+      return [{ name: '검색 결과가 없습니다', disabled: true }];
+    }
+    
     return filtered;
   };
 
   const renderOption = (props, option) => {
     let siteName = '';
     let siteStatus = '';
+    let isDisabled = false;
+    let isAllOption = false;
     
     if (typeof option === 'string') {
       siteName = option;
     } else if (option && typeof option === 'object') {
       siteName = option.name || '';
       siteStatus = option.status || '';
+      isDisabled = option.disabled || false;
+      isAllOption = option.isAllOption || false;
     }
     
+    // key를 별도로 추출하여 직접 전달
+    const { key, ...otherProps } = props;
+    
     return (
-      <Box component="li" {...props}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-          <Typography sx={{ fontSize: isMobile ? '0.9rem' : '1rem' }}>
-            {siteName}
+      <Box component="li" key={key} {...otherProps}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          width: '100%',
+          opacity: isDisabled ? 0.6 : 1,
+          cursor: isDisabled ? 'default' : 'pointer'
+        }}>
+          <Typography sx={{ 
+            fontSize: isMobile ? '0.9rem' : '1rem',
+            color: isDisabled ? '#888' : (isAllOption ? '#4caf50' : '#fff'),
+            fontWeight: isAllOption ? 'bold' : 'normal'
+          }}>
+            {isAllOption ? '📋 ' : ''}{siteName}
           </Typography>
-          {siteStatus && (
+          {siteStatus && !isDisabled && !isAllOption && (
             <Typography 
               sx={{ 
                 fontSize: isMobile ? '0.7rem' : '0.8rem', 
@@ -105,6 +164,17 @@ const SearchableSiteSelect = ({
               }}
             >
               상태: {siteStatus}
+            </Typography>
+          )}
+          {isAllOption && (
+            <Typography 
+              sx={{ 
+                fontSize: isMobile ? '0.7rem' : '0.8rem', 
+                color: '#4caf50',
+                mt: 0.5
+              }}
+            >
+              모든 현장을 선택합니다
             </Typography>
           )}
         </Box>
@@ -183,7 +253,16 @@ const SearchableSiteSelect = ({
   // value가 문자열인 경우 해당하는 객체를 찾아서 설정
   const getValueForAutocomplete = () => {
     if (multiple) {
-      return value;
+      // multiple 모드에서는 value가 배열이어야 함
+      if (Array.isArray(value)) {
+        return value.map(item => {
+          if (typeof item === 'string') {
+            return sites.find(site => site.name === item) || item;
+          }
+          return item;
+        });
+      }
+      return [];
     }
     if (typeof value === 'string' && value) {
       return sites.find(site => site.name === value) || value;
@@ -208,17 +287,28 @@ const SearchableSiteSelect = ({
       disabled={disabled}
       fullWidth={fullWidth}
       size={size}
+      openOnFocus={openOnFocus}
+      clearOnBlur={clearOnBlur}
+      selectOnFocus={selectOnFocus}
       sx={{
         '& .MuiAutocomplete-paper': {
           bgcolor: '#232b3b',
+          maxHeight: isMobile ? 200 : 300,
+          overflow: 'auto',
           '& .MuiAutocomplete-listbox': {
+            maxHeight: 'none',
             '& .MuiAutocomplete-option': {
               color: '#fff',
               fontSize: isMobile ? '0.9rem' : '1rem',
               py: isMobile ? 1 : 1.5,
               '&:hover': { bgcolor: '#2c3446' },
               '&.Mui-focused': { bgcolor: '#2c3446' },
-              '&.Mui-selected': { bgcolor: '#1976d2' }
+              '&.Mui-selected': { bgcolor: '#1976d2' },
+              '&.Mui-disabled': {
+                color: '#888',
+                cursor: 'default',
+                '&:hover': { bgcolor: 'transparent' }
+              }
             }
           }
         }
@@ -226,6 +316,20 @@ const SearchableSiteSelect = ({
       ListboxProps={{
         style: {
           maxHeight: isMobile ? 200 : 300
+        },
+        onScroll: (event) => {
+          const { target } = event;
+          if (target.scrollTop + target.clientHeight === target.scrollHeight) {
+            // 스크롤이 끝에 도달했을 때의 처리 (필요시 추가)
+          }
+        }
+      }}
+      slotProps={{
+        paper: {
+          style: {
+            maxHeight: isMobile ? 200 : 300,
+            overflow: 'auto'
+          }
         }
       }}
     />

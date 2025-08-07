@@ -1,0 +1,894 @@
+{
+  "sheetNames": [
+    "갑지",
+    "기성금 내역서"
+  ],
+  "sheets": {
+    "갑지": {
+      "ref": "A2:L44",
+      "cells": {
+        "A2": {
+          "value": "1차 기성금 청구서",
+          "type": "s"
+        },
+        "A4": {
+          "value": "1.",
+          "type": "s"
+        },
+        "B4": {
+          "value": "공     사     명",
+          "type": "s"
+        },
+        "C4": {
+          "value": ":",
+          "type": "s"
+        },
+        "D4": {
+          "value": "경주 신라고등학교 외벽개선 및 기타공사",
+          "type": "s"
+        },
+        "A6": {
+          "value": "2.",
+          "type": "s"
+        },
+        "B6": {
+          "value": "시     공     사",
+          "type": "s"
+        },
+        "C6": {
+          "value": ":",
+          "type": "s"
+        },
+        "D6": {
+          "value": "보성종합건설㈜",
+          "type": "s"
+        },
+        "A8": {
+          "value": "3.",
+          "type": "s"
+        },
+        "B8": {
+          "value": "하도급 공사명",
+          "type": "s"
+        },
+        "C8": {
+          "value": ":",
+          "type": "s"
+        },
+        "D8": {
+          "value": "유 리 공 사",
+          "type": "s"
+        },
+        "A10": {
+          "value": "4.",
+          "type": "s"
+        },
+        "B10": {
+          "value": "계약(착공)일자",
+          "type": "s"
+        },
+        "C10": {
+          "value": ":",
+          "type": "s"
+        },
+        "D10": {
+          "value": "2023년 01월",
+          "type": "s"
+        },
+        "A12": {
+          "value": "5.",
+          "type": "s"
+        },
+        "B12": {
+          "value": "준  공  일  자",
+          "type": "s"
+        },
+        "C12": {
+          "value": ":",
+          "type": "s"
+        },
+        "D12": {
+          "value": "2023년 03월",
+          "type": "s"
+        },
+        "A14": {
+          "value": "6.",
+          "type": "s"
+        },
+        "B14": {
+          "value": "계 약 금 액",
+          "type": "s"
+        },
+        "C14": {
+          "value": ":",
+          "type": "s"
+        },
+        "D14": {
+          "value": "일금 영원정",
+          "type": "s"
+        },
+        "G14": {
+          "value": "(\\",
+          "type": "s"
+        },
+        "H14": {
+          "value": 0,
+          "type": "n"
+        },
+        "I14": {
+          "value": ")",
+          "type": "s"
+        },
+        "J14": {
+          "value": "V.A.T포함",
+          "type": "s"
+        },
+        "A16": {
+          "value": "7.",
+          "type": "s"
+        },
+        "B16": {
+          "value": "선 급 금",
+          "type": "s"
+        },
+        "C16": {
+          "value": ":",
+          "type": "s"
+        },
+        "D16": {
+          "value": "일금 영원정",
+          "type": "s"
+        },
+        "G16": {
+          "value": "(\\",
+          "type": "s"
+        },
+        "H16": {
+          "value": 0,
+          "type": "n"
+        },
+        "I16": {
+          "value": ")",
+          "type": "s"
+        },
+        "J16": {
+          "value": "V.A.T포함",
+          "type": "s"
+        },
+        "A18": {
+          "value": "8.",
+          "type": "s"
+        },
+        "B18": {
+          "value": "전 회 기 성",
+          "type": "s"
+        },
+        "C18": {
+          "value": ":",
+          "type": "s"
+        },
+        "D18": {
+          "value": "일금 영원정",
+          "type": "s"
+        },
+        "G18": {
+          "value": "(\\",
+          "type": "s"
+        },
+        "H18": {
+          "value": 0,
+          "type": "n"
+        },
+        "I18": {
+          "value": ")",
+          "type": "s"
+        },
+        "J18": {
+          "value": "V.A.T포함",
+          "type": "s"
+        },
+        "A20": {
+          "value": "9.",
+          "type": "s"
+        },
+        "B20": {
+          "value": "금 회 기 성",
+          "type": "s"
+        },
+        "C20": {
+          "value": ":",
+          "type": "s"
+        },
+        "D20": {
+          "value": "일금 영원정",
+          "type": "s"
+        },
+        "G20": {
+          "value": "(\\",
+          "type": "s"
+        },
+        "H20": {
+          "value": 0,
+          "type": "n"
+        },
+        "I20": {
+          "value": ")",
+          "type": "s"
+        },
+        "J20": {
+          "value": "V.A.T포함",
+          "type": "s"
+        },
+        "A23": {
+          "value": "10.",
+          "type": "s"
+        },
+        "B23": {
+          "value": "기 성 누 계",
+          "type": "s"
+        },
+        "C23": {
+          "value": ":",
+          "type": "s"
+        },
+        "D23": {
+          "value": "일금 영원정",
+          "type": "s"
+        },
+        "G23": {
+          "value": "(\\",
+          "type": "s"
+        },
+        "H23": {
+          "value": 0,
+          "type": "n"
+        },
+        "I23": {
+          "value": ")",
+          "type": "s"
+        },
+        "J23": {
+          "value": "V.A.T포함",
+          "type": "s"
+        },
+        "A25": {
+          "value": "11.",
+          "type": "s"
+        },
+        "B25": {
+          "value": "선 급 금 공 제",
+          "type": "s"
+        },
+        "C25": {
+          "value": ":",
+          "type": "s"
+        },
+        "A27": {
+          "value": "12.",
+          "type": "s"
+        },
+        "B27": {
+          "value": "잔 액",
+          "type": "s"
+        },
+        "C27": {
+          "value": ":",
+          "type": "s"
+        },
+        "D27": {
+          "value": "일금 영원정",
+          "type": "s"
+        },
+        "G27": {
+          "value": "(\\",
+          "type": "s"
+        },
+        "H27": {
+          "value": 0,
+          "type": "n"
+        },
+        "I27": {
+          "value": ")",
+          "type": "s"
+        },
+        "J27": {
+          "value": "V.A.T포함",
+          "type": "s"
+        },
+        "A29": {
+          "value": "13.",
+          "type": "s"
+        },
+        "B29": {
+          "value": "첨 부 서 류",
+          "type": "s"
+        },
+        "C29": {
+          "value": ":",
+          "type": "s"
+        },
+        "D29": {
+          "value": "기성금내역서",
+          "type": "s"
+        },
+        "A31": {
+          "value": "위 공사의 도급 시행에 있어서 공사 전반에 걸쳐 공사 설계도서 제시방서 및 계약조건대로 어김없이 \r\n기성 되었음을 통지 하오며, 만약 공사의 시공 감독 및 검사에 관하여 하자가 발견되는 즉시 변상 \r\n또는 재시공할 것을 서약하고 이에 기성 검사 신청서를 제출하오니, 검사하여 주시기 바랍니다.",
+          "type": "s"
+        },
+        "A36": {
+          "value": "2023. 02.",
+          "type": "s"
+        },
+        "A39": {
+          "value": "주 소 : 대구광역시 달서구 상화로 15길 24-13",
+          "type": "s"
+        },
+        "A40": {
+          "value": "상 호 : 천 우 건 업(주)",
+          "type": "s"
+        },
+        "A41": {
+          "value": "대 표 이 사 : 박 찬 도  (인)",
+          "type": "s"
+        },
+        "A44": {
+          "value": "보성종합건설㈜ 귀중",
+          "type": "s"
+        }
+      }
+    },
+    "기성금 내역서": {
+      "ref": "A1:P34",
+      "cells": {
+        "A1": {
+          "value": "기성금 내역서",
+          "type": "s"
+        },
+        "A2": {
+          "value": "공사명 : 경주 신라고등학교 외벽개선 및 기타공사 중 유리공사",
+          "type": "s"
+        },
+        "A3": {
+          "value": "품   명",
+          "type": "s"
+        },
+        "B3": {
+          "value": "규   격",
+          "type": "s"
+        },
+        "C3": {
+          "value": "단  위",
+          "type": "s"
+        },
+        "D3": {
+          "value": "수  량",
+          "type": "s"
+        },
+        "E3": {
+          "value": "계 약 금 액",
+          "type": "s"
+        },
+        "G3": {
+          "value": "전 회 기 성",
+          "type": "s"
+        },
+        "I3": {
+          "value": "금 회 기 성",
+          "type": "s"
+        },
+        "K3": {
+          "value": "합      계",
+          "type": "s"
+        },
+        "M3": {
+          "value": "비  고",
+          "type": "s"
+        },
+        "E4": {
+          "value": "단  가",
+          "type": "s"
+        },
+        "F4": {
+          "value": "금  액",
+          "type": "s"
+        },
+        "G4": {
+          "value": "수  량",
+          "type": "s"
+        },
+        "H4": {
+          "value": "금  액",
+          "type": "s"
+        },
+        "I4": {
+          "value": "수  량",
+          "type": "s"
+        },
+        "J4": {
+          "value": "금  액",
+          "type": "s"
+        },
+        "K4": {
+          "value": "수  량",
+          "type": "s"
+        },
+        "L4": {
+          "value": "금  액",
+          "type": "s"
+        },
+        "A5": {
+          "value": "유리공사",
+          "type": "s"
+        },
+        "B5": {
+          "value": "",
+          "type": "s"
+        },
+        "C5": {
+          "value": "",
+          "type": "s"
+        },
+        "D5": {
+          "value": "",
+          "type": "s"
+        },
+        "K5": {
+          "value": "",
+          "type": "s"
+        },
+        "M5": {
+          "value": "",
+          "type": "s"
+        },
+        "C6": {
+          "value": "M2",
+          "type": "s"
+        },
+        "F6": {
+          "value": 0,
+          "type": "n"
+        },
+        "H6": {
+          "value": 0,
+          "type": "n"
+        },
+        "J6": {
+          "value": 0,
+          "type": "n"
+        },
+        "K6": {
+          "value": 0,
+          "type": "n"
+        },
+        "L6": {
+          "value": 0,
+          "type": "n"
+        },
+        "M6": {
+          "value": "",
+          "type": "s"
+        },
+        "C7": {
+          "value": "M2",
+          "type": "s"
+        },
+        "F7": {
+          "value": 0,
+          "type": "n"
+        },
+        "H7": {
+          "value": 0,
+          "type": "n"
+        },
+        "J7": {
+          "value": 0,
+          "type": "n"
+        },
+        "K7": {
+          "value": 0,
+          "type": "n"
+        },
+        "L7": {
+          "value": 0,
+          "type": "n"
+        },
+        "M7": {
+          "value": "",
+          "type": "s"
+        },
+        "C8": {
+          "value": "M2",
+          "type": "s"
+        },
+        "F8": {
+          "value": 0,
+          "type": "n"
+        },
+        "H8": {
+          "value": 0,
+          "type": "n"
+        },
+        "J8": {
+          "value": 0,
+          "type": "n"
+        },
+        "K8": {
+          "value": 0,
+          "type": "n"
+        },
+        "L8": {
+          "value": 0,
+          "type": "n"
+        },
+        "M8": {
+          "value": "",
+          "type": "s"
+        },
+        "C9": {
+          "value": "M2",
+          "type": "s"
+        },
+        "F9": {
+          "value": 0,
+          "type": "n"
+        },
+        "H9": {
+          "value": 0,
+          "type": "n"
+        },
+        "J9": {
+          "value": 0,
+          "type": "n"
+        },
+        "K9": {
+          "value": 0,
+          "type": "n"
+        },
+        "L9": {
+          "value": 0,
+          "type": "n"
+        },
+        "M9": {
+          "value": "",
+          "type": "s"
+        },
+        "C10": {
+          "value": "M2",
+          "type": "s"
+        },
+        "F10": {
+          "value": 0,
+          "type": "n"
+        },
+        "H10": {
+          "value": 0,
+          "type": "n"
+        },
+        "J10": {
+          "value": 0,
+          "type": "n"
+        },
+        "K10": {
+          "value": 0,
+          "type": "n"
+        },
+        "L10": {
+          "value": 0,
+          "type": "n"
+        },
+        "M10": {
+          "value": "",
+          "type": "s"
+        },
+        "C11": {
+          "value": "M2",
+          "type": "s"
+        },
+        "F11": {
+          "value": 0,
+          "type": "n"
+        },
+        "H11": {
+          "value": 0,
+          "type": "n"
+        },
+        "J11": {
+          "value": 0,
+          "type": "n"
+        },
+        "K11": {
+          "value": 0,
+          "type": "n"
+        },
+        "L11": {
+          "value": 0,
+          "type": "n"
+        },
+        "M11": {
+          "value": "",
+          "type": "s"
+        },
+        "C12": {
+          "value": "M2",
+          "type": "s"
+        },
+        "F12": {
+          "value": 0,
+          "type": "n"
+        },
+        "H12": {
+          "value": 0,
+          "type": "n"
+        },
+        "J12": {
+          "value": 0,
+          "type": "n"
+        },
+        "K12": {
+          "value": 0,
+          "type": "n"
+        },
+        "L12": {
+          "value": 0,
+          "type": "n"
+        },
+        "M12": {
+          "value": "",
+          "type": "s"
+        },
+        "C13": {
+          "value": "M2",
+          "type": "s"
+        },
+        "F13": {
+          "value": 0,
+          "type": "n"
+        },
+        "H13": {
+          "value": 0,
+          "type": "n"
+        },
+        "J13": {
+          "value": 0,
+          "type": "n"
+        },
+        "K13": {
+          "value": 0,
+          "type": "n"
+        },
+        "L13": {
+          "value": 0,
+          "type": "n"
+        },
+        "M13": {
+          "value": "",
+          "type": "s"
+        },
+        "C14": {
+          "value": "M2",
+          "type": "s"
+        },
+        "F14": {
+          "value": 0,
+          "type": "n"
+        },
+        "H14": {
+          "value": 0,
+          "type": "n"
+        },
+        "J14": {
+          "value": 0,
+          "type": "n"
+        },
+        "K14": {
+          "value": 0,
+          "type": "n"
+        },
+        "L14": {
+          "value": 0,
+          "type": "n"
+        },
+        "M14": {
+          "value": "",
+          "type": "s"
+        },
+        "C15": {
+          "value": "M2",
+          "type": "s"
+        },
+        "F15": {
+          "value": 0,
+          "type": "n"
+        },
+        "H15": {
+          "value": 0,
+          "type": "n"
+        },
+        "J15": {
+          "value": 0,
+          "type": "n"
+        },
+        "K15": {
+          "value": 0,
+          "type": "n"
+        },
+        "L15": {
+          "value": 0,
+          "type": "n"
+        },
+        "M15": {
+          "value": "",
+          "type": "s"
+        },
+        "C16": {
+          "value": "M",
+          "type": "s"
+        },
+        "F16": {
+          "value": 0,
+          "type": "n"
+        },
+        "H16": {
+          "value": 0,
+          "type": "n"
+        },
+        "J16": {
+          "value": 0,
+          "type": "n"
+        },
+        "K16": {
+          "value": 0,
+          "type": "n"
+        },
+        "L16": {
+          "value": 0,
+          "type": "n"
+        },
+        "M16": {
+          "value": "",
+          "type": "s"
+        },
+        "F17": {
+          "value": 0,
+          "type": "n"
+        },
+        "H17": {
+          "value": 0,
+          "type": "n"
+        },
+        "J17": {
+          "value": 0,
+          "type": "n"
+        },
+        "K17": {
+          "value": 0,
+          "type": "n"
+        },
+        "L17": {
+          "value": 0,
+          "type": "n"
+        },
+        "F18": {
+          "value": 0,
+          "type": "n"
+        },
+        "H18": {
+          "value": 0,
+          "type": "n"
+        },
+        "J18": {
+          "value": 0,
+          "type": "n"
+        },
+        "K18": {
+          "value": 0,
+          "type": "n"
+        },
+        "L18": {
+          "value": 0,
+          "type": "n"
+        },
+        "A24": {
+          "value": "선급금",
+          "type": "s"
+        },
+        "B24": {
+          "value": "",
+          "type": "s"
+        },
+        "C24": {
+          "value": "",
+          "type": "s"
+        },
+        "D24": {
+          "value": "",
+          "type": "s"
+        },
+        "F24": {
+          "value": 0,
+          "type": "n"
+        },
+        "H24": {
+          "value": 0,
+          "type": "n"
+        },
+        "J24": {
+          "value": 0,
+          "type": "n"
+        },
+        "K24": {
+          "value": "",
+          "type": "s"
+        },
+        "L24": {
+          "value": 0,
+          "type": "n"
+        },
+        "M24": {
+          "value": "",
+          "type": "s"
+        },
+        "A25": {
+          "value": "총원가",
+          "type": "s"
+        },
+        "F25": {
+          "value": 0,
+          "type": "n"
+        },
+        "H25": {
+          "value": 0,
+          "type": "n"
+        },
+        "J25": {
+          "value": 0,
+          "type": "n"
+        },
+        "L25": {
+          "value": 0,
+          "type": "n"
+        },
+        "A26": {
+          "value": "부가가치세",
+          "type": "s"
+        },
+        "F26": {
+          "value": 0,
+          "type": "n"
+        },
+        "H26": {
+          "value": 0,
+          "type": "n"
+        },
+        "J26": {
+          "value": 0,
+          "type": "n"
+        },
+        "L26": {
+          "value": 0,
+          "type": "n"
+        },
+        "A27": {
+          "value": "총   계",
+          "type": "s"
+        },
+        "F27": {
+          "value": 0,
+          "type": "n"
+        },
+        "H27": {
+          "value": 0,
+          "type": "n"
+        },
+        "J27": {
+          "value": 0,
+          "type": "n"
+        },
+        "L27": {
+          "value": 0,
+          "type": "n"
+        }
+      }
+    }
+  }
+}

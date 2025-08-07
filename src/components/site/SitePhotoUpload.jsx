@@ -40,6 +40,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebas
 import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { storage, db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import Image from '../common/Image';
 
 const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
   const { currentUser } = useAuth();
@@ -321,11 +322,11 @@ const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
           <ImageList cols={3} gap={8}>
             {photos.map((photo) => (
               <ImageListItem key={photo.id} sx={{ position: 'relative' }}>
-                <img
+                <Image
                   src={photo.url}
                   alt={photo.customMetadata?.title || photo.name}
-                  loading="lazy"
-                  style={{ cursor: 'pointer' }}
+                  lazy={true}
+                  style={{ cursor: 'pointer', width: '100%', height: 'auto' }}
                   onClick={() => {
                     setSelectedPhoto(photo);
                     setEditData({

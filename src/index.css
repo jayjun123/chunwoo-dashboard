@@ -74,6 +74,31 @@
   display: none !important;
 }
 
+/* 포커스 관리 개선 */
+[aria-hidden="true"]:focus,
+[aria-hidden="true"] *:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* 대화상자 포커스 관리 */
+.MuiDialog-root[aria-hidden="true"] .MuiButtonBase-root:focus,
+.MuiDialog-root[aria-hidden="true"] .MuiIconButton-root:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* inert 속성 지원 */
+[inert] {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+[inert] * {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
 /* 흰색 배경의 Typography는 검은색으로 */
 div[style*="bgcolor: #fff"] .MuiTypography-root,
 div[style*="background-color: #fff"] .MuiTypography-root {
@@ -1532,4 +1557,10 @@ body {
     box-shadow: none !important;
     border-radius: 0 !important;
   }
+}
+
+.recharts-wrapper {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
 }

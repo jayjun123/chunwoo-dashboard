@@ -583,8 +583,10 @@ const CustomScheduleMobile = () => {
                               item.type === '현장' ? '[현장]' : 
                               item.type === '회의' ? '[회의]' : 
                               item.type === '입찰' ? '[입찰]' : 
+                              item.type === '전자입찰' ? '[전자입찰]' : 
                               item.type === '현설' ? '[현설]' : 
                               item.type === '견적' ? '[견적]' : 
+                              item.type === '실측' ? '[실측]' : 
                               item.type === '기타' ? '[기타]' : '';
                             const title = item.text || item.title || '제목 없음';
                             
@@ -833,8 +835,10 @@ const CustomScheduleMobile = () => {
                                 item.type === '현장' ? '[현장]' : 
                                 item.type === '회의' ? '[회의]' : 
                                 item.type === '입찰' ? '[입찰]' : 
+                                item.type === '전자입찰' ? '[전자입찰]' : 
                                 item.type === '현설' ? '[현설]' : 
                                 item.type === '견적' ? '[견적]' : 
+                                item.type === '실측' ? '[실측]' : 
                                 item.type === '기타' ? '[기타]' : '';
                               const title = item.text || item.title || '제목 없음';
                               
@@ -1731,8 +1735,10 @@ const CustomScheduleMobile = () => {
                             item.type === '현장' ? '[현장]' : 
                             item.type === '회의' ? '[회의]' : 
                             item.type === '입찰' ? '[입찰]' : 
+                            item.type === '전자입찰' ? '[전자입찰]' : 
                             item.type === '현설' ? '[현설]' : 
                             item.type === '견적' ? '[견적]' : 
+                            item.type === '실측' ? '[실측]' : 
                             item.type === '기타' ? '[기타]' : '';
                           const siteName = item.siteName || '';
                           const title = item.text || item.title || '제목 없음';

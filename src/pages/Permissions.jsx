@@ -48,7 +48,7 @@ const menuList = [
   { key: 'schedule', label: '일정관리' },
   { key: 'cost', label: '원가관리' },
   { key: 'documents', label: '문서관리' },
-  { key: 'reports', label: '보고서' },
+  { key: 'daema-team', label: '시공팀' },
   { key: 'discussions', label: '토론/의견' },
   { key: 'vendors', label: '협력업체' },
   { key: 'progress', label: '예정' },
@@ -449,7 +449,7 @@ const Permissions = () => {
                 renderValue={(selected) => (
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {selected.map((value) => (
-                      <Chip key={value} label={value} size="small" />
+                      <Chip key={value} label={value} size="small" onClick={() => {}} />
                     ))}
                   </Box>
                 )}

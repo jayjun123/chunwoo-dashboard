@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -26,23 +26,42 @@ import {
   Chip,
   Grid,
   useMediaQuery,
-  useTheme
+  useTheme,
+  Snackbar,
+  Alert,
+  CardContent,
+  Autocomplete,
+  Tabs,
+  Tab
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   CloudDownload as CloudDownloadIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  Download as DownloadIcon,
+  Upload as UploadIcon,
+  Sort as SortIcon,
+  TrendingUp as TrendingUpIcon,
+  AccountBalance as AccountBalanceIcon,
+  Payment as PaymentIcon,
+  Receipt as ReceiptIcon
 } from '@mui/icons-material';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, orderBy } from 'firebase/firestore';
 import { getClaimStats, getClaimsByMonth } from '../api/claims';
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
+import { ref, getDownloadURL } from 'firebase/storage';
 import { devLog, devError, useCleanup } from '../utils/performanceUtils';
 import * as XLSX from 'xlsx';
 import { addMonths, subMonths, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { formatContractAmount, formatGisungAmount, formatAdvanceAmount } from '../utils/formatUtils';
+import { downloadGisungExcel, parseGisungExcel, generateIntegratedGisungExcel, generateGisungExcel } from '../utils/excelUtils';
+import { downloadTemplateBasedGisungExcel, createFormulaBasedGisungExcel } from '../utils/gisungTemplateUtils';
+import SearchableSiteSelect from './common/SearchableSiteSelect';
+import { migrateSiteItems } from '../scripts/migrateSiteItems';
+import { migrateSiteCodes } from '../scripts/migrateSiteCodes';
 
 const GisungStatusPage = ({ 
   viewType: initialViewType = 'month', 
@@ -51,13 +70,14 @@ const GisungStatusPage = ({
   selectedSites = [], 
   filteredData = [] 
 }) => {
+
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { addCleanup } = useCleanup();
+  
+  // 상태 관리
   const [gisungList, setGisungList] = useState([]);
-  const [allGisungData, setAllGisungData] = useState([]);
   const [sites, setSites] = useState([]);
-  const [selectedSite, setSelectedSite] = useState('');
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState('');
@@ -66,10 +86,38 @@ const GisungStatusPage = ({
   const [selectedItems, setSelectedItems] = useState([]);
   const [claimStats, setClaimStats] = useState({ totalAmount: 0 });
   const [claimsBySite, setClaimsBySite] = useState({});
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
   // 네비게이션 상태
-  const [viewType, setViewType] = useState(initialViewType || 'month');
+
+  // props를 내부 상태로 관리
   const [currentMonth, setCurrentMonth] = useState(initialCurrentMonth || new Date());
+  const [viewType, setViewType] = useState(initialViewType || 'month');
+  
+  // props 변경 시 내부 상태 업데이트 (안정화)
+  useEffect(() => {
+    if (initialCurrentMonth && initialCurrentMonth.getTime() !== currentMonth.getTime()) {
+      setCurrentMonth(initialCurrentMonth);
+    }
+  }, [initialCurrentMonth]);
+  
+  useEffect(() => {
+    if (initialViewType && initialViewType !== viewType) {
+      setViewType(initialViewType);
+    }
+  }, [initialViewType]);
+  
+  // 현장 선택 상태 (내부 상태로 관리) - 안정적인 참조를 위해 useRef 사용
+  const [selectedSitesInternal, setSelectedSitesInternal] = useState([]);
+  const selectedSitesInternalStableRef = useRef([]);
+  
+
+  const stableCurrentMonth = useMemo(() => {
+    if (!currentMonth || !currentMonth.getTime || isNaN(currentMonth.getTime())) {
+      return new Date();
+    }
+    return currentMonth;
+  }, [currentMonth]);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -80,205 +128,161 @@ const GisungStatusPage = ({
     gisungAmount: '',
     currentGisung: '',
     note: '',
+    sequence: '', // 차수 필드 추가
   });
 
-  // monthText 계산 - currentMonth 변경 시 즉시 업데이트
+  // monthText 계산
   const monthText = useMemo(() => {
-    if (!currentMonth || isNaN(currentMonth.getTime())) {
+    if (!stableCurrentMonth || isNaN(stableCurrentMonth.getTime())) {
       return format(new Date(), 'yyyy년 MM월', { locale: ko });
     }
-    return format(currentMonth, 'yyyy년 MM월', { locale: ko });
-  }, [currentMonth]);
+    return format(stableCurrentMonth, 'yyyy년 MM월', { locale: ko });
+  }, [stableCurrentMonth]);
 
-  // 네비게이션 핸들러 - 상태 변경 시 즉시 반영
-  const handlePrevMonth = useCallback(() => {
-    const newMonth = subMonths(currentMonth, 1);
-    setCurrentMonth(newMonth);
-    devLog('이전달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
-  }, [currentMonth]);
-  
-  const handleNextMonth = useCallback(() => {
-    const newMonth = addMonths(currentMonth, 1);
-    setCurrentMonth(newMonth);
-    devLog('다음달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
-  }, [currentMonth]);
-  
-  const handleThisMonth = useCallback(() => {
-    const newMonth = new Date();
-    setCurrentMonth(newMonth);
-    devLog('이번달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
+  // 메인 데이터 로딩 함수 (ref 기반)
+  const loadData = useCallback(async () => {
+    try {
+      // 사이트 데이터 로드
+      const sitesSnapshot = await getDocs(collection(db, 'sites'));
+      const sitesData = sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setSites(sitesData);
+      
+      // 기성 데이터 로드
+      const gisungCollection = collection(db, 'gisung');
+      const currentViewType = viewTypeRef.current;
+      const currentStableMonth = currentMonthRef.current;
+      
+      if (currentViewType === 'month') {
+        const currentYear = currentStableMonth.getFullYear();
+        const currentMonthNum = currentStableMonth.getMonth() + 1;
+        const monthStr = `${currentYear}-${String(currentMonthNum).padStart(2, '0')}`;
+        const q = query(gisungCollection, where('gisungMonth', '==', monthStr));
+        const gisungSnapshot = await getDocs(q);
+        const gisungData = gisungSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setGisungList(gisungData);
+      } else if (currentViewType === 'site') {
+        console.log('🔍 현장별 탭 데이터 로딩 시작');
+        const currentSelectedSites = selectedSitesRef.current && selectedSitesRef.current.length > 0 
+          ? selectedSitesRef.current 
+          : selectedSitesInternalRef.current;
+          
+        console.log('📊 선택된 현장들:', currentSelectedSites);
+          
+        if (!currentSelectedSites || currentSelectedSites.length === 0) {
+          console.log('⚠️ 선택된 현장 없음, 빈 배열 설정');
+          setGisungList([]);
+        } else {
+          const isAllSelected = currentSelectedSites.some(site => 
+            (typeof site === 'string' && (site === '전체선택' || site === 'all')) ||
+            (site && typeof site === 'object' && (site.name === '전체선택' || site.id === 'all'))
+          );
+          
+          console.log('📊 전체선택 여부:', isAllSelected);
+          
+          if (isAllSelected) {
+            console.log('📊 전체 현장 데이터 로딩');
+            const q = query(gisungCollection);
+            const gisungSnapshot = await getDocs(q);
+            const gisungData = gisungSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            console.log('✅ 전체 현장 데이터 로딩 완료:', gisungData.length, '개');
+            setGisungList(gisungData);
+          } else {
+            const selectedSiteNames = currentSelectedSites.map(site => 
+              typeof site === 'string' ? site : site.name
+            );
+            console.log('📊 선택된 현장명들:', selectedSiteNames);
+            const q = query(gisungCollection, where('name', 'in', selectedSiteNames));
+            const gisungSnapshot = await getDocs(q);
+            const gisungData = gisungSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            console.log('✅ 선택된 현장 데이터 로딩 완료:', gisungData.length, '개');
+            setGisungList(gisungData);
+          }
+        }
+      }
+      // 청구 데이터 로드
+      const currentMonthStr = `${currentStableMonth.getFullYear()}-${String(currentStableMonth.getMonth() + 1).padStart(2, '0')}`;
+      const stats = await getClaimStats(currentMonthStr);
+      setClaimStats(stats);
+      const claims = await getClaimsByMonth(currentMonthStr);
+      const claimsMap = {};
+      claims.forEach(claim => {
+        claimsMap[claim.siteName] = claim.claimAmount || 0;
+      });
+      setClaimsBySite(claimsMap);
+    } catch (error) {
+      console.error('데이터 로드 실패:', error);
+      setSites([]);
+      setGisungList([]);
+      setClaimStats({ totalAmount: 0 });
+      setClaimsBySite({});
+    }
   }, []);
-  
-  const handleMonthClick = () => handleThisMonth();
+
+  // 안정적인 참조를 위한 useRef 사용
+  const selectedSitesRef = useRef(selectedSites);
+  const selectedSitesInternalRef = useRef([]);
+  const viewTypeRef = useRef(viewType);
+  const currentMonthRef = useRef(currentMonth);
+
+  // ref 업데이트 (의존성 배열 추가)
+  useEffect(() => {
+    selectedSitesRef.current = selectedSites;
+  }, [selectedSites]);
 
   useEffect(() => {
-    fetchAllGisung();
-  }, []); // 컴포넌트 마운트 시 한 번만 실행
+    selectedSitesInternalRef.current = selectedSitesInternal;
+    selectedSitesInternalStableRef.current = selectedSitesInternal;
+  }, [selectedSitesInternal]);
 
   useEffect(() => {
-    fetchGisung();
-    fetchSites();
-  }, [viewType, currentMonth]); // selectedSites 제거
+    viewTypeRef.current = viewType;
+  }, [viewType]);
 
-  // selectedSites가 변경될 때만 기성 데이터 다시 로드
+  useEffect(() => {
+    currentMonthRef.current = currentMonth;
+  }, [currentMonth]);
+
+  // 단일 useEffect로 통합 (안정적인 의존성만 사용)
+  useEffect(() => {
+    console.log('🔄 데이터 로딩 트리거:', { viewType, stableCurrentMonth: stableCurrentMonth.toISOString() });
+    
+    // 현장별 탭에서 선택된 현장이 없으면 데이터 로딩 건너뛰기
+    if (viewType === 'site') {
+      const currentSelectedSites = selectedSites && selectedSites.length > 0 ? selectedSites : selectedSitesInternal;
+      if (!currentSelectedSites || currentSelectedSites.length === 0) {
+        console.log('⚠️ 현장별 탭에서 선택된 현장 없음, 데이터 로딩 건너뛰기');
+        return;
+      }
+    }
+    
+    loadData();
+  }, [viewType, stableCurrentMonth]);
+
+  // 선택된 현장 변경 시 데이터 로딩 (별도 useEffect)
   useEffect(() => {
     if (viewType === 'site') {
-      fetchGisung();
+      console.log('🔄 선택된 현장 변경으로 인한 데이터 로딩');
+      loadData();
     }
-  }, [selectedSites, viewType]);
-
-  // 청구예정 데이터 가져오기
-  useEffect(() => {
-    const fetchClaimData = async () => {
-      try {
-        const currentMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-        
-        // 통계 데이터 가져오기
-        const stats = await getClaimStats(currentMonthStr);
-        setClaimStats(stats);
-        
-        // 현장별 청구예정 데이터 가져오기
-        const claims = await getClaimsByMonth(currentMonthStr);
-        const claimsMap = {};
-        claims.forEach(claim => {
-          claimsMap[claim.siteName] = claim.claimAmount || 0;
-        });
-        setClaimsBySite(claimsMap);
-        
-        devLog('청구예정 데이터 로드:', { stats, claimsMap });
-      } catch (error) {
-        devError('청구예정 데이터 로드 오류:', error);
-        setClaimStats({ totalAmount: 0 });
-        setClaimsBySite({});
-      }
-    };
-    
-    fetchClaimData();
-  }, [currentMonth]);
-
-  // props.currentMonth가 바뀔 때마다 내부 currentMonth 동기화
-  useEffect(() => {
-    if (initialCurrentMonth) {
-      setCurrentMonth(initialCurrentMonth);
-    }
-  }, [initialCurrentMonth]);
-
-  // sites가 로드되면 첫 번째 현장 id로 selectedSite 기본값 설정
-  useEffect(() => {
-    if (sites.length > 0 && !selectedSite) {
-      setSelectedSite(sites[0].id);
-    }
-  }, [sites]);
-
-  // 필터링된 데이터가 전달되면 사용 (하지만 내부 로직이 우선)
-  useEffect(() => {
-    // filteredData가 전달되어도 내부 fetchGisung 로직을 우선 사용
-    // filteredData는 백업용으로만 사용
-    if (filteredData && filteredData.length > 0 && gisungList.length === 0) {
-      devLog('filteredData를 백업으로 사용:', filteredData);
-      setGisungList(filteredData);
-    }
-  }, [filteredData, gisungList.length]);
-
-  const fetchSites = useCallback(async () => {
-    try {
-      devLog('현장 데이터 로드 시작');
-      const snapshot = await getDocs(collection(db, 'sites'));
-      const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      devLog('로드된 현장 데이터:', sitesData);
-      console.log('현장 데이터 상세:', sitesData.map(site => ({
-        name: site.name,
-        id: site.id,
-        contractAmount: site.contractAmount,
-        advance: site.advance
-      })));
-      setSites(sitesData);
-    } catch (e) {
-      devError('현장 데이터 로드 오류:', e);
-      console.error('현장 데이터를 불러오는데 실패했습니다:', e.message);
-      setSites([]); // 오류 발생 시 빈 배열로 설정
-    }
-  }, []);
-
-  const fetchAllGisung = useCallback(async () => {
-    try {
-      devLog('=== 전체 기성 데이터 로드 시작 ===');
-      const snapshot = await getDocs(collection(db, 'gisung'));
-      const allData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      devLog('로드된 전체 기성 데이터:', allData);
-      setAllGisungData(allData);
-      devLog('=== 전체 기성 데이터 로드 완료 ===');
-    } catch (e) {
-      devError('전체 기성 데이터 로드 오류:', e);
-      setAllGisungData([]); // 오류 발생 시 빈 배열로 설정
-    }
-  }, []);
-
-  const fetchGisung = useCallback(async () => {
-    try {
-      devLog('=== 기성 데이터 로드 시작 ===');
-      devLog('viewType:', viewType);
-      devLog('currentMonth:', currentMonth);
-      devLog('selectedSites:', selectedSites);
-      
-      // currentMonth가 유효하지 않은 경우 기본값 사용
-      if (!currentMonth || isNaN(currentMonth.getTime())) {
-        devLog('currentMonth가 유효하지 않음, 기본값 사용');
-        setCurrentMonth(new Date());
-        return;
-      }
-      
-      let q;
-      const gisungCollection = collection(db, 'gisung');
-      
-      if (viewType === 'month') {
-        const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-        devLog('월별 필터링 - monthStr:', monthStr);
-        q = query(gisungCollection, where('gisungMonth', '==', monthStr));
-      } else if (viewType === 'site' && selectedSites && selectedSites.length > 0) {
-        devLog('현장별 필터링 - selectedSites:', selectedSites);
-        q = query(gisungCollection, where('name', 'in', selectedSites));
-      } else if (viewType === 'site' && (!selectedSites || selectedSites.length === 0)) {
-        devLog('현장별 필터링 - 선택된 현장 없음');
-        setGisungList([]);
-        return;
-      } else {
-        devLog('필터링 조건 없음 - 전체 데이터 로드');
-        q = query(gisungCollection);
-      }
-      
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      devLog('로드된 기성 데이터:', data);
-      setGisungList(data);
-      devLog('=== 기성 데이터 로드 완료 ===');
-    } catch (e) {
-      devError('기성 데이터 로드 오류:', e);
-      setGisungList([]);
-      // 오류 발생 시 사용자에게 알림 (모바일에서는 콘솔만)
-      console.error('기성 데이터를 불러오는데 실패했습니다:', e.message);
-    }
-  }, [viewType, currentMonth]);
+  }, [loadData]);
 
 
 
-  // 검색 및 정렬된 데이터
+
+
+  // 검색 및 정렬된 데이터 (서버에서 이미 필터링된 데이터에 검색만 적용)
   const filteredAndSortedGisung = useMemo(() => {
+    console.log('검색 필터링 시작 - 서버에서 필터링된 데이터:', gisungList.length, '개');
+    console.log('검색어:', search);
+    
     let filtered = gisungList.filter(gisung =>
       gisung.name?.toLowerCase().includes(search.toLowerCase()) ||
       gisung.gisungMonth?.toLowerCase().includes(search.toLowerCase()) ||
       gisung.note?.toLowerCase().includes(search.toLowerCase())
     );
 
-    // 현장별 보기에서 선택된 현장만 필터링
-    if (viewType === 'site' && selectedSites.length > 0) {
-      filtered = filtered.filter(gisung => {
-        const isSelected = selectedSites.includes(gisung.siteId) || selectedSites.includes(gisung.name);
-        return isSelected;
-      });
-    }
+    console.log('검색 필터링 후:', filtered.length, '개');
 
-    // 클라이언트 사이드 정렬
     filtered.sort((a, b) => {
       let aValue = a[sortField];
       let bValue = b[sortField];
@@ -302,219 +306,411 @@ const GisungStatusPage = ({
     });
 
     return filtered;
-  }, [gisungList, search, sortField, sortDirection, viewType, selectedSites]);
+  }, [gisungList, search, sortField, sortDirection, viewType]);
 
   // 통계 데이터
   const stats = useMemo(() => {
     try {
-      // 현재 월 문자열 (예: "2024-07")
-      const currentMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-      
+      // 기본값 설정
+      const defaultStats = {
+        totalContractAmount: 0,
+        totalAdvance: 0,
+        totalGisungAmount: 0,
+        totalPrevGisung: 0,
+        totalCurrentGisung: 0,
+        totalCumulativeGisung: 0,
+        totalClaimAmount: claimStats.totalAmount || 0
+      };
+
+      // 현장별 뷰에서 현장이 선택되지 않은 경우
+      const currentSelectedSites = selectedSites && selectedSites.length > 0 ? selectedSites : selectedSitesInternal;
+      if (viewType === 'site' && (!currentSelectedSites || currentSelectedSites.length === 0)) {
+        console.log('현장 미선택 - 스마트카드 0으로 설정');
+        return defaultStats;
+      }
+
+      // 전체선택 여부 확인
+      const isAllSelected = currentSelectedSites.some(site => {
+        if (typeof site === 'string') {
+          return site === '전체선택' || site === 'all';
+        }
+        if (site && typeof site === 'object') {
+          return site.name === '전체선택' || site.id === 'all';
+        }
+        return false;
+      });
+
+      // 계약금액과 선급금 계산
       let totalContractAmount = 0;
       let totalAdvance = 0;
-      
+
       if (viewType === 'month') {
-        // 월별: 해당 월에 공사가 시작된 현장들의 계약금액만 합산
-        totalContractAmount = sites.reduce((sum, site) => {
-          if (!site.startDate) return sum;
-          
-          try {
-            // startDate가 문자열인 경우 Date 객체로 변환
-            const startDate = typeof site.startDate === 'string' 
-              ? new Date(site.startDate) 
-              : site.startDate.toDate ? site.startDate.toDate() : site.startDate;
-            
-            // startDate가 유효하지 않은 경우 건너뛰기
-            if (!startDate || isNaN(startDate.getTime())) {
-              return sum;
-            }
-            
-            const siteStartMonth = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
-            
-            // 해당 월에 시작된 현장만 포함
-            if (siteStartMonth <= currentMonthStr) {
-              return sum + (Number(site.contractAmount) || 0);
-            }
-            return sum;
-          } catch (error) {
-            devError('현장 시작일 파싱 오류:', error);
-            return sum;
-          }
-        }, 0);
+        // 월별 뷰: 해당 월에 공사기간이 포함된 현장들 계산
+        const currentYear = stableCurrentMonth.getFullYear();
+        const currentMonthNum = stableCurrentMonth.getMonth() + 1;
         
-        totalAdvance = sites.reduce((sum, site) => {
-          if (!site.startDate) return sum;
+        sites.forEach(site => {
+          if (!site.startDate || !site.endDate) return;
           
           try {
             const startDate = typeof site.startDate === 'string' 
               ? new Date(site.startDate) 
               : site.startDate.toDate ? site.startDate.toDate() : site.startDate;
+            const endDate = typeof site.endDate === 'string' 
+              ? new Date(site.endDate) 
+              : site.endDate.toDate ? site.endDate.toDate() : site.endDate;
             
-            if (!startDate || isNaN(startDate.getTime())) {
-              return sum;
+            if (!startDate || isNaN(startDate.getTime()) || !endDate || isNaN(endDate.getTime())) return;
+            
+            const currentDate = new Date(currentYear, currentMonthNum - 1, 1);
+            const nextMonthDate = new Date(currentYear, currentMonthNum, 1);
+            
+            // 공사기간이 해당 월과 겹치는지 확인
+            if (startDate < nextMonthDate && endDate >= currentDate) {
+              totalContractAmount += Number(site.contractAmount) || 0;
+              totalAdvance += Number(site.advance) || 0;
             }
-            
-            const siteStartMonth = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
-            
-            if (siteStartMonth <= currentMonthStr) {
-              return sum + (Number(site.advance) || 0);
-            }
-            return sum;
           } catch (error) {
-            devError('현장 시작일 파싱 오류:', error);
-            return sum;
+            // 에러 무시하고 계속 진행
           }
-        }, 0);
+        });
       } else {
-        // 현장별: 선택된 현장들의 계약금액 합산
-        // selectedSites가 비어있으면 0원, 아니면 선택된 현장만 포함
-        if (selectedSites.length === 0) {
-          totalContractAmount = 0;
-          totalAdvance = 0;
-          console.log('현장별 보기: 선택된 현장 없음 - 계약금액 0원');
-        } else {
-          console.log('현장별 보기 통계 계산:', {
-            selectedSites,
-            sitesCount: sites.length,
-            sites: sites.map(s => ({ name: s.name, id: s.id, contractAmount: s.contractAmount }))
-          });
-          
-          totalContractAmount = sites.reduce((sum, site) => {
-            // 현장 ID 또는 현장명으로 비교
-            const isSelected = selectedSites.includes(site.id) || selectedSites.includes(site.name);
-            console.log(`현장 ${site.name} (${site.id}) 체크:`, {
-              siteName: site.name,
-              siteId: site.id,
-              selectedSites,
-              isSelected,
-              contractAmount: site.contractAmount
-            });
-            
-            if (!isSelected) {
-              console.log(`현장 ${site.name} (${site.id}) 제외됨`);
-              return sum;
+        // 현장별 뷰: 선택된 현장들 또는 전체 현장들 계산
+        const targetSites = isAllSelected ? sites : sites.filter(site => 
+          currentSelectedSites.some(selectedSite => {
+            if (typeof selectedSite === 'string') {
+              return site.name === selectedSite || site.id === selectedSite;
             }
-            const contractAmount = Number(site.contractAmount) || 0;
-            console.log(`현장 ${site.name} (${site.id}) 포함됨 - 계약금액: ${contractAmount}`);
-            return sum + contractAmount;
-          }, 0);
-          
-          totalAdvance = sites.reduce((sum, site) => {
-            // 현장 ID 또는 현장명으로 비교
-            const isSelected = selectedSites.includes(site.id) || selectedSites.includes(site.name);
-            if (!isSelected) {
-              return sum;
+            if (selectedSite && typeof selectedSite === 'object') {
+              return site.name === selectedSite.name || site.id === selectedSite.id;
             }
-            return sum + (Number(site.advance) || 0);
-          }, 0);
-          
-          console.log('현장별 보기 최종 결과:', {
-            totalContractAmount,
-            totalAdvance,
-            selectedSites
-          });
-        }
+            return false;
+          })
+        );
+
+        targetSites.forEach(site => {
+          totalContractAmount += Number(site.contractAmount) || 0;
+          totalAdvance += Number(site.advance) || 0;
+        });
       }
-      
-      // 기성 데이터 통계
-      console.log('기성 데이터 통계 계산:', {
-        viewType,
-        selectedSites,
-        gisungDataCount: filteredAndSortedGisung.length
-      });
-      
+
+      // 기성 통계 계산 (서버에서 이미 필터링된 데이터 사용)
       const gisungStats = filteredAndSortedGisung.reduce((acc, gisung) => {
-        // 현장별 보기에서 선택된 현장만 포함
-        if (viewType === 'site') {
-          if (selectedSites.length === 0) {
-            // 선택된 현장이 없으면 기성 데이터도 포함하지 않음
-            return acc;
-          }
-          // 현장 ID 또는 현장명으로 비교
-          const isSelected = selectedSites.includes(gisung.siteId) || selectedSites.includes(gisung.name);
-          if (!isSelected) {
-            console.log(`기성 데이터 ${gisung.name} (${gisung.siteId}) 제외됨`);
-            return acc;
-          }
-          console.log(`기성 데이터 ${gisung.name} (${gisung.siteId}) 포함됨 - 기성금액: ${gisung.gisungAmount}`);
-        }
         acc.totalGisungAmount += Number(gisung.gisungAmount) || 0;
         acc.totalPrevGisung += Number(gisung.prevGisung) || 0;
         acc.totalCurrentGisung += Number(gisung.currentGisung) || 0;
+        acc.totalCumulativeGisung += (Number(gisung.prevGisung) || 0) + (Number(gisung.gisungAmount) || 0);
         return acc;
-      }, { totalGisungAmount: 0, totalPrevGisung: 0, totalCurrentGisung: 0 });
-      
-      const result = {
+      }, { totalGisungAmount: 0, totalPrevGisung: 0, totalCurrentGisung: 0, totalCumulativeGisung: 0 });
+
+      return {
         totalContractAmount,
         totalAdvance,
         totalGisungAmount: gisungStats.totalGisungAmount,
         totalPrevGisung: gisungStats.totalPrevGisung,
         totalCurrentGisung: gisungStats.totalCurrentGisung,
+        totalCumulativeGisung: gisungStats.totalCumulativeGisung,
         totalClaimAmount: claimStats.totalAmount || 0
       };
-      
-      console.log('최종 통계 결과:', result);
-      
-      return result;
     } catch (error) {
-      devError('통계 계산 오류:', error);
       return {
         totalContractAmount: 0,
         totalAdvance: 0,
         totalGisungAmount: 0,
         totalPrevGisung: 0,
         totalCurrentGisung: 0,
+        totalCumulativeGisung: 0,
         totalClaimAmount: 0
       };
     }
-  }, [currentMonth, viewType, sites, filteredAndSortedGisung, claimStats.totalAmount, selectedSites]);
+  }, [viewType, sites, filteredAndSortedGisung, claimStats.totalAmount]);
 
-  const handleExcelDownload = () => {
-    // 데이터가 없어도 기본 헤더를 포함한 데이터 생성
-    const data = filteredAndSortedGisung.length > 0 ? filteredAndSortedGisung.map(row => ({
-      '현장명': row.name,
-      '계약금액': formatContractAmount(row.contractAmount),
-      '선급금': formatAdvanceAmount(row.advance),
-      '전회기성': formatGisungAmount(row.prevGisung),
-      '기성월': row.gisungMonth || '-',
-      '기성금액': formatGisungAmount(row.gisungAmount),
-      '비고': row.note || '-',
-    })) : [
-      {
-        '현장명': '',
-        '계약금액': '',
-        '선급금': '',
-        '전회기성': '',
-        '기성월': '',
-        '기성금액': '',
-        '비고': ''
+  const handleExcelDownload = async () => {
+    try {
+      const currentSelectedSites = selectedSites && selectedSites.length > 0 ? selectedSites : selectedSitesInternal;
+      console.log('엑셀 다운로드 시작:', { 
+        viewType, 
+        currentSelectedSites, 
+        filteredAndSortedGisung: filteredAndSortedGisung.length,
+        sites: sites.length,
+        gisungList: gisungList.length
+      });
+      
+      if (viewType === 'site' && currentSelectedSites.length === 0) {
+        setSnackbar({
+          open: true,
+          message: '현장을 선택하거나 전체선택을 눌러주세요.',
+          severity: 'warning'
+        });
+        return;
       }
-    ];
+      
+      // 템플릿 파일 존재 여부 확인 (임시로 비활성화)
+      /*
+      try {
+        const templateRef = ref(storage, 'templates/gisung.xlsx');
+        await getDownloadURL(templateRef);
+        console.log('템플릿 파일 확인됨');
+      } catch (error) {
+        console.error('템플릿 파일 없음:', error);
+        setSnackbar({
+          open: true,
+          message: '템플릿 파일이 업로드되지 않았습니다. 관리자에게 문의하세요.',
+          severity: 'error'
+        });
+        return;
+      }
+      */
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(data);
-    
-    // 테두리 스타일 설정
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    for (let R = range.s.r; R <= range.e.r; ++R) {
-      for (let C = range.s.c; C <= range.e.c; ++C) {
-        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
-        if (!ws[cell_address]) {
-          ws[cell_address] = { v: '', t: 's' };
-        }
-        ws[cell_address].s = {
-          border: {
-            top: { style: 'thin', color: { rgb: '000000' } },
-            bottom: { style: 'thin', color: { rgb: '000000' } },
-            left: { style: 'thin', color: { rgb: '000000' } },
-            right: { style: 'thin', color: { rgb: '000000' } }
+      if (viewType === 'month') {
+        const monthStr = `${stableCurrentMonth.getFullYear()}-${String(stableCurrentMonth.getMonth() + 1).padStart(2, '0')}`;
+        const monthData = filteredAndSortedGisung.filter(row => {
+          return row.gisungMonth === monthStr;
+        });
+        
+        // 월별 뷰에서는 기존 방식 사용
+        if (monthData.length > 0) {
+          // 기성 데이터가 있으면 기존 방식으로 다운로드
+          for (const gisungItem of monthData) {
+            const site = sites.find(s => s.name === gisungItem.name);
+            if (site) {
+              const filename = `${site.name}_기성금청구서.xlsx`;
+              try {
+                console.log('현장 데이터:', site);
+                console.log('기성 데이터:', [gisungItem]);
+                
+                const siteItems = await fetchSiteItems(site.id);
+                console.log('물량내역 데이터:', siteItems);
+                
+                await downloadGisungExcel(site.name, [gisungItem], filename);
+                console.log('엑셀 다운로드 완료:', filename);
+              } catch (error) {
+                console.error('엑셀 생성 실패:', error);
+                
+                // 사용자 친화적인 오류 메시지
+                let userMessage = `엑셀 생성 실패: ${error.message}`;
+                
+                if (error.message.includes('다운로드')) {
+                  userMessage = '파일 다운로드에 실패했습니다. 브라우저 설정을 확인해주세요.';
+                } else if (error.message.includes('손상')) {
+                  userMessage = '파일이 손상되어 생성할 수 없습니다.';
+                } else if (error.message.includes('템플릿')) {
+                  userMessage = '템플릿 파일을 찾을 수 없습니다. 관리자에게 문의하세요.';
+                } else if (error.message.includes('메모리')) {
+                  userMessage = '메모리 부족으로 파일을 생성할 수 없습니다.';
+                }
+                
+                setSnackbar({
+                  open: true,
+                  message: userMessage,
+                  severity: 'error'
+                });
+              }
+            }
           }
-        };
+          
+          setSnackbar({
+            open: true,
+            message: `${monthText} 기성금청구서가 다운로드되었습니다.`,
+            severity: 'success'
+          });
+        } else {
+          setSnackbar({
+            open: true,
+            message: `${monthText}에 해당하는 기성 데이터가 없습니다.`,
+            severity: 'warning'
+          });
+        }
+        return;
       }
+      
+      if (viewType === 'site' && currentSelectedSites && currentSelectedSites.length > 0) {
+        // 전체선택인지 확인
+        const isAllSelected = currentSelectedSites.some(site => {
+          if (typeof site === 'string') {
+            return site === '전체선택' || site === 'all';
+          }
+          if (site && typeof site === 'object') {
+            return site.name === '전체선택' || site.id === 'all';
+          }
+          return false;
+        });
+        
+        if (isAllSelected) {
+          // 전체선택인 경우 모든 현장의 기성금청구서 생성
+          for (const site of sites) {
+            const siteGisungData = gisungList.filter(item => item.name === site.name);
+            if (siteGisungData.length > 0) {
+              const filename = `${site.name}_기성금청구서.xlsx`;
+              try {
+                const siteItems = await fetchSiteItems(site.id);
+                await downloadTemplateBasedGisungExcel(site, siteGisungData, siteItems, filename);
+              } catch (error) {
+                console.error('엑셀 생성 실패:', error);
+              }
+            }
+          }
+          
+          setSnackbar({
+            open: true,
+            message: '전체 현장 기성금청구서가 다운로드되었습니다.',
+            severity: 'success'
+          });
+        } else {
+          // 특정 현장이 선택된 경우
+          const selectedSiteNames = currentSelectedSites.map(site => {
+            if (typeof site === 'string') return site;
+            if (site && typeof site === 'object') return site.name;
+            return '';
+          }).filter(name => name !== '');
+          
+          for (const siteName of selectedSiteNames) {
+            const site = sites.find(s => s.name === siteName);
+            if (site) {
+              const siteGisungData = gisungList.filter(item => item.name === siteName);
+              const filename = `${site.name}_기성금청구서.xlsx`;
+              try {
+                const siteItems = await fetchSiteItems(site.id);
+                await downloadTemplateBasedGisungExcel(site, siteGisungData, siteItems, filename);
+              } catch (error) {
+                console.error('엑셀 생성 실패:', error);
+              }
+            }
+          }
+          
+          setSnackbar({
+            open: true,
+            message: '선택된 현장 기성금청구서가 다운로드되었습니다.',
+            severity: 'success'
+          });
+        }
+        return;
+      }
+      
+      // 기본 케이스
+      setSnackbar({
+        open: true,
+        message: '기성금청구서가 다운로드되었습니다.',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('엑셀 다운로드 실패:', error);
+      setSnackbar({
+        open: true,
+        message: '엑셀 다운로드에 실패했습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleIntegratedExcelDownload = async () => {
+    try {
+      const currentSelectedSites = selectedSites && selectedSites.length > 0 ? selectedSites : selectedSitesInternal;
+      if (viewType !== 'site' || !currentSelectedSites || currentSelectedSites.length === 0) {
+        setSnackbar({
+          open: true,
+          message: '현장별 탭에서 현장을 선택해주세요.',
+          severity: 'warning'
+        });
+        return;
+      }
+
+      const selectedSiteName = currentSelectedSites[0];
+      const selectedSiteData = sites.find(site => 
+        site.id === selectedSiteName || 
+        site.name === selectedSiteName
+      );
+      
+      if (!selectedSiteData) {
+        setSnackbar({ open: true, message: '현장을 선택해주세요.', severity: 'warning' });
+        return;
+      }
+
+      const siteGisungData = gisungList.filter(item => 
+        item.name === selectedSiteData.name || item.siteId === selectedSiteName
+      );
+      
+      await generateIntegratedGisungExcel(selectedSiteData.name, siteGisungData, selectedSiteData);
+      setSnackbar({ open: true, message: '통합 엑셀 파일이 다운로드되었습니다.', severity: 'success' });
+    } catch (error) {
+      console.error('통합 엑셀 다운로드 오류:', error);
+      setSnackbar({ open: true, message: '통합 엑셀 다운로드 중 오류가 발생했습니다.', severity: 'error' });
+    }
+  };
+
+  const handleExcelUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const parsedData = await parseGisungExcel(file);
+      console.log('파싱된 데이터:', parsedData);
+      
+      // 파싱된 데이터를 기성 데이터로 변환하여 저장
+      if (parsedData && parsedData.items && parsedData.items.length > 0) {
+        const siteName = parsedData.siteName || '업로드된 현장';
+        const gisungMonth = parsedData.gisungMonth || `${stableCurrentMonth.getFullYear()}-${String(stableCurrentMonth.getMonth() + 1).padStart(2, '0')}`;
+        
+        // 현장 정보 찾기
+        const site = sites.find(s => s.name === siteName);
+        if (!site) {
+          setSnackbar({
+            open: true,
+            message: '현장을 찾을 수 없습니다. 현장관리에서 먼저 현장을 등록해주세요.',
+            severity: 'warning'
+          });
+          return;
+        }
+        
+        // 기성 데이터 생성 (기본적으로 미청구 상태로 설정)
+        const gisungData = {
+          name: siteName,
+          siteId: site.id,
+          contractAmount: site.contractAmount || 0,
+          advance: site.advance || 0,
+          prevGisung: parsedData.summary?.totalPreviousAmount || 0,
+          gisungMonth: gisungMonth,
+          gisungAmount: parsedData.summary?.totalCurrentAmount || 0,
+          currentGisung: parsedData.summary?.totalCurrentAmount || 0,
+          note: '엑셀 업로드',
+          sequence: suggestNextSequence(siteName),
+          claimStatus: '미청구', // 기본적으로 미청구 상태로 설정
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        };
+        
+        // Firestore에 저장
+        const newDoc = await addDoc(collection(db, 'gisung'), gisungData);
+        
+        // 로컬 상태 업데이트
+        setGisungList(prev => [...prev, { ...gisungData, id: newDoc.id }]);
+        
+        // 현장 누계기성 업데이트
+        await updateSiteTotalProgress(siteName);
+        
+        setSnackbar({
+          open: true,
+          message: '엑셀 파일이 성공적으로 업로드되어 기성 데이터가 저장되었습니다.',
+          severity: 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: '엑셀 파일에서 유효한 데이터를 찾을 수 없습니다.',
+          severity: 'warning'
+        });
+      }
+    } catch (error) {
+      console.error('엑셀 업로드 실패:', error);
+      setSnackbar({
+        open: true,
+        message: '엑셀 파일 업로드에 실패했습니다.',
+        severity: 'error'
+      });
     }
     
-    XLSX.utils.book_append_sheet(wb, ws, '기성현황');
-    XLSX.writeFile(wb, `기성현황_${new Date().toISOString().split('T')[0]}.xlsx`);
+    // 파일 입력 초기화
+    event.target.value = '';
   };
 
   const updateSiteTotalProgress = useCallback(async (siteName) => {
@@ -522,7 +718,6 @@ const GisungStatusPage = ({
     try {
       const site = sites.find(s => s.name === siteName);
       if (!site) {
-        devError("업데이트할 현장을 찾을 수 없습니다:", siteName);
         return;
       }
 
@@ -534,26 +729,27 @@ const GisungStatusPage = ({
       await updateDoc(siteRef, {
         totalProgress: totalProgress
       });
-      devLog(`'${siteName}' 현장의 누계기성이 ${totalProgress}으로 업데이트되었습니다.`);
     } catch (e) {
-      devError("현장 누계기성 업데이트 실패:", e);
+      console.error("현장 누계기성 업데이트 실패:", e);
     }
   }, [sites]);
 
   const handleOpen = (item = null) => {
-    fetchAllGisung(); // 팝업 열 때마다 최신 DB fetch
     if (item) {
       setSelected(item);
+      // 현장 데이터에서 계약금액과 선급금 가져오기
+      const site = sites.find(s => s.name === item.name);
       setFormData({
         name: item.name || '',
-        contractAmount: item.contractAmount || '',
-        advance: item.advance || '',
+        contractAmount: site?.contractAmount || '',
+        advance: site?.advance || '',
         prevGisung: item.prevGisung || '',
         gisungMonth: item.gisungMonth || '',
         gisungAmount: item.gisungAmount || '',
         currentGisung: item.gisungAmount || '',
         paymentMethod: item.paymentMethod || '',
         note: item.note || '',
+        sequence: item.sequence || calculateSequence(item.name, item), // 기존 차수 또는 계산된 차수
       });
     } else {
       setSelected(null);
@@ -562,11 +758,12 @@ const GisungStatusPage = ({
         contractAmount: '',
         advance: '',
         prevGisung: '',
-        gisungMonth: viewType === 'month' ? `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}` : '',
+        gisungMonth: viewType === 'month' ? `${stableCurrentMonth.getFullYear()}-${String(stableCurrentMonth.getMonth() + 1).padStart(2, '0')}` : '',
         gisungAmount: '',
         currentGisung: '',
         paymentMethod: '',
         note: '',
+        sequence: '', // 자동으로 설정될 예정
       });
     }
     setOpen(true);
@@ -575,6 +772,13 @@ const GisungStatusPage = ({
   const handleClose = () => {
     setOpen(false);
     setSelected(null);
+    // 포커스를 안전한 곳으로 이동
+    setTimeout(() => {
+      const safeElement = document.querySelector('button, a, input, [tabindex]:not([tabindex="-1"])');
+      if (safeElement) {
+        safeElement.focus();
+      }
+    }, 100);
   };
 
   const handleSubmit = async () => {
@@ -583,6 +787,14 @@ const GisungStatusPage = ({
       const site = sites.find(s => s.name === formData.name);
       if (site) {
         formData.siteId = site.id;
+        // 현장 데이터의 계약금액과 선급금을 사용
+        formData.contractAmount = site.contractAmount;
+        formData.advance = site.advance;
+      }
+      
+      // 차수가 비어있으면 자동으로 설정
+      if (!formData.sequence && formData.name) {
+        formData.sequence = suggestNextSequence(formData.name);
       }
       
       // currentGisung을 gisungAmount로 매핑
@@ -596,17 +808,37 @@ const GisungStatusPage = ({
           ...dataToSave,
           updatedAt: serverTimestamp()
         });
+        
+        // 로컬 상태 업데이트
+        setGisungList(prev => prev.map(item => 
+          item.id === selected.id 
+            ? { ...item, ...dataToSave, updatedAt: new Date() }
+            : item
+        ));
       } else {
-        await addDoc(collection(db, 'gisung'), {
+        const newDoc = await addDoc(collection(db, 'gisung'), {
           ...dataToSave,
           createdAt: serverTimestamp()
         });
+        
+        // 로컬 상태에 새 항목 추가
+        setGisungList(prev => [...prev, { id: newDoc.id, ...dataToSave, createdAt: new Date() }]);
       }
       await updateSiteTotalProgress(formData.name);
       handleClose();
-      fetchGisung();
+      
+      setSnackbar({
+        open: true,
+        message: selected ? '기성이 수정되었습니다.' : '새 기성이 추가되었습니다.',
+        severity: 'success'
+      });
     } catch (e) {
       console.error(e);
+      setSnackbar({
+        open: true,
+        message: '저장 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
     }
   };
 
@@ -614,51 +846,84 @@ const GisungStatusPage = ({
     if (window.confirm('정말 삭제하시겠습니까?')) {
       try {
         await deleteDoc(doc(db, 'gisung', itemToDelete.id));
+        
+        // 로컬 상태에서 삭제
+        setGisungList(prev => prev.filter(item => item.id !== itemToDelete.id));
+        
         await updateSiteTotalProgress(itemToDelete.name);
-        fetchGisung();
       } catch (e) {
         console.error(e);
       }
     }
   };
 
-  // 현장명 선택 시 해당 현장의 누계기성(전회기성) 자동 합산
-  // 차수 계산 함수
+  // 차수 계산 함수 (테이블 표시용)
   const calculateSequence = (siteName, currentItem = null) => {
-    const siteGisungList = gisungList.filter(item => item.name === siteName);
+    if (!currentItem || !currentItem.gisungMonth) return '1차';
     
-    if (siteGisungList.length === 0) return '1차';
-    
-    // 같은 현장의 기성 데이터를 등록 순서대로 정렬
-    const sortedList = siteGisungList.sort((a, b) => {
-      const dateA = new Date(a.createdAt?.toDate?.() || a.createdAt || 0);
-      const dateB = new Date(b.createdAt?.toDate?.() || b.createdAt || 0);
-      return dateA - dateB;
-    });
-    
-    // 현재 항목의 인덱스 찾기
-    const currentIndex = sortedList.findIndex(item => 
-      currentItem && item.id === currentItem.id
-    );
-    
-    if (currentIndex === -1) {
-      // 현재 항목을 찾을 수 없는 경우, 전체 리스트에서 찾기
-      const allSortedList = gisungList.filter(item => item.name === siteName)
-        .sort((a, b) => {
-          const dateA = new Date(a.createdAt?.toDate?.() || a.createdAt || 0);
-          const dateB = new Date(b.createdAt?.toDate?.() || b.createdAt || 0);
-          return dateA - dateB;
-        });
-      
-      const allIndex = allSortedList.findIndex(item => 
-        currentItem && item.id === currentItem.id
-      );
-      
-      if (allIndex === -1) return '1차';
-      return `${allIndex + 1}차`;
+    // 저장된 차수가 있으면 그대로 사용
+    if (currentItem.sequence) {
+      return currentItem.sequence;
     }
     
+    // 차수가 없으면 기성월 순서로 계산
+    const siteGisungList = gisungList.filter(item => item.name === siteName);
+    const sortedList = siteGisungList
+      .filter(item => item.gisungMonth) // 기성월이 있는 항목만
+      .sort((a, b) => {
+        const dateA = new Date(a.gisungMonth);
+        const dateB = new Date(b.gisungMonth);
+        return dateA - dateB;
+      });
+    
+    const currentIndex = sortedList.findIndex(item => 
+      item.id === currentItem.id
+    );
+    
+    if (currentIndex === -1) return '1차';
     return `${currentIndex + 1}차`;
+  };
+
+  // 자동 차수 제안 함수 (새 기성 등록용)
+  const suggestNextSequence = (siteName) => {
+    if (!siteName) return '1차';
+    
+    const siteGisungList = gisungList.filter(item => item.name === siteName);
+    console.log('현장 기성 데이터:', siteGisungList);
+    
+    // 기존 차수들을 분석하여 다음 차수 제안
+    const existingSequences = siteGisungList
+      .map(item => item.sequence)
+      .filter(seq => seq) // 빈 값 제외
+      .sort((a, b) => {
+        // 숫자 부분만 추출하여 숫자로 정렬
+        const numA = parseInt(a.match(/(\d+)/)?.[1] || 0);
+        const numB = parseInt(b.match(/(\d+)/)?.[1] || 0);
+        return numA - numB;
+      });
+    
+    console.log('기존 차수들:', existingSequences);
+    
+    if (existingSequences.length === 0) {
+      console.log('기존 차수 없음, 1차 반환');
+      return '1차';
+    }
+    
+    // 마지막 차수 분석
+    const lastSequence = existingSequences[existingSequences.length - 1];
+    console.log('마지막 차수:', lastSequence);
+    
+    // 숫자만 추출
+    const match = lastSequence.match(/(\d+)/);
+    if (match) {
+      const lastNumber = parseInt(match[1]);
+      const nextSequence = `${lastNumber + 1}차`;
+      console.log('다음 차수 제안:', nextSequence);
+      return nextSequence;
+    }
+    
+    console.log('숫자 추출 실패, 1차 반환');
+    return '1차';
   };
 
   // 기성율 계산 함수 (총 기성금액 / 총 계약금액 * 100)
@@ -676,22 +941,294 @@ const GisungStatusPage = ({
     return Math.round((totalGisungAmount / contractAmount) * 100);
   };
 
-  const handleSiteChange = (e) => {
-    const siteName = e.target.value;
-    const selectedSite = sites.find(s => s.name === siteName);
-    // name 매칭을 trim, 대소문자 구분 없이 엄격하게
-    const siteGisungData = allGisungData.filter(
-      g => (g.name || '').trim().toLowerCase() === siteName.trim().toLowerCase()
-    );
-    const prevSum = siteGisungData.reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
-    setFormData({
-      ...formData,
-      name: siteName,
-      contractAmount: selectedSite?.contractAmount || '',
-      advance: selectedSite?.advance || '',
-      prevGisung: prevSum.toString(),
-    });
+  // 누계기성 계산 함수 (전회기성 + 금회기성)
+  const calculateCumulativeGisung = (row) => {
+    const prevGisung = parseFloat(row.prevGisung || 0);
+    const currentGisung = parseFloat(row.gisungAmount || 0);
+    return prevGisung + currentGisung;
   };
+
+  // 현장관리 물량 데이터 가져오기
+  const fetchSiteItems = async (siteId) => {
+    try {
+      // 현장관리에서 물량 데이터 가져오기
+      const site = sites.find(s => s.id === siteId);
+      if (!site) {
+        console.log('현장을 찾을 수 없습니다:', siteId);
+        return [];
+      }
+      
+      console.log('🔍 현장 데이터 확인:', {
+        name: site.name,
+        id: site.id,
+        hasItems: !!site.items,
+        hasMaterials: !!site.materials,
+        hasEstimates: !!site.estimates,
+        hasCosts: !!site.costs,
+        hasGisung: !!site.gisung
+      });
+      
+      // 1. site.items (기본 물량 데이터)
+      if (site.items && Array.isArray(site.items) && site.items.length > 0) {
+        console.log('✅ 현장 물량 데이터 (items):', site.items.length, '개 항목');
+        return site.items;
+      }
+      
+      // 2. site.materials (자재 데이터)
+      if (site.materials && Array.isArray(site.materials) && site.materials.length > 0) {
+        console.log('✅ 현장 자재 데이터 (materials):', site.materials.length, '개 항목');
+        return site.materials.map(material => ({
+          name: material.name || material.itemName || '',
+          specification: material.specification || material.spec || '',
+          unit: material.unit || '',
+          quantity: Number(material.quantity) || 0,
+          price: Number(material.unitPrice || material.price) || 0
+        }));
+      }
+      
+      // 3. site.estimates (견적 데이터)
+      if (site.estimates && Array.isArray(site.estimates) && site.estimates.length > 0) {
+        console.log('✅ 현장 견적 데이터 (estimates):', site.estimates.length, '개 항목');
+        return site.estimates.map(estimate => ({
+          name: estimate.item || estimate.name || '',
+          specification: estimate.specification || estimate.spec || '',
+          unit: estimate.unit || '',
+          quantity: Number(estimate.quantity) || 0,
+          price: Number(estimate.unitPrice || estimate.price) || 0
+        }));
+      }
+      
+      // 4. site.costs (비용 데이터)
+      if (site.costs && Array.isArray(site.costs) && site.costs.length > 0) {
+        console.log('✅ 현장 비용 데이터 (costs):', site.costs.length, '개 항목');
+        return site.costs.map(cost => ({
+          name: cost.name || cost.itemName || '',
+          specification: cost.specification || cost.spec || '',
+          unit: cost.unit || '',
+          quantity: Number(cost.quantity) || 0,
+          price: Number(cost.unitPrice || cost.price) || 0
+        }));
+      }
+      
+      // 5. site.gisung (기성 데이터에서 추출)
+      if (site.gisung && Array.isArray(site.gisung) && site.gisung.length > 0) {
+        console.log('✅ 현장 기성 데이터 (gisung):', site.gisung.length, '개 항목');
+        // 기성 데이터에서 물량 정보 추출
+        const gisungItems = site.gisung.map(g => ({
+          name: g.name || '기성항목',
+          specification: g.specification || '',
+          unit: g.unit || '',
+          quantity: Number(g.quantity) || 0,
+          price: Number(g.unitPrice || g.price) || 0
+        }));
+        return gisungItems;
+      }
+      
+      // 6. siteItems 컬렉션에서 현장별 물량데이터 조회 (새로운 구조)
+      try {
+        console.log('🔍 siteItems 컬렉션에서 물량 데이터 조회 시도...');
+        
+        const siteItemsQuery = query(
+          collection(db, 'siteItems'), 
+          where('siteId', '==', siteId),
+          orderBy('sequence', 'asc')
+        );
+        const siteItemsSnapshot = await getDocs(siteItemsQuery);
+        
+        if (!siteItemsSnapshot.empty) {
+          const siteItemsData = siteItemsSnapshot.docs.map(doc => doc.data());
+          console.log('✅ siteItems 컬렉션 데이터:', siteItemsData.length, '개 항목');
+          return siteItemsData.map(item => ({
+            name: item.name || '',
+            specification: item.specification || '',
+            unit: item.unit || '',
+            quantity: Number(item.quantity) || 0,
+            price: Number(item.unitPrice || item.price) || 0
+          }));
+        }
+      } catch (siteItemsError) {
+        console.log('❌ siteItems 조회 실패:', siteItemsError);
+      }
+      
+      // 7. 기존 컬렉션들에서 조회 (하위 호환성)
+      try {
+        console.log('🔍 기존 컬렉션에서 물량 데이터 조회 시도...');
+        
+        // estimates 컬렉션에서 현장별 데이터 조회
+        const estimatesQuery = query(collection(db, 'estimates'), where('siteId', '==', siteId));
+        const estimatesSnapshot = await getDocs(estimatesQuery);
+        if (!estimatesSnapshot.empty) {
+          const estimatesData = estimatesSnapshot.docs.map(doc => doc.data());
+          console.log('✅ Firestore estimates 데이터:', estimatesData.length, '개 항목');
+          return estimatesData.map(estimate => ({
+            name: estimate.name || estimate.itemName || '',
+            specification: estimate.specification || estimate.spec || '',
+            unit: estimate.unit || '',
+            quantity: Number(estimate.quantity) || 0,
+            price: Number(estimate.unitPrice || estimate.price) || 0
+          }));
+        }
+        
+        // costs 컬렉션에서 현장별 데이터 조회
+        const costsQuery = query(collection(db, 'costs'), where('siteId', '==', siteId));
+        const costsSnapshot = await getDocs(costsQuery);
+        if (!costsSnapshot.empty) {
+          const costsData = costsSnapshot.docs.map(doc => doc.data());
+          console.log('✅ Firestore costs 데이터:', costsData.length, '개 항목');
+          return costsData.map(cost => ({
+            name: cost.name || cost.itemName || '',
+            specification: cost.specification || cost.spec || '',
+            unit: cost.unit || '',
+            quantity: Number(cost.quantity) || 0,
+            price: Number(cost.unitPrice || cost.price) || 0
+          }));
+        }
+      } catch (firestoreError) {
+        console.log('❌ 기존 Firestore 조회 실패:', firestoreError);
+      }
+      
+      // 물량 데이터가 없는 경우 기본 템플릿 데이터 반환
+      console.log('⚠️ 현장 물량 데이터가 없음. 기본 템플릿 데이터 사용.');
+      return [
+        { name: '유리공사', specification: '일반유리', unit: 'M²', quantity: 100, price: 45000 },
+        { name: '샤시공사', specification: 'PVC샤시', unit: 'M²', quantity: 80, price: 65000 },
+        { name: '유리문공사', specification: '자동문', unit: '개', quantity: 2, price: 1500000 },
+        { name: '부자재', specification: '씰링,브라켓', unit: 'LOT', quantity: 1, price: 500000 },
+        { name: '운반비', specification: '현장운반', unit: '식', quantity: 1, price: 300000 },
+        { name: '기타', specification: '제잡비', unit: 'LOT', quantity: 1, price: 200000 },
+        { name: '단수정리', specification: '', unit: '', quantity: 1, price: -28000 }
+      ];
+    } catch (error) {
+      console.error('❌ 현장관리 물량 데이터 가져오기 실패:', error);
+      return [];
+    }
+  };
+
+  // 차수 정리 함수 (기존 데이터의 차수를 올바르게 재정렬)
+  const fixSequences = async () => {
+    try {
+      // 현장별로 그룹화
+      const sitesByName = {};
+      gisungList.forEach(item => {
+        if (!sitesByName[item.name]) {
+          sitesByName[item.name] = [];
+        }
+        sitesByName[item.name].push(item);
+      });
+
+      // 각 현장별로 차수 재정렬
+      for (const [siteName, siteItems] of Object.entries(sitesByName)) {
+        // 기성월 순서로 정렬
+        const sortedItems = siteItems
+          .filter(item => item.gisungMonth)
+          .sort((a, b) => {
+            const dateA = new Date(a.gisungMonth);
+            const dateB = new Date(b.gisungMonth);
+            return dateA - dateB;
+          });
+
+        // 차수 재할당
+        for (let i = 0; i < sortedItems.length; i++) {
+          const item = sortedItems[i];
+          const newSequence = `${i + 1}차`;
+          
+          if (item.sequence !== newSequence) {
+            await updateDoc(doc(db, 'gisung', item.id), {
+              sequence: newSequence,
+              updatedAt: serverTimestamp()
+            });
+            
+            // 로컬 상태 업데이트
+            setGisungList(prev => prev.map(gisung => 
+              gisung.id === item.id 
+                ? { ...gisung, sequence: newSequence, updatedAt: new Date() }
+                : gisung
+            ));
+          }
+        }
+      }
+
+      setSnackbar({
+        open: true,
+        message: '차수가 올바르게 정리되었습니다.',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('차수 정리 중 오류:', error);
+      setSnackbar({
+        open: true,
+        message: '차수 정리 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
+  // 특정 현장의 차수 정리 함수
+  const fixSiteSequences = async (siteName) => {
+    try {
+      const siteItems = gisungList.filter(item => item.name === siteName);
+      
+      if (siteItems.length === 0) {
+        setSnackbar({
+          open: true,
+          message: `${siteName} 현장의 데이터가 없습니다.`,
+          severity: 'warning'
+        });
+        return;
+      }
+
+      // 기성월 순서로 정렬
+      const sortedItems = siteItems
+        .filter(item => item.gisungMonth)
+        .sort((a, b) => {
+          const dateA = new Date(a.gisungMonth);
+          const dateB = new Date(b.gisungMonth);
+          return dateA - dateB;
+        });
+
+      console.log(`${siteName} 현장 정렬된 데이터:`, sortedItems);
+
+      // 차수 재할당
+      for (let i = 0; i < sortedItems.length; i++) {
+        const item = sortedItems[i];
+        const newSequence = `${i + 1}차`;
+        
+        console.log(`${item.gisungMonth}: ${item.sequence} → ${newSequence}`);
+        
+        if (item.sequence !== newSequence) {
+          await updateDoc(doc(db, 'gisung', item.id), {
+            sequence: newSequence,
+            updatedAt: serverTimestamp()
+          });
+          
+          // 로컬 상태 업데이트
+          setGisungList(prev => prev.map(gisung => 
+            gisung.id === item.id 
+              ? { ...gisung, sequence: newSequence, updatedAt: new Date() }
+              : gisung
+          ));
+        }
+      }
+
+      setSnackbar({
+        open: true,
+        message: `${siteName} 현장의 차수가 정리되었습니다.`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('차수 정리 중 오류:', error);
+      setSnackbar({
+        open: true,
+        message: '차수 정리 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
+
+
+  // 현장명 변경 시 자동 차수 설정
+
 
   const handlePaymentStatusChange = async (gisungId, newStatus) => {
     try {
@@ -758,13 +1295,15 @@ const GisungStatusPage = ({
         const deletePromises = selectedItems.map(id => deleteDoc(doc(db, 'gisung', id)));
         await Promise.all(deletePromises);
         
+        // 로컬 상태에서 삭제
+        setGisungList(prev => prev.filter(item => !selectedItems.includes(item.id)));
+        
         // 삭제된 항목들의 현장별로 누계기성 업데이트
         for (const siteName of siteNames) {
           await updateSiteTotalProgress(siteName);
         }
         
         setSelectedItems([]);
-        fetchGisung(); // 데이터 새로고침
       } catch (e) {
         console.error('일괄 삭제 실패:', e);
       }
@@ -791,40 +1330,61 @@ const GisungStatusPage = ({
   const getContractDetailData = useCallback(() => {
     if (viewType !== 'month') return [];
     
-    const currentMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+    const currentYear = stableCurrentMonth.getFullYear();
+    const currentMonthNum = stableCurrentMonth.getMonth() + 1;
     
-    return sites.filter(site => {
-      if (!site.startDate) return false;
-      
-      // 계약금액이 0원 이상인 현장만 포함
-      const contractAmount = Number(site.contractAmount || 0);
-      if (contractAmount <= 0) return false;
-      
-      try {
-        const startDate = typeof site.startDate === 'string' 
-          ? new Date(site.startDate) 
-          : site.startDate.toDate ? site.startDate.toDate() : site.startDate;
-        
-        const startMonthStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
-        
-        return startMonthStr === currentMonthStr;
-      } catch (e) {
+    console.log('🔍 계약현장 상세 데이터 계산:', {
+      currentYear,
+      currentMonthNum,
+      sitesCount: sites.length,
+      sites: sites.map(s => ({ name: s.name, startDate: s.startDate, endDate: s.endDate }))
+    });
+    
+    const filteredSites = sites.filter(site => {
+      if (!site.startDate || !site.endDate) {
+        console.log('❌ 날짜 정보 없음:', site.name);
         return false;
       }
-    }).map(site => ({
+      
+      try {
+        const startDate = new Date(site.startDate);
+        const endDate = new Date(site.endDate);
+        const currentDate = new Date(currentYear, currentMonthNum - 1, 1);
+        const nextMonthDate = new Date(currentYear, currentMonthNum, 1);
+        
+        // 공사기간이 해당 월과 겹치는지 확인
+        const isInRange = startDate < nextMonthDate && endDate >= currentDate;
+        console.log('🔍 현장 필터링:', {
+          name: site.name,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          currentDate: currentDate.toISOString(),
+          nextMonthDate: nextMonthDate.toISOString(),
+          isInRange
+        });
+        return isInRange;
+      } catch (e) {
+        console.log('❌ 날짜 파싱 오류:', site.name, e);
+        return false;
+      }
+    });
+    
+    console.log('✅ 필터링된 현장:', filteredSites.length, '개');
+    
+    return filteredSites.map(site => ({
       name: site.name,
       contractAmount: Number(site.contractAmount || 0),
       startDate: site.startDate,
       endDate: site.endDate,
       status: site.status || '진행중'
     }));
-  }, [sites, currentMonth, viewType]);
+  }, [stableCurrentMonth, viewType, sites]);
 
   // 선급금 상세 데이터 계산
   const getAdvanceDetailData = useCallback(() => {
     if (viewType !== 'month') return [];
     
-    const currentMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+    const currentMonthStr = `${stableCurrentMonth.getFullYear()}-${String(stableCurrentMonth.getMonth() + 1).padStart(2, '0')}`;
     
     return sites.filter(site => {
       if (!site.startDate) return false;
@@ -851,13 +1411,13 @@ const GisungStatusPage = ({
       endDate: site.endDate,
       status: site.status || '진행중'
     }));
-  }, [sites, currentMonth, viewType]);
+  }, [stableCurrentMonth, viewType]);
 
   // 청구예정 상세 데이터 계산
   const getClaimDetailData = useCallback(() => {
     if (viewType !== 'month') return [];
     
-    const currentMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+    const currentMonthStr = `${stableCurrentMonth.getFullYear()}-${String(stableCurrentMonth.getMonth() + 1).padStart(2, '0')}`;
     
     console.log('🔥 청구예정 상세 데이터 계산:', {
       currentMonthStr,
@@ -891,13 +1451,13 @@ const GisungStatusPage = ({
       paymentMethod: item.paymentMethod || '-',
       status: item.paymentStatus || '미결제'
     }));
-  }, [gisungList, currentMonth, viewType]);
+  }, [stableCurrentMonth, viewType]);
 
   // 기성금액 상세 데이터 계산
   const getGisungDetailData = useCallback(() => {
     if (viewType !== 'month') return [];
     
-    const currentMonthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+    const currentMonthStr = `${stableCurrentMonth.getFullYear()}-${String(stableCurrentMonth.getMonth() + 1).padStart(2, '0')}`;
     
     return gisungList.filter(item => {
       if (!item.gisungMonth) return false;
@@ -914,7 +1474,7 @@ const GisungStatusPage = ({
       paymentMethod: item.paymentMethod || '-',
       status: item.paymentStatus || '미결제'
     }));
-  }, [gisungList, currentMonth, viewType]);
+  }, [stableCurrentMonth, viewType]);
 
   // 계약금액 카드 클릭 핸들러
   const handleContractCardClick = () => {
@@ -952,8 +1512,10 @@ const GisungStatusPage = ({
     }
   };
 
+
+
   const StatCard = ({ title, value, color, onClick }) => (
-    <Grid item xs={3} sm={6} md={3}>
+    <Grid>
       <Card 
         sx={{ 
           p: isMobile ? 2 : 2, 
@@ -989,7 +1551,7 @@ const GisungStatusPage = ({
           color={color || '#43e97b'} 
           sx={{ 
             fontWeight: 'bold',
-            fontSize: isMobile ? '0.9rem' : 'inherit',
+            fontSize: isMobile ? '0.8rem' : '0.9rem',
             lineHeight: isMobile ? 1.1 : 'inherit'
           }}
         >
@@ -999,18 +1561,248 @@ const GisungStatusPage = ({
     </Grid>
   );
 
-  // 차트 데이터 계산 (계약금, 노무, 경비, 기타 순서)
-  const contractAmount = sites.find(site => site.id === selectedSite)?.contractAmount || 0;
-  const totalLabor = gisungList.filter(item => item.category === '노무비').reduce((sum, item) => sum + Number(item.amount), 0);
-  const totalExpense = gisungList.filter(item => item.category === '경비').reduce((sum, item) => sum + Number(item.amount), 0);
-  const totalEtc = gisungList.filter(item => item.category === '기타' || item.category === 'RnD').reduce((sum, item) => sum + Number(item.amount), 0);
+  // 차트 데이터 계산 (계약금, 노무, 경비, 기타 순서) - 현재 사용되지 않음
+  // const contractAmount = sites.find(site => site.id === selectedSite)?.contractAmount || 0;
+  // const totalLabor = gisungList.filter(item => item.category === '노무비').reduce((sum, item) => sum + Number(item.amount), 0);
+  // const totalExpense = gisungList.filter(item => item.category === '경비').reduce((sum, item) => sum + Number(item.amount), 0);
+  // const totalEtc = gisungList.filter(item => item.category === '기타' || item.category === 'RnD').reduce((sum, item) => sum + Number(item.amount), 0);
 
-  const chartData = [
-    { name: '계약금', value: contractAmount },
-    { name: '노무', value: totalLabor },
-    { name: '경비', value: totalExpense },
-    { name: '기타', value: totalEtc },
-  ];
+  // chartData는 현재 사용되지 않음 - 필요시 주석 해제
+  // const chartData = [
+  //   { name: '계약금', value: contractAmount },
+  //   { name: '노무', value: totalLabor },
+  //   { name: '경비', value: totalExpense },
+  //   { name: '기타', value: totalEtc },
+  // ];
+
+  // 청구상태 토글 함수
+  const toggleClaimStatus = async (gisungId, currentStatus) => {
+    try {
+      const newStatus = currentStatus === '청구완료' ? '미청구' : '청구완료';
+      await updateDoc(doc(db, 'gisung', gisungId), {
+        claimStatus: newStatus
+      });
+      
+      // 로컬 상태 업데이트
+      setGisungList(prev => prev.map(item => 
+        item.id === gisungId 
+          ? { ...item, claimStatus: newStatus }
+          : item
+      ));
+      
+      setSnackbar({
+        open: true,
+        message: `청구상태가 ${newStatus}로 변경되었습니다.`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('청구상태 업데이트 실패:', error);
+      setSnackbar({
+        open: true,
+        message: '청구상태 변경에 실패했습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
+  // 해당 월에 공사기간이 포함된 현장 개수 계산
+  const contractSiteCount = useMemo(() => {
+    if (viewType === 'month') {
+      // 월별: 해당 월에 공사기간이 포함된 모든 현장 개수
+      const currentYear = stableCurrentMonth.getFullYear();
+      const currentMonthNum = stableCurrentMonth.getMonth() + 1;
+      
+      console.log('🔍 계약현장 카운트 계산:', {
+        currentYear,
+        currentMonthNum,
+        sitesCount: sites.length
+      });
+      
+      const filteredSites = sites.filter(site => {
+        if (!site.startDate || !site.endDate) {
+          console.log('❌ 날짜 정보 없음 (카운트):', site.name);
+          return false;
+        }
+        
+        try {
+          const startDate = new Date(site.startDate);
+          const endDate = new Date(site.endDate);
+          const currentDate = new Date(currentYear, currentMonthNum - 1, 1);
+          const nextMonthDate = new Date(currentYear, currentMonthNum, 1);
+          
+          // 공사기간이 해당 월과 겹치는지 확인
+          const isInRange = startDate < nextMonthDate && endDate >= currentDate;
+          console.log('🔍 현장 필터링 (카운트):', {
+            name: site.name,
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            isInRange
+          });
+          return isInRange;
+        } catch (e) {
+          console.log('❌ 날짜 파싱 오류 (카운트):', site.name, e);
+          return false;
+        }
+      });
+      
+      console.log('✅ 필터링된 현장 (카운트):', filteredSites.length, '개');
+      return filteredSites.length;
+    } else if (viewType === 'site') {
+      // 현장별: 선택된 현장들 중 해당 월에 시작하는 현장 개수
+      const currentSelectedSites = selectedSites && selectedSites.length > 0 ? selectedSites : selectedSitesInternal;
+      if (!currentSelectedSites || currentSelectedSites.length === 0) {
+        return 0;
+      }
+      
+      const currentYear = stableCurrentMonth.getFullYear();
+      const currentMonthNum = stableCurrentMonth.getMonth() + 1;
+      
+      const isAllSelected = currentSelectedSites.some(site => {
+        if (typeof site === 'string') {
+          return site === '전체선택' || site === 'all';
+        }
+        if (site && typeof site === 'object') {
+          return site.name === '전체선택' || site.id === 'all';
+        }
+        return false;
+      });
+      
+      if (isAllSelected) {
+        // 전체선택: 전체 현장 중 해당 월에 시작하는 현장 개수
+        return sites.filter(site => {
+          if (site.startDate) {
+            const startDate = new Date(site.startDate);
+            return startDate.getFullYear() === currentYear && 
+                   startDate.getMonth() + 1 === currentMonthNum;
+          }
+          return false;
+        }).length;
+      } else {
+        // 특정 현장들: 선택된 현장들 중 해당 월에 시작하는 현장 개수
+        const selectedSiteNames = currentSelectedSites.map(site => 
+          typeof site === 'string' ? site : site.name
+        );
+        return sites.filter(site => {
+          if (selectedSiteNames.includes(site.name) && site.startDate) {
+            const startDate = new Date(site.startDate);
+            return startDate.getFullYear() === currentYear && 
+                   startDate.getMonth() + 1 === currentMonthNum;
+          }
+          return false;
+        }).length;
+      }
+    }
+    return 0;
+  }, [viewType, sites, gisungList]);
+
+  // 기성청구 건수 계산
+  const claimCount = useMemo(() => {
+    return gisungList.length; // 기성청구 건수
+  }, [gisungList]);
+
+  // 계약금액 통계 계산 (현장별 탭용)
+  const contractAmountStats = useMemo(() => {
+    if (viewType !== 'site') return { totalAmount: 0 };
+    
+    const currentSelectedSites = selectedSites && selectedSites.length > 0 ? selectedSites : selectedSitesInternal;
+    if (!currentSelectedSites || currentSelectedSites.length === 0) {
+      return { totalAmount: 0 };
+    }
+    
+    const totalAmount = sites
+      .filter(site => {
+        if (typeof currentSelectedSites[0] === 'string' && currentSelectedSites[0] === '전체선택') {
+          return true; // 전체선택인 경우 모든 현장 포함
+        }
+        return currentSelectedSites.some(selectedSite => 
+          typeof selectedSite === 'string' ? selectedSite === site.name : selectedSite.name === site.name
+        );
+      })
+      .reduce((sum, site) => {
+        const contractAmount = parseFloat(site.contractAmount) || 0;
+        return sum + contractAmount;
+      }, 0);
+    
+    return { totalAmount };
+  }, [viewType, sites, selectedSites, selectedSitesInternal]);
+
+  // 선급금 통계 계산 (현장별 탭용)
+  const advanceAmountStats = useMemo(() => {
+    if (viewType !== 'site') return { totalAmount: 0 };
+    
+    const currentSelectedSites = selectedSites && selectedSites.length > 0 ? selectedSites : selectedSitesInternal;
+    if (!currentSelectedSites || currentSelectedSites.length === 0) {
+      return { totalAmount: 0 };
+    }
+    
+    const totalAmount = sites
+      .filter(site => {
+        if (typeof currentSelectedSites[0] === 'string' && currentSelectedSites[0] === '전체선택') {
+          return true; // 전체선택인 경우 모든 현장 포함
+        }
+        return currentSelectedSites.some(selectedSite => 
+          typeof selectedSite === 'string' ? selectedSite === site.name : selectedSite.name === site.name
+        );
+      })
+      .reduce((sum, site) => {
+        const advanceAmount = parseFloat(site.advance) || 0;
+        return sum + advanceAmount;
+      }, 0);
+    
+    return { totalAmount };
+  }, [viewType, sites, selectedSites, selectedSitesInternal]);
+
+  // 청구예정 통계 계산 (현장별 탭용)
+  const claimAmountStats = useMemo(() => {
+    if (viewType !== 'site') return { totalAmount: 0 };
+    
+    const currentSelectedSites = selectedSites && selectedSites.length > 0 ? selectedSites : selectedSitesInternal;
+    if (!currentSelectedSites || currentSelectedSites.length === 0) {
+      return { totalAmount: 0 };
+    }
+    
+    const totalAmount = gisungList
+      .filter(item => {
+        if (typeof currentSelectedSites[0] === 'string' && currentSelectedSites[0] === '전체선택') {
+          return true; // 전체선택인 경우 모든 기성 포함
+        }
+        return currentSelectedSites.some(selectedSite => 
+          typeof selectedSite === 'string' ? selectedSite === item.siteName : selectedSite.name === item.siteName
+        );
+      })
+      .reduce((sum, item) => {
+        const claimAmount = parseFloat(item.claimAmount) || 0;
+        return sum + claimAmount;
+      }, 0);
+    
+    return { totalAmount };
+  }, [viewType, gisungList, selectedSites, selectedSitesInternal]);
+
+  // 금회기성 통계 계산 (현장별 탭용)
+  const gisungAmountStats = useMemo(() => {
+    if (viewType !== 'site') return { totalAmount: 0 };
+    
+    const currentSelectedSites = selectedSites && selectedSites.length > 0 ? selectedSites : selectedSitesInternal;
+    if (!currentSelectedSites || currentSelectedSites.length === 0) {
+      return { totalAmount: 0 };
+    }
+    
+    const totalAmount = gisungList
+      .filter(item => {
+        if (typeof currentSelectedSites[0] === 'string' && currentSelectedSites[0] === '전체선택') {
+          return true; // 전체선택인 경우 모든 기성 포함
+        }
+        return currentSelectedSites.some(selectedSite => 
+          typeof selectedSite === 'string' ? selectedSite === item.siteName : selectedSite.name === item.siteName
+        );
+      })
+      .reduce((sum, item) => {
+        const gisungAmount = parseFloat(item.currentGisung) || 0;
+        return sum + gisungAmount;
+      }, 0);
+    
+    return { totalAmount };
+  }, [viewType, gisungList, selectedSites, selectedSitesInternal]);
 
   return (
     <Box sx={{ 
@@ -1026,38 +1818,63 @@ const GisungStatusPage = ({
         mt: isMobile ? '20px' : 0,
         justifyContent: isMobile ? 'center' : 'flex-start'
       }}>
-        <Grid item xs={6} sm={3}>
-          <StatCard
-            title="계약금액"
-            value={formatContractAmount(stats.totalContractAmount)}
-            color="#3b82f6"
-            onClick={handleContractCardClick}
-          />
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <StatCard
-            title="선급금"
-            value={formatAdvanceAmount(stats.totalAdvance)}
-            color="#f59e0b"
-            onClick={handleAdvanceCardClick}
-          />
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <StatCard
-            title="청구예정"
-            value={formatGisungAmount(stats.totalClaimAmount)}
-            color="#ef4444"
-            onClick={handleClaimCardClick}
-          />
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <StatCard
-            title="기성금액"
-            value={formatGisungAmount(stats.totalGisungAmount)}
-            color="#10b981"
-            onClick={handleGisungCardClick}
-          />
-        </Grid>
+        {viewType === 'month' ? (
+          // 월별 탭: 계약현장, 청구건수
+          <>
+            <Grid>
+              <StatCard
+                title="계약현장"
+                value={contractSiteCount}
+                color="#3b82f6"
+                onClick={handleContractCardClick}
+              />
+            </Grid>
+            <Grid>
+              <StatCard
+                title="청구건수"
+                value={claimCount}
+                color="#ef4444"
+                onClick={handleClaimCardClick}
+              />
+            </Grid>
+          </>
+        ) : (
+          // 현장별 탭: 계약금액, 선급금, 청구예정, 금회기성
+          <>
+            <Grid>
+              <StatCard
+                title="계약금액"
+                value={contractAmountStats.totalAmount.toLocaleString() + '원'}
+                color="#3b82f6"
+                onClick={handleContractCardClick}
+              />
+            </Grid>
+            <Grid>
+              <StatCard
+                title="선급금"
+                value={advanceAmountStats.totalAmount.toLocaleString() + '원'}
+                color="#f59e0b"
+                onClick={handleAdvanceCardClick}
+              />
+            </Grid>
+            <Grid>
+              <StatCard
+                title="청구예정"
+                value={claimAmountStats.totalAmount.toLocaleString() + '원'}
+                color="#ef4444"
+                onClick={handleClaimCardClick}
+              />
+            </Grid>
+            <Grid>
+              <StatCard
+                title="금회기성"
+                value={gisungAmountStats.totalAmount.toLocaleString() + '원'}
+                color="#10b981"
+                onClick={handleGisungCardClick}
+              />
+            </Grid>
+          </>
+        )}
       </Grid>
 
       {/* 검색 및 버튼들 */}
@@ -1066,77 +1883,121 @@ const GisungStatusPage = ({
         gap: 2, 
         mb: 3, 
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-end',
         flexDirection: isMobile ? 'column' : 'row'
       }}>
         
-        {/* 검색 */}
-        <TextField
-          placeholder="현장명, 기성월, 비고 검색"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          size="small"
-          sx={{ 
-            minWidth: isMobile ? '100%' : '300px',
-            '& .MuiOutlinedInput-root': {
-              bgcolor: '#232b3b',
-              color: '#fff',
-              '& fieldset': {
-                borderColor: '#444',
-              },
-              '&:hover fieldset': {
-                borderColor: '#666',
-              },
-              '&.Mui-focused fieldset': {
-                borderColor: '#3b82f6',
-              },
-            },
-            '& .MuiInputLabel-root': {
-              color: '#ccc',
-            },
-            '& .MuiInputBase-input': {
-              color: '#fff',
-            },
-          }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ color: '#ccc' }} />
-              </InputAdornment>
-            ),
-          }}
-        />
+
         
         {/* 버튼들 */}
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
+          <Button 
+            variant="contained" 
+            color="success" 
+            startIcon={<AddIcon />} 
             onClick={() => handleOpen()}
-            sx={{
-              bgcolor: '#3b82f6',
-              '&:hover': { bgcolor: '#2563eb' },
-              fontSize: isMobile ? '0.8rem' : '0.875rem',
-              px: isMobile ? 1 : 2
-            }}
+            sx={{ ml: 1 }}
           >
-            새 기성
+            기성등록
           </Button>
           
+
+          
+
+          
           {!isMobile && (
-            <Button
-              variant="outlined"
-              startIcon={<CloudDownloadIcon />}
-              onClick={handleExcelDownload}
-              sx={{
-                borderColor: '#666',
-                color: '#fff',
-                '&:hover': { borderColor: '#888' },
-                fontSize: '0.875rem'
-              }}
-            >
-              엑셀 다운로드
-            </Button>
+            <>
+              <Button
+                variant="outlined"
+                startIcon={<CloudDownloadIcon />}
+                onClick={handleExcelDownload}
+                sx={{
+                  borderColor: '#666',
+                  color: '#fff',
+                  '&:hover': { borderColor: '#888' },
+                  fontSize: '0.875rem'
+                }}
+              >
+                엑셀 다운로드
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<UploadIcon />}
+                component="label"
+                sx={{
+                  borderColor: '#666',
+                  color: '#fff',
+                  '&:hover': { borderColor: '#888' },
+                  fontSize: '0.875rem'
+                }}
+              >
+                엑셀 업로드
+                <input
+                  id="excel-upload"
+                  name="excelFile"
+                  type="file"
+                  accept=".xlsx,.xls"
+                  style={{ display: 'none' }}
+                  onChange={handleExcelUpload}
+                />
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<CloudDownloadIcon />}
+                onClick={async () => {
+                  try {
+                    await migrateSiteItems();
+                    setSnackbar({
+                      open: true,
+                      message: '물량데이터 마이그레이션이 완료되었습니다.',
+                      severity: 'success'
+                    });
+                  } catch (error) {
+                    setSnackbar({
+                      open: true,
+                      message: '마이그레이션 중 오류가 발생했습니다.',
+                      severity: 'error'
+                    });
+                  }
+                }}
+                sx={{
+                  borderColor: '#ff9800',
+                  color: '#ff9800',
+                  '&:hover': { borderColor: '#f57c00' },
+                  fontSize: '0.875rem'
+                }}
+              >
+                물량데이터 마이그레이션
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<CloudDownloadIcon />}
+                onClick={async () => {
+                  try {
+                    await migrateSiteCodes();
+                    setSnackbar({
+                      open: true,
+                      message: '고유번호 마이그레이션이 완료되었습니다.',
+                      severity: 'success'
+                    });
+                  } catch (error) {
+                    setSnackbar({
+                      open: true,
+                      message: '마이그레이션 중 오류가 발생했습니다.',
+                      severity: 'error'
+                    });
+                  }
+                }}
+                sx={{
+                  borderColor: '#4caf50',
+                  color: '#4caf50',
+                  '&:hover': { borderColor: '#45a049' },
+                  fontSize: '0.875rem'
+                }}
+              >
+                고유번호 마이그레이션
+              </Button>
+            </>
           )}
           
           {selectedItems.length > 0 && (
@@ -1157,6 +2018,37 @@ const GisungStatusPage = ({
         </Box>
       </Box>
 
+      {/* 현장 선택 상태 안내 */}
+      {viewType === 'site' && (() => {
+        const currentSelectedSites = selectedSites && selectedSites.length > 0 ? selectedSites : selectedSitesInternal;
+        return (
+          <Box sx={{ mb: 2, p: 2, bgcolor: '#1a1a1a', borderRadius: 2, border: '1px solid #444' }}>
+            {currentSelectedSites.length === 0 ? (
+              <Typography variant="body2" sx={{ color: '#ff9800', fontWeight: 500 }}>
+                ⚠️ 현장을 선택하거나 전체선택을 눌러주세요
+              </Typography>
+            ) : (
+              <Typography variant="body2" sx={{ color: '#90caf9', fontWeight: 500 }}>
+                📍 선택된 현장: <strong>
+                  {currentSelectedSites.some(site => 
+                    (typeof site === 'string' && site === '전체선택') ||
+                    (typeof site === 'object' && site.name === '전체선택')
+                  ) ? '전체 현장' : 
+                  currentSelectedSites.map(site => 
+                    typeof site === 'string' ? site : site.name
+                  ).join(', ')
+                }</strong>
+                {filteredAndSortedGisung.length > 0 && (
+                  <span style={{ color: '#4caf50', marginLeft: 8 }}>
+                    ({filteredAndSortedGisung.length}개 데이터)
+                  </span>
+                )}
+              </Typography>
+            )}
+          </Box>
+        );
+      })()}
+
       {/* 데이터 테이블 */}
       <Paper sx={{ bgcolor: '#232b3b', color: '#fff' }}>
         <TableContainer>
@@ -1171,22 +2063,29 @@ const GisungStatusPage = ({
                     sx={{ color: '#666', '&.Mui-checked': { color: '#3b82f6' } }}
                   />
                 </TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>현장명</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>계약금액</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>선급금</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>이전 기성</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>기성월</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>기성금액</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>현재 기성</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>비고</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 600 }}>작업</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>고유번호</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>현장명</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>계약금액</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>선급금</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>전회기성</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>기성월</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>차수</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>금회기성</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>누계기성</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>비고</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>청구완료</TableCell>
+                <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>작업</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredAndSortedGisung.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} sx={{ textAlign: 'center', color: '#ccc', py: 4 }}>
-                    데이터가 없습니다.
+                  <TableCell colSpan={11} sx={{ textAlign: 'center', color: '#ccc', py: 4 }}>
+                    {viewType === 'site' && (selectedSites && selectedSites.length > 0 ? selectedSites : selectedSitesInternal).length === 0 
+                      ? '현장을 선택하거나 전체선택을 눌러주세요' 
+                      : viewType === 'site' && (selectedSites && selectedSites.length > 0 ? selectedSites : selectedSitesInternal).length > 0
+                      ? '선택된 현장의 데이터가 없습니다'
+                      : '데이터가 없습니다.'}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -1199,14 +2098,53 @@ const GisungStatusPage = ({
                         sx={{ color: '#666', '&.Mui-checked': { color: '#3b82f6' } }}
                       />
                     </TableCell>
-                    <TableCell sx={{ color: '#fff' }}>{row.name || '-'}</TableCell>
-                    <TableCell sx={{ color: '#fff' }}>{formatContractAmount(row.contractAmount)}</TableCell>
-                    <TableCell sx={{ color: '#fff' }}>{formatAdvanceAmount(row.advance)}</TableCell>
-                    <TableCell sx={{ color: '#fff' }}>{formatGisungAmount(row.prevGisung)}</TableCell>
-                    <TableCell sx={{ color: '#fff' }}>{row.gisungMonth || '-'}</TableCell>
-                    <TableCell sx={{ color: '#fff' }}>{formatGisungAmount(row.gisungAmount)}</TableCell>
-                    <TableCell sx={{ color: '#fff' }}>{formatGisungAmount(row.currentGisung)}</TableCell>
-                    <TableCell sx={{ color: '#fff' }}>{row.note || '-'}</TableCell>
+                    <TableCell sx={{ color: '#fff', fontSize: '1rem' }}>
+                      {(() => {
+                        const site = sites.find(s => s.name === row.name);
+                        return site?.siteCode ? (
+                          <Chip
+                            label={site.siteCode}
+                            size="small"
+                            sx={{
+                              backgroundColor: '#2196f3',
+                              color: 'white',
+                              fontSize: '0.75rem',
+                              fontWeight: 'bold'
+                            }}
+                          />
+                        ) : (
+                          <span style={{ color: '#f44336' }}>미지정</span>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell sx={{ color: '#fff', fontSize: '1rem' }}>{row.name || '-'}</TableCell>
+                    <TableCell sx={{ color: '#fff', fontSize: '1rem' }}>{formatContractAmount(sites.find(site => site.name === row.name)?.contractAmount || row.contractAmount)}</TableCell>
+                    <TableCell sx={{ color: '#fff', fontSize: '1rem' }}>{formatAdvanceAmount(row.advance)}</TableCell>
+                    <TableCell sx={{ color: '#fff', fontSize: '1rem' }}>{formatGisungAmount(row.prevGisung)}</TableCell>
+                    <TableCell sx={{ color: '#fff', fontSize: '1rem' }}>{row.gisungMonth || '-'}</TableCell>
+                    <TableCell sx={{ color: '#fff', fontSize: '1rem' }}>{calculateSequence(row.name, row)}</TableCell>
+                    <TableCell sx={{ color: '#ef5350', fontWeight: 600, fontSize: '1rem' }}>{formatGisungAmount(row.gisungAmount)}</TableCell>
+                    <TableCell sx={{ color: '#ff9800', fontWeight: 600, fontSize: '1rem' }}>{formatGisungAmount(calculateCumulativeGisung(row))}</TableCell>
+                    <TableCell sx={{ color: '#fff', fontSize: '1rem' }}>{row.note || '-'}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={row.claimStatus || '미청구'}
+                        color={row.claimStatus === '청구완료' ? 'success' : 'default'}
+                        onClick={() => toggleClaimStatus(row.id, row.claimStatus)}
+                        sx={{ 
+                          cursor: 'pointer',
+                          color: '#fff',
+                          '&.MuiChip-colorSuccess': {
+                            bgcolor: '#4caf50',
+                            color: '#fff'
+                          },
+                          '&.MuiChip-colorDefault': {
+                            bgcolor: '#666',
+                            color: '#fff'
+                          }
+                        }}
+                      />
+                    </TableCell>
                     <TableCell>
                       <IconButton
                         onClick={() => handleOpen(row)}
@@ -1232,17 +2170,34 @@ const GisungStatusPage = ({
       </Paper>
 
       {/* 다이얼로그 */}
-      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+      <Dialog 
+        open={open} 
+        onClose={handleClose} 
+        maxWidth="md" 
+        fullWidth
+        disableRestoreFocus
+        disableAutoFocus
+        keepMounted={false}
+      >
         <DialogTitle sx={{ bgcolor: '#1a1d21', color: '#fff', borderBottom: '1px solid #444' }}>
-          {selected ? '기성 수정' : '새 기성 추가'}
+          {selected ? '기성 수정' : '새 기성 등록'}
         </DialogTitle>
         <DialogContent sx={{ bgcolor: '#1a1d21', color: '#fff' }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 2, mt: 2 }}>
-            <TextField
-              label="현장명"
+            <SearchableSiteSelect
+              sites={sites}
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              fullWidth
+              onChange={(newValue) => {
+                setFormData({ ...formData, name: newValue });
+                // 현장명이 변경되면 자동으로 다음 차수 제안
+                if (newValue) {
+                  const nextSequence = suggestNextSequence(newValue);
+                  setFormData(prev => ({ ...prev, sequence: nextSequence }));
+                }
+              }}
+              label="현장명"
+              placeholder="현장명을 입력하여 검색하세요"
+              isMobile={isMobile}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   bgcolor: '#232b3b',
@@ -1255,11 +2210,32 @@ const GisungStatusPage = ({
               }}
             />
             <TextField
+              id="gisung-sequence"
+              name="sequence"
+              label="차수"
+              value={formData.sequence}
+              onChange={(e) => setFormData({ ...formData, sequence: e.target.value })}
+              fullWidth
+              placeholder="예: 1차, 2차, 1-1차, 1-2차 등"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#232b3b',
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+              }}
+            />
+            <TextField
+              id="gisung-contract-amount"
+              name="contractAmount"
               label="계약금액"
-              value={formData.contractAmount}
-              onChange={(e) => setFormData({ ...formData, contractAmount: e.target.value })}
+              value={sites.find(site => site.name === formData.name)?.contractAmount || ''}
               fullWidth
               type="number"
+              disabled
               sx={{
                 '& .MuiOutlinedInput-root': {
                   bgcolor: '#232b3b',
@@ -1269,9 +2245,13 @@ const GisungStatusPage = ({
                   '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
                 },
                 '& .MuiInputLabel-root': { color: '#ccc' },
+                '& .MuiInputBase-input': { color: '#888' },
               }}
+              helperText="현장 데이터에서 자동으로 가져옵니다"
             />
             <TextField
+              id="gisung-advance"
+              name="advance"
               label="선급금"
               value={formData.advance}
               onChange={(e) => setFormData({ ...formData, advance: e.target.value })}
@@ -1289,7 +2269,9 @@ const GisungStatusPage = ({
               }}
             />
             <TextField
-              label="이전 기성"
+              id="gisung-prev-gisung"
+              name="prevGisung"
+              label="전회기성"
               value={formData.prevGisung}
               onChange={(e) => setFormData({ ...formData, prevGisung: e.target.value })}
               fullWidth
@@ -1306,6 +2288,8 @@ const GisungStatusPage = ({
               }}
             />
             <TextField
+              id="gisung-month"
+              name="gisungMonth"
               label="기성월"
               value={formData.gisungMonth}
               onChange={(e) => setFormData({ ...formData, gisungMonth: e.target.value })}
@@ -1323,7 +2307,9 @@ const GisungStatusPage = ({
               }}
             />
             <TextField
-              label="기성금액"
+              id="gisung-amount"
+              name="gisungAmount"
+              label="금회기성"
               value={formData.gisungAmount}
               onChange={(e) => setFormData({ ...formData, gisungAmount: e.target.value })}
               fullWidth
@@ -1340,6 +2326,8 @@ const GisungStatusPage = ({
               }}
             />
             <TextField
+              id="gisung-current"
+              name="currentGisung"
               label="현재 기성"
               value={formData.currentGisung}
               onChange={(e) => setFormData({ ...formData, currentGisung: e.target.value })}
@@ -1357,6 +2345,8 @@ const GisungStatusPage = ({
               }}
             />
             <TextField
+              id="gisung-note"
+              name="note"
               label="비고"
               value={formData.note}
               onChange={(e) => setFormData({ ...formData, note: e.target.value })}
@@ -1385,6 +2375,226 @@ const GisungStatusPage = ({
           </Button>
         </DialogActions>
       </Dialog>
+      
+      {/* 계약금액 상세 모달 */}
+      <Dialog 
+        open={contractDetailModal} 
+        onClose={() => setContractDetailModal(false)}
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: '#1a1d21', color: '#fff', borderBottom: '1px solid #444' }}>
+          계약금액 상세 내역
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: '#1a1d21', color: '#fff' }}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>현장명</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>계약금액</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>시작일</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>종료일</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>상태</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {contractDetailData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} sx={{ textAlign: 'center', color: '#ccc', py: 4 }}>
+                      데이터가 없습니다.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  contractDetailData.map((item, index) => (
+                    <TableRow key={index} hover>
+                      <TableCell sx={{ color: '#fff' }}>{item.name}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{formatContractAmount(item.contractAmount)}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{item.startDate ? new Date(item.startDate).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{item.endDate ? new Date(item.endDate).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{item.status}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: '#1a1d21', borderTop: '1px solid #444' }}>
+          <Button onClick={() => setContractDetailModal(false)} sx={{ color: '#ccc' }}>
+            닫기
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 선급금 상세 모달 */}
+      <Dialog 
+        open={advanceDetailModal} 
+        onClose={() => setAdvanceDetailModal(false)}
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: '#1a1d21', color: '#fff', borderBottom: '1px solid #444' }}>
+          선급금 상세 내역
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: '#1a1d21', color: '#fff' }}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>현장명</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>선급금</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>시작일</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>종료일</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>상태</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {advanceDetailData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} sx={{ textAlign: 'center', color: '#ccc', py: 4 }}>
+                      데이터가 없습니다.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  advanceDetailData.map((item, index) => (
+                    <TableRow key={index} hover>
+                      <TableCell sx={{ color: '#fff' }}>{item.name}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{formatAdvanceAmount(item.advance)}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{item.startDate ? new Date(item.startDate).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{item.endDate ? new Date(item.endDate).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{item.status}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: '#1a1d21', borderTop: '1px solid #444' }}>
+          <Button onClick={() => setAdvanceDetailModal(false)} sx={{ color: '#ccc' }}>
+            닫기
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 청구예정 상세 모달 */}
+      <Dialog 
+        open={claimDetailModal} 
+        onClose={() => setClaimDetailModal(false)}
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: '#1a1d21', color: '#fff', borderBottom: '1px solid #444' }}>
+          청구예정 상세 내역
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: '#1a1d21', color: '#fff' }}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>현장명</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>청구금액</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>기성월</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>결제방법</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>상태</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {claimDetailData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} sx={{ textAlign: 'center', color: '#ccc', py: 4 }}>
+                      데이터가 없습니다.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  claimDetailData.map((item, index) => (
+                    <TableRow key={index} hover>
+                      <TableCell sx={{ color: '#fff' }}>{item.name}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{formatGisungAmount(item.claimAmount)}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{item.gisungMonth}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{item.paymentMethod}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{item.status}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: '#1a1d21', borderTop: '1px solid #444' }}>
+          <Button onClick={() => setClaimDetailModal(false)} sx={{ color: '#ccc' }}>
+            닫기
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 기성금액 상세 모달 */}
+      <Dialog 
+        open={gisungDetailModal} 
+        onClose={() => setGisungDetailModal(false)}
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: '#1a1d21', color: '#fff', borderBottom: '1px solid #444' }}>
+          기성금액 상세 내역
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: '#1a1d21', color: '#fff' }}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>현장명</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>기성금액</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>기성월</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>결제방법</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 600 }}>상태</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {gisungDetailData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} sx={{ textAlign: 'center', color: '#ccc', py: 4 }}>
+                      데이터가 없습니다.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  gisungDetailData.map((item, index) => (
+                    <TableRow key={index} hover>
+                      <TableCell sx={{ color: '#fff' }}>{item.name}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{formatGisungAmount(item.gisungAmount)}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{item.gisungMonth}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{item.paymentMethod}</TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{item.status}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: '#1a1d21', borderTop: '1px solid #444' }}>
+          <Button onClick={() => setGisungDetailModal(false)} sx={{ color: '#ccc' }}>
+            닫기
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
