@@ -625,14 +625,26 @@ const SiteManagement = () => {
       boxSizing: 'border-box',
       mt: isMobile ? 0 : '130px'
     }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: isMobile ? 2 : 3,
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: isMobile ? 2 : 0
+      }}>
+        <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 'bold' }}>
           현장 관리
         </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => handleOpenDialog()}
+          fullWidth={isMobile}
+          sx={{
+            minHeight: isMobile ? '48px' : 'auto',
+            fontSize: isMobile ? '1rem' : '0.875rem'
+          }}
         >
           새 현장 등록
         </Button>
@@ -644,61 +656,158 @@ const SiteManagement = () => {
         </Alert>
       )}
 
-      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-        <Table sx={{ '& .MuiTableCell-root': { borderBottom: '1px solid #e0e0e0' } }}>
+      <TableContainer component={Paper} sx={{ 
+        overflowX: 'auto',
+        '& .MuiTable-root': {
+          minWidth: isMobile ? '100%' : 'auto'
+        }
+      }}>
+        <Table sx={{ 
+          '& .MuiTableCell-root': { 
+            borderBottom: '1px solid #e0e0e0',
+            padding: isMobile ? '8px 4px' : '16px',
+            fontSize: isMobile ? '0.75rem' : '0.875rem'
+          }
+        }}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>고유번호</TableCell>
-              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>현장명</TableCell>
-              {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>주소</TableCell>}
-              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>담당자</TableCell>
-              {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>연락처</TableCell>}
-              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>계약구분</TableCell>
-              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>상태</TableCell>
-              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>견적</TableCell>
-              {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>시작일</TableCell>}
-              {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>종료일</TableCell>}
-              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>관리</TableCell>
+              <TableCell sx={{ 
+                height: isMobile ? '50px' : '60px', 
+                verticalAlign: 'middle',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '0.7rem' : '0.875rem'
+              }}>고유번호</TableCell>
+              <TableCell sx={{ 
+                height: isMobile ? '50px' : '60px', 
+                verticalAlign: 'middle',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '0.7rem' : '0.875rem'
+              }}>현장명</TableCell>
+              {!isMobile && <TableCell sx={{ 
+                height: '60px', 
+                verticalAlign: 'middle',
+                fontWeight: 'bold'
+              }}>주소</TableCell>}
+              <TableCell sx={{ 
+                height: isMobile ? '50px' : '60px', 
+                verticalAlign: 'middle',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '0.7rem' : '0.875rem'
+              }}>담당자</TableCell>
+              {!isMobile && <TableCell sx={{ 
+                height: '60px', 
+                verticalAlign: 'middle',
+                fontWeight: 'bold'
+              }}>연락처</TableCell>}
+              <TableCell sx={{ 
+                height: isMobile ? '50px' : '60px', 
+                verticalAlign: 'middle',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '0.7rem' : '0.875rem'
+              }}>계약구분</TableCell>
+              <TableCell sx={{ 
+                height: isMobile ? '50px' : '60px', 
+                verticalAlign: 'middle',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '0.7rem' : '0.875rem'
+              }}>상태</TableCell>
+              <TableCell sx={{ 
+                height: isMobile ? '50px' : '60px', 
+                verticalAlign: 'middle',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '0.7rem' : '0.875rem'
+              }}>견적</TableCell>
+              {!isMobile && <TableCell sx={{ 
+                height: '60px', 
+                verticalAlign: 'middle',
+                fontWeight: 'bold'
+              }}>시작일</TableCell>}
+              {!isMobile && <TableCell sx={{ 
+                height: '60px', 
+                verticalAlign: 'middle',
+                fontWeight: 'bold'
+              }}>종료일</TableCell>}
+              <TableCell sx={{ 
+                height: isMobile ? '50px' : '60px', 
+                verticalAlign: 'middle',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '0.7rem' : '0.875rem'
+              }}>관리</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {sites.map((site) => (
               <TableRow key={site.id}>
-                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>
+                <TableCell sx={{ 
+                  height: isMobile ? '50px' : '60px', 
+                  verticalAlign: 'middle',
+                  fontSize: isMobile ? '0.7rem' : '0.875rem'
+                }}>
                   <Chip
                     label={site.siteCode || '미지정'}
                     size="small"
                     sx={{
                       backgroundColor: site.siteCode ? '#2196f3' : '#f44336',
                       color: 'white',
-                      fontSize: '0.75rem',
-                      fontWeight: 'bold'
+                      fontSize: isMobile ? '0.6rem' : '0.75rem',
+                      fontWeight: 'bold',
+                      height: isMobile ? '20px' : '24px'
                     }}
                   />
                 </TableCell>
-                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.name}</TableCell>
-                {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.address}</TableCell>}
-                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.manager}</TableCell>
-                {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.phone}</TableCell>}
-                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>
+                <TableCell sx={{ 
+                  height: isMobile ? '50px' : '60px', 
+                  verticalAlign: 'middle',
+                  fontSize: isMobile ? '0.7rem' : '0.875rem',
+                  fontWeight: 'bold'
+                }}>{site.name}</TableCell>
+                {!isMobile && <TableCell sx={{ 
+                  height: '60px', 
+                  verticalAlign: 'middle'
+                }}>{site.address}</TableCell>}
+                <TableCell sx={{ 
+                  height: isMobile ? '50px' : '60px', 
+                  verticalAlign: 'middle',
+                  fontSize: isMobile ? '0.7rem' : '0.875rem'
+                }}>{site.manager}</TableCell>
+                {!isMobile && <TableCell sx={{ 
+                  height: '60px', 
+                  verticalAlign: 'middle'
+                }}>{site.phone}</TableCell>}
+                <TableCell sx={{ 
+                  height: isMobile ? '50px' : '60px', 
+                  verticalAlign: 'middle',
+                  fontSize: isMobile ? '0.7rem' : '0.875rem'
+                }}>
                   <Chip
                     label={site.contractType || '하도급계약'}
                     sx={{
                       backgroundColor: site.contractType === '납품계약' ? '#4caf50' : '#2196f3',
                       color: 'white',
-                      fontSize: '0.75rem'
+                      fontSize: isMobile ? '0.6rem' : '0.75rem',
+                      height: isMobile ? '20px' : '24px'
                     }}
                     size="small"
                   />
                 </TableCell>
-                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>
+                <TableCell sx={{ 
+                  height: isMobile ? '50px' : '60px', 
+                  verticalAlign: 'middle'
+                }}>
                   <Chip
                     label={statusOptions.find(option => option.value === site.status)?.label}
                     color={statusOptions.find(option => option.value === site.status)?.color}
                     size="small"
+                    sx={{
+                      fontSize: isMobile ? '0.6rem' : '0.75rem',
+                      height: isMobile ? '20px' : '24px'
+                    }}
                   />
                 </TableCell>
-                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>
+                <TableCell sx={{ 
+                  height: isMobile ? '50px' : '60px', 
+                  verticalAlign: 'middle'
+                }}>
                   {site.estimateStatus && (
                     <Chip
                       label={site.estimateStatus}
@@ -706,16 +815,31 @@ const SiteManagement = () => {
                       sx={{
                         backgroundColor: getEstimateStatusColor(site.estimateStatus),
                         color: 'white',
-                        fontSize: '0.75rem'
+                        fontSize: isMobile ? '0.6rem' : '0.75rem',
+                        height: isMobile ? '20px' : '24px'
                       }}
                       title={`견적 상태: ${site.estimateStatus}`}
                     />
                   )}
                 </TableCell>
-                {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.startDate}</TableCell>}
-                {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.endDate}</TableCell>}
-                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>
-                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                {!isMobile && <TableCell sx={{ 
+                  height: '60px', 
+                  verticalAlign: 'middle'
+                }}>{site.startDate}</TableCell>}
+                {!isMobile && <TableCell sx={{ 
+                  height: '60px', 
+                  verticalAlign: 'middle'
+                }}>{site.endDate}</TableCell>}
+                <TableCell sx={{ 
+                  height: isMobile ? '50px' : '60px', 
+                  verticalAlign: 'middle'
+                }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    gap: isMobile ? 0.25 : 0.5, 
+                    flexWrap: 'wrap', 
+                    alignItems: 'center'
+                  }}>
                     {site.contractType === '납품계약' && (
                       <Button
                         size="small"
@@ -723,16 +847,17 @@ const SiteManagement = () => {
                         sx={{ 
                           backgroundColor: '#4caf50',
                           color: 'white',
-                          fontSize: '0.7rem',
+                          fontSize: isMobile ? '0.6rem' : '0.7rem',
                           minWidth: 'auto',
-                          px: 1,
-                          py: 0.5,
+                          px: isMobile ? 0.5 : 1,
+                          py: isMobile ? 0.25 : 0.5,
+                          height: isMobile ? '24px' : 'auto',
                           '&:hover': {
                             backgroundColor: '#45a049'
                           }
                         }}
                         onClick={() => handleCreateContract(site)}
-                        startIcon={<ContractIcon sx={{ fontSize: '14px' }} />}
+                        startIcon={<ContractIcon sx={{ fontSize: isMobile ? '12px' : '14px' }} />}
                       >
                         납품계약서
                       </Button>
@@ -740,12 +865,24 @@ const SiteManagement = () => {
                     <IconButton
                       size="small"
                       onClick={() => navigate(`/sites/${site.id}`)}
+                      sx={{
+                        padding: isMobile ? '4px' : '8px',
+                        '& .MuiSvgIcon-root': {
+                          fontSize: isMobile ? '1rem' : '1.25rem'
+                        }
+                      }}
                     >
                       <LocationIcon />
                     </IconButton>
                     <IconButton
                       size="small"
                       onClick={() => handleOpenDialog(site)}
+                      sx={{
+                        padding: isMobile ? '4px' : '8px',
+                        '& .MuiSvgIcon-root': {
+                          fontSize: isMobile ? '1rem' : '1.25rem'
+                        }
+                      }}
                     >
                       <EditIcon />
                     </IconButton>
@@ -753,12 +890,24 @@ const SiteManagement = () => {
                       size="small"
                       onClick={() => handleOpenUploadDialog(site)}
                       title="물량내역 업로드"
+                      sx={{
+                        padding: isMobile ? '4px' : '8px',
+                        '& .MuiSvgIcon-root': {
+                          fontSize: isMobile ? '1rem' : '1.25rem'
+                        }
+                      }}
                     >
                       <UploadIcon />
                     </IconButton>
                     <IconButton
                       size="small"
                       onClick={() => handleDelete(site.id)}
+                      sx={{
+                        padding: isMobile ? '4px' : '8px',
+                        '& .MuiSvgIcon-root': {
+                          fontSize: isMobile ? '1rem' : '1.25rem'
+                        }
+                      }}
                     >
                       <DeleteIcon />
                     </IconButton>
@@ -768,7 +917,11 @@ const SiteManagement = () => {
             ))}
             {sites.length === 0 && (
               <TableRow>
-                <TableCell colSpan={isMobile ? 6 : 10} align="center" sx={{ height: '60px', verticalAlign: 'middle' }}>
+                <TableCell colSpan={isMobile ? 6 : 10} align="center" sx={{ 
+                  height: isMobile ? '50px' : '60px', 
+                  verticalAlign: 'middle',
+                  fontSize: isMobile ? '0.8rem' : '0.875rem'
+                }}>
                   등록된 현장이 없습니다.
                 </TableCell>
               </TableRow>
@@ -777,12 +930,37 @@ const SiteManagement = () => {
         </Table>
       </TableContainer>
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog} 
+        maxWidth="md" 
+        fullWidth
+        fullScreen={isMobile}
+        sx={{
+          '& .MuiDialog-paper': {
+            margin: isMobile ? 0 : 'auto',
+            borderRadius: isMobile ? 0 : 1,
+            width: isMobile ? '100%' : 'auto',
+            height: isMobile ? '100%' : 'auto',
+            maxWidth: isMobile ? '100%' : 'md',
+            maxHeight: isMobile ? '100%' : '90vh'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          pb: isMobile ? 1 : 2,
+          fontSize: isMobile ? '1.2rem' : '1.5rem',
+          fontWeight: 'bold'
+        }}>
           {selectedSite ? '현장 정보 수정' : '새 현장 등록'}
         </DialogTitle>
         <form onSubmit={handleSubmit}>
-          <DialogContent>
+          <DialogContent sx={{ 
+            pb: isMobile ? 1 : 2,
+            '& .MuiGrid-item': {
+              paddingBottom: isMobile ? 1 : 2
+            }
+          }}>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
                 <TextField
@@ -1013,14 +1191,28 @@ const SiteManagement = () => {
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>
+          <DialogActions sx={{ 
+            p: isMobile ? 2 : 3,
+            gap: isMobile ? 1 : 2,
+            flexDirection: isMobile ? 'column' : 'row',
+            '& .MuiButton-root': {
+              width: isMobile ? '100%' : 'auto',
+              minHeight: isMobile ? '48px' : 'auto',
+              fontSize: isMobile ? '1rem' : '0.875rem'
+            }
+          }}>
+            <Button 
+              onClick={handleCloseDialog}
+              variant="outlined"
+              fullWidth={isMobile}
+            >
               취소
             </Button>
             <Button
               type="submit"
               variant="contained"
               disabled={loading}
+              fullWidth={isMobile}
             >
               {loading ? <CircularProgress size={24} /> : '저장'}
             </Button>
@@ -1029,11 +1221,33 @@ const SiteManagement = () => {
       </Dialog>
 
       {/* 물량내역 업로드 다이얼로그 */}
-      <Dialog open={uploadDialogOpen} onClose={handleCloseUploadDialog} maxWidth="lg" fullWidth>
-        <DialogTitle>
+      <Dialog 
+        open={uploadDialogOpen} 
+        onClose={handleCloseUploadDialog} 
+        maxWidth="lg" 
+        fullWidth
+        fullScreen={isMobile}
+        sx={{
+          '& .MuiDialog-paper': {
+            margin: isMobile ? 0 : 'auto',
+            borderRadius: isMobile ? 0 : 1,
+            width: isMobile ? '100%' : 'auto',
+            height: isMobile ? '100%' : 'auto',
+            maxWidth: isMobile ? '100%' : 'lg',
+            maxHeight: isMobile ? '100%' : '90vh'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          pb: isMobile ? 1 : 2,
+          fontSize: isMobile ? '1.2rem' : '1.5rem',
+          fontWeight: 'bold'
+        }}>
           물량내역 업로드 - {selectedSiteForUpload?.name}
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ 
+          pb: isMobile ? 1 : 2
+        }}>
           <Box sx={{ mb: 3 }}>
             <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
               엑셀 파일의 "내역서" 시트에서 A, B, C, D, K, L열의 데이터를 추출합니다. (5번째 줄부터)
