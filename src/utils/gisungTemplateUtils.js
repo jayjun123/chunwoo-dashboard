@@ -1258,125 +1258,92 @@ const createFullDetailSheet = (worksheet, siteData, gisungData, siteItems = []) 
         const cellL = worksheet.getCell(`L${row}`);
         const cellM = worksheet.getCell(`M${row}`);
         
-        // F열: 계약금액 (D*E) - 기존 수식 보존 또는 추가
+        // F열: 계약금액 (D*E) - 항상 표준 수식 적용
         if (cellF) {
-          // 기존 수식이 있으면 보존, 없으면 추가
-          if (!cellF.formula) {
-            try {
-              cellF.formula = `D${row}*E${row}`;
-              cellF.numFmt = '#,##0';
-              console.log(`✅ F${row} 수식 추가: D${row}*E${row}`);
-            } catch (error) {
-              console.log(`⚠️ F${row} 수식 설정 실패, 직접 계산값 입력:`, error.message);
-              const quantity = Number(worksheet.getCell(`D${row}`).value) || 0;
-              const unitPrice = Number(worksheet.getCell(`E${row}`).value) || 0;
-              cellF.value = quantity * unitPrice;
-              cellF.numFmt = '#,##0';
-            }
-          } else {
-            console.log(`✅ F${row} 기존 수식 보존: ${cellF.formula}`);
+          try {
+            cellF.formula = `D${row}*E${row}`;
+            cellF.numFmt = '#,##0';
+            console.log(`✅ F${row} 표준 수식 적용: D${row}*E${row}`);
+          } catch (error) {
+            console.log(`⚠️ F${row} 수식 설정 실패, 직접 계산값 입력:`, error.message);
+            const quantity = Number(worksheet.getCell(`D${row}`).value) || 0;
+            const unitPrice = Number(worksheet.getCell(`E${row}`).value) || 0;
+            cellF.value = quantity * unitPrice;
+            cellF.numFmt = '#,##0';
           }
         }
       
-        // H열: 기성금액 (G*E) - 기존 수식 덮어쓰기
-        // H열: 전회기성금액 (G*E) - 기존 수식 보존 또는 추가
+        // H열: 전회기성금액 (G*E) - 항상 표준 수식 적용
         if (cellH) {
-          // 기존 수식이 있으면 보존, 없으면 추가
-          if (!cellH.formula) {
-            try {
-              cellH.formula = `G${row}*E${row}`;
-              cellH.numFmt = '#,##0';
-              console.log(`✅ H${row} 수식 추가: G${row}*E${row}`);
-            } catch (error) {
-              console.log(`⚠️ H${row} 수식 설정 실패, 직접 계산값 입력:`, error.message);
-              const prevQuantity = Number(worksheet.getCell(`G${row}`).value) || 0;
-              const unitPrice = Number(worksheet.getCell(`E${row}`).value) || 0;
-              cellH.value = prevQuantity * unitPrice;
-              cellH.numFmt = '#,##0';
-            }
-          } else {
-            console.log(`✅ H${row} 기존 수식 보존: ${cellH.formula}`);
+          try {
+            cellH.formula = `G${row}*E${row}`;
+            cellH.numFmt = '#,##0';
+            console.log(`✅ H${row} 표준 수식 적용: G${row}*E${row}`);
+          } catch (error) {
+            console.log(`⚠️ H${row} 수식 설정 실패, 직접 계산값 입력:`, error.message);
+            const prevQuantity = Number(worksheet.getCell(`G${row}`).value) || 0;
+            const unitPrice = Number(worksheet.getCell(`E${row}`).value) || 0;
+            cellH.value = prevQuantity * unitPrice;
+            cellH.numFmt = '#,##0';
           }
         }
       
-        // J열: 금회기성금액 (E*I) - 기존 수식 보존 또는 추가
+        // J열: 금회기성금액 (I*E) - 항상 표준 수식 적용
         if (cellJ) {
-          // 기존 수식이 있으면 보존, 없으면 추가
-          if (!cellJ.formula) {
-            try {
-              cellJ.formula = `E${row}*I${row}`;
-              cellJ.numFmt = '#,##0';
-              console.log(`✅ J${row} 수식 추가: E${row}*I${row}`);
-            } catch (error) {
-              console.log(`⚠️ J${row} 수식 설정 실패, 직접 계산값 입력:`, error.message);
-              const unitPrice = Number(worksheet.getCell(`E${row}`).value) || 0;
-              const currentQuantity = Number(worksheet.getCell(`I${row}`).value) || 0;
-              cellJ.value = unitPrice * currentQuantity;
-              cellJ.numFmt = '#,##0';
-            }
-          } else {
-            console.log(`✅ J${row} 기존 수식 보존: ${cellJ.formula}`);
+          try {
+            cellJ.formula = `I${row}*E${row}`;
+            cellJ.numFmt = '#,##0';
+            console.log(`✅ J${row} 표준 수식 적용: I${row}*E${row}`);
+          } catch (error) {
+            console.log(`⚠️ J${row} 수식 설정 실패, 직접 계산값 입력:`, error.message);
+            const currentQuantity = Number(worksheet.getCell(`I${row}`).value) || 0;
+            const unitPrice = Number(worksheet.getCell(`E${row}`).value) || 0;
+            cellJ.value = currentQuantity * unitPrice;
+            cellJ.numFmt = '#,##0';
           }
         }
       
-        // K열: 누계수량 (G+I) - 기존 수식 보존 또는 추가
+        // K열: 금회기성수량 (I) - 항상 표준 수식 적용
         if (cellK) {
-          // 기존 수식이 있으면 보존, 없으면 추가
-          if (!cellK.formula) {
-            try {
-              cellK.formula = `G${row}+I${row}`;
-              cellK.numFmt = '#,##0';
-              console.log(`✅ K${row} 수식 추가: G${row}+I${row}`);
-            } catch (error) {
-              console.log(`⚠️ K${row} 수식 설정 실패, 직접 계산값 입력:`, error.message);
-              const prevQuantity = Number(worksheet.getCell(`G${row}`).value) || 0;
-              const currentQuantity = Number(worksheet.getCell(`I${row}`).value) || 0;
-              cellK.value = prevQuantity + currentQuantity;
-              cellK.numFmt = '#,##0';
-            }
-          } else {
-            console.log(`✅ K${row} 기존 수식 보존: ${cellK.formula}`);
+          try {
+            cellK.formula = `I${row}`;
+            cellK.numFmt = '#,##0';
+            console.log(`✅ K${row} 표준 수식 적용: I${row}`);
+          } catch (error) {
+            console.log(`⚠️ K${row} 수식 설정 실패, 직접 계산값 입력:`, error.message);
+            const currentQuantity = Number(worksheet.getCell(`I${row}`).value) || 0;
+            cellK.value = currentQuantity;
+            cellK.numFmt = '#,##0';
           }
         }
       
-        // L열: 누계금액 (H+J) - 기존 수식 보존 또는 추가
+        // L열: 금회기성금액 (K*E) - 항상 표준 수식 적용
         if (cellL) {
-          // 기존 수식이 있으면 보존, 없으면 추가
-          if (!cellL.formula) {
-            try {
-              cellL.formula = `H${row}+J${row}`;
-              cellL.numFmt = '#,##0';
-              console.log(`✅ L${row} 수식 추가: H${row}+J${row}`);
-            } catch (error) {
-              console.log(`⚠️ L${row} 수식 설정 실패, 직접 계산값 입력:`, error.message);
-              const prevAmount = Number(worksheet.getCell(`H${row}`).value) || 0;
-              const currentAmount = Number(worksheet.getCell(`J${row}`).value) || 0;
-              cellL.value = prevAmount + currentAmount;
-              cellL.numFmt = '#,##0';
-            }
-          } else {
-            console.log(`✅ L${row} 기존 수식 보존: ${cellL.formula}`);
+          try {
+            cellL.formula = `K${row}*E${row}`;
+            cellL.numFmt = '#,##0';
+            console.log(`✅ L${row} 표준 수식 적용: K${row}*E${row}`);
+          } catch (error) {
+            console.log(`⚠️ L${row} 수식 설정 실패, 직접 계산값 입력:`, error.message);
+            const currentQuantity = Number(worksheet.getCell(`K${row}`).value) || 0;
+            const unitPrice = Number(worksheet.getCell(`E${row}`).value) || 0;
+            cellL.value = currentQuantity * unitPrice;
+            cellL.numFmt = '#,##0';
           }
         }
       
-        // M열: 진도율 (L/F*100) - 기존 수식 보존 또는 추가
+        // M열: 누계수량 (G+K) - 항상 표준 수식 적용
         if (cellM) {
-          // 기존 수식이 있으면 보존, 없으면 추가
-          if (!cellM.formula) {
-            try {
-              cellM.formula = `IF(F${row}=0,0,L${row}/F${row}*100)`;
-              cellM.numFmt = '0.0';
-              console.log(`✅ M${row} 수식 추가: L${row}/F${row}*100`);
-            } catch (error) {
-              console.log(`⚠️ M${row} 수식 설정 실패, 직접 계산값 입력:`, error.message);
-              const cumulativeAmount = Number(worksheet.getCell(`L${row}`).value) || 0;
-              const contractAmount = Number(worksheet.getCell(`F${row}`).value) || 0;
-              const progress = contractAmount === 0 ? 0 : (cumulativeAmount / contractAmount) * 100;
-              cellM.value = progress;
-              cellM.numFmt = '0.0';
-            }
-          } else {
-            console.log(`✅ M${row} 기존 수식 보존: ${cellM.formula}`);
+          try {
+            cellM.formula = `G${row}+K${row}`;
+            cellM.numFmt = '#,##0';
+            console.log(`✅ M${row} 표준 수식 적용: G${row}+K${row}`);
+          } catch (error) {
+            console.log(`⚠️ M${row} 수식 설정 실패, 직접 계산값 입력:`, error.message);
+            const prevQuantity = Number(worksheet.getCell(`G${row}`).value) || 0;
+            const currentQuantity = Number(worksheet.getCell(`K${row}`).value) || 0;
+            cellM.value = prevQuantity + currentQuantity;
+            cellM.numFmt = '#,##0';
           }
         }
       } else {
@@ -2318,7 +2285,7 @@ const createDetailSheetWithFormulas = (worksheet, siteData, gisungData, siteItem
     });
   }
   
-  // 요약 항목들 (23-26행) - 사진과 동일한 순서
+  // 요약 항목들 (23-26행) - 항상 표준 수식 적용
   const summaryItems = [
     { label: '선급금', value: Number(siteData?.advance || 0), formula: null },
     { label: '총공사비', value: null, formula: '=SUM(F8:F20)' }, // 단수정리까지 포함
@@ -2339,7 +2306,7 @@ const createDetailSheetWithFormulas = (worksheet, siteData, gisungData, siteItem
       fgColor: { argb: 'FFFFE4B5' } // 연한 주황색 배경
     };
     
-    // 값/수식 셀
+    // 값/수식 셀 - 항상 표준 수식 적용
     if (item.formula) {
       worksheet.getCell(`F${row}`).formula = item.formula;
     } else {

@@ -393,11 +393,11 @@ const applyFormulasToGapjiSheet = (worksheet) => {
 
 // 기성금 내역서에 수식 적용하는 함수
 const applyFormulasToDetailSheet = (worksheet) => {
-  // F열에 수식 적용 (계약금액 - 금액) - F6부터 F20까지 (단수정리까지)
+  // F열에 수식 적용 (계약금액 - 금액) - F6부터 F20까지 (단수정리까지) - 항상 표준 수식 적용
   for (let row = 5; row <= 19; row++) { // F6~F20
     const cellAddress = XLSX.utils.encode_cell({ r: row, c: 5 }); // F열
     worksheet[cellAddress] = {
-      f: `=D${row + 1}*E${row + 1}`, // 수식
+      f: `=D${row + 1}*E${row + 1}`, // 표준 수식
       v: 0 // 기본값
     };
   }
@@ -453,11 +453,11 @@ const applyFormulasToDetailSheet = (worksheet) => {
     };
   }
   
-  // K열에 수식 적용 (금회기성 - 수량) - K6부터 K20까지
+  // K열에 수식 적용 (금회기성 - 수량) - K6부터 K20까지 - 항상 표준 수식 적용
   for (let row = 5; row <= 19; row++) { // K6~K20
     const cellAddress = XLSX.utils.encode_cell({ r: row, c: 10 }); // K열
     worksheet[cellAddress] = {
-      f: `=G${row + 1}`, // 수식 (전회기성 수량과 동일)
+      f: `=I${row + 1}`, // 표준 수식 (I열 값)
       v: 0 // 기본값
     };
   }
@@ -471,11 +471,11 @@ const applyFormulasToDetailSheet = (worksheet) => {
     };
   }
   
-  // M열에 수식 적용 (합계 - 수량) - M6부터 M20까지
+  // M열에 수식 적용 (누계 - 수량) - M6부터 M20까지 - 항상 표준 수식 적용
   for (let row = 5; row <= 19; row++) { // M6~M20
     const cellAddress = XLSX.utils.encode_cell({ r: row, c: 12 }); // M열
     worksheet[cellAddress] = {
-      f: `=G${row + 1}+K${row + 1}`, // 수식
+      f: `=G${row + 1}+K${row + 1}`, // 표준 수식 (G+K)
       v: 0 // 기본값
     };
   }
