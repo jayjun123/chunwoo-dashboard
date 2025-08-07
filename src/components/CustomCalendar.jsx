@@ -636,24 +636,51 @@ const CustomCalendar = (props) => {
         mb: 1,
         boxSizing: 'border-box'
       }}>
-        {WEEKDAYS.slice(0, viewMode === '3days' ? 3 : viewMode === 'week' ? 7 : 7).map((day, index) => (
-          <Box
-            key={day}
-            sx={{
-              textAlign: 'center',
-              py: 0,
-              minHeight: '18px',
-              color: index === 0 ? '#ef4444' : index === 6 ? '#3b82f6' : '#fff',
-              fontWeight: 600,
-              fontSize: '20px',
-              margin: 0,
-              padding: 0,
-              boxSizing: 'border-box'
-            }}
-          >
-            {day}
-          </Box>
-        ))}
+        {(viewMode === '3days' || viewMode === 'week') ? (
+          // 3일보기, 7일보기에서는 실제 날짜의 요일 표시
+          renderDates[0].map((cell, index) => {
+            const dayOfWeek = cell.date ? ['일', '월', '화', '수', '목', '금', '토'][cell.date.getDay()] : '';
+            return (
+              <Box
+                key={index}
+                sx={{
+                  textAlign: 'center',
+                  py: 0,
+                  minHeight: '18px',
+                  color: cell.date && cell.date.getDay() === 0 ? '#ef4444' : 
+                         cell.date && cell.date.getDay() === 6 ? '#3b82f6' : '#fff',
+                  fontWeight: 600,
+                  fontSize: '20px',
+                  margin: 0,
+                  padding: 0,
+                  boxSizing: 'border-box'
+                }}
+              >
+                {dayOfWeek}
+              </Box>
+            );
+          })
+        ) : (
+          // 월간보기에서는 고정 요일 표시
+          WEEKDAYS.slice(0, 7).map((day, index) => (
+            <Box
+              key={day}
+              sx={{
+                textAlign: 'center',
+                py: 0,
+                minHeight: '18px',
+                color: index === 0 ? '#ef4444' : index === 6 ? '#3b82f6' : '#fff',
+                fontWeight: 600,
+                fontSize: '20px',
+                margin: 0,
+                padding: 0,
+                boxSizing: 'border-box'
+              }}
+            >
+              {day}
+            </Box>
+          ))
+        )}
       </Box>
 
       {/* 달력 그리드 */}
@@ -819,7 +846,11 @@ const CustomCalendar = (props) => {
                                 }}
                                 style={{ cursor: 'pointer' }}
                               >
-                                {cell.date ? cell.date.getDate() : ''}
+                                {cell.date ? (
+                                  viewMode === '3days' || viewMode === 'week' 
+                                    ? `${cell.date.getMonth() + 1}/${cell.date.getDate()}(${['일', '월', '화', '수', '목', '금', '토'][cell.date.getDay()]})`
+                                    : cell.date.getDate()
+                                ) : ''}
                               </Typography>
                               {/* 추가 버튼 - 오른쪽 끝 */}
                               <IconButton
@@ -879,7 +910,11 @@ const CustomCalendar = (props) => {
                                 }}
                                 style={{ cursor: 'pointer' }}
                               >
-                                {cell.date ? cell.date.getDate() : ''}
+                                {cell.date ? (
+                                  viewMode === '3days' || viewMode === 'week' 
+                                    ? `${cell.date.getMonth() + 1}/${cell.date.getDate()}(${['일', '월', '화', '수', '목', '금', '토'][cell.date.getDay()]})`
+                                    : cell.date.getDate()
+                                ) : ''}
                               </Typography>
                             </>
                           )}
