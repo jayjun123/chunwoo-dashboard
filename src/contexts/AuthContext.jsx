@@ -248,6 +248,13 @@ export const AuthProvider = ({ children }) => {
           return;
         }
         
+        // 사용자가 없으면 로그아웃 상태로 설정
+        if (!user) {
+          setCurrentUser(null);
+          setLoading(false);
+          return;
+        }
+        
         // 세션 동기화 실행
         await syncSession(user);
       }, (error) => {
@@ -271,12 +278,32 @@ export const AuthProvider = ({ children }) => {
           return;
         }
         
+        // 프로덕션 환경에서는 오류 상태로 설정
+        console.error('Firebase Auth 오류로 인한 로그아웃:', error);
         setCurrentUser(null);
         setLoading(false);
       });
     } catch (error) {
       console.error('AuthContext - onAuthStateChanged 설정 오류:', error);
       clearTimeout(loadingTimeout);
+      
+      // 개발 환경에서는 오류 무시하고 자동 로그인
+      if (import.meta.env.DEV) {
+        console.log('AuthContext - 개발 환경에서 설정 오류 무시하고 자동 로그인');
+        const mockUser = {
+          uid: 'dev-user-123',
+          email: 'dev@example.com',
+          displayName: '개발자',
+          role: 'admin',
+          name: '개발자',
+          organization: '개발팀'
+        };
+        setCurrentUser(mockUser);
+        setLoading(false);
+        return;
+      }
+      
+      setCurrentUser(null);
       setLoading(false);
     }
     

@@ -27,7 +27,7 @@ const Sidebar = () => {
     { path: '/user-management', icon: <FaUsers />, label: '사용자 관리' },
     { path: '/safety', icon: <FaHardHat />, label: '안전 관리' },
     { path: '/materials', icon: <FaBox />, label: '자재 관리' },
-    { path: '/reports', icon: <FaFileAlt />, label: '보고서', hideOnMobile: true }
+    { path: '/daema-team', icon: <FaUsers />, label: '시공팀', hideOnMobile: true }
   ];
 
   return (

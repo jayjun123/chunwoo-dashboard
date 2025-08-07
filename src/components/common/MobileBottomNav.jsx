@@ -36,6 +36,7 @@ const MobileBottomNav = () => {
   // expandCenter 상태 추가
   const [expandCenter, setExpandCenter] = useState(false);
   const [sitesList, setSitesList] = useState([]); // 현장 목록
+  const [bidList, setBidList] = useState([]); // 입찰 목록
 
   // 네비게이션 아이템 정의 (핵심 기능만 유지)
   const navItems = [
@@ -113,9 +114,39 @@ const MobileBottomNav = () => {
       console.error('🔥 모바일 일정 데이터 연동 오류:', err);
     });
 
+    // 견적 데이터 fetch
+    const unsubEstimates = onSnapshot(collection(db, 'estimates'), (snapshot) => {
+      const allEstimates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 오늘 날짜 필터링
+      const todayEstimates = allEstimates.filter(item => {
+        if (!item.submissionDeadline) return false;
+        
+        let itemDate;
+        if (item.submissionDeadline.toDate) {
+          itemDate = item.submissionDeadline.toDate();
+        } else if (item.submissionDeadline instanceof Date) {
+          itemDate = item.submissionDeadline;
+        } else if (typeof item.submissionDeadline === 'string') {
+          itemDate = new Date(item.submissionDeadline + 'T12:00:00');
+        } else {
+          itemDate = new Date(item.submissionDeadline);
+        }
+        
+        return itemDate >= todayStart && itemDate <= todayEnd;
+      });
+      
+      console.log('🔥 모바일 오늘 견적 일정:', todayEstimates.length, '개', todayEstimates);
+      
+      setBidList(todayEstimates);
+    }, (err) => {
+      console.error('🔥 모바일 견적 데이터 연동 오류:', err);
+    });
+
     return () => {
       console.log('🔥 모바일 일정 데이터 연동 해제');
       unsubSchedules();
+      unsubEstimates();
     };
   }, []);
 
@@ -300,9 +331,63 @@ const MobileBottomNav = () => {
           <Box sx={{ mb: 3, position: 'relative', zIndex: 1 }}>
             <Typography variant="h6" sx={{ mb: 1, color: '#4FC3F7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <TrendingUpIcon sx={{ fontSize: 18, color: '#4FC3F7' }} />
-              금일입찰 (0개)
+              금일입찰 ({bidList.length}개)
             </Typography>
-            <Typography sx={{ color: '#ccc', fontSize: 14 }}>오늘 입찰 일정이 없습니다.</Typography>
+            {bidList.length === 0 ? (
+              <Typography sx={{ color: '#ccc', fontSize: 14 }}>오늘 입찰 일정이 없습니다.</Typography>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {bidList.map((item, index) => (
+                  <Box key={item.id || index} sx={{ 
+                    p: 0.3,
+                    bgcolor: '#23242a', 
+                    borderRadius: 0.5,
+                    border: '1px solid #444',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    mb: 0.2,
+                    minHeight: 0,
+                    opacity: item.submissionStatus === '제출완료' ? 0.6 : 1,
+                    cursor: 'pointer'
+                  }}
+                  onDoubleClick={() => {
+                    setExpandCenter(false);
+                    navigate('/estimates');
+                  }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: 10, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', p: 0, m: 0 }}>
+                        {item.siteName || item.company || '입찰'}
+                      </Typography>
+                      <Typography sx={{ color: '#ccc', fontSize: 9, lineHeight: 1.1, p: 0, m: 0, mt: 0.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.requester} {item.company ? `(${item.company})` : ''} - {item.requestContent || '입찰요청'}
+                      </Typography>
+                    </Box>
+                    {item.submissionStatus === '제출완료' && (
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 0.5,
+                        backgroundColor: 'rgba(79, 195, 247, 0.15)',
+                        px: 1,
+                        py: 0.3,
+                        borderRadius: 0.5,
+                        flexShrink: 0,
+                        border: '1px solid rgba(79, 195, 247, 0.3)'
+                      }}>
+                        <Typography sx={{ 
+                          color: '#4FC3F7', 
+                          fontSize: 8, 
+                          fontWeight: 600
+                        }}>
+                          ✓ 완료
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                ))}
+              </Box>
+            )}
           </Box>
 
           {/* 금일회의 목록 */}

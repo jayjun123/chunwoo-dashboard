@@ -10,6 +10,7 @@
  */
 
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -295,6 +296,7 @@ const useProgressStats = (progressData, selectedSite, sites) => {
 // 메인 컴포넌트
 const ProgressManagement = () => {
   const { setLoading, setLoadingMessage } = useLoading();
+  const location = useLocation();
   const [selectedSite, setSelectedSite] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -304,6 +306,22 @@ const ProgressManagement = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [showPlanned, setShowPlanned] = useState(true);
   const [showActual, setShowActual] = useState(true);
+  const [viewMode, setViewMode] = useState('all'); // 'all', 'site'
+
+  // 네비게이션으로 전달받은 상태 처리
+  useEffect(() => {
+    if (location.state) {
+      const { selectedSiteId, viewMode: navViewMode } = location.state;
+      
+      if (selectedSiteId) {
+        setSelectedSite(selectedSiteId);
+      }
+      
+      if (navViewMode) {
+        setViewMode(navViewMode);
+      }
+    }
+  }, [location.state]);
   
   const longPressTimeout = useRef(null);
   const inputRef1 = useRef();
@@ -542,13 +560,14 @@ const ProgressManagement = () => {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <Box sx={{
-        width: '100vw',
-        maxWidth: '100vw',
+        width: '100%',
+        maxWidth: '100%',
         margin: 0,
         padding: 0,
         boxSizing: 'border-box',
         minHeight: '100vh',
-        pt: { xs: '-30px', md: 0 }
+        pt: { xs: '-30px', md: 0 },
+        overflow: 'hidden' // 스크롤 컨테이너 중첩 방지
       }}>
         <Typography variant="h4" gutterBottom>
           기성현황 관리
@@ -560,9 +579,9 @@ const ProgressManagement = () => {
           </Alert>
         )}
 
-        <Grid container spacing={3} sx={{ width: '100vw', maxWidth: '100vw', margin: 0, padding: 0, boxSizing: 'border-box' }}>
+        <Grid container spacing={3} sx={{ width: '100%', maxWidth: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
           {/* 사이드바 */}
-          <Grid item xs={12} sx={{ 
+          <Grid xs={12} sx={{ 
             '@media (min-width: 900px)': {
               width: '25%'
             }
@@ -603,7 +622,16 @@ const ProgressManagement = () => {
               
               <Droppable droppableId="extraList">
                 {(provided) => (
-                  <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ minHeight: 40 }}>
+                  <Box 
+                    ref={provided.innerRef} 
+                    {...provided.droppableProps} 
+                    sx={{ 
+                      minHeight: 40,
+                      maxHeight: '300px',
+                      overflowY: 'auto',
+                      overflowX: 'hidden'
+                    }}
+                  >
                     {extraItems.map((item, idx) => (
                       <Draggable key={item.id} draggableId={item.id.toString()} index={idx}>
                         {(provided, snapshot) => (
@@ -641,7 +669,7 @@ const ProgressManagement = () => {
           </Grid>
 
           {/* 메인 콘텐츠 */}
-          <Grid item xs={12} sx={{ 
+          <Grid xs={12} sx={{ 
             '@media (min-width: 900px)': {
               width: '75%'
             }
@@ -649,7 +677,7 @@ const ProgressManagement = () => {
             <Box sx={{ bgcolor: '#23242a', borderRadius: 3, p: 3, minHeight: 600, maxWidth: 'calc(100% - 100px)', width: 'calc(100% - 100px)' }}>
               {/* 컨트롤 패널 */}
               <Grid container spacing={3}>
-                <Grid item xs={12} sx={{ 
+                <Grid xs={12} sx={{ 
                   '@media (min-width: 900px)': {
                     width: '33.333%'
                   }
@@ -661,6 +689,9 @@ const ProgressManagement = () => {
                       onChange={(e) => setSelectedSite(e.target.value)}
                       label="현장 선택"
                     >
+                      <MenuItem value="">
+                        <em>전체선택</em>
+                      </MenuItem>
                       {sites.map((site) => (
                         <MenuItem key={site.id} value={site.id}>
                           {site.name}
@@ -670,7 +701,7 @@ const ProgressManagement = () => {
                   </FormControl>
                 </Grid>
                 
-                <Grid item xs={12} sx={{ 
+                <Grid xs={12} sx={{ 
                   '@media (min-width: 900px)': {
                     width: '33.333%'
                   }
@@ -685,7 +716,7 @@ const ProgressManagement = () => {
                   />
                 </Grid>
                 
-                <Grid item xs={12} sx={{ 
+                <Grid xs={12} sx={{ 
                   textAlign: 'right',
                   '@media (min-width: 900px)': {
                     width: '33.333%'
@@ -729,11 +760,11 @@ const ProgressManagement = () => {
                 />
               </Box>
 
-              {selectedSite && (
+              {selectedSite ? (
                 <>
                   {/* 통계 카드 */}
                   <Grid container spacing={3} sx={{ mt: 2 }}>
-                    <Grid item xs={12} sx={{ 
+                    <Grid xs={12} sx={{ 
                       '@media (min-width: 900px)': {
                         width: '33.333%'
                       }
@@ -749,7 +780,7 @@ const ProgressManagement = () => {
                         </CardContent>
                       </Card>
                     </Grid>
-                    <Grid item xs={12} sx={{ 
+                    <Grid xs={12} sx={{ 
                       '@media (min-width: 900px)': {
                         width: '33.333%'
                       }
@@ -765,7 +796,7 @@ const ProgressManagement = () => {
                         </CardContent>
                       </Card>
                     </Grid>
-                    <Grid item xs={12} sx={{ 
+                    <Grid xs={12} sx={{ 
                       '@media (min-width: 900px)': {
                         width: '33.333%'
                       }
@@ -809,44 +840,68 @@ const ProgressManagement = () => {
                             <TableCell>날짜</TableCell>
                             <TableCell>구분</TableCell>
                             <TableCell>카테고리</TableCell>
-                            <TableCell>금액</TableCell>
+                            <TableCell>기성금액</TableCell>
+                            <TableCell>누계기성</TableCell>
                             <TableCell>설명</TableCell>
                             <TableCell>구분</TableCell>
                             <TableCell>작업</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {filteredProgressData.map((item) => (
-                            <TableRow key={item.id}>
-                              <TableCell>{new Date(item.date).toLocaleDateString()}</TableCell>
-                              <TableCell>{item.type}</TableCell>
-                              <TableCell>{item.category}</TableCell>
-                              <TableCell>{Number(item.amount).toLocaleString()}원</TableCell>
-                              <TableCell>{item.description}</TableCell>
-                              <TableCell>
-                                <Chip 
-                                  label={item.isPlanned ? '예정' : '실적'} 
-                                  color={item.isPlanned ? 'warning' : 'success'}
-                                  size="small"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Tooltip title="삭제">
-                                  <IconButton
-                                    color="error"
-                                    onClick={() => handleDelete(item.id)}
-                                  >
-                                    <DeleteIcon />
-                                  </IconButton>
-                                </Tooltip>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {filteredProgressData.map((item, index) => {
+                            // 누계기성 계산 (현재 항목까지의 합계)
+                            const cumulativeAmount = filteredProgressData
+                              .slice(0, index + 1)
+                              .reduce((sum, progressItem) => sum + (Number(progressItem.amount) || 0), 0);
+                            
+                            return (
+                              <TableRow key={item.id}>
+                                <TableCell>{new Date(item.date).toLocaleDateString()}</TableCell>
+                                <TableCell>{item.type}</TableCell>
+                                <TableCell>{item.category}</TableCell>
+                                <TableCell sx={{ color: '#ef5350', fontWeight: 600 }}>
+                                  {Number(item.amount).toLocaleString()}원
+                                </TableCell>
+                                <TableCell sx={{ color: '#ff9800', fontWeight: 600 }}>
+                                  {cumulativeAmount.toLocaleString()}원
+                                </TableCell>
+                                <TableCell>{item.description}</TableCell>
+                                <TableCell>
+                                  <Chip 
+                                    label={item.isPlanned ? '예정' : '실적'} 
+                                    color={item.isPlanned ? 'warning' : 'success'}
+                                    size="small"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Tooltip title="삭제">
+                                    <IconButton
+                                      color="error"
+                                      onClick={() => handleDelete(item.id)}
+                                    >
+                                      <DeleteIcon />
+                                    </IconButton>
+                                  </Tooltip>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </TableContainer>
                   </Paper>
                 </>
+              ) : (
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  alignItems: 'center', 
+                  height: 400,
+                  color: '#666',
+                  fontSize: '1.1rem'
+                }}>
+                  현장을 선택해주세요
+                </Box>
               )}
             </Box>
           </Grid>

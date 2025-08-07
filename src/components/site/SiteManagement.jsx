@@ -30,6 +30,7 @@ import {
   Phone as PhoneIcon,
   Email as EmailIcon,
   Upload as UploadIcon,
+  Assignment as ContractIcon,
 } from '@mui/icons-material';
 import { collection, query, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc, where } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -46,6 +47,7 @@ const SiteManagement = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedSite, setSelectedSite] = useState(null);
   const [formData, setFormData] = useState({
+    siteCode: '', // 고유 번호 필드 추가
     name: '',
     address: '',
     manager: '',
@@ -53,6 +55,7 @@ const SiteManagement = () => {
     phone: '',
     email: '',
     status: 'active',
+    contractType: '하도급계약', // 계약구분 필드 추가
     startDate: '',
     endDate: '',
     description: '',
@@ -70,6 +73,32 @@ const SiteManagement = () => {
     { value: 'completed', label: '완료', color: 'info' },
     { value: 'suspended', label: '중단', color: 'error' },
   ];
+
+  const contractTypeOptions = [
+    '하도급계약', '납품계약', '일반계약', '계약없음', '원도급', '관급'
+  ];
+
+  // 고유 번호 자동 생성 함수
+  const generateSiteCode = async () => {
+    try {
+      const sitesQuery = query(collection(db, 'sites'), orderBy('siteCode', 'desc'));
+      const snapshot = await getDocs(sitesQuery);
+      
+      if (snapshot.empty) {
+        return 'SITE001';
+      }
+      
+      const lastSite = snapshot.docs[0].data();
+      const lastCode = lastSite.siteCode || 'SITE000';
+      const lastNumber = parseInt(lastCode.replace('SITE', ''));
+      const nextNumber = lastNumber + 1;
+      
+      return `SITE${String(nextNumber).padStart(3, '0')}`;
+    } catch (error) {
+      console.error('고유 번호 생성 실패:', error);
+      return `SITE${String(Date.now()).slice(-6)}`;
+    }
+  };
 
   const getEstimateStatusColor = (status) => {
     if (!status) return '#757575';
@@ -122,28 +151,37 @@ const SiteManagement = () => {
     if (site) {
       setSelectedSite(site);
       setFormData({
+        siteCode: site.siteCode || '',
         name: site.name,
         address: site.address,
         manager: site.manager,
+        company: site.company || '',
         phone: site.phone,
         email: site.email,
         status: site.status,
+        contractType: site.contractType || '하도급계약',
         startDate: site.startDate,
         endDate: site.endDate,
         description: site.description,
       });
     } else {
       setSelectedSite(null);
-      setFormData({
-        name: '',
-        address: '',
-        manager: '',
+      // 새 현장 등록 시 고유 번호 자동 생성
+      generateSiteCode().then(code => {
+        setFormData({
+          siteCode: code,
+          name: '',
+          address: '',
+          manager: '',
+          company: '',
         phone: '',
         email: '',
         status: 'active',
+        contractType: '하도급계약',
         startDate: '',
         endDate: '',
         description: '',
+        });
       });
     }
     setOpenDialog(true);
@@ -153,12 +191,15 @@ const SiteManagement = () => {
     setOpenDialog(false);
     setSelectedSite(null);
     setFormData({
+      siteCode: '',
       name: '',
       address: '',
       manager: '',
+      company: '',
       phone: '',
       email: '',
       status: 'active',
+      contractType: '하도급계약',
       startDate: '',
       endDate: '',
       description: '',
@@ -220,12 +261,15 @@ const SiteManagement = () => {
       
       // 입력칸 초기화
       setFormData({
+        siteCode: '',
         name: '',
         address: '',
         manager: '',
+        company: '',
         phone: '',
         email: '',
         status: 'active',
+        contractType: '하도급계약',
         startDate: '',
         endDate: '',
         description: '',
@@ -304,10 +348,38 @@ const SiteManagement = () => {
   };
 
   // 물량내역 업로드 관련 함수들
-  const handleOpenUploadDialog = (site) => {
+  const handleOpenUploadDialog = async (site) => {
     setSelectedSiteForUpload(site);
     setUploadedItems([]);
     setUploadDialogOpen(true);
+    
+    // 기존 물량데이터 불러오기
+    try {
+      const existingItemsQuery = query(
+        collection(db, 'siteItems'), 
+        where('siteId', '==', site.id),
+        orderBy('sequence', 'asc')
+      );
+      const existingItemsSnapshot = await getDocs(existingItemsQuery);
+      
+      if (!existingItemsSnapshot.empty) {
+        const existingItems = existingItemsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name || '',
+          specification: doc.data().specification || '',
+          unit: doc.data().unit || '',
+          quantity: Number(doc.data().quantity) || 0,
+          unitPrice: Number(doc.data().unitPrice) || 0,
+          totalPrice: Number(doc.data().price) || 0,
+          sequence: doc.data().sequence || 0
+        }));
+        
+        setUploadedItems(existingItems);
+        console.log('기존 물량데이터 불러옴:', existingItems);
+      }
+    } catch (error) {
+      console.error('기존 물량데이터 불러오기 실패:', error);
+    }
   };
 
   const handleCloseUploadDialog = () => {
@@ -336,21 +408,25 @@ const SiteManagement = () => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-        // 5번째 줄부터 데이터 추출 (B, D, K, L 열)
+        // 5번째 줄부터 데이터 추출 (A, B, C, D, K, L 열)
         const extractedItems = [];
         for (let i = 4; i < jsonData.length; i++) { // 5번째 줄부터 (인덱스 4)
           const row = jsonData[i];
           if (row && row.length > 11) { // L열까지 있으려면 최소 12개 열 필요
-            const itemName = row[1]; // B열 (인덱스 1)
-            const quantity = row[3]; // D열 (인덱스 3)
-            const unitPrice = row[10]; // K열 (인덱스 10)
-            const totalPrice = row[11]; // L열 (인덱스 11)
+            const itemName = row[0]; // A열 (인덱스 0) - 품명
+            const specification = row[1]; // B열 (인덱스 1) - 규격
+            const unit = row[2]; // C열 (인덱스 2) - 단위
+            const quantity = row[3]; // D열 (인덱스 3) - 수량
+            const unitPrice = row[10]; // K열 (인덱스 10) - 단가
+            const totalPrice = row[11]; // L열 (인덱스 11) - 금액
 
             // 빈 행이 아닌 경우만 추가
             if (itemName && (quantity || unitPrice || totalPrice)) {
               extractedItems.push({
                 id: Date.now() + i,
                 name: itemName || '',
+                specification: specification || '', // B열 - 규격
+                unit: unit || '', // C열 - 단위
                 quantity: quantity || 0,
                 unitPrice: unitPrice || 0,
                 totalPrice: totalPrice || 0
@@ -377,10 +453,44 @@ const SiteManagement = () => {
 
     setLoading(true);
     try {
-      // 선택된 현장에 물량내역 저장
+      // 기존 물량데이터 삭제
+      const existingItemsQuery = query(
+        collection(db, 'siteItems'), 
+        where('siteId', '==', selectedSiteForUpload.id)
+      );
+      const existingItemsSnapshot = await getDocs(existingItemsQuery);
+      
+      // 기존 데이터 삭제
+      const deletePromises = existingItemsSnapshot.docs.map(doc => 
+        deleteDoc(doc.ref)
+      );
+      await Promise.all(deletePromises);
+
+      // 새로운 물량데이터 저장
+      const savePromises = uploadedItems.map((item, index) => {
+        const itemData = {
+          siteId: selectedSiteForUpload.id,
+          siteName: selectedSiteForUpload.name,
+          name: item.name || '',
+          specification: item.specification || '',
+          unit: item.unit || '',
+          quantity: Number(item.quantity) || 0,
+          price: Number(item.price) || 0,
+          unitPrice: Number(item.unitPrice || item.price) || 0,
+          sequence: index + 1,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        return addDoc(collection(db, 'siteItems'), itemData);
+      });
+
+      await Promise.all(savePromises);
+
+      // 현장 데이터에 물량데이터 참조 업데이트
       const siteRef = doc(db, 'sites', selectedSiteForUpload.id);
       await updateDoc(siteRef, {
-        items: uploadedItems,
+        hasItems: true,
+        itemCount: uploadedItems.length,
         updatedAt: new Date()
       });
 
@@ -404,6 +514,96 @@ const SiteManagement = () => {
   const handleDeleteItem = (index) => {
     const updatedItems = uploadedItems.filter((_, i) => i !== index);
     setUploadedItems(updatedItems);
+  };
+
+  // 물량내역 초기화 함수
+  const handleClearItems = async () => {
+    if (!selectedSiteForUpload) {
+      alert('현장을 선택해주세요.');
+      return;
+    }
+
+    if (!confirm('물량내역을 모두 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      return;
+    }
+
+    try {
+      // siteItems 컬렉션에서 해당 현장의 물량데이터 삭제
+      const existingItemsQuery = query(
+        collection(db, 'siteItems'), 
+        where('siteId', '==', selectedSiteForUpload.id)
+      );
+      const existingItemsSnapshot = await getDocs(existingItemsQuery);
+      
+      // 기존 데이터 삭제
+      const deletePromises = existingItemsSnapshot.docs.map(doc => 
+        deleteDoc(doc.ref)
+      );
+      await Promise.all(deletePromises);
+
+      // 현장 데이터에서 물량데이터 참조 제거
+      await updateDoc(doc(db, 'sites', selectedSiteForUpload.id), {
+        hasItems: false,
+        itemCount: 0,
+        updatedAt: new Date()
+      });
+
+      // 로컬 상태 업데이트
+      setSites(prev => prev.map(site => 
+        site.id === selectedSiteForUpload.id 
+          ? { ...site, hasItems: false, itemCount: 0 }
+          : site
+      ));
+
+      // 업로드된 아이템들도 초기화
+      setUploadedItems([]);
+
+      alert('물량내역이 성공적으로 초기화되었습니다.');
+    } catch (error) {
+      console.error('물량내역 초기화 오류:', error);
+      alert('물량내역 초기화 중 오류가 발생했습니다: ' + error.message);
+    }
+  };
+
+  // 납품계약서 만들기 함수
+  const handleCreateContract = (site) => {
+    const contractData = {
+      현장명: site.name || '',
+      주소: site.address || '',
+      담당자: site.manager || '',
+      회사명: site.company || '',
+      연락처: site.phone || '',
+      이메일: site.email || '',
+      시작일: site.startDate || '',
+      종료일: site.endDate || '',
+      계약구분: site.contractType || '',
+      상태: statusOptions.find(option => option.value === site.status)?.label || '',
+      설명: site.description || '',
+      물량내역: site.items || []
+    };
+
+    console.log('납품계약서 데이터:', contractData);
+    
+    // 데이터를 JSON 형태로 다운로드하거나 클립보드에 복사
+    const jsonData = JSON.stringify(contractData, null, 2);
+    
+    // 클립보드에 복사
+    navigator.clipboard.writeText(jsonData).then(() => {
+      alert(`${site.name} 현장의 납품계약서 데이터가 클립보드에 복사되었습니다.\n\n제공해주실 템플릿에 이 데이터를 활용해주세요.`);
+    }).catch(() => {
+      // 클립보드 복사 실패 시 다운로드로 대체
+      const blob = new Blob([jsonData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${site.name}_납품계약서_데이터.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      alert(`${site.name} 현장의 납품계약서 데이터가 파일로 다운로드되었습니다.`);
+    });
   };
 
   if (loading) {
@@ -448,10 +648,12 @@ const SiteManagement = () => {
         <Table sx={{ '& .MuiTableCell-root': { borderBottom: '1px solid #e0e0e0' } }}>
           <TableHead>
             <TableRow>
+              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>고유번호</TableCell>
               <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>현장명</TableCell>
               {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>주소</TableCell>}
               <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>담당자</TableCell>
               {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>연락처</TableCell>}
+              <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>계약구분</TableCell>
               <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>상태</TableCell>
               <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>견적</TableCell>
               {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>시작일</TableCell>}
@@ -462,10 +664,33 @@ const SiteManagement = () => {
           <TableBody>
             {sites.map((site) => (
               <TableRow key={site.id}>
+                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>
+                  <Chip
+                    label={site.siteCode || '미지정'}
+                    size="small"
+                    sx={{
+                      backgroundColor: site.siteCode ? '#2196f3' : '#f44336',
+                      color: 'white',
+                      fontSize: '0.75rem',
+                      fontWeight: 'bold'
+                    }}
+                  />
+                </TableCell>
                 <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.name}</TableCell>
                 {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.address}</TableCell>}
                 <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.manager}</TableCell>
                 {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.phone}</TableCell>}
+                <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>
+                  <Chip
+                    label={site.contractType || '하도급계약'}
+                    sx={{
+                      backgroundColor: site.contractType === '납품계약' ? '#4caf50' : '#2196f3',
+                      color: 'white',
+                      fontSize: '0.75rem'
+                    }}
+                    size="small"
+                  />
+                </TableCell>
                 <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>
                   <Chip
                     label={statusOptions.find(option => option.value === site.status)?.label}
@@ -490,37 +715,60 @@ const SiteManagement = () => {
                 {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.startDate}</TableCell>}
                 {!isMobile && <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>{site.endDate}</TableCell>}
                 <TableCell sx={{ height: '60px', verticalAlign: 'middle' }}>
-                  <IconButton
-                    size="small"
-                    onClick={() => navigate(`/sites/${site.id}`)}
-                  >
-                    <LocationIcon />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleOpenDialog(site)}
-                  >
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleOpenUploadDialog(site)}
-                    title="물량내역 업로드"
-                  >
-                    <UploadIcon />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDelete(site.id)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {site.contractType === '납품계약' && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        sx={{ 
+                          backgroundColor: '#4caf50',
+                          color: 'white',
+                          fontSize: '0.7rem',
+                          minWidth: 'auto',
+                          px: 1,
+                          py: 0.5,
+                          '&:hover': {
+                            backgroundColor: '#45a049'
+                          }
+                        }}
+                        onClick={() => handleCreateContract(site)}
+                        startIcon={<ContractIcon sx={{ fontSize: '14px' }} />}
+                      >
+                        납품계약서
+                      </Button>
+                    )}
+                    <IconButton
+                      size="small"
+                      onClick={() => navigate(`/sites/${site.id}`)}
+                    >
+                      <LocationIcon />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenDialog(site)}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenUploadDialog(site)}
+                      title="물량내역 업로드"
+                    >
+                      <UploadIcon />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDelete(site.id)}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
                 </TableCell>
               </TableRow>
             ))}
             {sites.length === 0 && (
               <TableRow>
-                <TableCell colSpan={isMobile ? 5 : 9} align="center" sx={{ height: '60px', verticalAlign: 'middle' }}>
+                <TableCell colSpan={isMobile ? 6 : 10} align="center" sx={{ height: '60px', verticalAlign: 'middle' }}>
                   등록된 현장이 없습니다.
                 </TableCell>
               </TableRow>
@@ -536,7 +784,32 @@ const SiteManagement = () => {
         <form onSubmit={handleSubmit}>
           <DialogContent>
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="고유번호"
+                  name="siteCode"
+                  value={formData.siteCode}
+                  onChange={handleInputChange}
+                  required
+                  inputProps={{
+                    style: { 
+                      fontSize: '16px',
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }
+                  }}
+                  sx={{
+                    '& .MuiInputBase-input': {
+                      fontSize: '16px',
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }
+                  }}
+                  helperText="자동으로 생성되며 수정 가능합니다"
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="현장명"
@@ -611,6 +884,29 @@ const SiteManagement = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
+                  label="회사명"
+                  name="company"
+                  value={formData.company}
+                  onChange={handleInputChange}
+                  inputProps={{
+                    style: { 
+                      fontSize: '16px',
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }
+                  }}
+                  sx={{
+                    '& .MuiInputBase-input': {
+                      fontSize: '16px',
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden'
+                    }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
                   label="연락처"
                   name="phone"
                   value={formData.phone}
@@ -642,6 +938,23 @@ const SiteManagement = () => {
                   {statusOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
                       {option.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  select
+                  label="계약구분"
+                  name="contractType"
+                  value={formData.contractType}
+                  onChange={handleInputChange}
+                  required
+                >
+                  {contractTypeOptions.map((type) => (
+                    <MenuItem key={type} value={type}>
+                      {type}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -723,7 +1036,7 @@ const SiteManagement = () => {
         <DialogContent>
           <Box sx={{ mb: 3 }}>
             <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-              엑셀 파일의 "내역서" 시트에서 B, D, K, L열의 데이터를 추출합니다. (5번째 줄부터)
+              엑셀 파일의 "내역서" 시트에서 A, B, C, D, K, L열의 데이터를 추출합니다. (5번째 줄부터)
             </Typography>
             <input
               type="file"
@@ -749,7 +1062,15 @@ const SiteManagement = () => {
               <Typography variant="h6" sx={{ mb: 2 }}>
                 추출된 물량내역 ({uploadedItems.length}개)
               </Typography>
-              <TableContainer component={Paper} sx={{ maxHeight: 400, overflow: 'auto' }}>
+              <TableContainer
+                component={Paper}
+                sx={{
+                  maxHeight: 400,
+                  overflow: 'auto',
+                  scrollbarWidth: 'none', // Firefox
+                  '&::-webkit-scrollbar': { display: 'none' } // Chrome, Safari
+                }}
+              >
                 <Table size="small">
                   <TableHead>
                     <TableRow>
@@ -818,6 +1139,14 @@ const SiteManagement = () => {
         <DialogActions>
           <Button onClick={handleCloseUploadDialog}>
             취소
+          </Button>
+          <Button
+            onClick={handleClearItems}
+            variant="outlined"
+            color="error"
+            disabled={!selectedSiteForUpload}
+          >
+            초기화
           </Button>
           <Button
             onClick={handleSaveItems}

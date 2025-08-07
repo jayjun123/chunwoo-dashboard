@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, IconButton, Button, ToggleButtonGroup, ToggleButton, Tooltip, Checkbox, FormControlLabel, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Typography, IconButton, Button, ToggleButtonGroup, ToggleButton, Tooltip, Checkbox, FormControlLabel, useMediaQuery, useTheme, Card, CardContent } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -26,6 +27,7 @@ const CustomCalendar = (props) => {
   const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
   const isLargeDesktop = useMediaQuery(theme.breakpoints.up('xl'));
+  const navigate = useNavigate();
 
   console.log('🔍 CustomCalendar 렌더링:', {
     calendarItems: props.calendarItems,
@@ -203,8 +205,10 @@ const CustomCalendar = (props) => {
         type === '현장' ? '[현장]' : 
         type === '회의' ? '[회의]' : 
         type === '입찰' ? '[입찰]' : 
+        type === '전자입찰' ? '[전자입찰]' : 
         type === '현설' ? '[현설]' : 
         type === '견적' ? '[견적]' : 
+        type === '실측' ? '[실측]' : 
         type === '기타' ? '[기타]' : '';
       
       // 견적 일정의 경우 title 필드도 확인
@@ -340,6 +344,21 @@ const CustomCalendar = (props) => {
     } catch (error) {
       console.error('항목 붙여넣기 실패:', error);
       alert('항목 붙여넣기에 실패했습니다.');
+    }
+  };
+
+  // 현장명 클릭 핸들러 (현장관리 페이지로 이동)
+  const handleSiteNameClick = (siteName) => {
+    if (siteName) {
+      // 현장관리 페이지로 이동하면서 해당 현장을 선택된 상태로 전달
+      navigate('/sites', { 
+        state: { 
+          selectedSiteName: siteName,
+          autoSelectSite: true 
+        } 
+      });
+      // 팝업 닫기
+      setEditPopup({ open: false, item: null, date: '' });
     }
   };
 
@@ -565,6 +584,7 @@ const CustomCalendar = (props) => {
           >
             <DeleteIcon sx={{ fontSize: 22 }} />
           </IconButton>
+
           {!isMobile && (
             <>
               <Button
@@ -600,6 +620,7 @@ const CustomCalendar = (props) => {
               >
                 삭제 ({Array.isArray(selectedItems) ? selectedItems.length : 0})
               </Button>
+
             </>
           )}
         </Box>
@@ -702,8 +723,10 @@ const CustomCalendar = (props) => {
                         item.type === '현장' ? '[현장]' : 
                         item.type === '회의' ? '[회의]' : 
                         item.type === '입찰' ? '[입찰]' : 
+                        item.type === '전자입찰' ? '[전자입찰]' : 
                         item.type === '현설' ? '[현설]' : 
                         item.type === '지원' ? '[지원]' : 
+                        item.type === '실측' ? '[실측]' : 
                         item.type === '기타' ? '[기타]' : '';
                       return typePrefix + (viewMode === '3days' ? item.text : item.text.slice(0, 9));
                     })()}
@@ -982,8 +1005,10 @@ const CustomCalendar = (props) => {
                                           item.type === '현장' ? '[현장]' : 
                                           item.type === '회의' ? '[회의]' : 
                                           item.type === '입찰' ? '[입찰]' : 
+                                          item.type === '전자입찰' ? '[전자입찰]' : 
                                           item.type === '현설' ? '[현설]' : 
                                           item.type === '견적' ? '[견적]' : 
+                                          item.type === '실측' ? '[실측]' : 
                                           item.type === '기타' ? '[기타]' : '';
                                         const siteName = item.siteName || '';
                                         const title = item.text || '';
@@ -1094,15 +1119,40 @@ const CustomCalendar = (props) => {
             sx={{ mb: 2 }}
             autoFocus
           />
-          {/* 현장명 검색 선택 */}
-          <Autocomplete
-            options={uniqueSiteNames}
-            value={editPopup.item?.siteName || ''}
-            onInputChange={(_, v) => setEditPopup(p => ({ ...p, item: { ...p.item, siteName: v } }))}
-            renderInput={(params) => <TextField {...params} label="현장명 검색" />}
-            freeSolo
-            sx={{ mb: 2 }}
-          />
+          {/* 현장명 클릭 가능한 카드 */}
+          {editPopup.item?.siteName ? (
+            <Card 
+              sx={{ 
+                mb: 2, 
+                cursor: 'pointer',
+                '&:hover': {
+                  bgcolor: 'rgba(25, 118, 210, 0.08)',
+                  borderColor: '#1976d2'
+                },
+                border: '1px solid #e0e0e0',
+                transition: 'all 0.2s'
+              }}
+              onClick={() => handleSiteNameClick(editPopup.item.siteName)}
+            >
+              <CardContent sx={{ py: 1, px: 2 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                  🏗️ {editPopup.item.siteName}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#666' }}>
+                  클릭하여 현장 세부내역으로 이동
+                </Typography>
+              </CardContent>
+            </Card>
+          ) : (
+            <Autocomplete
+              options={uniqueSiteNames}
+              value={editPopup.item?.siteName || ''}
+              onInputChange={(_, v) => setEditPopup(p => ({ ...p, item: { ...p.item, siteName: v } }))}
+              renderInput={(params) => <TextField {...params} label="현장명 검색" />}
+              freeSolo
+              sx={{ mb: 2 }}
+            />
+          )}
           {/* 분류 선택 */}
           <Box sx={{ mb: 2 }}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>분류 선택</Typography>
@@ -1116,16 +1166,16 @@ const CustomCalendar = (props) => {
                 label="회의"
               />
               <FormControlLabel
-                control={<Checkbox checked={editPopup.item?.type === '입찰'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '입찰' } }))} />}
-                label="입찰"
+                control={<Checkbox checked={editPopup.item?.type === '전자입찰'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '전자입찰' } }))} />}
+                label="전자입찰"
               />
               <FormControlLabel
                 control={<Checkbox checked={editPopup.item?.type === '현설'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '현설' } }))} />}
                 label="현설"
               />
               <FormControlLabel
-                control={<Checkbox checked={editPopup.item?.type === '견적'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '견적' } }))} />}
-                label="견적"
+                control={<Checkbox checked={editPopup.item?.type === '실측'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '실측' } }))} />}
+                label="실측"
               />
               <FormControlLabel
                 control={<Checkbox checked={editPopup.item?.type === '기타'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '기타' } }))} />}

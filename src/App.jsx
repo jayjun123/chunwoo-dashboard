@@ -25,13 +25,154 @@ import LoadingProvider from './components/common/LoadingProvider';
 import PopupProvider from './contexts/PopupContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import SplashScreen from './components/common/SplashScreen';
+import TemplateUpload from './pages/TemplateUpload';
+
+// 임시: 현장명 동기화 함수
+import { syncSiteNames } from './scripts/syncSiteNames';
+
+// 임시: 지출 차수 추가 함수
+const addSequenceToCostsDirect = async () => {
+  try {
+    const { collection, getDocs, updateDoc, doc } = await import('firebase/firestore');
+    const { db } = await import('./firebase');
+    
+    console.log('지출 데이터 차수 추가 시작...');
+    
+    // 모든 지출 데이터 조회
+    const costsSnapshot = await getDocs(collection(db, 'costs'));
+    const costs = costsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    console.log('총 지출 데이터:', costs.length, '개');
+    
+    // 현장명과 항목별로 그룹화
+    const groupedCosts = {};
+    costs.forEach(cost => {
+      const key = `${cost.site}_${cost.itemType}`;
+      if (!groupedCosts[key]) {
+        groupedCosts[key] = [];
+      }
+      groupedCosts[key].push(cost);
+    });
+    
+    // 각 그룹별로 날짜 순 정렬 후 차수 계산
+    const updatePromises = [];
+    
+    Object.keys(groupedCosts).forEach(key => {
+      const [siteName, itemType] = key.split('_');
+      const groupCosts = groupedCosts[key];
+      
+      // 날짜 순으로 정렬
+      const sortedCosts = groupCosts.sort((a, b) => {
+        const dateA = new Date(a.date || 0);
+        const dateB = new Date(b.date || 0);
+        return dateA - dateB;
+      });
+      
+      // 각 항목에 차수 추가
+      sortedCosts.forEach((cost, index) => {
+        if (!cost.sequence) {
+          const sequence = `${index + 1}차`;
+          updatePromises.push(
+            updateDoc(doc(db, 'costs', cost.id), {
+              sequence: sequence,
+              updatedAt: new Date()
+            })
+          );
+          console.log(`${siteName} - ${itemType} - ${cost.date}: ${sequence}`);
+        }
+      });
+    });
+    
+    // 일괄 업데이트 실행
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises);
+      console.log(`${updatePromises.length}개의 지출 데이터에 차수 추가 완료`);
+    } else {
+      console.log('차수가 이미 설정된 데이터만 존재합니다.');
+    }
+    
+    console.log('지출 데이터 차수 추가 완료!');
+    
+  } catch (error) {
+    console.error('지출 데이터 차수 추가 실패:', error);
+  }
+};
+
+// 임시: 현장명 동기화 함수 (직접 구현)
+const syncSiteNamesDirect = async () => {
+  try {
+    const { collection, getDocs, updateDoc, doc } = await import('firebase/firestore');
+    const { db } = await import('./firebase');
+    
+    console.log('현장명 동기화 시작...');
+    
+    // 1. 모든 현장 데이터 조회
+    const sitesSnapshot = await getDocs(collection(db, 'sites'));
+    const sites = sitesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    console.log('현장 데이터:', sites.map(site => ({ id: site.id, name: site.name })));
+    
+    // 2. 모든 기성 데이터 조회
+    const gisungSnapshot = await getDocs(collection(db, 'gisung'));
+    const gisungData = gisungSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    console.log('기성 데이터:', gisungData.map(gisung => ({ id: gisung.id, name: gisung.name, siteId: gisung.siteId })));
+    
+    // 3. 현장명과 기성 데이터 매칭 및 업데이트
+    const updatePromises = [];
+    
+    for (const gisung of gisungData) {
+      // siteId로 현장 찾기
+      const matchingSite = sites.find(site => site.id === gisung.siteId);
+      
+      if (matchingSite && gisung.name !== matchingSite.name) {
+        console.log(`기성 데이터 업데이트: ${gisung.name} → ${matchingSite.name}`);
+        
+        updatePromises.push(
+          updateDoc(doc(db, 'gisung', gisung.id), {
+            name: matchingSite.name,
+            updatedAt: new Date()
+          })
+        );
+      }
+    }
+    
+    // 4. 일괄 업데이트 실행
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises);
+      console.log(`${updatePromises.length}개의 기성 데이터 업데이트 완료`);
+    } else {
+      console.log('업데이트할 데이터가 없습니다.');
+    }
+    
+    console.log('현장명 동기화 완료!');
+    
+  } catch (error) {
+    console.error('현장명 동기화 실패:', error);
+  }
+};
+
+// 전역 함수 노출
+if (typeof window !== 'undefined') {
+  window.syncSiteNamesDirect = syncSiteNamesDirect;
+  window.addSequenceToCostsDirect = addSequenceToCostsDirect;
+}
 const Safety = React.lazy(() => import('./pages/Safety'));
 const SafetyInspections = React.lazy(() => import('./components/safety/SafetyInspections'));
 const SafetyIncidents = React.lazy(() => import('./components/safety/SafetyIncidents'));
 const SafetyTraining = React.lazy(() => import('./components/safety/SafetyTraining'));
 const SafetyReports = React.lazy(() => import('./components/safety/SafetyReports'));
 import Documents from './pages/Documents';
-import Reports from './pages/Reports';
+import ConstructionTeam from './pages/DaemaTeam';
 import Discussions from './pages/Discussions';
 import Vendors from './pages/Vendors';
 import VendorManagement from './pages/VendorManagement';
@@ -44,7 +185,9 @@ import Cost from './pages/Cost';
 import Users from './pages/Users';
 import ImportantSite from './pages/ImportantSite';
 import NewSites from './pages/NewSites';
-import GisungManagement from './pages/GisungManagement';
+import GisungStatusPage from './components/GisungStatusPage';
+import SiteDetail from './components/sites/SiteDetail';
+
 import WholeList from './pages/WholeList';
 import Profile from './components/Profile';
 import NewsFavorites from './pages/NewsFavorites';
@@ -94,6 +237,10 @@ const App = React.memo(() => {
     try {
       // 성능 모니터링 시작
       enhancedPerformanceMonitor.startMemoryMonitoring();
+      
+      // 임시: 현장명 동기화 함수를 전역으로 추가
+      window.syncSiteNames = syncSiteNames;
+      window.syncSiteNamesDirect = syncSiteNamesDirect;
       
       // 페이지 언로드 시 cleanup 실행
       const handleBeforeUnload = () => {
@@ -286,11 +433,11 @@ const App = React.memo(() => {
                           <ProtectedRoute>
                             {isMobile ? (
                               <MobileLayout>
-                                <NewSites />
+                                <SiteDetail />
                               </MobileLayout>
                             ) : (
                               <Layout>
-                                <NewSites />
+                                <SiteDetail />
                               </Layout>
                             )}
                           </ProtectedRoute>
@@ -429,21 +576,22 @@ const App = React.memo(() => {
                         }
                       />
                       <Route
-                        path="/reports"
+                        path="/daema-team"
                         element={
                           <ProtectedRoute>
                             {isMobile ? (
                               <MobileLayout>
-                                <Reports />
+                                <ConstructionTeam />
                               </MobileLayout>
                             ) : (
                               <Layout>
-                                <Reports />
+                                <ConstructionTeam />
                               </Layout>
                             )}
                           </ProtectedRoute>
                         }
                       />
+
                       <Route
                         path="/discussions"
                         element={
@@ -604,11 +752,11 @@ const App = React.memo(() => {
                           <ProtectedRoute>
                             {isMobile ? (
                               <MobileLayout>
-                                <GisungManagement />
+                                <GisungStatusPage />
                               </MobileLayout>
                             ) : (
                               <Layout>
-                                <GisungManagement />
+                                <GisungStatusPage />
                               </Layout>
                             )}
                           </ProtectedRoute>
@@ -737,6 +885,22 @@ const App = React.memo(() => {
                             ) : (
                               <Layout>
                                 <PDFTest />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/template-upload"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <TemplateUpload />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <TemplateUpload />
                               </Layout>
                             )}
                           </ProtectedRoute>

@@ -4,6 +4,7 @@ import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UploadIcon from '@mui/icons-material/Upload';
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { collection, onSnapshot, query, orderBy, where, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { addSite, updateSite, deleteSite } from '../api/sites';
@@ -45,6 +46,7 @@ import * as XLSX from 'xlsx';
 const STATUS_OPTIONS = ['예정', '진행중', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급', '관급'];
 const ESTIMATE_STATUS_OPTIONS = ['제출대기', '제출완료', '수주', '미수주', '기타'];
+const ESTIMATE_TYPE_OPTIONS = ['견적', '입찰', '수의', '소개'];
 
 const initialFormState = {
   name: '',
@@ -64,9 +66,11 @@ const initialFormState = {
   team: '',
   desc: '',
   isFavorite: false,
+  stampType: '인감없음',
   items: [],
   estimateStatus: '',
-  estimateNote: '',
+  estimateType: '', // 견적유무 필드 추가
+  note: '', // estimateNote를 note로 변경
 };
 
 const NewSites = () => {
@@ -123,6 +127,36 @@ const NewSites = () => {
       }
     }
   }, [location.pathname, sites]);
+
+  // location state에서 전달받은 현장 정보 처리
+  useEffect(() => {
+    if (location.state && sites.length > 0) {
+      const { selectedSiteId, selectedSiteName } = location.state;
+      
+      if (selectedSiteId) {
+        const targetSite = sites.find(site => site.id === selectedSiteId);
+        if (targetSite) {
+          startTransition(() => {
+            setSelectedSite(targetSite);
+            setForm(targetSite);
+            setIsEditing(false);
+          });
+        }
+      } else if (selectedSiteName) {
+        const targetSite = sites.find(site => site.name === selectedSiteName);
+        if (targetSite) {
+          startTransition(() => {
+            setSelectedSite(targetSite);
+            setForm(targetSite);
+            setIsEditing(false);
+          });
+        }
+      }
+      
+      // location state 초기화 (중복 실행 방지)
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, sites]);
 
 
 
@@ -333,8 +367,41 @@ const NewSites = () => {
     // 선택된 현장의 통합 현황 조회
     if (site) {
       try {
+        // 중복 단수정리 항목 자동 정리
+        let cleanedItems = site.items || [];
+        const adjustmentItems = cleanedItems.filter(item => item.name === '단수정리');
+        
+        if (adjustmentItems.length > 1) {
+          console.log(`중복 단수정리 항목 발견: ${adjustmentItems.length}개`);
+          
+          // 첫 번째 단수정리 항목만 남기고 나머지 제거
+          let foundFirst = false;
+          cleanedItems = cleanedItems.filter(item => {
+            if (item.name === '단수정리') {
+              if (!foundFirst) {
+                foundFirst = true;
+                return true; // 첫 번째는 유지
+              } else {
+                return false; // 나머지는 제거
+              }
+            }
+            return true; // 단수정리가 아닌 항목들은 모두 유지
+          });
+          
+          // Firebase에 자동 저장
+          try {
+            await updateDoc(doc(db, 'sites', site.id), {
+              items: cleanedItems,
+              updatedAt: new Date()
+            });
+            console.log('중복 단수정리 항목 자동 정리 완료');
+          } catch (error) {
+            console.error('중복 단수정리 자동 정리 오류:', error);
+          }
+        }
+        
         // 물량내역에서 계약금액 자동 추출
-        const autoContractAmount = getAutoContractAmount(site.items);
+        const autoContractAmount = getAutoContractAmount(cleanedItems);
         
         // 계약금액 우선순위: 물량내역 > 현장상세정보
         const contractAmount = autoContractAmount > 0 ? autoContractAmount : (Number(site.contractAmount) || 0);
@@ -372,10 +439,11 @@ const NewSites = () => {
         
         setSiteIntegratedStatus(integratedStatus);
         
-        // 폼 데이터 설정 (물량내역의 계약금액 우선)
+        // 폼 데이터 설정 (물량내역의 계약금액 우선, 정리된 아이템 사용)
         setForm(prev => ({
           ...prev,
           ...site,
+          items: cleanedItems,
           contractAmount: autoContractAmount > 0 ? autoContractAmount.toString() : (site.contractAmount || '')
         }));
         
@@ -388,9 +456,31 @@ const NewSites = () => {
       setSiteIntegratedStatus(null);
     }
   };
+  // 전화번호 서식 함수
+  const formatPhoneNumber = (value) => {
+    // 숫자만 추출
+    const numbers = value.replace(/[^0-9]/g, '');
+    
+    // 길이에 따라 서식 적용
+    if (numbers.length <= 3) {
+      return numbers;
+    } else if (numbers.length <= 7) {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
+    } else if (numbers.length <= 11) {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
+    } else {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
+    }
+  };
+
   const handleChange = async (e) => {
     const { name, value, type, checked } = e.target;
-    const newValue = type === 'checkbox' ? checked : value;
+    let newValue = type === 'checkbox' ? checked : value;
+    
+    // 전화번호 필드인 경우 서식 적용
+    if (name === 'phone' && type !== 'checkbox') {
+      newValue = formatPhoneNumber(value);
+    }
     
     setForm(prev => ({ ...prev, [name]: newValue }));
     
@@ -431,9 +521,16 @@ const NewSites = () => {
       newItems[index][field] = value;
     }
     
+    // 물량이나 단가가 변경되면 금액 자동 계산
+    if (field === 'quantity' || field === 'price') {
+      const quantity = parseFloat(newItems[index].quantity) || 0;
+      const price = parseFloat(newItems[index].price) || 0;
+      newItems[index].amount = (quantity * price).toString();
+    }
+    
     // 총 공사계 자동 재계산 (단수정리 포함)
     const totalAmount = newItems
-      .filter(item => !item.isSeparator && !item.isTotal && !item.isVat && !item.isTotalWithVat)
+      .filter(item => !item.isSpacer && !item.isTotal && !item.isVat && !item.isTotalWithVat)
       .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
     
     // 총 공사계 업데이트
@@ -487,14 +584,15 @@ const NewSites = () => {
     
     const currentItems = [...(form.items || [])];
     
-    // 단수정리 항목의 인덱스 찾기
-    const adjustmentIndex = currentItems.findIndex(item => item.isAdjustment);
+    // 총공사계 위의 인덱스 찾기
+    const totalIndex = currentItems.findIndex(item => item.isTotal);
     
-    // 단수정리 위에 새 항목 추가
+    // 총공사계 위에 새 항목 추가
     const newItem = { name: '', quantity: '', price: '', amount: '' };
-    if (adjustmentIndex !== -1) {
-      currentItems.splice(adjustmentIndex, 0, newItem);
+    if (totalIndex !== -1) {
+      currentItems.splice(totalIndex, 0, newItem);
     } else {
+      // 총공사계가 없으면 맨 뒤에 추가
       currentItems.push(newItem);
     }
     
@@ -512,6 +610,53 @@ const NewSites = () => {
       }
     }
   };
+
+  const handleAddAdjustmentItem = async () => {
+    // 수정 모드가 아닌 경우 편집 불가
+    if (selectedSite && !isEditing) {
+      return;
+    }
+    
+    const currentItems = [...(form.items || [])];
+    
+    // 이미 단수정리 항목이 있는지 확인
+    const existingAdjustment = currentItems.find(item => item.name === '단수정리');
+    if (existingAdjustment) {
+      alert('단수정리 항목이 이미 존재합니다.');
+      return;
+    }
+    
+    // 단수정리 항목 추가
+    const adjustmentItem = {
+      name: '단수정리',
+      quantity: '',
+      price: '',
+      amount: '',
+      isAdjustment: true
+    };
+    
+    // 총계 항목들 앞에 추가
+    const totalIndex = currentItems.findIndex(item => item.isTotal);
+    if (totalIndex !== -1) {
+      currentItems.splice(totalIndex, 0, adjustmentItem);
+    } else {
+      currentItems.push(adjustmentItem);
+    }
+    
+    setForm(prev => ({ ...prev, items: currentItems }));
+    
+    // Firebase에 실시간 저장 (수정 모드일 때만)
+    if (selectedSite && isEditing) {
+      try {
+        await updateDoc(doc(db, 'sites', selectedSite.id), {
+          items: currentItems,
+          updatedAt: new Date()
+        });
+      } catch (error) {
+        console.error('단수정리 항목 추가 실시간 저장 오류:', error);
+      }
+    }
+  };
   
   const handleRemoveItem = async (index) => {
     // 수정 모드가 아닌 경우 편집 불가
@@ -519,11 +664,18 @@ const NewSites = () => {
       return;
     }
     
+    // 삭제하려는 항목이 단수정리인지 확인
+    const itemToRemove = form.items[index];
+    if (itemToRemove && itemToRemove.name === '단수정리') {
+      console.log('단수정리 항목은 삭제할 수 없습니다.');
+      return;
+    }
+    
     const newItems = form.items.filter((_, i) => i !== index);
     
     // 총 공사계 자동 재계산 (단수정리 포함)
     const totalAmount = newItems
-      .filter(item => !item.isSeparator && !item.isTotal && !item.isVat && !item.isTotalWithVat)
+      .filter(item => !item.isSpacer && !item.isTotal && !item.isVat && !item.isTotalWithVat)
       .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
     
     // 총 공사계 업데이트
@@ -610,23 +762,53 @@ const NewSites = () => {
           defval: '' // 빈 셀의 기본값
         });
 
-        // 5번째 줄부터 데이터 추출 (B, D, K, L 열)
+        // 5번째 줄부터 데이터 추출 (A, B, C, D, E, K, L 열)
         const extractedItems = [];
         let totalAmount = 0;
+        let danSuFound = false; // 단수정리 발견 여부
         
         for (let i = 4; i < jsonData.length; i++) { // 5번째 줄부터 (인덱스 4)
           const row = jsonData[i];
           
           if (row && row.length > 11) { // L열까지 있으려면 최소 12개 열 필요
-            const itemName = row[1]; // B열 (인덱스 1)
-            const quantity = row[3]; // D열 (인덱스 3)
-            const unitPrice = row[10]; // K열 (인덱스 10)
-            const totalPrice = row[11]; // L열 (인덱스 11)
+            const itemName = row[0]; // A열 (인덱스 0) - 품명
+            const specification = row[1]; // B열 (인덱스 1) - 규격
+            const unit = row[2]; // C열 (인덱스 2) - 단위
+            const quantity = row[3]; // D열 (인덱스 3) - 수량
+            const amount = row[4]; // E열 (인덱스 4) - 금액 (새로 추가)
+            const unitPrice = row[10]; // K열 (인덱스 10) - 단가
+            const totalPrice = row[11]; // L열 (인덱스 11) - 금액 (기존)
 
-            // "부가세 별도"가 포함된 행은 제외
-            if (itemName && !itemName.includes('부가세 별도')) {
+            // 단수정리를 만나면 그 이후는 읽지 않음
+            if (itemName && (itemName.includes('단수정리') || itemName.includes('NEGO') || itemName.includes('네고'))) {
+              danSuFound = true;
+              console.log(`✅ 단수정리 발견: ${itemName} (행 ${i + 1})`);
+            }
+            
+            // 단수정리 이후는 완전히 중단
+            if (danSuFound && !itemName.includes('단수정리') && !itemName.includes('NEGO') && !itemName.includes('네고')) {
+              console.log(`🛑 단수정리 이후 중단: ${itemName} (행 ${i + 1})`);
+              break;
+            }
+
+            // 단수정리 또는 일반 항목 처리
+            if (itemName && (
+                // 일반 항목들
+                (!itemName.includes('부가세 별도') && 
+                !itemName.includes('[ 총 공 사 금 액 ]') &&
+                !itemName.includes('────────────────') &&
+                !itemName.includes('총 공사계') &&
+                !itemName.includes('부가세') &&
+                !itemName.includes('계약금액') &&
+                !itemName.includes('실선') &&
+                !itemName.includes('구분선')) ||
+                // 단수정리 항목
+                itemName.includes('단수정리') ||
+                itemName.includes('NEGO') ||
+                itemName.includes('네고')
+            )) {
               // 디버깅을 위한 로그
-              console.log(`행 ${i + 1}: B=${itemName}, D=${quantity}, K=${unitPrice}, L=${totalPrice}`);
+              console.log(`행 ${i + 1}: A=${itemName}, B=${specification}, C=${unit}, D=${quantity}, K=${unitPrice}, L=${totalPrice}`);
               console.log(`원시 값 타입: L=${typeof totalPrice}, 값=${totalPrice}`);
               
               // 값 정리 (공백 제거, 쉼표 제거, 음수 기호 유지)
@@ -634,31 +816,48 @@ const NewSites = () => {
               const cleanUnitPrice = unitPrice ? unitPrice.toString().trim().replace(/,/g, '') : '';
               const cleanTotalPrice = totalPrice ? totalPrice.toString().trim().replace(/,/g, '') : '';
               
-              // L열이 음수인 경우 단수정리 계산
+              // 단수정리 금액은 그대로 유지 (임의 계산하지 않음)
               let displayName = itemName;
               let finalAmount = cleanTotalPrice;
               
-              // 음수 확인
+              // 음수 확인 (단수정리 표시용)
               const numericValue = parseFloat(cleanTotalPrice);
               const isNegative = !isNaN(numericValue) && numericValue < 0;
               
               console.log(`정리된 값: ${cleanTotalPrice}, 숫자값: ${numericValue}, 음수여부: ${isNegative}`);
               
               if (isNegative) {
-                // 단수정리: 원래 금액에서 음수 금액을 빼서 계산
-                const originalAmount = Math.abs(numericValue); // 절댓값
-                const roundedAmount = Math.round(originalAmount / 10000) * 10000; // 만원 단위로 맞춤
+                // 단수정리 표시만 변경, 금액은 그대로 유지
                 displayName = '단수정리';
-                finalAmount = (-roundedAmount).toString();
-                console.log(`단수정리 계산: ${numericValue} -> ${-roundedAmount}`);
+                finalAmount = cleanTotalPrice; // 원래 값 그대로 유지
+                console.log(`단수정리 표시: ${cleanTotalPrice} (원래 값 유지)`);
+              }
+              
+              // 물량이 1인 경우 단가와 금액을 같게 설정
+              let finalPrice = cleanUnitPrice;
+              let finalAmountValue = finalAmount;
+              
+              const quantityNum = parseFloat(cleanQuantity);
+              if (quantityNum === 1 && cleanUnitPrice && !cleanTotalPrice) {
+                // 물량이 1이고 단가는 있지만 금액이 없는 경우
+                finalPrice = cleanUnitPrice;
+                finalAmountValue = cleanUnitPrice; // 단가와 금액을 같게
+                console.log(`물량 1 처리: ${itemName} - 단가: ${cleanUnitPrice}, 금액: ${finalAmountValue}`);
+              } else if (quantityNum === 1 && !cleanUnitPrice && cleanTotalPrice) {
+                // 물량이 1이고 단가는 없지만 금액이 있는 경우
+                finalPrice = cleanTotalPrice; // 금액을 단가로 사용
+                finalAmountValue = cleanTotalPrice;
+                console.log(`물량 1 처리: ${itemName} - 단가: ${finalPrice}, 금액: ${finalAmountValue}`);
               }
               
               const item = {
                 id: Date.now() + i,
                 name: displayName || '',
+                specification: specification || '', // B열 - 규격
+                unit: unit || '', // C열 - 단위
                 quantity: cleanQuantity,
-                price: cleanUnitPrice,
-                amount: finalAmount
+                price: finalPrice,
+                amount: finalAmountValue
               };
               
               // 총 금액 계산 (음수도 포함)
@@ -671,60 +870,18 @@ const NewSites = () => {
           }
         }
         
-        // 단수정리 항목 추가 (마지막에 항상 추가)
-        extractedItems.push({
-          id: Date.now() + 'adjustment',
-          name: '단수정리',
-          quantity: '',
-          price: '',
-          amount: '',
-          isAdjustment: true
-        });
+        // 단수정리 항목은 자동으로 추가하지 않음 (사용자가 직접 추가하도록)
+        // extractedItems.push({
+        //   id: Date.now() + 'adjustment',
+        //   name: '단수정리',
+        //   quantity: '',
+        //   price: '',
+        //   amount: '',
+        //   isAdjustment: true
+        // });
         
-        // 구분선과 총 공사계 추가
-        if (extractedItems.length > 0) {
-          // 구분선 추가
-          extractedItems.push({
-            id: Date.now() + 'separator',
-            name: '─────────────────────────────────────',
-            quantity: '',
-            price: '',
-            amount: '',
-            isSeparator: true
-          });
-          
-          // 총 공사계(부가세별도) 추가
-          extractedItems.push({
-            id: Date.now() + 'total',
-            name: '총 공사계(부가세별도)',
-            quantity: '',
-            price: '',
-            amount: totalAmount.toString(),
-            isTotal: true
-          });
-          
-          // 부가세 추가
-          const vatAmount = Math.round(totalAmount * 0.1);
-          extractedItems.push({
-            id: Date.now() + 'vat',
-            name: '부가세',
-            quantity: '',
-            price: '',
-            amount: vatAmount.toString(),
-            isVat: true
-          });
-          
-          // 계약금액(부가세포함) 추가
-          const totalWithVat = totalAmount + vatAmount;
-          extractedItems.push({
-            id: Date.now() + 'totalWithVat',
-            name: '계약금액(부가세포함)',
-            quantity: '',
-            price: '',
-            amount: totalWithVat.toString(),
-            isTotalWithVat: true
-          });
-        }
+        // 이미 단수정리까지만 추출되었으므로 그대로 사용
+        console.log('✅ 단수정리까지만 추출 완료');
 
         setUploadedItems(extractedItems);
         console.log('추출된 물량내역:', extractedItems);
@@ -743,8 +900,38 @@ const NewSites = () => {
     }
 
     try {
-      // 업로드된 아이템들만 저장 (기존 아이템과 병합하지 않음)
-      const updatedItems = uploadedItems;
+      // 업로드된 아이템들에 기본 구조 추가 (총 공사계, 부가세, 계약금액 포함)
+      const updatedItems = [
+        ...uploadedItems, // 업로드된 아이템들
+        { isTotal: true, name: '총 공사계(부가세별도)', quantity: '', price: '', amount: '0' }, // 총 공사계
+        { isVat: true, name: '부가세', quantity: '', price: '', amount: '0' }, // 부가세
+        { isTotalWithVat: true, name: '계약금액(부가세포함)', quantity: '', price: '', amount: '0' } // 계약금액
+      ];
+      
+      // 총 공사계 자동 계산
+      const totalAmount = uploadedItems
+        .filter(item => !item.isSpacer && !item.isTotal && !item.isVat && !item.isTotalWithVat)
+        .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+      
+      // 총 공사계 업데이트
+      const totalIndex = updatedItems.findIndex(item => item.isTotal);
+      if (totalIndex !== -1) {
+        updatedItems[totalIndex].amount = totalAmount.toString();
+      }
+      
+      // 부가세 업데이트
+      const vatAmount = Math.round(totalAmount * 0.1);
+      const vatIndex = updatedItems.findIndex(item => item.isVat);
+      if (vatIndex !== -1) {
+        updatedItems[vatIndex].amount = vatAmount.toString();
+      }
+      
+      // 계약금액(부가세포함) 업데이트
+      const totalWithVat = totalAmount + vatAmount;
+      const totalWithVatIndex = updatedItems.findIndex(item => item.isTotalWithVat);
+      if (totalWithVatIndex !== -1) {
+        updatedItems[totalWithVatIndex].amount = totalWithVat.toString();
+      }
       
       // 계약금액 자동 업데이트
       const autoContractAmount = getAutoContractAmount(updatedItems);
@@ -777,7 +964,7 @@ const NewSites = () => {
       }));
 
       console.log('저장된 아이템들:', updatedItems);
-      alert('물량내역이 성공적으로 저장되었습니다.');
+      alert('물량내역이 성공적으로 저장되었습니다. 총 공사계, 부가세, 계약금액이 자동으로 추가되었습니다.');
       handleCloseUploadDialog();
     } catch (error) {
       console.error('물량내역 저장 오류:', error);
@@ -788,8 +975,8 @@ const NewSites = () => {
   const handleEditUploadedItem = (index, field, value) => {
     const updatedItems = [...uploadedItems];
     
-    // 구분선이나 총 공사계는 편집 불가
-    if (updatedItems[index].isSeparator || updatedItems[index].isTotal) {
+    // 총 공사계는 편집 불가
+    if (updatedItems[index].isTotal) {
       return;
     }
     
@@ -803,7 +990,7 @@ const NewSites = () => {
     
     // 총 공사계 자동 재계산 (단수정리 포함)
     const totalAmount = updatedItems
-      .filter(item => !item.isSeparator && !item.isTotal && !item.isVat && !item.isTotalWithVat)
+      .filter(item => !item.isSpacer && !item.isTotal && !item.isVat && !item.isTotalWithVat)
       .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
     
     // 총 공사계 업데이트
@@ -830,8 +1017,8 @@ const NewSites = () => {
   };
 
   const handleDeleteUploadedItem = (index) => {
-    // 구분선이나 총 공사계는 삭제 불가
-    if (uploadedItems[index].isSeparator || uploadedItems[index].isTotal) {
+    // 총 공사계는 삭제 불가
+    if (uploadedItems[index].isTotal) {
       return;
     }
     
@@ -839,7 +1026,7 @@ const NewSites = () => {
     
     // 총 공사계 자동 재계산 (단수정리 포함)
     const totalAmount = updatedItems
-      .filter(item => !item.isSeparator && !item.isTotal && !item.isVat && !item.isTotalWithVat)
+      .filter(item => !item.isSpacer && !item.isTotal && !item.isVat && !item.isTotalWithVat)
       .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
     
     // 총 공사계 업데이트
@@ -867,6 +1054,17 @@ const NewSites = () => {
   const handleNewSite = () => {
     setSelectedSite(null);
     setSiteIntegratedStatus(null);
+    
+    // 기본 구조의 물량내역 생성 (총 공사계, 부가세, 계약금액 포함)
+    const defaultItems = [
+      { isSpacer: true, name: '', quantity: '', price: '', amount: '' }, // 보이지 않는 빈칸 1
+      { isSpacer: true, name: '', quantity: '', price: '', amount: '' }, // 보이지 않는 빈칸 2
+      { isSpacer: true, name: '', quantity: '', price: '', amount: '' }, // 보이지 않는 빈칸 3
+      { isTotal: true, name: '총 공사계(부가세별도)', quantity: '', price: '', amount: '0' }, // 총 공사계
+      { isVat: true, name: '부가세', quantity: '', price: '', amount: '0' }, // 부가세
+      { isTotalWithVat: true, name: '계약금액(부가세포함)', quantity: '', price: '', amount: '0' } // 계약금액
+    ];
+    
     setForm({
       name: '',
       contractType: '관급',
@@ -875,7 +1073,7 @@ const NewSites = () => {
       endDate: '',
       status: '진행중',
       isFavorite: false,
-      items: []
+      items: defaultItems
     });
     setIsEditing(false);
   };
@@ -997,7 +1195,14 @@ const NewSites = () => {
     }
   };
 
-  const handleGisung = () => navigate(selectedSite ? `/progress?siteId=${selectedSite.id}` : '/progress');
+  const handleGisung = () => {
+    if (selectedSite) {
+      // 현장별 기성현황으로 이동 (현장별 뷰로 설정)
+      navigate(`/progress?siteId=${selectedSite.id}&viewMode=site`);
+    } else {
+      navigate('/progress');
+    }
+  };
   const handleWholeList = () => navigate('/whole-list');
   const isReadOnly = !isEditing;
 
@@ -1056,8 +1261,286 @@ const NewSites = () => {
   const phoneRef = useRef();
   const teamRef = useRef();
   const descRef = useRef();
-  const estimateStatusRef = useRef();
-  const estimateNoteRef = useRef();
+  const estimateTypeRef = useRef();
+  const noteRef = useRef();
+
+  // 중복 단수정리 항목 정리 함수
+  // 엑셀 다운로드 함수 (gisung.xlsx 템플릿 사용)
+  const handleExcelDownload = async () => {
+    if (!selectedSite) {
+      alert('현장을 선택해주세요.');
+      return;
+    }
+
+    try {
+      // gisung.xlsx 템플릿 파일 가져오기
+      const response = await fetch('/gisung.xlsx');
+      const arrayBuffer = await response.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { 
+        type: 'array',
+        cellFormula: true, // 수식 유지
+        cellStyles: true,  // 서식 유지
+        cellDates: true,   // 날짜 유지
+        cellNF: true,      // 숫자 서식 유지
+        cellHTML: true     // HTML 서식 유지
+      });
+      
+      // "내역서" 시트 찾기
+      const sheetName = workbook.SheetNames.find(name => name.includes('내역서'));
+      if (!sheetName) {
+        alert('템플릿 파일에서 "내역서" 시트를 찾을 수 없습니다.');
+        return;
+      }
+
+      const worksheet = workbook.Sheets[sheetName];
+      
+      // 물량 내역 데이터 준비
+      const items = form.items || [];
+      const validItems = items.filter(item => !item.isSpacer); // 보이지 않는 빈칸 제외
+      
+      // 데이터를 시트에 채우기 (5번째 줄부터)
+      let rowIndex = 4; // 5번째 줄 (인덱스 4)
+      
+      validItems.forEach(item => {
+        // A열: 품명
+        const cellA = XLSX.utils.encode_cell({ r: rowIndex, c: 0 });
+        if (worksheet[cellA]) {
+          worksheet[cellA].v = item.name || '';
+          worksheet[cellA].t = 's';
+        } else {
+          worksheet[cellA] = { v: item.name || '', t: 's' };
+        }
+        
+        // B열: 규격
+        const cellB = XLSX.utils.encode_cell({ r: rowIndex, c: 1 });
+        if (worksheet[cellB]) {
+          worksheet[cellB].v = item.specification || '';
+          worksheet[cellB].t = 's';
+        } else {
+          worksheet[cellB] = { v: item.specification || '', t: 's' };
+        }
+        
+        // C열: 단위
+        const cellC = XLSX.utils.encode_cell({ r: rowIndex, c: 2 });
+        if (worksheet[cellC]) {
+          worksheet[cellC].v = item.unit || '';
+          worksheet[cellC].t = 's';
+        } else {
+          worksheet[cellC] = { v: item.unit || '', t: 's' };
+        }
+        
+        // D열: 수량
+        const cellD = XLSX.utils.encode_cell({ r: rowIndex, c: 3 });
+        if (worksheet[cellD]) {
+          worksheet[cellD].v = parseFloat(item.quantity) || 0;
+          worksheet[cellD].t = 'n';
+        } else {
+          worksheet[cellD] = { v: parseFloat(item.quantity) || 0, t: 'n' };
+        }
+        
+        // E열: 금액
+        const cellE = XLSX.utils.encode_cell({ r: rowIndex, c: 4 });
+        if (worksheet[cellE]) {
+          worksheet[cellE].v = parseFloat(item.amount) || 0;
+          worksheet[cellE].t = 'n';
+        } else {
+          worksheet[cellE] = { v: parseFloat(item.amount) || 0, t: 'n' };
+        }
+        
+        // K열: 단가
+        const cellK = XLSX.utils.encode_cell({ r: rowIndex, c: 10 });
+        if (worksheet[cellK]) {
+          worksheet[cellK].v = parseFloat(item.price) || 0;
+          worksheet[cellK].t = 'n';
+        } else {
+          worksheet[cellK] = { v: parseFloat(item.price) || 0, t: 'n' };
+        }
+        
+        // L열: 금액 (K열과 동일)
+        const cellL = XLSX.utils.encode_cell({ r: rowIndex, c: 11 });
+        if (worksheet[cellL]) {
+          worksheet[cellL].v = parseFloat(item.amount) || 0;
+          worksheet[cellL].t = 'n';
+        } else {
+          worksheet[cellL] = { v: parseFloat(item.amount) || 0, t: 'n' };
+        }
+        
+        rowIndex++;
+      });
+
+      // 고정값과 수식 추가
+      // 현장명 추가 (A1 셀)
+      const cellA1 = XLSX.utils.encode_cell({ r: 0, c: 0 });
+      if (worksheet[cellA1]) {
+        worksheet[cellA1].v = selectedSite.name || '';
+        worksheet[cellA1].t = 's';
+      } else {
+        worksheet[cellA1] = { v: selectedSite.name || '', t: 's' };
+      }
+
+      // 계약금액 추가 (F1 셀)
+      const cellF1 = XLSX.utils.encode_cell({ r: 0, c: 5 });
+      if (worksheet[cellF1]) {
+        worksheet[cellF1].v = parseFloat(form.contractAmount) || 0;
+        worksheet[cellF1].t = 'n';
+      } else {
+        worksheet[cellF1] = { v: parseFloat(form.contractAmount) || 0, t: 'n' };
+      }
+
+      // 총 공사계 수식 추가 (마지막 행 다음)
+      const totalRow = rowIndex;
+      const cellATotal = XLSX.utils.encode_cell({ r: totalRow, c: 0 });
+      worksheet[cellATotal] = { v: '총 공사계(부가세별도)', t: 's' };
+      
+      const cellLTotal = XLSX.utils.encode_cell({ r: totalRow, c: 11 });
+      worksheet[cellLTotal] = { 
+        f: `=SUM(L5:L${totalRow})`, // L5부터 마지막 데이터 행까지 합계
+        t: 'n' 
+      };
+
+      // 부가세 수식 추가
+      const vatRow = totalRow + 1;
+      const cellAVat = XLSX.utils.encode_cell({ r: vatRow, c: 0 });
+      worksheet[cellAVat] = { v: '부가세', t: 's' };
+      
+      const cellLVat = XLSX.utils.encode_cell({ r: vatRow, c: 11 });
+      worksheet[cellLVat] = { 
+        f: `=${XLSX.utils.encode_cell({ r: totalRow, c: 11 })}*0.1`, // 총 공사계의 10%
+        t: 'n' 
+      };
+
+      // 계약금액(부가세포함) 수식 추가
+      const totalWithVatRow = vatRow + 1;
+      const cellATotalWithVat = XLSX.utils.encode_cell({ r: totalWithVatRow, c: 0 });
+      worksheet[cellATotalWithVat] = { v: '계약금액(부가세포함)', t: 's' };
+      
+      const cellLTotalWithVat = XLSX.utils.encode_cell({ r: totalWithVatRow, c: 11 });
+      worksheet[cellLTotalWithVat] = { 
+        f: `=${XLSX.utils.encode_cell({ r: totalRow, c: 11 })}+${XLSX.utils.encode_cell({ r: vatRow, c: 11 })}`, // 총 공사계 + 부가세
+        t: 'n' 
+      };
+
+      // 파일 다운로드 (서식 유지 옵션 포함)
+      const filename = `${selectedSite.name}_물량내역_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, filename, {
+        bookType: 'xlsx',
+        bookSST: false,
+        type: 'binary',
+        compression: true
+      });
+
+      alert('엑셀 파일이 다운로드되었습니다.');
+    } catch (error) {
+      console.error('엑셀 다운로드 실패:', error);
+      alert('엑셀 다운로드에 실패했습니다: ' + error.message);
+    }
+  };
+
+  const handleCleanupDuplicateAdjustments = async () => {
+    if (!selectedSite) {
+      alert('현장을 선택해주세요.');
+      return;
+    }
+
+    const currentItems = [...(form.items || [])];
+    const adjustmentItems = currentItems.filter(item => item.name === '단수정리');
+    
+    if (adjustmentItems.length <= 1) {
+      alert('중복된 단수정리 항목이 없습니다.');
+      return;
+    }
+
+    if (!confirm(`중복된 단수정리 항목 ${adjustmentItems.length}개를 정리하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      // 첫 번째 단수정리 항목만 남기고 나머지 제거
+      let foundFirst = false;
+      const cleanedItems = currentItems.filter(item => {
+        if (item.name === '단수정리') {
+          if (!foundFirst) {
+            foundFirst = true;
+            return true; // 첫 번째는 유지
+          } else {
+            return false; // 나머지는 제거
+          }
+        }
+        return true; // 단수정리가 아닌 항목들은 모두 유지
+      });
+
+      // Firebase에 저장
+      await updateDoc(doc(db, 'sites', selectedSite.id), {
+        items: cleanedItems,
+        updatedAt: new Date()
+      });
+
+      // 로컬 상태 업데이트
+      setSites(prev => prev.map(site => 
+        site.id === selectedSite.id 
+          ? { ...site, items: cleanedItems }
+          : site
+      ));
+
+      // 선택된 현장 상태도 업데이트
+      setSelectedSite(prev => prev ? { ...prev, items: cleanedItems } : null);
+
+      // 폼 상태도 업데이트
+      setForm(prev => ({ ...prev, items: cleanedItems }));
+
+      alert(`중복된 단수정리 항목이 정리되었습니다. (${adjustmentItems.length}개 → 1개)`);
+    } catch (error) {
+      console.error('중복 단수정리 정리 오류:', error);
+      alert('중복 단수정리 정리 중 오류가 발생했습니다: ' + error.message);
+    }
+  };
+
+  // 물량내역 초기화 함수
+  const handleClearItems = async () => {
+    if (!selectedSite) {
+      alert('현장을 선택해주세요.');
+      return;
+    }
+
+    if (!confirm('물량내역을 모두 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      return;
+    }
+
+    try {
+      // 기본 구조의 물량내역 생성 (총 공사계, 부가세, 계약금액 포함)
+      const defaultItems = [
+        { isSpacer: true, name: '', quantity: '', price: '', amount: '' }, // 보이지 않는 빈칸 1
+        { isSpacer: true, name: '', quantity: '', price: '', amount: '' }, // 보이지 않는 빈칸 2
+        { isSpacer: true, name: '', quantity: '', price: '', amount: '' }, // 보이지 않는 빈칸 3
+        { isTotal: true, name: '총 공사계(부가세별도)', quantity: '', price: '', amount: '0' }, // 총 공사계
+        { isVat: true, name: '부가세', quantity: '', price: '', amount: '0' }, // 부가세
+        { isTotalWithVat: true, name: '계약금액(부가세포함)', quantity: '', price: '', amount: '0' } // 계약금액
+      ];
+
+      // 선택된 현장의 물량내역을 기본 구조로 초기화
+      await updateDoc(doc(db, 'sites', selectedSite.id), {
+        items: defaultItems
+      });
+
+      // 로컬 상태 업데이트
+      setSites(prev => prev.map(site => 
+        site.id === selectedSite.id 
+          ? { ...site, items: defaultItems }
+          : site
+      ));
+
+      // 선택된 현장 상태도 업데이트
+      setSelectedSite(prev => prev ? { ...prev, items: defaultItems } : null);
+
+      // 폼 상태도 초기화
+      setForm(prev => ({ ...prev, items: defaultItems }));
+
+      alert('물량내역이 성공적으로 초기화되었습니다. 총 공사계, 부가세, 계약금액이 자동으로 추가되었습니다.');
+    } catch (error) {
+      console.error('물량내역 초기화 오류:', error);
+      alert('물량내역 초기화 중 오류가 발생했습니다: ' + error.message);
+    }
+  };
 
   return (
     <Box 
@@ -1065,21 +1548,18 @@ const NewSites = () => {
       sx={{ 
         display: 'flex', 
         flexDirection: { xs: 'column', md: 'row' }, 
-        minHeight: { xs: 'auto', md: 'calc(90vh - 64px - 52px)' }, // 100vh에서 90vh로 줄임
+        height: { xs: 'calc(100vh - 100px)', md: 'calc(100vh - 120px)' }, // 모바일에서는 더 작은 높이
         bgcolor: '#1a1d21', 
         p: 0, 
         gap: 2, 
-        overflow: { xs: 'auto', md: 'auto' },
+        overflow: 'hidden', // 전체 컨테이너는 스크롤 없음
         width: isMobile ? 'calc(100% - 5px)' : '100%',
         maxWidth: isMobile ? 'calc(100% - 5px)' : '100%',
-        WebkitOverflowScrolling: isMobile ? 'touch' : 'auto',
-        scrollBehavior: isMobile ? 'smooth' : 'auto',
         mt: isMobile ? '34px' : 8,
         ml: isMobile ? '2px' : 0,
         mr: isMobile ? '5px' : 0,
         position: 'relative',
         right: isMobile ? '0px' : 'auto',
-        height: isMobile ? 'calc(90vh - 34px)' : 'auto', // 100vh에서 90vh로 줄임
         pb: isMobile ? '20px' : 0
       }}
     >
@@ -1087,7 +1567,7 @@ const NewSites = () => {
       <Paper elevation={3} sx={{ 
         width: { xs: '100%', md: '20%' }, 
         minWidth: { md: '200px' }, 
-        height: { xs: '200px', md: 'calc(100vh - 120px)' }, 
+        height: '100%', // 부모 컨테이너의 높이에 맞춤
         display: 'flex', 
         flexDirection: 'column', 
         bgcolor: '#232734', 
@@ -1148,19 +1628,19 @@ const NewSites = () => {
           overflowY: 'auto', 
           flex: 1,
           minHeight: 0,
-                      maxHeight: '100%',
-            WebkitOverflowScrolling: 'touch',
-            touchAction: 'pan-y',
+          maxHeight: '100%',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y',
           '&::-webkit-scrollbar': {
-            width: '6px'
+            width: '8px'
           },
           '&::-webkit-scrollbar-track': {
             background: '#1a1d21',
-            borderRadius: '3px'
+            borderRadius: '4px'
           },
           '&::-webkit-scrollbar-thumb': {
             background: '#444',
-            borderRadius: '3px'
+            borderRadius: '4px'
           },
           '&::-webkit-scrollbar-thumb:hover': {
             background: '#666'
@@ -1186,22 +1666,15 @@ const NewSites = () => {
             >
               <ListItemText 
                 primary={site.name} 
-                secondary={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    <Typography 
-                      sx={{ 
-                        fontSize: isMobile ? '0.7rem' : 'inherit',
-                        color: selectedSite?.id === site.id ? '#90caf9' : '#aaa'
-                      }}
-                    >
-                      {site.status}
-                    </Typography>
-                  </Box>
-                }
+                secondary={site.status}
                 primaryTypographyProps={{ 
                   fontSize: isMobile ? '0.8rem' : 'inherit',
                   fontWeight: selectedSite?.id === site.id ? 'bold' : 'normal',
                   color: selectedSite?.id === site.id ? '#90caf9' : '#fff'
+                }}
+                secondaryTypographyProps={{
+                  fontSize: isMobile ? '0.7rem' : 'inherit',
+                  color: selectedSite?.id === site.id ? '#90caf9' : '#aaa'
                 }}
               />
             </ListItem>
@@ -1218,11 +1691,11 @@ const NewSites = () => {
         p: isMobile ? 2 : 3, 
         borderRadius: 2, 
         minWidth: 0, 
-        height: 'auto',
+        height: '100%', // 부모 컨테이너의 높이에 맞춤
         position: isMobile ? 'relative' : 'static',
         top: isMobile ? '0px' : 'auto',
         left: isMobile ? '0px' : 'auto',
-        overflowY: isMobile ? 'visible' : 'visible'
+        overflow: 'hidden' // 내부 컨텐츠에서 스크롤 처리
       }}>
          <Box sx={{ display: 'flex', alignItems: 'center', mb: isMobile ? 1 : 2 }}>
            <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>
@@ -1240,55 +1713,55 @@ const NewSites = () => {
          {/* 통합 현황 표시 */}
          {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite)) && (
            <Box sx={{ 
-             mb: 2, 
-             p: 2, 
+             mb: 1, 
+             p: 1.5, 
              bgcolor: '#424242', 
              borderRadius: 1,
              border: '1px solid #616161'
            }}>
-             <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', color: '#ffffff' }}>
+             <Typography variant="body1" sx={{ mb: 0.5, fontWeight: 'bold', color: '#ffffff', fontSize: isMobile ? '0.9rem' : '1rem' }}>
                {selectedSite ? `${selectedSite.name} 통합 현황` : '전체 현장 통합 현황'}
              </Typography>
-             <Grid container spacing={2}>
-               <Grid xs={4}>
+             <Grid container spacing={1}>
+               <Grid size={{ xs: 4 }}>
                  <Box sx={{ textAlign: 'center' }}>
-                   <Typography variant="h4" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
+                   <Typography variant="h5" sx={{ color: '#4caf50', fontWeight: 'bold', fontSize: isMobile ? '1.2rem' : '1.5rem' }}>
                      {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount?.toLocaleString() || '0'}
                    </Typography>
-                   <Typography variant="body2" sx={{ color: '#ffffff' }}>계약금액</Typography>
+                   <Typography variant="caption" sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>계약금액</Typography>
                  </Box>
                </Grid>
-               <Grid xs={4}>
+               <Grid size={{ xs: 4 }}>
                  <Box sx={{ textAlign: 'center' }}>
-                   <Typography variant="h4" sx={{ color: '#2196f3', fontWeight: 'bold' }}>
+                   <Typography variant="h5" sx={{ color: '#2196f3', fontWeight: 'bold', fontSize: isMobile ? '1.2rem' : '1.5rem' }}>
                      {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount?.toLocaleString() || '0'}
                    </Typography>
-                   <Typography variant="body2" sx={{ color: '#ffffff' }}>누계기성</Typography>
+                   <Typography variant="caption" sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>누계기성</Typography>
                  </Box>
                </Grid>
-               <Grid xs={4}>
+               <Grid size={{ xs: 4 }}>
                  <Box sx={{ textAlign: 'center' }}>
-                   <Typography variant="h4" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
+                   <Typography variant="h5" sx={{ color: '#ff9800', fontWeight: 'bold', fontSize: isMobile ? '1.2rem' : '1.5rem' }}>
                      {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount?.toLocaleString() || '0'}
                    </Typography>
-                   <Typography variant="body2" sx={{ color: '#ffffff' }}>지출</Typography>
+                   <Typography variant="caption" sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>지출</Typography>
                  </Box>
                </Grid>
              </Grid>
-             <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #616161' }}>
-               <Grid container spacing={2}>
-                 <Grid xs={12} sm={4}>
-                   <Box sx={{ color: '#ffffff' }}>
+             <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid #616161' }}>
+               <Grid container spacing={1}>
+                 <Grid size={{ xs: 12, sm: 4 }}>
+                   <Box sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
                      계약금액: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount?.toLocaleString() || '0'}원
                    </Box>
                  </Grid>
-                 <Grid xs={12} sm={4}>
-                   <Box sx={{ color: '#ffffff' }}>
+                 <Grid size={{ xs: 12, sm: 4 }}>
+                   <Box sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
                      누계기성: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount?.toLocaleString() || '0'}원
                    </Box>
                  </Grid>
-                 <Grid xs={12} sm={4}>
-                   <Box sx={{ color: '#ffffff' }}>
+                 <Grid size={{ xs: 12, sm: 4 }}>
+                   <Box sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
                      지출 총액: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount?.toLocaleString() || '0'}원
                    </Box>
                  </Grid>
@@ -1302,17 +1775,51 @@ const NewSites = () => {
            display: 'flex', 
            flexDirection: 'column', 
            gap: isMobile ? 0.5 : 1,
-           WebkitOverflowScrolling: isMobile ? 'touch' : 'auto',
-           scrollBehavior: isMobile ? 'smooth' : 'auto'
+           height: { xs: 'calc(100% - 80px)', md: 'calc(100% - 100px)' }, // 통합 현황 카드가 줄어든 만큼 높이 조정
+           overflowY: 'auto', // 세로 스크롤 추가
+           WebkitOverflowScrolling: 'touch',
+           scrollBehavior: 'smooth',
+           '&::-webkit-scrollbar': {
+             width: '8px'
+           },
+           '&::-webkit-scrollbar-track': {
+             background: '#1a1d21',
+             borderRadius: '4px'
+           },
+           '&::-webkit-scrollbar-thumb': {
+             background: '#444',
+             borderRadius: '4px'
+           },
+           '&::-webkit-scrollbar-thumb:hover': {
+             background: '#666'
+           }
          }}>
            <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
              <Box sx={{ flex: isMobile ? 'none' : 8 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  현장명
                </Typography>
-               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                 <TextField name="name" value={form.name ?? ''} onChange={handleChange} size="small" disabled={isReadOnly} sx={{ width: isMobile ? '250px' : '500px' }} inputRef={inputRef1} onFocus={scrollFocus(inputRef1)} />
-                 <Box sx={{ display: 'flex', alignItems: 'center', pb: 0.5, flexDirection: 'row', whiteSpace: 'nowrap' }}>
+               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                 <TextField 
+                   name="name" 
+                   value={form.name ?? ''} 
+                   onChange={handleChange} 
+                   size="small" 
+                   disabled={isReadOnly} 
+                   sx={{ 
+                     flex: 6,
+                     '& .MuiOutlinedInput-root': {
+                       '& fieldset': { borderColor: '#ffffff' },
+                       '&:hover fieldset': { borderColor: '#ffffff' },
+                       '&.Mui-focused fieldset': { borderColor: '#ffffff' }
+                     },
+                     '& .MuiInputLabel-root': { color: '#bbb' },
+                     '& .MuiInputBase-input': { color: '#fff' }
+                   }} 
+                   inputRef={inputRef1} 
+                   onFocus={scrollFocus(inputRef1)} 
+                 />
+                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1.5 }}>
                    <Typography variant="body1" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>주요현장</Typography>
                    <IconButton 
                      onClick={() => handleChange({ target: { name: 'isFavorite', value: !form.isFavorite } })} 
@@ -1322,6 +1829,29 @@ const NewSites = () => {
                    >
                      {form.isFavorite ? <StarIcon sx={{ color: 'gold' }} /> : <StarBorderIcon />}
                    </IconButton>
+                 </Box>
+                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 2.5 }}>
+                   <Typography variant="body1" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>사용인감</Typography>
+                   <FormControl size="small" sx={{ flex: 1 }}>
+                     <Select 
+                       name="stampType" 
+                       value={form.stampType ?? '인감없음'} 
+                       onChange={handleChange} 
+                       disabled={isReadOnly}
+                       sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+                     >
+                       <MenuItem value="인감없음">인감없음</MenuItem>
+                       <MenuItem value="A인감">A인감</MenuItem>
+                       <MenuItem value="□인감">□인감</MenuItem>
+                       <MenuItem value="○인감">○인감</MenuItem>
+                       <MenuItem value="☆인감">☆인감</MenuItem>
+                       <MenuItem value="△인감">△인감</MenuItem>
+                       <MenuItem value="♤인감">♤인감</MenuItem>
+                       <MenuItem value="♧인감">♧인감</MenuItem>
+                       <MenuItem value="♡인감">♡인감</MenuItem>
+                       <MenuItem value="기타">기타</MenuItem>
+                     </Select>
+                   </FormControl>
                  </Box>
                </Box>
              </Box>
@@ -1341,7 +1871,13 @@ const NewSites = () => {
              <Box sx={{ flex: isMobile ? 1 : 3, pb: 0.5 }}>
                <FormControlLabel 
                  control={<Checkbox name="subcontractGuardian" checked={form.subcontractGuardian} onChange={handleChange} disabled={isReadOnly} />} 
-                 label={<Typography sx={{ wordBreak: 'keep-all', fontSize: isMobile ? '0.6rem' : 'inherit' }}>하도급지킴이</Typography>} 
+                 label="하도급지킴이"
+                 sx={{ 
+                   '& .MuiFormControlLabel-label': {
+                     wordBreak: 'keep-all', 
+                     fontSize: isMobile ? '0.6rem' : 'inherit' 
+                   }
+                 }}
                />
              </Box>
              <Box sx={{ flex: isMobile ? 1 : 3 }}>
@@ -1547,28 +2083,16 @@ const NewSites = () => {
                </Typography>
                <FormControl fullWidth size="small">
                  <Select 
-                   name="estimateStatus" 
-                   value={form.estimateStatus ?? ''} 
+                   name="estimateType" 
+                   value={form.estimateType ?? ''} 
                    onChange={handleChange} 
                    disabled={isReadOnly}
-                   inputRef={estimateStatusRef}
-                   onFocus={scrollFocus(estimateStatusRef)}
-                   sx={{
-                     '& .MuiSelect-select': {
-                       color: form.estimateStatus ? getEstimateStatusColor(form.estimateStatus) : 'inherit',
-                       fontWeight: form.estimateStatus ? 'bold' : 'normal'
-                     }
-                   }}
+                   inputRef={estimateTypeRef}
+                   onFocus={scrollFocus(estimateTypeRef)}
                  >
                    <MenuItem value="">선택하세요</MenuItem>
-                   {ESTIMATE_STATUS_OPTIONS.map(opt => (
-                     <MenuItem key={opt} value={opt} sx={{ 
-                       color: getEstimateStatusColor(opt),
-                       fontWeight: 'bold',
-                       '&:hover': {
-                         backgroundColor: 'rgba(0, 0, 0, 0.04)'
-                       }
-                     }}>
+                   {ESTIMATE_TYPE_OPTIONS.map(opt => (
+                     <MenuItem key={opt} value={opt}>
                        {opt}
                      </MenuItem>
                    ))}
@@ -1577,20 +2101,18 @@ const NewSites = () => {
              </Box>
              <Box sx={{ flex: isMobile ? 'none' : 4 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
-                 견적비고 {form.estimateStatus === '기타' && <span style={{color: '#f44336'}}>*</span>}
+                 비고
                </Typography>
                <TextField 
-                 name="estimateNote" 
-                 value={form.estimateNote ?? ''} 
+                 name="note" 
+                 value={form.note ?? ''} 
                  onChange={handleChange} 
                  fullWidth 
                  size="small" 
                  disabled={isReadOnly} 
-                 inputRef={estimateNoteRef}
-                 onFocus={scrollFocus(estimateNoteRef)}
-                 placeholder={form.estimateStatus === '기타' ? "기타 선택 시 반드시 입력하세요" : "견적 관련 메모"}
-                 error={form.estimateStatus === '기타' && !form.estimateNote?.trim()}
-                 helperText={form.estimateStatus === '기타' && !form.estimateNote?.trim() ? "기타 선택 시 비고를 입력해야 합니다" : ""}
+                 inputRef={noteRef}
+                 onFocus={scrollFocus(noteRef)}
+                 placeholder="비고 사항"
                />
              </Box>
            </Box>
@@ -1678,40 +2200,85 @@ const NewSites = () => {
             >
               업로드
             </Button>
+            <Button 
+              variant="outlined" 
+              onClick={handleExcelDownload} 
+              size={isMobile ? 'small' : 'medium'} 
+              sx={{ 
+                fontSize: isMobile ? '0.7rem' : 'inherit',
+                color: '#2196f3',
+                borderColor: '#2196f3',
+                '&:hover': {
+                  borderColor: '#1976d2',
+                  backgroundColor: 'rgba(33, 150, 243, 0.04)'
+                }
+              }}
+              startIcon={<CloudDownloadIcon />}
+              disabled={isReadOnly}
+            >
+              엑셀
+            </Button>
+            <Button 
+              variant="outlined" 
+              onClick={handleClearItems} 
+              size={isMobile ? 'small' : 'medium'} 
+              sx={{ 
+                fontSize: isMobile ? '0.7rem' : 'inherit',
+                color: '#f44336',
+                borderColor: '#f44336',
+                '&:hover': {
+                  borderColor: '#d32f2f',
+                  backgroundColor: 'rgba(244, 67, 54, 0.04)'
+                }
+              }}
+              disabled={isReadOnly}
+            >
+              초기화
+            </Button>
           </Box>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1, mb: 1, color: 'text.secondary', borderBottom: 1, borderColor: 'divider', pb: 1 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 1, 
+          mb: 1, 
+          color: 'text.secondary', 
+          borderBottom: 1, 
+          borderColor: 'divider', 
+          pb: 1 
+        }}>
           <Typography sx={{ width: '35%', fontWeight: 'bold', fontSize: isMobile ? '0.7rem' : 'inherit' }}>항목</Typography>
           <Typography sx={{ width: '15%', fontWeight: 'bold', fontSize: isMobile ? '0.7rem' : 'inherit' }}>물량</Typography>
           <Typography sx={{ width: '20%', fontWeight: 'bold', fontSize: isMobile ? '0.7rem' : 'inherit' }}>단가</Typography>
           <Typography sx={{ width: '20%', fontWeight: 'bold', fontSize: isMobile ? '0.7rem' : 'inherit' }}>금액</Typography>
         </Box>
-        <Box sx={{ minHeight: '200px' }}>
+        <Box
+          sx={{
+            height: 'calc(100vh - 300px)',
+            overflowY: 'auto',
+            border: '1px solid #444',
+            borderRadius: '4px',
+            p: 1,
+            scrollbarWidth: 'none', // Firefox
+            '&::-webkit-scrollbar': { display: 'none' } // Chrome, Safari
+          }}
+        >
           {(form.items || []).map((item, index) => (
-            <Box key={index} sx={{ display: 'flex', gap: 1, mb: isMobile ? 0.5 : 1, alignItems: 'center', flexWrap: 'wrap' }}>
-              {item.isSeparator ? (
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    flex: '1 1 120px',
-                    textAlign: 'center', 
-                    color: 'text.secondary',
-                    fontWeight: 'bold',
-                    borderTop: '1px solid #ccc',
-                    borderBottom: '1px solid #ccc',
-                    py: 0.5
-                  }}
-                >
-                  ─────────────────────────────────────
-                </Typography>
-              ) : item.isTotal ? (
+            <Box key={index} sx={{ 
+              display: item.isSpacer ? 'none' : 'flex', 
+              gap: 1, 
+              mb: isMobile ? 0.5 : 1, 
+              alignItems: 'center', 
+              flexWrap: 'wrap' 
+            }}>
+              {item.isTotal ? (
                 <Typography 
                   variant="body2" 
                   sx={{ 
                     flex: '1 1 120px',
                     fontWeight: 'bold',
                     color: 'primary.main',
-                    fontSize: '1.2rem'
+                    fontSize: '1.2rem',
+                    whiteSpace: 'nowrap', // 한 줄로 표시
                   }}
                 >
                   총 공사계(부가세별도)
@@ -1735,7 +2302,8 @@ const NewSites = () => {
                     flex: '1 1 120px',
                     fontWeight: 'bold',
                     color: 'primary.main',
-                    fontSize: '1.2rem'
+                    fontSize: '1.2rem',
+                    whiteSpace: 'nowrap', // 한 줄로 표시
                   }}
                 >
                   계약금액(부가세포함)
@@ -1755,14 +2323,25 @@ const NewSites = () => {
                   value={item.name ?? ''} 
                   onChange={(e) => handleItemsChange(index, 'name', e.target.value)} 
                   size="small" 
-                  sx={{ flex: '1 1 120px' }} 
+                  sx={{ 
+                    flex: '1 1 120px',
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#555' },
+                      '&:hover fieldset': { borderColor: '#777' },
+                      '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                    },
+                    '& .MuiInputBase-input': { 
+                      color: '#fff',
+                      fontSize: isMobile ? '0.8rem' : '0.9rem',
+                      fontWeight: '500'
+                    }
+                  }} 
                   placeholder="항목" 
                   disabled={isReadOnly}
-                  inputProps={{ style: { fontSize: isMobile ? '0.7rem' : 'inherit' } }}
                 />
               )}
               
-              {item.isSeparator || item.isTotal || item.isVat || item.isTotalWithVat ? (
+              {item.isTotal || item.isVat || item.isTotalWithVat ? (
                 <Typography variant="body2" sx={{ flex: '1 1 60px', textAlign: 'center' }}>
                   {item.isTotal || item.isVat || item.isTotalWithVat ? '' : ''}
                 </Typography>
@@ -1771,18 +2350,23 @@ const NewSites = () => {
                   value={formatQuantity(item.quantity)} 
                   onChange={(e) => handleItemsChange(index, 'quantity', e.target.value)} 
                   size="small" 
-                  sx={{ flex: '1 1 60px' }} 
+                  sx={{ 
+                    flex: '1 1 60px',
+                    '& .MuiInputBase-input': { 
+                      fontSize: isMobile ? '0.8rem' : 'inherit',
+                      textAlign: 'right'
+                    }
+                  }} 
                   placeholder="물량" 
                   disabled={isReadOnly}
                   inputProps={{ 
-                    style: { fontSize: isMobile ? '0.7rem' : 'inherit' },
                     type: 'number',
                     step: '0.01'
                   }}
                 />
               )}
               
-              {item.isSeparator || item.isTotal || item.isVat || item.isTotalWithVat ? (
+              {item.isTotal || item.isVat || item.isTotalWithVat ? (
                 <Typography variant="body2" sx={{ flex: '1 1 80px', textAlign: 'center' }}>
                   {item.isTotal || item.isVat || item.isTotalWithVat ? '' : ''}
                 </Typography>
@@ -1791,24 +2375,27 @@ const NewSites = () => {
                   value={formatPrice(item.price)} 
                   onChange={(e) => handleItemsChange(index, 'price', e.target.value)} 
                   size="small" 
-                  sx={{ flex: '1 1 80px' }} 
+                  sx={{ 
+                    flex: '1 1 80px',
+                    '& .MuiInputBase-input': { 
+                      fontSize: isMobile ? '0.8rem' : 'inherit',
+                      textAlign: 'right'
+                    }
+                  }} 
                   placeholder="단가" 
                   disabled={isReadOnly}
-                  inputProps={{ 
-                    style: { fontSize: isMobile ? '0.7rem' : 'inherit' }
-                  }}
                 />
               )}
               
-              {item.isSeparator || item.isTotal || item.isVat || item.isTotalWithVat ? (
+              {item.isTotal || item.isVat || item.isTotalWithVat ? (
                 <Typography 
                   variant="body2" 
                   sx={{ 
                     flex: '1 1 80px',
-                    textAlign: 'center',
+                    textAlign: 'right',
                     fontWeight: (item.isTotal || item.isVat || item.isTotalWithVat) ? 'bold' : 'normal',
-                    color: (item.isTotal || item.isVat || item.isTotalWithVat) ? 'primary.main' : 'inherit',
-                    fontSize: (item.isTotal || item.isVat || item.isTotalWithVat) ? '1.2rem' : 'inherit'
+                    color: (item.isTotal || item.isVat || item.isTotalWithVat) ? 'primary.main' : 'text.primary',
+                    fontSize: (item.isTotal || item.isVat || item.isTotalWithVat) ? '1.1rem' : 'inherit'
                   }}
                 >
                   {(item.isTotal || item.isVat || item.isTotalWithVat) ? formatAmount(item.amount) : ''}
@@ -1818,16 +2405,19 @@ const NewSites = () => {
                   value={formatAmount(item.amount)} 
                   onChange={(e) => handleItemsChange(index, 'amount', e.target.value)} 
                   size="small" 
-                  sx={{ flex: '1 1 80px' }} 
+                  sx={{ 
+                    flex: '1 1 80px',
+                    '& .MuiInputBase-input': { 
+                      fontSize: isMobile ? '0.8rem' : 'inherit',
+                      textAlign: 'right'
+                    }
+                  }} 
                   placeholder="금액" 
                   disabled={isReadOnly}
-                  inputProps={{ 
-                    style: { fontSize: isMobile ? '0.7rem' : 'inherit' }
-                  }}
                 />
               )}
               
-              {!item.isSeparator && !item.isTotal && !item.isVat && !item.isTotalWithVat && (
+              {!item.isTotal && !item.isVat && !item.isTotalWithVat && (
                 <IconButton 
                   onClick={() => handleRemoveItem(index)} 
                   size="small" 
@@ -1855,7 +2445,7 @@ const NewSites = () => {
         <DialogContent>
           <Box sx={{ mb: 3 }}>
             <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-              엑셀 파일의 "내역서" 시트에서 B, D, K, L열의 데이터를 추출합니다. (5번째 줄부터)
+              엑셀 파일의 "내역서" 시트에서 A, B, C, D, K, L열의 데이터를 추출합니다. (5번째 줄부터)
             </Typography>
             <input
               type="file"
@@ -1896,21 +2486,7 @@ const NewSites = () => {
                     {uploadedItems.map((item, index) => (
                       <TableRow key={item.id}>
                         <TableCell>
-                          {item.isSeparator ? (
-                            <Typography 
-                              variant="body2" 
-                              sx={{ 
-                                textAlign: 'center', 
-                                color: 'text.secondary',
-                                fontWeight: 'bold',
-                                borderTop: '1px solid #ccc',
-                                borderBottom: '1px solid #ccc',
-                                py: 0.5
-                              }}
-                            >
-                              ─────────────────────────────────────
-                            </Typography>
-                          ) : item.isTotal ? (
+                          {item.isTotal ? (
                             <Typography 
                               variant="body2" 
                               sx={{ 
@@ -1960,7 +2536,7 @@ const NewSites = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          {item.isSeparator || item.isTotal || item.isVat || item.isTotalWithVat || item.isAdjustment ? (
+                          {item.isTotal || item.isVat || item.isTotalWithVat || item.isAdjustment ? (
                             <Typography variant="body2" sx={{ textAlign: 'center' }}>
                               {(item.isTotal || item.isVat || item.isTotalWithVat) ? '' : ''}
                             </Typography>
@@ -1976,7 +2552,7 @@ const NewSites = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          {item.isSeparator || item.isTotal || item.isVat || item.isTotalWithVat || item.isAdjustment ? (
+                          {item.isTotal || item.isVat || item.isTotalWithVat || item.isAdjustment ? (
                             <Typography variant="body2" sx={{ textAlign: 'center' }}>
                               {(item.isTotal || item.isVat || item.isTotalWithVat) ? '' : ''}
                             </Typography>
@@ -1990,7 +2566,7 @@ const NewSites = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          {item.isSeparator || item.isTotal || item.isVat || item.isTotalWithVat || item.isAdjustment ? (
+                          {item.isTotal || item.isVat || item.isTotalWithVat || item.isAdjustment ? (
                             <Typography 
                               variant="body2" 
                               sx={{ 
@@ -2012,7 +2588,7 @@ const NewSites = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          {!item.isSeparator && !item.isTotal && !item.isVat && !item.isTotalWithVat && !item.isAdjustment && (
+                          {!item.isTotal && !item.isVat && !item.isTotalWithVat && !item.isAdjustment && (
                             <IconButton
                               size="small"
                               onClick={() => handleDeleteUploadedItem(index)}

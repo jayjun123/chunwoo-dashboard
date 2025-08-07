@@ -241,7 +241,16 @@ const ScheduleList = () => {
         <DragDropContext onDragEnd={onDragEnd}>
           <Droppable droppableId="extraList">
             {(provided) => (
-              <Box ref={provided.innerRef} {...provided.droppableProps} sx={{ minHeight: 40 }}>
+              <Box 
+                ref={provided.innerRef} 
+                {...provided.droppableProps} 
+                sx={{ 
+                  minHeight: 40,
+                  maxHeight: '300px',
+                  overflowY: 'auto',
+                  overflowX: 'hidden'
+                }}
+              >
                 {extraItems.map((item, idx) => (
                   <Draggable key={item.id} draggableId={item.id.toString()} index={idx}>
                     {(provided, snapshot) => (

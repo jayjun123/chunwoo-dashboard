@@ -16,6 +16,7 @@ import {
   Checkbox,
   FormControlLabel
 } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import {
@@ -35,8 +36,37 @@ import {
 const SiteInfoPopup = ({ open, onClose, site }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const navigate = useNavigate();
   const [gisungRate, setGisungRate] = useState(0);
   const [gisungCount, setGisungCount] = useState(0);
+
+  // 현장명 카드 더블클릭 핸들러 - 현장관리 페이지에서 해당 현장 선택
+  const handleSiteNameDoubleClick = () => {
+    if (site && site.id) {
+      onClose(); // 팝업 닫기
+      // 현장관리 페이지로 이동하면서 해당 현장 선택
+      navigate('/sites', { 
+        state: { 
+          selectedSiteId: site.id,
+          selectedSiteName: site.name
+        }
+      });
+    }
+  };
+
+  // 계약정보 카드 더블클릭 핸들러 - 기성관리 페이지로 이동
+  const handleContractInfoDoubleClick = () => {
+    if (site && site.id) {
+      onClose(); // 팝업 닫기
+      // 기성관리 페이지로 이동하면서 해당 현장 선택
+      navigate('/progress', { 
+        state: { 
+          selectedSiteId: site.id,
+          viewMode: 'site' // 기성현황 현장별 뷰로 설정
+        }
+      });
+    }
+  };
 
   // 기성률 및 차수 계산
   useEffect(() => {
@@ -187,8 +217,21 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
       }}>
         <Grid container spacing={2}>
           {/* 현장 기본 정보 */}
-          <Grid item xs={12}>
-            <Card sx={{ bgcolor: '#232b3b', border: '1px solid #333' }}>
+          <Grid size={{ xs: 12 }}>
+            <Card 
+              sx={{ 
+                bgcolor: '#232b3b', 
+                border: '1px solid #333',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  bgcolor: '#2c3446',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                }
+              }}
+              onDoubleClick={handleSiteNameDoubleClick}
+            >
               <CardContent sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
                   <Typography variant="h5" sx={{ 
@@ -206,6 +249,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                       fontWeight: 600,
                       fontSize: '0.9rem'
                     }}
+                    onClick={() => {}} // 명시적으로 빈 함수 추가
                   />
                   <Chip
                     label={site.contractType || '미정'}
@@ -215,12 +259,13 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                       fontWeight: 600,
                       fontSize: '0.9rem'
                     }}
+                    onClick={() => {}} // 명시적으로 빈 함수 추가
                   />
                 </Box>
 
                 <Grid container spacing={2}>
                   {/* 소장 정보 */}
-                  <Grid item xs={12} md={4}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <PersonIcon sx={{ color: '#90caf9', fontSize: '1.2rem' }} />
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>소장</Typography>
@@ -231,7 +276,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                   </Grid>
 
                   {/* 연락처 */}
-                  <Grid item xs={12} md={4}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <PhoneIcon sx={{ color: '#90caf9', fontSize: '1.2rem' }} />
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>연락처</Typography>
@@ -242,7 +287,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                   </Grid>
 
                   {/* 주소 */}
-                  <Grid item xs={12} md={4}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <LocationIcon sx={{ color: '#90caf9', fontSize: '1.2rem' }} />
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>주소</Typography>
@@ -259,7 +304,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
 
 
           {/* 일정 및 계약 정보 */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Card sx={{ bgcolor: '#232b3b', border: '1px solid #333', height: '100%' }}>
               <CardContent sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
@@ -270,7 +315,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                 </Box>
 
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>착공일</Typography>
                     </Box>
@@ -279,7 +324,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                     </Typography>
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>준공일</Typography>
                     </Box>
@@ -288,7 +333,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                     </Typography>
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>회사명</Typography>
                     </Box>
@@ -297,7 +342,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                     </Typography>
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>시공팀</Typography>
                     </Box>
@@ -311,8 +356,22 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
           </Grid>
 
           {/* 계약 정보 */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ bgcolor: '#232b3b', border: '1px solid #333', height: '100%' }}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card 
+              sx={{ 
+                bgcolor: '#232b3b', 
+                border: '1px solid #333', 
+                height: '100%',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  bgcolor: '#2c3446',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                }
+              }}
+              onDoubleClick={handleContractInfoDoubleClick}
+            >
               <CardContent sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
                   <MoneyIcon sx={{ color: '#22c55e', fontSize: '1.5rem' }} />
@@ -322,7 +381,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                 </Box>
 
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>계약금액</Typography>
                     </Box>
@@ -331,7 +390,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                     </Typography>
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>선급금</Typography>
                     </Box>
@@ -340,7 +399,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                     </Typography>
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>차수</Typography>
                     </Box>
@@ -349,7 +408,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                     </Typography>
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid xs={12} md={6}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>기성률</Typography>
                     </Box>
@@ -363,7 +422,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
           </Grid>
 
           {/* 비고 및 물량내역 */}
-          <Grid item xs={12}>
+          <Grid xs={12}>
             <Card sx={{ bgcolor: '#232b3b', border: '1px solid #333' }}>
               <CardContent sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
@@ -373,7 +432,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                   </Typography>
                 </Box>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
+                  <Grid xs={12} md={6}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>비고</Typography>
                     </Box>
@@ -386,7 +445,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                       {site.note || '-'}
                     </Typography>
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid xs={12} md={6}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>물량내역</Typography>
                     </Box>
@@ -396,7 +455,17 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                       lineHeight: 1.6,
                       whiteSpace: 'pre-wrap'
                     }}>
-                      {site.items || '-'}
+                      {Array.isArray(site.items)
+                        ? site.items.length > 0
+                          ? site.items.map((item, idx) =>
+                              typeof item === 'object'
+                                ? `${item.name || ''} / ${item.specification || ''} / ${item.unit || ''} / ${item.quantity || ''} / ${item.price || ''} / ${item.amount || ''}`
+                                : String(item)
+                            ).join('\n')
+                          : '-'
+                        : typeof site.items === 'object' && site.items !== null
+                          ? JSON.stringify(site.items)
+                          : site.items || '-'}
                     </Typography>
                   </Grid>
                 </Grid>
@@ -404,97 +473,11 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
             </Card>
           </Grid>
 
-          {/* 견적/입찰 상태 */}
-          <Grid item xs={12}>
-            <Card sx={{ bgcolor: '#232b3b', border: '1px solid #333' }}>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-                  <CheckCircleIcon sx={{ color: '#f59e42', fontSize: '1.5rem' }} />
-                  <Typography variant="h6" sx={{ color: '#f59e42', fontWeight: 700 }}>
-                    견적/입찰 상태
-                  </Typography>
-                </Box>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox 
-                          checked={site.estimateStatus === '제출완료'}
-                          onChange={async (e) => {
-                            try {
-                              const newStatus = e.target.checked ? '제출완료' : '제출대기';
-                              console.log('견적 상태 업데이트:', site.name, newStatus);
-                              
-                              // 현장 데이터에서 견적 상태 업데이트
-                              const siteRef = doc(db, 'sites', site.id);
-                              await updateDoc(siteRef, {
-                                estimateStatus: newStatus,
-                                updatedAt: new Date()
-                              });
-                              
-                              console.log('견적 상태 업데이트 완료');
-                            } catch (error) {
-                              console.error('견적 상태 업데이트 실패:', error);
-                              alert('견적 상태 업데이트에 실패했습니다.');
-                            }
-                          }}
-                          sx={{ 
-                            color: '#f59e42', 
-                            '&.Mui-checked': { color: '#22c55e' } 
-                          }}
-                        />
-                      }
-                      label={
-                        <Typography sx={{ color: '#fff', fontSize: '0.9rem' }}>
-                          견적 제출 완료
-                        </Typography>
-                      }
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox 
-                          checked={site.bidStatus === '입찰완료'}
-                          onChange={async (e) => {
-                            try {
-                              const newStatus = e.target.checked ? '입찰완료' : '입찰대기';
-                              console.log('입찰 상태 업데이트:', site.name, newStatus);
-                              
-                              // 현장 데이터에서 입찰 상태 업데이트
-                              const siteRef = doc(db, 'sites', site.id);
-                              await updateDoc(siteRef, {
-                                bidStatus: newStatus,
-                                updatedAt: new Date()
-                              });
-                              
-                              console.log('입찰 상태 업데이트 완료');
-                            } catch (error) {
-                              console.error('입찰 상태 업데이트 실패:', error);
-                              alert('입찰 상태 업데이트에 실패했습니다.');
-                            }
-                          }}
-                          sx={{ 
-                            color: '#ef4444', 
-                            '&.Mui-checked': { color: '#22c55e' } 
-                          }}
-                        />
-                      }
-                      label={
-                        <Typography sx={{ color: '#fff', fontSize: '0.9rem' }}>
-                          입찰 완료
-                        </Typography>
-                      }
-                    />
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
+
 
           {/* 추가 정보 */}
           {site.desc && (
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Card sx={{ bgcolor: '#232b3b', border: '1px solid #333' }}>
                 <CardContent sx={{ p: 3 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>

@@ -33,7 +33,7 @@ const Header = ({ user, onLogout }) => {
     { path: '/vendors', label: '거래처현황', icon: <PeopleIcon /> },
     { path: '/cost', label: '기성관리', icon: <MonetizationOnIcon /> },
     { path: '/documents', label: '문서관리', icon: <DescriptionIcon /> },
-    { path: '/reports', label: '보고서', icon: <BarChartIcon /> }
+    { path: '/daema-team', label: '시공팀', icon: <BarChartIcon /> }
   ];
 
   // 모바일 메뉴 외부 클릭 시 닫힘

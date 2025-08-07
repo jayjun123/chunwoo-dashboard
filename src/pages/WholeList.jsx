@@ -613,12 +613,7 @@ const WholeList = () => {
                   return (
                     <TableRow key={site.id} hover>
                       <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center' }}>
-                        {(() => {
-                          // 등록일 순서로 정렬된 배열에서 현재 사이트의 인덱스 찾기 (먼저 입력한 것이 1번)
-                          const numberedSites = sortData([...sites], 'createdAt', 'asc');
-                          const numberedIndex = numberedSites.findIndex(s => s.id === site.id);
-                          return numberedIndex + 1;
-                        })()}
+                        {sortedSites.length - (page * rowsPerPage + index)}
                       </TableCell>
                     <TableCell>
                       <IconButton size="small" onClick={() => handleToggleFavorite(site)}>
@@ -655,9 +650,9 @@ const WholeList = () => {
                     <TableCell>{site.installment}</TableCell>
                     <TableCell>
                       {site.subcontractGuardian ? (
-                        <Chip label="Y" color="primary" size="small" />
-                      ) : (
-                        <Chip label="N" color="default" size="small" />
+                                            <Chip label="Y" color="primary" size="small" onClick={() => {}} />
+                  ) : (
+                    <Chip label="N" color="default" size="small" onClick={() => {}} />
                       )}
                     </TableCell>
                     <TableCell>

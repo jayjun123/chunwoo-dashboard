@@ -38,7 +38,7 @@ import {
   Cancel as CancelIcon,
   ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { db, collections } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -366,12 +366,58 @@ const EstimatesMobile = () => {
                       label={estimate.submissionStatus}
                       color={getStatusColor(estimate.submissionStatus)}
                       size="small"
+                      onClick={async () => {
+                        try {
+                          const newStatus = estimate.submissionStatus === '제출완료' ? '제출대기' : '제출완료';
+                          const estimateRef = doc(db, 'estimates', estimate.id);
+                          await updateDoc(estimateRef, {
+                            submissionStatus: newStatus,
+                            updatedAt: new Date()
+                          });
+                          
+                          // 로컬 상태 업데이트
+                          setEstimates(prev => 
+                            prev.map(e => 
+                              e.id === estimate.id 
+                                ? { ...e, submissionStatus: newStatus }
+                                : e
+                            )
+                          );
+                        } catch (error) {
+                          console.error('견적 상태 업데이트 실패:', error);
+                          alert('상태 업데이트에 실패했습니다.');
+                        }
+                      }}
+                      sx={{ cursor: 'pointer' }}
                     />
-                    <Chip
-                      label={estimate.contractStatus}
-                      color={getContractStatusColor(estimate.contractStatus)}
-                      size="small"
-                    />
+                                         <Chip
+                       label={estimate.contractStatus}
+                       color={getContractStatusColor(estimate.contractStatus)}
+                       size="small"
+                       onClick={async () => {
+                         try {
+                           const newStatus = estimate.contractStatus === '수주' ? '미수주' : '수주';
+                           const estimateRef = doc(db, 'estimates', estimate.id);
+                           await updateDoc(estimateRef, {
+                             contractStatus: newStatus,
+                             updatedAt: new Date()
+                           });
+                           
+                           // 로컬 상태 업데이트
+                           setEstimates(prev => 
+                             prev.map(e => 
+                               e.id === estimate.id 
+                                 ? { ...e, contractStatus: newStatus }
+                                 : e
+                             )
+                           );
+                         } catch (error) {
+                           console.error('견적 수주상태 업데이트 실패:', error);
+                           alert('수주상태 업데이트에 실패했습니다.');
+                         }
+                       }}
+                       sx={{ cursor: 'pointer' }}
+                     />
                   </Box>
                 </CardContent>
               </Card>

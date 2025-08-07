@@ -36,6 +36,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePopup } from '../../contexts/PopupContext';
 import { format } from 'date-fns';
 import { getKoreanDate, isSameDate } from '../../utils/dateUtils';
+
+// 날짜 비교 함수 추가
+function isDateBefore(dateStr1, dateStr2) {
+  const date1 = new Date(dateStr1);
+  const date2 = new Date(dateStr2);
+  return date1 < date2;
+}
 import { 
   sendCountNotification, 
   checkNotificationPermission,
@@ -77,6 +84,7 @@ const BottomBar = ({
     discussionCount: 0,
     safetyCount: 0,
     estimateCount: 0,
+    bidCount: 0,
     etcCount: 0,
     todoDone: 0,
     todoTotal: 0
@@ -95,6 +103,7 @@ const BottomBar = ({
   const [todoList, setTodoList] = useState([]);
   const [setupList, setSetupList] = useState([]); // 금일현설용 별도 상태
   const [estimateList, setEstimateList] = useState([]); // 금일견적용 별도 상태
+  const [bidList, setBidList] = useState([]); // 금일입찰용 별도 상태 (estimates에서)
   const [etcList, setEtcList] = useState([]); // 금일기타용 별도 상태
   const [sitesList, setSitesList] = useState([]); // 현장 목록
   const [notificationSettings, setNotificationSettings] = useState({});
@@ -159,6 +168,31 @@ const BottomBar = ({
   const [expandSettings, setExpandSettings] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false); // 하단바 전체 확장/축소 상태
   const [currentDate, setCurrentDate] = useState(new Date());
+  
+  // 현재 날짜를 실시간으로 업데이트
+  useEffect(() => {
+    const updateCurrentDate = () => {
+      setCurrentDate(new Date());
+    };
+    
+    // 초기 업데이트
+    updateCurrentDate();
+    
+    // 매일 자정에 업데이트
+    const now = new Date();
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const timeUntilMidnight = tomorrow.getTime() - now.getTime();
+    
+    const midnightTimer = setTimeout(() => {
+      updateCurrentDate();
+      // 이후 24시간마다 업데이트
+      setInterval(updateCurrentDate, 24 * 60 * 60 * 1000);
+    }, timeUntilMidnight);
+    
+    return () => {
+      clearTimeout(midnightTimer);
+    };
+  }, []);
 
   const [settingsTab, setSettingsTab] = useState(0); // 0:회원, 1:권한, 2:설정
 
@@ -220,61 +254,176 @@ const BottomBar = ({
           itemDate = new Date(item.date);
         }
         
-        // 오늘 00:00:00 ~ 23:59:59 사이에 생성된 항목만
-        const today = new Date();
-        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
-        const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+        // 한국 시간 기준으로 오늘 날짜 계산
+        const now = new Date();
+        const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+        const todayYear = koreanTime.getFullYear();
+        const todayMonth = koreanTime.getMonth();
+        const todayDay = koreanTime.getDate();
         
-        return itemDate >= todayStart && itemDate <= todayEnd;
+        const itemYear = itemDate.getFullYear();
+        const itemMonth = itemDate.getMonth();
+        const itemDay = itemDate.getDate();
+        
+        // 날짜가 오늘과 같은지 확인
+        return itemYear === todayYear && itemMonth === todayMonth && itemDay === todayDay;
       });
       
       console.log('🔥 Firebase에서 가져온 오늘 일정 (클라이언트 필터링):', todaySchedules);
+      console.log('🔥 오늘 일정 상세 정보:', todaySchedules.map(item => ({
+        id: item.id,
+        text: item.text,
+        type: item.type,
+        date: item.date
+      })));
       
-      // 금일현장 (type에 '현장' 포함)
-      const todaySites = todaySchedules.filter(item => 
-        item.type && 
-        item.type.includes('현장')
+      // 전자입찰 관련 일정 찾기
+      const electronicBids = todaySchedules.filter(item => 
+        item.text && item.text.includes('전자입찰')
       );
+      console.log('🔥 전자입찰 관련 일정:', electronicBids);
+      
+      // 입찰 관련 일정 찾기 (더 넓은 범위)
+      const allBidRelated = todaySchedules.filter(item => 
+        (item.text && (item.text.includes('입찰') || item.text.includes('전자입찰'))) ||
+        (item.type && (item.type.includes('입찰') || item.type.includes('전자입찰')))
+      );
+      console.log('🔥 모든 입찰 관련 일정:', allBidRelated);
+      
+      // 금일현장 (type에 '현장' 또는 '실측' 포함)
+      const todaySites = todaySchedules.filter(item => {
+        if (!item.type) return false;
+        
+        // type이 문자열인 경우 (단일 타입)
+        if (typeof item.type === 'string') {
+          // 쉼표로 구분된 여러 타입이 있을 수 있음
+          const types = item.type.split(',').map(t => t.trim());
+          return types.some(type => type.includes('현장') || type.includes('실측'));
+        }
+        
+        // type이 배열인 경우 (다중 타입)
+        if (Array.isArray(item.type)) {
+          return item.type.some(type => type.includes('현장') || type.includes('실측'));
+        }
+        
+        return false;
+      });
       console.log('🔥 금일현장:', todaySites.length, '개', todaySites);
       
-      // 금일입찰 (type에 '입찰' 포함)
-      const todayBids = todaySchedules.filter(item => 
-        item.type && 
-        item.type.includes('입찰')
-      );
+      // 금일입찰 (type에 '입찰' 또는 '전자입찰' 포함)
+      const todayBids = todaySchedules.filter(item => {
+        if (!item.type) return false;
+        
+        // type이 문자열인 경우 (단일 타입)
+        if (typeof item.type === 'string') {
+          // 쉼표로 구분된 여러 타입이 있을 수 있음
+          const types = item.type.split(',').map(t => t.trim());
+          const hasBid = types.some(type => type.includes('입찰') || type.includes('전자입찰'));
+          if (hasBid) {
+            console.log('🔥 입찰 일정 발견:', {
+              id: item.id,
+              text: item.text,
+              type: item.type,
+              types: types
+            });
+          }
+          return hasBid;
+        }
+        
+        // type이 배열인 경우 (다중 타입)
+        if (Array.isArray(item.type)) {
+          const hasBid = item.type.some(type => type.includes('입찰') || type.includes('전자입찰'));
+          if (hasBid) {
+            console.log('🔥 입찰 일정 발견 (배열):', {
+              id: item.id,
+              text: item.text,
+              type: item.type
+            });
+          }
+          return hasBid;
+        }
+        
+        return false;
+      });
       console.log('🔥 금일입찰:', todayBids.length, '개', todayBids);
       
       // 금일회의 (type에 '회의' 포함)
-      const todayMeetings = todaySchedules.filter(item => 
-        item.type && 
-        item.type.includes('회의')
-      );
+      const todayMeetings = todaySchedules.filter(item => {
+        if (!item.type) return false;
+        
+        // type이 문자열인 경우 (단일 타입)
+        if (typeof item.type === 'string') {
+          // 쉼표로 구분된 여러 타입이 있을 수 있음
+          const types = item.type.split(',').map(t => t.trim());
+          return types.some(type => type.includes('회의'));
+        }
+        
+        // type이 배열인 경우 (다중 타입)
+        if (Array.isArray(item.type)) {
+          return item.type.some(type => type.includes('회의'));
+        }
+        
+        return false;
+      });
       console.log('🔥 금일회의:', todayMeetings.length, '개', todayMeetings);
       
       // 금일현설 (type에 '현설' 포함)
-      const todaySetup = todaySchedules.filter(item => 
-        item.type && 
-        item.type.includes('현설')
-      );
+      const todaySetup = todaySchedules.filter(item => {
+        if (!item.type) return false;
+        
+        // type이 문자열인 경우 (단일 타입)
+        if (typeof item.type === 'string') {
+          // 쉼표로 구분된 여러 타입이 있을 수 있음
+          const types = item.type.split(',').map(t => t.trim());
+          return types.some(type => type.includes('현설'));
+        }
+        
+        // type이 배열인 경우 (다중 타입)
+        if (Array.isArray(item.type)) {
+          return item.type.some(type => type.includes('현설'));
+        }
+        
+        return false;
+      });
       console.log('🔥 금일현설:', todaySetup.length, '개', todaySetup);
       
       // 금일기타 (type에 '기타' 포함)
-      const todayEtc = todaySchedules.filter(item => 
-        item.type && 
-        item.type.includes('기타')
-      );
+      const todayEtc = todaySchedules.filter(item => {
+        if (!item.type) return false;
+        
+        // type이 문자열인 경우 (단일 타입)
+        if (typeof item.type === 'string') {
+          // 쉼표로 구분된 여러 타입이 있을 수 있음
+          const types = item.type.split(',').map(t => t.trim());
+          return types.some(type => type.includes('기타'));
+        }
+        
+        // type이 배열인 경우 (다중 타입)
+        if (Array.isArray(item.type)) {
+          return item.type.some(type => type.includes('기타'));
+        }
+        
+        return false;
+      });
       console.log('🔥 금일기타:', todayEtc.length, '개', todayEtc);
       
       // stats를 한 번에 업데이트 (견적은 별도로 처리)
       const newStats = {
         todaySites: todaySites.length,
-        progressCount: todayBids.length,
+        bidCount: todayBids.length, // 입찰 개수는 bidCount에 할당
         discussionCount: todayMeetings.length,
         safetyCount: todaySetup.length,
         etcCount: todayEtc.length
       };
       
       console.log('🔥 하단바 stats 업데이트:', newStats);
+      console.log('🔥 todayBids 개수:', todayBids.length);
+      console.log('🔥 todayBids 상세:', todayBids.map(item => ({
+        id: item.id,
+        text: item.text,
+        type: item.type,
+        date: item.date
+      })));
       
       setStats(prev => {
         const updatedStats = {
@@ -296,6 +445,56 @@ const BottomBar = ({
       setSafetyList(todayMeetings.slice(-5).reverse());
       setSetupList(todaySetup.slice(-5).reverse());
       setEtcList(todayEtc.slice(-5).reverse());
+      
+      // 일정 데이터에서 입찰 항목을 bidList에 추가
+      console.log('🔥 todayBids 상세 분석:', todayBids.map(item => ({
+        id: item.id,
+        text: item.text,
+        type: item.type,
+        date: item.date,
+        completed: item.completed
+      })));
+      
+      console.log('🔥 allBidRelated 상세 분석:', allBidRelated.map(item => ({
+        id: item.id,
+        text: item.text,
+        type: item.type,
+        date: item.date,
+        completed: item.completed
+      })));
+      
+      // 기존 bidList와 일정 데이터의 입찰 항목을 합침
+      setBidList(prevBidList => {
+        // todayBids가 비어있으면 allBidRelated 사용
+        const effectiveBids = todayBids.length > 0 ? todayBids : allBidRelated;
+        
+        const scheduleBids = effectiveBids.map(item => ({
+          id: item.id,
+          siteName: item.text || item.title || '입찰',
+          company: item.siteName || '',
+          requester: item.desc || '입찰요청',
+          requestContent: item.desc || '입찰요청',
+          submissionDeadline: item.date,
+          submissionStatus: item.completed ? '제출완료' : '제출대기',
+          type: '입찰',
+          isFromSchedule: true // 일정에서 온 데이터임을 표시
+        }));
+        
+        const combinedBids = [...prevBidList, ...scheduleBids];
+        // 중복 제거 (id 기준)
+        const uniqueBids = combinedBids.filter((bid, index, self) => 
+          index === self.findIndex(b => b.id === bid.id)
+        );
+        // 최신순으로 정렬
+        const sortedBids = uniqueBids.sort((a, b) => {
+          const dateA = new Date(a.submissionDeadline);
+          const dateB = new Date(b.submissionDeadline);
+          return dateB - dateA;
+        });
+        
+        console.log('🔥 통합된 bidList:', sortedBids);
+        return sortedBids.slice(-5).reverse();
+      });
     }, (err) => {
       console.error('🔥 하단바 일정 연동 오류:', err);
       setError('일정관리 데이터를 불러오는 중 오류가 발생했습니다.');
@@ -309,28 +508,38 @@ const BottomBar = ({
 
   // 견적 데이터 별도 처리 (estimates 컬렉션에서)
   useEffect(() => {
-    const todayStr = getKoreanDate();
+    // 한국 시간 기준으로 오늘 날짜 계산
+    const now = new Date();
+    const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+    const todayStr = koreanTime.toISOString().split('T')[0];
     console.log('🔥 하단바 견적 연동 시작 - 한국 시간 기준 오늘 날짜:', todayStr);
     
     const q = query(collection(db, 'estimates'));
     
     const unsubEstimates = onSnapshot(q, (snapshot) => {
-      const allEstimates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('🔥 견적 데이터 실시간 업데이트 감지:', snapshot.size, '개 문서');
       
-      // 제출기한이 오늘인 견적 필터링 (제출상태 상관없이 모든 견적 카운트)
+      const allEstimates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('🔥 전체 견적 데이터:', allEstimates);
+      
+      // 제출기한이 오늘인 견적과 미제출된 날짜 지난 견적 필터링
       const todayEstimates = allEstimates.filter(estimate => {
         if (!estimate.submissionDeadline) return false;
         
         // 개선된 날짜 비교 사용
         const isToday = isSameDate(estimate.submissionDeadline, todayStr);
+        const isOverdue = isDateBefore(estimate.submissionDeadline, todayStr);
+        const isNotSubmitted = estimate.submissionStatus !== '제출완료';
+        
+        // 오늘 날짜인 견적 또는 미제출된 날짜 지난 견적
+        const shouldInclude = isToday || (isOverdue && isNotSubmitted);
         
         // 디버깅 로그 추가
-        if (isToday) {
-          console.log('🔥 오늘 견적 발견:', estimate, '제출상태:', estimate.submissionStatus);
+        if (shouldInclude) {
+          console.log('🔥 포함된 견적:', estimate, '제출상태:', estimate.submissionStatus, '타입:', estimate.type, '오늘여부:', isToday, '지난여부:', isOverdue);
         }
         
-        // 오늘 날짜인 견적만 카운트 (제출상태 상관없음)
-        return isToday;
+        return shouldInclude;
       });
       
       console.log('🔥 전체 견적 개수:', allEstimates.length);
@@ -351,6 +560,7 @@ const BottomBar = ({
           parsedDate: parsedDate.toISOString().split('T')[0],
           parsedDateValid: !isNaN(parsedDate.getTime()),
           submissionStatus: estimate.submissionStatus,
+          type: estimate.type,
           isToday: isToday
         });
       });
@@ -360,24 +570,96 @@ const BottomBar = ({
           id: estimate.id,
           siteName: estimate.siteName,
           submissionDeadline: estimate.submissionDeadline,
-          submissionStatus: estimate.submissionStatus
+          submissionStatus: estimate.submissionStatus,
+          type: estimate.type
         });
       });
       
-      // stats 업데이트
+      // 견적과 입찰을 분류 (타입 변경 감지 강화)
+      const estimates = todayEstimates.filter(estimate => estimate.type !== '입찰');
+      const bids = todayEstimates.filter(estimate => estimate.type === '입찰');
+      
+      console.log('🔥 견적/입찰 분류 결과:', {
+        전체: todayEstimates.length,
+        견적: estimates.length,
+        입찰: bids.length,
+        견적목록: estimates.map(e => ({ id: e.id, siteName: e.siteName, type: e.type })),
+        입찰목록: bids.map(b => ({ id: b.id, siteName: b.siteName, type: b.type }))
+      });
+      
+      // 타입 변경 감지 강화
+      if (todayEstimates.length > 0) {
+        console.log('🔥 타입 변경 감지 - 최근 업데이트된 견적들:');
+        todayEstimates.forEach((estimate, index) => {
+          if (estimate.updatedAt) {
+            console.log(`🔥 견적 ${index + 1} (최근 업데이트):`, {
+              id: estimate.id,
+              siteName: estimate.siteName,
+              type: estimate.type,
+              updatedAt: estimate.updatedAt,
+              submissionStatus: estimate.submissionStatus
+            });
+          }
+        });
+      }
+      
+      // stats 업데이트 - estimates의 입찰 데이터와 일정 데이터의 입찰 개수를 합침
       setStats(prev => {
         const updatedStats = {
           ...prev,
-          estimateCount: todayEstimates.length
+          estimateCount: estimates.length,
+          bidCount: prev.bidCount + bids.length, // 기존 일정 데이터의 입찰 개수 + 견적 데이터의 입찰 개수
+          progressCount: prev.bidCount + bids.length  // estimates의 입찰 카운트로 progressCount 덮어쓰기
         };
         
+        console.log('🔥 하단바 stats 업데이트 (estimates 우선):', updatedStats);
+        console.log('🔥 estimates 입찰 개수:', bids.length);
+        console.log('🔥 progressCount 업데이트됨:', bids.length);
+        
         // 견적 알림 보내기
-        sendCountNotificationIfNeeded('estimates', todayEstimates.length);
+        sendCountNotificationIfNeeded('estimates', estimates.length);
+        sendCountNotificationIfNeeded('bids', bids.length);
         
         return updatedStats;
       });
       
-      setEstimateList(todayEstimates.slice(-5).reverse());
+      // 견적만 표시 (최신순)
+      const sortedEstimates = estimates.sort((a, b) => {
+        const dateA = new Date(a.submissionDeadline);
+        const dateB = new Date(b.submissionDeadline);
+        return dateB - dateA;
+      });
+      
+      // 입찰만 표시 (최신순)
+      const sortedBids = bids.sort((a, b) => {
+        const dateA = new Date(a.submissionDeadline);
+        const dateB = new Date(b.submissionDeadline);
+        return dateB - dateA;
+      });
+      
+      setEstimateList(sortedEstimates.slice(-5).reverse());
+      
+      // 견적 데이터의 입찰 항목을 bidList에 설정
+      const estimateBids = sortedBids.slice(-5).reverse();
+      
+      // 기존 bidList와 견적 데이터의 입찰 항목을 합침
+      setBidList(prevBidList => {
+        const combinedBids = [...prevBidList, ...estimateBids];
+        // 중복 제거 (id 기준)
+        const uniqueBids = combinedBids.filter((bid, index, self) => 
+          index === self.findIndex(b => b.id === bid.id)
+        );
+        // 최신순으로 정렬
+        const sortedBids = uniqueBids.sort((a, b) => {
+          const dateA = new Date(a.submissionDeadline);
+          const dateB = new Date(b.submissionDeadline);
+          return dateB - dateA;
+        });
+        
+        console.log('🔥 견적 데이터에서 설정된 bidList:', estimateBids);
+        console.log('🔥 통합된 bidList (견적):', sortedBids);
+        return sortedBids.slice(-5).reverse();
+      });
     }, (err) => {
       console.error('🔥 하단바 견적 연동 오류:', err);
       setError('견적 데이터를 불러오는 중 오류가 발생했습니다.');
@@ -397,16 +679,19 @@ const BottomBar = ({
       // 현재 사용자의 투두리스트만 필터링
       const userTodos = arr.filter(item => item.userId === currentUser?.uid);
       
-      // 오늘 날짜 필터링
-      const today = new Date();
-      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
-      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+      // 한국 시간 기준으로 오늘 날짜 범위 계산
+      const now = new Date();
+      const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+      const todayStart = new Date(koreanTime.getFullYear(), koreanTime.getMonth(), koreanTime.getDate(), 0, 0, 0);
+      const todayEnd = new Date(koreanTime.getFullYear(), koreanTime.getMonth(), koreanTime.getDate(), 23, 59, 59);
       
       const todayTodos = userTodos.filter(item => {
         // 한국 시간 기준으로 오늘 날짜 생성
-        const todayYear = today.getFullYear();
-        const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
-        const todayDay = String(today.getDate()).padStart(2, '0');
+        const now = new Date();
+        const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+        const todayYear = koreanTime.getFullYear();
+        const todayMonth = String(koreanTime.getMonth() + 1).padStart(2, '0');
+        const todayDay = String(koreanTime.getDate()).padStart(2, '0');
         const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
         
         // 1. date 필드가 있으면 date로 체크 (우선순위)
@@ -1072,7 +1357,7 @@ const BottomBar = ({
           </Box>
           <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <TrendingUpIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#4FC3F7', mr: 0.5 }} />
-            {!isMobile && '[입찰]'} {stats.progressCount ?? 0}
+            {!isMobile && '[입찰]'} {stats.bidCount ?? 0}
           </Box>
           <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <ForumIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF7043', mr: 0.5 }} />
@@ -1082,14 +1367,13 @@ const BottomBar = ({
             <SafetyHelmetIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#81C784', mr: 0.5 }} />
             {!isMobile && '[현설]'} {stats.safetyCount ?? 0}
           </Box>
+
           <Box 
             sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
             onClick={(e) => { e.stopPropagation(); handleOpenPanel('center'); }}
           >
             <CalculateIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF9800', mr: 0.5 }} />
             {!isMobile && '[견적]'} {stats.estimateCount ?? 0}
-            {/* 디버깅용 로그 */}
-            {console.log('🔥 하단바 견적 카운트 표시:', stats.estimateCount)}
           </Box>
           <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <CategoryIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#9E9E9E', mr: 0.5 }} />
@@ -1404,15 +1688,17 @@ const BottomBar = ({
             bgcolor: '#fafafa'
           }}>
             {(() => {
-              const today = new Date();
-              const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
-              const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+              // 한국 시간 기준으로 오늘 날짜 계산
+              const now = new Date();
+              const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+              const todayStart = new Date(koreanTime.getFullYear(), koreanTime.getMonth(), koreanTime.getDate(), 0, 0, 0);
+              const todayEnd = new Date(koreanTime.getFullYear(), koreanTime.getMonth(), koreanTime.getDate(), 23, 59, 59);
               
               const todayTodos = todoList.filter(item => {
                 // 한국 시간 기준으로 오늘 날짜 생성
-                const todayYear = today.getFullYear();
-                const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
-                const todayDay = String(today.getDate()).padStart(2, '0');
+                const todayYear = koreanTime.getFullYear();
+                const todayMonth = String(koreanTime.getMonth() + 1).padStart(2, '0');
+                const todayDay = String(koreanTime.getDate()).padStart(2, '0');
                 const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
                 
                 // 1. date 필드가 있으면 date로 체크 (우선순위)
@@ -1572,16 +1858,16 @@ const BottomBar = ({
             )}
 
             {/* 금일입찰 목록 */}
-            {(!isMobile || discussionList.length > 0) && (
+            {(!isMobile || bidList.length > 0) && (
               <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
                 <Typography variant="h6" sx={{ mb: 1, color: '#4FC3F7', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
-                  📈 {isMobile ? '입찰' : '금일입찰'} ({discussionList.length}개)
+                  📈 {isMobile ? '입찰' : '금일입찰'} ({bidList.length}개)
                 </Typography>
-                {discussionList.length === 0 ? (
+                {bidList.length === 0 ? (
                   <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 입찰 일정이 없습니다.</Typography>
                 ) : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
-                    {discussionList.map((item, index) => (
+                    {bidList.map((item, index) => (
                       <Box key={index} sx={{ 
                         p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
                         bgcolor: '#2a2a2a', 
@@ -1589,8 +1875,17 @@ const BottomBar = ({
                         border: '1px solid #444',
                         display: 'flex',
                         justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}>
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: '#3a3a3a'
+                        }
+                      }}
+                      onDoubleClick={() => {
+                        setExpandCenter(false);
+                        navigate('/estimates');
+                      }}
+                      >
                         <Box sx={{ flex: 1, minWidth: 0 }}>
                           <Typography sx={{ 
                             fontWeight: 600, 
@@ -1598,25 +1893,23 @@ const BottomBar = ({
                             overflow: 'hidden', 
                             textOverflow: 'ellipsis', 
                             whiteSpace: 'nowrap',
-                            opacity: item.bidStatus === '입찰완료' ? 0.6 : 1
+                            opacity: item.submissionStatus === '제출완료' ? 0.6 : 1
                           }}>
-                            {item.title || item.text || item.description || item.desc || '설명 없음'}
+                            {item.siteName || item.company || '입찰'}
                           </Typography>
-                          {(item.description || item.desc) && (
-                            <Typography sx={{ 
-                              color: '#ccc', 
-                              fontSize: { xs: 11, md: 12 }, 
-                              mt: 0.5, 
-                              overflow: 'hidden', 
-                              textOverflow: 'ellipsis', 
-                              whiteSpace: 'nowrap',
-                              opacity: item.bidStatus === '입찰완료' ? 0.6 : 1
-                            }}>
-                              {item.description || item.desc}
-                            </Typography>
-                          )}
+                          <Typography sx={{ 
+                            color: '#ccc', 
+                            fontSize: { xs: 11, md: 12 }, 
+                            mt: 0.5, 
+                            overflow: 'hidden', 
+                            textOverflow: 'ellipsis', 
+                            whiteSpace: 'nowrap',
+                            opacity: item.submissionStatus === '제출완료' ? 0.6 : 1
+                          }}>
+                            {item.requester} {item.company ? `(${item.company})` : ''} - {item.requestContent || '입찰요청'}
+                          </Typography>
                         </Box>
-                        {item.bidStatus === '입찰완료' ? (
+                        {item.submissionStatus === '제출완료' && (
                           <Box sx={{ 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -1633,13 +1926,9 @@ const BottomBar = ({
                               fontSize: { xs: 10, md: 11 }, 
                               fontWeight: 600
                             }}>
-                              ✓ 입찰완료
+                              ✓ 제출완료
                             </Typography>
                           </Box>
-                        ) : (
-                          <Typography sx={{ color: '#4FC3F7', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
-                            {item.startDate}
-                          </Typography>
                         )}
                       </Box>
                     ))}
@@ -1732,10 +2021,10 @@ const BottomBar = ({
             {(!isMobile || estimateList.length > 0) && (
               <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
                 <Typography variant="h6" sx={{ mb: 1, color: '#FF9800', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
-                  🧮 {isMobile ? '견적' : '금일제출견적'} ({estimateList.length}개)
+                  🧮 {isMobile ? '견적' : '오늘/미제출 견적'} ({estimateList.length}개)
                 </Typography>
                 {estimateList.length === 0 ? (
-                  <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 제출기한인 견적이 없습니다.</Typography>
+                  <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 제출기한이거나 미제출된 날짜 지난 견적이 없습니다.</Typography>
                 ) : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
                     {estimateList.map((item, index) => (
@@ -1746,8 +2035,17 @@ const BottomBar = ({
                         border: '1px solid #444',
                         display: 'flex',
                         justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}>
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: '#3a3a3a'
+                        }
+                      }}
+                      onDoubleClick={() => {
+                        setExpandCenter(false);
+                        navigate('/estimates');
+                      }}
+                      >
                         <Box sx={{ flex: 1, minWidth: 0 }}>
                           <Typography sx={{ 
                             fontWeight: 600, 
@@ -1755,26 +2053,24 @@ const BottomBar = ({
                             overflow: 'hidden', 
                             textOverflow: 'ellipsis', 
                             whiteSpace: 'nowrap',
-                            opacity: item.submissionStatus === '제출완료' ? 0.6 : 1
+                            opacity: item.submissionStatus === '제출완료' ? 0.6 : 1,
+                            flex: 1
                           }}>
                             {item.siteName || item.title || item.text || item.description || item.desc || '설명 없음'}
                           </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                            {(item.company || item.description || item.desc) && (
-                              <Typography sx={{ 
-                                color: '#ccc', 
-                                fontSize: { xs: 11, md: 12 }, 
-                                overflow: 'hidden', 
-                                textOverflow: 'ellipsis', 
-                                whiteSpace: 'nowrap',
-                                opacity: item.submissionStatus === '제출완료' ? 0.6 : 1,
-                                flex: 1
-                              }}>
-                                {item.company || item.description || item.desc}
-                              </Typography>
-                            )}
-
-                          </Box>
+                          {(item.company || item.description || item.desc) && (
+                            <Typography sx={{ 
+                              color: '#ccc', 
+                              fontSize: { xs: 11, md: 12 }, 
+                              overflow: 'hidden', 
+                              textOverflow: 'ellipsis', 
+                              whiteSpace: 'nowrap',
+                              opacity: item.submissionStatus === '제출완료' ? 0.6 : 1,
+                              flex: 1
+                            }}>
+                              {item.company || item.description || item.desc}
+                            </Typography>
+                          )}
                         </Box>
                         {item.submissionStatus === '제출완료' ? (
                           <Box sx={{ 
@@ -1797,15 +2093,76 @@ const BottomBar = ({
                             </Typography>
                           </Box>
                         ) : (
-                          <Typography sx={{ 
-                            color: '#FF9800', 
-                            fontSize: { xs: 12, md: 12 }, 
-                            fontWeight: 600, 
-                            ml: 1, 
+                          <Box sx={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            alignItems: 'flex-end',
                             flexShrink: 0
                           }}>
-                            {item.submissionDeadline || item.startDate}
-                          </Typography>
+                            <Typography sx={{ 
+                              color: '#FF9800', 
+                              fontSize: { xs: 10, md: 11 }, 
+                              fontWeight: 600
+                            }}>
+                              {item.submissionDeadline || item.startDate}
+                            </Typography>
+                            {(() => {
+                              const deadline = new Date(item.submissionDeadline);
+                              // 한국 시간 기준으로 오늘 날짜 계산 (시간대 차이 고려)
+                              const now = new Date();
+                              const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+                              const today = new Date(koreanTime.getFullYear(), koreanTime.getMonth(), koreanTime.getDate());
+                              
+                              // deadline도 한국 시간으로 변환
+                              const deadlineKorean = new Date(deadline.getTime() + (9 * 60 * 60 * 1000));
+                              const deadlineDate = new Date(deadlineKorean.getFullYear(), deadlineKorean.getMonth(), deadlineKorean.getDate());
+                              
+                              const diffTime = deadlineDate.getTime() - today.getTime();
+                              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                              
+                              console.log('🔥 날짜 계산 디버깅:', {
+                                originalDeadline: item.submissionDeadline,
+                                deadline: deadline,
+                                deadlineKorean: deadlineKorean,
+                                deadlineDate: deadlineDate,
+                                today: today,
+                                diffTime: diffTime,
+                                diffDays: diffDays
+                              });
+                              
+                              if (diffDays < 0) {
+                                return (
+                                  <Typography sx={{ 
+                                    color: '#f44336', 
+                                    fontSize: { xs: 9, md: 10 }, 
+                                    fontWeight: 600
+                                  }}>
+                                    {Math.abs(diffDays)}일 지남
+                                  </Typography>
+                                );
+                              } else if (diffDays === 0) {
+                                return (
+                                  <Typography sx={{ 
+                                    color: '#FF9800', 
+                                    fontSize: { xs: 9, md: 10 }, 
+                                    fontWeight: 600
+                                  }}>
+                                    오늘
+                                  </Typography>
+                                );
+                              } else {
+                                return (
+                                  <Typography sx={{ 
+                                    color: '#4caf50', 
+                                    fontSize: { xs: 9, md: 10 }, 
+                                    fontWeight: 600
+                                  }}>
+                                    {diffDays}일 남음
+                                  </Typography>
+                                );
+                              }
+                            })()}
+                          </Box>
                         )}
                       </Box>
                     ))}

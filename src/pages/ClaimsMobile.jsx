@@ -359,6 +359,7 @@ const ClaimsMobile = () => {
                       label={claim.claimStatus === 'O' ? '청구완료' : '청구대기'}
                       color={getStatusColor(claim.claimStatus)}
                       size="small"
+                      onClick={() => {}} // 명시적으로 빈 함수 추가
                     />
                   </Box>
                 </CardContent>

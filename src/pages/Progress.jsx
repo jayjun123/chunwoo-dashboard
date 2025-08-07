@@ -167,9 +167,12 @@ const ZoomableChart = ({ children, title, isMobile }) => {
   }, [isMobile, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   return (
-    <Paper sx={{ px: isMobile ? 3 : 3, py: isMobile ? 1 : 3, height: '100%', mt: isMobile ? '0px' : 0, position: 'relative' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Paper sx={{ px: isMobile ? 1 : 2, py: isMobile ? 1 : 2, height: '100%', mt: isMobile ? '0px' : 0, position: 'relative', width: '100%', maxWidth: 'none' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, width: '100%', maxWidth: 'none' }}>
         <Typography variant="h6" sx={{ fontSize: isMobile ? '1rem' : 'inherit' }}>{title}</Typography>
+        
+
+        
         {isMobile && scale !== 1 && (
           <Typography 
             variant="caption" 
@@ -231,10 +234,41 @@ const Progress = () => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  // 강제 리렌더링을 위한 상태
+  const [forceUpdate, setForceUpdate] = useState(0);
   // 월 이동 함수
-  const handlePrevMonth = () => setCurrentMonth(prev => subMonths(prev, 1));
-  const handleNextMonth = () => setCurrentMonth(prev => addMonths(prev, 1));
-  const handleThisMonth = () => setCurrentMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const handlePrevMonth = () => {
+    console.log('이전달 클릭 - 현재:', currentMonth);
+    const newMonth = subMonths(currentMonth, 1);
+    console.log('이전달 변경됨:', newMonth);
+    setCurrentMonth(newMonth);
+    // 즉시 데이터 재로드
+    fetchProgress();
+    fetchCosts();
+    // 강제 리렌더링
+    setForceUpdate(prev => prev + 1);
+  };
+  const handleNextMonth = () => {
+    console.log('다음달 클릭 - 현재:', currentMonth);
+    const newMonth = addMonths(currentMonth, 1);
+    console.log('다음달 변경됨:', newMonth);
+    setCurrentMonth(newMonth);
+    // 즉시 데이터 재로드
+    fetchProgress();
+    fetchCosts();
+    // 강제 리렌더링
+    setForceUpdate(prev => prev + 1);
+  };
+  const handleThisMonth = () => {
+    console.log('이번달 클릭');
+    const thisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    setCurrentMonth(thisMonth);
+    // 즉시 데이터 재로드
+    fetchProgress();
+    fetchCosts();
+    // 강제 리렌더링
+    setForceUpdate(prev => prev + 1);
+  };
   // 월 텍스트
   const monthText = `${currentMonth.getFullYear()}년 ${String(currentMonth.getMonth() + 1).padStart(2, '0')}월`;
   const [sites, setSites] = useState([]);
@@ -250,26 +284,31 @@ const Progress = () => {
     console.log('탭 상태 변화:', { tab, statusView });
   }, [tab, statusView]);
 
-  // URL 파라미터에서 siteId 읽기
+  // URL 파라미터에서 siteId와 viewMode 읽기
   useEffect(() => {
     const siteId = searchParams.get('siteId');
-    if (siteId) {
+    const viewMode = searchParams.get('viewMode');
+    
+    if (siteId && sites.length > 0) {
       setFilteredSiteId(siteId);
       // 해당 현장 정보 찾기
       const site = sites.find(s => s.id === siteId);
       if (site) {
         setFilteredSiteName(site.name);
         setSelectedSites([site.name]);
-        // 현장별 탭으로 자동 전환
-        setStatusView('site');
-        setTab('gisung'); // 기성현황 탭으로 전환
+        
+        // viewMode가 'site'이면 현장별 뷰로 설정
+        if (viewMode === 'site') {
+          setStatusView('site');
+          setTab('gisung'); // 기성현황 탭으로 전환
+        }
       }
     }
   }, [searchParams, sites]);
 
   // 청구예정 페이지에서 전달받은 현장명과 월 정보 처리
   useEffect(() => {
-    if (location.state) {
+    if (location.state && sites.length > 0) {
       const { selectedSite, selectedMonth } = location.state;
       
       if (selectedSite) {
@@ -304,11 +343,33 @@ const Progress = () => {
     );
   }, [sites, siteSearchTerm]);
 
+  // 초기 데이터 로딩 및 현장 선택 변경 시 데이터 재로드
   useEffect(() => {
-    fetchProgress();
-    fetchSites();
-    fetchCosts();
-  }, []);
+    const loadInitialData = async () => {
+      await fetchProgress();
+      await fetchSites();
+      await fetchCosts();
+    };
+    loadInitialData();
+  }, [selectedSites, forceUpdate]); // selectedSites가 변경될 때마다 데이터 재로드
+
+  // 탭 변경 시 데이터 재로드
+  useEffect(() => {
+    const reloadData = async () => {
+      await fetchProgress();
+      await fetchCosts();
+    };
+    reloadData();
+  }, [tab, statusView, forceUpdate]); // 탭이나 뷰가 변경될 때마다 데이터 재로드
+
+  // 월 변경 시 데이터 재로드
+  useEffect(() => {
+    const reloadData = async () => {
+      await fetchProgress();
+      await fetchCosts();
+    };
+    reloadData();
+  }, [currentMonth, forceUpdate]); // 월이 변경될 때마다 데이터 재로드
 
   const fetchProgress = async () => {
     try {
@@ -482,6 +543,46 @@ const Progress = () => {
 
   // 차트 데이터 계산 - 현장별 기성관리용
   const getSiteChartData = useMemo(() => {
+    // 월별 뷰에서는 현장 선택과 관계없이 모든 현장 데이터 표시
+    if (statusView === 'month') {
+      return sites.map(site => {
+        const siteName = site.name;
+        // 기성 데이터에서 해당 현장의 데이터 필터링
+        const siteGisungData = progressList.filter(item => item.name === siteName);
+        const totalContract = siteGisungData.reduce((sum, item) => sum + (parseFloat(item.contractAmount) || 0), 0);
+        const totalGisung = siteGisungData.reduce((sum, item) => {
+          if (item.payments) {
+            return sum + item.payments.reduce((pSum, payment) => pSum + (parseFloat(payment.amount) || 0), 0);
+          }
+          return sum + (parseFloat(item.gisungAmount) || 0);
+        }, 0);
+        
+        // 지출 데이터에서 해당 현장의 데이터 필터링
+        const siteCostData = allCostData.filter(cost => cost.site === siteName);
+        const totalLabor = siteCostData
+          .filter(cost => cost.itemType === '노무비')
+          .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+        const totalExpense = siteCostData
+          .filter(cost => cost.itemType === '경비')
+          .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+        const totalEtc = siteCostData
+          .filter(cost => cost.itemType === 'RnD' || cost.itemType === '기타')
+          .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+        
+        const result = {
+          name: siteName,
+          '계약금': totalContract,
+          '기성금': totalGisung,
+          '노무': totalLabor,
+          '경비': totalExpense,
+          '기타': totalEtc,
+        };
+        
+        return result;
+      });
+    }
+    
+    // 현장별 뷰에서는 선택된 현장만 표시
     if (selectedSites.length === 0) return [];
     
     return selectedSites.map(siteName => {
@@ -518,37 +619,47 @@ const Progress = () => {
       
       return result;
     });
-  }, [progressList, allCostData, selectedSites]);
+  }, [progressList, allCostData, selectedSites, statusView, sites]);
 
   // 차트 데이터 계산 - 월별 기성관리용
   const getMonthChartData = useMemo(() => {
     const monthData = [];
     
-    // 모바일에서는 현재 월이 속한 분기만 표시, PC에서는 전체 12개월 표시
+    // 현재 선택된 월을 기준으로 계산
+    const currentYear = currentMonth.getFullYear();
     const currentMonthNum = currentMonth.getMonth() + 1;
+    
+    // 모바일에서는 현재 월이 속한 분기만 표시, PC에서는 전체 12개월 표시
     const quarterStartMonth = Math.floor((currentMonthNum - 1) / 3) * 3 + 1;
     const monthsToShow = isMobile ? 3 : 12;
     const startMonth = isMobile ? quarterStartMonth : 1;
     
     for (let i = 0; i < monthsToShow; i++) {
       const month = startMonth + i;
-      const monthStr = `${currentMonth.getFullYear()}-${String(month).padStart(2, '0')}`;
+      const monthStr = `${currentYear}-${String(month).padStart(2, '0')}`;
       
       // 기성 데이터에서 해당 월의 데이터 필터링
       const monthGisungData = progressList.filter(item => {
+        // gisungMonth가 있는 경우 (기성현황 데이터)
         if (item.gisungMonth) {
           return item.gisungMonth === monthStr;
         }
-        // payments가 있는 경우 날짜로 필터링
+        // payments가 있는 경우 (기성관리 데이터)
         if (item.payments && item.payments.length > 0) {
           return item.payments.some(payment => {
             if (payment.date) {
               const paymentDate = new Date(payment.date);
-              return paymentDate.getFullYear() === currentMonth.getFullYear() && 
+              return paymentDate.getFullYear() === currentYear && 
                      paymentDate.getMonth() + 1 === month;
             }
             return false;
           });
+        }
+        // createdDate가 있는 경우
+        if (item.createdDate) {
+          const createdDate = new Date(item.createdDate);
+          return createdDate.getFullYear() === currentYear && 
+                 createdDate.getMonth() + 1 === month;
         }
         return false;
       });
@@ -565,7 +676,7 @@ const Progress = () => {
       const monthCostData = allCostData.filter(cost => {
         if (cost.date) {
           const costDate = new Date(cost.date);
-          return costDate.getFullYear() === currentMonth.getFullYear() && 
+          return costDate.getFullYear() === currentYear && 
                  costDate.getMonth() + 1 === month;
         }
         return false;
@@ -590,23 +701,126 @@ const Progress = () => {
       });
     }
     
+    console.log('월별 차트 데이터 계산 완료:', {
+      currentYear,
+      currentMonthNum,
+      startMonth,
+      monthsToShow,
+      monthData
+    });
+    
     return monthData;
   }, [progressList, allCostData, currentMonth, isMobile]);
 
   // 필터링된 기성 데이터 - 현장별
   const getFilteredGisungData = useMemo(() => {
-    if (selectedSites.length === 0) return [];
+    // 월별 뷰에서는 현장 선택과 관계없이 모든 데이터 표시
+    if (statusView === 'month') {
+      console.log('월별 뷰 - 모든 기성 데이터 표시');
+      return progressList;
+    }
     
-    // progressList에서 gisung 컬렉션의 데이터만 필터링 (gisungMonth 필드가 있는 데이터)
-    const gisungData = progressList.filter(item => item.gisungMonth);
-    return gisungData.filter(item => selectedSites.includes(item.name));
-  }, [progressList, selectedSites]);
+    // 현장별 뷰에서 현장이 선택되지 않은 경우 빈 배열 반환
+    if (selectedSites.length === 0) {
+      console.log('현장 미선택 - 기성 데이터 없음');
+      return [];
+    }
+    
+    // 전체선택인지 확인
+    const isAllSelected = selectedSites.some(site => {
+      if (typeof site === 'string') {
+        return site === '전체선택' || site === 'all';
+      }
+      if (site && typeof site === 'object') {
+        return site.name === '전체선택' || site.id === 'all';
+      }
+      return false;
+    });
+    
+    if (isAllSelected) {
+      console.log('전체선택 - 모든 기성 데이터 표시');
+      return progressList; // 전체선택이 있으면 모든 데이터 표시
+    }
+    
+    // 특정 현장이 선택된 경우 해당 현장만 필터링
+    console.log('특정 현장 선택됨 - 기성 필터링 적용');
+    return progressList.filter(item => {
+      const isSelected = selectedSites.some(selectedSite => {
+        // 문자열인 경우 (현장명)
+        if (typeof selectedSite === 'string') {
+          return item.name === selectedSite || item.siteId === selectedSite;
+        }
+        // 객체인 경우 (현장 객체)
+        if (selectedSite && typeof selectedSite === 'object') {
+          return item.name === selectedSite.name || item.siteId === selectedSite.id;
+        }
+        return false;
+      });
+      
+      console.log('기성 데이터 체크:', {
+        itemName: item.name,
+        itemSiteId: item.siteId,
+        selectedSites: selectedSites,
+        isSelected: isSelected
+      });
+      return isSelected;
+    });
+  }, [progressList, selectedSites, statusView]);
 
   // 필터링된 지출 데이터 - 현장별
   const getFilteredCostData = useMemo(() => {
-    if (selectedSites.length === 0) return [];
-    return allCostData.filter(cost => selectedSites.includes(cost.site));
-  }, [allCostData, selectedSites]);
+    // 월별 뷰에서는 현장 선택과 관계없이 모든 데이터 표시
+    if (statusView === 'month') {
+      console.log('월별 뷰 - 모든 지출 데이터 표시');
+      return allCostData;
+    }
+    
+    // 현장별 뷰에서 현장이 선택되지 않은 경우 빈 배열 반환
+    if (selectedSites.length === 0) {
+      console.log('현장 미선택 - 지출 데이터 없음');
+      return [];
+    }
+    
+    // 전체선택인지 확인
+    const isAllSelected = selectedSites.some(site => {
+      if (typeof site === 'string') {
+        return site === '전체선택' || site === 'all';
+      }
+      if (site && typeof site === 'object') {
+        return site.name === '전체선택' || site.id === 'all';
+      }
+      return false;
+    });
+    
+    if (isAllSelected) {
+      console.log('전체선택 - 모든 지출 데이터 표시');
+      return allCostData; // 전체선택이 있으면 모든 데이터 표시
+    }
+    
+    // 특정 현장이 선택된 경우 해당 현장만 필터링
+    console.log('특정 현장 선택됨 - 지출 필터링 적용');
+    return allCostData.filter(cost => {
+      const isSelected = selectedSites.some(selectedSite => {
+        // 문자열인 경우 (현장명)
+        if (typeof selectedSite === 'string') {
+          return cost.site === selectedSite || cost.siteId === selectedSite;
+        }
+        // 객체인 경우 (현장 객체)
+        if (selectedSite && typeof selectedSite === 'object') {
+          return cost.site === selectedSite.name || cost.siteId === selectedSite.id;
+        }
+        return false;
+      });
+      
+      console.log('지출 데이터 체크:', {
+        costSite: cost.site,
+        costSiteId: cost.siteId,
+        selectedSites: selectedSites,
+        isSelected: isSelected
+      });
+      return isSelected;
+    });
+  }, [allCostData, selectedSites, statusView]);
 
   // 필터링된 기성 데이터 - 월별
   const getFilteredGisungDataByMonth = useMemo(() => {
@@ -652,31 +866,42 @@ const Progress = () => {
   ];
   const COLORS = ['#1976d2', '#232733'];
 
-  // 엑셀 다운로드 함수 구현
-  const handleExcelDownload = () => {
+  // 엑셀 다운로드 함수 구현 (올린 파일에 데이터 덮어씌우기)
+  const handleExcelDownload = async () => {
     try {
-      // 차트 데이터 준비
-      const chartData = progressList
-        .filter(row => selectedSites.length === 0 || selectedSites.includes(row.name))
-        .map(row => {
-          const contract = parseFloat(row.contractAmount) || 0;
-          const totalPayment = getTotalPayment(row.payments || []);
-          return {
-            '현장명': row.name,
-            '계약금액': contract,
-            ...Object.fromEntries((row.payments || []).map((p, i) => [p.label, parseFloat(p.amount) || 0])),
-            '잔액': contract - totalPayment,
-            '진행률': `${Math.round((totalPayment / contract) * 100)}%`
-          };
-        });
+      // 필터링된 데이터 준비
+      const filteredData = progressList
+        .filter(row => selectedSites.length === 0 || selectedSites.includes(row.name));
 
-      // 워크북 생성
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(chartData);
-      XLSX.utils.book_append_sheet(wb, ws, '기성현황');
+      if (filteredData.length === 0) {
+        alert('다운로드할 데이터가 없습니다.');
+        return;
+      }
 
-      // 파일 저장
-      XLSX.writeFile(wb, `기성현황_${new Date().toISOString().split('T')[0]}.xlsx`);
+      // 올린 gisung.xlsx 파일에 데이터만 덮어씌우기
+      const { generateTemplateBasedGisungExcel } = await import('../utils/gisungTemplateUtils');
+      
+      // 첫 번째 현장 데이터로 엑셀 생성 (올린 파일 기반)
+      const firstRow = filteredData[0];
+      const siteData = {
+        name: firstRow.name,
+        contractAmount: firstRow.contractAmount || 0,
+        manager: firstRow.manager || '',
+        company: firstRow.company || '',
+        startDate: firstRow.startDate || '',
+        endDate: firstRow.endDate || ''
+      };
+      
+      const gisungData = firstRow.payments || [];
+      const siteItems = firstRow.items || [];
+      
+      // 올린 파일에 데이터 덮어씌워서 엑셀 생성
+      const workbook = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems);
+      
+      // 파일 다운로드
+      XLSX.writeFile(workbook, `기성현황_${new Date().toISOString().split('T')[0]}.xlsx`);
+      
+      console.log('올린 파일 기반 엑셀 다운로드 완료');
     } catch (error) {
       console.error('엑셀 다운로드 실패:', error);
       alert('엑셀 다운로드에 실패했습니다.');
@@ -741,6 +966,11 @@ const Progress = () => {
             onClick={() => {
               console.log('기성관리 탭 클릭 - 현재 탭:', tab);
               setTab('chart');
+              // 즉시 데이터 재로드
+              fetchProgress();
+              fetchCosts();
+              // 강제 리렌더링
+              setForceUpdate(prev => prev + 1);
             }}
             variant={tab === 'chart' ? 'contained' : 'outlined'}
           >
@@ -750,6 +980,11 @@ const Progress = () => {
             onClick={() => {
               console.log('기성현황 탭 클릭 - 현재 탭:', tab);
               setTab('gisung');
+              // 즉시 데이터 재로드
+              fetchProgress();
+              fetchCosts();
+              // 강제 리렌더링
+              setForceUpdate(prev => prev + 1);
             }}
             variant={tab === 'gisung' ? 'contained' : 'outlined'}
           >
@@ -759,6 +994,11 @@ const Progress = () => {
             onClick={() => {
               console.log('지출 탭 클릭 - 현재 탭:', tab);
               setTab('cost');
+              // 즉시 데이터 재로드
+              fetchProgress();
+              fetchCosts();
+              // 강제 리렌더링
+              setForceUpdate(prev => prev + 1);
             }}
             variant={tab === 'cost' ? 'contained' : 'outlined'}
           >
@@ -785,7 +1025,14 @@ const Progress = () => {
           }}
         >
           <Button 
-            onClick={() => setStatusView('month')}
+            onClick={() => {
+              setStatusView('month');
+              // 즉시 데이터 재로드
+              fetchProgress();
+              fetchCosts();
+              // 강제 리렌더링
+              setForceUpdate(prev => prev + 1);
+            }}
             variant={statusView === 'month' ? 'contained' : 'outlined'}
             color="success"
             sx={{ 
@@ -797,7 +1044,14 @@ const Progress = () => {
             월별
           </Button>
           <Button 
-            onClick={() => setStatusView('site')}
+            onClick={() => {
+              setStatusView('site');
+              // 즉시 데이터 재로드
+              fetchProgress();
+              fetchCosts();
+              // 강제 리렌더링
+              setForceUpdate(prev => prev + 1);
+            }}
             variant={statusView === 'site' ? 'contained' : 'outlined'}
             color="success"
             sx={{ 
@@ -861,7 +1115,23 @@ const Progress = () => {
           {/* 선택 현장 리스트 (가로, 체크박스 포함) */}
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
             <Checkbox checked disabled sx={{ p: isMobile ? 0.2 : 0.5, color: '#90caf9' }} />
-            <Typography sx={{ color: '#90caf9', fontSize: isMobile ? '0.8rem' : '1rem', fontWeight: 700, mr: 1 }}>
+            <Typography 
+              sx={{ 
+                color: '#90caf9', 
+                fontSize: isMobile ? '0.8rem' : '1rem', 
+                fontWeight: 700, 
+                mr: 1,
+                cursor: 'pointer',
+                '&:hover': {
+                  textDecoration: 'underline',
+                  color: '#64b5f6'
+                }
+              }}
+              onClick={() => {
+                console.log('선택 현장 클릭 - 모든 선택 해제');
+                setSelectedSites([]);
+              }}
+            >
               선택 현장
             </Typography>
             {selectedSites.length > 0 && selectedSites.map(siteName => (
@@ -893,42 +1163,52 @@ const Progress = () => {
             )}
           </Box>
           
-          {/* 현장명 검색 드롭다운 */}
-          <Box sx={{ minWidth: isMobile ? 200 : 300 }}>
-            <SearchableSiteSelect
-              sites={sites}
-              value=""
-              onChange={(selectedSite) => {
-                // selectedSite가 객체인 경우 name만 추출
-                const siteName = typeof selectedSite === 'string' ? selectedSite : selectedSite?.name;
-                console.log('현장 선택:', { selectedSite, siteName, currentSelectedSites: selectedSites });
-                
-                if (siteName && !selectedSites.includes(siteName)) {
-                  if (selectedSites.length >= 4) {
-                    alert('현장은 최대 4개까지 선택할 수 있습니다.');
-                    return;
-                  }
-                  const newSelectedSites = [...selectedSites, siteName];
-                  console.log('새로운 선택된 현장들:', newSelectedSites);
-                  setSelectedSites(newSelectedSites);
-                }
-              }}
-              label=""
-              placeholder="현장명 검색..."
-              size="small"
-              isMobile={isMobile}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  bgcolor: '#232b3b',
-                  py: isMobile ? 0.5 : 1,
-                }
-              }}
-            />
-          </Box>
+          {/* 현장 선택 - 오른쪽 끝에 배치 */}
+          <SearchableSiteSelect
+            sites={filteredSites}
+            value={selectedSites}
+            onChange={(newValue) => {
+              console.log('현장 선택됨:', newValue);
+              setSelectedSites(Array.isArray(newValue) ? newValue : (newValue ? [newValue] : []));
+              // 즉시 데이터 재로드
+              fetchProgress();
+              fetchCosts();
+              // 강제 리렌더링
+              setForceUpdate(prev => prev + 1);
+            }}
+            label="현장 선택"
+            placeholder="현장명을 검색하세요"
+            multiple={true}
+            size="small"
+            fullWidth={false}
+            isMobile={isMobile}
+            sx={{ 
+              minWidth: isMobile ? '200px' : '300px',
+              width: isMobile ? '200px' : '300px',
+              '& .MuiOutlinedInput-root': {
+                bgcolor: '#232b3b',
+                color: '#fff',
+                '& fieldset': {
+                  borderColor: '#444',
+                },
+                '&:hover fieldset': {
+                  borderColor: '#666',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: '#3b82f6',
+                },
+              },
+              '& .MuiInputLabel-root': {
+                color: '#ccc',
+              },
+              '& .MuiInputBase-input': {
+                color: '#fff',
+              },
+            }}
+          />
 
         </Box>
       )}
-
 
       {/* 필터링된 현장 안내 메시지 */}
       {filteredSiteId && filteredSiteName && (
@@ -941,7 +1221,7 @@ const Progress = () => {
           </Typography>
           {progressList.filter(item => item.name === filteredSiteName).length === 0 && (
             <Typography variant="body2" sx={{ mt: 1, color: '#ff9800' }}>
-              💡 이 현장에 대한 기성 데이터가 없습니다. "기성 등록" 버튼을 클릭하여 현장 기성을 등록해주세요.
+              💡 이 현장에 대한 기성 데이터가 없습니다. "기성등록" 및 업로드를 통하여 현장 기성을 등록해주세요.
             </Typography>
           )}
         </Alert>
@@ -950,10 +1230,10 @@ const Progress = () => {
       {/* 월별/현장별 + 소분류 연동 분기 */}
       {statusView === 'month' && tab === 'chart' && (
         // 월별+기성관리 차트/데이터
-        <Grid container spacing={2} alignItems="stretch" sx={{ mb: 3, width: '100%' }}>
+        <Grid container spacing={1} alignItems="stretch" sx={{ mb: 3, width: '100%', px: isMobile ? 1 : 0, maxWidth: '100%' }}>
           {/* 모바일에서 차트 위 제목 */}
           {isMobile && (
-            <Grid item xs={12}>
+            <Grid>
               <Typography 
                 variant="h6" 
                 sx={{ 
@@ -970,7 +1250,7 @@ const Progress = () => {
             </Grid>
           )}
           {/* 차트 전체 화면 */}
-          <Grid item xs={12}>
+          <Grid sx={{ width: '100vw', maxWidth: '100vw' }}>
             <ZoomableChart title={isMobile 
               ? `${currentMonth.getFullYear()}년 ${Math.floor((currentMonth.getMonth()) / 3) + 1}분기`
               : `${currentMonth.getFullYear()}년 월별 기성 및 지출 현황`
@@ -1029,13 +1309,14 @@ const Progress = () => {
                   )}
                 </Box>
               </Box>
-              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 320 : 1390} minHeight={isMobile ? 200 : 400} style={{ margin: '0 auto', display: 'flex', justifyContent: 'center' }}>
+              <ResponsiveContainer width="100%" minWidth="100vw" height={isMobile ? 300 : 600} minHeight={isMobile ? 200 : 500} style={{ margin: '0 auto', display: 'flex', justifyContent: 'center', width: '100%', maxWidth: 'none' }}>
                 <BarChart
                   data={getMonthChartData}
-                  margin={{ top: 20, right: 30, left: isMobile ? 0 : 20, bottom: 20 }}
-                  barCategoryGap={24}
+                  margin={{ top: 20, right: 20, left: isMobile ? 10 : 20, bottom: 20 }}
+                  barCategoryGap="100%"
+                  barSize={60}
                 >
-                  <XAxis dataKey="name" />
+                  <XAxis dataKey="name" tick={{ fontSize: isMobile ? 14 : 16 }} />
                   <YAxis 
                     tickFormatter={(value) => {
                       if (value >= 100000000) {
@@ -1046,21 +1327,21 @@ const Progress = () => {
                         return value.toLocaleString();
                       }
                     }}
-                    tick={{ fontSize: isMobile ? 12 : 14 }}
+                    tick={{ fontSize: isMobile ? 14 : 16 }}
                   />
-                  <Tooltip />
-                  <Legend />
+                  <Tooltip contentStyle={{ fontSize: isMobile ? 14 : 16 }} />
+                  <Legend wrapperStyle={{ fontSize: isMobile ? 14 : 16 }} />
                   <Bar dataKey="기성금" fill="#82ca9d">
-                    <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} />
+                    <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
                   </Bar>
                   <Bar dataKey="노무" fill="#ffc658">
-                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} />
+                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
                   </Bar>
                   <Bar dataKey="경비" fill="#ff6b6b">
-                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} />
+                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
                   </Bar>
                   <Bar dataKey="기타" fill="#a084e8">
-                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} />
+                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -1070,17 +1351,21 @@ const Progress = () => {
       )}
       {statusView === 'site' && tab === 'chart' && (
         // 현장별+기성관리 차트/데이터(선택된 현장만)
-        <Grid container spacing={2} alignItems="stretch" sx={{ mb: 3, width: '100%' }}>
+        <Grid container spacing={1} alignItems="stretch" sx={{ mb: 3, width: '100%', px: isMobile ? 1 : 0, maxWidth: '100%' }}>
           {/* 차트 전체 화면 */}
-          <Grid item xs={12}>
-            <ZoomableChart title="현장별 기성/지출 현황" isMobile={isMobile}>
-              <ResponsiveContainer width="100%" height={isMobile ? 300 : 500} minWidth={isMobile ? 360 : 1390} minHeight={isMobile ? 200 : 400} style={{ margin: '0 auto', display: 'flex', justifyContent: 'center' }}>
+          <Grid sx={{ width: '100vw', maxWidth: '100vw' }}>
+            <ZoomableChart 
+              title="현장별 기성/지출 현황" 
+              isMobile={isMobile}
+            >
+              <ResponsiveContainer width="100%" minWidth="100vw" height={isMobile ? 300 : 600} minHeight={isMobile ? 200 : 500} style={{ margin: 'flex', justifyContent: 'center', width: '100%', maxWidth: 'none' }}>
                 <BarChart
                   data={getSiteChartData}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                  barCategoryGap={24}
+                  margin={{ top: 20, right: 20, left: 20, bottom: 20 }}
+                  barCategoryGap="100%"
+                  barSize={60}
                 >
-                  <XAxis dataKey="name" />
+                  <XAxis dataKey="name" tick={{ fontSize: isMobile ? 14 : 16 }} />
                   <YAxis 
                     tickFormatter={(value) => {
                       if (value >= 100000000) {
@@ -1091,21 +1376,21 @@ const Progress = () => {
                         return value.toLocaleString();
                       }
                     }}
-                    tick={{ fontSize: isMobile ? 12 : 14 }}
+                    tick={{ fontSize: isMobile ? 14 : 16 }}
                   />
-                  <Tooltip />
-                  <Legend />
+                  <Tooltip contentStyle={{ fontSize: isMobile ? 14 : 16 }} />
+                  <Legend wrapperStyle={{ fontSize: isMobile ? 14 : 16 }} />
                   <Bar dataKey="기성금" fill="#82ca9d">
-                    <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} />
+                    <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
                   </Bar>
                   <Bar dataKey="노무" fill="#ffc658">
-                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} />
+                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
                   </Bar>
                   <Bar dataKey="경비" fill="#ff6b6b">
-                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} />
+                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
                   </Bar>
                   <Bar dataKey="기타" fill="#a084e8">
-                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} />
+                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -1146,17 +1431,6 @@ const Progress = () => {
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>{selected ? '기성 수정' : '기성 등록'}</DialogTitle>
         <DialogContent>
-          {/* 현장명(공사명) 검색 드롭다운: 현장관리 데이터 연동 */}
-          <SearchableSiteSelect
-            sites={filteredSites}
-            value={formData.name}
-            onChange={(newValue) => setFormData({ ...formData, name: newValue })}
-            label="공사명"
-            placeholder="현장명을 검색하세요"
-            fullWidth
-            isMobile={isMobile}
-            sx={{ mb: 2 }}
-          />
           <TextField
             label="계약금액"
             value={formData.contractAmount}

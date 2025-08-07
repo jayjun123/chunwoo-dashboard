@@ -235,7 +235,7 @@ const Dashboard = () => {
     }}>
       <Grid container spacing={3}>
         {/* 데이터 동기화 및 일관성 검사 */}
-        <Grid xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
             <Button
               variant="contained"
@@ -255,7 +255,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* 상단 통계 카드 */}
-        <Grid xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>전체 현장</Typography>
@@ -263,7 +263,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>진행중 현장</Typography>
@@ -271,7 +271,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>완료 현장</Typography>
@@ -279,7 +279,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>평균 진행률</Typography>
@@ -289,7 +289,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* 통합 현황 카드 */}
-        <Grid xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <Card sx={{ bgcolor: '#e3f2fd' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -305,7 +305,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <Card sx={{ bgcolor: '#f3e5f5' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -321,7 +321,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <Card sx={{ bgcolor: '#e8f5e8' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -355,7 +355,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* 고급 차트 섹션 */}
-        <Grid xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Card>
             <CardContent sx={{ p: 0 }}>
               <Tabs 
@@ -379,7 +379,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* 현장 상태 분포 */}
-        <Grid xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <SiteStatusPieChart data={chartData.siteStatus} />
@@ -388,12 +388,12 @@ const Dashboard = () => {
         </Grid>
 
         {/* 실시간 현장 현황 */}
-        <Grid xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <RealTimeStatusCard stats={stats} />
         </Grid>
 
         {/* 기존 도넛 차트 */}
-        <Grid xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>현장 상태</Typography>
@@ -405,7 +405,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* 날씨 정보 */}
-        <Grid xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent sx={{ p: 0 }}>
               <WeatherWidget />
@@ -414,7 +414,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* 최근 활동 */}
-        <Grid xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>최근 활동</Typography>
@@ -426,7 +426,7 @@ const Dashboard = () => {
                         primary={activity.title}
                         secondary={activity.timestamp}
                       />
-                      <Chip label={activity.type} size="small" />
+                                              <Chip label={activity.type} size="small" onClick={() => {}} />
                     </ListItem>
                     {index < stats.recentActivities.length - 1 && <Divider />}
                   </React.Fragment>

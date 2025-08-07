@@ -35,7 +35,7 @@ const UserManagement = () => {
     { key: 'progress', label: '기성관리' },
     { key: 'safety', label: '안전관리' },
     { key: 'discussions', label: '토론의견' },
-    { key: 'reports', label: '보고서' },
+    { key: 'daema-team', label: '시공팀' },
     { key: 'documents', label: '문서관리' }
   ];
   const PERMS = ['read', 'write', 'delete', 'save'];

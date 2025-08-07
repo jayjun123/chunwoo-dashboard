@@ -7,12 +7,14 @@ import {
   sendMessage, 
   deleteDiscussion,
   removeParticipant,
+  addParticipant,
   getDiscussionParticipants
 } from '../../api/discussions';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { sendNewPostNotification, checkNotificationPermission, loadNotificationSettings } from '../../utils/notificationUtils';
 import { useAuth } from '../../contexts/AuthContext';
+import { getUserDisplayName, logUserInfo, getDeviceInfo } from '../../utils/discussionUtils';
 import SearchableSiteSelect from '../common/SearchableSiteSelect';
 import {
   Box,
@@ -528,20 +530,11 @@ const PCKakaoDiscussion = () => {
       
       // 참여자로 추가
       try {
-        // 사용자의 실제 이름을 가져오기 위한 로직
-        let userName = '현재 사용자';
+        // 공통 함수를 사용하여 사용자 이름 생성
+        const userName = getUserDisplayName(currentUser);
         
-        if (currentUser.displayName && currentUser.displayName.trim() !== '') {
-          userName = currentUser.displayName;
-        } else if (currentUser.email) {
-          // 이메일에서 @ 앞부분을 이름으로 사용
-          const emailName = currentUser.email.split('@')[0];
-          // 이메일 이름을 더 읽기 쉽게 변환 (예: john.doe -> John Doe)
-          userName = emailName
-            .split(/[._-]/)
-            .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-            .join(' ');
-        }
+        // 디버깅을 위한 로그
+        logUserInfo(currentUser, 'PC 토론방 입장');
         
         await addParticipant(
           discussion.id, 

@@ -3,10 +3,10 @@ import {
   Paper, Box, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Chip, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel, Checkbox
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, CloudDownload, CloudUpload } from '@mui/icons-material';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-const GisungStatusTable = () => {
+const GisungStatusTable = ({ onNewGisung }) => {
   const [gisungList, setGisungList] = useState([]);
 
   useEffect(() => {
@@ -16,6 +16,19 @@ const GisungStatusTable = () => {
   const fetchGisung = async () => {
     const snapshot = await getDocs(collection(db, 'gisung'));
     setGisungList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  };
+
+  // 청구완료 상태 토글
+  const toggleClaimStatus = async (gisungId, currentStatus) => {
+    try {
+      const newStatus = currentStatus === '청구완료' ? '미청구' : '청구완료';
+      await updateDoc(doc(db, 'gisung', gisungId), {
+        claimStatus: newStatus
+      });
+      fetchGisung(); // 데이터 새로고침
+    } catch (error) {
+      console.error('청구상태 업데이트 실패:', error);
+    }
   };
 
   return (
@@ -31,7 +44,15 @@ const GisungStatusTable = () => {
         <Typography variant="h6" sx={{ flex: 1 }}>기성현황</Typography>
         <Button variant="contained" color="primary" startIcon={<CloudDownload />} sx={{ ml: 1 }}>엑셀 다운로드</Button>
         <Button variant="contained" color="primary" startIcon={<CloudUpload />} sx={{ ml: 1 }}>엑셀 업로드</Button>
-        <Button variant="contained" color="success" startIcon={<AddIcon />} sx={{ ml: 1 }}>+ 새 기성</Button>
+        <Button 
+          variant="contained" 
+          color="success" 
+          startIcon={<AddIcon />} 
+          onClick={onNewGisung}
+          sx={{ ml: 1 }}
+        >
+          기성등록
+        </Button>
       </Box>
       <TableContainer sx={{ 
         width: '100%',
@@ -54,6 +75,7 @@ const GisungStatusTable = () => {
               <TableCell>기성금액</TableCell>
               <TableCell>결제방법</TableCell>
               <TableCell>비고</TableCell>
+              <TableCell>청구완료</TableCell>
               <TableCell>관리</TableCell>
             </TableRow>
           </TableHead>
@@ -69,6 +91,14 @@ const GisungStatusTable = () => {
                 <TableCell>{Number(row.gisungAmount || 0).toLocaleString()}원</TableCell>
                 <TableCell>{row.paymentMethod || '-'}</TableCell>
                 <TableCell>{row.note || '-'}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={row.claimStatus || '미청구'}
+                    color={row.claimStatus === '청구완료' ? 'success' : 'default'}
+                    onClick={() => toggleClaimStatus(row.id, row.claimStatus)}
+                    sx={{ cursor: 'pointer' }}
+                  />
+                </TableCell>
                 <TableCell>
                   <Button size="small" variant="contained" color="primary" sx={{ mr: 1 }}>수정</Button>
                   <Button size="small" variant="contained" color="error">삭제</Button>

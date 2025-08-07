@@ -22,6 +22,7 @@ import {
   ListItemText,
   Divider
 } from '@mui/material';
+import Image from '../components/common/Image';
 import SearchIcon from '@mui/icons-material/Search';
 import CommentIcon from '@mui/icons-material/Comment';
 import AddCommentIcon from '@mui/icons-material/AddComment';
@@ -669,7 +670,14 @@ export default function ImportantSite() {
       pb: 4, 
       mt: isMobile ? '30px' : 8,
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 1000,
+      bgcolor: '#1a1d21'
     }}>
       {/* 페이지 제목 */}
       <Box sx={{ 
@@ -725,14 +733,17 @@ export default function ImportantSite() {
       <Grid container spacing={2} sx={{ 
         width: '100%', 
         flex: 1,
-        overflowY: 'auto',
+        overflowY: 'hidden', // 스크롤 제거
         overflowX: 'hidden',
         padding: isMobile ? '10px 0 0 6px' : '10px 10px 0 10px',
         border: '1px solid #333',
         borderRadius: 2,
         bgcolor: '#1a1a1a',
         mt: 0, // 마진 제거
-        minWidth: isMobile ? 'auto' : '1000px' // PC에서 최소 1000px 고정
+        minWidth: isMobile ? 'auto' : '1000px', // PC에서 최소 1000px 고정
+        height: 'calc(100vh - 200px)', // 고정 높이 설정
+        position: 'relative',
+        zIndex: 1001
       }}>
         {filteredSites.length === 0 && (
           <Typography sx={{ color: '#bbb', mt: 4 }}>
@@ -1072,7 +1083,17 @@ export default function ImportantSite() {
                     <CircularProgress color="warning" />
                   ) : site.imageUrl ? (
                     <>
-                      <img src={site.imageUrl} alt="조감도" style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 8, filter: hoveredSiteId === site.id ? 'brightness(0.7)' : 'none' }} />
+                      <Image 
+                        src={site.imageUrl} 
+                        alt="조감도" 
+                        lazy={true}
+                        style={{ 
+                          maxWidth: '100%', 
+                          maxHeight: 220, 
+                          borderRadius: 8, 
+                          filter: hoveredSiteId === site.id ? 'brightness(0.7)' : 'none' 
+                        }} 
+                      />
                       {hoveredSiteId === site.id && (
                         <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, bgcolor: 'rgba(0,0,0,0.4)' }}>
                           <Button variant="contained" size="small" sx={{ mb: 1, bgcolor: '#ffd600', color: '#222', fontWeight: 700 }} onClick={e => { e.stopPropagation(); handleImageClick(site.id); }}>교체</Button>

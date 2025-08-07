@@ -265,7 +265,7 @@ const Users = () => {
   }
 
   return (
-    <Box sx={{ p: { xs: 0, md: 3 }, mt: { xs: '0px', md: '90px' } }}>
+    <Box sx={{ p: 3, mt: '90px' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5">회원/권한 관리</Typography>
         <Button
@@ -393,7 +393,7 @@ const Users = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField
                 label="이름"
                 value={formData.name ?? ''}
@@ -403,7 +403,7 @@ const Users = () => {
                 onFocus={scrollFocus(inputRef1)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField
                 label="이메일"
                 type="email"
@@ -414,7 +414,7 @@ const Users = () => {
                 onFocus={scrollFocus(inputRef1)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField
                 label="부서"
                 value={formData.department ?? ''}
@@ -424,7 +424,7 @@ const Users = () => {
                 onFocus={scrollFocus(inputRef1)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField
                 label="직책"
                 value={formData.position ?? ''}
@@ -434,7 +434,7 @@ const Users = () => {
                 onFocus={scrollFocus(inputRef1)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <FormControl fullWidth>
                 <InputLabel>역할</InputLabel>
                 <Select
@@ -450,7 +450,7 @@ const Users = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <FormControlLabel
                 control={
                   <Switch
@@ -463,7 +463,7 @@ const Users = () => {
                 onFocus={scrollFocus(inputRef1)}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Typography variant="subtitle1" gutterBottom>권한 설정</Typography>
               <Grid container spacing={1}>
                 {Object.entries(PERMISSIONS).map(([key, label]) => (
