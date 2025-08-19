@@ -301,7 +301,7 @@ const Claims = () => {
       console.error('Claims 데이터 구독 중 오류 발생:', error);
       setLoading(false);
     }
-  }, [currentMonth]);
+  }, [currentMonth?.getTime()]); // currentMonth.getTime()만 의존성으로 사용
 
   // 현장 데이터 로드
   useEffect(() => {

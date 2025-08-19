@@ -77,8 +77,15 @@ const GisungList = () => {
   };
 
   const handleDelete = async (id) => {
-    await deleteDoc(doc(db, 'gisung', id));
-    fetchGisung();
+    // 삭제할 기성 데이터 찾기
+    const gisungToDelete = gisungList.find(g => g.id === id);
+    const sequence = gisungToDelete?.sequence || 'N';
+    const siteName = gisungToDelete?.name || '알 수 없음';
+    
+    if (window.confirm(`"${siteName}" ${sequence} 기성 데이터를 정말 삭제하시겠습니까?`)) {
+      await deleteDoc(doc(db, 'gisung', id));
+      fetchGisung();
+    }
   };
 
   const getTotalPayment = (payments) => payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);

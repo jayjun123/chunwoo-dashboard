@@ -289,20 +289,42 @@ const Progress = () => {
     const siteId = searchParams.get('siteId');
     const viewMode = searchParams.get('viewMode');
     
+    console.log('🔍 URL 파라미터 확인:', { siteId, viewMode });
+    
+    // 현장 선택 해제 상태를 추적하는 플래그
+    const isClearingSelection = sessionStorage.getItem('clearingSiteSelection') === 'true';
+    
+    if (isClearingSelection) {
+      // 현장 선택 해제 중이면 URL 파라미터를 무시
+      console.log('🔍 현장 선택 해제 중 - URL 파라미터 무시');
+      sessionStorage.removeItem('clearingSiteSelection');
+      return;
+    }
+    
     if (siteId && sites.length > 0) {
       setFilteredSiteId(siteId);
       // 해당 현장 정보 찾기
       const site = sites.find(s => s.id === siteId);
       if (site) {
+        console.log('✅ 현장 찾음:', site.name);
         setFilteredSiteName(site.name);
         setSelectedSites([site.name]);
         
         // viewMode가 'site'이면 현장별 뷰로 설정
         if (viewMode === 'site') {
+          console.log('🔄 현장별 뷰로 설정');
           setStatusView('site');
           setTab('gisung'); // 기성현황 탭으로 전환
         }
+      } else {
+        console.log('⚠️ 현장을 찾을 수 없음:', siteId);
       }
+    } else if (!siteId && selectedSites.length > 0) {
+      // URL에 siteId가 없는데 selectedSites가 있으면 초기화
+      console.log('🔍 URL에 siteId 없음 - 현장 선택 초기화');
+      setSelectedSites([]);
+      setFilteredSiteId(null);
+      setFilteredSiteName('');
     }
   }, [searchParams, sites]);
 
@@ -351,7 +373,7 @@ const Progress = () => {
       await fetchCosts();
     };
     loadInitialData();
-  }, [selectedSites, forceUpdate]); // selectedSites가 변경될 때마다 데이터 재로드
+  }, [selectedSites.length, forceUpdate]); // selectedSites.length만 의존성으로 사용
 
   // 탭 변경 시 데이터 재로드
   useEffect(() => {
@@ -369,8 +391,10 @@ const Progress = () => {
       await fetchCosts();
     };
     reloadData();
-  }, [currentMonth, forceUpdate]); // 월이 변경될 때마다 데이터 재로드
+  }, [currentMonth, forceUpdate]); // currentMonth 객체 자체를 의존성으로 사용
 
+
+  
   const fetchProgress = async () => {
     try {
       console.log('=== 기성 데이터 로드 시작 ===');
@@ -528,12 +552,39 @@ const Progress = () => {
     if (window.confirm('정말 삭제하시겠습니까?')) {
       try {
         await deleteDoc(doc(db, 'progress', id));
-        fetchProgress();
+        // 실시간 구독으로 대체됨
       } catch (e) {
         console.error('기성 데이터 삭제 실패:', e);
         alert('삭제에 실패했습니다.');
       }
     }
+  };
+
+  // 현장 선택 해제 함수
+  const clearSiteSelection = () => {
+    console.log('🔍 현장 선택 해제 버튼 클릭');
+    
+    // 현장 선택 해제 플래그 설정
+    sessionStorage.setItem('clearingSiteSelection', 'true');
+    
+    setSelectedSites([]);
+    setFilteredSiteId(null);
+    setFilteredSiteName('');
+    setSiteSearchTerm('');
+    setSearchDropdownOpen(false);
+    
+    // URL에서 siteId와 viewMode 파라미터 제거
+    const url = new URL(window.location);
+    url.searchParams.delete('siteId');
+    url.searchParams.delete('viewMode');
+    window.history.replaceState({}, document.title, url.pathname);
+    console.log('✅ URL 파라미터 제거 완료:', url.pathname);
+    
+    // 즉시 데이터 재로드
+    fetchProgress();
+    fetchCosts();
+    // 강제 리렌더링
+    setForceUpdate(prev => prev + 1);
   };
 
   // 계산
@@ -866,7 +917,7 @@ const Progress = () => {
   ];
   const COLORS = ['#1976d2', '#232733'];
 
-  // 엑셀 다운로드 함수 구현 (올린 파일에 데이터 덮어씌우기)
+  // 엑셀 다운로드 함수 구현 (기성금청구서 템플릿 사용)
   const handleExcelDownload = async () => {
     try {
       // 필터링된 데이터 준비
@@ -878,33 +929,38 @@ const Progress = () => {
         return;
       }
 
-      // 올린 gisung.xlsx 파일에 데이터만 덮어씌우기
+      // 기성금청구서 템플릿 사용
       const { generateTemplateBasedGisungExcel } = await import('../utils/gisungTemplateUtils');
       
-      // 첫 번째 현장 데이터로 엑셀 생성 (올린 파일 기반)
+      // 첫 번째 현장 데이터로 기성금청구서 생성
       const firstRow = filteredData[0];
       const siteData = {
         name: firstRow.name,
         contractAmount: firstRow.contractAmount || 0,
         manager: firstRow.manager || '',
         company: firstRow.company || '',
+        contractor: firstRow.company || '',
         startDate: firstRow.startDate || '',
-        endDate: firstRow.endDate || ''
+        endDate: firstRow.endDate || '',
+        advance: firstRow.advance || 0
       };
       
       const gisungData = firstRow.payments || [];
       const siteItems = firstRow.items || [];
       
-      // 올린 파일에 데이터 덮어씌워서 엑셀 생성
+      // 기성금청구서 템플릿으로 엑셀 생성
       const workbook = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems);
       
-      // 파일 다운로드
-      XLSX.writeFile(workbook, `기성현황_${new Date().toISOString().split('T')[0]}.xlsx`);
+      // 파일명을 (@차 기성금청구서)현장명 중 유리공사 형식으로 변경
+      const currentSequence = gisungData.length > 0 ? gisungData.length : 1;
+      const fileName = `(${currentSequence}차 기성금청구서)${firstRow.name} 중 유리공사`;
+      XLSX.writeFile(workbook, `${fileName}.xlsx`);
       
-      console.log('올린 파일 기반 엑셀 다운로드 완료');
+      console.log('기성금청구서 다운로드 완료:', fileName);
+      alert('기성금청구서가 다운로드되었습니다!');
     } catch (error) {
-      console.error('엑셀 다운로드 실패:', error);
-      alert('엑셀 다운로드에 실패했습니다.');
+      console.error('기성금청구서 다운로드 실패:', error);
+      alert('기성금청구서 다운로드에 실패했습니다: ' + error.message);
     }
   };
 
@@ -1164,54 +1220,95 @@ const Progress = () => {
           </Box>
           
           {/* 현장 선택 - 오른쪽 끝에 배치 */}
-          <SearchableSiteSelect
-            sites={filteredSites}
-            value={selectedSites}
-            onChange={(newValue) => {
-              console.log('현장 선택됨:', newValue);
-              setSelectedSites(Array.isArray(newValue) ? newValue : (newValue ? [newValue] : []));
-              // 즉시 데이터 재로드
-              fetchProgress();
-              fetchCosts();
-              // 강제 리렌더링
-              setForceUpdate(prev => prev + 1);
-            }}
-            label="현장 선택"
-            placeholder="현장명을 검색하세요"
-            multiple={true}
-            size="small"
-            fullWidth={false}
-            isMobile={isMobile}
-            sx={{ 
-              minWidth: isMobile ? '200px' : '300px',
-              width: isMobile ? '200px' : '300px',
-              '& .MuiOutlinedInput-root': {
-                bgcolor: '#232b3b',
-                color: '#fff',
-                '& fieldset': {
-                  borderColor: '#444',
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <SearchableSiteSelect
+              sites={filteredSites}
+              value={selectedSites}
+              onChange={(newValue) => {
+                console.log('현장 선택됨:', newValue);
+                const newSelectedSites = Array.isArray(newValue) ? newValue : (newValue ? [newValue] : []);
+                setSelectedSites(newSelectedSites);
+                
+                              // 현장 선택이 해제되면 URL 파라미터도 제거
+              if (newSelectedSites.length === 0) {
+                console.log('🔍 현장 선택 해제 - URL 파라미터 제거');
+                
+                // 현장 선택 해제 플래그 설정
+                sessionStorage.setItem('clearingSiteSelection', 'true');
+                
+                setFilteredSiteId(null);
+                setFilteredSiteName('');
+                // URL에서 siteId와 viewMode 파라미터 제거
+                const url = new URL(window.location);
+                url.searchParams.delete('siteId');
+                url.searchParams.delete('viewMode');
+                window.history.replaceState({}, document.title, url.pathname);
+                console.log('✅ URL 파라미터 제거 완료:', url.pathname);
+              }
+                
+                // 즉시 데이터 재로드
+                fetchProgress();
+                fetchCosts();
+                // 강제 리렌더링
+                setForceUpdate(prev => prev + 1);
+              }}
+              label="현장 선택"
+              placeholder="현장명을 검색하세요"
+              multiple={true}
+              size="small"
+              fullWidth={false}
+              isMobile={isMobile}
+              sx={{ 
+                minWidth: isMobile ? '200px' : '300px',
+                width: isMobile ? '200px' : '300px',
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#232b3b',
+                  color: '#fff',
+                  '& fieldset': {
+                    borderColor: '#444',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: '#666',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#3b82f6',
+                  },
                 },
-                '&:hover fieldset': {
-                  borderColor: '#666',
+                '& .MuiInputLabel-root': {
+                  color: '#ccc',
                 },
-                '&.Mui-focused fieldset': {
-                  borderColor: '#3b82f6',
+                '& .MuiInputBase-input': {
+                  color: '#fff',
                 },
-              },
-              '& .MuiInputLabel-root': {
-                color: '#ccc',
-              },
-              '& .MuiInputBase-input': {
-                color: '#fff',
-              },
-            }}
-          />
+              }}
+            />
+            {/* 현장 선택 해제 버튼 */}
+            {selectedSites.length > 0 && (
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={clearSiteSelection}
+                sx={{
+                  borderColor: '#ef4444',
+                  color: '#ef4444',
+                  minWidth: 'auto',
+                  px: 1,
+                  '&:hover': {
+                    borderColor: '#dc2626',
+                    bgcolor: 'rgba(239, 68, 68, 0.1)'
+                  }
+                }}
+              >
+                해제
+              </Button>
+            )}
+          </Box>
 
         </Box>
       )}
 
       {/* 필터링된 현장 안내 메시지 */}
-      {filteredSiteId && filteredSiteName && (
+      {filteredSiteId && filteredSiteName && selectedSites.length > 0 && (
         <Alert 
           severity="info" 
           sx={{ mb: 2, bgcolor: '#232b3b', color: '#90caf9', border: '1px solid #90caf9' }}

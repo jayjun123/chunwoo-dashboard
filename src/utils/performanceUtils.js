@@ -638,8 +638,14 @@ export class EnhancedPerformanceMonitor extends PerformanceMonitor {
         const usagePercentage = (memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100;
         if (usagePercentage > this.memoryThreshold) {
           console.warn(`High memory usage detected: ${usagePercentage.toFixed(2)}%`);
-          // 메모리 정리 시도
-          global.gc && global.gc();
+          // 메모리 정리 시도 (브라우저 환경에서는 없음)
+          try {
+            if (typeof global !== 'undefined' && global && typeof global.gc === 'function') {
+              global.gc();
+            }
+          } catch (_) {
+            // ignore
+          }
         }
       }
     }, interval);

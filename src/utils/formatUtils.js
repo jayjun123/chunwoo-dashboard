@@ -17,8 +17,19 @@ export const formatNumber = (value, addWon = false) => {
     return addWon ? '0원' : '0';
   }
   
-  const formatted = num.toLocaleString('ko-KR');
-  return addWon ? `${formatted}원` : formatted;
+  // -0을 0으로 변환 (완전한 방법)
+  let normalizedNum = num;
+  if (Math.abs(num) < 0.000001) {
+    normalizedNum = 0;
+  }
+  
+  const formatted = normalizedNum.toLocaleString('ko-KR');
+  let result = addWon ? `${formatted}원` : formatted;
+  
+  // 모든 -0 패턴을 0으로 변경
+  result = result.replace(/-0/g, '0');
+  
+  return result;
 };
 
 /**
@@ -45,6 +56,15 @@ export const formatGisungAmount = (value) => {
  * @returns {string} 포맷팅된 선급금
  */
 export const formatAdvanceAmount = (value) => {
+  return formatNumber(value, true);
+};
+
+/**
+ * 안전관리비 포맷팅 (원 단위 포함)
+ * @param {number|string} value - 안전관리비
+ * @returns {string} 포맷팅된 안전관리비
+ */
+export const formatSafetyCost = (value) => {
   return formatNumber(value, true);
 };
 

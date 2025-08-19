@@ -319,85 +319,186 @@ export const convertToKoreanCurrency = (amount) => {
   return result + '원정';
 };
 
-// 기성금청구서 엑셀 생성 (가로 A4 용지 2시트)
-export const generateGisungExcel = (siteData, gisungData) => {
-  const workbook = XLSX.utils.book_new();
-  
-  // 갑지 시트 생성
-  const gapjiData = createGapjiSheet(siteData, gisungData);
-  const gapjiSheet = XLSX.utils.aoa_to_sheet(gapjiData);
-  
-  // 수식 적용
-  applyFormulasToGapjiSheet(gapjiSheet);
-  
-  // 기성금 내역서 시트 생성
-  const detailData = createDetailSheet(siteData, gisungData);
-  const detailSheet = XLSX.utils.aoa_to_sheet(detailData);
-  
-  // 기성금 내역서에 수식 적용
-  applyFormulasToDetailSheet(detailSheet);
-  
-  // 스타일링 및 병합 적용
-  applyGisungStyling(gapjiSheet, detailSheet);
-  
-  // 시트 추가
-  XLSX.utils.book_append_sheet(workbook, gapjiSheet, '갑지');
-  XLSX.utils.book_append_sheet(workbook, detailSheet, '기성금 내역서');
-  
-  // 시트 간 참조 설정
-  setSheetReferences(workbook, gapjiSheet, detailSheet);
-  
-  return workbook;
+// 기성금청구서 엑셀 생성 (견적서 방식과 동일하게 템플릿 기반)
+export const generateGisungExcel = async (siteData, gisungData) => {
+  try {
+    console.log('📄 기성금청구서 생성 시작:', { 
+      siteName: siteData.name, 
+      gisungData: gisungData
+    });
+    
+    // 기성금청구서 템플릿 다운로드
+    const { ref, getDownloadURL } = await import('firebase/storage');
+    const { storage } = await import('../firebase');
+    
+    const templateRef = ref(storage, 'templates/NEWgisung.xlsx');
+    
+    try {
+      const templateURL = await getDownloadURL(templateRef);
+      console.log('✅ 템플릿 URL 가져오기 성공:', templateURL);
+      
+      // 템플릿 파일 가져오기
+      const response = await fetch(templateURL);
+      if (!response.ok) {
+        throw new Error(`템플릿 파일 다운로드 실패: ${response.status} ${response.statusText}`);
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      console.log('✅ 템플릿 파일 다운로드 완료:', arrayBuffer.byteLength, 'bytes');
+      
+      // XLSX로 워크북 읽기
+      const workbook = XLSX.read(arrayBuffer, { type: 'array', cellFormula: true });
+      console.log('✅ 템플릿 워크북 로드 완료');
+      
+      // 기성금 내역서 시트에 데이터 입력
+      const detailSheet = workbook.Sheets['기성금 내역서'];
+      if (detailSheet) {
+        console.log('📝 기성금 내역서 시트에 데이터 입력...');
+        
+                 // 실제 현장 데이터 사용 (유동적, 순서 보장)
+         let items = [];
+         
+         // 기성 데이터에서 실제 항목들 가져오기
+         if (gisungData && gisungData.length > 0) {
+           const currentGisung = gisungData[0]; // 첫 번째 기성 데이터 사용
+           if (currentGisung.items && Array.isArray(currentGisung.items)) {
+             items = currentGisung.items.map((item, index) => ({
+               name: item.itemName || item.name || '',
+               specification: item.specification || '',
+               unit: item.unit || '',
+               contractQuantity: Number(item.contractQuantity || item.quantity || 0),
+               contractUnitPrice: Number(item.contractUnitPrice || item.price || 0),
+               previousQuantity: Number(item.previousQuantity || 0),
+               currentQuantity: Number(item.currentQuantity || 0),
+               rowIndex: item.rowIndex || index // 순서 보장용 인덱스
+             }));
+             
+             // rowIndex로 정렬하여 순서 보장
+             items.sort((a, b) => (a.rowIndex || 0) - (b.rowIndex || 0));
+             
+             console.log('📋 기성 데이터 항목들 (순서대로):', items.map((item, index) => `${index + 1}. ${item.name}`));
+           }
+         }
+         
+         // 기성 데이터가 없으면 기본 템플릿 사용 (견적서 순서대로)
+         if (items.length === 0) {
+           items = [
+             // 1. 학교창(관공서)전용유리 - 모든 종류 먼저
+             { name: '학교창(관공서)전용유리', specification: '22mm(5+12+5), MCT(HS)+아르곤+투명, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 49000 },
+             { name: '학교창(관공서)전용유리', specification: '22mm(5+12+5), MCT(HS)+아르곤+칼라, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 46000 },
+             { name: '학교창(관공서)전용유리', specification: '24mm(5+14+5), MCT(HS)+아르곤+투명, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 46000 },
+             { name: '학교창(관공서)전용유리', specification: '24mm(5+14+5), MCT(HS)+아르곤+칼라, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 48000 },
+             { name: '학교창(관공서)전용유리', specification: '24mm(6+12+6), MCT(HS)+아르곤+투명, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 51000 },
+             { name: '학교창(관공서)전용유리', specification: '43mm(5+14+5+14+5), MCT(HS)+아르곤+투명(HS)+아르곤+MCT(HS), 고단열 더블로이 삼중', unit: 'M²', contractQuantity: 0, contractUnitPrice: 110000 },
+             
+             // 2. 복층유리 - 모든 종류
+             { name: '복층유리', specification: '복층유리, 투명, 16mm', unit: 'M²', contractQuantity: 0, contractUnitPrice: 22000 },
+             { name: '복층유리', specification: '복층유리, 투명, 22mm, 건조공기', unit: 'M²', contractQuantity: 0, contractUnitPrice: 26000 },
+             { name: '복층유리', specification: '복층유리, 컬러, 22mm, 건조공기, 그린', unit: 'M²', contractQuantity: 0, contractUnitPrice: 29000 },
+             
+             // 3. 창호유리설치/복층유리 - 모든 종류
+             { name: '창호유리설치/복층유리', specification: '유리두께 16mm 이하', unit: 'M²', contractQuantity: 0, contractUnitPrice: 15000 },
+             { name: '창호유리설치/복층유리', specification: '유리두께 22mm 이하', unit: 'M²', contractQuantity: 0, contractUnitPrice: 15000 },
+             { name: '창호유리설치/복층유리', specification: '유리두께 24mm 이하', unit: 'M²', contractQuantity: 0, contractUnitPrice: 18000 },
+             { name: '창호유리설치/복층유리', specification: '유리뚜께 43mm 이하', unit: 'M²', contractQuantity: 0, contractUnitPrice: 20000 },
+             
+             // 4. 유리주위 코킹
+             { name: '유리주위 코킹', specification: '복층유리 5×5, 실리콘(양면)', unit: 'M', contractQuantity: 0, contractUnitPrice: 300 },
+             
+             // 5. 방습거울
+             { name: '방습거울', specification: '5mm,틀포함', unit: 'M²', contractQuantity: 0, contractUnitPrice: 100000 }
+             // 단수정리는 마지막에 별도 추가
+           ];
+         }
+        
+                 // 원래 방식으로 간단하게 입력
+         let currentRow = 6;
+         
+         items.forEach((item, index) => {
+           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 0 })] = { v: item.specification };
+           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 1 })] = { v: item.name };
+           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 2 })] = { v: item.unit };
+           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 3 })] = { v: item.contractQuantity };
+           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 4 })] = { v: item.contractUnitPrice };
+           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 6 })] = { v: item.previousQuantity || 0 };
+           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 8 })] = { v: item.currentQuantity || 0 };
+           currentRow++;
+         });
+         
+         // 6. 마지막에 단수정리 추가
+         detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 0 })] = { v: '단수정리' };
+         detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 1 })] = { v: 'NEGO' };
+         detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 2 })] = { v: '식' };
+         detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 3 })] = { v: 1 };
+         detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 4 })] = { v: -341570 };
+         detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 5 })] = { v: -341570 };
+        
+        console.log('✅ 데이터 입력 완료');
+      }
+      
+      return workbook;
+      
+    } catch (error) {
+      console.error('❌ 템플릿 로드 실패:', error);
+      throw error;
+    }
+    
+  } catch (error) {
+    console.error('❌ 기성금청구서 생성 실패:', error);
+    throw error;
+  }
 };
 
 
-// 갑지 시트에 수식 적용하는 함수
-const applyFormulasToGapjiSheet = (worksheet) => {
-  // F열에 수식 적용 (단수정리 항목들의 금액 계산) - F5부터 F10까지
-  for (let row = 4; row <= 9; row++) { // F5~F10
+
+
+// 기성금 내역서에 수식 적용하는 함수
+const applyGisungFormulas = (worksheet) => {
+  // 헤더가 5행이므로 데이터는 6행부터 시작 (0부터 시작하므로 5)
+  const startRow = 5;
+  const endRow = 20; // 단수정리까지 포함
+  
+  // F열에 수식 적용 (계약금액 - 금액) - F6부터 F20까지
+  for (let row = startRow; row <= endRow; row++) {
     const cellAddress = XLSX.utils.encode_cell({ r: row, c: 5 }); // F열
     worksheet[cellAddress] = {
-      f: `=D${row + 1}*E${row + 1}`, // 수식
+      f: `=D${row + 1}*E${row + 1}`, // 수량 × 단가
       v: 0 // 기본값
     };
   }
   
-  // H26에 총공사계 수식
-  const totalCell = XLSX.utils.encode_cell({ r: 25, c: 7 }); // H26
-  worksheet[totalCell] = {
-    f: `=SUM(F5:F10)`, // F5~F10 합계
-    v: 0
-  };
-  
-  // H27에 부가세 수식
-  const vatCell = XLSX.utils.encode_cell({ r: 26, c: 7 }); // H27
-  worksheet[vatCell] = {
-    f: `=H26*0.1`, // 총공사계 * 10%
-    v: 0
-  };
-  
-  // H28에 계약금액 수식
-  const contractCell = XLSX.utils.encode_cell({ r: 27, c: 7 }); // H28
-  worksheet[contractCell] = {
-    f: `=H26+H27`, // 총공사계 + 부가세
-    v: 0
-  };
-  
-  // H32에 잔액 수식
-  const balanceCell = XLSX.utils.encode_cell({ r: 31, c: 7 }); // H32
-  worksheet[balanceCell] = {
-    f: `=H28-H31`, // 계약금액 - 기성누계
-    v: 0
-  };
-};
-
-// 기성금 내역서에 수식 적용하는 함수
-const applyFormulasToDetailSheet = (worksheet) => {
-  // F열에 수식 적용 (계약금액 - 금액) - F6부터 F20까지 (단수정리까지) - 항상 표준 수식 적용
-  for (let row = 5; row <= 19; row++) { // F6~F20
-    const cellAddress = XLSX.utils.encode_cell({ r: row, c: 5 }); // F열
+  // H열에 수식 적용 (전회기성 - 금액) - H6부터 H20까지
+  for (let row = startRow; row <= endRow; row++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: row, c: 7 }); // H열
     worksheet[cellAddress] = {
-      f: `=D${row + 1}*E${row + 1}`, // 표준 수식
+      f: `=G${row + 1}*E${row + 1}`, // 전회기성 수량 × 단가
+      v: 0 // 기본값
+    };
+  }
+  
+  // J열에 수식 적용 (금회기성 - 금액) - J6부터 J20까지
+  for (let row = startRow; row <= endRow; row++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: row, c: 9 }); // J열
+    worksheet[cellAddress] = {
+      f: `=I${row + 1}*E${row + 1}`, // 금회기성 수량 × 단가
+      v: 0 // 기본값
+    };
+  }
+  
+  // K열에 수식 적용 (합계 - 수량) - K6부터 K20까지
+  for (let row = startRow; row <= endRow; row++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: row, c: 10 }); // K열
+    worksheet[cellAddress] = {
+      f: `=G${row + 1}+I${row + 1}`, // 전회기성 수량 + 금회기성 수량
+      v: 0 // 기본값
+    };
+  }
+  
+  // L열에 수식 적용 (합계 - 금액) - L6부터 L20까지
+  for (let row = startRow; row <= endRow; row++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: row, c: 11 }); // L열
+    worksheet[cellAddress] = {
+      f: `=H${row + 1}+J${row + 1}`, // 전회기성 금액 + 금회기성 금액
       v: 0 // 기본값
     };
   }
@@ -425,190 +526,12 @@ const applyFormulasToDetailSheet = (worksheet) => {
     f: '=F23+F24', // 총공사비 + 부가세
     v: 0
   };
-  
-  // J열에 수식 적용 (전회기성 - 금액) - J6부터 J20까지
-  for (let row = 5; row <= 19; row++) { // J6~J20
-    const cellAddress = XLSX.utils.encode_cell({ r: row, c: 9 }); // J열
-    worksheet[cellAddress] = {
-      f: `=G${row + 1}*E${row + 1}`, // 수식
-      v: 0 // 기본값
-    };
-  }
-  
-  // H열에 수식 적용 (전회기성 - 금액) - H6부터 H20까지
-  for (let row = 5; row <= 19; row++) { // H6~H20
-    const cellAddress = XLSX.utils.encode_cell({ r: row, c: 7 }); // H열
-    worksheet[cellAddress] = {
-      f: `=G${row + 1}*E${row + 1}`, // 수식
-      v: 0 // 기본값
-    };
-  }
-  
-  // J열에 수식 적용 (전회기성 - 금액) - J6부터 J20까지
-  for (let row = 5; row <= 19; row++) { // J6~J20
-    const cellAddress = XLSX.utils.encode_cell({ r: row, c: 9 }); // J열
-    worksheet[cellAddress] = {
-      f: `=G${row + 1}*E${row + 1}`, // 수식
-      v: 0 // 기본값
-    };
-  }
-  
-  // K열에 수식 적용 (금회기성 - 수량) - K6부터 K20까지 - 항상 표준 수식 적용
-  for (let row = 5; row <= 19; row++) { // K6~K20
-    const cellAddress = XLSX.utils.encode_cell({ r: row, c: 10 }); // K열
-    worksheet[cellAddress] = {
-      f: `=I${row + 1}`, // 표준 수식 (I열 값)
-      v: 0 // 기본값
-    };
-  }
-  
-  // L열에 수식 적용 (금회기성 - 금액) - L6부터 L20까지
-  for (let row = 5; row <= 19; row++) { // L6~L20
-    const cellAddress = XLSX.utils.encode_cell({ r: row, c: 11 }); // L열
-    worksheet[cellAddress] = {
-      f: `=K${row + 1}*E${row + 1}`, // 수식
-      v: 0 // 기본값
-    };
-  }
-  
-  // M열에 수식 적용 (누계 - 수량) - M6부터 M20까지 - 항상 표준 수식 적용
-  for (let row = 5; row <= 19; row++) { // M6~M20
-    const cellAddress = XLSX.utils.encode_cell({ r: row, c: 12 }); // M열
-    worksheet[cellAddress] = {
-      f: `=G${row + 1}+K${row + 1}`, // 표준 수식 (G+K)
-      v: 0 // 기본값
-    };
-  }
-  
-  // 25행에 선급금 추가
-  const advanceRow = 24; // 25행 (0부터 시작하므로 24)
-  const advanceCell = XLSX.utils.encode_cell({ r: advanceRow, c: 0 }); // A25
-  worksheet[advanceCell] = {
-    v: '선급금'
-  };
-  
-  // 26행에 총공사계 추가
-  const totalRow = 25; // 26행
-  const totalCell = XLSX.utils.encode_cell({ r: totalRow, c: 0 }); // A26
-  worksheet[totalCell] = {
-    v: '총공사계'
-  };
-  
-  // 27행에 부가세 추가
-  const vatRow = 26; // 27행
-  const vatCell = XLSX.utils.encode_cell({ r: vatRow, c: 0 }); // A27
-  worksheet[vatCell] = {
-    v: '부가세'
-  };
-  
-  // 28행에 계약금액 추가
-  const contractRow = 27; // 28행
-  const contractCell = XLSX.utils.encode_cell({ r: contractRow, c: 0 }); // A28
-  worksheet[contractCell] = {
-    v: '계약금액'
-  };
 };
 
-// 갑지 시트 데이터 생성 (세로 A4 용지에 맞춤)
-const createGapjiSheet = (siteData, gisungData) => {
-  const data = [];
-  
-  // 데이터 검증 및 기본값 설정
-  const safeSiteData = siteData || {};
-  const safeGisungData = Array.isArray(gisungData) ? gisungData : [];
-  
-  // 제목 (A1:H1 병합)
-  data.push(['기성금 청구서', '', '', '', '', '', '', '']);
-  data.push([]);
-  
-  // 기본 정보 (세로 A4 용지에 맞춰 배치)
-  data.push(['공사명', '', '', '', '', '', '', safeSiteData.siteName || safeSiteData.name || '현장명']);
-  data.push(['시공사', '', '', '', '', '', '', safeSiteData.contractor || '시공사명']);
-  data.push(['하도급 공사명', '', '', '', '', '', '', safeSiteData.subContractor || '하도급 공사명']);
-  data.push(['계약일자', '', '', '', '', '', '', safeSiteData.contractDate || safeSiteData.startDate || '']);
-  data.push(['준공일자', '', '', '', '', '', '', safeSiteData.completionDate || safeSiteData.endDate || '']);
-  data.push([]);
-  
-  // 단수정리 항목들 (F5부터 시작, 동적으로 행 계산)
-  const tanuItems = [
-    { name: '단수정리1', specification: '', unit: 'M²', quantity: 0, unitPrice: 0 },
-    { name: '단수정리2', specification: '', unit: 'M²', quantity: 0, unitPrice: 0 },
-    { name: '단수정리3', specification: '', unit: 'M²', quantity: 0, unitPrice: 0 },
-    { name: 'NEGO1', specification: '', unit: 'M²', quantity: 0, unitPrice: 0 },
-    { name: 'NEGO2', specification: '', unit: 'M²', quantity: 0, unitPrice: 0 },
-    { name: 'NEGO3', specification: '', unit: 'M²', quantity: 0, unitPrice: 0 }
-  ];
-  
-  // 단수정리 항목들을 데이터에 추가 (F5부터 시작)
-  let currentRow = 5; // F5부터 시작
-  const targetRow = 25; // 목표 행
-  
-  tanuItems.forEach((item, index) => {
-    // 25행을 넘어가면 2칸 빈칸을 남기고 다시 시작
-    if (currentRow >= targetRow) {
-      data.push(['', '', '', '', '', '', '', '']); // 빈 행 1
-      data.push(['', '', '', '', '', '', '', '']); // 빈 행 2
-      currentRow = 5; // 다시 F5부터 시작
-    }
-    
-    const row = ['', '', '', '', '', '', '', ''];
-    row[0] = item.name; // A열: 품명
-    row[1] = item.specification; // B열: 규격
-    row[2] = item.unit; // C열: 단위
-    row[3] = item.quantity; // D열: 수량
-    row[4] = item.unitPrice; // E열: 단가
-    row[5] = 0; // F열: 금액 (수식은 나중에 적용)
-    data.push(row);
-    currentRow++;
-  });
-  
-  // 25행에 선급금 배치
-  while (data.length < targetRow - 1) {
-    data.push(['', '', '', '', '', '', '', '']);
-  }
-  
-  // 25행에 선급금 배치
-  data.push(['선급금', '', '', '', '', '', '', 0]);
-  
-  // 26행에 총공사계
-  data.push(['총공사계', '', '', '', '', '', '', 0]);
-  
-  // 27행에 부가세
-  data.push(['부가가치세', '', '', '', '', '', '', 0]);
-  
-  // 28행에 계약금액
-  data.push(['계약금액', '', '', '', '', '', '', 0]);
-  
-  // 전회기성, 금회기성, 기성누계 등 추가
-  const previousAmount = safeGisungData.length > 1 
-    ? safeGisungData.slice(0, -1).reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0)
-    : 0;
-    
-  const currentAmount = safeGisungData.length > 0 
-    ? Number(safeGisungData[safeGisungData.length - 1].gisungAmount || 0) 
-    : 0;
-  
-  const totalGisungAmount = safeGisungData.reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
-  
-  data.push(['전회기성', '', '', '', '', '', '', previousAmount]);
-  data.push(['금회기성', '', '', '', '', '', '', currentAmount]);
-  data.push(['기성누계', '', '', '', '', '', '', totalGisungAmount]);
-  data.push(['선급금공제', '', '', '', '', '', '', 0]);
-  data.push(['잔액', '', '', '', '', '', '', `=H${data.length - 6}-H${data.length - 1}`]);
-  
-  // 추가 편집 가능한 빈 행들 (사용자가 항목 추가 가능)
-  data.push([]);
-  data.push(['', '', '', '', '', '', '', '']);
-  data.push(['', '', '', '', '', '', '', '']);
-  data.push(['', '', '', '', '', '', '', '']);
-  data.push(['', '', '', '', '', '', '', '']);
-  data.push(['', '', '', '', '', '', '', '']);
-  
-  return data;
-};
 
-// 기성금 내역서 시트 데이터 생성 (가로 A4 용지에 맞춤)
-const createDetailSheet = (siteData, gisungData) => {
+
+// 기성금 내역서 시트 데이터 생성 (기존 템플릿 유지, 데이터만 수정)
+const createGisungDetailSheet = (siteData, gisungData) => {
   const data = [];
   
   // 데이터 검증 및 기본값 설정
@@ -626,29 +549,48 @@ const createDetailSheet = (siteData, gisungData) => {
   // 헤더 (가로 A4 용지에 맞춰 배치 - 2단 헤더)
   data.push(['품명', '규격', '단위', '수량(계약수량)', '단가', '금액', '수량(전회)', '금액(전회)', '수량(금회)', '금액(금회)', '수량(합계)', '금액(합계)', '비고']);
   
-  // 기본 항목들 추가 (사진과 동일한 구조 + 실제 데이터)
+  // 사진에 나온 정확한 데이터로 수정 (단수정리 중복 제거)
   const basicItems = [
-    { name: '복층유리', specification: '투명, 16mm', unit: 'M²', contractQuantity: 6.0, contractUnitPrice: 22000 },
-    { name: '복층유리', specification: '투명, 22mm, 건조공기', unit: 'M²', contractQuantity: 10.0, contractUnitPrice: 26000 },
-    { name: '복층유리', specification: '컬러, 22mm, 건조공기, 그린', unit: 'M²', contractQuantity: 10.0, contractUnitPrice: 29000 },
-    { name: '학교창(관공서)전용유리', specification: '22mm(5+12+5), MCT(HS)+아르곤+틱', unit: 'M²', contractQuantity: 1.0, contractUnitPrice: 49000 },
-    { name: '학교창(관공서)전용유리', specification: '22mm(5+12+5), MCT(HS)+아르곤+킬', unit: 'M²', contractQuantity: 1.0, contractUnitPrice: 46000 },
-    { name: '학교창(관공서)전용유리', specification: '24mm(5+14+5), MCT(HS)+아르곤+', unit: 'M²', contractQuantity: 35.0, contractUnitPrice: 46000 },
-    { name: '학교창(관공서)전용유리', specification: '24mm(5+14+5), MCT(HS)+아르곤+킬', unit: 'M²', contractQuantity: 17.0, contractUnitPrice: 48000 },
-    { name: '학교창(관공서)전용유리', specification: '24mm(6+12+6), MCT(HS)+아르곤+', unit: 'M²', contractQuantity: 6.0, contractUnitPrice: 51000 },
-    { name: '학교창(관공서)전용유리', specification: '43mm(5+14+5+14+5), MCT(HS)+아', unit: 'M²', contractQuantity: 13.0, contractUnitPrice: 110000 },
-    { name: '창호유리설치/복층유리', specification: '유리두께 16mm 이하', unit: 'M²', contractQuantity: 6.0, contractUnitPrice: 15000 },
-    { name: '창호유리설치/복층유리', specification: '유리두께 22mm 이하', unit: 'M²', contractQuantity: 21.0, contractUnitPrice: 15000 },
-    { name: '창호유리설치/복층유리', specification: '유리두께 24mm 이하', unit: 'M²', contractQuantity: 57.0, contractUnitPrice: 18000 },
-    { name: '창호유리설치/복층유리', specification: '유리뚜께 43mm 이하', unit: 'M²', contractQuantity: 13.0, contractUnitPrice: 20000 },
-    { name: '유리주위 코킹', specification: '복층유리 5x5, 실리콘(양면)', unit: 'M', contractQuantity: 509.0, contractUnitPrice: 300 },
-    { name: '방습거울', specification: '5mm,틀포함', unit: 'M²', contractQuantity: 1.0, contractUnitPrice: 100000 },
-    { name: '단수정리', specification: 'NEGO', unit: '', contractQuantity: 0, contractUnitPrice: 0 }
+    { name: '복층유리', specification: '투명, 16mm', unit: 'M²', contractQuantity: 6, contractUnitPrice: 22000 },
+    { name: '복층유리', specification: '투명, 22mm, 건조공기', unit: 'M²', contractQuantity: 10, contractUnitPrice: 26000 },
+    { name: '복층유리', specification: '컬러, 22mm, 건조공기, 그린', unit: 'M²', contractQuantity: 10, contractUnitPrice: 29000 },
+    { name: '학교창(관공서)전용유리', specification: '22mm(5+12+5), MCT(HS)+아르곤+틱', unit: 'M²', contractQuantity: 1, contractUnitPrice: 49000 },
+    { name: '학교창(관공서)전용유리', specification: '22mm(5+12+5), MCT(HS)+아르곤+킬', unit: 'M²', contractQuantity: 1, contractUnitPrice: 46000 },
+    { name: '학교창(관공서)전용유리', specification: '24mm(5+14+5), MCT(HS)+아르곤+', unit: 'M²', contractQuantity: 35, contractUnitPrice: 46000 },
+    { name: '학교창(관공서)전용유리', specification: '24mm(5+14+5), MCT(HS)+아르곤+킬', unit: 'M²', contractQuantity: 17, contractUnitPrice: 48000 },
+    { name: '학교창(관공서)전용유리', specification: '24mm(6+12+6), MCT(HS)+아르곤+', unit: 'M²', contractQuantity: 6, contractUnitPrice: 51000 },
+    { name: '학교창(관공서)전용유리', specification: '43mm(5+14+5+14+5), MCT(HS)+아', unit: 'M²', contractQuantity: 13, contractUnitPrice: 110000 },
+    { name: '창호유리설치/복층유리', specification: '유리두께 16mm 이하', unit: 'M²', contractQuantity: 6, contractUnitPrice: 15000 },
+    { name: '창호유리설치/복층유리', specification: '유리두께 22mm 이하', unit: 'M²', contractQuantity: 21, contractUnitPrice: 15000 },
+    { name: '창호유리설치/복층유리', specification: '유리두께 24mm 이하', unit: 'M²', contractQuantity: 57, contractUnitPrice: 18000 },
+    { name: '창호유리설치/복층유리', specification: '유리뚜께 43mm 이하', unit: 'M²', contractQuantity: 13, contractUnitPrice: 20000 },
+    { name: '유리주위 코킹', specification: '복층유리 5x5, 실리콘(양면)', unit: 'M', contractQuantity: 509, contractUnitPrice: 300 },
+    { name: '방습거울', specification: '5mm,틀포함', unit: 'M²', contractQuantity: 1, contractUnitPrice: 100000 }
+    // 단수정리 제거 - 마지막에 한 번만 추가
   ];
   
   let hasData = false;
   
-  // 품목 데이터 (가로 A4 용지에 맞춰 배치)
+  // 기본 항목들 추가 (기존 템플릿 구조 유지)
+  basicItems.forEach(item => {
+    data.push([
+      item.name,                    // A열: 품명
+      item.specification,           // B열: 규격
+      item.unit,                    // C열: 단위
+      item.contractQuantity,        // D열: 수량(계약수량)
+      item.contractUnitPrice,       // E열: 단가
+      0,                           // F열: 금액 (수식으로 계산)
+      0,                           // G열: 수량(전회)
+      0,                           // H열: 금액(전회) (수식으로 계산)
+      0,                           // I열: 수량(금회)
+      0,                           // J열: 금액(금회) (수식으로 계산)
+      0,                           // K열: 수량(합계) (수식으로 계산)
+      0,                           // L열: 금액(합계) (수식으로 계산)
+      ''                           // M열: 비고
+    ]);
+  });
+  
+  // 실제 기성 데이터가 있는 경우 해당 데이터로 덮어쓰기 (순서 보장)
   if (safeGisungData.length > 0) {
     const currentGisung = safeGisungData[safeGisungData.length - 1];
     
@@ -657,83 +599,77 @@ const createDetailSheet = (siteData, gisungData) => {
       hasData = true;
       const items = currentGisung.items;
       
-      items.forEach(item => {
+      // 기성 데이터를 순서대로 정렬
+      const sortedItems = [...items].sort((a, b) => (a.rowIndex || 0) - (b.rowIndex || 0));
+      
+      console.log('📋 기성 데이터 순서:', sortedItems.map((item, index) => `${index + 1}. ${item.itemName || item.name} (행 ${item.rowIndex || 'N/A'})`));
+      
+      // 순서대로 데이터 업데이트 (인덱스 매칭)
+      sortedItems.forEach((item, index) => {
         // item이 객체인지 확인하고 안전하게 처리
         if (typeof item !== 'object' || item === null || Array.isArray(item)) {
           return;
         }
         
-        const contractQuantity = Number(item.contractQuantity || item.quantity || 0);
-        const contractUnitPrice = Number(item.contractUnitPrice || item.price || 0);
-        const contractAmount = contractQuantity * contractUnitPrice;
-        const previousQuantity = Number(item.previousQuantity || 0);
-        const previousAmount = Number(item.previousAmount || 0);
-        const currentQuantity = Number(item.currentQuantity || 0);
-        const currentAmount = Number(item.currentAmount || 0);
-        const totalQuantity = previousQuantity + currentQuantity;
-        const totalAmount = previousAmount + currentAmount;
+        // 기본 항목들과 매칭하여 데이터 업데이트
+        const matchingIndex = data.findIndex(row => {
+          const rowName = row[0] || '';
+          const itemName = item.itemName || item.name || '';
+          return rowName === itemName;
+        });
         
-        data.push([
-          String(item.itemName || item.name || ''),
-          String(item.specification || ''),
-          String(item.unit || ''),
-          contractQuantity,
-          contractUnitPrice,
-          0, // F열: 금액 (수식으로 계산)
-          previousQuantity,
-          0, // H열: 전회기성 금액 (수식으로 계산)
-          previousQuantity,
-          0, // J열: 전회기성 금액 (수식으로 계산)
-                  0, // L열: 금회기성 금액 (수식으로 계산)
-        0, // M열: 합계 수량 (수식으로 계산)
-        String(item.remark || '')
-      ]);
-    });
+        if (matchingIndex !== -1) {
+          // 기존 행을 실제 데이터로 업데이트
+          const contractQuantity = Number(item.contractQuantity || item.quantity || 0);
+          const contractUnitPrice = Number(item.contractUnitPrice || item.price || 0);
+          const previousQuantity = Number(item.previousQuantity || 0);
+          const currentQuantity = Number(item.currentQuantity || 0);
+          
+          data[matchingIndex] = [
+            String(item.itemName || item.name || ''),  // A열: 품명
+            String(item.specification || ''),          // B열: 규격
+            String(item.unit || ''),                   // C열: 단위
+            contractQuantity,                          // D열: 수량(계약수량)
+            contractUnitPrice,                         // E열: 단가
+            0,                                        // F열: 금액 (수식으로 계산)
+            previousQuantity,                          // G열: 수량(전회)
+            0,                                        // H열: 금액(전회) (수식으로 계산)
+            currentQuantity,                           // I열: 수량(금회)
+            0,                                        // J열: 금액(금회) (수식으로 계산)
+            0,                                        // K열: 수량(합계) (수식으로 계산)
+            0,                                        // L열: 금액(합계) (수식으로 계산)
+            String(item.remark || '')                 // M열: 비고
+          ];
+          
+          console.log(`✅ ${index + 1}번째 항목 매칭: ${item.itemName || item.name} (행 ${item.rowIndex || 'N/A'})`);
+        }
+      });
+    }
   }
   
-  // 기본 항목들 추가 (데이터가 있든 없든 항상 추가)
-  basicItems.forEach(item => {
-    data.push([
-      item.name,
-      item.specification,
-      item.unit,
-      item.contractQuantity,
-      item.contractUnitPrice,
-      0, // F열: 금액 (수식으로 계산)
-      0, // G열: 전회기성 수량
-      0, // H열: 전회기성 금액 (수식으로 계산)
-      0, // I열: 전회기성 수량
-      0, // J열: 전회기성 금액 (수식으로 계산)
-      0, // K열: 금회기성 수량 (수식으로 계산)
-        0, // L열: 금회기성 금액 (수식으로 계산)
-        0, // M열: 합계 수량 (수식으로 계산)
-        ''  // 비고
-      ]);
-    });
-  }
-  
-  // 단수정리 이후의 항목들만 제거 (단수정리는 포함)
+  // 기본 항목들만 필터링 (단수정리 제외)
   const filteredData = [];
-  let includeItems = true;
   
   for (const row of data) {
     const itemName = row[0] || '';
     
-    // 단수정리를 만나면 포함하고 이후 항목들은 제거
-    if (itemName.includes('단수정리') || itemName.includes('NEGO') || itemName.includes('네고')) {
+    // 집계 행들을 만나면 중단
+    if (itemName.includes('총 공사계') || itemName.includes('총공사계') || 
+        itemName.includes('부가세') || itemName.includes('계약금액')) {
+      console.log('🛑 집계행 발견 후 중단:', itemName);
+      break;
+    } else if (itemName && !itemName.includes('단수정리')) {
+      // 단수정리가 아닌 항목들만 포함
       filteredData.push(row);
-      includeItems = false; // 단수정리 이후 항목들은 제거
-      console.log('✅ 단수정리 포함:', itemName);
-    } else if (includeItems) {
-      // 단수정리 이전 항목들은 모두 포함
-      filteredData.push(row);
-    } else {
-      // 단수정리 이후 항목들은 제거
-      console.log('❌ 단수정리 이후 항목 제거:', itemName);
     }
   }
   
-  console.log('✅ 단수정리까지만 표시, 그 이후 집계 행들 제거됨');
+  console.log('✅ 기본 항목들 필터링 완료');
+  
+  // 단수정리를 마지막에 한 번만 추가
+  filteredData.push(['단수정리', 'NEGO', '식', 1, -341570, -341570, 0, 0, 0, 0, 1, -341570, '']);
+  
+  console.log('✅ 단수정리 마지막에 한 번만 추가됨');
   
   // 단수정리 이후에 선급금, 총공사비, 부가세, 총계 추가
   filteredData.push([]); // 빈 행
@@ -754,48 +690,14 @@ const createDetailSheet = (siteData, gisungData) => {
   return filteredData;
 };
 
-// 기성금청구서 스타일링 적용 (갑지: 세로 A4, 내역서: 가로 A4)
-const applyGisungStyling = (gapjiSheet, detailSheet) => {
+// 기성금 내역서 스타일링 적용
+const applyGisungDetailStyling = (detailSheet) => {
   try {
-    // 갑지 시트 스타일링 (세로 A4)
-    // 제목 병합 (A1:H1)
-    if (!gapjiSheet['!merges']) gapjiSheet['!merges'] = [];
-    gapjiSheet['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } });
-    
-    // 기본 정보 행 병합 (A2:G2 형태)
-    for (let i = 2; i <= 6; i++) {
-      gapjiSheet['!merges'].push({ s: { r: i, c: 0 }, e: { r: i, c: 6 } });
-    }
-    
-    // 금액 행 스타일링
-    for (let i = 8; i <= 14; i++) {
-      const cellB = XLSX.utils.encode_cell({ r: i, c: 1 }); // B열 (한글 금액)
-      const cellH = XLSX.utils.encode_cell({ r: i, c: 7 }); // H열 (숫자 금액)
-      
-      if (gapjiSheet[cellB]) {
-        gapjiSheet[cellB].s = {
-          font: { name: '맑은 고딕', sz: 11, bold: true },
-          alignment: { horizontal: 'left' }
-        };
-      }
-      
-      if (gapjiSheet[cellH]) {
-        gapjiSheet[cellH].s = {
-          font: { name: '맑은 고딕', sz: 11, bold: true },
-          alignment: { horizontal: 'right' },
-          numFmt: '#,##0'
-        };
-      }
-    }
-    
-    // 기성금 내역서 시트 스타일링 (가로 A4)
     // 제목 병합 (A1:M1)
     if (!detailSheet['!merges']) detailSheet['!merges'] = [];
     detailSheet['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 12 } });
     
-    // 공사명 병합 제거 - 구분선 없애기
-    
-    // 헤더 스타일링 (13개 컬럼)
+    // 헤더 스타일링 (13개 컬럼) - 5행
     for (let col = 0; col < 13; col++) {
       const cell4 = XLSX.utils.encode_cell({ r: 4, c: col });
       
@@ -809,18 +711,7 @@ const applyGisungStyling = (gapjiSheet, detailSheet) => {
       }
     }
     
-    // 열 너비 설정 (갑지: 세로 A4, 내역서: 가로 A4)
-    gapjiSheet['!cols'] = [
-      { wch: 15 }, // A (항목명)
-      { wch: 25 }, // B (한글 금액)
-      { wch: 8 },  // C
-      { wch: 8 },  // D
-      { wch: 8 },  // E
-      { wch: 8 },  // F
-      { wch: 8 },  // G
-      { wch: 15 }, // H (숫자 금액)
-    ];
-    
+    // 열 너비 설정
     detailSheet['!cols'] = [
       { wch: 15 }, // A (품명)
       { wch: 12 }, // B (규격)
@@ -838,7 +729,7 @@ const applyGisungStyling = (gapjiSheet, detailSheet) => {
     ];
     
   } catch (error) {
-    console.error('기성금청구서 스타일링 적용 실패:', error);
+    console.error('기성금 내역서 스타일링 적용 실패:', error);
   }
 };
 
@@ -857,9 +748,15 @@ const setSheetReferences = (workbook, gapjiSheet, detailSheet) => {
 };
 
 // 엑셀 파일 다운로드
-export const downloadGisungExcel = (siteData, gisungData, filename = '기성금청구서.xlsx') => {
-  const workbook = generateGisungExcel(siteData, gisungData);
-  XLSX.writeFile(workbook, filename);
+export const downloadGisungExcel = async (siteData, gisungData, filename = '기성금청구서.xlsx') => {
+  try {
+    const workbook = await generateGisungExcel(siteData, gisungData);
+    XLSX.writeFile(workbook, filename);
+    console.log('✅ 기성금청구서 다운로드 완료:', filename);
+  } catch (error) {
+    console.error('❌ 기성금청구서 다운로드 실패:', error);
+    throw error;
+  }
 };
 
 // 엑셀 파일 업로드 및 파싱
@@ -870,44 +767,95 @@ export const parseGisungExcel = (file) => {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { type: 'array', cellFormula: true });
+        const normNum = (v) => {
+          if (v === null || v === undefined || v === '') return 0;
+          const s = String(v).trim().replace(/[,\s]/g, '');
+          const n = parseFloat(s);
+          return Number.isFinite(n) ? n : 0;
+        };
+        const tryReadGapji = () => {
+          // 갑지 시트를 찾아 A36, H16, H20, H23을 읽는다
+          let gapjiName = null;
+          if (workbook.Sheets['갑지']) gapjiName = '갑지';
+          else {
+            const found = workbook.SheetNames.find(n => n && n.includes('갑'));
+            if (found) gapjiName = found;
+          }
+          if (!gapjiName) return null;
+          const ws = workbook.Sheets[gapjiName];
+          if (!ws) return null;
+          const read = (addr) => (ws[addr] ? ws[addr].v : '');
+          const rawMonth = (read('A36') || '').toString().trim();
+          // A36 예시: 2025.08. → YYYY-MM으로 변환
+          let gisungMonth = '';
+          const m = rawMonth.match(/(\d{4})[\.-](\d{1,2})/);
+          if (m) gisungMonth = `${m[1]}-${m[2].padStart(2, '0')}`;
+          const advance = normNum(read('H16'));
+          const previous = normNum(read('H18'));
+          const current = normNum(read('H20'));
+          const cumulative = normNum(read('H23')) || (previous + current);
+          return { gisungMonth, advance, current, cumulative, previous };
+        };
         
         // 기성현황 시트 파싱 (새로운 형식)
         const gisungSheet = workbook.Sheets['기성현황'];
         if (gisungSheet) {
-          const gisungData = XLSX.utils.sheet_to_json(gisungSheet);
+        const gisungData = XLSX.utils.sheet_to_json(gisungSheet, { defval: '' });
           console.log('기성현황 시트 데이터:', gisungData);
           
           if (gisungData && gisungData.length > 0) {
             // 첫 번째 행에서 현장명과 기성월 추출
             const firstRow = gisungData[0];
-            const siteName = firstRow['현장명'] || '';
-            const gisungMonth = firstRow['기성월'] || '';
+            const siteName = (firstRow['현장명'] || '').toString().trim();
+            let gisungMonth = (firstRow['기성월'] || '').toString().trim();
             
             // 기성 데이터 변환 (기본적으로 미청구 상태로 설정)
+            const num = (v) => {
+              if (v === null || v === undefined || v === '') return 0;
+              const s = String(v).trim().replace(/,/g, '');
+              const n = parseFloat(s);
+              return Number.isFinite(n) ? n : 0;
+            };
             const items = gisungData.map(row => ({
-              itemName: row['현장명'] || '',
+              itemName: (row['현장명'] || '').toString().trim(),
+              gisungMonth: (row['기성월'] || '').toString().trim(),
               specification: '',
               unit: '',
               contractQuantity: 0,
               contractUnitPrice: 0,
-              contractAmount: Number(row['계약금액']) || 0,
+              contractAmount: num(row['계약금액']),
               previousQuantity: 0,
-              previousAmount: Number(row['전회기성']) || 0,
+              previousAmount: num(row['전회기성']),
               currentQuantity: 0,
-              currentAmount: Number(row['기성금액']) || 0,
+              currentAmount: num(row['기성금액']),
               totalQuantity: 0,
-              totalAmount: Number(row['전회기성']) + Number(row['기성금액']) || 0,
-              remark: row['비고'] || '',
+              totalAmount: num(row['전회기성']) + num(row['기성금액']),
+              remark: (row['비고'] || '').toString().trim(),
               claimStatus: '미청구' // 기본적으로 미청구 상태로 설정
             }));
             
-            const summary = {
-              totalContractAmount: items.reduce((sum, item) => sum + item.contractAmount, 0),
-              totalPreviousAmount: items.reduce((sum, item) => sum + item.previousAmount, 0),
-              totalCurrentAmount: items.reduce((sum, item) => sum + item.currentAmount, 0),
-              totalAmount: items.reduce((sum, item) => sum + item.totalAmount, 0)
-            };
+            // 갑지에서 보정값 읽어 반영
+            const gapji = tryReadGapji();
+            const summary = (() => {
+              const base = {
+                totalContractAmount: items.reduce((sum, item) => sum + item.contractAmount, 0),
+                totalPreviousAmount: items.reduce((sum, item) => sum + item.previousAmount, 0),
+                totalCurrentAmount: items.reduce((sum, item) => sum + item.currentAmount, 0),
+                totalAmount: items.reduce((sum, item) => sum + item.totalAmount, 0)
+              };
+              if (gapji) {
+                if (!gisungMonth && gapji.gisungMonth) gisungMonth = gapji.gisungMonth;
+                return {
+                  totalContractAmount: base.totalContractAmount,
+                  totalPreviousAmount: gapji.previous,
+                  totalCurrentAmount: gapji.current,
+                  totalAmount: gapji.cumulative,
+                  advance: gapji.advance
+                };
+              }
+              return base;
+            })();
             
             resolve({
               siteName,
@@ -925,10 +873,20 @@ export const parseGisungExcel = (file) => {
           throw new Error('기성현황 또는 기성금 내역서 시트를 찾을 수 없습니다.');
         }
         
-        const detailData = XLSX.utils.sheet_to_json(detailSheet, { header: 1 });
+        const detailData = XLSX.utils.sheet_to_json(detailSheet, { header: 1, defval: '' });
         
         // 데이터 파싱
         const parsedData = parseDetailData(detailData);
+        // 갑지 시트 있으면 요약값 교체
+        const gapji = tryReadGapji();
+        if (gapji) {
+          parsedData.gisungMonth = gapji.gisungMonth || parsedData.gisungMonth;
+          parsedData.summary = parsedData.summary || {};
+          parsedData.summary.totalPreviousAmount = gapji.previous;
+          parsedData.summary.totalCurrentAmount = gapji.current;
+          parsedData.summary.totalAmount = gapji.cumulative;
+          parsedData.summary.advance = gapji.advance;
+        }
         
         resolve(parsedData);
       } catch (error) {
@@ -941,31 +899,102 @@ export const parseGisungExcel = (file) => {
   });
 };
 
-// 상세 데이터 파싱
+// 상세 데이터 파싱 (순서 보장)
 const parseDetailData = (data) => {
   const items = [];
   
   // 헤더 건너뛰기 (4행까지)
   for (let i = 4; i < data.length - 4; i++) {
     const row = data[i];
+    const itemName = row && row[0] ? String(row[0]).trim() : '';
+    
+    // 단수정리나 NEGO 이후의 집계 행들을 만나면 중단 (총공사계, 부가세, 계약금액 등 제외)
+    if (itemName.includes('총 공사계') || itemName.includes('총공사계') || 
+        itemName.includes('부가세') || itemName.includes('계약금액')) {
+      console.log(`🛑 집계행 발견: ${i + 1}행 - 파싱 중단`);
+      break;
+    }
+    
+    // 단수정리 중복 제거 - 한 번만 포함
     if (row && row[0] && row[0] !== '선급금' && row[0] !== '총원가' && row[0] !== '부가가치세' && row[0] !== '총계') {
-      items.push({
-        itemName: row[0] || '',
-        specification: row[1] || '',
-        unit: row[2] || '',
-        contractQuantity: Number(row[3]) || 0,
-        contractUnitPrice: Number(row[4]) || 0,
-        contractAmount: Number(row[5]) || 0,
-        previousQuantity: Number(row[6]) || 0,
-        previousAmount: Number(row[7]) || 0,
-        currentQuantity: Number(row[8]) || 0,
-        currentAmount: Number(row[9]) || 0,
-        totalQuantity: Number(row[10]) || 0,
-        totalAmount: Number(row[11]) || 0,
-        remark: row[12] || ''
+      // 단수정리가 이미 추가되었는지 확인
+      const isDuplicateTanu = row[0].includes('단수정리') && items.some(item => item.itemName.includes('단수정리'));
+      if (isDuplicateTanu) {
+        console.log(`🛑 단수정리 중복 발견: ${i + 1}행 - 건너뛰기`);
+        continue;
+      }
+      
+      // 숫자 파싱 함수 개선 (소수점 둘째자리까지)
+      const parseNumber = (value) => {
+        if (value === null || value === undefined || value === '') return 0;
+        const str = String(value).trim().replace(/[,\s]/g, '');
+        const num = parseFloat(str);
+        return Number.isFinite(num) ? Math.round(num * 100) / 100 : 0;
+      };
+      
+      // K열이 수식인지 확인 (G+I 형태)
+      const kCell = row[10];
+      let totalQuantity = 0;
+      let isKFormula = false;
+      
+      console.log(`🔍 K열 셀 분석 (행 ${i + 1}):`, {
+        kCell: kCell,
+        kCellType: typeof kCell,
+        hasFormula: kCell && typeof kCell === 'object' && kCell.f,
+        formula: kCell && typeof kCell === 'object' ? kCell.f : '없음'
       });
+      
+      if (kCell && typeof kCell === 'object' && kCell.f) {
+        // 수식인 경우
+        const formula = kCell.f.toString().toUpperCase();
+        if (formula.includes('G') && formula.includes('I') && formula.includes('+')) {
+          isKFormula = true;
+          totalQuantity = parseNumber(kCell.v || kCell.result || 0);
+          console.log(`✅ K열 수식 발견: ${formula}, 계산값: ${totalQuantity}`);
+        } else {
+          console.log(`⚠️ K열 수식이지만 G+I 형태가 아님: ${formula}`);
+        }
+      } else {
+        // 일반 값인 경우
+        totalQuantity = parseNumber(row[10]);
+        console.log(`📝 K열 일반값: ${totalQuantity}`);
+      }
+      
+      const item = {
+        itemName: String(row[1] || '').trim(), // B열을 품명으로
+        specification: String(row[0]).trim(), // A열을 규격으로
+        unit: String(row[2] || '').trim(),
+        contractQuantity: parseNumber(row[3]),
+        contractUnitPrice: parseNumber(row[4]),
+        contractAmount: parseNumber(row[5]),
+        previousQuantity: parseNumber(row[6]),
+        previousAmount: parseNumber(row[7]),
+        currentQuantity: parseNumber(row[8]),
+        currentAmount: parseNumber(row[9]),
+        totalQuantity: totalQuantity,
+        totalAmount: parseNumber(row[11]),
+        remark: String(row[12] || '').trim(),
+        isKFormula: isKFormula, // K열이 수식인지 표시
+        rowIndex: i // 행 인덱스 추가 (순서 보장용)
+      };
+      
+      console.log(`파싱된 항목: ${item.itemName} (행 ${i + 1})`, {
+        contractQuantity: item.contractQuantity.toFixed(2),
+        currentQuantity: item.currentQuantity.toFixed(2),
+        totalQuantity: item.totalQuantity.toFixed(2),
+        contractAmount: item.contractAmount.toFixed(2),
+        currentAmount: item.currentAmount.toFixed(2),
+        totalAmount: item.totalAmount.toFixed(2)
+      });
+      
+      items.push(item);
     }
   }
+  
+  // 행 인덱스로 정렬하여 순서 보장
+  items.sort((a, b) => a.rowIndex - b.rowIndex);
+  
+  console.log('📋 파싱된 항목들 (순서대로):', items.map((item, index) => `${index + 1}. ${item.itemName} (행 ${item.rowIndex + 1})`));
   
   return {
     items,
@@ -987,20 +1016,71 @@ export const exportScheduleToExcel = (data, fileName) => {
     
     const wb = XLSX.utils.book_new();
     
-    // 현재 날짜 정보 가져오기
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-    const currentDay = now.getDate();
+    // 데이터에서 실제 월 정보 추출
+    let dataYear = new Date().getFullYear();
+    let dataMonth = new Date().getMonth() + 1;
+    let firstDay = 1;
+    let lastDay = new Date().getDate();
     
-    // 헤더 텍스트 생성: "2025년 1월 01일~1월 15일(현재) 일정 BRIEF"
-    const headerText = `${currentYear}년 ${currentMonth}월 01일~${currentMonth}월 ${currentDay}일(현재) 일정 BRIEF`;
+    // 데이터에서 날짜 정보 추출하여 월 범위 계산
+    const validDates = data
+      .filter(row => row.일자 && row.일자.trim() !== '')
+      .map(row => {
+        // 날짜 형식 변환 (YYYY-MM-DD 또는 MM/DD 등)
+        let dateStr = row.일자;
+        if (typeof dateStr === 'string') {
+          // YYYY-MM-DD 형식인 경우
+          if (dateStr.includes('-')) {
+            const parts = dateStr.split('-');
+            if (parts.length >= 2) {
+              return {
+                year: parseInt(parts[0]),
+                month: parseInt(parts[1]),
+                day: parseInt(parts[2])
+              };
+            }
+          }
+          // MM/DD 형식인 경우
+          else if (dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length >= 2) {
+              return {
+                year: dataYear, // 현재 연도 사용
+                month: parseInt(parts[0]),
+                day: parseInt(parts[1])
+              };
+            }
+          }
+        }
+        return null;
+      })
+      .filter(date => date !== null);
+    
+    if (validDates.length > 0) {
+      // 가장 이른 날짜와 늦은 날짜 찾기
+      const sortedDates = validDates.sort((a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        if (a.month !== b.month) return a.month - b.month;
+        return a.day - b.day;
+      });
+      
+      const earliest = sortedDates[0];
+      const latest = sortedDates[sortedDates.length - 1];
+      
+      dataYear = earliest.year;
+      dataMonth = earliest.month;
+      firstDay = earliest.day;
+      lastDay = latest.day;
+    }
+    
+    // 헤더 텍스트 생성: 실제 데이터의 월 정보 사용
+    const headerText = `${dataYear}년 ${dataMonth}월 ${firstDay}일~${dataMonth}월 ${lastDay}일 일정 BRIEF`;
     
     // 헤더 행 추가 (A~E열 병합)
     const headerRow = [headerText, '', '', '', ''];
     const dataHeaders = ['일자', '분류', '현장명', '설명', '체크박스유무'];
     
-    // 데이터를 2차원 배열로 변환
+    // 데이터를 2차원 배열로 변환 (날짜 형식 개선)
     const rows = [headerRow, dataHeaders];
     
     // 날짜별로 그룹화하여 병합 정보 생성
@@ -1010,8 +1090,22 @@ export const exportScheduleToExcel = (data, fileName) => {
     let mergeCount = 0;
     
     data.forEach((row, index) => {
+      // 날짜 형식 개선
+      let formattedDate = row.일자 || '';
+      if (formattedDate && typeof formattedDate === 'string') {
+        // YYYY-MM-DD를 MM/DD 형식으로 변환
+        if (formattedDate.includes('-')) {
+          const parts = formattedDate.split('-');
+          if (parts.length >= 3) {
+            const month = parseInt(parts[1]);
+            const day = parseInt(parts[2]);
+            formattedDate = `${month}/${day}`;
+          }
+        }
+      }
+      
       const rowData = [
-        row.일자 || '',
+        formattedDate,
         row.분류 || '',
         row.현장명 || '',
         row.설명 || '',
@@ -1020,7 +1114,7 @@ export const exportScheduleToExcel = (data, fileName) => {
       rows.push(rowData);
       
       // 날짜 병합 정보 계산
-      if (row.일자 && row.일자 !== currentDate) {
+      if (formattedDate && formattedDate !== currentDate) {
         // 이전 날짜의 병합 정보 저장
         if (currentDate && mergeCount > 0) {
           mergeInfo.push({
@@ -1028,10 +1122,10 @@ export const exportScheduleToExcel = (data, fileName) => {
             e: { r: mergeStartRow + mergeCount - 1, c: 0 }
           });
         }
-        currentDate = row.일자;
+        currentDate = formattedDate;
         mergeStartRow = index + 2; // 헤더가 2행이므로 +2
         mergeCount = 1;
-      } else if (row.일자 === currentDate) {
+      } else if (formattedDate === currentDate) {
         mergeCount++;
       }
     });
@@ -1419,7 +1513,7 @@ const formatNumber = (num) => {
  * 통화 포맷팅 (천 단위 콤마 + 원)
  */
 const formatCurrency = (amount) => {
-  if (!amount && amount !== 0) return '';
+  if (amount === null || amount === undefined || amount === '') return '';
   const numValue = parseFloat(amount);
   if (isNaN(numValue)) return '';
   
@@ -1470,7 +1564,7 @@ const createImprovedGapjiSheet = (siteData, gisungData) => {
     ['', '', '', ''],
     ['', '', '계약금액', formatCurrency(siteData?.contractAmount) || ''],
     ['', '', '', ''],
-    ['', '', '선급금', formatCurrency(siteData?.advance) || ''],
+    ['', '', '선급금', formatCurrency(siteData?.advance || 0) || ''],
     ['', '', '', ''],
     ['', '', '기성금액', formatCurrency(calculateTotalGisung(gisungData)) || ''],
     ['', '', '', ''],
@@ -1513,7 +1607,7 @@ const createImprovedDetailSheet = (siteData, gisungData) => {
   
   // 선급금 행 추가
   rows.push(['', '', '', '', '', '', '', '']);
-  rows.push(['선급금', '', '', '', '', formatCurrency(siteData?.advance) || '', '', '']);
+  rows.push(['선급금', '', '', '', '', formatCurrency(siteData?.advance || 0) || '', '', '']);
   
   const ws = XLSX.utils.aoa_to_sheet(rows);
   return ws;

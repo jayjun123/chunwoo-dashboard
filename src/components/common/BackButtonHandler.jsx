@@ -52,8 +52,9 @@ const BackButtonHandler = () => {
 
     // beforeunload 이벤트 처리 (페이지 새로고침/종료 시)
     const handleBeforeUnload = (event) => {
-      // 로그인 페이지나 메인 페이지에서만 확인
-      if (location.pathname === '/login' || location.pathname === '/') {
+      // 편집 중일 때만 경고. 전역적으로는 차단하지 않음.
+      const isEditing = document.body?.dataset?.editing === 'true';
+      if (isEditing) {
         event.preventDefault();
         event.returnValue = '변경사항이 저장되지 않을 수 있습니다. 정말 나가시겠습니까?';
         return event.returnValue;
@@ -80,10 +81,7 @@ const BackButtonHandler = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('popstate', handlePopState);
 
-    // 초기 상태 설정 (뒤로가기 방지)
-    if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
-      window.history.pushState(null, '', location.pathname);
-    }
+    // 초기 상태 변경 없음: 자유 이동 허용
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);

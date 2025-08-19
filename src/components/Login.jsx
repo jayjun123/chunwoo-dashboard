@@ -80,7 +80,7 @@ const Login = () => {
         localStorage.removeItem('savedEmail');
       }
       
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
       console.error('로그인 에러:', err);
       

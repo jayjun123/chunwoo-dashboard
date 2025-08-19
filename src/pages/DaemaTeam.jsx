@@ -48,10 +48,12 @@ import {
   Email as EmailIcon,
   Star as StarIcon,
   TrendingUp as TrendingUpIcon,
-  Engineering as EngineeringIcon
+  Engineering as EngineeringIcon,
+  CloudDownload as CloudDownloadIcon
 } from '@mui/icons-material';
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
+import * as XLSX from 'xlsx';
 
 const ConstructionTeam = () => {
   const theme = useTheme();
@@ -96,9 +98,16 @@ const ConstructionTeam = () => {
 
   const loadSites = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'sites'));
+      // 진행중 또는 예정인 현장 가져오기
+      const q = query(
+        collection(db, 'sites'),
+        where('status', 'in', ['진행중', '예정'])
+      );
+      const snapshot = await getDocs(q);
       const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setSites(sitesData);
+      
+      console.log('현장 데이터:', sitesData);
     } catch (error) {
       console.error('현장 데이터 로드 오류:', error);
     }
@@ -193,7 +202,137 @@ const ConstructionTeam = () => {
         });
       }
     } catch (error) {
-      console.error('현장 업데이트 오류:', error);
+      console.error('현장 시공팀 업데이트 오류:', error);
+    }
+  };
+
+  // 엑셀 다운로드 함수
+  const handleExcelDownload = () => {
+    try {
+      // 팀별 현장 데이터 정리
+      const teamSiteData = teams.map(team => {
+        // 해당 팀이 담당하는 현장들 찾기
+        const teamSites = sites.filter(site => {
+          const siteTeamName = (site.team || '').replace(/팀$/, '');
+          const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
+          return siteTeamName === teamNameWithoutTeam || site.manager === team.managerName;
+        });
+
+        // 현장 정보 정리
+        const siteDetails = teamSites.map(site => ({
+          현장명: site.name || '',
+          현장상태: site.status || '',
+          계약금액: site.contractAmount ? Number(site.contractAmount).toLocaleString() + '원' : '',
+          시작일: site.startDate || '',
+          완료예정일: site.endDate || '',
+          주소: site.address || '',
+          소장: site.manager || '',
+          연락처: site.phone || ''
+        }));
+
+        return {
+          팀명: team.teamName || '',
+          소장: team.managerName || '',
+          인원수: team.memberCount ? team.memberCount + '명' : '',
+          연락처: team.phone || '',
+          이메일: team.email || '',
+          팀상태: getStatusText(team.status) || '',
+          담당현장수: teamSites.length + '개',
+          타업체현장: team.otherCompanySites || '',
+          자기현장: team.ownSites || '',
+          기타사항: team.notes || '',
+          현장상세정보: siteDetails
+        };
+      });
+
+      // 엑셀 워크북 생성
+      const wb = XLSX.utils.book_new();
+
+      // 1. 팀별 요약 시트
+      const summaryData = teamSiteData.map(team => ({
+        '팀명': team.팀명,
+        '소장': team.소장,
+        '인원수': team.인원수,
+        '연락처': team.연락처,
+        '이메일': team.이메일,
+        '팀상태': team.팀상태,
+        '담당현장수': team.담당현장수,
+        '타업체현장': team.타업체현장,
+        '자기현장': team.자기현장,
+        '기타사항': team.기타사항
+      }));
+
+      const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, summaryWs, '팀별요약');
+
+      // 2. 현장별 상세 시트
+      const allSiteDetails = [];
+      teamSiteData.forEach(team => {
+        team.현장상세정보.forEach(site => {
+          allSiteDetails.push({
+            '팀명': team.팀명,
+            '소장': team.소장,
+            '현장명': site.현장명,
+            '현장상태': site.현장상태,
+            '계약금액': site.계약금액,
+            '시작일': site.시작일,
+            '완료예정일': site.완료예정일,
+            '주소': site.주소,
+            '현장소장': site.소장,
+            '연락처': site.연락처
+          });
+        });
+      });
+
+      const siteDetailWs = XLSX.utils.json_to_sheet(allSiteDetails);
+      XLSX.utils.book_append_sheet(wb, siteDetailWs, '현장별상세');
+
+      // 3. 통계 시트
+      const totalTeams = teams.length;
+      const activeTeams = teams.filter(team => team.status === 'active').length;
+      const totalSites = sites.filter(site => site.status === '진행중').length;
+      const totalMembers = teams.reduce((sum, team) => sum + (Number(team.memberCount) || 0), 0);
+
+      const statsData = [
+        { '구분': '총 시공팀 수', '수량': totalTeams + '개' },
+        { '구분': '활성 팀 수', '수량': activeTeams + '개' },
+        { '구분': '총 진행 현장 수', '수량': totalSites + '개' },
+        { '구분': '총 인원 수', '수량': totalMembers + '명' },
+        { '구분': '팀당 평균 현장 수', '수량': totalSites > 0 ? (totalSites / totalTeams).toFixed(1) + '개' : '0개' },
+        { '구분': '팀당 평균 인원 수', '수량': totalTeams > 0 ? (totalMembers / totalTeams).toFixed(1) + '명' : '0명' }
+      ];
+
+      const statsWs = XLSX.utils.json_to_sheet(statsData);
+      XLSX.utils.book_append_sheet(wb, statsWs, '통계');
+
+      // 파일명 생성 (현재 날짜 포함)
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0];
+      const fileName = `시공팀현장관리_${dateStr}.xlsx`;
+
+      // 엑셀 파일 다운로드
+      XLSX.writeFile(wb, fileName);
+
+      setSnackbar({
+        open: true,
+        message: '시공팀 현장 데이터가 엑셀로 다운로드되었습니다.',
+        severity: 'success'
+      });
+
+      console.log('✅ 엑셀 다운로드 완료:', fileName);
+      console.log('📊 다운로드된 데이터:', {
+        팀수: totalTeams,
+        현장수: totalSites,
+        인원수: totalMembers
+      });
+
+    } catch (error) {
+      console.error('엑셀 다운로드 오류:', error);
+      setSnackbar({
+        open: true,
+        message: '엑셀 다운로드 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
     }
   };
 
@@ -255,7 +394,7 @@ const ConstructionTeam = () => {
           color: '#f59e42',
           mb: 1
         }}>
-          시공팀 관리
+          시공팀 관리 <span style={{ fontSize: '0.7em', color: '#10b981' }}>(실시간 반영)</span>
         </Typography>
         <Typography variant="body1" sx={{ color: '#bbb' }}>
           시공팀 정보와 현장 배정을 관리하세요
@@ -305,7 +444,15 @@ const ConstructionTeam = () => {
                 <WorkIcon sx={{ color: '#10b981', mr: 2, fontSize: 40 }} />
                 <Box>
                   <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold' }}>
-                    {teams.reduce((sum, team) => sum + getCurrentSitesCount(team), 0)}
+                    {teams.reduce((sum, team) => {
+                      const teamSitesCount = sites.filter(site => {
+                        const siteTeamName = (site.team || '').replace(/팀$/, '');
+                        const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
+                        return site.status === '진행중' && 
+                          (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                      }).length;
+                      return sum + teamSitesCount;
+                    }, 0)}
                   </Typography>
                   <Typography variant="body2" sx={{ color: '#bbb' }}>
                     진행 현장
@@ -339,14 +486,31 @@ const ConstructionTeam = () => {
         <Typography variant="h6" sx={{ color: '#f59e42' }}>
           시공팀 목록 ({teams.length}개)
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-          sx={{ bgcolor: '#f59e42', '&:hover': { bgcolor: '#d97706' } }}
-        >
-          시공팀 추가
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<CloudDownloadIcon />}
+            onClick={handleExcelDownload}
+            sx={{ 
+              borderColor: '#10b981', 
+              color: '#10b981',
+              '&:hover': { 
+                borderColor: '#059669',
+                bgcolor: 'rgba(16, 185, 129, 0.1)'
+              }
+            }}
+          >
+            엑셀 다운로드
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+            sx={{ bgcolor: '#f59e42', '&:hover': { bgcolor: '#d97706' } }}
+          >
+            시공팀 추가
+          </Button>
+        </Box>
       </Box>
 
       {/* 시공팀 카드 목록 */}
@@ -407,25 +571,105 @@ const ConstructionTeam = () => {
 
                 {/* 진행 현장 */}
                 <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" sx={{ color: '#f59e42', mb: 1, fontWeight: 'bold' }}>
-                    진행 현장 ({getCurrentSitesCount(team)}개)
-                  </Typography>
-                  {team.currentSites && team.currentSites.length > 0 ? (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {team.currentSites.map((site, index) => (
-                        <Chip
-                          key={index}
-                          label={site}
-                          size="small"
-                          sx={{ bgcolor: '#374151', color: '#fff' }}
-                        />
-                      ))}
-                    </Box>
-                  ) : (
-                    <Typography variant="body2" sx={{ color: '#666', fontStyle: 'italic' }}>
-                      진행 현장 없음
+                  {/* 진행중인 현장 */}
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: '#43e97b', mb: 1, fontWeight: 'bold' }}>
+                      진행 현장 ({sites.filter(site => {
+                        const siteTeamName = (site.team || '').replace(/팀$/, '');
+                        const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
+                        return site.status === '진행중' && 
+                          (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                      }).length}개)
                     </Typography>
-                  )}
+                    {sites.filter(site => {
+                      const siteTeamName = (site.team || '').replace(/팀$/, '');
+                      const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
+                      return site.status === '진행중' && 
+                        (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                    }).length > 0 ? (
+                      <List sx={{ 
+                        p: 0,
+                        '& .MuiListItem-root': {
+                          py: 0.5,
+                          px: 1,
+                          borderRadius: 1,
+                          '&:hover': {
+                            bgcolor: '#374151'
+                          }
+                        }
+                      }}>
+                        {sites.filter(site => {
+                          const siteTeamName = (site.team || '').replace(/팀$/, '');
+                          const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
+                          return site.status === '진행중' && 
+                            (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                        }).map((site, index) => (
+                          <ListItem key={site.id} disableGutters>
+                            <Typography sx={{ 
+                              color: '#fff',
+                              fontSize: '0.875rem'
+                            }}>
+                              {site.name}
+                            </Typography>
+                          </ListItem>
+                        ))}
+                      </List>
+                    ) : (
+                      <Typography variant="body2" sx={{ color: '#666', fontStyle: 'italic' }}>
+                        진행 현장 없음
+                      </Typography>
+                    )}
+                  </Box>
+
+                  {/* 예정 현장 */}
+                  <Box>
+                    <Typography variant="body2" sx={{ color: '#f59e42', mb: 1, fontWeight: 'bold' }}>
+                      예정 현장 ({sites.filter(site => {
+                        const siteTeamName = (site.team || '').replace(/팀$/, '');
+                        const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
+                        return site.status === '예정' && 
+                          (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                      }).length}개)
+                    </Typography>
+                    {sites.filter(site => {
+                      const siteTeamName = (site.team || '').replace(/팀$/, '');
+                      const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
+                      return site.status === '예정' && 
+                        (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                    }).length > 0 ? (
+                      <List sx={{ 
+                        p: 0,
+                        '& .MuiListItem-root': {
+                          py: 0.5,
+                          px: 1,
+                          borderRadius: 1,
+                          '&:hover': {
+                            bgcolor: '#374151'
+                          }
+                        }
+                      }}>
+                        {sites.filter(site => {
+                          const siteTeamName = (site.team || '').replace(/팀$/, '');
+                          const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
+                          return site.status === '예정' && 
+                            (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                        }).map((site, index) => (
+                          <ListItem key={site.id} disableGutters>
+                            <Typography sx={{ 
+                              color: '#fff',
+                              fontSize: '0.875rem'
+                            }}>
+                              {site.name}
+                            </Typography>
+                          </ListItem>
+                        ))}
+                      </List>
+                    ) : (
+                      <Typography variant="body2" sx={{ color: '#666', fontStyle: 'italic' }}>
+                        예정 현장 없음
+                      </Typography>
+                    )}
+                  </Box>
                 </Box>
 
                 {/* 연락처 정보 */}
