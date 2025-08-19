@@ -38,7 +38,7 @@ import {
   Cancel as CancelIcon,
   ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
-import { collection, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, updateDoc, addDoc, where } from 'firebase/firestore';
 import { db, collections } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -402,6 +402,40 @@ const EstimatesMobile = () => {
                              contractStatus: newStatus,
                              updatedAt: new Date()
                            });
+
+                           // 수주로 변경 시 현장 등록 자동 생성
+                           if (newStatus === '수주') {
+                             try {
+                               const siteName = estimate.siteName || estimate.name || '';
+                               // 의뢰자에서 공백 이전만 소장명
+                               const requester = (estimate.requester || estimate.client || '').toString();
+                               const manager = requester.split(/\s+/)[0] || '';
+                               const company = estimate.company || estimate.clientCompany || estimate.companyName || '';
+
+                               // 중복 현장 확인
+                               const sitesRef = collection(db, 'sites');
+                               const existingSitesQuery = query(sitesRef, where('name', '==', siteName));
+                               const existingSitesSnapshot = await getDocs(existingSitesQuery);
+                               
+                               if (existingSitesSnapshot.empty) {
+                                 // 현장이 존재하지 않을 때만 생성
+                                 await addDoc(sitesRef, {
+                                   name: siteName,
+                                   manager: manager,
+                                   company: company,
+                                   status: '미정',
+                                   createdFromEstimateId: estimate.id,
+                                   createdAt: new Date(),
+                                   updatedAt: new Date()
+                                 });
+                                 console.log(`✅ 현장 자동 생성 완료: ${siteName}`);
+                               } else {
+                                 console.log(`⚠️ 현장이 이미 존재합니다: ${siteName}`);
+                               }
+                             } catch (siteErr) {
+                               console.warn('수주→현장 자동등록 실패:', siteErr);
+                             }
+                           }
                            
                            // 로컬 상태 업데이트
                            setEstimates(prev => 

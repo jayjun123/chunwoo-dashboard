@@ -54,8 +54,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState('');
-  const [sortField, setSortField] = useState('createdAt');
-  const [sortDirection, setSortDirection] = useState('desc');
+  const [sortField, setSortField] = useState('itemType');
+  const [sortDirection, setSortDirection] = useState('asc');
   const [selectedItems, setSelectedItems] = useState([]);
   const [form, setForm] = useState({
     site: '',
@@ -166,19 +166,31 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     }
 
     // 클라이언트 사이드 정렬
+    console.log('정렬 실행:', { sortField, sortDirection, filteredLength: filtered.length });
     filtered.sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
+      let aValue, bValue;
       
       if (sortField === 'totalValue') {
-        aValue = Number(aValue) || 0;
-        bValue = Number(bValue) || 0;
+        aValue = Number(a.totalValue) || 0;
+        bValue = Number(b.totalValue) || 0;
       } else if (sortField === 'date') {
-        aValue = new Date(aValue || 0);
-        bValue = new Date(bValue || 0);
+        aValue = new Date(a.date || 0);
+        bValue = new Date(b.date || 0);
+      } else if (sortField === 'itemType') {
+        aValue = String(a.itemType || '').toLowerCase();
+        bValue = String(b.itemType || '').toLowerCase();
+      } else if (sortField === 'sequence') {
+        // 차수 문자열에서 숫자만 추출 (예: "1차" -> 1, "2차" -> 2)
+        const getSequenceNumber = (sequenceStr) => {
+          if (!sequenceStr) return 0;
+          const match = sequenceStr.toString().match(/(\d+)/);
+          return match ? Number(match[1]) : 0;
+        };
+        aValue = getSequenceNumber(a.sequence);
+        bValue = getSequenceNumber(b.sequence);
       } else {
-        aValue = String(aValue || '').toLowerCase();
-        bValue = String(bValue || '').toLowerCase();
+        aValue = String(a[sortField] || '').toLowerCase();
+        bValue = String(b[sortField] || '').toLowerCase();
       }
 
       if (sortDirection === 'asc') {
@@ -187,6 +199,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         return aValue < bValue ? 1 : -1;
       }
     });
+    console.log('정렬 완료:', filtered.slice(0, 3).map(item => ({ itemType: item.itemType, sequence: item.sequence })));
 
     return filtered;
   }, [costs, search, sortField, sortDirection, viewType, selectedSites]);
@@ -299,8 +312,20 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       });
     } else {
       setEditId(null);
+      
+      // 현장이 하나만 선택되어 있으면 자동으로 설정
+      let autoSelectedSite = '';
+      if (selectedSites && selectedSites.length === 1) {
+        const selectedSite = selectedSites[0];
+        if (typeof selectedSite === 'string' && selectedSite !== '전체선택') {
+          autoSelectedSite = selectedSite;
+        } else if (selectedSite && typeof selectedSite === 'object' && selectedSite.name && selectedSite.name !== '전체선택') {
+          autoSelectedSite = selectedSite.name;
+        }
+      }
+      
       setForm({
-        site: '',
+        site: autoSelectedSite,
         itemType: '',
         date: '',
         totalValue: '',
@@ -335,10 +360,15 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     try {
       // 새 지출인 경우 차수 자동 설정
       let finalForm = { ...form };
-      if (!editId && !form.sequence) {
-        console.log('저장 시 차수 계산:', { site: form.site, itemType: form.itemType, date: form.date });
-        finalForm.sequence = calculateNextSequence(form.site, form.itemType, form.date);
-        console.log('저장 시 설정된 차수:', finalForm.sequence);
+      if (!editId) {
+        // 차수가 비어있거나 1차인 경우에만 다시 계산
+        if (!form.sequence || form.sequence === '1차') {
+          console.log('저장 시 차수 계산:', { site: form.site, itemType: form.itemType, date: form.date });
+          finalForm.sequence = calculateNextSequence(form.site, form.itemType, form.date);
+          console.log('저장 시 설정된 차수:', finalForm.sequence);
+        } else {
+          console.log('저장 시 기존 차수 유지:', form.sequence);
+        }
       }
 
       const costData = {
@@ -423,17 +453,24 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   const calculateNextSequence = (siteName, itemType, selectedDate = null) => {
     if (!siteName || !itemType) return '';
     
-    console.log('차수 계산 시작:', { siteName, itemType, selectedDate });
+    console.log('🔍 차수 계산 시작:', { siteName, itemType, selectedDate });
     
     // 해당 현장과 항목의 기존 지출 데이터 필터링
     const existingCosts = costs.filter(cost => 
       cost.site === siteName && cost.itemType === itemType
     );
     
-    console.log('기존 지출 데이터:', existingCosts);
+    console.log('📊 기존 지출 데이터 개수:', existingCosts.length);
+    console.log('📊 기존 지출 데이터:', existingCosts.map(c => ({ 
+      id: c.id, 
+      sequence: c.sequence, 
+      date: c.date, 
+      site: c.site, 
+      itemType: c.itemType 
+    })));
     
     if (existingCosts.length === 0) {
-      console.log('기존 데이터 없음, 1차 반환');
+      console.log('✅ 기존 데이터 없음, 1차 반환');
       return '1차';
     }
     
@@ -444,25 +481,29 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       return dateA - dateB;
     });
     
-    console.log('날짜순 정렬된 데이터:', sortedCosts);
+    console.log('📅 날짜순 정렬된 데이터:', sortedCosts.map(c => ({ 
+      sequence: c.sequence, 
+      date: c.date 
+    })));
     
     // 선택된 날짜가 있으면 해당 날짜 기준으로 차수 계산
     if (selectedDate) {
       const selectedDateObj = new Date(selectedDate);
-      console.log('선택된 날짜:', selectedDateObj);
+      console.log('📅 선택된 날짜:', selectedDateObj);
       
       // 선택된 날짜보다 이전인 항목들만 필터링
       const previousCosts = sortedCosts.filter(cost => {
         const costDate = new Date(cost.date || 0);
-        return costDate <= selectedDateObj;
+        const isBefore = costDate <= selectedDateObj;
+        console.log(`📅 ${cost.sequence} (${cost.date}) <= ${selectedDate}? ${isBefore}`);
+        return isBefore;
       });
       
-      console.log('선택 날짜 이전 데이터:', previousCosts);
-      
-      if (previousCosts.length === 0) {
-        console.log('이전 데이터 없음, 1차 반환');
-        return '1차';
-      }
+      console.log('📊 선택 날짜 이전 데이터 개수:', previousCosts.length);
+      console.log('📊 선택 날짜 이전 데이터:', previousCosts.map(c => ({ 
+        sequence: c.sequence, 
+        date: c.date 
+      })));
       
       // 이전 항목들 중 가장 큰 차수 찾기
       let maxSequence = 0;
@@ -476,22 +517,44 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         }
       });
       
-      console.log('최대 차수:', maxSequence, '다음 차수:', `${maxSequence + 1}차`);
-      return `${maxSequence + 1}차`;
+      // 차수 패턴이 없으면 데이터 개수로 계산
+      if (maxSequence === 0) {
+        const nextSequence = `${previousCosts.length + 1}차`;
+        console.log('🔢 차수 패턴 없음, 이전 데이터 개수 기반 계산:', `${previousCosts.length}개 → ${nextSequence}`);
+        return nextSequence;
+      }
+      
+      const nextSequence = `${maxSequence + 1}차`;
+      console.log('🔢 최대 차수:', maxSequence, '다음 차수:', nextSequence);
+      return nextSequence;
     }
     
     // 날짜가 선택되지 않은 경우 기존 로직
     const lastSequence = sortedCosts[sortedCosts.length - 1].sequence || '';
+    console.log('🔍 마지막 항목의 sequence 값:', lastSequence);
+    console.log('🔍 마지막 항목 전체 데이터:', sortedCosts[sortedCosts.length - 1]);
+    
     const match = lastSequence.match(/(\d+)차/);
     
     if (match) {
       const nextNumber = parseInt(match[1]) + 1;
-      console.log('마지막 차수:', lastSequence, '다음 차수:', `${nextNumber}차`);
-      return `${nextNumber}차`;
+      const nextSequence = `${nextNumber}차`;
+      console.log('🔢 마지막 차수:', lastSequence, '다음 차수:', nextSequence);
+      return nextSequence;
     }
     
-    console.log('차수 패턴 없음, 1차 반환');
-    return '1차';
+    // 차수 패턴이 없으면 데이터 개수로 계산
+    console.log('⚠️ 차수 패턴 없음, 데이터 개수로 계산');
+    console.log('🔍 모든 항목의 sequence 값들:', sortedCosts.map(c => ({ 
+      id: c.id, 
+      sequence: c.sequence, 
+      date: c.date 
+    })));
+    
+    // 기존 데이터 개수 + 1로 차수 계산
+    const nextSequence = `${sortedCosts.length + 1}차`;
+    console.log('🔢 데이터 개수 기반 차수 계산:', `${sortedCosts.length}개 → ${nextSequence}`);
+    return nextSequence;
   };
 
   // 차수 계산 함수 (테이블 표시용)
@@ -527,6 +590,9 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   // 차수 정리 함수 (기존 데이터의 차수를 올바르게 재정렬)
   const fixSequences = async () => {
     try {
+      console.log('🔧 차수 정리 시작...');
+      console.log('📊 전체 지출 데이터 개수:', costs.length);
+      
       // 현장별, 항목별로 그룹화
       const groupedCosts = {};
       costs.forEach(cost => {
@@ -537,9 +603,15 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         groupedCosts[key].push(cost);
       });
 
+      console.log('📊 그룹화된 데이터:', Object.keys(groupedCosts).map(key => ({
+        group: key,
+        count: groupedCosts[key].length
+      })));
+
       // 각 그룹별로 차수 재정렬
       for (const [key, groupCosts] of Object.entries(groupedCosts)) {
         const [siteName, itemType] = key.split('_');
+        console.log(`🔧 ${siteName} - ${itemType} 차수 정리 시작 (${groupCosts.length}개)`);
         
         // 사용날짜 순서로 정렬
         const sortedCosts = groupCosts
@@ -550,12 +622,19 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             return dateA - dateB;
           });
 
+        console.log(`📅 ${siteName} - ${itemType} 날짜순 정렬 결과:`, sortedCosts.map(c => ({
+          id: c.id,
+          date: c.date,
+          currentSequence: c.sequence
+        })));
+
         // 차수 재할당
         for (let i = 0; i < sortedCosts.length; i++) {
           const cost = sortedCosts[i];
           const newSequence = `${i + 1}차`;
           
           if (cost.sequence !== newSequence) {
+            console.log(`🔄 ${cost.id}: ${cost.sequence} → ${newSequence}`);
             await updateDoc(doc(db, 'costs', cost.id), {
               sequence: newSequence,
               updatedAt: serverTimestamp()
@@ -567,15 +646,19 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                 ? { ...c, sequence: newSequence, updatedAt: new Date() }
                 : c
             ));
+          } else {
+            console.log(`✅ ${cost.id}: ${cost.sequence} (변경 없음)`);
           }
         }
       }
 
       setSnackbar({
         open: true,
-        message: '지출 차수가 올바르게 정리되었습니다.',
+        message: '차수가 성공적으로 정리되었습니다.',
         severity: 'success'
       });
+      
+      console.log('✅ 차수 정리 완료');
     } catch (error) {
       console.error('차수 정리 중 오류:', error);
       setSnackbar({
@@ -587,9 +670,13 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   };
 
   const handleSort = (field) => {
+    console.log('정렬 클릭:', { field, currentSortField: sortField, currentDirection: sortDirection });
     if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      const newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      console.log('정렬 방향 변경:', newDirection);
+      setSortDirection(newDirection);
     } else {
+      console.log('정렬 필드 변경:', field);
       setSortField(field);
       setSortDirection('asc');
     }
@@ -631,7 +718,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   );
 
   // 필터 적용 (상위 컴포넌트에서 전달받은 filteredData 사용)
-  const filtered = filteredData || filteredAndSortedCosts;
+  const filtered = filteredData ? filteredAndSortedCosts : filteredAndSortedCosts;
 
   return (
     <Box sx={{ 
@@ -707,13 +794,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             ml: 1, 
             display: isMobile ? 'none' : 'flex',
           }}>엑셀 업로드</Button>
-          <Button variant="outlined" onClick={fixSequences} sx={{ 
-            ml: 1, 
-            display: isMobile ? 'none' : 'flex',
-            borderColor: '#10b981',
-            color: '#10b981',
-            '&:hover': { borderColor: '#059669' }
-          }}>차수 정리</Button>
+
         </Box>
         <TableContainer sx={{ 
           width: '100%',
@@ -762,8 +843,17 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   ml: isMobile ? '-8px' : 0,
                   width: 'auto',
                   minWidth: 0,
-                  maxWidth: '100%'
-                }}>항목</TableCell>
+                  maxWidth: '100%',
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: '#2a3441' }
+                }} onClick={() => handleSort('itemType')}>
+                  항목
+                  {sortField === 'itemType' && (
+                    <span style={{ marginLeft: '4px', fontSize: '0.8rem' }}>
+                      {sortDirection === 'asc' ? '↑' : '↓'}
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
                   fontWeight: 700, 
@@ -771,8 +861,17 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   width: 'auto',
                   minWidth: 0,
                   maxWidth: '100%',
-                  fontSize: isMobile ? '0.7rem' : '0.95rem'
-                }}>차수</TableCell>
+                  fontSize: isMobile ? '0.7rem' : '0.95rem',
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: '#2a3441' }
+                }} onClick={() => handleSort('sequence')}>
+                  차수
+                  {sortField === 'sequence' && (
+                    <span style={{ marginLeft: '4px', fontSize: '0.8rem' }}>
+                      {sortDirection === 'asc' ? '↑' : '↓'}
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
                   fontWeight: 700, 
@@ -788,8 +887,17 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   ml: isMobile ? '-8px' : 0,
                   width: 'auto',
                   minWidth: 0,
-                  maxWidth: '100%'
-                }}>금액</TableCell>
+                  maxWidth: '100%',
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: '#2a3441' }
+                }} onClick={() => handleSort('totalValue')}>
+                  금액
+                  {sortField === 'totalValue' && (
+                    <span style={{ marginLeft: '4px', fontSize: '0.8rem' }}>
+                      {sortDirection === 'asc' ? '↑' : '↓'}
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
                   fontWeight: 700, 
@@ -802,9 +910,9 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   color: '#fff', 
                   fontWeight: 700, 
                   display: isMobile ? 'none' : 'table-cell',
-                  width: 'auto',
-                  minWidth: 0,
-                  maxWidth: '100%'
+                  width: '350px',
+                  minWidth: '300px',
+                  maxWidth: '400px'
                 }}>비고</TableCell>
 
                 <TableCell sx={{ 
@@ -938,9 +1046,12 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                     <TableCell sx={{ 
                       color: '#bbb', 
                       display: isMobile ? 'none' : 'table-cell',
-                      width: 'auto',
-                      minWidth: 0,
-                      maxWidth: '100%'
+                      width: '150px',
+                      minWidth: '150px',
+                      maxWidth: '200px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
                     }}>{cost.description || '-'}</TableCell>
 
                     <TableCell sx={{ 

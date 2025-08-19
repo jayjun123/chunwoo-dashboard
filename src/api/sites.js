@@ -1,4 +1,4 @@
-import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, limit, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const COLLECTION_NAME = 'sites';
@@ -137,10 +137,114 @@ export async function updateSite(id, siteData) {
 // 현장 삭제
 export async function deleteSite(id) {
   try {
-    await deleteDoc(doc(db, COLLECTION_NAME, id));
+    console.log('🗑️ 현장 삭제 시작:', id);
+    
+    // 1. 현장 정보 조회 (현장명 확인용)
+    const siteRef = doc(db, COLLECTION_NAME, id);
+    const siteSnap = await getDoc(siteRef);
+    
+    if (!siteSnap.exists()) {
+      throw new Error('삭제할 현장을 찾을 수 없습니다.');
+    }
+    
+    const siteData = siteSnap.data();
+    const siteName = siteData.name;
+    console.log('🗑️ 삭제할 현장명:', siteName);
+    
+    // 2. 관련 데이터 삭제 (배치 작업)
+    const batch = writeBatch(db);
+    
+    // 2-1. 업로드된 기성금청구서 데이터 삭제 (gisung_uploads)
+    try {
+      const gisungUploadsQuery = query(
+        collection(db, 'gisung_uploads'),
+        where('siteId', '==', id)
+      );
+      const gisungUploadsSnap = await getDocs(gisungUploadsQuery);
+      console.log(`🗑️ 삭제할 업로드된 기성금청구서 데이터: ${gisungUploadsSnap.docs.length}개`);
+      
+      gisungUploadsSnap.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+    } catch (error) {
+      console.warn('⚠️ 업로드된 기성금청구서 데이터 삭제 실패:', error);
+    }
+    
+    // 2-2. 기성 데이터 삭제 (gisung)
+    try {
+      const gisungQuery = query(
+        collection(db, 'gisung'),
+        where('siteId', '==', id)
+      );
+      const gisungSnap = await getDocs(gisungQuery);
+      console.log(`🗑️ 삭제할 기성 데이터: ${gisungSnap.docs.length}개`);
+      
+      gisungSnap.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+    } catch (error) {
+      console.warn('⚠️ 기성 데이터 삭제 실패:', error);
+    }
+    
+    // 2-3. 현장 물량내역 삭제 (siteItems)
+    try {
+      const siteItemsQuery = query(
+        collection(db, 'siteItems'),
+        where('siteId', '==', id)
+      );
+      const siteItemsSnap = await getDocs(siteItemsQuery);
+      console.log(`🗑️ 삭제할 현장 물량내역: ${siteItemsSnap.docs.length}개`);
+      
+      siteItemsSnap.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+    } catch (error) {
+      console.warn('⚠️ 현장 물량내역 삭제 실패:', error);
+    }
+    
+    // 2-4. 기성 아이템 데이터 삭제 (gisungItems)
+    try {
+      const gisungItemsQuery = query(
+        collection(db, 'gisungItems'),
+        where('siteName', '==', siteName)
+      );
+      const gisungItemsSnap = await getDocs(gisungItemsQuery);
+      console.log(`🗑️ 삭제할 기성 아이템 데이터: ${gisungItemsSnap.docs.length}개`);
+      
+      gisungItemsSnap.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+    } catch (error) {
+      console.warn('⚠️ 기성 아이템 데이터 삭제 실패:', error);
+    }
+    
+    // 2-5. 일정 데이터 삭제 (schedules)
+    try {
+      const schedulesQuery = query(
+        collection(db, 'schedules'),
+        where('siteId', '==', id)
+      );
+      const schedulesSnap = await getDocs(schedulesQuery);
+      console.log(`🗑️ 삭제할 일정 데이터: ${schedulesSnap.docs.length}개`);
+      
+      schedulesSnap.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+    } catch (error) {
+      console.warn('⚠️ 일정 데이터 삭제 실패:', error);
+    }
+    
+    // 3. 현장 정보 삭제 (마지막에 삭제)
+    batch.delete(siteRef);
+    
+    // 4. 배치 작업 실행
+    await batch.commit();
+    
+    console.log('✅ 현장 및 관련 데이터 삭제 완료:', siteName);
     return id;
+    
   } catch (err) {
-    console.error('현장 삭제 실패:', err);
+    console.error('❌ 현장 삭제 실패:', err);
     throw err;
   }
 } 

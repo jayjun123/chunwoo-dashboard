@@ -74,6 +74,36 @@ const Estimates = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  // 스마트 카드 통계 계산
+  const smartCardStats = React.useMemo(() => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+    
+    // 최근 30일간 견적 개수
+    const recentEstimates = estimates.filter(estimate => {
+      const receptionDate = new Date(estimate.receptionDate);
+      return receptionDate >= thirtyDaysAgo;
+    });
+    
+    // 현재 미제출 견적 개수 및 현장명 목록
+    const pendingEstimates = estimates.filter(estimate => 
+      estimate.submissionStatus === '제출대기' || estimate.submissionStatus === '미제출'
+    );
+    
+    // 미제출 현장명과 의뢰자 목록 (중복 제거)
+    const pendingSiteRequesterPairs = [...new Set(
+      pendingEstimates
+        .filter(estimate => estimate.siteName && estimate.requester)
+        .map(estimate => `${estimate.siteName} / ${estimate.requester}`)
+    )];
+    
+    return {
+      recentCount: recentEstimates.length,
+      pendingCount: pendingEstimates.length,
+      pendingSiteNames: pendingSiteRequesterPairs
+    };
+  }, [estimates]);
+
   // 의뢰자 데이터 상태
   const [requesters, setRequesters] = useState([]);
 
@@ -753,8 +783,88 @@ const Estimates = () => {
 
 
 
-  return (
+    return (
     <Box sx={{ p: 3, backgroundColor: '#1a1a1a', color: '#fff', marginTop: '64px' }}>
+      {/* 스마트 카드 */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, width: '100%' }}>
+        <Paper sx={{ 
+          p: 2, 
+          bgcolor: '#232734', 
+          border: '1px solid #333',
+          borderRadius: 2,
+          minWidth: 150,
+          maxWidth: 200,
+          flex: '0 0 auto'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <AssignmentIcon sx={{ color: '#ff9800', fontSize: '1.2rem' }} />
+            <Typography variant="body2" sx={{ color: '#bbb', fontSize: '0.9rem' }}>
+              최근 30일간 견적
+            </Typography>
+          </Box>
+          <Typography variant="h4" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
+            {smartCardStats.recentCount}개
+          </Typography>
+        </Paper>
+        
+        <Paper sx={{ 
+          p: 2, 
+          bgcolor: '#232734', 
+          border: '1px solid #333',
+          borderRadius: 2,
+          minWidth: 200,
+          flex: '0 0 auto'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <AssignmentIcon sx={{ color: '#ef5350', fontSize: '1.2rem' }} />
+            <Typography variant="body2" sx={{ color: '#bbb', fontSize: '0.9rem' }}>
+              현재 미제출 견적
+            </Typography>
+          </Box>
+          <Typography variant="h4" sx={{ color: '#ef5350', fontWeight: 'bold' }}>
+            {smartCardStats.pendingCount}개
+          </Typography>
+        </Paper>
+
+        {/* 미제출 현장명 목록 */}
+        {smartCardStats.pendingSiteNames.length > 0 && (
+          <Paper sx={{ 
+            p: 2, 
+            bgcolor: '#232734', 
+            border: '1px solid #333',
+            borderRadius: 2,
+            minWidth: 400,
+            flex: 1
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <AssignmentIcon sx={{ color: '#ef5350', fontSize: '1.2rem' }} />
+              <Typography variant="body2" sx={{ color: '#bbb', fontSize: '0.9rem' }}>
+                미제출 현장/의뢰자 목록
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              {smartCardStats.pendingSiteNames.map((siteName, index) => (
+                <Chip
+                  key={index}
+                  label={siteName}
+                  size="medium"
+                  sx={{
+                    backgroundColor: '#ef5350',
+                    color: '#fff',
+                    fontSize: '1.2rem',
+                    height: '36px',
+                    '& .MuiChip-label': {
+                      fontSize: '1.2rem',
+                      fontWeight: 600
+                    }
+                  }}
+                />
+              ))}
+            </Box>
+          </Paper>
+        )}
+      </Box>
+
       {/* 헤더 */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -990,34 +1100,68 @@ const Estimates = () => {
                   />
                 </TableCell>
                 <TableCell>
-                  <Chip
-                    label={estimate.contractStatus}
-                    color={estimate.contractStatus === '수주' ? 'success' : 'default'}
-                    size="small"
-                    onClick={async () => {
-                      try {
-                        const newStatus = estimate.contractStatus === '수주' ? '미수주' : '수주';
-                        const estimateRef = doc(db, 'estimates', estimate.id);
-                        await updateDoc(estimateRef, {
-                          contractStatus: newStatus,
-                          updatedAt: new Date()
-                        });
-                        
-                        // 로컬 상태 업데이트
-                        setEstimates(prev => 
-                          prev.map(e => 
-                            e.id === estimate.id 
-                              ? { ...e, contractStatus: newStatus }
-                              : e
-                          )
-                        );
-                      } catch (error) {
-                        console.error('견적 수주상태 업데이트 실패:', error);
-                        alert('수주상태 업데이트에 실패했습니다.');
-                      }
-                    }}
-                    sx={{ cursor: 'pointer' }}
-                  />
+                    <Chip
+                      label={estimate.contractStatus}
+                      color={estimate.contractStatus === '수주' ? 'success' : 'default'}
+                      size="small"
+                      onClick={async () => {
+                        try {
+                          const newStatus = estimate.contractStatus === '수주' ? '미수주' : '수주';
+                          const estimateRef = doc(db, 'estimates', estimate.id);
+                          await updateDoc(estimateRef, {
+                            contractStatus: newStatus,
+                            updatedAt: new Date()
+                          });
+
+                          // 수주로 변경 시 현장 등록 자동 생성
+                          if (newStatus === '수주') {
+                            try {
+                              const siteName = estimate.siteName || estimate.name || '';
+                              // 의뢰자에서 공백 이전만 소장명
+                              const requester = (estimate.requester || estimate.client || '').toString();
+                              const manager = requester.split(/\s+/)[0] || '';
+                              const company = estimate.company || estimate.clientCompany || estimate.companyName || '';
+
+                              // 중복 현장 확인
+                              const sitesRef = collection(db, 'sites');
+                              const existingSitesQuery = query(sitesRef, where('name', '==', siteName));
+                              const existingSitesSnapshot = await getDocs(existingSitesQuery);
+                              
+                              if (existingSitesSnapshot.empty) {
+                                // 현장이 존재하지 않을 때만 생성
+                                await addDoc(sitesRef, {
+                                  name: siteName,
+                                  manager: manager,
+                                  company: company,
+                                  status: '미정',
+                                  createdFromEstimateId: estimate.id,
+                                  createdAt: new Date(),
+                                  updatedAt: new Date()
+                                });
+                                console.log(`✅ 현장 자동 생성 완료: ${siteName}`);
+                              } else {
+                                console.log(`⚠️ 현장이 이미 존재합니다: ${siteName}`);
+                              }
+                            } catch (siteErr) {
+                              console.warn('수주→현장 자동등록 실패:', siteErr);
+                            }
+                          }
+
+                          // 로컬 상태 업데이트
+                          setEstimates(prev => 
+                            prev.map(e => 
+                              e.id === estimate.id 
+                                ? { ...e, contractStatus: newStatus }
+                                : e
+                            )
+                          );
+                        } catch (error) {
+                          console.error('견적 수주상태 업데이트 실패:', error);
+                          alert('수주상태 업데이트에 실패했습니다.');
+                        }
+                      }}
+                      sx={{ cursor: 'pointer' }}
+                    />
                 </TableCell>
                 <TableCell sx={{ color: '#fff' }}>{estimate.notes}</TableCell>
                 <TableCell>

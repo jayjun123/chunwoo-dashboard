@@ -275,7 +275,7 @@ export default function ImportantSite() {
         }
       });
     };
-  }, [sites]);
+  }, [sites.length]); // sites.length만 의존성으로 사용
 
   // 기존 progress 데이터 구독 (유지)
   useEffect(() => {
@@ -325,7 +325,7 @@ export default function ImportantSite() {
         }
       });
     };
-  }, [sites]);
+  }, [sites.length]); // sites.length만 의존성으로 사용
 
   // 댓글 가져오기
   useEffect(() => {
@@ -563,6 +563,9 @@ export default function ImportantSite() {
         return updatedSites;
       });
       
+      // 로컬 상태에서도 progressRate 업데이트
+      setProgressInput(prev => ({ ...prev, [site.id]: percent }));
+      
       // 입력모드 해제 및 입력값 초기화
       setEditingProgress(prev => ({ ...prev, [site.id]: false }));
       setProgressInput(prev => ({ ...prev, [site.id]: undefined }));
@@ -730,26 +733,35 @@ export default function ImportantSite() {
         />
         </Box>
       </Box>
-      <Grid container spacing={2} sx={{ 
-        width: '100%', 
+      <Box sx={{
+        width: '100%',
         flex: 1,
-        overflowY: 'hidden', // 스크롤 제거
-        overflowX: 'hidden',
-        padding: isMobile ? '10px 0 0 6px' : '10px 10px 0 10px',
         border: '1px solid #333',
         borderRadius: 2,
         bgcolor: '#1a1a1a',
-        mt: 0, // 마진 제거
-        minWidth: isMobile ? 'auto' : '1000px', // PC에서 최소 1000px 고정
-        height: 'calc(100vh - 200px)', // 고정 높이 설정
+        mt: 0,
+        minWidth: isMobile ? 'auto' : '1000px',
+        height: 'calc(100vh - 200px)',
+        paddingBottom: '60px',
         position: 'relative',
-        zIndex: 1001
+        zIndex: 1001,
+        overflowY: 'auto',
+        msOverflowStyle: 'none',  // IE and Edge
+        scrollbarWidth: 'none',   // Firefox
+        '&::-webkit-scrollbar': {
+          display: 'none'         // Chrome, Safari, Opera
+        }
       }}>
-        {filteredSites.length === 0 && (
-          <Typography sx={{ color: '#bbb', mt: 4 }}>
-            {search.trim() !== '' ? '검색 결과가 없습니다.' : '주요현장으로 지정된 현장이 없습니다. 현장관리에서 별표를 체크하여 주요현장을 추가해주세요.'}
-          </Typography>
-        )}
+        <Grid container spacing={2} sx={{ 
+          padding: isMobile ? '10px 0 0 6px' : '10px 10px 0 10px',
+        }}>
+          {filteredSites.length === 0 && (
+            <Grid item xs={12}>
+              <Typography sx={{ color: '#bbb', mt: 4 }}>
+                {search.trim() !== '' ? '검색 결과가 없습니다.' : '주요현장으로 지정된 현장이 없습니다. 현장관리에서 별표를 체크하여 주요현장을 추가해주세요.'}
+              </Typography>
+            </Grid>
+          )}
         {filteredSites.map(site => {
           // siteId로 바로 접근해서 누계기성값 계산
           const siteGisungData = gisungData[site.id] || [];
@@ -940,13 +952,17 @@ export default function ImportantSite() {
                   <Box sx={{ width: '90%', mb: 2 }}>
                     <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: 15, mb: 0.5 }}>공사진행률</Typography>
                     {(() => {
-                      // 기성 데이터 기반으로 진행율 계산
+                      // 저장된 진행률이 있으면 우선 사용, 없으면 기성 데이터 기반으로 계산
                       const contract = Number(site.contractAmount) || 0;
+                      const savedProgressRate = Number(site.progressRate) || 0;
                       const calculatedPercent = contract > 0 ? Math.round((totalGisung / contract) * 100) : 0;
                       
+                      // 저장된 진행률이 있으면 그것을 사용, 없으면 계산된 값 사용
+                      const basePercent = savedProgressRate > 0 ? savedProgressRate : calculatedPercent;
+                      
                       const percent = editingProgress[site.id]
-                        ? (progressInput[site.id] ?? calculatedPercent)
-                        : calculatedPercent;
+                        ? (progressInput[site.id] ?? basePercent)
+                        : basePercent;
                       return (
                         <LinearProgress
                           variant="determinate"
@@ -958,14 +974,18 @@ export default function ImportantSite() {
                   </Box>
                   {/* 진행률 바(숫자 입력) - 상단 고정 */}
                   {(() => {
-                    // 기성 데이터 기반으로 진행율 계산
+                    // 저장된 진행률이 있으면 우선 사용, 없으면 기성 데이터 기반으로 계산
                     const contract = Number(site.contractAmount) || 0;
+                    const savedProgressRate = Number(site.progressRate) || 0;
                     const calculatedPercent = contract > 0 ? Math.round((totalGisung / contract) * 100) : 0;
+                    
+                    // 저장된 진행률이 있으면 그것을 사용, 없으면 계산된 값 사용
+                    const basePercent = savedProgressRate > 0 ? savedProgressRate : calculatedPercent;
                     
                     const isEditing = editingProgress[site.id];
                     const percent = isEditing
-                      ? (progressInput[site.id] ?? calculatedPercent)
-                      : calculatedPercent;
+                      ? (progressInput[site.id] ?? basePercent)
+                      : basePercent;
                     return (
                       <Box sx={{ width: '90%', mb: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
                         {isEditing ? (
@@ -1118,6 +1138,7 @@ export default function ImportantSite() {
         );
       })}
       </Grid>
+      </Box>
     </Box>
   );
 } 

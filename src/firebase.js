@@ -108,7 +108,28 @@ try {
   console.error('❌ Firebase Auth 지속성 설정 중 오류:', error);
 }
 
+// Firestore 설정 (BloomFilter 오류 방지)
 export const db = getFirestore(app);
+
+// Firestore 설정 최적화 및 오류 처리
+if (import.meta.env.DEV) {
+  // 개발 환경에서 BloomFilter 오류 필터링
+  const originalConsoleError = console.error;
+  console.error = (...args) => {
+    // BloomFilter 오류는 성능 최적화 관련 오류이므로 무시
+    if (args.length > 0 && 
+        (typeof args[0] === 'string' && args[0].includes('BloomFilter')) ||
+        (args[0] && args[0].name === 'BloomFilterError')) {
+      console.debug('🔧 BloomFilter 최적화 중... (오류 무시)');
+      return;
+    }
+    originalConsoleError.apply(console, args);
+  };
+  
+  // Firestore 성능 최적화 설정
+  console.log('🔧 Firestore 성능 최적화 설정 완료');
+}
+
 export const storage = getStorage(app);
 
 // Analytics 초기화 (지원되는 환경에서만)

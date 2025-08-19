@@ -41,7 +41,8 @@ import {
 } from '@mui/icons-material';
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { downloadGisungExcel, parseGisungExcel } from '../utils/excelUtils';
+import { parseGisungExcel } from '../utils/excelUtils';
+import { downloadTemplateBasedGisungExcel } from '../utils/gisungTemplateUtils';
 import { moveCurrentToPrevious, createNextGisungWithPrevious } from '../utils/gisungTemplateUtils';
 
 const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
@@ -155,7 +156,12 @@ const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
   };
 
   const handleDelete = async (gisungId) => {
-    if (window.confirm('정말 삭제하시겠습니까?')) {
+    // 삭제할 기성 데이터 찾기
+    const gisungToDelete = gisungData.find(g => g.id === gisungId);
+    const sequence = gisungToDelete?.sequence || 'N';
+    const siteName = gisungToDelete?.name || gisungToDelete?.siteName || '알 수 없음';
+    
+    if (window.confirm(`"${siteName}" ${sequence} 기성 데이터를 정말 삭제하시겠습니까?`)) {
       setLoading(true);
       try {
         await deleteDoc(doc(db, 'gisung', gisungId));
@@ -170,7 +176,7 @@ const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
     }
   };
 
-  const handleDownloadExcel = () => {
+  const handleDownloadExcel = async () => {
     try {
       // 데이터 확인 및 기본값 설정
       const validSiteData = {
@@ -194,7 +200,7 @@ const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
       }];
 
       const filename = `${validSiteData.name}_기성금청구서.xlsx`;
-      downloadGisungExcel(validSiteData, validGisungData, filename);
+      await downloadTemplateBasedGisungExcel(validSiteData, validGisungData, [], filename);
       setSnackbar({ open: true, message: '엑셀 파일이 다운로드되었습니다.', severity: 'success' });
     } catch (error) {
       console.error('엑셀 다운로드 오류:', error);

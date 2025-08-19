@@ -59,12 +59,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
     if (site && site.id) {
       onClose(); // 팝업 닫기
       // 기성관리 페이지로 이동하면서 해당 현장 선택
-      navigate('/progress', { 
-        state: { 
-          selectedSiteId: site.id,
-          viewMode: 'site' // 기성현황 현장별 뷰로 설정
-        }
-      });
+      navigate(`/progress?siteId=${site.id}&viewMode=site`);
     }
   };
 
@@ -449,24 +444,79 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>물량내역</Typography>
                     </Box>
-                    <Typography sx={{ 
-                      color: '#fff', 
-                      fontWeight: 600,
-                      lineHeight: 1.6,
-                      whiteSpace: 'pre-wrap'
+                    <Box sx={{
+                      bgcolor: '#1b2130',
+                      border: '1px solid #2e3445',
+                      borderRadius: 1,
+                      overflow: 'hidden'
                     }}>
-                      {Array.isArray(site.items)
-                        ? site.items.length > 0
-                          ? site.items.map((item, idx) =>
-                              typeof item === 'object'
-                                ? `${item.name || ''} / ${item.specification || ''} / ${item.unit || ''} / ${item.quantity || ''} / ${item.price || ''} / ${item.amount || ''}`
-                                : String(item)
-                            ).join('\n')
-                          : '-'
-                        : typeof site.items === 'object' && site.items !== null
-                          ? JSON.stringify(site.items)
-                          : site.items || '-'}
-                    </Typography>
+                      {/* Header */}
+                      <Box sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '1.2fr 1fr 0.8fr 0.8fr',
+                        gap: 0,
+                        bgcolor: '#222938',
+                        borderBottom: '1px solid #2e3445'
+                      }}>
+                        <Typography sx={{ color: '#9fb0c9', fontSize: '0.8rem', fontWeight: 700, p: 1, textAlign: 'center' }}>항목</Typography>
+                        <Typography sx={{ color: '#9fb0c9', fontSize: '0.8rem', fontWeight: 700, p: 1, borderLeft: '1px solid #2e3445', textAlign: 'center' }}>규격</Typography>
+                        <Typography sx={{ color: '#9fb0c9', fontSize: '0.8rem', fontWeight: 700, p: 1, borderLeft: '1px solid #2e3445', textAlign: 'center' }}>단위</Typography>
+                        <Typography sx={{ color: '#9fb0c9', fontSize: '0.8rem', fontWeight: 700, p: 1, borderLeft: '1px solid #2e3445', textAlign: 'center' }}>물량</Typography>
+                      </Box>
+                      {/* Rows */}
+                      <Box sx={{
+                        maxHeight: 220,
+                        overflowY: 'auto',
+                        '&::-webkit-scrollbar': { display: 'none' },
+                        scrollbarWidth: 'none',
+                        msOverflowStyle: 'none'
+                      }}>
+                        {Array.isArray(site.items) && site.items.length > 0 ? (
+                          site.items
+                            .filter((raw) => {
+                              const item = typeof raw === 'object' ? raw : {};
+                              const hasName = (item.name || '').toString().trim() !== '';
+                              const hasSpec = (item.specification || '').toString().trim() !== '';
+                              const hasUnit = (item.unit || '').toString().trim() !== '';
+                              const hasQty = Number(item.quantity || item.qty || 0) > 0;
+
+                              // 제외 키워드 필터: NEGO, 단수정리, 총공사계, 부가세, 계약금액
+                              const blocked = ['nego', '단수정리', '총공사계', '부가세', '계약금액'];
+                              const nameLower = (item.name || '').toString().toLowerCase();
+                              const specLower = (item.specification || '').toString().toLowerCase();
+                              const isBlocked = blocked.some(k => nameLower.includes(k) || specLower.includes(k));
+
+                              if (isBlocked) return false;
+                              return hasName || hasSpec || hasUnit || hasQty;
+                            })
+                            .map((raw, idx) => {
+                              const item = typeof raw === 'object' ? raw : {};
+                              const name = (item.name || '').toString() || '-';
+                              const spec = (item.specification || '').toString() || '-';
+                              const unit = (item.unit || '').toString() || '-';
+                              const qtyVal = item.quantity ?? item.qty ?? '';
+                              const qty = qtyVal === '' || qtyVal === null ? '-' : qtyVal;
+                              return (
+                                <Box key={idx} sx={{
+                                  display: 'grid',
+                                  gridTemplateColumns: '1.2fr 1fr 0.8fr 0.8fr',
+                                  borderBottom: '1px solid #2e3445',
+                                  '&:last-of-type': { borderBottom: 'none' }
+                                }}>
+                                  <Typography sx={{ color: '#e5e7eb', fontSize: '0.85rem', p: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</Typography>
+                                  <Typography sx={{ color: '#c7cfdd', fontSize: '0.85rem', p: 1, borderLeft: '1px solid #2e3445', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{spec}</Typography>
+                                  <Typography sx={{ color: '#c7cfdd', fontSize: '0.85rem', p: 1, borderLeft: '1px solid #2e3445', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{unit}</Typography>
+                                  <Typography sx={{ color: '#e5e7eb', fontSize: '0.85rem', p: 1, borderLeft: '1px solid #2e3445', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{qty}</Typography>
+                                </Box>
+                              );
+                            })
+                        ) : (
+                          <Box sx={{ p: 2 }}>
+                            <Typography sx={{ color: '#8b95a7', fontSize: '0.85rem' }}>-</Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    </Box>
                   </Grid>
                 </Grid>
               </CardContent>

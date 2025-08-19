@@ -28,6 +28,51 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // 로그인 상태를 localStorage에 저장
+  const saveUserToStorage = (user) => {
+    try {
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('loginTime', Date.now().toString());
+      } else {
+        localStorage.removeItem('user');
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('loginTime');
+      }
+    } catch (error) {
+      console.error('사용자 정보 저장 실패:', error);
+    }
+  };
+
+  // localStorage에서 사용자 정보 복원
+  const restoreUserFromStorage = () => {
+    try {
+      const savedUser = localStorage.getItem('user');
+      const isLoggedIn = localStorage.getItem('isLoggedIn');
+      
+      if (savedUser && isLoggedIn === 'true') {
+        const user = JSON.parse(savedUser);
+        const loginTime = parseInt(localStorage.getItem('loginTime') || '0');
+        const now = Date.now();
+        
+        // 30일(30 * 24 * 60 * 60 * 1000) 이내의 로그인은 유지
+        if (now - loginTime < 30 * 24 * 60 * 60 * 1000) {
+          console.log('AuthContext - localStorage에서 사용자 정보 복원');
+          setCurrentUser(user);
+          return user;
+        } else {
+          // 30일이 지났으면 로그아웃 처리
+          console.log('AuthContext - 로그인 만료 (30일 초과)');
+          saveUserToStorage(null);
+        }
+      }
+    } catch (error) {
+      console.error('사용자 정보 복원 실패:', error);
+    }
+    return null;
+  };
+
 
 
   // 회원가입 (이름과 소속 정보 포함)
@@ -81,6 +126,7 @@ export const AuthProvider = ({ children }) => {
       };
       
       setCurrentUser(userInfo);
+      saveUserToStorage(userInfo); // localStorage에 사용자 정보 저장
       
       console.log('AuthContext - 로그인 완료:', userInfo.uid);
       return userCredential;
@@ -110,6 +156,7 @@ export const AuthProvider = ({ children }) => {
       };
       
       setCurrentUser(userInfo);
+      saveUserToStorage(userInfo); // localStorage에 사용자 정보 저장
       
       console.log('AuthContext - Google 로그인 완료:', userInfo.uid);
       return userCredential;
@@ -124,6 +171,7 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('AuthContext - 로그아웃 시작');
       setCurrentUser(null);
+      saveUserToStorage(null); // localStorage에서 사용자 정보 제거
       await signOut(auth);
       console.log('AuthContext - 로그아웃 완료');
     } catch (error) {
@@ -191,6 +239,7 @@ export const AuthProvider = ({ children }) => {
         };
         
         setCurrentUser(userInfo);
+        saveUserToStorage(userInfo); // localStorage에 사용자 정보 저장
         console.log('AuthContext - 사용자 정보 동기화 완료:', userInfo.uid);
         
       } else {
@@ -244,12 +293,21 @@ export const AuthProvider = ({ children }) => {
             organization: '개발팀'
           };
           setCurrentUser(mockUser);
+          saveUserToStorage(mockUser);
           setLoading(false);
           return;
         }
         
-        // 사용자가 없으면 로그아웃 상태로 설정
+        // 사용자가 없으면 localStorage에서 복원 시도
         if (!user) {
+          const restoredUser = restoreUserFromStorage();
+          if (restoredUser) {
+            console.log('AuthContext - localStorage에서 사용자 정보 복원 성공');
+            setLoading(false);
+            return;
+          }
+          
+          // 복원 실패 시 로그아웃 상태로 설정
           setCurrentUser(null);
           setLoading(false);
           return;

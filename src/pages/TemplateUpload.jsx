@@ -6,16 +6,20 @@ import {
   Button,
   Alert,
   CircularProgress,
-  Container
+  Container,
+  TextField
 } from '@mui/material';
-import { Upload as UploadIcon, Delete as DeleteIcon, CloudUpload as AutoUploadIcon } from '@mui/icons-material';
+import { Upload as UploadIcon, Delete as DeleteIcon, CloudUpload as AutoUploadIcon, Assessment as GisungIcon } from '@mui/icons-material';
 import { uploadTemplateToFirebase, checkTemplateStructure, deleteTemplateFromFirebase, uploadLocalTemplateToFirebase } from '../utils/gisungTemplateUtils';
+import { uploadGisungDataToFirebase } from '../utils/gisungDataUtils';
+import { updateNewGisungTemplate } from '../utils/updateTemplate';
 
 const TemplateUpload = () => {
   const [uploading, setUploading] = useState(false);
+  const [progressStep, setProgressStep] = useState('');
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('info');
-  const [progressStep, setProgressStep] = useState('');
+  const [siteName, setSiteName] = useState('');
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -76,6 +80,88 @@ const TemplateUpload = () => {
     event.target.value = '';
   };
 
+  // NEWgisung 템플릿 업데이트
+  const handleUpdateNewGisungTemplate = async () => {
+    setUploading(true);
+    setProgressStep('NEWgisung 템플릿 업데이트 중...');
+    setMessage('NEWgisung 템플릿 업데이트 중...');
+    setMessageType('info');
+
+    try {
+      setProgressStep('템플릿 순서 수정 및 업로드 중...');
+      setMessage('템플릿 순서 수정 및 업로드 중...');
+      await updateNewGisungTemplate();
+      setMessage('✅ NEWgisung 템플릿이 올바른 순서로 업데이트되었습니다!');
+      setMessageType('success');
+      setProgressStep('');
+    } catch (error) {
+      console.error('템플릿 업데이트 실패:', error);
+      setMessage('❌ 템플릿 업데이트 실패: ' + error.message);
+      setMessageType('error');
+      setProgressStep('');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 기성금회기성 데이터 업로드
+  const handleGisungDataUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // 파일 확장자 확인
+    if (!file.name.endsWith('.xlsx')) {
+      setMessage('엑셀 파일(.xlsx)만 업로드 가능합니다.');
+      setMessageType('error');
+      return;
+    }
+
+    if (!siteName.trim()) {
+      setMessage('현장명을 입력해주세요.');
+      setMessageType('error');
+      return;
+    }
+
+    setUploading(true);
+    setProgressStep('기성금회기성 데이터 분석 중...');
+    setMessage('기성금회기성 데이터를 파이어베이스에 저장 중...');
+    setMessageType('info');
+
+    try {
+      setProgressStep('데이터 파싱 및 저장 중...');
+      
+      // 현장명을 기반으로 siteData 생성
+      const siteData = {
+        name: siteName.trim(),
+        id: null // 실제 현장 ID는 나중에 조회
+      };
+      
+      await uploadGisungDataToFirebase(file, siteData);
+      setMessage('✅ 기성금회기성 데이터가 성공적으로 저장되었습니다!');
+      setMessageType('success');
+      setProgressStep('');
+    } catch (error) {
+      console.error('기성금회기성 데이터 업로드 실패:', error);
+      
+      let userMessage = '데이터 업로드 실패: ' + error.message;
+      
+      if (error.message.includes('파일 형식')) {
+        userMessage = '파일 형식이 올바르지 않습니다. 기성금회기성 엑셀 파일을 업로드해주세요.';
+      } else if (error.message.includes('데이터 없음')) {
+        userMessage = '파일에서 기성금회기성 데이터를 찾을 수 없습니다.';
+      }
+      
+      setMessage('❌ ' + userMessage);
+      setMessageType('error');
+      setProgressStep('');
+    } finally {
+      setUploading(false);
+    }
+
+    // 파일 입력 초기화
+    event.target.value = '';
+  };
+
   const handleCheckTemplateStructure = async () => {
     setUploading(true);
     setMessage('템플릿 구조 확인 중...');
@@ -122,19 +208,23 @@ const TemplateUpload = () => {
   const handleAutoUploadTemplate = async () => {
     setUploading(true);
     setProgressStep('로컬 템플릿 자동 업로드 중...');
-    setMessage('public 폴더의 gisung.xlsx를 파이어베이스에 업로드 중...');
+    setMessage('public 폴더의 NEWgisung.xlsx를 파이어베이스에 업로드 중...');
     setMessageType('info');
 
     try {
-      const result = await uploadLocalTemplateToFirebase();
-      setMessage(`✅ ${result.message}\n📂 경로: ${result.path}\n📊 크기: ${result.size} bytes`);
-      setMessageType('success');
-      setProgressStep('');
+      const uploadResult = await uploadLocalTemplateToFirebase();
+      
+      if (uploadResult.success) {
+        setMessage('✅ 템플릿 업로드 완료! ' + uploadResult.message);
+        setMessageType('success');
+      } else {
+        setMessage('❌ 템플릿 업로드 실패: ' + uploadResult.error);
+        setMessageType('error');
+      }
     } catch (error) {
-      console.error('자동 업로드 실패:', error);
-      setMessage(`❌ 자동 업로드 실패: ${error.message}`);
+      console.error('템플릿 업로드 실패:', error);
+      setMessage('❌ 템플릿 업로드 실패: ' + error.message);
       setMessageType('error');
-      setProgressStep('');
     } finally {
       setUploading(false);
     }
@@ -152,7 +242,7 @@ const TemplateUpload = () => {
           <br />
           파일 형식: .xlsx (Excel 파일)
           <br />
-          <strong>파일명: gisung.xlsx</strong>
+          <strong>파일명: NEWgisung.xlsx</strong>
           <br />
           <strong>💡 손상된 파일은 자동으로 복구됩니다!</strong>
         </Typography>
@@ -191,6 +281,20 @@ const TemplateUpload = () => {
           </Alert>
         )}
 
+        {/* 현장명 입력 (기성금 업로드용) */}
+        <Box sx={{ mb: 3, textAlign: 'left' }}>
+          <TextField
+            label="현장명"
+            variant="outlined"
+            value={siteName}
+            onChange={(e) => setSiteName(e.target.value)}
+            placeholder="기성금을 업로드할 현장명을 입력하세요"
+            fullWidth
+            helperText="이전 차수의 누계수량이 자동으로 전회수량으로 설정됩니다"
+            sx={{ mb: 2 }}
+          />
+        </Box>
+
         <Box sx={{ mb: 3 }}>
           <input
             type="file"
@@ -215,6 +319,33 @@ const TemplateUpload = () => {
               }}
             >
               {uploading ? (progressStep || '업로드 중...') : '템플릿 파일 선택'}
+            </Button>
+          </label>
+          
+          <input
+            type="file"
+            accept=".xlsx"
+            onChange={handleGisungDataUpload}
+            style={{ display: 'none' }}
+            id="gisung-data-upload"
+            disabled={uploading}
+          />
+          <label htmlFor="gisung-data-upload">
+            <Button
+              variant="contained"
+              color="secondary"
+              component="span"
+              startIcon={uploading ? <CircularProgress size={20} /> : <GisungIcon />}
+              disabled={uploading || !siteName.trim()}
+              size="large"
+              sx={{ 
+                fontSize: '1.1rem',
+                py: 1.5,
+                px: 3,
+                mr: 2
+              }}
+            >
+              {uploading ? (progressStep || '업로드 중...') : '기성금회기성 업로드'}
             </Button>
           </label>
           
@@ -260,15 +391,34 @@ const TemplateUpload = () => {
             sx={{ 
               fontSize: '1.1rem',
               py: 1.5,
-              px: 3
+              px: 3,
+              mr: 2
             }}
           >
             로컬 템플릿 자동 업로드
+          </Button>
+          
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={handleUpdateNewGisungTemplate}
+            disabled={uploading}
+            size="large"
+            startIcon={<AutoUploadIcon />}
+            sx={{ 
+              fontSize: '1.1rem',
+              py: 1.5,
+              px: 3
+            }}
+          >
+            NEWgisung 순서 수정
           </Button>
         </Box>
 
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           업로드된 템플릿 파일은 기성금청구서 생성 시 사용됩니다.
+          <br />
+          기성금회기성 데이터는 파이어베이스에 저장되어 데이터로만 사용됩니다.
           <br />
           기존 파일이 있다면 덮어쓰기됩니다.
         </Typography>

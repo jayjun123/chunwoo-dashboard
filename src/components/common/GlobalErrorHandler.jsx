@@ -18,6 +18,11 @@ const GlobalErrorHandler = () => {
           message.includes('back/forward cache') ||
           message.includes('Unchecked runtime.lastError') ||
           message.includes('but the message channel closed before a response was received') ||
+          // postMessage 관련 오류 필터링
+          message.includes('postMessage') ||
+          message.includes('target origin') ||
+          message.includes('chrome-untrusted://') ||
+          message.includes('chrome://new-tab-page') ||
           // DOM 관련 에러 필터링 추가
           message.includes('removeChild') ||
           message.includes('The node to be removed is not a child of this node') ||
@@ -53,6 +58,11 @@ const GlobalErrorHandler = () => {
            event.error.message.includes('The page keeping the extension port') ||
            event.error.message.includes('so the message channel is closed') ||
            event.error.message.includes('A listener indicated an asynchronous response') ||
+           // postMessage 관련 오류 무시 추가
+           event.error.message.includes('postMessage') ||
+           event.error.message.includes('target origin') ||
+           event.error.message.includes('chrome-untrusted://') ||
+           event.error.message.includes('chrome://new-tab-page') ||
            // DOM 관련 에러 무시 추가
            event.error.message.includes('removeChild') ||
            event.error.message.includes('The node to be removed is not a child of this node') ||

@@ -27,6 +27,7 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import SplashScreen from './components/common/SplashScreen';
 import TemplateUpload from './pages/TemplateUpload';
 
+
 // 임시: 현장명 동기화 함수
 import { syncSiteNames } from './scripts/syncSiteNames';
 
@@ -397,6 +398,10 @@ const App = React.memo(() => {
                       <Route path="/forgot-password" element={<ForgotPassword />} />
                       <Route
                         path="/"
+                        element={<Login />}
+                      />
+                      <Route
+                        path="/dashboard"
                         element={
                           <ProtectedRoute>
                             {isMobile ? (
@@ -906,6 +911,7 @@ const App = React.memo(() => {
                           </ProtectedRoute>
                         }
                       />
+
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Router>

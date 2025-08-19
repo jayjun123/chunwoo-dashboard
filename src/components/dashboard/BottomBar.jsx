@@ -178,10 +178,11 @@ const BottomBar = ({
     // 초기 업데이트
     updateCurrentDate();
     
-    // 매일 자정에 업데이트
+    // 매일 자정에 업데이트 (한국 시간 기준)
     const now = new Date();
-    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const timeUntilMidnight = tomorrow.getTime() - now.getTime();
+    const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+    const tomorrow = new Date(koreanTime.getFullYear(), koreanTime.getMonth(), koreanTime.getDate() + 1);
+    const timeUntilMidnight = tomorrow.getTime() - koreanTime.getTime();
     
     const midnightTimer = setTimeout(() => {
       updateCurrentDate();
@@ -254,12 +255,11 @@ const BottomBar = ({
           itemDate = new Date(item.date);
         }
         
-        // 한국 시간 기준으로 오늘 날짜 계산
+        // 오늘 날짜 계산 (로컬 시간 기준)
         const now = new Date();
-        const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
-        const todayYear = koreanTime.getFullYear();
-        const todayMonth = koreanTime.getMonth();
-        const todayDay = koreanTime.getDate();
+        const todayYear = now.getFullYear();
+        const todayMonth = now.getMonth();
+        const todayDay = now.getDate();
         
         const itemYear = itemDate.getFullYear();
         const itemMonth = itemDate.getMonth();
@@ -440,11 +440,11 @@ const BottomBar = ({
         return updatedStats;
       });
       
-      setProgressList(todaySites.slice(-5).reverse());
-      setDiscussionList(todayBids.slice(-5).reverse());
-      setSafetyList(todayMeetings.slice(-5).reverse());
-      setSetupList(todaySetup.slice(-5).reverse());
-      setEtcList(todayEtc.slice(-5).reverse());
+      setProgressList(todaySites.reverse());
+      setDiscussionList(todayBids.reverse());
+      setSafetyList(todayMeetings.reverse());
+      setSetupList(todaySetup.reverse());
+      setEtcList(todayEtc.reverse());
       
       // 일정 데이터에서 입찰 항목을 bidList에 추가
       console.log('🔥 todayBids 상세 분석:', todayBids.map(item => ({
@@ -493,7 +493,7 @@ const BottomBar = ({
         });
         
         console.log('🔥 통합된 bidList:', sortedBids);
-        return sortedBids.slice(-5).reverse();
+        return sortedBids.reverse();
       });
     }, (err) => {
       console.error('🔥 하단바 일정 연동 오류:', err);
@@ -1828,30 +1828,42 @@ const BottomBar = ({
                 ) : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
                     {progressList.map((item, index) => (
-                      <Box key={item.id} sx={{ 
-                        p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
-                        bgcolor: '#2a2a2a', 
-                        borderRadius: 1, 
-                        border: '1px solid #444',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.title || item.text || item.description || item.desc || '설명 없음'}
-                          </Typography>
-                          {(item.description || item.desc) && (item.description || item.desc).trim() && (
-                            <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {item.description || item.desc}
+                        <Box key={item.id} sx={{ 
+                          p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
+                          bgcolor: '#2a2a2a', 
+                          borderRadius: 1, 
+                          border: '1px solid #444',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, md: 14 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.text || item.title || '현장 일정'}
+                            </Typography>
+                                                      {(item.desc || item.description) && (item.desc || item.description).trim() && (
+                            <Typography sx={{ 
+                              color: '#ccc', 
+                              fontSize: { xs: 11, md: 12 }, 
+                              mt: 0.5, 
+                              overflow: 'hidden', 
+                              textOverflow: 'ellipsis', 
+                              whiteSpace: 'normal',
+                              lineHeight: 1.3,
+                              maxHeight: '2.6em',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical'
+                            }}>
+                              {item.desc || item.description}
                             </Typography>
                           )}
+                          </Box>
+                          <Typography sx={{ color: '#FFD600', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
+                            {item.startDate}
+                          </Typography>
                         </Box>
-                        <Typography sx={{ color: '#FFD600', fontSize: { xs: 12, md: 12 }, fontWeight: 600, ml: 1, flexShrink: 0 }}>
-                          {item.startDate}
-                        </Typography>
-                      </Box>
-                    ))}
+                      ))}
                   </Box>
                 )}
               </Box>
@@ -1903,7 +1915,12 @@ const BottomBar = ({
                             mt: 0.5, 
                             overflow: 'hidden', 
                             textOverflow: 'ellipsis', 
-                            whiteSpace: 'nowrap',
+                            whiteSpace: 'normal',
+                            lineHeight: 1.3,
+                            maxHeight: '2.6em',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
                             opacity: item.submissionStatus === '제출완료' ? 0.6 : 1
                           }}>
                             {item.requester} {item.company ? `(${item.company})` : ''} - {item.requestContent || '입찰요청'}
@@ -1962,7 +1979,19 @@ const BottomBar = ({
                             {item.title || item.text || item.description || item.desc || '설명 없음'}
                           </Typography>
                           {(item.description || item.desc) && (item.description || item.desc).trim() && (
-                            <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <Typography sx={{ 
+                              color: '#ccc', 
+                              fontSize: { xs: 11, md: 12 }, 
+                              mt: 0.5, 
+                              overflow: 'hidden', 
+                              textOverflow: 'ellipsis', 
+                              whiteSpace: 'normal',
+                              lineHeight: 1.3,
+                              maxHeight: '2.6em',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical'
+                            }}>
                               {item.description || item.desc}
                             </Typography>
                           )}
@@ -2002,7 +2031,19 @@ const BottomBar = ({
                             {item.title || item.text || item.description || item.desc || '설명 없음'}
                           </Typography>
                           {(item.description || item.desc) && (item.description || item.desc).trim() && (
-                            <Typography sx={{ color: '#ccc', fontSize: { xs: 11, md: 12 }, mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <Typography sx={{ 
+                              color: '#ccc', 
+                              fontSize: { xs: 11, md: 12 }, 
+                              mt: 0.5, 
+                              overflow: 'hidden', 
+                              textOverflow: 'ellipsis', 
+                              whiteSpace: 'normal',
+                              lineHeight: 1.3,
+                              maxHeight: '2.6em',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical'
+                            }}>
                               {item.description || item.desc}
                             </Typography>
                           )}
@@ -2064,7 +2105,12 @@ const BottomBar = ({
                               fontSize: { xs: 11, md: 12 }, 
                               overflow: 'hidden', 
                               textOverflow: 'ellipsis', 
-                              whiteSpace: 'nowrap',
+                              whiteSpace: 'normal',
+                              lineHeight: 1.3,
+                              maxHeight: '2.6em',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
                               opacity: item.submissionStatus === '제출완료' ? 0.6 : 1,
                               flex: 1
                             }}>
@@ -2210,7 +2256,12 @@ const BottomBar = ({
                               mt: 0.5, 
                               overflow: 'hidden', 
                               textOverflow: 'ellipsis', 
-                              whiteSpace: 'nowrap',
+                              whiteSpace: 'normal',
+                              lineHeight: 1.3,
+                              maxHeight: '2.6em',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
                               opacity: item.completed ? 0.6 : 1
                             }}>
                               {item.description || item.desc}

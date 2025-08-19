@@ -637,9 +637,10 @@ const CustomCalendar = (props) => {
         boxSizing: 'border-box'
       }}>
         {(viewMode === '3days' || viewMode === 'week') ? (
-          // 3일보기, 7일보기에서는 실제 날짜의 요일 표시
+          // 3일보기, 7일보기에서는 실제 날짜의 요일과 날짜 표시
           renderDates[0].map((cell, index) => {
             const dayOfWeek = cell.date ? ['일', '월', '화', '수', '목', '금', '토'][cell.date.getDay()] : '';
+            const dateString = cell.date ? `${cell.date.getMonth() + 1}/${cell.date.getDate()}` : '';
             return (
               <Box
                 key={index}
@@ -656,7 +657,7 @@ const CustomCalendar = (props) => {
                   boxSizing: 'border-box'
                 }}
               >
-                {dayOfWeek}
+                {dateString} {dayOfWeek}
               </Box>
             );
           })
@@ -846,11 +847,7 @@ const CustomCalendar = (props) => {
                                 }}
                                 style={{ cursor: 'pointer' }}
                               >
-                                {cell.date ? (
-                                  viewMode === '3days' || viewMode === 'week' 
-                                    ? `${cell.date.getMonth() + 1}/${cell.date.getDate()}(${['일', '월', '화', '수', '목', '금', '토'][cell.date.getDay()]})`
-                                    : cell.date.getDate()
-                                ) : ''}
+                                {cell.date ? cell.date.getDate() : ''}
                               </Typography>
                               {/* 추가 버튼 - 오른쪽 끝 */}
                               <IconButton
@@ -910,11 +907,7 @@ const CustomCalendar = (props) => {
                                 }}
                                 style={{ cursor: 'pointer' }}
                               >
-                                {cell.date ? (
-                                  viewMode === '3days' || viewMode === 'week' 
-                                    ? `${cell.date.getMonth() + 1}/${cell.date.getDate()}(${['일', '월', '화', '수', '목', '금', '토'][cell.date.getDay()]})`
-                                    : cell.date.getDate()
-                                ) : ''}
+                                {cell.date ? cell.date.getDate() : ''}
                               </Typography>
                             </>
                           )}
