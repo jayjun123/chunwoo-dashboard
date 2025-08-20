@@ -30,7 +30,9 @@ const DiscussionRoomList = ({ onSelectRoom }) => {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('recent');
   const { currentUser } = useAuth();
-  const isAdmin = currentUser?.role === 'master' || currentUser?.role === 'admin';
+  // 권한 체크를 더 유연하게 설정
+  const isAdmin = currentUser?.role === 'master' || currentUser?.role === 'admin' || currentUser?.grade === 'master' || currentUser?.grade === 'admin';
+  const canManageRooms = isAdmin || currentUser?.role === 'manager' || currentUser?.grade === 'manager';
 
   // 디버깅을 위한 로그
   console.log('DiscussionRoomList - 현재 사용자 정보:', currentUser);
@@ -73,9 +75,11 @@ const DiscussionRoomList = ({ onSelectRoom }) => {
     console.log('삭제 시도 - 사용자 role:', currentUser?.role);
     console.log('삭제 시도 - 사용자 grade:', currentUser?.grade);
     console.log('삭제 시도 - isAdmin:', isAdmin);
+    console.log('삭제 시도 - canManageRooms:', canManageRooms);
     
-    if (!isAdmin) {
-      alert('관리자와 마스터만 대화방을 삭제할 수 있습니다.');
+    // 권한 체크를 더 유연하게 설정
+    if (!canManageRooms) {
+      alert('관리자, 마스터, 매니저만 대화방을 삭제할 수 있습니다.');
       console.log('권한 부족으로 삭제 실패');
       return;
     }
@@ -138,8 +142,8 @@ const DiscussionRoomList = ({ onSelectRoom }) => {
 
   const handleEdit = (room) => {
     // 권한 체크
-    if (!isAdmin) {
-      alert('관리자와 마스터만 대화방을 수정할 수 있습니다.');
+    if (!canManageRooms) {
+      alert('관리자, 마스터, 매니저만 대화방을 수정할 수 있습니다.');
       return;
     }
     
@@ -154,8 +158,8 @@ const DiscussionRoomList = ({ onSelectRoom }) => {
     if (!editRoom) return;
     
     // 권한 체크
-    if (!isAdmin) {
-      alert('관리자와 마스터만 대화방을 수정할 수 있습니다.');
+    if (!canManageRooms) {
+      alert('관리자, 마스터, 매니저만 대화방을 수정할 수 있습니다.');
       return;
     }
     
@@ -309,15 +313,15 @@ const DiscussionRoomList = ({ onSelectRoom }) => {
                     <Box>
                       <Tooltip title="PDF로 내보내기"><IconButton color="inherit" onClick={() => handleExportPDF(room)}><PictureAsPdfIcon /></IconButton></Tooltip>
                       <Tooltip title="엑셀로 내보내기"><IconButton color="inherit" onClick={() => handleExportExcel(room)}><TableViewIcon /></IconButton></Tooltip>
-                      {isAdmin && (
-                        <>
-                          <Tooltip title="수정"><IconButton color="inherit" onClick={() => handleEdit(room)}><EditIcon /></IconButton></Tooltip>
-                          <Tooltip title="삭제"><IconButton color="error" onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(room.id);
-                          }}><DeleteIcon /></IconButton></Tooltip>
-                        </>
+                      {/* 수정 버튼 - 관리자와 매니저만 */}
+                      {canManageRooms && (
+                        <Tooltip title="수정"><IconButton color="inherit" onClick={() => handleEdit(room)}><EditIcon /></IconButton></Tooltip>
                       )}
+                      {/* 삭제 버튼 - 모든 사용자에게 표시 (권한 체크는 함수 내에서) */}
+                      <Tooltip title="삭제"><IconButton color="error" onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(room.id);
+                      }}><DeleteIcon /></IconButton></Tooltip>
                       <Tooltip title="채팅 입장"><IconButton color="primary" onClick={() => hasPassword ? handlePasswordEnter(room) : onSelectRoom(room)}><ChatIcon /></IconButton></Tooltip>
                     </Box>
                   </Box>
@@ -334,9 +338,7 @@ const DiscussionRoomList = ({ onSelectRoom }) => {
         <DialogContent>
           <TextField label="대화방 이름" fullWidth sx={{ mb: 2 }} value={editName} onChange={e => setEditName(e.target.value)} />
           <TextField label="현장명" fullWidth sx={{ mb: 2 }} value={editSite} onChange={e => setEditSite(e.target.value)} />
-          {isAdmin && (
-            <TextField label="비밀번호(선택)" fullWidth value={editPassword} onChange={e => setEditPassword(e.target.value)} type="password" />
-          )}
+          <TextField label="비밀번호(선택)" fullWidth value={editPassword} onChange={e => setEditPassword(e.target.value)} type="password" placeholder="비밀번호를 설정하거나 비워두면 비밀번호 없음" />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditDialog(false)}>취소</Button>
