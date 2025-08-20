@@ -27,6 +27,7 @@ import {
   Delete as DeleteIcon
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import { db } from '../firebase';
 
 const VendorStatus = () => {
@@ -104,10 +105,25 @@ const VendorStatus = () => {
   const handleDelete = async (vendorId) => {
     if (window.confirm('정말 삭제하시겠습니까?')) {
       try {
+        const auth = getAuth();
+        const user = auth.currentUser;
+        console.log('🔍 현재 로그인한 사용자:', user?.email);
+        console.log('🔍 사용자 토큰:', user?.uid);
+        
+        console.log('🗑️ 거래처 삭제 시도:', vendorId);
         await deleteDoc(doc(db, 'vendors', vendorId));
+        console.log('✅ 거래처 삭제 성공:', vendorId);
         fetchVendors();
       } catch (error) {
-        console.error('Error deleting vendor:', error);
+        console.error('❌ 거래처 삭제 실패:', error);
+        console.error('❌ 오류 상세:', error.message);
+        console.error('❌ 오류 코드:', error.code);
+        
+        if (error.code === 'permission-denied') {
+          alert('권한이 없습니다. 관리자 또는 마스터 권한이 필요합니다.');
+        } else {
+          alert(`삭제 실패: ${error.message}`);
+        }
       }
     }
   };
