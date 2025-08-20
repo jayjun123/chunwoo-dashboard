@@ -1,9 +1,15 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 개발 모드 - 모든 인증된 사용자에게 모든 권한 허용
+    // 모든 로그인 사용자가 읽기 가능
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+    }
+    
+    // 관리자/마스터만 쓰기 권한 (생성, 수정, 삭제)
+    match /{document=**} {
+      allow create, update, delete: if request.auth != null && 
+        (request.auth.token.role == 'admin' || request.auth.token.role == 'master');
     }
   }
 } 

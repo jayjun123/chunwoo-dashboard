@@ -1,10 +1,18 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // 임시로 완전 공개 (템플릿 업로드 후 다시 제한)
+    // 템플릿 파일은 모든 로그인 사용자가 읽기 가능
+    match /templates/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        (request.auth.token.role == 'admin' || request.auth.token.role == 'master');
+    }
+    
+    // 기타 파일들은 관리자/마스터만 접근 가능
     match /{allPaths=**} {
-      allow read: if true;
-      allow write: if true;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        (request.auth.token.role == 'admin' || request.auth.token.role == 'master');
     }
   }
 } 
