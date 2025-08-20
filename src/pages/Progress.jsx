@@ -319,8 +319,8 @@ const Progress = () => {
       } else {
         console.log('⚠️ 현장을 찾을 수 없음:', siteId);
       }
-    } else if (!siteId && selectedSites.length > 0 && !isClearingSelection) {
-      // URL에 siteId가 없는데 selectedSites가 있고, 현장 선택 해제 중이 아닐 때만 초기화
+    } else if (!siteId && selectedSites.length > 0 && !sessionStorage.getItem('userSelectedSite')) {
+      // URL에 siteId가 없고, 사용자가 직접 선택한 현장이 아닌 경우에만 초기화
       console.log('🔍 URL에 siteId 없음 - 현장 선택 초기화');
       setSelectedSites([]);
       setFilteredSiteId(null);
@@ -1227,13 +1227,6 @@ const Progress = () => {
               onChange={(newValue) => {
                 console.log('현장 선택됨:', newValue);
                 const newSelectedSites = Array.isArray(newValue) ? newValue : (newValue ? [newValue] : []);
-                
-                // 현장 선택이 해제되는 경우를 방지
-                if (newSelectedSites.length === 0 && selectedSites.length > 0) {
-                  console.log('🔍 현장 선택 해제 시도 - 방지됨');
-                  return; // 현장 선택 해제를 방지
-                }
-                
                 setSelectedSites(newSelectedSites);
                 
                 // 현장 선택이 해제되면 URL 파라미터도 제거
@@ -1242,6 +1235,7 @@ const Progress = () => {
                   
                   // 현장 선택 해제 플래그 설정
                   sessionStorage.setItem('clearingSiteSelection', 'true');
+                  sessionStorage.removeItem('userSelectedSite'); // 사용자 선택 플래그 제거
                   
                   setFilteredSiteId(null);
                   setFilteredSiteName('');
@@ -1251,14 +1245,15 @@ const Progress = () => {
                   url.searchParams.delete('viewMode');
                   window.history.replaceState({}, document.title, url.pathname);
                   console.log('✅ URL 파라미터 제거 완료:', url.pathname);
+                } else {
+                  // 현장이 선택되면 사용자 선택 플래그 설정
+                  sessionStorage.setItem('userSelectedSite', 'true');
+                  console.log('✅ 사용자 현장 선택 플래그 설정');
                 }
-                  
-                  // 즉시 데이터 재로드
-                  fetchProgress();
-                  fetchCosts();
-                  // 강제 리렌더링
-                  setForceUpdate(prev => prev + 1);
-                }}
+                
+                // 강제 리렌더링만 수행 (불필요한 데이터 재로드 제거)
+                setForceUpdate(prev => prev + 1);
+              }}
               label="현장 선택"
               placeholder="현장명을 검색하세요"
               multiple={true}

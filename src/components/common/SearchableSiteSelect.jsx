@@ -49,10 +49,7 @@ const SearchableSiteSelect = ({
         onChange(selectedValues);
       } else {
         console.log('빈 배열 또는 null:', newValue);
-        // 빈 배열이 아닌 경우에만 onChange 호출
-        if (newValue && Array.isArray(newValue) && newValue.length > 0) {
-          onChange(newValue);
-        }
+        onChange(newValue || []);
       }
     } else {
       // 단일 선택인 경우
@@ -281,7 +278,6 @@ const SearchableSiteSelect = ({
 
   return (
     <Autocomplete
-      key={`${multiple}-${JSON.stringify(value)}`}
       options={sites}
       value={getValueForAutocomplete()}
       onChange={handleChange}
@@ -300,8 +296,6 @@ const SearchableSiteSelect = ({
       openOnFocus={openOnFocus}
       clearOnBlur={clearOnBlur}
       selectOnFocus={selectOnFocus}
-      autoComplete={false}
-      blurOnSelect={false}
       sx={{
         '& .MuiAutocomplete-paper': {
           bgcolor: '#232b3b',
