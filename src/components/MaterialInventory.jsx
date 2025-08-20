@@ -46,6 +46,19 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // 모바일 감지
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // 물량 데이터 로드
   const loadMaterialData = async () => {
@@ -136,13 +149,17 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
   // 금액 포맷팅
   const formatCurrency = (amount) => {
     if (!amount && amount !== 0) return '0원';
-    return new Intl.NumberFormat('ko-KR').format(amount) + '원';
+    // 정수로 반올림하여 표시
+    const roundedAmount = Math.round(amount);
+    return new Intl.NumberFormat('ko-KR').format(roundedAmount) + '원';
   };
 
   // 수량 포맷팅
   const formatQuantity = (quantity, unit) => {
     if (!quantity && quantity !== 0) return '0';
-    const formatted = new Intl.NumberFormat('ko-KR').format(quantity);
+    // 정수로 반올림하여 표시
+    const roundedQuantity = Math.round(quantity);
+    const formatted = new Intl.NumberFormat('ko-KR').format(roundedQuantity);
     return unit ? `${formatted} ${unit}` : formatted;
   };
 
@@ -215,122 +232,205 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
       {/* 물량 데이터 테이블 */}
       {!loading && (
         <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <TableContainer 
-            component={Paper} 
-            sx={{ 
+          {isMobile ? (
+            // 모바일용 카드 형태
+            <Box sx={{ 
               flex: 1,
-              bgcolor: '#232b3b',
-              '& .MuiTable-root': { borderCollapse: 'separate', borderSpacing: 0 }
-            }}
-          >
-            <Table stickyHeader size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ 
-                    bgcolor: '#1a1d21', 
-                    color: '#fff', 
-                    fontWeight: 'bold',
-                    borderBottom: '2px solid #43e97b'
-                  }}>
-                    항목
-                  </TableCell>
-                  <TableCell sx={{ 
-                    bgcolor: '#1a1d21', 
-                    color: '#fff', 
-                    fontWeight: 'bold',
-                    borderBottom: '2px solid #43e97b'
-                  }}>
-                    물량
-                  </TableCell>
-                  <TableCell sx={{ 
-                    bgcolor: '#1a1d21', 
-                    color: '#fff', 
-                    fontWeight: 'bold',
-                    borderBottom: '2px solid #43e97b'
-                  }}>
-                    단가
-                  </TableCell>
-                  <TableCell sx={{ 
-                    bgcolor: '#1a1d21', 
-                    color: '#fff', 
-                    fontWeight: 'bold',
-                    borderBottom: '2px solid #43e97b'
-                  }}>
-                    금액
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {materialData.items.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} sx={{ 
-                      textAlign: 'center', 
-                      color: '#999', 
-                      py: 4,
-                      borderBottom: 'none'
-                    }}>
-                      물량 데이터가 없습니다.
-                      <br />
-                      <Typography variant="caption" sx={{ color: '#666' }}>
-                        견적서 엑셀 파일을 업로드해주세요.
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  materialData.items.map((item, index) => (
-                    <TableRow 
+              overflow: 'auto',
+              p: 1
+            }}>
+              {materialData.items.length === 0 ? (
+                <Box sx={{ 
+                  textAlign: 'center', 
+                  color: '#999', 
+                  py: 4
+                }}>
+                  <Typography variant="body1" sx={{ mb: 1 }}>
+                    물량 데이터가 없습니다.
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#666' }}>
+                    견적서 엑셀 파일을 업로드해주세요.
+                  </Typography>
+                </Box>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {materialData.items.map((item, index) => (
+                    <Box
                       key={index}
-                      sx={{ 
-                        '&:hover': { bgcolor: '#2a3441' },
-                        '&:nth-of-type(odd)': { bgcolor: '#1e252b' }
+                      sx={{
+                        bgcolor: '#1e252b',
+                        borderRadius: 1,
+                        p: 2,
+                        border: '1px solid #333',
+                        '&:hover': { bgcolor: '#2a3441' }
                       }}
                     >
-                      <TableCell sx={{ 
+                      <Typography variant="subtitle2" sx={{ 
                         color: '#fff', 
-                        borderBottom: '1px solid #333',
-                        maxWidth: 200,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
+                        fontWeight: 'bold',
+                        mb: 1,
+                        fontSize: '0.9rem'
                       }}>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                            {item.name}
-                          </Typography>
-                          {item.specification && (
-                            <Typography variant="caption" sx={{ color: '#999' }}>
-                              {item.specification}
-                            </Typography>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ 
-                        color: '#fff', 
-                        borderBottom: '1px solid #333',
-                        textAlign: 'right'
+                        {item.name}
+                      </Typography>
+                      
+                      {item.specification && (
+                        <Typography variant="caption" sx={{ 
+                          color: '#999',
+                          display: 'block',
+                          mb: 1,
+                          fontSize: '0.75rem'
+                        }}>
+                          {item.specification}
+                        </Typography>
+                      )}
+                      
+                      <Box sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        mb: 1
                       }}>
-                        {formatQuantity(item.quantity, item.unit)}
-                      </TableCell>
-                      <TableCell sx={{ 
-                        color: '#fff', 
-                        borderBottom: '1px solid #333',
-                        textAlign: 'right'
-                      }}>
-                        {formatCurrency(item.unitPrice)}
-                      </TableCell>
-                      <TableCell sx={{ 
+                        <Typography variant="body2" sx={{ color: '#b0b0b0', fontSize: '0.8rem' }}>
+                          물량: {formatQuantity(item.quantity, item.unit)}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#b0b0b0', fontSize: '0.8rem' }}>
+                          단가: {formatCurrency(item.unitPrice)}
+                        </Typography>
+                      </Box>
+                      
+                      <Typography variant="body1" sx={{ 
                         color: '#43e97b', 
-                        borderBottom: '1px solid #333',
+                        fontWeight: 'bold',
                         textAlign: 'right',
-                        fontWeight: 'bold'
+                        fontSize: '0.9rem'
                       }}>
                         {formatCurrency(item.amount)}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          ) : (
+            // 데스크톱용 테이블
+            <TableContainer 
+              component={Paper} 
+              sx={{ 
+                flex: 1,
+                bgcolor: '#232b3b',
+                '& .MuiTable-root': { borderCollapse: 'separate', borderSpacing: 0 }
+              }}
+            >
+              <Table stickyHeader size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ 
+                      bgcolor: '#1a1d21', 
+                      color: '#fff', 
+                      fontWeight: 'bold',
+                      borderBottom: '2px solid #43e97b'
+                    }}>
+                      항목
+                    </TableCell>
+                    <TableCell sx={{ 
+                      bgcolor: '#1a1d21', 
+                      color: '#fff', 
+                      fontWeight: 'bold',
+                      borderBottom: '2px solid #43e97b'
+                    }}>
+                      물량
+                    </TableCell>
+                    <TableCell sx={{ 
+                      bgcolor: '#1a1d21', 
+                      color: '#fff', 
+                      fontWeight: 'bold',
+                      borderBottom: '2px solid #43e97b'
+                    }}>
+                      단가
+                    </TableCell>
+                    <TableCell sx={{ 
+                      bgcolor: '#1a1d21', 
+                      color: '#fff', 
+                      fontWeight: 'bold',
+                      borderBottom: '2px solid #43e97b'
+                    }}>
+                      금액
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {materialData.items.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} sx={{ 
+                        textAlign: 'center', 
+                        color: '#999', 
+                        py: 4,
+                        borderBottom: 'none'
+                      }}>
+                        물량 데이터가 없습니다.
+                        <br />
+                        <Typography variant="caption" sx={{ color: '#666' }}>
+                          견적서 엑셀 파일을 업로드해주세요.
+                        </Typography>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                  ) : (
+                    materialData.items.map((item, index) => (
+                      <TableRow 
+                        key={index}
+                        sx={{ 
+                          '&:hover': { bgcolor: '#2a3441' },
+                          '&:nth-of-type(odd)': { bgcolor: '#1e252b' }
+                        }}
+                      >
+                        <TableCell sx={{ 
+                          color: '#fff', 
+                          borderBottom: '1px solid #333',
+                          maxWidth: 200,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                              {item.name}
+                            </Typography>
+                            {item.specification && (
+                              <Typography variant="caption" sx={{ color: '#999' }}>
+                                {item.specification}
+                              </Typography>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ 
+                          color: '#fff', 
+                          borderBottom: '1px solid #333',
+                          textAlign: 'right'
+                        }}>
+                          {formatQuantity(item.quantity, item.unit)}
+                        </TableCell>
+                        <TableCell sx={{ 
+                          color: '#fff', 
+                          borderBottom: '1px solid #333',
+                          textAlign: 'right'
+                        }}>
+                          {formatCurrency(item.unitPrice)}
+                        </TableCell>
+                        <TableCell sx={{ 
+                          color: '#43e97b', 
+                          borderBottom: '1px solid #333',
+                          textAlign: 'right',
+                          fontWeight: 'bold'
+                        }}>
+                          {formatCurrency(item.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
 
           {/* 요약 정보 */}
           {materialData.items.length > 0 && (

@@ -20,8 +20,9 @@ const formatQuantity = (value) => {
   if (value === '' || value === null || value === undefined) return '';
   const num = parseFloat(value);
   if (isNaN(num)) return value;
-  if (num === 0) return '0.00';
-  return num.toFixed(2);
+  if (num === 0) return '0';
+  // 정수로 반올림하여 표시
+  return Math.round(num).toLocaleString();
 };
 
 const formatAmount = (value) => {
@@ -29,7 +30,7 @@ const formatAmount = (value) => {
   const num = parseFloat(value);
   if (isNaN(num)) return value;
   if (num === 0) return '0';
-  // 음수도 천단위 쉼표 적용
+  // 정수로 반올림하여 천단위 쉼표 적용
   const roundedNum = Math.round(num);
   return roundedNum.toLocaleString();
 };
@@ -39,6 +40,7 @@ const formatPrice = (value) => {
   const num = parseFloat(value);
   if (isNaN(num)) return value;
   if (num === 0) return '0';
+  // 정수로 반올림하여 천단위 쉼표 적용
   return Math.round(num).toLocaleString();
 };
 
@@ -2033,7 +2035,7 @@ const NewSites = () => {
                <Grid size={{ xs: 4 }}>
                  <Box sx={{ textAlign: 'center' }}>
                    <Typography variant="h5" sx={{ color: '#4caf50', fontWeight: 'bold', fontSize: isMobile ? '1.2rem' : '1.5rem' }}>
-                     {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount?.toLocaleString() || '0'}
+                     {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount ? Math.round((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount).toLocaleString() : '0'}
                    </Typography>
                    <Typography variant="caption" sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>계약금액</Typography>
                  </Box>
@@ -2041,7 +2043,7 @@ const NewSites = () => {
                <Grid size={{ xs: 4 }}>
                  <Box sx={{ textAlign: 'center' }}>
                    <Typography variant="h5" sx={{ color: '#2196f3', fontWeight: 'bold', fontSize: isMobile ? '1.2rem' : '1.5rem' }}>
-                     {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount?.toLocaleString() || '0'}
+                     {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount ? Math.round((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount).toLocaleString() : '0'}
                    </Typography>
                    <Typography variant="caption" sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>누계기성</Typography>
                  </Box>
@@ -2049,7 +2051,7 @@ const NewSites = () => {
                <Grid size={{ xs: 4 }}>
                  <Box sx={{ textAlign: 'center' }}>
                    <Typography variant="h5" sx={{ color: '#ff9800', fontWeight: 'bold', fontSize: isMobile ? '1.2rem' : '1.5rem' }}>
-                     {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount?.toLocaleString() || '0'}
+                     {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount ? Math.round((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount).toLocaleString() : '0'}
                    </Typography>
                    <Typography variant="caption" sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>지출</Typography>
                  </Box>
@@ -2059,17 +2061,17 @@ const NewSites = () => {
                <Grid container spacing={1}>
                  <Grid size={{ xs: 12, sm: 4 }}>
                    <Box sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
-                     계약금액: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount?.toLocaleString() || '0'}원
+                     계약금액: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount ? Math.round((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount).toLocaleString() : '0'}원
                    </Box>
                  </Grid>
                  <Grid size={{ xs: 12, sm: 4 }}>
                    <Box sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
-                     누계기성: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount?.toLocaleString() || '0'}원
+                     누계기성: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount ? Math.round((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount).toLocaleString() : '0'}원
                    </Box>
                  </Grid>
                  <Grid size={{ xs: 12, sm: 4 }}>
                    <Box sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
-                     지출 총액: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount?.toLocaleString() || '0'}원
+                     지출 총액: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount ? Math.round((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount).toLocaleString() : '0'}원
                    </Box>
                  </Grid>
                </Grid>
@@ -2582,11 +2584,18 @@ const NewSites = () => {
         >
           {(form.items || []).map((item, index) => (
             <Box key={index} sx={{ 
-              display: item.isSpacer ? 'none' : 'flex', 
+              display: item.isSpacer ? 'none' : isMobile ? 'block' : 'flex', 
               gap: 1, 
-              mb: isMobile ? 0.5 : 1, 
+              mb: isMobile ? 1 : 1, 
               alignItems: 'center', 
-              flexWrap: 'wrap' 
+              flexWrap: 'wrap',
+              ...(isMobile && {
+                bgcolor: '#1e252b',
+                borderRadius: 1,
+                p: 1.5,
+                border: '1px solid #333',
+                mb: 1
+              })
             }}>
               {item.isTotal ? (
                 <Typography 
@@ -2643,6 +2652,8 @@ const NewSites = () => {
                   size="small" 
                   sx={{ 
                     flex: '1 1 120px',
+                    width: isMobile ? '100%' : 'auto',
+                    mb: isMobile ? 1 : 0,
                     '& .MuiOutlinedInput-root': {
                       '& fieldset': { borderColor: '#555' },
                       '&:hover fieldset': { borderColor: '#777' },
@@ -2650,7 +2661,7 @@ const NewSites = () => {
                     },
                     '& .MuiInputBase-input': { 
                       color: '#fff',
-                      fontSize: isMobile ? '0.8rem' : '0.9rem',
+                      fontSize: isMobile ? '1rem' : '0.9rem',
                       fontWeight: '500'
                     }
                   }} 

@@ -977,19 +977,58 @@ const CustomCalendar = (props) => {
                                     onTouchStart={e => {
                                       e.stopPropagation();
                                       console.log('일정 터치 시작:', dateStr, item.id);
-                                      // 터치 시작 시 드래그 준비
-                                      e.target.style.transform = 'scale(1.05)';
-                                      e.target.style.zIndex = '9999';
+                                      
+                                      // 중간 피드백 타이머 (1초 후)
+                                      const feedbackTimer = setTimeout(() => {
+                                        e.target.style.transform = 'scale(1.05)';
+                                        e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+                                      }, 1000);
+                                      
+                                      // 길게 누르기 타이머 설정 (2초)
+                                      const touchTimer = setTimeout(() => {
+                                        console.log('길게 누르기 감지됨 - 드래그 준비:', dateStr, item.id);
+                                        e.target.style.transform = 'scale(1.1)';
+                                        e.target.style.zIndex = '9999';
+                                        e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+                                        // 드래그 가능 상태로 설정
+                                        e.target.setAttribute('data-drag-ready', 'true');
+                                      }, 2000); // 2초로 증가
+                                      
+                                      // 타이머들을 요소에 저장
+                                      e.target.setAttribute('data-feedback-timer', feedbackTimer);
+                                      e.target.setAttribute('data-touch-timer', touchTimer);
                                     }}
                                     onTouchMove={e => {
                                       e.stopPropagation();
-                                      // 터치 이동 시 드래그 효과
+                                      // 드래그 준비 상태일 때만 드래그 효과 적용
+                                      if (e.target.getAttribute('data-drag-ready') === 'true') {
+                                        console.log('드래그 중:', dateStr, item.id);
+                                        // 드래그 효과 유지
+                                      }
                                     }}
                                     onTouchEnd={e => {
                                       e.stopPropagation();
                                       console.log('일정 터치 종료:', dateStr, item.id);
+                                      
+                                      // 타이머 정리
+                                      const feedbackTimer = e.target.getAttribute('data-feedback-timer');
+                                      const touchTimer = e.target.getAttribute('data-touch-timer');
+                                      
+                                      if (feedbackTimer) {
+                                        clearTimeout(parseInt(feedbackTimer));
+                                        e.target.removeAttribute('data-feedback-timer');
+                                      }
+                                      
+                                      if (touchTimer) {
+                                        clearTimeout(parseInt(touchTimer));
+                                        e.target.removeAttribute('data-touch-timer');
+                                      }
+                                      
+                                      // 드래그 준비 상태 해제
+                                      e.target.removeAttribute('data-drag-ready');
                                       e.target.style.transform = '';
                                       e.target.style.zIndex = '';
+                                      e.target.style.boxShadow = '';
                                     }}
                                     className={snapshot.isDragging ? 'dragging' : ''}
                                     sx={{
