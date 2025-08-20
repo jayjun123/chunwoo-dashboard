@@ -86,3 +86,4 @@ window.checkPermissions = checkPermissions;
 
 console.log('✅ Firebase 디버깅 스크립트 로드됨');
 console.log('사용법: debugFirebase() 실행');
+

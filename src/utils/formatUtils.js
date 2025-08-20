@@ -23,7 +23,9 @@ export const formatNumber = (value, addWon = false) => {
     normalizedNum = 0;
   }
   
-  const formatted = normalizedNum.toLocaleString('ko-KR');
+  // 정수로 반올림
+  const roundedNum = Math.round(normalizedNum);
+  const formatted = roundedNum.toLocaleString('ko-KR');
   let result = addWon ? `${formatted}원` : formatted;
   
   // 모든 -0 패턴을 0으로 변경

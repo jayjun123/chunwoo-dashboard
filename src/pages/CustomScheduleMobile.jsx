@@ -2531,32 +2531,49 @@ const CustomScheduleMobile = () => {
                       bgcolor: '#1a1a1a', 
                       borderRadius: 1, 
                       p: 1,
-                      maxHeight: '200px',
+                      maxHeight: '300px',
                       overflow: 'auto'
                     }}>
                       <Box sx={{ 
-                        display: 'grid', 
-                        gridTemplateColumns: '1fr auto auto', 
-                        gap: 1,
                         borderBottom: '1px solid #444',
                         pb: 0.5,
                         mb: 0.5
                       }}>
-                        <Typography sx={{ color: '#b0b0b0', fontSize: '0.75rem', fontWeight: 600 }}>항목</Typography>
-                        <Typography sx={{ color: '#b0b0b0', fontSize: '0.75rem', fontWeight: 600 }}>물량</Typography>
-                        <Typography sx={{ color: '#b0b0b0', fontSize: '0.75rem', fontWeight: 600 }}>단가</Typography>
+                        <Typography sx={{ color: '#b0b0b0', fontSize: '0.75rem', fontWeight: 600 }}>물량 내역</Typography>
                       </Box>
                       {selectedSiteDetail.items.map((item, index) => (
                         <Box key={index} sx={{ 
-                          display: 'grid', 
-                          gridTemplateColumns: '1fr auto auto', 
-                          gap: 1,
                           py: 0.5,
                           borderBottom: index < selectedSiteDetail.items.length - 1 ? '1px solid #333' : 'none'
                         }}>
-                          <Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>{item.name}</Typography>
-                          <Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>{item.qty}</Typography>
-                          <Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>{item.price?.toLocaleString()}</Typography>
+                          <Typography sx={{ 
+                            color: '#fff', 
+                            fontSize: '0.8rem',
+                            fontWeight: 500,
+                            mb: 0.5
+                          }}>
+                            {item.name}
+                          </Typography>
+                          <Typography sx={{ 
+                            color: '#b0b0b0', 
+                            fontSize: '0.7rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}>
+                            <span>물량: {item.qty} {item.unit || ''}</span>
+                            <span>단가: {item.price ? Math.round(item.price).toLocaleString() : 0}원</span>
+                          </Typography>
+                          {item.specification && (
+                            <Typography sx={{ 
+                              color: '#888', 
+                              fontSize: '0.65rem',
+                              fontStyle: 'italic',
+                              mt: 0.5
+                            }}>
+                              {item.specification}
+                            </Typography>
+                          )}
                         </Box>
                       ))}
                     </Box>

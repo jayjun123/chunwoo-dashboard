@@ -37,3 +37,4 @@ const setCustomClaims = async () => {
 };
 
 setCustomClaims();
+

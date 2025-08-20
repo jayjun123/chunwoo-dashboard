@@ -46,3 +46,4 @@ const checkUserRoleSimple = async () => {
 
 // 스크립트 실행
 checkUserRoleSimple();
+

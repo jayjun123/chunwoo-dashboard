@@ -37,3 +37,4 @@
     console.error('❌ 테스트 실패:', error);
   }
 })();
+
