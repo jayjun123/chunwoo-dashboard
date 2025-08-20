@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { configureIME } from './utils/imeHandler.jsx';
@@ -223,7 +223,7 @@ const ProtectedRoute = ({ children }) => {
   // 로그인하지 않은 경우 로그인 화면 표시
   if (!currentUser) {
     console.log('로그인 필요 - 로그인 페이지로 이동');
-    return <Login />;
+    return <Navigate to="/auth" replace />;
   }
   
   console.log('로그인 완료 - 메인 페이지로 이동');
@@ -396,9 +396,22 @@ const App = React.memo(() => {
                       <Route path="/register" element={<Register />} />
                       <Route path="/register-success" element={<RegisterSuccess />} />
                       <Route path="/forgot-password" element={<ForgotPassword />} />
+                      <Route path="/auth" element={<Login />} />
                       <Route
                         path="/"
-                        element={<Login />}
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <CustomScheduleMobile />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <ScheduleManagement />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
                       />
                       <Route
                         path="/dashboard"

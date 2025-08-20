@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, startTransition } from 'react';
-import { Grid, Paper, Tabs, Tab, TextField, List, ListItem, ListItemText, Button, IconButton, Typography, Box, FormControl, Select, MenuItem, Checkbox, FormControlLabel, InputLabel, Autocomplete, Chip, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import { Grid, Paper, Tabs, Tab, TextField, List, ListItem, ListItemText, Button, IconButton, Typography, Box, FormControl, Select, MenuItem, Checkbox, FormControlLabel, InputLabel, Autocomplete, Chip, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -141,6 +141,9 @@ const NewSites = () => {
   // 물량내역 업로드 관련 상태
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadedItems, setUploadedItems] = useState([]);
+  
+  // 다운로드 로딩 상태
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   // 상태별 카운트 계산
   const statusCounts = useMemo(() => {
@@ -428,6 +431,7 @@ const NewSites = () => {
   };
 
   const handleDownloadNapfoomContract = async () => {
+    setDownloadLoading(true);
     try {
       console.log('🔍 NAPFOOM 납품계약서 다운로드 시작 - 현재 form 상태:', form);
       console.log('🔍 현재 selectedSite:', selectedSite);
@@ -488,13 +492,15 @@ const NewSites = () => {
         console.log('⚠️ 선택된 현장이 없습니다.');
       }
       
-                      await downloadContractGabji(site, materialItems);
-                console.log('✅ 납품계약서 갑지 다운로드 완료');
+                            await downloadContractGabji(site, materialItems);
+      console.log('✅ 납품계약서 갑지 다운로드 완료');
     } catch (e) {
       console.error('NAPFOOM 납품계약서 다운로드 실패:', e);
       console.error('오류 상세:', e.message);
       console.error('오류 스택:', e.stack);
       alert('NAPFOOM 납품계약서 생성에 실패했습니다. 템플릿/데이터를 확인해주세요.');
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
@@ -1680,6 +1686,7 @@ const NewSites = () => {
       return;
     }
 
+    setDownloadLoading(true);
     try {
       console.log('📄 견적서 생성 시작:', selectedSite.name, 'ID:', selectedSite.id);
       
@@ -1726,6 +1733,8 @@ const NewSites = () => {
     } catch (error) {
       console.error('❌ 견적서 생성 오류:', error);
       alert('견적서 생성 중 오류가 발생했습니다: ' + error.message);
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
@@ -2661,7 +2670,7 @@ const NewSites = () => {
                     },
                     '& .MuiInputBase-input': { 
                       color: '#fff',
-                      fontSize: isMobile ? '1rem' : '0.9rem',
+                      fontSize: isMobile ? '0.8rem' : '0.8rem',
                       fontWeight: '500'
                     }
                   }} 
@@ -2682,7 +2691,7 @@ const NewSites = () => {
                   sx={{ 
                     flex: '1 1 60px',
                     '& .MuiInputBase-input': { 
-                      fontSize: isMobile ? '0.8rem' : 'inherit',
+                      fontSize: isMobile ? '0.7rem' : '0.8rem',
                       textAlign: 'right'
                     }
                   }} 
@@ -2707,7 +2716,7 @@ const NewSites = () => {
                   sx={{ 
                     flex: '1 1 80px',
                     '& .MuiInputBase-input': { 
-                      fontSize: isMobile ? '0.8rem' : 'inherit',
+                      fontSize: isMobile ? '0.7rem' : '0.8rem',
                       textAlign: 'right'
                     }
                   }} 
@@ -2947,6 +2956,35 @@ const NewSites = () => {
             추가
           </Button>
         </DialogActions>
+      </Dialog>
+      
+      {/* 다운로드 로딩 팝업 */}
+      <Dialog 
+        open={downloadLoading} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: '#181f2e',
+            color: '#fff',
+            borderRadius: 4,
+            p: 4,
+            textAlign: 'center'
+          }
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+          <CircularProgress size={60} sx={{ color: '#90caf9', mb: 2 }} />
+          <Typography variant="h6" sx={{ color: '#90caf9', fontWeight: 600, mb: 1 }}>
+            열심히 제작중에 있습니다
+          </Typography>
+          <Typography variant="body1" sx={{ color: '#bbb' }}>
+            문서를 생성하고 있습니다.
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#999', mt: 1 }}>
+            잠시만 기다려주세요...
+          </Typography>
+        </Box>
       </Dialog>
     </Box>
   );

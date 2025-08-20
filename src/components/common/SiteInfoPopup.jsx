@@ -141,7 +141,9 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
 
   const formatCurrency = (amount) => {
     if (!amount) return '-';
-    return new Intl.NumberFormat('ko-KR').format(amount) + '원';
+    // 소수점 반올림 적용
+    const roundedAmount = Math.round(Number(amount));
+    return new Intl.NumberFormat('ko-KR').format(roundedAmount) + '원';
   };
 
   const formatProgress = (progress) => {
