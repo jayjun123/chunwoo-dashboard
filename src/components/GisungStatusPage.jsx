@@ -66,6 +66,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   const [viewType, setViewType] = useState(initialViewType || 'month');
   const [currentMonth, setCurrentMonth] = useState(initialCurrentMonth || new Date());
   
+
+  
   // 기성금청구서 업로드 관련 상태
   const [uploadDialog, setUploadDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -177,7 +179,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       console.log('viewType:', viewType);
       console.log('currentMonth:', currentMonth);
       console.log('selectedSites:', selectedSites);
-      console.log('selectedSiteForView:', selectedSiteForView);
+
       
       let q;
       const gisungCollection = collection(db, 'gisung');
@@ -186,52 +188,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
         console.log('월별 필터링 - monthStr:', monthStr);
         q = query(gisungCollection, where('gisungMonth', '==', monthStr));
-      } else if (viewType === 'site' && selectedSiteForView) {
-        // 현장별 필터링 - 선택된 현장이 있으면 해당 현장만
-        console.log('현장별 필터링 - selectedSiteForView:', selectedSiteForView);
-        q = query(gisungCollection);
-        
-        const snapshot = await getDocs(q);
-        const allData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        // 선택된 현장의 데이터만 필터링
-        const filteredData = allData.filter(gisung => 
-          gisung.name && gisung.name.trim() === selectedSiteForView.trim()
-        );
-        
-        console.log('🔍 선택된 현장 필터링 결과:', filteredData);
-        
-        // 전회기성 동적 계산
-        const filteredDataWithPrevGisung = filteredData.map(gisung => {
-          const currentSeq = parseInt(gisung.sequence?.replace('차', '') || '0');
-          const previousGisung = allGisungData
-            .filter(prev => {
-              const prevSeq = parseInt(prev.sequence?.replace('차', '') || '0');
-              return prev.name === gisung.name && prev.id !== gisung.id && prevSeq < currentSeq;
-            })
-            .sort((a, b) => {
-              const aSeq = parseInt(a.sequence?.replace('차', '') || '0');
-              const bSeq = parseInt(b.sequence?.replace('차', '') || '0');
-              return bSeq - aSeq;
-            })[0];
-          
-          const calculatedPrevGisung = previousGisung ? (previousGisung.gisungAmount || 0) : 0;
-          
-          return {
-            ...gisung,
-            prevGisung: calculatedPrevGisung
-          };
-        });
-        
-        const sortedFilteredData = filteredDataWithPrevGisung.sort((a, b) => {
-          const aSeq = parseInt(a.sequence?.replace('차', '') || '0');
-          const bSeq = parseInt(b.sequence?.replace('차', '') || '0');
-          return bSeq - aSeq;
-        });
-        
-        console.log('정렬 완료된 필터링 데이터:', sortedFilteredData);
-        setGisungList(sortedFilteredData);
-        return;
+
       } else if (viewType === 'site' && selectedSites && selectedSites.length > 0) {
         console.log('현장별 필터링 - selectedSites:', selectedSites);
         
@@ -1284,44 +1241,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     { name: '기타', value: totalEtc },
   ];
 
-  // 현장 선택 상태 추가
-  const [selectedSiteForView, setSelectedSiteForView] = useState('');
 
-  // 현장 선택 핸들러 추가
-  const handleSiteSelect = (event) => {
-    const selectedSiteName = event.target.value;
-    setSelectedSiteForView(selectedSiteName);
-    
-    // 현장별 뷰에서 현장 선택 시 해당 현장의 기성 데이터만 필터링
-    if (viewType === 'site') {
-      if (selectedSiteName === '전체') {
-        // 전체 현장 선택 시 모든 데이터 표시
-        setGisungList(allGisungData);
-      } else if (selectedSiteName) {
-        // 특정 현장 선택 시 해당 현장의 기성 데이터만 필터링
-        const filteredData = allGisungData.filter(gisung => {
-          const gisungName = gisung.name ? gisung.name.trim() : '';
-          const normalizedSiteName = selectedSiteName.trim();
-          
-          // 정확한 일치 또는 포함 관계 확인
-          const isExactMatch = gisungName === normalizedSiteName;
-          const isPartialMatch = gisungName.includes(normalizedSiteName) || 
-                               normalizedSiteName.includes(gisungName);
-          
-          // 특수문자나 공백 제거 후 비교
-          const cleanSiteName = normalizedSiteName.replace(/[^\w가-힣]/g, '');
-          const cleanGisungName = gisungName.replace(/[^\w가-힣]/g, '');
-          const isCleanMatch = cleanGisungName.includes(cleanSiteName) || cleanSiteName.includes(cleanGisungName);
-          
-          return isExactMatch || isPartialMatch || isCleanMatch;
-        });
-        setGisungList(filteredData);
-      } else {
-        // 선택 해제 시 빈 배열
-        setGisungList([]);
-      }
-    }
-  };
 
   // 오류 처리 추가
   if (!sites || sites.length === 0) {
@@ -1367,7 +1287,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         {viewType === 'month' ? `${monthText || '기성현황'}` : '현장별 기성현황'}
       </Typography>
 
-      {/* 현장별 뷰에서 현장 선택 드롭다운 제거 - 상단에 이미 있음 */}
+
 
       {/* 통계 카드 */}
       <Grid container spacing={isMobile ? 0.7 : 2} sx={{ mb: 3 }}>
