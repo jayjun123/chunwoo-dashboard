@@ -1,0 +1,5 @@
+[33md862ef0[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mnew-master[m[33m)[m 화면 비율 안정화 및 금액 소수점 제거 - 화면 확대 문제 해결 - 모든 금액을 정수로 반올림 처리 - MaterialInventory 모바일 반응형 개선
+[33meb7a27e[m[33m ([m[1;31morigin/new-master[m[33m)[m PC 버전 토론의견 삭제 다이얼로그 추가 - 삭제 버튼 클릭 시 확인 다이얼로그 표시되도록 수정
+[33m7859636[m Fix: 한글 폰트 로딩 문제 해결 - Noto Sans KR, Nanum Gothic, Nanum Myeongjo 폰트 추가 및 폰트 로딩 최적화
+[33m4c2db88[m Fix: 현장 선택이 바로 풀리는 문제 해결 - URL 파라미터 처리 로직 개선 및 사용자 선택 플래그 추가
+[33m13df750[m 현장 선택 취소 방지 로직 추가 - Progress.jsx 및 SearchableSiteSelect.jsx 수정
