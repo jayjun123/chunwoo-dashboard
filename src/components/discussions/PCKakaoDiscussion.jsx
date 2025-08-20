@@ -70,7 +70,9 @@ import {
   ArrowBack as ArrowBackIcon,
   KeyboardArrowUp as ArrowUpIcon,
   ColorLens as ColorLensIcon,
-  Palette as PaletteIcon
+  Palette as PaletteIcon,
+  Lock as LockIcon,
+  LockOpen as LockOpenIcon
 } from '@mui/icons-material';
 
 const PCKakaoDiscussion = () => {
@@ -100,6 +102,7 @@ const PCKakaoDiscussion = () => {
   const [passwordDialog, setPasswordDialog] = useState({ open: false, discussion: null, password: '' });
   const [editDialog, setEditDialog] = useState({ open: false, discussion: null });
   const [deleteDialog, setDeleteDialog] = useState({ open: false, discussion: null, password: '' });
+  const [passwordSettingDialog, setPasswordSettingDialog] = useState({ open: false, discussion: null, password: '', confirmPassword: '' });
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState({});
   const [sites, setSites] = useState([]);
@@ -450,6 +453,58 @@ const PCKakaoDiscussion = () => {
     }
   };
 
+  // 자물쇠 클릭 핸들러 (비밀번호 설정/입장)
+  const handleLockClick = (discussion, e) => {
+    e.stopPropagation();
+    
+    if (discussion.password && discussion.password.trim() !== '') {
+      // 비밀번호가 있으면 입장 다이얼로그 열기
+      setPasswordDialog({ 
+        open: true, 
+        discussion: discussion, 
+        password: '',
+        type: 'enter'
+      });
+    } else {
+      // 비밀번호가 없으면 설정 다이얼로그 열기
+      setPasswordSettingDialog({ 
+        open: true, 
+        discussion: discussion, 
+        password: '', 
+        confirmPassword: '' 
+      });
+    }
+  };
+
+  // 비밀번호 설정 저장
+  const handlePasswordSettingSave = async () => {
+    const { discussion, password, confirmPassword } = passwordSettingDialog;
+    
+    if (password !== confirmPassword) {
+      setSnackbar({ open: true, message: '비밀번호가 일치하지 않습니다.', severity: 'error' });
+      return;
+    }
+    
+    if (password.length < 4) {
+      setSnackbar({ open: true, message: '비밀번호는 4자 이상이어야 합니다.', severity: 'warning' });
+      return;
+    }
+    
+    try {
+      // 토론 비밀번호 업데이트
+      const discussionRef = doc(db, 'discussions', discussion.id);
+      await updateDoc(discussionRef, {
+        password: password
+      });
+      
+      setSnackbar({ open: true, message: '비밀번호가 설정되었습니다.', severity: 'success' });
+      setPasswordSettingDialog({ open: false, discussion: null, password: '', confirmPassword: '' });
+    } catch (error) {
+      console.error('비밀번호 설정 실패:', error);
+      setSnackbar({ open: true, message: '비밀번호 설정에 실패했습니다.', severity: 'error' });
+    }
+  };
+
   // 비밀번호 확인
   const handlePasswordCheck = async () => {
     const discussion = passwordDialog.discussion || selectedDiscussion;
@@ -612,14 +667,22 @@ const PCKakaoDiscussion = () => {
   const handleDeleteDiscussion = async () => {
     if (!deleteDialog.discussion) return;
 
-    if (deleteDialog.password !== selectedDiscussion.password) {
-      setSnackbar({ open: true, message: '비밀번호가 올바르지 않습니다', severity: 'error' });
-      return;
+    // 비밀번호가 있는 경우 비밀번호 검증
+    if (deleteDialog.discussion.password && deleteDialog.discussion.password.trim() !== '') {
+      if (deleteDialog.password !== deleteDialog.discussion.password) {
+        setSnackbar({ open: true, message: '비밀번호가 올바르지 않습니다', severity: 'error' });
+        return;
+      }
     }
 
     try {
-      await deleteDiscussion(selectedDiscussion.id);
-      setSelectedDiscussion(null);
+      await deleteDiscussion(deleteDialog.discussion.id);
+      
+      // 선택된 토론이 삭제된 토론이면 선택 해제
+      if (selectedDiscussion?.id === deleteDialog.discussion.id) {
+        setSelectedDiscussion(null);
+      }
+      
       setSnackbar({ open: true, message: '토론이 삭제되었습니다', severity: 'success' });
       setDeleteDialog({ open: false, discussion: null, password: '' });
     } catch (error) {
@@ -841,20 +904,26 @@ const PCKakaoDiscussion = () => {
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: 'white', flex: 1 }}>
                       {discussion.siteName || discussion.title}
                     </Typography>
-                    {discussion.password && discussion.password.trim() !== '' && (
-                      <Chip 
-                        label="🔒" 
-                        size="small"
-                        sx={{ 
-                          backgroundColor: '#ff9800',
-                          color: 'white',
-                          fontSize: '12px',
-                          height: '20px',
-                          minWidth: '24px'
-                        }}
-                        title="비밀번호 보호됨"
-                      />
-                    )}
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleLockClick(discussion, e)}
+                      sx={{ 
+                        color: discussion.password && discussion.password.trim() !== '' ? '#ff9800' : '#90caf9',
+                        p: 0.5,
+                        '&:hover': { 
+                          backgroundColor: discussion.password && discussion.password.trim() !== '' 
+                            ? 'rgba(255, 152, 0, 0.1)' 
+                            : 'rgba(144, 202, 249, 0.1)' 
+                        }
+                      }}
+                      title={discussion.password && discussion.password.trim() !== '' ? "클릭하여 입장" : "클릭하여 비밀번호 설정"}
+                    >
+                      {discussion.password && discussion.password.trim() !== '' ? (
+                        <LockIcon fontSize="small" />
+                      ) : (
+                        <LockOpenIcon fontSize="small" />
+                      )}
+                    </IconButton>
                   </Box>
                   {discussion.subtitle && (
                     <Typography variant="body2" sx={{ mb: 1, color: '#a0aec0' }}>
@@ -865,24 +934,43 @@ const PCKakaoDiscussion = () => {
                     <Typography variant="caption" sx={{ color: '#a0aec0' }}>
                       {discussion.title !== discussion.siteName ? discussion.title : '토론방'}
                     </Typography>
-                    <Chip 
-                      label={
-                        discussion.priority === 'low' ? '낮음' :
-                        discussion.priority === 'normal' ? '보통' :
-                        discussion.priority === 'high' ? '높음' :
-                        discussion.priority === 'urgent' ? '긴급' : discussion.priority
-                      } 
-                      size="small"
-                      sx={{ 
-                        backgroundColor: 
-                          discussion.priority === 'urgent' ? '#e53e3e' :
-                          discussion.priority === 'high' ? '#f56565' :
-                          discussion.priority === 'normal' ? '#4a5568' :
-                          discussion.priority === 'low' ? '#718096' : '#4a5568',
-                        color: 'white',
-                        fontSize: '0.75rem'
-                      }}
-                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip 
+                        label={
+                          discussion.priority === 'low' ? '낮음' :
+                          discussion.priority === 'normal' ? '보통' :
+                          discussion.priority === 'high' ? '높음' :
+                          discussion.priority === 'urgent' ? '긴급' : discussion.priority
+                        } 
+                        size="small"
+                        sx={{ 
+                          backgroundColor: 
+                            discussion.priority === 'urgent' ? '#e53e3e' :
+                            discussion.priority === 'high' ? '#f56565' :
+                            discussion.priority === 'normal' ? '#4a5568' :
+                            discussion.priority === 'low' ? '#718096' : '#4a5568',
+                          color: 'white',
+                          fontSize: '0.75rem'
+                        }}
+                      />
+                      {/* 삭제 버튼 */}
+                      <IconButton 
+                        size="small" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteDialog({ open: true, discussion: discussion, password: '' });
+                        }}
+                        sx={{ 
+                          color: '#e53e3e', 
+                          p: 0.5,
+                          '&:hover': { 
+                            backgroundColor: 'rgba(229, 62, 62, 0.1)' 
+                          }
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
                   </Box>
                 </CardContent>
               </Card>
@@ -1623,6 +1711,83 @@ const PCKakaoDiscussion = () => {
           <Button onClick={() => setPasswordDialog({ open: false, discussion: null, password: '', type: '' })}>취소</Button>
           <Button onClick={handlePasswordCheck} variant="contained">
             {passwordDialog.type === 'enter' ? '입장' : '확인'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 비밀번호 설정 다이얼로그 */}
+      <Dialog open={passwordSettingDialog.open} onClose={() => setPasswordSettingDialog({ open: false, discussion: null, password: '', confirmPassword: '' })}>
+        <DialogTitle>
+          비밀번호 설정
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2, color: '#666' }}>
+            토론방에 비밀번호를 설정하세요. (최소 4자 이상)
+          </Typography>
+          <TextField
+            fullWidth
+            label="비밀번호"
+            type="password"
+            value={passwordSettingDialog.password}
+            onChange={(e) => setPasswordSettingDialog(prev => ({ ...prev, password: e.target.value }))}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="비밀번호 확인"
+            type="password"
+            value={passwordSettingDialog.confirmPassword}
+            onChange={(e) => setPasswordSettingDialog(prev => ({ ...prev, confirmPassword: e.target.value }))}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handlePasswordSettingSave();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPasswordSettingDialog({ open: false, discussion: null, password: '', confirmPassword: '' })}>취소</Button>
+          <Button onClick={handlePasswordSettingSave} variant="contained">
+            설정
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, discussion: null, password: '' })}>
+        <DialogTitle>토론 삭제</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            "{deleteDialog.discussion?.siteName || deleteDialog.discussion?.title}" 토론을 삭제하시겠습니까?
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#ff4444', mt: 1 }}>
+            이 작업은 되돌릴 수 없습니다.
+          </Typography>
+          
+          {/* 비밀번호가 있는 경우 비밀번호 입력 필드 */}
+          {deleteDialog.discussion?.password && deleteDialog.discussion.password.trim() !== '' && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body2" sx={{ mb: 1, color: '#a0aec0' }}>
+                이 토론은 비밀번호가 설정되어 있습니다. 삭제하려면 비밀번호를 입력하세요.
+              </Typography>
+              <TextField
+                fullWidth
+                type="password"
+                placeholder="비밀번호를 입력하세요"
+                value={deleteDialog.password}
+                onChange={(e) => setDeleteDialog(prev => ({ ...prev, password: e.target.value }))}
+                onKeyPress={(e) => e.key === 'Enter' && handleDeleteDiscussion()}
+                sx={{ mt: 1 }}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialog({ open: false, discussion: null, password: '' })}>
+            취소
+          </Button>
+          <Button onClick={handleDeleteDiscussion} variant="contained" color="error">
+            삭제
           </Button>
         </DialogActions>
       </Dialog>
