@@ -18,10 +18,16 @@ import { formatContractAmount, formatAdvanceAmount, formatGisungAmount, formatSa
 // 물량과 금액 포맷팅 함수
 const formatQuantity = (value) => {
   if (value === '' || value === null || value === undefined) return '';
+  
+  // "물량"이라는 텍스트가 들어있으면 빈 문자열로 처리
+  if (typeof value === 'string' && value.includes('물량')) {
+    return '';
+  }
+  
   const num = parseFloat(value);
-  if (isNaN(num)) return value;
+  if (isNaN(num)) return '';
   if (num === 0) return '0';
-  // 정수로 반올림하여 표시
+  // 정수로 반올림하여 천단위 쉼표 적용
   return Math.round(num).toLocaleString();
 };
 
@@ -84,6 +90,7 @@ const formatDateRange = (startDate, endDate) => {
 import { getSiteIntegratedStatus } from '../utils/integrationUtils';
 import * as XLSX from 'xlsx';
 import { uploadMaterialData, generateEstimateExcel, getMaterialDataFromFirebase } from '../utils/materialUploadUtils';
+import { safeUpdateDoc, debouncedUpdate } from '../utils/databaseUtils';
 
 // 회사명은 사용자 입력값 그대로 저장합니다. 더 이상 표준화하지 않습니다.
 const normalizeCompanyName = (value) => (value ?? '').toString();
@@ -784,6 +791,18 @@ const NewSites = () => {
     return totalWithVatItem ? parseFloat(totalWithVatItem.amount) || 0 : 0;
   };
 
+  // 디바운싱을 위한 타이머
+  const [saveTimer, setSaveTimer] = useState(null);
+
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+      }
+    };
+  }, [saveTimer]);
+
   const handleItemsChange = async (index, field, value) => {
     // 수정 모드가 아닌 경우 편집 불가
     if (selectedSite && !isEditing) {
@@ -792,8 +811,12 @@ const NewSites = () => {
     
     const newItems = [...form.items];
     
-    // 단가와 금액의 경우 쉼표 제거 후 저장
-    if (field === 'price' || field === 'amount') {
+    // 물량 필드에서 "물량" 텍스트가 들어오면 빈 문자열로 처리
+    if (field === 'quantity' && typeof value === 'string' && value.includes('물량')) {
+      newItems[index][field] = '';
+    }
+    // 물량, 단가, 금액의 경우 쉼표 제거 후 저장
+    else if (field === 'quantity' || field === 'price' || field === 'amount') {
       const numericValue = value.replace(/,/g, '');
       newItems[index][field] = numericValue;
     } else {
@@ -842,17 +865,32 @@ const NewSites = () => {
       contractAmount: autoContractAmount > 0 ? autoContractAmount.toString() : prev.contractAmount
     }));
     
-    // Firebase에 실시간 저장 (수정 모드일 때만)
+    // 기존 타이머 취소
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+    }
+    
+    // Firebase에 디바운싱된 저장 (수정 모드일 때만)
     if (selectedSite && isEditing) {
-      try {
-        await updateDoc(doc(db, 'sites', selectedSite.id), {
-          items: newItems,
-          contractAmount: autoContractAmount > 0 ? autoContractAmount.toString() : form.contractAmount,
-          updatedAt: new Date()
-        });
-      } catch (error) {
-        console.error('물량내역 실시간 저장 오류:', error);
-      }
+      const newTimer = setTimeout(async () => {
+        try {
+          const { doc } = await import('firebase/firestore');
+          const docRef = doc(db, 'sites', selectedSite.id);
+          
+          const success = await safeUpdateDoc(docRef, {
+            items: newItems,
+            contractAmount: autoContractAmount > 0 ? autoContractAmount.toString() : form.contractAmount
+          });
+          
+          if (!success) {
+            console.warn('물량내역 저장 실패 - 나중에 다시 시도해주세요');
+          }
+        } catch (error) {
+          console.error('물량내역 실시간 저장 오류:', error);
+        }
+      }, 1000); // 1초 후 저장
+      
+      setSaveTimer(newTimer);
     }
   };
   const handleAddItem = async () => {
@@ -886,26 +924,30 @@ const NewSites = () => {
           updatedAt: new Date()
         });
         
-        // materialEstimates 컬렉션도 함께 업데이트
-        const materialQuery = query(
-          collection(db, 'materialEstimates'),
-          where('siteId', '==', selectedSite.id)
-        );
-        const materialDocs = await getDocs(materialQuery);
-        
-        if (!materialDocs.empty) {
-          const materialDoc = materialDocs.docs[0];
-          const materialData = materialDoc.data();
+        // materialEstimates 컬렉션도 함께 업데이트 (선택적)
+        try {
+          const materialQuery = query(
+            collection(db, 'materialEstimates'),
+            where('siteId', '==', selectedSite.id)
+          );
+          const materialDocs = await getDocs(materialQuery);
           
-          // 새로운 품목을 materialEstimates의 items에 추가
-          const updatedItems = [...(materialData.items || []), newItem];
-          
-          await updateDoc(doc(db, 'materialEstimates', materialDoc.id), {
-            items: updatedItems,
-            updatedAt: serverTimestamp()
-          });
-          
-          console.log('✅ materialEstimates 컬렉션도 함께 업데이트 완료');
+          if (!materialDocs.empty) {
+            const materialDoc = materialDocs.docs[0];
+            const materialData = materialDoc.data();
+            
+            // 새로운 품목을 materialEstimates의 items에 추가
+            const updatedItems = [...(materialData.items || []), newItem];
+            
+            await updateDoc(doc(db, 'materialEstimates', materialDoc.id), {
+              items: updatedItems,
+              updatedAt: serverTimestamp()
+            });
+            
+            console.log('✅ materialEstimates 컬렉션도 함께 업데이트 완료');
+          }
+        } catch (materialError) {
+          console.warn('materialEstimates 업데이트 실패 (무시됨):', materialError);
         }
       } catch (error) {
         console.error('품목 추가 실시간 저장 오류:', error);
@@ -2593,17 +2635,17 @@ const NewSites = () => {
         >
           {(form.items || []).map((item, index) => (
             <Box key={index} sx={{ 
-              display: item.isSpacer ? 'none' : isMobile ? 'block' : 'flex', 
-              gap: 1, 
-              mb: isMobile ? 1 : 1, 
+              display: item.isSpacer ? 'none' : 'flex', 
+              gap: isMobile ? 0.5 : 1, 
+              mb: isMobile ? 0.5 : 1, 
               alignItems: 'center', 
-              flexWrap: 'wrap',
+              flexWrap: 'nowrap',
               ...(isMobile && {
                 bgcolor: '#1e252b',
                 borderRadius: 1,
-                p: 1.5,
+                p: 1,
                 border: '1px solid #333',
-                mb: 1
+                mb: 0.5
               })
             }}>
               {item.isTotal ? (
@@ -2613,11 +2655,11 @@ const NewSites = () => {
                     flex: '1 1 120px',
                     fontWeight: 'bold',
                     color: 'primary.main',
-                    fontSize: '1.2rem',
+                    fontSize: isMobile ? '0.9rem' : '1.1rem',
                     whiteSpace: 'nowrap', // 한 줄로 표시
                   }}
                 >
-                  총 공사계(부가세별도)
+                  {isMobile ? '총공사계' : '총 공사계(부가세별도)'}
                 </Typography>
               ) : item.isVat ? (
                 <Typography 
@@ -2626,7 +2668,7 @@ const NewSites = () => {
                     flex: '1 1 120px',
                     fontWeight: 'bold',
                     color: 'primary.main',
-                    fontSize: '1.1rem'
+                    fontSize: isMobile ? '0.9rem' : '1.1rem'
                   }}
                 >
                   부가세
@@ -2638,11 +2680,11 @@ const NewSites = () => {
                     flex: '1 1 120px',
                     fontWeight: 'bold',
                     color: 'primary.main',
-                    fontSize: '1.2rem',
+                    fontSize: isMobile ? '0.9rem' : '1.1rem',
                     whiteSpace: 'nowrap', // 한 줄로 표시
                   }}
                 >
-                  계약금액(부가세포함)
+                  {isMobile ? '계약금액' : '계약금액(부가세포함)'}
                 </Typography>
               ) : item.isAdjustment ? (
                 <TextField 
@@ -2661,8 +2703,7 @@ const NewSites = () => {
                   size="small" 
                   sx={{ 
                     flex: '1 1 120px',
-                    width: isMobile ? '100%' : 'auto',
-                    mb: isMobile ? 1 : 0,
+                    minWidth: isMobile ? '80px' : '120px',
                     '& .MuiOutlinedInput-root': {
                       '& fieldset': { borderColor: '#555' },
                       '&:hover fieldset': { borderColor: '#777' },
@@ -2670,7 +2711,7 @@ const NewSites = () => {
                     },
                     '& .MuiInputBase-input': { 
                       color: '#fff',
-                      fontSize: isMobile ? '0.8rem' : '0.8rem',
+                      fontSize: isMobile ? '0.7rem' : '0.8rem',
                       fontWeight: '500'
                     }
                   }} 
@@ -2680,16 +2721,23 @@ const NewSites = () => {
               )}
               
               {item.isTotal || item.isVat || item.isTotalWithVat ? (
-                <Typography variant="body2" sx={{ flex: '1 1 60px', textAlign: 'center' }}>
+                <Typography variant="body2" sx={{ flex: '1 1 50px', textAlign: 'center' }}>
                   {item.isTotal || item.isVat || item.isTotalWithVat ? '' : ''}
                 </Typography>
               ) : (
                 <TextField 
                   value={formatQuantity(item.quantity)} 
                   onChange={(e) => handleItemsChange(index, 'quantity', e.target.value)} 
+                  onFocus={(e) => {
+                    // 포커스 시 "물량" 텍스트가 있으면 자동으로 지우기
+                    if (e.target.value.includes('물량')) {
+                      handleItemsChange(index, 'quantity', '');
+                    }
+                  }}
                   size="small" 
                   sx={{ 
                     flex: '1 1 60px',
+                    minWidth: isMobile ? '50px' : '60px',
                     '& .MuiInputBase-input': { 
                       fontSize: isMobile ? '0.7rem' : '0.8rem',
                       textAlign: 'right'
@@ -2698,14 +2746,14 @@ const NewSites = () => {
                   placeholder="물량" 
                   disabled={isReadOnly}
                   inputProps={{ 
-                    type: 'number',
-                    step: '0.01'
+                    type: 'text',
+                    maxLength: 15
                   }}
                 />
               )}
               
               {item.isTotal || item.isVat || item.isTotalWithVat ? (
-                <Typography variant="body2" sx={{ flex: '1 1 80px', textAlign: 'center' }}>
+                <Typography variant="body2" sx={{ flex: '1 1 60px', textAlign: 'center' }}>
                   {item.isTotal || item.isVat || item.isTotalWithVat ? '' : ''}
                 </Typography>
               ) : (
@@ -2714,7 +2762,8 @@ const NewSites = () => {
                   onChange={(e) => handleItemsChange(index, 'price', e.target.value)} 
                   size="small" 
                   sx={{ 
-                    flex: '1 1 80px',
+                    flex: '1 1 70px',
+                    minWidth: isMobile ? '60px' : '70px',
                     '& .MuiInputBase-input': { 
                       fontSize: isMobile ? '0.7rem' : '0.8rem',
                       textAlign: 'right'
@@ -2729,11 +2778,12 @@ const NewSites = () => {
                 <Typography 
                   variant="body2" 
                   sx={{ 
-                    flex: '1 1 80px',
+                    flex: '1 1 70px',
+                    minWidth: isMobile ? '60px' : '70px',
                     textAlign: 'right',
                     fontWeight: (item.isTotal || item.isVat || item.isTotalWithVat) ? 'bold' : 'normal',
                     color: (item.isTotal || item.isVat || item.isTotalWithVat) ? 'primary.main' : 'text.primary',
-                    fontSize: (item.isTotal || item.isVat || item.isTotalWithVat) ? '1.1rem' : 'inherit'
+                    fontSize: (item.isTotal || item.isVat || item.isTotalWithVat) ? (isMobile ? '0.9rem' : '1.1rem') : 'inherit'
                   }}
                 >
                   {(item.isTotal || item.isVat || item.isTotalWithVat) ? formatAmount(item.amount) : ''}
@@ -2744,9 +2794,10 @@ const NewSites = () => {
                   onChange={(e) => handleItemsChange(index, 'amount', e.target.value)} 
                   size="small" 
                   sx={{ 
-                    flex: '1 1 80px',
+                    flex: '1 1 70px',
+                    minWidth: isMobile ? '60px' : '70px',
                     '& .MuiInputBase-input': { 
-                      fontSize: isMobile ? '0.8rem' : 'inherit',
+                      fontSize: isMobile ? '0.7rem' : '0.8rem',
                       textAlign: 'right'
                     }
                   }} 

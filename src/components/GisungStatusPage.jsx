@@ -1218,6 +1218,122 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     }
   };
 
+  // 모바일용 기성 데이터 카드 컴포넌트
+  const MobileGisungCard = ({ gisung, onEdit, onDelete, onStatusChange }) => (
+    <Card sx={{ 
+      mb: 2, 
+      bgcolor: '#232b3b', 
+      border: '1px solid #333',
+      '&:hover': { bgcolor: '#2c3446' }
+    }}>
+      <CardContent sx={{ p: 2 }}>
+        {/* 헤더: 현장명, 차수, 기성월 */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" sx={{ color: '#90caf9', fontWeight: 700, fontSize: '1rem' }}>
+            {gisung.name}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Chip
+              label={gisung.sequence || '1차'} 
+              size="small"
+              sx={{ bgcolor: '#ff6b35', color: '#fff', fontWeight: 700, fontSize: '0.7rem' }} 
+            />
+            <Chip
+              label={gisung.gisungMonth || '-'} 
+              size="small"
+              sx={{ bgcolor: '#1976d2', color: '#fff', fontWeight: 700, fontSize: '0.7rem' }} 
+            />
+          </Box>
+        </Box>
+
+        {/* 금액 정보 */}
+        <Grid container spacing={1} sx={{ mb: 2 }}>
+          <Grid xs={6}>
+            <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>계약금액</Typography>
+            <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: '0.9rem' }}>
+              {Number(gisung.contractAmount || 0).toLocaleString()}원
+            </Typography>
+          </Grid>
+          <Grid xs={6}>
+            <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>선급금</Typography>
+            <Typography sx={{ color: '#ffd600', fontWeight: 700, fontSize: '0.9rem' }}>
+              {Number(gisung.advance || 0).toLocaleString()}원
+            </Typography>
+          </Grid>
+          <Grid xs={6}>
+            <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>전회기성</Typography>
+            <Typography sx={{ color: '#a084e8', fontWeight: 700, fontSize: '0.9rem' }}>
+              {Number(gisung.prevGisung || 0).toLocaleString()}원
+            </Typography>
+          </Grid>
+          <Grid xs={6}>
+            <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>금회기성</Typography>
+            <Typography sx={{ color: '#ef5350', fontWeight: 700, fontSize: '0.9rem' }}>
+              {Number(gisung.gisungAmount || 0).toLocaleString()}원
+            </Typography>
+          </Grid>
+          <Grid xs={6}>
+            <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>잔액</Typography>
+            <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: '0.9rem' }}>
+              {Number((gisung.contractAmount || 0) - (gisung.advance || 0) - (gisung.prevGisung || 0) - (gisung.gisungAmount || 0)).toLocaleString()}원
+            </Typography>
+          </Grid>
+          <Grid xs={6}>
+            <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>청구방법</Typography>
+            <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '0.9rem' }}>
+              {gisung.claimMethod || '-'}
+            </Typography>
+          </Grid>
+        </Grid>
+
+        {/* 하단: 청구상태, 비고, 액션 버튼 */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Chip
+            label={gisung.claimStatus === '청구완료' ? '청구완료' : '미청구'}
+            size="small"
+            onClick={() => onStatusChange(gisung)}
+            sx={{
+              bgcolor: gisung.claimStatus === '청구완료' ? '#4caf50' : '#ff9800',
+              color: '#fff',
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontSize: '0.7rem',
+              '&:hover': {
+                bgcolor: gisung.claimStatus === '청구완료' ? '#45a049' : '#f57c00'
+              }
+            }}
+          />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <IconButton
+              size="small"
+              onClick={() => onEdit(gisung)}
+              sx={{ color: '#90caf9', p: 0.5 }}
+            >
+              <EditIcon sx={{ fontSize: '1rem' }} />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => onDelete(gisung)}
+              sx={{ color: '#ef5350', p: 0.5 }}
+            >
+              <DeleteIcon sx={{ fontSize: '1rem' }} />
+            </IconButton>
+          </Box>
+        </Box>
+
+        {/* 비고 */}
+        {gisung.note && (
+          <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid #333' }}>
+            <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>비고</Typography>
+            <Typography sx={{ color: '#fff', fontSize: '0.8rem', lineHeight: 1.4 }}>
+              {gisung.note}
+            </Typography>
+          </Box>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   const StatCard = ({ title, value, color }) => (
     <Grid size={{ xs: 3, sm: 6, md: 3 }}>
       <Card sx={{ 
@@ -1315,248 +1431,288 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
 
 
 
-      {/* 통계 카드 */}
-      <Grid container spacing={isMobile ? 0.7 : 2} sx={{ mb: 3 }}>
-        <StatCard title="총 계약금액" value={stats.totalContractAmount} color="#43e97b" />
-        <StatCard title="총 선급금" value={stats.totalAdvance} color="#ffd600" />
-        {viewType !== 'month' && (
-          <StatCard title="잔액" value={stats.totalBalance} color="#a084e8" />
-        )}
-        <StatCard title="총 기성금액" value={stats.totalGisungAmount} color="#ef5350" />
-      </Grid>
+             {/* 통계 카드 */}
+       <Grid container spacing={isMobile ? 0.7 : 2} sx={{ mb: 3 }}>
+         <StatCard title={isMobile ? "계약금액" : "총 계약금액"} value={stats.totalContractAmount} color="#43e97b" />
+         <StatCard title={isMobile ? "선급금" : "총 선급금"} value={stats.totalAdvance} color="#ffd600" />
+         {viewType !== 'month' && (
+           <StatCard title="잔액" value={stats.totalBalance} color="#a084e8" />
+         )}
+         <StatCard title={isMobile ? "기성금액" : "총 기성금액"} value={stats.totalGisungAmount} color="#ef5350" />
+       </Grid>
 
-      {/* 버튼들 */}
-      <Box sx={{ 
-        display: 'flex', 
-        gap: 2, 
-        mb: 3, 
-        alignItems: 'center',
-        justifyContent: 'flex-end'
-      }}>
-        {selectedItems.length > 0 && (
-          <Button 
-            variant="contained" 
-            color="error" 
-            onClick={handleBulkDelete}
-            sx={{ 
-              bgcolor: '#d32f2f',
-              '&:hover': { bgcolor: '#c62828' }
-            }}
-          >
-            선택 삭제 ({selectedItems.length})
-          </Button>
-        )}
+             {/* 버튼들 */}
+       <Box sx={{ 
+         display: 'flex', 
+         gap: isMobile ? 1 : 2, 
+         mb: 3, 
+         alignItems: 'center',
+         justifyContent: isMobile ? 'center' : 'flex-end',
+         flexDirection: isMobile ? 'column' : 'row',
+         flexWrap: isMobile ? 'wrap' : 'nowrap'
+       }}>
+                 {selectedItems.length > 0 && (
+           <Button 
+             variant="contained" 
+             color="error" 
+             onClick={handleBulkDelete}
+             sx={{ 
+               bgcolor: '#d32f2f',
+               '&:hover': { bgcolor: '#c62828' },
+               fontSize: isMobile ? '0.8rem' : 'inherit',
+               px: isMobile ? 1 : 2
+             }}
+           >
+             {isMobile ? `삭제 (${selectedItems.length})` : `선택 삭제 (${selectedItems.length})`}
+           </Button>
+         )}
         
-              <Button
-          variant="contained" 
-          color="success" 
-          startIcon={<AddIcon />}
-          onClick={() => handleOpen()}
-                sx={{
-            bgcolor: '#2e7d32',
-            '&:hover': { bgcolor: '#1b5e20' }
-          }}
-        >
-          기성등록
-              </Button>
-              <Button
-          variant="contained" 
-          color="secondary" 
-                startIcon={<CloudDownloadIcon />}
-                onClick={handleGisungClaimDownload}
-                sx={{
-            bgcolor: '#9c27b0',
-            '&:hover': { bgcolor: '#7b1fa2' },
-            display: isMobile ? 'none' : 'flex'
-                }}
-              >
-                기성금청구서 다운로드
-              </Button>
+                             <Button
+           variant="contained" 
+           color="success" 
+           startIcon={<AddIcon />}
+           onClick={() => handleOpen()}
+                 sx={{
+             bgcolor: '#2e7d32',
+             '&:hover': { bgcolor: '#1b5e20' },
+             fontSize: isMobile ? '0.8rem' : 'inherit',
+             px: isMobile ? 1 : 2
+           }}
+         >
+           기성등록
+               </Button>
+                             <Button
+           variant="contained" 
+           color="secondary" 
+                 startIcon={<CloudDownloadIcon />}
+                 onClick={handleGisungClaimDownload}
+                 sx={{
+             bgcolor: '#9c27b0',
+             '&:hover': { bgcolor: '#7b1fa2' },
+             fontSize: isMobile ? '0.8rem' : 'inherit',
+             px: isMobile ? 1 : 2
+                 }}
+               >
+                 {isMobile ? '기성청구서' : '기성금청구서 다운로드'}
+               </Button>
 
-            <Button
-          variant="contained" 
-          color="warning" 
-          startIcon={<UploadIcon />}
-          onClick={() => setUploadDialog(true)}
-              sx={{
-            bgcolor: '#f59e42',
-            '&:hover': { bgcolor: '#d97706' }
-          }}
-        >
-          기성금청구서 업로드
-            </Button>
+                         <Button
+           variant="contained" 
+           color="warning" 
+           startIcon={<UploadIcon />}
+           onClick={() => setUploadDialog(true)}
+               sx={{
+             bgcolor: '#f59e42',
+             '&:hover': { bgcolor: '#d97706' },
+             fontSize: isMobile ? '0.8rem' : 'inherit',
+             px: isMobile ? 1 : 2
+           }}
+         >
+           {isMobile ? '기성업로드' : '기성금청구서 업로드'}
+             </Button>
 
 
       </Box>
 
-      {/* 테이블 */}
-      <Paper sx={{ 
-        borderRadius: 4, 
-        boxShadow: 6, 
-        bgcolor: '#181f2e', 
-        color: '#fff',
-        overflow: 'hidden'
-      }}>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: '#232b3b' }}>
-                <TableCell padding="checkbox" sx={{ display: isMobile ? 'none' : 'table-cell' }}>
-                  <Checkbox
-                    indeterminate={selectedItems.length > 0 && selectedItems.length < filteredAndSortedGisung.length}
-                    checked={filteredAndSortedGisung.length > 0 && selectedItems.length === filteredAndSortedGisung.length}
-                    onChange={handleSelectAll}
-                    sx={{ color: '#fff' }}
-                  />
-                </TableCell>
-                <TableCell 
-                  sx={{ 
-                    color: '#fff', 
-                    fontWeight: 700, 
-                    cursor: 'pointer',
-                    '&:hover': { bgcolor: '#2c3e50' }
-                  }}
-                  onClick={() => handleSort('sequence')}
-                >
-                  차수 {sortField === 'sequence' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </TableCell>
-                <TableCell 
-                  sx={{ 
-                    color: '#fff', 
-                    fontWeight: 700, 
-                    cursor: 'pointer',
-                    '&:hover': { bgcolor: '#2c3e50' }
-                  }}
-                  onClick={() => handleSort('gisungMonth')}
-                >
-                  기성월 {sortField === 'gisungMonth' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700 }}>현장명</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>계약금액</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>선급금</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>전회기성</TableCell>
-                <TableCell 
-                  sx={{ 
-                    color: '#fff', 
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    '&:hover': { bgcolor: '#2c3e50' }
-                  }}
-                  onClick={() => handleSort('gisungAmount')}
-                >
-                  금회기성 {sortField === 'gisungAmount' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700 }}>잔액</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700 }}>청구상태</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>청구방법</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>비고</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>관리</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredAndSortedGisung.length === 0 ? (
-                <TableRow>
-                                  <TableCell colSpan={isMobile ? 4 : 12} sx={{ textAlign: 'center', color: '#bbb', py: 4 }}>
-                  {search ? '검색 결과가 없습니다.' : '기성 데이터가 없습니다.'}
-                </TableCell>
-                </TableRow>
-              ) : (
-                filteredAndSortedGisung.map(row => (
-                  <TableRow 
-                    key={row.id}
+      {/* 데이터 표시 */}
+      {isMobile ? (
+        // 모바일: 카드 형태로 표시
+        <Box sx={{ mt: 2 }}>
+          {filteredAndSortedGisung.length === 0 ? (
+            <Box sx={{ 
+              textAlign: 'center', 
+              color: '#bbb', 
+              py: 4,
+              bgcolor: '#181f2e',
+              borderRadius: 4,
+              border: '1px solid #333'
+            }}>
+              <Typography variant="h6">
+                {search ? '검색 결과가 없습니다.' : '기성 데이터가 없습니다.'}
+              </Typography>
+            </Box>
+          ) : (
+            filteredAndSortedGisung.map(row => (
+              <MobileGisungCard
+                key={row.id}
+                gisung={row}
+                onEdit={handleOpen}
+                onDelete={handleDelete}
+                onStatusChange={handleClaimStatusChange}
+              />
+            ))
+          )}
+        </Box>
+      ) : (
+        // 데스크톱: 테이블 형태로 표시
+        <Paper sx={{ 
+          borderRadius: 4, 
+          boxShadow: 6, 
+          bgcolor: '#181f2e', 
+          color: '#fff',
+          overflow: 'hidden'
+        }}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: '#232b3b' }}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      indeterminate={selectedItems.length > 0 && selectedItems.length < filteredAndSortedGisung.length}
+                      checked={filteredAndSortedGisung.length > 0 && selectedItems.length === filteredAndSortedGisung.length}
+                      onChange={handleSelectAll}
+                      sx={{ color: '#fff' }}
+                    />
+                  </TableCell>
+                  <TableCell 
                     sx={{ 
-                      '&:hover': { bgcolor: '#232b3b' },
-                      borderBottom: '1px solid #333'
+                      color: '#fff', 
+                      fontWeight: 700, 
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: '#2c3e50' }
                     }}
+                    onClick={() => handleSort('sequence')}
                   >
-                    <TableCell padding="checkbox" sx={{ display: isMobile ? 'none' : 'table-cell' }}>
-                      <Checkbox
-                        checked={selectedItems.includes(row.id)}
-                        onChange={() => handleSelectItem(row.id)}
-                        sx={{ color: '#90caf9' }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={row.sequence || '1차'} 
-                        size="small"
-                        sx={{
-                          bgcolor: '#ff6b35',
-                          color: '#fff',
-                          fontWeight: 700
-                        }} 
-                      />
-                    </TableCell>
-                    <TableCell>
-                          <Chip
-                        label={row.gisungMonth || '-'} 
-                            size="small"
-                            sx={{
-                          bgcolor: '#1976d2',
-                          color: '#fff',
-                          fontWeight: 700
-                        }} 
-                      />
-                    </TableCell>
-                    <TableCell sx={{ color: '#fff' }}>{row.name}</TableCell>
-                    <TableCell sx={{ color: '#43e97b', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>
-                      {Number(row.contractAmount || 0).toLocaleString()}원
-                    </TableCell>
-                    <TableCell sx={{ color: '#ffd600', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>
-                      {Number(row.advance || 0).toLocaleString()}원
-                    </TableCell>
-                    <TableCell sx={{ color: '#a084e8', fontWeight: 700, display: isMobile ? 'none' : 'table-cell' }}>
-                      {Number(row.prevGisung || 0).toLocaleString()}원
-                    </TableCell>
-                    <TableCell sx={{ color: '#ef5350', fontWeight: 700 }}>
-                      {Number(row.gisungAmount || 0).toLocaleString()}원
-                    </TableCell>
-                    <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
-                      {Number((row.contractAmount || 0) - (row.advance || 0) - (row.prevGisung || 0) - (row.gisungAmount || 0)).toLocaleString()}원
-                    </TableCell>
-                    <TableCell sx={{ color: '#fff', display: isMobile ? 'none' : 'table-cell' }}>
-                      {row.claimMethod || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={row.claimStatus === '청구완료' ? '청구완료' : '미청구'}
-                        size="small"
-                        onClick={() => handleClaimStatusChange(row)}
-                        sx={{
-                          bgcolor: row.claimStatus === '청구완료' ? '#4caf50' : '#ff9800',
-                          color: '#fff',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          '&:hover': {
-                            bgcolor: row.claimStatus === '청구완료' ? '#45a049' : '#f57c00'
-                          }
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ color: '#bbb', display: isMobile ? 'none' : 'table-cell' }}>{row.note || '-'}</TableCell>
-                    <TableCell sx={{ display: isMobile ? 'none' : 'table-cell' }}>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpen(row)}
-                        sx={{ color: '#90caf9' }}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDelete(row)}
-                        sx={{ color: '#ef5350' }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                    차수 {sortField === 'sequence' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </TableCell>
+                  <TableCell 
+                    sx={{ 
+                      color: '#fff', 
+                      fontWeight: 700, 
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: '#2c3e50' }
+                    }}
+                    onClick={() => handleSort('gisungMonth')}
+                  >
+                    기성월 {sortField === 'gisungMonth' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>현장명</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>계약금액</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>선급금</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>전회기성</TableCell>
+                  <TableCell 
+                    sx={{ 
+                      color: '#fff', 
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: '#2c3e50' }
+                    }}
+                    onClick={() => handleSort('gisungAmount')}
+                  >
+                    금회기성 {sortField === 'gisungAmount' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>잔액</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>청구상태</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>청구방법</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>비고</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>관리</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredAndSortedGisung.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={12} sx={{ textAlign: 'center', color: '#bbb', py: 4 }}>
+                      {search ? '검색 결과가 없습니다.' : '기성 데이터가 없습니다.'}
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+                ) : (
+                  filteredAndSortedGisung.map(row => (
+                    <TableRow 
+                      key={row.id}
+                      sx={{ 
+                        '&:hover': { bgcolor: '#232b3b' },
+                        borderBottom: '1px solid #333'
+                      }}
+                    >
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={selectedItems.includes(row.id)}
+                          onChange={() => handleSelectItem(row.id)}
+                          sx={{ color: '#90caf9' }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={row.sequence || '1차'} 
+                          size="small"
+                          sx={{
+                            bgcolor: '#ff6b35',
+                            color: '#fff',
+                            fontWeight: 700
+                          }} 
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={row.gisungMonth || '-'} 
+                          size="small"
+                          sx={{
+                            bgcolor: '#1976d2',
+                            color: '#fff',
+                            fontWeight: 700
+                          }} 
+                        />
+                      </TableCell>
+                      <TableCell sx={{ color: '#fff' }}>{row.name}</TableCell>
+                      <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
+                        {Number(row.contractAmount || 0).toLocaleString()}원
+                      </TableCell>
+                      <TableCell sx={{ color: '#ffd600', fontWeight: 700 }}>
+                        {Number(row.advance || 0).toLocaleString()}원
+                      </TableCell>
+                      <TableCell sx={{ color: '#a084e8', fontWeight: 700 }}>
+                        {Number(row.prevGisung || 0).toLocaleString()}원
+                      </TableCell>
+                      <TableCell sx={{ color: '#ef5350', fontWeight: 700 }}>
+                        {Number(row.gisungAmount || 0).toLocaleString()}원
+                      </TableCell>
+                      <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
+                        {Number((row.contractAmount || 0) - (row.advance || 0) - (row.prevGisung || 0) - (row.gisungAmount || 0)).toLocaleString()}원
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={row.claimStatus === '청구완료' ? '청구완료' : '미청구'}
+                          size="small"
+                          onClick={() => handleClaimStatusChange(row)}
+                          sx={{
+                            bgcolor: row.claimStatus === '청구완료' ? '#4caf50' : '#ff9800',
+                            color: '#fff',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            '&:hover': {
+                              bgcolor: row.claimStatus === '청구완료' ? '#45a049' : '#f57c00'
+                            }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ color: '#fff' }}>
+                        {row.claimMethod || '-'}
+                      </TableCell>
+                      <TableCell sx={{ color: '#bbb' }}>{row.note || '-'}</TableCell>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpen(row)}
+                          sx={{ color: '#90caf9' }}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDelete(row)}
+                          sx={{ color: '#ef5350' }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
 
       {/* 등록/수정 다이얼로그 */}
       <Dialog 

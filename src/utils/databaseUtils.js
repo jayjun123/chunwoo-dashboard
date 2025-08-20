@@ -270,3 +270,62 @@ export const getDatabaseStatusSummary = () => {
       : `데이터베이스 연결에 문제가 있습니다. (오류 ${errorCount}회)`
   };
 }; 
+
+// Firebase 연결 상태 확인
+export const isFirebaseConnected = () => {
+  try {
+    // Firebase 앱이 초기화되었는지 확인
+    return typeof window !== 'undefined' && window.firebase;
+  } catch (error) {
+    console.warn('Firebase 연결 상태 확인 실패:', error);
+    return false;
+  }
+};
+
+// 안전한 문서 업데이트 함수
+export const safeUpdateDoc = async (docRef, data, options = {}) => {
+  try {
+    if (!isFirebaseConnected()) {
+      console.warn('Firebase가 연결되지 않았습니다.');
+      return false;
+    }
+    
+    const { updateDoc } = await import('firebase/firestore');
+    await updateDoc(docRef, {
+      ...data,
+      updatedAt: new Date()
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('문서 업데이트 실패:', error);
+    
+    // 메시지 채널 오류인 경우 재시도
+    if (error.message.includes('message channel closed')) {
+      console.log('메시지 채널 오류 감지, 재시도 중...');
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const { updateDoc } = await import('firebase/firestore');
+        await updateDoc(docRef, {
+          ...data,
+          updatedAt: new Date()
+        });
+        return true;
+      } catch (retryError) {
+        console.error('재시도 실패:', retryError);
+        return false;
+      }
+    }
+    
+    return false;
+  }
+};
+
+// 디바운스된 업데이트 함수
+export const debouncedUpdate = (func, delay = 1000) => {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func(...args), delay);
+  };
+}; 
