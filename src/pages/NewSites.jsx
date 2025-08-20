@@ -1306,6 +1306,8 @@ const NewSites = () => {
     setUploadedItems(updatedItems);
   };
   const handleNewSite = (skipEditing = false) => {
+    console.log('🔍 handleNewSite 호출됨:', { isMobile, skipEditing });
+    
     setSelectedSite(null);
     setSiteIntegratedStatus(null);
     
@@ -1329,7 +1331,17 @@ const NewSites = () => {
       isFavorite: false,
       items: defaultItems
     });
-    setIsEditing(!skipEditing); // skipEditing이 true이면 편집 모드로 전환하지 않음
+    
+    // 모바일에서는 항상 편집 모드로 전환, PC에서는 skipEditing 옵션 적용
+    if (isMobile) {
+      console.log('📱 모바일에서 편집 모드로 전환');
+      setIsEditing(true);
+    } else {
+      console.log('💻 PC에서 편집 모드 설정:', !skipEditing);
+      setIsEditing(!skipEditing);
+    }
+    
+    console.log('✅ handleNewSite 완료');
   };
   const handleEditClick = () => setIsEditing(true);
 
@@ -1799,6 +1811,31 @@ const NewSites = () => {
             fieldset: { borderColor: '#444' } 
           }} 
         />
+        
+        {/* 모바일에서만 현장 추가 버튼 표시 */}
+        {isMobile && (
+          <Button 
+            variant="contained" 
+            onClick={() => {
+              console.log('📱 모바일 새현장 추가 버튼 클릭됨');
+              handleNewSite();
+            }} 
+            size="small" 
+            fullWidth
+            sx={{ 
+              mb: 1,
+              bgcolor: '#4caf50',
+              color: '#fff',
+              fontSize: '0.8rem',
+              fontWeight: 'bold',
+              '&:hover': {
+                bgcolor: '#388e3c'
+              }
+            }}
+          >
+            + 새 현장 추가
+          </Button>
+        )}
         <List sx={{ 
           overflowY: 'auto', 
           flex: 1,
@@ -1932,19 +1969,52 @@ const NewSites = () => {
         top: isMobile ? '0px' : 'auto',
         left: isMobile ? '0px' : 'auto',
         overflow: 'hidden', // 내부 컨텐츠에서 스크롤 처리
-        display: { xs: 'none', md: 'flex' } // 모바일에서는 숨김
+        display: { xs: isEditing ? 'flex' : 'none', md: 'flex' } // 모바일에서는 편집 모드일 때만 보임
       }}>
          <Box sx={{ display: 'flex', alignItems: 'center', mb: isMobile ? 1 : 2 }}>
            <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>
-             현장 상세 정보
+             {isMobile && isEditing && !selectedSite ? '새 현장 등록' : '현장 상세 정보'}
            </Typography>
            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
-             <Button variant="contained" onClick={handleNewSite} size={isMobile ? 'small' : 'small'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
-               + 새현장
-             </Button>
-             <Button variant="outlined" onClick={handleWholeList} size={isMobile ? 'small' : 'small'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', display: isMobile ? 'none' : 'inline-flex' }}>
-               전체 List
-             </Button>
+             {/* 모바일에서 편집 모드이고 새 현장 등록 중일 때 취소 버튼 표시 */}
+             {isMobile && isEditing && !selectedSite ? (
+               <Button 
+                 variant="outlined" 
+                 onClick={() => setIsEditing(false)} 
+                 size="small" 
+                 sx={{ 
+                   fontSize: '0.7rem',
+                   color: '#f44336',
+                   borderColor: '#f44336',
+                   '&:hover': {
+                     borderColor: '#d32f2f',
+                     bgcolor: 'rgba(244, 67, 54, 0.1)'
+                   }
+                 }}
+               >
+                 취소
+               </Button>
+             ) : (
+               <>
+                 <Button 
+                   variant="contained" 
+                   onClick={handleNewSite} 
+                   size={isMobile ? 'small' : 'small'} 
+                   sx={{ 
+                     fontSize: isMobile ? '0.7rem' : 'inherit',
+                     bgcolor: '#4caf50',
+                     '&:hover': {
+                       bgcolor: '#388e3c'
+                     }
+                   }}
+                 >
+                   + 새현장
+                 </Button>
+                 <Button variant="outlined" onClick={handleWholeList} size={isMobile ? 'small' : 'small'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', display: isMobile ? 'none' : 'inline-flex' }}>
+                   전체 List
+                 </Button>
+               </>
+             )}
            </Box>
          </Box>
          {/* 통합 현황 표시 */}

@@ -232,12 +232,14 @@ const fillContractSheetData = async (sheet, siteData, workbook) => {
                return null;
              }
              
-             // Firebase Storage에서 인감 이미지 가져오기
-             const { ref, getDownloadURL } = await import('firebase/storage');
-             const { storage } = await import('../firebase.js');
-             const signatureRef = ref(storage, `stamps/${mappedImageName}`);
-             const url = await getDownloadURL(signatureRef);
-             const response = await fetch(url);
+             // 인감 이미지 가져오기 (로컬 파일 사용)
+             console.log('🌐 로컬 인감 이미지 사용');
+             const imagePath = `/${mappedImageName}`;
+             console.log('📁 로컬 인감 이미지 경로:', imagePath);
+             const response = await fetch(imagePath);
+             if (!response.ok) {
+               throw new Error(`인감 이미지 다운로드 실패: ${response.status}`);
+             }
              const arrayBuffer = await response.arrayBuffer();
              console.log('✅ 인감 이미지 다운로드 완료:', mappedImageName);
              return arrayBuffer;
@@ -357,14 +359,14 @@ const addStampImageToSheet = async (sheet, siteData, workbook) => {
             return null;
           }
           
-          const { ref, getDownloadURL } = await import('firebase/storage');
-          const { storage } = await import('../firebase.js');
-          
-          const imageRef = ref(storage, `stamps/${mappedImageName}`);
-          const imageUrl = await getDownloadURL(imageRef);
-          
-          console.log('🖼️ 인감 이미지 다운로드:', imageUrl);
-          const response = await fetch(imageUrl);
+          // 인감 이미지 가져오기 (로컬 파일 사용)
+          console.log('🌐 로컬 인감 이미지 사용');
+          const imagePath = `/${mappedImageName}`;
+          console.log('📁 로컬 인감 이미지 경로:', imagePath);
+          const response = await fetch(imagePath);
+          if (!response.ok) {
+            throw new Error(`인감 이미지 다운로드 실패: ${response.status}`);
+          }
           const imageBuffer = await response.arrayBuffer();
           
           console.log('✅ 인감 이미지 다운로드 완료');
