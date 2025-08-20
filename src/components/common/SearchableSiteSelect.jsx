@@ -93,6 +93,10 @@ const SearchableSiteSelect = ({
     if (option && typeof option === 'object' && typeof value === 'string') {
       return option.name === value;
     }
+    // 추가: 전체선택 옵션 처리
+    if (option && typeof option === 'object' && option.name === '전체선택' && value === '전체선택') {
+      return true;
+    }
     return false;
   };
 
@@ -257,7 +261,8 @@ const SearchableSiteSelect = ({
       if (Array.isArray(value)) {
         return value.map(item => {
           if (typeof item === 'string') {
-            return sites.find(site => site.name === item) || item;
+            const foundSite = sites.find(site => site.name === item);
+            return foundSite || item;
           }
           return item;
         });
@@ -265,13 +270,15 @@ const SearchableSiteSelect = ({
       return [];
     }
     if (typeof value === 'string' && value) {
-      return sites.find(site => site.name === value) || value;
+      const foundSite = sites.find(site => site.name === value);
+      return foundSite || value;
     }
     return value;
   };
 
   return (
     <Autocomplete
+      key={`${multiple}-${JSON.stringify(value)}`}
       options={sites}
       value={getValueForAutocomplete()}
       onChange={handleChange}
@@ -290,6 +297,8 @@ const SearchableSiteSelect = ({
       openOnFocus={openOnFocus}
       clearOnBlur={clearOnBlur}
       selectOnFocus={selectOnFocus}
+      autoComplete={false}
+      blurOnSelect={false}
       sx={{
         '& .MuiAutocomplete-paper': {
           bgcolor: '#232b3b',
