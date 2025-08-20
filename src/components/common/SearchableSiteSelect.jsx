@@ -49,7 +49,10 @@ const SearchableSiteSelect = ({
         onChange(selectedValues);
       } else {
         console.log('빈 배열 또는 null:', newValue);
-        onChange(newValue || []);
+        // 빈 배열이 아닌 경우에만 onChange 호출
+        if (newValue && Array.isArray(newValue) && newValue.length > 0) {
+          onChange(newValue);
+        }
       }
     } else {
       // 단일 선택인 경우
