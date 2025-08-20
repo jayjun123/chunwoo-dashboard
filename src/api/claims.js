@@ -26,8 +26,8 @@ export const subscribeToClaims = (callback, month = null) => {
   if (month) {
     q = query(
       claimsCollection,
-      where('claimMonth', '==', month),
-      orderBy('siteName', 'asc')
+      where('claimMonth', '==', month)
+      // orderBy 제거하여 인덱스 오류 방지
     );
   } else {
     q = query(
