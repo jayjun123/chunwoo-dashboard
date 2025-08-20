@@ -94,48 +94,48 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
       });
       
       // 인감 이미지 추가 (납품계약서와 동일한 방식)
-      try {
-        const stampType = siteData?.stampType || '인감없음';
+    try {
+      const stampType = siteData?.stampType || '인감없음';
         console.log('🖊️ 갑지 시트 인감 이미지 처리 시작:', stampType);
-        
-        // 인감없음인 경우 A인감으로 처리, 기타인감인 경우 이미지 넣지 않음
-        if (stampType === '기타') {
-          console.log('📝 기타인감이므로 이미지 삽입하지 않음:', stampType);
+      
+      // 인감없음인 경우 A인감으로 처리, 기타인감인 경우 이미지 넣지 않음
+      if (stampType === '기타') {
+        console.log('📝 기타인감이므로 이미지 삽입하지 않음:', stampType);
         } else {
-          // 실제 사용할 인감 타입 결정
-          const actualStampType = stampType === '인감없음' ? 'A인감' : stampType;
-          console.log('🖊️ 실제 사용할 인감 타입:', actualStampType);
-          
-          if (workbook) {
+      // 실제 사용할 인감 타입 결정
+      const actualStampType = stampType === '인감없음' ? 'A인감' : stampType;
+      console.log('🖊️ 실제 사용할 인감 타입:', actualStampType);
+      
+      if (workbook) {
             // 인감 이미지 다운로드 함수 (납품계약서와 동일한 방식)
-            const downloadSignatureImage = async (stampType = 'A인감') => {
-              try {
-                const stampImageMap = {
-                  'A인감': 'A.png',
-                  '□인감': '네모.png',
-                  '○인감': '동.png',
-                  '☆인감': '별.png',
-                  '△인감': '삼각.png',
-                  '♤인감': '스페이드.png',
-                  '♧인감': '클로버.png',
-                  '♡인감': '하트.png',
-                  '11인감': '11.png',
-                  // 기존 매핑도 유지
-                  '네모': '네모.png',
-                  '동': '동.png',
-                  '별': '별.png',
-                  '삼각': '삼각.png',
-                  '스페이드': '스페이드.png',
-                  '클로버': '클로버.png',
-                  '하트': '하트.png'
-                };
-                
-                const mappedImageName = stampImageMap[stampType];
-                if (!mappedImageName) {
-                  console.warn('⚠️ 알 수 없는 인감 타입:', stampType);
-                  return null;
-                }
-                
+        const downloadSignatureImage = async (stampType = 'A인감') => {
+          try {
+            const stampImageMap = {
+              'A인감': 'A.png',
+              '□인감': '네모.png',
+              '○인감': '동.png',
+              '☆인감': '별.png',
+              '△인감': '삼각.png',
+              '♤인감': '스페이드.png',
+              '♧인감': '클로버.png',
+              '♡인감': '하트.png',
+              '11인감': '11.png',
+              // 기존 매핑도 유지
+              '네모': '네모.png',
+              '동': '동.png',
+              '별': '별.png',
+              '삼각': '삼각.png',
+              '스페이드': '스페이드.png',
+              '클로버': '클로버.png',
+              '하트': '하트.png'
+            };
+            
+            const mappedImageName = stampImageMap[stampType];
+            if (!mappedImageName) {
+              console.warn('⚠️ 알 수 없는 인감 타입:', stampType);
+              return null;
+            }
+            
                 // Firebase Storage에서 인감 이미지 가져오기
                 const { ref, getDownloadURL } = await import('firebase/storage');
                 const { storage } = await import('../firebase.js');
@@ -149,34 +149,34 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
                 
                 console.log('✅ 인감 이미지 다운로드 완료');
                 return imageBuffer;
-              } catch (error) {
+          } catch (error) {
                 console.warn('⚠️ 인감 이미지 다운로드 실패:', error.message);
-                return null;
-              }
-            };
-            
-            const imageBuffer = await downloadSignatureImage(actualStampType);
-            if (imageBuffer) {
-              const imageId = workbook.addImage({
-                buffer: imageBuffer,
-                extension: 'png',
-              });
-              
+            return null;
+          }
+        };
+        
+        const imageBuffer = await downloadSignatureImage(actualStampType);
+        if (imageBuffer) {
+          const imageId = workbook.addImage({
+            buffer: imageBuffer,
+            extension: 'png',
+          });
+          
                              // 기성금청구서 갑지에 인감 이미지 추가 (F40 위치)
                gapjiSheet.addImage(imageId, {
                  tl: { col: 5, row: 39 }, // F40 셀 위치
-                 ext: { width: 60, height: 60 }
-               });
-               
+            ext: { width: 60, height: 60 }
+          });
+          
                console.log('✅ 갑지 시트 인감 이미지 삽입 완료 (F40):', actualStampType);
-            } else {
-              console.log('📝 갑지 시트 인감 이미지 없음 또는 워크북 없음:', actualStampType);
+        } else {
+          console.log('📝 갑지 시트 인감 이미지 없음 또는 워크북 없음:', actualStampType);
             }
-          }
         }
-      } catch (imageError) {
-        console.warn('⚠️ 갑지 시트 인감 이미지 추가 실패:', imageError);
       }
+    } catch (imageError) {
+      console.warn('⚠️ 갑지 시트 인감 이미지 추가 실패:', imageError);
+    }
       } else {
       console.log('⚠️ 갑지 시트를 찾을 수 없습니다.');
     }
@@ -210,7 +210,7 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
         const row = 6 + index;
         
         try {
-          const contractQuantity = Number(item.quantity || 0);
+        const contractQuantity = Number(item.quantity || 0);
           const contractPrice = Number(item.price || item.unitPrice || 0); // price 필드 우선 사용
           
           // 특수항목인지 확인 (A와 B가 같은 항목들: 단수정리, NEGO, 간접비 등)
@@ -233,11 +233,11 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
             [`A${row}`]: item.specification || '',
             // B6: 물량의 품명 (반대로 변경)
             [`B${row}`]: item.name || '',
-            // C6: 단위
+        // C6: 단위
             [`C${row}`]: item.unit || '',
             // D6: 수량 (소수점 2째자리까지 정확하게)
             [`D${row}`]: parseFloat(contractQuantity.toFixed(2)),
-            // E6: 계약단가
+        // E6: 계약단가
             [`E${row}`]: contractPrice,
           };
           
@@ -394,10 +394,10 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
               if (!item.name || !item.name.includes('단수정리')) {
                 rowDataMapping[`G${row}`] = parseFloat(cumulativeValue);
                 console.log(`📝 ${item.name} - G${row}에 이전 기성 수량 ${cumulativeValue} 입력 (소수점 2째자리)`);
-              } else {
+        } else {
                 console.log(`📝 단수정리 - G열에 넣지 않음 (H열에만 넣음)`);
               }
-            } else {
+        } else {
               console.log(`⚠️ ${item.name} - 이전 기성 데이터에서 누적 수량을 찾을 수 없음`);
             }
           }
@@ -784,8 +784,8 @@ export const checkTemplateStructure = async () => {
     console.log('📋 시트 목록:', sheets.map(sheet => sheet.name));
     
     // 갑지 시트 확인
-      const gapjiSheet = workbook.getWorksheet('갑지');
-      if (gapjiSheet) {
+    const gapjiSheet = workbook.getWorksheet('갑지');
+    if (gapjiSheet) {
       console.log('✅ 갑지 시트 확인됨');
       console.log('📊 갑지 시트 행 수:', gapjiSheet.rowCount);
       console.log('📊 갑지 시트 열 수:', gapjiSheet.columnCount);
@@ -806,7 +806,7 @@ export const checkTemplateStructure = async () => {
     console.log('✅ 템플릿 구조 확인 완료');
     return { success: true, message: '템플릿 구조가 정상입니다.' };
     
-    } catch (error) {
+          } catch (error) {
     console.error('❌ 템플릿 구조 확인 실패:', error);
     throw new Error('템플릿 구조 확인에 실패했습니다: ' + error.message);
   }
@@ -893,7 +893,7 @@ export const parseGisungExcelUpload = async (file, siteData, gisungData) => {
         gisungMonth = getCurrentMonth();
         console.log(`📅 갑지 A36에 값이 없어 현재 월 사용: ${gisungMonth}`);
       }
-    } else {
+      } else {
       // 갑지 시트가 없으면 현재 월 사용
       gisungMonth = getCurrentMonth();
       console.log(`📅 갑지 시트가 없어 현재 월 사용: ${gisungMonth}`);
@@ -978,8 +978,8 @@ export const parseGisungExcelUpload = async (file, siteData, gisungData) => {
     
     // Firebase에 저장 (중첩 배열 문제 해결)
     const { addDoc, collection, serverTimestamp, query, where, getDocs } = await import('firebase/firestore');
-    const { db } = await import('../firebase');
-    
+      const { db } = await import('../firebase');
+      
     // 차수 계산 - 해당 현장의 청구완료된 기성 데이터 개수 + 1
     let sequence = 1;
     try {
@@ -1125,10 +1125,10 @@ export const convertUploadedDataToGisungData = async (uploadDocId) => {
     }
     
     // 기성 데이터로 변환 (K열 값을 G열로 복사)
-    const gisungData = {
+        const gisungData = {
       name: uploadData.siteName,
       siteId: uploadData.siteId,
-      sequence: `${sequence}차`,
+          sequence: `${sequence}차`,
       status: '청구완료', // 미청구 → 청구완료로 변경
       claimStatus: '청구완료',
       contractAmount: 0,
@@ -1149,10 +1149,10 @@ export const convertUploadedDataToGisungData = async (uploadDocId) => {
         cumulativeAmount: 0,
         progress: 0
       })),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
     // Firebase에 기성 데이터 저장
     const gisungDoc = await addDoc(collection(db, 'gisung'), gisungData);
     

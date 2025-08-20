@@ -319,7 +319,7 @@ export const convertToKoreanCurrency = (amount) => {
   return result + '원정';
 };
 
-// 기성금청구서 엑셀 생성 (견적서 방식과 동일하게 템플릿 기반)
+// 기성금청구서 엑셀 생성 (Firebase Storage 전용)
 export const generateGisungExcel = async (siteData, gisungData) => {
   try {
     console.log('📄 기성금청구서 생성 시작:', { 
@@ -327,7 +327,7 @@ export const generateGisungExcel = async (siteData, gisungData) => {
       gisungData: gisungData
     });
     
-    // 기성금청구서 템플릿 다운로드
+    // Firebase Storage에서 기성금청구서 템플릿 다운로드
     const { ref, getDownloadURL } = await import('firebase/storage');
     const { storage } = await import('../firebase');
     
@@ -335,7 +335,7 @@ export const generateGisungExcel = async (siteData, gisungData) => {
     
     try {
       const templateURL = await getDownloadURL(templateRef);
-      console.log('✅ 템플릿 URL 가져오기 성공:', templateURL);
+      console.log('✅ Firebase Storage 템플릿 URL 가져오기 성공:', templateURL);
       
       // 템플릿 파일 가져오기
       const response = await fetch(templateURL);
@@ -344,94 +344,94 @@ export const generateGisungExcel = async (siteData, gisungData) => {
       }
       
       const arrayBuffer = await response.arrayBuffer();
-      console.log('✅ 템플릿 파일 다운로드 완료:', arrayBuffer.byteLength, 'bytes');
+      console.log('✅ Firebase Storage 템플릿 파일 다운로드 완료:', arrayBuffer.byteLength, 'bytes');
       
       // XLSX로 워크북 읽기
       const workbook = XLSX.read(arrayBuffer, { type: 'array', cellFormula: true });
-      console.log('✅ 템플릿 워크북 로드 완료');
+      console.log('✅ Firebase Storage 템플릿 워크북 로드 완료');
       
       // 기성금 내역서 시트에 데이터 입력
       const detailSheet = workbook.Sheets['기성금 내역서'];
       if (detailSheet) {
         console.log('📝 기성금 내역서 시트에 데이터 입력...');
         
-                 // 실제 현장 데이터 사용 (유동적, 순서 보장)
-         let items = [];
-         
-         // 기성 데이터에서 실제 항목들 가져오기
-         if (gisungData && gisungData.length > 0) {
-           const currentGisung = gisungData[0]; // 첫 번째 기성 데이터 사용
-           if (currentGisung.items && Array.isArray(currentGisung.items)) {
-             items = currentGisung.items.map((item, index) => ({
-               name: item.itemName || item.name || '',
-               specification: item.specification || '',
-               unit: item.unit || '',
-               contractQuantity: Number(item.contractQuantity || item.quantity || 0),
-               contractUnitPrice: Number(item.contractUnitPrice || item.price || 0),
-               previousQuantity: Number(item.previousQuantity || 0),
-               currentQuantity: Number(item.currentQuantity || 0),
-               rowIndex: item.rowIndex || index // 순서 보장용 인덱스
-             }));
-             
-             // rowIndex로 정렬하여 순서 보장
-             items.sort((a, b) => (a.rowIndex || 0) - (b.rowIndex || 0));
-             
-             console.log('📋 기성 데이터 항목들 (순서대로):', items.map((item, index) => `${index + 1}. ${item.name}`));
-           }
-         }
-         
-         // 기성 데이터가 없으면 기본 템플릿 사용 (견적서 순서대로)
-         if (items.length === 0) {
-           items = [
-             // 1. 학교창(관공서)전용유리 - 모든 종류 먼저
-             { name: '학교창(관공서)전용유리', specification: '22mm(5+12+5), MCT(HS)+아르곤+투명, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 49000 },
-             { name: '학교창(관공서)전용유리', specification: '22mm(5+12+5), MCT(HS)+아르곤+칼라, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 46000 },
-             { name: '학교창(관공서)전용유리', specification: '24mm(5+14+5), MCT(HS)+아르곤+투명, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 46000 },
-             { name: '학교창(관공서)전용유리', specification: '24mm(5+14+5), MCT(HS)+아르곤+칼라, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 48000 },
-             { name: '학교창(관공서)전용유리', specification: '24mm(6+12+6), MCT(HS)+아르곤+투명, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 51000 },
-             { name: '학교창(관공서)전용유리', specification: '43mm(5+14+5+14+5), MCT(HS)+아르곤+투명(HS)+아르곤+MCT(HS), 고단열 더블로이 삼중', unit: 'M²', contractQuantity: 0, contractUnitPrice: 110000 },
-             
-             // 2. 복층유리 - 모든 종류
-             { name: '복층유리', specification: '복층유리, 투명, 16mm', unit: 'M²', contractQuantity: 0, contractUnitPrice: 22000 },
-             { name: '복층유리', specification: '복층유리, 투명, 22mm, 건조공기', unit: 'M²', contractQuantity: 0, contractUnitPrice: 26000 },
-             { name: '복층유리', specification: '복층유리, 컬러, 22mm, 건조공기, 그린', unit: 'M²', contractQuantity: 0, contractUnitPrice: 29000 },
-             
-             // 3. 창호유리설치/복층유리 - 모든 종류
-             { name: '창호유리설치/복층유리', specification: '유리두께 16mm 이하', unit: 'M²', contractQuantity: 0, contractUnitPrice: 15000 },
-             { name: '창호유리설치/복층유리', specification: '유리두께 22mm 이하', unit: 'M²', contractQuantity: 0, contractUnitPrice: 15000 },
-             { name: '창호유리설치/복층유리', specification: '유리두께 24mm 이하', unit: 'M²', contractQuantity: 0, contractUnitPrice: 18000 },
-             { name: '창호유리설치/복층유리', specification: '유리뚜께 43mm 이하', unit: 'M²', contractQuantity: 0, contractUnitPrice: 20000 },
-             
-             // 4. 유리주위 코킹
-             { name: '유리주위 코킹', specification: '복층유리 5×5, 실리콘(양면)', unit: 'M', contractQuantity: 0, contractUnitPrice: 300 },
-             
-             // 5. 방습거울
-             { name: '방습거울', specification: '5mm,틀포함', unit: 'M²', contractQuantity: 0, contractUnitPrice: 100000 }
-             // 단수정리는 마지막에 별도 추가
-           ];
-         }
+        // 실제 현장 데이터 사용 (유동적, 순서 보장)
+        let items = [];
         
-                 // 원래 방식으로 간단하게 입력
-         let currentRow = 6;
-         
-         items.forEach((item, index) => {
-           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 0 })] = { v: item.specification };
-           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 1 })] = { v: item.name };
-           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 2 })] = { v: item.unit };
-           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 3 })] = { v: item.contractQuantity };
-           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 4 })] = { v: item.contractUnitPrice };
-           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 6 })] = { v: item.previousQuantity || 0 };
-           detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 8 })] = { v: item.currentQuantity || 0 };
-           currentRow++;
-         });
-         
-         // 6. 마지막에 단수정리 추가
-         detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 0 })] = { v: '단수정리' };
-         detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 1 })] = { v: 'NEGO' };
-         detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 2 })] = { v: '식' };
-         detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 3 })] = { v: 1 };
-         detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 4 })] = { v: -341570 };
-         detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 5 })] = { v: -341570 };
+        // 기성 데이터에서 실제 항목들 가져오기
+        if (gisungData && gisungData.length > 0) {
+          const currentGisung = gisungData[0]; // 첫 번째 기성 데이터 사용
+          if (currentGisung.items && Array.isArray(currentGisung.items)) {
+            items = currentGisung.items.map((item, index) => ({
+              name: item.itemName || item.name || '',
+              specification: item.specification || '',
+              unit: item.unit || '',
+              contractQuantity: Number(item.contractQuantity || item.quantity || 0),
+              contractUnitPrice: Number(item.contractUnitPrice || item.price || 0),
+              previousQuantity: Number(item.previousQuantity || 0),
+              currentQuantity: Number(item.currentQuantity || 0),
+              rowIndex: item.rowIndex || index // 순서 보장용 인덱스
+            }));
+            
+            // rowIndex로 정렬하여 순서 보장
+            items.sort((a, b) => (a.rowIndex || 0) - (b.rowIndex || 0));
+            
+            console.log('📋 기성 데이터 항목들 (순서대로):', items.map((item, index) => `${index + 1}. ${item.name}`));
+          }
+        }
+        
+        // 기성 데이터가 없으면 기본 템플릿 사용 (견적서 순서대로)
+        if (items.length === 0) {
+          items = [
+            // 1. 학교창(관공서)전용유리 - 모든 종류 먼저
+            { name: '학교창(관공서)전용유리', specification: '22mm(5+12+5), MCT(HS)+아르곤+투명, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 49000 },
+            { name: '학교창(관공서)전용유리', specification: '22mm(5+12+5), MCT(HS)+아르곤+칼라, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 46000 },
+            { name: '학교창(관공서)전용유리', specification: '24mm(5+14+5), MCT(HS)+아르곤+투명, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 46000 },
+            { name: '학교창(관공서)전용유리', specification: '24mm(5+14+5), MCT(HS)+아르곤+칼라, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 48000 },
+            { name: '학교창(관공서)전용유리', specification: '24mm(6+12+6), MCT(HS)+아르곤+투명, 고단열 더블로이 복층유리', unit: 'M²', contractQuantity: 0, contractUnitPrice: 51000 },
+            { name: '학교창(관공서)전용유리', specification: '43mm(5+14+5+14+5), MCT(HS)+아르곤+투명(HS)+아르곤+MCT(HS), 고단열 더블로이 삼중', unit: 'M²', contractQuantity: 0, contractUnitPrice: 110000 },
+            
+            // 2. 복층유리 - 모든 종류
+            { name: '복층유리', specification: '복층유리, 투명, 16mm', unit: 'M²', contractQuantity: 0, contractUnitPrice: 22000 },
+            { name: '복층유리', specification: '복층유리, 투명, 22mm, 건조공기', unit: 'M²', contractQuantity: 0, contractUnitPrice: 26000 },
+            { name: '복층유리', specification: '복층유리, 컬러, 22mm, 건조공기, 그린', unit: 'M²', contractQuantity: 0, contractUnitPrice: 29000 },
+            
+            // 3. 창호유리설치/복층유리 - 모든 종류
+            { name: '창호유리설치/복층유리', specification: '유리두께 16mm 이하', unit: 'M²', contractQuantity: 0, contractUnitPrice: 15000 },
+            { name: '창호유리설치/복층유리', specification: '유리두께 22mm 이하', unit: 'M²', contractQuantity: 0, contractUnitPrice: 15000 },
+            { name: '창호유리설치/복층유리', specification: '유리두께 24mm 이하', unit: 'M²', contractQuantity: 0, contractUnitPrice: 18000 },
+            { name: '창호유리설치/복층유리', specification: '유리뚜께 43mm 이하', unit: 'M²', contractQuantity: 0, contractUnitPrice: 20000 },
+            
+            // 4. 유리주위 코킹
+            { name: '유리주위 코킹', specification: '복층유리 5×5, 실리콘(양면)', unit: 'M', contractQuantity: 0, contractUnitPrice: 300 },
+            
+            // 5. 방습거울
+            { name: '방습거울', specification: '5mm,틀포함', unit: 'M²', contractQuantity: 0, contractUnitPrice: 100000 }
+            // 단수정리는 마지막에 별도 추가
+          ];
+        }
+        
+        // 원래 방식으로 간단하게 입력
+        let currentRow = 6;
+        
+        items.forEach((item, index) => {
+          detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 0 })] = { v: item.specification };
+          detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 1 })] = { v: item.name };
+          detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 2 })] = { v: item.unit };
+          detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 3 })] = { v: item.contractQuantity };
+          detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 4 })] = { v: item.contractUnitPrice };
+          detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 6 })] = { v: item.previousQuantity || 0 };
+          detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 8 })] = { v: item.currentQuantity || 0 };
+          currentRow++;
+        });
+        
+        // 6. 마지막에 단수정리 추가
+        detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 0 })] = { v: '단수정리' };
+        detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 1 })] = { v: 'NEGO' };
+        detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 2 })] = { v: '식' };
+        detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 3 })] = { v: 1 };
+        detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 4 })] = { v: -341570 };
+        detailSheet[XLSX.utils.encode_cell({ r: currentRow - 1, c: 5 })] = { v: -341570 };
         
         console.log('✅ 데이터 입력 완료');
       }
@@ -439,8 +439,8 @@ export const generateGisungExcel = async (siteData, gisungData) => {
       return workbook;
       
     } catch (error) {
-      console.error('❌ 템플릿 로드 실패:', error);
-      throw error;
+      console.error('❌ Firebase Storage 템플릿 로드 실패:', error);
+      throw new Error(`Firebase Storage에서 템플릿을 가져올 수 없습니다: ${error.message}`);
     }
     
   } catch (error) {
@@ -448,9 +448,6 @@ export const generateGisungExcel = async (siteData, gisungData) => {
     throw error;
   }
 };
-
-
-
 
 // 기성금 내역서에 수식 적용하는 함수
 const applyGisungFormulas = (worksheet) => {
@@ -527,8 +524,6 @@ const applyGisungFormulas = (worksheet) => {
     v: 0
   };
 };
-
-
 
 // 기성금 내역서 시트 데이터 생성 (기존 템플릿 유지, 데이터만 수정)
 const createGisungDetailSheet = (siteData, gisungData) => {

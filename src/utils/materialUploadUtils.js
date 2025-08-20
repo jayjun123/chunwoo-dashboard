@@ -4,6 +4,7 @@ import { collection, addDoc, updateDoc, doc, getDocs, query, where, serverTimest
 import { db } from '../firebase';
 import { filterActualMaterialItems, insertMaterialDataToWorksheet, convertMaterialDataForDocument } from './materialDataUtils.js';
 
+
 /**
  * 견적서 엑셀 파일에서 물량 데이터를 파싱하는 함수
  * 두 번째 시트(내역서)에서 A,B,C,D,E,G,I,M:5~쭉쭉 가다가 [ 총 공 사 금 액 ]이 나오는 행 바로 전까지 데이터 추출
@@ -801,18 +802,14 @@ export const generateEstimateExcel = async (siteData, materialData) => {
     console.log('- 모든 키:', Object.keys(siteData));
     console.log('- 전체 데이터:', JSON.stringify(siteData, null, 2));
     
-    // 견적서 템플릿 다운로드
-    const { ref, getDownloadURL } = await import('firebase/storage');
-    const { storage } = await import('../firebase');
-    
-    const templateRef = ref(storage, 'templates/견적서.xlsx');
+    // 견적서 템플릿 다운로드 (토큰 없이 직접 접근)
+    const templateUrl = 'https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2Festimate.xlsx?alt=media';
     
     try {
-      const templateURL = await getDownloadURL(templateRef);
-      console.log('✅ 템플릿 URL 가져오기 성공:', templateURL);
+      console.log('✅ 로컬 파일 직접 사용:', templateUrl);
       
       // 템플릿 파일 가져오기
-      const response = await fetch(templateURL);
+      const response = await fetch(templateUrl);
       if (!response.ok) {
         throw new Error(`템플릿 파일 다운로드 실패: ${response.status} ${response.statusText}`);
       }
@@ -820,7 +817,7 @@ export const generateEstimateExcel = async (siteData, materialData) => {
       const arrayBuffer = await response.arrayBuffer();
       console.log('✅ 템플릿 파일 다운로드 완료:', arrayBuffer.byteLength, 'bytes');
       
-             // ExcelJS로 워크북 읽기 (공유 수식 문제 해결을 위한 단순화된 옵션)
+      // ExcelJS로 워크북 읽기 (공유 수식 문제 해결을 위한 단순화된 옵션)
        const workbook = new ExcelJS.Workbook();
        await workbook.xlsx.load(arrayBuffer, {
          // 기본 옵션만 사용 (공유 수식 문제 방지)
@@ -999,26 +996,32 @@ export const generateEstimateExcel = async (siteData, materialData) => {
             
             const mappedImageName = stampImageMap[stampType];
             if (mappedImageName) {
-              // Firebase Storage에서 인감 이미지 가져오기
-              const { ref, getDownloadURL } = await import('firebase/storage');
-              const { storage } = await import('../firebase.js');
-              const signatureRef = ref(storage, `stamps/${mappedImageName}`);
-              const url = await getDownloadURL(signatureRef);
-              const response = await fetch(url);
-              const arrayBuffer = await response.arrayBuffer();
-              
-              const imageId = workbook.addImage({
-                buffer: arrayBuffer,
-                extension: 'png',
-              });
-              
-              // O22 셀 위치에 인감 이미지 추가
-              estimateSheet.addImage(imageId, {
-                tl: { col: 14, row: 21 }, // O22 셀 (0-based index)
-                ext: { width: 60, height: 60 }
-              });
-              
-              console.log('✅ 인감 이미지 삽입 완료 (O22):', stampType);
+              // 인감 이미지 가져오기 (임시로 로컬 파일 사용)
+              console.log('🔧 임시 해결책: 로컬 인감 이미지 사용');
+              try {
+                const imagePath = `/${mappedImageName}`;
+                console.log('📁 로컬 인감 이미지 경로:', imagePath);
+                const response = await fetch(imagePath);
+                if (!response.ok) {
+                  throw new Error(`인감 이미지 다운로드 실패: ${response.status}`);
+                }
+                const arrayBuffer = await response.arrayBuffer();
+                
+                const imageId = workbook.addImage({
+                  buffer: arrayBuffer,
+                  extension: 'png',
+                });
+                
+                // O22 셀 위치에 인감 이미지 추가
+                estimateSheet.addImage(imageId, {
+                  tl: { col: 14, row: 21 }, // O22 셀 (0-based index)
+                  ext: { width: 60, height: 60 }
+                });
+                
+                console.log('✅ 인감 이미지 삽입 완료 (O22):', stampType);
+              } catch (stampError) {
+                console.log('⚠️ 인감 이미지 추가 실패:', stampError);
+              }
             } else {
               console.log('📝 인감 이미지 없음:', stampType);
             }
