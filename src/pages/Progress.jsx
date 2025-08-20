@@ -319,8 +319,8 @@ const Progress = () => {
       } else {
         console.log('⚠️ 현장을 찾을 수 없음:', siteId);
       }
-    } else if (!siteId && selectedSites.length > 0) {
-      // URL에 siteId가 없는데 selectedSites가 있으면 초기화
+    } else if (!siteId && selectedSites.length > 0 && !isClearingSelection) {
+      // URL에 siteId가 없는데 selectedSites가 있고, 현장 선택 해제 중이 아닐 때만 초기화
       console.log('🔍 URL에 siteId 없음 - 현장 선택 초기화');
       setSelectedSites([]);
       setFilteredSiteId(null);
@@ -1227,31 +1227,38 @@ const Progress = () => {
               onChange={(newValue) => {
                 console.log('현장 선택됨:', newValue);
                 const newSelectedSites = Array.isArray(newValue) ? newValue : (newValue ? [newValue] : []);
+                
+                // 현장 선택이 해제되는 경우를 방지
+                if (newSelectedSites.length === 0 && selectedSites.length > 0) {
+                  console.log('🔍 현장 선택 해제 시도 - 방지됨');
+                  return; // 현장 선택 해제를 방지
+                }
+                
                 setSelectedSites(newSelectedSites);
                 
-                              // 현장 선택이 해제되면 URL 파라미터도 제거
-              if (newSelectedSites.length === 0) {
-                console.log('🔍 현장 선택 해제 - URL 파라미터 제거');
-                
-                // 현장 선택 해제 플래그 설정
-                sessionStorage.setItem('clearingSiteSelection', 'true');
-                
-                setFilteredSiteId(null);
-                setFilteredSiteName('');
-                // URL에서 siteId와 viewMode 파라미터 제거
-                const url = new URL(window.location);
-                url.searchParams.delete('siteId');
-                url.searchParams.delete('viewMode');
-                window.history.replaceState({}, document.title, url.pathname);
-                console.log('✅ URL 파라미터 제거 완료:', url.pathname);
-              }
-                
-                // 즉시 데이터 재로드
-                fetchProgress();
-                fetchCosts();
-                // 강제 리렌더링
-                setForceUpdate(prev => prev + 1);
-              }}
+                // 현장 선택이 해제되면 URL 파라미터도 제거
+                if (newSelectedSites.length === 0) {
+                  console.log('🔍 현장 선택 해제 - URL 파라미터 제거');
+                  
+                  // 현장 선택 해제 플래그 설정
+                  sessionStorage.setItem('clearingSiteSelection', 'true');
+                  
+                  setFilteredSiteId(null);
+                  setFilteredSiteName('');
+                  // URL에서 siteId와 viewMode 파라미터 제거
+                  const url = new URL(window.location);
+                  url.searchParams.delete('siteId');
+                  url.searchParams.delete('viewMode');
+                  window.history.replaceState({}, document.title, url.pathname);
+                  console.log('✅ URL 파라미터 제거 완료:', url.pathname);
+                }
+                  
+                  // 즉시 데이터 재로드
+                  fetchProgress();
+                  fetchCosts();
+                  // 강제 리렌더링
+                  setForceUpdate(prev => prev + 1);
+                }}
               label="현장 선택"
               placeholder="현장명을 검색하세요"
               multiple={true}
