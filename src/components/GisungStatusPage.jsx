@@ -28,7 +28,8 @@ import {
   useMediaQuery,
   useTheme,
   Alert,
-  Autocomplete
+  Autocomplete,
+  CircularProgress
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -73,6 +74,9 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState('');
+  
+  // 다운로드 로딩 상태
+  const [downloadLoading, setDownloadLoading] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -515,11 +519,20 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
 
   // 기성금청구서 엑셀 다운로드 함수 (템플릿 기반)
   const handleGisungClaimDownload = async () => {
+    setDownloadLoading(true);
     try {
       console.log('=== 기성금청구서 다운로드 시작 ===');
       
       // 기성금청구서 템플릿 사용
-      const { generateTemplateBasedGisungExcel } = await import('../utils/gisungTemplateUtils');
+      let generateTemplateBasedGisungExcel;
+      try {
+        const module = await import('../utils/gisungTemplateUtils');
+        generateTemplateBasedGisungExcel = module.generateTemplateBasedGisungExcel;
+      } catch (importError) {
+        console.error('템플릿 유틸리티 import 실패:', importError);
+        alert('템플릿 유틸리티를 불러올 수 없습니다. 페이지를 새로고침해주세요.');
+        return;
+      }
       
       // 선택된 현장 정보 가져오기
       let siteData = {
@@ -825,7 +838,20 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     } catch (error) {
       console.error('기성금청구서 다운로드 실패:', error);
       console.error('오류 상세:', error.stack);
-      alert('기성금청구서 다운로드에 실패했습니다: ' + error.message);
+      
+      // 사용자에게 더 친화적인 오류 메시지 제공
+      let errorMessage = '기성금청구서 다운로드에 실패했습니다.';
+      if (error.message.includes('템플릿')) {
+        errorMessage = '템플릿 파일을 불러올 수 없습니다. 잠시 후 다시 시도해주세요.';
+      } else if (error.message.includes('Firebase')) {
+        errorMessage = '데이터를 불러올 수 없습니다. 인터넷 연결을 확인해주세요.';
+      } else if (error.message.includes('Excel')) {
+        errorMessage = '엑셀 파일 생성 중 오류가 발생했습니다. 다시 시도해주세요.';
+      }
+      
+      alert(errorMessage + '\n\n오류: ' + error.message);
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
@@ -1875,10 +1901,39 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           >
             {uploading ? '업로드 중...' : '업로드'}
           </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-  );
-};
+                 </DialogActions>
+       </Dialog>
+       
+       {/* 다운로드 로딩 팝업 */}
+       <Dialog 
+         open={downloadLoading} 
+         maxWidth="sm" 
+         fullWidth
+         PaperProps={{
+           sx: {
+             bgcolor: '#181f2e',
+             color: '#fff',
+             borderRadius: 4,
+             p: 4,
+             textAlign: 'center'
+           }
+         }}
+       >
+         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+           <CircularProgress size={60} sx={{ color: '#90caf9', mb: 2 }} />
+           <Typography variant="h6" sx={{ color: '#90caf9', fontWeight: 600, mb: 1 }}>
+             열심히 제작중에 있습니다
+           </Typography>
+           <Typography variant="body1" sx={{ color: '#bbb' }}>
+             기성금청구서를 생성하고 있습니다.
+           </Typography>
+           <Typography variant="body2" sx={{ color: '#999', mt: 1 }}>
+             잠시만 기다려주세요...
+           </Typography>
+         </Box>
+       </Dialog>
+     </Box>
+   );
+ };
 
 export default GisungStatusPage; 

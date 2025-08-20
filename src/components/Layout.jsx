@@ -189,7 +189,7 @@ const Layout = React.memo(({ children }) => {
                 if (isMobile) {
                   setDrawerOpen(true);
                 } else {
-                  navigate('/');
+                  navigate('/schedule');
                 }
               }}
             />

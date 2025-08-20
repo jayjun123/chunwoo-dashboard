@@ -44,6 +44,8 @@ const CustomSchedule = () => {
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     return todayStr;
   });
+  const [dragStartTime, setDragStartTime] = useState(null); // 드래그 시작 시간
+  const [isLongPress, setIsLongPress] = useState(false); // 길게 터치 상태
 
   const authUser = useAuth();
 
@@ -81,6 +83,30 @@ const CustomSchedule = () => {
   }, []);
 
   const filteredSites = useMemo(() => sites.filter(site => isInMonth(site, year, month)), [sites, year, month]);
+
+  // 길게 터치 감지 함수
+  const handleTouchStart = (e) => {
+    setDragStartTime(Date.now());
+    setIsLongPress(false);
+  };
+
+  const handleTouchMove = (e) => {
+    if (dragStartTime && Date.now() - dragStartTime > 500) {
+      setIsLongPress(true);
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    setDragStartTime(null);
+    setIsLongPress(false);
+  };
+
+  const onDragStart = (result) => {
+    // 길게 터치하지 않았으면 드래그 취소
+    if (!isLongPress) {
+      return false;
+    }
+  };
 
   const onDragEnd = async (result) => {
     if (!result.destination) return;
@@ -775,7 +801,7 @@ const CustomSchedule = () => {
           🧹 설명 정리
         </Button>
       </Box>
-      <DragDropContext onDragEnd={onDragEnd}>
+              <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <Box sx={{ 
           display: 'flex', 
           flexDirection: { xs: 'column-reverse', md: 'row' }, 
@@ -829,6 +855,9 @@ const CustomSchedule = () => {
                             ref={provided.innerRef} 
                             {...provided.draggableProps} 
                             {...provided.dragHandleProps}
+                            onTouchStart={handleTouchStart}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
                             onClick={() => {
                               // 현장 클릭 시 선택 상태 토글
                               setSelectedItems(prev => {

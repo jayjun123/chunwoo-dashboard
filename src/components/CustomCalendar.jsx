@@ -1038,8 +1038,8 @@ const CustomCalendar = (props) => {
                                       borderRadius: 1,
                                       fontWeight: 500,
                                       fontSize: viewMode === '3days' 
-                                        ? { xs: '1.3rem', md: '1.3rem' }  // 3일 보기에서는 더 큰 글씨
-                                        : { xs: '0.8rem', sm: '0.8rem', md: '1.0rem' }, // PC에서 글씨 크기 더 증가
+                                        ? { xs: '1.1rem', md: '1.1rem' }  // 3일 보기에서는 더 큰 글씨
+                                        : { xs: '0.7rem', sm: '0.7rem', md: '0.8rem' }, // 글씨 크기 줄임
                                       boxShadow: snapshot.isDragging ? 3 : 0,
                                       cursor: 'grab',
                                       border: isSelected
