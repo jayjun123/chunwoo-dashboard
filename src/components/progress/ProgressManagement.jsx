@@ -81,6 +81,9 @@ const ProgressManagement = () => {
   const [extraInput, setExtraInput] = useState('');
   const longPressTimeout = useRef(null);
   const [selectedExtra, setSelectedExtra] = useState(null);
+  
+  // 터치 관련 상태 관리
+  const [touchStates, setTouchStates] = useState({});
 
   // 현장 목록 로드
   useEffect(() => {
@@ -330,6 +333,116 @@ const ProgressManagement = () => {
     clearTimeout(longPressTimeout.current);
   };
 
+  // 터치 이벤트 핸들러
+  const handleTouchStart = (itemId, e) => {
+    e.stopPropagation();
+    const touch = e.touches[0];
+    const newTouchState = {
+      startTime: Date.now(),
+      startY: touch.clientY,
+      startX: touch.clientX,
+      isLongPress: false,
+      isScrolling: false,
+      timer: null
+    };
+    
+    setTouchStates(prev => ({
+      ...prev,
+      [itemId]: newTouchState
+    }));
+    
+    // 전역 상태로도 저장
+    window.touchStates = {
+      ...window.touchStates,
+      [itemId]: newTouchState
+    };
+    
+    // 길게 누르기 타이머 설정 (1.5초)
+    const timer = setTimeout(() => {
+      setTouchStates(prev => ({
+        ...prev,
+        [itemId]: { ...prev[itemId], isLongPress: true }
+      }));
+      
+      window.touchStates = {
+        ...window.touchStates,
+        [itemId]: { ...window.touchStates[itemId], isLongPress: true }
+      };
+      
+      e.target.style.transform = 'scale(1.05)';
+      e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+    }, 1500);
+    
+    setTouchStates(prev => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], timer }
+    }));
+  };
+
+  const handleTouchMove = (itemId, e) => {
+    e.stopPropagation();
+    const touchState = touchStates[itemId];
+    if (!touchState || !touchState.startTime || !touchState.startY) return;
+    
+    const touch = e.touches[0];
+    const deltaY = Math.abs(touch.clientY - touchState.startY);
+    const deltaX = Math.abs(touch.clientX - (touchState.startX || touch.clientX));
+    const deltaTime = Date.now() - touchState.startTime;
+    
+    // 스크롤 감지 조건 강화
+    const isScrolling = (
+      deltaY > 5 || // 수직 이동이 5px 이상
+      deltaTime < 300 || // 터치 시간이 300ms 미만
+      (deltaY > deltaX && deltaY > 3) // 수직 이동이 가로 이동보다 크고 3px 이상
+    );
+    
+    if (isScrolling) {
+      if (touchState.timer) {
+        clearTimeout(touchState.timer);
+      }
+      setTouchStates(prev => ({
+        ...prev,
+        [itemId]: { ...prev[itemId], isLongPress: false, timer: null, isScrolling: true }
+      }));
+      
+      window.touchStates = {
+        ...window.touchStates,
+        [itemId]: { ...window.touchStates[itemId], isLongPress: false, timer: null, isScrolling: true }
+      };
+      
+      e.target.style.transform = '';
+      e.target.style.boxShadow = '';
+    }
+  };
+
+  const handleTouchEnd = (itemId, e) => {
+    e.stopPropagation();
+    const touchState = touchStates[itemId];
+    
+    if (touchState && touchState.timer) {
+      clearTimeout(touchState.timer);
+    }
+    
+    // 길게 누르지 않았고 스크롤하지 않았으면 클릭 이벤트 처리
+    if (!touchState?.isLongPress && !touchState?.isScrolling && touchState?.startTime && (Date.now() - touchState.startTime) < 1500) {
+      handleExtraClick(itemId);
+    }
+    
+    // 상태 초기화
+    setTouchStates(prev => {
+      const newStates = { ...prev };
+      delete newStates[itemId];
+      return newStates;
+    });
+    
+    if (window.touchStates) {
+      delete window.touchStates[itemId];
+    }
+    
+    e.target.style.transform = '';
+    e.target.style.boxShadow = '';
+  };
+
   // 현장별 누계 기성금 계산
   const getTotalProgressAmount = () => {
     if (!selectedSite || !progressData.length) return 0;
@@ -379,7 +492,18 @@ const ProgressManagement = () => {
                 <AddIcon />
               </IconButton>
             </Box>
-            <DragDropContext onDragEnd={onDragEnd}>
+            <DragDropContext 
+              onDragStart={(result) => {
+                // 길게 터치하지 않은 경우 드래그 취소
+                const itemKey = result.draggableId;
+                const touchState = window.touchStates?.[itemKey];
+                if (!touchState || !touchState.isLongPress) {
+                  console.log('길게 터치하지 않아 드래그 취소:', itemKey);
+                  return false; // 드래그 취소
+                }
+              }}
+              onDragEnd={onDragEnd}
+            >
               <Droppable droppableId="extraList">
                 {(provided) => (
                   <Box 
@@ -411,10 +535,19 @@ const ProgressManagement = () => {
                               fontWeight: 500,
                               transition: 'background 0.2s, border 0.2s',
                             }}
-                            onClick={() => handleExtraClick(item.id)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              // 터치 이벤트가 아닌 경우에만 클릭 처리
+                              if (!touchStates[item.id]?.startTime || touchStates[item.id]?.isScrolling) {
+                                return; // 스크롤 중이면 클릭 무시
+                              }
+                              handleExtraClick(item.id);
+                            }}
                             onDoubleClick={() => handleExtraDoubleClick(item)}
-                            onTouchStart={() => handleExtraTouchStart(item)}
-                            onTouchEnd={handleExtraTouchEnd}
+                            onTouchStart={(e) => handleTouchStart(item.id, e)}
+                            onTouchMove={(e) => handleTouchMove(item.id, e)}
+                            onTouchEnd={(e) => handleTouchEnd(item.id, e)}
                           >
                             {item.text}
                           </Box>
