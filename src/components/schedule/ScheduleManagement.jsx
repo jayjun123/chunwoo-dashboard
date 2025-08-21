@@ -1101,7 +1101,19 @@ const ScheduleManagement = ({
       )}
 
 
-      <DragDropContext onDragEnd={onDragEnd}>
+      <DragDropContext 
+        onDragStart={(result) => {
+          // 길게 터치하지 않은 경우 드래그 취소
+          const itemKey = result.draggableId;
+          // CustomCalendar에서 전달받은 터치 상태 확인
+          const touchState = window.touchStates?.[itemKey];
+          if (!touchState || !touchState.isLongPress) {
+            console.log('길게 터치하지 않아 드래그 취소:', itemKey);
+            return false; // 드래그 취소
+          }
+        }}
+        onDragEnd={onDragEnd}
+      >
                   <Box sx={{ 
             display: 'flex', 
             flexDirection: { xs: 'column-reverse', md: 'row' }, 
@@ -1195,7 +1207,9 @@ const ScheduleManagement = ({
                         backgroundColor: 'rgba(59, 130, 246, 0.1)'
                       }
                     }}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       console.log('견적 버튼 클릭');
                       navigate('/estimates');
                     }}
@@ -1218,7 +1232,9 @@ const ScheduleManagement = ({
                         backgroundColor: 'rgba(239, 68, 68, 0.1)'
                       }
                     }}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       console.log('청구 버튼 클릭');
                       navigate('/claims');
                     }}

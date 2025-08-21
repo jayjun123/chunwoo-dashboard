@@ -41,7 +41,9 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
   const [gisungCount, setGisungCount] = useState(0);
 
   // 현장명 카드 더블클릭 핸들러 - 현장관리 페이지에서 해당 현장 선택
-  const handleSiteNameDoubleClick = () => {
+  const handleSiteNameDoubleClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (site && site.id) {
       onClose(); // 팝업 닫기
       // 현장관리 페이지로 이동하면서 해당 현장 선택
@@ -55,7 +57,9 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
   };
 
   // 계약정보 카드 더블클릭 핸들러 - 기성관리 페이지로 이동
-  const handleContractInfoDoubleClick = () => {
+  const handleContractInfoDoubleClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (site && site.id) {
       onClose(); // 팝업 닫기
       // 기성관리 페이지로 이동하면서 해당 현장 선택

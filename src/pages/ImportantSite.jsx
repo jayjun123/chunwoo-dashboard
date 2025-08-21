@@ -915,7 +915,11 @@ export default function ImportantSite() {
                       padding: isMobile ? '4px 8px' : 'inherit',
                       minWidth: isMobile ? 'auto' : 'inherit'
                     }} 
-                    onClick={() => navigate(`/progress?siteId=${site.id}`)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate(`/progress?siteId=${site.id}`);
+                    }}
                   >기성관리</Button>
                   <Button 
                     variant="contained" 
@@ -928,7 +932,11 @@ export default function ImportantSite() {
                       padding: isMobile ? '4px 8px' : 'inherit',
                       minWidth: isMobile ? 'auto' : 'inherit'
                     }} 
-                    onClick={() => navigate(`/safety?siteId=${site.id}`)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate(`/safety?siteId=${site.id}`);
+                    }}
                   >안전관리</Button>
                   <Button 
                     variant="contained" 
@@ -941,7 +949,11 @@ export default function ImportantSite() {
                       padding: isMobile ? '4px 8px' : 'inherit',
                       minWidth: isMobile ? 'auto' : 'inherit'
                     }} 
-                    onClick={() => navigate(`/discussions?siteId=${site.id}`)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate(`/discussions?siteId=${site.id}`);
+                    }}
                   >토론</Button>
                 </Box>
               </Box>

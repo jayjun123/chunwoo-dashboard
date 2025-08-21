@@ -1397,7 +1397,9 @@ const CustomScheduleMobile = () => {
                     backgroundColor: 'rgba(59, 130, 246, 0.1)'
                   }
                 }}
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   console.log('모바일 견적 버튼 클릭 - 견적 페이지로 이동');
                   navigate('/estimates');
                 }}
@@ -1420,7 +1422,9 @@ const CustomScheduleMobile = () => {
                     backgroundColor: 'rgba(239, 68, 68, 0.1)'
                   }
                 }}
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   console.log('모바일 청구 버튼 클릭');
                   navigate('/claims');
                 }}

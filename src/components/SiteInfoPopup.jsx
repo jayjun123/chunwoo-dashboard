@@ -72,7 +72,11 @@ function SiteInfoPopup({ site, onClose }) {
 
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
           <button
-            onClick={handleDetailClick}
+            onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleDetailClick();
+          }}
             style={{
               padding: '8px 16px',
               backgroundColor: '#1976d2',
@@ -85,7 +89,11 @@ function SiteInfoPopup({ site, onClose }) {
             세부현황
           </button>
           <button
-            onClick={handleProgressClick}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleProgressClick();
+            }}
             style={{
               padding: '8px 16px',
               backgroundColor: '#4caf50',

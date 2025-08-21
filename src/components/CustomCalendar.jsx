@@ -137,6 +137,9 @@ const CustomCalendar = (props) => {
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     return todayStr;
   });
+  
+  // 터치 관련 상태 관리
+  const [touchStates, setTouchStates] = useState({});
 
   // 현재 표시 날짜 기준으로 날짜 배열 생성 (3일/7일 보기용)
   const getNDays = (n, startDate) => {
@@ -852,6 +855,7 @@ const CustomCalendar = (props) => {
                               {/* 추가 버튼 - 오른쪽 끝 */}
                               <IconButton
                                 onClick={e => {
+                                  e.preventDefault();
                                   e.stopPropagation();
                                   if (onDateNumberClick) {
                                     onDateNumberClick(dateStr);
@@ -878,6 +882,7 @@ const CustomCalendar = (props) => {
                               <Typography
                                 sx={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: 500, margin: 0, padding: 0 }}
                                 onClick={e => {
+                                  e.preventDefault();
                                   e.stopPropagation();
                                   if (onCountClick) {
                                     onCountClick(dateStr);
@@ -900,6 +905,7 @@ const CustomCalendar = (props) => {
                                   opacity: cell.isCurrentMonth ? 1 : 0.6
                                 }}
                                 onClick={e => {
+                                  e.preventDefault();
                                   e.stopPropagation();
                                   if (onDateNumberClick) {
                                     onDateNumberClick(dateStr);
@@ -959,6 +965,131 @@ const CustomCalendar = (props) => {
                                 );
                                 const isChecked = checkedItems && typeof checkedItems === 'object' && 
                                   checkedItems[`${dateStr}-${item.id}`] === true;
+                                
+                                // 터치 관련 상태 관리
+                                const itemKey = `${dateStr}-${item.id}`;
+                                const touchState = touchStates[itemKey] || {};
+                                
+                                const handleTouchStart = (e) => {
+                                  e.stopPropagation();
+                                  console.log('일정 터치 시작:', dateStr, item.id);
+                                  
+                                  const touch = e.touches[0];
+                                  const newTouchState = {
+                                    startTime: Date.now(),
+                                    startY: touch.clientY,
+                                    startX: touch.clientX,
+                                    isLongPress: false,
+                                    isScrolling: false,
+                                    timer: null
+                                  };
+                                  
+                                  setTouchStates(prev => ({
+                                    ...prev,
+                                    [itemKey]: newTouchState
+                                  }));
+                                  
+                                  // 전역 상태로도 저장 (ScheduleManagement에서 확인용)
+                                  window.touchStates = {
+                                    ...window.touchStates,
+                                    [itemKey]: newTouchState
+                                  };
+                                  
+                                  // 길게 누르기 타이머 설정 (1.5초)
+                                  const timer = setTimeout(() => {
+                                    console.log('길게 누르기 감지됨 - 드래그 준비:', dateStr, item.id);
+                                    setTouchStates(prev => ({
+                                      ...prev,
+                                      [itemKey]: { ...prev[itemKey], isLongPress: true }
+                                    }));
+                                    
+                                    // 전역 상태 업데이트
+                                    window.touchStates = {
+                                      ...window.touchStates,
+                                      [itemKey]: { ...window.touchStates[itemKey], isLongPress: true }
+                                    };
+                                    e.target.style.transform = 'scale(1.1)';
+                                    e.target.style.zIndex = '9999';
+                                    e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+                                    e.target.setAttribute('data-drag-ready', 'true');
+                                  }, 1500);
+                                  
+                                  setTouchStates(prev => ({
+                                    ...prev,
+                                    [itemKey]: { ...prev[itemKey], timer }
+                                  }));
+                                };
+                                
+                                const handleTouchMove = (e) => {
+                                  e.stopPropagation();
+                                  if (!touchState.startTime || !touchState.startY) return;
+                                  
+                                  const touch = e.touches[0];
+                                  const deltaY = Math.abs(touch.clientY - touchState.startY);
+                                  const deltaX = Math.abs(touch.clientX - (touchState.startX || touch.clientX));
+                                  const deltaTime = Date.now() - touchState.startTime;
+                                  
+                                  // 스크롤 감지 조건 강화
+                                  const isScrolling = (
+                                    deltaY > 5 || // 수직 이동이 5px 이상
+                                    deltaTime < 300 || // 터치 시간이 300ms 미만
+                                    (deltaY > deltaX && deltaY > 3) // 수직 이동이 가로 이동보다 크고 3px 이상
+                                  );
+                                  
+                                  if (isScrolling) {
+                                    // 스크롤 동작으로 간주하여 드래그 취소
+                                    if (touchState.timer) {
+                                      clearTimeout(touchState.timer);
+                                    }
+                                    setTouchStates(prev => ({
+                                      ...prev,
+                                      [itemKey]: { ...prev[itemKey], isLongPress: false, timer: null, isScrolling: true }
+                                    }));
+                                    
+                                    // 전역 상태 업데이트
+                                    window.touchStates = {
+                                      ...window.touchStates,
+                                      [itemKey]: { ...window.touchStates[itemKey], isLongPress: false, timer: null, isScrolling: true }
+                                    };
+                                    e.target.style.transform = '';
+                                    e.target.style.zIndex = '';
+                                    e.target.style.boxShadow = '';
+                                    e.target.removeAttribute('data-drag-ready');
+                                  }
+                                };
+                                
+                                const handleTouchEnd = (e) => {
+                                  e.stopPropagation();
+                                  console.log('일정 터치 종료:', dateStr, item.id);
+                                  
+                                  // 타이머 정리
+                                  if (touchState.timer) {
+                                    clearTimeout(touchState.timer);
+                                  }
+                                  
+                                  // 길게 누르지 않았고 스크롤하지 않았으면 클릭 이벤트 처리
+                                  if (!touchState.isLongPress && !touchState.isScrolling && touchState.startTime && (Date.now() - touchState.startTime) < 1500) {
+                                    console.log('일정 클릭됨:', dateStr, item.id);
+                                    onItemClick(dateStr, item.id);
+                                  }
+                                  
+                                  // 상태 초기화
+                                  setTouchStates(prev => {
+                                    const newStates = { ...prev };
+                                    delete newStates[itemKey];
+                                    return newStates;
+                                  });
+                                  
+                                  // 전역 상태에서도 제거
+                                  if (window.touchStates) {
+                                    delete window.touchStates[itemKey];
+                                  }
+                                  e.target.style.transform = '';
+                                  e.target.style.zIndex = '';
+                                  e.target.style.boxShadow = '';
+                                  e.target.removeAttribute('data-drag-ready');
+                                };
+                                
                                 return (
                                   <Box
                                     ref={provided.innerRef}
@@ -966,6 +1097,10 @@ const CustomCalendar = (props) => {
                                     {...provided.dragHandleProps}
                                     onClick={e => {
                                       e.stopPropagation();
+                                      // 터치 이벤트가 아닌 경우에만 클릭 처리
+                                      if (!touchState.startTime || touchState.isScrolling) {
+                                        return; // 스크롤 중이면 클릭 무시
+                                      }
                                       console.log('일정 클릭됨:', dateStr, item.id);
                                       onItemClick(dateStr, item.id);
                                     }}
@@ -974,62 +1109,9 @@ const CustomCalendar = (props) => {
                                       console.log('일정 더블클릭됨:', dateStr, item);
                                       handleItemDoubleClick(dateStr, item);
                                     }}
-                                    onTouchStart={e => {
-                                      e.stopPropagation();
-                                      console.log('일정 터치 시작:', dateStr, item.id);
-                                      
-                                      // 중간 피드백 타이머 (1초 후)
-                                      const feedbackTimer = setTimeout(() => {
-                                        e.target.style.transform = 'scale(1.05)';
-                                        e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-                                      }, 1000);
-                                      
-                                      // 길게 누르기 타이머 설정 (2초)
-                                      const touchTimer = setTimeout(() => {
-                                        console.log('길게 누르기 감지됨 - 드래그 준비:', dateStr, item.id);
-                                        e.target.style.transform = 'scale(1.1)';
-                                        e.target.style.zIndex = '9999';
-                                        e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
-                                        // 드래그 가능 상태로 설정
-                                        e.target.setAttribute('data-drag-ready', 'true');
-                                      }, 2000); // 2초로 증가
-                                      
-                                      // 타이머들을 요소에 저장
-                                      e.target.setAttribute('data-feedback-timer', feedbackTimer);
-                                      e.target.setAttribute('data-touch-timer', touchTimer);
-                                    }}
-                                    onTouchMove={e => {
-                                      e.stopPropagation();
-                                      // 드래그 준비 상태일 때만 드래그 효과 적용
-                                      if (e.target.getAttribute('data-drag-ready') === 'true') {
-                                        console.log('드래그 중:', dateStr, item.id);
-                                        // 드래그 효과 유지
-                                      }
-                                    }}
-                                    onTouchEnd={e => {
-                                      e.stopPropagation();
-                                      console.log('일정 터치 종료:', dateStr, item.id);
-                                      
-                                      // 타이머 정리
-                                      const feedbackTimer = e.target.getAttribute('data-feedback-timer');
-                                      const touchTimer = e.target.getAttribute('data-touch-timer');
-                                      
-                                      if (feedbackTimer) {
-                                        clearTimeout(parseInt(feedbackTimer));
-                                        e.target.removeAttribute('data-feedback-timer');
-                                      }
-                                      
-                                      if (touchTimer) {
-                                        clearTimeout(parseInt(touchTimer));
-                                        e.target.removeAttribute('data-touch-timer');
-                                      }
-                                      
-                                      // 드래그 준비 상태 해제
-                                      e.target.removeAttribute('data-drag-ready');
-                                      e.target.style.transform = '';
-                                      e.target.style.zIndex = '';
-                                      e.target.style.boxShadow = '';
-                                    }}
+                                    onTouchStart={handleTouchStart}
+                                    onTouchMove={handleTouchMove}
+                                    onTouchEnd={handleTouchEnd}
                                     className={snapshot.isDragging ? 'dragging' : ''}
                                     sx={{
                                       p: { xs: 0.1, sm: 0.1, md: 0.4 },
@@ -1063,7 +1145,13 @@ const CustomCalendar = (props) => {
                                       opacity: cell.isCurrentMonth ? 1 : 0.6,
                                       '&:hover': {
                                         bgcolor: isSelected ? '#2563eb' : '#1e293b'
-                                      }
+                                      },
+                                      // 터치 액션 설정
+                                      touchAction: 'pan-y', // 수직 스크롤만 허용
+                                      userSelect: 'none', // 텍스트 선택 방지
+                                      WebkitUserSelect: 'none',
+                                      MozUserSelect: 'none',
+                                      msUserSelect: 'none'
                                     }}
                                   >
                                     <Tooltip 
