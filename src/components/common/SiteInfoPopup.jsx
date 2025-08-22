@@ -33,6 +33,14 @@ import {
   Description as DescriptionIcon
 } from '@mui/icons-material';
 
+// 숫자에 천단위 쉼표를 추가하는 함수
+const formatNumberWithCommas = (text) => {
+  if (!text || typeof text !== 'string') return text;
+  
+  // 숫자 패턴을 찾아서 천단위 쉼표 추가
+  return text.replace(/\b(\d{1,3})(?=(\d{3})+(?!\d))/g, '$1,');
+};
+
 const SiteInfoPopup = ({ open, onClose, site }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -443,7 +451,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                       lineHeight: 1.6,
                       whiteSpace: 'pre-wrap'
                     }}>
-                      {site.note || '-'}
+                      {formatNumberWithCommas(site.note || '-')}
                     </Typography>
                   </Grid>
                   <Grid xs={12} md={6}>
@@ -501,7 +509,9 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                               const spec = (item.specification || '').toString() || '-';
                               const unit = (item.unit || '').toString() || '-';
                               const qtyVal = item.quantity ?? item.qty ?? '';
-                              const qty = qtyVal === '' || qtyVal === null ? '-' : qtyVal;
+                              const qty = qtyVal === '' || qtyVal === null ? '-' : 
+                                typeof qtyVal === 'number' ? qtyVal.toLocaleString() : 
+                                !isNaN(Number(qtyVal)) ? Number(qtyVal).toLocaleString() : qtyVal;
                               return (
                                 <Box key={idx} sx={{
                                   display: 'grid',
