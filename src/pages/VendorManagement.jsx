@@ -84,17 +84,14 @@ const VendorManagement = () => {
     }
   };
 
-  // 회사명 정규화 함수 (띄어쓰기, (주) 위치 등 차이 무시)
+  // 회사명 정규화 함수 (정확한 매칭을 위해 최소한의 정규화만)
   const normalizeCompanyName = (companyName) => {
     if (!companyName) return '';
     
     return companyName
       .trim()
       .toLowerCase()
-      .replace(/\s+/g, ' ') // 여러 공백을 하나로
-      .replace(/[()（）]/g, '') // 괄호 제거
-      .replace(/주식회사|주식회사|㈜|㈐|㈑|㈒|㈓|㈔|㈕|㈖|㈗|㈘|㈙|㈚|㈛|㈜|㈝|㈞|㈟|㈠|㈡|㈢|㈣|㈤|㈥|㈦|㈧|㈨|㈩|주|㈜|㈐|㈑|㈒|㈓|㈔|㈕|㈖|㈗|㈘|㈙|㈚|㈛|㈜|㈝|㈞|㈟|㈠|㈡|㈢|㈣|㈤|㈥|㈦|㈧|㈨|㈩/g, '') // 주식회사 관련 텍스트 제거
-      .replace(/\s+/g, ' ') // 다시 공백 정리
+      .replace(/\s+/g, ' ') // 여러 공백을 하나로 (예: "삼성  전자" -> "삼성 전자")
       .trim();
   };
 
@@ -103,18 +100,18 @@ const VendorManagement = () => {
     if (!companyName || !companyName.trim()) return null;
     
     try {
-      const normalizedSearchName = normalizeCompanyName(companyName);
+      const searchName = companyName.trim().toLowerCase();
       
       // 모든 거래처 데이터 가져오기
       const vendorsQuery = query(collection(db, 'vendors'), orderBy('companyName', 'asc'));
       const querySnapshot = await getDocs(vendorsQuery);
       
-      // 정규화된 회사명으로 매칭되는 거래처 찾기
+      // 정확한 회사명 매칭으로 거래처 찾기
       for (const doc of querySnapshot.docs) {
         const vendorData = doc.data();
         if (vendorData.companyName) {
-          const normalizedExistingName = normalizeCompanyName(vendorData.companyName);
-          if (normalizedSearchName === normalizedExistingName) {
+          const existingName = vendorData.companyName.trim().toLowerCase();
+          if (searchName === existingName) {
             return {
               businessNumber: vendorData.businessNumber || '',
               address: vendorData.address || ''
@@ -139,14 +136,14 @@ const VendorManagement = () => {
       const querySnapshot = await getDocs(vendorsQuery);
       
       const suggestions = [];
-      const normalizedSearch = normalizeCompanyName(searchTerm);
+      const searchLower = searchTerm.toLowerCase();
       
       for (const doc of querySnapshot.docs) {
         const vendorData = doc.data();
         if (vendorData.companyName) {
-          const normalizedCompany = normalizeCompanyName(vendorData.companyName);
-          if (normalizedCompany.includes(normalizedSearch) || 
-              vendorData.companyName.toLowerCase().includes(searchTerm.toLowerCase())) {
+          const companyLower = vendorData.companyName.toLowerCase();
+          // 정확한 부분 문자열 매칭만 허용
+          if (companyLower.includes(searchLower)) {
             suggestions.push(vendorData.companyName);
           }
         }
