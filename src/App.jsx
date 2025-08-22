@@ -26,7 +26,7 @@ import PopupProvider from './contexts/PopupContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import SplashScreen from './components/common/SplashScreen';
 import TemplateUpload from './pages/TemplateUpload';
-
+import { URL_ALIASES, expandUrl } from './utils/urlShortener';
 
 // 임시: 현장명 동기화 함수
 import { syncSiteNames } from './scripts/syncSiteNames';
@@ -392,6 +392,36 @@ const App = React.memo(() => {
                   <PopupProvider>
                     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                     <Routes>
+                      {/* URL 단축 라우트들 */}
+                      <Route path="/d" element={<Navigate to="/dashboard" replace />} />
+                      <Route path="/s" element={<Navigate to="/schedule" replace />} />
+                      <Route path="/g" element={<Navigate to="/gantt" replace />} />
+                      <Route path="/st" element={<Navigate to="/sites" replace />} />
+                      <Route path="/is" element={<Navigate to="/importantsite" replace />} />
+                      <Route path="/sf" element={<Navigate to="/safety" replace />} />
+                      <Route path="/dc" element={<Navigate to="/discussions" replace />} />
+                      <Route path="/v" element={<Navigate to="/vendors" replace />} />
+                      <Route path="/vm" element={<Navigate to="/vendor-management" replace />} />
+                      <Route path="/p" element={<Navigate to="/progress" replace />} />
+                      <Route path="/c" element={<Navigate to="/cost" replace />} />
+                      <Route path="/dt" element={<Navigate to="/daema-team" replace />} />
+                      <Route path="/doc" element={<Navigate to="/documents" replace />} />
+                      <Route path="/m" element={<Navigate to="/members" replace />} />
+                      <Route path="/pm" element={<Navigate to="/permissions" replace />} />
+                      <Route path="/u" element={<Navigate to="/users" replace />} />
+                      <Route path="/t" element={<Navigate to="/todo-list" replace />} />
+                      <Route path="/ta" element={<Navigate to="/todo/all" replace />} />
+                      <Route path="/gs" element={<Navigate to="/gisung" replace />} />
+                      <Route path="/wl" element={<Navigate to="/whole-list" replace />} />
+                      <Route path="/nf" element={<Navigate to="/news-favorites" replace />} />
+                      <Route path="/pt" element={<Navigate to="/pdf-test" replace />} />
+                      <Route path="/tu" element={<Navigate to="/template-upload" replace />} />
+                      <Route path="/pr" element={<Navigate to="/profile" replace />} />
+                      <Route path="/cl" element={<Navigate to="/claims" replace />} />
+                      <Route path="/es" element={<Navigate to="/estimates" replace />} />
+                      <Route path="/set" element={<Navigate to="/settings" replace />} />
+                      
+                      {/* 기존 라우트들 */}
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />
                       <Route path="/register-success" element={<RegisterSuccess />} />
