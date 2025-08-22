@@ -84,6 +84,82 @@ const VendorManagement = () => {
     }
   };
 
+  // 회사명 정규화 함수 (띄어쓰기, (주) 위치 등 차이 무시)
+  const normalizeCompanyName = (companyName) => {
+    if (!companyName) return '';
+    
+    return companyName
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ') // 여러 공백을 하나로
+      .replace(/[()（）]/g, '') // 괄호 제거
+      .replace(/주식회사|주식회사|㈜|㈐|㈑|㈒|㈓|㈔|㈕|㈖|㈗|㈘|㈙|㈚|㈛|㈜|㈝|㈞|㈟|㈠|㈡|㈢|㈣|㈤|㈥|㈦|㈧|㈨|㈩|주|㈜|㈐|㈑|㈒|㈓|㈔|㈕|㈖|㈗|㈘|㈙|㈚|㈛|㈜|㈝|㈞|㈟|㈠|㈡|㈢|㈣|㈤|㈥|㈦|㈧|㈨|㈩/g, '') // 주식회사 관련 텍스트 제거
+      .replace(/\s+/g, ' ') // 다시 공백 정리
+      .trim();
+  };
+
+  // 회사명으로 기존 거래처 정보 찾기
+  const findExistingCompanyInfo = async (companyName) => {
+    if (!companyName || !companyName.trim()) return null;
+    
+    try {
+      const normalizedSearchName = normalizeCompanyName(companyName);
+      
+      // 모든 거래처 데이터 가져오기
+      const vendorsQuery = query(collection(db, 'vendors'), orderBy('companyName', 'asc'));
+      const querySnapshot = await getDocs(vendorsQuery);
+      
+      // 정규화된 회사명으로 매칭되는 거래처 찾기
+      for (const doc of querySnapshot.docs) {
+        const vendorData = doc.data();
+        if (vendorData.companyName) {
+          const normalizedExistingName = normalizeCompanyName(vendorData.companyName);
+          if (normalizedSearchName === normalizedExistingName) {
+            return {
+              businessNumber: vendorData.businessNumber || '',
+              address: vendorData.address || ''
+            };
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('기존 회사 정보 검색 오류:', error);
+      return null;
+    }
+  };
+
+  // 회사명 자동완성 목록 가져오기
+  const getCompanySuggestions = async (searchTerm) => {
+    if (!searchTerm || searchTerm.trim().length < 2) return [];
+    
+    try {
+      const vendorsQuery = query(collection(db, 'vendors'), orderBy('companyName', 'asc'));
+      const querySnapshot = await getDocs(vendorsQuery);
+      
+      const suggestions = [];
+      const normalizedSearch = normalizeCompanyName(searchTerm);
+      
+      for (const doc of querySnapshot.docs) {
+        const vendorData = doc.data();
+        if (vendorData.companyName) {
+          const normalizedCompany = normalizeCompanyName(vendorData.companyName);
+          if (normalizedCompany.includes(normalizedSearch) || 
+              vendorData.companyName.toLowerCase().includes(searchTerm.toLowerCase())) {
+            suggestions.push(vendorData.companyName);
+          }
+        }
+      }
+      
+      // 중복 제거 및 정렬
+      return [...new Set(suggestions)].slice(0, 5);
+    } catch (error) {
+      console.error('회사명 자동완성 오류:', error);
+      return [];
+    }
+  };
+
   // 상태 관리
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -97,6 +173,10 @@ const VendorManagement = () => {
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // 자동완성 상태
+  const [companySuggestions, setCompanySuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // 폼 상태
   const [formData, setFormData] = useState({
@@ -151,6 +231,84 @@ const VendorManagement = () => {
     setEditingVendor(null);
   };
 
+  // 회사명 입력 시 자동으로 사업자번호와 주소 채우기 (디바운싱 적용)
+  const handleCompanyNameChange = async (companyName) => {
+    // 폼 데이터 업데이트
+    setFormData(prev => ({
+      ...prev,
+      companyName: companyName
+    }));
+
+    // 자동완성 목록 업데이트
+    if (companyName && companyName.trim().length >= 2 && !editingVendor) {
+      const suggestions = await getCompanySuggestions(companyName);
+      setCompanySuggestions(suggestions);
+      setShowSuggestions(suggestions.length > 0);
+    } else {
+      setShowSuggestions(false);
+    }
+
+    // 회사명이 입력되었고, 수정 모드가 아닐 때만 자동 채우기 실행
+    if (companyName && companyName.trim() && !editingVendor) {
+      // 디바운싱: 1초 후에 검색 실행
+      setTimeout(async () => {
+        // 현재 입력된 회사명과 일치하는지 다시 확인
+        if (formData.companyName === companyName) {
+          try {
+            const existingInfo = await findExistingCompanyInfo(companyName);
+            if (existingInfo) {
+              setFormData(prev => ({
+                ...prev,
+                companyName: companyName,
+                businessNumber: existingInfo.businessNumber,
+                address: existingInfo.address
+              }));
+              
+              // 사용자에게 알림
+              setSnackbar({ 
+                open: true, 
+                message: `기존 회사 정보가 자동으로 입력되었습니다. (${companyName})`, 
+                severity: 'info' 
+              });
+            }
+          } catch (error) {
+            console.error('회사 정보 자동 채우기 오류:', error);
+          }
+        }
+      }, 1000);
+    }
+  };
+
+  // 자동완성 항목 선택
+  const handleSuggestionSelect = async (selectedCompany) => {
+    setFormData(prev => ({
+      ...prev,
+      companyName: selectedCompany
+    }));
+    setShowSuggestions(false);
+    
+    // 선택된 회사명으로 기존 정보 자동 채우기
+    try {
+      const existingInfo = await findExistingCompanyInfo(selectedCompany);
+      if (existingInfo) {
+        setFormData(prev => ({
+          ...prev,
+          companyName: selectedCompany,
+          businessNumber: existingInfo.businessNumber,
+          address: existingInfo.address
+        }));
+        
+        setSnackbar({ 
+          open: true, 
+          message: `기존 회사 정보가 자동으로 입력되었습니다. (${selectedCompany})`, 
+          severity: 'info' 
+        });
+      }
+    } catch (error) {
+      console.error('회사 정보 자동 채우기 오류:', error);
+    }
+  };
+
   // 다이얼로그 열기
   const handleOpenDialog = (vendor = null) => {
     if (vendor) {
@@ -166,6 +324,8 @@ const VendorManagement = () => {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     resetForm();
+    setShowSuggestions(false);
+    setCompanySuggestions([]);
   };
 
   // 거래처 저장
@@ -972,20 +1132,68 @@ const VendorManagement = () => {
                 '& .MuiInputBase-input': { color: '#fff' }
               }}
             />
-            <TextField
-              label="회사명"
-              value={formData.companyName}
-              onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': { borderColor: '#444' },
-                  '&:hover fieldset': { borderColor: '#666' },
-                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
-                },
-                '& .MuiInputLabel-root': { color: '#ccc' },
-                '& .MuiInputBase-input': { color: '#fff' }
-              }}
-            />
+            <Box sx={{ position: 'relative' }}>
+              <TextField
+                label="회사명"
+                value={formData.companyName}
+                onChange={(e) => handleCompanyNameChange(e.target.value)}
+                onFocus={() => {
+                  if (companySuggestions.length > 0) {
+                    setShowSuggestions(true);
+                  }
+                }}
+                onBlur={() => {
+                  // 약간의 지연을 두어 클릭 이벤트가 처리되도록 함
+                  setTimeout(() => setShowSuggestions(false), 200);
+                }}
+                placeholder="회사명 입력 시 기존 정보 자동 입력"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#444' },
+                    '&:hover fieldset': { borderColor: '#666' },
+                    '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                  },
+                  '& .MuiInputLabel-root': { color: '#ccc' },
+                  '& .MuiInputBase-input': { color: '#fff' }
+                }}
+              />
+              {showSuggestions && companySuggestions.length > 0 && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    zIndex: 1000,
+                    backgroundColor: '#333',
+                    border: '1px solid #555',
+                    borderRadius: 1,
+                    maxHeight: 200,
+                    overflowY: 'auto',
+                    boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                  }}
+                >
+                  {companySuggestions.map((suggestion, index) => (
+                    <Box
+                      key={index}
+                      onClick={() => handleSuggestionSelect(suggestion)}
+                      sx={{
+                        p: 1.5,
+                        cursor: 'pointer',
+                        color: '#fff',
+                        borderBottom: index < companySuggestions.length - 1 ? '1px solid #555' : 'none',
+                        '&:hover': {
+                          backgroundColor: '#4caf50',
+                          color: '#fff'
+                        }
+                      }}
+                    >
+                      {suggestion}
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
             <TextField
               label="사업자번호"
               value={formData.businessNumber}
