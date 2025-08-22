@@ -80,7 +80,18 @@ export const TodoProvider = ({ children }) => {
     if (!currentUser?.uid || !text.trim()) return;
 
     try {
-      const todoDate = date || format(new Date(), 'yyyy-MM-dd');
+      let todoDate;
+      if (date) {
+        todoDate = date;
+      } else {
+        // 한국 시간 기준으로 오늘 날짜 생성
+        const now = new Date();
+        const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+        const todayYear = koreanTime.getFullYear();
+        const todayMonth = String(koreanTime.getMonth() + 1).padStart(2, '0');
+        const todayDay = String(koreanTime.getDate()).padStart(2, '0');
+        todoDate = `${todayYear}-${todayMonth}-${todayDay}`;
+      }
       
       const newTodo = {
         text: text.trim(),
@@ -143,10 +154,17 @@ export const TodoProvider = ({ children }) => {
 
   // 오늘 투두만 필터링
   const getTodayTodos = useCallback(() => {
-    const today = format(new Date(), 'yyyy-MM-dd');
+    // 한국 시간 기준으로 오늘 날짜 생성
+    const now = new Date();
+    const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+    const todayYear = koreanTime.getFullYear();
+    const todayMonth = String(koreanTime.getMonth() + 1).padStart(2, '0');
+    const todayDay = String(koreanTime.getDate()).padStart(2, '0');
+    const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
+    
     return todos.filter(todo => {
       try {
-        return format(new Date(todo.date), 'yyyy-MM-dd') === today;
+        return todo.date === todayStr;
       } catch {
         return false;
       }

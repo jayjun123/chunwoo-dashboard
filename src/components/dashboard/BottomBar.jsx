@@ -822,16 +822,29 @@ const BottomBar = ({
     if (!todoInput.trim()) return;
 
     try {
+      // 한국 시간 기준으로 오늘 날짜 생성
+      const now = new Date();
+      const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+      const todayYear = koreanTime.getFullYear();
+      const todayMonth = String(koreanTime.getMonth() + 1).padStart(2, '0');
+      const todayDay = String(koreanTime.getDate()).padStart(2, '0');
+      const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
+
       await addDoc(collection(db, 'todos'), {
         text: todoInput.trim(),
         completed: false,
         userId: currentUser.uid,
-        date: new Date().toISOString().slice(0, 10), // 반드시 추가!
+        date: todayStr, // 한국 시간 기준 오늘 날짜
         createdAt: new Date(),
         updatedAt: new Date(),
         timestamp: Date.now() // 정확한 시간순 정렬을 위한 타임스탬프 추가
       });
       setTodoInput('');
+      console.log('투두 추가됨:', {
+        text: todoInput.trim(),
+        date: todayStr,
+        koreanTime: koreanTime.toISOString()
+      });
     } catch (error) {
       console.error('할일 추가 실패:', error);
       setError('할일을 추가하는데 실패했습니다.');
@@ -1700,6 +1713,15 @@ const BottomBar = ({
                 const todayMonth = String(koreanTime.getMonth() + 1).padStart(2, '0');
                 const todayDay = String(koreanTime.getDate()).padStart(2, '0');
                 const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
+                
+                console.log('투두 필터링 체크:', {
+                  itemId: item.id,
+                  itemText: item.text,
+                  itemDate: item.date,
+                  todayStr: todayStr,
+                  dateMatch: item.date === todayStr,
+                  createdAt: item.createdAt
+                });
                 
                 // 1. date 필드가 있으면 date로 체크 (우선순위)
                 if (item.date === todayStr) return true;

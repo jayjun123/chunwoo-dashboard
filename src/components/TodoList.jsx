@@ -41,7 +41,7 @@ const TodoList = () => {
   const [allUsers, setAllUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [newTodo, setNewTodo] = useState('');
+  const [newTodos, setNewTodos] = useState({}); // 각 날짜별로 별도의 입력 상태 관리
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
   const { currentUser } = useAuth();
@@ -98,6 +98,8 @@ const TodoList = () => {
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('투두 데이터 업데이트:', data.length, '개');
+      console.log('투두 데이터:', data);
       setTodos(data);
     });
     
@@ -112,6 +114,9 @@ const TodoList = () => {
     return acc;
   }, {});
   const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+  
+  console.log('투두 그룹핑 결과:', grouped);
+  console.log('정렬된 날짜:', sortedDates);
 
   // 미해결 항목 가져오기 (전날 미완료 항목들)
   const getUnresolvedTodos = () => {
@@ -153,22 +158,39 @@ const TodoList = () => {
 
   // 투두 추가
   const handleAddTodo = async (date) => {
-    if (!newTodo.trim()) return;
+    const todoText = newTodos[date] || '';
+    if (!todoText.trim()) return;
     
     const targetUserId = isMaster && selectedUser ? selectedUser : userId;
     
+    console.log('투두 추가 시도:', {
+      text: todoText.trim(),
+      date: date,
+      userId: targetUserId
+    });
+    
     try {
-      await addDoc(collection(db, collections.todos), {
-        text: newTodo.trim(),
+      const docRef = await addDoc(collection(db, collections.todos), {
+        text: todoText.trim(),
         completed: false,
         userId: targetUserId,
         date: date,
         createdAt: new Date(),
         carriedOver: false
       });
-      setNewTodo('');
+      
+      console.log('투두 추가 성공:', docRef.id);
+      // 해당 날짜의 입력창 초기화
+      setNewTodos(prev => ({
+        ...prev,
+        [date]: ''
+      }));
+      
+      // 성공 알림 (선택사항)
+      // alert('할 일이 추가되었습니다!');
     } catch (error) {
       console.error('투두 추가 오류:', error);
+      alert('할 일 추가 중 오류가 발생했습니다.');
     }
   };
 
@@ -260,7 +282,8 @@ const TodoList = () => {
   return (
     <Box sx={{ 
       p: 3, 
-      minHeight: '100vh',
+      mt: '60px', // 페이지를 60px 아래로 이동
+      minHeight: 'calc(100vh - 60px)',
       background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
       position: 'relative'
     }}>
@@ -460,8 +483,11 @@ const TodoList = () => {
                 <TextField
                   size="small"
                   placeholder="할 일 추가"
-                  value={newTodo}
-                  onChange={(e) => setNewTodo(e.target.value)}
+                  value={newTodos[date] || ''}
+                  onChange={(e) => setNewTodos(prev => ({
+                    ...prev,
+                    [date]: e.target.value
+                  }))}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       handleAddTodo(date);
@@ -507,7 +533,8 @@ const TodoList = () => {
                   borderRadius: '3px',
                 },
               }}>
-                {grouped[date].map(todo => (
+                {grouped[date] && grouped[date].length > 0 ? (
+                  grouped[date].map(todo => (
                   <Box key={todo.id} sx={{ 
                     display: 'flex', 
                     alignItems: 'center', 
@@ -606,7 +633,17 @@ const TodoList = () => {
                       </IconButton>
                     </Box>
                   </Box>
-                ))}
+                ))
+                ) : (
+                  <Typography sx={{ 
+                    textAlign: 'center', 
+                    color: '#666', 
+                    py: 4,
+                    fontSize: '0.9rem'
+                  }}>
+                    할 일이 없습니다.
+                  </Typography>
+                )}
               </Box>
 
               {/* 통계 */}
@@ -619,10 +656,10 @@ const TodoList = () => {
                 alignItems: 'center'
               }}>
                 <Typography variant="caption" sx={{ color: '#666' }}>
-                  완료: {grouped[date].filter(t => t.completed).length} / {grouped[date].length}
+                  완료: {(grouped[date] || []).filter(t => t.completed).length} / {(grouped[date] || []).length}
                 </Typography>
                 <Typography variant="caption" sx={{ color: '#666' }}>
-                  진행률: {grouped[date].length > 0 ? Math.round((grouped[date].filter(t => t.completed).length / grouped[date].length) * 100) : 0}%
+                  진행률: {(grouped[date] || []).length > 0 ? Math.round(((grouped[date] || []).filter(t => t.completed).length / (grouped[date] || []).length) * 100) : 0}%
                 </Typography>
               </Box>
             </Paper>

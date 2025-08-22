@@ -137,6 +137,7 @@ const ScheduleManagement = ({
   
   // 현장 정보 팝업 상태
   const [siteInfoPopup, setSiteInfoPopup] = useState({ open: false, site: null });
+  const [copiedItem, setCopiedItem] = useState(null); // 복사된 항목 상태
 
   useEffect(() => {
     console.log('🔍 ScheduleManagement: 사이트 데이터 로딩 시작');
@@ -622,11 +623,96 @@ const ScheduleManagement = ({
 
   const handleItemTouchEnd = () => clearTimeout(touchTimer);
 
-  // ESC 키를 눌렀을 때 선택된 항목들을 모두 해제
+  // 붙여넣기 핸들러
+  const handlePasteItem = async (targetDate) => {
+    if (!copiedItem) return;
+    
+    const user = authUser.currentUser;
+    if (!user) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    console.log('붙여넣기 핸들러 호출됨, 대상 날짜:', targetDate);
+    
+    try {
+      const newItem = {
+        text: copiedItem.text || '',
+        type: copiedItem.type || '기타',
+        desc: copiedItem.desc || '',
+        siteId: copiedItem.siteId || '',
+        date: new Date(targetDate + 'T12:00:00'),
+        userId: user.uid,
+        color: copiedItem.color || colorChoices[0],
+        siteName: copiedItem.siteName || '',
+        selectedTypes: copiedItem.selectedTypes || [copiedItem.type || '기타'],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      // undefined 값 제거
+      Object.keys(newItem).forEach(key => {
+        if (newItem[key] === undefined) {
+          delete newItem[key];
+        }
+      });
+      
+      console.log('붙여넣을 항목:', newItem);
+      
+      if (onAddSchedule) {
+        await onAddSchedule(newItem);
+      } else {
+        await addDoc(collection(db, 'schedules'), newItem);
+      }
+      console.log('항목 붙여넣기 완료:', targetDate);
+    } catch (error) {
+      console.error('항목 붙여넣기 실패:', error);
+      alert('항목 붙여넣기에 실패했습니다.');
+    }
+  };
+
+  // 키보드 이벤트 핸들러 (ESC, 복사/붙여넣기)
   useEffect(() => {
     const handleKeyDown = (event) => {
+      // ESC 키: 선택된 항목들 해제
       if (event.key === 'Escape') {
         setSelectedItems([]);
+      }
+      
+      // Ctrl+C: 복사
+      if (event.ctrlKey && event.key === 'c') {
+        event.preventDefault();
+        console.log('Ctrl+C 감지됨');
+        if (selectedItems && selectedItems.length > 0) {
+          // 선택된 항목 중 첫 번째 항목을 복사
+          const selectedItem = selectedItems[0];
+          const item = calendarItems[selectedItem.date]?.find(item => item.id === selectedItem.id);
+          if (item) {
+            setCopiedItem(item);
+            console.log('항목 복사됨:', item);
+            alert('항목이 복사되었습니다!');
+          } else {
+            console.log('복사할 항목을 찾을 수 없음');
+          }
+        } else {
+          console.log('선택된 항목이 없음');
+        }
+      }
+      
+      // Ctrl+V: 붙여넣기
+      if (event.ctrlKey && event.key === 'v') {
+        event.preventDefault();
+        console.log('Ctrl+V 감지됨');
+        console.log('현재 선택된 날짜:', selectedDate);
+        console.log('복사된 항목:', copiedItem);
+        if (copiedItem && selectedDate) {
+          console.log('붙여넣기 시도:', selectedDate);
+          handlePasteItem(selectedDate);
+        } else {
+          console.log('복사된 항목이 없거나 선택된 날짜가 없음');
+          if (!copiedItem) alert('복사된 항목이 없습니다. Ctrl+C로 항목을 복사하세요.');
+          if (!selectedDate) alert('붙여넣을 날짜를 선택하세요.');
+        }
       }
     };
 
@@ -634,7 +720,7 @@ const ScheduleManagement = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [selectedItems, calendarItems, copiedItem, selectedDate]);
 
   const handleDeleteSelected = async () => {
     if (selectedItems.length === 0) return;
@@ -1405,6 +1491,7 @@ const ScheduleManagement = ({
               onDeleteSelected={handleDeleteSelected}
               sites={filteredSites}
               selectedDate={selectedDate}
+              copiedItem={copiedItem}
               onExcel={handleExcel}
               onAddSchedule={onAddSchedule}
             />
