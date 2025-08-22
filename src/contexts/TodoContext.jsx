@@ -37,8 +37,7 @@ export const TodoProvider = ({ children }) => {
     
     const q = query(
       collection(db, 'todos'),
-      where('userId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', currentUser.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {

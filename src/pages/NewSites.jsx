@@ -1788,11 +1788,11 @@ const NewSites = () => {
       sx={{ 
         display: 'flex', 
         flexDirection: { xs: 'column', md: 'row' }, 
-        height: { xs: 'calc(100vh - 100px)', md: 'calc(100vh - 120px)' }, // 모바일에서는 더 작은 높이
+        height: { xs: 'auto', md: 'calc(100vh - 120px)' }, // 모바일에서는 자동 높이
         bgcolor: '#1a1d21', 
         p: 0, 
         gap: 2, 
-        overflow: 'hidden', // 전체 컨테이너는 스크롤 없음
+        overflow: { xs: 'auto', md: 'hidden' }, // 모바일에서는 스크롤 허용
         width: isMobile ? 'calc(100% - 5px)' : '100%',
         maxWidth: isMobile ? 'calc(100% - 5px)' : '100%',
         mt: isMobile ? '34px' : 8,
@@ -1800,15 +1800,17 @@ const NewSites = () => {
         mr: isMobile ? '5px' : 0,
         position: 'relative',
         right: isMobile ? '0px' : 'auto',
-        pb: isMobile ? '20px' : 0
+        pb: isMobile ? '20px' : 0,
+        WebkitOverflowScrolling: 'touch', // 터치 스크롤 활성화
+        touchAction: 'pan-y' // 세로 스크롤만 허용
       }}
     >
-      {/* Left Panel */}
+      {/* Left Panel - 현장 목록 */}
       <Paper elevation={3} sx={{ 
         width: { xs: '100%', md: '20%' }, 
         minWidth: { md: '200px' }, 
-        height: '100%', // 부모 컨테이너의 높이에 맞춤
-        display: 'flex', 
+        height: { xs: 'auto', md: '100%' }, // 모바일에서는 자동 높이
+        display: { xs: isMobile && isEditing ? 'none' : 'flex', md: 'flex' },
         flexDirection: 'column', 
         bgcolor: '#232734', 
         p: isMobile ? 1 : 2, 
@@ -1816,7 +1818,7 @@ const NewSites = () => {
         position: isMobile ? 'relative' : 'static',
         top: isMobile ? '0px' : 'auto',
         left: isMobile ? '0px' : 'auto',
-        overflow: 'hidden',
+        overflow: 'visible', // 모바일에서 스크롤 허용
         flexShrink: 0
       }}>
         <Tabs 
@@ -1869,7 +1871,9 @@ const NewSites = () => {
         {isMobile && (
           <Button 
             variant="contained" 
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               console.log('📱 모바일 새현장 추가 버튼 클릭됨');
               handleNewSite();
             }} 
@@ -1893,7 +1897,7 @@ const NewSites = () => {
           overflowY: 'auto', 
           flex: 1,
           minHeight: 0,
-          maxHeight: '100%',
+          maxHeight: { xs: 'none', md: '100%' }, // 모바일에서는 제한 없음
           WebkitOverflowScrolling: 'touch',
           touchAction: 'pan-y',
           '&::-webkit-scrollbar': {
@@ -2008,21 +2012,21 @@ const NewSites = () => {
         </List>
       </Paper>
       
-      {/* Center Panel */}
+      {/* Center Panel - 현장 상세정보 */}
       <Paper elevation={3} sx={{ 
-        flex: 1, 
-        display: 'flex', 
+        flex: { xs: 'none', md: 1 }, 
+        width: { xs: '100%', md: 'auto' },
+        display: { xs: isMobile && isEditing ? 'flex' : 'none', md: 'flex' },
         flexDirection: 'column', 
         bgcolor: '#232734', 
         p: isMobile ? 2 : 3, 
         borderRadius: 2, 
         minWidth: 0, 
-        height: '100%', // 부모 컨테이너의 높이에 맞춤
+        height: { xs: 'auto', md: '100%' }, // 모바일에서는 자동 높이
         position: isMobile ? 'relative' : 'static',
         top: isMobile ? '0px' : 'auto',
         left: isMobile ? '0px' : 'auto',
-        overflow: 'hidden', // 내부 컨텐츠에서 스크롤 처리
-        display: { xs: isEditing ? 'flex' : 'none', md: 'flex' } // 모바일에서는 편집 모드일 때만 보임
+        overflow: 'visible' // 모바일에서는 스크롤 허용
       }}>
          <Box sx={{ display: 'flex', alignItems: 'center', mb: isMobile ? 1 : 2 }}>
            <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>
@@ -2033,7 +2037,11 @@ const NewSites = () => {
              {isMobile && isEditing && !selectedSite ? (
                <Button 
                  variant="outlined" 
-                 onClick={() => setIsEditing(false)} 
+                 onClick={(e) => {
+                   e.preventDefault();
+                   e.stopPropagation();
+                   setIsEditing(false);
+                 }} 
                  size="small" 
                  sx={{ 
                    fontSize: '0.7rem',
@@ -2051,7 +2059,11 @@ const NewSites = () => {
                <>
                  <Button 
                    variant="contained" 
-                   onClick={handleNewSite} 
+                   onClick={(e) => {
+                     e.preventDefault();
+                     e.stopPropagation();
+                     handleNewSite();
+                   }} 
                    size={isMobile ? 'small' : 'small'} 
                    sx={{ 
                      fontSize: isMobile ? '0.7rem' : 'inherit',
@@ -2063,7 +2075,11 @@ const NewSites = () => {
                  >
                    + 새현장
                  </Button>
-                 <Button variant="outlined" onClick={handleWholeList} size={isMobile ? 'small' : 'small'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', display: isMobile ? 'none' : 'inline-flex' }}>
+                 <Button variant="outlined" onClick={(e) => {
+                   e.preventDefault();
+                   e.stopPropagation();
+                   handleWholeList();
+                 }} size={isMobile ? 'small' : 'small'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', display: isMobile ? 'none' : 'inline-flex' }}>
                    전체 List
                  </Button>
                </>
@@ -2135,10 +2151,12 @@ const NewSites = () => {
            display: 'flex', 
            flexDirection: 'column', 
            gap: isMobile ? 0.5 : 1,
-           height: { xs: 'calc(100% - 80px)', md: 'calc(100% - 100px)' }, // 통합 현황 카드가 줄어든 만큼 높이 조정
-           overflowY: 'auto', // 세로 스크롤 추가
+           height: { xs: 'auto', md: 'calc(100% - 100px)' }, // 모바일에서는 자동 높이
+           minHeight: { xs: 'auto', md: 'auto' }, // 모바일에서 자동 높이
+           overflowY: { xs: 'visible', md: 'auto' }, // 모바일에서는 스크롤 없음
            WebkitOverflowScrolling: 'touch',
            scrollBehavior: 'smooth',
+           touchAction: 'pan-y',
            '&::-webkit-scrollbar': {
              width: '8px'
            },
@@ -2182,12 +2200,12 @@ const NewSites = () => {
                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1.5 }}>
                    <Typography variant="body1" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>주요현장</Typography>
                    <IconButton 
-                     onClick={() => handleChange({ target: { name: 'isFavorite', value: !form.isFavorite } })} 
+                     onClick={() => handleChange({ target: { name: 'isFavorite', value: !(form.isFavorite ?? false) } })} 
                      size="small" 
                      sx={{ ml: 0.5 }} 
                      disabled={isReadOnly}
                    >
-                     {form.isFavorite ? <StarIcon sx={{ color: 'gold' }} /> : <StarBorderIcon />}
+                     {(form.isFavorite ?? false) ? <StarIcon sx={{ color: 'gold' }} /> : <StarBorderIcon />}
                    </IconButton>
                  </Box>
                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 2.5 }}>
@@ -2231,7 +2249,7 @@ const NewSites = () => {
              </Box>
              <Box sx={{ flex: isMobile ? 1 : 3, pb: 0.5 }}>
                <FormControlLabel 
-                 control={<Checkbox name="subcontractGuardian" checked={form.subcontractGuardian} onChange={handleChange} disabled={isReadOnly} />} 
+                 control={<Checkbox name="subcontractGuardian" checked={form.subcontractGuardian ?? false} onChange={handleChange} disabled={isReadOnly} />} 
                  label="하도급지킴이"
                  sx={{ 
                    '& .MuiFormControlLabel-label': {
@@ -2510,7 +2528,11 @@ const NewSites = () => {
              <Button 
                variant="contained" 
                color="primary" 
-               onClick={handleSave} 
+               onClick={(e) => {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 handleSave();
+               }} 
                disabled={isSaving}
                size={isMobile ? 'small' : 'medium'} 
                sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
@@ -2518,43 +2540,64 @@ const NewSites = () => {
                {isSaving ? '저장 중...' : (selectedSite ? '저장하기' : '등록하기')}
              </Button>
            ) : (
-             <Button variant="contained" color="primary" onClick={handleEditClick} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+             <Button variant="contained" color="primary" onClick={(e) => {
+               e.preventDefault();
+               e.stopPropagation();
+               handleEditClick();
+             }} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
                수정하기
              </Button>
            )}
-           <Button variant="outlined" color="info" onClick={handleViewEstimate} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+           <Button variant="outlined" color="info" onClick={(e) => {
+             e.preventDefault();
+             e.stopPropagation();
+             handleViewEstimate();
+           }} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
              견적서보기
            </Button>
 
            {form?.contractType === '납품계약' && (
-             <Button variant="contained" color="primary" onClick={handleDownloadNapfoomContract} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+             <Button variant="contained" color="primary" onClick={(e) => {
+               e.preventDefault();
+               e.stopPropagation();
+               handleDownloadNapfoomContract();
+             }} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
                납품계약서
              </Button>
            )}
 
-           <Button variant="outlined" color="secondary" onClick={handleDelete} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+           <Button variant="outlined" color="secondary" onClick={(e) => {
+             e.preventDefault();
+             e.stopPropagation();
+             handleDelete();
+           }} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
              삭제
            </Button>
 
-           <Button variant="contained" color="success" onClick={handleGisung} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+           <Button variant="contained" color="success" onClick={(e) => {
+             e.preventDefault();
+             e.stopPropagation();
+             handleGisung();
+           }} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
              기성현황
            </Button>
          </Box>
       </Paper>
       
-      {/* Right Panel */}
+      {/* Right Panel - 물량 내역 */}
       <Paper elevation={3} sx={{ 
         width: { xs: '100%', md: '30%' }, 
         minWidth: { md: '280px' }, 
-        height: 'auto', 
-        display: 'flex', 
+        height: { xs: 'auto', md: '100%' }, // 모바일에서는 자동 높이
+        display: { xs: isMobile && isEditing ? 'flex' : 'none', md: 'flex' }, // 모바일에서는 편집 모드일 때만 표시
         flexDirection: 'column', 
         bgcolor: '#232734', 
         p: isMobile ? 2 : 3, 
         borderRadius: 2, 
         position: isMobile ? 'relative' : 'static',
         top: isMobile ? '0px' : 'auto',
-        left: isMobile ? '2px' : 'auto'
+        left: isMobile ? '2px' : 'auto',
+        overflow: 'visible' // 모바일에서는 스크롤 허용
       }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
           <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>
@@ -2563,7 +2606,11 @@ const NewSites = () => {
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button 
               variant="outlined" 
-              onClick={handleAddItem} 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleAddItem();
+              }} 
               size={isMobile ? 'small' : 'medium'} 
               sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
               disabled={isReadOnly}
@@ -2572,7 +2619,11 @@ const NewSites = () => {
             </Button>
             <Button 
               variant="outlined" 
-              onClick={handleOpenUploadDialog} 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleOpenUploadDialog();
+              }} 
               size={isMobile ? 'small' : 'medium'} 
               sx={{ 
                 fontSize: isMobile ? '0.7rem' : 'inherit',
@@ -2591,7 +2642,11 @@ const NewSites = () => {
 
             <Button 
               variant="outlined" 
-              onClick={handleClearItems} 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleClearItems();
+              }} 
               size={isMobile ? 'small' : 'medium'} 
               sx={{ 
                 fontSize: isMobile ? '0.7rem' : 'inherit',
@@ -2860,7 +2915,26 @@ const NewSites = () => {
               <Typography variant="h6" sx={{ mb: 2 }}>
                 추출된 물량내역 ({uploadedItems.length}개)
               </Typography>
-              <TableContainer component={Paper} sx={{ maxHeight: 400, overflow: 'auto' }}>
+              <TableContainer component={Paper} sx={{ 
+                maxHeight: { xs: 'none', md: 400 }, 
+                overflow: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-y',
+                '&::-webkit-scrollbar': {
+                  width: '8px'
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: '#1a1d21',
+                  borderRadius: '4px'
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: '#444',
+                  borderRadius: '4px'
+                },
+                '&::-webkit-scrollbar-thumb:hover': {
+                  background: '#666'
+                }
+              }}>
                 <Table size="small">
                   <TableHead>
                     <TableRow>

@@ -65,6 +65,7 @@ const CustomCalendar = (props) => {
     onDateNumberClick,
     onCountClick,
     onCellClick,
+    onCellDoubleClick,
     sites = [],
     onOpenPopup,
     onAddSchedule
@@ -769,11 +770,10 @@ const CustomCalendar = (props) => {
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   className="calendar-cell"
-                  onClick={() => {
+                  onDoubleClick={() => {
                     if (dateStr) {
-                      setSelectedDate(dateStr);
+                      onCellDoubleClick && onCellDoubleClick(dateStr);
                     }
-                    onCellClick && onCellClick(dateStr);
                   }}
                   sx={{
                     bgcolor: snapshot.isDraggingOver ? '#1e293b' : '#232837',
@@ -1104,6 +1104,7 @@ const CustomCalendar = (props) => {
                                       console.log('일정 클릭됨:', dateStr, item.id);
                                       onItemClick(dateStr, item.id);
                                     }}
+
                                     onDoubleClick={e => {
                                       e.stopPropagation();
                                       console.log('일정 더블클릭됨:', dateStr, item);
@@ -1151,9 +1152,32 @@ const CustomCalendar = (props) => {
                                       userSelect: 'none', // 텍스트 선택 방지
                                       WebkitUserSelect: 'none',
                                       MozUserSelect: 'none',
-                                      msUserSelect: 'none'
+                                      msUserSelect: 'none',
+                                      position: 'relative' // 테두리 클릭 영역을 위한 상대 위치
                                     }}
                                   >
+                                    {/* 테두리 클릭 영역 */}
+                                    <Box
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        console.log('테두리 클릭됨:', dateStr, item.id);
+                                        onItemClick(dateStr, item.id);
+                                      }}
+                                      sx={{
+                                        position: 'absolute',
+                                        top: '-3px',
+                                        left: '-3px',
+                                        right: '-3px',
+                                        bottom: '-3px',
+                                        border: '3px solid transparent',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        zIndex: 1,
+                                        '&:hover': {
+                                          borderColor: 'rgba(255, 255, 255, 0.3)'
+                                        }
+                                      }}
+                                    />
                                     <Tooltip 
                                       title={(() => {
                                         const typePrefix = 

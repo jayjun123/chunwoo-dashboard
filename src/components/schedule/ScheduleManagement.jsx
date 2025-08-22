@@ -1053,6 +1053,14 @@ const ScheduleManagement = ({
     setShowListPopup(true); 
     setListPopupDate(dateStr); 
   };
+
+
+
+  // 날짜셀 더블클릭 시 팝업 열기
+  const handleDateCellDoubleClick = (dateStr) => {
+    setShowListPopup(true);
+    setListPopupDate(dateStr);
+  };
   const handleCloseListPopup = () => { setShowListPopup(false); setListPopupDate(''); };
   
   // 현장 더블클릭 핸들러
@@ -1390,6 +1398,7 @@ const ScheduleManagement = ({
               onOpenPopup={handleOpenPopup}
               onDateNumberClick={handleOpenPopup}
               onCountClick={handleShowListPopup}
+              onCellDoubleClick={handleDateCellDoubleClick}
               onCheckItem={handleCheckItem}
               checkedItems={checkedItems}
               selectedItems={selectedItems}
