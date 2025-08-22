@@ -3,9 +3,10 @@ import {
   Box, Grid, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Snackbar, Alert, useMediaQuery, Tabs, Tab, Autocomplete, Select, MenuItem, FormControl, InputLabel
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, CloudDownload as CloudDownloadIcon } from '@mui/icons-material';
-import { db, storage } from '../firebase';
+import { db, storage, auth } from '../firebase';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { onAuthStateChanged } from 'firebase/auth';
 import * as XLSX from 'xlsx';
 import SafetyOverviewCards from '../components/safety/SafetyOverviewCards';
 import { exportToExcel } from '../utils/excelUtils';
@@ -20,6 +21,7 @@ const SafetyPage = () => {
   const [data, setData] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const [form, setForm] = useState({
     title: '',
     date: '',
@@ -41,6 +43,16 @@ const SafetyPage = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const isMobile = useMediaQuery('(max-width:900px)');
   
+  // 사용자 인증 상태 확인
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      console.log('현재 사용자:', user);
+    });
+    
+    return () => unsubscribe();
+  }, []);
+  
   // 모바일에서는 안전관리 탭이 없으므로 인덱스 조정
   const getActualTabIndex = () => {
     if (isMobile && tab === 0) {
@@ -61,6 +73,7 @@ const SafetyPage = () => {
   const navigate = useNavigate();
   const [filteredSiteId, setFilteredSiteId] = useState(null);
   const [filteredSiteName, setFilteredSiteName] = useState('');
+  const [safetyCostSummary, setSafetyCostSummary] = useState([]);
 
   // 탭별 Firestore 컬렉션 매핑
   const collectionMap = ['sites', 'safety_inspections', 'safety_accidents', 'safety_education', 'safety_costs'];
@@ -82,6 +95,122 @@ const SafetyPage = () => {
       setSiteOptions(snapshot.docs.map(doc => doc.data().name));
     });
     return () => unsub();
+  }, []);
+
+  // 안전관리비 현황 계산 함수
+  const calculateSafetyCostSummary = async () => {
+    try {
+      console.log('안전관리비 현황 계산 시작...');
+      
+      const [sitesSnap, costsSnap] = await Promise.all([
+        getDocs(query(collection(db, 'sites'))),
+        getDocs(query(collection(db, 'safety_costs')))
+      ]);
+
+      console.log('현장 데이터 개수:', sitesSnap.docs.length);
+      console.log('안전관리비 데이터 개수:', costsSnap.docs.length);
+
+      const sitesMap = {};
+      const siteCosts = {};
+
+      // 현장 데이터 매핑 및 디버깅
+      console.log('=== 현장 데이터 상세 분석 ===');
+      sitesSnap.docs.forEach(doc => {
+        const data = doc.data();
+        const siteName = data.name;
+        sitesMap[doc.id] = siteName;
+        
+        console.log(`현장 ID: ${doc.id}`);
+        console.log(`현장명: ${siteName}`);
+        console.log(`안전관리비(safetyCost): ${data.safetyCost}`);
+        console.log(`안전관리비(safetyBudget): ${data.safetyBudget}`);
+        console.log(`전체 데이터:`, data);
+        console.log('---');
+        
+        // safetyCost 또는 safetyBudget 중 하나라도 있으면 사용
+        const safetyBudget = data.safetyCost || data.safetyBudget;
+        if (siteName && safetyBudget && Number(safetyBudget) > 0) {
+          siteCosts[siteName] = {
+            totalBudget: Number(safetyBudget) || 0,
+            usedAmount: 0,
+            remainingAmount: 0
+          };
+          console.log(`✅ 안전관리비 있는 현장 추가: ${siteName}, 예산: ${safetyBudget}`);
+        } else {
+          console.log(`❌ 안전관리비 없는 현장: ${siteName}`);
+        }
+      });
+
+      console.log('안전관리비 있는 현장 개수:', Object.keys(siteCosts).length);
+
+      // 안전관리비 사용 데이터 디버깅
+      console.log('=== 안전관리비 사용 데이터 상세 분석 ===');
+      costsSnap.docs.forEach(doc => {
+        const data = doc.data();
+        console.log(`안전관리비 사용 데이터 ID: ${doc.id}`);
+        console.log(`전체 데이터:`, data);
+        
+        const siteName = data.siteName || sitesMap[data.siteId] || '';
+        const amount = Number(data.amount) || 0;
+        
+        console.log(`현장명: ${siteName}, 금액: ${amount}, siteId: ${data.siteId}`);
+        
+        if (siteName) {
+          // 현장이 siteCosts에 없으면 새로 생성 (예산이 없어도 사용 내역이 있으면 표시)
+          if (!siteCosts[siteName]) {
+            siteCosts[siteName] = {
+              totalBudget: 0,
+              usedAmount: 0,
+              remainingAmount: 0
+            };
+            console.log(`🆕 사용 내역만 있는 현장 추가: ${siteName}`);
+          }
+          
+          siteCosts[siteName].usedAmount += amount;
+          console.log(`✅ 사용금액 추가: ${siteName}에 ${amount} 추가됨 (총 사용: ${siteCosts[siteName].usedAmount})`);
+        } else {
+          console.log(`❌ 사용금액 추가 실패: ${siteName} (현장명을 찾을 수 없음)`);
+        }
+        console.log('---');
+      });
+
+      // 남은 금액 계산 및 정렬
+      const summary = Object.entries(siteCosts)
+        .map(([siteName, data]) => ({
+          siteName,
+          totalBudget: data.totalBudget,
+          usedAmount: data.usedAmount,
+          remainingAmount: data.totalBudget - data.usedAmount
+        }))
+        .sort((a, b) => b.remainingAmount - a.remainingAmount);
+
+      console.log('=== 최종 안전관리비 현황 ===');
+      console.log(summary);
+      setSafetyCostSummary(summary);
+    } catch (error) {
+      console.error('안전관리비 현황 계산 오류:', error);
+    }
+  };
+
+  // 안전관리비 현황 계산 (실시간 업데이트)
+  useEffect(() => {
+    // sites 컬렉션 실시간 감시
+    const sitesUnsub = onSnapshot(query(collection(db, 'sites')), () => {
+      calculateSafetyCostSummary();
+    });
+    
+    // safety_costs 컬렉션 실시간 감시
+    const costsUnsub = onSnapshot(query(collection(db, 'safety_costs')), () => {
+      calculateSafetyCostSummary();
+    });
+
+    // 초기 계산
+    calculateSafetyCostSummary();
+
+    return () => {
+      sitesUnsub();
+      costsUnsub();
+    };
   }, []);
 
   // URL 파라미터에서 siteId 읽기
@@ -108,8 +237,14 @@ const SafetyPage = () => {
   }, [filteredSiteId, data]);
 
   const openDialog = (row = null) => {
+    console.log('=== 다이얼로그 열기 ===');
+    console.log('편집할 행 데이터:', row);
+    console.log('현재 탭:', tab);
+    
     if (row) {
       setEditId(row.id);
+      console.log('수정 모드 - 문서 ID:', row.id);
+      
       // 기존 데이터의 isIssued 값을 문자열로 변환
       let isIssuedValue = '아니요';
       if (row.isIssued === true || row.isIssued === 'true' || row.isIssued === '예') {
@@ -118,27 +253,50 @@ const SafetyPage = () => {
         isIssuedValue = '일부분출';
       }
       
-      setForm({
-        title: row.title,
-        date: row.date,
-        description: row.description,
+      const formData = {
+        title: row.title || '',
+        date: row.date || '',
+        description: row.description || '',
         type: row.type || collectionMap[tab],
-        siteName: row.siteName,
+        siteName: row.siteName || '',
         attachment: row.attachment,
-        preview: row.preview,
-        name: row.name,
-        equipment: row.equipment,
+        preview: row.preview || '',
+        name: row.name || '',
+        equipment: row.equipment || '',
         isIssued: isIssuedValue,
         receipt: row.receipt,
-        receiptUrl: row.receiptUrl,
+        receiptUrl: row.receiptUrl || '',
         issueDoc: row.issueDoc,
-        issueDocUrl: row.issueDocUrl,
-        note: row.note,
-        amount: row.amount,
-      });
+        issueDocUrl: row.issueDocUrl || '',
+        note: row.note || '',
+        amount: row.amount || '',
+      };
+      
+      console.log('폼에 설정할 데이터:', formData);
+      setForm(formData);
     } else {
       setEditId(null);
-      setForm({ title: '', date: '', description: '', type: collectionMap[tab], siteName: '', attachment: null, preview: '', name: '', equipment: '', isIssued: '아니요', receipt: null, receiptUrl: '', issueDoc: null, issueDocUrl: '', note: '', amount: '' });
+      console.log('추가 모드');
+      const emptyForm = { 
+        title: '', 
+        date: '', 
+        description: '', 
+        type: collectionMap[tab], 
+        siteName: '', 
+        attachment: null, 
+        preview: '', 
+        name: '', 
+        equipment: '', 
+        isIssued: '아니요', 
+        receipt: null, 
+        receiptUrl: '', 
+        issueDoc: null, 
+        issueDocUrl: '', 
+        note: '', 
+        amount: '' 
+      };
+      console.log('빈 폼 데이터:', emptyForm);
+      setForm(emptyForm);
     }
     setDialogOpen(true);
   };
@@ -146,30 +304,6 @@ const SafetyPage = () => {
   const closeDialog = () => {
     setDialogOpen(false);
     setEditId(null);
-  };
-
-  const updateSiteSafetyCost = async (siteName) => {
-    if (!siteName) return;
-    try {
-      const siteQuery = query(collection(db, 'sites'), where('name', '==', siteName));
-      const siteSnapshot = await getDocs(siteQuery);
-      if (siteSnapshot.empty) {
-        console.error("업데이트할 현장을 찾을 수 없습니다:", siteName);
-        return;
-      }
-      const siteDoc = siteSnapshot.docs[0];
-
-      const safetyCostQuery = query(collection(db, 'safety_costs'), where('siteName', '==', siteName));
-      const safetyCostSnapshot = await getDocs(safetyCostQuery);
-      const totalSafetyCost = safetyCostSnapshot.docs.reduce((sum, doc) => sum + (Number(doc.data().amount) || 0), 0);
-
-      await updateDoc(doc(db, 'sites', siteDoc.id), {
-        safetyCost: totalSafetyCost
-      });
-      console.log(`'${siteName}' 현장의 안전관리비가 ${totalSafetyCost}으로 업데이트되었습니다.`);
-    } catch (e) {
-      console.error("현장 안전관리비 업데이트 실패:", e);
-    }
   };
 
   const handleSave = async () => {
@@ -212,11 +346,11 @@ const SafetyPage = () => {
       }
     }
     let previewUrl = form.preview;
-    if (form.attachment) {
+    if (form.attachment && form.attachment instanceof File) {
       const storageRef = ref(storage, `safety/${Date.now()}_${form.attachment.name}`);
       await uploadBytes(storageRef, form.attachment, {
         customMetadata: {
-          userId: currentUser.uid,
+          userId: currentUser?.uid || 'anonymous',
           uploadedAt: new Date().toISOString(),
           type: 'safety_attachment'
         }
@@ -224,11 +358,11 @@ const SafetyPage = () => {
       previewUrl = await getDownloadURL(storageRef);
     }
     let receiptUrl = form.receiptUrl;
-    if (form.receipt) {
+    if (form.receipt && form.receipt instanceof File) {
       const storageRef = ref(storage, `safety/receipt_${Date.now()}_${form.receipt.name}`);
       await uploadBytes(storageRef, form.receipt, {
         customMetadata: {
-          userId: currentUser.uid,
+          userId: currentUser?.uid || 'anonymous',
           uploadedAt: new Date().toISOString(),
           type: 'safety_receipt'
         }
@@ -236,11 +370,11 @@ const SafetyPage = () => {
       receiptUrl = await getDownloadURL(storageRef);
     }
     let issueDocUrl = form.issueDocUrl;
-    if (form.issueDoc) {
+    if (form.issueDoc && form.issueDoc instanceof File) {
       const storageRef = ref(storage, `safety/issueDoc_${Date.now()}_${form.issueDoc.name}`);
       await uploadBytes(storageRef, form.issueDoc, {
         customMetadata: {
-          userId: currentUser.uid,
+          userId: currentUser?.uid || 'anonymous',
           uploadedAt: new Date().toISOString(),
           type: 'safety_issueDoc'
         }
@@ -334,12 +468,6 @@ const SafetyPage = () => {
         setSnackbar({ open: true, message: '추가되었습니다.', severity: 'success' });
       }
       
-      if (collectionMap[tab] === 'safety_costs') {
-        console.log('안전관리비 현장 업데이트 시작');
-        await updateSiteSafetyCost(saveData.siteName);
-        console.log('안전관리비 현장 업데이트 완료');
-      }
-      
       closeDialog();
     } catch (e) {
       console.error('=== 저장 실패 상세 분석 ===');
@@ -364,9 +492,7 @@ const SafetyPage = () => {
     if (window.confirm('정말로 삭제하시겠습니까?')) {
       try {
         await deleteDoc(doc(db, collectionMap[tab], item.id));
-        if (collectionMap[tab] === 'safety_costs') {
-          await updateSiteSafetyCost(item.siteName);
-        }
+        closeDialog();
         setSnackbar({ open: true, message: '삭제되었습니다.', severity: 'success' });
       } catch (e) {
         setSnackbar({ open: true, message: '삭제에 실패했습니다.', severity: 'error' });
@@ -439,10 +565,10 @@ const SafetyPage = () => {
     // 모바일에서도 테이블 형태로 표시 (PC와 동일)
     
     const tableHeaders = {
-      1: isMobile ? ['현장명', '제목', '일자'] : ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 안전 점검
-      2: isMobile ? ['현장명', '제목', '일자'] : ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 사고/사고예방
-      3: isMobile ? ['현장명', '제목', '일자'] : ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 안전 교육
-      4: isMobile ? ['현장명', '날짜', '안전장비'] : ['현장명', '이름', '날짜', '안전장비', '분출여부', '첨부파일', '영수증', '분출대장', '비고', '금액', '관리'] // 안전관리비
+      1: isMobile ? ['현장명', '제목', '일자', '관리'] : ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 안전 점검
+      2: isMobile ? ['현장명', '제목', '일자', '관리'] : ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 사고/사고예방
+      3: isMobile ? ['현장명', '제목', '일자', '관리'] : ['현장명', '제목', '일자', '첨부', '미리보기', '비고', '관리'], // 안전 교육
+      4: isMobile ? ['현장명', '날짜', '안전장비', '관리'] : ['현장명', '이름', '날짜', '안전장비', '분출여부', '첨부파일', '영수증', '분출대장', '비고', '금액', '관리'] // 안전관리비
     };
 
     const renderRow = (row) => {
@@ -536,6 +662,24 @@ const SafetyPage = () => {
                   </IconButton>
                 </TableCell>
               </>
+            )}
+            {isMobile && (
+              <TableCell sx={{ 
+                fontSize: '0.6rem', 
+                padding: '4px 2px',
+                width: 'auto',
+                minWidth: 0,
+                maxWidth: '100%'
+              }}>
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <IconButton size="small" onClick={() => openDialog(row)}>
+                    <EditIcon sx={{ fontSize: '0.8rem' }} />
+                  </IconButton>
+                  <IconButton size="small" onClick={() => handleDelete(row)}>
+                    <DeleteIcon sx={{ fontSize: '0.8rem' }} />
+                  </IconButton>
+                </Box>
+              </TableCell>
             )}
           </TableRow>
         );
@@ -688,6 +832,24 @@ const SafetyPage = () => {
                 </IconButton>
               </TableCell>
             )}
+            {isMobile && (
+              <TableCell sx={{ 
+                fontSize: '0.6rem', 
+                padding: '4px 2px',
+                width: 'auto',
+                minWidth: 0,
+                maxWidth: '100%'
+              }}>
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <IconButton size="small" onClick={() => openDialog(row)}>
+                    <EditIcon sx={{ fontSize: '0.8rem' }} />
+                  </IconButton>
+                  <IconButton size="small" onClick={() => handleDelete(row)}>
+                    <DeleteIcon sx={{ fontSize: '0.8rem' }} />
+                  </IconButton>
+                </Box>
+              </TableCell>
+            )}
           </TableRow>
         );
       }
@@ -817,6 +979,158 @@ const SafetyPage = () => {
 
   const inputRef1 = useRef();
 
+  // 안전관리비 현황 사이드바
+  const renderSafetyCostSidebar = () => {
+    if (isMobile) return null; // 모바일에서는 표시하지 않음
+    
+    return (
+      <Box sx={{
+        position: 'fixed',
+        top: '180px',
+        right: '20px',
+        width: '360px',
+        maxHeight: '400px',
+        p: 2,
+        bgcolor: '#232b3b',
+        borderRadius: 2,
+        border: '2px solid #22c55e',
+        zIndex: 10,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+      }}>
+        <Typography variant="h6" sx={{
+          color: '#22c55e',
+          fontWeight: 700,
+          mb: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          fontSize: '1rem'
+        }}>
+          💰 안전관리비 현황
+        </Typography>
+        <Box sx={{
+          maxHeight: '320px',
+          overflowY: 'auto',
+          '&::-webkit-scrollbar': {
+            width: '6px'
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'rgba(0,0,0,0.1)',
+            borderRadius: '3px'
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: 'rgba(0,0,0,0.3)',
+            borderRadius: '3px'
+          }
+        }}>
+          {safetyCostSummary.length > 0 ? (
+            safetyCostSummary.map((item, index) => (
+              <Box key={index} sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                p: 1.5,
+                mb: 1,
+                bgcolor: '#1a1d21',
+                borderRadius: 1,
+                border: '1px solid #333'
+              }}>
+                <Typography sx={{
+                  color: '#fff',
+                  fontSize: '0.9rem',
+                  fontWeight: 500,
+                  maxWidth: '180px',
+                  wordBreak: 'break-word'
+                }}>
+                  {item.siteName}
+                </Typography>
+                <Box sx={{ textAlign: 'right' }}>
+                  {item.totalBudget > 0 ? (
+                    <Typography sx={{
+                      color: item.remainingAmount >= 0 ? '#22c55e' : '#ef4444',
+                      fontSize: '0.95rem',
+                      fontWeight: 700
+                    }}>
+                      ({item.remainingAmount.toLocaleString()}원)
+                    </Typography>
+                  ) : (
+                    <Typography sx={{
+                      color: '#f59e42',
+                      fontSize: '0.95rem',
+                      fontWeight: 700
+                    }}>
+                      (사용: {item.usedAmount.toLocaleString()}원)
+                    </Typography>
+                  )}
+                  {item.totalBudget > 0 && (
+                    <Typography sx={{
+                      color: '#666',
+                      fontSize: '0.75rem',
+                      fontWeight: 400
+                    }}>
+                      예산: {item.totalBudget.toLocaleString()}원
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            ))
+          ) : (
+            <Box sx={{ p: 2 }}>
+              <Typography sx={{
+                color: '#666',
+                textAlign: 'center',
+                py: 1,
+                fontSize: '0.85rem',
+                mb: 2
+              }}>
+                안전관리비 데이터가 없습니다.
+              </Typography>
+              <Typography sx={{
+                color: '#888',
+                textAlign: 'left',
+                fontSize: '0.75rem',
+                lineHeight: 1.4,
+                mb: 2
+              }}>
+                📋 안전관리비 현황 계산 방법:
+              </Typography>
+              <Box sx={{ fontSize: '0.7rem', color: '#999', lineHeight: 1.3 }}>
+                <Typography sx={{ mb: 1 }}>
+                  1️⃣ <strong>현장관리</strong>에서 현장별 안전관리비 예산 설정
+                </Typography>
+                <Typography sx={{ mb: 1 }}>
+                  2️⃣ <strong>안전관리비 탭</strong>에서 사용 내역 등록
+                </Typography>
+                <Typography sx={{ mb: 1 }}>
+                  3️⃣ <strong>남은 금액 = 예산 - 사용내역</strong>
+                </Typography>
+                <Typography sx={{ mb: 1 }}>
+                  4️⃣ 현장상세정보의 안전관리비는 그대로 유지됨
+                </Typography>
+              </Box>
+              <Box sx={{ 
+                mt: 2, 
+                p: 1.5, 
+                bgcolor: '#1a1d21', 
+                borderRadius: 1, 
+                border: '1px solid #333' 
+              }}>
+                <Typography sx={{
+                  color: '#22c55e',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  textAlign: 'center'
+                }}>
+                  💡 안전관리비 탭에서 "항목 추가" 버튼을 클릭하여 데이터를 입력해보세요!
+                </Typography>
+              </Box>
+            </Box>
+          )}
+        </Box>
+      </Box>
+    );
+  };
+
   return (
     <Box sx={{ 
       p: isMobile ? 0 : 3,
@@ -931,6 +1245,10 @@ const SafetyPage = () => {
         }}>
           {renderContent()}
         </Grid>
+        
+        {/* 안전관리비 현황 사이드바 */}
+        {tab === 0 && renderSafetyCostSidebar()}
+        
         {/* 추가/수정 다이얼로그 */}
         <Dialog 
           open={dialogOpen} 

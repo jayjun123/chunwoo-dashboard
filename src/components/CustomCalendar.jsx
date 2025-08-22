@@ -68,7 +68,8 @@ const CustomCalendar = (props) => {
     onCellDoubleClick,
     sites = [],
     onOpenPopup,
-    onAddSchedule
+    onAddSchedule,
+    copiedItem: propCopiedItem
   } = props;
   
 
@@ -133,7 +134,12 @@ const CustomCalendar = (props) => {
 
   const [currentViewDate, setCurrentViewDate] = useState(today); // 3일/7일 보기에서 현재 표시되는 시작 날짜
   const [editPopup, setEditPopup] = useState({ open: false, item: null, date: '' }); // 수정 팝업 상태
-  const [copiedItem, setCopiedItem] = useState(null); // 복사된 항목 상태
+  const [copiedItem, setCopiedItem] = useState(propCopiedItem || null); // 복사된 항목 상태
+
+  // propCopiedItem이 변경될 때마다 copiedItem 업데이트
+  useEffect(() => {
+    setCopiedItem(propCopiedItem || null);
+  }, [propCopiedItem]);
   const [selectedDate, setSelectedDate] = useState(() => {
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     return todayStr;
@@ -300,6 +306,8 @@ const CustomCalendar = (props) => {
     if (e.ctrlKey && e.key === 'v') {
       e.preventDefault();
       console.log('Ctrl+V 감지됨');
+      console.log('현재 선택된 날짜:', selectedDate);
+      console.log('복사된 항목:', copiedItem);
       if (copiedItem && selectedDate) {
         console.log('붙여넣기 시도:', selectedDate);
         handlePasteItem(selectedDate);
@@ -314,6 +322,8 @@ const CustomCalendar = (props) => {
   // 붙여넣기 핸들러
   const handlePasteItem = async (targetDate) => {
     if (!copiedItem) return;
+    
+    console.log('붙여넣기 핸들러 호출됨, 대상 날짜:', targetDate);
     
     try {
       const newItem = {
@@ -770,6 +780,12 @@ const CustomCalendar = (props) => {
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   className="calendar-cell"
+                  onClick={() => {
+                    if (dateStr) {
+                      setSelectedDate(dateStr);
+                      console.log('날짜 클릭됨:', dateStr);
+                    }
+                  }}
                   onDoubleClick={() => {
                     if (dateStr) {
                       onCellDoubleClick && onCellDoubleClick(dateStr);

@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Grid, Paper, Typography, TextField, Chip, Divider, Button, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Grid, Paper, Typography, TextField, Chip, Divider, Button, useTheme, useMediaQuery, IconButton, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import SchoolIcon from '@mui/icons-material/School';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { db } from '../../firebase';
-import { collection, query, getDocs } from 'firebase/firestore';
+import { collection, query, getDocs, deleteDoc, doc, where } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -30,9 +31,64 @@ function SafetyOverviewCards() {
   const [search, setSearch] = useState('');
   const [siteData, setSiteData] = useState([]);
   const [inputs, setInputs] = useState({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [siteToDelete, setSiteToDelete] = useState(null);
+
   const navigate = useNavigate();
 
-  useEffect(() => {
+  // 삭제 확인 다이얼로그 열기
+  const handleDeleteClick = (siteName) => {
+    setSiteToDelete(siteName);
+    setDeleteDialogOpen(true);
+  };
+
+  // 삭제 실행
+  const handleDeleteConfirm = async () => {
+    if (!siteToDelete) return;
+    
+    try {
+      console.log(`${siteToDelete} 현장의 안전관리 데이터 삭제 시작...`);
+      
+      // 각 컬렉션에서 해당 현장의 데이터 삭제
+      const collections = ['safety_inspections', 'safety_accidents', 'safety_education', 'safety_costs'];
+      
+      for (const collectionName of collections) {
+        const q = query(collection(db, collectionName), where('siteName', '==', siteToDelete));
+        const snapshot = await getDocs(q);
+        
+        console.log(`${collectionName}에서 ${snapshot.docs.length}개 문서 삭제`);
+        
+        // 각 문서 삭제
+        for (const docSnapshot of snapshot.docs) {
+          await deleteDoc(doc(db, collectionName, docSnapshot.id));
+        }
+      }
+      
+      console.log(`${siteToDelete} 현장의 안전관리 데이터 삭제 완료`);
+      
+      // 데이터 다시 로드
+      fetchAll();
+      
+      setDeleteDialogOpen(false);
+      setSiteToDelete(null);
+      
+      // 성공 메시지 (간단한 alert 사용)
+      alert(`${siteToDelete} 현장의 안전관리 데이터가 삭제되었습니다.`);
+      
+    } catch (error) {
+      console.error('삭제 중 오류 발생:', error);
+      alert('삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 삭제 취소
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setSiteToDelete(null);
+  };
+
+  // 데이터 로드 함수를 별도로 분리
+  const fetchAll = async () => {
     // 4개 컬렉션 + sites에서 siteId→siteName 매핑
     async function fetchAll() {
       const [ins, acc, edu, cost, sitesSnap] = await Promise.all([
@@ -89,6 +145,10 @@ function SafetyOverviewCards() {
       });
       setSiteData(result);
     }
+    fetchAll();
+  };
+
+  useEffect(() => {
     fetchAll();
   }, []);
 
@@ -325,6 +385,21 @@ function SafetyOverviewCards() {
                 >
                   {site.siteName}
                 </Typography>
+                <IconButton
+                  size="small"
+                  onClick={() => handleDeleteClick(site.siteName)}
+                  sx={{
+                    color: '#ef4444',
+                    bgcolor: 'rgba(239, 68, 68, 0.1)',
+                    '&:hover': {
+                      bgcolor: 'rgba(239, 68, 68, 0.2)',
+                    },
+                    width: isMobile ? 28 : 32,
+                    height: isMobile ? 28 : 32,
+                  }}
+                >
+                  <DeleteIcon sx={{ fontSize: isMobile ? '1rem' : '1.2rem' }} />
+                </IconButton>
               </Box>
               <Divider sx={{ mb: 1.5, bgcolor: '#23272f' }} />
               
@@ -554,6 +629,84 @@ function SafetyOverviewCards() {
           </Box>
         ))}
       </Box>
+      
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: '#1a1a1a',
+            color: '#fff',
+            borderRadius: 3
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: '#232b3b', 
+          color: '#ef4444',
+          fontWeight: 700,
+          fontSize: '1.2rem',
+          textAlign: 'center'
+        }}>
+          ⚠️ 삭제 확인
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3, pb: 2 }}>
+          <Typography sx={{ 
+            color: '#fff', 
+            fontSize: '1rem', 
+            textAlign: 'center',
+            mb: 2
+          }}>
+            <strong>{siteToDelete}</strong> 현장의 모든 안전관리 데이터를 삭제하시겠습니까?
+          </Typography>
+          <Typography sx={{ 
+            color: '#f59e42', 
+            fontSize: '0.9rem', 
+            textAlign: 'center',
+            bgcolor: 'rgba(245, 158, 66, 0.1)',
+            p: 2,
+            borderRadius: 2,
+            border: '1px solid rgba(245, 158, 66, 0.3)'
+          }}>
+            삭제된 데이터는 복구할 수 없습니다.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ 
+          p: 3, 
+          justifyContent: 'center',
+          gap: 2
+        }}>
+          <Button 
+            onClick={handleDeleteCancel}
+            variant="outlined"
+            sx={{
+              color: '#fff',
+              borderColor: '#666',
+              '&:hover': {
+                borderColor: '#999'
+              }
+            }}
+          >
+            취소
+          </Button>
+          <Button 
+            onClick={handleDeleteConfirm}
+            variant="contained"
+            sx={{
+              bgcolor: '#ef4444',
+              color: '#fff',
+              '&:hover': {
+                bgcolor: '#dc2626'
+              }
+            }}
+          >
+            삭제
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
