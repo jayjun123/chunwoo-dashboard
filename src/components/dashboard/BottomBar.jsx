@@ -884,32 +884,54 @@ const BottomBar = ({
     }
   };
 
-  // 매일 00:00 리셋 기능
+  // 매일 00:00 리셋 기능 (한국 시간 기준)
   useEffect(() => {
     const checkDailyReset = () => {
+      // 한국 시간 기준으로 현재 시간 계산
       const now = new Date();
+      const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+      
       const lastReset = localStorage.getItem('lastTodoReset');
       const lastResetDate = lastReset ? new Date(lastReset) : null;
       
-      // 오늘 날짜와 마지막 리셋 날짜가 다르면 리셋
-      if (!lastResetDate || lastResetDate.getDate() !== now.getDate() || 
-          lastResetDate.getMonth() !== now.getMonth() || 
-          lastResetDate.getFullYear() !== now.getFullYear()) {
+      // 한국 시간 기준으로 오늘 날짜 생성
+      const todayYear = koreanTime.getFullYear();
+      const todayMonth = koreanTime.getMonth();
+      const todayDate = koreanTime.getDate();
+      
+      // 마지막 리셋 날짜와 비교 (한국 시간 기준)
+      let shouldReset = false;
+      
+      if (!lastResetDate) {
+        shouldReset = true;
+      } else {
+        const lastResetKorean = new Date(lastResetDate.getTime() + (9 * 60 * 60 * 1000));
+        if (lastResetKorean.getDate() !== todayDate || 
+            lastResetKorean.getMonth() !== todayMonth || 
+            lastResetKorean.getFullYear() !== todayYear) {
+          shouldReset = true;
+        }
+      }
+      
+      if (shouldReset) {
+        console.log('투두리스트 일일 리셋 실행 - 한국 시간 기준');
         
         // 전날 미완료 항목들을 저장
         const incompleteTodos = todoListRef.current.filter(todo => !todo.completed);
         if (incompleteTodos.length > 0) {
           localStorage.setItem('yesterdayIncompleteTodos', JSON.stringify(incompleteTodos));
+          console.log('전날 미완료 항목 저장:', incompleteTodos.length, '개');
         }
         
-        // 오늘 날짜로 리셋 기록
-        localStorage.setItem('lastTodoReset', now.toISOString());
+        // 한국 시간 기준으로 오늘 날짜로 리셋 기록
+        localStorage.setItem('lastTodoReset', koreanTime.toISOString());
         
         // 모든 완료된 항목들 삭제 (미완료는 유지)
         todoListRef.current.forEach(async (todo) => {
           if (todo.completed) {
             try {
               await deleteDoc(doc(db, 'todos', todo.id));
+              console.log('완료된 할일 삭제:', todo.text);
             } catch (error) {
               console.error('완료된 할일 삭제 실패:', error);
             }
@@ -926,6 +948,28 @@ const BottomBar = ({
     
     return () => clearInterval(interval);
   }, []); // todoList 의존성 제거
+
+  // 리셋 정보 초기화 (디버깅용)
+  const resetTodoResetInfo = () => {
+    localStorage.removeItem('lastTodoReset');
+    localStorage.removeItem('yesterdayIncompleteTodos');
+    console.log('투두리스트 리셋 정보 초기화 완료');
+  };
+
+  // 전역 함수로 노출 (디버깅용)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.resetTodoResetInfo = resetTodoResetInfo;
+      window.checkTodoResetStatus = () => {
+        const lastReset = localStorage.getItem('lastTodoReset');
+        const yesterdayTodos = localStorage.getItem('yesterdayIncompleteTodos');
+        console.log('현재 리셋 상태:', {
+          lastReset: lastReset ? new Date(lastReset) : null,
+          yesterdayTodos: yesterdayTodos ? JSON.parse(yesterdayTodos).length : 0
+        });
+      };
+    }
+  }, []);
 
   // 전날 미완료 투두 불러오기 다이얼로그 열기
   const handleLoadYesterdayIncomplete = async () => {

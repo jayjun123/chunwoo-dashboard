@@ -725,7 +725,21 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
               <TextField
                 label="기성월"
                 value={formData.gisungMonth}
-                onChange={e => setFormData({ ...formData, gisungMonth: e.target.value })}
+                onChange={e => {
+                  const input = e.target.value.replace(/[^0-9]/g, ''); // 숫자만 추출
+                  let formatted = '';
+                  
+                  if (input.length <= 4) {
+                    formatted = input;
+                  } else if (input.length <= 6) {
+                    formatted = input.slice(0, 4) + '-' + input.slice(4);
+                  } else {
+                    formatted = input.slice(0, 4) + '-' + input.slice(4, 6);
+                  }
+                  
+                  setFormData({ ...formData, gisungMonth: formatted });
+                }}
+                placeholder="0000-00"
                 size="medium"
                 sx={{
                   minWidth: 120,

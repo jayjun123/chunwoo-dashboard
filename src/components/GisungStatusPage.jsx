@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -47,8 +47,8 @@ import { ko } from 'date-fns/locale';
 // import { parseGisungExcelUpload } from '../utils/gisungUploadUtils';
 
 const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurrentMonth, monthText: initialMonthText, selectedSites, filteredData }) => {
-  console.log('🔍 GisungStatusPage 컴포넌트 렌더링 시작');
-  console.log('🔍 props:', { initialViewType, initialCurrentMonth, initialMonthText, selectedSites, filteredData });
+  // console.log('🔍 GisungStatusPage 컴포넌트 렌더링 시작');
+  // console.log('🔍 props:', { initialViewType, initialCurrentMonth, initialMonthText, selectedSites, filteredData });
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -99,25 +99,25 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   }, [currentMonth]);
 
   // 네비게이션 핸들러 - 상태 변경 시 즉시 반영
-  const handlePrevMonth = () => {
+  const handlePrevMonth = useCallback(() => {
     const newMonth = subMonths(currentMonth, 1);
     setCurrentMonth(newMonth);
-    console.log('이전달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
-  };
+    // console.log('이전달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
+  }, [currentMonth]);
   
-  const handleNextMonth = () => {
+  const handleNextMonth = useCallback(() => {
     const newMonth = addMonths(currentMonth, 1);
     setCurrentMonth(newMonth);
-    console.log('다음달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
-  };
+    // console.log('다음달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
+  }, [currentMonth]);
   
-  const handleThisMonth = () => {
+  const handleThisMonth = useCallback(() => {
     const newMonth = new Date();
     setCurrentMonth(newMonth);
-    console.log('이번달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
-  };
+    // console.log('이번달 클릭:', format(newMonth, 'yyyy년 MM월', { locale: ko }));
+  }, []);
   
-  const handleMonthClick = () => handleThisMonth();
+  const handleMonthClick = useCallback(() => handleThisMonth(), [handleThisMonth]);
 
   useEffect(() => {
     fetchAllGisung();
@@ -152,6 +152,30 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     }
   }, [filteredData, gisungList.length]);
 
+  // 팝업이 열려있을 때 allGisungData가 변경되면 누계기성 자동 업데이트
+  useEffect(() => {
+    if (open && formData.name && allGisungData.length > 0) {
+      // 해당 현장의 청구완료된 기성 데이터 찾기
+      const siteGisungData = allGisungData.filter(
+        g => (g.name || '').trim().toLowerCase() === formData.name.trim().toLowerCase() && g.claimStatus === '청구완료'
+      );
+      
+      // 누계기성 계산 (청구완료된 것만)
+      const totalGisungAmount = siteGisungData.reduce((sum, g) => {
+        const amount = Number(g.gisungAmount) || Number(g.currentGisung) || 0;
+        return sum + amount;
+      }, 0);
+      
+      // 폼 데이터 업데이트 (누계기성만)
+      setFormData(prev => ({
+        ...prev,
+        prevGisung: totalGisungAmount.toString()
+      }));
+      
+      console.log(`🔄 팝업 누계기성 자동 업데이트: ${formData.name} - ${totalGisungAmount.toLocaleString()}원`);
+    }
+  }, [allGisungData, open, formData.name]);
+
   const fetchSites = async () => {
     try {
       const snapshot = await getDocs(collection(db, 'sites'));
@@ -162,27 +186,29 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     }
   };
 
-  const fetchAllGisung = async () => {
+  const fetchAllGisung = useCallback(async () => {
     try {
-      console.log('=== 전체 기성 데이터 로드 시작 ===');
+      // console.log('=== 전체 기성 데이터 로드 시작 ===');
       const snapshot = await getDocs(collection(db, 'gisung'));
       const allData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('로드된 전체 기성 데이터:', allData);
+      // console.log('로드된 전체 기성 데이터:', allData);
       setAllGisungData(allData);
-      console.log('=== 전체 기성 데이터 로드 완료 ===');
+      // console.log('=== 전체 기성 데이터 로드 완료 ===');
+      return allData; // 데이터 반환 추가
     } catch (e) {
       console.error('전체 기성 데이터 로드 오류:', e);
       setAllGisungData([]); // 오류 발생 시 빈 배열로 설정
+      return []; // 오류 시 빈 배열 반환
     }
-  };
+  }, []);
 
   // 기성 데이터 로드
-  const fetchGisung = async () => {
+  const fetchGisung = useCallback(async () => {
     try {
-      console.log('=== 기성 데이터 로드 시작 ===');
-      console.log('viewType:', viewType);
-      console.log('currentMonth:', currentMonth);
-      console.log('selectedSites:', selectedSites);
+      // console.log('=== 기성 데이터 로드 시작 ===');
+      // console.log('viewType:', viewType);
+      // console.log('currentMonth:', currentMonth);
+      // console.log('selectedSites:', selectedSites);
 
       
       let q;
@@ -190,11 +216,11 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       
       if (viewType === 'month') {
         const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-        console.log('월별 필터링 - monthStr:', monthStr);
+        // console.log('월별 필터링 - monthStr:', monthStr);
         q = query(gisungCollection, where('gisungMonth', '==', monthStr));
 
       } else if (viewType === 'site' && selectedSites && selectedSites.length > 0) {
-        console.log('현장별 필터링 - selectedSites:', selectedSites);
+        // console.log('현장별 필터링 - selectedSites:', selectedSites);
         
         // selectedSites가 문자열 배열인지 객체 배열인지 확인
         const siteNames = selectedSites.map(site => {
@@ -206,17 +232,17 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           return site;
         }).filter(Boolean);
         
-        console.log('필터링할 현장명들:', siteNames);
+        // console.log('필터링할 현장명들:', siteNames);
         
         if (siteNames.length === 0) {
-          console.log('유효한 현장명이 없음');
+          // console.log('유효한 현장명이 없음');
           setGisungList([]);
           return;
         }
         
         // "전체선택"인 경우 모든 데이터 표시
         if (siteNames.includes('전체선택') || siteNames.includes('전체')) {
-          console.log('🔍 전체선택 - 모든 기성 데이터 표시');
+          // console.log('🔍 전체선택 - 모든 기성 데이터 표시');
           q = query(gisungCollection);
           
           const snapshot = await getDocs(q);
@@ -228,7 +254,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             const previousGisung = allGisungData
               .filter(prev => {
                 const prevSeq = parseInt(prev.sequence?.replace('차', '') || '0');
-                return prev.name === gisung.name && prev.id !== gisung.id && prevSeq < currentSeq;
+                const isClaimCompleted = prev.claimStatus === '청구완료';
+                return prev.name === gisung.name && prev.id !== gisung.id && prevSeq < currentSeq && isClaimCompleted;
               })
               .sort((a, b) => {
                 const aSeq = parseInt(a.sequence?.replace('차', '') || '0');
@@ -250,13 +277,13 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             return bSeq - aSeq;
           });
           
-          console.log('전체선택 정렬 완료된 데이터:', sortedData);
+          // console.log('전체선택 정렬 완료된 데이터:', sortedData);
           setGisungList(sortedData);
           return;
         }
         
         // 전체 데이터를 가져온 후 클라이언트에서 필터링 (현장명 매칭 문제 해결)
-        console.log('🔍 전체 데이터에서 현장별 필터링 적용');
+        // console.log('🔍 전체 데이터에서 현장별 필터링 적용');
         q = query(gisungCollection);
         
         const snapshot = await getDocs(q);
@@ -279,31 +306,29 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             const cleanGisungName = normalizedGisungName.replace(/[^\w가-힣]/g, '');
             const isCleanMatch = cleanGisungName.includes(cleanSiteName) || cleanSiteName.includes(cleanGisungName);
             
-            console.log(`🔍 현장명 매칭: "${normalizedGisungName}" vs "${normalizedSiteName}" - 정확일치: ${isExactMatch}, 부분일치: ${isPartialMatch}, 정리매칭: ${isCleanMatch}`);
+            // console.log(`🔍 현장명 매칭: "${normalizedGisungName}" vs "${normalizedSiteName}" - 정확일치: ${isExactMatch}, 부분일치: ${isPartialMatch}, 정리매칭: ${isCleanMatch}`);
             
             return isExactMatch || isPartialMatch || isCleanMatch;
           });
         });
         
-        console.log('🔍 필터링된 기성 데이터:', filteredData);
+        // console.log('🔍 필터링된 기성 데이터:', filteredData);
         
         // 전회기성 동적 계산
         const filteredDataWithPrevGisung = filteredData.map(gisung => {
           // 현재 기성의 차수 추출
           const currentSeq = parseInt(gisung.sequence?.replace('차', '') || '0');
-          console.log(`🔍 ${gisung.name} ${gisung.sequence} - 현재 차수: ${currentSeq}`);
           
-          // 같은 현장의 이전 차수 기성 데이터 찾기 (현재 차수보다 작은 차수만)
+          // 같은 현장의 이전 차수 기성 데이터 찾기 (현재 차수보다 작은 차수만, 청구완료된 것만)
           const previousGisung = allGisungData
             .filter(prev => {
               const prevSeq = parseInt(prev.sequence?.replace('차', '') || '0');
               const isSameSite = prev.name === gisung.name;
               const isDifferentId = prev.id !== gisung.id;
               const isPreviousSequence = prevSeq < currentSeq;
+              const isClaimCompleted = prev.claimStatus === '청구완료';
               
-              console.log(`🔍 비교: ${prev.name} ${prev.sequence} (차수: ${prevSeq}) - 같은현장: ${isSameSite}, 다른ID: ${isDifferentId}, 이전차수: ${isPreviousSequence}`);
-              
-              return isSameSite && isDifferentId && isPreviousSequence;
+              return isSameSite && isDifferentId && isPreviousSequence && isClaimCompleted;
             })
             .sort((a, b) => {
               // sequence로 정렬 (1차, 2차, 3차...)
@@ -314,15 +339,13 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           
           const calculatedPrevGisung = previousGisung ? (previousGisung.gisungAmount || 0) : 0;
           
-          console.log(`🔍 ${gisung.name} ${gisung.sequence} (차수: ${currentSeq}) - 이전 기성: ${previousGisung?.sequence || '없음'}, 전회기성: ${calculatedPrevGisung}`);
-          
           return {
             ...gisung,
             prevGisung: calculatedPrevGisung
           };
         });
         
-        console.log('전회기성 계산 완료된 필터링 데이터:', filteredDataWithPrevGisung);
+        // console.log('전회기성 계산 완료된 필터링 데이터:', filteredDataWithPrevGisung);
         
         // 차수가 높은 것이 위에 오도록 정렬 (2차, 1차 순서)
         const sortedFilteredData = filteredDataWithPrevGisung.sort((a, b) => {
@@ -332,58 +355,54 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           return bSeq - aSeq; // 2차, 1차 순서
         });
         
-        console.log('정렬 완료된 필터링 데이터:', sortedFilteredData);
+        // console.log('정렬 완료된 필터링 데이터:', sortedFilteredData);
         setGisungList(sortedFilteredData);
         return;
       } else if (viewType === 'site' && (!selectedSites || selectedSites.length === 0)) {
-        console.log('현장별 필터링 - 선택된 현장 없음');
+        // console.log('현장별 필터링 - 선택된 현장 없음');
         setGisungList([]);
         return;
       } else {
-        console.log('필터링 조건 없음 - 전체 데이터 로드');
+        // console.log('필터링 조건 없음 - 전체 데이터 로드');
         q = query(gisungCollection);
       }
       
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('로드된 기성 데이터:', data);
+      // console.log('로드된 기성 데이터:', data);
       
-      // 전회기성 동적 계산
-      const dataWithPrevGisung = data.map(gisung => {
-        // 현재 기성의 차수 추출
-        const currentSeq = parseInt(gisung.sequence?.replace('차', '') || '0');
-        console.log(`🔍 ${gisung.name} ${gisung.sequence} - 현재 차수: ${currentSeq}`);
-        
-        // 같은 현장의 이전 차수 기성 데이터 찾기 (현재 차수보다 작은 차수만)
-        const previousGisung = allGisungData
-          .filter(prev => {
-            const prevSeq = parseInt(prev.sequence?.replace('차', '') || '0');
-            const isSameSite = prev.name === gisung.name;
-            const isDifferentId = prev.id !== gisung.id;
-            const isPreviousSequence = prevSeq < currentSeq;
-            
-            console.log(`🔍 비교: ${prev.name} ${prev.sequence} (차수: ${prevSeq}) - 같은현장: ${isSameSite}, 다른ID: ${isDifferentId}, 이전차수: ${isPreviousSequence}`);
-            
-            return isSameSite && isDifferentId && isPreviousSequence;
-          })
-          .sort((a, b) => {
-            // sequence로 정렬 (1차, 2차, 3차...)
-            const aSeq = parseInt(a.sequence?.replace('차', '') || '0');
-            const bSeq = parseInt(b.sequence?.replace('차', '') || '0');
-            return bSeq - aSeq; // 내림차순 정렬
-          })[0]; // 가장 최근 이전 기성
-        
-        const calculatedPrevGisung = previousGisung ? (previousGisung.gisungAmount || 0) : 0;
-        
-        console.log(`🔍 ${gisung.name} ${gisung.sequence} (차수: ${currentSeq}) - 이전 기성: ${previousGisung?.sequence || '없음'}, 전회기성: ${calculatedPrevGisung}`);
-        
-        return {
-          ...gisung,
-          prevGisung: calculatedPrevGisung
-        };
-      });
+              // 전회기성 동적 계산
+        const dataWithPrevGisung = data.map(gisung => {
+          // 현재 기성의 차수 추출
+          const currentSeq = parseInt(gisung.sequence?.replace('차', '') || '0');
+          
+          // 같은 현장의 이전 차수 기성 데이터 찾기 (현재 차수보다 작은 차수만, 청구완료된 것만)
+          const previousGisung = allGisungData
+            .filter(prev => {
+              const prevSeq = parseInt(prev.sequence?.replace('차', '') || '0');
+              const isSameSite = prev.name === gisung.name;
+              const isDifferentId = prev.id !== gisung.id;
+              const isPreviousSequence = prevSeq < currentSeq;
+              const isClaimCompleted = prev.claimStatus === '청구완료';
+              
+              return isSameSite && isDifferentId && isPreviousSequence && isClaimCompleted;
+            })
+            .sort((a, b) => {
+              // sequence로 정렬 (1차, 2차, 3차...)
+              const aSeq = parseInt(a.sequence?.replace('차', '') || '0');
+              const bSeq = parseInt(b.sequence?.replace('차', '') || '0');
+              return bSeq - aSeq; // 내림차순 정렬
+            })[0]; // 가장 최근 이전 기성
+          
+          const calculatedPrevGisung = previousGisung ? (previousGisung.gisungAmount || 0) : 0;
+          
+          return {
+            ...gisung,
+            prevGisung: calculatedPrevGisung
+          };
+        });
       
-      console.log('전회기성 계산 완료된 데이터:', dataWithPrevGisung);
+      // console.log('전회기성 계산 완료된 데이터:', dataWithPrevGisung);
       
       // 차수가 높은 것이 위에 오도록 정렬 (2차, 1차 순서)
       const sortedData = dataWithPrevGisung.sort((a, b) => {
@@ -393,14 +412,14 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         return bSeq - aSeq; // 2차, 1차 순서
       });
       
-      console.log('정렬 완료된 데이터:', sortedData);
+              // console.log('정렬 완료된 데이터:', sortedData);
       setGisungList(sortedData);
-      console.log('=== 기성 데이터 로드 완료 ===');
+              // console.log('=== 기성 데이터 로드 완료 ===');
     } catch (e) {
       console.error('기성 데이터 로드 오류:', e);
       setGisungList([]);
     }
-  };
+  }, [viewType, currentMonth, selectedSites, allGisungData]);
 
   // 검색 및 정렬된 데이터
   const filteredAndSortedGisung = useMemo(() => {
@@ -442,7 +461,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       filtered.sort((a, b) => {
         const aSeq = parseInt(a.sequence?.replace('차', '') || '0');
         const bSeq = parseInt(b.sequence?.replace('차', '') || '0');
-        console.log(`🔢 차수 정렬: ${a.name} ${a.sequence}(${aSeq}) vs ${b.name} ${b.sequence}(${bSeq})`);
+        // console.log(`🔢 차수 정렬: ${a.name} ${a.sequence}(${aSeq}) vs ${b.name} ${b.sequence}(${bSeq})`);
         return bSeq - aSeq; // 차수가 높은 것이 위에 (4차, 3차, 2차, 1차 순서)
       });
     }
@@ -459,7 +478,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       const site = sites.find(s => s.name && s.name.trim() === selectedSiteName);
       if (site) {
         totalContractAmount = Number(site.contractAmount || 0);
-        console.log(`📊 선택된 현장 계약금액: ${site.name} - ${totalContractAmount.toLocaleString()}원`);
+        // console.log(`📊 선택된 현장 계약금액: ${site.name} - ${totalContractAmount.toLocaleString()}원`);
       }
     } else if (viewType === 'month') {
       // 월별 뷰에서는 이달에 시작하는 현장들의 계약금액 합계
@@ -483,17 +502,22 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       });
       
       totalContractAmount = thisMonthSites.reduce((sum, site) => sum + (Number(site.contractAmount) || 0), 0);
-      console.log(`📊 이달 시작 현장 ${thisMonthSites.length}개 계약금액 합계: ${totalContractAmount.toLocaleString()}원`);
-      console.log(`📊 이달 시작 현장 목록:`, thisMonthSites.map(site => `${site.name} (${site.startDate})`));
+      // console.log(`📊 이달 시작 현장 ${thisMonthSites.length}개 계약금액 합계: ${totalContractAmount.toLocaleString()}원`);
+      // console.log(`📊 이달 시작 현장 목록:`, thisMonthSites.map(site => `${site.name} (${site.startDate})`));
     } else {
       // 현장별 뷰에서 현장을 선택하지 않았으면 0
       totalContractAmount = 0;
-      console.log(`📊 현장 미선택 - 계약금액: 0원`);
+      // console.log(`📊 현장 미선택 - 계약금액: 0원`);
     }
     
     const totalAdvance = filteredAndSortedGisung.reduce((sum, gisung) => sum + (Number(gisung.advance) || 0), 0);
     const totalPrevGisung = filteredAndSortedGisung.reduce((sum, gisung) => sum + (Number(gisung.prevGisung) || 0), 0);
-    const totalGisungAmount = filteredAndSortedGisung.reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
+    
+    // 청구완료된 기성만 총기성금액에 포함
+    const totalGisungAmount = filteredAndSortedGisung
+      .filter(gisung => gisung.claimStatus === '청구완료')
+      .reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
+    
     const totalBalance = totalContractAmount - totalGisungAmount; // 잔액 = 총계약금액 - 총기성금액
     
     return { totalContractAmount, totalAdvance, totalPrevGisung, totalGisungAmount, totalBalance };
@@ -521,7 +545,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   const handleGisungClaimDownload = async () => {
     setDownloadLoading(true);
     try {
-      console.log('=== 기성금청구서 다운로드 시작 ===');
+      // console.log('=== 기성금청구서 다운로드 시작 ===');
       
       // 기성금청구서 템플릿 사용
       let generateTemplateBasedGisungExcel;
@@ -681,7 +705,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         // 전체 뷰: 전체 청구완료된 기성 데이터 개수 + 1
         completedGisung = filteredAndSortedGisung.filter(gisung => gisung.claimStatus === '청구완료');
         currentSequence = completedGisung.length + 1;
-        console.log(`📊 파일명 차수 계산: 전체 - 청구완료 ${completedGisung.length}개 → ${currentSequence}차`);
+        // console.log(`📊 파일명 차수 계산: 전체 - 청구완료 ${completedGisung.length}개 → ${currentSequence}차`);
       }
       
       // 차수 계산 로그 추가
@@ -878,8 +902,13 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     }
   };
 
-  const handleOpen = (item = null) => {
-    fetchAllGisung(); // 팝업 열 때마다 최신 DB fetch
+  const handleOpen = useCallback(async (item = null) => {
+    // console.log('🔍 기성등록 팝업 열기 시작');
+    // allGisungData가 비어있을 때만 새로 로드
+    if (allGisungData.length === 0) {
+      await fetchAllGisung();
+      // console.log('✅ allGisungData 새로고침 완료');
+    }
     if (item) {
       setSelected(item);
       setFormData({
@@ -908,16 +937,34 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           defaultSiteName = site.name;
           defaultContractAmount = site.contractAmount || '';
           defaultAdvance = site.advance || '';
-          console.log(`✅ 기성등록: 선택된 현장 자동 설정 - ${defaultSiteName}`);
+          // console.log(`✅ 기성등록: 선택된 현장 자동 설정 - ${defaultSiteName}`);
         }
+      }
+      
+      // 현장별 뷰에서 선택된 현장이 있으면 누계기성 계산
+      let defaultPrevGisung = '';
+      if (viewType === 'site' && selectedSites && selectedSites.length > 0 && defaultSiteName) {
+        // 해당 현장의 청구완료된 기성 데이터 찾기 (이전 기성들만)
+        const siteGisungData = allGisungData.filter(
+          g => (g.name || '').trim().toLowerCase() === defaultSiteName.trim().toLowerCase() && g.claimStatus === '청구완료'
+        );
+        
+        // 누계기성 계산 (이전 기성들만, 현재 기성은 제외)
+        const prevSum = siteGisungData.reduce((sum, g) => {
+          const amount = Number(g.gisungAmount) || Number(g.currentGisung) || 0;
+          return sum + amount;
+        }, 0);
+        
+        defaultPrevGisung = prevSum.toString();
+        console.log(`🔍 기성등록 팝업 - ${defaultSiteName} 누계기성 계산: ${prevSum.toLocaleString()}원 (이전 기성들만)`);
       }
       
       setFormData({
         name: defaultSiteName,
         contractAmount: defaultContractAmount,
         advance: defaultAdvance,
-        prevGisung: '',
-        gisungMonth: viewType === 'month' ? `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}` : '',
+        prevGisung: defaultPrevGisung,
+        gisungMonth: viewType === 'month' ? `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}` : '0000-00',
         gisungAmount: '',
         currentGisung: '',
         claimMethod: '',
@@ -925,7 +972,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       });
     }
     setOpen(true);
-  };
+  }, [allGisungData.length, fetchAllGisung, viewType, selectedSites, sites]);
 
   const handleClose = () => {
     setOpen(false);
@@ -934,7 +981,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
 
   const handleSubmit = async () => {
     try {
-      console.log('📝 기성등록 시작:', formData);
+      // console.log('📝 기성등록 시작:', formData);
       
       // 현장 id 찾아서 formData에 추가
       const site = sites.find(s => s.name === formData.name);
@@ -945,23 +992,30 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       // 차수 계산 - 해당 현장의 기존 기성 데이터 개수 + 1
       const existingGisungCount = allGisungData.filter(gisung => gisung.name === formData.name).length;
       const sequence = existingGisungCount + 1;
-      console.log(`📊 차수 계산: ${formData.name} - 기존 ${existingGisungCount}개 → ${sequence}차`);
+      // console.log(`📊 차수 계산: ${formData.name} - 기존 ${existingGisungCount}개 → ${sequence}차`);
       
       // currentGisung을 gisungAmount로 매핑
       const dataToSave = {
         ...formData,
         sequence: `${sequence}차`, // 현장별 차수 설정
-        gisungAmount: formData.currentGisung, // 금회기성을 기성금액으로 저장
-        prevGisung: formData.prevGisung || 0, // 누계기성 명시적으로 저장
+        gisungAmount: Number(formData.currentGisung) || 0, // 금회기성을 기성금액으로 저장 (숫자로 변환)
+        currentGisung: Number(formData.currentGisung) || 0, // 호환성을 위해 currentGisung도 저장
+        prevGisung: Number(formData.prevGisung) || 0, // 누계기성 명시적으로 저장 (숫자로 변환)
         claimMethod: formData.claimMethod || '', // 청구방법 저장
       };
       
-      console.log('💾 저장할 데이터:', dataToSave);
+      // console.log('💾 저장할 데이터:', dataToSave);
+      // console.log('💾 기성금액 확인:', {
+      //   currentGisung: formData.currentGisung,
+      //   gisungAmount: dataToSave.gisungAmount,
+      //   prevGisung: dataToSave.prevGisung
+      // });
       
       if (selected) {
         // 수정할 때는 기존 데이터 유지 (차수, 전회기성 등)
         const updateData = {
-          gisungAmount: formData.currentGisung, // 금회기성만 업데이트
+          gisungAmount: Number(formData.currentGisung) || 0, // 금회기성만 업데이트 (숫자로 변환)
+          currentGisung: Number(formData.currentGisung) || 0, // 호환성을 위해 currentGisung도 업데이트
           gisungMonth: formData.gisungMonth,
           claimMethod: formData.claimMethod || '', // 청구방법 업데이트
           note: formData.note,
@@ -1025,11 +1079,20 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   const handleSiteChange = (e) => {
     const siteName = e.target.value;
     const selectedSite = sites.find(s => s.name === siteName);
-    // name 매칭을 trim, 대소문자 구분 없이 엄격하게
+    // name 매칭을 trim, 대소문자 구분 없이 엄격하게, 청구완료된 것만
     const siteGisungData = allGisungData.filter(
-      g => (g.name || '').trim().toLowerCase() === siteName.trim().toLowerCase()
+      g => (g.name || '').trim().toLowerCase() === siteName.trim().toLowerCase() && g.claimStatus === '청구완료'
     );
-    const prevSum = siteGisungData.reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+    
+    // 여러 필드에서 기성금액 찾기 (청구완료된 것만)
+    const prevSum = siteGisungData.reduce((sum, g) => {
+      const amount = Number(g.gisungAmount) || Number(g.currentGisung) || 0;
+      console.log(`📊 누계기성 계산: ${g.sequence} - gisungAmount: ${g.gisungAmount}, currentGisung: ${g.currentGisung}, 계산된값: ${amount}, 청구상태: ${g.claimStatus}`);
+      return sum + amount;
+    }, 0);
+    
+    console.log(`🔍 현장 변경: ${siteName} - 누계기성: ${prevSum.toLocaleString()}원`);
+    
     setFormData({
       ...formData,
       name: siteName,
@@ -1272,12 +1335,29 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
               {Number(gisung.gisungAmount || 0).toLocaleString()}원
             </Typography>
           </Grid>
-          <Grid xs={6}>
-            <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>잔액</Typography>
-            <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: '0.9rem' }}>
-              {Number((gisung.contractAmount || 0) - (gisung.advance || 0) - (gisung.prevGisung || 0) - (gisung.gisungAmount || 0)).toLocaleString()}원
-            </Typography>
-          </Grid>
+                     <Grid xs={6}>
+             <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>잔액</Typography>
+             <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: '0.9rem' }}>
+               {(() => {
+                 // 현재 기성의 차수 추출
+                 const currentSeq = parseInt(gisung.sequence?.replace('차', '') || '0');
+                 
+                 // 해당 현장의 현재 차수 이하의 청구완료된 기성 합계 계산
+                 const totalGisungForSite = allGisungData
+                   .filter(g => {
+                     const gSeq = parseInt(g.sequence?.replace('차', '') || '0');
+                     return g.name === gisung.name && 
+                            g.claimStatus === '청구완료' && 
+                            gSeq <= currentSeq;
+                   })
+                   .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+                 
+                 // 잔액 = 계약금액 - 해당 차수까지의 누계기성
+                 const balance = (gisung.contractAmount || 0) - totalGisungForSite;
+                 return balance.toLocaleString();
+               })()}원
+             </Typography>
+           </Grid>
           <Grid xs={6}>
             <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>청구방법</Typography>
             <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '0.9rem' }}>
@@ -1666,9 +1746,26 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                       <TableCell sx={{ color: '#ef5350', fontWeight: 700 }}>
                         {Number(row.gisungAmount || 0).toLocaleString()}원
                       </TableCell>
-                      <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
-                        {Number((row.contractAmount || 0) - (row.advance || 0) - (row.prevGisung || 0) - (row.gisungAmount || 0)).toLocaleString()}원
-                      </TableCell>
+                                             <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
+                         {(() => {
+                           // 현재 기성의 차수 추출
+                           const currentSeq = parseInt(row.sequence?.replace('차', '') || '0');
+                           
+                           // 해당 현장의 현재 차수 이하의 청구완료된 기성 합계 계산
+                           const totalGisungForSite = allGisungData
+                             .filter(g => {
+                               const gSeq = parseInt(g.sequence?.replace('차', '') || '0');
+                               return g.name === row.name && 
+                                      g.claimStatus === '청구완료' && 
+                                      gSeq <= currentSeq;
+                             })
+                             .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+                           
+                           // 잔액 = 계약금액 - 해당 차수까지의 누계기성
+                           const balance = (row.contractAmount || 0) - totalGisungForSite;
+                           return balance.toLocaleString();
+                         })()}원
+                       </TableCell>
                       <TableCell>
                         <Chip
                           label={row.claimStatus === '청구완료' ? '청구완료' : '미청구'}
@@ -1746,37 +1843,61 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
               <Autocomplete
                 value={formData.name}
-                onChange={(event, newValue) => {
-                  const selectedSite = sites.find(site => site.name === newValue);
-                  if (selectedSite) {
-                    // 해당 현장의 모든 기성 데이터 찾기 (누계기성 계산)
-                    const siteGisungData = allGisungData
-                      .filter(gisung => gisung.name === selectedSite.name)
-                      .sort((a, b) => {
-                        const aSeq = parseInt(a.sequence?.replace('차', '') || '0');
-                        const bSeq = parseInt(b.sequence?.replace('차', '') || '0');
-                        return bSeq - aSeq; // 최신 차수가 위에
-                      });
-                    
-                    // 모든 기성의 합계 계산 (누계기성)
-                    const totalGisungAmount = siteGisungData.reduce((sum, gisung) => {
-                      return sum + (Number(gisung.gisungAmount) || 0);
-                    }, 0);
-                    
-                    console.log(`🔍 현장 선택: ${selectedSite.name}`);
-                    console.log(`📊 기성 데이터 개수: ${siteGisungData.length}개`);
-                    console.log(`📊 누계기성: ${totalGisungAmount.toLocaleString()}원`);
-                    console.log(`📊 기성 내역:`, siteGisungData.map(g => `${g.sequence}: ${g.gisungAmount?.toLocaleString()}원`));
-                    
-                    setFormData({
-                      ...formData,
-                      name: selectedSite.name,
-                      contractAmount: selectedSite.contractAmount || '',
-                      advance: selectedSite.advance || '',
-                      prevGisung: totalGisungAmount
-                    });
-                  }
-                }}
+                                                  onChange={async (event, newValue) => {
+                    const selectedSite = sites.find(site => site.name === newValue);
+                    if (selectedSite) {
+                      console.log(`🔍 현장 선택 시작: ${selectedSite.name}`);
+                      
+                      // 최신 데이터로 즉시 새로고침
+                      console.log(`🔄 현장 선택 시 최신 데이터 새로고침 시작...`);
+                      await fetchAllGisung();
+                      console.log(`✅ 최신 데이터 새로고침 완료`);
+                      
+                      // 최신 데이터를 다시 가져와서 계산
+                      const latestGisungData = await fetchAllGisung();
+                      console.log(`📊 최신 데이터 개수: ${latestGisungData.length}개`);
+                      console.log(`📊 최신 데이터 현장명들:`, latestGisungData.map(g => g.name));
+                      
+                      // 해당 현장의 청구완료된 기성 데이터 찾기 (누계기성 계산) - 더 유연한 매칭
+                      const siteGisungData = latestGisungData
+                        .filter(gisung => {
+                          const gisungName = gisung.name ? gisung.name.trim() : '';
+                          const selectedName = selectedSite.name ? selectedSite.name.trim() : '';
+                          const isMatch = gisungName === selectedName;
+                          const isClaimCompleted = gisung.claimStatus === '청구완료';
+                          console.log(`🔍 매칭 확인: "${gisungName}" vs "${selectedName}" = ${isMatch}, 청구완료: ${isClaimCompleted}`);
+                          return isMatch && isClaimCompleted;
+                        })
+                        .sort((a, b) => {
+                          const aSeq = parseInt(a.sequence?.replace('차', '') || '0');
+                          const bSeq = parseInt(b.sequence?.replace('차', '') || '0');
+                          return bSeq - aSeq; // 최신 차수가 위에
+                        });
+                      
+                      console.log(`📊 필터링된 기성 데이터:`, siteGisungData);
+                      
+                      // 모든 기성의 합계 계산 (누계기성) - 여러 필드 확인
+                      const totalGisungAmount = siteGisungData.reduce((sum, gisung) => {
+                        // 여러 필드에서 기성금액 찾기
+                        const amount = Number(gisung.gisungAmount) || Number(gisung.currentGisung) || 0;
+                        console.log(`📊 기성 항목: ${gisung.sequence} - gisungAmount: ${gisung.gisungAmount}, currentGisung: ${gisung.currentGisung}, 계산된값: ${amount}`);
+                        return sum + amount;
+                      }, 0);
+                      
+                      console.log(`🔍 현장 선택: ${selectedSite.name}`);
+                      console.log(`📊 기성 데이터 개수: ${siteGisungData.length}개`);
+                      console.log(`📊 누계기성: ${totalGisungAmount.toLocaleString()}원`);
+                      console.log(`📊 기성 내역:`, siteGisungData.map(g => `${g.sequence}: ${(Number(g.gisungAmount) || Number(g.currentGisung) || 0).toLocaleString()}원`));
+                     
+                     setFormData({
+                       ...formData,
+                       name: selectedSite.name,
+                       contractAmount: selectedSite.contractAmount || '',
+                       advance: selectedSite.advance || '',
+                       prevGisung: totalGisungAmount.toString()
+                     });
+                   }
+                 }}
                 options={sites.map(site => site.name)}
                 renderInput={(params) => (
                   <TextField
@@ -1817,7 +1938,21 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             <TextField
                 label="기성월"
                 value={formData.gisungMonth}
-                onChange={e => setFormData({ ...formData, gisungMonth: e.target.value })}
+                onChange={e => {
+                  const input = e.target.value.replace(/[^0-9]/g, ''); // 숫자만 추출
+                  let formatted = '';
+                  
+                  if (input.length <= 4) {
+                    formatted = input;
+                  } else if (input.length <= 6) {
+                    formatted = input.slice(0, 4) + '-' + input.slice(4);
+                  } else {
+                    formatted = input.slice(0, 4) + '-' + input.slice(4, 6);
+                  }
+                  
+                  setFormData({ ...formData, gisungMonth: formatted });
+                }}
+                placeholder="0000-00"
                 size="medium"
               sx={{
                   minWidth: 120,

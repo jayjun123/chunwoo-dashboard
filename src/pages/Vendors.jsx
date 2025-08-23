@@ -19,7 +19,15 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper
+  Paper,
+  Chip,
+  Grid,
+  Card,
+  CardContent,
+  CircularProgress,
+  Pagination,
+  Checkbox,
+  Box as MuiBox
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -29,14 +37,18 @@ import {
   Download as DownloadIcon,
   Upload as UploadIcon,
   ArrowUpward as ArrowUpwardIcon,
-  ArrowDownward as ArrowDownwardIcon
+  ArrowDownward as ArrowDownwardIcon,
+  Business as BusinessIcon
 } from '@mui/icons-material';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import * as XLSX from 'xlsx';
 
 const Vendors = () => {
   const [vendors, setVendors] = useState([]);
+  const [registeredCompanies, setRegisteredCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [open, setOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState(null);
   const [formData, setFormData] = useState({
@@ -46,28 +58,221 @@ const Vendors = () => {
     amount: '',
     item: '',
     quantity: '',
-    note: ''
+    note: '',
+    contractStatus: '미수주' // 수주여부 추가
   });
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
   const [sortField, setSortField] = useState('bidDate');
   const [sortDirection, setSortDirection] = useState('desc');
+  
+  // 업체 등록 관련 상태
+  const [companyFormData, setCompanyFormData] = useState({
+    companyName: '',
+    companyTypes: ['AL창호'] // 배열로 변경하여 다중 선택 가능
+  });
+  
+  // 업체 수정 관련 상태
+  const [editingCompany, setEditingCompany] = useState(null);
+  
+  // 업종별 업체 목록 팝업 상태
+  const [companyListDialogOpen, setCompanyListDialogOpen] = useState(false);
+  const [selectedCompanyType, setSelectedCompanyType] = useState('');
+  
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+
+  // 업종별 칩 색상 정의
+  const getCompanyTypeColor = (type) => {
+    switch (type) {
+      case 'AL창호':
+        return 'primary';
+      case 'PL창호':
+        return 'secondary';
+      case '종합건설':
+        return 'success';
+      default:
+        return 'default';
+    }
+  };
+
+  // 업종별 통계 계산
+  const getCompanyTypeStats = () => {
+    const stats = {
+      'AL창호': 0,
+      'PL창호': 0,
+      '종합건설': 0
+    };
+
+    registeredCompanies.forEach(company => {
+      const types = company.companyTypes || [company.companyType] || [];
+      types.forEach(type => {
+        if (stats.hasOwnProperty(type)) {
+          stats[type]++;
+        }
+      });
+    });
+
+    return stats;
+  };
+
+  // 특정 업종의 업체들 필터링
+  const getCompaniesByType = (type) => {
+    return registeredCompanies.filter(company => {
+      const types = company.companyTypes || [company.companyType] || [];
+      return types.includes(type);
+    });
+  };
+
+  // 업종별 카드 클릭 핸들러
+  const handleCompanyTypeCardClick = (type) => {
+    setSelectedCompanyType(type);
+    setCompanyListDialogOpen(true);
+  };
+
+  // 금액 천단위 쉼표 포맷팅
+  const formatAmount = (amount) => {
+    if (!amount) return '0';
+    const num = parseFloat(amount.toString().replace(/,/g, ''));
+    if (isNaN(num)) return '0';
+    return num.toLocaleString();
+  };
+
+  // 날짜 포맷팅 (YYYY/MM/DD)
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    
+    // 문자열로 변환
+    const dateStr = dateString.toString();
+    
+    // 이미 YYYY/MM/DD 형식인 경우 그대로 반환
+    if (dateStr.includes('/') && dateStr.length === 10) {
+      return dateStr;
+    }
+    
+    // YYYY-MM-DD 형식인 경우 / 로 변경
+    if (dateStr.includes('-') && dateStr.length === 10) {
+      return dateStr.replace(/-/g, '/');
+    }
+    
+    // 숫자만 있는 경우 (YYYYMMDD)
+    if (/^\d{8}$/.test(dateStr)) {
+      const year = dateStr.substring(0, 4);
+      const month = dateStr.substring(4, 6);
+      const day = dateStr.substring(6, 8);
+      return `${year}/${month}/${day}`;
+    }
+    
+    // 엑셀 시리얼 번호인 경우 (5자리 숫자)
+    if (/^\d{5}$/.test(dateStr)) {
+      try {
+        // 엑셀 시리얼 번호를 날짜로 변환 (1900-01-01부터의 일수)
+        const excelEpoch = new Date(1900, 0, 1);
+        const days = parseInt(dateStr) - 2; // 엑셀의 1900년 오류 보정
+        const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
+        
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}/${month}/${day}`;
+      } catch (error) {
+        return dateStr;
+      }
+    }
+    
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}/${month}/${day}`;
+    } catch (error) {
+      return dateStr;
+    }
+  };
+
+  // 업체의 구분(업종) 가져오기
+  const getCompanyType = (companyName) => {
+    const company = registeredCompanies.find(c => c.companyName === companyName);
+    if (!company) return '';
+    
+    const types = company.companyTypes || [company.companyType] || [];
+    return types.join(', ');
+  };
 
   useEffect(() => {
-    fetchVendors();
+    loadData();
   }, []);
+
+  // 검색어 변경 시 첫 페이지로 이동하고 선택 상태 초기화
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedItems([]);
+    setSelectAll(false);
+  }, [searchTerm]);
+
+  // 페이지 변경 시 선택 상태 초기화
+  useEffect(() => {
+    setSelectedItems([]);
+    setSelectAll(false);
+  }, [currentPage]);
+
+  // 선택된 항목이 변경될 때 selectAll 상태 업데이트
+  useEffect(() => {
+    const currentPageVendors = getPaginatedVendors();
+    const allCurrentPageSelected = currentPageVendors.length > 0 && 
+      currentPageVendors.every(vendor => selectedItems.includes(vendor.id));
+    setSelectAll(allCurrentPageSelected);
+  }, [selectedItems, currentPage, vendors]);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await Promise.all([fetchVendors(), fetchRegisteredCompanies()]);
+    } catch (err) {
+      setError('데이터를 불러오는데 실패했습니다.');
+      console.error('데이터 로딩 오류:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchVendors = async () => {
     try {
+      console.log('입찰현황 데이터 로딩 시작...');
       const querySnapshot = await getDocs(collection(db, 'bids'));
       const vendorList = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+      console.log('입찰현황 데이터 로딩 완료:', vendorList.length, '개');
       setVendors(vendorList);
     } catch (error) {
-      console.error('Error fetching bids:', error);
+      console.error('입찰현황 데이터 로딩 오류:', error);
+      throw error;
+    }
+  };
+
+  const fetchRegisteredCompanies = async () => {
+    try {
+      console.log('등록업체 데이터 로딩 시작...');
+      const querySnapshot = await getDocs(collection(db, 'registeredCompanies'));
+      const companyList = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      console.log('등록업체 데이터 로딩 완료:', companyList.length, '개');
+      setRegisteredCompanies(companyList);
+    } catch (error) {
+      console.error('등록업체 데이터 로딩 오류:', error);
+      throw error;
     }
   };
 
@@ -81,7 +286,8 @@ const Vendors = () => {
         amount: vendor.amount || '',
         item: vendor.item || '',
         quantity: vendor.quantity || '',
-        note: vendor.note || ''
+        note: vendor.note || '',
+        contractStatus: vendor.contractStatus || '미수주'
       });
     } else {
       setEditingVendor(null);
@@ -92,7 +298,8 @@ const Vendors = () => {
         amount: '',
         item: '',
         quantity: '',
-        note: ''
+        note: '',
+        contractStatus: '미수주'
       });
     }
     setOpen(true);
@@ -129,16 +336,91 @@ const Vendors = () => {
     }
   };
 
+  const handleContractStatusToggle = async (vendorId, currentStatus) => {
+    try {
+      const newStatus = currentStatus === '미수주' ? '수주' : '미수주';
+      await updateDoc(doc(db, 'bids', vendorId), {
+        contractStatus: newStatus,
+        updatedAt: new Date()
+      });
+      fetchVendors();
+    } catch (error) {
+      console.error('Error updating contract status:', error);
+    }
+  };
+
+  const handleCompanySubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingCompany) {
+        // 수정
+        await updateDoc(doc(db, 'registeredCompanies', editingCompany.id), {
+          ...companyFormData,
+          updatedAt: new Date()
+        });
+      } else {
+        // 추가
+        await addDoc(collection(db, 'registeredCompanies'), {
+          ...companyFormData,
+          createdAt: new Date()
+        });
+      }
+      setCompanyFormData({ companyName: '', companyTypes: ['AL창호'] });
+      setEditingCompany(null);
+      setCompanyDialogOpen(false);
+      fetchRegisteredCompanies();
+    } catch (error) {
+      console.error('Error saving company:', error);
+    }
+  };
+
+  const handleCompanyEdit = (company) => {
+    setEditingCompany(company);
+    setCompanyFormData({
+      companyName: company.companyName,
+      companyTypes: company.companyTypes || [company.companyType] || ['AL창호'] // 기존 단일 타입 호환성
+    });
+    setCompanyDialogOpen(true);
+  };
+
+  const handleCompanyDelete = async (companyId) => {
+    if (window.confirm('정말 삭제하시겠습니까?')) {
+      try {
+        await deleteDoc(doc(db, 'registeredCompanies', companyId));
+        fetchRegisteredCompanies();
+      } catch (error) {
+        console.error('Error deleting company:', error);
+      }
+    }
+  };
+
+  const handleCompanyDialogClose = () => {
+    setCompanyDialogOpen(false);
+    setEditingCompany(null);
+    setCompanyFormData({ companyName: '', companyTypes: ['AL창호'] });
+  };
+
+  const handleCompanyTypeToggle = (type) => {
+    setCompanyFormData(prev => ({
+      ...prev,
+      companyTypes: prev.companyTypes.includes(type)
+        ? prev.companyTypes.filter(t => t !== type)
+        : [...prev.companyTypes, type]
+    }));
+  };
+
   const handleDownload = () => {
     const data = vendors.map((vendor, index) => ({
       'NO.': index + 1,
+      '구분': getCompanyType(vendor.companyName) || '',
       '업체명': vendor.companyName || '',
-      '낙찰일': vendor.bidDate || '',
+      '낙찰일': formatDate(vendor.bidDate) || '',
       '현장명': vendor.siteName || '',
-      '금액': vendor.amount || '',
+      '금액': formatAmount(vendor.amount) || '',
       '품목': vendor.item || '',
       '물량': vendor.quantity || '',
-      '비고': vendor.note || ''
+      '비고': vendor.note || '',
+      '수주여부': vendor.contractStatus || '미수주'
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -158,22 +440,68 @@ const Vendors = () => {
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        // 9행부터 데이터 읽기 (헤더 제외)
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+          range: 8, // 0부터 시작하므로 9행은 인덱스 8
+          header: 1 // 첫 번째 행을 헤더로 사용하지 않고 인덱스로 처리
+        });
 
-        // 데이터 매핑 및 변환
-        const vendorsToAdd = jsonData.map(row => ({
-          companyName: row['업체명'] || row['companyName'] || '',
-          bidDate: row['낙찰일'] || row['bidDate'] || '',
-          siteName: row['현장명'] || row['siteName'] || '',
-          amount: row['금액'] || row['amount'] || '',
-          item: row['품목'] || row['item'] || '',
-          quantity: row['물량'] || row['quantity'] || '',
-          note: row['비고'] || row['note'] || ''
-        })).filter(vendor => vendor.companyName && vendor.siteName); // 필수 필드가 있는 데이터만
+        // 등록된 회사명 목록
+        const registeredCompanyNames = registeredCompanies.map(company => company.companyName);
+
+        // T열(업체명), V열(현장명), AK열(금액), AA열(날짜)에서 데이터 추출
+        const vendorsToAdd = [];
+        const uniqueCombinations = new Set(); // 중복 제거용
+
+        jsonData.forEach(row => {
+          // T열(19), V열(21), AK열(36), AA열(26) - 0부터 시작하는 인덱스
+          const companyName = row[19] || ''; // T열
+          const siteName = row[21] || '';    // V열
+          
+          // 등록된 회사만 필터링
+          if (companyName && siteName && registeredCompanyNames.includes(companyName)) {
+            const combination = `${companyName}-${siteName}`;
+            
+            if (!uniqueCombinations.has(combination)) {
+              uniqueCombinations.add(combination);
+              
+              // 같은 회사, 같은 현장의 금액 합산
+              const sameCompanySiteData = jsonData.filter(item => 
+                item[19] === companyName && // T열
+                item[21] === siteName       // V열
+              );
+              
+              const totalAmount = sameCompanySiteData.reduce((sum, item) => {
+                const amount = parseFloat(item[36] || 0) || 0; // AK열
+                return sum + amount;
+              }, 0);
+
+              // 가장 최근 날짜 찾기
+              const dates = sameCompanySiteData
+                .map(item => item[26]) // AA열
+                .filter(date => date)
+                .sort((a, b) => new Date(b) - new Date(a));
+              
+              const latestDate = dates[0] || '';
+
+              vendorsToAdd.push({
+                companyName: companyName,
+                siteName: siteName,
+                amount: totalAmount.toString(),
+                bidDate: latestDate,
+                item: '',
+                quantity: '',
+                note: '관급', // 업로드한 데이터는 비고에 "관급" 표시
+                contractStatus: '미수주'
+              });
+            }
+          }
+        });
 
         // Firestore에 데이터 추가
         for (const vendor of vendorsToAdd) {
-          await addDoc(collection(db, 'vendors'), vendor);
+          await addDoc(collection(db, 'bids'), vendor);
         }
 
         alert(`${vendorsToAdd.length}개의 입찰현황 데이터가 성공적으로 업로드되었습니다.`);
@@ -188,15 +516,29 @@ const Vendors = () => {
   };
 
   const handleSort = (field) => {
+    console.log('정렬 요청:', field, '현재 필드:', sortField, '현재 방향:', sortDirection);
+    
     if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      const newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      console.log('방향 변경:', sortDirection, '→', newDirection);
+      setSortDirection(newDirection);
     } else {
+      console.log('필드 변경:', sortField, '→', field);
       setSortField(field);
       setSortDirection('asc');
     }
+    
+    // 강제로 리렌더링을 위해 상태 업데이트
+    setCurrentPage(1); // 정렬 변경 시 첫 페이지로
+    
+    // 디버깅을 위한 로그
+    setTimeout(() => {
+      console.log('정렬 후 상태:', { sortField: field, sortDirection: sortField === field ? (sortDirection === 'asc' ? 'desc' : 'asc') : 'asc' });
+    }, 0);
   };
 
   const getSortedVendors = () => {
+    // 전체 데이터에서 검색어 필터링
     const filteredVendors = vendors.filter(vendor => 
       !searchTerm || 
       vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -204,37 +546,207 @@ const Vendors = () => {
       vendor.item?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    return filteredVendors.sort((a, b) => {
+    console.log('=== 정렬 시작 ===');
+    console.log('전체 데이터 수:', vendors.length);
+    console.log('필터링된 데이터 수:', filteredVendors.length);
+    console.log('정렬 필드:', sortField, '정렬 방향:', sortDirection);
+
+    // 전체 데이터를 정렬 (페이지네이션과 무관)
+    const sortedVendors = filteredVendors.sort((a, b) => {
       let aValue = a[sortField] || '';
       let bValue = b[sortField] || '';
 
+      // 구분 필드 처리
+      if (sortField === 'companyType') {
+        aValue = getCompanyType(a.companyName);
+        bValue = getCompanyType(b.companyName);
+      }
+
       // 숫자 필드 처리 (금액, 물량)
       if (sortField === 'amount' || sortField === 'quantity') {
-        aValue = parseFloat(aValue.replace(/[^\d.-]/g, '')) || 0;
-        bValue = parseFloat(bValue.replace(/[^\d.-]/g, '')) || 0;
+        aValue = parseFloat(aValue.toString().replace(/[^\d.-]/g, '')) || 0;
+        bValue = parseFloat(bValue.toString().replace(/[^\d.-]/g, '')) || 0;
       }
 
       // 날짜 필드 처리
       if (sortField === 'bidDate') {
-        aValue = new Date(aValue);
-        bValue = new Date(bValue);
+        console.log('날짜 정렬:', aValue, 'vs', bValue);
+        
+        // 0000/00/00 형식은 가장 앞으로 (오름차순) 또는 가장 뒤로 (내림차순)
+        if (aValue === '0000/00/00' && bValue === '0000/00/00') return 0;
+        if (aValue === '0000/00/00') return sortDirection === 'asc' ? -1 : 1;
+        if (bValue === '0000/00/00') return sortDirection === 'asc' ? 1 : -1;
+        
+        // 빈 값은 맨 뒤로
+        if (!aValue || aValue === '') return 1;
+        if (!bValue || bValue === '') return -1;
+        
+        // 문자열 비교로 날짜 정렬 (YYYY/MM/DD 형식은 문자열 비교로도 정렬 가능)
+        if (sortDirection === 'asc') {
+          return aValue.localeCompare(bValue);
+        } else {
+          return bValue.localeCompare(aValue);
+        }
+      }
+
+      // 문자열 비교
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
       }
 
       if (sortDirection === 'asc') {
-        return aValue > bValue ? 1 : -1;
+        if (aValue < bValue) return -1;
+        if (aValue > bValue) return 1;
+        return 0;
       } else {
-        return aValue < bValue ? 1 : -1;
+        if (aValue > bValue) return -1;
+        if (aValue < bValue) return 1;
+        return 0;
+      }
+    });
+
+    console.log('=== 정렬 완료 ===');
+    console.log('정렬된 데이터 수:', sortedVendors.length);
+    console.log('정렬된 데이터 샘플:', sortedVendors.slice(0, 3).map(v => ({ 
+      companyName: v.companyName, 
+      bidDate: v.bidDate,
+      [sortField]: v[sortField] 
+    })));
+
+    return sortedVendors;
+  };
+
+  // 페이지네이션을 적용한 데이터 가져오기
+  const getPaginatedVendors = () => {
+    // 1. 전체 데이터를 정렬
+    const sortedVendors = getSortedVendors();
+    
+    // 2. 정렬된 전체 데이터에서 현재 페이지 부분만 추출
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedVendors = sortedVendors.slice(startIndex, endIndex);
+    
+    console.log('=== 페이지네이션 ===');
+    console.log('전체 정렬된 데이터 수:', sortedVendors.length);
+    console.log('현재 페이지:', currentPage);
+    console.log('페이지당 항목 수:', itemsPerPage);
+    console.log('시작 인덱스:', startIndex, '끝 인덱스:', endIndex);
+    console.log('현재 페이지 데이터 수:', paginatedVendors.length);
+    
+    return paginatedVendors;
+  };
+
+  // 총 페이지 수 계산
+  const getTotalPages = () => {
+    const totalItems = getSortedVendors().length;
+    return Math.ceil(totalItems / itemsPerPage);
+  };
+
+  // 페이지 변경 핸들러
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= getTotalPages()) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  // 체크박스 관련 핸들러들
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedItems([]);
+    } else {
+      const currentPageVendors = getPaginatedVendors();
+      setSelectedItems(currentPageVendors.map(vendor => vendor.id));
+    }
+    setSelectAll(!selectAll);
+  };
+
+  const handleSelectItem = (vendorId) => {
+    setSelectedItems(prev => {
+      if (prev.includes(vendorId)) {
+        return prev.filter(id => id !== vendorId);
+      } else {
+        return [...prev, vendorId];
       }
     });
   };
 
+  // 선택된 항목들 일괄 삭제
+  const handleBulkDelete = async () => {
+    if (selectedItems.length === 0) {
+      alert('삭제할 항목을 선택해주세요.');
+      return;
+    }
+
+    if (window.confirm(`선택된 ${selectedItems.length}개의 항목을 정말 삭제하시겠습니까?`)) {
+      try {
+        // 선택된 모든 항목 삭제
+        const deletePromises = selectedItems.map(vendorId => 
+          deleteDoc(doc(db, 'bids', vendorId))
+        );
+        
+        await Promise.all(deletePromises);
+        
+        // 상태 초기화
+        setSelectedItems([]);
+        setSelectAll(false);
+        
+        // 데이터 새로고침
+        fetchVendors();
+        
+        alert(`${selectedItems.length}개의 항목이 성공적으로 삭제되었습니다.`);
+      } catch (error) {
+        console.error('일괄 삭제 오류:', error);
+        alert('삭제 중 오류가 발생했습니다.');
+      }
+    }
+  };
+
+  // 로딩 중이면 스피너 표시
+  if (loading) {
+    return (
+      <Box sx={{ p: 3, marginTop: '64px', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <CircularProgress />
+        <Typography sx={{ ml: 2 }}>데이터를 불러오는 중...</Typography>
+      </Box>
+    );
+  }
+
+  // 에러가 있으면 에러 메시지 표시
+  if (error) {
+    return (
+      <Box sx={{ p: 3, marginTop: '64px' }}>
+        <Typography variant="h6" color="error" sx={{ mb: 2 }}>
+          {error}
+        </Typography>
+        <Button variant="contained" onClick={loadData}>
+          다시 시도
+        </Button>
+      </Box>
+    );
+  }
+
   return (
-    <Box sx={{ p: 3, marginTop: '64px' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h4">입찰현황</Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+    <Box sx={{ p: 3, marginTop: '64px', pb: '60px' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+        <Typography variant="h5">거래처 입찰현황</Typography>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {selectedItems.length > 0 && (
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleBulkDelete}
+              startIcon={<DeleteIcon />}
+              size="small"
+            >
+              선택 삭제 ({selectedItems.length})
+            </Button>
+          )}
           <IconButton onClick={() => setShowSearch(!showSearch)}>
             <SearchIcon />
+          </IconButton>
+          <IconButton onClick={() => setCompanyDialogOpen(true)} title="업체명 등록">
+            <BusinessIcon />
           </IconButton>
           <IconButton onClick={() => setUploadDialogOpen(true)}>
             <UploadIcon />
@@ -260,10 +772,86 @@ const Vendors = () => {
         </Box>
       )}
 
+      {/* 업종별 통계 */}
+      <Box sx={{ mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="h6">업종별 통계</Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+            카드를 클릭하면 해당 업종의 업체 목록을 볼 수 있습니다
+          </Typography>
+        </Box>
+        <Grid container spacing={1} sx={{ mb: 2 }}>
+          {Object.entries(getCompanyTypeStats()).map(([type, count]) => (
+            <Grid item xs={12} key={type}>
+              <Card 
+                sx={{ 
+                  bgcolor: 'background.paper', 
+                  border: 1, 
+                  borderColor: 'divider',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    borderColor: getCompanyTypeColor(type) === 'primary' ? 'primary.main' :
+                                getCompanyTypeColor(type) === 'secondary' ? 'secondary.main' :
+                                'success.main',
+                    boxShadow: 2,
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+                onClick={() => handleCompanyTypeCardClick(type)}
+              >
+                <CardContent sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  py: 1,
+                  px: 2,
+                  '&:last-child': { pb: 1 }
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Chip 
+                      label={type}
+                      color={getCompanyTypeColor(type)}
+                      sx={{ fontWeight: 'bold' }}
+                    />
+                    <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+                      업체
+                    </Typography>
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: '200px' }} />
+                  <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
+                    {count}개
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
+
+
+
       <TableContainer component={Paper}>
-        <Table>
+        <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell padding="checkbox">
+                <Checkbox
+                  checked={selectAll}
+                  onChange={handleSelectAll}
+                  indeterminate={selectedItems.length > 0 && selectedItems.length < getPaginatedVendors().length}
+                />
+              </TableCell>
+              <TableCell 
+                onClick={() => handleSort('companyType')}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  구분
+                  {sortField === 'companyType' && (
+                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
               <TableCell 
                 onClick={() => handleSort('companyName')}
                 sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
@@ -331,25 +919,55 @@ const Vendors = () => {
                 </Box>
               </TableCell>
               <TableCell>비고</TableCell>
+              <TableCell>수주여부</TableCell>
               <TableCell>관리</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {getSortedVendors().map((vendor) => (
-              <TableRow key={vendor.id}>
+            {getPaginatedVendors().map((vendor) => (
+              <TableRow key={vendor.id} sx={{ '& td': { py: 1 } }}>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={selectedItems.includes(vendor.id)}
+                    onChange={() => handleSelectItem(vendor.id)}
+                  />
+                </TableCell>
+                <TableCell sx={{ py: 1 }}>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.25 }}>
+                    {getCompanyType(vendor.companyName).split(', ').map((type, index) => (
+                      <Chip 
+                        key={index}
+                        label={type} 
+                        size="small" 
+                        color={getCompanyTypeColor(type)}
+                        variant="outlined"
+                        sx={{ height: '24px', fontSize: '0.7rem' }}
+                      />
+                    ))}
+                  </Box>
+                </TableCell>
                 <TableCell>{vendor.companyName}</TableCell>
-                <TableCell>{vendor.bidDate}</TableCell>
+                <TableCell>{formatDate(vendor.bidDate)}</TableCell>
                 <TableCell>{vendor.siteName}</TableCell>
-                <TableCell>{vendor.amount}</TableCell>
+                <TableCell>{formatAmount(vendor.amount)}</TableCell>
                 <TableCell>{vendor.item}</TableCell>
                 <TableCell>{vendor.quantity}</TableCell>
                 <TableCell>{vendor.note}</TableCell>
                 <TableCell>
-                  <IconButton onClick={() => handleOpen(vendor)}>
-                    <EditIcon />
+                  <Chip
+                    label={vendor.contractStatus || '미수주'}
+                    color={vendor.contractStatus === '수주' ? 'success' : 'default'}
+                    onClick={() => handleContractStatusToggle(vendor.id, vendor.contractStatus || '미수주')}
+                    sx={{ cursor: 'pointer', height: '28px', fontSize: '0.75rem' }}
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell>
+                  <IconButton size="small" onClick={() => handleOpen(vendor)}>
+                    <EditIcon fontSize="small" />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(vendor.id)}>
-                    <DeleteIcon />
+                  <IconButton size="small" onClick={() => handleDelete(vendor.id)}>
+                    <DeleteIcon fontSize="small" />
                   </IconButton>
                 </TableCell>
               </TableRow>
@@ -357,6 +975,23 @@ const Vendors = () => {
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* 페이지네이션 */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+          총 {getSortedVendors().length}개 중 {Math.min((currentPage - 1) * itemsPerPage + 1, getSortedVendors().length)}-{Math.min(currentPage * itemsPerPage, getSortedVendors().length)}개 표시
+        </Typography>
+        <Pagination 
+          count={getTotalPages()} 
+          page={currentPage} 
+          onChange={(event, page) => handlePageChange(page)}
+          color="primary"
+          shape="rounded"
+          showFirstButton 
+          showLastButton
+          size="small"
+        />
+      </Box>
 
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>
@@ -423,6 +1058,17 @@ const Vendors = () => {
               multiline
               rows={2}
             />
+            <FormControl fullWidth margin="normal">
+              <InputLabel>수주여부</InputLabel>
+              <Select
+                value={formData.contractStatus}
+                onChange={(e) => setFormData({ ...formData, contractStatus: e.target.value })}
+                label="수주여부"
+              >
+                <MenuItem value="미수주">미수주</MenuItem>
+                <MenuItem value="수주">수주</MenuItem>
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -443,8 +1089,11 @@ const Vendors = () => {
             </Typography>
             <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
               지원 형식: .xlsx, .xls<br/>
-              필수 컬럼: 업체명, 현장명<br/>
-              선택 컬럼: 낙찰일, 금액, 품목, 물량, 비고
+              <strong>9행부터 데이터를 읽습니다.</strong><br/>
+              등록된 업체만 필터링하여 업로드됩니다.<br/>
+              T열: 업체명, V열: 현장명, AK열: 금액, AA열: 날짜<br/>
+              같은 회사, 같은 현장의 금액은 자동 합산됩니다.<br/>
+              업로드된 데이터는 비고에 "관급"으로 표시됩니다.
             </Typography>
             <input
               accept=".xlsx,.xls"
@@ -467,6 +1116,131 @@ const Vendors = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setUploadDialogOpen(false)}>취소</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 업체 등록 다이얼로그 */}
+      <Dialog open={companyDialogOpen} onClose={handleCompanyDialogClose} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingCompany ? '업체 수정' : '업체 등록'}</DialogTitle>
+        <DialogContent>
+          <Box component="form" onSubmit={handleCompanySubmit} sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="업체명"
+              value={companyFormData.companyName}
+              onChange={(e) => setCompanyFormData({ ...companyFormData, companyName: e.target.value })}
+              margin="normal"
+              required
+            />
+            <Typography variant="body2" sx={{ mt: 2, mb: 1, color: 'text.secondary' }}>
+              업체 유형 (복수 선택 가능)
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {['AL창호', 'PL창호', '종합건설'].map((type) => (
+                <Chip
+                  key={type}
+                  label={type}
+                  color={companyFormData.companyTypes.includes(type) ? getCompanyTypeColor(type) : 'default'}
+                  onClick={() => handleCompanyTypeToggle(type)}
+                  variant={companyFormData.companyTypes.includes(type) ? 'filled' : 'outlined'}
+                  sx={{ cursor: 'pointer' }}
+                />
+              ))}
+            </Box>
+            {companyFormData.companyTypes.length === 0 && (
+              <Typography variant="body2" sx={{ color: 'error.main', mt: 1 }}>
+                최소 하나의 업체 유형을 선택해주세요.
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCompanyDialogClose}>취소</Button>
+          <Button 
+            onClick={handleCompanySubmit} 
+            variant="contained"
+            disabled={companyFormData.companyTypes.length === 0}
+          >
+            {editingCompany ? '수정' : '등록'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 업종별 업체 목록 팝업 */}
+      <Dialog 
+        open={companyListDialogOpen} 
+        onClose={() => setCompanyListDialogOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Chip 
+              label={selectedCompanyType}
+              color={getCompanyTypeColor(selectedCompanyType)}
+              sx={{ fontWeight: 'bold' }}
+            />
+            <Typography variant="h6">
+              업체 목록 ({getCompaniesByType(selectedCompanyType).length}개)
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {getCompaniesByType(selectedCompanyType).length > 0 ? (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              {getCompaniesByType(selectedCompanyType).map((company) => (
+                <Grid item xs={12} sm={6} key={company.id}>
+                  <Card sx={{ p: 2, border: 1, borderColor: 'divider' }}>
+                    <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                            {company.companyName}
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {(company.companyTypes || [company.companyType] || []).map((type, index) => (
+                              <Chip 
+                                key={index}
+                                label={type} 
+                                size="small" 
+                                color={getCompanyTypeColor(type)}
+                              />
+                            ))}
+                          </Box>
+                        </Box>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => {
+                              handleCompanyEdit(company);
+                              setCompanyListDialogOpen(false);
+                            }}
+                            sx={{ color: 'primary.main' }}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleCompanyDelete(company.id)}
+                            sx={{ color: 'error.main' }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
+            <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic', py: 3, textAlign: 'center' }}>
+              {selectedCompanyType} 업종에 등록된 업체가 없습니다.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCompanyListDialogOpen(false)}>닫기</Button>
         </DialogActions>
       </Dialog>
     </Box>

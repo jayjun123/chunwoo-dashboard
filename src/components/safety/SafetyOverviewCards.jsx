@@ -87,32 +87,105 @@ function SafetyOverviewCards() {
     setSiteToDelete(null);
   };
 
-  // 데이터 로드 함수를 별도로 분리
+  // 데이터 로드 함수
   const fetchAll = async () => {
     // 4개 컬렉션 + sites에서 siteId→siteName 매핑
-    async function fetchAll() {
-      const [ins, acc, edu, cost, sitesSnap] = await Promise.all([
-        getDocs(query(collection(db, 'safety_inspections'))),
-        getDocs(query(collection(db, 'safety_accidents'))),
-        getDocs(query(collection(db, 'safety_education'))),
-        getDocs(query(collection(db, 'safety_costs'))),
-        getDocs(query(collection(db, 'sites'))),
-      ]);
+    const [ins, acc, edu, cost, sitesSnap] = await Promise.all([
+      getDocs(query(collection(db, 'safety_inspections'))),
+      getDocs(query(collection(db, 'safety_accidents'))),
+      getDocs(query(collection(db, 'safety_education'))),
+      getDocs(query(collection(db, 'safety_costs'))),
+      getDocs(query(collection(db, 'sites'))),
+    ]);
       const sitesMap = {};
       sitesSnap.docs.forEach(doc => {
         const d = doc.data();
+        
+        // 멕시카나 현장 특별 확인 및 제외
+        if (d.name && d.name.includes('멕시카나')) {
+          console.log(`🔍 멕시카나 현장 발견 및 제외:`, d);
+          return; // 멕시카나 현장은 제외
+        }
+        
+        // 공사기간이 끝났는지 확인
+        if (d.endDate) {
+          const today = new Date();
+          let endDate;
+          
+          // endDate 형식 처리
+          if (typeof d.endDate === 'string') {
+            if (d.endDate.includes('-')) {
+              endDate = new Date(d.endDate + 'T00:00:00');
+            } else if (d.endDate.includes('/')) {
+              endDate = new Date(d.endDate + 'T00:00:00');
+            } else if (d.endDate.includes('.')) {
+              // "8.15" 또는 "2025.08.15" 형식 처리
+              const parts = d.endDate.split('.');
+              if (parts.length === 2) {
+                // "8.15" 형식
+                const month = parseInt(parts[0]) - 1; // 월은 0부터 시작
+                const day = parseInt(parts[1]);
+                const currentYear = new Date().getFullYear();
+                endDate = new Date(currentYear, month, day);
+              } else if (parts.length === 3) {
+                // "2025.08.15" 형식
+                const year = parseInt(parts[0]);
+                const month = parseInt(parts[1]) - 1; // 월은 0부터 시작
+                const day = parseInt(parts[2]);
+                endDate = new Date(year, month, day);
+              } else {
+                endDate = new Date(d.endDate + 'T00:00:00');
+              }
+            } else if (d.endDate.length === 8) {
+              const year = d.endDate.substring(0, 4);
+              const month = d.endDate.substring(4, 6);
+              const day = d.endDate.substring(6, 8);
+              endDate = new Date(`${year}-${month}-${day}T00:00:00`);
+            } else {
+              endDate = new Date(d.endDate + 'T00:00:00');
+            }
+          } else if (d.endDate instanceof Date) {
+            endDate = d.endDate;
+          } else {
+            endDate = d.endDate.toDate ? d.endDate.toDate() : new Date(d.endDate);
+          }
+          
+          // 날짜 비교를 위해 시간을 제거하고 날짜만 비교
+          const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+          const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+          
+          // 공사기간이 끝난 현장은 제외
+          if (todayDate > endDateOnly) {
+            console.log(`🔍 안전관리 카드 - ${d.name}: 공사기간 종료 (${d.endDate}) -> 제외`);
+            return;
+          } else {
+            console.log(`🔍 안전관리 카드 - ${d.name}: 공사기간 진행중 (${d.endDate}) -> 포함`);
+          }
+        }
+        
         sitesMap[doc.id] = d.name;
       });
       // siteName이 없으면 siteId로 매핑
       function getSiteName(d) {
         return d.siteName || sitesMap[d.siteId] || d.siteId || '';
       }
-      const allSites = new Set([
-        ...ins.docs.map(d => getSiteName(d.data())),
-        ...acc.docs.map(d => getSiteName(d.data())),
-        ...edu.docs.map(d => getSiteName(d.data())),
-        ...cost.docs.map(d => getSiteName(d.data())),
-      ].filter(Boolean));
+             // 공사기간이 끝나지 않은 현장만 포함하는 Set 생성
+       const activeSiteNames = new Set(Object.values(sitesMap));
+       
+       const allSites = new Set([
+         ...ins.docs.map(d => getSiteName(d.data())),
+         ...acc.docs.map(d => getSiteName(d.data())),
+         ...edu.docs.map(d => getSiteName(d.data())),
+         ...cost.docs.map(d => getSiteName(d.data())),
+       ].filter(Boolean).filter(siteName => {
+         // 멕시카나 현장 제외
+         if (siteName.includes('멕시카나')) {
+           console.log(`🔍 안전관리 카드 - 멕시카나 현장 제외: ${siteName}`);
+           return false;
+         }
+         // 공사기간이 끝나지 않은 현장만 포함
+         return activeSiteNames.has(siteName);
+       }));
       const arr = Array.from(allSites);
       const siteArr = arr.length > 0 ? arr : ['등록된 현장 없음'];
       const result = siteArr.map(siteName => {
@@ -144,8 +217,6 @@ function SafetyOverviewCards() {
         };
       });
       setSiteData(result);
-    }
-    fetchAll();
   };
 
   useEffect(() => {

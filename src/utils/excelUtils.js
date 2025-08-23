@@ -642,7 +642,7 @@ const createGisungDetailSheet = (siteData, gisungData) => {
     }
   }
   
-  // 기본 항목들만 필터링 (단수정리 제외)
+  // 모든 항목들 필터링 (단수정리 포함)
   const filteredData = [];
   
   for (const row of data) {
@@ -653,18 +653,13 @@ const createGisungDetailSheet = (siteData, gisungData) => {
         itemName.includes('부가세') || itemName.includes('계약금액')) {
       console.log('🛑 집계행 발견 후 중단:', itemName);
       break;
-    } else if (itemName && !itemName.includes('단수정리')) {
-      // 단수정리가 아닌 항목들만 포함
+    } else if (itemName) {
+      // 모든 항목 포함 (단수정리 포함)
       filteredData.push(row);
     }
   }
   
-  console.log('✅ 기본 항목들 필터링 완료');
-  
-  // 단수정리를 마지막에 한 번만 추가
-  filteredData.push(['단수정리', 'NEGO', '식', 1, -341570, -341570, 0, 0, 0, 0, 1, -341570, '']);
-  
-  console.log('✅ 단수정리 마지막에 한 번만 추가됨');
+  console.log('✅ 모든 항목들 필터링 완료 (단수정리 포함)');
   
   // 단수정리 이후에 선급금, 총공사비, 부가세, 총계 추가
   filteredData.push([]); // 빈 행
@@ -910,14 +905,9 @@ const parseDetailData = (data) => {
       break;
     }
     
-    // 단수정리 중복 제거 - 한 번만 포함
+    // 유효한 행만 처리
     if (row && row[0] && row[0] !== '선급금' && row[0] !== '총원가' && row[0] !== '부가가치세' && row[0] !== '총계') {
-      // 단수정리가 이미 추가되었는지 확인
-      const isDuplicateTanu = row[0].includes('단수정리') && items.some(item => item.itemName.includes('단수정리'));
-      if (isDuplicateTanu) {
-        console.log(`🛑 단수정리 중복 발견: ${i + 1}행 - 건너뛰기`);
-        continue;
-      }
+      // 단수정리 중복 제거 로직 제거 - 실제 데이터의 단수정리를 포함
       
       // 숫자 파싱 함수 개선 (소수점 둘째자리까지)
       const parseNumber = (value) => {

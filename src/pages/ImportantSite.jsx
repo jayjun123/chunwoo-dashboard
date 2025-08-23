@@ -118,25 +118,110 @@ export default function ImportantSite() {
         console.log(`   - isStarred: ${site.isStarred} (타입: ${typeof site.isStarred})`);
       });
       
-      // isFavorite가 명시적으로 true인 현장만 필터링 (엄격한 조건)
-      const importantSitesData = allSitesData.filter(site => {
-        const isFav = site.isFavorite === true;
+      // 공사기간이 끝나지 않은 현장만 필터링
+      const activeSitesData = allSitesData.filter(site => {
+        // 공사기간이 끝났는지 확인
+        if (site.endDate) {
+          const today = new Date();
+          console.log(`🔍 주요현장 - 현재 날짜: ${today.toISOString()}, ${today.toLocaleDateString()}`);
+          let endDate;
+          
+          // endDate 형식 처리 - 모든 형식을 동일하게 처리
+          if (typeof site.endDate === 'string') {
+            const endDateStr = String(site.endDate);
+            
+            // 무효한 날짜 형식 체크 (0000.00.00, 0000/00/00, 0000-00-00, 0000.0.00 등)
+            if (endDateStr.match(/^0{4}[.\/-]0{1,2}[.\/-]0{1,2}$/) ||
+                endDateStr === '0000.00.00' || 
+                endDateStr === '0000/00/00' || 
+                endDateStr === '0000-00-00' ||
+                endDateStr === '0000.0.00') {
+              console.log(`🔍 주요현장 - ${site.name}: 무효한 날짜 형식 (${site.endDate}) -> 제외`);
+              return false; // 무효한 날짜는 제외
+            }
+            
+            if (site.endDate.includes('-')) {
+              endDate = new Date(site.endDate + 'T00:00:00');
+            } else if (site.endDate.includes('/')) {
+              endDate = new Date(site.endDate + 'T00:00:00');
+            } else if (site.endDate.includes('.')) {
+              // "8.15" 또는 "2025.08.15" 형식 처리
+              const parts = site.endDate.split('.');
+              if (parts.length === 2) {
+                // "8.15" 형식
+                const month = parseInt(parts[0]) - 1; // 월은 0부터 시작
+                const day = parseInt(parts[1]);
+                const currentYear = new Date().getFullYear();
+                endDate = new Date(currentYear, month, day);
+                console.log(`🔍 주요현장 - ${site.name}: "8.15" 형식 파싱 - 월:${parts[0]}, 일:${parts[1]}, 연도:${currentYear}, 결과:${endDate}`);
+              } else if (parts.length === 3) {
+                // "2025.08.15" 형식
+                const year = parseInt(parts[0]);
+                const month = parseInt(parts[1]) - 1; // 월은 0부터 시작
+                const day = parseInt(parts[2]);
+                endDate = new Date(year, month, day);
+                console.log(`🔍 주요현장 - ${site.name}: "2025.08.15" 형식 파싱 - 연도:${year}, 월:${parts[1]}, 일:${day}, 결과:${endDate}`);
+              } else {
+                endDate = new Date(site.endDate + 'T00:00:00');
+              }
+            } else if (site.endDate.length === 8) {
+              const year = site.endDate.substring(0, 4);
+              const month = site.endDate.substring(4, 6);
+              const day = site.endDate.substring(6, 8);
+              endDate = new Date(`${year}-${month}-${day}T00:00:00`);
+            } else {
+              endDate = new Date(site.endDate + 'T00:00:00');
+            }
+          } else if (site.endDate instanceof Date) {
+            endDate = site.endDate;
+          } else {
+            endDate = site.endDate.toDate ? site.endDate.toDate() : new Date(site.endDate);
+          }
+          
+          // 날짜 비교를 위해 시간을 제거하고 날짜만 비교
+          const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+          const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+          
+          console.log(`🔍 주요현장 - ${site.name}: 원본 endDate=${site.endDate}, 파싱된 endDate=${endDate}, todayDate=${todayDate}, endDateOnly=${endDateOnly}`);
+          console.log(`🔍 주요현장 - ${site.name}: todayDate.getTime()=${todayDate.getTime()}, endDateOnly.getTime()=${endDateOnly.getTime()}`);
+          
+          // 공사기간이 끝난 현장은 제외
+          if (todayDate.getTime() > endDateOnly.getTime()) {
+            console.log(`🔍 주요현장 - ${site.name}: 공사기간 종료 (${site.endDate}) -> 제외`);
+            return false;
+          } else {
+            console.log(`🔍 주요현장 - ${site.name}: 공사기간 진행중 (${site.endDate}) -> 포함`);
+          }
+        }
         
-        console.log(`🔍 필터링 체크 - ${site.name}: isFavorite=${site.isFavorite} (${typeof site.isFavorite}) -> ${isFav ? '포함' : '제외'}`);
+        return true; // endDate가 없으면 포함
+      });
+      
+      // isFavorite 또는 isStarred가 true인 현장 필터링 (더 관대한 조건)
+      const importantSitesData = activeSitesData.filter(site => {
+        const isFav = site.isFavorite === true || site.isStarred === true;
         
-        // 오직 isFavorite가 명시적으로 true인 경우만 포함
+        console.log(`🔍 필터링 체크 - ${site.name}: isFavorite=${site.isFavorite}, isStarred=${site.isStarred} -> ${isFav ? '포함' : '제외'}`);
+        
+        // isFavorite 또는 isStarred가 true인 경우 포함
         return isFav;
       });
       console.log('🔍 ImportantSite - 주요현장 필터링 결과:', importantSitesData);
       console.log('🔍 ImportantSite - 주요현장 개수:', importantSitesData.length);
       
-      // 최대 10개까지만 표시
-      const limitedSitesData = importantSitesData.slice(0, 10);
-      console.log('🔍 ImportantSite - 최종 표시할 주요현장:', limitedSitesData);
+      // 주요현장이 없으면 공사기간이 진행중인 최근 현장 5개를 표시
+      let finalSitesData = importantSitesData;
+      if (importantSitesData.length === 0) {
+        console.log('🔍 ImportantSite - 주요현장이 없어서 공사기간이 진행중인 최근 현장 5개를 표시합니다.');
+        finalSitesData = activeSitesData.slice(0, 5);
+      } else {
+        // 최대 10개까지만 표시
+        finalSitesData = importantSitesData.slice(0, 10);
+      }
       
-
+      console.log('🔍 ImportantSite - 최종 표시할 현장:', finalSitesData);
       
-      setSites(limitedSitesData);
+      setSites(finalSitesData);
       
       // 사이트 순서 초기화 - 사이트 데이터가 로드된 후에 실행
       setTimeout(() => {
@@ -146,13 +231,13 @@ export default function ImportantSite() {
           const orderArray = JSON.parse(savedOrder);
           // 현재 사이트 목록에 있는 ID만 필터링
           const validOrder = orderArray.filter(id => 
-            limitedSitesData.some(site => site.id === id)
+            finalSitesData.some(site => site.id === id)
           );
           console.log('저장된 순서 로드:', validOrder);
           setSiteOrder(validOrder);
         } else {
           // 저장된 순서가 없으면 현재 순서로 초기화
-          const initialOrder = limitedSitesData.map(site => site.id);
+          const initialOrder = finalSitesData.map(site => site.id);
           console.log('초기 순서 설정:', initialOrder);
           setSiteOrder(initialOrder);
         }
@@ -348,7 +433,7 @@ export default function ImportantSite() {
     fetchComments();
   }, []);
 
-  // 검색어에 따라 필터링합니다.
+  // 검색어에 따라 필터링합니다 (모든 현장 표시)
   const filteredSites = search.trim()
     ? sortedSites.filter(site => site.name.includes(search.trim()))
     : sortedSites;
