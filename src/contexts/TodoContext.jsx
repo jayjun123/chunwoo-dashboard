@@ -75,7 +75,7 @@ export const TodoProvider = ({ children }) => {
     return () => unsubscribe();
   }, [currentUser?.uid]);
 
-  // 투두 추가
+  // 투두 추가 (한국 시간 기준)
   const addTodo = async (text, date = null) => {
     if (!currentUser?.uid || !text.trim()) return;
 
@@ -102,7 +102,7 @@ export const TodoProvider = ({ children }) => {
         updatedAt: new Date()
       };
 
-      console.log('투두 추가:', newTodo);
+      console.log('투두 추가 (한국 시간 기준):', newTodo);
       await addDoc(collection(db, 'todos'), newTodo);
     } catch (error) {
       console.error('투두 추가 오류:', error);
@@ -152,7 +152,7 @@ export const TodoProvider = ({ children }) => {
     }
   };
 
-  // 오늘 투두만 필터링
+  // 오늘 투두만 필터링 (한국 시간 기준)
   const getTodayTodos = useCallback(() => {
     // 한국 시간 기준으로 오늘 날짜 생성
     const now = new Date();
@@ -162,28 +162,45 @@ export const TodoProvider = ({ children }) => {
     const todayDay = String(koreanTime.getDate()).padStart(2, '0');
     const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
     
+    console.log('오늘 날짜 (한국 시간):', todayStr);
+    
     return todos.filter(todo => {
       try {
-        return todo.date === todayStr;
-      } catch {
+        const isToday = todo.date === todayStr;
+        if (isToday) {
+          console.log('오늘 투두:', todo.text, '날짜:', todo.date);
+        }
+        return isToday;
+      } catch (error) {
+        console.error('투두 날짜 필터링 오류:', error);
         return false;
       }
     });
   }, [todos]);
 
-  // 전날 미완료 할일 불러오기
+  // 전날 미완료 할일 불러오기 (한국 시간 기준)
   const loadIncompleteFromPreviousDay = useCallback(async () => {
     if (!currentUser?.uid) return;
 
     try {
-      const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-      const today = format(new Date(), 'yyyy-MM-dd');
+      // 한국 시간 기준으로 전날과 오늘 날짜 계산
+      const now = new Date();
+      const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+      
+      const yesterday = new Date(koreanTime);
+      yesterday.setDate(koreanTime.getDate() - 1);
+      const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
+      
+      const todayStr = format(koreanTime, 'yyyy-MM-dd');
+      
+      console.log('전날 날짜 (한국 시간):', yesterdayStr);
+      console.log('오늘 날짜 (한국 시간):', todayStr);
       
       // 전날 미완료 할일 조회
       const yesterdayQuery = query(
         collection(db, 'todos'),
         where('userId', '==', currentUser.uid),
-        where('date', '==', yesterday),
+        where('date', '==', yesterdayStr),
         where('completed', '==', false)
       );
       
@@ -202,7 +219,7 @@ export const TodoProvider = ({ children }) => {
         // 오늘 이미 같은 내용의 할일이 있는지 확인
         const existingTodo = todos.find(todo => 
           todo.text === todoData.text && 
-          format(new Date(todo.date), 'yyyy-MM-dd') === today
+          todo.date === todayStr
         );
         
         if (!existingTodo) {
@@ -210,13 +227,14 @@ export const TodoProvider = ({ children }) => {
             text: todoData.text,
             completed: false,
             userId: currentUser.uid,
-            date: today,
+            date: todayStr,
             createdAt: new Date(),
             updatedAt: new Date(),
             carriedOver: true,
-            originalDate: yesterday
+            originalDate: yesterdayStr
           });
           addedCount++;
+          console.log('전날 미완료 할일 이월:', todoData.text);
         }
       }
       

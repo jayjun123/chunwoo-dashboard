@@ -109,9 +109,23 @@ const fillContractGabjiData = async (workbook, siteData, materialItems) => {
         await fillContractSheetData(sheet, siteData, workbook);
       }
       
-      // 2번째 시트 (갑지) - 인감이미지만 추가
+      // 2번째 시트 (갑지) - 인감이미지 추가 및 B11 수식 수정
       if (sheets.indexOf(sheet) === 1) { // 2번째 시트 (0-based index)
-        console.log('📋 2번째 시트 (갑지)에 인감이미지 추가');
+        console.log('📋 2번째 시트 (갑지)에 인감이미지 추가 및 B11 수식 수정');
+        
+        // B11 셀의 수식을 =계약서!E24에서 =계약서!G24로 변경
+        try {
+          const b11Cell = sheet.getCell('B11');
+          if (b11Cell.formula && b11Cell.formula.includes('=계약서!E24')) {
+            b11Cell.formula = '=계약서!G24';
+            console.log('✅ B11 셀 수식 변경: =계약서!E24 → =계약서!G24');
+          } else {
+            console.log('⚠️ B11 셀에 기대하는 수식이 없음:', b11Cell.formula);
+          }
+        } catch (error) {
+          console.log('⚠️ B11 셀 수식 변경 실패:', error.message);
+        }
+        
         await addStampImageToSheet(sheet, siteData, workbook);
       }
       
@@ -446,13 +460,27 @@ const fillEstimateStyleSheetData = (sheet, siteData, materialItems) => {
             if (name && name.includes('단수정리')) {
               console.log(`📊 ${row}행 단수정리 특별 처리:`, name);
               sheet.getCell(`A${row}`).value = name; // A열: 단수정리
-              sheet.getCell(`B${row}`).value = specification || ''; // B열: 규격 (NEGO 등)
+              sheet.getCell(`B${row}`).value = specification || ''; // B열: 규격
               sheet.getCell(`C${row}`).value = unit || ''; // C열: 단위
               
               // D열: 수량 (단수정리는 보통 1)
               const dCell = sheet.getCell(`D${row}`);
               dCell.value = Number(quantity || 1).toFixed(2);
               dCell.alignment = { horizontal: 'right' };
+              
+              // 단수정리는 K열(합계 단가)에만 값을 넣고, L열(합계 금액)은 수식 유지
+              const unitPrice = item.unitPrice || item.price || 0;
+              
+              // E, G, I열은 빈 값으로 설정
+              sheet.getCell(`E${row}`).value = ''; // 재료비 단가 (빈 값)
+              sheet.getCell(`G${row}`).value = ''; // 노무비 단가 (빈 값)
+              sheet.getCell(`I${row}`).value = ''; // 경비 단가 (빈 값)
+              
+              // K열: 합계 단가만 설정
+              sheet.getCell(`K${row}`).value = unitPrice;
+              
+              // F, H, J, L, M열은 수식 유지 (건드리지 않음)
+              console.log(`✅ ${row}행 단수정리 완료: K열 단가(${unitPrice}), L열 수식 유지`);
             } else {
               // 일반 물량 데이터 처리
               sheet.getCell(`A${row}`).value = specification; // A열: 규격 (예: 5MZT152H/S+14AR+5CL)
@@ -463,28 +491,24 @@ const fillEstimateStyleSheetData = (sheet, siteData, materialItems) => {
               const dCell = sheet.getCell(`D${row}`);
               dCell.value = Number(quantity).toFixed(2);
               dCell.alignment = { horizontal: 'right' };
+              
+              // E열: 재료비단가 (JE프라이스)
+              const jePrice = item.JEprice || item.JE프라이스 || item.jePrice || 0;
+              console.log(`🔍 ${row}행 JE프라이스 값:`, jePrice, '원본:', item.JEprice, item.JE프라이스, item.jePrice);
+              sheet.getCell(`E${row}`).value = jePrice;
+              
+              // G열: 노무비단가 (NO프라이스)
+              const noPrice = item.NOprice || item.NO프라이스 || item.noPrice || 0;
+              console.log(`🔍 ${row}행 NO프라이스 값:`, noPrice, '원본:', item.NOprice, item.NO프라이스, item.noPrice);
+              sheet.getCell(`G${row}`).value = noPrice;
+              
+              // I열: 경비단가 (KY프라이스)
+              const kyPrice = item.KYprice || item.KY프라이스 || item.kyPrice || 0;
+              console.log(`🔍 ${row}행 KY프라이스 값:`, kyPrice, '원본:', item.KYprice, item.KY프라이스, item.kyPrice);
+              sheet.getCell(`I${row}`).value = kyPrice;
+              
+              // F, H, J, K, L, M열은 수식 그대로 두기 (건드리지 않음)
             }
-            
-            // E열: 재료비단가 (JE프라이스) - D열에 값이 있으면 0으로 처리
-            const jePrice = item.JEprice || item.JE프라이스 || item.jePrice || 0;
-            console.log(`🔍 ${row}행 JE프라이스 값:`, jePrice, '원본:', item.JEprice, item.JE프라이스, item.jePrice);
-            sheet.getCell(`E${row}`).value = jePrice;
-            
-            // F열은 수식 그대로 두기 (건드리지 않음)
-            
-            // G열: 노무비단가 (NO프라이스) - D열에 값이 있으면 0으로 처리
-            const noPrice = item.NOprice || item.NO프라이스 || item.noPrice || 0;
-            console.log(`🔍 ${row}행 NO프라이스 값:`, noPrice, '원본:', item.NOprice, item.NO프라이스, item.noPrice);
-            sheet.getCell(`G${row}`).value = noPrice;
-            
-            // H열은 수식 그대로 두기 (건드리지 않음)
-            
-            // I열: 경비단가 (KY프라이스) - D열에 값이 있으면 0으로 처리
-            const kyPrice = item.KYprice || item.KY프라이스 || item.kyPrice || 0;
-            console.log(`🔍 ${row}행 KY프라이스 값:`, kyPrice, '원본:', item.KYprice, item.KY프라이스, item.kyPrice);
-            sheet.getCell(`I${row}`).value = kyPrice;
-            
-            // J, K, L, M열은 수식 그대로 두기 (건드리지 않음)
             
             console.log(`✅ ${row}행 물량데이터 입력 완료 (A:규격, B:이름, C:단위, D:수량(우정렬), E:JE프라이스(${jePrice}), G:NO프라이스(${noPrice}), I:KY프라이스(${kyPrice}))`);
           } else {
@@ -526,7 +550,7 @@ const fillEstimateStyleSheetData = (sheet, siteData, materialItems) => {
           const cell = sheet.getCell(`${col}${rowIndex}`);
           if (cell.formula) {
             console.log(`🧹 ${col}${rowIndex} 수식 제거: ${cell.formula}`);
-            cell.value = null; // 수식 제거
+            cell.value = ''; // 수식 제거 (빈 문자열로 설정)
           }
         });
       }

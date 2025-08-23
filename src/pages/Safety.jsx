@@ -88,11 +88,19 @@ const SafetyPage = () => {
     // eslint-disable-next-line
   }, [tab, isMobile]);
 
-  // 전체 현장명 목록 불러오기
+  // 전체 현장명 목록 불러오기 (모든 현장 포함)
   useEffect(() => {
     const q = query(collection(db, 'sites'));
     const unsub = onSnapshot(q, (snapshot) => {
-      setSiteOptions(snapshot.docs.map(doc => doc.data().name));
+      const allSites = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 유효한 현장명만 필터링 (빈 문자열, undefined, null 제외)
+      const validSiteNames = allSites
+        .map(site => site.name)
+        .filter(name => name && name.trim() !== '' && name !== 'undefined' && name !== 'null');
+      
+      console.log('🔍 안전관리 - 전체 현장명 목록:', validSiteNames);
+      setSiteOptions(validSiteNames);
     });
     return () => unsub();
   }, []);
@@ -113,11 +121,12 @@ const SafetyPage = () => {
       const sitesMap = {};
       const siteCosts = {};
 
-      // 현장 데이터 매핑 및 디버깅
+      // 현장 데이터 매핑 및 디버깅 (모든 현장 포함)
       console.log('=== 현장 데이터 상세 분석 ===');
       sitesSnap.docs.forEach(doc => {
         const data = doc.data();
         const siteName = data.name;
+        
         sitesMap[doc.id] = siteName;
         
         console.log(`현장 ID: ${doc.id}`);
@@ -1284,7 +1293,7 @@ const SafetyPage = () => {
             <Grid container spacing={2}>
               <Grid xs={12}>
                 <Autocomplete
-                  options={siteOptions}
+                  options={siteOptions.filter(option => option && option.trim() !== '')}
                   value={form.siteName}
                   onChange={(event, newValue) => {
                     setForm(prev => ({ ...prev, siteName: newValue || '' }));
@@ -1304,6 +1313,13 @@ const SafetyPage = () => {
                       }}
                     />
                   )}
+                  noOptionsText="선택 가능한 현장이 없습니다"
+                  filterOptions={(options, { inputValue }) => {
+                    return options.filter(option => 
+                      option && 
+                      option.toLowerCase().includes(inputValue.toLowerCase())
+                    );
+                  }}
                 />
               </Grid>
               {tab === 4 && (

@@ -1028,7 +1028,9 @@ const Estimates = () => {
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('type')}>
                 타입 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
               </TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>의뢰자</TableCell>
+              <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('requester')}>
+                의뢰자 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+              </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>제출방법</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('company')}>
                 회사명 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />

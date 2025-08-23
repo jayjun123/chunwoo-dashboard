@@ -216,7 +216,7 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
             !columnA.includes('계약금액') &&
             !columnA.includes('[object Object]') &&
             (isAdjustmentItem || (columnB && columnB.trim() !== '' && !columnB.includes('[object Object]'))) &&
-            (columnD !== undefined || columnE !== undefined || columnG !== undefined || columnK !== undefined || columnL !== undefined);
+            (isAdjustmentItem || (columnD !== undefined || columnE !== undefined || columnG !== undefined || columnK !== undefined || columnL !== undefined));
             
         // 단수정리 항목 유효성 검사 디버깅
         if ((columnA && columnA.trim() === '단수정리') || (columnB && columnB.trim() === '단수정리')) {
@@ -1072,13 +1072,28 @@ export const generateEstimateExcel = async (siteData, materialData) => {
         console.log('📋 5번째 행 수식 저장:', templateRow5);
         
         // 실제 물량 데이터만 필터링 (총계, 부가세 등 제외, 단수정리는 포함)
-        const actualItems = materialData.items.filter(item => 
-          !item.isTotal && 
-          !item.isVat && 
-          !item.isTotalWithVat && 
-          // 단수정리는 포함 (isAdjustment가 true여도 단수정리는 포함)
-          (item.name === '단수정리' || !item.isAdjustment)
-        );
+        console.log('🔍 materialData.items 원본:', materialData.items);
+        
+        const actualItems = materialData.items.filter(item => {
+          const shouldInclude = !item.isTotal && 
+            !item.isVat && 
+            !item.isTotalWithVat && 
+            // 단수정리는 포함 (isAdjustment가 true여도 단수정리는 포함)
+            (item.name === '단수정리' || !item.isAdjustment);
+          
+          if (item.name === '단수정리') {
+            console.log(`🔍 단수정리 필터링 체크:`, {
+              name: item.name,
+              isTotal: item.isTotal,
+              isVat: item.isVat,
+              isTotalWithVat: item.isTotalWithVat,
+              isAdjustment: item.isAdjustment,
+              shouldInclude: shouldInclude
+            });
+          }
+          
+          return shouldInclude;
+        });
         
         console.log('📊 실제 물량 데이터:', actualItems.length, '개 항목');
         
@@ -1149,6 +1164,17 @@ export const generateEstimateExcel = async (siteData, materialData) => {
             M: 'note'           // M열 - 비고
           };
           
+          // 단수정리 항목의 경우 특별한 매핑 적용
+          if (item.name === '단수정리') {
+            console.log('🔧 단수정리 항목 특별 매핑 적용');
+            // 단수정리는 K열(합계 단가)에만 값을 넣고, L열(합계 금액)은 수식 유지
+            mapping.E = ''; // 재료비 단가 (빈 값)
+            mapping.G = ''; // 노무비 단가 (빈 값)
+            mapping.I = ''; // 경비 단가 (빈 값)
+            mapping.K = 'unitPrice'; // 합계 단가만 설정
+            mapping.L = ''; // 합계 금액은 수식 유지
+          }
+          
           for (const [cell, key] of Object.entries(mapping)) {
             let value;
             if (key === '') {
@@ -1162,29 +1188,69 @@ export const generateEstimateExcel = async (siteData, materialData) => {
             const cellAddress = `${cell}${rowIndex}`;
             const cellObj = detailSheet.getCell(cellAddress);
             
-            // 수식이 있는 셀은 건드리지 않음 (공유 수식 문제 방지)
-            if (cellObj.formula) {
+            // 단수정리 행은 K열만 수식 제거하고 실제 값 입력, L열은 수식 유지
+            if (item.name === '단수정리') {
+              if (cellObj.formula) {
+                // L열(합계 금액)은 수식 유지
+                if (cell === 'L') {
+                  console.log(`⚠️ ${cellAddress} 단수정리 L열 수식 유지: ${cellObj.formula}`);
+                  continue;
+                } else {
+                  console.log(`🔧 ${cellAddress} 단수정리 행 수식 제거: ${cellObj.formula}`);
+                  // K열 등 다른 열은 수식 제거하고 값 입력
+                  if (value !== undefined && value !== null && value !== '') {
+                    if (key === 'quantity' || key === 'unitPrice' || key === 'price' || key === 'amount') {
+                      cellObj.value = Number(value);
+                    } else {
+                      cellObj.value = value;
+                    }
+                    console.log(`✅ ${cellAddress} 단수정리 값 입력: ${value}`);
+                  } else if (key === '') {
+                    cellObj.value = '';
+                    console.log(`✅ ${cellAddress} 단수정리 빈 값으로 설정`);
+                  } else {
+                    console.log(`⚠️ 단수정리 ${key} 키 값이 비어있음:`, value);
+                  }
+                }
+              } else {
+                // 수식이 없는 경우 일반적인 값 입력
+                if (value !== undefined && value !== null && value !== '') {
+                  if (key === 'quantity' || key === 'unitPrice' || key === 'price' || key === 'amount') {
+                    cellObj.value = Number(value);
+                  } else {
+                    cellObj.value = value;
+                  }
+                  console.log(`✅ ${cellAddress} 단수정리 값 입력: ${value}`);
+                } else if (key === '') {
+                  cellObj.value = '';
+                  console.log(`✅ ${cellAddress} 단수정리 빈 값으로 설정`);
+                } else {
+                  console.log(`⚠️ 단수정리 ${key} 키 값이 비어있음:`, value);
+                }
+              }
+            } else if (cellObj.formula) {
               console.log(`⚠️ ${cellAddress} 수식이 있어 건드리지 않음: ${cellObj.formula}`);
               continue;
-            }
-            
-            if (value !== undefined && value !== null && value !== '') {
-              // 수량은 소수점 유지
-              if (key === 'quantity') {
-                cellObj.value = Number(value);
-              } else if (key === 'price' || key === 'amount') {
-                cellObj.value = Number(value);
-              } else {
-                cellObj.value = value;
-              }
-              
-              console.log(`✅ ${cellAddress} 입력: ${value}`);
-            } else if (key === '') {
-              // 빈 값은 명시적으로 빈 문자열로 설정
-              cellObj.value = '';
-              console.log(`✅ ${cellAddress} 빈 값으로 설정`);
             } else {
-              console.log(`⚠️ ${key} 키 값이 비어있음:`, value);
+              // 수식이 없는 경우 일반적인 값 입력
+              if (value !== undefined && value !== null && value !== '') {
+                // 수량은 소수점 유지
+                if (key === 'quantity') {
+                  cellObj.value = Number(value);
+                } else if (key === 'price' || key === 'amount') {
+                  cellObj.value = Number(value);
+                } else {
+                  cellObj.value = value;
+                }
+                
+                console.log(`✅ ${cellAddress} 입력: ${value}`);
+              } else if (key === '') {
+                // 빈 값은 명시적으로 빈 문자열로 설정
+                cellObj.value = '';
+                console.log(`✅ ${cellAddress} 빈 값으로 설정`);
+              } else {
+                console.log(`⚠️ ${key} 키 값이 비어있음:`, value);
+              }
             }
           }
           
@@ -1234,7 +1300,7 @@ export const generateEstimateExcel = async (siteData, materialData) => {
               const cell = detailSheet.getCell(`${col}${rowIndex}`);
               if (cell.formula) {
                 console.log(`🧹 ${col}${rowIndex} 수식 제거: ${cell.formula}`);
-                cell.value = null; // 수식 제거
+                cell.value = ''; // 수식 제거 (빈 문자열로 설정)
               }
             });
           }
@@ -1245,93 +1311,9 @@ export const generateEstimateExcel = async (siteData, materialData) => {
         console.log('⚠️ 물량 데이터가 없습니다.');
       }
       
-             // 엑셀 파일 생성 (공유 수식 문제 해결을 위한 단순화된 옵션)
-       console.log('📄 엑셀 파일 생성 시작');
-       const excelBuffer = await workbook.xlsx.writeBuffer({
-         filename: '견적서.xlsx',
-         useStyles: true,
-         useSharedStrings: true,
-         useTheme: true,
-         useProperties: true,
-         useComments: true,
-         useDataValidation: true,
-         useConditionalFormats: true,
-         useImages: true,
-         useMerges: true,
-         useHyperlinks: true,
-         useProtection: true,
-         useDrawings: true,
-         useCharts: true,
-         useTables: true,
-         usePivotTables: true,
-         useSlicers: true,
-         useSparklines: true,
-         useDataConnections: true,
-         useExternalLinks: true,
-         useNamedRanges: true,
-         useSheetProtection: true,
-         useWorkbookProtection: true,
-         useVBA: true,
-         useMacros: true,
-         useAddins: true,
-         useCustomUI: true,
-         useRibbon: true,
-         useQuickAccess: true,
-         useBackstage: true,
-         useTaskPanes: true,
-         useContentTypes: true,
-         useDigitalSignatures: true,
-         useEncryption: true,
-         useCompression: true,
-         useOptimization: true,
-         useAllFeatures: true,
-         useBorders: true,
-         useFills: true,
-         useFonts: true,
-         useAlignment: true,
-         useNumberFormats: true,
-         usePatterns: true,
-         useGradients: true,
-         useEffects: true,
-         useShadows: true,
-         useReflections: true,
-         useGlows: true,
-         useSoftEdges: true,
-         use3D: true,
-         useTransforms: true,
-         useAnimations: true,
-         useTransitions: true,
-         useFilters: true,
-         useAdjustments: true,
-         useArtistic: true,
-         usePicture: true,
-         useShape: true,
-         useSmartArt: true,
-         useWordArt: true,
-         useEquation: true,
-         useSymbol: true,
-         useObject: true,
-         useOleObject: true,
-         useActiveX: true,
-         useFormControl: true,
-         useLegacyDrawing: true,
-         useLegacyDrawingHF: true,
-         useLegacyDrawingShape: true,
-         useLegacyDrawingGroup: true,
-         useLegacyDrawingPicture: true,
-         useLegacyDrawingOleObject: true,
-         useLegacyDrawingControl: true,
-         useLegacyDrawingTextBox: true,
-         useLegacyDrawingNote: true,
-         useLegacyDrawingPolyline: true,
-         useLegacyDrawingGroupShape: true,
-         useLegacyDrawingShapeGroup: true,
-         useLegacyDrawingConnector: true,
-         useLegacyDrawingFreeform: true,
-         useLegacyDrawingAutoShape: true,
-         useLegacyDrawingCallout: true,
-         useLegacyDrawingChart: true
-       });
+      // 엑셀 파일 생성 (단순화된 옵션)
+      console.log('📄 엑셀 파일 생성 시작');
+      const excelBuffer = await workbook.xlsx.writeBuffer();
        const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
        console.log('✅ 엑셀 파일 생성 완료:', blob.size, 'bytes');
       

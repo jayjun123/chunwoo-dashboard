@@ -383,9 +383,21 @@ const ConstructionTeam = () => {
     <Box sx={{ 
       p: isMobile ? 2 : 3, 
       pt: isMobile ? 10 : 11,
+      pb: isMobile ? 4 : 6, // 하단 여백 추가
       bgcolor: '#0f1419', 
       minHeight: '100vh',
-      color: '#fff'
+      color: '#fff',
+      overflowY: 'auto',
+      WebkitOverflowScrolling: 'touch',
+      overscrollBehavior: 'contain',
+      height: '100%',
+      touchAction: 'pan-y', // 세로 스크롤만 허용
+      // 스크롤바 숨기기
+      '&::-webkit-scrollbar': {
+        display: 'none'
+      },
+      scrollbarWidth: 'none',
+      msOverflowStyle: 'none'
     }}>
       {/* 헤더 */}
       <Box sx={{ mb: 4 }}>
@@ -514,7 +526,19 @@ const ConstructionTeam = () => {
       </Box>
 
       {/* 시공팀 카드 목록 */}
-      <Grid container spacing={3}>
+      <Grid container spacing={3} sx={{
+        pb: 4, // 하단 여백 추가
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehavior: 'contain',
+        touchAction: 'pan-y', // 세로 스크롤만 허용
+        // 스크롤바 숨기기
+        '&::-webkit-scrollbar': {
+          display: 'none'
+        },
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none'
+      }}>
         {teams.map((team) => (
           <Grid item xs={12} md={6} key={team.id}>
             <Card sx={{ 

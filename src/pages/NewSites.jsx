@@ -513,7 +513,7 @@ const NewSites = () => {
 
   // 전체 필드 자동 저장 및 거래처 동기화 (디바운스)
   useEffect(() => {
-    if (!selectedSite) return;
+    if (!selectedSite || isEditing) return; // 수정하기 모드일 때는 자동 저장 비활성화
     const timer = setTimeout(async () => {
       try {
         const norm = (v) => (v ?? '').toString().trim();
@@ -770,7 +770,7 @@ const NewSites = () => {
     
     setForm(prev => ({ ...prev, [name]: newValue }));
     
-    // 진행상황이 변경되고 현재 현장이 선택되어 있으면 자동 저장
+    // 진행상황이 변경되고 현재 현장이 선택되어 있으면 자동 저장 (수정하기 모드가 아닐 때만)
     if (name === 'status' && selectedSite && !isEditing) {
       try {
         await updateSite(selectedSite.id, { 
@@ -803,9 +803,32 @@ const NewSites = () => {
     };
   }, [saveTimer]);
 
+  // 수정하기 모드일 때 자동 저장 방지 함수
+  const preventAutoSave = () => {
+    if (isEditing) {
+      console.log('수정하기 모드 - 자동 저장 방지됨');
+      return true;
+    }
+    return false;
+  };
+
+  // 수정하기 모드에서 자동 저장 방지를 위한 useEffect
+  useEffect(() => {
+    if (isEditing && saveTimer) {
+      console.log('수정하기 모드 진입 - 기존 자동 저장 타이머 취소');
+      clearTimeout(saveTimer);
+      setSaveTimer(null);
+    }
+  }, [isEditing, saveTimer]);
+
   const handleItemsChange = async (index, field, value) => {
     // 수정 모드가 아닌 경우 편집 불가
     if (selectedSite && !isEditing) {
+      return;
+    }
+    
+    // 수정하기 모드일 때 자동 저장 방지
+    if (preventAutoSave()) {
       return;
     }
     
@@ -870,8 +893,8 @@ const NewSites = () => {
       clearTimeout(saveTimer);
     }
     
-    // Firebase에 디바운싱된 저장 (수정 모드일 때만)
-    if (selectedSite && isEditing) {
+    // Firebase에 디바운싱된 저장 (수정 모드가 아닐 때만)
+    if (selectedSite && !isEditing) {
       const newTimer = setTimeout(async () => {
         try {
           const { doc } = await import('firebase/firestore');
@@ -896,6 +919,11 @@ const NewSites = () => {
   const handleAddItem = async () => {
     // 수정 모드가 아닌 경우 편집 불가
     if (selectedSite && !isEditing) {
+      return;
+    }
+    
+    // 수정하기 모드일 때 자동 저장 방지
+    if (preventAutoSave()) {
       return;
     }
     
@@ -958,6 +986,11 @@ const NewSites = () => {
   const handleAddAdjustmentItem = async (itemType = '단수정리') => {
     // 수정 모드가 아닌 경우 편집 불가
     if (selectedSite && !isEditing) {
+      return;
+    }
+    
+    // 수정하기 모드일 때 자동 저장 방지
+    if (preventAutoSave()) {
       return;
     }
     
@@ -1034,6 +1067,11 @@ const NewSites = () => {
   const handleRemoveItem = async (index) => {
     // 수정 모드가 아닌 경우 편집 불가
     if (selectedSite && !isEditing) {
+      return;
+    }
+    
+    // 수정하기 모드일 때 자동 저장 방지
+    if (preventAutoSave()) {
       return;
     }
     
