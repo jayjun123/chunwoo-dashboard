@@ -81,6 +81,9 @@ const Vendors = () => {
   const [companyListDialogOpen, setCompanyListDialogOpen] = useState(false);
   const [selectedCompanyType, setSelectedCompanyType] = useState('');
   
+  // 업종별 필터링 상태
+  const [filteredByCompanyType, setFilteredByCompanyType] = useState('');
+  
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -129,10 +132,22 @@ const Vendors = () => {
     });
   };
 
-  // 업종별 카드 클릭 핸들러
+  // 업종별 카드 더블클릭 핸들러 (필터링)
+  const handleCompanyTypeCardDoubleClick = (type) => {
+    setFilteredByCompanyType(type);
+    setCurrentPage(1); // 첫 페이지로 이동
+  };
+  
+  // 업종별 카드 클릭 핸들러 (팝업)
   const handleCompanyTypeCardClick = (type) => {
     setSelectedCompanyType(type);
     setCompanyListDialogOpen(true);
+  };
+  
+  // 제목 클릭 핸들러 (필터 초기화)
+  const handleTitleClick = () => {
+    setFilteredByCompanyType('');
+    setCurrentPage(1);
   };
 
   // 금액 천단위 쉼표 포맷팅
@@ -215,7 +230,7 @@ const Vendors = () => {
     setCurrentPage(1);
     setSelectedItems([]);
     setSelectAll(false);
-  }, [searchTerm]);
+  }, [searchTerm, filteredByCompanyType]);
 
   // 페이지 변경 시 선택 상태 초기화
   useEffect(() => {
@@ -539,12 +554,20 @@ const Vendors = () => {
 
   const getSortedVendors = () => {
     // 전체 데이터에서 검색어 필터링
-    const filteredVendors = vendors.filter(vendor => 
+    let filteredVendors = vendors.filter(vendor => 
       !searchTerm || 
       vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.siteName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.item?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+    
+    // 업종별 필터링
+    if (filteredByCompanyType) {
+      filteredVendors = filteredVendors.filter(vendor => {
+        const companyType = getCompanyType(vendor.companyName);
+        return companyType.includes(filteredByCompanyType);
+      });
+    }
 
     console.log('=== 정렬 시작 ===');
     console.log('전체 데이터 수:', vendors.length);
@@ -729,7 +752,27 @@ const Vendors = () => {
   return (
     <Box sx={{ p: 3, marginTop: '64px', pb: '60px' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h5">거래처 입찰현황</Typography>
+        <Typography 
+          variant="h5" 
+          sx={{ 
+            cursor: 'pointer',
+            '&:hover': { 
+              color: 'primary.main',
+              textDecoration: 'underline'
+            }
+          }}
+          onClick={handleTitleClick}
+        >
+          거래처 입찰현황
+          {filteredByCompanyType && (
+            <Chip 
+              label={`${filteredByCompanyType} 필터링됨`} 
+              size="small" 
+              color="primary" 
+              sx={{ ml: 1, fontSize: '0.7rem' }}
+            />
+          )}
+        </Typography>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           {selectedItems.length > 0 && (
             <Button
@@ -777,7 +820,7 @@ const Vendors = () => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
           <Typography variant="h6">업종별 통계</Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-            카드를 클릭하면 해당 업종의 업체 목록을 볼 수 있습니다
+            클릭: 업체 목록 팝업 | 더블클릭: 테이블 필터링 | 제목 클릭: 필터 초기화
           </Typography>
         </Box>
         <Grid container spacing={1} sx={{ mb: 2 }}>
@@ -799,6 +842,7 @@ const Vendors = () => {
                   }
                 }}
                 onClick={() => handleCompanyTypeCardClick(type)}
+                onDoubleClick={() => handleCompanyTypeCardDoubleClick(type)}
               >
                 <CardContent sx={{ 
                   display: 'flex', 
@@ -919,7 +963,17 @@ const Vendors = () => {
                 </Box>
               </TableCell>
               <TableCell>비고</TableCell>
-              <TableCell>수주여부</TableCell>
+              <TableCell 
+                onClick={() => handleSort('contractStatus')}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  수주여부
+                  {sortField === 'contractStatus' && (
+                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
               <TableCell>관리</TableCell>
             </TableRow>
           </TableHead>
