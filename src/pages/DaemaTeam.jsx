@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -58,6 +59,7 @@ import * as XLSX from 'xlsx';
 const ConstructionTeam = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const navigate = useNavigate();
   
   // 상태 관리
   const [teams, setTeams] = useState([]);
@@ -628,14 +630,34 @@ const ConstructionTeam = () => {
                           return site.status === '진행중' && 
                             (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
                         }).map((site, index) => (
-                          <ListItem key={site.id} disableGutters>
-                            <Typography sx={{ 
-                              color: '#fff',
-                              fontSize: '0.875rem'
-                            }}>
-                              {site.name}
-                            </Typography>
-                          </ListItem>
+                          <Tooltip title="더블클릭하여 현장관리 페이지로 이동" placement="top">
+                            <ListItem 
+                              key={site.id} 
+                              disableGutters
+                              sx={{ 
+                                cursor: 'pointer',
+                                '&:hover': {
+                                  bgcolor: '#374151'
+                                }
+                              }}
+                              onDoubleClick={() => {
+                                // 현장관리 페이지로 이동하면서 해당 현장 선택
+                                navigate('/sites', { 
+                                  state: { 
+                                    selectedSiteId: site.id,
+                                    selectedSiteName: site.name
+                                  }
+                                });
+                              }}
+                            >
+                              <Typography sx={{ 
+                                color: '#fff',
+                                fontSize: '0.875rem'
+                              }}>
+                                {site.name}
+                              </Typography>
+                            </ListItem>
+                          </Tooltip>
                         ))}
                       </List>
                     ) : (
@@ -678,14 +700,34 @@ const ConstructionTeam = () => {
                           return site.status === '예정' && 
                             (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
                         }).map((site, index) => (
-                          <ListItem key={site.id} disableGutters>
-                            <Typography sx={{ 
-                              color: '#fff',
-                              fontSize: '0.875rem'
-                            }}>
-                              {site.name}
-                            </Typography>
-                          </ListItem>
+                          <Tooltip title="더블클릭하여 현장관리 페이지로 이동" placement="top">
+                            <ListItem 
+                              key={site.id} 
+                              disableGutters
+                              sx={{ 
+                                cursor: 'pointer',
+                                '&:hover': {
+                                  bgcolor: '#374151'
+                                }
+                              }}
+                              onDoubleClick={() => {
+                                // 현장관리 페이지로 이동하면서 해당 현장 선택
+                                navigate('/sites', { 
+                                  state: { 
+                                    selectedSiteId: site.id,
+                                    selectedSiteName: site.name
+                                  }
+                                });
+                              }}
+                            >
+                              <Typography sx={{ 
+                                color: '#fff',
+                                fontSize: '0.875rem'
+                              }}>
+                                {site.name}
+                              </Typography>
+                            </ListItem>
+                          </Tooltip>
                         ))}
                       </List>
                     ) : (
