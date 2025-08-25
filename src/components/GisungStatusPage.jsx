@@ -1971,7 +1971,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
             <TextField
               label="계약금액"
-                value={Number(formData.contractAmount || 0).toLocaleString()}
+                value={Math.round(Number(formData.contractAmount || 0)).toLocaleString()}
                 size="medium"
               sx={{
                   minWidth: 180,
@@ -1987,7 +1987,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             />
             <TextField
               label="선급금"
-                value={Number(formData.advance || 0).toLocaleString()}
+                value={Math.round(Number(formData.advance || 0)).toLocaleString()}
                 size="medium"
               sx={{
                   minWidth: 180,
@@ -2006,7 +2006,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
             <TextField
               label="누계기성"
-                value={Number(formData.prevGisung || 0).toLocaleString()}
+                value={Math.round(Number(formData.prevGisung || 0)).toLocaleString()}
                 size="medium"
               sx={{
                   minWidth: 180,
