@@ -55,6 +55,7 @@ const Vendors = () => {
     companyName: '',
     bidDate: '',
     siteName: '',
+    winningCompany: '', // 낙찰회사 추가
     amount: '',
     item: '',
     quantity: '',
@@ -89,6 +90,7 @@ const Vendors = () => {
   const [itemsPerPage] = useState(10);
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [hasUpdatedCreatedAt, setHasUpdatedCreatedAt] = useState(false);
 
   // 업종별 칩 색상 정의
   const getCompanyTypeColor = (type) => {
@@ -122,6 +124,75 @@ const Vendors = () => {
     });
 
     return stats;
+  };
+
+  // 최근 업로드 날짜 계산
+  const getLatestUploadDate = () => {
+    if (vendors.length === 0) return null;
+    
+    const uploadVendors = vendors.filter(vendor => vendor.note === '관급');
+    if (uploadVendors.length === 0) return null;
+    
+    const uploadDates = uploadVendors
+      .map(vendor => {
+        if (vendor.createdAt) {
+          // Firestore Timestamp 객체인 경우
+          if (vendor.createdAt.toDate) {
+            return vendor.createdAt.toDate();
+          }
+          // 일반 Date 객체나 문자열인 경우
+          return new Date(vendor.createdAt);
+        }
+        return null;
+      })
+      .filter(date => date !== null && !isNaN(date.getTime()));
+    
+    // createdAt이 없는 기존 데이터가 있으면 지난주 토요일(2025-08-23)로 추정
+    if (uploadDates.length === 0 && uploadVendors.length > 0) {
+      // 지난주 토요일 날짜 (2025년 8월 23일)
+      return new Date('2025-08-23');
+    }
+    
+    if (uploadDates.length === 0) return null;
+    
+    return new Date(Math.max(...uploadDates.map(date => date.getTime())));
+  };
+
+  // 최신 등록 날짜 계산
+  const getLatestRegistrationDate = () => {
+    if (vendors.length === 0) return null;
+    
+    // 수동 등록된 데이터 (비고가 '관급'이 아닌 데이터)
+    const registrationVendors = vendors.filter(vendor => vendor.note !== '관급');
+    if (registrationVendors.length === 0) return null;
+    
+    const registrationDates = registrationVendors
+      .map(vendor => {
+        if (vendor.createdAt) {
+          // Firestore Timestamp 객체인 경우
+          if (vendor.createdAt.toDate) {
+            return vendor.createdAt.toDate();
+          }
+          // 일반 Date 객체나 문자열인 경우
+          return new Date(vendor.createdAt);
+        }
+        return null;
+      })
+      .filter(date => date !== null && !isNaN(date.getTime()));
+    
+    if (registrationDates.length === 0) return null;
+    
+    return new Date(Math.max(...registrationDates.map(date => date.getTime())));
+  };
+
+  // 수동 등록 데이터 개수 계산
+  const getRegistrationCount = () => {
+    return vendors.filter(vendor => vendor.note !== '관급').length;
+  };
+
+  // 업로드 데이터 개수 계산
+  const getUploadCount = () => {
+    return vendors.filter(vendor => vendor.note === '관급').length;
   };
 
   // 특정 업종의 업체들 필터링
@@ -268,11 +339,39 @@ const Vendors = () => {
     setError(null);
     try {
       await Promise.all([fetchVendors(), fetchRegisteredCompanies()]);
+      // 기존 데이터의 createdAt 필드를 2025-08-23으로 강제 업데이트
+      await addCreatedAtToExistingData();
     } catch (err) {
       setError('데이터를 불러오는데 실패했습니다.');
       console.error('데이터 로딩 오류:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 기존 데이터에 createdAt 필드 추가하는 함수
+  const addCreatedAtToExistingData = async () => {
+    try {
+      // 업로드된 데이터(관급)의 createdAt을 2025-08-23으로 강제 업데이트
+      const uploadVendors = vendors.filter(vendor => vendor.note === '관급');
+      
+      if (uploadVendors.length > 0) {
+        console.log(`${uploadVendors.length}개의 업로드 데이터의 createdAt을 2025-08-23으로 업데이트합니다.`);
+        
+        const updatePromises = uploadVendors.map(vendor => {
+          return updateDoc(doc(db, 'bids', vendor.id), {
+            createdAt: new Date('2025-08-23')
+          });
+        });
+        
+        await Promise.all(updatePromises);
+        console.log('createdAt 필드 업데이트 완료');
+        
+        // 데이터 새로고침
+        await fetchVendors();
+      }
+    } catch (error) {
+      console.error('createdAt 필드 업데이트 중 오류:', error);
     }
   };
 
@@ -315,6 +414,7 @@ const Vendors = () => {
         companyName: vendor.companyName || '',
         bidDate: vendor.bidDate || '',
         siteName: vendor.siteName || '',
+        winningCompany: vendor.winningCompany || '', // 낙찰회사 추가
         amount: vendor.amount || '',
         item: vendor.item || '',
         quantity: vendor.quantity || '',
@@ -327,6 +427,7 @@ const Vendors = () => {
         companyName: '',
         bidDate: '',
         siteName: '',
+        winningCompany: '', // 낙찰회사 추가
         amount: '',
         item: '',
         quantity: '',
@@ -346,9 +447,15 @@ const Vendors = () => {
     e.preventDefault();
     try {
       if (editingVendor) {
-        await updateDoc(doc(db, 'bids', editingVendor.id), formData);
+        await updateDoc(doc(db, 'bids', editingVendor.id), {
+          ...formData,
+          updatedAt: new Date()
+        });
       } else {
-        await addDoc(collection(db, 'bids'), formData);
+        await addDoc(collection(db, 'bids'), {
+          ...formData,
+          createdAt: new Date()
+        });
       }
       handleClose();
       fetchVendors();
@@ -455,6 +562,7 @@ const Vendors = () => {
       '업체명': vendor.companyName || '',
       '낙찰일': formatDate(vendor.bidDate) || '',
       '현장명': vendor.siteName || '',
+      '낙찰회사': vendor.winningCompany || '', // 낙찰회사 추가
       '금액': formatAmount(vendor.amount) || '',
       '품목': vendor.item || '',
       '물량': vendor.quantity || '',
@@ -527,12 +635,14 @@ const Vendors = () => {
               vendorsToAdd.push({
                 companyName: companyName,
                 siteName: siteName,
+                winningCompany: '', // 낙찰회사 추가
                 amount: totalAmount.toString(),
                 bidDate: latestDate,
                 item: '',
                 quantity: '',
                 note: '관급', // 업로드한 데이터는 비고에 "관급" 표시
-                contractStatus: '미수주'
+                contractStatus: '미수주',
+                createdAt: new Date() // 현재 날짜로 업로드 날짜 설정
               });
             }
           }
@@ -582,6 +692,7 @@ const Vendors = () => {
       !searchTerm || 
       vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.siteName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vendor.winningCompany?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.item?.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
@@ -842,6 +953,8 @@ const Vendors = () => {
         </Box>
       )}
 
+
+
       {/* 업종별 통계 */}
       <Box sx={{ mb: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -957,6 +1070,17 @@ const Vendors = () => {
                 </Box>
               </TableCell>
               <TableCell 
+                onClick={() => handleSort('winningCompany')}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  낙찰회사
+                  {sortField === 'winningCompany' && (
+                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
+              <TableCell 
                 onClick={() => handleSort('amount')}
                 sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
               >
@@ -1030,6 +1154,7 @@ const Vendors = () => {
                 <TableCell>{vendor.companyName}</TableCell>
                 <TableCell>{formatDate(vendor.bidDate)}</TableCell>
                 <TableCell>{vendor.siteName}</TableCell>
+                <TableCell>{vendor.winningCompany || '-'}</TableCell>
                 <TableCell>{formatAmount(vendor.amount)}</TableCell>
                 <TableCell>{vendor.item}</TableCell>
                 <TableCell>{vendor.quantity}</TableCell>
@@ -1058,20 +1183,73 @@ const Vendors = () => {
       </TableContainer>
 
       {/* 페이지네이션 */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
-          총 {getSortedVendors().length}개 중 {Math.min((currentPage - 1) * itemsPerPage + 1, getSortedVendors().length)}-{Math.min(currentPage * itemsPerPage, getSortedVendors().length)}개 표시
-        </Typography>
-        <Pagination 
-          count={getTotalPages()} 
-          page={currentPage} 
-          onChange={(event, page) => handlePageChange(page)}
-          color="primary"
-          shape="rounded"
-          showFirstButton 
-          showLastButton
-          size="small"
-        />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mt: 2 }}>
+        {/* 데이터 현황 */}
+        <Box sx={{ minWidth: '400px' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 'bold', fontSize: '0.8rem' }}>
+                최근 업로드:
+              </Typography>
+              <Typography variant="body2" sx={{ 
+                color: 'text.primary', 
+                fontWeight: 'medium',
+                bgcolor: 'primary.light',
+                px: 1,
+                py: 0.5,
+                borderRadius: 1,
+                fontSize: '0.75rem'
+              }}>
+                {getLatestUploadDate() 
+                  ? formatDate(getLatestUploadDate().toISOString().split('T')[0])
+                  : '업로드된 데이터 없음'
+                }
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
+                ({getUploadCount()}개)
+              </Typography>
+            </Box>
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 'bold', fontSize: '0.8rem' }}>
+                최신 등록:
+              </Typography>
+              <Typography variant="body2" sx={{ 
+                color: 'text.primary', 
+                fontWeight: 'medium',
+                bgcolor: 'success.light',
+                px: 1,
+                py: 0.5,
+                borderRadius: 1,
+                fontSize: '0.75rem'
+              }}>
+                {getLatestRegistrationDate() 
+                  ? formatDate(getLatestRegistrationDate().toISOString().split('T')[0])
+                  : '등록된 데이터 없음'
+                }
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
+                ({getRegistrationCount()}개)
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+        
+        <Box>
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+            총 {getSortedVendors().length}개 중 {Math.min((currentPage - 1) * itemsPerPage + 1, getSortedVendors().length)}-{Math.min(currentPage * itemsPerPage, getSortedVendors().length)}개 표시
+          </Typography>
+          <Pagination 
+            count={getTotalPages()} 
+            page={currentPage} 
+            onChange={(event, page) => handlePageChange(page)}
+            color="primary"
+            shape="rounded"
+            showFirstButton 
+            showLastButton
+            size="small"
+          />
+        </Box>
       </Box>
 
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -1105,6 +1283,14 @@ const Vendors = () => {
               onChange={(e) => setFormData({ ...formData, siteName: e.target.value })}
               margin="normal"
               required
+            />
+            <TextField
+              fullWidth
+              label="낙찰회사"
+              value={formData.winningCompany}
+              onChange={(e) => setFormData({ ...formData, winningCompany: e.target.value })}
+              margin="normal"
+              placeholder="낙찰받은 회사명을 입력하세요"
             />
             <TextField
               fullWidth
