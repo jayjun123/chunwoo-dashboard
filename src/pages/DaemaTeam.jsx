@@ -248,31 +248,83 @@ const ConstructionTeam = () => {
         };
       });
 
-      // 엑셀 워크북 생성
-      const wb = XLSX.utils.book_new();
-
-      // 1. 팀별 요약 시트
-      const summaryData = teamSiteData.map(team => ({
-        '팀명': team.팀명,
-        '소장': team.소장,
-        '인원수': team.인원수,
-        '연락처': team.연락처,
-        '이메일': team.이메일,
-        '팀상태': team.팀상태,
-        '담당현장수': team.담당현장수,
-        '타업체현장': team.타업체현장,
-        '자기현장': team.자기현장,
-        '기타사항': team.기타사항
-      }));
-
-      const summaryWs = XLSX.utils.json_to_sheet(summaryData);
-      XLSX.utils.book_append_sheet(wb, summaryWs, '팀별요약');
-
-      // 2. 현장별 상세 시트
-      const allSiteDetails = [];
+      // 모든 데이터를 하나의 시트에 통합
+      const allData = [];
+      
+      // 날짜 정보 (1행)
+      const currentDate = new Date().toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long'
+      });
+      allData.push({ '작성일': currentDate });
+      allData.push({}); // 빈 행 (2행)
+      
+      // 1. 팀별 요약 섹션 제목
+      allData.push({ '팀별 요약': '' });
+      allData.push({}); // 빈 행
+      
+      // 팀별 요약 데이터
+      teamSiteData.forEach(team => {
+        // 기본 팀 정보 행
+        const baseRow = {
+          '팀명': team.팀명,
+          '소장': team.소장,
+          '인원수': team.인원수,
+          '연락처': team.연락처,
+          '이메일': team.이메일,
+          '팀상태': team.팀상태,
+          '담당현장수': team.담당현장수,
+          '타업체현장': team.타업체현장,
+          '자기현장': team.자기현장,
+          '기타사항': team.기타사항
+        };
+        
+        // 진행중인 현장들만 필터링
+        const progressSites = team.현장상세정보.filter(site => site.현장상태 === '진행중');
+        
+        if (progressSites.length === 0) {
+          // 진행중인 현장이 없으면 기본 행만 추가
+          allData.push(baseRow);
+        } else {
+          // 진행중인 현장이 있으면 첫 번째 행에 기본 정보 + 첫 번째 현장명
+          allData.push({
+            ...baseRow,
+            '진행현장명': progressSites[0].현장명
+          });
+          
+          // 나머지 진행중인 현장들은 현장명만 표시
+          for (let i = 1; i < progressSites.length; i++) {
+            allData.push({
+              '팀명': '',
+              '소장': '',
+              '인원수': '',
+              '연락처': '',
+              '이메일': '',
+              '팀상태': '',
+              '담당현장수': '',
+              '타업체현장': '',
+              '자기현장': '',
+              '기타사항': '',
+              '진행현장명': progressSites[i].현장명
+            });
+          }
+        }
+      });
+      
+      // 구분선 (빈 행 2개)
+      allData.push({});
+      allData.push({});
+      
+      // 2. 현장별 상세 섹션 제목
+      allData.push({ '현장별 상세': '' });
+      allData.push({}); // 빈 행
+      
+      // 현장별 상세 데이터
       teamSiteData.forEach(team => {
         team.현장상세정보.forEach(site => {
-          allSiteDetails.push({
+          allData.push({
             '팀명': team.팀명,
             '소장': team.소장,
             '현장명': site.현장명,
@@ -286,27 +338,69 @@ const ConstructionTeam = () => {
           });
         });
       });
-
-      const siteDetailWs = XLSX.utils.json_to_sheet(allSiteDetails);
-      XLSX.utils.book_append_sheet(wb, siteDetailWs, '현장별상세');
-
-      // 3. 통계 시트
+      
+      // 구분선 (빈 행 2개)
+      allData.push({});
+      allData.push({});
+      
+      // 3. 통계 섹션 제목
+      allData.push({ '통계': '' });
+      allData.push({}); // 빈 행
+      
+      // 통계 데이터
       const totalTeams = teams.length;
       const activeTeams = teams.filter(team => team.status === 'active').length;
       const totalSites = sites.filter(site => site.status === '진행중').length;
       const totalMembers = teams.reduce((sum, team) => sum + (Number(team.memberCount) || 0), 0);
 
-      const statsData = [
-        { '구분': '총 시공팀 수', '수량': totalTeams + '개' },
-        { '구분': '활성 팀 수', '수량': activeTeams + '개' },
-        { '구분': '총 진행 현장 수', '수량': totalSites + '개' },
-        { '구분': '총 인원 수', '수량': totalMembers + '명' },
-        { '구분': '팀당 평균 현장 수', '수량': totalSites > 0 ? (totalSites / totalTeams).toFixed(1) + '개' : '0개' },
-        { '구분': '팀당 평균 인원 수', '수량': totalTeams > 0 ? (totalMembers / totalTeams).toFixed(1) + '명' : '0명' }
-      ];
+      allData.push({ '구분': '총 시공팀 수', '수량': totalTeams + '개' });
+      allData.push({ '구분': '활성 팀 수', '수량': activeTeams + '개' });
+      allData.push({ '구분': '총 진행 현장 수', '수량': totalSites + '개' });
+      allData.push({ '구분': '총 인원 수', '수량': totalMembers + '명' });
+      allData.push({ '구분': '팀당 평균 현장 수', '수량': totalSites > 0 ? (totalSites / totalTeams).toFixed(1) + '개' : '0개' });
+      allData.push({ '구분': '팀당 평균 인원 수', '수량': totalTeams > 0 ? (totalMembers / totalTeams).toFixed(1) + '명' : '0명' });
 
-      const statsWs = XLSX.utils.json_to_sheet(statsData);
-      XLSX.utils.book_append_sheet(wb, statsWs, '통계');
+      // 하나의 워크시트 생성
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(allData);
+      
+      // 제목 셀들에 스타일 적용 (굵게, 큰 글씨)
+      const titleCells = [
+        'A1', // 작성일
+        'A4', // 팀별 요약
+        'A' + (allData.findIndex(row => row['현장별 상세'] !== undefined) + 1), // 현장별 상세
+        'A' + (allData.findIndex(row => row['통계'] !== undefined) + 1) // 통계
+      ];
+      
+      // 워크시트에 스타일 적용
+      if (!ws['!rows']) ws['!rows'] = [];
+      if (!ws['!cols']) ws['!cols'] = [];
+      
+      // 제목 행들의 높이와 스타일 설정
+      titleCells.forEach(cellRef => {
+        if (ws[cellRef]) {
+          ws[cellRef].s = {
+            font: { bold: true, sz: 14 },
+            alignment: { horizontal: 'left', vertical: 'center' }
+          };
+        }
+      });
+      
+      // 일반 데이터 행들의 스타일 설정
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+          if (ws[cellRef] && !titleCells.includes(cellRef)) {
+            ws[cellRef].s = {
+              font: { sz: 11 },
+              alignment: { horizontal: 'left', vertical: 'center' }
+            };
+          }
+        }
+      }
+      
+      XLSX.utils.book_append_sheet(wb, ws, '시공팀현장관리');
 
       // 파일명 생성 (현재 날짜 포함)
       const now = new Date();
