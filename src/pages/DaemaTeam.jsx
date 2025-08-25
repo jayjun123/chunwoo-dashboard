@@ -248,7 +248,7 @@ const ConstructionTeam = () => {
         };
       });
 
-      // 모든 데이터를 하나의 시트에 통합
+      // 모든 데이터를 하나의 시트에 통합 (이미지 레이아웃에 맞춤)
       const allData = [];
       
       // 날짜 정보 (1행)
@@ -259,106 +259,83 @@ const ConstructionTeam = () => {
         weekday: 'long'
       });
       allData.push({ '작성일': currentDate });
-      allData.push({}); // 빈 행 (2행)
       
-      // 1. 팀별 요약 섹션 제목
-      allData.push({ '팀별 요약': '' });
-      allData.push({}); // 빈 행
-      
-      // 팀별 요약 데이터
-      teamSiteData.forEach(team => {
-        // 기본 팀 정보 행
-        const baseRow = {
-          '팀명': team.팀명,
-          '소장': team.소장,
-          '인원수': team.인원수,
-          '연락처': team.연락처,
-          '이메일': team.이메일,
-          '팀상태': team.팀상태,
-          '담당현장수': team.담당현장수,
-          '타업체현장': team.타업체현장,
-          '자기현장': team.자기현장,
-          '기타사항': team.기타사항
-        };
-        
-        // 진행중인 현장들만 필터링
-        const progressSites = team.현장상세정보.filter(site => site.현장상태 === '진행중');
-        
-        if (progressSites.length === 0) {
-          // 진행중인 현장이 없으면 기본 행만 추가
-          allData.push(baseRow);
-        } else {
-          // 진행중인 현장이 있으면 첫 번째 행에 기본 정보 + 첫 번째 현장명
-          allData.push({
-            ...baseRow,
-            '진행현장명': progressSites[0].현장명
-          });
-          
-          // 나머지 진행중인 현장들은 현장명만 표시
-          for (let i = 1; i < progressSites.length; i++) {
-            allData.push({
-              '팀명': '',
-              '소장': '',
-              '인원수': '',
-              '연락처': '',
-              '이메일': '',
-              '팀상태': '',
-              '담당현장수': '',
-              '타업체현장': '',
-              '자기현장': '',
-              '기타사항': '',
-              '진행현장명': progressSites[i].현장명
-            });
-          }
-        }
-      });
-      
-      // 구분선 (빈 행 2개)
-      allData.push({});
-      allData.push({});
-      
-      // 2. 현장별 상세 섹션 제목
-      allData.push({ '현장별 상세': '' });
-      allData.push({}); // 빈 행
-      
-      // 현장별 상세 데이터
-      teamSiteData.forEach(team => {
-        team.현장상세정보.forEach(site => {
-          allData.push({
-            '팀명': team.팀명,
-            '소장': team.소장,
-            '현장명': site.현장명,
-            '현장상태': site.현장상태,
-            '계약금액': site.계약금액,
-            '시작일': site.시작일,
-            '완료예정일': site.완료예정일,
-            '주소': site.주소,
-            '현장소장': site.소장,
-            '연락처': site.연락처
-          });
-        });
-      });
-      
-      // 구분선 (빈 행 2개)
-      allData.push({});
-      allData.push({});
-      
-      // 3. 통계 섹션 제목
-      allData.push({ '통계': '' });
-      allData.push({}); // 빈 행
-      
-      // 통계 데이터
+      // 통계 데이터를 상단에 배치 (2-7행)
       const totalTeams = teams.length;
       const activeTeams = teams.filter(team => team.status === 'active').length;
       const totalSites = sites.filter(site => site.status === '진행중').length;
       const totalMembers = teams.reduce((sum, team) => sum + (Number(team.memberCount) || 0), 0);
+      const avgSitesPerTeam = totalSites > 0 ? (totalSites / totalTeams).toFixed(1) : '0';
+      const avgMembersPerTeam = totalTeams > 0 ? (totalMembers / totalTeams).toFixed(1) : '0';
 
-      allData.push({ '구분': '총 시공팀 수', '수량': totalTeams + '개' });
-      allData.push({ '구분': '활성 팀 수', '수량': activeTeams + '개' });
-      allData.push({ '구분': '총 진행 현장 수', '수량': totalSites + '개' });
-      allData.push({ '구분': '총 인원 수', '수량': totalMembers + '명' });
-      allData.push({ '구분': '팀당 평균 현장 수', '수량': totalSites > 0 ? (totalSites / totalTeams).toFixed(1) + '개' : '0개' });
-      allData.push({ '구분': '팀당 평균 인원 수', '수량': totalTeams > 0 ? (totalMembers / totalTeams).toFixed(1) + '명' : '0명' });
+      // 통계 정보를 한 행에 배치
+      allData.push({
+        '총 시공팀': totalTeams + '개',
+        '활성 팀 수': activeTeams + '개', 
+        '총 진행 현': totalSites + '개',
+        '총 인원 수': totalMembers + '명',
+        '팀당 평균': avgSitesPerTeam + '개',
+        '팀당 평균': avgMembersPerTeam + '명'
+      });
+      
+      // 빈 행 추가
+      allData.push({});
+      
+      // 현장별 통합 데이터 (팀 정보 + 현장 정보를 한 행에, G-P 중복 제거)
+      teamSiteData.forEach(team => {
+        let previousValues = {}; // 이전 행의 G-P 값들을 저장
+        
+        team.현장상세정보.forEach((site, index) => {
+          // G-P 컬럼 값들 (기타사항부터 연락처까지)
+          const currentValues = {
+            기타사항: team.기타사항,
+            현장명: site.현장명,
+            현장상태: site.현장상태,
+            계약금액: site.계약금액,
+            시작일: site.시작일,
+            완료예정일: site.완료예정일,
+            주소: site.주소,
+            현장소장: site.소장,
+            연락처: site.연락처
+          };
+          
+          // 중복 체크 및 처리
+          const processedValues = {};
+          Object.keys(currentValues).forEach(key => {
+            if (index === 0) {
+              // 첫 번째 행은 항상 표시
+              processedValues[key] = currentValues[key];
+            } else {
+              // 이전 행과 같은 값이면 빈 값으로 처리
+              processedValues[key] = (currentValues[key] === previousValues[key]) ? '' : currentValues[key];
+            }
+          });
+          
+          // 처리된 값을 이전 값으로 저장 (원본 값이 아닌)
+          previousValues = { ...processedValues };
+          
+          allData.push({
+            '팀명': team.팀명,
+            '소장': team.소장,
+            '인원수': team.인원수,
+            '연락처': team.연락처,
+            '이메일': team.이메일,
+            '팀상태': team.팀상태,
+            '담당현장수': team.담당현장수,
+            '타업체현장': team.타업체현장,
+            '자기현장': team.자기현장,
+            '기타사항': processedValues.기타사항,
+            '현장명': processedValues.현장명,
+            '현장상태': processedValues.현장상태,
+            '계약금액': processedValues.계약금액,
+            '시작일': processedValues.시작일,
+            '완료예정일': processedValues.완료예정일,
+            '주소': processedValues.주소,
+            '현장소장': processedValues.현장소장,
+            '연락처': processedValues.연락처
+          });
+        });
+      });
 
       // 하나의 워크시트 생성
       const wb = XLSX.utils.book_new();
@@ -366,10 +343,7 @@ const ConstructionTeam = () => {
       
       // 제목 셀들에 스타일 적용 (굵게, 큰 글씨)
       const titleCells = [
-        'A1', // 작성일
-        'A4', // 팀별 요약
-        'A' + (allData.findIndex(row => row['현장별 상세'] !== undefined) + 1), // 현장별 상세
-        'A' + (allData.findIndex(row => row['통계'] !== undefined) + 1) // 통계
+        'A1' // 작성일
       ];
       
       // 워크시트에 스타일 적용

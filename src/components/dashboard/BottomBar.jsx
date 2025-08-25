@@ -978,7 +978,7 @@ const BottomBar = ({
       
       if (!currentUser) {
         console.log('currentUser 없음:', currentUser);
-        setError('로그인이 필요합니다.');
+        alert('로그인이 필요합니다.');
         return;
       }
 
@@ -1066,7 +1066,7 @@ const BottomBar = ({
 
       if (incompleteTodos.length === 0) {
         console.log('불러올 항목 없음');
-        setError('불러올 전날 미완료 항목이 없습니다.');
+        alert('불러올 전날 미완료 항목이 없습니다.');
         return;
       }
 
@@ -1077,20 +1077,20 @@ const BottomBar = ({
     } catch (error) {
       console.error('전날 미완료 항목 조회 실패:', error);
       devError('전날 미완료 항목 조회 실패:', error);
-      setError(`전날 미완료 항목을 조회하는데 실패했습니다: ${error.message}`);
+      alert(`전날 미완료 항목을 조회하는데 실패했습니다: ${error.message}`);
     }
   };
 
   // 선택된 투두 불러오기
   const handleLoadSelectedTodos = async () => {
-    try {
+        try {
       if (!currentUser) {
-        setError('로그인이 필요합니다.');
+        alert('로그인이 필요합니다.');
         return;
       }
-      
+
       if (selectedTodos.length === 0) {
-        setError('불러올 항목을 선택해주세요.');
+        alert('불러올 항목을 선택해주세요.');
         return;
       }
       
