@@ -238,7 +238,29 @@ const ConstructionStatus = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                   <CalendarIcon sx={{ mr: 1, color: 'text.secondary' }} />
                   <Typography variant="body2" color="text.secondary">
-                    {new Date(site.startDate).toLocaleDateString()} ~ {new Date(site.endDate).toLocaleDateString()}
+                    {(() => {
+                      try {
+                        // Firestore Timestamp 객체인 경우
+                        const startDate = site.startDate && typeof site.startDate === 'object' && site.startDate.toDate 
+                          ? site.startDate.toDate() 
+                          : new Date(site.startDate);
+                        
+                        const endDate = site.endDate && typeof site.endDate === 'object' && site.endDate.toDate 
+                          ? site.endDate.toDate() 
+                          : new Date(site.endDate);
+                        
+                        // Invalid Date 체크
+                        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                          console.warn('Invalid date in ConstructionStatus:', { startDate: site.startDate, endDate: site.endDate });
+                          return '날짜 정보 없음';
+                        }
+                        
+                        return `${startDate.toLocaleDateString('ko-KR')} ~ ${endDate.toLocaleDateString('ko-KR')}`;
+                      } catch (error) {
+                        console.error('날짜 포맷팅 오류:', error, '원본 데이터:', { startDate: site.startDate, endDate: site.endDate });
+                        return '날짜 정보 없음';
+                      }
+                    })()}
                   </Typography>
                 </Box>
 

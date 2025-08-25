@@ -13,7 +13,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/material';
-import { formatContractAmount, formatAdvanceAmount, formatGisungAmount, formatSafetyCost } from '../utils/formatUtils';
+import { formatContractAmount, formatAdvanceAmount, formatGisungAmount, formatSafetyCost, formatNumber } from '../utils/formatUtils';
 
 // 물량과 금액 포맷팅 함수
 const formatQuantity = (value) => {
@@ -74,18 +74,33 @@ const calculateProgress = (site) => {
 const formatDateRange = (startDate, endDate) => {
   if (!startDate || !endDate) return '';
   
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) return '';
-  
-  const formatDate = (date) => {
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${month}/${day}`;
-  };
-  
-  return `${formatDate(start)}~${formatDate(end)}`;
+  try {
+    // Firestore Timestamp 객체인 경우
+    const start = startDate && typeof startDate === 'object' && startDate.toDate 
+      ? startDate.toDate() 
+      : new Date(startDate);
+    
+    const end = endDate && typeof endDate === 'object' && endDate.toDate 
+      ? endDate.toDate() 
+      : new Date(endDate);
+    
+    // Invalid Date 체크
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      console.warn('Invalid date in formatDateRange:', { startDate, endDate });
+      return '';
+    }
+    
+    const formatDate = (date) => {
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${month}/${day}`;
+    };
+    
+    return `${formatDate(start)}~${formatDate(end)}`;
+  } catch (error) {
+    console.error('날짜 포맷팅 오류:', error, '원본 데이터:', { startDate, endDate });
+    return '';
+  }
 };
 import { getSiteIntegratedStatus } from '../utils/integrationUtils';
 import * as XLSX from 'xlsx';
@@ -329,21 +344,73 @@ const NewSites = () => {
 
   const formatDateForInput = (dateString) => {
     if (!dateString) return '';
-    if (typeof dateString === 'string' && dateString.includes('.')) {
-      return dateString.replace(/\./g, '-');
+    
+    try {
+      // Firestore Timestamp 객체인 경우
+      if (dateString && typeof dateString === 'object' && dateString.toDate) {
+        return dateString.toDate().toISOString().split('T')[0];
+      }
+      
+      // 문자열인 경우
+      if (typeof dateString === 'string') {
+        if (dateString.includes('.')) {
+          return dateString.replace(/\./g, '-');
+        }
+        return dateString;
+      }
+      
+      // Date 객체인 경우
+      if (dateString instanceof Date) {
+        return dateString.toISOString().split('T')[0];
+      }
+      
+      // 기타 경우
+      const dateObj = new Date(dateString);
+      if (isNaN(dateObj.getTime())) {
+        console.warn('Invalid date in formatDateForInput:', dateString);
+        return '';
+      }
+      return dateObj.toISOString().split('T')[0];
+    } catch (error) {
+      console.error('날짜 포맷팅 오류:', error, '원본 데이터:', dateString);
+      return '';
     }
-    if (dateString instanceof Date) {
-      return dateString.toISOString().split('T')[0];
-    }
-    return dateString;
   };
 
   const formatDateForStorage = (dateString) => {
     if (!dateString) return '';
-    if (typeof dateString === 'string' && dateString.includes('-')) {
-      return dateString.replace(/-/g, '.');
+    
+    try {
+      // Firestore Timestamp 객체인 경우
+      if (dateString && typeof dateString === 'object' && dateString.toDate) {
+        const date = dateString.toDate();
+        return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+      }
+      
+      // 문자열인 경우
+      if (typeof dateString === 'string') {
+        if (dateString.includes('-')) {
+          return dateString.replace(/-/g, '.');
+        }
+        return dateString;
+      }
+      
+      // Date 객체인 경우
+      if (dateString instanceof Date) {
+        return `${dateString.getFullYear()}.${String(dateString.getMonth() + 1).padStart(2, '0')}.${String(dateString.getDate()).padStart(2, '0')}`;
+      }
+      
+      // 기타 경우
+      const dateObj = new Date(dateString);
+      if (isNaN(dateObj.getTime())) {
+        console.warn('Invalid date in formatDateForStorage:', dateString);
+        return '';
+      }
+      return `${dateObj.getFullYear()}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${String(dateObj.getDate()).padStart(2, '0')}`;
+    } catch (error) {
+      console.error('날짜 포맷팅 오류:', error, '원본 데이터:', dateString);
+      return '';
     }
-    return dateString;
   };
 
   // 거래처 데이터 로드
@@ -2166,17 +2233,17 @@ const NewSites = () => {
                <Grid container spacing={1}>
                  <Grid size={{ xs: 12, sm: 4 }}>
                    <Box sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
-                     계약금액: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount ? Math.round((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount).toLocaleString() : '0'}원
+                     계약금액: {formatNumber((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount || 0, true)}
                    </Box>
                  </Grid>
                  <Grid size={{ xs: 12, sm: 4 }}>
                    <Box sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
-                     누계기성: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount ? Math.round((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount).toLocaleString() : '0'}원
+                     누계기성: {formatNumber((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount || 0, true)}
                    </Box>
                  </Grid>
                  <Grid size={{ xs: 12, sm: 4 }}>
                    <Box sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
-                     지출 총액: {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount ? Math.round((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount).toLocaleString() : '0'}원
+                     지출 총액: {formatNumber((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount || 0, true)}
                    </Box>
                  </Grid>
                </Grid>

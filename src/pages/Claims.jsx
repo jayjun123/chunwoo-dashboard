@@ -411,7 +411,7 @@ const Claims = () => {
     return `${sortedList.length + 1}차`;
   };
 
-  // 기성율 계산 함수 (총 기성금액 / 총 계약금액 * 100)
+  // 기성율 계산 함수 (총 기성금액 + 선급금 / 총 계약금액 * 100)
   const calculateProgressRate = (siteName) => {
     // 기성 데이터에서 해당 현장의 기성금액 합계 계산
     const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
@@ -420,16 +420,25 @@ const Claims = () => {
     if (!siteData || !siteData.contractAmount) return 0;
     
     const totalGisungAmount = siteGisungData.reduce((sum, gisung) => sum + Number(gisung.gisungAmount || 0), 0);
+    const advanceAmount = Number(siteData.advance || 0); // 선급금
     const contractAmount = Number(siteData.contractAmount);
     
     if (contractAmount === 0) return 0;
     
-    return Math.round((totalGisungAmount / contractAmount) * 100);
+    // 기성금액 + 선급금을 계약금액으로 나누어 기성율 계산
+    const totalProgressAmount = totalGisungAmount + advanceAmount;
+    const progressRate = (totalProgressAmount / contractAmount) * 100;
+    
+    return Math.round(progressRate);
   };
 
   // 현장 선택 시 자동 기입 함수
   const handleSiteSelect = (selectedSite) => {
+    console.log('handleSiteSelect 호출됨:', selectedSite, typeof selectedSite);
+    
     if (selectedSite && typeof selectedSite === 'object') {
+      console.log('현장 객체 선택됨:', selectedSite.name);
+      // 현장 객체를 선택한 경우에만 자동으로 정보 기입
       const progressRate = calculateProgressRate(selectedSite.name);
       const sequence = calculateSequence(selectedSite.name);
       setFormData(prev => ({
@@ -440,9 +449,13 @@ const Claims = () => {
         progressRate: progressRate.toString()
       }));
     } else if (typeof selectedSite === 'string') {
-      // 문자열인 경우 해당 현장을 찾아서 정보 기입
+      console.log('문자열 입력됨:', selectedSite);
+      // 문자열인 경우 (직접 입력 또는 선택)
+      // 해당 현장이 목록에 있는지 확인
       const foundSite = sites.find(site => site.name === selectedSite);
       if (foundSite) {
+        console.log('목록에서 현장 찾음:', foundSite.name);
+        // 목록에 있는 현장인 경우 자동으로 정보 기입
         const progressRate = calculateProgressRate(foundSite.name);
         const sequence = calculateSequence(foundSite.name);
         setFormData(prev => ({
@@ -452,7 +465,19 @@ const Claims = () => {
           sequence: sequence,
           progressRate: progressRate.toString()
         }));
+      } else {
+        console.log('목록에 없는 현장, 직접 입력으로 처리:', selectedSite);
+        // 목록에 없는 현장인 경우 현장명만 설정하고 나머지는 사용자가 직접 입력
+        setFormData(prev => ({
+          ...prev,
+          siteName: selectedSite,
+          manager: prev.manager, // 기존 값 유지
+          sequence: prev.sequence, // 기존 값 유지
+          progressRate: prev.progressRate // 기존 값 유지
+        }));
       }
+    } else {
+      console.log('기타 경우:', selectedSite);
     }
   };
 
@@ -1463,14 +1488,12 @@ const Claims = () => {
                 fullWidth
                 label="소장/회사명"
                 value={formData.manager}
-                InputProps={{
-                  readOnly: true,
-                }}
+                onChange={(e) => setFormData(prev => ({ ...prev, manager: e.target.value }))}
                 size="small"
                 sx={{ 
-                  '& .MuiInputBase-root': { backgroundColor: '#333' },
+                  '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: '#aaa' }
+                  '& .MuiInputBase-input': { color: 'white' }
                 }}
               />
               
@@ -1478,14 +1501,12 @@ const Claims = () => {
                 fullWidth
                 label="차수"
                 value={formData.sequence}
-                InputProps={{
-                  readOnly: true,
-                }}
+                onChange={(e) => setFormData(prev => ({ ...prev, sequence: e.target.value }))}
                 size="small"
                 sx={{ 
-                  '& .MuiInputBase-root': { backgroundColor: '#333' },
+                  '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: '#aaa' }
+                  '& .MuiInputBase-input': { color: 'white' }
                 }}
               />
               
@@ -1494,15 +1515,15 @@ const Claims = () => {
                 label="기성율(%)"
                 type="number"
                 value={formData.progressRate}
+                onChange={(e) => setFormData(prev => ({ ...prev, progressRate: e.target.value }))}
                 InputProps={{
-                  readOnly: true,
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
                 size="small"
                 sx={{ 
-                  '& .MuiInputBase-root': { backgroundColor: '#333' },
+                  '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: '#aaa' }
+                  '& .MuiInputBase-input': { color: 'white' }
                 }}
               />
               
@@ -1577,13 +1598,11 @@ const Claims = () => {
                   fullWidth
                   label="소장/회사명"
                   value={formData.manager}
-                  InputProps={{
-                    readOnly: true,
-                  }}
+                  onChange={(e) => setFormData(prev => ({ ...prev, manager: e.target.value }))}
                   sx={{ 
-                    '& .MuiInputBase-root': { backgroundColor: '#333' },
+                    '& .MuiInputBase-root': { backgroundColor: '#444' },
                     '& .MuiInputLabel-root': { color: '#ccc' },
-                    '& .MuiInputBase-input': { color: '#aaa' }
+                    '& .MuiInputBase-input': { color: 'white' }
                   }}
                 />
               </Grid>
@@ -1592,13 +1611,11 @@ const Claims = () => {
                   fullWidth
                   label="차수"
                   value={formData.sequence}
-                  InputProps={{
-                    readOnly: true,
-                  }}
+                  onChange={(e) => setFormData(prev => ({ ...prev, sequence: e.target.value }))}
                   sx={{ 
-                    '& .MuiInputBase-root': { backgroundColor: '#333' },
+                    '& .MuiInputBase-root': { backgroundColor: '#444' },
                     '& .MuiInputLabel-root': { color: '#ccc' },
-                    '& .MuiInputBase-input': { color: '#aaa' }
+                    '& .MuiInputBase-input': { color: 'white' }
                   }}
                 />
               </Grid>
@@ -1608,14 +1625,14 @@ const Claims = () => {
                   label="기성율(%)"
                   type="number"
                   value={formData.progressRate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, progressRate: e.target.value }))}
                   InputProps={{
-                    readOnly: true,
                     endAdornment: <InputAdornment position="end">%</InputAdornment>,
                   }}
                   sx={{ 
-                    '& .MuiInputBase-root': { backgroundColor: '#333' },
+                    '& .MuiInputBase-root': { backgroundColor: '#444' },
                     '& .MuiInputLabel-root': { color: '#ccc' },
-                    '& .MuiInputBase-input': { color: '#aaa' }
+                    '& .MuiInputBase-input': { color: 'white' }
                   }}
                 />
               </Grid>

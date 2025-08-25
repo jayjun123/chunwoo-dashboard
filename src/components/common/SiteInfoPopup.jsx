@@ -92,9 +92,11 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
         // 총 기성금액 계산
         const totalGisungAmount = gisungData.reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
         
-        // 기성률 계산: 총기성금액 / 총계약금액 * 100
+        // 기성률 계산: (총기성금액 + 선급금) / 총계약금액 * 100
         const contractAmount = Number(site.contractAmount) || 0;
-        const rate = contractAmount > 0 ? Math.round((totalGisungAmount / contractAmount) * 100) : 0;
+        const advanceAmount = Number(site.advance || 0); // 선급금
+        const totalProgressAmount = totalGisungAmount + advanceAmount;
+        const rate = contractAmount > 0 ? Math.round((totalProgressAmount / contractAmount) * 100) : 0;
         
         // 차수 계산: 기성 데이터 개수
         const count = gisungData.length;
@@ -222,7 +224,21 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
         p: 3, 
         bgcolor: '#1a1a1a',
         overflowY: 'auto',
-        maxHeight: 'calc(90vh - 120px)'
+        maxHeight: 'calc(90vh - 120px)',
+        '&::-webkit-scrollbar': {
+          width: '8px'
+        },
+        '&::-webkit-scrollbar-track': {
+          backgroundColor: '#2d3748',
+          borderRadius: '4px'
+        },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: '#4a5568',
+          borderRadius: '4px',
+          '&:hover': {
+            backgroundColor: '#718096'
+          }
+        }
       }}>
         <Grid container spacing={2}>
           {/* 현장 기본 정보 */}
@@ -481,9 +497,20 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                       <Box sx={{
                         maxHeight: 220,
                         overflowY: 'auto',
-                        '&::-webkit-scrollbar': { display: 'none' },
-                        scrollbarWidth: 'none',
-                        msOverflowStyle: 'none'
+                        '&::-webkit-scrollbar': {
+                          width: '6px'
+                        },
+                        '&::-webkit-scrollbar-track': {
+                          backgroundColor: '#1b2130',
+                          borderRadius: '3px'
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                          backgroundColor: '#4a5568',
+                          borderRadius: '3px',
+                          '&:hover': {
+                            backgroundColor: '#718096'
+                          }
+                        }
                       }}>
                         {Array.isArray(site.items) && site.items.length > 0 ? (
                           site.items

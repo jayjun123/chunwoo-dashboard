@@ -163,12 +163,28 @@ export const getClaimStats = async (month = null) => {
     const snapshot = await getDocs(q);
     const claims = snapshot.docs.map(doc => doc.data());
     
+    console.log('청구예정 통계 - 모든 청구 데이터:', claims.map(c => ({
+      siteName: c.siteName,
+      claimAmount: c.claimAmount,
+      claimStatus: c.claimStatus
+    })));
+    
+    const totalAmount = claims.reduce((sum, c) => {
+      const amount = Number(c.claimAmount || 0);
+      console.log(`청구금액 누적: ${sum} + ${amount} = ${sum + amount}`);
+      return sum + amount;
+    }, 0);
+    
+    console.log('최종 총액:', totalAmount);
+    
     const stats = {
       total: claims.length,
       claimed: claims.filter(c => c.claimStatus === 'O').length,
       notClaimed: claims.filter(c => c.claimStatus === 'X').length,
-      totalAmount: claims.reduce((sum, c) => sum + (c.claimAmount || 0), 0)
+      totalAmount: totalAmount
     };
+    
+    console.log('통계 결과:', stats);
     
     return stats;
   } catch (error) {

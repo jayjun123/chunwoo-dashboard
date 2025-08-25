@@ -44,6 +44,7 @@ import { db } from '../firebase';
 import { parseGisungExcel } from '../utils/excelUtils';
 import { downloadTemplateBasedGisungExcel } from '../utils/gisungTemplateUtils';
 import { moveCurrentToPrevious, createNextGisungWithPrevious } from '../utils/gisungTemplateUtils';
+import { formatNumber } from '../utils/formatUtils';
 
 const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
   const [gisungData, setGisungData] = useState([]);
@@ -289,8 +290,10 @@ const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
 
   const totalGisungAmount = gisungData.reduce((sum, item) => sum + parseFloat(item.gisungAmount || 0), 0);
   const contractAmount = parseFloat(siteData?.contractAmount) || 0;
-  const remainingAmount = contractAmount - totalGisungAmount;
-  const gisungRate = contractAmount > 0 ? Math.round((totalGisungAmount / contractAmount) * 100) : 0;
+  const advanceAmount = parseFloat(siteData?.advance || 0); // 선급금
+  const totalProgressAmount = totalGisungAmount + advanceAmount;
+  const remainingAmount = contractAmount - totalProgressAmount;
+  const gisungRate = contractAmount > 0 ? Math.round((totalProgressAmount / contractAmount) * 100) : 0;
 
   if (!siteData) {
     return (
@@ -344,10 +347,7 @@ const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
                 계약금액
               </Typography>
               <Typography variant="h4" sx={{ color: '#10b981', fontWeight: 'bold', fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
-                {contractAmount.toLocaleString('ko-KR', {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 2
-                })}원
+                {formatNumber(contractAmount, true)}
               </Typography>
             </CardContent>
           </Card>
@@ -359,10 +359,7 @@ const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
                 총 기성금액
               </Typography>
               <Typography variant="h4" sx={{ color: '#3b82f6', fontWeight: 'bold', fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
-                {totalGisungAmount.toLocaleString('ko-KR', {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 2
-                })}원
+                {formatNumber(totalGisungAmount, true)}
               </Typography>
             </CardContent>
           </Card>
@@ -386,10 +383,7 @@ const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
                 잔여금액
               </Typography>
               <Typography variant="h4" sx={{ color: '#ef4444', fontWeight: 'bold', fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
-                {remainingAmount.toLocaleString('ko-KR', {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 2
-                })}원
+                {formatNumber(remainingAmount, true)}
               </Typography>
             </CardContent>
           </Card>
@@ -416,13 +410,28 @@ const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
                   <Chip label={`${gisung.gisungNumber}차`} color="primary" onClick={() => {}} />
                 </TableCell>
                 <TableCell sx={{ color: '#10b981', fontWeight: 'bold' }}>
-                  {parseFloat(gisung.gisungAmount || 0).toLocaleString('ko-KR', {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 2
-                  })}원
+                  {formatNumber(gisung.gisungAmount, true)}
                 </TableCell>
                 <TableCell sx={{ color: '#fff' }}>
-                  {new Date(gisung.gisungDate).toLocaleDateString()}
+                  {(() => {
+                    try {
+                      // Firestore Timestamp 객체인 경우
+                      if (gisung.gisungDate && typeof gisung.gisungDate === 'object' && gisung.gisungDate.toDate) {
+                        return gisung.gisungDate.toDate().toLocaleDateString('ko-KR');
+                      }
+                      
+                      // 일반적인 날짜 변환
+                      const date = new Date(gisung.gisungDate);
+                      if (isNaN(date.getTime())) {
+                        console.warn('Invalid date in GisungManagement:', gisung.gisungDate);
+                        return '';
+                      }
+                      return date.toLocaleDateString('ko-KR');
+                    } catch (error) {
+                      console.error('날짜 포맷팅 오류:', error, '원본 데이터:', gisung.gisungDate);
+                      return '';
+                    }
+                  })()}
                 </TableCell>
                 <TableCell sx={{ color: '#fff' }}>
                   {gisung.remark || '-'}

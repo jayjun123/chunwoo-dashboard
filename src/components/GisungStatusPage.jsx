@@ -44,6 +44,7 @@ import { db } from '../firebase';
 import * as XLSX from 'xlsx';
 import { addMonths, subMonths, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { formatNumber } from '../utils/formatUtils';
 // import { parseGisungExcelUpload } from '../utils/gisungUploadUtils';
 
 const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurrentMonth, monthText: initialMonthText, selectedSites, filteredData }) => {
@@ -1314,25 +1315,25 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           <Grid xs={6}>
             <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>계약금액</Typography>
             <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: '0.9rem' }}>
-              {Number(gisung.contractAmount || 0).toLocaleString()}원
+              {formatNumber(gisung.contractAmount, true)}
             </Typography>
           </Grid>
           <Grid xs={6}>
             <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>선급금</Typography>
             <Typography sx={{ color: '#ffd600', fontWeight: 700, fontSize: '0.9rem' }}>
-              {Number(gisung.advance || 0).toLocaleString()}원
+              {formatNumber(gisung.advance, true)}
             </Typography>
           </Grid>
           <Grid xs={6}>
             <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>전회기성</Typography>
             <Typography sx={{ color: '#a084e8', fontWeight: 700, fontSize: '0.9rem' }}>
-              {Number(gisung.prevGisung || 0).toLocaleString()}원
+              {formatNumber(gisung.prevGisung, true)}
             </Typography>
           </Grid>
           <Grid xs={6}>
             <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>금회기성</Typography>
             <Typography sx={{ color: '#ef5350', fontWeight: 700, fontSize: '0.9rem' }}>
-              {Number(gisung.gisungAmount || 0).toLocaleString()}원
+              {formatNumber(gisung.gisungAmount, true)}
             </Typography>
           </Grid>
                      <Grid xs={6}>
@@ -1444,7 +1445,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             lineHeight: isMobile ? 1.1 : 'inherit'
           }}
         >
-          {Number(value || 0).toLocaleString()}원
+                          {formatNumber(value, true)}
         </Typography>
       </Card>
     </Grid>
@@ -1735,16 +1736,16 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                       </TableCell>
                       <TableCell sx={{ color: '#fff' }}>{row.name}</TableCell>
                       <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
-                        {Number(row.contractAmount || 0).toLocaleString()}원
+                        {formatNumber(row.contractAmount, true)}
                       </TableCell>
                       <TableCell sx={{ color: '#ffd600', fontWeight: 700 }}>
-                        {Number(row.advance || 0).toLocaleString()}원
+                        {formatNumber(row.advance, true)}
                       </TableCell>
                       <TableCell sx={{ color: '#a084e8', fontWeight: 700 }}>
-                        {Number(row.prevGisung || 0).toLocaleString()}원
+                        {formatNumber(row.prevGisung, true)}
                       </TableCell>
                       <TableCell sx={{ color: '#ef5350', fontWeight: 700 }}>
-                        {Number(row.gisungAmount || 0).toLocaleString()}원
+                        {formatNumber(row.gisungAmount, true)}
                       </TableCell>
                                              <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
                          {(() => {
@@ -1763,8 +1764,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                            
                            // 잔액 = 계약금액 - 해당 차수까지의 누계기성
                            const balance = (row.contractAmount || 0) - totalGisungForSite;
-                           return balance.toLocaleString();
-                         })()}원
+                           return formatNumber(balance, true);
+                         })()}
                        </TableCell>
                       <TableCell>
                         <Chip

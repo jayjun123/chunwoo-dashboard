@@ -79,6 +79,7 @@ import {
 } from 'recharts';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { exportToPDF } from '../utils/pdfUtils';
+import { formatNumber } from '../utils/formatUtils';
 
 // 상수 정의
 const CONSTANTS = {
@@ -775,7 +776,7 @@ const ProgressManagement = () => {
                             총 청구금액
                           </Typography>
                           <Typography variant="h4" color="primary">
-                            {stats.totalClaim.toLocaleString()}원
+                            {formatNumber(stats.totalClaim, true)}
                           </Typography>
                         </CardContent>
                       </Card>
@@ -791,7 +792,7 @@ const ProgressManagement = () => {
                             총 지급금액
                           </Typography>
                           <Typography variant="h4" color="secondary">
-                            {stats.totalPayment.toLocaleString()}원
+                            {formatNumber(stats.totalPayment, true)}
                           </Typography>
                         </CardContent>
                       </Card>
@@ -807,7 +808,7 @@ const ProgressManagement = () => {
                             잔여금액
                           </Typography>
                           <Typography variant="h4" color={stats.remainingAmount >= 0 ? 'success.main' : 'error.main'}>
-                            {stats.remainingAmount.toLocaleString()}원
+                            {formatNumber(stats.remainingAmount, true)}
                           </Typography>
                         </CardContent>
                       </Card>
@@ -856,14 +857,34 @@ const ProgressManagement = () => {
                             
                             return (
                               <TableRow key={item.id}>
-                                <TableCell>{new Date(item.date).toLocaleDateString()}</TableCell>
+                                <TableCell>
+                                  {(() => {
+                                    try {
+                                      // Firestore Timestamp 객체인 경우
+                                      if (item.date && typeof item.date === 'object' && item.date.toDate) {
+                                        return item.date.toDate().toLocaleDateString('ko-KR');
+                                      }
+                                      
+                                      // 일반적인 날짜 변환
+                                      const date = new Date(item.date);
+                                      if (isNaN(date.getTime())) {
+                                        console.warn('Invalid date in ProgressManagement:', item.date);
+                                        return '';
+                                      }
+                                      return date.toLocaleDateString('ko-KR');
+                                    } catch (error) {
+                                      console.error('날짜 포맷팅 오류:', error, '원본 데이터:', item.date);
+                                      return '';
+                                    }
+                                  })()}
+                                </TableCell>
                                 <TableCell>{item.type}</TableCell>
                                 <TableCell>{item.category}</TableCell>
                                 <TableCell sx={{ color: '#ef5350', fontWeight: 600 }}>
-                                  {Number(item.amount).toLocaleString()}원
+                                  {formatNumber(item.amount, true)}
                                 </TableCell>
                                 <TableCell sx={{ color: '#ff9800', fontWeight: 600 }}>
-                                  {cumulativeAmount.toLocaleString()}원
+                                  {formatNumber(cumulativeAmount, true)}
                                 </TableCell>
                                 <TableCell>{item.description}</TableCell>
                                 <TableCell>

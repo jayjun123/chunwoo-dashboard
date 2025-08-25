@@ -31,6 +31,7 @@ export const URL_ALIASES = {
   
   // 문서
   '/doc': '/documents',
+  '/cf': '/confidential',
   
   // 관리자
   '/m': '/members',
