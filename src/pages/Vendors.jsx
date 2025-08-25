@@ -60,7 +60,8 @@ const Vendors = () => {
     item: '',
     quantity: '',
     note: '',
-    contractStatus: '미수주' // 수주여부 추가
+    contractStatus: '미수주', // 수주여부 추가
+    companyTypes: ['AL창호'] // 업종 추가
   });
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -339,39 +340,11 @@ const Vendors = () => {
     setError(null);
     try {
       await Promise.all([fetchVendors(), fetchRegisteredCompanies()]);
-      // 기존 데이터의 createdAt 필드를 2025-08-23으로 강제 업데이트
-      await addCreatedAtToExistingData();
     } catch (err) {
       setError('데이터를 불러오는데 실패했습니다.');
       console.error('데이터 로딩 오류:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // 기존 데이터에 createdAt 필드 추가하는 함수
-  const addCreatedAtToExistingData = async () => {
-    try {
-      // 업로드된 데이터(관급)의 createdAt을 2025-08-23으로 강제 업데이트
-      const uploadVendors = vendors.filter(vendor => vendor.note === '관급');
-      
-      if (uploadVendors.length > 0) {
-        console.log(`${uploadVendors.length}개의 업로드 데이터의 createdAt을 2025-08-23으로 업데이트합니다.`);
-        
-        const updatePromises = uploadVendors.map(vendor => {
-          return updateDoc(doc(db, 'bids', vendor.id), {
-            createdAt: new Date('2025-08-23')
-          });
-        });
-        
-        await Promise.all(updatePromises);
-        console.log('createdAt 필드 업데이트 완료');
-        
-        // 데이터 새로고침
-        await fetchVendors();
-      }
-    } catch (error) {
-      console.error('createdAt 필드 업데이트 중 오류:', error);
     }
   };
 
@@ -384,6 +357,7 @@ const Vendors = () => {
         ...doc.data()
       }));
       console.log('입찰현황 데이터 로딩 완료:', vendorList.length, '개');
+      console.log('로딩된 데이터:', vendorList);
       setVendors(vendorList);
     } catch (error) {
       console.error('입찰현황 데이터 로딩 오류:', error);
@@ -410,6 +384,10 @@ const Vendors = () => {
   const handleOpen = (vendor = null) => {
     if (vendor) {
       setEditingVendor(vendor);
+      // 기존 업체의 업종 정보 가져오기
+      const existingCompany = registeredCompanies.find(c => c.companyName === vendor.companyName);
+      const companyTypes = existingCompany ? (existingCompany.companyTypes || [existingCompany.companyType] || ['AL창호']) : ['AL창호'];
+      
       setFormData({
         companyName: vendor.companyName || '',
         bidDate: vendor.bidDate || '',
@@ -419,7 +397,8 @@ const Vendors = () => {
         item: vendor.item || '',
         quantity: vendor.quantity || '',
         note: vendor.note || '',
-        contractStatus: vendor.contractStatus || '미수주'
+        contractStatus: vendor.contractStatus || '미수주',
+        companyTypes: companyTypes
       });
     } else {
       setEditingVendor(null);
@@ -432,7 +411,8 @@ const Vendors = () => {
         item: '',
         quantity: '',
         note: '',
-        contractStatus: '미수주'
+        contractStatus: '미수주',
+        companyTypes: ['AL창호']
       });
     }
     setOpen(true);
@@ -441,26 +421,75 @@ const Vendors = () => {
   const handleClose = () => {
     setOpen(false);
     setEditingVendor(null);
+    // formData 초기화
+    setFormData({
+      companyName: '',
+      bidDate: '',
+      siteName: '',
+      winningCompany: '',
+      amount: '',
+      item: '',
+      quantity: '',
+      note: '',
+      contractStatus: '미수주',
+      companyTypes: ['AL창호']
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // 필수 필드 검증
+    if (!formData.companyName.trim()) {
+      alert('업체명을 입력해주세요.');
+      return;
+    }
+    if (!formData.bidDate) {
+      alert('낙찰일을 입력해주세요.');
+      return;
+    }
+    if (!formData.siteName.trim()) {
+      alert('현장명을 입력해주세요.');
+      return;
+    }
+    if (formData.companyTypes.length === 0) {
+      alert('최소 하나의 업종을 선택해주세요.');
+      return;
+    }
+    
     try {
       if (editingVendor) {
         await updateDoc(doc(db, 'bids', editingVendor.id), {
           ...formData,
           updatedAt: new Date()
         });
+        alert('거래처가 성공적으로 수정되었습니다.');
       } else {
         await addDoc(collection(db, 'bids'), {
           ...formData,
           createdAt: new Date()
         });
+        
+        // 새로 등록한 업체를 registeredCompanies에도 추가
+        const existingCompany = registeredCompanies.find(c => c.companyName === formData.companyName);
+        if (!existingCompany) {
+          await addDoc(collection(db, 'registeredCompanies'), {
+            companyName: formData.companyName,
+            companyTypes: formData.companyTypes,
+            createdAt: new Date()
+          });
+          console.log('새 업체가 registeredCompanies에 추가되었습니다:', formData.companyName);
+        }
+        
+        alert('거래처가 성공적으로 등록되었습니다.');
       }
+      
+      // 데이터 새로고침 후 팝업 닫기
+      await Promise.all([fetchVendors(), fetchRegisteredCompanies()]);
       handleClose();
-      fetchVendors();
     } catch (error) {
       console.error('Error saving vendor:', error);
+      alert('저장 중 오류가 발생했습니다: ' + error.message);
     }
   };
 
@@ -548,6 +577,16 @@ const Vendors = () => {
 
   const handleCompanyTypeToggle = (type) => {
     setCompanyFormData(prev => ({
+      ...prev,
+      companyTypes: prev.companyTypes.includes(type)
+        ? prev.companyTypes.filter(t => t !== type)
+        : [...prev.companyTypes, type]
+    }));
+  };
+
+  // 거래처 등록 팝업용 업종 토글 핸들러
+  const handleVendorCompanyTypeToggle = (type) => {
+    setFormData(prev => ({
       ...prev,
       companyTypes: prev.companyTypes.includes(type)
         ? prev.companyTypes.filter(t => t !== type)
@@ -696,14 +735,21 @@ const Vendors = () => {
       vendor.item?.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
-    // 업종별 필터링
+    // 업종별 필터링 (임시 비활성화)
     if (filteredByCompanyType) {
+      console.log('업종별 필터링 적용됨:', filteredByCompanyType);
       filteredVendors = filteredVendors.filter(vendor => {
         const company = registeredCompanies.find(c => c.companyName === vendor.companyName);
-        if (!company) return false;
+        if (!company) {
+          console.log('업체를 찾을 수 없음:', vendor.companyName);
+          // 임시로 모든 데이터를 표시하도록 수정
+          return true;
+        }
         
         const types = company.companyTypes || [company.companyType] || [];
-        return types.includes(filteredByCompanyType);
+        const hasType = types.includes(filteredByCompanyType);
+        console.log('업체 필터링:', vendor.companyName, '타입:', types, '필터:', filteredByCompanyType, '결과:', hasType);
+        return hasType;
       });
     }
 
@@ -794,6 +840,7 @@ const Vendors = () => {
     console.log('페이지당 항목 수:', itemsPerPage);
     console.log('시작 인덱스:', startIndex, '끝 인덱스:', endIndex);
     console.log('현재 페이지 데이터 수:', paginatedVendors.length);
+    console.log('현재 페이지 데이터:', paginatedVendors);
     
     return paginatedVendors;
   };
@@ -1252,11 +1299,32 @@ const Vendors = () => {
         </Box>
       </Box>
 
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>
+      <Dialog 
+        open={open} 
+        onClose={handleClose} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: '#181f2e',
+            color: '#fff',
+            borderRadius: 4,
+            minHeight: '480px',
+            width: '100%'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: '#232b3b', 
+          color: '#90caf9',
+          fontWeight: 700,
+          fontSize: '1.3rem',
+          py: 2,
+          textAlign: 'center'
+        }}>
           {editingVendor ? '거래처 수정' : '거래처 등록'}
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ pt: 4, pb: 2, mt: 6 }}>
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
             <TextField
               fullWidth
@@ -1265,6 +1333,15 @@ const Vendors = () => {
               onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
               margin="normal"
               required
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+                '& .MuiInputBase-input': { color: '#fff' }
+              }}
             />
             <TextField
               fullWidth
@@ -1275,6 +1352,15 @@ const Vendors = () => {
               margin="normal"
               required
               InputLabelProps={{ shrink: true }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+                '& .MuiInputBase-input': { color: '#fff' }
+              }}
             />
             <TextField
               fullWidth
@@ -1283,6 +1369,15 @@ const Vendors = () => {
               onChange={(e) => setFormData({ ...formData, siteName: e.target.value })}
               margin="normal"
               required
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+                '& .MuiInputBase-input': { color: '#fff' }
+              }}
             />
             <TextField
               fullWidth
@@ -1291,6 +1386,15 @@ const Vendors = () => {
               onChange={(e) => setFormData({ ...formData, winningCompany: e.target.value })}
               margin="normal"
               placeholder="낙찰받은 회사명을 입력하세요"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+                '& .MuiInputBase-input': { color: '#fff' }
+              }}
             />
             <TextField
               fullWidth
@@ -1298,7 +1402,16 @@ const Vendors = () => {
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
               margin="normal"
-              required
+              placeholder="금액을 입력하세요 (선택사항)"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+                '& .MuiInputBase-input': { color: '#fff' }
+              }}
             />
             <TextField
               fullWidth
@@ -1306,7 +1419,16 @@ const Vendors = () => {
               value={formData.item}
               onChange={(e) => setFormData({ ...formData, item: e.target.value })}
               margin="normal"
-              required
+              placeholder="품목을 입력하세요 (선택사항)"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+                '& .MuiInputBase-input': { color: '#fff' }
+              }}
             />
             <TextField
               fullWidth
@@ -1314,7 +1436,16 @@ const Vendors = () => {
               value={formData.quantity}
               onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
               margin="normal"
-              required
+              placeholder="물량을 입력하세요 (선택사항)"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+                '& .MuiInputBase-input': { color: '#fff' }
+              }}
             />
             <TextField
               fullWidth
@@ -1324,8 +1455,25 @@ const Vendors = () => {
               margin="normal"
               multiline
               rows={2}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+                '& .MuiInputBase-input': { color: '#fff' }
+              }}
             />
-            <FormControl fullWidth margin="normal">
+            <FormControl fullWidth margin="normal" sx={{
+              '& .MuiOutlinedInput-root': {
+                '& fieldset': { borderColor: '#444' },
+                '&:hover fieldset': { borderColor: '#666' },
+                '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+              },
+              '& .MuiInputLabel-root': { color: '#ccc' },
+              '& .MuiInputBase-input': { color: '#fff' }
+            }}>
               <InputLabel>수주여부</InputLabel>
               <Select
                 value={formData.contractStatus}
@@ -1336,11 +1484,68 @@ const Vendors = () => {
                 <MenuItem value="수주">수주</MenuItem>
               </Select>
             </FormControl>
+            
+            {/* 업종 선택 */}
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body2" sx={{ mb: 1, color: '#ccc', fontWeight: 'bold' }}>
+                업종 선택 (복수 선택 가능)
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {['AL창호', 'PL창호', '종합건설'].map((type) => (
+                  <Chip
+                    key={type}
+                    label={type}
+                    color={formData.companyTypes.includes(type) ? getCompanyTypeColor(type) : 'default'}
+                    onClick={() => handleVendorCompanyTypeToggle(type)}
+                    variant={formData.companyTypes.includes(type) ? 'filled' : 'outlined'}
+                    sx={{ 
+                      cursor: 'pointer',
+                      '&:hover': {
+                        backgroundColor: formData.companyTypes.includes(type) ? undefined : 'rgba(255,255,255,0.08)'
+                      }
+                    }}
+                  />
+                ))}
+              </Box>
+              {formData.companyTypes.length === 0 && (
+                <Typography variant="body2" sx={{ color: 'error.main', mt: 1, fontSize: '0.8rem' }}>
+                  최소 하나의 업종을 선택해주세요.
+                </Typography>
+              )}
+            </Box>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>취소</Button>
-          <Button onClick={handleSubmit} variant="contained">
+        <DialogActions sx={{ 
+          bgcolor: '#232b3b', 
+          px: 3, 
+          py: 2,
+          gap: 2
+        }}>
+          <Button 
+            onClick={handleClose}
+            sx={{
+              color: '#ccc',
+              borderColor: '#666',
+              '&:hover': {
+                borderColor: '#999',
+                backgroundColor: 'rgba(255,255,255,0.08)'
+              }
+            }}
+            variant="outlined"
+          >
+            취소
+          </Button>
+          <Button 
+            onClick={handleSubmit} 
+            variant="contained"
+            sx={{
+              bgcolor: '#4caf50',
+              color: '#fff',
+              '&:hover': {
+                bgcolor: '#45a049'
+              }
+            }}
+          >
             {editingVendor ? '수정' : '등록'}
           </Button>
         </DialogActions>
