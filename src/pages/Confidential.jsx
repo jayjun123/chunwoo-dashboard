@@ -123,7 +123,63 @@ const Confidential = () => {
   const loadData = async () => {
     try {
       const snapshot = await getDocs(collection(db, 'confidential'));
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const data = snapshot.docs.map(doc => {
+        const docData = doc.data();
+        
+        // 날짜 필드 처리
+        let completionDate = docData.completionDate;
+        if (completionDate) {
+          // Firestore Timestamp인 경우
+          if (completionDate.toDate) {
+            completionDate = completionDate.toDate().toISOString().split('T')[0];
+          }
+          // 이미 문자열인 경우 그대로 사용
+          else if (typeof completionDate === 'string') {
+            completionDate = completionDate;
+          }
+          // Date 객체인 경우 문자열로 변환
+          else if (completionDate instanceof Date) {
+            completionDate = completionDate.toISOString().split('T')[0];
+          }
+        }
+        
+        // 진행이력의 날짜도 처리
+        const progressHistory = (docData.progressHistory || []).map(progress => {
+          let processedDate = progress.date;
+          if (progress.date) {
+            try {
+              // Firestore Timestamp인 경우
+              if (progress.date.toDate) {
+                processedDate = progress.date.toDate().toISOString().split('T')[0];
+              }
+              // 이미 문자열인 경우 그대로 사용
+              else if (typeof progress.date === 'string') {
+                processedDate = progress.date;
+              }
+              // Date 객체인 경우 문자열로 변환
+              else if (progress.date instanceof Date) {
+                processedDate = progress.date.toISOString().split('T')[0];
+              }
+            } catch (error) {
+              console.error('진행이력 날짜 처리 오류:', error, progress.date);
+              processedDate = null;
+            }
+          }
+          return {
+            ...progress,
+            date: processedDate
+          };
+        });
+        
+        return { 
+          id: doc.id, 
+          ...docData, 
+          completionDate,
+          progressHistory
+        };
+      });
+      
+      console.log('로드된 데이터:', data);
       setConfidentialData(data);
     } catch (error) {
       console.error('대외비 데이터 로드 오류:', error);
@@ -135,16 +191,54 @@ const Confidential = () => {
   const handleOpenDialog = (item = null) => {
     if (item) {
       setEditingItem(item);
+      // 날짜 데이터 안전하게 처리
+      let completionDate = null;
+      if (item.completionDate) {
+        try {
+          // 이미 Date 객체인 경우
+          if (item.completionDate instanceof Date) {
+            completionDate = item.completionDate;
+          } 
+          // 문자열인 경우 Date 객체로 변환
+          else if (typeof item.completionDate === 'string') {
+            // YYYY-MM-DD 형식인지 확인
+            if (item.completionDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              completionDate = new Date(item.completionDate + 'T00:00:00');
+            } else {
+              completionDate = new Date(item.completionDate);
+            }
+            // 유효하지 않은 날짜인 경우 null로 설정
+            if (isNaN(completionDate.getTime())) {
+              console.warn('유효하지 않은 날짜:', item.completionDate);
+              completionDate = null;
+            }
+          }
+        } catch (error) {
+          console.error('날짜 변환 오류:', error);
+          completionDate = null;
+        }
+      }
+      
+      console.log('수정 모드 - 원본 날짜:', item.completionDate, '변환된 날짜:', completionDate);
+      console.log('전체 아이템 데이터:', item);
+      console.log('진행이력 데이터:', item.progressHistory);
+      
+      // 진행이력의 날짜도 안전하게 처리
+      const processedProgressHistory = (item.progressHistory || []).map(progress => ({
+        ...progress,
+        date: progress.date || null
+      }));
+      
       setFormData({
         company: item.company || '',
         manager: item.manager || '',
         site: item.site || '',
         amount: item.amount || '',
-        completionDate: item.completionDate ? new Date(item.completionDate) : null,
+        completionDate: completionDate,
         status: item.status || '미해결',
         lawsuitStatus: item.lawsuitStatus || '미접수',
         lawsuitNumber: item.lawsuitNumber || '',
-        progressHistory: item.progressHistory || [],
+        progressHistory: processedProgressHistory,
         note: item.note || ''
       });
     } else {
@@ -188,6 +282,35 @@ const Confidential = () => {
   // 저장
   const handleSave = async () => {
     try {
+      console.log('저장 시도 - completionDate:', formData.completionDate);
+      
+      // 날짜 데이터 정규화
+      let normalizedCompletionDate = null;
+      if (formData.completionDate) {
+        if (formData.completionDate instanceof Date) {
+          normalizedCompletionDate = formData.completionDate.toISOString().split('T')[0];
+        } else if (typeof formData.completionDate === 'string') {
+          // 이미 YYYY-MM-DD 형식인지 확인
+          if (formData.completionDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            normalizedCompletionDate = formData.completionDate;
+          } else {
+            // 다른 형식인 경우 변환 시도
+            const date = new Date(formData.completionDate);
+            if (!isNaN(date.getTime())) {
+              normalizedCompletionDate = date.toISOString().split('T')[0];
+            }
+          }
+        }
+      }
+      
+      const normalizedData = {
+        ...formData,
+        completionDate: normalizedCompletionDate
+      };
+      
+      console.log('정규화된 데이터:', normalizedData);
+      console.log('진행이력 데이터 확인:', normalizedData.progressHistory);
+
       if (editingItem) {
         // 수정 권한 확인
         if (!isMaster) {
@@ -195,13 +318,13 @@ const Confidential = () => {
           return;
         }
         await updateDoc(doc(db, 'confidential', editingItem.id), {
-          ...formData,
+          ...normalizedData,
           updatedAt: serverTimestamp()
         });
         setSnackbar({ open: true, message: '수정되었습니다.', severity: 'success' });
       } else {
         await addDoc(collection(db, 'confidential'), {
-          ...formData,
+          ...normalizedData,
           createdAt: serverTimestamp(),
           createdBy: currentUser?.email || 'unknown'
         });
@@ -236,18 +359,35 @@ const Confidential = () => {
 
   // 엑셀 다운로드
   const handleDownload = () => {
-    const data = confidentialData.map((item, index) => ({
-      'NO.': index + 1,
-      '회사': item.company || '',
-      '담당자': item.manager || '',
-      '현장': item.site || '',
-      '금액': item.amount ? formatNumber(item.amount, true) : '',
-      '공사완료일자': item.completionDate ? new Date(item.completionDate).toLocaleDateString() : '',
-      '고소장접수여부': item.lawsuitStatus || '미접수',
-      '고소장번호': item.lawsuitNumber || '',
-      '비고': item.note || '',
-      '상태': item.status || '미해결'
-    }));
+    const data = confidentialData.map((item, index) => {
+      // 날짜 안전하게 처리
+      let completionDateStr = '';
+      if (item.completionDate) {
+        try {
+          const date = item.completionDate instanceof Date ? 
+            item.completionDate : 
+            new Date(item.completionDate);
+          if (!isNaN(date.getTime())) {
+            completionDateStr = date.toLocaleDateString();
+          }
+        } catch (error) {
+          console.error('날짜 변환 오류:', error);
+        }
+      }
+      
+      return {
+        'NO.': index + 1,
+        '회사': item.company || '',
+        '담당자': item.manager || '',
+        '현장': item.site || '',
+        '금액': item.amount ? formatNumber(item.amount, true) : '',
+        '공사완료일자': completionDateStr,
+        '고소장접수여부': item.lawsuitStatus || '미접수',
+        '고소장번호': item.lawsuitNumber || '',
+        '비고': item.note || '',
+        '상태': item.status || '미해결'
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -310,15 +450,24 @@ const Confidential = () => {
       return;
     }
 
+    // 날짜를 YYYY-MM-DD 형식으로 저장
+    const dateString = progressDate.toISOString().split('T')[0];
+
     const newProgress = {
-      date: progressDate.toISOString(),
+      date: dateString,
       content: progressContent.trim()
     };
 
-    setFormData(prev => ({
-      ...prev,
-      progressHistory: [...prev.progressHistory, newProgress].sort((a, b) => new Date(a.date) - new Date(b.date))
-    }));
+    console.log('추가할 진행이력:', newProgress);
+
+    setFormData(prev => {
+      const updatedHistory = [...prev.progressHistory, newProgress].sort((a, b) => new Date(a.date) - new Date(b.date));
+      console.log('업데이트된 진행이력:', updatedHistory);
+      return {
+        ...prev,
+        progressHistory: updatedHistory
+      };
+    });
 
     setProgressDate(null);
     setProgressContent('');
@@ -570,6 +719,66 @@ const Confidential = () => {
                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                      현황: {item.progressHistory?.length || 0}건
                    </Typography>
+                   
+                   {/* 진행이력 표시 */}
+                   <Box sx={{ mb: 1, maxHeight: '150px', overflowY: 'auto' }}>
+                     <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5, color: 'primary.main' }}>
+                       📋 진행이력
+                     </Typography>
+                     {item.progressHistory && item.progressHistory.length > 0 ? (
+                       <>
+                         {item.progressHistory.slice(-3).map((progress, index) => (
+                           <Box key={index} sx={{ 
+                             mb: 0.5, 
+                             p: 1, 
+                             bgcolor: 'rgba(25, 118, 210, 0.08)', 
+                             borderRadius: 1,
+                             border: '1px solid rgba(25, 118, 210, 0.2)'
+                           }}>
+                             <Typography variant="caption" sx={{ 
+                               color: 'primary.main', 
+                               fontWeight: 'bold',
+                               display: 'block',
+                               mb: 0.5
+                             }}>
+                               📅 {progress.date ? new Date(progress.date).toLocaleDateString('ko-KR') : '날짜 미정'}
+                             </Typography>
+                             <Typography variant="body2" sx={{ 
+                               color: 'text.primary',
+                               fontSize: '0.75rem',
+                               lineHeight: 1.3,
+                               fontWeight: 500
+                             }}>
+                               {progress.content}
+                             </Typography>
+                           </Box>
+                         ))}
+                         {item.progressHistory.length > 3 && (
+                           <Typography variant="caption" sx={{ 
+                             color: 'text.secondary', 
+                             fontStyle: 'italic',
+                             display: 'block',
+                             textAlign: 'center',
+                             mt: 0.5
+                           }}>
+                             ... 외 {item.progressHistory.length - 3}건 더
+                           </Typography>
+                         )}
+                       </>
+                     ) : (
+                       <Box sx={{ 
+                         p: 1, 
+                         bgcolor: 'rgba(0,0,0,0.03)', 
+                         borderRadius: 1,
+                         textAlign: 'center'
+                       }}>
+                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                           등록된 진행이력이 없습니다
+                         </Typography>
+                       </Box>
+                     )}
+                   </Box>
+                   
                    <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                      <Typography variant="caption" sx={{ mr: 0.5, color: 'text.secondary' }}>
                        고소장접수
