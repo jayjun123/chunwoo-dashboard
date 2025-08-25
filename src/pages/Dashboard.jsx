@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
+import { formatNumber } from '../utils/formatUtils';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import WeatherWidget from '../components/weather/WeatherWidget';
@@ -300,7 +301,7 @@ const Dashboard = () => {
                 {integratedStats.totalEstimates}
               </Typography>
               <Typography variant="body2" sx={{ color: '#666' }}>
-                총 {integratedStats.totalEstimateAmount.toLocaleString()}원
+                총 {formatNumber(integratedStats.totalEstimateAmount, true)}
               </Typography>
             </CardContent>
           </Card>
@@ -316,7 +317,7 @@ const Dashboard = () => {
                 {integratedStats.totalClaims}
               </Typography>
               <Typography variant="body2" sx={{ color: '#666' }}>
-                총 {integratedStats.totalClaimAmount.toLocaleString()}원
+                총 {formatNumber(integratedStats.totalClaimAmount, true)}
               </Typography>
             </CardContent>
           </Card>
@@ -348,7 +349,7 @@ const Dashboard = () => {
                 {integratedStats.totalCosts}
               </Typography>
               <Typography variant="body2" sx={{ color: '#666' }}>
-                총 {integratedStats.totalCostAmount.toLocaleString()}원
+                총 {formatNumber(integratedStats.totalCostAmount, true)}
               </Typography>
             </CardContent>
           </Card>

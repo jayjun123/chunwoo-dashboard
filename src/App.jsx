@@ -205,6 +205,7 @@ const Estimates = React.lazy(() => import('./pages/Estimates'));
 const Claims = React.lazy(() => import('./pages/Claims'));
 const EstimatesMobile = React.lazy(() => import('./pages/EstimatesMobile'));
 const ClaimsMobile = React.lazy(() => import('./pages/ClaimsMobile'));
+const Confidential = React.lazy(() => import('./pages/Confidential'));
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { CircularProgress } from '@mui/material';
 
@@ -406,6 +407,7 @@ const App = React.memo(() => {
                       <Route path="/c" element={<Navigate to="/cost" replace />} />
                       <Route path="/dt" element={<Navigate to="/daema-team" replace />} />
                       <Route path="/doc" element={<Navigate to="/documents" replace />} />
+                      <Route path="/cf" element={<Navigate to="/confidential" replace />} />
                       <Route path="/m" element={<Navigate to="/members" replace />} />
                       <Route path="/pm" element={<Navigate to="/permissions" replace />} />
                       <Route path="/u" element={<Navigate to="/users" replace />} />
@@ -618,6 +620,22 @@ const App = React.memo(() => {
                             ) : (
                               <Layout>
                                 <Documents />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/confidential"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Confidential />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Confidential />
                               </Layout>
                             )}
                           </ProtectedRoute>

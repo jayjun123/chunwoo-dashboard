@@ -54,6 +54,7 @@ import {
 } from '@mui/icons-material';
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
+import { formatNumber } from '../utils/formatUtils';
 import * as XLSX from 'xlsx';
 
 const ConstructionTeam = () => {
@@ -224,7 +225,7 @@ const ConstructionTeam = () => {
         const siteDetails = teamSites.map(site => ({
           현장명: site.name || '',
           현장상태: site.status || '',
-          계약금액: site.contractAmount ? Number(site.contractAmount).toLocaleString() + '원' : '',
+          계약금액: site.contractAmount ? formatNumber(site.contractAmount, true) : '',
           시작일: site.startDate || '',
           완료예정일: site.endDate || '',
           주소: site.address || '',

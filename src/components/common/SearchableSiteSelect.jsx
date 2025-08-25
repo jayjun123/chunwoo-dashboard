@@ -59,6 +59,14 @@ const SearchableSiteSelect = ({
       } else if (newValue && typeof newValue === 'object') {
         console.log('단일 선택 (객체):', newValue.name);
         onChange(newValue.name || '');
+      } else if (typeof newValue === 'string') {
+        // freeSolo 모드에서 직접 입력한 문자열 값
+        console.log('직접 입력 (문자열):', newValue);
+        onChange(newValue);
+      } else if (newValue === null) {
+        // 값이 지워진 경우
+        console.log('값 지워짐');
+        onChange('');
       } else {
         console.log('단일 선택 (문자열):', newValue);
         onChange(newValue || '');
@@ -66,8 +74,14 @@ const SearchableSiteSelect = ({
     }
   };
 
-  const handleInputChange = (event, newInputValue) => {
+  const handleInputChange = (event, newInputValue, reason) => {
     setInputValue(newInputValue);
+    
+    // freeSolo 모드에서 직접 입력된 값 처리
+    if (reason === 'input' && !multiple) {
+      // 사용자가 직접 입력한 값이면 onChange 호출
+      onChange(newInputValue);
+    }
   };
 
   const getOptionLabel = (option) => {
@@ -271,6 +285,7 @@ const SearchableSiteSelect = ({
     }
     if (typeof value === 'string' && value) {
       const foundSite = sites.find(site => site.name === value);
+      // 찾은 현장이 있으면 객체 반환, 없으면 문자열 그대로 반환 (freeSolo 모드)
       return foundSite || value;
     }
     return value;
@@ -295,7 +310,8 @@ const SearchableSiteSelect = ({
       size={size}
       openOnFocus={openOnFocus}
       clearOnBlur={clearOnBlur}
-      selectOnFocus={selectOnFocus}
+      freeSolo={true}
+      selectOnFocus={false}
       sx={{
         '& .MuiAutocomplete-paper': {
           bgcolor: '#232b3b',

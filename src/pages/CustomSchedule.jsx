@@ -11,11 +11,30 @@ import { exportCalendarToExcel } from '../utils/excelUtils';
 
 function isInMonth(site, year, month) {
   if (!site.startDate || !site.endDate) return false;
-  const s = new Date(site.startDate);
-  const e = new Date(site.endDate);
-  const first = new Date(year, month, 1);
-  const last = new Date(year, month + 1, 0);
-  return !(e < first || s > last);
+  
+  try {
+    // Firestore Timestamp 객체인 경우
+    const startDate = site.startDate && typeof site.startDate === 'object' && site.startDate.toDate 
+      ? site.startDate.toDate() 
+      : new Date(site.startDate);
+    
+    const endDate = site.endDate && typeof site.endDate === 'object' && site.endDate.toDate 
+      ? site.endDate.toDate() 
+      : new Date(site.endDate);
+    
+    // Invalid Date 체크
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      console.warn('Invalid date in site:', site);
+      return false;
+    }
+    
+    const first = new Date(year, month, 1);
+    const last = new Date(year, month + 1, 0);
+    return !(endDate < first || startDate > last);
+  } catch (error) {
+    console.error('날짜 처리 오류:', error, '사이트 데이터:', site);
+    return false;
+  }
 }
 
 const CustomSchedule = () => {

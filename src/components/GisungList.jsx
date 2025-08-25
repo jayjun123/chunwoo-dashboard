@@ -5,6 +5,7 @@ import {
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { formatNumber } from '../utils/formatUtils';
 
 const GisungList = () => {
   const [gisungList, setGisungList] = useState([]);
@@ -118,9 +119,9 @@ const GisungList = () => {
               return (
                 <TableRow key={row.id}>
                   <TableCell>{row.name}</TableCell>
-                  <TableCell>{Number(row.contractAmount || 0).toLocaleString()}원</TableCell>
-                  <TableCell>{Number(total || 0).toLocaleString()}원</TableCell>
-                  <TableCell>{Number((contract - total) || 0).toLocaleString()}원</TableCell>
+                                     <TableCell>{formatNumber(row.contractAmount || 0, true)}</TableCell>
+                   <TableCell>{formatNumber(total || 0, true)}</TableCell>
+                   <TableCell>{formatNumber((contract - total) || 0, true)}</TableCell>
                   <TableCell>
                     <Chip
                       label={percent + '%'}

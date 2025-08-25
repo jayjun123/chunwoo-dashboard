@@ -39,6 +39,7 @@ import {
 import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useLoading } from '../common/LoadingProvider';
+import { formatNumber } from '../../utils/formatUtils';
 import {
   BarChart,
   Bar,
@@ -621,7 +622,7 @@ const ProgressManagement = () => {
                           총 청구금액
                         </Typography>
                         <Typography variant="h4" color="primary">
-                          {stats.totalClaim.toLocaleString()}원
+                          {formatNumber(stats.totalClaim, true)}
                         </Typography>
                       </CardContent>
                     </Card>
@@ -633,7 +634,7 @@ const ProgressManagement = () => {
                           총 지급금액
                         </Typography>
                         <Typography variant="h4" color="secondary">
-                          {stats.totalPayment.toLocaleString()}원
+                          {formatNumber(stats.totalPayment, true)}
                         </Typography>
                       </CardContent>
                     </Card>
@@ -645,7 +646,7 @@ const ProgressManagement = () => {
                           잔여금액
                         </Typography>
                         <Typography variant="h4" color={stats.remainingAmount >= 0 ? 'success.main' : 'error.main'}>
-                          {stats.remainingAmount.toLocaleString()}원
+                          {formatNumber(stats.remainingAmount, true)}
                         </Typography>
                       </CardContent>
                     </Card>
@@ -663,13 +664,13 @@ const ProgressManagement = () => {
                                 예정
                               </Typography>
                               <Typography variant="body2">
-                                청구 예정: {monthlyStats.planned.청구?.toLocaleString() || 0}원
+                                청구 예정: {formatNumber(monthlyStats.planned.청구 || 0, true)}
                               </Typography>
                               <Typography variant="body2">
-                                지급 예정: {monthlyStats.planned.지급?.toLocaleString() || 0}원
+                                지급 예정: {formatNumber(monthlyStats.planned.지급 || 0, true)}
                               </Typography>
                               <Typography variant="body2" color={monthlyStats.planned.청구 - monthlyStats.planned.지급 >= 0 ? 'success.main' : 'error.main'}>
-                                예상 잔액: {((monthlyStats.planned.청구 || 0) - (monthlyStats.planned.지급 || 0)).toLocaleString()}원
+                                예상 잔액: {formatNumber((monthlyStats.planned.청구 || 0) - (monthlyStats.planned.지급 || 0), true)}
                               </Typography>
                             </Paper>
                           </Grid>
@@ -679,13 +680,13 @@ const ProgressManagement = () => {
                                 실적
                               </Typography>
                               <Typography variant="body2">
-                                청구 실적: {monthlyStats.actual.청구?.toLocaleString() || 0}원
+                                청구 실적: {formatNumber(monthlyStats.actual.청구 || 0, true)}
                               </Typography>
                               <Typography variant="body2">
-                                지급 실적: {monthlyStats.actual.지급?.toLocaleString() || 0}원
+                                지급 실적: {formatNumber(monthlyStats.actual.지급 || 0, true)}
                               </Typography>
                               <Typography variant="body2" color={monthlyStats.actual.청구 - monthlyStats.actual.지급 >= 0 ? 'success.main' : 'error.main'}>
-                                실적 잔액: {((monthlyStats.actual.청구 || 0) - (monthlyStats.actual.지급 || 0)).toLocaleString()}원
+                                실적 잔액: {formatNumber((monthlyStats.actual.청구 || 0) - (monthlyStats.actual.지급 || 0), true)}
                               </Typography>
                             </Paper>
                           </Grid>
@@ -730,7 +731,7 @@ const ProgressManagement = () => {
                           <TableCell>{new Date(item.date).toLocaleDateString()}</TableCell>
                           <TableCell>{item.type}</TableCell>
                           <TableCell>{item.category}</TableCell>
-                          <TableCell>{Number(item.amount).toLocaleString()}원</TableCell>
+                          <TableCell>{formatNumber(item.amount, true)}</TableCell>
                           <TableCell>{item.description}</TableCell>
                           <TableCell>{item.isPlanned ? '예정' : '실적'}</TableCell>
                           <TableCell>

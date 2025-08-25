@@ -132,14 +132,14 @@ const Vendors = () => {
     });
   };
 
-  // 업종별 카드 더블클릭 핸들러 (필터링)
-  const handleCompanyTypeCardDoubleClick = (type) => {
+  // 업종별 카드 클릭 핸들러 (테이블 필터링)
+  const handleCompanyTypeCardClick = (type) => {
     setFilteredByCompanyType(type);
     setCurrentPage(1); // 첫 페이지로 이동
   };
   
-  // 업종별 카드 클릭 핸들러 (팝업)
-  const handleCompanyTypeCardClick = (type) => {
+  // 업종별 카드 더블클릭 핸들러 (업체목록 팝업)
+  const handleCompanyTypeCardDoubleClick = (type) => {
     setSelectedCompanyType(type);
     setCompanyListDialogOpen(true);
   };
@@ -149,6 +149,8 @@ const Vendors = () => {
     setFilteredByCompanyType('');
     setCurrentPage(1);
   };
+
+
 
   // 금액 천단위 쉼표 포맷팅
   const formatAmount = (amount) => {
@@ -162,53 +164,68 @@ const Vendors = () => {
   const formatDate = (dateString) => {
     if (!dateString) return '';
     
-    // 문자열로 변환
-    const dateStr = dateString.toString();
-    
-    // 이미 YYYY/MM/DD 형식인 경우 그대로 반환
-    if (dateStr.includes('/') && dateStr.length === 10) {
-      return dateStr;
-    }
-    
-    // YYYY-MM-DD 형식인 경우 / 로 변경
-    if (dateStr.includes('-') && dateStr.length === 10) {
-      return dateStr.replace(/-/g, '/');
-    }
-    
-    // 숫자만 있는 경우 (YYYYMMDD)
-    if (/^\d{8}$/.test(dateStr)) {
-      const year = dateStr.substring(0, 4);
-      const month = dateStr.substring(4, 6);
-      const day = dateStr.substring(6, 8);
-      return `${year}/${month}/${day}`;
-    }
-    
-    // 엑셀 시리얼 번호인 경우 (5자리 숫자)
-    if (/^\d{5}$/.test(dateStr)) {
-      try {
-        // 엑셀 시리얼 번호를 날짜로 변환 (1900-01-01부터의 일수)
-        const excelEpoch = new Date(1900, 0, 1);
-        const days = parseInt(dateStr) - 2; // 엑셀의 1900년 오류 보정
-        const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
-        
+    try {
+      // Firestore Timestamp 객체인 경우
+      if (dateString && typeof dateString === 'object' && dateString.toDate) {
+        const date = dateString.toDate();
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}/${month}/${day}`;
-      } catch (error) {
+      }
+      
+      // 문자열로 변환
+      const dateStr = dateString.toString();
+      
+      // 이미 YYYY/MM/DD 형식인 경우 그대로 반환
+      if (dateStr.includes('/') && dateStr.length === 10) {
         return dateStr;
       }
-    }
-    
-    try {
+      
+      // YYYY-MM-DD 형식인 경우 / 로 변경
+      if (dateStr.includes('-') && dateStr.length === 10) {
+        return dateStr.replace(/-/g, '/');
+      }
+      
+      // 숫자만 있는 경우 (YYYYMMDD)
+      if (/^\d{8}$/.test(dateStr)) {
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(4, 6);
+        const day = dateStr.substring(6, 8);
+        return `${year}/${month}/${day}`;
+      }
+      
+      // 엑셀 시리얼 번호인 경우 (5자리 숫자)
+      if (/^\d{5}$/.test(dateStr)) {
+        try {
+          // 엑셀 시리얼 번호를 날짜로 변환 (1900-01-01부터의 일수)
+          const excelEpoch = new Date(1900, 0, 1);
+          const days = parseInt(dateStr) - 2; // 엑셀의 1900년 오류 보정
+          const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
+          
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}/${month}/${day}`;
+        } catch (error) {
+          console.warn('엑셀 시리얼 번호 변환 오류:', error, '원본 데이터:', dateStr);
+          return '';
+        }
+      }
+      
+      // 일반적인 날짜 변환
       const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return dateStr;
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date in formatDate:', dateString);
+        return '';
+      }
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       return `${year}/${month}/${day}`;
     } catch (error) {
-      return dateStr;
+      console.error('날짜 포맷팅 오류:', error, '원본 데이터:', dateString);
+      return '';
     }
   };
 
@@ -352,15 +369,22 @@ const Vendors = () => {
   };
 
   const handleContractStatusToggle = async (vendorId, currentStatus) => {
+    const newStatus = currentStatus === '미수주' ? '수주' : '미수주';
+    
     try {
-      const newStatus = currentStatus === '미수주' ? '수주' : '미수주';
       await updateDoc(doc(db, 'bids', vendorId), {
-        contractStatus: newStatus,
-        updatedAt: new Date()
+        contractStatus: newStatus
       });
-      fetchVendors();
+      
+      // 로컬 상태 업데이트
+      setVendors(prev => prev.map(vendor => 
+        vendor.id === vendorId 
+          ? { ...vendor, contractStatus: newStatus }
+          : vendor
+      ));
     } catch (error) {
-      console.error('Error updating contract status:', error);
+      console.error('수주여부 변경 오류:', error);
+      alert('수주여부 변경 중 오류가 발생했습니다.');
     }
   };
 
@@ -564,8 +588,11 @@ const Vendors = () => {
     // 업종별 필터링
     if (filteredByCompanyType) {
       filteredVendors = filteredVendors.filter(vendor => {
-        const companyType = getCompanyType(vendor.companyName);
-        return companyType.includes(filteredByCompanyType);
+        const company = registeredCompanies.find(c => c.companyName === vendor.companyName);
+        if (!company) return false;
+        
+        const types = company.companyTypes || [company.companyType] || [];
+        return types.includes(filteredByCompanyType);
       });
     }
 
@@ -820,7 +847,7 @@ const Vendors = () => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
           <Typography variant="h6">업종별 통계</Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-            클릭: 업체 목록 팝업 | 더블클릭: 테이블 필터링 | 제목 클릭: 필터 초기화
+            클릭: 테이블 필터링 | 더블클릭: 업체 목록 팝업 | 제목 클릭: 필터 초기화
           </Typography>
         </Box>
         <Grid container spacing={1} sx={{ mb: 2 }}>

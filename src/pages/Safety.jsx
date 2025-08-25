@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx';
 import SafetyOverviewCards from '../components/safety/SafetyOverviewCards';
 import { exportToExcel } from '../utils/excelUtils';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { formatNumber } from '../utils/formatUtils';
 
 
 const TAB_LABELS = ['안전관리', '안전 점검', '사고예방', '안전 교육', '안전관리비'];
@@ -1060,7 +1061,7 @@ const SafetyPage = () => {
                       fontSize: '0.95rem',
                       fontWeight: 700
                     }}>
-                      ({item.remainingAmount.toLocaleString()}원)
+                      ({formatNumber(item.remainingAmount, true)})
                     </Typography>
                   ) : (
                     <Typography sx={{
@@ -1068,7 +1069,7 @@ const SafetyPage = () => {
                       fontSize: '0.95rem',
                       fontWeight: 700
                     }}>
-                      (사용: {item.usedAmount.toLocaleString()}원)
+                      (사용: {formatNumber(item.usedAmount, true)})
                     </Typography>
                   )}
                   {item.totalBudget > 0 && (
@@ -1077,7 +1078,7 @@ const SafetyPage = () => {
                       fontSize: '0.75rem',
                       fontWeight: 400
                     }}>
-                      예산: {item.totalBudget.toLocaleString()}원
+                      예산: {formatNumber(item.totalBudget, true)}
                     </Typography>
                   )}
                 </Box>

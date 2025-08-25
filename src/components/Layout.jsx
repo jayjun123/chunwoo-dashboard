@@ -55,6 +55,7 @@ import {
   Timeline as TimelineIcon,
   Star as StarIcon,
   Gavel as GavelIcon,
+  Block as BlockIcon,
 } from '@mui/icons-material';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -74,7 +75,8 @@ const menuItems = [
   { text: '거래처관리', icon: <PeopleIcon />, path: '/vendor-management' },
   { text: '기성관리', icon: <MonetizationOnIcon />, path: '/progress' },
   { text: '시공팀', icon: <AssessmentIcon />, path: '/daema-team' },
-  { text: '문서관리', icon: <DescriptionIcon />, path: '/documents' }
+  { text: '문서관리', icon: <DescriptionIcon />, path: '/documents' },
+  { text: '대외비', icon: <BlockIcon />, path: '/confidential' }
 ];
 
 const adminMenuItems = [

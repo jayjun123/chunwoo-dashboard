@@ -974,10 +974,15 @@ const BottomBar = ({
   // 전날 미완료 투두 불러오기 다이얼로그 열기
   const handleLoadYesterdayIncomplete = async () => {
     try {
+      console.log('불러오기 버튼 클릭됨');
+      
       if (!currentUser) {
+        console.log('currentUser 없음:', currentUser);
         setError('로그인이 필요합니다.');
         return;
       }
+
+      console.log('현재 사용자:', currentUser.uid);
 
       // 전날 날짜 계산 (한국 시간 기준)
       const today = new Date();
@@ -996,8 +1001,8 @@ const BottomBar = ({
       const todayDay = String(today.getDate()).padStart(2, '0');
       const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
 
-      devLog('전날 날짜:', yesterdayStr);
-      devLog('오늘 날짜:', todayStr);
+      console.log('전날 날짜:', yesterdayStr);
+      console.log('오늘 날짜:', todayStr);
 
       // 전날 미완료 투두들을 createdAt 필드로 가져오기 (더 정확한 조회)
       const yesterdayStart = new Date(yesterday);
@@ -1005,23 +1010,34 @@ const BottomBar = ({
       const yesterdayEnd = new Date(yesterday);
       yesterdayEnd.setHours(23, 59, 59, 999);
 
+      console.log('조회 시작:', yesterdayStart);
+      console.log('조회 끝:', yesterdayEnd);
+
+      // 먼저 사용자의 모든 미완료 투두를 가져오기
       const yesterdayQuery = query(
         collection(db, 'todos'),
         where('userId', '==', currentUser.uid),
-        where('completed', '==', false),
-        orderBy('createdAt', 'desc')
+        where('completed', '==', false)
       );
       
+      console.log('Firestore 쿼리 실행 중...');
       const yesterdaySnapshot = await getDocs(yesterdayQuery);
+      console.log('쿼리 결과 문서 수:', yesterdaySnapshot.size);
+      
       const allIncompleteTodos = yesterdaySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
 
+      console.log('모든 미완료 투두:', allIncompleteTodos);
+
       // 클라이언트에서 전날 데이터 필터링
       const incompleteTodos = allIncompleteTodos.filter(todo => {
         // date 필드가 있으면 date로 체크
-        if (todo.date === yesterdayStr) return true;
+        if (todo.date === yesterdayStr) {
+          console.log('date 필드로 매칭:', todo.text);
+          return true;
+        }
         
         // createdAt 필드가 있으면 createdAt으로 체크
         if (todo.createdAt) {
@@ -1034,27 +1050,34 @@ const BottomBar = ({
             todoDate = new Date(todo.createdAt);
           }
           
-          return todoDate >= yesterdayStart && todoDate <= yesterdayEnd;
+          const isInRange = todoDate >= yesterdayStart && todoDate <= yesterdayEnd;
+          if (isInRange) {
+            console.log('createdAt 필드로 매칭:', todo.text, todoDate);
+          }
+          return isInRange;
         }
         
         return false;
       });
 
-      devLog('전날 미완료 투두 개수:', incompleteTodos.length);
-      devLog('전날 범위:', { start: yesterdayStart, end: yesterdayEnd });
-      devLog('전체 미완료 투두:', allIncompleteTodos.length);
+      console.log('전날 미완료 투두 개수:', incompleteTodos.length);
+      console.log('전날 범위:', { start: yesterdayStart, end: yesterdayEnd });
+      console.log('전체 미완료 투두:', allIncompleteTodos.length);
 
       if (incompleteTodos.length === 0) {
+        console.log('불러올 항목 없음');
         setError('불러올 전날 미완료 항목이 없습니다.');
         return;
       }
 
+      console.log('다이얼로그 열기');
       setYesterdayTodos(incompleteTodos);
       setSelectedTodos([]);
       setLoadTodoDialog(true);
     } catch (error) {
+      console.error('전날 미완료 항목 조회 실패:', error);
       devError('전날 미완료 항목 조회 실패:', error);
-      setError('전날 미완료 항목을 조회하는데 실패했습니다.');
+      setError(`전날 미완료 항목을 조회하는데 실패했습니다: ${error.message}`);
     }
   };
 
