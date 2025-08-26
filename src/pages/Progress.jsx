@@ -948,6 +948,12 @@ const Progress = () => {
       const gisungData = firstRow.payments || [];
       const siteItems = firstRow.items || [];
       
+      console.log('🔍 Progress.jsx 디버깅:');
+      console.log('📊 firstRow:', firstRow);
+      console.log('📊 firstRow.items:', firstRow.items);
+      console.log('📊 siteItems:', siteItems);
+      console.log('📊 siteItems.length:', siteItems.length);
+      
       // 기성금청구서 템플릿으로 엑셀 생성
       const workbook = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems);
       
