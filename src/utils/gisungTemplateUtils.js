@@ -3,6 +3,38 @@ import ExcelJS from 'exceljs';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
 
+// Firebase Storage에서 템플릿 다운로드 (CORS 우회)
+const downloadTemplateFromStorage = async (templateFileName) => {
+  try {
+    // 방법 1: 직접 다운로드 시도
+    const templateRef = ref(storage, `templates/${templateFileName}`);
+    const downloadURL = await getDownloadURL(templateRef);
+    
+    console.log('📥 템플릿 다운로드 중...');
+    const response = await fetch(downloadURL);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.arrayBuffer();
+  } catch (error) {
+    console.warn('⚠️ 직접 다운로드 실패, 프록시 서버 사용:', error.message);
+    
+    // 방법 2: 프록시 서버를 통한 다운로드
+    const proxyURL = `https://api.allorigins.win/raw?url=${encodeURIComponent(
+      `https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2F${templateFileName}?alt=media`
+    )}`;
+    
+    const proxyResponse = await fetch(proxyURL);
+    if (!proxyResponse.ok) {
+      throw new Error(`프록시 다운로드 실패: ${proxyResponse.status}`);
+    }
+    
+    return await proxyResponse.arrayBuffer();
+  }
+};
+
 // 기성금청구서 템플릿 기반 생성
 export const generateTemplateBasedGisungExcel = async (siteData, gisungData, siteItems = [], currentSequence = 1, previousGisungData = null) => {
   try {
@@ -19,22 +51,17 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
       console.log(`📊 물량 데이터가 ${itemCount}개로 NEWgisung 템플릿을 사용합니다.`);
     }
     
-    // Firebase Storage에서 템플릿 다운로드
-    const templateRef = ref(storage, `templates/${templateFileName}`);
-    const downloadURL = await getDownloadURL(templateRef);
+    // 템플릿 다운로드 (CORS 우회 포함)
+    const arrayBuffer = await downloadTemplateFromStorage(templateFileName);
     
-    console.log('📥 템플릿 다운로드 중...');
-    const response = await fetch(downloadURL);
-    const arrayBuffer = await response.arrayBuffer();
-    
-         // 워크북 로드 (Shared Formula 비활성화)
-     const workbook = new ExcelJS.Workbook();
-     await workbook.xlsx.load(arrayBuffer, {
-       sharedFormulas: false,
-       useStyles: true,
-       useCellStyles: true,
-       useCellFormulas: false
-     });
+    // 워크북 로드 (Shared Formula 비활성화)
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(arrayBuffer, {
+      sharedFormulas: false,
+      useStyles: true,
+      useCellStyles: true,
+      useCellFormulas: false
+    });
     
     console.log('✅ 템플릿 로드 완료');
     
