@@ -211,6 +211,9 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       // console.log('currentMonth:', currentMonth);
       // console.log('selectedSites:', selectedSites);
 
+      // 먼저 전체 데이터를 로드하여 전회기성 계산에 사용
+      const allSnapshot = await getDocs(collection(db, 'gisung'));
+      const allGisungData = allSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
       let q;
       const gisungCollection = collection(db, 'gisung');
@@ -377,6 +380,9 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           // 현재 기성의 차수 추출
           const currentSeq = parseInt(gisung.sequence?.replace('차', '') || '0');
           
+          // 디버깅: 현재 기성 정보 로그
+          console.log(`🔍 전회기성 계산 - 현장: ${gisung.name}, 차수: ${gisung.sequence}, 현재차수: ${currentSeq}`);
+          
           // 같은 현장의 이전 차수 기성 데이터 찾기 (현재 차수보다 작은 차수만, 청구완료된 것만)
           const previousGisung = allGisungData
             .filter(prev => {
@@ -385,6 +391,11 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
               const isDifferentId = prev.id !== gisung.id;
               const isPreviousSequence = prevSeq < currentSeq;
               const isClaimCompleted = prev.claimStatus === '청구완료';
+              
+              // 디버깅: 필터링 조건 확인
+              if (isSameSite && isDifferentId && isPreviousSequence && isClaimCompleted) {
+                console.log(`✅ 전회기성 후보 - 현장: ${prev.name}, 차수: ${prev.sequence}, 금액: ${prev.gisungAmount}`);
+              }
               
               return isSameSite && isDifferentId && isPreviousSequence && isClaimCompleted;
             })
@@ -396,6 +407,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             })[0]; // 가장 최근 이전 기성
           
           const calculatedPrevGisung = previousGisung ? (previousGisung.gisungAmount || 0) : 0;
+          
+          console.log(`📊 전회기성 결과 - 현장: ${gisung.name}, 차수: ${gisung.sequence}, 전회기성: ${calculatedPrevGisung}`);
           
           return {
             ...gisung,
@@ -420,7 +433,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       console.error('기성 데이터 로드 오류:', e);
       setGisungList([]);
     }
-  }, [viewType, currentMonth, selectedSites, allGisungData]);
+  }, [viewType, currentMonth, selectedSites]);
 
   // 검색 및 정렬된 데이터
   const filteredAndSortedGisung = useMemo(() => {
@@ -458,12 +471,19 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         }
       });
     } else {
-      // 기본 정렬: 차수 내림차순 (4차, 3차, 2차, 1차 순서)
+      // 기본 정렬: 현장명 오름차순, 차수 내림차순 (2차, 1차 순서)
       filtered.sort((a, b) => {
+        // 먼저 현장명으로 정렬
+        const nameComparison = (a.name || '').localeCompare(b.name || '');
+        if (nameComparison !== 0) {
+          return nameComparison;
+        }
+        
+        // 같은 현장 내에서는 차수로 내림차순 정렬
         const aSeq = parseInt(a.sequence?.replace('차', '') || '0');
         const bSeq = parseInt(b.sequence?.replace('차', '') || '0');
         // console.log(`🔢 차수 정렬: ${a.name} ${a.sequence}(${aSeq}) vs ${b.name} ${b.sequence}(${bSeq})`);
-        return bSeq - aSeq; // 차수가 높은 것이 위에 (4차, 3차, 2차, 1차 순서)
+        return bSeq - aSeq; // 차수가 높은 것이 위에 (2차, 1차 순서)
       });
     }
 
@@ -546,35 +566,36 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   const handleGisungClaimDownload = async () => {
     setDownloadLoading(true);
     try {
-      // console.log('=== 기성금청구서 다운로드 시작 ===');
-      
-      // 기성금청구서 템플릿 사용
-      let generateTemplateBasedGisungExcel;
-      try {
-        const module = await import('../utils/gisungTemplateUtils');
-        generateTemplateBasedGisungExcel = module.generateTemplateBasedGisungExcel;
-      } catch (importError) {
-        console.error('템플릿 유틸리티 import 실패:', importError);
-        alert('템플릿 유틸리티를 불러올 수 없습니다. 페이지를 새로고침해주세요.');
-        return;
-      }
-      
-      // 선택된 현장 정보 가져오기
-      let siteData = {
-        name: '현장명',
-        contractAmount: 0,
-        manager: '',
-        company: '',
-        contractor: '',
-        contractType: '유리공사',
-        startDate: '',
-        endDate: '',
-        advance: 0
-      };
-
-      // 현장별 뷰에서 선택된 현장이 있으면 해당 정보 사용
-      let selectedSiteId = null;
+      // 현장별 뷰에서만 기성금청구서 다운로드
       if (viewType === 'site' && selectedSites && selectedSites.length > 0) {
+        // console.log('=== 기성금청구서 다운로드 시작 ===');
+        
+        // 기성금청구서 템플릿 사용
+        let generateTemplateBasedGisungExcel;
+        try {
+          const module = await import('../utils/gisungTemplateUtils');
+          generateTemplateBasedGisungExcel = module.generateTemplateBasedGisungExcel;
+        } catch (importError) {
+          console.error('템플릿 유틸리티 import 실패:', importError);
+          alert('템플릿 유틸리티를 불러올 수 없습니다. 페이지를 새로고침해주세요.');
+          return;
+        }
+        
+        // 선택된 현장 정보 가져오기
+        let siteData = {
+          name: '현장명',
+          contractAmount: 0,
+          manager: '',
+          company: '',
+          contractor: '',
+          contractType: '유리공사',
+          startDate: '',
+          endDate: '',
+          advance: 0
+        };
+
+        // 현장별 뷰에서 선택된 현장이 있으면 해당 정보 사용
+        let selectedSiteId = null;
         const selectedSiteName = selectedSites[0].trim();
         const site = sites.find(s => s.name && s.name.trim() === selectedSiteName);
         if (site) {
@@ -600,27 +621,22 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           };
           console.log('🔍 매핑된 siteData:', siteData);
         }
-      }
 
-      // 기성 데이터 준비 (데이터가 없어도 빈 배열로)
-      const gisungData = filteredAndSortedGisung.length > 0 ? 
-        filteredAndSortedGisung.map(row => ({
-          name: row.name,
-          contractAmount: row.contractAmount || 0,
-          advance: row.advance || 0,
-          prevGisung: row.prevGisung || 0,
-          gisungAmount: row.gisungAmount || 0,
-          gisungMonth: row.gisungMonth || '',
-          note: row.note || ''
-        })) : [];
+        // 기성 데이터 준비 (데이터가 없어도 빈 배열로)
+        const gisungData = filteredAndSortedGisung.length > 0 ? 
+          filteredAndSortedGisung.map(row => ({
+            name: row.name,
+            contractAmount: row.contractAmount || 0,
+            advance: row.advance || 0,
+            prevGisung: row.prevGisung || 0,
+            gisungAmount: row.gisungAmount || 0,
+            gisungMonth: row.gisungMonth || '',
+            note: row.note || ''
+          })) : [];
 
-      // 실제 현장의 물량 데이터 가져오기
-      let siteItems = [];
-      
-      // 현장별 뷰에서 선택된 현장이 있으면 해당 현장의 물량 데이터 사용
-      if (viewType === 'site' && selectedSites && selectedSites.length > 0) {
-        const selectedSiteName = selectedSites[0].trim();
-        const site = sites.find(s => s.name && s.name.trim() === selectedSiteName);
+        // 실제 현장의 물량 데이터 가져오기
+        let siteItems = [];
+        
         if (site && site.items && Array.isArray(site.items)) {
           siteItems = site.items;
           console.log('현장 물량 데이터 사용:', siteItems);
@@ -633,31 +649,29 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             isArray: site && site.items ? Array.isArray(site.items) : false
           });
         }
-      }
-      
-      // 물량 데이터가 없으면 기본값 사용
-      if (siteItems.length === 0) {
-        siteItems = [
-          {
-            name: '유리공사',
-            specification: '기성금청구서',
-            unit: '식',
-            quantity: 1,
-            unitPrice: siteData.contractAmount || 0,
-            amount: siteData.contractAmount || 0
-          }
-        ];
-        console.log('기본 물량 데이터 사용:', siteItems);
-      }
+        
+        // 물량 데이터가 없으면 기본값 사용
+        if (siteItems.length === 0) {
+          siteItems = [
+            {
+              name: '유리공사',
+              specification: '기성금청구서',
+              unit: '식',
+              quantity: 1,
+              unitPrice: siteData.contractAmount || 0,
+              amount: siteData.contractAmount || 0
+            }
+          ];
+          console.log('기본 물량 데이터 사용:', siteItems);
+        }
 
-      console.log('최종 siteItems 데이터:', siteItems);
-      console.log('최종 siteData:', siteData);
+        console.log('최종 siteItems 데이터:', siteItems);
+        console.log('최종 siteData:', siteData);
 
-      // 파일명 생성 - 청구완료된 기성 데이터의 개수로 차수 결정
-      let currentSequence = 1;
-      let completedGisung = []; // 변수를 함수 스코프에서 선언
-      
-      if (viewType === 'site' && selectedSites && selectedSites.length > 0) {
+        // 파일명 생성 - 청구완료된 기성 데이터의 개수로 차수 결정
+        let currentSequence = 1;
+        let completedGisung = []; // 변수를 함수 스코프에서 선언
+        
         // 현장별 뷰: Firebase에서 직접 해당 현장의 청구완료된 기성 데이터 조회 (siteId 사용)
         
         try {
@@ -702,170 +716,239 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           currentSequence = completedGisung.length + 1;
           console.log(`📊 기존 로직 사용: ${selectedSiteName} - 청구완료 ${completedGisung.length}개 → ${currentSequence}차`);
         }
-      } else {
-        // 전체 뷰: 전체 청구완료된 기성 데이터 개수 + 1
-        completedGisung = filteredAndSortedGisung.filter(gisung => gisung.claimStatus === '청구완료');
-        currentSequence = completedGisung.length + 1;
-        // console.log(`📊 파일명 차수 계산: 전체 - 청구완료 ${completedGisung.length}개 → ${currentSequence}차`);
-      }
-      
-      // 차수 계산 로그 추가
-      console.log(`📊 최종 차수: ${currentSequence}차`);
-      console.log(`📊 현장명: ${siteData.name}`);
-      console.log(`📊 청구완료된 기성 데이터: ${completedGisung.length}개`);
-      
-      console.log('템플릿 생성 시작...');
-      
-      // 이전 기성 데이터에서 K값을 G값으로 가져오기
-      let previousGisungData = null;
-      if (currentSequence > 1 && selectedSiteId) {
-        try {
-          // 1. gisung_uploads 컬렉션에서 extractedItems와 uploadedData 가져오기
-          console.log(`🔍 gisung_uploads 조회 조건: siteId=${selectedSiteId}, sequence=${currentSequence - 1}`);
-          
-          // 먼저 해당 현장의 모든 gisung_uploads 데이터를 가져와서 확인
-          const allGisungUploadsQuery = query(
-            collection(db, 'gisung_uploads'),
-            where('siteId', '==', selectedSiteId)
-          );
-          const allGisungUploadsSnapshot = await getDocs(allGisungUploadsQuery);
-          console.log(`🔍 해당 현장의 모든 gisung_uploads 데이터:`, allGisungUploadsSnapshot.docs.map(doc => doc.data()));
-          
-          // sequence 필드 타입 확인
-          allGisungUploadsSnapshot.docs.forEach(doc => {
-            const data = doc.data();
-            console.log(`📊 문서 ${doc.id}: sequence=${data.sequence} (타입: ${typeof data.sequence})`);
-          });
-          
-          // 이제 정확한 sequence로 조회 (claimStatus 필터 제거 - gisung_uploads에는 해당 필드가 없음)
-          console.log(`🔍 조회 조건: siteId=${selectedSiteId}, sequence=${currentSequence - 1} (타입: ${typeof (currentSequence - 1)})`);
-          
-          const previousGisungUploadsQuery = query(
-            collection(db, 'gisung_uploads'),
-            where('siteId', '==', selectedSiteId),
-            where('sequence', '==', currentSequence - 1)
-          );
-          const previousGisungUploadsSnapshot = await getDocs(previousGisungUploadsQuery);
-          
-          console.log(`🔍 gisung_uploads 조회 결과: ${previousGisungUploadsSnapshot.size}개 문서`);
-          if (!previousGisungUploadsSnapshot.empty) {
-            const docData = previousGisungUploadsSnapshot.docs[0].data();
-            console.log(`📊 찾은 문서 데이터:`, docData);
-            console.log(`📊 extractedItems:`, docData.extractedItems);
-            console.log(`📊 uploadedData:`, docData.uploadedData);
+        
+        // 차수 계산 로그 추가
+        console.log(`📊 최종 차수: ${currentSequence}차`);
+        console.log(`📊 현장명: ${siteData.name}`);
+        console.log(`📊 청구완료된 기성 데이터: ${completedGisung.length}개`);
+        
+        console.log('템플릿 생성 시작...');
+        
+        // 이전 기성 데이터에서 K값을 G값으로 가져오기
+        let previousGisungData = null;
+        if (currentSequence > 1 && selectedSiteId) {
+          try {
+            // 1. gisung_uploads 컬렉션에서 extractedItems와 uploadedData 가져오기
+            console.log(`🔍 gisung_uploads 조회 조건: siteId=${selectedSiteId}, sequence=${currentSequence - 1}`);
             
-            // uploadedData 구조 확인
-            if (docData.uploadedData && typeof docData.uploadedData === 'object') {
-              const uploadedDataArray = [];
-              Object.keys(docData.uploadedData).forEach(key => {
-                if (key.startsWith('item_')) {
-                  uploadedDataArray.push(docData.uploadedData[key]);
-                }
+            // 먼저 해당 현장의 모든 gisung_uploads 데이터를 가져와서 확인
+            const allGisungUploadsQuery = query(
+              collection(db, 'gisung_uploads'),
+              where('siteId', '==', selectedSiteId)
+            );
+            const allGisungUploadsSnapshot = await getDocs(allGisungUploadsQuery);
+            console.log(`🔍 해당 현장의 모든 gisung_uploads 데이터:`, allGisungUploadsSnapshot.docs.map(doc => doc.data()));
+            
+            // sequence 필드 타입 확인
+            allGisungUploadsSnapshot.docs.forEach(doc => {
+              const data = doc.data();
+              console.log(`📊 문서 ${doc.id}: sequence=${data.sequence} (타입: ${typeof data.sequence})`);
+            });
+            
+            // 가장 최근에 업로드된 데이터를 가져오기 (sequence 필터 제거)
+            console.log(`🔍 조회 조건: siteId=${selectedSiteId}, 가장 최근 업로드 데이터`);
+            
+            const previousGisungUploadsQuery = query(
+              collection(db, 'gisung_uploads'),
+              where('siteId', '==', selectedSiteId)
+            );
+            const previousGisungUploadsSnapshot = await getDocs(previousGisungUploadsQuery);
+            
+            console.log(`🔍 gisung_uploads 조회 결과: ${previousGisungUploadsSnapshot.size}개 문서`);
+            if (!previousGisungUploadsSnapshot.empty) {
+              // 가장 최근에 업로드된 문서 선택 (uploadDate 기준)
+              const sortedDocs = previousGisungUploadsSnapshot.docs.sort((a, b) => {
+                const aDate = a.data().uploadDate?.toDate?.() || new Date(0);
+                const bDate = b.data().uploadDate?.toDate?.() || new Date(0);
+                return bDate - aDate; // 최신순 정렬
               });
-              console.log(`📊 변환된 uploadedData 배열:`, uploadedDataArray);
-              console.log(`📊 uploadedData 배열 길이:`, uploadedDataArray.length);
+              
+              const docData = sortedDocs[0].data();
+              console.log(`📊 찾은 문서 데이터:`, docData);
+              console.log(`📊 extractedItems:`, docData.extractedItems);
+              console.log(`📊 uploadedData:`, docData.uploadedData);
+              
+              // uploadedData 구조 확인
+              if (docData.uploadedData && typeof docData.uploadedData === 'object') {
+                const uploadedDataArray = [];
+                Object.keys(docData.uploadedData).forEach(key => {
+                  if (key.startsWith('item_')) {
+                    uploadedDataArray.push(docData.uploadedData[key]);
+                  }
+                });
+                console.log(`📊 변환된 uploadedData 배열:`, uploadedDataArray);
+                console.log(`📊 uploadedData 배열 길이:`, uploadedDataArray.length);
+              }
+            } else {
+              console.log(`❌ gisung_uploads에서 ${currentSequence - 1}차 데이터를 찾을 수 없음`);
             }
-          } else {
-            console.log(`❌ gisung_uploads에서 ${currentSequence - 1}차 데이터를 찾을 수 없음`);
-          }
-          
-          // 2. gisung 컬렉션에서 previousGisungResult와 advancePaymentResult 가져오기
-          console.log(`🔍 gisung 조회 조건: siteId=${selectedSiteId}, sequence=${currentSequence - 1}차`);
-          
-          const previousGisungQuery = query(
-            collection(db, 'gisung'),
-            where('siteId', '==', selectedSiteId),
-            where('claimStatus', '==', '청구완료'),
-            where('sequence', '==', `${currentSequence - 1}차`)
-          );
-          const previousGisungSnapshot = await getDocs(previousGisungQuery);
-          
-          console.log(`🔍 gisung 조회 결과: ${previousGisungSnapshot.size}개 문서`);
-          if (!previousGisungSnapshot.empty) {
-            const gisungData = previousGisungSnapshot.docs[0].data();
-            console.log(`📊 찾은 gisung 데이터:`, gisungData);
-            console.log(`📊 previousGisungResult:`, gisungData.previousGisungResult);
-            console.log(`📊 advancePaymentResult:`, gisungData.advancePaymentResult);
-            console.log(`📊 items 배열:`, gisungData.items);
-            console.log(`📊 items 배열 길이:`, gisungData.items ? gisungData.items.length : 0);
-          } else {
-            console.log(`❌ gisung에서 ${currentSequence - 1}차 데이터를 찾을 수 없음`);
-          }
-          
-          // 두 컬렉션의 데이터를 합치기
-          previousGisungData = {};
-          
-          if (!previousGisungUploadsSnapshot.empty) {
-            const uploadsData = previousGisungUploadsSnapshot.docs[0].data();
-            previousGisungData = { 
-              id: previousGisungUploadsSnapshot.docs[0].id, 
-              ...uploadsData 
-            };
-            console.log(`📊 gisung_uploads에서 데이터 가져옴:`, uploadsData);
-            console.log(`📊 extractedItems 필드:`, uploadsData.extractedItems);
-          }
-          
-          if (!previousGisungSnapshot.empty) {
-            const gisungData = previousGisungSnapshot.docs[0].data();
-            // gisung 컬렉션의 데이터로 덮어쓰기 (전회기성, 선급금 등)
-            previousGisungData = { 
-              ...previousGisungData, 
-              ...gisungData 
-            };
-            console.log(`📊 gisung에서 데이터 가져옴:`, gisungData);
-            console.log(`📊 previousGisungResult:`, gisungData.previousGisungResult);
-            console.log(`📊 advancePaymentResult:`, gisungData.advancePaymentResult);
-          }
-          
-          if (Object.keys(previousGisungData).length > 0) {
-            console.log(`📊 Firebase에서 이전 기성 데이터 찾음: ${previousGisungData.sequence}`);
-            console.log(`📊 이전 기성 데이터 상세:`, previousGisungData);
-            console.log(`📊 이전 기성 데이터 키들:`, Object.keys(previousGisungData));
-          } else {
-            console.log(`📊 이전 차수(${currentSequence - 1}차) 기성 데이터를 찾을 수 없음`);
-          }
-        } catch (error) {
-          console.error('❌ 이전 기성 데이터 조회 실패:', error);
-          // 실패 시 기존 로직 사용
-          const previousGisung = filteredAndSortedGisung.find(gisung => 
-            gisung.name === siteData.name && 
-            gisung.claimStatus === '청구완료' && 
-            gisung.sequence === `${currentSequence - 1}차`
-          );
-          if (previousGisung) {
-            previousGisungData = previousGisung;
-            console.log(`📊 기존 로직으로 이전 기성 데이터 찾음: ${previousGisung.sequence}`);
+            
+            // 2. gisung 컬렉션에서 previousGisungResult와 advancePaymentResult 가져오기
+            console.log(`🔍 gisung 조회 조건: siteId=${selectedSiteId}, sequence=${currentSequence - 1}차`);
+            
+            const previousGisungQuery = query(
+              collection(db, 'gisung'),
+              where('siteId', '==', selectedSiteId),
+              where('claimStatus', '==', '청구완료'),
+              where('sequence', '==', `${currentSequence - 1}차`)
+            );
+            const previousGisungSnapshot = await getDocs(previousGisungQuery);
+            
+            console.log(`🔍 gisung 조회 결과: ${previousGisungSnapshot.size}개 문서`);
+            if (!previousGisungSnapshot.empty) {
+              const gisungData = previousGisungSnapshot.docs[0].data();
+              console.log(`📊 찾은 gisung 데이터:`, gisungData);
+              console.log(`📊 previousGisungResult:`, gisungData.previousGisungResult);
+              console.log(`📊 advancePaymentResult:`, gisungData.advancePaymentResult);
+              console.log(`📊 items 배열:`, gisungData.items);
+              console.log(`📊 items 배열 길이:`, gisungData.items ? gisungData.items.length : 0);
+            } else {
+              console.log(`❌ gisung에서 ${currentSequence - 1}차 데이터를 찾을 수 없음`);
+            }
+            
+            // 두 컬렉션의 데이터를 합치기
+            previousGisungData = {};
+            
+            if (!previousGisungUploadsSnapshot.empty) {
+              // 가장 최근에 업로드된 문서 선택 (uploadDate 기준)
+              const sortedDocs = previousGisungUploadsSnapshot.docs.sort((a, b) => {
+                const aDate = a.data().uploadDate?.toDate?.() || new Date(0);
+                const bDate = b.data().uploadDate?.toDate?.() || new Date(0);
+                return bDate - aDate; // 최신순 정렬
+              });
+              
+              const uploadsData = sortedDocs[0].data();
+              previousGisungData = { 
+                id: sortedDocs[0].id, 
+                ...uploadsData 
+              };
+              console.log(`📊 gisung_uploads에서 데이터 가져옴:`, uploadsData);
+              console.log(`📊 extractedItems 필드:`, uploadsData.extractedItems);
+            }
+            
+            if (!previousGisungSnapshot.empty) {
+              const gisungData = previousGisungSnapshot.docs[0].data();
+              // gisung 컬렉션의 데이터로 덮어쓰기 (전회기성, 선급금 등)
+              previousGisungData = { 
+                ...previousGisungData, 
+                ...gisungData 
+              };
+              console.log(`📊 gisung에서 데이터 가져옴:`, gisungData);
+              console.log(`📊 previousGisungResult:`, gisungData.previousGisungResult);
+              console.log(`📊 advancePaymentResult:`, gisungData.advancePaymentResult);
+            }
+            
+            if (Object.keys(previousGisungData).length > 0) {
+              console.log(`📊 Firebase에서 이전 기성 데이터 찾음: ${previousGisungData.sequence}`);
+              console.log(`📊 이전 기성 데이터 상세:`, previousGisungData);
+              console.log(`📊 이전 기성 데이터 키들:`, Object.keys(previousGisungData));
+            } else {
+              console.log(`📊 이전 차수(${currentSequence - 1}차) 기성 데이터를 찾을 수 없음`);
+            }
+          } catch (error) {
+            console.error('❌ 이전 기성 데이터 조회 실패:', error);
+            // 실패 시 기존 로직 사용
+            const previousGisung = filteredAndSortedGisung.find(gisung => 
+              gisung.name === siteData.name && 
+              gisung.claimStatus === '청구완료' && 
+              gisung.sequence === `${currentSequence - 1}차`
+            );
+            if (previousGisung) {
+              previousGisungData = previousGisung;
+              console.log(`📊 기존 로직으로 이전 기성 데이터 찾음: ${previousGisung.sequence}`);
+            }
           }
         }
+        
+        // 기성금청구서 템플릿으로 엑셀 생성 (데이터만 입력)
+        const { workbook, gisungMonth } = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems, currentSequence, previousGisungData);
+        
+        // 파일명에서 특수문자 제거하여 안전한 파일명 생성
+        const safeSiteName = siteData.name.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
+        const fileName = `${currentSequence}차_기성금청구서_${safeSiteName}`;
+        
+        console.log('파일 다운로드 시작:', fileName);
+        
+        // ExcelJS 워크북을 직접 파일로 저장 (원래 방식)
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${fileName}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        console.log('기성금청구서 다운로드 완료:', fileName);
+        alert('기성금청구서가 다운로드되었습니다!');
+      } else {
+                 // 월별 뷰에서는 테이블 내용을 다운로드
+         const data = filteredAndSortedGisung.map((row, index) => {
+           // 잔액 계산
+           const currentSeq = parseInt(row.sequence?.replace('차', '') || '0');
+           const totalGisungForSite = allGisungData
+             .filter(g => {
+               const gSeq = parseInt(g.sequence?.replace('차', '') || '0');
+               return g.name === row.name && 
+                      g.claimStatus === '청구완료' && 
+                      gSeq <= currentSeq;
+             })
+             .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+           const balance = (row.contractAmount || 0) - (row.advance || 0) - totalGisungForSite;
+
+          return {
+            'NO.': index + 1,
+            '차수': row.sequence || '1차',
+            '기성월': row.gisungMonth || '-',
+            '현장명': row.name || '',
+            '계약금액': formatNumber(row.contractAmount, true),
+            '선급금': formatNumber(row.advance, true),
+            '전회기성': formatNumber(row.prevGisung, true),
+            '금회기성': formatNumber(row.gisungAmount, true),
+            '잔액': formatNumber(balance, true),
+            '청구상태': row.claimStatus === '청구완료' ? '청구완료' : '미청구',
+            '청구방법': row.claimMethod || '-',
+            '입금확인': row.paymentStatus || '미입금',
+            '비고': row.note || ''
+          };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        
+        // 테두리 스타일 설정
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+            if (!ws[cell_address]) {
+              ws[cell_address] = { v: '', t: 's' };
+            }
+            ws[cell_address].s = {
+              border: {
+                top: { style: 'thin', color: { rgb: '000000' } },
+                bottom: { style: 'thin', color: { rgb: '000000' } },
+                left: { style: 'thin', color: { rgb: '000000' } },
+                right: { style: 'thin', color: { rgb: '000000' } }
+              }
+            };
+          }
+        }
+        
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '기성관리목록');
+        XLSX.writeFile(wb, `기성관리목록_${monthText}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        
+        console.log('기성관리목록 다운로드 완료');
+        alert('기성관리목록이 다운로드되었습니다!');
       }
-      
-      // 기성금청구서 템플릿으로 엑셀 생성 (데이터만 입력)
-      const { workbook, gisungMonth } = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems, currentSequence, previousGisungData);
-      
-      const fileName = `(${currentSequence}차 기성금청구서)${siteData.name} 중 유리공사`;
-      
-      console.log('파일 다운로드 시작:', fileName);
-      
-      // ExcelJS 워크북을 직접 파일로 저장 (서식 보존)
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${fileName}.xlsx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      console.log('기성금청구서 다운로드 완료:', fileName);
-      alert('기성금청구서가 다운로드되었습니다!');
     } catch (error) {
-      console.error('기성금청구서 다운로드 실패:', error);
+      console.error('다운로드 실패:', error);
       console.error('오류 상세:', error.stack);
       
       // 사용자에게 더 친화적인 오류 메시지 제공
-      let errorMessage = '기성금청구서 다운로드에 실패했습니다.';
+      let errorMessage = '다운로드에 실패했습니다.';
       if (error.message.includes('템플릿')) {
         errorMessage = '템플릿 파일을 불러올 수 없습니다. 잠시 후 다시 시도해주세요.';
       } else if (error.message.includes('Firebase')) {
@@ -1184,6 +1267,65 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     }
   };
 
+  // 입금확인 상태 변경 함수
+  const handlePaymentStatusChange = async (gisungItem) => {
+    try {
+      let newStatus;
+      if (!gisungItem.paymentStatus || gisungItem.paymentStatus === '미입금') {
+        newStatus = '입금완료';
+      } else if (gisungItem.paymentStatus === '입금완료') {
+        newStatus = '일부분';
+      } else if (gisungItem.paymentStatus === '일부분') {
+        newStatus = '악성';
+      } else if (gisungItem.paymentStatus === '악성') {
+        newStatus = '미입금';
+      }
+      
+      console.log(`🔄 입금확인 상태 변경 시작: ${gisungItem.name}`);
+      console.log(`🔍 현재 상태: ${gisungItem.paymentStatus || '미입금'} → ${newStatus}`);
+      
+      // Firebase에서 상태만 업데이트 (기존 데이터 유지)
+      console.log(`🔥 Firebase 상태 업데이트 시작: ID ${gisungItem.id}`);
+      const gisungRef = doc(db, 'gisung', gisungItem.id);
+      
+      const updateData = {
+        paymentStatus: newStatus,
+        updatedAt: serverTimestamp()
+      };
+      
+      console.log(`📝 저장할 데이터:`, updateData);
+      
+      await updateDoc(gisungRef, updateData);
+      console.log(`✅ Firebase 상태 업데이트 완료`);
+      
+      // 로컬 상태 업데이트 (기존 데이터 유지)
+      setGisungList(prev => 
+        prev.map(item => 
+          item.id === gisungItem.id 
+            ? { ...item, paymentStatus: newStatus }
+            : item
+        )
+      );
+      console.log(`✅ 로컬 상태 업데이트 완료`);
+      
+      // 전체 데이터 새로고침
+      console.log(`🔄 전체 데이터 새로고침 시작...`);
+      await fetchAllGisung();
+      await fetchGisung();
+      console.log(`✅ 전체 데이터 새로고침 완료`);
+      
+      console.log(`✅ 입금확인 상태 변경 완료: ${gisungItem.name} - ${newStatus}`);
+      
+      // 성공 메시지
+      alert(`입금확인 상태가 ${newStatus}로 변경되었습니다.`);
+      
+    } catch (error) {
+      console.error('❌ 입금확인 상태 변경 실패:', error);
+      console.error('❌ 오류 상세:', error.stack);
+      alert('입금확인 상태 변경에 실패했습니다: ' + error.message);
+    }
+  };
+
   const handleBulkDelete = async () => {
     if (selectedItems.length === 0) return;
     
@@ -1232,34 +1374,102 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     setUploadMessage('기성금청구서 파일을 업로드 중...');
     
     try {
-      // 현장 데이터 찾기 (현재 선택된 현장 우선, 없으면 formData 사용)
-      let siteData = null;
-      
-      // 현장별 뷰에서 선택된 현장이 있으면 해당 정보 사용
+      // 현장별 뷰에서만 기성금청구서 업로드
       if (viewType === 'site' && selectedSites && selectedSites.length > 0) {
+        // 현장 데이터 찾기 (현재 선택된 현장 우선, 없으면 formData 사용)
+        let siteData = null;
+        
+        // 현장별 뷰에서 선택된 현장이 있으면 해당 정보 사용
         const selectedSiteName = selectedSites[0].trim();
         siteData = sites.find(s => s.name && s.name.trim() === selectedSiteName);
         console.log('🔍 선택된 현장으로 업로드:', selectedSiteName, siteData);
-      }
-      
-      // 선택된 현장이 없으면 formData 사용
-      if (!siteData) {
-        siteData = sites.find(site => site.name === formData.name);
-        console.log('🔍 formData로 현장 찾기:', formData.name, siteData);
-      }
-      
-      if (!siteData) {
-        throw new Error('현장 정보를 찾을 수 없습니다. 현장을 선택해주세요.');
-      }
-      
-      console.log('✅ 업로드할 현장 정보:', siteData);
-      
-      // 기성금청구서 업로드 (올바른 함수 사용)
-      const { parseGisungExcelUpload } = await import('../utils/gisungUploadUtils');
-      const result = await parseGisungExcelUpload(selectedFile, siteData, filteredAndSortedGisung);
-      
-      if (result.success) {
-        setUploadMessage(`✅ 기성금청구서 업로드 완료! (${result.data.length}개 항목) - 테이블에 추가됨`);
+        
+        // 선택된 현장이 없으면 formData 사용
+        if (!siteData) {
+          siteData = sites.find(site => site.name === formData.name);
+          console.log('🔍 formData로 현장 찾기:', formData.name, siteData);
+        }
+        
+        if (!siteData) {
+          throw new Error('현장 정보를 찾을 수 없습니다. 현장을 선택해주세요.');
+        }
+        
+        console.log('✅ 업로드할 현장 정보:', siteData);
+        
+        // 기성금청구서 업로드 (올바른 함수 사용)
+        const { parseGisungExcelUpload } = await import('../utils/gisungUploadUtils');
+        const result = await parseGisungExcelUpload(selectedFile, siteData, filteredAndSortedGisung);
+        
+        if (result.success) {
+          const itemCount = result.data ? result.data.length : 0;
+          setUploadMessage(`✅ 기성금청구서 업로드 완료! (${itemCount}개 항목) - 테이블에 추가됨`);
+          setSelectedFile(null);
+          
+          // 즉시 데이터 새로고침
+          console.log('🔄 업로드 후 데이터 새로고침 시작...');
+          await fetchGisung();
+          await fetchAllGisung();
+          
+          setTimeout(() => {
+            setUploadDialog(false);
+            setUploadMessage('');
+          }, 3000);
+        } else {
+          setUploadMessage(`업로드 실패: ${result.message}`);
+        }
+      } else {
+        // 월별 뷰에서는 목록 업로드
+        setUploadMessage('목록 파일을 업로드 중...');
+        
+        // 엑셀 파일 읽기
+        const data = new Uint8Array(await selectedFile.arrayBuffer());
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        console.log('📊 업로드된 데이터:', jsonData);
+        
+        // 데이터 처리 및 저장
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const row of jsonData) {
+          try {
+            // 필수 필드 확인
+            if (!row['현장명'] || !row['기성월']) {
+              console.warn('필수 필드 누락:', row);
+              continue;
+            }
+            
+            // 기성 데이터 생성
+            const gisungData = {
+              name: row['현장명'] || '',
+              sequence: row['차수'] || '1차',
+              gisungMonth: row['기성월'] || '',
+              contractAmount: parseFloat(row['계약금액']?.replace(/[^\d.-]/g, '') || '0'),
+              advance: parseFloat(row['선급금']?.replace(/[^\d.-]/g, '') || '0'),
+              prevGisung: parseFloat(row['전회기성']?.replace(/[^\d.-]/g, '') || '0'),
+              gisungAmount: parseFloat(row['금회기성']?.replace(/[^\d.-]/g, '') || '0'),
+              claimMethod: row['청구방법'] || '',
+              claimStatus: row['청구상태'] === '청구완료' ? '청구완료' : '미청구',
+              paymentStatus: row['입금확인'] || '미입금',
+              note: row['비고'] || '',
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            };
+            
+            // Firebase에 저장
+            await addDoc(collection(db, 'gisung'), gisungData);
+            successCount++;
+            
+          } catch (error) {
+            console.error('행 처리 오류:', error, row);
+            errorCount++;
+          }
+        }
+        
+        setUploadMessage(`✅ 목록 업로드 완료! (${successCount}개 성공, ${errorCount}개 실패)`);
         setSelectedFile(null);
         
         // 즉시 데이터 새로고침
@@ -1271,8 +1481,6 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           setUploadDialog(false);
           setUploadMessage('');
         }, 3000);
-      } else {
-        setUploadMessage(`업로드 실패: ${result.message}`);
       }
     } catch (error) {
       console.error('업로드 실패:', error);
@@ -1283,7 +1491,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   };
 
   // 모바일용 기성 데이터 카드 컴포넌트
-  const MobileGisungCard = ({ gisung, onEdit, onDelete, onStatusChange }) => (
+  const MobileGisungCard = ({ gisung, onEdit, onDelete, onStatusChange, onPaymentStatusChange }) => (
     <Card sx={{ 
       mb: 2, 
       bgcolor: '#232b3b', 
@@ -1353,8 +1561,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                    })
                    .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
                  
-                 // 잔액 = 계약금액 - 해당 차수까지의 누계기성
-                 const balance = (gisung.contractAmount || 0) - totalGisungForSite;
+                 // 잔액 = 계약금액 - 선급금 - 해당 차수까지의 누계기성
+                 const balance = (gisung.contractAmount || 0) - (gisung.advance || 0) - totalGisungForSite;
                  return balance.toLocaleString();
                })()}원
              </Typography>
@@ -1367,23 +1575,47 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           </Grid>
         </Grid>
 
-        {/* 하단: 청구상태, 비고, 액션 버튼 */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Chip
-            label={gisung.claimStatus === '청구완료' ? '청구완료' : '미청구'}
-            size="small"
-            onClick={() => onStatusChange(gisung)}
-            sx={{
-              bgcolor: gisung.claimStatus === '청구완료' ? '#4caf50' : '#ff9800',
-              color: '#fff',
-              fontWeight: 700,
-              cursor: 'pointer',
-              fontSize: '0.7rem',
-              '&:hover': {
-                bgcolor: gisung.claimStatus === '청구완료' ? '#45a049' : '#f57c00'
-              }
-            }}
-          />
+        {/* 하단: 청구상태, 입금확인, 비고, 액션 버튼 */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Chip
+              label={gisung.claimStatus === '청구완료' ? '청구완료' : '미청구'}
+              size="small"
+              onClick={() => onStatusChange(gisung)}
+              sx={{
+                bgcolor: gisung.claimStatus === '청구완료' ? '#4caf50' : '#ff9800',
+                color: '#fff',
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontSize: '0.7rem',
+                '&:hover': {
+                  bgcolor: gisung.claimStatus === '청구완료' ? '#45a049' : '#f57c00'
+                }
+              }}
+            />
+            <Chip
+              label={gisung.paymentStatus || '미입금'}
+              size="small"
+              onClick={() => onPaymentStatusChange(gisung)}
+              sx={{
+                bgcolor: gisung.paymentStatus === '입금완료' ? '#ffd600' : 
+                        gisung.paymentStatus === '일부분' ? '#ff9800' :
+                        gisung.paymentStatus === '악성' ? '#f44336' : '#2a2a2a',
+                color: gisung.paymentStatus === '입금완료' ? '#000' : '#fff',
+                border: gisung.paymentStatus === '입금완료' ? '2px solid #ffd600' : 
+                       gisung.paymentStatus === '일부분' ? '2px solid #ff9800' :
+                       gisung.paymentStatus === '악성' ? '2px solid #f44336' : '2px solid #fff',
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontSize: '0.7rem',
+                '&:hover': {
+                  bgcolor: gisung.paymentStatus === '입금완료' ? '#ffed4e' : 
+                          gisung.paymentStatus === '일부분' ? '#ffb74d' :
+                          gisung.paymentStatus === '악성' ? '#ef5350' : '#444'
+                }
+              }}
+            />
+          </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <IconButton
               size="small"
@@ -1574,7 +1806,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
              px: isMobile ? 1 : 2
                  }}
                >
-                 {isMobile ? '기성청구서' : '기성금청구서 다운로드'}
+                 {isMobile ? '기성청구서' : (viewType === 'site' ? '기성금청구서 다운로드' : '목록 다운로드')}
                </Button>
 
                          <Button
@@ -1589,7 +1821,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
              px: isMobile ? 1 : 2
            }}
          >
-           {isMobile ? '기성업로드' : '기성금청구서 업로드'}
+           {isMobile ? '기성업로드' : (viewType === 'site' ? '기성금청구서 업로드' : '목록 업로드')}
              </Button>
 
 
@@ -1620,6 +1852,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 onEdit={handleOpen}
                 onDelete={handleDelete}
                 onStatusChange={handleClaimStatusChange}
+                onPaymentStatusChange={handlePaymentStatusChange}
               />
             ))
           )}
@@ -1685,6 +1918,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                   <TableCell sx={{ color: '#fff', fontWeight: 700 }}>잔액</TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 700 }}>청구상태</TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 700 }}>청구방법</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>입금확인</TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 700 }}>비고</TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 700 }}>관리</TableCell>
                 </TableRow>
@@ -1692,7 +1926,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
               <TableBody>
                 {filteredAndSortedGisung.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} sx={{ textAlign: 'center', color: '#bbb', py: 4 }}>
+                    <TableCell colSpan={13} sx={{ textAlign: 'center', color: '#bbb', py: 4 }}>
                       {search ? '검색 결과가 없습니다.' : '기성 데이터가 없습니다.'}
                     </TableCell>
                   </TableRow>
@@ -1762,8 +1996,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                              })
                              .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
                            
-                           // 잔액 = 계약금액 - 해당 차수까지의 누계기성
-                           const balance = (row.contractAmount || 0) - totalGisungForSite;
+                           // 잔액 = 계약금액 - 선급금 - 해당 차수까지의 누계기성
+                           const balance = (row.contractAmount || 0) - (row.advance || 0) - totalGisungForSite;
                            return formatNumber(balance, true);
                          })()}
                        </TableCell>
@@ -1785,6 +2019,29 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                       </TableCell>
                       <TableCell sx={{ color: '#fff' }}>
                         {row.claimMethod || '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={row.paymentStatus || '미입금'}
+                          size="small"
+                          onClick={() => handlePaymentStatusChange(row)}
+                          sx={{
+                            bgcolor: row.paymentStatus === '입금완료' ? '#ffd600' : 
+                                    row.paymentStatus === '일부분' ? '#ff9800' :
+                                    row.paymentStatus === '악성' ? '#f44336' : '#2a2a2a',
+                            color: row.paymentStatus === '입금완료' ? '#000' : '#fff',
+                            border: row.paymentStatus === '입금완료' ? '2px solid #ffd600' : 
+                                   row.paymentStatus === '일부분' ? '2px solid #ff9800' :
+                                   row.paymentStatus === '악성' ? '2px solid #f44336' : '2px solid #fff',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            '&:hover': {
+                              bgcolor: row.paymentStatus === '입금완료' ? '#ffed4e' : 
+                                      row.paymentStatus === '일부분' ? '#ffb74d' :
+                                      row.paymentStatus === '악성' ? '#ef5350' : '#444'
+                            }
+                          }}
+                        />
                       </TableCell>
                       <TableCell sx={{ color: '#bbb' }}>{row.note || '-'}</TableCell>
                       <TableCell>

@@ -39,7 +39,7 @@ async function uploadTemplate() {
     
     // 파이어베이스 Storage에 업로드
     console.log('☁️ 파이어베이스 Storage에 업로드 중...');
-    const templateRef = ref(storage, 'templates/gisung.xlsx');
+    const templateRef = ref(storage, 'templates/NEWgisung.xlsx');
     const snapshot = await uploadBytes(templateRef, fileBuffer);
     
     console.log('✅ 템플릿 파일 업로드 완료!');

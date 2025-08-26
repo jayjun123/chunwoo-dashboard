@@ -24,8 +24,8 @@ async function uploadTemplate() {
     
     // 기성금 템플릿 업로드
     console.log('📊 기성금 템플릿 업로드 중...');
-    const gisungBuffer = fs.readFileSync('./public/gisung.xlsx');
-    const gisungRef = ref(storage, 'templates/gisung.xlsx');
+    const gisungBuffer = fs.readFileSync('./public/NEWgisung.xlsx');
+    const gisungRef = ref(storage, 'templates/NEWgisung.xlsx');
     const gisungSnapshot = await uploadBytes(gisungRef, gisungBuffer);
     console.log('✅ 기성금 템플릿 업로드 완료');
     console.log('📊 업로드된 파일 크기:', gisungSnapshot.metadata.size, 'bytes');

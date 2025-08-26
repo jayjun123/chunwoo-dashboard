@@ -22,7 +22,7 @@ async function checkTemplateFormulas() {
     console.log('🔍 템플릿 수식 확인 시작...');
     
     // Firebase Storage에서 템플릿 다운로드
-    const storageRef = ref(storage, 'templates/gisung.xlsx');
+    const storageRef = ref(storage, 'templates/NEWgisung.xlsx');
     const templateUrl = await getDownloadURL(storageRef);
     
     console.log('📥 템플릿 다운로드 중...');
