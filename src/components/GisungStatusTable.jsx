@@ -5,7 +5,6 @@ import {
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, CloudDownload, CloudUpload } from '@mui/icons-material';
 import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { formatNumber } from '../utils/formatUtils';
 
 const GisungStatusTable = ({ onNewGisung }) => {
   const [gisungList, setGisungList] = useState([]);
@@ -85,11 +84,11 @@ const GisungStatusTable = ({ onNewGisung }) => {
               <TableRow key={row.id}>
                 <TableCell padding="checkbox"><Checkbox /></TableCell>
                 <TableCell>{row.name}</TableCell>
-                <TableCell>{formatNumber(row.contractAmount, true)}</TableCell>
-                <TableCell>{formatNumber(row.advance, true)}</TableCell>
-                <TableCell>{formatNumber(row.prevGisung, true)}</TableCell>
+                <TableCell>{Number(row.contractAmount || 0).toLocaleString()}원</TableCell>
+                <TableCell>{Number(row.advance || 0).toLocaleString()}원</TableCell>
+                <TableCell>{Number(row.prevGisung || 0).toLocaleString()}원</TableCell>
                 <TableCell>{row.gisungMonth || '-'}</TableCell>
-                <TableCell>{formatNumber(row.gisungAmount, true)}</TableCell>
+                <TableCell>{Number(row.gisungAmount || 0).toLocaleString()}원</TableCell>
                 <TableCell>{row.paymentMethod || '-'}</TableCell>
                 <TableCell>{row.note || '-'}</TableCell>
                 <TableCell>

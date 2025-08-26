@@ -1050,6 +1050,74 @@ const NewSites = () => {
     }
   };
 
+  // 모든 현장의 templateType 마이그레이션
+  const handleMigrateTemplateTypes = async () => {
+    try {
+      console.log('🚀 현장 템플릿 표시 마이그레이션 시작...');
+      
+      // 모든 현장 데이터 가져오기
+      const sitesSnapshot = await getDocs(collection(db, 'sites'));
+      const sites = sitesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      console.log(`📊 총 ${sites.length}개의 현장 데이터 발견`);
+      
+      let updatedCount = 0;
+      let skippedCount = 0;
+      
+      for (const site of sites) {
+        try {
+          console.log(`\n🔍 현장 처리 중: ${site.name || site.id}`);
+          
+          // 물량 데이터 개수 확인
+          const items = site.items || [];
+          const itemCount = items.length;
+          
+          // templateType 결정
+          let templateType = 'N'; // 기본값
+          if (itemCount > 20) {
+            templateType = 'L';
+          }
+          
+          console.log(`📋 물량 데이터: ${itemCount}개 → ${templateType} 템플릿`);
+          
+          // 이미 templateType이 설정되어 있고 변경사항이 없으면 스킵
+          if (site.templateType === templateType) {
+            console.log(`⏭️ 이미 올바른 templateType 설정됨: ${templateType}`);
+            skippedCount++;
+            continue;
+          }
+          
+          // templateType 업데이트
+          await updateDoc(doc(db, 'sites', site.id), {
+            templateType: templateType,
+            updatedAt: new Date()
+          });
+          
+          console.log(`✅ templateType 업데이트 완료: ${templateType}`);
+          updatedCount++;
+          
+        } catch (error) {
+          console.error(`❌ 현장 ${site.name || site.id} 처리 실패:`, error);
+        }
+      }
+      
+      console.log('\n🎉 마이그레이션 완료!');
+      console.log(`📊 총 현장: ${sites.length}개`);
+      console.log(`✅ 업데이트: ${updatedCount}개`);
+      console.log(`⏭️ 스킵: ${skippedCount}개`);
+      
+      // 결과를 alert로 표시
+      alert(`마이그레이션 완료!\n총 현장: ${sites.length}개\n업데이트: ${updatedCount}개\n스킵: ${skippedCount}개`);
+      
+    } catch (error) {
+      console.error('❌ 마이그레이션 실패:', error);
+      alert(`마이그레이션 실패: ${error.message}`);
+    }
+  };
+
   const handleAddAdjustmentItem = async (itemType = '단수정리') => {
     // 수정 모드가 아닌 경우 편집 불가
     if (selectedSite && !isEditing) {
@@ -2705,9 +2773,26 @@ const NewSites = () => {
         overflow: 'visible' // 모바일에서는 스크롤 허용
       }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
-          <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>
-            물량 내역
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>
+              물량 내역
+            </Typography>
+            {items && items.length > 0 && (
+              <Chip
+                label={items.length > 20 ? 'L' : 'N'}
+                size="small"
+                sx={{
+                  backgroundColor: items.length > 20 ? '#ff9800' : '#4caf50',
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  fontSize: '0.8rem',
+                  minWidth: '24px',
+                  height: '24px'
+                }}
+                title={items.length > 20 ? '20개 초과 - LONGgisung 템플릿 사용' : '20개 이하 - NEWgisung 템플릿 사용'}
+              />
+            )}
+          </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button 
               variant="outlined" 
@@ -2721,6 +2806,27 @@ const NewSites = () => {
               disabled={isReadOnly}
             >
               품목추가
+            </Button>
+            <Button 
+              variant="outlined" 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleMigrateTemplateTypes();
+              }} 
+              size={isMobile ? 'small' : 'medium'} 
+              sx={{ 
+                fontSize: isMobile ? '0.7rem' : 'inherit',
+                color: '#ff9800',
+                borderColor: '#ff9800',
+                '&:hover': {
+                  borderColor: '#f57c00',
+                  backgroundColor: 'rgba(255, 152, 0, 0.04)'
+                }
+              }}
+              title="모든 현장의 물량 데이터 개수에 따라 L/N 표시 업데이트"
+            >
+              L/N 업데이트
             </Button>
             <Button 
               variant="outlined" 
