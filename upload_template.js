@@ -7,10 +7,10 @@ async function uploadTemplate() {
     console.log('📤 템플릿 업로드 시작...');
     
     // 로컬 파일 읽기
-    const fileBuffer = fs.readFileSync('./public/gisung.xlsx');
+    const fileBuffer = fs.readFileSync('./public/NEWgisung.xlsx');
     
     // Firebase Storage에 업로드
-    const templateRef = ref(storage, 'templates/gisung.xlsx');
+    const templateRef = ref(storage, 'templates/NEWgisung.xlsx');
     await uploadBytes(templateRef, fileBuffer);
     
     console.log('✅ 템플릿 업로드 완료');

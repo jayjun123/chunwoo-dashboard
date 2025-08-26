@@ -30,7 +30,7 @@ async function uploadTemplateToFirebase() {
     console.log('📥 템플릿 파일 로드 완료, 크기:', templateBuffer.length, 'bytes');
     
     // 파이어베이스에 업로드
-    const templateRef = ref(storage, 'templates/gisung.xlsx');
+    const templateRef = ref(storage, 'templates/NEWgisung.xlsx');
     const snapshot = await uploadBytes(templateRef, templateBuffer);
     
     console.log('✅ 템플릿 파일 업로드 완료!');

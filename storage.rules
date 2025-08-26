@@ -1,9 +1,9 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // 템플릿 파일은 모든 로그인 사용자가 읽기 가능
+    // 템플릿 파일은 모든 사용자가 읽기 가능 (인증 없이도)
     match /templates/{fileName} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if request.auth != null && 
         (request.auth.token.role == 'admin' || request.auth.token.role == 'master');
     }

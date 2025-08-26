@@ -20,14 +20,14 @@ async function deleteOldTemplate() {
   try {
     console.log('🗑️ 파이어베이스에서 gisung.xlsx 파일 삭제 시작...');
     
-    // gisung.xlsx 파일 참조
-    const oldTemplateRef = ref(storage, 'templates/gisung.xlsx');
+    // NEWgisung.xlsx 파일 참조
+    const oldTemplateRef = ref(storage, 'templates/NEWgisung.xlsx');
     
     // 파일 삭제
     await deleteObject(oldTemplateRef);
     
     console.log('✅ gisung.xlsx 파일 삭제 완료!');
-    console.log('📂 삭제된 경로: templates/gisung.xlsx');
+    console.log('📂 삭제된 경로: templates/NEWgisung.xlsx');
     
   } catch (error) {
     if (error.code === 'storage/object-not-found') {

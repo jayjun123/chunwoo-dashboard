@@ -12,7 +12,7 @@
     // 토큰을 가져올 파일 목록
     const files = [
       'templates/estimate.xlsx',
-      'templates/gisung.xlsx',
+      'templates/NEWgisung.xlsx',
       'templates/contract_gabji.xlsx'
     ];
     

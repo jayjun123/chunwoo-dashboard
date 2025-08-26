@@ -26,7 +26,8 @@ import {
   InputAdornment,
   Tooltip,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  LinearProgress
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -166,6 +167,7 @@ const VendorManagement = () => {
   const [sortField, setSortField] = useState('name');
   const [sortDirection, setSortDirection] = useState('asc');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [uploadProgress, setUploadProgress] = useState({ show: false, current: 0, total: 0 });
 
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
@@ -665,6 +667,235 @@ const VendorManagement = () => {
     XLSX.writeFile(wb, `거래처목록_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  // 데이터 품질 점수 계산 함수
+  const calculateDataQualityScore = (vendorData) => {
+    let score = 0;
+    
+    // 필수 필드 (높은 가중치)
+    if (vendorData.name && vendorData.name.trim()) score += 10;
+    if (vendorData.companyName && vendorData.companyName.trim()) score += 10;
+    
+    // 중요 필드 (중간 가중치)
+    if (vendorData.phone && vendorData.phone.trim()) score += 8;
+    if (vendorData.email && vendorData.email.trim()) score += 6;
+    if (vendorData.position && vendorData.position.trim()) score += 5;
+    
+    // 추가 정보 필드 (낮은 가중치)
+    if (vendorData.businessNumber && vendorData.businessNumber.trim()) score += 4;
+    if (vendorData.address && vendorData.address.trim()) score += 3;
+    if (vendorData.note && vendorData.note.trim()) score += 2;
+    
+    return score;
+  };
+
+  // 이름과 회사명 정규화 함수
+  const normalizeVendorData = (vendorData) => {
+    return {
+      name: vendorData.name?.trim().toLowerCase() || '',
+      companyName: vendorData.companyName?.trim().toLowerCase() || ''
+    };
+  };
+
+  // 중복 데이터 처리 함수
+  const handleDuplicateData = (existingVendors, newVendorData) => {
+    const normalizedNew = normalizeVendorData(newVendorData);
+    
+    // 정확한 매칭과 유사한 매칭 모두 확인
+    const exactDuplicates = existingVendors.filter(vendor => {
+      const normalizedExisting = normalizeVendorData(vendor);
+      return normalizedExisting.name === normalizedNew.name && 
+             normalizedExisting.companyName === normalizedNew.companyName;
+    });
+    
+    // 유사한 매칭 (이름이 같고 회사명이 유사한 경우)
+    const similarDuplicates = existingVendors.filter(vendor => {
+      const normalizedExisting = normalizeVendorData(vendor);
+      if (normalizedExisting.name !== normalizedNew.name) return false;
+      
+      // 회사명 유사도 체크 (공백 제거 후 비교)
+      const existingCompany = normalizedExisting.companyName.replace(/\s+/g, '');
+      const newCompany = normalizedNew.companyName.replace(/\s+/g, '');
+      
+      return existingCompany === newCompany || 
+             existingCompany.includes(newCompany) || 
+             newCompany.includes(existingCompany);
+    });
+    
+    const duplicates = exactDuplicates.length > 0 ? exactDuplicates : similarDuplicates;
+    
+    if (duplicates.length === 0) {
+      return { action: 'add', data: newVendorData };
+    }
+    
+    // 중복이 있는 경우 데이터 품질이 더 높은 것을 유지
+    const existingData = duplicates[0];
+    const existingScore = calculateDataQualityScore(existingData);
+    const newScore = calculateDataQualityScore(newVendorData);
+    
+    if (newScore > existingScore) {
+      // 새로운 데이터가 더 높은 품질이면 기존 데이터를 업데이트
+      return { 
+        action: 'update', 
+        id: existingData.id, 
+        data: newVendorData 
+      };
+    } else if (newScore === existingScore) {
+      // 점수가 같으면 더 최근에 생성된 것을 유지
+      const existingCreatedAt = existingData.createdAt?.toDate?.() || existingData.createdAt || new Date(0);
+      const newCreatedAt = newVendorData.createdAt || new Date();
+      
+      if (newCreatedAt > existingCreatedAt) {
+        return { 
+          action: 'update', 
+          id: existingData.id, 
+          data: newVendorData 
+        };
+      } else {
+        return { action: 'skip' };
+      }
+    } else {
+      // 기존 데이터가 더 높은 품질이면 새로운 데이터는 무시
+      return { action: 'skip' };
+    }
+  };
+
+  // 기존 데이터 중복 정리 함수
+  const cleanupDuplicateData = async () => {
+    try {
+      setSnackbar({ 
+        open: true, 
+        message: '중복 데이터 정리를 시작합니다...', 
+        severity: 'info' 
+      });
+
+      // 모든 거래처 데이터 로드
+      const vendorsQuery = query(collection(db, 'vendors'), orderBy('name', 'asc'));
+      const vendorsSnapshot = await getDocs(vendorsQuery);
+      const allVendors = vendorsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // 진행률 표시 시작
+      setUploadProgress({ show: true, current: 0, total: allVendors.length });
+
+      // 중복 그룹 찾기
+      const duplicateGroups = [];
+      const processedIds = new Set();
+
+      for (let i = 0; i < allVendors.length; i++) {
+        // 진행률 업데이트
+        setUploadProgress(prev => ({ ...prev, current: i + 1 }));
+
+        if (processedIds.has(allVendors[i].id)) continue;
+
+        const currentVendor = allVendors[i];
+        const normalizedCurrent = normalizeVendorData(currentVendor);
+        const duplicates = [currentVendor];
+
+        // 같은 이름과 회사명을 가진 다른 거래처들 찾기
+        for (let j = i + 1; j < allVendors.length; j++) {
+          if (processedIds.has(allVendors[j].id)) continue;
+
+          const otherVendor = allVendors[j];
+          const normalizedOther = normalizeVendorData(otherVendor);
+
+          // 정확한 매칭 또는 유사한 매칭 확인
+          if (normalizedCurrent.name === normalizedOther.name) {
+            const currentCompany = normalizedCurrent.companyName.replace(/\s+/g, '');
+            const otherCompany = normalizedOther.companyName.replace(/\s+/g, '');
+            
+            if (currentCompany === otherCompany || 
+                currentCompany.includes(otherCompany) || 
+                otherCompany.includes(currentCompany)) {
+              duplicates.push(otherVendor);
+              processedIds.add(otherVendor.id);
+            }
+          }
+        }
+
+        if (duplicates.length > 1) {
+          duplicateGroups.push(duplicates);
+        }
+        processedIds.add(currentVendor.id);
+      }
+
+      let deletedCount = 0;
+      let updatedCount = 0;
+
+      // 각 중복 그룹 처리
+      for (const group of duplicateGroups) {
+        // 데이터 품질 점수 계산
+        const scoredGroup = group.map(vendor => ({
+          ...vendor,
+          score: calculateDataQualityScore(vendor)
+        }));
+
+        // 점수순으로 정렬 (높은 점수가 먼저)
+        scoredGroup.sort((a, b) => b.score - a.score);
+
+        // 가장 높은 점수의 데이터를 유지하고 나머지는 삭제
+        const keepVendor = scoredGroup[0];
+        const deleteVendors = scoredGroup.slice(1);
+
+        // 삭제할 데이터들 처리
+        for (const deleteVendor of deleteVendors) {
+          await deleteDoc(doc(db, 'vendors', deleteVendor.id));
+          deletedCount++;
+        }
+
+        // 유지할 데이터에 더 많은 정보가 있다면 업데이트
+        if (scoredGroup.length > 1) {
+          const bestData = scoredGroup[0];
+          const mergedData = { ...bestData };
+          
+          // 다른 데이터에서 누락된 정보 보충
+          for (let i = 1; i < scoredGroup.length; i++) {
+            const otherData = scoredGroup[i];
+            if (!mergedData.phone && otherData.phone) mergedData.phone = otherData.phone;
+            if (!mergedData.email && otherData.email) mergedData.email = otherData.email;
+            if (!mergedData.position && otherData.position) mergedData.position = otherData.position;
+            if (!mergedData.businessNumber && otherData.businessNumber) mergedData.businessNumber = otherData.businessNumber;
+            if (!mergedData.address && otherData.address) mergedData.address = otherData.address;
+            if (!mergedData.note && otherData.note) mergedData.note = otherData.note;
+          }
+
+          // 데이터가 변경되었다면 업데이트
+          if (JSON.stringify(mergedData) !== JSON.stringify(bestData)) {
+            await updateDoc(doc(db, 'vendors', bestData.id), {
+              ...mergedData,
+              updatedAt: new Date()
+            });
+            updatedCount++;
+          }
+        }
+      }
+
+      // 진행률 표시 종료
+      setUploadProgress({ show: false, current: 0, total: 0 });
+
+      const message = `중복 데이터 정리 완료: ${deletedCount}개 삭제${updatedCount > 0 ? `, ${updatedCount}개 업데이트` : ''}`;
+      setSnackbar({ 
+        open: true, 
+        message: message, 
+        severity: 'success' 
+      });
+
+      // 거래처 목록 다시 로드
+      await loadVendors();
+
+    } catch (error) {
+      console.error('중복 데이터 정리 오류:', error);
+      // 진행률 표시 종료
+      setUploadProgress({ show: false, current: 0, total: 0 });
+      setSnackbar({ 
+        open: true, 
+        message: `중복 데이터 정리 실패: ${error.message}`, 
+        severity: 'error' 
+      });
+    }
+  };
+
   // 엑셀 업로드
   const handleUpload = (event) => {
     const file = event.target.files[0];
@@ -680,7 +911,26 @@ const VendorManagement = () => {
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
         let successCount = 0;
-        for (const row of jsonData) {
+        let updateCount = 0;
+        let skipCount = 0;
+        let errorCount = 0;
+
+        // 업로드 진행률 표시 시작
+        setUploadProgress({ show: true, current: 0, total: jsonData.length });
+
+        // 기존 거래처 데이터 로드
+        const existingVendorsQuery = query(collection(db, 'vendors'), orderBy('name', 'asc'));
+        const existingVendorsSnapshot = await getDocs(existingVendorsQuery);
+        const existingVendors = existingVendorsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        for (let i = 0; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          
+          // 진행률 업데이트
+          setUploadProgress(prev => ({ ...prev, current: i + 1 }));
           try {
             const vendorData = {
               name: row['이름'] || '',
@@ -695,22 +945,45 @@ const VendorManagement = () => {
             };
 
             if (vendorData.name && vendorData.companyName) {
-              await addDoc(collection(db, 'vendors'), vendorData);
-              successCount++;
+              const duplicateResult = handleDuplicateData(existingVendors, vendorData);
+              
+              switch (duplicateResult.action) {
+                case 'add':
+                  await addDoc(collection(db, 'vendors'), vendorData);
+                  successCount++;
+                  break;
+                case 'update':
+                  await updateDoc(doc(db, 'vendors', duplicateResult.id), {
+                    ...duplicateResult.data,
+                    updatedAt: new Date()
+                  });
+                  updateCount++;
+                  break;
+                case 'skip':
+                  skipCount++;
+                  break;
+              }
             }
           } catch (error) {
             console.error('행 업로드 오류:', error);
+            errorCount++;
           }
         }
 
+        // 업로드 진행률 표시 종료
+        setUploadProgress({ show: false, current: 0, total: 0 });
+
+        const message = `업로드 완료: ${successCount}개 추가, ${updateCount}개 수정${skipCount > 0 ? `, ${skipCount}개 중복 건너뛰기` : ''}${errorCount > 0 ? `, ${errorCount}개 오류` : ''}. 중복된 이름과 회사명은 데이터가 더 많은 것을 유지합니다.`;
         setSnackbar({ 
           open: true, 
-          message: `${successCount}개의 거래처가 업로드되었습니다.`, 
-          severity: 'success' 
+          message: message, 
+          severity: errorCount > 0 ? 'warning' : 'success' 
         });
         loadVendors();
       } catch (error) {
         console.error('파일 업로드 오류:', error);
+        // 업로드 진행률 표시 종료
+        setUploadProgress({ show: false, current: 0, total: 0 });
         setSnackbar({ open: true, message: '파일 업로드에 실패했습니다.', severity: 'error' });
       }
     };
@@ -746,24 +1019,26 @@ const VendorManagement = () => {
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            startIcon={<UploadIcon />}
-            component="label"
-            sx={{
-              borderColor: '#666',
-              color: '#fff',
-              '&:hover': { borderColor: '#4caf50' }
-            }}
-          >
-            업로드
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleUpload}
-              style={{ display: 'none' }}
-            />
-          </Button>
+          <Tooltip title="엑셀 파일을 업로드합니다. 이름과 회사명이 중복된 경우 데이터가 더 많은 것을 유지합니다.">
+            <Button
+              variant="outlined"
+              startIcon={<UploadIcon />}
+              component="label"
+              sx={{
+                borderColor: '#666',
+                color: '#fff',
+                '&:hover': { borderColor: '#4caf50' }
+              }}
+            >
+              업로드
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleUpload}
+                style={{ display: 'none' }}
+              />
+            </Button>
+          </Tooltip>
           <Button
             variant="outlined"
             startIcon={<DownloadIcon />}
@@ -787,42 +1062,8 @@ const VendorManagement = () => {
           >
             거래처 추가
           </Button>
-          <Button
-            variant="outlined"
-            onClick={async () => {
-              try {
-                setSnackbar({ 
-                  open: true, 
-                  message: '마이그레이션을 시작합니다...', 
-                  severity: 'info' 
-                });
-                
-                const migratedCount = await migrateMissedData();
-                
-                setSnackbar({ 
-                  open: true, 
-                  message: `마이그레이션 완료! ${migratedCount}개의 거래처가 추가되었습니다.`, 
-                  severity: 'success' 
-                });
-                
-                // 거래처 목록 다시 로드
-                await loadVendors();
-              } catch (error) {
-                setSnackbar({ 
-                  open: true, 
-                  message: `마이그레이션 실패: ${error.message}`, 
-                  severity: 'error' 
-                });
-              }
-            }}
-            sx={{
-              borderColor: '#666',
-              color: '#fff',
-              '&:hover': { borderColor: '#4caf50' }
-            }}
-          >
-            마이그레이션
-          </Button>
+          
+          
         </Box>
       </Box>
 
@@ -1255,6 +1496,37 @@ const VendorManagement = () => {
             {editingVendor ? '수정' : '추가'}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* 업로드 진행률 다이얼로그 */}
+      <Dialog
+        open={uploadProgress.show}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: { backgroundColor: '#2a2a2a' }
+        }}
+      >
+        <DialogTitle sx={{ color: '#fff' }}>
+          업로드 진행 중...
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body2" sx={{ color: '#ccc', mb: 2 }}>
+              {uploadProgress.current} / {uploadProgress.total} 처리 중...
+            </Typography>
+            <LinearProgress 
+              variant="determinate" 
+              value={(uploadProgress.current / uploadProgress.total) * 100}
+              sx={{
+                backgroundColor: '#444',
+                '& .MuiLinearProgress-bar': {
+                  backgroundColor: '#4caf50'
+                }
+              }}
+            />
+          </Box>
+        </DialogContent>
       </Dialog>
 
       {/* 스낵바 */}

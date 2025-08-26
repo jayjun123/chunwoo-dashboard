@@ -17,18 +17,29 @@ function ConstructionList() {
   const tableRowHover = isDark ? '#4cafef33' : '#e3f2fd';
   const inputBg = isDark ? '#232733' : '#fff';
 
+  // 검색 필터링
   const filtered = sites.filter(site =>
     site.name.includes(search) ||
     site.manager.includes(search) ||
     site.address.includes(search)
   );
 
+  // 최신순 정렬 (createdAt 또는 id 기준)
+  const sortedSites = [...filtered].sort((a, b) => {
+    // createdAt이 있으면 createdAt 기준으로 정렬
+    if (a.createdAt && b.createdAt) {
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    }
+    // createdAt이 없으면 id 기준으로 정렬 (Firebase ID는 시간순으로 생성됨)
+    return b.id.localeCompare(a.id);
+  });
+
   const handleSelect = id => {
     setSelected(sel => sel.includes(id) ? sel.filter(s => s !== id) : [...sel, id]);
   };
   const handleSelectAll = () => {
-    if (selected.length === filtered.length) setSelected([]);
-    else setSelected(filtered.map(s => s.id));
+    if (selected.length === sortedSites.length) setSelected([]);
+    else setSelected(sortedSites.map(s => s.id));
   };
   const handleDeleteSelected = () => {
     if (selected.length > 0) {
@@ -62,7 +73,7 @@ function ConstructionList() {
         <table style={{ width: '100%', background: bgColor, color: textColor, borderRadius: 8 }}>
           <thead>
             <tr style={{ background: tableHeadBg }}>
-              <th style={{ padding: 8 }}><input type="checkbox" checked={selected.length === filtered.length && filtered.length > 0} onChange={handleSelectAll} /></th>
+              <th style={{ padding: 8 }}><input type="checkbox" checked={selected.length === sortedSites.length && sortedSites.length > 0} onChange={handleSelectAll} /></th>
               <th style={{ padding: 8, fontWeight: 700, fontSize: 15 }}>현장명</th>
               <th style={{ padding: 8, fontWeight: 700, fontSize: 15 }}>상태</th>
               <th style={{ padding: 8, fontWeight: 700, fontSize: 15 }}>착공일</th>
@@ -76,7 +87,7 @@ function ConstructionList() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(site => (
+            {sortedSites.map(site => (
               <tr key={site.id} style={{ borderBottom: `1px solid ${borderColor}`, background: selected.includes(site.id) ? tableRowHover : undefined }}>
                 <td style={{ padding: 8 }}><input type="checkbox" checked={selected.includes(site.id)} onChange={() => handleSelect(site.id)} /></td>
                 <td style={{ padding: 8 }}>{site.name}</td>

@@ -1,329 +1,300 @@
-// 기성금청구서 템플릿 유틸리티 (Firebase Storage API 직접 호출)
+// 기성금청구서 유틸리티 (템플릿 기반)
 import ExcelJS from 'exceljs';
+import { getStorage, ref, getDownloadURL } from 'firebase/storage';
+import { storage } from '../firebase';
 
-
-// 기성금청구서 템플릿 기반 엑셀 생성 (Firebase Storage API 직접 호출)
+// 기성금청구서 템플릿 기반 생성
 export const generateTemplateBasedGisungExcel = async (siteData, gisungData, siteItems = [], currentSequence = 1, previousGisungData = null) => {
   try {
-    console.log('🚀 기성금청구서 템플릿 기반 엑셀 생성 시작:', { siteData, gisungData, siteItems });
+    console.log('🚀 기성금청구서 템플릿 기반 생성 시작');
     
-    // Firebase Storage에서 템플릿 다운로드 (토큰 없이 직접 접근)
-    const templateUrl = 'https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2Fgisung.xlsx?alt=media';
+    // 물량 데이터 개수에 따라 템플릿 선택
+    const itemCount = siteItems.length;
+    let templateFileName = 'NEWgisung.xlsx';
     
-    try {
-      console.log('✅ Firebase Storage API 직접 호출:', templateUrl);
-      
-      // 템플릿 파일 가져오기
-      const response = await fetch(templateUrl);
-      if (!response.ok) {
-        throw new Error(`템플릿 파일 다운로드 실패: ${response.status} ${response.statusText}`);
-      }
-      
-      const arrayBuffer = await response.arrayBuffer();
-      console.log('✅ Firebase Storage API 템플릿 파일 다운로드 완료:', arrayBuffer.byteLength, 'bytes');
-      
-      // ExcelJS로 템플릿 로드
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.load(arrayBuffer);
-      console.log('✅ 기성금청구서 템플릿 로드 완료 (Firebase Storage API)');
-      
-      // 데이터 입력 (서식 보존)
-      const gisungMonth = await fillGisungData(workbook, siteData, gisungData, siteItems, currentSequence, previousGisungData);
-      
-      console.log('✅ 기성금청구서 템플릿 기반 생성 완료');
-      return { workbook, gisungMonth };
-      
-    } catch (error) {
-      console.error('❌ Firebase Storage API 템플릿 로드 실패:', error);
-      throw new Error(`Firebase Storage API에서 템플릿을 가져올 수 없습니다: ${error.message}`);
+    if (itemCount > 20) {
+      templateFileName = 'LONGgisung.xlsx';
+      console.log(`📊 물량 데이터가 ${itemCount}개로 20개를 초과하여 LONGgisung 템플릿을 사용합니다.`);
+    } else {
+      console.log(`📊 물량 데이터가 ${itemCount}개로 NEWgisung 템플릿을 사용합니다.`);
     }
     
+    // Firebase Storage에서 템플릿 다운로드
+    const templateRef = ref(storage, `templates/${templateFileName}`);
+    const downloadURL = await getDownloadURL(templateRef);
+    
+    console.log('📥 템플릿 다운로드 중...');
+    const response = await fetch(downloadURL);
+    const arrayBuffer = await response.arrayBuffer();
+    
+         // 워크북 로드 (Shared Formula 비활성화)
+     const workbook = new ExcelJS.Workbook();
+     await workbook.xlsx.load(arrayBuffer, {
+       sharedFormulas: false,
+       useStyles: true,
+       useCellStyles: true,
+       useCellFormulas: false
+     });
+    
+    console.log('✅ 템플릿 로드 완료');
+    
+    // 갑지 시트 가져오기
+    const gapjiSheet = workbook.getWorksheet('갑지');
+    if (!gapjiSheet) {
+      throw new Error('갑지 시트를 찾을 수 없습니다.');
+    }
+    
+    // 기성금 내역서 시트 가져오기
+    const detailSheet = workbook.getWorksheet('기성금 내역서');
+    if (!detailSheet) {
+      throw new Error('기성금 내역서 시트를 찾을 수 없습니다.');
+    }
+    
+    // Shared Formula 관련 속성 제거 및 데이터 입력
+    await fillGisungData(workbook, siteData, gisungData, siteItems, currentSequence, previousGisungData);
+    
+    console.log('✅ 기성금청구서 템플릿 기반 생성 완료');
+    return { workbook, gisungMonth: getPreviousMonth() };
+    
   } catch (error) {
-    console.error('❌ 기성금청구서 템플릿 기반 생성 실패:', error);
+    console.error('❌ 기성금청구서 생성 실패:', error);
     throw error;
   }
 };
 
-// 기성금청구서에 데이터만 입력 (ExcelJS 방식)
+// 기성금청구서에 데이터 입력 (템플릿 사용)
 const fillGisungData = async (workbook, siteData, gisungData, siteItems, currentSequence = 1, previousGisungData = null) => {
   try {
-    console.log('📝 기성금청구서 데이터 입력 시작 (ExcelJS 방식)...');
-    console.log('📊 전달받은 데이터:', { siteData, gisungData, siteItems });
+    console.log('📝 기성금청구서 데이터 입력 시작');
     
-    // 갑지 시트 데이터 입력
     const gapjiSheet = workbook.getWorksheet('갑지');
-    if (gapjiSheet) {
-      console.log('📝 갑지 시트 데이터 입력 중...');
-      
-      // 정확한 셀 위치에 데이터 입력 (ExcelJS 방식)
-      const dataMapping = {
-        // A2: 차수 정보 (전달받은 차수 사용)
-        'A2': `${currentSequence}차 기성금 청구서`,
-        // D4: 현장관리페이지 현장명
-        'D4': siteData?.name || '현장명',
-        // D6: 현장관리페이지 회사명 (companyName 우선 사용)
-        'D6': siteData?.companyName || siteData?.company || siteData?.contractor || '회사명',
-        // D8: 현장관리페이지 계약구분 (납품계약 제외 유리공사)
-        'D8': siteData?.contractType === '납품계약' ? '유리공사' : (siteData?.contractType || '유리공사'),
-        // D10: 현장관리페이지 착공일자
-        'D10': siteData?.startDate || '',
-        // D12: 현장관리페이지 준공예정일자
-        'D12': siteData?.endDate || '',
-        // H16: 현장관리페이지 선급금 (이전 기성 데이터의 result 값 우선 사용)
-        'H16': previousGisungData?.advancePaymentResult || Number(siteData?.advance || 0),
-        // H18: 전회기성 (이전 기성 데이터의 result 값 사용)
-        'H18': previousGisungData?.previousGisungResult || 0,
-        // A36: 현재 월에서 -1 = 전월
-        'A36': getPreviousMonth(),
-        // A44: 현장관리페이지 회사명 귀중 (companyName 우선 사용)
-        'A44': `${siteData?.companyName || siteData?.company || siteData?.contractor || '회사명'} 귀중`,
-      };
-      
-      console.log('📋 갑지 데이터 매핑:', dataMapping);
-      
-      // 데이터 입력 (ExcelJS 방식)
-      Object.entries(dataMapping).forEach(([cell, value]) => {
-        try {
-          const cellObj = gapjiSheet.getCell(cell);
-          cellObj.value = value;
-          console.log(`📝 갑지 ${cell}: ${value}`);
-        } catch (cellError) {
-          console.warn(`⚠️ 갑지 ${cell} 입력 실패:`, cellError.message);
-        }
-      });
-      
-      // 인감 이미지 추가 (납품계약서와 동일한 방식)
-      try {
-        const stampType = siteData?.stampType || 'A인감';
-        console.log('🖊️ 인감 이미지 처리 시작:', stampType);
-        console.log('🔍 디버깅 - 전체 siteData:', siteData);
-        console.log('🔍 디버깅 - siteData.stampType:', siteData?.stampType);
-        
-        // 인감없음인 경우 A인감으로 처리, 기타인감인 경우 이미지 넣지 않음
-        if (stampType === '기타') {
-          console.log('📝 기타인감이므로 이미지 삽입하지 않음:', stampType);
-        } else {
-          // 실제 사용할 인감 타입 결정
-          const actualStampType = stampType === '인감없음' ? 'A인감' : stampType;
-          console.log('🖊️ 실제 사용할 인감 타입:', actualStampType);
-          console.log('🔍 디버깅 - stampType:', stampType, 'actualStampType:', actualStampType);
-          
-          if (workbook) {
-            // 인감 이미지 다운로드 함수 (납품계약서와 동일한 방식)
-            const downloadSignatureImage = async (stampType = 'A인감') => {
-              try {
-                const stampImageMap = {
-                  'A인감': 'A.png',
-                  '별인감': '별.png',
-                  '□인감': '네모.png',
-                  '○인감': '동.png',
-                  '☆인감': '별.png',
-                  '△인감': '삼각.png',
-                  '♤인감': '스페이드.png',
-                  '♧인감': '클로버.png',
-                  '♡인감': '하트.png',
-                  '11인감': '11.png',
-                  // 기존 매핑도 유지
-                  '네모': '네모.png',
-                  '동': '동.png',
-                  '별': '별.png',
-                  '삼각': '삼각.png',
-                  '스페이드': '스페이드.png',
-                  '클로버': '클로버.png',
-                  '하트': '하트.png'
-                };
-                
-                const mappedImageName = stampImageMap[stampType];
-                console.log('🔍 디버깅 - 매핑된 이미지:', stampType, '->', mappedImageName);
-                if (!mappedImageName) {
-                  console.warn('⚠️ 알 수 없는 인감 타입:', stampType);
-                  return null;
-                }
-                
-                // 인감 이미지 가져오기 (로컬 파일 사용)
-                console.log('🌐 로컬 인감 이미지 사용');
-                const imagePath = `/${mappedImageName}`;
-                console.log('📁 로컬 인감 이미지 경로:', imagePath);
-                const response = await fetch(imagePath);
-                if (!response.ok) {
-                  throw new Error(`인감 이미지 다운로드 실패: ${response.status}`);
-                }
-                const arrayBuffer = await response.arrayBuffer();
-                console.log('✅ 인감 이미지 다운로드 완료:', mappedImageName);
-                return arrayBuffer;
-              } catch (error) {
-                console.warn('⚠️ 서명 이미지 다운로드 실패:', error);
-                return null;
-              }
-            };
-            
-            const imageBuffer = await downloadSignatureImage(actualStampType);
-            if (imageBuffer) {
-              const imageId = workbook.addImage({
-                buffer: imageBuffer,
-                extension: 'png',
-              });
-              
-              // 기성금청구서 갑지에 인감 이미지 추가 (F40 위치)
-              gapjiSheet.addImage(imageId, {
-                tl: { col: 5, row: 39 }, // F40 셀 위치
-                ext: { width: 60, height: 60 }
-              });
-              
-              console.log('✅ 인감 이미지 삽입 완료 (F40):', actualStampType);
-            } else {
-              console.log('📝 인감 이미지 없음 또는 워크북 없음:', actualStampType);
-            }
-          }
-        }
-      } catch (imageError) {
-        console.warn('⚠️ 인감 이미지 추가 실패:', imageError);
-      }
-    } else {
-      console.log('⚠️ 갑지 시트를 찾을 수 없습니다.');
-    }
-    
-    // 기성금 내역서 시트 데이터 입력
     const detailSheet = workbook.getWorksheet('기성금 내역서');
-    if (detailSheet) {
-      console.log('📝 기성금 내역서 시트 데이터 입력 중...');
-      console.log('📊 물량 데이터 개수:', siteItems.length);
-      
-      // 모든 행을 처리하도록 수정
-      const allItems = siteItems;
-      
-      console.log(`📊 전체 물량 데이터 개수: ${allItems.length}개`);
-      
-      // 특수항목 목록
-      const specialItems = ['단수정리', 'NEGO', '간접비', '이익', '부가세', '총 공사계', '계약금액'];
-      
-      // 먼저 데이터가 있는 행들 처리 (6행부터)
-      allItems.forEach((item, index) => {
-        const row = 6 + index;
-        
-        try {
-          const contractQuantity = Number(item.quantity || 0);
-          const contractPrice = Number(item.price || item.unitPrice || 0); // price 필드 우선 사용
-          
-          // 특수항목인지 확인 (A와 B가 같은 항목들: 단수정리, NEGO, 간접비 등)
-          const isSpecialItem = (item.name && item.specification && item.name === item.specification) ||
-                               specialItems.some(special => item.name && item.name.includes(special)) ||
-                               specialItems.some(special => item.specification && item.specification.includes(special));
-          
-          console.log(`📝 ${index + 1}번째 물량:`, item, `특수항목여부: ${isSpecialItem}`);
-          
-          // 물량이 20개를 넘으면 행 추가
-          if (index >= 20) {
-            // 새로운 행 추가
-            detailSheet.addRow();
-            console.log(`📝 ${row}행 추가 (물량 ${index + 1}개)`);
-          }
-          
-          // ABCD 값이 없는 빈 행 처리 - 모든 데이터와 수식 지우기
-          if (!item.name && !item.specification && !item.unit && !item.quantity) {
-            console.log(`📝 ${row}행 - ABCD 값이 없으므로 E~M열 모든 수식 지우기`);
-            
-            // E~M열 모든 셀을 빈칸으로 만들기 (수식 포함)
-            ['E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'].forEach(col => {
-              const cell = detailSheet.getCell(`${col}${row}`);
-              cell.value = null; // 값과 수식 모두 제거
-              console.log(`🧹 ${col}${row} 완전히 지움`);
-            });
-            
-            console.log(`✅ ${row}행 E~M열 모든 셀 완전히 지워짐`);
-            
-            // 다음 행으로 건너뛰기
-            return;
-          }
-          
-          // 특수항목(총공사계, 부가세, 계약금액)은 데이터를 입력하지 않음
-          if (isSpecialItem) {
-            console.log(`📝 ${row}행 - 특수항목이므로 데이터 입력하지 않음: ${item.name}`);
-            
-            // 특수항목의 경우 E~M열 모든 셀을 빈칸으로 만들기
-            ['E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'].forEach(col => {
-              const cell = detailSheet.getCell(`${col}${row}`);
-              cell.value = null; // 값과 수식 모두 제거
-              console.log(`🧹 특수항목 ${col}${row} 완전히 지움`);
-            });
-            
-            console.log(`✅ ${row}행 특수항목 E~M열 모든 셀 완전히 지워짐`);
-            
-            // 다음 행으로 건너뛰기
-            return;
-          }
-          
-          // 정확한 셀 위치에 데이터 입력 (서식 보존)
-          const rowDataMapping = {
-            // A6: 물량의 규격 (반대로 변경)
-            [`A${row}`]: item.specification || '',
-            // B6: 물량의 품명 (반대로 변경)
-            [`B${row}`]: item.name || '',
-            // C6: 단위
-            [`C${row}`]: item.unit || '',
-            // D6: 수량 (소수점 2째자리까지 정확하게)
-            [`D${row}`]: parseFloat(contractQuantity.toFixed(2)),
-            // E6: 계약단가
-            [`E${row}`]: contractPrice,
-          };
-          
-          // 데이터 입력 (ExcelJS 방식)
-          Object.entries(rowDataMapping).forEach(([cell, value]) => {
-            try {
-              const cellObj = detailSheet.getCell(cell);
-              cellObj.value = value;
-              console.log(`📝 내역서 ${cell}: ${value}`);
-            } catch (cellError) {
-              console.warn(`⚠️ 내역서 ${cell} 입력 실패:`, cellError.message);
-            }
-          });
-          
-        } catch (rowError) {
-          console.error(`❌ ${row}행 데이터 입력 실패:`, rowError);
-        }
-      });
-      
-      // 템플릿의 나머지 모든 행(50행까지)에서 E~M열 수식 제거
-      const maxRow = 50; // 템플릿의 최대 행 수
-      for (let row = 6 + allItems.length; row <= maxRow; row++) {
-        try {
-          // 해당 행의 A,B,C,D 셀 확인
-          const cellA = detailSheet.getCell(`A${row}`);
-          const cellB = detailSheet.getCell(`B${row}`);
-          const cellC = detailSheet.getCell(`C${row}`);
-          const cellD = detailSheet.getCell(`D${row}`);
-          
-          // A,B,C,D가 모두 비어있으면 E~M열 수식 제거
-          if (!cellA.value && !cellB.value && !cellC.value && !cellD.value) {
-            console.log(`📝 ${row}행 - 템플릿 빈 행이므로 E~M열 모든 수식 지우기`);
-            
-            ['E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'].forEach(col => {
-              const cell = detailSheet.getCell(`${col}${row}`);
-              cell.value = null; // 값과 수식 모두 제거
-              console.log(`🧹 템플릿 ${col}${row} 완전히 지움`);
-            });
-            
-            console.log(`✅ ${row}행 템플릿 E~M열 모든 셀 완전히 지워짐`);
-          }
-        } catch (rowError) {
-          console.error(`❌ ${row}행 템플릿 처리 실패:`, rowError);
-        }
-      }
-      
-      console.log('✅ 기성금 내역서 데이터 입력 완료');
-    } else {
-      console.log('⚠️ 기성금 내역서 시트를 찾을 수 없습니다.');
-    }
     
-    // 현재 월 반환
-    const currentMonth = new Date();
-    const gisungMonth = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+         // 갑지 시트 데이터 입력
+     if (gapjiSheet) {
+       // 기본 정보 입력 (실제 템플릿 구조에 맞게)
+       const basicInfoCells = [
+         { cell: 'A2', value: `${currentSequence}차 기성금 청구서` }, // 차수
+         { cell: 'D4', value: siteData?.name || '현장명' }, // 공사명
+         { cell: 'D6', value: siteData?.companyName || siteData?.company || siteData?.contractor || '시공사' }, // 시공사
+         { cell: 'D8', value: '유리공사' }, // 하도급 공사명 (고정)
+         { cell: 'D10', value: siteData?.startDate ? siteData.startDate.replace(/\./g, '년 ') + '월' : '0000년 00월' }, // 계약(착공)일자
+         { cell: 'D12', value: siteData?.endDate ? siteData.endDate.replace(/\./g, '년 ') + '월' : '0000년 00월' }, // 준공일자
+         { cell: 'A36', value: getPreviousMonth() }, // 현재월-1
+         { cell: 'A44', value: (siteData?.companyName || siteData?.company || siteData?.contractor || '회사명') + ' 귀중' } // 회사명 귀중
+       ];
+       
+       basicInfoCells.forEach(({ cell, value }) => {
+         const cellObj = gapjiSheet.getCell(cell);
+         cellObj.value = value;
+       });
+       
+       // H열 셀들은 수식을 그대로 두고, D열 셀들이 H열을 참조하도록 함
+       // (H열 수식을 덮어쓰지 않음)
+       
+       // 인감 이미지 추가 (납품계약서와 동일한 방식)
+       const stampType = siteData?.stampType || '인감없음';
+       console.log('🖊️ 갑지 시트 인감 이미지 처리 시작:', stampType);
+       
+       // 인감없음인 경우 A인감으로 처리, 기타인감인 경우 이미지 넣지 않음
+       if (stampType === '기타인감') {
+         console.log('📝 기타인감이므로 이미지 삽입하지 않음:', stampType);
+       } else {
+         // 실제 사용할 인감 타입 결정
+         const actualStampType = stampType === '인감없음' ? 'A인감' : stampType;
+         console.log('🖊️ 실제 사용할 인감 타입:', actualStampType);
+         
+         try {
+           // 인감 이미지 다운로드 함수 (납품계약서와 동일한 방식)
+           const downloadSignatureImage = async (stampType = 'A인감') => {
+             const stampImageMap = {
+               'A인감': 'A.png',
+               '□인감': '네모.png',
+               '○인감': '동.png',
+               '☆인감': '별.png',
+               '△인감': '삼각.png',
+               '♤인감': '스페이드.png',
+               '♧인감': '클로버.png',
+               '♡인감': '하트.png',
+               '11인감': '11.png'
+             };
+             
+             const mappedImageName = stampImageMap[stampType];
+             if (!mappedImageName) {
+               console.warn('⚠️ 알 수 없는 인감 타입:', stampType);
+               return null;
+             }
+             
+             // Firebase Storage에서 인감 이미지 가져오기
+             console.log('🔥 Firebase Storage에서 인감 이미지 가져오기');
+             const stampsRef = ref(storage, `stamps/${mappedImageName}`);
+             const downloadURL = await getDownloadURL(stampsRef);
+             console.log('📁 Firebase Storage 이미지 경로:', downloadURL);
+             
+             const response = await fetch(downloadURL);
+             if (!response.ok) {
+               throw new Error(`인감 이미지 다운로드 실패: ${response.status}`);
+             }
+             
+             const arrayBuffer = await response.arrayBuffer();
+             console.log('✅ 인감 이미지 다운로드 완료:', mappedImageName);
+             return arrayBuffer;
+           };
+           
+                        // F40 셀 위치에 인감 이미지 추가
+             const imageBuffer = await downloadSignatureImage(actualStampType);
+             if (imageBuffer && gapjiSheet && workbook) {
+               const imageId = workbook.addImage({
+                 buffer: imageBuffer,
+                 extension: 'png',
+               });
+               
+               gapjiSheet.addImage(imageId, {
+                 tl: { col: 5, row: 39 }, // F40 위치
+                 ext: { width: 80, height: 80 }
+               });
+               console.log('✅ 인감 이미지 삽입 완료 (F40):', actualStampType);
+           } else {
+             console.log('📝 인감 이미지 없음 또는 워크북 없음:', actualStampType);
+           }
+         } catch (imageError) {
+           console.warn('⚠️ 인감 이미지 추가 실패:', imageError);
+         }
+       }
+     }
+    
+         // 기성금 내역서 데이터 입력
+     if (detailSheet && siteItems && siteItems.length > 0) {
+       console.log(`📋 물량 데이터 개수: ${siteItems.length}개`);
+       
+       // 기존 데이터 행들 정리 (6행부터 50행까지만) - A, B, C, D, E열만 초기화, F, H, J열 공식은 보존
+       for (let row = 6; row <= 50; row++) {
+         for (let col = 1; col <= 5; col++) { // A, B, C, D, E열만 (1-5열)
+           const cell = detailSheet.getCell(row, col);
+           cell.value = '';
+         }
+       }
+       
+       // 새로운 데이터 입력 (A6부터 A50까지만, 물량 데이터만 입력)
+       for (let index = 0; index < siteItems.length && (index + 6) <= 50; index++) {
+         const item = siteItems[index];
+         const rowNumber = index + 6; // 6행부터 시작
+         
+         try {
+           const cells = [
+             { col: 1, value: item.name || '' }, // A열: 품명
+             { col: 2, value: item.specification || '' }, // B열: 규격
+             { col: 3, value: item.unit || '' }, // C열: 단위
+             { col: 4, value: item.quantity || 0 }, // D열: 수량
+             { col: 5, value: item.price || 0 } // E열: 단가
+           ];
+           
+           cells.forEach(({ col, value }) => {
+             const cell = detailSheet.getCell(rowNumber, col);
+             cell.value = value;
+           });
+           
+         } catch (e) {
+           console.warn(`⚠️ 행 ${rowNumber} 데이터 입력 실패:`, e.message);
+         }
+       }
+       
+       // F51에 선급금 데이터 입력
+       const advanceAmount = Number(siteData?.advance || 0);
+       const f51Cell = detailSheet.getCell('F51');
+       f51Cell.value = advanceAmount;
+       
+                  // 기성수량(G열)에 누계수량 설정 (K열의 result 값 사용)
+           console.log('🔍 previousGisungData 확인:', previousGisungData);
+           // 이전 기성 데이터가 있으면 전회기성(G열) 설정
+           if (previousGisungData && previousGisungData.extractedItems) {
+             console.log('📊 이전 기성 데이터에서 전회기성 설정 시작');
+             
+             try {
+               const extractedItems = typeof previousGisungData.extractedItems === 'string' 
+                 ? JSON.parse(previousGisungData.extractedItems) 
+                 : previousGisungData.extractedItems;
+               
+               console.log('📊 추출된 항목들:', extractedItems);
+               
+               // 모든 항목의 K값을 G값으로 복사 (6행부터 50행까지)
+               for (let row = 6; row <= 50; row++) {
+                 // 해당 행의 K값 찾기
+                 const item = extractedItems.find(item => item.row === row);
+                 
+                 if (item && item.kValue !== null && item.kValue !== undefined) {
+                   const gCell = detailSheet.getCell(`G${row}`);
+                   gCell.value = item.kValue;
+                   console.log(`✅ 행 ${row}: K값(${item.kValue}) → G값으로 복사 완료 - ${item.itemName}`);
+                 } else {
+                   // 해당 행에 데이터가 없으면 0으로 설정
+                   const gCell = detailSheet.getCell(`G${row}`);
+                   gCell.value = 0;
+                   console.log(`📊 행 ${row}: 데이터 없음, G값을 0으로 설정`);
+                 }
+               }
+               
+               console.log('✅ 전회기성(G열) 설정 완료');
+             } catch (error) {
+               console.warn('⚠️ 전회기성 설정 실패:', error);
+             }
+           } else {
+             console.log('📊 이전 기성금청구서 데이터가 없어 전회기성 설정 건너뜀');
+           }
+       
+       // C, D열이 비어있는 행들을 E~M까지 정리 (수식도 포함)
+       for (let row = 6; row <= 50; row++) {
+         const cCell = detailSheet.getCell(row, 3); // C열
+         const dCell = detailSheet.getCell(row, 4); // D열
+         
+         // C, D열이 모두 비어있으면 E~M까지 모두 지움 (수식도 포함)
+         if ((!cCell.value || cCell.value === '') && (!dCell.value || dCell.value === '')) {
+           for (let col = 5; col <= 13; col++) { // E부터 M열까지 (5-13열)
+             const cell = detailSheet.getCell(row, col);
+             cell.value = '';
+             // 수식 제거 (안전한 방법)
+             if (cell.formula) {
+               delete cell._formula;
+             }
+           }
+         }
+       }
+       
+                // 물량항목이 20개 이하면 26행부터 50행까지 삭제
+         if (siteItems.length <= 20) {
+           for (let row = 26; row <= 50; row++) {
+             for (let col = 1; col <= 13; col++) { // A부터 M열까지
+               const cell = detailSheet.getCell(row, col);
+               cell.value = '';
+               // 수식 제거 (안전한 방법)
+               if (cell.formula) {
+                 delete cell._formula;
+               }
+             }
+           }
+         }
+       
+       // 총원가 관련 셀들을 소숫점 올림으로 처리
+       const totalCostRows = [51, 52, 53, 54]; // 총원가가 있는 행들 (예시)
+       totalCostRows.forEach(row => {
+         for (let col = 1; col <= 10; col++) {
+           const cell = detailSheet.getCell(row, col);
+           if (cell.value !== null && cell.value !== undefined && typeof cell.value === 'number') {
+             cell.value = Math.ceil(cell.value); // 소숫점 올림
+           }
+         }
+       });
+       
+       // 기성금 내역서는 물량과 금액 데이터만 포함 (인감은 갑지에만)
+       
+       console.log(`✅ ${siteItems.length}개 항목 입력 완료 (A6부터 A50까지만, 보호된 셀 보존)`);
+     }
     
     console.log('✅ 기성금청구서 데이터 입력 완료');
-    return gisungMonth;
+    return getPreviousMonth();
     
   } catch (error) {
-    console.error('❌ 기성금청구서 데이터 입력 실패:', error);
+    console.error('❌ 데이터 입력 실패:', error);
     throw error;
   }
 };
@@ -331,13 +302,40 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
 // 기성금청구서 템플릿 기반 다운로드 함수 (넷틀리파이 호환)
 export const downloadTemplateBasedGisungExcel = async (siteData, gisungData, siteItems = [], filename = '기성금청구서.xlsx') => {
   try {
-    console.log('🚀 기성금청구서 템플릿 기반 다운로드 시작:', { siteData, gisungData, filename });
+    console.log('🚀 기성금청구서 템플릿 기반 다운로드 시작');
     
     // 템플릿 기반 엑셀 생성
     const { workbook, gisungMonth } = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems, 1, null);
     
-    // 넷틀리파이 호환 파일 다운로드
-    const buffer = await workbook.xlsx.writeBuffer();
+    // 안전한 버퍼 생성 (Shared Formula 비활성화)
+    let buffer;
+    try {
+      buffer = await workbook.xlsx.writeBuffer({
+        useStyles: true,
+        useSharedStrings: false,
+        useCellStyles: true,
+        useCellFormulas: false,
+        useCellDates: false,
+        useCellNF: false,
+        useCellRichText: false,
+        useCellComments: false,
+        useCellHyperlinks: false,
+        useCellImages: false,
+        useCellNames: false,
+        useCellThemes: false,
+        useCellDataValidation: false,
+        useCellConditionalFormatting: false,
+        sharedFormulas: false
+      });
+    } catch (error) {
+      console.warn('⚠️ 첫 번째 시도 실패, 최소 옵션으로 재시도:', error.message);
+      buffer = await workbook.xlsx.writeBuffer({
+        useStyles: false,
+        useSharedStrings: false,
+        sharedFormulas: false
+      });
+    }
+    
     const blob = new Blob([buffer], { 
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
     });

@@ -15,7 +15,7 @@
     const storage = getStorage();
     
     // public 폴더에서 템플릿 파일 가져오기
-    const response = await fetch('/gisung.xlsx');
+    const response = await fetch('/NEWgisung.xlsx');
     
     if (!response.ok) {
       throw new Error(`템플릿 파일을 찾을 수 없습니다: ${response.status}`);
@@ -32,7 +32,7 @@
     console.log('📤 파이어베이스에 템플릿 업로드 중...');
     
     // 파이어베이스에 업로드
-    const templateRef = ref(storage, 'templates/gisung.xlsx');
+    const templateRef = ref(storage, 'templates/NEWgisung.xlsx');
     const snapshot = await uploadBytes(templateRef, templateBlob);
     
     console.log('✅ 템플릿 파일 업로드 완료!');

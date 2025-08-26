@@ -19,7 +19,7 @@ async function refreshTemplate() {
   const app = initializeApp(firebaseConfig);
   const storage = getStorage(app);
 
-  const objectPath = 'templates/gisung.xlsx';
+  const objectPath = 'templates/NEWgisung.xlsx';
   const templateRef = ref(storage, objectPath);
 
   // 1) 기존 파일 삭제
@@ -32,8 +32,8 @@ async function refreshTemplate() {
   }
 
   // 2) public에서 읽어서 재업로드
-  console.log('📁 public/gisung.xlsx 읽는 중...');
-  const templatePath = join(process.cwd(), 'public', 'gisung.xlsx');
+  console.log('📁 public/NEWgisung.xlsx 읽는 중...');
+  const templatePath = join(process.cwd(), 'public', 'NEWgisung.xlsx');
   const buffer = readFileSync(templatePath);
   console.log('📊 로컬 파일 크기:', buffer.length, 'bytes');
 

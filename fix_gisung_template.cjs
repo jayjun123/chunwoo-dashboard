@@ -6,7 +6,7 @@ console.log('🔧 기성금청구서 템플릿 수정 시작...');
 
 try {
   // 기존 템플릿 파일 읽기
-  const templatePath = path.join(__dirname, 'public', 'gisung.xlsx');
+  const templatePath = path.join(__dirname, 'public', 'NEWgisung.xlsx');
   const workbook = XLSX.readFile(templatePath);
   
   console.log('📋 시트 목록:', workbook.SheetNames);
