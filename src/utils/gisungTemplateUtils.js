@@ -44,6 +44,11 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
     const itemCount = siteItems.length;
     let templateFileName = 'NEWgisung.xlsx';
     
+    console.log('🔍 템플릿 선택 디버깅:');
+    console.log('📊 siteItems:', siteItems);
+    console.log('📊 itemCount:', itemCount);
+    console.log('📊 siteItems 상세:', JSON.stringify(siteItems, null, 2));
+    
     if (itemCount > 20) {
       templateFileName = 'LONGgisung.xlsx';
       console.log(`📊 물량 데이터가 ${itemCount}개로 20개를 초과하여 LONGgisung 템플릿을 사용합니다.`);
