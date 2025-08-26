@@ -1,8 +1,8 @@
 [
   {
-    "origin": ["http://localhost:3000", "http://localhost:3001", "https://chunwooo-edf9f.web.app", "https://stalwart-churros-035f45.netlify.app"],
+    "origin": ["*"],
     "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
     "maxAgeSeconds": 3600,
-    "responseHeader": ["Content-Type", "Authorization", "Content-Length", "User-Agent", "x-goog-resumable"]
+    "responseHeader": ["Content-Type", "Access-Control-Allow-Origin"]
   }
 ]
