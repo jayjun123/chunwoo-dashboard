@@ -64,8 +64,9 @@ const Estimates = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEstimate, setEditingEstimate] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState('receptionDate');
-  const [sortDirection, setSortDirection] = useState('desc');
+  const [companyFilter, setCompanyFilter] = useState('전체'); // 회사별 필터링 - 전체 기본값 (견적관리 페이지)
+  const [sortField, setSortField] = useState('createdAt'); // 등록 순서대로 정렬
+  const [sortDirection, setSortDirection] = useState('asc'); // 저장 순서대로 (오래된 순)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -562,18 +563,25 @@ const Estimates = () => {
     }
   };
 
-  // 검색어 또는 정렬 변경 시 페이지 리셋
+  // 검색어, 회사 필터 또는 정렬 변경 시 페이지 리셋
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, sortField, sortDirection]);
+  }, [searchTerm, companyFilter, sortField, sortDirection]);
 
   // 검색 필터링 및 정렬
-  const filteredEstimates = estimates.filter(estimate =>
-    estimate.siteName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    estimate.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    estimate.requester?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    estimate.requestContent?.toLowerCase().includes(searchTerm.toLowerCase())
-  ).sort((a, b) => {
+  const filteredEstimates = estimates.filter(estimate => {
+    // 회사별 필터링
+    const matchesCompany = companyFilter === '전체' || estimate.company === companyFilter;
+    
+    // 검색어 필터링
+    const matchesSearch = 
+      estimate.siteName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      estimate.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      estimate.requester?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      estimate.requestContent?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesCompany && matchesSearch;
+  }).sort((a, b) => {
     let aValue, bValue;
     
     switch (sortField) {
@@ -983,6 +991,27 @@ const Estimates = () => {
             )
           }}
         />
+        
+        {/* 회사별 필터링 */}
+        <FormControl sx={{ minWidth: 140 }}>
+          <InputLabel sx={{ color: '#ccc' }}>회사</InputLabel>
+          <Select
+            value={companyFilter}
+            onChange={(e) => setCompanyFilter(e.target.value)}
+            sx={{
+              color: '#fff',
+              '& .MuiOutlinedInput-root': {
+                '& fieldset': { borderColor: '#444' },
+                '&:hover fieldset': { borderColor: '#666' },
+                '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+              }
+            }}
+          >
+            <MenuItem value="전체">전체</MenuItem>
+            <MenuItem value="종합건설">종합건설</MenuItem>
+            <MenuItem value="기타">기타</MenuItem>
+          </Select>
+        </FormControl>
         
         <FormControl sx={{ minWidth: 120 }}>
           <InputLabel sx={{ color: '#ccc' }}>정렬</InputLabel>

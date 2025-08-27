@@ -1341,7 +1341,7 @@ const CustomScheduleMobile = () => {
         position: 'fixed',
         padding: 0,
         margin: 0,
-        mt: '-60px', // 위로 30px 더 이동 (30px → 60px)
+        mt: '-20px', // 위로 20px 이동 (60px → 20px로 변경하여 아래로 40px 이동)
         touchAction: 'none',
         WebkitOverflowScrolling: 'none',
         userSelect: 'none',

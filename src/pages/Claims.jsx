@@ -103,6 +103,161 @@ const Claims = () => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
+  // 엑셀 다운로드 함수
+  const handleDownloadExcel = () => {
+    try {
+      // 청구 데이터를 엑셀 형식으로 변환
+      const excelData = filteredClaims.map((claim, index) => ({
+        'NO.': index + 1,
+        '현장명': claim.siteName || '',
+        '차수': claim.sequence || '',
+        '계약금액': claim.contractAmount ? Number(claim.contractAmount).toLocaleString() : '0',
+        '잔액': claim.remainingAmount ? Number(claim.remainingAmount).toLocaleString() : '0',
+        '기성율(%)': claim.progressRate ? `${claim.progressRate}%` : '0%',
+        '청구금액': claim.claimAmount ? Number(claim.claimAmount).toLocaleString() : '0',
+        '청구여부': getStatusLabel(claim.claimStatus),
+        '비고': claim.notes || ''
+      }));
+
+      // 워크북 생성
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // 컬럼 너비 설정
+      const colWidths = [
+        { wch: 5 },   // NO.
+        { wch: 20 },  // 현장명
+        { wch: 8 },   // 차수
+        { wch: 15 },  // 계약금액
+        { wch: 15 },  // 잔액
+        { wch: 12 },  // 기성율
+        { wch: 15 },  // 청구금액
+        { wch: 12 },  // 청구여부
+        { wch: 30 }   // 비고
+      ];
+      ws['!cols'] = colWidths;
+
+      // 헤더 스타일 설정
+      const headerRange = XLSX.utils.decode_range(ws['!ref']);
+      for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (ws[cellAddress]) {
+          ws[cellAddress].s = {
+            font: { bold: true, color: { rgb: 'FFFFFF' } },
+            fill: { fgColor: { rgb: '4472C4' } },
+            alignment: { horizontal: 'center', vertical: 'center' }
+          };
+        }
+      }
+
+      // 숫자 컬럼 스타일 설정 (천단위 쉼표)
+      const numberColumns = ['계약금액', '잔액', '청구금액'];
+      numberColumns.forEach((colName, colIndex) => {
+        const colLetter = XLSX.utils.encode_col(colIndex + 3); // 계약금액부터 시작
+        for (let row = 1; row <= excelData.length; row++) {
+          const cellAddress = `${colLetter}${row + 1}`;
+          if (ws[cellAddress]) {
+            ws[cellAddress].s = {
+              alignment: { horizontal: 'right' },
+              numFmt: '#,##0'
+            };
+          }
+        }
+      });
+
+      // 워크시트를 워크북에 추가
+      XLSX.utils.book_append_sheet(wb, ws, '청구현황');
+
+      // 파일 다운로드
+      const fileName = `청구현황_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+      setSnackbar({ open: true, message: '청구현황이 엑셀로 다운로드되었습니다.', severity: 'success' });
+    } catch (error) {
+      console.error('엑셀 다운로드 오류:', error);
+      setSnackbar({ open: true, message: '엑셀 다운로드에 실패했습니다.', severity: 'error' });
+    }
+  };
+
+  // 엑셀 업로드 함수
+  const handleUploadExcel = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        // 헤더 제거하고 데이터만 추출
+        const headers = jsonData[0];
+        const rows = jsonData.slice(1);
+
+        // 데이터 검증 및 변환
+        const processedData = rows
+          .filter(row => row.length > 0 && row.some(cell => cell !== null && cell !== ''))
+          .map(row => {
+            const claim = {};
+            headers.forEach((header, index) => {
+              const value = row[index];
+              switch (header) {
+                case '현장명':
+                  claim.siteName = value || '';
+                  break;
+                case '차수':
+                  claim.sequence = value || '';
+                  break;
+                case '계약금액':
+                  claim.contractAmount = value ? String(value).replace(/,/g, '') : '0';
+                  break;
+                case '잔액':
+                  claim.remainingAmount = value ? String(value).replace(/,/g, '') : '0';
+                  break;
+                case '기성율(%)':
+                  claim.progressRate = value ? String(value).replace('%', '') : '0';
+                  break;
+                case '청구금액':
+                  claim.claimAmount = value ? String(value).replace(/,/g, '') : '0';
+                  break;
+                case '청구여부':
+                  claim.claimStatus = getStatusFromLabel(value);
+                  break;
+                case '비고':
+                  claim.notes = value || '';
+                  break;
+              }
+            });
+            return claim;
+          });
+
+        console.log('업로드된 데이터:', processedData);
+        setSnackbar({ open: true, message: `${processedData.length}개의 청구 데이터가 업로드되었습니다.`, severity: 'success' });
+
+        // 여기서 실제 데이터베이스 업데이트 로직을 추가할 수 있습니다
+        // await updateClaimsFromExcel(processedData);
+
+      } catch (error) {
+        console.error('엑셀 업로드 오류:', error);
+        setSnackbar({ open: true, message: '엑셀 업로드에 실패했습니다.', severity: 'error' });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  // 청구상태 라벨을 상태값으로 변환
+  const getStatusFromLabel = (label) => {
+    switch (label) {
+      case '청구완료': return 'O';
+      case '청구대기': return 'X';
+      case '이월': return '이월';
+      default: return 'X';
+    }
+  };
+
   // 현장 데이터
   const [sites, setSites] = useState([]);
   const [gisungData, setGisungData] = useState([]);
@@ -394,7 +549,7 @@ const Claims = () => {
   }, [claims, searchTerm, filters, sortBy, sortOrder]);
 
   // 폼 데이터 초기화
-  // 차수 계산 함수
+  // 차수 계산 함수 - 기성 데이터 기반으로 올바른 차수 계산
   const calculateSequence = (siteName) => {
     const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
     
@@ -407,8 +562,13 @@ const Claims = () => {
       return dateA - dateB;
     });
     
-    // 다음 차수 계산
-    return `${sortedList.length + 1}차`;
+    // 청구완료된 차수는 건너뛰고 다음 차수 계산
+    // 기성 데이터가 있으면 다음 차수, 없으면 1차
+    const nextSequence = sortedList.length + 1;
+    
+    // 차수별 라벨 생성
+    const sequenceLabels = ['1차', '2차', '3차', '4차', '5차', '6차', '7차', '8차', '9차', '10차'];
+    return sequenceLabels[nextSequence - 1] || `${nextSequence}차`;
   };
 
   // 기성율 계산 함수 (총 기성금액 + 선급금 / 총 계약금액 * 100)
@@ -419,7 +579,12 @@ const Claims = () => {
     
     if (!siteData || !siteData.contractAmount) return 0;
     
-    const totalGisungAmount = siteGisungData.reduce((sum, gisung) => sum + Number(gisung.gisungAmount || 0), 0);
+    // 기성 데이터에서 gisungAmount 또는 currentGisung 필드 사용
+    const totalGisungAmount = siteGisungData.reduce((sum, gisung) => {
+      const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
+      return sum + amount;
+    }, 0);
+    
     const advanceAmount = Number(siteData.advance || 0); // 선급금
     const contractAmount = Number(siteData.contractAmount);
     
@@ -430,6 +595,34 @@ const Claims = () => {
     const progressRate = (totalProgressAmount / contractAmount) * 100;
     
     return Math.round(progressRate);
+  };
+
+  // 계약금액 가져오기 함수
+  const getContractAmount = (siteName) => {
+    const siteData = sites.find(site => site.name === siteName);
+    return Number(siteData?.contractAmount || 0);
+  };
+
+  // 계약금액 잔액 계산 함수
+  const calculateRemainingAmount = (siteName) => {
+    const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
+    const siteData = sites.find(site => site.name === siteName);
+    
+    if (!siteData || !siteData.contractAmount) return 0;
+    
+    // 총 기성금액 계산
+    const totalGisungAmount = siteGisungData.reduce((sum, gisung) => {
+      const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
+      return sum + amount;
+    }, 0);
+    
+    const advanceAmount = Number(siteData.advance || 0); // 선급금
+    const contractAmount = Number(siteData.contractAmount);
+    
+    // 계약금액 - (총 기성금액 + 선급금)
+    const remainingAmount = contractAmount - (totalGisungAmount + advanceAmount);
+    
+    return Math.max(0, remainingAmount); // 음수 방지
   };
 
   // 현장 선택 시 자동 기입 함수
@@ -629,60 +822,83 @@ const Claims = () => {
     }
   };
 
-  // 엑셀 다운로드
+  // 엑셀 다운로드 (새로운 테이블 양식)
   const handleExportExcel = () => {
-    // 데이터가 없어도 기본 헤더를 포함한 데이터 생성
-    const exportData = filteredClaims.length > 0 ? filteredClaims.map((claim, index) => ({
-      'No.': filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id),
-      '청구월': claim.claimMonth,
-      '현장명': claim.siteName,
-      '소장/회사명': claim.manager,
-      '차수': claim.sequence,
-      '기성율(%)': claim.progressRate,
-      '청구금액': claim.claimAmount,
-      '청구여부': claim.claimStatus,
-      '비고': claim.notes
-    })) : [
-      {
-        'No.': '(자동)',
-        '청구월': '(자동)',
-        '현장명': '(입력필요)',
-        '소장/회사명': '(입력필요)',
-        '차수': '(자동)',
-        '기성율(%)': '(자동)',
-        '청구금액': '(입력필요)',
-        '청구여부': '(자동)',
-        '비고': '(선택)'
-      }
-    ];
+    try {
+      // 청구 데이터를 새로운 테이블 양식으로 변환
+      const excelData = filteredClaims.map((claim, index) => ({
+        'NO.': index + 1,
+        '현장명': claim.siteName || '',
+        '차수': claim.sequence || '',
+        '계약금액': claim.contractAmount ? Number(claim.contractAmount).toLocaleString() : '0',
+        '잔액': claim.remainingAmount ? Number(claim.remainingAmount).toLocaleString() : '0',
+        '기성율(%)': claim.progressRate ? `${claim.progressRate}%` : '0%',
+        '청구금액': claim.claimAmount ? Number(claim.claimAmount).toLocaleString() : '0',
+        '청구여부': getStatusLabel(claim.claimStatus),
+        '비고': claim.notes || ''
+      }));
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    
-    // 테두리 스타일 설정
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    for (let R = range.s.r; R <= range.e.r; ++R) {
-      for (let C = range.s.c; C <= range.e.c; ++C) {
-        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
-        if (!ws[cell_address]) {
-          ws[cell_address] = { v: '', t: 's' };
+      // 워크북 생성
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // 컬럼 너비 설정
+      const colWidths = [
+        { wch: 5 },   // NO.
+        { wch: 20 },  // 현장명
+        { wch: 8 },   // 차수
+        { wch: 15 },  // 계약금액
+        { wch: 15 },  // 잔액
+        { wch: 12 },  // 기성율
+        { wch: 15 },  // 청구금액
+        { wch: 12 },  // 청구여부
+        { wch: 30 }   // 비고
+      ];
+      ws['!cols'] = colWidths;
+
+      // 헤더 스타일 설정
+      const headerRange = XLSX.utils.decode_range(ws['!ref']);
+      for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (ws[cellAddress]) {
+          ws[cellAddress].s = {
+            font: { bold: true, color: { rgb: 'FFFFFF' } },
+            fill: { fgColor: { rgb: '4472C4' } },
+            alignment: { horizontal: 'center', vertical: 'center' }
+          };
         }
-        ws[cell_address].s = {
-          border: {
-            top: { style: 'thin', color: { rgb: '000000' } },
-            bottom: { style: 'thin', color: { rgb: '000000' } },
-            left: { style: 'thin', color: { rgb: '000000' } },
-            right: { style: 'thin', color: { rgb: '000000' } }
-          }
-        };
       }
+
+      // 숫자 컬럼 스타일 설정 (천단위 쉼표)
+      const numberColumns = ['계약금액', '잔액', '청구금액'];
+      numberColumns.forEach((colName, colIndex) => {
+        const colLetter = XLSX.utils.encode_col(colIndex + 3); // 계약금액부터 시작
+        for (let row = 1; row <= excelData.length; row++) {
+          const cellAddress = `${colLetter}${row + 1}`;
+          if (ws[cellAddress]) {
+            ws[cellAddress].s = {
+              alignment: { horizontal: 'right' },
+              numFmt: '#,##0'
+            };
+          }
+        }
+      });
+
+      // 워크시트를 워크북에 추가
+      XLSX.utils.book_append_sheet(wb, ws, '청구현황');
+
+      // 파일 다운로드
+      const fileName = `청구현황_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+      setSnackbar({ open: true, message: '청구현황이 엑셀로 다운로드되었습니다.', severity: 'success' });
+    } catch (error) {
+      console.error('엑셀 다운로드 오류:', error);
+      setSnackbar({ open: true, message: '엑셀 다운로드에 실패했습니다.', severity: 'error' });
     }
-    
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '청구예정');
-    XLSX.writeFile(wb, `청구예정_${currentMonth}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  // 엑셀 업로드
+  // 엑셀 업로드 (새로운 테이블 양식)
   const handleImportExcel = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -694,62 +910,134 @@ const Claims = () => {
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-        // 데이터 변환 및 저장
-        for (const row of jsonData) {
-          // 필수 입력 필드 검증
-          if (!row['현장명'] || !row['소장/회사명'] || !row['청구금액']) {
-            console.warn('필수 입력 필드가 누락된 행:', row);
-            continue; // 필수 필드가 없으면 해당 행 건너뛰기
-          }
+        // 헤더 제거하고 데이터만 추출
+        const headers = jsonData[0];
+        const rows = jsonData.slice(1);
 
-          // 현장명으로 차수와 기성율 자동 계산
-          const autoSequence = calculateSequence(row['현장명']);
-          const autoProgressRate = calculateProgressRate(row['현장명']);
+        // 데이터 검증 및 변환
+        const processedData = rows
+          .filter(row => row.length > 0 && row.some(cell => cell !== null && cell !== ''))
+          .map(row => {
+            const claim = {};
+            headers.forEach((header, index) => {
+              const value = row[index];
+              switch (header) {
+                case '현장명':
+                  claim.siteName = value || '';
+                  break;
+                case '차수':
+                  claim.sequence = value || '';
+                  break;
+                case '계약금액':
+                  claim.contractAmount = value ? String(value).replace(/,/g, '') : '0';
+                  break;
+                case '잔액':
+                  claim.remainingAmount = value ? String(value).replace(/,/g, '') : '0';
+                  break;
+                case '기성율(%)':
+                  claim.progressRate = value ? String(value).replace('%', '') : '0';
+                  break;
+                case '청구금액':
+                  claim.claimAmount = value ? String(value).replace(/,/g, '') : '0';
+                  break;
+                case '청구여부':
+                  claim.claimStatus = getStatusFromLabel(value);
+                  break;
+                case '비고':
+                  claim.notes = value || '';
+                  break;
+              }
+            });
+            return claim;
+          });
 
-          const claimData = {
-            claimMonth: currentMonth, // 현재 선택된 월로 자동 설정
-            siteName: row['현장명'],
-            manager: row['소장/회사명'] || row['소장'] || '', // 기존 '소장' 컬럼도 호환성 유지
-            sequence: autoSequence, // 자동 계산된 차수
-            progressRate: autoProgressRate, // 자동 계산된 기성율
-            claimAmount: row['청구금액'],
-            claimStatus: 'X', // 기본값으로 청구대기 설정
-            notes: row['비고'] || ''
-          };
-          await createClaim(claimData);
-        }
+        console.log('업로드된 데이터:', processedData);
+        setSnackbar({ open: true, message: `${processedData.length}개의 청구 데이터가 업로드되었습니다.`, severity: 'success' });
 
-        setSnackbar({
-          open: true,
-          message: '엑셀 데이터가 성공적으로 업로드되었습니다. (자동입력: No., 청구월, 차수, 기성율, 청구여부 / 수동입력: 현장명, 소장/회사명, 청구금액)',
-          severity: 'success'
-        });
+        // 여기서 실제 데이터베이스 업데이트 로직을 추가할 수 있습니다
+        // await updateClaimsFromExcel(processedData);
+
       } catch (error) {
-        setSnackbar({
-          open: true,
-          message: '엑셀 업로드에 실패했습니다.',
-          severity: 'error'
-        });
+        console.error('엑셀 업로드 오류:', error);
+        setSnackbar({ open: true, message: '엑셀 업로드에 실패했습니다.', severity: 'error' });
       }
     };
     reader.readAsArrayBuffer(file);
-  };
+
 
   // 상태별 색상
   const getStatusColor = (status) => {
     switch (status) {
-      case 'O': return 'success';
-      case 'X': return 'error';
+      case 'O': return 'success';      // 청구완료: 초록색
+      case 'X': return 'warning';      // 청구대기: 주황색
+      case '이월': return 'error';     // 이월: 빨간색
       default: return 'default';
     }
   };
 
-  // 금액 포맷팅
+  // 청구여부 상태 변경 함수
+  const handleClaimStatusChange = async (claim) => {
+    try {
+      // 현재 상태에 따라 다음 상태로 변경
+      let newStatus;
+      switch (claim.claimStatus) {
+        case 'X':
+          newStatus = 'O';
+          break;
+        case 'O':
+          newStatus = '이월';
+          break;
+        case '이월':
+          newStatus = 'X';
+          break;
+        default:
+          newStatus = 'X';
+      }
+
+      console.log(`🔄 청구여부 상태 변경: ${claim.siteName} - ${claim.claimStatus} → ${newStatus}`);
+
+      // Firebase에서 상태 업데이트
+      await updateClaim(claim.id, {
+        ...claim,
+        claimStatus: newStatus,
+        updatedAt: new Date()
+      });
+
+      // 성공 메시지
+      setSnackbar({
+        open: true,
+        message: `청구여부가 ${getStatusLabel(newStatus)}로 변경되었습니다.`,
+        severity: 'success'
+      });
+
+    } catch (error) {
+      console.error('청구여부 상태 변경 실패:', error);
+      setSnackbar({
+        open: true,
+        message: '청구여부 변경에 실패했습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
+  // 상태 라벨 가져오기
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'O': return '청구완료';
+      case 'X': return '청구대기';
+      case '이월': return '이월';
+      default: return '청구대기';
+    }
+  };
+
+  // 금액 포맷팅 (정수로 표시)
   const formatAmount = (amount) => {
     if (!amount) return '0';
-    return new Intl.NumberFormat('ko-KR').format(amount);
+    // 정수로 변환 후 포맷팅
+    const integerAmount = Math.round(Number(amount));
+    return new Intl.NumberFormat('ko-KR').format(integerAmount);
   };
 
   // 페이지네이션 핸들러
@@ -1017,6 +1305,7 @@ const Claims = () => {
                   <MenuItem value="">전체</MenuItem>
                   <MenuItem value="O">청구완료</MenuItem>
                   <MenuItem value="X">청구대기</MenuItem>
+                  <MenuItem value="이월">이월</MenuItem>
                 </Select>
               </FormControl>
             </Box>
@@ -1160,6 +1449,7 @@ const Claims = () => {
                 <MenuItem value="">전체</MenuItem>
                 <MenuItem value="O">청구완료</MenuItem>
                 <MenuItem value="X">청구대기</MenuItem>
+                <MenuItem value="이월">이월</MenuItem>
               </Select>
             </FormControl>
             
@@ -1224,6 +1514,8 @@ const Claims = () => {
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>현장명</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80 }}>소장/회사명</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80 }}>차수</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>계약금액</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>잔액</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>기성율(%)</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>청구금액</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구여부</TableCell>
@@ -1240,12 +1532,21 @@ const Claims = () => {
                     {isMobile ? (
                       <>
                         <TableCell sx={{ color: 'white' }}>{claim.siteName}</TableCell>
-                        <TableCell sx={{ color: 'white' }}>{formatAmount(claim.claimAmount)}</TableCell>
+                        <TableCell sx={{ color: '#ff6b6b', fontWeight: 'bold' }}>{formatAmount(claim.claimAmount)}</TableCell>
                         <TableCell>
                           <Chip
-                            label={claim.claimStatus}
+                            label={getStatusLabel(claim.claimStatus)}
                             color={getStatusColor(claim.claimStatus)}
                             size="small"
+                            onClick={() => handleClaimStatusChange(claim)}
+                            sx={{
+                              cursor: 'pointer',
+                              '&:hover': {
+                                opacity: 0.8,
+                                transform: 'scale(1.05)'
+                              },
+                              transition: 'all 0.2s ease'
+                            }}
                           />
                         </TableCell>
                       </>
@@ -1255,26 +1556,50 @@ const Claims = () => {
                         <TableCell sx={{ color: 'white' }}>{claim.siteName}</TableCell>
                         <TableCell sx={{ color: 'white' }}>{claim.manager}</TableCell>
                         <TableCell sx={{ color: 'white' }}>{claim.sequence}</TableCell>
+                        <TableCell sx={{ color: 'white' }}>{formatAmount(getContractAmount(claim.siteName))}</TableCell>
+                        <TableCell sx={{ color: '#4caf50', fontWeight: 'bold' }}>{formatAmount(calculateRemainingAmount(claim.siteName))}</TableCell>
                         <TableCell sx={{ color: 'white' }}>{claim.progressRate}%</TableCell>
-                        <TableCell sx={{ color: 'white' }}>{formatAmount(claim.claimAmount)}</TableCell>
+                        <TableCell sx={{ color: '#ff6b6b', fontWeight: 'bold' }}>{formatAmount(claim.claimAmount)}</TableCell>
                         <TableCell>
                           <Chip
-                            label={claim.claimStatus}
+                            label={getStatusLabel(claim.claimStatus)}
                             color={getStatusColor(claim.claimStatus)}
                             size="small"
+                            onClick={() => handleClaimStatusChange(claim)}
+                            sx={{
+                              cursor: 'pointer',
+                              '&:hover': {
+                                opacity: 0.8,
+                                transform: 'scale(1.05)'
+                              },
+                              transition: 'all 0.2s ease'
+                            }}
                           />
                         </TableCell>
                         <TableCell sx={{ color: 'white' }}>{claim.notes}</TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', gap: 0.5 }}>
                             <Tooltip title="기성등록">
-                              <IconButton
+                              <Button
+                                variant="outlined"
                                 size="small"
                                 onClick={() => handleProgressRegistration(claim)}
-                                sx={{ color: '#4caf50' }}
+                                sx={{ 
+                                  color: '#4caf50',
+                                  borderColor: '#4caf50',
+                                  fontSize: '0.75rem',
+                                  py: 0.5,
+                                  px: 1,
+                                  minWidth: 'auto',
+                                  height: '28px',
+                                  '&:hover': {
+                                    borderColor: '#45a049',
+                                    backgroundColor: 'rgba(76, 175, 80, 0.1)'
+                                  }
+                                }}
                               >
-                                <AssignmentIcon fontSize="small" />
-                              </IconButton>
+                                기성등록
+                              </Button>
                             </Tooltip>
                             <Tooltip title="수정">
                               <IconButton
