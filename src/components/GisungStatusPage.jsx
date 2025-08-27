@@ -534,12 +534,17 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     
     // 선급금은 현장 데이터에서 가져와야 함 (기성금 데이터가 아닌)
     let totalAdvance = 0;
-    if (viewType === 'site' && selectedSites && selectedSites.length > 0) {
-      // 선택된 현장들의 선급금 합계
-      totalAdvance = selectedSites.reduce((sum, siteName) => {
-        const site = sites.find(s => s.name && s.name.trim() === siteName.trim());
-        return sum + (Number(site?.advance || 0));
-      }, 0);
+    if (viewType === 'site') {
+      if (selectedSites && selectedSites.length > 0) {
+        // 선택된 현장들의 선급금 합계
+        totalAdvance = selectedSites.reduce((sum, siteName) => {
+          const site = sites.find(s => s.name && s.name.trim() === siteName.trim());
+          return sum + (Number(site?.advance || 0));
+        }, 0);
+      } else {
+        // 현장을 선택하지 않았으면 선급금 0
+        totalAdvance = 0;
+      }
     } else if (viewType === 'month') {
       // 월별 뷰에서는 이달 시작 현장들의 선급금 합계
       totalAdvance = thisMonthSites.reduce((sum, site) => sum + (Number(site.advance || 0)), 0);
