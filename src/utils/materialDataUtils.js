@@ -35,10 +35,10 @@ export const DOCUMENT_MAPPINGS = {
     G: 'note'           // G열 - 비고
   },
   
-  // 기성금 내역서: A열(규격), B열(품명) - 견적서와 동일한 순서로 수정
+  // 기성금 내역서: A열(품명), B열(규격) - 순서 변경
   progress: {
-    A: 'specification', // A열 - 규격 (견적서와 동일)
-    B: 'name',          // B열 - 품명 (견적서와 동일)
+    A: 'name',          // A열 - 품명
+    B: 'specification', // B열 - 규격
     C: 'unit',          // C열 - 단위
     D: 'quantity',      // D열 - 수량
     E: 'JEprice',       // E열 - 재료비 단가

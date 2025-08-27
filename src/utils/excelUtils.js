@@ -946,8 +946,8 @@ const parseDetailData = (data) => {
       }
       
       const item = {
-        itemName: String(row[1] || '').trim(), // B열을 품명으로
-        specification: String(row[0]).trim(), // A열을 규격으로
+        itemName: String(row[0] || '').trim(), // A열을 품명으로
+        specification: String(row[1] || '').trim(), // B열을 규격으로
         unit: String(row[2] || '').trim(),
         contractQuantity: parseNumber(row[3]),
         contractUnitPrice: parseNumber(row[4]),
