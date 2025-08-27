@@ -78,6 +78,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   
   // 다운로드 로딩 상태
   const [downloadLoading, setDownloadLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
   
   const [formData, setFormData] = useState({
     name: '',
@@ -531,7 +532,24 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       // console.log(`📊 현장 미선택 - 계약금액: 0원`);
     }
     
-    const totalAdvance = filteredAndSortedGisung.reduce((sum, gisung) => sum + (Number(gisung.advance) || 0), 0);
+    // 선급금은 현장 데이터에서 가져와야 함 (기성금 데이터가 아닌)
+    let totalAdvance = 0;
+    if (viewType === 'site' && selectedSites && selectedSites.length > 0) {
+      // 선택된 현장들의 선급금 합계
+      totalAdvance = selectedSites.reduce((sum, siteName) => {
+        const site = sites.find(s => s.name && s.name.trim() === siteName.trim());
+        return sum + (Number(site?.advance || 0));
+      }, 0);
+    } else if (viewType === 'month') {
+      // 월별 뷰에서는 이달 시작 현장들의 선급금 합계
+      totalAdvance = thisMonthSites.reduce((sum, site) => sum + (Number(site.advance || 0)), 0);
+    } else {
+      // 전체 뷰에서는 모든 현장의 선급금 합계
+      totalAdvance = sites.reduce((sum, site) => sum + (Number(site.advance || 0)), 0);
+    }
+    
+    console.log(`💰 선급금 계산 결과: ${totalAdvance.toLocaleString()}원`);
+    console.log(`💰 뷰 타입: ${viewType}, 선택된 현장: ${selectedSites?.length || 0}개`);
     const totalPrevGisung = filteredAndSortedGisung.reduce((sum, gisung) => sum + (Number(gisung.prevGisung) || 0), 0);
     
     // 청구완료된 기성만 총기성금액에 포함
@@ -539,7 +557,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       .filter(gisung => gisung.claimStatus === '청구완료')
       .reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
     
-    const totalBalance = totalContractAmount - totalGisungAmount; // 잔액 = 총계약금액 - 총기성금액
+    // 잔액 = 계약금액 - 선급금 - 기성금액
+    const totalBalance = totalContractAmount - totalAdvance - totalGisungAmount;
     
     return { totalContractAmount, totalAdvance, totalPrevGisung, totalGisungAmount, totalBalance };
   }, [filteredAndSortedGisung, sites, viewType, selectedSites]);
@@ -617,7 +636,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             startDate: site.startDate || '',
             endDate: site.endDate || '',
             advance: site.advance || 0,
-            stampType: site.stampType || 'A인감' // 인감 타입 추가
+            stampType: site.stampType || 'A인감', // 인감 타입 추가
+            templateType: site.templateType || 'N' // templateType 추가
           };
           console.log('🔍 매핑된 siteData:', siteData);
         }
@@ -860,8 +880,12 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           }
         }
         
+        // 기성금청구서 생성 시작 메시지
+        const templateTypeText = siteData.templateType === 'L' ? 'LONG' : 'NEW';
+        setLoadingMessage(`열심히 제작중에 있습니다.\n기성금청구서 [${templateTypeText}]을 생산하고 있습니다.`);
+        
         // 기성금청구서 템플릿으로 엑셀 생성 (데이터만 입력)
-        const { workbook, gisungMonth } = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems, currentSequence, previousGisungData);
+        const { workbook, gisungMonth, templateType, templateFileName } = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems, currentSequence, previousGisungData);
         
         // 파일명에서 특수문자 제거하여 안전한 파일명 생성
         const safeSiteName = siteData.name.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
@@ -2473,8 +2497,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
            <Typography variant="h6" sx={{ color: '#90caf9', fontWeight: 600, mb: 1 }}>
              열심히 제작중에 있습니다
            </Typography>
-           <Typography variant="body1" sx={{ color: '#bbb' }}>
-             기성금청구서를 생성하고 있습니다.
+           <Typography variant="body1" sx={{ color: '#bbb', whiteSpace: 'pre-line', textAlign: 'center' }}>
+             {loadingMessage || '기성금청구서를 생성하고 있습니다.'}
            </Typography>
            <Typography variant="body2" sx={{ color: '#999', mt: 1 }}>
              잠시만 기다려주세요...

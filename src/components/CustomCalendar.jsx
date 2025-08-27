@@ -73,7 +73,7 @@ const CustomCalendar = (props) => {
   } = props;
   
 
-  const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
+  const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308', 'transparent'];
 
   // 현장명 중복 제거
   const uniqueSiteNames = [...new Set(sites.map(site => site.name).filter(Boolean))];
@@ -332,7 +332,7 @@ const CustomCalendar = (props) => {
         desc: copiedItem.desc || '',
         siteId: copiedItem.siteId || '',
         date: new Date(targetDate + 'T12:00:00'), // Date 객체로 변환
-        color: copiedItem.color || colorChoices[0], // 기본 색상 설정
+        color: copiedItem.color === 'transparent' ? colorChoices[0] : (copiedItem.color || colorChoices[0]), // 기본 색상 설정
         siteName: copiedItem.siteName || '',
         selectedTypes: copiedItem.selectedTypes || [copiedItem.type || '기타'],
         createdAt: new Date(),
@@ -1132,8 +1132,8 @@ const CustomCalendar = (props) => {
                                     className={snapshot.isDragging ? 'dragging' : ''}
                                     sx={{
                                       p: { xs: 0.1, sm: 0.1, md: 0.4 },
-                                      bgcolor: item.color || (isSelected ? '#3b82f6' : '#181c24'),
-                                      color: '#fff',
+                                      bgcolor: item.color === 'transparent' ? 'transparent' : (item.color || (isSelected ? '#3b82f6' : '#181c24')),
+                                      color: item.color === 'transparent' ? '#fff' : '#fff',
                                       borderRadius: 1,
                                       fontWeight: 500,
                                       fontSize: viewMode === '3days' 
@@ -1386,10 +1386,24 @@ const CustomCalendar = (props) => {
                 onClick={() => setEditPopup(p => ({ ...p, item: { ...p.item, color: color } }))}
                 sx={{
                   width: 24, height: 24, borderRadius: '50%',
-                  bgcolor: color, cursor: 'pointer',
+                  bgcolor: color === 'transparent' ? 'transparent' : color,
+                  cursor: 'pointer',
                   border: editPopup.item?.color === color ? '3px solid #fff' : '2px solid #888',
                   boxShadow: editPopup.item?.color === color ? '0 0 0 2px #1976d2' : 'none',
-                  transition: 'all 0.15s'
+                  transition: 'all 0.15s',
+                  position: 'relative',
+                  ...(color === 'transparent' && {
+                    '&::after': {
+                      content: '"없음"',
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      fontSize: '0.6rem',
+                      color: '#666',
+                      fontWeight: 'bold'
+                    }
+                  })
                 }}
               />
             ))}

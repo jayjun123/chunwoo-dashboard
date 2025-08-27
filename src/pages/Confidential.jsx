@@ -61,7 +61,8 @@ import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   CalendarToday as CalendarIcon,
-  Gavel as GavelIcon
+  Gavel as GavelIcon,
+  OpenInNew as OpenInNewIcon
 } from '@mui/icons-material';
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -645,6 +646,22 @@ const Confidential = () => {
            </Box>
          </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<OpenInNewIcon />}
+            onClick={() => window.open('https://www.scourt.go.kr/portal/information/events/search/search.jsp', '_blank')}
+            sx={{ 
+              mr: 1,
+              borderColor: '#1976d2',
+              color: '#1976d2',
+              '&:hover': { 
+                borderColor: '#1565c0',
+                bgcolor: 'rgba(25, 118, 210, 0.04)'
+              }
+            }}
+          >
+            대법원 바로가기
+          </Button>
           <Button
             variant="outlined"
             startIcon={<CloudDownloadIcon />}

@@ -166,6 +166,10 @@ const NewSites = () => {
   
   // 다운로드 로딩 상태
   const [downloadLoading, setDownloadLoading] = useState(false);
+  
+  // 마이그레이션 로딩 상태
+  const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
 
   // 상태별 카운트 계산
   const statusCounts = useMemo(() => {
@@ -1052,6 +1056,136 @@ const NewSites = () => {
 
 
 
+  // 모든 현장의 templateType 마이그레이션
+  const handleMigrateTemplateTypes = async () => {
+    try {
+      // 사용자 확인
+      const confirmed = window.confirm(
+        '모든 현장의 L/N 표시를 물량 데이터 개수에 따라 업데이트하시겠습니까?\n\n' +
+        '• 20개 이하: N (NEW 템플릿)\n' +
+        '• 21개 이상: L (LONG 템플릿)\n\n' +
+        '이 작업은 되돌릴 수 없습니다.'
+      );
+      
+      if (!confirmed) {
+        console.log('❌ 사용자가 마이그레이션을 취소했습니다.');
+        return;
+      }
+      
+      console.log('🚀 현장 템플릿 표시 마이그레이션 시작...');
+      
+      // 로딩 상태 표시
+      setLoading(true);
+      setLoadingMessage('현장 데이터를 분석하고 있습니다...');
+      
+      // 모든 현장 데이터 가져오기
+      const sitesSnapshot = await getDocs(collection(db, 'sites'));
+      const sites = sitesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      console.log(`📊 총 ${sites.length}개의 현장 데이터 발견`);
+      setLoadingMessage(`총 ${sites.length}개 현장 분석 중...`);
+      
+      let updatedCount = 0;
+      let skippedCount = 0;
+      let errorCount = 0;
+      const results = [];
+      
+      for (let i = 0; i < sites.length; i++) {
+        const site = sites[i];
+        try {
+          setLoadingMessage(`현장 처리 중... (${i + 1}/${sites.length})\n${site.name || site.id}`);
+          
+          console.log(`\n🔍 현장 처리 중: ${site.name || site.id}`);
+          
+          // 물량 데이터 개수 확인
+          const items = site.items || [];
+          const itemCount = items.length;
+          
+          // templateType 결정
+          let templateType = 'N'; // 기본값
+          if (itemCount > 20) {
+            templateType = 'L';
+          }
+          
+          console.log(`📋 물량 데이터: ${itemCount}개 → ${templateType} 템플릿`);
+          
+          // 이미 templateType이 설정되어 있고 변경사항이 없으면 스킵
+          if (site.templateType === templateType) {
+            console.log(`⏭️ 이미 올바른 templateType 설정됨: ${templateType}`);
+            skippedCount++;
+            results.push({
+              siteName: site.name || site.id,
+              status: 'skipped',
+              message: `이미 ${templateType} 설정됨 (${itemCount}개)`
+            });
+            continue;
+          }
+          
+          // templateType 업데이트
+          await updateDoc(doc(db, 'sites', site.id), {
+            templateType: templateType,
+            updatedAt: new Date()
+          });
+          
+          console.log(`✅ templateType 업데이트 완료: ${templateType}`);
+          updatedCount++;
+          results.push({
+            siteName: site.name || site.id,
+            status: 'updated',
+            message: `${templateType}로 변경 (${itemCount}개)`
+          });
+          
+        } catch (error) {
+          console.error(`❌ 현장 ${site.name || site.id} 처리 실패:`, error);
+          errorCount++;
+          results.push({
+            siteName: site.name || site.id,
+            status: 'error',
+            message: `오류: ${error.message}`
+          });
+        }
+      }
+      
+      setLoading(false);
+      setLoadingMessage('');
+      
+      console.log('\n🎉 마이그레이션 완료!');
+      console.log(`📊 총 현장: ${sites.length}개`);
+      console.log(`✅ 업데이트: ${updatedCount}개`);
+      console.log(`⏭️ 스킵: ${skippedCount}개`);
+      console.log(`❌ 오류: ${errorCount}개`);
+      
+      // 상세 결과를 콘솔에 출력
+      console.log('\n📋 상세 결과:');
+      results.forEach(result => {
+        const icon = result.status === 'updated' ? '✅' : result.status === 'skipped' ? '⏭️' : '❌';
+        console.log(`${icon} ${result.siteName}: ${result.message}`);
+      });
+      
+      // 결과를 alert로 표시
+      const resultMessage = `마이그레이션 완료!\n\n` +
+        `📊 총 현장: ${sites.length}개\n` +
+        `✅ 업데이트: ${updatedCount}개\n` +
+        `⏭️ 스킵: ${skippedCount}개\n` +
+        `❌ 오류: ${errorCount}개\n\n` +
+        `이제 모든 현장이 올바른 L/N 표시로 설정되었습니다.`;
+      
+      alert(resultMessage);
+      
+      // 페이지 새로고침하여 변경사항 반영
+      window.location.reload();
+      
+    } catch (error) {
+      setLoading(false);
+      setLoadingMessage('');
+      console.error('❌ 마이그레이션 실패:', error);
+      alert(`마이그레이션 실패: ${error.message}`);
+    }
+  };
+
   const handleAddAdjustmentItem = async (itemType = '단수정리') => {
     // 수정 모드가 아닌 경우 편집 불가
     if (selectedSite && !isEditing) {
@@ -1592,7 +1726,18 @@ const NewSites = () => {
     setIsSaving(true);
 
     try {
-      const formDataToSave = { ...form, startDate: formatDateForStorage(form.startDate), endDate: formatDateForStorage(form.endDate) };
+      // templateType 자동 설정 (물량 개수 기반)
+      const itemCount = form.items?.length || 0;
+      const templateType = itemCount > 20 ? 'L' : 'N';
+      
+      const formDataToSave = { 
+        ...form, 
+        startDate: formatDateForStorage(form.startDate), 
+        endDate: formatDateForStorage(form.endDate),
+        templateType: templateType // templateType 추가
+      };
+      
+      console.log(`📋 물량 데이터: ${itemCount}개 → ${templateType} 템플릿으로 설정`);
       
       if (selectedSite) {
         if (window.confirm('수정하시겠습니까?')) {
@@ -1605,7 +1750,7 @@ const NewSites = () => {
         }
       } else {
         // 등록 확인 메시지
-        const confirmMessage = `다음 현장을 등록하시겠습니까?\n\n현장명: ${form.name}\n계약구분: ${form.contractType}\n담당자: ${form.manager}\n시작일: ${form.startDate}\n종료일: ${form.endDate}`;
+        const confirmMessage = `다음 현장을 등록하시겠습니까?\n\n현장명: ${form.name}\n계약구분: ${form.contractType}\n담당자: ${form.manager}\n시작일: ${form.startDate}\n종료일: ${form.endDate}\n템플릿: ${templateType === 'L' ? 'LONG' : 'NEW'} (${itemCount}개)`;
         
         if (!window.confirm(confirmMessage)) {
           setIsSaving(false);
@@ -2713,17 +2858,21 @@ const NewSites = () => {
             </Typography>
             {form.items && form.items.length > 0 && (
               <Chip
-                label={form.items.length > 20 ? 'L' : 'N'}
+                label={selectedSite?.templateType || (form.items.length > 20 ? 'L' : 'N')}
                 size="small"
                 sx={{
-                  backgroundColor: form.items.length > 20 ? '#ff9800' : '#4caf50',
+                  backgroundColor: (selectedSite?.templateType === 'L' || (!selectedSite?.templateType && form.items.length > 20)) ? '#ff9800' : '#4caf50',
                   color: '#fff',
                   fontWeight: 'bold',
                   fontSize: '0.8rem',
                   minWidth: '24px',
                   height: '24px'
                 }}
-                title={form.items.length > 20 ? '20개 초과 - LONGgisung 템플릿 사용' : '20개 이하 - NEWgisung 템플릿 사용'}
+                title={
+                  selectedSite?.templateType 
+                    ? `${selectedSite.templateType === 'L' ? 'LONG' : 'NEW'} 템플릿 사용 (${form.items.length}개)`
+                    : (form.items.length > 20 ? '20개 초과 - LONGgisung 템플릿 사용' : '20개 이하 - NEWgisung 템플릿 사용')
+                }
               />
             )}
           </Box>
@@ -2740,6 +2889,33 @@ const NewSites = () => {
               disabled={isReadOnly}
             >
               품목추가
+            </Button>
+            <Button 
+              variant="outlined" 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleMigrateTemplateTypes();
+              }} 
+              size={isMobile ? 'small' : 'medium'} 
+              sx={{ 
+                fontSize: isMobile ? '0.7rem' : 'inherit',
+                color: '#ff9800',
+                borderColor: '#ff9800',
+                fontWeight: 'bold',
+                '&:hover': {
+                  borderColor: '#f57c00',
+                  backgroundColor: 'rgba(255, 152, 0, 0.08)'
+                },
+                '&:disabled': {
+                  color: '#ccc',
+                  borderColor: '#ccc'
+                }
+              }}
+              disabled={loading}
+              title="모든 현장의 물량 데이터 개수에 따라 L/N 표시 업데이트 (20개 이하: N, 21개 이상: L)"
+            >
+              {loading ? '처리중...' : 'L/N 설정'}
             </Button>
 
             <Button 
@@ -3230,6 +3406,35 @@ const NewSites = () => {
           </Typography>
           <Typography variant="body1" sx={{ color: '#bbb' }}>
             문서를 생성하고 있습니다.
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#999', mt: 1 }}>
+            잠시만 기다려주세요...
+          </Typography>
+        </Box>
+      </Dialog>
+      
+      {/* 마이그레이션 로딩 팝업 */}
+      <Dialog 
+        open={loading} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: '#181f2e',
+            color: '#fff',
+            borderRadius: 4,
+            p: 4,
+            textAlign: 'center'
+          }
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+          <CircularProgress size={60} sx={{ color: '#ff9800', mb: 2 }} />
+          <Typography variant="h6" sx={{ color: '#ff9800', fontWeight: 600, mb: 1 }}>
+            L/N 설정 업데이트 중
+          </Typography>
+          <Typography variant="body1" sx={{ color: '#bbb', whiteSpace: 'pre-line', textAlign: 'center' }}>
+            {loadingMessage || '현장 데이터를 분석하고 있습니다...'}
           </Typography>
           <Typography variant="body2" sx={{ color: '#999', mt: 1 }}>
             잠시만 기다려주세요...

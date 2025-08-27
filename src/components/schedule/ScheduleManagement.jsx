@@ -123,8 +123,37 @@ const ScheduleManagement = ({
   const [sites, setSites] = useState([]);
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [checkedItems, setCheckedItems] = useState({});
-  const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
+  const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308', 'transparent'];
   const [selectedColor, setSelectedColor] = useState(colorChoices[0]);
+  
+  // 파란색 색상들을 정의 (일반적인 파란색 계열)
+  const blueColors = [
+    '#3b82f6',  // 기본 파란색
+    '#2563eb',  // 진한 파란색
+    '#1d4ed8',  // 더 진한 파란색
+    '#1e40af',  // 매우 진한 파란색
+    '#1e3a8a',  // 가장 진한 파란색
+    '#0ea5e9',  // 하늘색
+    '#0284c7',  // 진한 하늘색
+    '#0369a1',  // 더 진한 하늘색
+    '#075985',  // 매우 진한 하늘색
+    '#0c4a6e',  // 가장 진한 하늘색
+    '#06b6d4',  // 청록색
+    '#0891b2',  // 진한 청록색
+    '#0e7490',  // 더 진한 청록색
+    '#155e75',  // 매우 진한 청록색
+    '#164e63',  // 가장 진한 청록색
+    '#8b5cf6',  // 보라색 (파란색과 유사)
+    '#7c3aed',  // 진한 보라색
+    '#6d28d9',  // 더 진한 보라색
+    '#5b21b6',  // 매우 진한 보라색
+    '#4c1d95',  // 가장 진한 보라색
+    '#6366f1',  // 인디고색
+    '#4f46e5',  // 진한 인디고색
+    '#4338ca',  // 더 진한 인디고색
+    '#3730a3',  // 매우 진한 인디고색
+    '#312e81'   // 가장 진한 인디고색
+  ];
   const [showListPopup, setShowListPopup] = useState(false);
   const [listPopupDate, setListPopupDate] = useState('');
   const [editSchedule, setEditSchedule] = useState({ open: false, schedule: null });
@@ -643,7 +672,7 @@ const ScheduleManagement = ({
         siteId: copiedItem.siteId || '',
         date: new Date(targetDate + 'T12:00:00'),
         userId: user.uid,
-        color: copiedItem.color || colorChoices[0],
+        color: copiedItem.color === 'transparent' ? colorChoices[0] : (copiedItem.color || colorChoices[0]),
         siteName: copiedItem.siteName || '',
         selectedTypes: copiedItem.selectedTypes || [copiedItem.type || '기타'],
         createdAt: new Date(),
@@ -668,6 +697,129 @@ const ScheduleManagement = ({
     } catch (error) {
       console.error('항목 붙여넣기 실패:', error);
       alert('항목 붙여넣기에 실패했습니다.');
+    }
+  };
+
+  // 파란색 현장들과 일정들을 배경없음으로 마이그레이션하는 함수
+  const migrateBlueSitesToTransparent = async () => {
+    try {
+      console.log('🚀 파란색 현장들과 일정들을 배경없음으로 마이그레이션 시작...');
+      
+      let totalUpdatedCount = 0;
+      let totalSkippedCount = 0;
+      const batch = writeBatch(db);
+      
+      // 1. sites 컬렉션에서 모든 현장 데이터 가져오기
+      console.log('📋 1단계: 현장 데이터 마이그레이션 시작...');
+      const sitesQuery = query(collection(db, 'sites'));
+      const sitesSnapshot = await getDocs(sitesQuery);
+      
+      if (!sitesSnapshot.empty) {
+        console.log(`📊 총 ${sitesSnapshot.size}개의 현장을 확인했습니다.`);
+        
+        let sitesUpdatedCount = 0;
+        let sitesSkippedCount = 0;
+        
+        // 각 현장을 확인하고 파란색인 경우 transparent로 변경
+        for (const siteDoc of sitesSnapshot.docs) {
+          const siteData = siteDoc.data();
+          const siteId = siteDoc.id;
+          const siteName = siteData.name || '이름없음';
+          const currentColor = siteData.customColor;
+          
+          console.log(`🔍 현장 확인: ${siteName} (ID: ${siteId})`);
+          console.log(`   현재 색상: ${currentColor || '설정되지 않음'}`);
+          
+          // customColor가 설정되어 있고 파란색 계열인 경우
+          if (currentColor && blueColors.includes(currentColor.toLowerCase())) {
+            console.log(`   🎨 파란색 감지! ${currentColor} → transparent로 변경`);
+            
+            // 배치에 업데이트 작업 추가
+            const siteRef = doc(db, 'sites', siteId);
+            batch.update(siteRef, {
+              customColor: 'transparent',
+              updatedAt: new Date()
+            });
+            
+            sitesUpdatedCount++;
+          } else {
+            console.log(`   ⏭️ 파란색이 아니거나 색상이 설정되지 않음 - 건너뜀`);
+            sitesSkippedCount++;
+          }
+        }
+        
+        totalUpdatedCount += sitesUpdatedCount;
+        totalSkippedCount += sitesSkippedCount;
+        console.log(`✅ 현장 마이그레이션 완료: ${sitesUpdatedCount}개 변경, ${sitesSkippedCount}개 건너뜀`);
+      } else {
+        console.log('📝 현장 데이터가 없습니다.');
+      }
+      
+      // 2. schedules 컬렉션에서 모든 일정 데이터 가져오기
+      console.log('📋 2단계: 일정 데이터 마이그레이션 시작...');
+      const schedulesQuery = query(collection(db, 'schedules'));
+      const schedulesSnapshot = await getDocs(schedulesQuery);
+      
+      if (!schedulesSnapshot.empty) {
+        console.log(`📊 총 ${schedulesSnapshot.size}개의 일정을 확인했습니다.`);
+        
+        let schedulesUpdatedCount = 0;
+        let schedulesSkippedCount = 0;
+        
+        // 각 일정을 확인하고 파란색인 경우 transparent로 변경
+        for (const scheduleDoc of schedulesSnapshot.docs) {
+          const scheduleData = scheduleDoc.data();
+          const scheduleId = scheduleDoc.id;
+          const scheduleTitle = scheduleData.text || scheduleData.title || '제목없음';
+          const currentColor = scheduleData.color;
+          
+          console.log(`🔍 일정 확인: ${scheduleTitle} (ID: ${scheduleId})`);
+          console.log(`   현재 색상: ${currentColor || '설정되지 않음'}`);
+          
+          // color가 설정되어 있고 파란색 계열인 경우
+          if (currentColor && blueColors.includes(currentColor.toLowerCase())) {
+            console.log(`   🎨 파란색 감지! ${currentColor} → transparent로 변경`);
+            
+            // 배치에 업데이트 작업 추가
+            const scheduleRef = doc(db, 'schedules', scheduleId);
+            batch.update(scheduleRef, {
+              color: 'transparent',
+              updatedAt: new Date()
+            });
+            
+            schedulesUpdatedCount++;
+          } else {
+            console.log(`   ⏭️ 파란색이 아니거나 색상이 설정되지 않음 - 건너뜀`);
+            schedulesSkippedCount++;
+          }
+        }
+        
+        totalUpdatedCount += schedulesUpdatedCount;
+        totalSkippedCount += schedulesSkippedCount;
+        console.log(`✅ 일정 마이그레이션 완료: ${schedulesUpdatedCount}개 변경, ${schedulesSkippedCount}개 건너뜀`);
+      } else {
+        console.log('📝 일정 데이터가 없습니다.');
+      }
+      
+      if (totalUpdatedCount > 0) {
+        // 배치 커밋
+        await batch.commit();
+        console.log('✅ 배치 업데이트 완료');
+        
+        console.log('\n🎉 마이그레이션 완료!');
+        console.log(`📊 결과 요약:`);
+        console.log(`   - 총 변경된 항목: ${totalUpdatedCount}개`);
+        console.log(`   - 총 건너뛴 항목: ${totalSkippedCount}개`);
+        
+        alert(`마이그레이션 완료!\n\n총 변경된 항목: ${totalUpdatedCount}개\n총 건너뛴 항목: ${totalSkippedCount}개\n\n변경된 현장들과 일정들은 이제 배경색 없이 표시됩니다.`);
+      } else {
+        console.log('📝 변경할 항목이 없습니다.');
+        alert('파란색으로 설정된 현장이나 일정이 없습니다.');
+      }
+      
+    } catch (error) {
+      console.error('❌ 마이그레이션 중 오류 발생:', error);
+      alert(`마이그레이션 중 오류가 발생했습니다: ${error.message}`);
     }
   };
 
@@ -1278,6 +1430,29 @@ const ScheduleManagement = ({
                   }}>
                     더블클릭하여 현장 정보 확인
                   </Typography>
+                  
+                  {/* 마이그레이션 버튼 */}
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={migrateBlueSitesToTransparent}
+                    sx={{
+                      borderColor: '#f59e42',
+                      color: '#f59e42',
+                      fontSize: '0.7rem',
+                      py: 0.1,
+                      px: 0.8,
+                      minWidth: 'auto',
+                      height: 20,
+                      mt: 0.5,
+                      '&:hover': {
+                        borderColor: '#d97706',
+                        bgcolor: 'rgba(245, 158, 66, 0.04)'
+                      }
+                    }}
+                  >
+                    파란색→배경없음 (전체)
+                  </Button>
                 </Box>
                 
                 {/* 견적/청구 버튼 - 오른쪽에 컴팩트하게 */}
@@ -1570,10 +1745,24 @@ const ScheduleManagement = ({
                   onClick={() => setSelectedColor(color)}
                   sx={{
                     width: 24, height: 24, borderRadius: '50%',
-                    bgcolor: color, cursor: 'pointer',
+                    bgcolor: color === 'transparent' ? 'transparent' : color,
+                    cursor: 'pointer',
                     border: selectedColor === color ? '3px solid #fff' : '2px solid #888',
                     boxShadow: selectedColor === color ? '0 0 0 2px #1976d2' : 'none',
-                    transition: 'all 0.15s'
+                    transition: 'all 0.15s',
+                    position: 'relative',
+                    ...(color === 'transparent' && {
+                      '&::after': {
+                        content: '"없음"',
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        fontSize: '0.6rem',
+                        color: '#666',
+                        fontWeight: 'bold'
+                      }
+                    })
                   }}
                 />
               ))}

@@ -54,7 +54,7 @@ const CustomSchedule = () => {
   const [sites, setSites] = useState([]);
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [checkedItems, setCheckedItems] = useState({});
-  const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
+  const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308', 'transparent'];
   const [selectedColor, setSelectedColor] = useState(colorChoices[0]);
   const [showListPopup, setShowListPopup] = useState(false);
   const [listPopupDate, setListPopupDate] = useState('');
@@ -749,7 +749,7 @@ const CustomSchedule = () => {
         siteId: copiedItem.siteId || '',
         date: new Date(targetDate + 'T12:00:00'),
         userId: user.uid,
-        color: copiedItem.color || colorChoices[0],
+        color: copiedItem.color === 'transparent' ? colorChoices[0] : (copiedItem.color || colorChoices[0]),
         siteName: copiedItem.siteName || '',
         selectedTypes: copiedItem.selectedTypes || [copiedItem.type || '기타'],
         createdAt: new Date(),
@@ -1128,10 +1128,24 @@ const CustomSchedule = () => {
                   onClick={() => setSelectedColor(color)}
                   sx={{
                     width: 24, height: 24, borderRadius: '50%',
-                    bgcolor: color, cursor: 'pointer',
+                    bgcolor: color === 'transparent' ? 'transparent' : color,
+                    cursor: 'pointer',
                     border: selectedColor === color ? '3px solid #fff' : '2px solid #888',
                     boxShadow: selectedColor === color ? '0 0 0 2px #1976d2' : 'none',
-                    transition: 'all 0.15s'
+                    transition: 'all 0.15s',
+                    position: 'relative',
+                    ...(color === 'transparent' && {
+                      '&::after': {
+                        content: '"없음"',
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        fontSize: '0.6rem',
+                        color: '#666',
+                        fontWeight: 'bold'
+                      }
+                    })
                   }}
                 />
               ))}
