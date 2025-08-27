@@ -38,7 +38,8 @@ import {
   Upload as UploadIcon,
   ArrowUpward as ArrowUpwardIcon,
   ArrowDownward as ArrowDownwardIcon,
-  Business as BusinessIcon
+  Business as BusinessIcon,
+  OpenInNew as OpenInNewIcon
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -937,27 +938,64 @@ const Vendors = () => {
   return (
     <Box sx={{ p: 3, marginTop: '64px', pb: '60px' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-        <Typography 
-          variant="h5" 
-          sx={{ 
-            cursor: 'pointer',
-            '&:hover': { 
-              color: 'primary.main',
-              textDecoration: 'underline'
-            }
-          }}
-          onClick={handleTitleClick}
-        >
-          거래처 입찰현황
-          {filteredByCompanyType && (
-            <Chip 
-              label={`${filteredByCompanyType} 필터링됨`} 
-              size="small" 
-              color="primary" 
-              sx={{ ml: 1, fontSize: '0.7rem' }}
-            />
-          )}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              cursor: 'pointer',
+              '&:hover': { 
+                color: 'primary.main',
+                textDecoration: 'underline'
+              }
+            }}
+            onClick={handleTitleClick}
+          >
+            거래처 입찰현황
+            {filteredByCompanyType && (
+              <Chip 
+                label={`${filteredByCompanyType} 필터링됨`} 
+                size="small" 
+                color="primary" 
+                sx={{ ml: 1, fontSize: '0.7rem' }}
+              />
+            )}
+          </Typography>
+          
+          {/* 하이퍼링크 버튼들 */}
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<OpenInNewIcon />}
+            onClick={() => window.open('https://www.igunsul.net/', '_blank')}
+            sx={{ 
+              borderColor: '#1976d2',
+              color: '#1976d2',
+              '&:hover': { 
+                borderColor: '#1565c0',
+                bgcolor: 'rgba(25, 118, 210, 0.04)'
+              }
+            }}
+          >
+            아이건설넷
+          </Button>
+          
+                            <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<OpenInNewIcon />}
+                    onClick={() => window.open('https://data.g2b.go.kr/index.do?w2xPath=/kn/layout/nara/popupLayout.xml&w2xHome=/kn/layout/nara/', '_blank')}
+                    sx={{ 
+                      borderColor: '#2e7d32',
+                      color: '#2e7d32',
+                      '&:hover': { 
+                        borderColor: '#1b5e20',
+                        bgcolor: 'rgba(46, 125, 50, 0.04)'
+                      }
+                    }}
+                  >
+                    관급조달
+                  </Button>
+        </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           {selectedItems.length > 0 && (
             <Button

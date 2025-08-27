@@ -47,6 +47,8 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   // 모바일 감지
   useEffect(() => {
@@ -88,6 +90,67 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
   useEffect(() => {
     loadMaterialData();
   }, [siteId]);
+
+  // 물량 항목 편집 함수들
+  const handleEditItem = (item, index) => {
+    setEditingItem({ ...item, index });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem) return;
+    
+    try {
+      const updatedItems = [...materialData.items];
+      updatedItems[editingItem.index] = {
+        ...editingItem,
+        amount: (editingItem.quantity * editingItem.unitPrice).toString()
+      };
+      
+      // Firebase에 업데이트
+      const { doc, updateDoc, collection, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      
+      // materialEstimates 컬렉션 업데이트
+      const { query, where, getDocs } = await import('firebase/firestore');
+      const materialQuery = query(
+        collection(db, 'materialEstimates'),
+        where('siteId', '==', siteId)
+      );
+      const materialDocs = await getDocs(materialQuery);
+      
+      if (!materialDocs.empty) {
+        const materialDoc = materialDocs.docs[0];
+        await updateDoc(doc(db, 'materialEstimates', materialDoc.id), {
+          items: updatedItems,
+          updatedAt: serverTimestamp()
+        });
+        
+        // 로컬 상태 업데이트
+        setMaterialData(prev => ({
+          ...prev,
+          items: updatedItems
+        }));
+        
+        setSuccess('물량 항목이 수정되었습니다.');
+        setEditDialogOpen(false);
+        setEditingItem(null);
+        
+        // 부모 컴포넌트에 업데이트 알림
+        if (onDataUpdate) {
+          onDataUpdate();
+        }
+      }
+    } catch (error) {
+      console.error('❌ 물량 항목 수정 실패:', error);
+      setError('물량 항목 수정 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditDialogOpen(false);
+    setEditingItem(null);
+  };
 
   // 파일 선택 핸들러
   const handleFileSelect = (event) => {
@@ -307,6 +370,23 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
                       }}>
                         {formatCurrency(item.amount)}
                       </Typography>
+                      
+                      <Box sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'flex-end',
+                        mt: 1
+                      }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditItem(item, index)}
+                          sx={{ 
+                            color: '#43e97b',
+                            '&:hover': { bgcolor: '#2a3441' }
+                          }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
                     </Box>
                   ))}
                 </Box>
@@ -356,6 +436,14 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
                       borderBottom: '2px solid #43e97b'
                     }}>
                       금액
+                    </TableCell>
+                    <TableCell sx={{ 
+                      bgcolor: '#1a1d21', 
+                      color: '#fff', 
+                      fontWeight: 'bold',
+                      borderBottom: '2px solid #43e97b'
+                    }}>
+                      관리
                     </TableCell>
                   </TableRow>
                 </TableHead>
@@ -424,6 +512,22 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
                         }}>
                           {formatCurrency(item.amount)}
                         </TableCell>
+                        <TableCell sx={{ 
+                          color: '#fff', 
+                          borderBottom: '1px solid #333',
+                          textAlign: 'center'
+                        }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditItem(item, index)}
+                            sx={{ 
+                              color: '#43e97b',
+                              '&:hover': { bgcolor: '#2a3441' }
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -431,6 +535,175 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
               </Table>
             </TableContainer>
           )}
+
+          {/* 편집 다이얼로그 */}
+          <Dialog 
+            open={editDialogOpen} 
+            onClose={handleCancelEdit}
+            maxWidth="sm"
+            fullWidth
+            PaperProps={{
+              sx: {
+                bgcolor: '#1e252b',
+                color: '#fff',
+                border: '1px solid #333'
+              }
+            }}
+          >
+            <DialogTitle sx={{ 
+              bgcolor: '#1a1d21', 
+              borderBottom: '1px solid #333',
+              color: '#43e97b'
+            }}>
+              물량 항목 수정
+            </DialogTitle>
+            <DialogContent sx={{ pt: 2 }}>
+              {editingItem && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <TextField
+                    label="품목명"
+                    value={editingItem.name || ''}
+                    onChange={(e) => setEditingItem(prev => ({ ...prev, name: e.target.value }))}
+                    fullWidth
+                    size="small"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        color: '#fff',
+                        '& fieldset': { borderColor: '#333' },
+                        '&:hover fieldset': { borderColor: '#43e97b' },
+                        '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                      },
+                      '& .MuiInputLabel-root': { color: '#999' },
+                      '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                    }}
+                  />
+                  
+                  <TextField
+                    label="규격"
+                    value={editingItem.specification || ''}
+                    onChange={(e) => setEditingItem(prev => ({ ...prev, specification: e.target.value }))}
+                    fullWidth
+                    size="small"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        color: '#fff',
+                        '& fieldset': { borderColor: '#333' },
+                        '&:hover fieldset': { borderColor: '#43e97b' },
+                        '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                      },
+                      '& .MuiInputLabel-root': { color: '#999' },
+                      '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                    }}
+                  />
+                  
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    <TextField
+                      label="수량"
+                      type="number"
+                      value={editingItem.quantity || 0}
+                      onChange={(e) => setEditingItem(prev => ({ 
+                        ...prev, 
+                        quantity: parseFloat(e.target.value) || 0 
+                      }))}
+                      fullWidth
+                      size="small"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          color: '#fff',
+                          '& fieldset': { borderColor: '#333' },
+                          '&:hover fieldset': { borderColor: '#43e97b' },
+                          '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                        },
+                        '& .MuiInputLabel-root': { color: '#999' },
+                        '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                      }}
+                    />
+                    
+                    <TextField
+                      label="단위"
+                      value={editingItem.unit || ''}
+                      onChange={(e) => setEditingItem(prev => ({ ...prev, unit: e.target.value }))}
+                      fullWidth
+                      size="small"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          color: '#fff',
+                          '& fieldset': { borderColor: '#333' },
+                          '&:hover fieldset': { borderColor: '#43e97b' },
+                          '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                        },
+                        '& .MuiInputLabel-root': { color: '#999' },
+                        '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                      }}
+                    />
+                  </Box>
+                  
+                  <TextField
+                    label="단가"
+                    type="number"
+                    value={editingItem.unitPrice || 0}
+                    onChange={(e) => setEditingItem(prev => ({ 
+                      ...prev, 
+                      unitPrice: parseFloat(e.target.value) || 0 
+                    }))}
+                    fullWidth
+                    size="small"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        color: '#fff',
+                        '& fieldset': { borderColor: '#333' },
+                        '&:hover fieldset': { borderColor: '#43e97b' },
+                        '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                      },
+                      '& .MuiInputLabel-root': { color: '#999' },
+                      '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                    }}
+                  />
+                  
+                  <Box sx={{ 
+                    p: 2, 
+                    bgcolor: '#2a3441', 
+                    borderRadius: 1,
+                    border: '1px solid #333'
+                  }}>
+                    <Typography variant="body2" sx={{ color: '#999', mb: 1 }}>
+                      계산된 금액
+                    </Typography>
+                    <Typography variant="h6" sx={{ color: '#43e97b', fontWeight: 'bold' }}>
+                      {formatCurrency((editingItem.quantity || 0) * (editingItem.unitPrice || 0))}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ 
+              bgcolor: '#1a1d21', 
+              borderTop: '1px solid #333',
+              p: 2
+            }}>
+              <Button 
+                onClick={handleCancelEdit}
+                sx={{ 
+                  color: '#999',
+                  '&:hover': { bgcolor: '#2a3441' }
+                }}
+              >
+                취소
+              </Button>
+              <Button 
+                onClick={handleSaveEdit}
+                variant="contained"
+                sx={{ 
+                  bgcolor: '#43e97b',
+                  color: '#000',
+                  '&:hover': { bgcolor: '#2e7d32' }
+                }}
+                startIcon={<SaveIcon />}
+              >
+                저장
+              </Button>
+            </DialogActions>
+          </Dialog>
 
           {/* 요약 정보 */}
           {materialData.items.length > 0 && (

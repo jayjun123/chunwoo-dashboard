@@ -104,7 +104,7 @@ const CustomScheduleMobile = () => {
   const [sites, setSites] = useState([]);
   const [estimates, setEstimates] = useState([]);
   const [viewMode, setViewMode] = useState('month'); // 이제 'month'만 사용
-  const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
+  const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308', 'transparent'];
   const [checkedItems, setCheckedItems] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -564,8 +564,8 @@ const CustomScheduleMobile = () => {
                             py: 0.1,
                             fontSize: '0.65rem',
                             fontWeight: 500,
-                            bgcolor: item.color || colorList[i % colorList.length],
-                            color: '#fff',
+                            bgcolor: item.color === 'transparent' ? 'transparent' : (item.color || colorList[i % colorList.length]),
+                            color: item.color === 'transparent' ? '#fff' : '#fff',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
@@ -801,8 +801,8 @@ const CustomScheduleMobile = () => {
                           py: 0.05,
                           fontSize: '0.55rem',
                           fontWeight: 500,
-                          bgcolor: item.color || colorList[j % colorList.length],
-                          color: '#fff',
+                          bgcolor: item.color === 'transparent' ? 'transparent' : (item.color || colorList[j % colorList.length]),
+                          color: item.color === 'transparent' ? '#fff' : '#fff',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
@@ -1560,8 +1560,8 @@ const CustomScheduleMobile = () => {
                                     py: 0.05,
                                     fontSize: '0.7rem', // 0.55rem에서 0.7rem으로 증가
                                     fontWeight: 500,
-                                    bgcolor: item.color || colorList[i % colorList.length],
-                                    color: '#fff',
+                                    bgcolor: item.color === 'transparent' ? 'transparent' : (item.color || colorList[i % colorList.length]),
+                                    color: item.color === 'transparent' ? '#fff' : '#fff',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
                                     whiteSpace: 'nowrap',
@@ -1700,8 +1700,8 @@ const CustomScheduleMobile = () => {
                       justifyContent: 'space-between',
                       p: 0.4, // 패딩 더 증가
                       borderRadius: 0.8, 
-                      bgcolor: item.color || colorList[i % colorList.length], 
-                      color: '#fff', 
+                      bgcolor: item.color === 'transparent' ? 'transparent' : (item.color || colorList[i % colorList.length]), 
+                      color: item.color === 'transparent' ? '#fff' : '#fff', 
                       fontWeight: 500, 
                       fontSize: '0.9rem', // 폰트 크기 더 증가
                       boxShadow: '0 1px 2px 0 #0002',
@@ -1967,10 +1967,24 @@ const CustomScheduleMobile = () => {
                     onClick={() => setEditScheduleColor(color)}
                     sx={{
                       width: 20, height: 20, borderRadius: '50%',
-                      bgcolor: color, cursor: 'pointer',
+                      bgcolor: color === 'transparent' ? 'transparent' : color,
+                      cursor: 'pointer',
                       border: editScheduleColor === color ? '2px solid #fff' : '1px solid #888',
                       boxShadow: editScheduleColor === color ? '0 0 0 1px #2196f3' : 'none',
-                      transition: 'all 0.15s'
+                      transition: 'all 0.15s',
+                      position: 'relative',
+                      ...(color === 'transparent' && {
+                        '&::after': {
+                          content: '"없음"',
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          fontSize: '0.5rem',
+                          color: '#666',
+                          fontWeight: 'bold'
+                        }
+                      })
                     }}
                   />
                 ))}

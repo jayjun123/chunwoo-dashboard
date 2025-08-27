@@ -49,23 +49,23 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
     console.log('📊 itemCount:', itemCount);
     console.log('📊 siteItems 상세:', JSON.stringify(siteItems, null, 2));
     
-    // siteData에서 templateType 확인 (우선순위)
+    // siteData에서 templateType 확인 (N/L 표시만 사용)
     if (siteData && siteData.templateType) {
       if (siteData.templateType === 'L') {
         templateFileName = 'LONGgisung.xlsx';
         console.log(`📊 현장의 templateType이 'L'로 설정되어 LONGgisung 템플릿을 사용합니다.`);
-      } else {
+      } else if (siteData.templateType === 'N') {
         templateFileName = 'NEWgisung.xlsx';
         console.log(`📊 현장의 templateType이 'N'으로 설정되어 NEWgisung 템플릿을 사용합니다.`);
+      } else {
+        // templateType이 있지만 L/N이 아닌 경우 기본값
+        templateFileName = 'NEWgisung.xlsx';
+        console.log(`📊 현장의 templateType이 '${siteData.templateType}'이므로 기본 NEWgisung 템플릿을 사용합니다.`);
       }
     } else {
-      // 기존 로직 (물량 데이터 개수 기반)
-      if (itemCount > 20) {
-        templateFileName = 'LONGgisung.xlsx';
-        console.log(`📊 물량 데이터가 ${itemCount}개로 20개를 초과하여 LONGgisung 템플릿을 사용합니다.`);
-      } else {
-        console.log(`📊 물량 데이터가 ${itemCount}개로 NEWgisung 템플릿을 사용합니다.`);
-      }
+      // templateType이 설정되지 않은 경우 기본값
+      templateFileName = 'NEWgisung.xlsx';
+      console.log(`📊 현장의 templateType이 설정되지 않아 기본 NEWgisung 템플릿을 사용합니다.`);
     }
     
     // 템플릿 다운로드 (CORS 우회 포함)

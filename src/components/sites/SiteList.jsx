@@ -29,10 +29,10 @@ const SiteList = () => {
         }));
         setSites(sitesData);
 
-        // 2. 모든 siteId에 대해 gisung 합산값 불러오기
+        // 2. 모든 siteId에 대해 gisung 합산값과 선급금 포함하여 누계기성값 계산
         const gisungQuery = query(collection(db, 'gisung'));
         const gisungSnap = await getDocs(gisungQuery);
-        // siteId별로 누계기성값 합산
+        // siteId별로 누계기성값 합산 (선급금 포함)
         const map = {};
         gisungSnap.forEach(doc => {
           const data = doc.data();
@@ -41,6 +41,16 @@ const SiteList = () => {
           if (!map[siteId]) map[siteId] = 0;
           map[siteId] += amount;
         });
+        
+        // 현장별 선급금을 누계기성값에 추가
+        sitesData.forEach(site => {
+          const advanceAmount = Number(site.advance || 0);
+          if (advanceAmount > 0 && map[site.id]) {
+            map[site.id] += advanceAmount;
+            console.log(`💰 현장 "${site.name}"에 선급금 ${advanceAmount.toLocaleString()}원 추가`);
+          }
+        });
+        
         setGisungMap(map);
       } catch (error) {
         console.error('현장/기성 데이터 조회 실패:', error);
@@ -116,7 +126,7 @@ const SiteList = () => {
               <p><strong>현장장:</strong> {site.manager}</p>
               <p><strong>기간:</strong> {site.startDate} ~ {site.endDate}</p>
               <p><strong>예산:</strong> {site.budget || site.contractAmount?.toLocaleString()}</p>
-              <p><strong>누계기성값:</strong> {getCumulativeAmount(site)}원</p>
+              <p><strong>누계기성값:</strong> {getCumulativeAmount(site)}원 (선급금 포함)</p>
               <div className="progress-bar">
                 <div 
                   className="progress-fill"
