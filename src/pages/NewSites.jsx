@@ -27,8 +27,10 @@ const formatQuantity = (value) => {
   const num = parseFloat(value);
   if (isNaN(num)) return '';
   if (num === 0) return '0';
-  // 정수로 반올림하여 천단위 쉼표 적용
-  return Math.round(num).toLocaleString();
+  
+  // 소수점 2째 자리까지 표시하되, 정확한 값은 유지
+  const roundedForDisplay = Math.round(num * 100) / 100;
+  return roundedForDisplay.toLocaleString();
 };
 
 const formatAmount = (value) => {
