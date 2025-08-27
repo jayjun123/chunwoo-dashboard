@@ -1782,11 +1782,10 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
 
   return (
     <Box sx={{ 
-      width: '100%', 
+      width: isMobile ? '100vw' : '100%', 
       p: isMobile ? 0 : 2,
       position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '-26px' : 'auto',
-      width: isMobile ? '100vw' : '100%'
+      left: isMobile ? '-26px' : 'auto'
     }}>
       {/* 상단 제목 및 통계 */}
       <Typography variant="h4" sx={{ 
@@ -2272,7 +2271,6 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                     }
                   }
                 }}
-                freeSolo
                 clearOnBlur
               />
             <TextField

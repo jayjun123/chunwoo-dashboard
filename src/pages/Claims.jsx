@@ -965,7 +965,7 @@ const Claims = () => {
       }
     };
     reader.readAsArrayBuffer(file);
-
+  };
 
   // 상태별 색상
   const getStatusColor = (status) => {

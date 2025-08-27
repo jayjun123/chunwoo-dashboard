@@ -1,0 +1,232 @@
+{
+  "metadata": {
+    "backupDate": "2025-08-27T07:12:17.362Z",
+    "backupVersion": "1.0",
+    "collections": [
+      "sites",
+      "gisung",
+      "claims",
+      "documents",
+      "discussions",
+      "safety",
+      "estimates",
+      "progress",
+      "users",
+      "templates"
+    ],
+    "totalCollections": 10,
+    "backupType": "full",
+    "description": "Firebase 전체 데이터 자동 백업",
+    "totalDocuments": 0,
+    "totalStorageFiles": 37,
+    "backupDuration": 13843
+  },
+  "firestore": {
+    "sites": [],
+    "gisung": [],
+    "claims": [],
+    "documents": [],
+    "discussions": [],
+    "safety": [],
+    "estimates": [],
+    "progress": [],
+    "users": [],
+    "templates": []
+  },
+  "storage": {
+    "documents": [],
+    "sites/photos": [],
+    "templates": [
+      {
+        "name": "LONG.xlsx",
+        "fullPath": "templates/LONG.xlsx",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2FLONG.xlsx?alt=media&token=b82df49a-fd45-4f82-81a4-4185fd8993f5"
+      },
+      {
+        "name": "NEW.xlsx",
+        "fullPath": "templates/NEW.xlsx",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2FNEW.xlsx?alt=media&token=2cbf3c9c-2ecf-4c45-8a5a-d33b3fc92db7"
+      },
+      {
+        "name": "NEWgisung.xlsx",
+        "fullPath": "templates/NEWgisung.xlsx",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2FNEWgisung.xlsx?alt=media&token=ef78c0c2-cf46-4cc4-8ab1-18f6527e6008"
+      },
+      {
+        "name": "contract_gabji.xlsx",
+        "fullPath": "templates/contract_gabji.xlsx",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2Fcontract_gabji.xlsx?alt=media&token=a5dac61d-7db3-4b7e-9efd-857aa16ffe2b"
+      },
+      {
+        "name": "delivery_contract.xlsx",
+        "fullPath": "templates/delivery_contract.xlsx",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2Fdelivery_contract.xlsx?alt=media&token=69758c46-67b7-40ea-af95-2e9a53333d46"
+      },
+      {
+        "name": "estimate.xlsx",
+        "fullPath": "templates/estimate.xlsx",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2Festimate.xlsx?alt=media&token=dc91d766-e7cb-47d0-8a18-931b4ccb4d38"
+      },
+      {
+        "name": "견적서.xlsx",
+        "fullPath": "templates/견적서.xlsx",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2F%EA%B2%AC%EC%A0%81%EC%84%9C.xlsx?alt=media&token=b817dbbe-5c79-4909-a3b2-f7e416c049f2"
+      },
+      {
+        "name": "납품계약서 갑지.xlsx",
+        "fullPath": "templates/납품계약서 갑지.xlsx",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2F%EB%82%A9%ED%92%88%EA%B3%84%EC%95%BD%EC%84%9C%20%EA%B0%91%EC%A7%80.xlsx?alt=media&token=18f6f3af-6238-4cab-9c73-39e8d2c85bb3"
+      }
+    ],
+    "stamps": [
+      {
+        "name": "11.png",
+        "fullPath": "stamps/11.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/stamps%2F11.png?alt=media&token=e80ccec9-503b-4c58-ab01-4f7bf1e725f3"
+      },
+      {
+        "name": "A.png",
+        "fullPath": "stamps/A.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/stamps%2FA.png?alt=media&token=29e0a17b-18e4-43f6-b405-6179730b2771"
+      },
+      {
+        "name": "네모.png",
+        "fullPath": "stamps/네모.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/stamps%2F%EB%84%A4%EB%AA%A8.png?alt=media&token=9827c23f-dcc7-4a53-9578-d85a3242d22c"
+      },
+      {
+        "name": "동.png",
+        "fullPath": "stamps/동.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/stamps%2F%EB%8F%99.png?alt=media&token=0c85ac39-c286-4f3d-8d32-1aa89a305a2c"
+      },
+      {
+        "name": "별.png",
+        "fullPath": "stamps/별.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/stamps%2F%EB%B3%84.png?alt=media&token=26ff9731-4d33-4577-9d8a-6ac20ba626d7"
+      },
+      {
+        "name": "삼각.png",
+        "fullPath": "stamps/삼각.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/stamps%2F%EC%82%BC%EA%B0%81.png?alt=media&token=82ab66e2-1956-4f0e-a26c-3b13a1b6f35e"
+      },
+      {
+        "name": "스페이드.png",
+        "fullPath": "stamps/스페이드.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/stamps%2F%EC%8A%A4%ED%8E%98%EC%9D%B4%EB%93%9C.png?alt=media&token=abbd24d3-e0c8-495c-ae20-eeb6ef29c420"
+      },
+      {
+        "name": "클로버.png",
+        "fullPath": "stamps/클로버.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/stamps%2F%ED%81%B4%EB%A1%9C%EB%B2%84.png?alt=media&token=f7f964f4-9334-41e6-a0f7-06074ff777d4"
+      },
+      {
+        "name": "하트.png",
+        "fullPath": "stamps/하트.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/stamps%2F%ED%95%98%ED%8A%B8.png?alt=media&token=edce1ebc-5257-472a-8d02-bfde143a8654"
+      }
+    ],
+    "safety": [
+      {
+        "name": "1752651100295_로프 세금계산서25.07.14.jpg",
+        "fullPath": "safety/1752651100295_로프 세금계산서25.07.14.jpg",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752651100295_%EB%A1%9C%ED%94%84%20%EC%84%B8%EA%B8%88%EA%B3%84%EC%82%B0%EC%84%9C25.07.14.jpg?alt=media&token=cfd2f246-9bea-465f-9d63-564726ec2ed3"
+      },
+      {
+        "name": "1752651102162_로프 세금계산서25.07.14.jpg",
+        "fullPath": "safety/1752651102162_로프 세금계산서25.07.14.jpg",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752651102162_%EB%A1%9C%ED%94%84%20%EC%84%B8%EA%B8%88%EA%B3%84%EC%82%B0%EC%84%9C25.07.14.jpg?alt=media&token=2f67be58-61dc-4811-9fd0-d55fd986f26a"
+      },
+      {
+        "name": "1752651656358_undefined",
+        "fullPath": "safety/1752651656358_undefined",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752651656358_undefined?alt=media&token=5358daf2-22ad-4f63-9208-535cf1382f72"
+      },
+      {
+        "name": "1752651661862_undefined",
+        "fullPath": "safety/1752651661862_undefined",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752651661862_undefined?alt=media&token=178b25ee-cd02-4360-ba90-3a6350de9b2f"
+      },
+      {
+        "name": "1752651748321_undefined",
+        "fullPath": "safety/1752651748321_undefined",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752651748321_undefined?alt=media&token=e7762fc2-69ef-4744-aea3-2c4432557ad5"
+      },
+      {
+        "name": "1752651749932_undefined",
+        "fullPath": "safety/1752651749932_undefined",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752651749932_undefined?alt=media&token=94f12544-2b26-4a6a-ba6b-e2e3ce5f6eb4"
+      },
+      {
+        "name": "1752651754222_undefined",
+        "fullPath": "safety/1752651754222_undefined",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752651754222_undefined?alt=media&token=aef366ab-cf94-44e4-8f30-533174ca5b52"
+      },
+      {
+        "name": "1752651762076_undefined",
+        "fullPath": "safety/1752651762076_undefined",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752651762076_undefined?alt=media&token=f66b709b-9976-493c-9914-7e90f9d4f1be"
+      },
+      {
+        "name": "1752651862011_undefined",
+        "fullPath": "safety/1752651862011_undefined",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752651862011_undefined?alt=media&token=90e3ba82-0f2b-4dc0-91a4-9056c660f86f"
+      },
+      {
+        "name": "1752651905619_undefined",
+        "fullPath": "safety/1752651905619_undefined",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752651905619_undefined?alt=media&token=77786481-877b-4a90-9e83-4e852c188245"
+      },
+      {
+        "name": "1752651986884_undefined",
+        "fullPath": "safety/1752651986884_undefined",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752651986884_undefined?alt=media&token=4d007f43-1700-4a15-95e3-fc9b747d7720"
+      },
+      {
+        "name": "1752652242900_undefined",
+        "fullPath": "safety/1752652242900_undefined",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752652242900_undefined?alt=media&token=36bcaadc-bce3-47a0-b692-eb5595966db0"
+      },
+      {
+        "name": "1752654055891_로프 세금계산서25.07.14.jpg",
+        "fullPath": "safety/1752654055891_로프 세금계산서25.07.14.jpg",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752654055891_%EB%A1%9C%ED%94%84%20%EC%84%B8%EA%B8%88%EA%B3%84%EC%82%B0%EC%84%9C25.07.14.jpg?alt=media&token=d0b1aaa1-7a24-4a4e-96ba-79c68700c1ea"
+      },
+      {
+        "name": "1752654057196_로프 세금계산서25.07.14.jpg",
+        "fullPath": "safety/1752654057196_로프 세금계산서25.07.14.jpg",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1752654057196_%EB%A1%9C%ED%94%84%20%EC%84%B8%EA%B8%88%EA%B3%84%EC%82%B0%EC%84%9C25.07.14.jpg?alt=media&token=f6292280-d27d-4fe6-b28f-91a3f871368a"
+      },
+      {
+        "name": "1755845681065_안전화.png",
+        "fullPath": "safety/1755845681065_안전화.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1755845681065_%EC%95%88%EC%A0%84%ED%99%94.png?alt=media&token=4172fa51-6992-4f0b-bb70-64d0e965d9ad"
+      },
+      {
+        "name": "1755845682258_안전화.png",
+        "fullPath": "safety/1755845682258_안전화.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1755845682258_%EC%95%88%EC%A0%84%ED%99%94.png?alt=media&token=979dbc74-ae00-424c-818d-ae39c11555ab"
+      },
+      {
+        "name": "1755845682678_안전화.png",
+        "fullPath": "safety/1755845682678_안전화.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1755845682678_%EC%95%88%EC%A0%84%ED%99%94.png?alt=media&token=6cd8975a-f9e2-49db-8683-d9d338d2b3e5"
+      },
+      {
+        "name": "1755845682925_안전화.png",
+        "fullPath": "safety/1755845682925_안전화.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1755845682925_%EC%95%88%EC%A0%84%ED%99%94.png?alt=media&token=ef3a8f3d-cfce-438d-88db-87b9eef3f0b4"
+      },
+      {
+        "name": "1755845683330_안전화.png",
+        "fullPath": "safety/1755845683330_안전화.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1755845683330_%EC%95%88%EC%A0%84%ED%99%94.png?alt=media&token=bedb7b8b-8f82-47df-a263-1ad1e4433675"
+      },
+      {
+        "name": "1755845683630_안전화.png",
+        "fullPath": "safety/1755845683630_안전화.png",
+        "url": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/safety%2F1755845683630_%EC%95%88%EC%A0%84%ED%99%94.png?alt=media&token=b82b070e-023a-4f3d-be40-7456dcf5e468"
+      }
+    ],
+    "discussion_files": []
+  }
+}
