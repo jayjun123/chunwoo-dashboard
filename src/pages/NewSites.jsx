@@ -900,11 +900,6 @@ const NewSites = () => {
       return;
     }
     
-    // 수정하기 모드일 때 자동 저장 방지
-    if (preventAutoSave()) {
-      return;
-    }
-    
     const newItems = [...form.items];
     
     // 물량 필드에서 "물량" 텍스트가 들어오면 빈 문자열로 처리
@@ -966,8 +961,8 @@ const NewSites = () => {
       clearTimeout(saveTimer);
     }
     
-    // Firebase에 디바운싱된 저장 (수정 모드가 아닐 때만)
-    if (selectedSite && !isEditing) {
+    // Firebase에 디바운싱된 저장 (수정 모드에서도 저장)
+    if (selectedSite) {
       const newTimer = setTimeout(async () => {
         try {
           const { doc } = await import('firebase/firestore');
@@ -995,11 +990,6 @@ const NewSites = () => {
       return;
     }
     
-    // 수정하기 모드일 때 자동 저장 방지
-    if (preventAutoSave()) {
-      return;
-    }
-    
     const currentItems = [...(form.items || [])];
     
     // 총공사계 위의 인덱스 찾기
@@ -1016,8 +1006,8 @@ const NewSites = () => {
     
     setForm(prev => ({ ...prev, items: currentItems }));
     
-    // Firebase에 실시간 저장 (수정 모드일 때만)
-    if (selectedSite && isEditing) {
+    // Firebase에 실시간 저장 (모든 모드에서 저장)
+    if (selectedSite) {
       try {
         // sites 컬렉션 업데이트
         await updateDoc(doc(db, 'sites', selectedSite.id), {

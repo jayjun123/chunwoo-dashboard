@@ -549,16 +549,33 @@ const BottomBar = ({
       // 모든 견적의 submissionDeadline 상세 확인
       console.log('🔥 === 모든 견적 데이터 상세 분석 ===');
       allEstimates.forEach((estimate, index) => {
-        const parsedDate = new Date(estimate.submissionDeadline);
-        const isToday = isSameDate(estimate.submissionDeadline, todayStr);
+        // 안전한 날짜 파싱
+        let parsedDate;
+        let parsedDateStr = 'Invalid Date';
+        let parsedDateValid = false;
+        
+        try {
+          if (estimate.submissionDeadline) {
+            parsedDate = new Date(estimate.submissionDeadline);
+            parsedDateValid = !isNaN(parsedDate.getTime());
+            if (parsedDateValid) {
+              parsedDateStr = parsedDate.toISOString().split('T')[0];
+            }
+          }
+        } catch (error) {
+          console.warn('날짜 파싱 오류:', error, '원본 값:', estimate.submissionDeadline);
+          parsedDateValid = false;
+        }
+        
+        const isToday = estimate.submissionDeadline ? isSameDate(estimate.submissionDeadline, todayStr) : false;
         
         console.log(`🔥 견적 ${index + 1}:`, {
           id: estimate.id,
           siteName: estimate.siteName,
           submissionDeadline: estimate.submissionDeadline,
           submissionDeadlineType: typeof estimate.submissionDeadline,
-          parsedDate: parsedDate.toISOString().split('T')[0],
-          parsedDateValid: !isNaN(parsedDate.getTime()),
+          parsedDate: parsedDateStr,
+          parsedDateValid: parsedDateValid,
           submissionStatus: estimate.submissionStatus,
           type: estimate.type,
           isToday: isToday
