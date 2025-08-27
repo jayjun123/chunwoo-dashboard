@@ -954,8 +954,12 @@ const Progress = () => {
       console.log('📊 siteItems:', siteItems);
       console.log('📊 siteItems.length:', siteItems.length);
       
+      // 기성금청구서 생성 시작 메시지
+      const templateTypeText = firstRow.templateType === 'L' ? 'LONG' : 'NEW';
+      setLoadingMessage(`열심히 제작중에 있습니다.\n기성금청구서 [${templateTypeText}]을 생산하고 있습니다.`);
+      
       // 기성금청구서 템플릿으로 엑셀 생성
-      const workbook = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems);
+      const { workbook, templateType } = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems);
       
       // 파일명을 (@차 기성금청구서)현장명 중 유리공사 형식으로 변경
       const currentSequence = gisungData.length > 0 ? gisungData.length : 1;

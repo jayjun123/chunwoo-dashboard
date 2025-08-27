@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -51,6 +52,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   // console.log('🔍 GisungStatusPage 컴포넌트 렌더링 시작');
   // console.log('🔍 props:', { initialViewType, initialCurrentMonth, initialMonthText, selectedSites, filteredData });
   
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [gisungList, setGisungList] = useState([]);
@@ -1834,20 +1836,36 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
            </Button>
          )}
         
-                             <Button
-           variant="contained" 
-           color="success" 
-           startIcon={<AddIcon />}
-           onClick={() => handleOpen()}
-                 sx={{
-             bgcolor: '#2e7d32',
-             '&:hover': { bgcolor: '#1b5e20' },
-             fontSize: isMobile ? '0.8rem' : 'inherit',
-             px: isMobile ? 1 : 2
-           }}
-         >
-           기성등록
-               </Button>
+        {/* 청구예정목록 버튼 */}
+        <Button
+          variant="contained" 
+          color="info" 
+          onClick={() => navigate('/claims')}
+          sx={{
+            bgcolor: '#1976d2',
+            '&:hover': { bgcolor: '#1565c0' },
+            fontSize: isMobile ? '0.8rem' : 'inherit',
+            px: isMobile ? 1 : 2
+          }}
+        >
+          청구예정목록
+        </Button>
+        
+        {/* 기성등록 버튼 */}
+        <Button
+          variant="contained" 
+          color="success" 
+          startIcon={<AddIcon />}
+          onClick={() => handleOpen()}
+          sx={{
+            bgcolor: '#2e7d32',
+            '&:hover': { bgcolor: '#1b5e20' },
+            fontSize: isMobile ? '0.8rem' : 'inherit',
+            px: isMobile ? 1 : 2
+          }}
+        >
+          기성등록
+        </Button>
                              <Button
            variant="contained" 
            color="secondary" 
@@ -2151,14 +2169,19 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         </DialogTitle>
         <DialogContent sx={{ pt: 4, pb: 2, mt: 6 }}>
           <Box display="flex" flexDirection="column" alignItems="center" gap={3}>
-            {/* 1줄: 현장명(검색,드롭다운) + 기성월 */}
+            {/* 1줄: 현장명(직접입력/선택) + 기성월 */}
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
               <Autocomplete
                 value={formData.name}
-                                                  onChange={async (event, newValue) => {
+                onChange={async (event, newValue) => {
+                  // 직접 입력된 값인지 확인
+                  if (newValue && typeof newValue === 'string') {
+                    // 기존 현장 목록에서 찾기
                     const selectedSite = sites.find(site => site.name === newValue);
+                    
                     if (selectedSite) {
-                      console.log(`🔍 현장 선택 시작: ${selectedSite.name}`);
+                      // 기존 현장이 선택된 경우 - 기존 로직 실행
+                      console.log(`🔍 기존 현장 선택: ${selectedSite.name}`);
                       
                       // 최신 데이터로 즉시 새로고침
                       console.log(`🔄 현장 선택 시 최신 데이터 새로고침 시작...`);
@@ -2168,9 +2191,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                       // 최신 데이터를 다시 가져와서 계산
                       const latestGisungData = await fetchAllGisung();
                       console.log(`📊 최신 데이터 개수: ${latestGisungData.length}개`);
-                      console.log(`📊 최신 데이터 현장명들:`, latestGisungData.map(g => g.name));
                       
-                      // 해당 현장의 청구완료된 기성 데이터 찾기 (누계기성 계산) - 더 유연한 매칭
+                      // 해당 현장의 청구완료된 기성 데이터 찾기 (누계기성 계산)
                       const siteGisungData = latestGisungData
                         .filter(gisung => {
                           const gisungName = gisung.name ? gisung.name.trim() : '';
@@ -2186,35 +2208,41 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                           return bSeq - aSeq; // 최신 차수가 위에
                         });
                       
-                      console.log(`📊 필터링된 기성 데이터:`, siteGisungData);
-                      
-                      // 모든 기성의 합계 계산 (누계기성) - 여러 필드 확인
+                      // 모든 기성의 합계 계산 (누계기성)
                       const totalGisungAmount = siteGisungData.reduce((sum, gisung) => {
-                        // 여러 필드에서 기성금액 찾기
                         const amount = Number(gisung.gisungAmount) || Number(gisung.currentGisung) || 0;
-                        console.log(`📊 기성 항목: ${gisung.sequence} - gisungAmount: ${gisung.gisungAmount}, currentGisung: ${gisung.currentGisung}, 계산된값: ${amount}`);
                         return sum + amount;
                       }, 0);
                       
                       console.log(`🔍 현장 선택: ${selectedSite.name}`);
-                      console.log(`📊 기성 데이터 개수: ${siteGisungData.length}개`);
                       console.log(`📊 누계기성: ${totalGisungAmount.toLocaleString()}원`);
-                      console.log(`📊 기성 내역:`, siteGisungData.map(g => `${g.sequence}: ${(Number(g.gisungAmount) || Number(g.currentGisung) || 0).toLocaleString()}원`));
                      
-                     setFormData({
-                       ...formData,
-                       name: selectedSite.name,
-                       contractAmount: selectedSite.contractAmount || '',
-                       advance: selectedSite.advance || '',
-                       prevGisung: totalGisungAmount.toString()
-                     });
-                   }
-                 }}
+                      setFormData({
+                        ...formData,
+                        name: selectedSite.name,
+                        contractAmount: selectedSite.contractAmount || '',
+                        advance: selectedSite.advance || '',
+                        prevGisung: totalGisungAmount.toString()
+                      });
+                    } else {
+                      // 새로운 현장명이 입력된 경우 - 기본값으로 설정
+                      console.log(`🔍 새로운 현장명 입력: ${newValue}`);
+                      setFormData({
+                        ...formData,
+                        name: newValue,
+                        contractAmount: '',
+                        advance: '',
+                        prevGisung: '0'
+                      });
+                    }
+                  }
+                }}
                 options={sites.map(site => site.name)}
+                freeSolo={true} // 직접 입력 허용
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="현장명"
+                    label="현장명 (직접입력 가능)"
                     size="medium"
                     sx={{
                       minWidth: 220,

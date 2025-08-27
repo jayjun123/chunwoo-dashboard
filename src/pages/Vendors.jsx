@@ -85,7 +85,7 @@ const Vendors = () => {
   const [selectedCompanyType, setSelectedCompanyType] = useState('');
   
   // 업종별 필터링 상태
-  const [filteredByCompanyType, setFilteredByCompanyType] = useState('');
+  const [filteredByCompanyType, setFilteredByCompanyType] = useState('종합건설'); // 입찰현황 페이지 - 종합건설 기본값
   
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
