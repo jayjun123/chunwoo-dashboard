@@ -45,6 +45,8 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
     let templateFileName = 'NEWgisung.xlsx';
     
     console.log('🔍 템플릿 선택 디버깅:');
+    console.log('📊 siteData:', siteData);
+    console.log('📊 siteData.templateType:', siteData?.templateType);
     console.log('📊 siteItems:', siteItems);
     console.log('📊 itemCount:', itemCount);
     console.log('📊 siteItems 상세:', JSON.stringify(siteItems, null, 2));
@@ -52,32 +54,37 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
     // siteData에서 templateType 확인 (N/L 표시만 사용)
     if (siteData && siteData.templateType) {
       if (siteData.templateType === 'L') {
-        templateFileName = 'LONGgisung.xlsx';
-        console.log(`📊 현장의 templateType이 'L'로 설정되어 LONGgisung 템플릿을 사용합니다.`);
+        templateFileName = 'LONG.xlsx';
+        console.log(`📊 현장의 templateType이 'L'로 설정되어 LONG.xlsx 템플릿을 사용합니다.`);
       } else if (siteData.templateType === 'N') {
-        templateFileName = 'NEWgisung.xlsx';
-        console.log(`📊 현장의 templateType이 'N'으로 설정되어 NEWgisung 템플릿을 사용합니다.`);
+        templateFileName = 'NEW.xlsx';
+        console.log(`📊 현장의 templateType이 'N'으로 설정되어 NEW.xlsx 템플릿을 사용합니다.`);
       } else {
         // templateType이 있지만 L/N이 아닌 경우 기본값
-        templateFileName = 'NEWgisung.xlsx';
-        console.log(`📊 현장의 templateType이 '${siteData.templateType}'이므로 기본 NEWgisung 템플릿을 사용합니다.`);
+        templateFileName = 'NEW.xlsx';
+        console.log(`📊 현장의 templateType이 '${siteData.templateType}'이므로 기본 NEW.xlsx 템플릿을 사용합니다.`);
       }
     } else {
       // templateType이 설정되지 않은 경우 기본값
-      templateFileName = 'NEWgisung.xlsx';
-      console.log(`📊 현장의 templateType이 설정되지 않아 기본 NEWgisung 템플릿을 사용합니다.`);
+      templateFileName = 'NEW.xlsx';
+      console.log(`📊 현장의 templateType이 설정되지 않아 기본 NEW.xlsx 템플릿을 사용합니다.`);
     }
     
     // 템플릿 다운로드 (CORS 우회 포함)
     const arrayBuffer = await downloadTemplateFromStorage(templateFileName);
     
-    // 워크북 로드 (Shared Formula 비활성화)
+    // 워크북 로드 (수식과 데이터 보존 강화)
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(arrayBuffer, {
       sharedFormulas: false,
       useStyles: true,
       useCellStyles: true,
-      useCellFormulas: false
+      useCellFormulas: true,  // 수식 보존
+      useCellDates: true,     // 날짜 보존
+      useCellNF: true,        // 숫자 형식 보존
+      useCellRichText: true,  // 서식 보존
+      useCellComments: true,  // 주석 보존
+      useCellHyperlinks: true // 하이퍼링크 보존
     });
     
     console.log('✅ 템플릿 로드 완료');
@@ -94,11 +101,45 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
       throw new Error('기성금 내역서 시트를 찾을 수 없습니다.');
     }
     
+    // 🔍 디버깅: 26행부터 데이터 확인
+    console.log('🔍 템플릿 로드 후 26행부터 데이터 확인:');
+    for (let row = 26; row <= 30; row++) {
+      const aCell = detailSheet.getCell(`A${row}`);
+      const fCell = detailSheet.getCell(`F${row}`);
+      
+      console.log(`\n=== ${row}행 상세 분석 ===`);
+      console.log(`A열 값: "${aCell.value}" (타입: ${typeof aCell.value})`);
+      console.log(`F열 값: "${fCell.value}" (타입: ${typeof fCell.value})`);
+      console.log(`F열 수식: "${fCell.formula || '수식없음'}"`);
+      console.log(`F열 수식 타입: ${typeof fCell.formula}`);
+      
+      // F열 셀의 모든 속성 확인
+      console.log(`F열 셀 속성들:`, {
+        hasFormula: !!fCell.formula,
+        formula: fCell.formula,
+        value: fCell.value,
+        result: fCell.result,
+        type: fCell.type
+      });
+      
+      // F열이 수식인지 확인
+      if (fCell.formula) {
+        console.log(`  ✅ ${row}행 F열 수식 보존됨: ${fCell.formula}`);
+      } else {
+        console.log(`  ❌ ${row}행 F열 수식 없음`);
+      }
+    }
+    
     // Shared Formula 관련 속성 제거 및 데이터 입력
     await fillGisungData(workbook, siteData, gisungData, siteItems, currentSequence, previousGisungData);
     
     console.log('✅ 기성금청구서 템플릿 기반 생성 완료');
-    return { workbook, gisungMonth: getPreviousMonth() };
+    return { 
+      workbook, 
+      gisungMonth: getPreviousMonth(),
+      templateType: siteData?.templateType || 'N',
+      templateFileName: templateFileName
+    };
     
   } catch (error) {
     console.error('❌ 기성금청구서 생성 실패:', error);
@@ -132,6 +173,12 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
          const cellObj = gapjiSheet.getCell(cell);
          cellObj.value = value;
        });
+       
+       // H16에 선급금 입력 (NEW, LONG 템플릿 모두 동일)
+       const advanceAmount = Number(siteData?.advance || 0);
+       const h16Cell = gapjiSheet.getCell('H16');
+       h16Cell.value = advanceAmount;
+       console.log(`💰 갑지 H16에 선급금 입력: ${advanceAmount}`);
        
        // H열 셀들은 수식을 그대로 두고, D열 셀들이 H열을 참조하도록 함
        // (H열 수식을 덮어쓰지 않음)
@@ -211,27 +258,39 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
      if (detailSheet && siteItems && siteItems.length > 0) {
        console.log(`📋 물량 데이터 개수: ${siteItems.length}개`);
        
-       // 기존 데이터 행들 정리 (6행부터 50행까지만) - A, B, C, D, E열만 초기화, F, H, J열 공식은 보존
-       for (let row = 6; row <= 50; row++) {
+       // 기존 데이터 행들 정리 (보호된 셀 제외)
+       // NEW 템플릿: 6-25행만, LONG 템플릿: 6-50행만
+       const maxDataRow = siteItems.length <= 20 ? 25 : 50;
+       console.log(`📋 데이터 입력 범위: 6행부터 ${maxDataRow}행까지만 (보호된 셀 제외)`);
+       
+       for (let row = 6; row <= maxDataRow; row++) {
          for (let col = 1; col <= 5; col++) { // A, B, C, D, E열만 (1-5열)
            const cell = detailSheet.getCell(row, col);
            cell.value = '';
          }
        }
        
-       // 새로운 데이터 입력 (A6부터 A50까지만, 물량 데이터만 입력)
-       for (let index = 0; index < siteItems.length && (index + 6) <= 50; index++) {
-         const item = siteItems[index];
+       // 물량 데이터에서 계약서 자동계산 항목 제외 (isTotal, isVat, isTotalWithVat이 true인 항목들)
+       const filteredItems = siteItems.filter(item => 
+         !item.isTotal && !item.isVat && !item.isTotalWithVat
+       );
+       
+       console.log(`📋 필터링된 물량 데이터: ${filteredItems.length}개 (계약서 자동계산 항목 제외)`);
+       
+       // 새로운 데이터 입력 (보호된 셀 제외)
+       const maxInputRow = siteItems.length <= 20 ? 25 : 50;
+       for (let index = 0; index < filteredItems.length && (index + 6) <= maxInputRow; index++) {
+         const item = filteredItems[index];
          const rowNumber = index + 6; // 6행부터 시작
          
          try {
-           const cells = [
-             { col: 1, value: item.name || '' }, // A열: 품명
-             { col: 2, value: item.specification || '' }, // B열: 규격
-             { col: 3, value: item.unit || '' }, // C열: 단위
-             { col: 4, value: item.quantity || 0 }, // D열: 수량
-             { col: 5, value: item.price || 0 } // E열: 단가
-           ];
+                    const cells = [
+           { col: 1, value: item.specification || '' }, // A열: 규격
+           { col: 2, value: item.name || '' }, // B열: 품명
+           { col: 3, value: item.unit || '' }, // C열: 단위
+           { col: 4, value: item.quantity || 0 }, // D열: 수량
+           { col: 5, value: item.price || 0 } // E열: 단가
+         ];
            
            cells.forEach(({ col, value }) => {
              const cell = detailSheet.getCell(rowNumber, col);
@@ -243,10 +302,8 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
          }
        }
        
-       // F51에 선급금 데이터 입력
-       const advanceAmount = Number(siteData?.advance || 0);
-       const f51Cell = detailSheet.getCell('F51');
-       f51Cell.value = advanceAmount;
+       // 선급금은 갑지 H16에 입력하므로 기성금 내역서에서는 건드리지 않음
+       console.log(`💰 선급금은 갑지 H16에 입력됨 (기성금 내역서 보호된 셀 보존)`);
        
                   // 기성수량(G열)에 누계수량 설정 (K열의 result 값 사용)
            console.log('🔍 previousGisungData 확인:', previousGisungData);
@@ -261,8 +318,9 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
                
                console.log('📊 추출된 항목들:', extractedItems);
                
-               // 모든 항목의 K값을 G값으로 복사 (6행부터 50행까지)
-               for (let row = 6; row <= 50; row++) {
+               // 모든 항목의 K값을 G값으로 복사 (보호된 셀 제외)
+               const maxGisungRow = siteItems.length <= 20 ? 25 : 50;
+               for (let row = 6; row <= maxGisungRow; row++) {
                  // 해당 행의 K값 찾기
                  const item = extractedItems.find(item => item.row === row);
                  
@@ -286,8 +344,9 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
              console.log('📊 이전 기성금청구서 데이터가 없어 전회기성 설정 건너뜀');
            }
        
-       // C, D열이 비어있는 행들을 E~M까지 정리 (수식도 포함)
-       for (let row = 6; row <= 50; row++) {
+       // C, D열이 비어있는 행들을 E~M까지 정리 (보호된 셀 제외)
+       const maxCleanRow = siteItems.length <= 20 ? 25 : 50;
+       for (let row = 6; row <= maxCleanRow; row++) {
          const cCell = detailSheet.getCell(row, 3); // C열
          const dCell = detailSheet.getCell(row, 4); // D열
          
@@ -304,30 +363,55 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
          }
        }
        
-                // 물량항목이 20개 이하면 26행부터 50행까지 삭제
-         if (siteItems.length <= 20) {
-           for (let row = 26; row <= 50; row++) {
-             for (let col = 1; col <= 13; col++) { // A부터 M열까지
-               const cell = detailSheet.getCell(row, col);
-               cell.value = '';
-               // 수식 제거 (안전한 방법)
-               if (cell.formula) {
-                 delete cell._formula;
-               }
-             }
-           }
-         }
+                // NEW 템플릿에서는 26행부터는 원본 템플릿 데이터 보존
+        if (siteItems.length <= 20) {
+          console.log('📋 NEW 템플릿: 26행부터는 원본 템플릿 데이터 보존');
+          
+          // 26행부터 30행까지 원본 데이터 보존 확인 및 강제 보호
+          for (let row = 26; row <= 30; row++) {
+            const aCell = detailSheet.getCell(`A${row}`);
+            if (aCell.value) {
+              console.log(`✅ ${row}행 A열 데이터 보존: ${aCell.value}`);
+            }
+            
+            // F, G, H열의 수식과 데이터 강제 보존
+            for (let col = 6; col <= 8; col++) { // F, G, H열
+              const cell = detailSheet.getCell(row, col);
+              if (cell.formula) {
+                console.log(`🛡️ ${row}행 ${String.fromCharCode(64 + col)}열 수식 보존: ${cell.formula}`);
+              }
+            }
+          }
+          
+          // 26행부터는 원본 템플릿에 있던 데이터를 그대로 유지
+        }
+        
+        // LONG 템플릿에서는 51행부터 54행까지는 건드리지 않음 (셀 보호 유지)
+        if (siteItems.length > 20) {
+          console.log('📋 LONG 템플릿: 51행부터 54행까지는 셀 보호 유지하여 원본 데이터 보존');
+          
+          // 51행부터 54행까지 원본 데이터 보존 확인 및 강제 보호
+          for (let row = 51; row <= 54; row++) {
+            const aCell = detailSheet.getCell(`A${row}`);
+            if (aCell.value) {
+              console.log(`✅ ${row}행 A열 데이터 보존: ${aCell.value}`);
+            }
+            
+            // F, G, H열의 수식과 데이터 강제 보존
+            for (let col = 6; col <= 8; col++) { // F, G, H열
+              const cell = detailSheet.getCell(row, col);
+              if (cell.formula) {
+                console.log(`🛡️ ${row}행 ${String.fromCharCode(64 + col)}열 수식 보존: ${cell.formula}`);
+              }
+            }
+          }
+          
+          // 51행부터 54행까지는 아무것도 건드리지 않음
+        }
        
-       // 총원가 관련 셀들을 소숫점 올림으로 처리
-       const totalCostRows = [51, 52, 53, 54]; // 총원가가 있는 행들 (예시)
-       totalCostRows.forEach(row => {
-         for (let col = 1; col <= 10; col++) {
-           const cell = detailSheet.getCell(row, col);
-           if (cell.value !== null && cell.value !== undefined && typeof cell.value === 'number') {
-             cell.value = Math.ceil(cell.value); // 소숫점 올림
-           }
-         }
-       });
+       // 총원가 관련 셀들은 보호된 셀이므로 건드리지 않음 (원본 템플릿 데이터 보존)
+       // NEW 템플릿: 26-30행 보호, LONG 템플릿: 51-54행 보호
+       console.log('🛡️ 보호된 셀 보존: NEW(26-30행), LONG(51-54행) - 원본 템플릿 데이터 유지');
        
        // 기성금 내역서는 물량과 금액 데이터만 포함 (인감은 갑지에만)
        
@@ -351,24 +435,24 @@ export const downloadTemplateBasedGisungExcel = async (siteData, gisungData, sit
     // 템플릿 기반 엑셀 생성
     const { workbook, gisungMonth } = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems, 1, null);
     
-    // 안전한 버퍼 생성 (Shared Formula 비활성화)
+    // 안전한 버퍼 생성 (수식과 데이터 보존)
     let buffer;
     try {
       buffer = await workbook.xlsx.writeBuffer({
         useStyles: true,
         useSharedStrings: false,
         useCellStyles: true,
-        useCellFormulas: false,
-        useCellDates: false,
-        useCellNF: false,
-        useCellRichText: false,
-        useCellComments: false,
-        useCellHyperlinks: false,
-        useCellImages: false,
-        useCellNames: false,
-        useCellThemes: false,
-        useCellDataValidation: false,
-        useCellConditionalFormatting: false,
+        useCellFormulas: true,  // 수식 보존
+        useCellDates: true,     // 날짜 보존
+        useCellNF: true,        // 숫자 형식 보존
+        useCellRichText: true,  // 서식 보존
+        useCellComments: true,  // 주석 보존
+        useCellHyperlinks: true, // 하이퍼링크 보존
+        useCellImages: true,    // 이미지 보존
+        useCellNames: true,     // 이름 보존
+        useCellThemes: true,    // 테마 보존
+        useCellDataValidation: true, // 데이터 검증 보존
+        useCellConditionalFormatting: true, // 조건부 서식 보존
         sharedFormulas: false
       });
     } catch (error) {
