@@ -27,7 +27,8 @@ import {
   Refresh as RefreshIcon,
   Add as AddIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Save as SaveIcon
 } from '@mui/icons-material';
 import { uploadMaterialData, getMaterialDataFromFirebase, convertMaterialDataForSiteManagement } from '../utils/materialUploadUtils';
 
@@ -607,6 +608,7 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
                       }))}
                       fullWidth
                       size="small"
+                      inputProps={{ step: '0.00001' }}
                       sx={{
                         '& .MuiOutlinedInput-root': {
                           color: '#fff',
@@ -648,6 +650,7 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
                     }))}
                     fullWidth
                     size="small"
+                    inputProps={{ step: '0.00001' }}
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         color: '#fff',
