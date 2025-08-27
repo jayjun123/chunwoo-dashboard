@@ -274,8 +274,8 @@ const ConstructionTeam = () => {
         '활성 팀 수': activeTeams + '개', 
         '총 진행 현': totalSites + '개',
         '총 인원 수': totalMembers + '명',
-        '팀당 평균': avgSitesPerTeam + '개',
-        '팀당 평균': avgMembersPerTeam + '명'
+        '팀당 현장 평균': avgSitesPerTeam + '개',
+        '팀당 인원 평균': avgMembersPerTeam + '명'
       });
       
       // 빈 행 추가
@@ -318,7 +318,7 @@ const ConstructionTeam = () => {
             '팀명': team.팀명,
             '소장': team.소장,
             '인원수': team.인원수,
-            '연락처': team.연락처,
+            '팀연락처': team.연락처,
             '이메일': team.이메일,
             '팀상태': team.팀상태,
             '담당현장수': team.담당현장수,
@@ -332,7 +332,7 @@ const ConstructionTeam = () => {
             '완료예정일': processedValues.완료예정일,
             '주소': processedValues.주소,
             '현장소장': processedValues.현장소장,
-            '연락처': processedValues.연락처
+            '현장연락처': processedValues.연락처
           });
         });
       });

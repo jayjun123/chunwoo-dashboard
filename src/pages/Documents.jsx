@@ -20,6 +20,10 @@ import {
   MenuItem,
   useTheme,
   useMediaQuery,
+  Snackbar,
+  Alert,
+  LinearProgress,
+  Chip,
 } from '@mui/material';
 import {
   Description as DescriptionIcon,
@@ -28,16 +32,42 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Download as DownloadIcon,
+  CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  getDocs, 
+  orderBy, 
+  query,
+  serverTimestamp 
+} from 'firebase/firestore';
+import { 
+  ref, 
+  uploadBytes, 
+  getDownloadURL, 
+  deleteObject 
+} from 'firebase/storage';
+import { db, storage } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 
 const Documents = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { currentUser } = useAuth();
+  
   const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [open, setOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [formData, setFormData] = useState({
     title: '',
     category: '',
@@ -45,18 +75,36 @@ const Documents = () => {
     file: null,
   });
 
-  // 임시 데이터
+  // 문서 목록 로드
   useEffect(() => {
-    setDocuments([]);
+    loadDocuments();
   }, []);
+
+  const loadDocuments = async () => {
+    try {
+      setLoading(true);
+      const q = query(collection(db, 'documents'), orderBy('uploadDate', 'desc'));
+      const snapshot = await getDocs(q);
+      const docs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setDocuments(docs);
+    } catch (error) {
+      console.error('문서 로드 실패:', error);
+      setSnackbar({ open: true, message: '문서 목록을 불러오는데 실패했습니다.', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleOpen = (doc = null) => {
     if (doc) {
       setSelectedDoc(doc);
       setFormData({
-        title: doc.title,
-        category: doc.category,
-        description: doc.description,
+        title: doc.title || '',
+        category: doc.category || '',
+        description: doc.description || '',
         file: null,
       });
     } else {
@@ -74,28 +122,163 @@ const Documents = () => {
   const handleClose = () => {
     setOpen(false);
     setSelectedDoc(null);
+    setFormData({
+      title: '',
+      category: '',
+      description: '',
+      file: null,
+    });
   };
 
-  const handleSubmit = () => {
-    if (selectedDoc) {
-      // 수정
-      setDocuments(documents.map(doc =>
-        doc.id === selectedDoc.id ? { ...doc, ...formData } : doc
-      ));
-    } else {
-      // 추가
-      setDocuments([...documents, {
-        id: Date.now(),
-        uploadDate: format(new Date(), 'yyyy-MM-dd'),
-        fileSize: '0MB',
-        ...formData,
-      }]);
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // 파일 크기 제한 (50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        setSnackbar({ open: true, message: '파일 크기는 50MB 이하여야 합니다.', severity: 'error' });
+        return;
+      }
+      setFormData({ ...formData, file });
     }
-    handleClose();
   };
 
-  const handleDelete = (id) => {
-    setDocuments(documents.filter(doc => doc.id !== id));
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.title.trim()) {
+      setSnackbar({ open: true, message: '제목을 입력해주세요.', severity: 'error' });
+      return;
+    }
+
+    if (!selectedDoc && !formData.file) {
+      setSnackbar({ open: true, message: '파일을 선택해주세요.', severity: 'error' });
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setUploadProgress(0);
+
+      let fileUrl = selectedDoc?.fileUrl;
+      let fileName = selectedDoc?.fileName;
+      let fileSize = selectedDoc?.fileSize;
+
+      // 새 파일 업로드
+      if (formData.file) {
+        setUploadProgress(10);
+        
+        const timestamp = Date.now();
+        const fileNameWithTimestamp = `${timestamp}_${formData.file.name}`;
+        const storageRef = ref(storage, `documents/${fileNameWithTimestamp}`);
+        
+        const metadata = {
+          customMetadata: {
+            uploadedBy: currentUser?.uid || 'anonymous',
+            uploadedAt: new Date().toISOString(),
+            originalName: formData.file.name,
+            type: 'document'
+          }
+        };
+
+        setUploadProgress(30);
+        const snapshot = await uploadBytes(storageRef, formData.file, metadata);
+        setUploadProgress(70);
+        
+        fileUrl = await getDownloadURL(snapshot.ref);
+        fileName = formData.file.name;
+        fileSize = formatFileSize(formData.file.size);
+        
+        setUploadProgress(90);
+
+        // 기존 파일 삭제 (수정 시)
+        if (selectedDoc?.fileUrl) {
+          try {
+            const oldFileRef = ref(storage, selectedDoc.fileUrl);
+            await deleteObject(oldFileRef);
+          } catch (error) {
+            console.warn('기존 파일 삭제 실패:', error);
+          }
+        }
+      }
+
+      const documentData = {
+        title: formData.title.trim(),
+        category: formData.category,
+        description: formData.description.trim(),
+        fileUrl,
+        fileName,
+        fileSize,
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser?.uid || 'anonymous',
+      };
+
+      if (selectedDoc) {
+        // 문서 수정
+        await updateDoc(doc(db, 'documents', selectedDoc.id), documentData);
+        setSnackbar({ open: true, message: '문서가 수정되었습니다.', severity: 'success' });
+      } else {
+        // 새 문서 추가
+        documentData.uploadDate = serverTimestamp();
+        documentData.uploadedBy = currentUser?.uid || 'anonymous';
+        await addDoc(collection(db, 'documents'), documentData);
+        setSnackbar({ open: true, message: '문서가 업로드되었습니다.', severity: 'success' });
+      }
+
+      setUploadProgress(100);
+      handleClose();
+      loadDocuments();
+    } catch (error) {
+      console.error('문서 저장 실패:', error);
+      setSnackbar({ open: true, message: '문서 저장에 실패했습니다.', severity: 'error' });
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleDelete = async (doc) => {
+    try {
+      // Storage에서 파일 삭제
+      if (doc.fileUrl) {
+        const fileRef = ref(storage, doc.fileUrl);
+        await deleteObject(fileRef);
+      }
+
+      // Firestore에서 문서 삭제
+      await deleteDoc(doc(db, 'documents', doc.id));
+      
+      setSnackbar({ open: true, message: '문서가 삭제되었습니다.', severity: 'success' });
+      loadDocuments();
+    } catch (error) {
+      console.error('문서 삭제 실패:', error);
+      setSnackbar({ open: true, message: '문서 삭제에 실패했습니다.', severity: 'error' });
+    }
+  };
+
+  const handleDownload = async (doc) => {
+    try {
+      if (doc.fileUrl) {
+        const response = await fetch(doc.fileUrl);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = doc.fileName || 'document';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+    } catch (error) {
+      console.error('다운로드 실패:', error);
+      setSnackbar({ open: true, message: '다운로드에 실패했습니다.', severity: 'error' });
+    }
   };
 
   const categories = ['계획서', '안전', '일지', '계약서', '기타'];
@@ -113,7 +296,8 @@ const Documents = () => {
       overflow: 'hidden',
       overflowX: 'hidden',
       zIndex: 1000,
-      bgcolor: '#1a1d21'
+      bgcolor: '#1a1d21',
+      color: 'white'
     }}>
       {isMobile ? (
         <Box sx={{ 
@@ -148,48 +332,48 @@ const Documents = () => {
         </Box>
       ) : (
         <>
-          <Typography variant="h4" gutterBottom>
-            문서 관리
+          <Typography variant="h4" gutterBottom sx={{ color: '#90caf9', fontWeight: 'bold', p: 2 }}>
+            📄 문서 관리
           </Typography>
 
           {/* 문서 통계 */}
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid>
-              <Card>
+          <Grid container spacing={2} sx={{ mb: 2, px: 2 }}>
+            <Grid item xs={12} md={4}>
+              <Card sx={{ bgcolor: '#2d3748', color: 'white' }}>
                 <CardContent>
                   <Typography color="textSecondary" gutterBottom>
                     총 문서 수
                   </Typography>
-                  <Typography variant="h4">
+                  <Typography variant="h4" sx={{ color: '#90caf9' }}>
                     {documents.length}개
                   </Typography>
                 </CardContent>
               </Card>
             </Grid>
-            <Grid>
-              <Card>
+            <Grid item xs={12} md={4}>
+              <Card sx={{ bgcolor: '#2d3748', color: 'white' }}>
                 <CardContent>
                   <Typography color="textSecondary" gutterBottom>
                     최근 업로드
                   </Typography>
-                  <Typography variant="h4">
+                  <Typography variant="h4" sx={{ color: '#4caf50' }}>
                     {documents.length > 0
-                      ? format(new Date(documents[0].uploadDate), 'MM/dd')
+                      ? format(documents[0].uploadDate?.toDate?.() || new Date(documents[0].uploadDate), 'yyyy.MM.dd')
                       : '-'}
                   </Typography>
                 </CardContent>
               </Card>
             </Grid>
-            <Grid>
-              <Card>
+            <Grid item xs={12} md={4}>
+              <Card sx={{ bgcolor: '#2d3748', color: 'white' }}>
                 <CardContent>
                   <Typography color="textSecondary" gutterBottom>
                     총 용량
                   </Typography>
-                  <Typography variant="h4">
+                  <Typography variant="h4" sx={{ color: '#ff9800' }}>
                     {documents.reduce((sum, doc) => {
-                      const size = parseFloat(doc.fileSize);
-                      return sum + (isNaN(size) ? 0 : size);
+                      const size = parseFloat(doc.fileSize?.replace(/[^\d.]/g, '')) || 0;
+                      return sum + size;
                     }, 0).toFixed(1)}MB
                   </Typography>
                 </CardContent>
@@ -197,67 +381,131 @@ const Documents = () => {
             </Grid>
           </Grid>
 
+          {/* 업로드 진행률 */}
+          {uploading && (
+            <Box sx={{ px: 2, mb: 2 }}>
+              <LinearProgress 
+                variant="determinate" 
+                value={uploadProgress} 
+                sx={{ 
+                  height: 8, 
+                  borderRadius: 4,
+                  backgroundColor: '#444',
+                  '& .MuiLinearProgress-bar': {
+                    backgroundColor: '#4caf50'
+                  }
+                }} 
+              />
+              <Typography variant="body2" sx={{ color: '#ccc', mt: 1, textAlign: 'center' }}>
+                업로드 중... {uploadProgress}%
+              </Typography>
+            </Box>
+          )}
+
           {/* 2단 레이아웃 */}
-          <Box sx={{ display: 'flex', gap: 2, height: 'calc(100% - 140px)' }}>
+          <Box sx={{ display: 'flex', gap: 2, height: 'calc(100% - 200px)', px: 2 }}>
             {/* 왼쪽 패널: 문서 목록 */}
             <Box sx={{ width: '50%' }}>
-              <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
-                  <Typography variant="h6">문서 목록</Typography>
+              <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#2d3748' }}>
+                <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: '#444' }}>
+                  <Typography variant="h6" sx={{ color: 'white' }}>문서 목록</Typography>
                   <Button
                     variant="contained"
                     startIcon={<AddIcon />}
                     onClick={() => handleOpen()}
                     size="small"
+                    sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#45a049' } }}
                   >
                     문서 추가
                   </Button>
                 </Box>
                 <List sx={{ flex: 1, overflow: 'auto' }}>
-                  {documents.map((doc) => (
-                    <ListItem
-                      key={doc.id}
-                    >
-                      <ListItemIcon>
-                        <DescriptionIcon />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={doc.title}
-                        secondary={
-                          <>
-                            <Typography component="span" variant="body2" color="textPrimary">
-                              {doc.category}
+                  {loading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
+                      <Typography sx={{ color: '#ccc' }}>로딩 중...</Typography>
+                    </Box>
+                  ) : documents.length === 0 ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
+                      <Typography sx={{ color: '#ccc' }}>업로드된 문서가 없습니다.</Typography>
+                    </Box>
+                  ) : (
+                    documents.map((doc) => (
+                      <ListItem
+                        key={doc.id}
+                        sx={{ 
+                          borderBottom: '1px solid #444',
+                          '&:hover': { bgcolor: '#444' }
+                        }}
+                      >
+                        <ListItemIcon>
+                          <DescriptionIcon sx={{ color: '#90caf9' }} />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={
+                            <Typography sx={{ color: 'white', fontWeight: 'bold' }}>
+                              {doc.title}
                             </Typography>
-                            {' — '}
-                            {doc.description}
-                            {' • '}
-                            {format(new Date(doc.uploadDate), 'yyyy-MM-dd')}
-                            {' • '}
-                            {doc.fileSize}
-                          </>
-                        }
-                      />
-                      <Box>
-                        <IconButton edge="end" onClick={() => handleOpen(doc)} size="small">
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton edge="end" onClick={() => handleDelete(doc.id)} size="small">
-                          <DeleteIcon />
-                        </IconButton>
-                        <IconButton edge="end" size="small">
-                          <DownloadIcon />
-                        </IconButton>
-                      </Box>
-                    </ListItem>
-                  ))}
+                          }
+                          secondary={
+                            <Box sx={{ mt: 1 }}>
+                              <Chip 
+                                label={doc.category} 
+                                size="small" 
+                                sx={{ 
+                                  bgcolor: '#4caf50', 
+                                  color: 'white', 
+                                  mr: 1,
+                                  fontSize: '0.7rem'
+                                }} 
+                              />
+                              <Typography variant="body2" sx={{ color: '#ccc', mt: 1 }}>
+                                {doc.description}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#888' }}>
+                                {format(doc.uploadDate?.toDate?.() || new Date(doc.uploadDate), 'yyyy.MM.dd HH:mm')}
+                                {' • '}
+                                {doc.fileSize}
+                              </Typography>
+                            </Box>
+                          }
+                        />
+                        <Box>
+                          <IconButton 
+                            edge="end" 
+                            onClick={() => handleDownload(doc)} 
+                            size="small"
+                            sx={{ color: '#4caf50' }}
+                          >
+                            <DownloadIcon />
+                          </IconButton>
+                          <IconButton 
+                            edge="end" 
+                            onClick={() => handleOpen(doc)} 
+                            size="small"
+                            sx={{ color: '#90caf9' }}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton 
+                            edge="end" 
+                            onClick={() => handleDelete(doc)} 
+                            size="small"
+                            sx={{ color: '#f44336' }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
+                      </ListItem>
+                    ))
+                  )}
                 </List>
               </Paper>
             </Box>
 
             {/* 오른쪽 패널: 문서 상세 정보 */}
             <Box sx={{ width: '50%' }}>
-              <Paper sx={{ height: '100%', p: 2 }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>문서 상세 정보</Typography>
+              <Paper sx={{ height: '100%', p: 2, bgcolor: '#2d3748' }}>
+                <Typography variant="h6" sx={{ mb: 2, color: 'white' }}>문서 상세 정보</Typography>
                 <Box sx={{ 
                   display: 'flex', 
                   flexDirection: 'column', 
@@ -265,16 +513,16 @@ const Documents = () => {
                   height: 'calc(100% - 60px)',
                   overflow: 'auto'
                 }}>
-                  <Card>
+                  <Card sx={{ bgcolor: '#444' }}>
                     <CardContent>
-                      <Typography variant="subtitle1" gutterBottom>문서 분류별 통계</Typography>
+                      <Typography variant="subtitle1" gutterBottom sx={{ color: 'white' }}>문서 분류별 통계</Typography>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                         {categories.map(category => {
                           const count = documents.filter(doc => doc.category === category).length;
                           return (
                             <Box key={category} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <Typography variant="body2">{category}</Typography>
-                              <Typography variant="body2" fontWeight="bold">{count}개</Typography>
+                              <Typography variant="body2" sx={{ color: '#ccc' }}>{category}</Typography>
+                              <Typography variant="body2" fontWeight="bold" sx={{ color: '#90caf9' }}>{count}개</Typography>
                             </Box>
                           );
                         })}
@@ -282,15 +530,15 @@ const Documents = () => {
                     </CardContent>
                   </Card>
                   
-                  <Card>
+                  <Card sx={{ bgcolor: '#444' }}>
                     <CardContent>
-                      <Typography variant="subtitle1" gutterBottom>최근 업로드된 문서</Typography>
+                      <Typography variant="subtitle1" gutterBottom sx={{ color: 'white' }}>최근 업로드된 문서</Typography>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                         {documents.slice(0, 5).map(doc => (
                           <Box key={doc.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" sx={{ flex: 1 }}>{doc.title}</Typography>
-                            <Typography variant="caption" color="textSecondary">
-                              {format(new Date(doc.uploadDate), 'MM/dd')}
+                            <Typography variant="body2" sx={{ flex: 1, color: '#ccc' }}>{doc.title}</Typography>
+                            <Typography variant="caption" sx={{ color: '#888' }}>
+                              {format(doc.uploadDate?.toDate?.() || new Date(doc.uploadDate), 'MM/dd')}
                             </Typography>
                           </Box>
                         ))}
@@ -303,7 +551,19 @@ const Documents = () => {
           </Box>
 
           {/* 문서 추가/수정 다이얼로그 */}
-          <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+          <Dialog 
+            open={open} 
+            onClose={handleClose} 
+            maxWidth="sm" 
+            fullWidth
+            PaperProps={{
+              sx: { 
+                bgcolor: '#2d3748', 
+                color: 'white',
+                '& .MuiDialogTitle-root': { color: 'white' }
+              }
+            }}
+          >
             <DialogTitle>
               {selectedDoc ? '문서 수정' : '문서 추가'}
             </DialogTitle>
@@ -311,14 +571,24 @@ const Documents = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
                 <TextField
                   label="제목"
-                  value={formData.title ?? ''}
+                  value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  sx={{
+                    '& .MuiInputBase-root': { bgcolor: '#444' },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: 'white' }
+                  }}
                 />
                 <TextField
                   select
                   label="분류"
-                  value={formData.category ?? ''}
+                  value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  sx={{
+                    '& .MuiInputBase-root': { bgcolor: '#444' },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: 'white' }
+                  }}
                 >
                   {categories.map((category) => (
                     <MenuItem key={category} value={category}>
@@ -330,30 +600,66 @@ const Documents = () => {
                   label="설명"
                   multiline
                   rows={3}
-                  value={formData.description ?? ''}
+                  value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  sx={{
+                    '& .MuiInputBase-root': { bgcolor: '#444' },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: 'white' }
+                  }}
                 />
                 <Button
                   variant="outlined"
                   component="label"
-                  startIcon={<FolderIcon />}
+                  startIcon={<CloudUploadIcon />}
+                  sx={{ 
+                    borderColor: '#90caf9', 
+                    color: '#90caf9',
+                    '&:hover': { borderColor: '#64b5f6' }
+                  }}
                 >
-                  파일 선택
+                  {formData.file ? formData.file.name : '파일 선택'}
                   <input
                     type="file"
                     hidden
-                    onChange={(e) => setFormData({ ...formData, file: e.target.files[0] })}
+                    onChange={handleFileChange}
                   />
                 </Button>
+                {formData.file && (
+                  <Typography variant="body2" sx={{ color: '#4caf50' }}>
+                    선택된 파일: {formData.file.name} ({formatFileSize(formData.file.size)})
+                  </Typography>
+                )}
               </Box>
             </DialogContent>
             <DialogActions>
-              <Button onClick={handleClose}>취소</Button>
-              <Button onClick={handleSubmit} variant="contained">
-                {selectedDoc ? '수정' : '추가'}
+              <Button onClick={handleClose} sx={{ color: '#ccc' }}>
+                취소
+              </Button>
+              <Button 
+                onClick={handleSubmit} 
+                variant="contained" 
+                disabled={uploading}
+                sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#45a049' } }}
+              >
+                {uploading ? '업로드 중...' : (selectedDoc ? '수정' : '추가')}
               </Button>
             </DialogActions>
           </Dialog>
+
+          {/* 스낵바 */}
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={6000}
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+          >
+            <Alert 
+              onClose={() => setSnackbar({ ...snackbar, open: false })} 
+              severity={snackbar.severity}
+            >
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
         </>
       )}
     </Box>

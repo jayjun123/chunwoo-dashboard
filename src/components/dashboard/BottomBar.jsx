@@ -791,10 +791,16 @@ const BottomBar = ({
 
   // 확장 패널 동시 오픈 방지
   const handleOpenPanel = useCallback((panel) => {
+    // 권한에 따른 패널 접근 제한
+    if (panel === 'center' && !isAdminOrMasterUser) {
+      // 마스터 외 사용자는 center 패널 접근 불가
+      return;
+    }
+    
     setExpandWeather(panel === 'weather' ? !expandWeather : false);
     setExpandCenter(panel === 'center' ? !expandCenter : false);
     setExpandTodo(panel === 'todo' ? !expandTodo : false);
-  }, [expandWeather, expandCenter, expandTodo]);
+  }, [expandWeather, expandCenter, expandTodo, isAdminOrMasterUser]);
 
   // 확장 패널 닫기: ESC, 외부 클릭 지원
   const handleKeyDown = useCallback((e) => {
@@ -1452,29 +1458,32 @@ const BottomBar = ({
             <EngineeringIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FFD600', mr: 0.5 }} />
             {!isMobile && '[현장]'} {stats.todaySites ?? 0}
           </Box>
-          <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <TrendingUpIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#4FC3F7', mr: 0.5 }} />
-            {!isMobile && '[입찰]'} {stats.bidCount ?? 0}
-          </Box>
+          {isAdminOrMasterUser && (
+            <>
+              <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <TrendingUpIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#4FC3F7', mr: 0.5 }} />
+                {!isMobile && '[입찰]'} {stats.bidCount ?? 0}
+              </Box>
+              <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <SafetyHelmetIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#81C784', mr: 0.5 }} />
+                {!isMobile && '[현설]'} {stats.safetyCount ?? 0}
+              </Box>
+              <Box 
+                sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                onClick={(e) => { e.stopPropagation(); handleOpenPanel('center'); }}
+              >
+                <CalculateIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF9800', mr: 0.5 }} />
+                {!isMobile && '[견적]'} {stats.estimateCount ?? 0}
+              </Box>
+              <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <CategoryIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#9E9E9E', mr: 0.5 }} />
+                {!isMobile && '[기타]'} {stats.etcCount ?? 0}
+              </Box>
+            </>
+          )}
           <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <ForumIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF7043', mr: 0.5 }} />
             {!isMobile && '[회의]'} {stats.discussionCount ?? 0}
-          </Box>
-          <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <SafetyHelmetIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#81C784', mr: 0.5 }} />
-            {!isMobile && '[현설]'} {stats.safetyCount ?? 0}
-          </Box>
-
-          <Box 
-            sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
-            onClick={(e) => { e.stopPropagation(); handleOpenPanel('center'); }}
-          >
-            <CalculateIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#FF9800', mr: 0.5 }} />
-            {!isMobile && '[견적]'} {stats.estimateCount ?? 0}
-          </Box>
-          <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <CategoryIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#9E9E9E', mr: 0.5 }} />
-            {!isMobile && '[기타]'} {stats.etcCount ?? 0}
           </Box>
         </Box>
         {/* 우측: ToDoList + 설정 아이콘 */}
@@ -1492,14 +1501,16 @@ const BottomBar = ({
           >
             ToDoList {stats.todoDone ?? 0}/{stats.todoTotal ?? 0}
           </Typography>
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setExpandSettings(!expandSettings); setExpandWeather(false); setExpandCenter(false); setExpandTodo(false); }} sx={{ color: '#fff' }}>
-            <SettingsIcon />
-          </IconButton>
+          {isAdminOrMasterUser && (
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); setExpandSettings(!expandSettings); setExpandWeather(false); setExpandCenter(false); setExpandTodo(false); }} sx={{ color: '#fff' }}>
+              <SettingsIcon />
+            </IconButton>
+          )}
         </Box>
       </Box>
       
       {/* Settings 확장 패널: 하단바 위로 확장되는 설정 메뉴 */}
-      {expandSettings && (
+      {expandSettings && isAdminOrMasterUser && (
         <Box position="fixed" top={0} left={0} right={0} bottom={0} zIndex={1499} onClick={() => { setExpandWeather(false); setExpandCenter(false); setExpandTodo(false); setExpandSettings(false); }} />
       )}
       <Slide direction="up" in={expandSettings} mountOnEnter unmountOnExit>
@@ -1883,7 +1894,7 @@ const BottomBar = ({
       </Slide>
 
       {/* 금일현장/기성/협의/안전 실시간 현황 확장 패널 */}
-      {expandCenter && (
+      {expandCenter && isAdminOrMasterUser && (
         <Box position="fixed" top={0} left={0} right={0} bottom={0} zIndex={1201} onClick={() => { setExpandWeather(false); setExpandCenter(false); setExpandTodo(false); setExpandSettings(false); }} />
       )}
       <Slide direction="up" in={expandCenter} mountOnEnter unmountOnExit>

@@ -104,6 +104,21 @@ const Layout = React.memo(({ children }) => {
   const [modal, setModal] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // 권한에 따른 메뉴 필터링
+  const getFilteredMenuItems = () => {
+    if (isMaster) {
+      // 마스터는 모든 메뉴 접근 가능
+      return menuItems;
+    } else {
+      // 마스터 외 사용자는 제한된 메뉴만 접근 가능
+      return menuItems.filter(item => 
+        ['현장일정', '주요현장', '토론의견', '문서관리'].includes(item.text)
+      );
+    }
+  };
+
+  const filteredMenuItems = getFilteredMenuItems();
+
   const getModalStyle = () => {
     if (modal === 'weather') {
       return { position: 'fixed', left: 10, bottom: 74, bgcolor: 'background.paper', boxShadow: 24, borderRadius: 2, p: 0, minWidth: 320, maxWidth: 400, width: '95%', zIndex: 2001 };
@@ -191,7 +206,12 @@ const Layout = React.memo(({ children }) => {
                 if (isMobile) {
                   setDrawerOpen(true);
                 } else {
-                  navigate('/schedule');
+                  // 권한에 따라 다른 페이지로 이동
+                  if (isMaster) {
+                    navigate('/schedule'); // 마스터는 일정관리 페이지로
+                  } else {
+                    navigate('/gantt'); // 일반 사용자는 현장일정 페이지로
+                  }
                 }
               }}
             />
@@ -211,7 +231,7 @@ const Layout = React.memo(({ children }) => {
                 whiteSpace: 'nowrap',
               }}
             >
-              {menuItems.filter(item => item.text !== '건설뉴스').map((item) => (
+              {filteredMenuItems.filter(item => item.text !== '건설뉴스').map((item) => (
                 <Box
                   key={item.text}
                   sx={{
@@ -327,7 +347,7 @@ const Layout = React.memo(({ children }) => {
           </Typography>
         </Box>
         <Box sx={{ p: 1 }}>
-          {menuItems.map((item) => (
+          {filteredMenuItems.map((item) => (
             <Box
               key={item.text}
               sx={{
