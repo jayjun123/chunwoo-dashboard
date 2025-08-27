@@ -547,7 +547,32 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       }
     } else if (viewType === 'month') {
       // 월별 뷰에서는 이달 시작 현장들의 선급금 합계
-      totalAdvance = thisMonthSites.reduce((sum, site) => sum + (Number(site.advance || 0)), 0);
+      // thisMonthSites가 정의되어 있는지 확인
+      if (typeof thisMonthSites !== 'undefined') {
+        totalAdvance = thisMonthSites.reduce((sum, site) => sum + (Number(site.advance || 0)), 0);
+      } else {
+        // thisMonthSites가 정의되지 않은 경우 현재 월 현장들을 다시 계산
+        const currentMonth = new Date();
+        const currentYear = currentMonth.getFullYear();
+        const currentMonthNum = currentMonth.getMonth() + 1;
+        
+        const thisMonthSites = sites.filter(site => {
+          if (!site.startDate) return false;
+          
+          try {
+            const startDate = new Date(site.startDate);
+            const siteYear = startDate.getFullYear();
+            const siteMonth = startDate.getMonth() + 1;
+            
+            return siteYear === currentYear && siteMonth === currentMonthNum;
+          } catch (error) {
+            console.log(`⚠️ 현장 시작일 파싱 오류: ${site.name} - ${site.startDate}`);
+            return false;
+          }
+        });
+        
+        totalAdvance = thisMonthSites.reduce((sum, site) => sum + (Number(site.advance || 0)), 0);
+      }
     } else {
       // 전체 뷰에서는 모든 현장의 선급금 합계
       totalAdvance = sites.reduce((sum, site) => sum + (Number(site.advance || 0)), 0);
