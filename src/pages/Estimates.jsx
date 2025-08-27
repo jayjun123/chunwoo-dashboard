@@ -1074,11 +1074,20 @@ const Estimates = () => {
                 <TableCell>
                   <Chip
                     label={estimate.submissionStatus}
-                    color={estimate.submissionStatus === '제출완료' ? 'success' : 'warning'}
+                    color={estimate.submissionStatus === '제출완료' ? 'success' : 
+                           estimate.submissionStatus === '보류' ? 'error' : 'warning'}
                     size="small"
                     onClick={async () => {
                       try {
-                        const newStatus = estimate.submissionStatus === '제출완료' ? '제출대기' : '제출완료';
+                        let newStatus;
+                        if (estimate.submissionStatus === '제출대기') {
+                          newStatus = '제출완료';
+                        } else if (estimate.submissionStatus === '제출완료') {
+                          newStatus = '보류';
+                        } else {
+                          newStatus = '제출대기';
+                        }
+                        
                         const estimateRef = doc(db, 'estimates', estimate.id);
                         await updateDoc(estimateRef, {
                           submissionStatus: newStatus,
@@ -1365,10 +1374,9 @@ const Estimates = () => {
             <Grid item xs={6} md={2}>
               <Autocomplete
                 options={requesters.map(requester => {
-                  // 이름, 직위, 회사명을 모두 표시하여 동명이인 구분
+                  // 이름과 직위만 표시 (회사명 제외)
                   let displayName = requester.name;
                   if (requester.title) displayName += ` ${requester.title}`;
-                  if (requester.company) displayName += ` (${requester.company})`;
                   return displayName;
                 }).filter(name => name)}
                 value={formData.requester}
@@ -1382,7 +1390,6 @@ const Estimates = () => {
                     const selectedRequester = requesters.find(requester => {
                       let displayName = requester.name;
                       if (requester.title) displayName += ` ${requester.title}`;
-                      if (requester.company) displayName += ` (${requester.company})`;
                       return displayName === newValue;
                     });
                     if (selectedRequester && selectedRequester.company) {
@@ -1550,6 +1557,7 @@ const Estimates = () => {
                 >
                   <MenuItem value="제출대기">제출대기</MenuItem>
                   <MenuItem value="제출완료">제출완료</MenuItem>
+                  <MenuItem value="보류">보류</MenuItem>
                   <MenuItem value="제출지연">제출지연</MenuItem>
                 </Select>
               </FormControl>

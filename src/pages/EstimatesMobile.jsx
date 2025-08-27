@@ -364,11 +364,20 @@ const EstimatesMobile = () => {
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     <Chip
                       label={estimate.submissionStatus}
-                      color={getStatusColor(estimate.submissionStatus)}
+                      color={estimate.submissionStatus === '제출완료' ? 'success' : 
+                             estimate.submissionStatus === '보류' ? 'error' : 'warning'}
                       size="small"
                       onClick={async () => {
                         try {
-                          const newStatus = estimate.submissionStatus === '제출완료' ? '제출대기' : '제출완료';
+                          let newStatus;
+                          if (estimate.submissionStatus === '제출대기') {
+                            newStatus = '제출완료';
+                          } else if (estimate.submissionStatus === '제출완료') {
+                            newStatus = '보류';
+                          } else {
+                            newStatus = '제출대기';
+                          }
+                          
                           const estimateRef = doc(db, 'estimates', estimate.id);
                           await updateDoc(estimateRef, {
                             submissionStatus: newStatus,
@@ -667,6 +676,7 @@ const EstimatesMobile = () => {
                   >
                     <MenuItem value="제출대기">제출대기</MenuItem>
                     <MenuItem value="제출완료">제출완료</MenuItem>
+                    <MenuItem value="보류">보류</MenuItem>
                     <MenuItem value="제출지연">제출지연</MenuItem>
                   </Select>
                 </FormControl>
