@@ -220,9 +220,9 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
   // 수량 포맷팅
   const formatQuantity = (quantity, unit) => {
     if (!quantity && quantity !== 0) return '0';
-    // 정수로 반올림하여 표시
-    const roundedQuantity = Math.round(quantity);
-    const formatted = new Intl.NumberFormat('ko-KR').format(roundedQuantity);
+    // 소수점 2째 자리까지 표시하되, 정확한 값은 유지
+    const roundedForDisplay = Math.round(quantity * 100) / 100;
+    const formatted = new Intl.NumberFormat('ko-KR').format(roundedForDisplay);
     return unit ? `${formatted} ${unit}` : formatted;
   };
 

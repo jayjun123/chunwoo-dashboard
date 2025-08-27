@@ -651,8 +651,8 @@ const parseNumber = (value) => {
   // 유효한 숫자인지 확인
   if (isNaN(num)) return 0;
   
-  // 소수점 둘째자리까지 반올림
-  return Math.round(num * 100) / 100;
+  // 소수점 5째 자리까지 정확하게 저장 (반올림하지 않음)
+  return Math.round(num * 100000) / 100000;
 };
 
 /**
