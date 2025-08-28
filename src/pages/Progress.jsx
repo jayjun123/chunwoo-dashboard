@@ -608,6 +608,11 @@ const Progress = () => {
           return sum + (parseFloat(item.gisungAmount) || 0);
         }, 0);
         
+        // 선급금을 기성금에 포함
+        const siteData = sites.find(site => site.name === siteName);
+        const advanceAmount = Number(siteData?.advance || 0);
+        const totalWithAdvance = totalGisung + advanceAmount;
+        
         // 지출 데이터에서 해당 현장의 데이터 필터링
         const siteCostData = allCostData.filter(cost => cost.site === siteName);
         const totalLabor = siteCostData
@@ -623,7 +628,7 @@ const Progress = () => {
         const result = {
           name: siteName,
           '계약금': totalContract,
-          '기성금': totalGisung,
+          '기성금': totalWithAdvance, // 선급금 포함
           '노무': totalLabor,
           '경비': totalExpense,
           '기타': totalEtc,
@@ -647,6 +652,11 @@ const Progress = () => {
         return sum + (parseFloat(item.gisungAmount) || 0);
       }, 0);
       
+      // 선급금을 기성금에 포함
+      const siteData = sites.find(site => site.name === siteName);
+      const advanceAmount = Number(siteData?.advance || 0);
+      const totalWithAdvance = totalGisung + advanceAmount;
+      
       // 지출 데이터에서 해당 현장의 데이터 필터링
       const siteCostData = allCostData.filter(cost => cost.site === siteName);
       const totalLabor = siteCostData
@@ -662,7 +672,7 @@ const Progress = () => {
       const result = {
         name: siteName,
         '계약금': totalContract,
-        '기성금': totalGisung,
+        '기성금': totalWithAdvance, // 선급금 포함
         '노무': totalLabor,
         '경비': totalExpense,
         '기타': totalEtc,

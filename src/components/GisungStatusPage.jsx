@@ -1928,6 +1928,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
        <Grid container spacing={isMobile ? 0.7 : 2} sx={{ mb: 3 }}>
          <StatCard title={isMobile ? "계약금액" : "총 계약금액"} value={stats.totalContractAmount} color="#43e97b" />
          <StatCard title={isMobile ? "선급금" : "총 선급금"} value={stats.totalAdvance} color="#ffd600" />
+         <StatCard title={isMobile ? "누계기성" : "총 누계기성"} value={stats.totalAdvance + stats.totalGisungAmount} color="#ff6b35" />
          {viewType !== 'month' && (
            <StatCard title="잔액" value={stats.totalBalance} color="#a084e8" />
          )}
