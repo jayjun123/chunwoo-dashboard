@@ -444,13 +444,17 @@ const ProgressManagement = () => {
     e.target.style.boxShadow = '';
   };
 
-  // 현장별 누계 기성금 계산
+  // 현장별 누계 기성금 계산 (선급금 포함)
   const getTotalProgressAmount = () => {
     if (!selectedSite || !progressData.length) return 0;
     
-    return progressData
+    const totalGisung = progressData
       .filter(item => item.type === '청구') // 청구만 누계로 계산
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    
+    // 선급금을 누계기성에 포함
+    const advanceAmount = Number(selectedSite?.advance || 0);
+    return totalGisung + advanceAmount;
   };
 
   return (

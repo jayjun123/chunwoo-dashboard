@@ -285,7 +285,7 @@ const NewSites = () => {
         return sum + (Number(site.contractAmount) || 0);
       }, 0);
       
-      // 2. 누계기성: 캐시된 데이터 사용
+      // 2. 누계기성: 캐시된 데이터 사용 (선급금 포함)
       const siteNames = sites.map(site => site.name);
       
       totalProgressAmount = gisungData.reduce((sum, gisung) => {
@@ -294,6 +294,13 @@ const NewSites = () => {
         }
         return sum;
       }, 0);
+      
+      // 선급금을 누계기성에 포함
+      const totalAdvanceAmount = sites.reduce((sum, site) => {
+        return sum + (Number(site.advance) || 0);
+      }, 0);
+      
+      totalProgressAmount += totalAdvanceAmount;
       
       totalCostAmount = costData.reduce((sum, cost) => {
         if (siteNames.includes(cost.siteName)) {
@@ -305,6 +312,7 @@ const NewSites = () => {
       console.log('통합현황 계산 결과 (캐시 사용):', {
         totalContractAmount,
         totalProgressAmount,
+        totalAdvanceAmount,
         totalCostAmount,
         sitesCount: sites.length,
         gisungDataLength: gisungData.length,
@@ -765,13 +773,17 @@ const NewSites = () => {
         // 계약금액 우선순위: 물량내역 > 현장상세정보
         const contractAmount = autoContractAmount > 0 ? autoContractAmount : (Number(site.contractAmount) || 0);
         
-        // 2. 누계기성: 캐시된 데이터 사용
+        // 2. 누계기성: 캐시된 데이터 사용 (선급금 포함)
         const totalGisungAmount = gisungData.reduce((sum, gisung) => {
           if (gisung.name === site.name) {
             return sum + (Number(gisung.gisungAmount) || 0);
           }
           return sum;
         }, 0);
+        
+        // 선급금을 누계기성에 포함
+        const advanceAmount = Number(site.advance || 0);
+        const totalWithAdvance = totalGisungAmount + advanceAmount;
         
         // 3. 지출: 캐시된 데이터 사용
         const totalCostAmount = costData.reduce((sum, cost) => {
@@ -784,7 +796,7 @@ const NewSites = () => {
         const integratedStatus = {
           summary: {
             totalEstimateAmount: contractAmount,
-            totalClaimAmount: totalGisungAmount,
+            totalClaimAmount: totalWithAdvance, // 선급금 포함된 누계기성
             totalCostAmount: totalCostAmount
           }
         };
@@ -793,6 +805,8 @@ const NewSites = () => {
           siteName: site.name,
           contractAmount,
           totalGisungAmount,
+          advanceAmount,
+          totalWithAdvance,
           totalCostAmount
         });
         
@@ -2228,7 +2242,7 @@ const NewSites = () => {
                    <Typography variant="h5" sx={{ color: '#2196f3', fontWeight: 'bold', fontSize: isMobile ? '1.2rem' : '1.5rem' }}>
                      {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount ? Math.round((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount).toLocaleString() : '0'}
                    </Typography>
-                   <Typography variant="caption" sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>누계기성</Typography>
+                   <Typography variant="caption" sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>누계기성 (선급금 포함)</Typography>
                  </Box>
                </Grid>
                <Grid size={{ xs: 4 }}>
@@ -2249,7 +2263,7 @@ const NewSites = () => {
                  </Grid>
                  <Grid size={{ xs: 12, sm: 4 }}>
                    <Box sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
-                     누계기성: {formatNumber((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount || 0, true)}
+                     누계기성: {formatNumber((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount || 0, true)} (선급금 포함)
                    </Box>
                  </Grid>
                  <Grid size={{ xs: 12, sm: 4 }}>

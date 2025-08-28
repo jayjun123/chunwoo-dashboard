@@ -126,7 +126,7 @@ const SiteList = () => {
               <p><strong>현장장:</strong> {site.manager}</p>
               <p><strong>기간:</strong> {site.startDate} ~ {site.endDate}</p>
               <p><strong>예산:</strong> {site.budget || site.contractAmount?.toLocaleString()}</p>
-              <p><strong>누계기성값:</strong> {getCumulativeAmount(site)}원 (선급금 포함)</p>
+              <p><strong>누계기성:</strong> {getCumulativeAmount(site)}원 (선급금 포함)</p>
               <div className="progress-bar">
                 <div 
                   className="progress-fill"
