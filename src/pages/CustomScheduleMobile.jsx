@@ -104,7 +104,7 @@ const CustomScheduleMobile = () => {
   const [sites, setSites] = useState([]);
   const [estimates, setEstimates] = useState([]);
   const [viewMode, setViewMode] = useState('month'); // 이제 'month'만 사용
-  const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308', 'transparent'];
+  const colorChoices = ['transparent', '#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
   const [checkedItems, setCheckedItems] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1341,7 +1341,7 @@ const CustomScheduleMobile = () => {
         position: 'fixed',
         padding: 0,
         margin: 0,
-        mt: '-20px', // 위로 20px 이동 (60px → 20px로 변경하여 아래로 40px 이동)
+        mt: '20px', // 20px 아래로 이동
         touchAction: 'none',
         WebkitOverflowScrolling: 'none',
         userSelect: 'none',

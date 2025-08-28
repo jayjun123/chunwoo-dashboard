@@ -54,7 +54,7 @@ const CustomSchedule = () => {
   const [sites, setSites] = useState([]);
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [checkedItems, setCheckedItems] = useState({});
-  const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308', 'transparent'];
+  const colorChoices = ['transparent', '#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
   const [selectedColor, setSelectedColor] = useState(colorChoices[0]);
   const [showListPopup, setShowListPopup] = useState(false);
   const [listPopupDate, setListPopupDate] = useState('');

@@ -756,7 +756,7 @@ export default function ImportantSite() {
       height: '100vh', 
       overflow: 'hidden', 
       pb: 4, 
-      mt: isMobile ? '30px' : 8,
+      mt: isMobile ? '50px' : 8,
       display: 'flex',
       flexDirection: 'column',
       position: 'fixed',

@@ -1908,9 +1908,10 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   return (
     <Box sx={{ 
       width: isMobile ? '100vw' : '100%', 
-      p: isMobile ? 0 : 2,
+      p: isMobile ? 1 : 2, // 모바일에서 패딩 추가
       position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '-26px' : 'auto'
+      left: isMobile ? '0px' : 'auto', // 모바일에서 left 조정
+      overflow: 'hidden' // 모바일에서 오버플로우 방지
     }}>
       {/* 상단 제목 및 통계 */}
       <Typography variant="h4" sx={{ 
@@ -2027,7 +2028,13 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       {/* 데이터 표시 */}
       {isMobile ? (
         // 모바일: 카드 형태로 표시
-        <Box sx={{ mt: 2 }}>
+        <Box sx={{ 
+          mt: 2, 
+          maxHeight: 'calc(100vh - 300px)', // 모바일에서 스크롤 가능한 높이 설정
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          paddingBottom: '20px' // 하단 여백 추가
+        }}>
           {filteredAndSortedGisung.length === 0 ? (
             <Box sx={{ 
               textAlign: 'center', 

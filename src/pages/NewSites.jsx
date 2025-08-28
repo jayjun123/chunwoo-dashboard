@@ -2716,7 +2716,7 @@ const NewSites = () => {
       
       {/* Right Panel - 물량 내역 */}
       <Paper elevation={3} sx={{ 
-        width: { xs: '100%', md: '30%' }, 
+        width: { xs: '95%', md: '30%' }, // 모바일에서 가로폭 95%로 줄임
         minWidth: { md: '280px' }, 
         height: { xs: 'auto', md: '100%' }, // 모바일에서는 자동 높이
         display: { xs: isMobile && isEditing ? 'flex' : 'none', md: 'flex' }, // 모바일에서는 편집 모드일 때만 표시
@@ -2726,8 +2726,8 @@ const NewSites = () => {
         borderRadius: 2, 
         position: isMobile ? 'relative' : 'static',
         top: isMobile ? '0px' : 'auto',
-        left: isMobile ? '2px' : 'auto',
-        overflow: 'visible' // 모바일에서는 스크롤 허용
+        left: isMobile ? '2.5%' : 'auto', // 모바일에서 중앙 정렬
+        overflow: 'auto' // 모바일에서 스크롤 허용
       }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
