@@ -73,7 +73,7 @@ const CustomCalendar = (props) => {
   } = props;
   
 
-  const colorChoices = ['#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308', 'transparent'];
+  const colorChoices = ['transparent', '#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
 
   // 현장명 중복 제거
   const uniqueSiteNames = [...new Set(sites.map(site => site.name).filter(Boolean))];
