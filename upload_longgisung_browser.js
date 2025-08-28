@@ -57,3 +57,4 @@ const uploadLongGisungToFirebase = async () => {
 // 스크립트 실행
 uploadLongGisungToFirebase();
 
+

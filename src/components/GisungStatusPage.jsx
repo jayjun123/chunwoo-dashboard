@@ -46,6 +46,7 @@ import * as XLSX from 'xlsx';
 import { addMonths, subMonths, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { formatNumber } from '../utils/formatUtils';
+import SiteInfoPopup from './common/SiteInfoPopup';
 // import { parseGisungExcelUpload } from '../utils/gisungUploadUtils';
 
 const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurrentMonth, monthText: initialMonthText, selectedSites, filteredData }) => {
@@ -81,6 +82,9 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   // 다운로드 로딩 상태
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
+  
+  // 현장 정보 팝업 상태
+  const [siteInfoPopup, setSiteInfoPopup] = useState({ open: false, site: null });
   
   const [formData, setFormData] = useState({
     name: '',
@@ -1118,21 +1122,56 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     setOpen(false);
     setSelected(null);
   };
+  
+  // 현장명 더블클릭 핸들러
+  const handleSiteNameDoubleClick = (siteName) => {
+    console.log(`🔍 현장명 더블클릭: "${siteName}"`);
+    
+    if (!siteName || siteName.trim() === '') {
+      console.log('⚠️ 현장명이 비어있습니다.');
+      return;
+    }
+    
+    const site = sites.find(s => s.name === siteName);
+    if (site) {
+      console.log(`✅ 현장 정보 팝업 열기: ${site.name}`);
+      setSiteInfoPopup({ open: true, site });
+    } else {
+      console.log(`⚠️ 현장을 찾을 수 없습니다: ${siteName}`);
+      alert(`현장 "${siteName}"을 찾을 수 없습니다.`);
+    }
+  };
+  
+  // 현장 정보 팝업 닫기
+  const handleCloseSiteInfoPopup = () => {
+    setSiteInfoPopup({ open: false, site: null });
+  };
 
   const handleSubmit = async () => {
     try {
-      // console.log('📝 기성등록 시작:', formData);
+      // 현장명 유효성 검사
+      if (!formData.name || formData.name.trim() === '') {
+        alert('현장명을 입력해주세요.');
+        return;
+      }
       
-      // 현장 id 찾아서 formData에 추가
-      const site = sites.find(s => s.name === formData.name);
-      if (site) {
-        formData.siteId = site.id;
+      console.log('📝 기성등록 시작:', formData);
+      
+      // 현장 id 찾아서 formData에 추가 (기존 현장 목록에 있는 경우에만)
+      const selectedSite = sites.find(s => s.name === formData.name);
+      if (selectedSite) {
+        formData.siteId = selectedSite.id;
+        console.log(`🔍 기존 현장 선택: ${selectedSite.name} (ID: ${selectedSite.id})`);
+      } else {
+        // 직접 입력한 새로운 현장명인 경우 siteId는 설정하지 않음
+        console.log(`🔍 새로운 현장명 직접 입력: ${formData.name} (siteId 없음)`);
+        delete formData.siteId; // siteId 제거
       }
       
       // 차수 계산 - 해당 현장의 기존 기성 데이터 개수 + 1
       const existingGisungCount = allGisungData.filter(gisung => gisung.name === formData.name).length;
       const sequence = existingGisungCount + 1;
-      // console.log(`📊 차수 계산: ${formData.name} - 기존 ${existingGisungCount}개 → ${sequence}차`);
+      console.log(`📊 차수 계산: ${formData.name} - 기존 ${existingGisungCount}개 → ${sequence}차`);
       
       // currentGisung을 gisungAmount로 매핑
       const dataToSave = {
@@ -1152,18 +1191,40 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       // });
       
       if (selected) {
-        // 수정할 때는 기존 데이터 유지 (차수, 전회기성 등)
+        // 수정할 때는 기존 데이터 유지하되, 변경된 필드들 업데이트
         const updateData = {
+          name: formData.name, // 현장명 업데이트
           gisungAmount: Number(formData.currentGisung) || 0, // 금회기성만 업데이트 (숫자로 변환)
           currentGisung: Number(formData.currentGisung) || 0, // 호환성을 위해 currentGisung도 업데이트
           gisungMonth: formData.gisungMonth,
           claimMethod: formData.claimMethod || '', // 청구방법 업데이트
           note: formData.note,
+          contractAmount: formData.contractAmount, // 계약금액 업데이트
+          advance: formData.advance, // 선급금 업데이트
+          prevGisung: Number(formData.prevGisung) || 0, // 누계기성 업데이트
           updatedAt: serverTimestamp()
         };
         
+        // 현장명이 변경된 경우 siteId 업데이트 (기존 현장 목록에 있는 경우에만)
+        if (formData.name !== selected.name) {
+          const newSite = sites.find(s => s.name === formData.name);
+          if (newSite) {
+            updateData.siteId = newSite.id;
+            console.log(`🔄 현장명 변경: ${selected.name} → ${formData.name}, siteId: ${newSite.id}`);
+          } else {
+            // 직접 입력한 새로운 현장명인 경우 siteId 제거
+            updateData.siteId = null;
+            console.log(`🔄 새로운 현장명으로 변경: ${selected.name} → ${formData.name} (siteId 제거)`);
+          }
+        }
+        
         await updateDoc(doc(db, 'gisung', selected.id), updateData);
-        console.log('✅ 기성 데이터 수정 완료 (기존 차수/전회기성 유지)');
+        console.log('✅ 기성 데이터 수정 완료:', {
+          현장명: formData.name,
+          기성월: formData.gisungMonth,
+          금회기성: formData.currentGisung,
+          청구방법: formData.claimMethod
+        });
       } else {
         // 새로 등록할 때만 차수와 전회기성 설정
         await addDoc(collection(db, 'gisung'), {
@@ -1173,7 +1234,15 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         console.log('✅ 기성 데이터 등록 완료');
       }
       
-      await updateSiteTotalProgress(formData.name);
+      // 현장 총 진행률 업데이트 (기존 현장 목록에 있는 경우에만)
+      const existingSite = sites.find(s => s.name === formData.name);
+      if (existingSite) {
+        await updateSiteTotalProgress(formData.name);
+        console.log(`✅ 현장 총 진행률 업데이트 완료: ${formData.name}`);
+      } else {
+        console.log(`ℹ️ 새로운 현장명이므로 현장 총 진행률 업데이트 건너뜀: ${formData.name}`);
+      }
+      
       handleClose();
       
       // 데이터 새로고침 (모든 데이터 업데이트)
@@ -1547,17 +1616,66 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   };
 
   // 모바일용 기성 데이터 카드 컴포넌트
-  const MobileGisungCard = ({ gisung, onEdit, onDelete, onStatusChange, onPaymentStatusChange }) => (
-    <Card sx={{ 
-      mb: 2, 
-      bgcolor: '#232b3b', 
-      border: '1px solid #333',
-      '&:hover': { bgcolor: '#2c3446' }
-    }}>
+  const MobileGisungCard = ({ gisung, onEdit, onDelete, onStatusChange, onPaymentStatusChange }) => {
+      const handleSiteNameDoubleClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation(); // 이벤트 전파 중단
+    console.log(`🔍 모바일 현장명 더블클릭: "${gisung.name}"`);
+    console.log(`🔍 sites 데이터:`, sites);
+    console.log(`🔍 sites 길이:`, sites.length);
+    
+    if (!gisung.name || gisung.name.trim() === '') {
+      console.log('⚠️ 현장명이 비어있습니다.');
+      return;
+    }
+    
+    const site = sites.find(s => s.name === gisung.name);
+    console.log(`🔍 찾은 site:`, site);
+    
+    if (site) {
+      console.log(`✅ 모바일 현장 정보 팝업 열기: ${site.name}`);
+      setSiteInfoPopup({ open: true, site });
+    } else {
+      console.log(`⚠️ 현장을 찾을 수 없습니다: ${gisung.name}`);
+      console.log(`⚠️ 전체 sites:`, sites.map(s => s.name));
+      alert(`현장 "${gisung.name}"을 찾을 수 없습니다.`);
+    }
+  };
+
+    return (
+    <Card 
+      sx={{ 
+        mb: 2, 
+        bgcolor: '#232b3b', 
+        border: '1px solid #333',
+        '&:hover': { bgcolor: '#2c3446' },
+        cursor: 'pointer'
+      }}
+      onDoubleClick={handleSiteNameDoubleClick}
+      onClick={(e) => {
+        console.log('🔍 카드 클릭됨');
+        e.stopPropagation();
+      }}
+      title="더블클릭하여 현장 정보 보기"
+    >
       <CardContent sx={{ p: 2 }}>
         {/* 헤더: 현장명, 차수, 기성월 */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6" sx={{ color: '#90caf9', fontWeight: 700, fontSize: '1rem' }}>
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              color: '#90caf9', 
+              fontWeight: 700, 
+              fontSize: '1rem',
+              cursor: 'pointer',
+              '&:hover': { 
+                textDecoration: 'underline',
+                color: '#64b5f6'
+              }
+            }}
+            onDoubleClick={handleSiteNameDoubleClick}
+            title="더블클릭하여 현장 정보 보기"
+          >
             {gisung.name}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
@@ -1675,14 +1793,20 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           <Box sx={{ display: 'flex', gap: 1 }}>
             <IconButton
               size="small"
-              onClick={() => onEdit(gisung)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(gisung);
+              }}
               sx={{ color: '#90caf9', p: 0.5 }}
             >
               <EditIcon sx={{ fontSize: '1rem' }} />
             </IconButton>
             <IconButton
               size="small"
-              onClick={() => onDelete(gisung)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(gisung);
+              }}
               sx={{ color: '#ef5350', p: 0.5 }}
             >
               <DeleteIcon sx={{ fontSize: '1rem' }} />
@@ -1701,7 +1825,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         )}
       </CardContent>
     </Card>
-  );
+    );
+  };
 
   const StatCard = ({ title, value, color }) => (
     <Grid size={{ xs: 3, sm: 6, md: 3 }}>
@@ -2039,7 +2164,20 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                           }} 
                         />
                       </TableCell>
-                      <TableCell sx={{ color: '#fff' }}>{row.name}</TableCell>
+                      <TableCell 
+                        sx={{ 
+                          color: '#fff',
+                          cursor: 'pointer',
+                          '&:hover': { 
+                            bgcolor: '#2c3446',
+                            textDecoration: 'underline'
+                          }
+                        }}
+                        onDoubleClick={() => handleSiteNameDoubleClick(row.name)}
+                        title="더블클릭하여 현장 정보 보기"
+                      >
+                        {row.name}
+                      </TableCell>
                       <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
                         {formatNumber(row.contractAmount, true)}
                       </TableCell>
@@ -2172,76 +2310,47 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
               <Autocomplete
                 value={formData.name}
-                onChange={async (event, newValue) => {
-                  // 직접 입력된 값인지 확인
-                  if (newValue && typeof newValue === 'string') {
-                    // 기존 현장 목록에서 찾기
-                    const selectedSite = sites.find(site => site.name === newValue);
-                    
-                    if (selectedSite) {
-                      // 기존 현장이 선택된 경우 - 기존 로직 실행
-                      console.log(`🔍 기존 현장 선택: ${selectedSite.name}`);
-                      
-                      // 최신 데이터로 즉시 새로고침
-                      console.log(`🔄 현장 선택 시 최신 데이터 새로고침 시작...`);
-                      await fetchAllGisung();
-                      console.log(`✅ 최신 데이터 새로고침 완료`);
-                      
-                      // 최신 데이터를 다시 가져와서 계산
-                      const latestGisungData = await fetchAllGisung();
-                      console.log(`📊 최신 데이터 개수: ${latestGisungData.length}개`);
-                      
-                      // 해당 현장의 청구완료된 기성 데이터 찾기 (누계기성 계산)
-                      const siteGisungData = latestGisungData
-                        .filter(gisung => {
-                          const gisungName = gisung.name ? gisung.name.trim() : '';
-                          const selectedName = selectedSite.name ? selectedSite.name.trim() : '';
-                          const isMatch = gisungName === selectedName;
-                          const isClaimCompleted = gisung.claimStatus === '청구완료';
-                          console.log(`🔍 매칭 확인: "${gisungName}" vs "${selectedName}" = ${isMatch}, 청구완료: ${isClaimCompleted}`);
-                          return isMatch && isClaimCompleted;
-                        })
-                        .sort((a, b) => {
-                          const aSeq = parseInt(a.sequence?.replace('차', '') || '0');
-                          const bSeq = parseInt(b.sequence?.replace('차', '') || '0');
-                          return bSeq - aSeq; // 최신 차수가 위에
-                        });
-                      
-                      // 모든 기성의 합계 계산 (누계기성)
-                      const totalGisungAmount = siteGisungData.reduce((sum, gisung) => {
-                        const amount = Number(gisung.gisungAmount) || Number(gisung.currentGisung) || 0;
-                        return sum + amount;
-                      }, 0);
-                      
-                      console.log(`🔍 현장 선택: ${selectedSite.name}`);
-                      console.log(`📊 누계기성: ${totalGisungAmount.toLocaleString()}원`);
-                     
-                      setFormData({
-                        ...formData,
-                        name: selectedSite.name,
-                        contractAmount: selectedSite.contractAmount || '',
-                        advance: selectedSite.advance || '',
-                        prevGisung: totalGisungAmount.toString()
-                      });
-                    } else {
-                      // 새로운 현장명이 입력된 경우 - 기본값으로 설정
-                      console.log(`🔍 새로운 현장명 입력: ${newValue}`);
-                      setFormData({
-                        ...formData,
-                        name: newValue,
-                        contractAmount: '',
-                        advance: '',
-                        prevGisung: '0'
-                      });
-                    }
+                onChange={(event, newValue) => {
+                  const value = newValue || '';
+                  console.log(`🔍 현장명 입력: "${value}"`);
+                  
+                  const selectedSite = sites.find(site => site.name === value);
+                  if (selectedSite) {
+                    // 기존 현장이 선택된 경우
+                    console.log(`🔍 기존 현장 선택: ${selectedSite.name}`);
+                    setFormData({
+                      ...formData,
+                      name: selectedSite.name,
+                      contractAmount: selectedSite.contractAmount || '',
+                      advance: selectedSite.advance || '',
+                      prevGisung: '0'
+                    });
+                  } else {
+                    // 새로운 현장명이 입력된 경우 - 사용자가 직접 입력할 수 있도록 설정
+                    console.log(`🔍 새로운 현장명 입력: ${value}`);
+                    setFormData({
+                      ...formData,
+                      name: value,
+                      // 계약금액과 선급금은 사용자가 직접 입력하도록 빈 값으로 유지
+                      contractAmount: formData.contractAmount || '',
+                      advance: formData.advance || '',
+                      prevGisung: '0'
+                    });
                   }
+                }}
+                onInputChange={(event, newInputValue) => {
+                  console.log(`🔍 현장명 직접 입력: "${newInputValue}"`);
+                  setFormData({
+                    ...formData,
+                    name: newInputValue
+                  });
                 }}
                 options={sites.map(site => site.name)}
                 freeSolo={true} // 직접 입력 허용
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="현장명 (직접입력 가능)"
+                    label="현장명 (직접 입력 또는 선택)"
                     size="medium"
                     sx={{
                       minWidth: 220,
@@ -2271,9 +2380,9 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                     }
                   }
                 }}
-                clearOnBlur
+                clearOnBlur={false}
               />
-            <TextField
+              <TextField
                 label="기성월"
                 value={formData.gisungMonth}
                 onChange={e => {
@@ -2292,9 +2401,9 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 }}
                 placeholder="0000-00"
                 size="medium"
-              sx={{
+                sx={{
                   minWidth: 120,
-                '& .MuiOutlinedInput-root': {
+                  '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#333' },
                     '&:hover fieldset': { borderColor: '#555' },
                     '&.Mui-focused fieldset': { borderColor: '#90caf9' }
@@ -2307,8 +2416,13 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             {/* 2줄: 계약금액 + 선급금 */}
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
             <TextField
-              label="계약금액"
-                value={Math.round(Number(formData.contractAmount || 0)).toLocaleString()}
+              label="계약금액 (직접 입력)"
+                value={formData.contractAmount}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  setFormData({ ...formData, contractAmount: value });
+                }}
+                placeholder="계약금액을 입력하세요"
                 size="medium"
               sx={{
                   minWidth: 180,
@@ -2320,11 +2434,15 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                   '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
                   '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
                 }}
-                InputProps={{ readOnly: true }}
             />
             <TextField
               label="선급금"
-                value={Math.round(Number(formData.advance || 0)).toLocaleString()}
+                value={formData.advance}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  setFormData({ ...formData, advance: value });
+                }}
+                placeholder="선급금을 입력하세요"
                 size="medium"
               sx={{
                   minWidth: 180,
@@ -2336,7 +2454,6 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                   '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
                   '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
                 }}
-                InputProps={{ readOnly: true }}
               />
             </Box>
                         {/* 3줄: 누계기성 + 금회기성 */}
@@ -2496,7 +2613,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 }}
               >
                 파일 선택
-          </Button>
+              </Button>
             </label>
             {selectedFile && (
               <Typography variant="body2" sx={{ mt: 1, color: '#90caf9' }}>
@@ -2561,6 +2678,13 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
            </Typography>
          </Box>
        </Dialog>
+       
+       {/* 현장 정보 팝업 */}
+       <SiteInfoPopup
+         open={siteInfoPopup.open}
+         onClose={handleCloseSiteInfoPopup}
+         site={siteInfoPopup.site}
+       />
      </Box>
    );
  };

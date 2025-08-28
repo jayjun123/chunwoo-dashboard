@@ -108,12 +108,13 @@ const Claims = () => {
     try {
       // 청구 데이터를 엑셀 형식으로 변환
       const excelData = filteredClaims.map((claim, index) => ({
-        'NO.': index + 1,
+        'NO.': filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id),
         '현장명': claim.siteName || '',
+        '소장/회사명': claim.manager || '',
         '차수': claim.sequence || '',
-        '계약금액': claim.contractAmount ? Number(claim.contractAmount).toLocaleString() : '0',
-        '잔액': claim.remainingAmount ? Number(claim.remainingAmount).toLocaleString() : '0',
-        '기성율(%)': claim.progressRate ? `${claim.progressRate}%` : '0%',
+        '계약금액': getContractAmount(claim.siteName) ? Number(getContractAmount(claim.siteName)).toLocaleString() : '0',
+        '잔액': calculateRemainingAmount(claim.siteName) ? Number(calculateRemainingAmount(claim.siteName)).toLocaleString() : '0',
+        '청구 전 기성율(%)': claim.progressRate ? `${claim.progressRate}%` : '0%',
         '청구금액': claim.claimAmount ? Number(claim.claimAmount).toLocaleString() : '0',
         '청구여부': getStatusLabel(claim.claimStatus),
         '비고': claim.notes || ''
@@ -130,7 +131,7 @@ const Claims = () => {
         { wch: 8 },   // 차수
         { wch: 15 },  // 계약금액
         { wch: 15 },  // 잔액
-        { wch: 12 },  // 기성율
+        { wch: 15 },  // 청구 전 기성율
         { wch: 15 },  // 청구금액
         { wch: 12 },  // 청구여부
         { wch: 30 }   // 비고
@@ -208,6 +209,9 @@ const Claims = () => {
                 case '현장명':
                   claim.siteName = value || '';
                   break;
+                case '소장/회사명':
+                  claim.manager = value || '';
+                  break;
                 case '차수':
                   claim.sequence = value || '';
                   break;
@@ -217,7 +221,7 @@ const Claims = () => {
                 case '잔액':
                   claim.remainingAmount = value ? String(value).replace(/,/g, '') : '0';
                   break;
-                case '기성율(%)':
+                case '청구 전 기성율(%)':
                   claim.progressRate = value ? String(value).replace('%', '') : '0';
                   break;
                 case '청구금액':
@@ -827,12 +831,13 @@ const Claims = () => {
     try {
       // 청구 데이터를 새로운 테이블 양식으로 변환
       const excelData = filteredClaims.map((claim, index) => ({
-        'NO.': index + 1,
+        'NO.': filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id),
         '현장명': claim.siteName || '',
+        '소장/회사명': claim.manager || '',
         '차수': claim.sequence || '',
-        '계약금액': claim.contractAmount ? Number(claim.contractAmount).toLocaleString() : '0',
-        '잔액': claim.remainingAmount ? Number(claim.remainingAmount).toLocaleString() : '0',
-        '기성율(%)': claim.progressRate ? `${claim.progressRate}%` : '0%',
+        '계약금액': getContractAmount(claim.siteName) ? Number(getContractAmount(claim.siteName)).toLocaleString() : '0',
+        '잔액': calculateRemainingAmount(claim.siteName) ? Number(calculateRemainingAmount(claim.siteName)).toLocaleString() : '0',
+        '청구 전 기성율(%)': claim.progressRate ? `${claim.progressRate}%` : '0%',
         '청구금액': claim.claimAmount ? Number(claim.claimAmount).toLocaleString() : '0',
         '청구여부': getStatusLabel(claim.claimStatus),
         '비고': claim.notes || ''
@@ -849,7 +854,7 @@ const Claims = () => {
         { wch: 8 },   // 차수
         { wch: 15 },  // 계약금액
         { wch: 15 },  // 잔액
-        { wch: 12 },  // 기성율
+        { wch: 15 },  // 청구 전 기성율
         { wch: 15 },  // 청구금액
         { wch: 12 },  // 청구여부
         { wch: 30 }   // 비고
@@ -936,7 +941,7 @@ const Claims = () => {
                 case '잔액':
                   claim.remainingAmount = value ? String(value).replace(/,/g, '') : '0';
                   break;
-                case '기성율(%)':
+                case '청구 전 기성율(%)':
                   claim.progressRate = value ? String(value).replace('%', '') : '0';
                   break;
                 case '청구금액':
@@ -1516,7 +1521,7 @@ const Claims = () => {
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80 }}>차수</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>계약금액</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>잔액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>기성율(%)</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구 전 기성율(%)</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>청구금액</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구여부</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>비고</TableCell>
@@ -1837,7 +1842,7 @@ const Claims = () => {
               
               <TextField
                 fullWidth
-                label="기성율(%)"
+                label="청구 전 기성율(%)"
                 type="number"
                 value={formData.progressRate}
                 onChange={(e) => setFormData(prev => ({ ...prev, progressRate: e.target.value }))}
@@ -1947,7 +1952,7 @@ const Claims = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="기성율(%)"
+                  label="청구 전 기성율(%)"
                   type="number"
                   value={formData.progressRate}
                   onChange={(e) => setFormData(prev => ({ ...prev, progressRate: e.target.value }))}
