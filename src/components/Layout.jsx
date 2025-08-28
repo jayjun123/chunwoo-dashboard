@@ -70,9 +70,11 @@ const menuItems = [
   { text: '주요현장', icon: <StarIcon />, path: '/importantSite' },
   { text: '현장관리', icon: <BusinessIcon />, path: '/sites' },
   { text: '안전관리', icon: <SecurityIcon />, path: '/safety' },
+  { text: '견적관리', icon: <AssessmentIcon />, path: '/estimates' },
   { text: '토론의견', icon: <ForumIcon />, path: '/discussions' },
   { text: '입찰현황', icon: <GavelIcon />, path: '/vendors' },
   { text: '거래처관리', icon: <PeopleIcon />, path: '/vendor-management' },
+  { text: '청구관리', icon: <PaymentsIcon />, path: '/claims' },
   { text: '기성관리', icon: <MonetizationOnIcon />, path: '/progress' },
   { text: '시공팀', icon: <AssessmentIcon />, path: '/daema-team' },
   { text: '문서관리', icon: <DescriptionIcon />, path: '/documents' },
@@ -112,7 +114,7 @@ const Layout = React.memo(({ children }) => {
     } else {
       // 마스터 외 사용자는 제한된 메뉴만 접근 가능
       return menuItems.filter(item => 
-        ['현장일정', '주요현장', '토론의견', '문서관리'].includes(item.text)
+        ['현장일정', '주요현장', '청구관리', '견적관리', '토론의견', '문서관리'].includes(item.text)
       );
     }
   };

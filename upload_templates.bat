@@ -25,3 +25,4 @@ echo 2. NEW.xlsx와 LONG.xlsx 파일 존재 여부 확인
 echo 3. 현장에서 L/N 표시가 올바르게 작동하는지 테스트
 echo.
 pause
+

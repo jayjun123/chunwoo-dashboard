@@ -72,3 +72,4 @@ window.uploadPublicTemplates = async () => {
 console.log('📖 사용법:');
 console.log('uploadPublicTemplates() 함수를 실행하세요.');
 console.log('이 함수는 public 폴더의 LONG.xlsx와 NEW.xlsx를 Firebase Storage에 업로드합니다.');
+

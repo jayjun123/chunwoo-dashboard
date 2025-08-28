@@ -87,3 +87,4 @@ uploadTemplatesNode()
     console.error('💥 스크립트 실행 실패:', error);
     process.exit(1);
   });
+
