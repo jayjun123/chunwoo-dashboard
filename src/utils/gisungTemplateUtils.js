@@ -54,20 +54,20 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
     // siteData에서 templateType 확인 (N/L 표시만 사용)
     if (siteData && siteData.templateType) {
       if (siteData.templateType === 'L') {
-        templateFileName = 'LONG.xlsx';
-        console.log(`📊 현장의 templateType이 'L'로 설정되어 LONG.xlsx 템플릿을 사용합니다.`);
+        templateFileName = 'LONGgisung.xlsx';
+        console.log(`📊 현장의 templateType이 'L'로 설정되어 LONGgisung.xlsx 템플릿을 사용합니다.`);
       } else if (siteData.templateType === 'N') {
-        templateFileName = 'NEW.xlsx';
-        console.log(`📊 현장의 templateType이 'N'으로 설정되어 NEW.xlsx 템플릿을 사용합니다.`);
+        templateFileName = 'NEWgisung.xlsx';
+        console.log(`📊 현장의 templateType이 'N'으로 설정되어 NEWgisung.xlsx 템플릿을 사용합니다.`);
       } else {
         // templateType이 있지만 L/N이 아닌 경우 기본값
-        templateFileName = 'NEW.xlsx';
-        console.log(`📊 현장의 templateType이 '${siteData.templateType}'이므로 기본 NEW.xlsx 템플릿을 사용합니다.`);
+        templateFileName = 'NEWgisung.xlsx';
+        console.log(`📊 현장의 templateType이 '${siteData.templateType}'이므로 기본 NEWgisung.xlsx 템플릿을 사용합니다.`);
       }
     } else {
       // templateType이 설정되지 않은 경우 기본값
-      templateFileName = 'NEW.xlsx';
-      console.log(`📊 현장의 templateType이 설정되지 않아 기본 NEW.xlsx 템플릿을 사용합니다.`);
+      templateFileName = 'NEWgisung.xlsx';
+      console.log(`📊 현장의 templateType이 설정되지 않아 기본 NEWgisung.xlsx 템플릿을 사용합니다.`);
     }
     
     // 템플릿 다운로드 (CORS 우회 포함)
