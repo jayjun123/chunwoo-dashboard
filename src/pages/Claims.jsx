@@ -491,8 +491,7 @@ const Claims = () => {
       return dateA - dateB;
     });
     
-    // 청구완료된 차수는 건너뛰고 다음 차수 계산
-    // 기성 데이터가 있으면 다음 차수, 없으면 1차
+    // 전체 기성 데이터 개수 + 1로 차수 계산
     const nextSequence = sortedList.length + 1;
     
     // 차수별 라벨 생성
