@@ -58,6 +58,7 @@ import Cost from './Cost';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
 import { syncProgressToCost } from '../utils/integrationUtils';
+import { generateTemplateBasedGisungExcel } from '../utils/gisungTemplateUtils';
 
 // 핀치 줌 훅
 const usePinchZoom = () => {
@@ -939,8 +940,7 @@ const Progress = () => {
         return;
       }
 
-      // 기성금청구서 템플릿 사용
-      const { generateTemplateBasedGisungExcel } = await import('../utils/gisungTemplateUtils');
+      // 기성금청구서 템플릿 사용 (이미 상단에서 import됨)
       
       // 첫 번째 현장 데이터로 기성금청구서 생성
       const firstRow = filteredData[0];

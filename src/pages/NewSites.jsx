@@ -1605,7 +1605,11 @@ const NewSites = () => {
 
     try {
       // templateType 자동 설정 (물량 개수 기반)
-      const itemCount = form.items?.length || 0;
+      // 자동계산 항목만 제외하고 빈 항목은 포함해서 계산
+      const actualItems = form.items?.filter(item => 
+        !item.isTotal && !item.isVat && !item.isTotalWithVat
+      ) || [];
+      const itemCount = actualItems.length;
       const templateType = itemCount > 20 ? 'L' : 'N';
       
       const formDataToSave = { 
@@ -2736,10 +2740,23 @@ const NewSites = () => {
             </Typography>
             {form.items && form.items.length > 0 && (
               <Chip
-                label={selectedSite?.templateType || (form.items.length > 20 ? 'L' : 'N')}
+                label={selectedSite?.templateType || (() => {
+                  const actualItems = form.items.filter(item => 
+                    !item.isTotal && !item.isVat && !item.isTotalWithVat
+                  );
+                  return actualItems.length > 20 ? 'L' : 'N';
+                })()}
                 size="small"
                 sx={{
-                  backgroundColor: (selectedSite?.templateType === 'L' || (!selectedSite?.templateType && form.items.length > 20)) ? '#ff9800' : '#4caf50',
+                  backgroundColor: (() => {
+                    if (selectedSite?.templateType) {
+                      return selectedSite.templateType === 'L' ? '#ff9800' : '#4caf50';
+                    }
+                    const actualItems = form.items.filter(item => 
+                      !item.isTotal && !item.isVat && !item.isTotalWithVat
+                    );
+                    return actualItems.length > 20 ? '#ff9800' : '#4caf50';
+                  })(),
                   color: '#fff',
                   fontWeight: 'bold',
                   fontSize: '0.8rem',
@@ -2748,8 +2765,18 @@ const NewSites = () => {
                 }}
                 title={
                   selectedSite?.templateType 
-                    ? `${selectedSite.templateType === 'L' ? 'LONG' : 'NEW'} 템플릿 사용 (${form.items.length}개)`
-                    : (form.items.length > 20 ? '20개 초과 - LONGgisung 템플릿 사용' : '20개 이하 - NEWgisung 템플릿 사용')
+                    ? `${selectedSite.templateType === 'L' ? 'LONG' : 'NEW'} 템플릿 사용 (${(() => {
+                        const actualItems = form.items.filter(item => 
+                          !item.isTotal && !item.isVat && !item.isTotalWithVat
+                        );
+                        return actualItems.length;
+                      })()}개)`
+                    : (() => {
+                        const actualItems = form.items.filter(item => 
+                          !item.isTotal && !item.isVat && !item.isTotalWithVat
+                        );
+                        return actualItems.length > 20 ? '20개 초과 - LONGgisung 템플릿 사용' : '20개 이하 - NEWgisung 템플릿 사용';
+                      })()
                 }
               />
             )}

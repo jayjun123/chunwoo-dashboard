@@ -47,6 +47,7 @@ import { addMonths, subMonths, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { formatNumber } from '../utils/formatUtils';
 import SiteInfoPopup from './common/SiteInfoPopup';
+import { generateTemplateBasedGisungExcel } from '../utils/gisungTemplateUtils';
 // import { parseGisungExcelUpload } from '../utils/gisungUploadUtils';
 
 const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurrentMonth, monthText: initialMonthText, selectedSites, filteredData }) => {
@@ -625,16 +626,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       if (viewType === 'site' && selectedSites && selectedSites.length > 0) {
         // console.log('=== 기성금청구서 다운로드 시작 ===');
         
-        // 기성금청구서 템플릿 사용
-        let generateTemplateBasedGisungExcel;
-        try {
-          const module = await import('../utils/gisungTemplateUtils');
-          generateTemplateBasedGisungExcel = module.generateTemplateBasedGisungExcel;
-        } catch (importError) {
-          console.error('템플릿 유틸리티 import 실패:', importError);
-          alert('템플릿 유틸리티를 불러올 수 없습니다. 페이지를 새로고침해주세요.');
-          return;
-        }
+        // 기성금청구서 템플릿 사용 (이미 상단에서 import됨)
         
         // 선택된 현장 정보 가져오기
         let siteData = {
