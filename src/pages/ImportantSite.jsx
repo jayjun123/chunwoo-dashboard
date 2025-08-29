@@ -1064,7 +1064,16 @@ export default function ImportantSite() {
                         <LinearProgress
                           variant="determinate"
                           value={percent}
-                          sx={{ height: 18, borderRadius: 6, bgcolor: '#232b3b', '& .MuiLinearProgress-bar': { background: 'linear-gradient(90deg, #43e97b 0%, #38f9d7 100%)' } }}
+                          sx={{ 
+                            height: 18, 
+                            borderRadius: 6, 
+                            bgcolor: '#232b3b', 
+                            '& .MuiLinearProgress-bar': { 
+                              background: percent >= 100 
+                                ? 'linear-gradient(90deg, #f44336 0%, #d32f2f 100%)' 
+                                : 'linear-gradient(90deg, #43e97b 0%, #38f9d7 100%)' 
+                            } 
+                          }}
                         />
                       );
                     })()}

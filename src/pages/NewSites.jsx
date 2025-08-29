@@ -2123,7 +2123,7 @@ const NewSites = () => {
                           <Box sx={{ 
                             width: `${progress}%`, 
                             height: '100%', 
-                            bgcolor: progress > 100 ? '#f44336' : progress > 80 ? '#ff9800' : '#4caf50',
+                            bgcolor: progress >= 100 ? '#f44336' : progress > 80 ? '#ff9800' : '#4caf50',
                             transition: 'width 0.3s ease'
                           }} />
                         </Box>
