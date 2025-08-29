@@ -668,6 +668,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             templateType: site.templateType || 'N' // templateType 추가
           };
           console.log('🔍 매핑된 siteData:', siteData);
+          console.log('🔍 templateType 확인:', site.templateType, '→', siteData.templateType);
         }
 
         // 기성 데이터 준비 (데이터가 없어도 빈 배열로)
@@ -911,6 +912,11 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         // 기성금청구서 생성 시작 메시지
         const templateTypeText = siteData.templateType === 'L' ? 'LONG' : 'NEW';
         setLoadingMessage(`열심히 제작중에 있습니다.\n기성금청구서 [${templateTypeText}]을 생산하고 있습니다.`);
+        
+        console.log('🔍 generateTemplateBasedGisungExcel 호출 전 디버깅:');
+        console.log('🔍 siteData.templateType:', siteData.templateType);
+        console.log('🔍 siteData:', siteData);
+        console.log('🔍 siteItems.length:', siteItems.length);
         
         // 기성금청구서 템플릿으로 엑셀 생성 (데이터만 입력)
         const { workbook, gisungMonth, templateType, templateFileName } = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems, currentSequence, previousGisungData);
