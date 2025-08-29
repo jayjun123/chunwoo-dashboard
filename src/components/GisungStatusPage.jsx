@@ -719,51 +719,32 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
 
         // 파일명 생성 - 청구완료된 기성 데이터의 개수로 차수 결정
         let currentSequence = 1;
-        let completedGisung = []; // 변수를 함수 스코프에서 선언
-        
-        // 현장별 뷰: Firebase에서 직접 해당 현장의 청구완료된 기성 데이터 조회 (siteId 사용)
+        let completedGisung = [];
         
         try {
+          // Firebase에서 해당 현장의 모든 기성 데이터 조회 (청구완료 상태와 관계없이)
           const { collection, query, where, getDocs } = await import('firebase/firestore');
           const { db } = await import('../firebase');
           
-          if (selectedSiteId) {
-            // siteId를 사용하여 더 정확한 조회
-            const completedGisungQuery = query(
-              collection(db, 'gisung'),
-              where('siteId', '==', selectedSiteId),
-              where('claimStatus', '==', '청구완료')
-            );
-            const completedGisungSnapshot = await getDocs(completedGisungQuery);
-            completedGisung = completedGisungSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            currentSequence = completedGisung.length + 1;
-            
-            console.log(`📊 Firebase siteId 조회 - ${siteData.name} (ID: ${selectedSiteId}): 청구완료 ${completedGisung.length}개 → ${currentSequence}차`);
-            console.log(`📊 조회된 청구완료 데이터:`, completedGisung);
-          } else {
-            // siteId가 없는 경우 현장명으로 조회 (fallback)
-            const selectedSiteName = selectedSites[0].trim();
-            const completedGisungQuery = query(
-              collection(db, 'gisung'),
-              where('name', '==', selectedSiteName),
-              where('claimStatus', '==', '청구완료')
-            );
-            const completedGisungSnapshot = await getDocs(completedGisungQuery);
-            completedGisung = completedGisungSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            currentSequence = completedGisung.length + 1;
-            
-            console.log(`📊 Firebase 현장명 조회 (fallback) - ${selectedSiteName}: 청구완료 ${completedGisung.length}개 → ${currentSequence}차`);
-            console.log(`📊 조회된 청구완료 데이터:`, completedGisung);
-          }
+          const selectedSiteName = selectedSites[0].trim();
+          const gisungQuery = query(
+            collection(db, 'gisung'),
+            where('name', '==', selectedSiteName)
+          );
+          const gisungSnapshot = await getDocs(gisungQuery);
+          completedGisung = gisungSnapshot.docs.map(doc => doc.data());
+          currentSequence = completedGisung.length + 1;
+          
+          console.log(`📊 Firebase 조회: ${selectedSiteName} - 전체 기성 데이터 ${completedGisung.length}개 → ${currentSequence}차`);
         } catch (error) {
           console.error('❌ Firebase 조회 실패:', error);
           // 실패 시 기존 로직 사용
           const selectedSiteName = selectedSites[0].trim();
           completedGisung = filteredAndSortedGisung.filter(gisung => 
-            gisung.name === selectedSiteName && gisung.claimStatus === '청구완료'
+            gisung.name === selectedSiteName
           );
           currentSequence = completedGisung.length + 1;
-          console.log(`📊 기존 로직 사용: ${selectedSiteName} - 청구완료 ${completedGisung.length}개 → ${currentSequence}차`);
+          console.log(`📊 기존 로직 사용: ${selectedSiteName} - 전체 기성 데이터 ${completedGisung.length}개 → ${currentSequence}차`);
         }
         
         // 차수 계산 로그 추가

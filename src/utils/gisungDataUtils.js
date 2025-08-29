@@ -58,16 +58,15 @@ const setPreviousCumulativeAsPreviousQuantity = async (worksheet, siteData) => {
   try {
     console.log('🔄 이전 차수 누계수량을 전회수량으로 설정 시작...');
     
-    // 현재 차수 계산 (기존 청구완료된 기성금 개수 + 1)
+    // 현재 차수 계산 (기존 모든 기성금 개수 + 1)
     const existingGisungQuery = query(
       collection(db, 'gisung'),
-      where('siteName', '==', siteData.name),
-      where('claimStatus', '==', '청구완료')
+      where('siteName', '==', siteData.name)
     );
     const existingGisungSnapshot = await getDocs(existingGisungQuery);
     const currentSequence = existingGisungSnapshot.size + 1;
     
-    console.log(`📊 현재 차수: ${currentSequence}차 (${siteData.name} - 청구완료 ${existingGisungSnapshot.size}개)`);
+    console.log(`📊 현재 차수: ${currentSequence}차 (${siteData.name} - 전체 기성 데이터 ${existingGisungSnapshot.size}개)`);
     
     if (currentSequence === 1) {
       console.log('📊 1차 기성금이므로 이전 누계수량이 없습니다.');

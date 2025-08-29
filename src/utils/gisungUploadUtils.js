@@ -238,21 +238,20 @@ export const parseGisungExcelUpload = async (file, siteData) => {
     console.log('📊 추출된 특수 항목:', extractedItems);
     console.log('📊 갑지 데이터:', { previousGisungResult, advancePaymentResult });
     
-    // 차수 계산 (해당 현장의 청구완료된 기성 데이터 개수 + 1, 1차부터 시작)
+    // 차수 계산 (해당 현장의 모든 기성 데이터 개수 + 1, 1차부터 시작)
     let sequence = 1; // 기본값
     try {
-      // 해당 현장의 청구완료된 기성 데이터 개수 조회
-      const completedGisungQuery = query(
+      // 해당 현장의 모든 기성 데이터 개수 조회 (청구완료 상태와 관계없이)
+      const allGisungQuery = query(
         collection(db, 'gisung'),
-        where('siteId', '==', siteData.id),
-        where('claimStatus', '==', '청구완료')
+        where('siteId', '==', siteData.id)
       );
-      const completedGisungSnapshot = await getDocs(completedGisungQuery);
-      sequence = completedGisungSnapshot.size + 1; // 1차부터 시작
+      const allGisungSnapshot = await getDocs(allGisungQuery);
+      sequence = allGisungSnapshot.size + 1; // 1차부터 시작
       
-      console.log(`📊 차수 계산: ${siteData.name} - 청구완료 ${completedGisungSnapshot.size}개 → ${sequence}차`);
+      console.log(`📊 차수 계산: ${siteData.name} - 전체 기성 데이터 ${allGisungSnapshot.size}개 → ${sequence}차`);
     } catch (error) {
-      console.error('❌ 청구완료 기성 데이터 조회 실패:', error);
+      console.error('❌ 기성 데이터 조회 실패:', error);
       // 에러 발생 시 기본값으로 1차 설정
       console.log(`📊 차수 계산 실패로 기본값 사용: ${sequence}차`);
     }
