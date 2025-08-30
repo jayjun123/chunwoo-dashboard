@@ -9,7 +9,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { onAuthStateChanged } from 'firebase/auth';
 import * as XLSX from 'xlsx';
 import SafetyOverviewCards from '../components/safety/SafetyOverviewCards';
-import { exportToExcel } from '../utils/excelUtils';
+import { exportToExcel } from '../utils/excelUtils.jsx';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { formatNumber } from '../utils/formatUtils';
 

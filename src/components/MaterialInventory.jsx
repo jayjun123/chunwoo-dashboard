@@ -32,7 +32,7 @@ import {
 } from '@mui/icons-material';
 import { uploadMaterialData, getMaterialDataFromFirebase, convertMaterialDataForSiteManagement } from '../utils/materialUploadUtils';
 
-const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
+const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => {
   const [materialData, setMaterialData] = useState({
     items: [],
     summary: {
@@ -50,6 +50,18 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  // templateType에 따른 표시 텍스트
+  const getTemplateTypeText = () => {
+    if (!templateType) return '';
+    return templateType === 'L' ? 'L' : 'N';
+  };
+
+  // templateType에 따른 색상
+  const getTemplateTypeColor = () => {
+    if (!templateType) return 'default';
+    return templateType === 'L' ? 'warning' : 'info';
+  };
 
   // 모바일 감지
   useEffect(() => {
@@ -246,9 +258,22 @@ const MaterialInventory = ({ siteId, siteName, onDataUpdate }) => {
         pb: 1,
         borderBottom: '1px solid #333'
       }}>
-        <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#fff' }}>
-          물량내역
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#fff' }}>
+            물량내역
+          </Typography>
+          {templateType && (
+            <Chip
+              label={getTemplateTypeText()}
+              color={getTemplateTypeColor()}
+              size="small"
+              sx={{ 
+                fontWeight: 'bold',
+                '& .MuiChip-label': { color: '#fff' }
+              }}
+            />
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"

@@ -96,6 +96,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     gisungAmount: '',
     currentGisung: '',
     claimMethod: '', // 청구방법 추가
+    templateType: 'N', // 템플릿 타입 추가 (N: 뉴기성, L: 롱기성)
     note: '',
   });
 

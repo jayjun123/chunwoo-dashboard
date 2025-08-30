@@ -45,7 +45,7 @@ import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, deleteDo
 import { db } from '../firebase';
 import { useLoading } from './common/LoadingProvider';
 
-import { exportToExcel } from '../utils/excelUtils';
+import { exportToExcel } from '../utils/excelUtils.jsx';
 import * as XLSX from 'xlsx';
 import { useMediaQuery } from '@mui/material';
 import SearchableSiteSelect from './common/SearchableSiteSelect';

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Box, Button, Typography, Paper, Grid, Alert } from '@mui/material';
 import { PictureAsPdf as PdfIcon, Description as ExcelIcon, Download as DownloadIcon } from '@mui/icons-material';
 import { exportToPDF, exportFullGuidePDF, exportUserGuidePDF } from '../utils/pdfUtils';
-import { exportToExcel } from '../utils/excelUtils';
+import { exportToExcel } from '../utils/excelUtils.jsx';
 import MobileLayout from '../components/common/MobileLayout';
 
 const PDFTest = () => {

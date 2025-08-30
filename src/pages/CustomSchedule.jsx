@@ -6,7 +6,7 @@ import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, write
 import { db, auth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
-import { exportCalendarToExcel } from '../utils/excelUtils';
+import { exportCalendarToExcel } from '../utils/excelUtils.jsx';
 
 
 function isInMonth(site, year, month) {
@@ -485,18 +485,25 @@ const CustomSchedule = () => {
         }))
       );
       
+      // 데이터가 비어있는지 확인
+      if (dataWithCheckStatus.length === 0) {
+        alert('내보낼 일정 데이터가 없습니다.');
+        return;
+      }
+      
       // 새로운 전문적인 엑셀 내보내기 사용
       const result = exportCalendarToExcel(dataWithCheckStatus, '일정관리', '일정관리');
       
       if (result.success) {
-        alert('전문적인 엑셀 파일이 다운로드되었습니다!');
+        alert(`엑셀 파일이 성공적으로 다운로드되었습니다!\n파일명: ${result.fileName}`);
         console.log('엑셀 파일명:', result.fileName);
       } else {
         alert('엑셀 내보내기에 실패했습니다: ' + result.error);
+        console.error('엑셀 내보내기 실패:', result.error);
       }
     } catch (error) {
       console.error('엑셀 내보내기 오류:', error);
-      alert('엑셀 내보내기 중 오류가 발생했습니다.');
+      alert('엑셀 내보내기 중 오류가 발생했습니다: ' + error.message);
     }
   };
 

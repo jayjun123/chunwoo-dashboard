@@ -173,6 +173,11 @@ const NewSites = () => {
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
 
+  // 실물량파악 관련 상태
+  const [showQuantityDialog, setShowQuantityDialog] = useState(false);
+  const [quantityPassword, setQuantityPassword] = useState('');
+  const [quantityPasswordError, setQuantityPasswordError] = useState('');
+
   // 상태별 카운트 계산
   const statusCounts = useMemo(() => {
     const counts = {
@@ -1063,6 +1068,36 @@ const NewSites = () => {
 
 
 
+
+  // 실물량파악 관련 함수들
+  const handleQuantityCheck = () => {
+    setShowQuantityDialog(true);
+    setQuantityPassword('');
+    setQuantityPasswordError('');
+  };
+
+  const handleQuantityPasswordSubmit = () => {
+    if (quantityPassword === '2046') {
+      setShowQuantityDialog(false);
+      setQuantityPassword('');
+      setQuantityPasswordError('');
+      // 실물량파악 페이지로 이동
+      navigate('/quantity-check', { 
+        state: { 
+          selectedSiteId: selectedSite?.id,
+          selectedSiteName: selectedSite?.name 
+        } 
+      });
+    } else {
+      setQuantityPasswordError('비밀번호가 올바르지 않습니다.');
+    }
+  };
+
+  const handleQuantityDialogClose = () => {
+    setShowQuantityDialog(false);
+    setQuantityPassword('');
+    setQuantityPasswordError('');
+  };
 
   const handleAddAdjustmentItem = async (itemType = '단수정리') => {
     // 수정 모드가 아닌 경우 편집 불가
@@ -2101,14 +2136,33 @@ const NewSites = () => {
                   </Box>
                   
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography 
-                      sx={{ 
-                        fontSize: isMobile ? '0.7rem' : 'inherit',
-                        color: selectedSite?.id === site.id ? '#90caf9' : '#aaa'
-                      }}
-                    >
-                      {site.status}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography 
+                        sx={{ 
+                          fontSize: isMobile ? '0.7rem' : 'inherit',
+                          color: selectedSite?.id === site.id ? '#90caf9' : '#aaa'
+                        }}
+                      >
+                        {site.status}
+                      </Typography>
+                      
+                      {/* templateType 표시 */}
+                      {site.templateType && (
+                        <Chip
+                          label={site.templateType === 'L' ? 'L' : 'N'}
+                          size="small"
+                          sx={{
+                            backgroundColor: site.templateType === 'L' ? '#ff9800' : '#4caf50',
+                            color: '#fff',
+                            fontWeight: 'bold',
+                            fontSize: '0.6rem',
+                            height: '18px',
+                            minWidth: 'auto',
+                            px: 0.5
+                          }}
+                        />
+                      )}
+                    </Box>
                     
                     {progress !== null && (
                       <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
@@ -2658,6 +2712,22 @@ const NewSites = () => {
            </Box>
          </Box>
           <Box sx={{ mt: 'auto', pt: isMobile ? 1 : 2, display: 'flex', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
+           {/* 실물량파악 버튼 */}
+           <Button 
+             variant="outlined" 
+             color="warning" 
+             onClick={(e) => {
+               e.preventDefault();
+               e.stopPropagation();
+               handleQuantityCheck();
+             }} 
+             disabled={!selectedSite} 
+             size={isMobile ? 'small' : 'medium'} 
+             sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+           >
+             실물량파악
+           </Button>
+           
            {isEditing ? (
              <Button 
                variant="contained" 
@@ -2740,7 +2810,10 @@ const NewSites = () => {
             </Typography>
             {form.items && form.items.length > 0 && (
               <Chip
-                label={selectedSite?.templateType || (() => {
+                label={(() => {
+                  if (selectedSite?.templateType) {
+                    return selectedSite.templateType === 'L' ? 'L' : 'N';
+                  }
                   const actualItems = form.items.filter(item => 
                     !item.isTotal && !item.isVat && !item.isTotalWithVat
                   );
@@ -2759,9 +2832,10 @@ const NewSites = () => {
                   })(),
                   color: '#fff',
                   fontWeight: 'bold',
-                  fontSize: '0.8rem',
-                  minWidth: '24px',
-                  height: '24px'
+                  fontSize: '0.7rem',
+                  minWidth: 'auto',
+                  height: '24px',
+                  px: 1
                 }}
                 title={
                   selectedSite?.templateType 
@@ -3292,6 +3366,81 @@ const NewSites = () => {
         </Box>
       </Dialog>
       
+      {/* 실물량파악 비밀번호 입력 다이얼로그 */}
+      <Dialog 
+        open={showQuantityDialog} 
+        maxWidth="sm" 
+        fullWidth
+        onClose={handleQuantityDialogClose}
+        PaperProps={{
+          sx: {
+            bgcolor: '#181f2e',
+            color: '#fff',
+            borderRadius: 4,
+            p: 4
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: '#fff', textAlign: 'center', pb: 1 }}>
+          실물량파악 접근
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+            <Typography variant="body1" sx={{ color: '#bbb', textAlign: 'center', mb: 2 }}>
+              실물량파악 페이지에 접근하려면 비밀번호를 입력하세요.
+            </Typography>
+            <TextField
+              type="password"
+              label="비밀번호"
+              value={quantityPassword}
+              onChange={(e) => setQuantityPassword(e.target.value)}
+              error={!!quantityPasswordError}
+              helperText={quantityPasswordError}
+              fullWidth
+              autoFocus
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleQuantityPasswordSubmit();
+                }
+              }}
+              sx={{
+                '& .MuiInputBase-root': { 
+                  bgcolor: '#232b3b',
+                  color: '#fff'
+                },
+                '& .MuiInputLabel-root': { 
+                  color: '#bbb'
+                },
+                '& .MuiOutlinedInput-notchedOutline': { 
+                  borderColor: '#444'
+                },
+                '& .MuiFormHelperText-root': { 
+                  color: '#f44336'
+                }
+              }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 1 }}>
+          <Button 
+            onClick={handleQuantityDialogClose}
+            sx={{ color: '#bbb' }}
+          >
+            취소
+          </Button>
+          <Button 
+            onClick={handleQuantityPasswordSubmit}
+            variant="contained"
+            sx={{ 
+              bgcolor: '#ff9800',
+              '&:hover': { bgcolor: '#f57c00' }
+            }}
+          >
+            확인
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* 마이그레이션 로딩 팝업 */}
       <Dialog 
         open={loading} 

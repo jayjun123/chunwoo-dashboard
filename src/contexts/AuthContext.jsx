@@ -28,6 +28,8 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  console.log('🔐 AuthProvider 렌더링:', { currentUser, loading, error });
+
   // 로그인 상태를 localStorage에 저장
   const saveUserToStorage = (user) => {
     try {
@@ -35,13 +37,15 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('loginTime', Date.now().toString());
+        console.log('✅ 사용자 정보를 localStorage에 저장했습니다.');
       } else {
         localStorage.removeItem('user');
         localStorage.removeItem('isLoggedIn');
         localStorage.removeItem('loginTime');
+        console.log('✅ localStorage에서 사용자 정보를 제거했습니다.');
       }
     } catch (error) {
-      console.error('사용자 정보 저장 실패:', error);
+      console.error('❌ 사용자 정보 저장 실패:', error);
     }
   };
 
@@ -58,17 +62,17 @@ export const AuthProvider = ({ children }) => {
         
         // 30일(30 * 24 * 60 * 60 * 1000) 이내의 로그인은 유지
         if (now - loginTime < 30 * 24 * 60 * 60 * 1000) {
-          console.log('AuthContext - localStorage에서 사용자 정보 복원');
+          console.log('✅ AuthContext - localStorage에서 사용자 정보 복원');
           setCurrentUser(user);
           return user;
         } else {
           // 30일이 지났으면 로그아웃 처리
-          console.log('AuthContext - 로그인 만료 (30일 초과)');
+          console.log('⚠️ AuthContext - 로그인 만료 (30일 초과)');
           saveUserToStorage(null);
         }
       }
     } catch (error) {
-      console.error('사용자 정보 복원 실패:', error);
+      console.error('❌ 사용자 정보 복원 실패:', error);
     }
     return null;
   };
@@ -266,117 +270,78 @@ export const AuthProvider = ({ children }) => {
 
   // Firebase Auth 상태 변경 감지
   useEffect(() => {
-    console.log('AuthContext - Firebase Auth 상태 감지 시작');
-    let unsubscribe = null;
-    let loadingTimeout = null;
-
-    // 로딩 타임아웃 설정 (10초 후 강제로 로딩 해제)
-    loadingTimeout = setTimeout(() => {
-      console.log('AuthContext - 로딩 타임아웃 발생, 강제 로딩 해제');
-      setLoading(false);
-    }, 10000);
-
+    console.log('🔍 Firebase 인증 상태 감지 시작');
+    
     try {
-      unsubscribe = onAuthStateChanged(auth, async (user) => {
-        console.log('AuthContext - Firebase Auth 상태 변경:', user ? `로그인 (${user.uid})` : '로그아웃');
-        clearTimeout(loadingTimeout); // Auth 상태 변경 시 타임아웃 클리어
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        console.log('🔥 Firebase 인증 상태 변경:', user ? '로그인됨' : '로그아웃됨');
         
-        // 개발 환경에서는 자동 로그인
-        if (!user && import.meta.env.DEV) {
-          console.log('AuthContext - 개발 환경에서 자동 로그인 설정');
-          const mockUser = {
-            uid: 'dev-user-123',
-            email: 'dev@example.com',
-            displayName: '개발자',
-            role: 'admin',
-            name: '개발자',
-            organization: '개발팀'
-          };
-          setCurrentUser(mockUser);
-          saveUserToStorage(mockUser);
-          setLoading(false);
-          return;
-        }
-        
-        // 사용자가 없으면 localStorage에서 복원 시도
-        if (!user) {
-          const restoredUser = restoreUserFromStorage();
-          if (restoredUser) {
-            console.log('AuthContext - localStorage에서 사용자 정보 복원 성공');
-            setLoading(false);
-            return;
+        try {
+          if (user) {
+            console.log('👤 사용자 정보:', { uid: user.uid, email: user.email });
+            
+            // Firestore에서 추가 사용자 정보 가져오기
+            try {
+              const userDoc = await getDoc(doc(db, 'members', user.uid));
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                console.log('📄 Firestore 사용자 데이터:', userData);
+                
+                // 사용자 객체에 Firestore 데이터 병합
+                const enhancedUser = {
+                  ...user,
+                  ...userData
+                };
+                
+                setCurrentUser(enhancedUser);
+                saveUserToStorage(enhancedUser);
+                console.log('✅ 사용자 정보 설정 완료');
+              } else {
+                console.log('⚠️ Firestore에 사용자 데이터가 없습니다.');
+                setCurrentUser(user);
+                saveUserToStorage(user);
+              }
+            } catch (firestoreError) {
+              console.error('❌ Firestore 데이터 조회 실패:', firestoreError);
+              // Firestore 오류가 있어도 기본 사용자 정보는 설정
+              setCurrentUser(user);
+              saveUserToStorage(user);
+            }
+          } else {
+            console.log('🚪 사용자 로그아웃');
+            setCurrentUser(null);
+            saveUserToStorage(null);
           }
-          
-          // 복원 실패 시 로그아웃 상태로 설정
-          setCurrentUser(null);
+        } catch (error) {
+          console.error('❌ 사용자 정보 처리 중 오류:', error);
+          setError('사용자 정보를 처리하는 중 오류가 발생했습니다.');
+        } finally {
+          console.log('✅ 인증 상태 처리 완료, 로딩 상태 해제');
           setLoading(false);
-          return;
         }
-        
-        // 세션 동기화 실행
-        await syncSession(user);
       }, (error) => {
-        // Firebase Auth 초기화 오류 처리
-        console.error('Firebase Auth 초기화 오류:', error);
-        clearTimeout(loadingTimeout);
-        
-        // 개발 환경에서는 오류 무시하고 자동 로그인
-        if (import.meta.env.DEV) {
-          console.log('AuthContext - 개발 환경에서 Firebase 오류 무시하고 자동 로그인');
-          const mockUser = {
-            uid: 'dev-user-123',
-            email: 'dev@example.com',
-            displayName: '개발자',
-            role: 'admin',
-            name: '개발자',
-            organization: '개발팀'
-          };
-          setCurrentUser(mockUser);
-          setLoading(false);
-          return;
-        }
-        
-        // 프로덕션 환경에서는 오류 상태로 설정
-        console.error('Firebase Auth 오류로 인한 로그아웃:', error);
-        setCurrentUser(null);
+        console.error('❌ Firebase 인증 상태 감지 오류:', error);
+        setError('인증 상태를 확인하는 중 오류가 발생했습니다.');
         setLoading(false);
       });
-    } catch (error) {
-      console.error('AuthContext - onAuthStateChanged 설정 오류:', error);
-      clearTimeout(loadingTimeout);
-      
-      // 개발 환경에서는 오류 무시하고 자동 로그인
-      if (import.meta.env.DEV) {
-        console.log('AuthContext - 개발 환경에서 설정 오류 무시하고 자동 로그인');
-        const mockUser = {
-          uid: 'dev-user-123',
-          email: 'dev@example.com',
-          displayName: '개발자',
-          role: 'admin',
-          name: '개발자',
-          organization: '개발팀'
-        };
-        setCurrentUser(mockUser);
+
+      // 초기 로딩 시 localStorage에서 사용자 정보 복원 시도
+      const restoredUser = restoreUserFromStorage();
+      if (restoredUser) {
+        console.log('🔄 localStorage에서 복원된 사용자 정보로 임시 설정');
+        setCurrentUser(restoredUser);
         setLoading(false);
-        return;
       }
-      
-      setCurrentUser(null);
+
+      return () => {
+        console.log('🧹 AuthProvider cleanup - Firebase 구독 해제');
+        unsubscribe();
+      };
+    } catch (error) {
+      console.error('❌ AuthProvider 초기화 오류:', error);
+      setError('인증 시스템을 초기화하는 중 오류가 발생했습니다.');
       setLoading(false);
     }
-    
-    return () => {
-      try {
-        if (unsubscribe && typeof unsubscribe === 'function') {
-          unsubscribe();
-        }
-        if (loadingTimeout) {
-          clearTimeout(loadingTimeout);
-        }
-      } catch (error) {
-        console.error('AuthContext cleanup 오류:', error);
-      }
-    };
   }, []);
 
   const value = {
