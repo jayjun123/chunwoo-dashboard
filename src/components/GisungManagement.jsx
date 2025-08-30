@@ -41,7 +41,7 @@ import {
 } from '@mui/icons-material';
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { parseGisungExcel } from '../utils/excelUtils';
+import { parseGisungExcel } from '../utils/excelUtils.jsx';
 import { downloadTemplateBasedGisungExcel } from '../utils/gisungTemplateUtils';
 import { moveCurrentToPrevious, createNextGisungWithPrevious } from '../utils/gisungTemplateUtils';
 import { formatNumber } from '../utils/formatUtils';

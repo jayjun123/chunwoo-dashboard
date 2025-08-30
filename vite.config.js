@@ -44,7 +44,7 @@ export default defineConfig({
             './src/contexts/ThemeContext.jsx',
             './src/contexts/PopupContext.jsx'
           ],
-          'utils-excel': ['./src/utils/excelUtils.js'],
+          'utils-excel': ['./src/utils/excelUtils.jsx'],
           'utils-pdf': ['./src/utils/pdfUtils.js'],
           'utils-performance': ['./src/utils/performanceUtils.js'],
           'utils-format': ['./src/utils/formatUtils.js'],

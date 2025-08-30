@@ -7,7 +7,7 @@ import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, write
 import { db, auth } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import * as XLSX from 'xlsx';
-import { exportCalendarToExcel, exportToExcel, exportScheduleToExcel } from '../../utils/excelUtils';
+import { exportCalendarToExcel, exportToExcel, exportScheduleToExcel } from '../../utils/excelUtils.jsx';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useNavigate } from 'react-router-dom';
 import { subscribeToEstimates } from '../../api/estimates';

@@ -42,7 +42,7 @@ import {
 } from '@mui/icons-material';
 import { db } from '../firebase';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy, serverTimestamp, getDocs } from 'firebase/firestore';
-import { exportToExcel } from '../utils/excelUtils';
+import { exportToExcel } from '../utils/excelUtils.jsx';
 import { useAuth } from '../contexts/AuthContext';
 import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
 import { syncCostToSite } from '../utils/integrationUtils';
