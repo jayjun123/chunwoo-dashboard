@@ -1702,14 +1702,14 @@ const NewSites = () => {
   const handleGisung = () => {
     if (selectedSite) {
       // 해당 현장의 기성현황 페이지로 바로 이동
-      navigate('/gisung-status', { 
+      navigate('/gisung', { 
         state: { 
           selectedSite: selectedSite.name,
           viewType: 'site' // 현장별 보기로 설정
         }
       });
     } else {
-      navigate('/gisung-status');
+      navigate('/gisung');
     }
   };
   const handleWholeList = () => navigate('/whole-list');

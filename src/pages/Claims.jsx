@@ -724,7 +724,7 @@ const Claims = () => {
   // 기성등록 버튼 클릭
   const handleProgressRegistration = (claim) => {
     // 해당 현장의 기성현황 페이지로 바로 이동
-    navigate('/gisung-status', { 
+    navigate('/gisung', { 
       state: { 
         selectedSite: claim.siteName,
         selectedMonth: claim.claimMonth,
