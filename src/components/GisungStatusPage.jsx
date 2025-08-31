@@ -1083,12 +1083,17 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         console.log(`🔍 기성등록 팝업 - ${defaultSiteName} 누계기성 계산: ${prevSum.toLocaleString()}원 (이전 기성들만)`);
       }
       
+      // 기본 기성월을 전달로 설정
+      const previousMonth = new Date();
+      previousMonth.setMonth(previousMonth.getMonth() - 1);
+      const defaultGisungMonth = `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, '0')}`;
+      
       setFormData({
         name: defaultSiteName,
         contractAmount: defaultContractAmount,
         advance: defaultAdvance,
         prevGisung: defaultPrevGisung,
-        gisungMonth: viewType === 'month' ? `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}` : '0000-00',
+        gisungMonth: defaultGisungMonth,
         gisungAmount: '',
         currentGisung: '',
         claimMethod: '',
@@ -2372,32 +2377,24 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
               />
               <TextField
                 label="기성월"
+                type="month"
                 value={formData.gisungMonth}
-                onChange={e => {
-                  const input = e.target.value.replace(/[^0-9]/g, ''); // 숫자만 추출
-                  let formatted = '';
-                  
-                  if (input.length <= 4) {
-                    formatted = input;
-                  } else if (input.length <= 6) {
-                    formatted = input.slice(0, 4) + '-' + input.slice(4);
-                  } else {
-                    formatted = input.slice(0, 4) + '-' + input.slice(4, 6);
-                  }
-                  
-                  setFormData({ ...formData, gisungMonth: formatted });
-                }}
-                placeholder="0000-00"
+                onChange={e => setFormData({ ...formData, gisungMonth: e.target.value })}
                 size="medium"
+                InputLabelProps={{ shrink: true }}
                 sx={{
-                  minWidth: 120,
+                  minWidth: 140,
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#333' },
                     '&:hover fieldset': { borderColor: '#555' },
                     '&.Mui-focused fieldset': { borderColor: '#90caf9' }
                   },
                   '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 },
+                  '& input[type="month"]::-webkit-calendar-picker-indicator': {
+                    filter: 'invert(1)',
+                    cursor: 'pointer'
+                  }
                 }}
               />
             </Box>
