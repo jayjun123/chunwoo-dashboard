@@ -751,7 +751,7 @@ export const matchContractWithSilmul = (contractItems, silmulItems) => {
           const contractWords = fullContractText.split(/\s+/).filter(word => word.length > 1);
           
           // 숫자가 포함된 경우 우선 매칭
-          const contractNumbers = contractText.match(/\d+/g) || [];
+          const contractNumbers = fullContractText.match(/\d+/g) || [];
           const itemNumbers = itemName.match(/\d+/g) || [];
           
           // 숫자가 일치하는 경우 높은 우선순위

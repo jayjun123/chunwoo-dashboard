@@ -284,24 +284,13 @@ const QuantityCheck = () => {
       setUploadProgress('파일을 읽는 중...');
       setUploadStatus('loading');
 
-      const data = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const workbook = XLSX.read(e.target.result, { type: 'binary' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-            resolve(jsonData);
-          } catch (error) {
-            reject(error);
-          }
-        };
-        reader.readAsBinaryString(file);
-      });
+      // 파일 유효성 검사
+      if (!file || !(file instanceof Blob)) {
+        throw new Error('유효하지 않은 파일입니다.');
+      }
 
-      // 실물량 데이터 파싱
-      const silmulData = parseSilmulExcel(data);
+      // 실물량 데이터 파싱 - 원본 파일을 전달
+      const silmulData = await parseSilmulExcel(file);
       setTempSilmulData(silmulData);
 
       // 검색 키워드로 필터링된 현장명 찾기
@@ -333,15 +322,21 @@ const QuantityCheck = () => {
   const handleSiteSelectionConfirm = () => {
     if (selectedSiteNames.length > 0) {
       console.log('✅ 사용자가 선택한 현장명들:', selectedSiteNames);
+      console.log('🔍 tempSilmulData:', tempSilmulData);
+      console.log('🔍 tempSilmulData.siteData:', tempSilmulData?.siteData);
       
       setShowSiteSelectionDialog(false);
       setUploadProgress(`선택된 ${selectedSiteNames.length}개 현장명으로 데이터를 합산하고 있습니다...`);
       
       if (tempSilmulData && tempSilmulData.siteData) {
         const aggregatedData = aggregateDataBySelectedSites(tempSilmulData.siteData, selectedSiteNames);
+        console.log('🔍 aggregateDataBySelectedSites 결과:', aggregatedData);
+        console.log('🔍 aggregatedData.items:', aggregatedData.items);
+        console.log('🔍 현재 quantityItems:', quantityItems);
         
         if (aggregatedData.items.length > 0) {
           const matchResult = matchContractWithSilmul(quantityItems, aggregatedData.items);
+          console.log('🔍 matchContractWithSilmul 결과:', matchResult);
           
           // 매칭된 항목들 업데이트
           const updatedItems = [...quantityItems];
@@ -367,23 +362,56 @@ const QuantityCheck = () => {
           
           // 매칭되지 않은 항목들을 새 행으로 추가
           if (matchResult.unmatchedSilmulItems && matchResult.unmatchedSilmulItems.length > 0) {
-            const newItems = matchResult.unmatchedSilmulItems.map(item => ({
-              name: item.itemName || '',
+            console.log('🔍 매칭되지 않은 항목들:', matchResult.unmatchedSilmulItems);
+            
+            const newItems = matchResult.unmatchedSilmulItems.map(item => {
+              console.log('🔍 새 항목 생성:', item);
+              return {
+                name: item.itemName || item.name || '',
+                specification: item.specification || '',
+                unit: item.unit || '',
+                contractQuantity: '',
+                contractPrice: '',
+                contractAmount: '',
+                actualQuantity: item.quantity || item.actualQuantity || '',
+                actualPrice: item.unitPrice || item.actualPrice || '',
+                actualAmount: item.amount || item.actualAmount || '',
+                quantityDifference: '',
+                amountDifference: '',
+                note: '업로드된 실물량 데이터'
+              };
+            });
+            
+            console.log('🔍 새로 추가될 항목들:', newItems);
+            const finalItems = [...updatedItems, ...newItems];
+            console.log('🔍 최종 quantityItems:', finalItems);
+            
+            setQuantityItems(finalItems);
+            unmatchedCount = matchResult.unmatchedSilmulItems.length;
+          } else {
+            // 매칭되지 않은 항목이 없으면 모든 실물량 데이터를 새로 추가
+            console.log('🔍 매칭되지 않은 항목이 없음. 모든 실물량 데이터를 새로 추가합니다.');
+            console.log('🔍 aggregatedData.items:', aggregatedData.items);
+            
+            const allNewItems = aggregatedData.items.map(item => ({
+              name: item.itemName || item.name || '',
               specification: item.specification || '',
               unit: item.unit || '',
               contractQuantity: '',
               contractPrice: '',
               contractAmount: '',
-              actualQuantity: item.quantity || '',
-              actualPrice: item.unitPrice || '',
-              actualAmount: item.amount || '',
+              actualQuantity: item.quantity || item.actualQuantity || '',
+              actualPrice: item.unitPrice || item.actualPrice || '',
+              actualAmount: item.amount || item.actualAmount || '',
               quantityDifference: '',
               amountDifference: '',
-              note: '업로드된 실물량 데이터'
+              note: '업로드된 실물량 데이터 (매칭되지 않음)'
             }));
             
-            setQuantityItems([...updatedItems, ...newItems]);
-            unmatchedCount = matchResult.unmatchedSilmulItems.length;
+            console.log('🔍 모든 실물량 데이터를 새 항목으로 추가:', allNewItems);
+            const finalItems = [...updatedItems, ...allNewItems];
+            setQuantityItems(finalItems);
+            unmatchedCount = allNewItems.length;
           }
           
           // 업로드 로그 생성
@@ -516,23 +544,36 @@ const QuantityCheck = () => {
       },
     }}>
       {/* 헤더 */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2 }}>
-        <IconButton 
-          onClick={() => navigate('/sites')}
-          sx={{ color: '#fff' }}
-        >
-          <ArrowBackIcon />
-        </IconButton>
-        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2, position: 'relative' }}>
+        <Typography variant="h4" sx={{ fontWeight: 'bold', flex: 1 }}>
           실물량파악
         </Typography>
+        
+        {/* 뒤로가기 버튼 - 위쪽 오른쪽 */}
+        <Button
+          variant="outlined"
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate('/sites')}
+          sx={{ 
+            color: '#90caf9', 
+            borderColor: '#90caf9',
+            '&:hover': { 
+              borderColor: '#64b5f6',
+              bgcolor: 'rgba(144, 202, 249, 0.1)'
+            },
+            minWidth: '120px',
+            height: '40px'
+          }}
+        >
+          뒤로가기
+        </Button>
       </Box>
 
       {/* 현장 정보 카드 */}
       <Card sx={{ mb: 3, bgcolor: '#232734', border: '1px solid #444' }}>
         <CardContent>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
+            <Grid xs={12} md={4}>
               <Typography variant="h6" sx={{ color: '#90caf9', mb: 1 }}>
                 현장명
               </Typography>
@@ -540,7 +581,7 @@ const QuantityCheck = () => {
                 {siteData.name}
               </Typography>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid xs={12} md={4}>
               <Typography variant="h6" sx={{ color: '#90caf9', mb: 1 }}>
                 계약금액
               </Typography>
@@ -551,7 +592,7 @@ const QuantityCheck = () => {
                 }
               </Typography>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid xs={12} md={4}>
               <Typography variant="h6" sx={{ color: '#90caf9', mb: 1 }}>
                 계약기간
               </Typography>
@@ -562,7 +603,7 @@ const QuantityCheck = () => {
                 }
               </Typography>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid xs={12} md={4}>
               <Typography variant="h6" sx={{ color: '#90caf9', mb: 1 }}>
                 상태
               </Typography>
@@ -576,7 +617,7 @@ const QuantityCheck = () => {
             </Grid>
             
             {/* 실물량 업로드 섹션 */}
-            <Grid item xs={12} md={8}>
+            <Grid xs={12} md={8}>
               <Box sx={{ 
                 display: 'flex', 
                 flexDirection: { xs: 'column', md: 'row' }, 
@@ -635,7 +676,7 @@ const QuantityCheck = () => {
             자재비 실금액 차이
           </Typography>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
+            <Grid xs={12} md={4}>
               <Box sx={{ textAlign: 'center', p: 2, bgcolor: '#1a1d21', borderRadius: 1 }}>
                 <Typography variant="body2" sx={{ color: '#bbb', mb: 1 }}>
                   계약금액 합계
@@ -645,7 +686,7 @@ const QuantityCheck = () => {
                 </Typography>
               </Box>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid xs={12} md={4}>
               <Box sx={{ textAlign: 'center', p: 2, bgcolor: '#1a1d21', borderRadius: 1 }}>
                 <Typography variant="body2" sx={{ color: '#bbb', mb: 1 }}>
                   실금액 합계
@@ -655,7 +696,7 @@ const QuantityCheck = () => {
                 </Typography>
               </Box>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid xs={12} md={4}>
               <Box sx={{ textAlign: 'center', p: 2, bgcolor: '#1a1d21', borderRadius: 1 }}>
                 <Typography variant="body2" sx={{ color: '#bbb', mb: 1 }}>
                   금액차이 (계약금액 - 실금액)

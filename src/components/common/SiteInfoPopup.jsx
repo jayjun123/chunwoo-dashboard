@@ -155,7 +155,7 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
 
   const formatCurrency = (amount) => {
     if (!amount) return '-';
-    // 소수점 반올림 적용
+    // 무조건 정수로 반올림하여 표시
     const roundedAmount = Math.round(Number(amount));
     return new Intl.NumberFormat('ko-KR').format(roundedAmount) + '원';
   };
@@ -537,8 +537,8 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                               const unit = (item.unit || '').toString() || '-';
                               const qtyVal = item.quantity ?? item.qty ?? '';
                               const qty = qtyVal === '' || qtyVal === null ? '-' : 
-                                typeof qtyVal === 'number' ? qtyVal.toLocaleString() : 
-                                !isNaN(Number(qtyVal)) ? Number(qtyVal).toLocaleString() : qtyVal;
+                                typeof qtyVal === 'number' ? Math.round(qtyVal).toLocaleString() : 
+                                !isNaN(Number(qtyVal)) ? Math.round(Number(qtyVal)).toLocaleString() : qtyVal;
                               return (
                                 <Box key={idx} sx={{
                                   display: 'grid',
