@@ -723,11 +723,12 @@ const Claims = () => {
 
   // 기성등록 버튼 클릭
   const handleProgressRegistration = (claim) => {
-    // 기성관리 페이지로 이동하면서 현장명과 월 정보 전달
-    navigate('/progress', { 
+    // 해당 현장의 기성현황 페이지로 바로 이동
+    navigate('/gisung-status', { 
       state: { 
         selectedSite: claim.siteName,
-        selectedMonth: claim.claimMonth
+        selectedMonth: claim.claimMonth,
+        viewType: 'site' // 현장별 보기로 설정
       }
     });
   };

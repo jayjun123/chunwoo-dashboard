@@ -1701,10 +1701,15 @@ const NewSites = () => {
 
   const handleGisung = () => {
     if (selectedSite) {
-      // 현장별 기성현황으로 이동 (현장별 뷰로 설정)
-      navigate(`/progress?siteId=${selectedSite.id}&viewMode=site`);
+      // 해당 현장의 기성현황 페이지로 바로 이동
+      navigate('/gisung-status', { 
+        state: { 
+          selectedSite: selectedSite.name,
+          viewType: 'site' // 현장별 보기로 설정
+        }
+      });
     } else {
-      navigate('/progress');
+      navigate('/gisung-status');
     }
   };
   const handleWholeList = () => navigate('/whole-list');
