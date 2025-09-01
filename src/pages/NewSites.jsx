@@ -1701,15 +1701,15 @@ const NewSites = () => {
 
   const handleGisung = () => {
     if (selectedSite) {
-      // 해당 현장의 기성현황 페이지로 바로 이동
-      navigate('/gisung', { 
+      // 기존 경로인 /progress로 이동 (안전한 방법)
+      navigate('/progress', { 
         state: { 
           selectedSite: selectedSite.name,
-          viewType: 'site' // 현장별 보기로 설정
+          fromPage: 'sites' // 출발 페이지 정보 추가
         }
       });
     } else {
-      navigate('/gisung');
+      navigate('/progress');
     }
   };
   const handleWholeList = () => navigate('/whole-list');

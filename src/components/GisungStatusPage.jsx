@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -55,6 +55,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   // console.log('🔍 props:', { initialViewType, initialCurrentMonth, initialMonthText, selectedSites, filteredData });
   
   const navigate = useNavigate();
+  const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [gisungList, setGisungList] = useState([]);
@@ -71,6 +72,69 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   // 네비게이션 상태
   const [viewType, setViewType] = useState(initialViewType || 'month');
   const [currentMonth, setCurrentMonth] = useState(initialCurrentMonth || new Date());
+  
+  // navigate로 전달된 state 파라미터 처리
+  useEffect(() => {
+    if (location.state) {
+      console.log('🔍 GisungStatusPage - navigate state 받음:', location.state);
+      
+      if (location.state.selectedSite) {
+        setSelectedSite(location.state.selectedSite);
+        console.log('✅ 선택된 현장 설정:', location.state.selectedSite);
+      }
+      
+      if (location.state.viewType) {
+        setViewType(location.state.viewType);
+        console.log('✅ 뷰 타입 설정:', location.state.viewType);
+      }
+      
+      if (location.state.selectedMonth) {
+        const [year, month] = location.state.selectedMonth.split('-');
+        const monthDate = new Date(parseInt(year), parseInt(month) - 1);
+        setCurrentMonth(monthDate);
+        console.log('✅ 선택된 월 설정:', monthDate);
+      }
+      
+      // 페이지 이동 후 화면을 아래로 이동 (헤더 높이만큼)
+      setTimeout(() => {
+        // 여러 방법으로 스크롤 시도
+        try {
+          console.log('🔍 스크롤 조정 시작...');
+          
+          // 방법 1: window.scrollTo (가장 확실한 방법)
+          window.scrollTo(0, 100);
+          console.log('✅ 방법 1 실행: window.scrollTo(0, 100)');
+          
+          // 방법 2: document.documentElement.scrollTop
+          if (document.documentElement) {
+            document.documentElement.scrollTop = 100;
+            console.log('✅ 방법 2 실행: document.documentElement.scrollTop = 100');
+          }
+          
+          // 방법 3: document.body.scrollTop
+          if (document.body) {
+            document.body.scrollTop = 100;
+            console.log('✅ 방법 3 실행: document.body.scrollTop = 100');
+          }
+          
+          // 방법 4: 강제로 스크롤 위치 확인
+          setTimeout(() => {
+            const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+            console.log('🔍 현재 스크롤 위치:', currentScrollTop);
+            
+            if (currentScrollTop < 50) {
+              console.log('⚠️ 스크롤이 제대로 작동하지 않음. 강제로 다시 시도...');
+              window.scrollTo(0, 100);
+            }
+          }, 100);
+          
+          console.log('✅ 페이지 스크롤 조정: 100px 아래로 이동 완료');
+        } catch (error) {
+          console.error('❌ 스크롤 조정 실패:', error);
+        }
+      }, 500); // 더 긴 지연시간
+    }
+  }, [location.state]);
   
 
   
