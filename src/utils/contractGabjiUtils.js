@@ -17,21 +17,27 @@ export const createContractGabji = async (siteData, materialItems = [], fileName
     const response = await fetch(templateUrl);
     const arrayBuffer = await response.arrayBuffer();
     
-    // 템플릿 로드 (안전한 방법)
+    // 템플릿 로드 (공유수식 완전 무시)
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(arrayBuffer, {
-      ignoreFormulaErrors: true,
+      ignoreNodes: ['shared-formula', 'shared-formula-ref', 'shared-formula-master', 'formula'],
       ignoreFormulas: true,
+      ignoreFormulaErrors: true,
       ignoreSharedFormulas: true
     });
     console.log('✅ 납품계약서 갑지 템플릿 로드 완료');
     
-             // 데이터만 입력 (양식은 건드리지 않음)
+    // 공유수식 완전 제거
+    removeAllSharedFormulas(workbook);
+    console.log('✅ 공유수식 제거 완료');
+    
+    // 데이터만 입력 (양식은 건드리지 않음)
     await fillContractGabjiData(workbook, siteData, materialItems);
     
     // 파일 생성 및 다운로드
     console.log('💾 파일 생성 중...');
     const buffer = await workbook.xlsx.writeBuffer({
+      ignoreNodes: ['shared-formula', 'shared-formula-ref', 'shared-formula-master', 'formula'],
       ignoreFormulaErrors: true,
       ignoreFormulas: true,
       ignoreSharedFormulas: true
@@ -87,6 +93,37 @@ export const createContractGabji = async (siteData, materialItems = [], fileName
 };
 
 
+
+/**
+ * 모든 공유 수식 제거 함수
+ * @param {ExcelJS.Workbook} workbook - 워크북
+ */
+const removeAllSharedFormulas = (workbook) => {
+  try {
+    console.log('🔧 공유 수식 제거 시작...');
+    
+    workbook.worksheets.forEach((worksheet, index) => {
+      console.log(`🔍 시트 ${index + 1}: ${worksheet.name} 처리 중...`);
+      
+      worksheet.eachRow((row, rowNumber) => {
+        row.eachCell((cell, colNumber) => {
+          if (cell.formula) {
+            console.log(`⚠️ 수식 발견: ${worksheet.name}!${cell.address} = ${cell.formula}`);
+            // 수식 제거하고 값만 유지
+            const currentValue = cell.value;
+            cell.formula = undefined;
+            cell.value = currentValue;
+            console.log(`✅ 수식 제거: ${cell.address}, 값 유지: ${currentValue}`);
+          }
+        });
+      });
+    });
+    
+    console.log('✅ 모든 공유 수식 제거 완료');
+  } catch (error) {
+    console.error('❌ 공유 수식 제거 중 오류:', error);
+  }
+};
 
 /**
  * 납품계약서 갑지에 데이터만 입력
@@ -446,18 +483,18 @@ const fillEstimateStyleSheetData = (sheet, siteData, materialItems) => {
           console.log(`🔍 ${row}행 아이템 데이터:`, item);
           console.log(`🔍 ${row}행 아이템 키들:`, Object.keys(item));
           
-          // A,B,C,D 값 확인
-          const name = item.name || item.itemName || '';
-          const specification = item.specification || item.spec || '';
-          const unit = item.unit || '';
+          // A,B,C,D 값 확인 (안전한 문자열 처리)
+          const name = String(item.name || item.itemName || '').trim();
+          const specification = String(item.specification || item.spec || '').trim();
+          const unit = String(item.unit || '').trim();
           const quantity = item.quantity || item.qty || 0;
           
           // A,B,C,D 값이 있는지 확인 (단수정리 포함)
           const hasBasicData = name || specification || unit || quantity || (name && name.includes('단수정리'));
           
           if (hasBasicData) {
-            // 단수정리 특별 처리
-            if (name && name.includes('단수정리')) {
+            // 단수정리 특별 처리 (안전한 문자열 검사)
+            if (name && typeof name === 'string' && name.includes('단수정리')) {
               console.log(`📊 ${row}행 단수정리 특별 처리:`, name);
               sheet.getCell(`A${row}`).value = name; // A열: 단수정리
               sheet.getCell(`B${row}`).value = specification || ''; // B열: 규격
