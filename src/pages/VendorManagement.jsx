@@ -554,8 +554,40 @@ const VendorManagement = () => {
     setCurrentPage(1);
   }, [searchTerm]);
 
+  // 중복 데이터 제거 함수
+  const removeDuplicates = (vendorsList) => {
+    const seen = new Map();
+    const uniqueVendors = [];
+    
+    vendorsList.forEach(vendor => {
+      // 이름 + 직위 + 회사명으로 중복 체크
+      const key = `${vendor.name || ''}-${vendor.position || ''}-${vendor.companyName || ''}`;
+      
+      if (!seen.has(key)) {
+        seen.set(key, vendor);
+        uniqueVendors.push(vendor);
+      } else {
+        // 중복이 있는 경우 데이터 품질이 더 높은 것을 유지
+        const existing = seen.get(key);
+        const existingScore = calculateDataQualityScore(existing);
+        const newScore = calculateDataQualityScore(vendor);
+        
+        if (newScore > existingScore) {
+          // 새로운 데이터가 더 높은 품질이면 교체
+          const index = uniqueVendors.findIndex(v => v.id === existing.id);
+          if (index !== -1) {
+            uniqueVendors[index] = vendor;
+            seen.set(key, vendor);
+          }
+        }
+      }
+    });
+    
+    return uniqueVendors;
+  };
+
   // 검색 필터링 및 등록 순서대로 정렬
-  const filteredVendors = vendors
+  const filteredVendors = removeDuplicates(vendors
     .filter(vendor =>
       vendor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -568,7 +600,7 @@ const VendorManagement = () => {
       const dateA = a.createdAt ? new Date(a.createdAt.seconds * 1000) : new Date(0);
       const dateB = b.createdAt ? new Date(b.createdAt.seconds * 1000) : new Date(0);
       return dateB - dateA; // 내림차순으로 변경
-    });
+    }));
 
   // 페이지네이션 계산
   const totalPages = Math.ceil(filteredVendors.length / itemsPerPage);
@@ -1051,6 +1083,19 @@ const VendorManagement = () => {
           >
             다운로드
           </Button>
+          <Tooltip title="중복된 거래처 데이터를 정리합니다. 이름과 회사명이 같은 경우 데이터가 더 많은 것을 유지합니다.">
+            <Button
+              variant="outlined"
+              onClick={cleanupDuplicateData}
+              sx={{
+                borderColor: '#ff9800',
+                color: '#ff9800',
+                '&:hover': { borderColor: '#f57c00' }
+              }}
+            >
+              중복정리
+            </Button>
+          </Tooltip>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
