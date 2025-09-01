@@ -22,10 +22,40 @@ export const exportToExcel = (data, fileName = 'export.xlsx', sheetName = 'Sheet
     worksheet['!cols'] = colWidths.map(width => ({ width: Math.min(width + 2, 50) }));
     
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-    XLSX.writeFile(workbook, fileName);
     
-    console.log('Excel 파일 내보내기 완료:', fileName);
-    return fileName;
+    // 더 안전한 엑셀 다운로드 방법 사용
+    const excelBuffer = XLSX.write(workbook, { 
+      bookType: 'xlsx', 
+      type: 'array' 
+    });
+    
+    // Blob 생성 및 다운로드
+    const blob = new Blob([excelBuffer], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    
+    // 다운로드 링크 생성
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    
+    // 링크 클릭하여 다운로드 실행
+    document.body.appendChild(link);
+    link.click();
+    
+    // 정리
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    // 파일명에 날짜 추가하여 고유성 보장
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+    const uniqueFileName = `${fileName.replace('.xlsx', '')}_${dateStr}_${timeStr}.xlsx`;
+    
+    console.log('Excel 파일 내보내기 완료:', uniqueFileName);
+    return uniqueFileName;
   } catch (error) {
     console.error('Excel 파일 내보내기 실패:', error);
     throw error;
@@ -151,10 +181,49 @@ export const exportScheduleToExcel = (scheduleData, fileName = 'schedule.xlsx') 
     const worksheet = XLSX.utils.json_to_sheet(scheduleData);
     
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Schedule');
-    XLSX.writeFile(workbook, fileName);
     
-    console.log('일정 Excel 파일 내보내기 완료:', fileName);
-    return fileName;
+    // 파일명 정리 (특수문자 제거, 공백 처리)
+    let cleanFileName = fileName
+      .replace(/[<>:"/\\|?*]/g, '') // Windows에서 사용할 수 없는 문자 제거
+      .replace(/\s+/g, '_') // 공백을 언더스코어로 변경
+      .trim();
+    
+    // 파일명에 확장자 추가 (없는 경우)
+    const finalFileName = cleanFileName.endsWith('.xlsx') ? cleanFileName : `${cleanFileName}.xlsx`;
+    
+    // 현재 날짜를 파일명에 추가하여 고유성 보장
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+    const uniqueFileName = `${cleanFileName.replace('.xlsx', '')}_${dateStr}_${timeStr}.xlsx`;
+    
+    // 더 안전한 엑셀 다운로드 방법 사용
+    const excelBuffer = XLSX.write(workbook, { 
+      bookType: 'xlsx', 
+      type: 'array' 
+    });
+    
+    // Blob 생성 및 다운로드
+    const blob = new Blob([excelBuffer], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    
+    // 다운로드 링크 생성
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = uniqueFileName;
+    
+    // 링크 클릭하여 다운로드 실행
+    document.body.appendChild(link);
+    link.click();
+    
+    // 정리
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    console.log('일정 Excel 파일 내보내기 완료:', uniqueFileName);
+    return uniqueFileName;
   } catch (error) {
     console.error('일정 Excel 파일 내보내기 실패:', error);
     throw error;
@@ -170,10 +239,49 @@ export const exportGisungToExcel = (gisungData, fileName = 'gisung.xlsx') => {
     const worksheet = XLSX.utils.json_to_sheet(gisungData);
     
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Gisung');
-    XLSX.writeFile(workbook, fileName);
     
-    console.log('기성 Excel 파일 내보내기 완료:', fileName);
-    return fileName;
+    // 파일명 정리 (특수문자 제거, 공백 처리)
+    let cleanFileName = fileName
+      .replace(/[<>:"/\\|?*]/g, '') // Windows에서 사용할 수 없는 문자 제거
+      .replace(/\s+/g, '_') // 공백을 언더스코어로 변경
+      .trim();
+    
+    // 파일명에 확장자 추가 (없는 경우)
+    const finalFileName = cleanFileName.endsWith('.xlsx') ? cleanFileName : `${cleanFileName}.xlsx`;
+    
+    // 현재 날짜를 파일명에 추가하여 고유성 보장
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+    const uniqueFileName = `${cleanFileName.replace('.xlsx', '')}_${dateStr}_${timeStr}.xlsx`;
+    
+    // 더 안전한 엑셀 다운로드 방법 사용
+    const excelBuffer = XLSX.write(workbook, { 
+      bookType: 'xlsx', 
+      type: 'array' 
+    });
+    
+    // Blob 생성 및 다운로드
+    const blob = new Blob([excelBuffer], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    
+    // 다운로드 링크 생성
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = uniqueFileName;
+    
+    // 링크 클릭하여 다운로드 실행
+    document.body.appendChild(link);
+    link.click();
+    
+    // 정리
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    console.log('기성 Excel 파일 내보내기 완료:', uniqueFileName);
+    return uniqueFileName;
   } catch (error) {
     console.error('기성 Excel 파일 내보내기 실패:', error);
     throw error;

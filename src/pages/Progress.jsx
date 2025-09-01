@@ -285,12 +285,19 @@ const Progress = () => {
     console.log('탭 상태 변화:', { tab, statusView });
   }, [tab, statusView]);
 
-  // URL 파라미터에서 siteId와 viewMode 읽기
+  // URL 파라미터와 navigate state에서 siteId와 viewMode 읽기
   useEffect(() => {
+    // 청구예정에서 navigate로 온 경우는 이 useEffect에서 처리하지 않음
+    if (location.state && location.state.fromPage === 'claims') {
+      console.log('🔍 청구예정에서 온 경우 - 이 useEffect에서 처리하지 않음');
+      return;
+    }
+    
     const siteId = searchParams.get('siteId');
     const viewMode = searchParams.get('viewMode');
     
     console.log('🔍 URL 파라미터 확인:', { siteId, viewMode });
+    console.log('🔍 navigate state 확인:', location.state);
     
     // 현장 선택 해제 상태를 추적하는 플래그
     const isClearingSelection = sessionStorage.getItem('clearingSiteSelection') === 'true';
@@ -302,12 +309,21 @@ const Progress = () => {
       return;
     }
     
-    if (siteId && sites.length > 0) {
+    // sites 배열이 로드된 후에만 처리
+    if (sites.length === 0) {
+      console.log('⏳ sites 배열이 아직 로드되지 않음. 대기 중...');
+      return;
+    }
+    
+
+    
+    // URL 파라미터 처리 (기존 로직)
+    if (siteId) {
       setFilteredSiteId(siteId);
       // 해당 현장 정보 찾기
       const site = sites.find(s => s.id === siteId);
       if (site) {
-        console.log('✅ 현장 찾음:', site.name);
+        console.log('✅ URL 파라미터에서 현장 찾음:', site.name);
         setFilteredSiteName(site.name);
         setSelectedSites([site.name]);
         
@@ -332,17 +348,37 @@ const Progress = () => {
   // 청구예정 페이지에서 전달받은 현장명과 월 정보 처리
   useEffect(() => {
     if (location.state && sites.length > 0) {
-      const { selectedSite, selectedMonth } = location.state;
+      const { selectedSite, selectedMonth, fromPage } = location.state;
       
       if (selectedSite) {
         // 현장명으로 현장 찾기
         const site = sites.find(s => s.name === selectedSite);
         if (site) {
+          console.log('🔍 청구예정 useEffect에서 현장 설정:', site.name);
           setFilteredSiteId(site.id);
           setFilteredSiteName(site.name);
           setSelectedSites([site.name]);
-          setStatusView('site');
-          setTab('gisung');
+          
+          // 청구예정에서 왔으면 강제로 현장별 뷰 설정
+          if (fromPage === 'claims') {
+            console.log('🔄 청구예정에서 왔으므로 강제로 현장별 뷰 설정');
+            setStatusView('site');
+            setTab('gisung');
+            
+            // 강제로 현장별 뷰 유지 (다른 로직에 의해 덮어써지지 않도록)
+            const checkAndRestoreView = () => {
+              if (statusView !== 'site' || tab !== 'gisung') {
+                console.log('⚠️ 뷰가 덮어써짐. 강제로 현장별 뷰로 복원');
+                setStatusView('site');
+                setTab('gisung');
+              }
+            };
+            
+            // 여러 번 체크하여 뷰 유지
+            setTimeout(checkAndRestoreView, 100);
+            setTimeout(checkAndRestoreView, 300);
+            setTimeout(checkAndRestoreView, 500);
+          }
         }
       }
       
@@ -351,12 +387,13 @@ const Progress = () => {
         const [year, month] = selectedMonth.split('-');
         const monthDate = new Date(parseInt(year), parseInt(month) - 1, 1);
         setCurrentMonth(monthDate);
+        console.log('✅ 청구예정 useEffect에서 월 설정:', monthDate);
       }
       
       // location state 초기화 (중복 실행 방지)
       window.history.replaceState({}, document.title);
     }
-  }, [location.state, sites]);
+  }, [location.state, sites, statusView, tab]);
 
   // 현장 검색 필터링
   const filteredSites = useMemo(() => {
@@ -1324,6 +1361,46 @@ const Progress = () => {
                 해제
               </Button>
             )}
+            
+            {/* 돌아가기 버튼 */}
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => {
+                // 출발 페이지에 따라 적절한 곳으로 이동
+                if (location.state && location.state.fromPage) {
+                  switch (location.state.fromPage) {
+                    case 'claims':
+                      navigate('/claims');
+                      console.log('✅ 청구예정 페이지로 돌아가기');
+                      break;
+                    case 'sites':
+                      navigate('/sites');
+                      console.log('✅ 현장관리 페이지로 돌아가기');
+                      break;
+                    default:
+                      navigate(-1); // 기본값
+                      console.log('✅ 기본 뒤로가기');
+                  }
+                } else {
+                  navigate(-1); // fromPage 정보가 없으면 기본 뒤로가기
+                  console.log('✅ fromPage 정보 없음 - 기본 뒤로가기');
+                }
+              }}
+              sx={{
+                borderColor: '#9c27b0',
+                color: '#9c27b0',
+                minWidth: 'auto',
+                px: 1,
+                ml: 1,
+                '&:hover': {
+                  borderColor: '#7b1fa2',
+                  bgcolor: 'rgba(156, 39, 176, 0.1)'
+                }
+              }}
+            >
+              ← 돌아가기
+            </Button>
           </Box>
 
         </Box>

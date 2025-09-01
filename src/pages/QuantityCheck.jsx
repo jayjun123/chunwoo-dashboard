@@ -54,6 +54,9 @@ const QuantityCheck = () => {
   const location = useLocation();
   const { currentUser } = useAuth();
   
+  // 이전 페이지 정보 저장
+  const [previousPath, setPreviousPath] = useState('/sites');
+  
   const [siteData, setSiteData] = useState(null);
   const [quantityItems, setQuantityItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -100,6 +103,20 @@ const QuantityCheck = () => {
     const loadSiteData = async () => {
       try {
         setLoading(true);
+        
+        // 이전 페이지 정보 저장
+        if (location.state?.from) {
+          setPreviousPath(location.state.from);
+        } else if (location.state?.fromPage === 'claims') {
+          // 청구페이지에서 온 경우
+          setPreviousPath('/claims');
+        } else if (document.referrer) {
+          // referrer가 있으면 해당 정보 활용
+          const referrer = new URL(document.referrer);
+          if (referrer.pathname !== '/quantity-check') {
+            setPreviousPath(referrer.pathname);
+          }
+        }
         
         if (location.state?.selectedSiteId) {
           const siteDoc = await getDoc(doc(db, 'sites', location.state.selectedSiteId));
@@ -553,7 +570,53 @@ const QuantityCheck = () => {
         <Button
           variant="outlined"
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/sites')}
+          onClick={() => {
+            console.log('뒤로가기 버튼 클릭됨');
+            console.log('현재 history.length:', window.history.length);
+            console.log('previousPath:', previousPath);
+            console.log('document.referrer:', document.referrer);
+            console.log('location.state:', location.state);
+            
+            // 청구페이지에서 온 경우 특별 처리
+            if (location.state?.fromPage === 'claims') {
+              console.log('청구페이지에서 온 경우 - /claims로 직접 이동');
+              navigate('/claims');
+              return;
+            }
+            
+            // Progress 페이지에서 온 경우 특별 처리 (기성현황 월별로 이동하는 문제 방지)
+            if (location.state?.fromPage === 'progress' || previousPath === '/progress') {
+              console.log('Progress 페이지에서 온 경우 - /sites로 이동');
+              navigate('/sites');
+              return;
+            }
+            
+            // 브라우저 히스토리에서 이전 페이지가 Progress인지 확인
+            try {
+              const currentUrl = window.location.href;
+              const referrer = document.referrer;
+              
+              if (referrer && referrer.includes('/progress')) {
+                console.log('referrer가 Progress 페이지 - /sites로 이동');
+                navigate('/sites');
+                return;
+              }
+            } catch (error) {
+              console.log('referrer 확인 중 오류:', error);
+            }
+            
+            // 여러 방법으로 뒤로가기 시도
+            if (window.history.length > 1) {
+              console.log('window.history.back() 실행');
+              window.history.back();
+            } else if (previousPath && previousPath !== '/quantity-check') {
+              console.log('previousPath로 이동:', previousPath);
+              navigate(previousPath);
+            } else {
+              console.log('/sites로 이동');
+              navigate('/sites');
+            }
+          }}
           sx={{ 
             color: '#90caf9', 
             borderColor: '#90caf9',
