@@ -1367,6 +1367,12 @@ const Progress = () => {
               variant="outlined"
               size="small"
               onClick={() => {
+                console.log('🔍 뒤로가기 버튼 클릭됨');
+                console.log('🔍 location.state:', location.state);
+                console.log('🔍 현재 statusView:', statusView);
+                console.log('🔍 현재 tab:', tab);
+                console.log('🔍 현재 selectedSites:', selectedSites);
+                
                 // 출발 페이지에 따라 적절한 곳으로 이동
                 if (location.state && location.state.fromPage) {
                   switch (location.state.fromPage) {
@@ -1383,8 +1389,36 @@ const Progress = () => {
                       console.log('✅ 기본 뒤로가기');
                   }
                 } else {
-                  navigate(-1); // fromPage 정보가 없으면 기본 뒤로가기
-                  console.log('✅ fromPage 정보 없음 - 기본 뒤로가기');
+                  // 기성현황 탭에서 현장이 선택된 경우 특별 처리
+                  if (tab === 'gisung' && selectedSites.length > 0) {
+                    console.log('✅ 기성현황 탭에서 현장 선택된 경우 - /sites로 이동');
+                    navigate('/sites');
+                  } else if (tab === 'gisung') {
+                    // 기성현황 탭이지만 현장이 선택되지 않은 경우
+                    console.log('✅ 기성현황 탭 (현장 미선택) - /sites로 이동');
+                    navigate('/sites');
+                  } else if (window.history.length > 1) {
+                    console.log('✅ window.history.back() 실행');
+                    window.history.back();
+                  } else {
+                    // 브라우저 referrer 정보 확인
+                    try {
+                      const referrer = document.referrer;
+                      if (referrer && referrer.includes('/sites')) {
+                        console.log('✅ referrer가 /sites - /sites로 이동');
+                        navigate('/sites');
+                      } else if (referrer && referrer.includes('/claims')) {
+                        console.log('✅ referrer가 /claims - /claims로 이동');
+                        navigate('/claims');
+                      } else {
+                        console.log('✅ 기본값 - /sites로 이동');
+                        navigate('/sites');
+                      }
+                    } catch (error) {
+                      console.log('✅ referrer 확인 실패 - /sites로 이동');
+                      navigate('/sites');
+                    }
+                  }
                 }
               }}
               sx={{
