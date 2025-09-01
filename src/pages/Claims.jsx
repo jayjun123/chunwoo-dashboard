@@ -538,11 +538,13 @@ const Claims = () => {
     
     if (!siteData || !siteData.contractAmount) return 0;
     
-    // 총 기성금액 계산
-    const totalGisungAmount = siteGisungData.reduce((sum, gisung) => {
-      const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
-      return sum + amount;
-    }, 0);
+    // 총 기성금액 계산 (청구완료된 것만)
+    const totalGisungAmount = siteGisungData
+      .filter(gisung => gisung.claimStatus === '청구완료')
+      .reduce((sum, gisung) => {
+        const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
+        return sum + amount;
+      }, 0);
     
     const advanceAmount = Number(siteData.advance || 0); // 선급금
     const contractAmount = Number(siteData.contractAmount);
@@ -550,7 +552,36 @@ const Claims = () => {
     // 계약금액 - (총 기성금액 + 선급금)
     const remainingAmount = contractAmount - (totalGisungAmount + advanceAmount);
     
+    // 디버깅을 위한 로그 추가
+    console.log(`🔍 잔액 계산 - ${siteName}:`, {
+      contractAmount,
+      totalGisungAmount,
+      advanceAmount,
+      calculatedBalance: remainingAmount
+    });
+    
     return Math.max(0, remainingAmount); // 음수 방지
+  };
+
+  // 청구금액 기준 잔액 계산 함수 (더 정확한 계산)
+  const calculateBalanceByClaimAmount = (siteName, claimAmount) => {
+    const siteData = sites.find(site => site.name === siteName);
+    
+    if (!siteData || !siteData.contractAmount) return 0;
+    
+    const contractAmount = Number(siteData.contractAmount);
+    const claimAmountNum = Number(claimAmount || 0);
+    
+    // 계약금액 - 청구금액
+    const balance = contractAmount - claimAmountNum;
+    
+    console.log(`💰 청구금액 기준 잔액 계산 - ${siteName}:`, {
+      contractAmount,
+      claimAmount: claimAmountNum,
+      calculatedBalance: balance
+    });
+    
+    return Math.max(0, balance); // 음수 방지
   };
 
   // 현장 선택 시 자동 기입 함수
@@ -767,7 +798,7 @@ const Claims = () => {
       // 데이터 행들 - 천단위 쉼표가 포함된 문자열로 포맷팅
       const dataRows = filteredClaims.map((claim, index) => {
         const contractAmount = getContractAmount(claim.siteName) ? Number(getContractAmount(claim.siteName)) : 0;
-        const remainingAmount = calculateRemainingAmount(claim.siteName) ? Number(calculateRemainingAmount(claim.siteName)) : 0;
+        const remainingAmount = calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount) ? Number(calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount)) : 0;
         const progressRate = claim.progressRate ? Number(claim.progressRate) : 0;
         const claimAmount = claim.claimAmount ? Number(claim.claimAmount) : 0;
         
@@ -1602,7 +1633,9 @@ const Claims = () => {
                         <TableCell sx={{ color: 'white' }}>{claim.manager}</TableCell>
                         <TableCell sx={{ color: 'white' }}>{claim.sequence}</TableCell>
                         <TableCell sx={{ color: 'white' }}>{formatAmount(getContractAmount(claim.siteName))}</TableCell>
-                        <TableCell sx={{ color: '#4caf50', fontWeight: 'bold' }}>{formatAmount(calculateRemainingAmount(claim.siteName))}</TableCell>
+                        <TableCell sx={{ color: '#4caf50', fontWeight: 'bold' }}>
+                          {formatAmount(calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount))}
+                        </TableCell>
                         <TableCell sx={{ color: 'white' }}>{claim.progressRate}%</TableCell>
                         <TableCell sx={{ color: '#ff6b6b', fontWeight: 'bold' }}>{formatAmount(claim.claimAmount)}</TableCell>
                         <TableCell>
