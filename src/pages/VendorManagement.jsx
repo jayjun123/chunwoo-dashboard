@@ -560,24 +560,33 @@ const VendorManagement = () => {
     const uniqueVendors = [];
     
     vendorsList.forEach(vendor => {
-      // 이름 + 직위 + 회사명으로 중복 체크
-      const key = `${vendor.name || ''}-${vendor.position || ''}-${vendor.companyName || ''}`;
+      // 이름만으로 중복 체크 (회사나 직위가 다르면 다른 사람)
+      const key = `${vendor.name || ''}`;
       
       if (!seen.has(key)) {
+        // 같은 이름을 가진 첫 번째 사람
         seen.set(key, vendor);
         uniqueVendors.push(vendor);
       } else {
-        // 중복이 있는 경우 데이터 품질이 더 높은 것을 유지
+        // 같은 이름을 가진 다른 사람이 있는 경우
         const existing = seen.get(key);
-        const existingScore = calculateDataQualityScore(existing);
-        const newScore = calculateDataQualityScore(vendor);
         
-        if (newScore > existingScore) {
-          // 새로운 데이터가 더 높은 품질이면 교체
-          const index = uniqueVendors.findIndex(v => v.id === existing.id);
-          if (index !== -1) {
-            uniqueVendors[index] = vendor;
-            seen.set(key, vendor);
+        // 회사나 직위가 다르면 다른 사람으로 인식하여 추가
+        if (existing.position !== vendor.position || existing.companyName !== vendor.companyName) {
+          uniqueVendors.push(vendor);
+        } else {
+          // 정말로 동일한 사람인 경우 (이름, 직위, 회사가 모두 같음)
+          // 데이터 품질이 더 높은 것을 유지
+          const existingScore = calculateDataQualityScore(existing);
+          const newScore = calculateDataQualityScore(vendor);
+          
+          if (newScore > existingScore) {
+            // 새로운 데이터가 더 높은 품질이면 교체
+            const index = uniqueVendors.findIndex(v => v.id === existing.id);
+            if (index !== -1) {
+              uniqueVendors[index] = vendor;
+              seen.set(key, vendor);
+            }
           }
         }
       }

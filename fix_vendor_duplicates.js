@@ -42,12 +42,21 @@ async function fixVendorDuplicates() {
     const seen = new Map();
     
     vendors.forEach(vendor => {
-      // 이름 + 직위 + 회사명으로 중복 체크
-      const key = `${vendor.name || ''}-${vendor.position || ''}-${vendor.companyName || ''}`;
+      // 이름만으로 중복 체크 (회사나 직위가 다르면 다른 사람)
+      const key = `${vendor.name || ''}`;
       
       if (seen.has(key)) {
+        const existing = seen.get(key);
+        
+        // 회사나 직위가 다르면 다른 사람으로 인식
+        if (existing.position !== vendor.position || existing.companyName !== vendor.companyName) {
+          // 다른 사람이므로 중복으로 처리하지 않음
+          continue;
+        }
+        
+        // 정말로 동일한 사람인 경우만 중복으로 처리
         duplicates.push({
-          original: seen.get(key),
+          original: existing,
           duplicate: vendor,
           key: key
         });
