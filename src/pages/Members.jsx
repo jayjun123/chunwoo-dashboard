@@ -49,13 +49,16 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon
+  VisibilityOff as VisibilityOffIcon,
+  Monitor as MonitorIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { collection, getDocs, doc, updateDoc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import SecurityDashboard from '../components/SecurityDashboard';
+import SecurityAlert from '../components/SecurityAlert';
 
 const Members = () => {
   const theme = useTheme();
@@ -76,6 +79,7 @@ const Members = () => {
   const [approvalDialog, setApprovalDialog] = useState({ open: false, member: null });
   const [approvalRole, setApprovalRole] = useState('user');
   const [approvalTeamGrade, setApprovalTeamGrade] = useState('A');
+  const [securityAlertDialog, setSecurityAlertDialog] = useState({ open: false, alert: null });
 
   // 권한 옵션 - Firebase에서 가져올 수 있지만 기본값으로 설정
   const permissionOptions = ['읽기', '쓰기', '읽기/쓰기', '권한없음'];
@@ -377,6 +381,11 @@ const Members = () => {
     return roles[member.role]?.color || 'default';
   };
 
+  // 보안 알림 상세 보기 핸들러
+  const handleSecurityAlertDetails = (alert) => {
+    setSecurityAlertDialog({ open: true, alert });
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -386,7 +395,7 @@ const Members = () => {
   }
 
   return (
-    <Box sx={{ p: isMobile ? 2 : 3 }}>
+    <Box sx={{ p: isMobile ? 2 : 3, pt: isMobile ? 10 : 11 }}>
       <Typography variant="h4" gutterBottom sx={{ mb: 3 }}>
         회원/권한 관리
       </Typography>
@@ -395,6 +404,11 @@ const Members = () => {
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
         </Alert>
+      )}
+
+      {/* 보안 알림 (관리자/마스터만 표시) */}
+      {(currentUser?.role === 'admin' || currentUser?.role === 'master') && (
+        <SecurityAlert onViewDetails={handleSecurityAlertDetails} />
       )}
 
       {/* 탭 메뉴 */}
@@ -407,6 +421,7 @@ const Members = () => {
           <Tab 
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <PersonIcon fontSize="small" />
                 <Typography>회원명단</Typography>
                 <Badge badgeContent={members.length} color="primary" />
               </Box>
@@ -415,11 +430,23 @@ const Members = () => {
           <Tab 
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <PendingIcon fontSize="small" />
                 <Typography>로그인 대기(보류) 명단</Typography>
                 <Badge badgeContent={pendingMembers.length} color="warning" />
               </Box>
             } 
           />
+          {/* 관리자/마스터만 보안 모니터링 탭 접근 가능 */}
+          {(currentUser?.role === 'admin' || currentUser?.role === 'master') && (
+            <Tab 
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <MonitorIcon fontSize="small" />
+                  <Typography>보안 모니터링</Typography>
+                </Box>
+              } 
+            />
+          )}
         </Tabs>
       </Paper>
 
@@ -739,6 +766,11 @@ const Members = () => {
         </>
       )}
 
+      {/* 보안 모니터링 탭 */}
+      {activeTab === 2 && (currentUser?.role === 'admin' || currentUser?.role === 'master') && (
+        <SecurityDashboard />
+      )}
+
       {/* 권한 설정 다이얼로그 */}
       <Dialog 
         open={permissionDialog.open} 
@@ -922,8 +954,83 @@ const Members = () => {
            </Button>
          </DialogActions>
        </Dialog>
+
+       {/* 보안 알림 상세 다이얼로그 */}
+       <Dialog
+         open={securityAlertDialog.open}
+         onClose={() => setSecurityAlertDialog({ open: false, alert: null })}
+         maxWidth="md"
+         fullWidth
+       >
+         <DialogTitle>
+           보안 알림 상세 정보
+         </DialogTitle>
+         <DialogContent>
+           {securityAlertDialog.alert && (
+             <Box sx={{ mt: 2 }}>
+               <Typography variant="h6" gutterBottom>
+                 {securityAlertDialog.alert.title}
+               </Typography>
+               <Typography variant="body1" sx={{ mb: 2 }}>
+                 {securityAlertDialog.alert.message}
+               </Typography>
+               
+               <Typography variant="subtitle1" gutterBottom>
+                 관련 보안 로그 ({securityAlertDialog.alert.logs?.length || 0}개)
+               </Typography>
+               
+               <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
+                 <Table stickyHeader>
+                   <TableHead>
+                     <TableRow>
+                       <TableCell>시간</TableCell>
+                       <TableCell>사용자</TableCell>
+                       <TableCell>IP 주소</TableCell>
+                       <TableCell>상세내용</TableCell>
+                     </TableRow>
+                   </TableHead>
+                   <TableBody>
+                     {securityAlertDialog.alert.logs?.map((log) => (
+                       <TableRow key={log.id}>
+                         <TableCell>
+                           <Typography variant="body2">
+                             {log.timestamp?.toDate ? 
+                               format(log.timestamp.toDate(), 'MM-dd HH:mm:ss') : 
+                               format(new Date(log.createdAt), 'MM-dd HH:mm:ss')
+                             }
+                           </Typography>
+                         </TableCell>
+                         <TableCell>
+                           <Typography variant="body2">
+                             {log.email || '알 수 없음'}
+                           </Typography>
+                         </TableCell>
+                         <TableCell>
+                           <Typography variant="body2">
+                             {log.ipAddress || '알 수 없음'}
+                           </Typography>
+                         </TableCell>
+                         <TableCell>
+                           <Typography variant="body2">
+                             {log.details?.message || log.type}
+                           </Typography>
+                         </TableCell>
+                       </TableRow>
+                     ))}
+                   </TableBody>
+                 </Table>
+               </TableContainer>
+             </Box>
+           )}
+         </DialogContent>
+         <DialogActions>
+           <Button onClick={() => setSecurityAlertDialog({ open: false, alert: null })}>
+             닫기
+           </Button>
+         </DialogActions>
+       </Dialog>
      </Box>
    );
  };
-
-export default Members; 
+ 
+ export default Members; 

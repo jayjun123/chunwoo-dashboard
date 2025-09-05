@@ -279,7 +279,7 @@ const Permissions = () => {
   }
 
   return (
-    <Box sx={{ p: isMobile ? 2 : 3 }}>
+    <Box sx={{ p: isMobile ? 2 : 3, pt: isMobile ? 10 : 11 }}>
       <Typography variant="h4" gutterBottom>
         권한 관리
 

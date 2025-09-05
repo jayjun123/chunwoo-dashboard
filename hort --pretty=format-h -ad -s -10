@@ -1,0 +1,74 @@
+[33mcommit 367ea9b020728c0a66fd79e4a21469394df365df[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mnew-master[m[33m, [m[1;31morigin/new-master[m[33m)[m
+Author: jayjun123 <fire8803@gmail.com>
+Date:   Fri Sep 5 11:27:10 2025 +0900
+
+    Fix NAPFOOM 납품계약서 Shared Formula 오류 해결
+    
+    - 수식 무시 모드로 템플릿 로드하여 Shared Formula 문제 완전 회피
+    - 데이터 입력 후 수식 재설정으로 안전한 처리
+    - F, H, J, K, L열 수식 정확히 재설정 (D*E, D*G, D*I, E+G+I, D*K)
+    - 기성금청구서 A,B열 매핑 수정 및 실시간 업데이트 개선
+    - 물량 데이터 저장 시 A,B열 순서 수정
+
+ Firebase_Upload_Guide.md                           |   150 [32m+[m
+ MATERIAL_DATA_STRUCTURE.md                         |   215 [32m+[m
+ TEMPLATE_SYSTEM_GUIDE.md                           |     4 [32m+[m
+ check_firebase_storage.js                          |     4 [32m+[m
+ check_long_template.js                             |     4 [32m+[m
+ check_new_template.js                              |     4 [32m+[m
+ ...3\234\352\267\270\353\213\210\354\262\230.html" |   268 [32m+[m
+ ...213\234\352\267\270\353\213\210\354\262\230.js" |    95 [32m+[m
+ how 98bee75 --name-only                            |    20 [32m+[m
+ package-lock.json                                  | 12974 [32m++++++++++++[m[31m-------[m
+ package.json                                       |     1 [32m+[m
+ public/Lgyunjuk.xlsx                               |   Bin [31m0[m -> [32m21646[m bytes
+ public/Lnapfoom.xlsx                               |   Bin [31m0[m -> [32m31483[m bytes
+ .../Ngyunjuk.xlsx                                  |   Bin
+ .../Nnapfoom.xlsx                                  |   Bin
+ src/App.jsx                                        |    34 [32m+[m[31m-[m
+ src/api/gisung.js                                  |    10 [32m+[m[31m-[m
+ src/components/ConstructionStatus.jsx              |   143 [32m+[m[31m-[m
+ src/components/CustomCalendar.jsx                  |    27 [32m+[m[31m-[m
+ src/components/GanttChart.jsx                      |    32 [32m+[m[31m-[m
+ src/components/GisungStatusPage.jsx                |   425 [32m+[m[31m-[m
+ src/components/MaterialInventory.jsx               |     9 [32m+[m
+ src/components/common/MobileBottomNav.jsx          |     8 [32m+[m[31m-[m
+ src/components/common/SiteInfoPopup.jsx            |    10 [32m+[m[31m-[m
+ src/components/dashboard/BottomBar.jsx             |    22 [32m+[m[31m-[m
+ src/components/safety/SafetyInspections.jsx        |    10 [32m+[m[31m-[m
+ src/components/schedule/ScheduleManagement.jsx     |   105 [32m+[m[31m-[m
+ src/pages/Claims.jsx                               |   374 [32m+[m[31m-[m
+ src/pages/CompanyDistribution.jsx                  |   625 [32m+[m
+ src/pages/CustomSchedule.jsx                       |   117 [32m+[m[31m-[m
+ src/pages/Estimates.jsx                            |    11 [32m+[m
+ src/pages/NewSites.jsx                             |   788 [32m+[m[31m-[m
+ src/pages/Progress.jsx                             |   143 [32m+[m[31m-[m
+ src/pages/Safety.jsx                               |     2 [32m+[m[31m-[m
+ src/pages/VendorManagement.jsx                     |    80 [32m+[m[31m-[m
+ src/utils/contractGabjiUtils.js                    |   352 [32m+[m[31m-[m
+ src/utils/excelCommonUtils.js                      |   628 [32m+[m
+ src/utils/gisungDataUtils.js                       |    32 [32m+[m[31m-[m
+ src/utils/gisungTemplateUtils.js                   |   588 [32m+[m[31m-[m
+ src/utils/materialDataUtils.js                     |   111 [32m+[m[31m-[m
+ src/utils/materialUploadUtils.js                   |  1886 [32m+[m[31m--[m
+ src/utils/materialUploadUtils_backup.js            |  1966 [32m+++[m
+ src/utils/migrateUtils.js                          |     2 [32m+[m[31m-[m
+ src/utils/napfoomUtils.js                          |   633 [32m+[m[31m-[m
+ src/utils/pdfUtils.js                              |     2 [32m+[m[31m-[m
+ src/utils/templateUrls.js                          |    37 [32m+[m
+ tatus                                              |    14 [31m-[m
+ templateUrls.js                                    |    19 [32m+[m
+ uploadTemplates.html                               |   386 [32m+[m
+ uploadTemplates.js                                 |   144 [32m+[m
+ uploadTemplatesToFirebase.js                       |   176 [32m+[m
+ upload_longgisung_as_separate.js                   |     4 [32m+[m
+ upload_longgisung_browser.js                       |     4 [32m+[m
+ upload_longgisung_browser_separate.js              |     4 [32m+[m
+ upload_new_templates.js                            |   445 [32m+[m[31m-[m
+ upload_public_templates.js                         |     4 [32m+[m
+ upload_public_templates_browser.js                 |     4 [32m+[m
+ upload_template_browser.js                         |     4 [32m+[m
+ upload_templates.bat                               |     4 [32m+[m
+ upload_templates_node.js                           |     4 [32m+[m
+ upload_templates_now.js                            |     4 [32m+[m
+ 61 files changed, 18039 insertions(+), 6132 deletions(-)
