@@ -15,7 +15,7 @@ import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 
 
 import { useAuth } from '../contexts/AuthContext';
-import { isMasterUser, isAdminUser } from '../utils/masterUtils';
+import { isMasterUser, isAdminUser, debugMasterUser } from '../utils/masterUtils';
 import { TrendingUp as TrendingUpIconMUI, MonetizationOn as MonetizationOnIconMUI, Star as StarIconMUI } from '@mui/icons-material';
 import PeopleIcon from '@mui/icons-material/People';
 import ReceiptIcon from '@mui/icons-material/Receipt';
@@ -103,6 +103,9 @@ const Header = ({ user, onLogout }) => {
       teamGrade,
       전체사용자정보: user 
     });
+    
+    // 디버깅 로그 추가
+    debugMasterUser(user);
     
     // 마스터 권한 확인
     if (isMasterUser(user)) {
