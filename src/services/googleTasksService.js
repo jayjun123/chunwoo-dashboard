@@ -3,8 +3,19 @@
  * 마스터 아이디만 Google Tasks와 연동
  */
 
-// 마스터 아이디 설정 (환경변수에서 가져오기)
-const MASTER_EMAIL = import.meta.env.VITE_MASTER_EMAIL || 'master@chunwoo.com';
+// 마스터 아이디 설정 (환경변수에서 가져오기, 하드코딩된 값들 백업)
+const getMasterEmails = () => {
+  const envMasterEmail = import.meta.env.VITE_MASTER_EMAIL;
+  const hardcodedEmails = ['fire8803@naver.com', 'master@chunwoo.com'];
+  
+  const emails = [];
+  if (envMasterEmail) {
+    emails.push(envMasterEmail);
+  }
+  emails.push(...hardcodedEmails);
+  
+  return [...new Set(emails)];
+};
 
 // Google Tasks API 클라이언트 ID (환경변수에서 가져오기)
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'your-google-client-id.apps.googleusercontent.com';
@@ -18,7 +29,8 @@ class GoogleTasksService {
 
   // 마스터 사용자 확인
   isMasterUser(userEmail) {
-    return userEmail === MASTER_EMAIL;
+    const masterEmails = getMasterEmails();
+    return masterEmails.includes(userEmail);
   }
 
   // Google API 초기화

@@ -18,6 +18,7 @@ import {
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { isMasterUser } from '../utils/masterUtils';
 import { useNavigate } from 'react-router-dom';
 import { 
   centerWindow, 
@@ -77,8 +78,8 @@ const Settings = () => {
     sound: true
   });
 
-  // fire8803@naver.com은 무조건 마스터 권한
-  const isMaster = currentUser?.email === 'fire8803@naver.com' || currentUser?.grade === '마스터';
+  // 마스터 권한 확인
+  const isMaster = isMasterUser(currentUser);
 
   useEffect(() => {
     fetchSettings();
@@ -98,8 +99,8 @@ const Settings = () => {
         const data = userDoc.data();
         setSettings(data.settings || settings);
         setProfile(data.profile || profile);
-        // fire8803@naver.com은 무조건 마스터로 동기화
-        if (currentUser.email === 'fire8803@naver.com' && data.grade !== '마스터') {
+        // 마스터 사용자는 무조건 마스터로 동기화
+        if (isMasterUser(currentUser) && data.grade !== '마스터') {
           await updateDoc(doc(db, 'users', currentUser.uid), { grade: '마스터' });
         }
       } else {
@@ -107,7 +108,7 @@ const Settings = () => {
         await setDoc(doc(db, 'users', currentUser.uid), {
           settings,
           profile,
-          grade: currentUser.email === 'fire8803@naver.com' ? '마스터' : '일반회원'
+          grade: isMasterUser(currentUser) ? '마스터' : '일반회원'
         });
       }
       setLoading(false);

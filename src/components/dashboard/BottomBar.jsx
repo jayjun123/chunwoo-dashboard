@@ -33,6 +33,7 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc
 import { db } from '../../firebase';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { isMasterUser } from '../../utils/masterUtils';
 import { usePopup } from '../../contexts/PopupContext';
 import { format } from 'date-fns';
 import { getKoreanDate, isSameDate } from '../../utils/dateUtils';
@@ -53,7 +54,7 @@ import {
 function isAdminOrMaster(user) {
   if (!user) return false;
   if (user.role === 'master' || user.role === 'admin') return true;
-  if (user.email === 'fire8803@naver.com' || user.uid === 'HpF5IrlTscYbWPsUhtdzV05sjbF2') return true;
+  if (isMasterUser(user)) return true;
   return false;
 }
 
