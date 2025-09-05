@@ -1,9 +1,22 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ command, mode }) => {
+  // 환경변수 로드
+  const env = loadEnv(mode, process.cwd(), '')
+  
+  // 환경변수 디버깅
+  if (command === 'build') {
+    console.log('🔧 빌드 환경변수 확인:')
+    console.log('- VITE_MASTER_EMAIL:', env.VITE_MASTER_EMAIL || '설정되지 않음')
+    console.log('- VITE_FIREBASE_PROJECT_ID:', env.VITE_FIREBASE_PROJECT_ID || '설정되지 않음')
+    console.log('- NODE_ENV:', process.env.NODE_ENV)
+    console.log('- MODE:', mode)
+  }
+  
+  return {
   plugins: [
     react(),
     VitePWA({
@@ -82,5 +95,6 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true
+  }
   }
 }) 

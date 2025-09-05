@@ -26,6 +26,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import { useAuth } from '../contexts/AuthContext';
+import { isMasterUser } from '../utils/masterUtils';
 import * as XLSX from 'xlsx';
 import { format, startOfDay, endOfDay, isToday, isYesterday, subDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -46,7 +47,7 @@ const TodoList = () => {
   const [editText, setEditText] = useState('');
   const { currentUser } = useAuth();
   const userId = currentUser?.uid;
-  const isMaster = currentUser?.email === 'fire8803@naver.com' || userId === 'HpF5IrlTscYbWPsUhtdzV05sjbF2';
+  const isMaster = isMasterUser(currentUser);
 
   // 사용자 목록 가져오기 (마스터 계정용)
   const fetchAllUsers = async () => {

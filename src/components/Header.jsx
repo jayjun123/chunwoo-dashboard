@@ -15,6 +15,7 @@ import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 
 
 import { useAuth } from '../contexts/AuthContext';
+import { isMasterUser, isAdminUser } from '../utils/masterUtils';
 import { TrendingUp as TrendingUpIconMUI, MonetizationOn as MonetizationOnIconMUI, Star as StarIconMUI } from '@mui/icons-material';
 import PeopleIcon from '@mui/icons-material/People';
 import ReceiptIcon from '@mui/icons-material/Receipt';
@@ -103,13 +104,13 @@ const Header = ({ user, onLogout }) => {
       전체사용자정보: user 
     });
     
-    // 마스터 권한 확인 (role 우선, 그 다음 email/displayName)
-    if (role === 'master' || grade === '마스터' || email.includes('master') || displayName.includes('마스터')) {
+    // 마스터 권한 확인
+    if (isMasterUser(user)) {
       return { label: 'MASTER', color: '#fff', bgColor: '#ff4444' };
     }
     
     // 관리자 권한 확인
-    if (role === 'admin' || grade === '관리자' || email.includes('admin') || displayName.includes('관리자')) {
+    if (isAdminUser(user)) {
       return { label: '관리자', color: '#000', bgColor: '#ffeb3b' };
     }
     

@@ -67,6 +67,7 @@ import {
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { isMasterUser } from '../utils/masterUtils';
 import { formatNumber } from '../utils/formatUtils';
 import * as XLSX from 'xlsx';
 
@@ -118,7 +119,7 @@ const Confidential = () => {
   };
 
   // 권한 확인 (마스터만 수정 가능)
-  const isMaster = currentUser?.email === 'fire8803@naver.com';
+  const isMaster = isMasterUser(currentUser);
 
   // 데이터 로드
   const loadData = async () => {
