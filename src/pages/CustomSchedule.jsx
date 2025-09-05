@@ -171,11 +171,23 @@ const CustomSchedule = () => {
 
       try {
         const itemId = draggableId.split('-').pop();
-        const docRef = doc(db, 'schedules', itemId);
-        await updateDoc(docRef, {
-          date: destination.droppableId,
-          updatedAt: new Date()
-        });
+        
+        // 견적 일정인지 확인
+        if (isEstimateItem(itemId)) {
+          // 견적 일정이면 estimates 컬렉션 업데이트
+          const docRef = doc(db, 'estimates', itemId.replace('estimate_', ''));
+          await updateDoc(docRef, {
+            submissionDeadline: destination.droppableId,
+            updatedAt: new Date()
+          });
+        } else {
+          // 일반 일정이면 schedules 컬렉션 업데이트
+          const docRef = doc(db, 'schedules', itemId);
+          await updateDoc(docRef, {
+            date: destination.droppableId,
+            updatedAt: new Date()
+          });
+        }
       } catch (error) {
         console.error('Failed to update schedule date', error);
         // 에러 발생 시 원래 상태로 복구 (UI 복잡성으로 인해 생략, 필요시 추가)
@@ -239,6 +251,11 @@ const CustomSchedule = () => {
     } catch (error) {
       console.error('일정 추가 실패:', error);
     }
+  };
+
+  // 견적 일정인지 확인하는 함수
+  const isEstimateItem = (itemId) => {
+    return itemId && itemId.startsWith('estimate_');
   };
 
   const handleItemClick = (date, id) => {
@@ -392,7 +409,15 @@ const CustomSchedule = () => {
     const batch = writeBatch(db);
     itemsToDelete.forEach(selected => {
       if (selected.id && selected.type !== 'site') {
-        batch.delete(doc(db, 'schedules', selected.id));
+        // 견적 일정인지 확인
+        if (isEstimateItem(selected.id)) {
+          // 견적 일정이면 estimates 컬렉션에서 삭제
+          const estimateId = selected.id.replace('estimate_', '');
+          batch.delete(doc(db, 'estimates', estimateId));
+        } else {
+          // 일반 일정이면 schedules 컬렉션에서 삭제
+          batch.delete(doc(db, 'schedules', selected.id));
+        }
       }
     });
     try {
@@ -419,7 +444,14 @@ const CustomSchedule = () => {
 
     // 2. Background DB operation
     try {
-      await deleteDoc(doc(db, 'schedules', itemId));
+      // 견적 일정인지 확인
+      if (isEstimateItem(itemId)) {
+        // 견적 일정이면 estimates 컬렉션에서 삭제
+        await deleteDoc(doc(db, 'estimates', itemId.replace('estimate_', '')));
+      } else {
+        // 일반 일정이면 schedules 컬렉션에서 삭제
+        await deleteDoc(doc(db, 'schedules', itemId));
+      }
     } catch (error) {
       alert('데이터베이스 삭제에 실패했습니다. 새로고침하면 항목이 다시 나타날 수 있습니다.');
     }
@@ -447,7 +479,18 @@ const CustomSchedule = () => {
     }
     
     try {
-      await updateDoc(doc(db, 'schedules', editPopup.item.id), updateData);
+      // 견적 일정인지 확인
+      if (isEstimateItem(editPopup.item.id)) {
+        // 견적 일정이면 estimates 컬렉션 업데이트
+        const estimateId = editPopup.item.id.replace('estimate_', '');
+        await updateDoc(doc(db, 'estimates', estimateId), {
+          ...updateData,
+          submissionDeadline: editPopup.date // 견적은 submissionDeadline 필드 사용
+        });
+      } else {
+        // 일반 일정이면 schedules 컬렉션 업데이트
+        await updateDoc(doc(db, 'schedules', editPopup.item.id), updateData);
+      }
       setEditPopup({ open: false, item: null, date: null });
       setSelectedTypes([]);
     } catch (error) {
@@ -473,17 +516,53 @@ const CustomSchedule = () => {
 
   const handleExcel = () => {
     try {
-      // 체크박스 상태를 포함한 데이터 생성
-      const dataWithCheckStatus = Object.entries(calendarItems).flatMap(([date, items]) =>
-        items.map(item => ({
-          날짜: date,
-          제목: item.text,
-          유형: item.type,
-          설명: item.desc || '',
-          현장: item.siteId || '',
-          체크여부: checkedItems[`${date}-${item.id}`] ? '체크' : '미체크'
-        }))
-      );
+      // 현재 월의 모든 날짜를 생성 (1일부터 마지막 날까지)
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth();
+      
+      // 해당 월의 마지막 날 계산
+      const lastDay = new Date(currentYear, currentMonth + 1, 0);
+      
+      const allDatesInMonth = [];
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const date = new Date(currentYear, currentMonth, day);
+        const dateStr = date.toISOString().split('T')[0];
+        allDatesInMonth.push(dateStr);
+      }
+      
+      console.log('📅 CustomSchedule 엑셀 다운로드 - 해당 월의 모든 날짜:', allDatesInMonth);
+      
+      // 각 날짜별로 데이터 생성
+      const dataWithCheckStatus = [];
+      
+      allDatesInMonth.forEach(dateStr => {
+        const items = calendarItems[dateStr] || [];
+        
+        if (items.length === 0) {
+          // 일정이 없는 날짜는 빈 행으로 추가
+          dataWithCheckStatus.push({
+            날짜: dateStr,
+            제목: '',
+            유형: '',
+            설명: '',
+            현장: '',
+            체크여부: ''
+          });
+        } else {
+          // 일정이 있는 날짜는 각 항목별로 추가
+          items.forEach(item => {
+            dataWithCheckStatus.push({
+              날짜: dateStr,
+              제목: item.text,
+              유형: item.type,
+              설명: item.desc || '',
+              현장: item.siteId || '',
+              체크여부: checkedItems[`${dateStr}-${item.id}`] ? '체크' : '미체크'
+            });
+          });
+        }
+      });
       
       // 데이터가 비어있는지 확인
       if (dataWithCheckStatus.length === 0) {

@@ -1,5 +1,7 @@
 // 납품계약서 갑지 생성 유틸리티 (데이터만 입력)
 import ExcelJS from 'exceljs';
+import { templateUrls } from './templateUrls';
+import { getSafePrice, setCellValueSafely, filterMaterialItems, logMaterialItem, cleanSheetData, fillContractStyleData, cleanEmptyRows } from './excelCommonUtils';
 
 /**
  * 납품계약서 갑지 생성 (데이터만 입력)
@@ -12,37 +14,83 @@ export const createContractGabji = async (siteData, materialItems = [], fileName
   try {
     console.log('📋 납품계약서 갑지 생성 시작...', { siteData, materialItems });
     
-        // Firebase Storage에서 템플릿 다운로드
-    const templateUrl = 'https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2Fcontract_gabji.xlsx?alt=media&token=a5dac61d-7db3-4b7e-9efd-857aa16ffe2b';
+        // Firebase Storage에서 템플릿 다운로드 (물량 타입에 따라 다른 템플릿 사용)
+        // 물량 개수에 따른 템플릿 타입 자동 결정
+        const itemCount = materialItems?.length || 0;
+        
+        // siteData.templateType이 'AUTO'인 경우 물량 개수로 결정, 그렇지 않으면 기존 값 사용
+        let templateType;
+        if (siteData.templateType === 'AUTO') {
+          templateType = itemCount > 20 ? 'L' : 'N';
+          console.log(`🔄 AUTO 모드: 물량 ${itemCount}개 → ${templateType} 타입 선택`);
+        } else {
+          templateType = siteData.templateType || 'N';
+          console.log(`📋 수동 설정: ${templateType} 타입 사용`);
+        }
+        
+        const templateKey = `(${templateType})납품계약서`;
+        const templateUrl = templateUrls[templateKey];
+        
+        if (!templateUrl) {
+          throw new Error(`템플릿 URL을 찾을 수 없습니다: ${templateKey}`);
+        }
+        
+        console.log(`📊 물량 개수: ${itemCount}개 → ${templateType} 타입 템플릿 사용`);
+        console.log(`📋 납품계약서 템플릿 선택: ${templateType} 타입 (${templateType === 'L' ? 'LONG' : 'NEW'})`);
+    console.log('🔗 템플릿 URL:', templateUrl);
     const response = await fetch(templateUrl);
     const arrayBuffer = await response.arrayBuffer();
     
-    // 템플릿 로드 (공유수식 완전 무시)
+    // 템플릿 로드 (수식 보존, Shared Formula만 제거)
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(arrayBuffer, {
-      ignoreNodes: ['shared-formula', 'shared-formula-ref', 'shared-formula-master', 'formula'],
-      ignoreFormulas: true,
-      ignoreFormulaErrors: true,
-      ignoreSharedFormulas: true
-    });
-    console.log('✅ 납품계약서 갑지 템플릿 로드 완료');
+    try {
+      // 첫 번째 시도: 기본 설정으로 로딩
+      await workbook.xlsx.load(arrayBuffer, {
+        sharedFormula: false,
+        ignoreFormulas: false,  // 수식 보존
+        ignoreFormulaErrors: true,
+        ignoreStyles: false,
+        ignoreDataValidations: false,
+        ignoreConditionalFormats: false
+      });
+      console.log('✅ 기본 설정으로 납품계약서 템플릿 로드 성공');
+    } catch (loadError) {
+      console.warn('⚠️ 기본 로딩 실패, Shared Formula 무시로 재시도:', loadError.message);
+      
+      // 두 번째 시도: Shared Formula만 무시
+      await workbook.xlsx.load(arrayBuffer, {
+        sharedFormula: false,
+        ignoreSharedFormulas: true,
+        ignoreFormulas: false,  // 수식 보존
+        ignoreFormulaErrors: true,
+        ignoreStyles: false,
+        ignoreDataValidations: false,
+        ignoreConditionalFormats: false
+      });
+      console.log('✅ Shared Formula 무시로 납품계약서 템플릿 로드 성공');
+    }
     
-    // 공유수식 완전 제거
-    removeAllSharedFormulas(workbook);
-    console.log('✅ 공유수식 제거 완료');
+    // Shared Formula 문제만 해결 (수식은 보존)
+    fixContractSharedFormulaIssues(workbook);
+    console.log('✅ Shared Formula 문제 해결 완료 (수식 보존)');
     
     // 데이터만 입력 (양식은 건드리지 않음)
     await fillContractGabjiData(workbook, siteData, materialItems);
     
-    // 파일 생성 및 다운로드
+    // 파일 생성 및 다운로드 (수식 보존 강제)
     console.log('💾 파일 생성 중...');
     const buffer = await workbook.xlsx.writeBuffer({
-      ignoreNodes: ['shared-formula', 'shared-formula-ref', 'shared-formula-master', 'formula'],
-      ignoreFormulaErrors: true,
-      ignoreFormulas: true,
-      ignoreSharedFormulas: true
+      sharedFormula: false,
+      ignoreFormulas: false,  // 수식 보존 강제
+      ignoreSharedFormulas: true,
+      ignoreStyles: false,
+      ignoreDataValidations: false,
+      ignoreConditionalFormats: false,
+      ignoreMacros: false,
+      ignorePictures: false,
+      ignoreCharts: false
     });
-    console.log('📦 버퍼 생성 완료, 크기:', buffer.byteLength);
+    console.log('📦 버퍼 생성 완료 (수식 보존), 크기:', buffer.byteLength);
     
     const blob = new Blob([buffer], { 
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
@@ -95,7 +143,72 @@ export const createContractGabji = async (siteData, materialItems = [], fileName
 
 
 /**
- * 모든 공유 수식 제거 함수
+ * 납품계약서 Shared Formula 문제 해결 함수 (수식 보존)
+ * @param {ExcelJS.Workbook} workbook - 워크북
+ */
+const fixContractSharedFormulaIssues = (workbook) => {
+  try {
+    console.log('🔧 납품계약서 Shared Formula 문제 해결 시작');
+    
+    workbook.worksheets.forEach(sheet => {
+      console.log(`🔧 ${sheet?.name} 시트 Shared Formula 문제 해결`);
+      
+      // 문제가 되는 특정 셀만 처리 (중요한 수식은 보존)
+      const targetCells = [
+        { row: 7, col: 'F' },   // F7 셀
+        { row: 8, col: 'F' },   // F8 셀
+        { row: 8, col: 'H' },   // H8 셀 (새로 발견된 문제 셀)
+        { row: 8, col: 'K' },   // K8 셀
+        { row: 19, col: 'K' },  // K19 셀
+        { row: 27, col: 'K' }   // K27 셀
+      ];
+      
+      targetCells.forEach(({ row, col }) => {
+        try {
+          const cell = sheet.getCell(`${col}${row}`);
+          if (cell) {
+            console.log(`🔧 ${col}${row} 셀 특별 처리 시작`);
+            
+            // Shared Formula 관련 속성만 제거 (수식은 보존)
+            if (cell.sharedFormula !== undefined) {
+              console.log(`🔧 ${col}${row} 셀 sharedFormula 제거`);
+              delete cell.sharedFormula;
+            }
+            if (cell.si !== undefined) {
+              console.log(`🔧 ${col}${row} 셀 si 제거`);
+              delete cell.si;
+            }
+            if (cell.ref !== undefined) {
+              console.log(`🔧 ${col}${row} 셀 ref 제거`);
+              delete cell.ref;
+            }
+            
+            // 수식에 si 참조가 포함된 경우만 정리
+            if (cell.formula && typeof cell.formula === 'string' && cell.formula.includes('si=')) {
+              console.log(`🔧 ${col}${row} 셀의 si 참조가 포함된 수식 정리`);
+              // si 참조만 제거하고 수식은 보존
+              cell.formula = cell.formula.replace(/si=\d+/g, '');
+            }
+            
+            // F7, F8, H8, K8 셀은 Shared Formula 속성만 제거 (값은 건드리지 않음)
+            if ((col === 'F' && (row === 7 || row === 8)) || (col === 'H' && row === 8) || (col === 'K' && row === 8)) {
+              console.log(`✅ ${col}${row} 셀 Shared Formula 속성만 제거 완료 (값 보존)`);
+            }
+          }
+        } catch (cellError) {
+          console.warn(`⚠️ ${col}${row} 셀 처리 실패:`, cellError.message);
+        }
+      });
+    });
+    
+    console.log('✅ 납품계약서 Shared Formula 문제 해결 완료');
+  } catch (error) {
+    console.warn('⚠️ 납품계약서 Shared Formula 문제 해결 중 오류:', error.message);
+  }
+};
+
+/**
+ * 모든 공유 수식 제거 함수 (기존 함수 유지)
  * @param {ExcelJS.Workbook} workbook - 워크북
  */
 const removeAllSharedFormulas = (workbook) => {
@@ -103,12 +216,12 @@ const removeAllSharedFormulas = (workbook) => {
     console.log('🔧 공유 수식 제거 시작...');
     
     workbook.worksheets.forEach((worksheet, index) => {
-      console.log(`🔍 시트 ${index + 1}: ${worksheet.name} 처리 중...`);
+      console.log(`🔍 시트 ${index + 1}: ${worksheet?.name} 처리 중...`);
       
       worksheet.eachRow((row, rowNumber) => {
         row.eachCell((cell, colNumber) => {
           if (cell.formula) {
-            console.log(`⚠️ 수식 발견: ${worksheet.name}!${cell.address} = ${cell.formula}`);
+            console.log(`⚠️ 수식 발견: ${worksheet?.name}!${cell.address} = ${cell.formula}`);
             // 수식 제거하고 값만 유지
             const currentValue = cell.value;
             cell.formula = undefined;
@@ -138,7 +251,7 @@ const fillContractGabjiData = async (workbook, siteData, materialItems) => {
     // 각 시트에 데이터 입력
     const sheets = workbook.worksheets;
     for (const sheet of sheets) {
-      console.log(`📋 ${sheet.name} 시트에 데이터 입력`);
+      console.log(`📋 ${sheet?.name} 시트에 데이터 입력`);
       
       // 1번째 시트 (계약서) - 기본 정보 입력
       if (sheets.indexOf(sheet) === 0) { // 1번째 시트 (0-based index)
@@ -193,7 +306,7 @@ const fillContractSheetData = async (sheet, siteData, workbook) => {
     // 정확한 위치에 데이터 입력 (현장관리페이지 현장상세정보에서)
     const dataMapping = {
       // 현장명
-      'G4': siteData.name || siteData.siteName || '',
+      'G4': siteData?.name || siteData?.siteName || '',
       
       // 계약금액
       'K7': siteData.contractAmount || '',
@@ -342,14 +455,26 @@ const fillMaterialSheetData = (sheet, materialItems) => {
         const row = 5 + index;
         
         try {
+          // 안전한 값 변환 함수
+          const safeString = (value) => {
+            if (value === null || value === undefined) return '';
+            return String(value);
+          };
+          
+          const safeNumber = (value) => {
+            if (value === null || value === undefined) return 0;
+            const num = Number(value);
+            return isNaN(num) ? 0 : num;
+          };
+          
           // 일반적인 물량 내역 구조에 맞춰 데이터 입력
-          sheet.getCell(`A${row}`).value = item.name || item.itemName || '';
-          sheet.getCell(`B${row}`).value = item.specification || item.spec || '';
-          sheet.getCell(`C${row}`).value = item.unit || '';
-          sheet.getCell(`D${row}`).value = item.quantity || item.qty || '';
-          sheet.getCell(`E${row}`).value = item.unitPrice || item.price || '';
-          sheet.getCell(`F${row}`).value = item.amount || item.total || '';
-          sheet.getCell(`G${row}`).value = item.note || item.remark || '';
+          sheet.getCell(`A${row}`).value = safeString(item?.name || item?.itemName);
+          sheet.getCell(`B${row}`).value = safeString(item?.specification || item?.spec);
+          sheet.getCell(`C${row}`).value = safeString(item?.unit);
+          sheet.getCell(`D${row}`).value = safeNumber(item?.quantity || item?.qty);
+          sheet.getCell(`E${row}`).value = safeNumber(item?.unitPrice || item?.price);
+          sheet.getCell(`F${row}`).value = safeNumber(item?.amount || item?.total);
+          sheet.getCell(`G${row}`).value = safeString(item?.note || item?.remark);
           
           console.log(`✅ ${row}행 데이터 입력 완료`);
         } catch (e) {
@@ -476,124 +601,71 @@ const fillEstimateStyleSheetData = (sheet, siteData, materialItems) => {
         console.log(`✅ ${rowsToAdd}개 행 추가 완료`);
       }
       
-      materialItems.forEach((item, index) => {
-        const row = startRow + index; // A5부터 시작
-        
+      // 총계 항목들을 제외하고 실제 물량만 필터링 - 공통 유틸리티 사용
+      const filteredItems = filterMaterialItems(materialItems);
+      
+      console.log(`📊 필터링된 물량 데이터: ${filteredItems.length}개 (총계 항목 제외)`);
+      
+      // 🛡️ 공통 유틸리티를 사용하여 납품계약서용 데이터 입력
+      fillContractStyleData(sheet, filteredItems, startRow, '납품계약서');
+      
+      // C,D열에 값이 없으면 그 행 전체를 빈칸으로 처리
+      console.log('🧹 납품계약서: C,D열에 값이 없는 행 전체 빈칸 처리 시작...');
+      const maxCleanupRow = startRow + filteredItems.length - 1;
+      
+      for (let row = startRow; row <= maxCleanupRow; row++) {
         try {
-          console.log(`🔍 ${row}행 아이템 데이터:`, item);
-          console.log(`🔍 ${row}행 아이템 키들:`, Object.keys(item));
+          // 해당 행의 C, D 열 값 확인
+          const cellC = sheet.getCell(row, 3); // C열 (단위)
+          const cellD = sheet.getCell(row, 4); // D열 (수량)
           
-          // A,B,C,D 값 확인 (안전한 문자열 처리)
-          const name = String(item.name || item.itemName || '').trim();
-          const specification = String(item.specification || item.spec || '').trim();
-          const unit = String(item.unit || '').trim();
-          const quantity = item.quantity || item.qty || 0;
+          // C, D 열에 값이 없으면 해당 행 전체를 빈칸으로 처리
+          const isEmptyCD = (!cellC.value || cellC.value === '') && 
+                           (!cellD.value || cellD.value === '');
           
-          // A,B,C,D 값이 있는지 확인 (단수정리 포함)
-          const hasBasicData = name || specification || unit || quantity || (name && name.includes('단수정리'));
-          
-          if (hasBasicData) {
-            // 단수정리 특별 처리 (안전한 문자열 검사)
-            if (name && typeof name === 'string' && name.includes('단수정리')) {
-              console.log(`📊 ${row}행 단수정리 특별 처리:`, name);
-              sheet.getCell(`A${row}`).value = name; // A열: 단수정리
-              sheet.getCell(`B${row}`).value = specification || ''; // B열: 규격
-              sheet.getCell(`C${row}`).value = unit || ''; // C열: 단위
-              
-              // D열: 수량 (단수정리는 보통 1)
-              const dCell = sheet.getCell(`D${row}`);
-              dCell.value = Number(quantity || 1).toFixed(2);
-              dCell.alignment = { horizontal: 'right' };
-              
-              // 단수정리는 K열(합계 단가)에만 값을 넣고, L열(합계 금액)은 수식 유지
-              const unitPrice = item.unitPrice || item.price || 0;
-              
-              // E, G, I열은 빈 값으로 설정
-              sheet.getCell(`E${row}`).value = ''; // 재료비 단가 (빈 값)
-              sheet.getCell(`G${row}`).value = ''; // 노무비 단가 (빈 값)
-              sheet.getCell(`I${row}`).value = ''; // 경비 단가 (빈 값)
-              
-              // K열: 합계 단가만 설정
-              sheet.getCell(`K${row}`).value = unitPrice;
-              
-              // F, H, J, L, M열은 수식 유지 (건드리지 않음)
-              console.log(`✅ ${row}행 단수정리 완료: K열 단가(${unitPrice}), L열 수식 유지`);
-            } else {
-              // 일반 물량 데이터 처리
-              sheet.getCell(`A${row}`).value = specification; // A열: 규격 (예: 5MZT152H/S+14AR+5CL)
-              sheet.getCell(`B${row}`).value = name; // B열: 이름 (예: 24더블로이)
-              sheet.getCell(`C${row}`).value = unit; // C열: 단위
-              
-              // D열: 수량 (소수점 2째자리, 오른쪽 정렬)
-              const dCell = sheet.getCell(`D${row}`);
-              dCell.value = Number(quantity).toFixed(2);
-              dCell.alignment = { horizontal: 'right' };
-              
-              // E열: 재료비단가 (JE프라이스)
-              const jePrice = item.JEprice || item.JE프라이스 || item.jePrice || 0;
-              console.log(`🔍 ${row}행 JE프라이스 값:`, jePrice, '원본:', item.JEprice, item.JE프라이스, item.jePrice);
-              sheet.getCell(`E${row}`).value = jePrice;
-              
-              // G열: 노무비단가 (NO프라이스)
-              const noPrice = item.NOprice || item.NO프라이스 || item.noPrice || 0;
-              console.log(`🔍 ${row}행 NO프라이스 값:`, noPrice, '원본:', item.NOprice, item.NO프라이스, item.noPrice);
-              sheet.getCell(`G${row}`).value = noPrice;
-              
-              // I열: 경비단가 (KY프라이스)
-              const kyPrice = item.KYprice || item.KY프라이스 || item.kyPrice || 0;
-              console.log(`🔍 ${row}행 KY프라이스 값:`, kyPrice, '원본:', item.KYprice, item.KY프라이스, item.kyPrice);
-              sheet.getCell(`I${row}`).value = kyPrice;
-              
-              // F, H, J, K, L, M열은 수식 그대로 두기 (건드리지 않음)
-            }
+          if (isEmptyCD) {
+            console.log(`📝 납품계약서 ${row}행 C,D열이 비어있어서 행 전체를 빈칸으로 처리`);
             
-            console.log(`✅ ${row}행 물량데이터 입력 완료 (A:규격, B:이름, C:단위, D:수량(우정렬), E:JE프라이스(${jePrice}), G:NO프라이스(${noPrice}), I:KY프라이스(${kyPrice}))`);
+                         // C,D열에 값이 없으면 A,B열만 놔두고 나머지만 빈칸으로 처리 (수식은 보존)
+             for (let col = 1; col <= 13; col++) { // A=1, M=13
+               try {
+                 const cell = sheet.getCell(row, col);
+                 
+                 // A,B열은 그대로 놔두기 (품명, 규격 보존)
+                 if (col === 1 || col === 2) {
+                   console.log(`🛡️ 납품계약서 ${row}행 ${String.fromCharCode(64 + col)}열 A,B열 보존: ${cell.value || ''}`);
+                   continue; // A,B열은 건드리지 않음
+                 }
+                 
+                 // C~M열만 빈칸으로 처리 (수식은 보존)
+                 if (cell.formula) {
+                   console.log(`🛡️ 납품계약서 ${row}행 ${String.fromCharCode(64 + col)}열 수식 보존: ${cell.formula}`);
+                   // 수식은 그대로 두고 값만 빈칸으로
+                   cell.value = '';
+                 } else {
+                   // 수식이 없는 경우 값만 빈칸으로 처리
+                   cell.value = '';
+                   console.log(`✅ 납품계약서 ${row}행 ${String.fromCharCode(64 + col)}열 값만 빈칸 처리 완료`);
+                 }
+                 
+                 console.log(`✅ 납품계약서 ${row}행 ${String.fromCharCode(64 + col)}열 처리 완료`);
+               } catch (e) {
+                 console.log(`⚠️ 납품계약서 ${row}행 ${String.fromCharCode(64 + col)}열 처리 실패:`, e.message);
+               }
+             }
           } else {
-            // A,B,C,D 값이 없으면 E~M열까지 빈칸으로 처리 (수식 포함)
-            for (let col = 5; col <= 13; col++) { // E~M열 (5~13)
-              const colLetter = String.fromCharCode(64 + col); // A=65, E=69, M=77
-              const cell = sheet.getCell(`${colLetter}${row}`);
-              cell.value = '';
-              // formula 속성은 읽기 전용이므로 제거
-            }
-            console.log(`📝 ${row}행: A,B,C,D 값 없음, E~M열 빈칸 처리 (수식 포함)`);
+            console.log(`📝 납품계약서 ${row}행 C,D열에 데이터가 있어서 행 유지`);
           }
-        } catch (e) {
-          console.log(`⚠️ ${row}행 물량데이터 입력 실패:`, e.message);
+        } catch (error) {
+          console.warn(`⚠️ 납품계약서 ${row}행 빈칸 처리 중 오류:`, error.message);
         }
-      });
-    }
-    
-    // 빈 행의 수식 제거 (A,B,C,D열에 데이터가 없으면 E~M열 수식 제거)
-    console.log('🧹 빈 행의 수식 정리 시작...');
-    const lastRow = sheet.rowCount;
-    console.log(`📊 템플릿 총 행 수: ${lastRow}행`);
-    
-    for (let rowIndex = 5; rowIndex <= lastRow; rowIndex++) {
-      const row = sheet.getRow(rowIndex);
-      if (!row) continue;
-      
-      // A, B, C, D열에 데이터가 있는지 확인
-      const hasData = ['A', 'B', 'C', 'D'].some(col => {
-        const cell = sheet.getCell(`${col}${rowIndex}`);
-        const value = cell.value;
-        return value !== null && value !== undefined && value !== '' && 
-               (typeof value === 'string' ? value.trim() !== '' : true);
-      });
-      
-      if (!hasData) {
-        // 데이터가 없으면 E~M열의 수식 제거
-        ['E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'].forEach(col => {
-          const cell = sheet.getCell(`${col}${rowIndex}`);
-          if (cell.formula) {
-            console.log(`🧹 ${col}${rowIndex} 수식 제거: ${cell.formula}`);
-            cell.value = ''; // 수식 제거 (빈 문자열로 설정)
-          }
-        });
       }
+      
+      console.log('✅ 납품계약서 C,D열 빈칸 처리 완료');
     }
     
-    console.log('✅ 빈 행의 수식 정리 완료');
+    // 🛡️ 공통 유틸리티를 사용하여 빈 행 정리
+    cleanEmptyRows(sheet, 5, '납품계약서');
     console.log('✅ 3번째 시트 물량데이터 입력 완료');
     
   } catch (error) {
@@ -613,7 +685,7 @@ export const downloadContractGabji = async (site, materialItems = []) => {
     console.log('📋 납품계약서 갑지 다운로드 시작...', { site, materialItems });
     
     // 납품계약서 갑지 생성 (파일명 변경)
-    const fileName = `(납품계약서)${site.name || site.siteName || '현장'} 중 유리납품`;
+    const fileName = `(납품계약서)${site?.name || site?.siteName || '현장'} 중 유리납품`;
     const result = await createContractGabji(site, materialItems, fileName);
     
     if (result.success) {

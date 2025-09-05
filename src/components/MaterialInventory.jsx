@@ -63,6 +63,14 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
     return templateType === 'L' ? 'warning' : 'info';
   };
 
+  // templateType에 따른 툴팁 텍스트
+  const getTemplateTypeTooltip = () => {
+    if (!templateType) return '';
+    return templateType === 'L' 
+      ? 'LONG 템플릿 - 견적서/납품계약서 다운로드 시 (L)gyunjuk.xlsx 사용'
+      : 'NEW 템플릿 - 견적서/납품계약서 다운로드 시 (N)gyunjuk.xlsx 사용';
+  };
+
   // 모바일 감지
   useEffect(() => {
     const checkMobile = () => {
@@ -267,6 +275,7 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
               label={getTemplateTypeText()}
               color={getTemplateTypeColor()}
               size="small"
+              title={getTemplateTypeTooltip()}
               sx={{ 
                 fontWeight: 'bold',
                 '& .MuiChip-label': { color: '#fff' }

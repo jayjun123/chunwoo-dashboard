@@ -26,6 +26,7 @@ import PopupProvider from './contexts/PopupContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import SplashScreen from './components/common/SplashScreen';
 import TemplateUpload from './pages/TemplateUpload';
+import CompanyDistribution from './pages/CompanyDistribution';
 import { URL_ALIASES, expandUrl } from './utils/urlShortener';
 
 // 임시: 현장명 동기화 함수
@@ -421,14 +422,15 @@ const App = React.memo(() => {
                       <Route path="/t" element={<Navigate to="/todo-list" replace />} />
                       <Route path="/ta" element={<Navigate to="/todo/all" replace />} />
                       <Route path="/gs" element={<Navigate to="/gisung" replace />} />
-                      <Route path="/wl" element={<Navigate to="/whole-list" replace />} />
-                      <Route path="/nf" element={<Navigate to="/news-favorites" replace />} />
-                      <Route path="/pt" element={<Navigate to="/pdf-test" replace />} />
-                      <Route path="/tu" element={<Navigate to="/template-upload" replace />} />
-                      <Route path="/pr" element={<Navigate to="/profile" replace />} />
-                      <Route path="/cl" element={<Navigate to="/claims" replace />} />
-                      <Route path="/es" element={<Navigate to="/estimates" replace />} />
-                      <Route path="/set" element={<Navigate to="/settings" replace />} />
+                              <Route path="/wl" element={<Navigate to="/whole-list" replace />} />
+        <Route path="/nf" element={<Navigate to="/news-favorites" replace />} />
+        <Route path="/pt" element={<Navigate to="/pdf-test" replace />} />
+        <Route path="/tu" element={<Navigate to="/template-upload" replace />} />
+        <Route path="/pr" element={<Navigate to="/profile" replace />} />
+        <Route path="/cl" element={<Navigate to="/claims" replace />} />
+        <Route path="/es" element={<Navigate to="/estimates" replace />} />
+        <Route path="/set" element={<Navigate to="/settings" replace />} />
+        <Route path="/cd" element={<Navigate to="/company-distribution" replace />} />
                       
                       {/* 기존 라우트들 */}
                       <Route path="/login" element={<Login />} />
@@ -479,6 +481,22 @@ const App = React.memo(() => {
                             ) : (
                               <Layout>
                                 <NewSites />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/company-distribution"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <CompanyDistribution />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <CompanyDistribution />
                               </Layout>
                             )}
                           </ProtectedRoute>

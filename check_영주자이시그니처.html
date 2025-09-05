@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>영주자이시그니처 현장 데이터 확인</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .loading {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 영주자이시그니처 현장 데이터 확인</h1>
+        
+        <div>
+            <button class="button" onclick="checkSiteData()">현장 데이터 확인</button>
+            <button class="button" onclick="checkAllSites()">모든 현장 조회</button>
+            <button class="button" onclick="clearResults()">결과 지우기</button>
+        </div>
+        
+        <div id="result" class="result info">
+            버튼을 클릭하여 영주자이시그니처 현장의 데이터를 확인하세요.
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Firebase 설정 (실제 프로젝트 설정)
+        const firebaseConfig = {
+            apiKey: "AIzaSyATCGXGD2_teiJFdpng9J2_fvZRItPef0w",
+            authDomain: "chunwooo-edf9f.firebaseapp.com",
+            projectId: "chunwooo-edf9f",
+            storageBucket: "chunwooo-edf9f.firebasestorage.app",
+            messagingSenderId: "417029078660",
+            appId: "1:417029078660:web:00e23d79af77876e598cd1",
+            measurementId: "G-653CL9XWFH"
+        };
+
+        // Firebase 초기화
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // 결과 표시 함수
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = message;
+            resultDiv.className = `result ${type}`;
+        }
+
+        // 영주자이시그니처 현장 데이터 확인
+        window.checkSiteData = async () => {
+            try {
+                showResult('🔍 영주자이시그니처 현장 데이터 확인 중...', 'loading');
+                
+                // 1. 현장 정보 조회
+                const sitesQuery = query(collection(db, 'sites'), where('name', '==', '영주자이시그니처'));
+                const sitesSnapshot = await getDocs(sitesQuery);
+                
+                let result = '';
+                
+                if (sitesSnapshot.empty) {
+                    result += '❌ 영주자이시그니처 현장을 찾을 수 없습니다.\n\n';
+                    
+                    // 모든 현장 조회해서 비슷한 이름 찾기
+                    const allSitesSnapshot = await getDocs(collection(db, 'sites'));
+                    result += `🔍 모든 현장 목록 (${allSitesSnapshot.docs.length}개):\n`;
+                    
+                    const relatedSites = [];
+                    allSitesSnapshot.docs.forEach(doc => {
+                        const data = doc.data();
+                        if (data.name && (data.name.includes('영주') || data.name.includes('자이') || data.name.includes('시그니처'))) {
+                            relatedSites.push(data);
+                            result += `  ✅ ${data.name} (ID: ${doc.id})\n`;
+                        }
+                    });
+                    
+                    if (relatedSites.length === 0) {
+                        result += '  관련 현장을 찾을 수 없습니다.\n';
+                    }
+                    
+                    showResult(result, 'error');
+                    return;
+                }
+                
+                const site = sitesSnapshot.docs[0];
+                const siteData = site.data();
+                
+                result += '✅ 영주자이시그니처 현장 발견:\n';
+                result += `  ID: ${site.id}\n`;
+                result += `  이름: ${siteData.name}\n`;
+                result += `  계약금액: ${siteData.contractAmount || '미입력'}\n`;
+                result += `  물량 데이터: ${siteData.items ? siteData.items.length : 0}개\n`;
+                result += `  물량 데이터 존재: ${!!siteData.items}\n`;
+                result += `  물량 데이터 배열: ${Array.isArray(siteData.items)}\n\n`;
+                
+                // 2. 물량 데이터 상세 확인
+                if (siteData.items && Array.isArray(siteData.items)) {
+                    result += '📊 물량 데이터 상세:\n';
+                    siteData.items.forEach((item, index) => {
+                        result += `  ${index + 1}. ${item.name || '이름없음'} - ${item.specification || '규격없음'} - ${item.quantity || 0}${item.unit || ''}\n`;
+                    });
+                    result += '\n';
+                } else {
+                    result += '⚠️ 물량 데이터가 없거나 배열이 아닙니다.\n';
+                    result += `  데이터 타입: ${typeof siteData.items}\n`;
+                    result += `  데이터 값: ${JSON.stringify(siteData.items, null, 2)}\n\n`;
+                }
+                
+                // 3. materialEstimates 컬렉션에서도 확인
+                const materialQuery = query(collection(db, 'materialEstimates'), where('siteId', '==', site.id));
+                const materialSnapshot = await getDocs(materialQuery);
+                
+                if (!materialSnapshot.empty) {
+                    const materialData = materialSnapshot.docs[0].data();
+                    result += '📋 materialEstimates 컬렉션 데이터:\n';
+                    result += `  siteId: ${materialData.siteId}\n`;
+                    result += `  siteName: ${materialData.siteName}\n`;
+                    result += `  itemsCount: ${materialData.items ? materialData.items.length : 0}\n`;
+                    result += `  summary: ${JSON.stringify(materialData.summary, null, 2)}\n\n`;
+                    
+                    if (materialData.items && Array.isArray(materialData.items)) {
+                        result += '📊 materialEstimates 물량 데이터:\n';
+                        materialData.items.forEach((item, index) => {
+                            result += `  ${index + 1}. ${item.name || '이름없음'} - ${item.specification || '규격없음'} - ${item.quantity || 0}${item.unit || ''}\n`;
+                        });
+                        result += '\n';
+                    }
+                } else {
+                    result += '⚠️ materialEstimates 컬렉션에 데이터가 없습니다.\n\n';
+                }
+                
+                // 4. 현장의 모든 필드 확인
+                result += '🔍 현장의 모든 필드:\n';
+                Object.keys(siteData).forEach(key => {
+                    const value = siteData[key];
+                    if (Array.isArray(value)) {
+                        result += `  ${key}: 배열 (${value.length}개 항목)\n`;
+                    } else if (typeof value === 'object' && value !== null) {
+                        result += `  ${key}: 객체\n`;
+                    } else {
+                        result += `  ${key}: ${value}\n`;
+                    }
+                });
+                
+                showResult(result, 'success');
+                
+            } catch (error) {
+                console.error('❌ 확인 실패:', error);
+                showResult(`❌ 확인 실패: ${error.message}`, 'error');
+            }
+        };
+
+        // 모든 현장 조회
+        window.checkAllSites = async () => {
+            try {
+                showResult('🔍 모든 현장 조회 중...', 'loading');
+                
+                const allSitesSnapshot = await getDocs(collection(db, 'sites'));
+                const sites = allSitesSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                let result = `📊 전체 현장 수: ${sites.length}개\n\n`;
+                
+                // 영주자이시그니처 관련 현장 찾기
+                const relatedSites = sites.filter(site => 
+                    site.name && (site.name.includes('영주') || site.name.includes('자이') || site.name.includes('시그니처'))
+                );
+                
+                if (relatedSites.length > 0) {
+                    result += '🔍 영주자이시그니처 관련 현장:\n';
+                    relatedSites.forEach(site => {
+                        result += `  ✅ ${site.name} (ID: ${site.id})\n`;
+                        result += `    계약금액: ${site.contractAmount || '미입력'}\n`;
+                        result += `    물량 데이터: ${site.items ? site.items.length : 0}개\n`;
+                        result += `    상태: ${site.status || '미정'}\n\n`;
+                    });
+                } else {
+                    result += '⚠️ 영주자이시그니처 관련 현장을 찾을 수 없습니다.\n\n';
+                }
+                
+                // 물량 데이터가 없는 현장들
+                const sitesWithoutItems = sites.filter(site => !site.items || !Array.isArray(site.items) || site.items.length === 0);
+                result += `⚠️ 물량 데이터가 없는 현장: ${sitesWithoutItems.length}개\n`;
+                sitesWithoutItems.slice(0, 10).forEach(site => {
+                    result += `  - ${site.name}\n`;
+                });
+                if (sitesWithoutItems.length > 10) {
+                    result += `  ... 외 ${sitesWithoutItems.length - 10}개\n`;
+                }
+                
+                showResult(result, 'info');
+                
+            } catch (error) {
+                console.error('❌ 모든 현장 조회 실패:', error);
+                showResult(`❌ 모든 현장 조회 실패: ${error.message}`, 'error');
+            }
+        };
+
+        // 결과 지우기
+        window.clearResults = () => {
+            showResult('버튼을 클릭하여 영주자이시그니처 현장의 데이터를 확인하세요.', 'info');
+        };
+    </script>
+</body>
+</html>

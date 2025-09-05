@@ -955,43 +955,68 @@ const ScheduleManagement = ({
       return;
     }
     
-    // 현재 월의 첫날과 마지막날 계산
+    // 현재 월의 첫날과 마지막날 계산 (더 정확한 방법)
     const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
+    
+    // 월의 마지막 날을 정확하게 계산하는 함수
+    const getLastDayOfMonth = (year, month) => {
+      // 해당 월의 마지막 날짜를 정확하게 계산
+      return new Date(year, month + 1, 0);
+    };
+    
+    const lastDay = getLastDayOfMonth(year, month);
+    
+    // 디버깅을 위한 로그
+    console.log('📅 엑셀 다운로드 날짜 범위:', {
+      year,
+      month: month + 1,
+      firstDay: firstDay.toISOString().split('T')[0],
+      lastDay: lastDay.toISOString().split('T')[0],
+      lastDayDate: lastDay.getDate(),
+      daysInMonth: lastDay.getDate()
+    });
     
     // 월별 데이터 정리
     const monthlyData = [];
-    let currentDate = null;
-    let currentDateStr = '';
     
-    // 날짜별로 정렬된 데이터 생성
-    const sortedEntries = Object.entries(calendarItems)
-      .filter(([date]) => {
-        const itemDate = new Date(date);
-        return itemDate >= firstDay && itemDate <= lastDay;
-      })
-      .sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB));
+    // 해당 월의 모든 날짜를 생성 (1일부터 마지막 날까지)
+    const allDatesInMonth = [];
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+      const currentDate = new Date(year, month, day);
+      const dateStr = currentDate.toISOString().split('T')[0];
+      allDatesInMonth.push(dateStr);
+    }
     
-    sortedEntries.forEach(([date, items]) => {
-      items.forEach((item, index) => {
-        const dateStr = date;
-        
-        // 같은 날짜인 경우 첫 번째 항목에만 날짜 표시
-        if (dateStr !== currentDateStr) {
-          currentDateStr = dateStr;
-          currentDate = dateStr;
-        } else {
-          currentDate = ''; // 같은 날짜의 두 번째 항목부터는 빈 문자열
-        }
-        
+    console.log('📅 해당 월의 모든 날짜:', allDatesInMonth);
+    
+    // 각 날짜별로 데이터 생성
+    allDatesInMonth.forEach(dateStr => {
+      const items = calendarItems[dateStr] || [];
+      
+      if (items.length === 0) {
+        // 일정이 없는 날짜는 빈 행으로 추가
         monthlyData.push({
-          일자: currentDate,
-          분류: item.type || '현장',
-          현장명: item.text || '',
-          설명: item.desc || '',
-          체크박스유무: checkedItems[`${date}-${item.id}`] ? '체크' : '미체크'
+          일자: dateStr,
+          분류: '',
+          현장명: '',
+          설명: '',
+          체크박스유무: ''
         });
-      });
+      } else {
+        // 일정이 있는 날짜는 각 항목별로 추가
+        items.forEach((item, index) => {
+          // 같은 날짜인 경우 첫 번째 항목에만 날짜 표시
+          const displayDate = index === 0 ? dateStr : '';
+          
+          monthlyData.push({
+            일자: displayDate,
+            분류: item.type || '현장',
+            현장명: item.text || '',
+            설명: item.desc || '',
+            체크박스유무: checkedItems[`${dateStr}-${item.id}`] ? '체크' : '미체크'
+          });
+        });
+      }
     });
     
     // 파일명에 월 정보 포함
@@ -1161,6 +1186,27 @@ const ScheduleManagement = ({
   // 현장 정보 팝업 닫기
   const handleCloseSiteInfoPopup = () => {
     setSiteInfoPopup({ open: false, site: null });
+  };
+
+  // 현장명 더블클릭 시 현장관리페이지로 이동
+  const handleSiteNameDoubleClick = (siteName) => {
+    if (!siteName) return;
+    
+    // sites 배열에서 해당 현장명을 가진 현장 찾기
+    const site = sites.find(s => s.name === siteName);
+    
+    if (site) {
+      // 현장관리페이지로 이동하면서 해당 현장 선택
+      navigate('/sites', { 
+        state: { 
+          selectedSiteId: site.id,
+          selectedSiteName: site.name
+        }
+      });
+    } else {
+      // 현장을 찾을 수 없는 경우 알림
+      alert(`현장 "${siteName}"을 찾을 수 없습니다.`);
+    }
   };
 
   return (
@@ -1500,6 +1546,7 @@ const ScheduleManagement = ({
               copiedItem={copiedItem}
               onExcel={handleExcel}
               onAddSchedule={onAddSchedule}
+              onSiteNameDoubleClick={handleSiteNameDoubleClick}
             />
             {console.log('🔍 CustomCalendar에 전달되는 props:', {
               year,

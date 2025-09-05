@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { NanumGothic } from '../assets/fonts/NanumGothic.js';
+import { NanumGothic } from '../assets/fonts/NanumGothic';
 
 // PDF로 내보내기
 export const exportToPDF = (data, options = {}) => {

@@ -266,7 +266,7 @@ const GanttChart = () => {
             site,
             schedule: {
               id: site.id,
-              text: site.name,
+              text: site?.name,
               desc: site.address || '',
               startDate: displayStartDate,
               endDate: displayEndDate,
@@ -726,7 +726,7 @@ const GanttChart = () => {
     }
     
     setFormData({
-      name: site.name || '',
+      name: site?.name || '',
       startDate: startDateStr,
       endDate: endDateStr,
       status: site.status || '진행중',
@@ -773,7 +773,7 @@ const GanttChart = () => {
         
         return {
           'No.': index + 1,
-          '현장명': site.name || '',
+          '현장명': site?.name || '',
           '현장장': site.manager || '',
           '주소': site.address || '',
           '상태': site.status || '',
@@ -800,7 +800,7 @@ const GanttChart = () => {
 
       // 차트 데이터 생성 (더 상세한 정보 포함)
       const chartData = displaySites.map(site => ({
-        '현장명': site.name || '',
+        '현장명': site?.name || '',
         '진행률(%)': site.progress ? Number(site.progress) : 0,
         '계약금액(백만원)': site.contractAmount ? Math.round(Number(site.contractAmount) / 1000000) : 0,
         '상태': site.status || '',
@@ -872,7 +872,7 @@ const GanttChart = () => {
         const endDate = site.endDate ? new Date(site.endDate) : null;
         
         return {
-          '현장명': site.name || '',
+          '현장명': site?.name || '',
           '현장장': site.manager || '',
           '착공일': startDate ? startDate.toISOString().split('T')[0] : '',
           '준공예정일': endDate ? endDate.toISOString().split('T')[0] : '',
@@ -1194,7 +1194,7 @@ const GanttChart = () => {
               maxWidth: '100%'
             }}>
               {/* 날짜 열들 */}
-              <Grid item xs={12} sx={{ display: 'flex' }}>
+              <Grid xs={12} sx={{ display: 'flex' }}>
                 {dateArray.map((date, index) => {
                   const today = new Date();
                   const isToday = date.toDateString() === today.toDateString();
@@ -1316,7 +1316,7 @@ const GanttChart = () => {
               >
                 {/* 현장명 열 */}
                 {!isMobile && (
-                  <Grid item xs={2} sx={{ 
+                  <Grid xs={2} sx={{ 
                     borderRight: 1, 
                     borderColor: 'divider',
                     p: 1,
@@ -1329,7 +1329,7 @@ const GanttChart = () => {
                     zIndex: 10
                   }}>
                     <Typography variant="body2" fontWeight="bold" noWrap color="black">
-                      {site.name}
+                      {site?.name}
                     </Typography>
                     <Typography variant="caption" color="black" noWrap>
                       {getConstructionPeriod(site)}
@@ -1338,7 +1338,7 @@ const GanttChart = () => {
                 )}
                 
                 {/* 공사기간 차트 영역 */}
-                <Grid item xs={isMobile ? 12 : 10} sx={{ position: 'relative', minHeight: viewMode === 'year' ? (isMobile ? 30 : 40) : (isMobile ? 40 : 60) }}>
+                <Grid xs={isMobile ? 12 : 10} sx={{ position: 'relative', minHeight: viewMode === 'year' ? (isMobile ? 30 : 40) : (isMobile ? 40 : 60) }}>
                     {schedule && (
                                               <Box
                           sx={{
@@ -1399,7 +1399,7 @@ const GanttChart = () => {
         <DialogContent>
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid xs={12}>
                 <TextField
                   fullWidth
                   label="현장명"
@@ -1408,7 +1408,7 @@ const GanttChart = () => {
                   required
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid xs={6}>
                 <TextField
                   fullWidth
                   label="착공일"
@@ -1419,7 +1419,7 @@ const GanttChart = () => {
                   required
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid xs={6}>
                 <TextField
                   fullWidth
                   label="준공예정일"
@@ -1430,7 +1430,7 @@ const GanttChart = () => {
                   required
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid xs={6}>
                 <FormControl fullWidth>
                   <InputLabel>상태</InputLabel>
                   <Select
@@ -1446,7 +1446,7 @@ const GanttChart = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={6}>
+              <Grid xs={6}>
                 <TextField
                   fullWidth
                   label="현장장"
@@ -1454,7 +1454,7 @@ const GanttChart = () => {
                   onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid xs={12}>
                 <TextField
                   fullWidth
                   label="주소"
@@ -1489,7 +1489,7 @@ const GanttChart = () => {
           <Box sx={{ mt: 2 }}>
             <Grid container spacing={2}>
               {colorOptions.map((colorOption) => (
-                <Grid item xs={3} key={colorOption.value}>
+                <Grid xs={3} key={colorOption.value}>
                   <Box
                     sx={{
                       width: '100%',

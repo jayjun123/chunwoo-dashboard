@@ -118,9 +118,15 @@ const MobileBottomNav = () => {
     const unsubEstimates = onSnapshot(collection(db, 'estimates'), (snapshot) => {
       const allEstimates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
-      // 오늘 날짜 필터링
+      // 오늘 날짜 필터링 (보류칩 제외)
       const todayEstimates = allEstimates.filter(item => {
         if (!item.submissionDeadline) return false;
+        
+        // 보류칩으로 되어있는 견적은 제외
+        if (item.submissionStatus === '보류') {
+          console.log('🔥 모바일 보류칩 견적 제외:', item.siteName || item.id, '상태:', item.submissionStatus);
+          return false;
+        }
         
         let itemDate;
         if (item.submissionDeadline.toDate) {

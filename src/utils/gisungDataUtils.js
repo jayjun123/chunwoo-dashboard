@@ -1,4 +1,4 @@
-import { db } from '../firebase.js';
+import { db } from '../firebase';
 import { collection, addDoc, query, where, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import ExcelJS from 'exceljs';
 
@@ -61,12 +61,12 @@ const setPreviousCumulativeAsPreviousQuantity = async (worksheet, siteData) => {
     // 현재 차수 계산 (기존 모든 기성금 개수 + 1)
     const existingGisungQuery = query(
       collection(db, 'gisung'),
-      where('siteName', '==', siteData.name)
+      where('siteName', '==', siteData?.name)
     );
     const existingGisungSnapshot = await getDocs(existingGisungQuery);
     const currentSequence = existingGisungSnapshot.size + 1;
     
-    console.log(`📊 현재 차수: ${currentSequence}차 (${siteData.name} - 전체 기성 데이터 ${existingGisungSnapshot.size}개)`);
+    console.log(`📊 현재 차수: ${currentSequence}차 (${siteData?.name} - 전체 기성 데이터 ${existingGisungSnapshot.size}개)`);
     
     if (currentSequence === 1) {
       console.log('📊 1차 기성금이므로 이전 누계수량이 없습니다.');
@@ -76,7 +76,7 @@ const setPreviousCumulativeAsPreviousQuantity = async (worksheet, siteData) => {
     // 이전 차수의 누계수량 데이터 가져오기
     const previousGisungQuery = query(
       collection(db, 'gisung'),
-      where('siteName', '==', siteData.name),
+      where('siteName', '==', siteData?.name),
       where('sequence', '==', currentSequence - 1)
     );
     const previousGisungSnapshot = await getDocs(previousGisungQuery);
@@ -124,7 +124,7 @@ const setPreviousCumulativeAsPreviousQuantity = async (worksheet, siteData) => {
       
       // 이전 차수에서 해당 항목의 누계수량 찾기
       const previousItem = previousGisungData.items?.find(item => 
-        item.name === itemName
+        item?.name === itemName
       );
       
       if (previousItem && previousItem.totalQuantity > 0) {
@@ -314,7 +314,7 @@ const saveGisungDataToFirebase = async (gisungData) => {
     // 각 기성금 항목을 개별 문서로 저장
     for (const item of gisungData) {
       try {
-        console.log(`💾 저장할 데이터: ${item.name}`, {
+        console.log(`💾 저장할 데이터: ${item?.name}`, {
           currentQuantity: item.currentQuantity,
           currentAmount: item.currentAmount,
           totalQuantity: item.totalQuantity,
@@ -326,7 +326,7 @@ const saveGisungDataToFirebase = async (gisungData) => {
         // 기존 데이터 확인 (품명과 규격으로 중복 체크)
         const existingQuery = query(
           collection(db, 'gisung_items'),
-          where('name', '==', item.name),
+          where('name', '==', item?.name),
           where('specification', '==', item.specification)
         );
         
@@ -339,7 +339,7 @@ const saveGisungDataToFirebase = async (gisungData) => {
             ...item,
             updatedAt: new Date()
           });
-          console.log(`🔄 기존 데이터 업데이트: ${item.name} (금회기성: ${item.currentQuantity}, 누계: ${item.totalQuantity})`);
+          console.log(`🔄 기존 데이터 업데이트: ${item?.name} (금회기성: ${item.currentQuantity}, 누계: ${item.totalQuantity})`);
         } else {
           // 새 데이터 추가
           await addDoc(collection(db, 'gisung_items'), {
@@ -347,13 +347,13 @@ const saveGisungDataToFirebase = async (gisungData) => {
             createdAt: new Date(),
             updatedAt: new Date()
           });
-          console.log(`➕ 새 데이터 추가: ${item.name} (금회기성: ${item.currentQuantity}, 누계: ${item.totalQuantity})`);
+          console.log(`➕ 새 데이터 추가: ${item?.name} (금회기성: ${item.currentQuantity}, 누계: ${item.totalQuantity})`);
         }
         
         savedCount++;
         
       } catch (itemError) {
-        console.error(`❌ 항목 저장 실패 (${item.name}):`, itemError);
+        console.error(`❌ 항목 저장 실패 (${item?.name}):`, itemError);
         // 개별 항목 실패해도 계속 진행
       }
     }
@@ -398,7 +398,7 @@ export const getGisungDataFromFirebase = async () => {
     
     if (itemsWithCurrentQuantity.length > 0) {
       itemsWithCurrentQuantity.forEach(item => {
-        console.log(`  - ${item.name}: ${item.currentQuantity} ${item.unit}, ${item.currentAmount}원`);
+        console.log(`  - ${item?.name}: ${item.currentQuantity} ${item.unit}, ${item.currentAmount}원`);
       });
     }
     
@@ -463,7 +463,7 @@ export const convertGisungDataForSiteManagement = async (siteName) => {
     
     // 현장관리 시스템에서 사용하는 형태로 변환
     const siteItems = gisungData.map(item => ({
-      name: item.name,                 // 규격 (B열)
+      name: item?.name,                 // 규격 (B열)
       specification: item.specification, // 품명 (A열)
       unit: item.unit,
       quantity: item.quantity || item.contractQuantity || 0,
@@ -499,7 +499,7 @@ export const convertGisungDataForGisungReport = async () => {
     
     // 기성금청구서에서 사용하는 형태로 변환
     const reportItems = gisungData.map(item => ({
-      name: item.name,
+      name: item?.name,
       specification: item.specification,
       unit: item.unit,
       contractQuantity: item.contractQuantity,
@@ -532,7 +532,7 @@ export const convertGisungDataToQuantityData = async () => {
     
     // 물량데이터 형태로 변환 (현장관리 시스템과 호환)
     const quantityData = gisungData.map(item => ({
-      name: item.name,
+      name: item?.name,
       specification: item.specification,
       unit: item.unit,
       quantity: item.contractQuantity,
@@ -569,7 +569,7 @@ export const validateGisungData = (gisungData) => {
   }
   
   gisungData.forEach((item, index) => {
-    if (!item.name) {
+    if (!item?.name) {
       errors.push(`${index + 1}번째 항목: 품명이 없습니다.`);
     }
     
@@ -625,7 +625,7 @@ export const filterGisungData = (gisungData, filters = {}) => {
   if (filters.name) {
     const nameLower = filters.name.toLowerCase();
     filteredData = filteredData.filter(item => 
-      item.name && item.name.toLowerCase().includes(nameLower)
+      item?.name && item?.name.toLowerCase().includes(nameLower)
     );
   }
   

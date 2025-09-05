@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import '../styles/Claims.css';
 import {
   Box,
@@ -90,6 +90,8 @@ const Claims = () => {
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [skipPageReset, setSkipPageReset] = useState(false);
+  const savedPageRef = useRef(1);
   const [stats, setStats] = useState({
     total: 0,
     claimed: 0,
@@ -369,7 +371,16 @@ const Claims = () => {
     try {
       console.log('subscribeToClaims 함수 호출 시작');
       const unsubscribe = subscribeToClaims((claims) => {
-        console.log('Claims 데이터 수신:', claims.length, '개');
+        console.log(`📊 Claims 데이터 수신 (${currentMonth}):`, claims.length, '개');
+        console.log('📋 수신된 데이터:', claims.map(c => ({
+          id: c.id,
+          siteName: c.siteName,
+          claimMonth: c.claimMonth,
+          sequence: c.sequence,
+          claimStatus: c.claimStatus,
+          isCarryover: c.isCarryover,
+          carryoverFrom: c.carryoverFrom
+        })));
         setClaims(claims);
         setFilteredClaims(claims);
         setLoading(false);
@@ -393,6 +404,13 @@ const Claims = () => {
       try {
         const snapshot = await getDocs(collection(db, 'sites'));
         const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log('🏗️ 현장 데이터 로드 완료:', sitesData.length, '개');
+        console.log('🏗️ 현장 목록:', sitesData.map(s => ({
+          name: s.name,
+          manager: s.manager,
+          company: s.company,
+          companyName: s.companyName
+        })));
         setSites(sitesData);
       } catch (error) {
         console.error('현장 데이터 로드 실패:', error);
@@ -428,7 +446,7 @@ const Claims = () => {
     loadStats();
   }, [claims, currentMonth]);
 
-  // 필터링 및 검색
+  // 필터링 및 검색 (claims 데이터 변경 시에도 실시간 업데이트)
   useEffect(() => {
     let filtered = claims;
 
@@ -474,8 +492,19 @@ const Claims = () => {
     });
 
     setFilteredClaims(filtered);
-    setCurrentPage(1);
+    
+    // 칩 클릭이 아닌 경우에만 페이지 리셋
+    if (!skipPageReset) {
+      setCurrentPage(1);
+    } else {
+      // 저장된 페이지로 복원
+      const savedPage = savedPageRef.current;
+      console.log(`📄 저장된 페이지로 복원: ${savedPage}`);
+      setCurrentPage(savedPage);
+      setSkipPageReset(false); // 플래그 리셋
+    }
   }, [claims, searchTerm, filters, sortBy, sortOrder]);
+
 
   // 폼 데이터 초기화
   // 차수 계산 함수 - 기성 데이터 기반으로 올바른 차수 계산
@@ -497,6 +526,64 @@ const Claims = () => {
     // 차수별 라벨 생성
     const sequenceLabels = ['1차', '2차', '3차', '4차', '5차', '6차', '7차', '8차', '9차', '10차'];
     return sequenceLabels[nextSequence - 1] || `${nextSequence}차`;
+  };
+
+  // 현장 정보 가져오기 (소장명/회사명)
+  const getSiteInfo = (siteName) => {
+    // 정확한 매칭 먼저 시도
+    let site = sites.find(s => s.name === siteName);
+    
+    // 정확한 매칭이 안 되면 부분 매칭 시도
+    if (!site) {
+      // "대구교대 인문사회관 창호교체" -> "대구교대" 또는 "대구교대 인문사회관"으로 찾기
+      const parts = siteName.split(' ');
+      for (let i = 1; i <= parts.length; i++) {
+        const partialName = parts.slice(0, i).join(' ');
+        site = sites.find(s => s.name === partialName || s.name.includes(partialName));
+        if (site) break;
+      }
+    }
+    
+    if (!site) {
+      console.log(`🔍 현장 정보 없음: ${siteName}`);
+      return { manager: '', company: '' };
+    }
+    
+    // 모든 가능한 회사명 필드 확인 (companyName 우선)
+    const company = site.companyName || site.company || site.contractor || site.client || '';
+    
+    console.log(`🔍 현장 정보 조회: ${siteName}`, {
+      foundSite: site.name,
+      manager: site.manager,
+      company: site.company,
+      companyName: site.companyName,
+      contractor: site.contractor,
+      client: site.client,
+      finalCompany: company,
+      allFields: Object.keys(site)
+    });
+    
+    return {
+      manager: site.manager || '',
+      company: company
+    };
+  };
+
+  // 소장명/회사명을 함께 표시하는 함수
+  const getDisplaySiteName = (siteName) => {
+    const siteInfo = getSiteInfo(siteName);
+    const { manager, company } = siteInfo;
+    
+    // 소장명과 회사명을 모두 표시 (둘 중 하나라도 있으면)
+    if (manager && company) {
+      return `${manager} / ${company}`;
+    } else if (manager) {
+      return `${manager} /`;
+    } else if (company) {
+      return `/ ${company}`;
+    } else {
+      return '';
+    }
   };
 
   // 기성율 계산 함수 (총 기성금액 + 선급금 / 총 계약금액 * 100)
@@ -649,10 +736,49 @@ const Claims = () => {
   // 청구예정 생성/수정
   const handleSubmit = async () => {
     try {
+      console.log('=== 청구예정 저장 시작 ===');
+      console.log('현재 formData:', formData);
+      
+      // 입력 데이터 검증
+      if (!formData.siteName) {
+        setSnackbar({
+          open: true,
+          message: '현장명은 필수 입력 항목입니다.',
+          severity: 'error'
+        });
+        return;
+      }
+
+      // 청구금액이 없으면 현장의 계약금액을 기본값으로 사용
+      let claimAmount = Number(formData.claimAmount) || 0;
+      if (claimAmount === 0) {
+        const siteData = sites.find(s => s.name === formData.siteName);
+        if (siteData && siteData.contractAmount) {
+          claimAmount = Number(siteData.contractAmount);
+          console.log(`청구금액이 없어서 계약금액을 사용: ${claimAmount}`);
+        }
+      }
+
+      // 저장할 데이터 준비 (사용자 입력 내용 확실히 반영)
+      const claimData = {
+        claimMonth: formData.claimMonth || currentMonth,
+        siteName: formData.siteName,
+        manager: formData.manager || '',
+        sequence: formData.sequence || '',
+        progressRate: formData.progressRate || 0,
+        claimAmount: claimAmount,
+        claimStatus: formData.claimStatus || 'X',
+        notes: formData.notes || '',
+        createdAt: editingClaim ? editingClaim.createdAt : new Date(),
+        updatedAt: new Date()
+      };
+      
+      console.log('저장할 claimData:', claimData);
+
       // 오프라인 상태 체크
       if (!isOnline) {
         console.log('오프라인 상태 - 임시저장 실행');
-        addToPendingData(formData);
+        addToPendingData(claimData);
         setSnackbar({ 
           open: true, 
           message: '오프라인 상태입니다. 데이터가 임시저장되었습니다. 온라인 복구 시 자동으로 동기화됩니다.', 
@@ -667,18 +793,18 @@ const Claims = () => {
 
       // 온라인 상태 - 정상 저장
       if (editingClaim) {
-        await updateClaim(editingClaim.id, formData);
+        await updateClaim(editingClaim.id, claimData);
         // 청구 → 기성 연동
-        await syncClaimToProgress(formData.claimMonth, formData.siteName, formData.claimAmount);
+        await syncClaimToProgress(claimData.claimMonth, claimData.siteName, claimData.claimAmount);
         setSnackbar({
           open: true,
           message: '청구예정이 수정되었습니다.',
           severity: 'success'
         });
       } else {
-        await createClaim(formData);
+        await createClaim(claimData);
         // 청구 → 기성 연동
-        await syncClaimToProgress(formData.claimMonth, formData.siteName, formData.claimAmount);
+        await syncClaimToProgress(claimData.claimMonth, claimData.siteName, claimData.claimAmount);
         setSnackbar({
           open: true,
           message: '청구예정이 생성되었습니다.',
@@ -694,7 +820,7 @@ const Claims = () => {
       // 오류 발생 시에도 임시저장 시도
       if (autoSaveEnabled) {
         console.log('오류 발생 - 임시저장 시도');
-        addToPendingData(formData);
+        addToPendingData(claimData);
         setSnackbar({ 
           open: true, 
           message: `저장에 실패했습니다. 데이터가 임시저장되었습니다. 오류: ${error.message}`, 
@@ -1074,19 +1200,78 @@ const Claims = () => {
 
       console.log(`🔄 청구여부 상태 변경: ${claim.siteName} - ${claim.claimStatus} → ${newStatus}`);
 
-      // Firebase에서 상태 업데이트
-      await updateClaim(claim.id, {
+      // 현재 페이지 저장 및 플래그 설정
+      savedPageRef.current = currentPage;
+      setSkipPageReset(true);
+      console.log(`📄 현재 페이지 저장: ${currentPage}`);
+
+      // 낙관적 업데이트: UI를 먼저 업데이트
+      const updatedClaim = {
         ...claim,
         claimStatus: newStatus,
         updatedAt: new Date()
+      };
+
+      // 로컬 상태 즉시 업데이트 (위치 유지, 페이지네이션 유지)
+      setClaims(prevClaims => 
+        prevClaims.map(c => c.id === claim.id ? updatedClaim : c)
+      );
+      setFilteredClaims(prevFiltered => 
+        prevFiltered.map(c => c.id === claim.id ? updatedClaim : c)
+      );
+      
+      // 페이지네이션 상태 유지 (현재 페이지 그대로 유지)
+      console.log(`📄 현재 페이지 유지: ${currentPage}`);
+
+      // 백그라운드에서 Firebase 업데이트
+      updateClaim(claim.id, updatedClaim).catch(error => {
+        console.error('Firebase 업데이트 실패:', error);
+        // 실패 시 원래 상태로 롤백
+        setClaims(prevClaims => 
+          prevClaims.map(c => c.id === claim.id ? claim : c)
+        );
+        setFilteredClaims(prevFiltered => 
+          prevFiltered.map(c => c.id === claim.id ? claim : c)
+        );
+        setSnackbar({
+          open: true,
+          message: '청구여부 변경에 실패했습니다.',
+          severity: 'error'
+        });
       });
 
+      // 이월로 변경된 경우 다음달 청구예정에 이월 항목 추가
+      if (newStatus === '이월') {
+        console.log(`🔄 이월 항목 추가 시작: ${claim.siteName}`);
+        try {
+          await addCarryoverToNextMonth(claim);
+          console.log(`✅ 이월 항목 추가 성공: ${claim.siteName}`);
+        } catch (error) {
+          console.error('❌ 이월 항목 추가 실패:', error);
+          console.error('❌ 에러 상세:', error.message, error.stack);
+          // 이월 항목 추가 실패 시에도 원래 항목은 이월 상태로 유지
+          setSnackbar({
+            open: true,
+            message: `이월 항목 추가에 실패했습니다: ${error.message}`,
+            severity: 'error'
+          });
+        }
+      }
+
       // 성공 메시지
-      setSnackbar({
-        open: true,
-        message: `청구여부가 ${getStatusLabel(newStatus)}로 변경되었습니다.`,
-        severity: 'success'
-      });
+      if (newStatus === '이월') {
+        setSnackbar({
+          open: true,
+          message: `청구여부가 이월로 변경되었습니다. 9월에 복제된 항목이 생성되었습니다.`,
+          severity: 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: `청구여부가 ${getStatusLabel(newStatus)}로 변경되었습니다.`,
+          severity: 'success'
+        });
+      }
 
     } catch (error) {
       console.error('청구여부 상태 변경 실패:', error);
@@ -1105,6 +1290,103 @@ const Claims = () => {
       case 'X': return '청구대기';
       case '이월': return '이월';
       default: return '청구대기';
+    }
+  };
+
+
+  // 다음달 청구예정에 이월 항목 추가
+  const addCarryoverToNextMonth = async (claim) => {
+    try {
+      console.log(`🔄 다음달 청구예정에 이월 항목 추가 시작`);
+      console.log(`📋 원본 항목 데이터:`, claim);
+      console.log(`📅 현재 항목 월: ${claim.claimMonth}`);
+      
+      // 현재 항목의 월에서 다음달 계산 (단순한 월 증가 방식)
+      const [year, month] = claim.claimMonth.split('-').map(Number);
+      console.log(`📅 파싱된 년월: ${year}년 ${month}월`);
+      console.log(`📅 원본 claimMonth: "${claim.claimMonth}"`);
+      
+      // 단순하게 월만 증가
+      let nextYear = year;
+      let nextMonth = month + 1;
+      
+      console.log(`📅 계산 전: ${nextYear}년 ${nextMonth}월`);
+      
+      // 12월을 넘어가면 다음 해 1월로
+      if (nextMonth > 12) {
+        nextYear += 1;
+        nextMonth = 1;
+        console.log(`📅 12월 초과로 인한 연도 증가: ${nextYear}년 ${nextMonth}월`);
+      }
+      
+      const nextMonthStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+      console.log(`📅 최종 계산된 다음달: "${nextMonthStr}"`);
+      
+      // 이미 해당 월에 이월 항목이 있는지 확인
+      const { getDocs, collection, query, where } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      
+      const existingQuery = query(
+        collection(db, 'claims'),
+        where('siteName', '==', claim.siteName),
+        where('claimMonth', '==', nextMonthStr),
+        where('sequence', '==', claim.sequence),
+        where('isCarryover', '==', true)
+      );
+      
+      const existingSnapshot = await getDocs(existingQuery);
+      
+      if (!existingSnapshot.empty) {
+        console.log(`⚠️ 이미 ${nextMonthStr}에 이월 항목이 존재합니다.`);
+        setSnackbar({
+          open: true,
+          message: `${nextMonthStr}에 이미 이월 항목이 존재합니다.`,
+          severity: 'warning'
+        });
+        return;
+      }
+      
+      // 이월 항목 데이터 생성
+      const carryoverData = {
+        siteName: claim.siteName,
+        claimMonth: nextMonthStr,
+        claimAmount: claim.claimAmount,
+        sequence: claim.sequence,
+        manager: claim.manager || '', // 관리자 정보 복사
+        progressRate: claim.progressRate || 0, // 진행률 정보 복사
+        claimStatus: 'X', // 청구대기로 시작
+        isCarryover: true, // 이월 항목 표시
+        carryoverFrom: claim.claimMonth, // 이월된 원본 월
+        carryoverDate: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      console.log(`📝 이월 항목 데이터:`, carryoverData);
+      
+      // Firebase에 이월 항목 추가
+      const { addDoc } = await import('firebase/firestore');
+      
+      const docRef = await addDoc(collection(db, 'claims'), carryoverData);
+      
+      console.log(`✅ 다음달 청구예정에 이월 항목 추가 완료: ${claim.siteName}`);
+      console.log(`📄 생성된 문서 ID: ${docRef.id}`);
+      console.log(`📊 저장된 데이터:`, carryoverData);
+      
+      // 성공 메시지
+      setSnackbar({
+        open: true,
+        message: `${nextMonthStr} 청구예정에 복제된 항목이 생성되었습니다.`,
+        severity: 'success'
+      });
+      
+    } catch (error) {
+      console.error('❌ 다음달 청구예정 이월 항목 추가 실패:', error);
+      setSnackbar({
+        open: true,
+        message: `이월 항목 추가에 실패했습니다: ${error.message}`,
+        severity: 'error'
+      });
     }
   };
 
@@ -1607,7 +1889,23 @@ const Claims = () => {
                     <TableCell sx={{ color: 'white' }}>{filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id)}</TableCell>
                     {isMobile ? (
                       <>
-                        <TableCell sx={{ color: 'white' }}>{claim.siteName}</TableCell>
+                        <TableCell sx={{ color: 'white' }}>
+                          {claim.siteName}
+                          {claim.isCarryover && (
+                            <Typography
+                              component="span"
+                              sx={{
+                                ml: 1,
+                                color: '#ff9800',
+                                fontSize: '0.7rem',
+                                fontWeight: 'bold'
+                              }}
+                              title={`${claim.carryoverFrom}에서 이월됨`}
+                            >
+                              (이월됨)
+                            </Typography>
+                          )}
+                        </TableCell>
                         <TableCell sx={{ color: '#ff6b6b', fontWeight: 'bold' }}>{formatAmount(claim.claimAmount)}</TableCell>
                         <TableCell>
                           <Chip
@@ -1629,8 +1927,44 @@ const Claims = () => {
                     ) : (
                       <>
                         <TableCell sx={{ color: 'white' }}>{claim.claimMonth}</TableCell>
-                        <TableCell sx={{ color: 'white' }}>{claim.siteName}</TableCell>
-                        <TableCell sx={{ color: 'white' }}>{claim.manager}</TableCell>
+                        <TableCell sx={{ color: 'white' }}>
+                          {claim.siteName}
+                          {claim.isCarryover && (
+                            <Typography
+                              component="span"
+                              sx={{
+                                ml: 1,
+                                color: '#ff9800',
+                                fontSize: '0.7rem',
+                                fontWeight: 'bold'
+                              }}
+                              title={`${claim.carryoverFrom}에서 이월됨`}
+                            >
+                              (이월됨)
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ color: 'white' }}>
+                          {(() => {
+                            if (claim.manager) {
+                              // claim.manager에 회사명이 포함되어 있는지 확인 (슬래시가 있으면)
+                              if (claim.manager.includes('/')) {
+                                return claim.manager; // 이미 소장명/회사명 형태면 그대로 표시
+                              } else {
+                                // 소장명만 있으면 현장관리에서 회사명 가져와서 합치기
+                                const siteInfo = getSiteInfo(claim.siteName);
+                                if (siteInfo.company) {
+                                  return `${claim.manager} / ${siteInfo.company}`;
+                                } else {
+                                  return claim.manager; // 회사명이 없으면 소장명만
+                                }
+                              }
+                            } else {
+                              // claim.manager가 없으면 현장관리에서 가져오기
+                              return getDisplaySiteName(claim.siteName);
+                            }
+                          })()}
+                        </TableCell>
                         <TableCell sx={{ color: 'white' }}>{claim.sequence}</TableCell>
                         <TableCell sx={{ color: 'white' }}>{formatAmount(getContractAmount(claim.siteName))}</TableCell>
                         <TableCell sx={{ color: '#4caf50', fontWeight: 'bold' }}>

@@ -1,4 +1,4 @@
-import { db } from '../firebase.js';
+import { db } from '../firebase';
 import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
 
 // 현장 상태 마이그레이션 함수

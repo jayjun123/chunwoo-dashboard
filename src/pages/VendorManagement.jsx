@@ -114,6 +114,7 @@ const VendorManagement = () => {
           const existingName = vendorData.companyName.trim().toLowerCase();
           if (searchName === existingName) {
             return {
+              ceo: vendorData.ceo || '',
               businessNumber: vendorData.businessNumber || '',
               address: vendorData.address || ''
             };
@@ -184,6 +185,7 @@ const VendorManagement = () => {
     phone: '',
     email: '',
     companyName: '',
+    ceo: '',
     businessNumber: '',
     address: '',
     note: ''
@@ -223,6 +225,7 @@ const VendorManagement = () => {
       phone: '',
       email: '',
       companyName: '',
+      ceo: '',
       businessNumber: '',
       address: '',
       note: ''
@@ -259,6 +262,7 @@ const VendorManagement = () => {
               setFormData(prev => ({
                 ...prev,
                 companyName: companyName,
+                ceo: existingInfo.ceo,
                 businessNumber: existingInfo.businessNumber,
                 address: existingInfo.address
               }));
@@ -293,6 +297,7 @@ const VendorManagement = () => {
         setFormData(prev => ({
           ...prev,
           companyName: selectedCompany,
+          ceo: existingInfo.ceo,
           businessNumber: existingInfo.businessNumber,
           address: existingInfo.address
         }));
@@ -342,14 +347,28 @@ const VendorManagement = () => {
       for (const siteDoc of sitesSnapshot.docs) {
         const siteData = siteDoc.data();
         if (siteData.manager && siteData.manager.trim()) {
-          // 기존에 같은 이름의 거래처가 있는지 확인
+          // 기존에 같은 이름 + 회사명 + 직위의 거래처가 있는지 확인
           const existingVendorQuery = query(
             collection(db, 'vendors'),
             where('name', '==', siteData.manager.trim())
           );
           const existingVendorSnapshot = await getDocs(existingVendorQuery);
           
-          if (existingVendorSnapshot.empty) {
+          // 이름이 같은 경우, 회사명과 직위도 체크
+          let isDuplicate = false;
+          if (!existingVendorSnapshot.empty) {
+            for (const vendorDoc of existingVendorSnapshot.docs) {
+              const vendorData = vendorDoc.data();
+              if (vendorData.companyName === (siteData.companyName && siteData.companyName.trim() ? siteData.companyName.trim() : '') &&
+                  vendorData.position === '') {
+                isDuplicate = true;
+                console.log(`중복 거래처 발견: ${siteData.manager} (${siteData.companyName})`);
+                break;
+              }
+            }
+          }
+          
+          if (!isDuplicate) {
             const vendorData = {
               name: siteData.manager.trim(),
               position: '',
@@ -385,14 +404,28 @@ const VendorManagement = () => {
           const personName = parts[0];
           const title = parts.length >= 2 ? parts.slice(1).join(' ') : '';
           
-          // 기존에 같은 이름의 거래처가 있는지 확인
+          // 기존에 같은 이름 + 회사명 + 직위의 거래처가 있는지 확인
           const existingVendorQuery = query(
             collection(db, 'vendors'),
             where('name', '==', personName)
           );
           const existingVendorSnapshot = await getDocs(existingVendorQuery);
           
-          if (existingVendorSnapshot.empty) {
+          // 이름이 같은 경우, 회사명과 직위도 체크
+          let isDuplicate = false;
+          if (!existingVendorSnapshot.empty) {
+            for (const vendorDoc of existingVendorSnapshot.docs) {
+              const vendorData = vendorDoc.data();
+              if (vendorData.companyName === (estimateData.company && estimateData.company.trim() ? estimateData.company.trim() : '') &&
+                  vendorData.position === title) {
+                isDuplicate = true;
+                console.log(`중복 거래처 발견: ${personName} (${estimateData.company}) - ${title}`);
+                break;
+              }
+            }
+          }
+          
+          if (!isDuplicate) {
             const vendorData = {
               name: personName,
               position: title,
@@ -417,14 +450,28 @@ const VendorManagement = () => {
       for (const requesterDoc of requestersSnapshot.docs) {
         const requesterData = requesterDoc.data();
         if (requesterData.name && requesterData.name.trim()) {
-          // 기존에 같은 이름의 거래처가 있는지 확인
+          // 기존에 같은 이름 + 회사명 + 직위의 거래처가 있는지 확인
           const existingVendorQuery = query(
             collection(db, 'vendors'),
             where('name', '==', requesterData.name.trim())
           );
           const existingVendorSnapshot = await getDocs(existingVendorQuery);
           
-          if (existingVendorSnapshot.empty) {
+          // 이름이 같은 경우, 회사명과 직위도 체크
+          let isDuplicate = false;
+          if (!existingVendorSnapshot.empty) {
+            for (const vendorDoc of existingVendorSnapshot.docs) {
+              const vendorData = vendorDoc.data();
+              if (vendorData.companyName === (requesterData.company && requesterData.company.trim() ? requesterData.company.trim() : '') &&
+                  vendorData.position === (requesterData.title && requesterData.title.trim() ? requesterData.title.trim() : '')) {
+                isDuplicate = true;
+                console.log(`중복 거래처 발견: ${requesterData.name} (${requesterData.company}) - ${requesterData.title}`);
+                break;
+              }
+            }
+          }
+          
+          if (!isDuplicate) {
             const vendorData = {
               name: requesterData.name.trim(),
               position: requesterData.title && requesterData.title.trim() ? requesterData.title.trim() : '',
@@ -664,6 +711,7 @@ const VendorManagement = () => {
         '번호': vendor.phone || '',
         '메일': vendor.email || '',
         '회사명': vendor.companyName || '',
+        '대표자': vendor.ceo || '',
         '사업자번호': vendor.businessNumber || '',
         '주소': vendor.address || '',
         '비고': vendor.note || ''
@@ -676,6 +724,7 @@ const VendorManagement = () => {
         '번호': '',
         '메일': '',
         '회사명': '',
+        '대표자': '',
         '사업자번호': '',
         '주소': '',
         '비고': ''
@@ -722,6 +771,7 @@ const VendorManagement = () => {
     if (vendorData.position && vendorData.position.trim()) score += 5;
     
     // 추가 정보 필드 (낮은 가중치)
+    if (vendorData.ceo && vendorData.ceo.trim()) score += 4;
     if (vendorData.businessNumber && vendorData.businessNumber.trim()) score += 4;
     if (vendorData.address && vendorData.address.trim()) score += 3;
     if (vendorData.note && vendorData.note.trim()) score += 2;
@@ -979,6 +1029,7 @@ const VendorManagement = () => {
               phone: row['번호'] || '',
               email: row['메일'] || '',
               companyName: row['회사명'] || '',
+              ceo: row['대표자'] || '',
               businessNumber: row['사업자번호'] || '',
               address: row['주소'] || '',
               note: row['비고'] || '',
@@ -1188,6 +1239,7 @@ const VendorManagement = () => {
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('companyName')}>
                 회사명 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
               </TableCell>
+              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>대표자</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>사업자번호</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>주소</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>비고</TableCell>
@@ -1206,6 +1258,7 @@ const VendorManagement = () => {
                 <TableCell sx={{ color: '#fff' }}>{vendor.phone}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{vendor.email}</TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{vendor.companyName}</TableCell>
+                <TableCell sx={{ color: '#fff' }}>{vendor.ceo}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{vendor.businessNumber}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{vendor.address}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{vendor.note}</TableCell>
@@ -1486,6 +1539,21 @@ const VendorManagement = () => {
                 </Box>
               )}
             </Box>
+            <TextField
+              label="대표자"
+              value={formData.ceo}
+              onChange={(e) => setFormData({ ...formData, ceo: e.target.value })}
+              placeholder="대표자명"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+                '& .MuiInputBase-input': { color: '#fff' }
+              }}
+            />
             <TextField
               label="사업자번호"
               value={formData.businessNumber}

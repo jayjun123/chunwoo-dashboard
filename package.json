@@ -98,6 +98,7 @@
     "docker:run": "docker run -p 3000:3000 myproject",
     "firebase:login": "firebase login",
     "firebase:init": "firebase init",
+    "upload:templates": "node upload_new_templates.js",
     "firebase:deploy": "npm run build && firebase deploy",
     "firebase:deploy:hosting": "npm run build && firebase deploy --only hosting",
     "firebase:deploy:firestore": "firebase deploy --only firestore",

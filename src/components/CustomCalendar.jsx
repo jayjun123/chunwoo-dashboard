@@ -69,6 +69,7 @@ const CustomCalendar = (props) => {
     sites = [],
     onOpenPopup,
     onAddSchedule,
+    onSiteNameDoubleClick,
     copiedItem: propCopiedItem
   } = props;
   
@@ -76,7 +77,7 @@ const CustomCalendar = (props) => {
   const colorChoices = ['transparent', '#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
 
   // 현장명 중복 제거
-  const uniqueSiteNames = [...new Set(sites.map(site => site.name).filter(Boolean))];
+  const uniqueSiteNames = [...new Set(sites.map(site => site?.name).filter(Boolean))];
 
   // 오늘 날짜 확인
   const today = new Date();
@@ -603,7 +604,20 @@ const CustomCalendar = (props) => {
             <>
               <Button
                 variant="contained"
-                onClick={onExcel}
+                onClick={() => {
+                  try {
+                    console.log('📊 엑셀 다운로드 버튼 클릭');
+                    if (onExcel && typeof onExcel === 'function') {
+                      onExcel();
+                    } else {
+                      console.warn('⚠️ onExcel 함수가 정의되지 않았습니다.');
+                      alert('엑셀 다운로드 기능을 사용할 수 없습니다.');
+                    }
+                  } catch (error) {
+                    console.error('❌ 엑셀 다운로드 오류:', error);
+                    alert('엑셀 다운로드 중 오류가 발생했습니다: ' + error.message);
+                  }
+                }}
                 sx={{
                   bgcolor: '#22c55e',
                   color: '#fff',
@@ -1226,12 +1240,19 @@ const CustomCalendar = (props) => {
                                           flex: 1, 
                                           textAlign: 'left',
                                           marginRight: '8px',
-                                          cursor: 'help',
+                                          cursor: 'pointer',
                                           whiteSpace: 'nowrap',
                                           overflow: 'hidden',
                                           textOverflow: 'ellipsis',
                                           display: 'block'
                                         }}
+                                        onDoubleClick={(e) => {
+                                          e.stopPropagation();
+                                          if (onSiteNameDoubleClick && item.siteName) {
+                                            onSiteNameDoubleClick(item.siteName);
+                                          }
+                                        }}
+
                                       >
                                         {getResponsiveText(item.text, item.type, item)}
                                       </span>

@@ -566,7 +566,7 @@ const SafetyPage = () => {
     
     if (tab === 0) {
       return (
-        <Grid xs={12} md={4} lg={3} xl={2}>
+        <Grid xs={12} md={4} lg={3}>
           <SafetyOverviewCards />
         </Grid>
       );

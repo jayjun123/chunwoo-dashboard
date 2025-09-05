@@ -39,6 +39,7 @@ const ConstructionStatus = () => {
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedSite, setSelectedSite] = useState(null);
+  const [paymentStatusMap, setPaymentStatusMap] = useState({}); // 현장별 입금 상태
   const [formData, setFormData] = useState({
     name: '',
     location: '',
@@ -62,11 +63,101 @@ const ConstructionStatus = () => {
         ...doc.data()
       }));
       setSites(sitesData);
+      
+      // 기성현황 데이터를 가져와서 입금 상태 확인
+      await loadPaymentStatus(sitesData);
+      
       setLoading(false);
     } catch (error) {
       console.error('현장 데이터 로드 실패:', error);
       setError('현장 데이터를 불러오는데 실패했습니다.');
       setLoading(false);
+    }
+  };
+
+  // 기성현황 데이터를 가져와서 현장별 입금 상태 확인
+  const loadPaymentStatus = async (sitesData) => {
+    try {
+      const gisungSnapshot = await getDocs(collection(db, 'gisung'));
+      const gisungData = gisungSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // 현장별 입금 상태 맵 생성
+      const paymentMap = {};
+      
+      sitesData.forEach(site => {
+        // 현장명 매칭 (정확한 매칭과 부분 매칭 모두 시도)
+        const siteGisungData = gisungData.filter(g => {
+          const exactMatch = g.name === site.name;
+          const partialMatch = g.name && site.name && g.name.includes(site.name);
+          return exactMatch || partialMatch;
+        });
+        
+        console.log(`🔍 현장 "${site.name}" 기성 데이터 검색:`, {
+          siteName: site.name,
+          foundGisungCount: siteGisungData.length,
+          gisungNames: gisungData.map(g => g.name).filter(name => name && name.includes(site.name))
+        });
+        
+        if (siteGisungData.length === 0) {
+          paymentMap[site.name] = { isFullyPaid: false, totalGisung: 0, paidGisung: 0, paymentRate: 0 };
+          console.log(`⚠️ 현장 "${site.name}"에 대한 기성 데이터가 없습니다.`);
+          return;
+        }
+        
+        // 해당 현장의 모든 기성 데이터 확인
+        const totalGisung = siteGisungData.reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+        const paidGisung = siteGisungData
+          .filter(g => g.paymentStatus === '입금완료')
+          .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+        
+        // 선급금도 고려
+        const advanceAmount = Number(site.advance) || 0;
+        const totalWithAdvance = totalGisung + advanceAmount;
+        
+        // 잔액 계산 (계약금액 - 선급금 - 입금완료된 기성)
+        const contractAmount = Number(site.contractAmount) || 0;
+        const balance = contractAmount - advanceAmount - paidGisung;
+        
+        // 정산완료 조건: 잔액이 0이고 입금완료 칩이 있는 경우
+        const hasPaidGisung = siteGisungData.some(g => g.paymentStatus === '입금완료');
+        const isFullyPaid = balance <= 0 && hasPaidGisung;
+        
+        // 입금률 계산 (참고용)
+        const paymentRate = totalWithAdvance > 0 ? ((paidGisung + advanceAmount) / totalWithAdvance) * 100 : 0;
+        
+        paymentMap[site.name] = {
+          isFullyPaid,
+          totalGisung: totalWithAdvance,
+          paidGisung: paidGisung + advanceAmount,
+          paymentRate: Math.round(paymentRate),
+          balance: balance,
+          contractAmount: contractAmount
+        };
+        
+        console.log(`💰 현장 "${site.name}" 입금 상태 상세:`, {
+          siteName: site.name,
+          contractAmount: contractAmount,
+          advanceAmount: advanceAmount,
+          totalGisung: totalGisung,
+          paidGisung: paidGisung,
+          balance: balance,
+          hasPaidGisung: hasPaidGisung,
+          isFullyPaid: isFullyPaid,
+          paymentRate: paymentRate.toFixed(2) + '%',
+          gisungData: siteGisungData.map(g => ({
+            sequence: g.sequence,
+            amount: g.gisungAmount,
+            paymentStatus: g.paymentStatus
+          }))
+        });
+      });
+      
+      setPaymentStatusMap(paymentMap);
+    } catch (error) {
+      console.error('입금 상태 확인 실패:', error);
     }
   };
 
@@ -215,17 +306,42 @@ const ConstructionStatus = () => {
       <Grid container spacing={3}>
         {sites.map((site) => (
           <Grid item xs={12} md={6} lg={4} key={site.id}>
-            <Card>
+            <Card sx={{ position: 'relative' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                   <Typography variant="h6" component="div">
                     {site.name}
                   </Typography>
-                  <Chip
-                    label={getStatusText(site.status)}
-                    color={getStatusColor(site.status)}
-                    size="small"
-                  />
+                  <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', alignItems: 'flex-end' }}>
+                    <Chip
+                      label={getStatusText(site.status)}
+                      color={getStatusColor(site.status)}
+                      size="small"
+                    />
+                    {/* 입금 100% 완료된 현장에 정산완료 표시 - 현장명 중앙에 겹치게 */}
+                    {paymentStatusMap[site.name]?.isFullyPaid && (
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          zIndex: 10,
+                          backgroundColor: 'transparent',
+                          border: '3px solid #f44336',
+                          borderRadius: '6px',
+                          padding: '4px 12px',
+                          fontSize: '0.9rem',
+                          fontWeight: 'bold',
+                          color: '#f44336',
+                          pointerEvents: 'none',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        정산완료
+                      </Box>
+                    )}
+                  </Box>
                 </Box>
                 
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -270,6 +386,21 @@ const ConstructionStatus = () => {
                     현장관리자: {site.manager}
                   </Typography>
                 </Box>
+
+                {/* 입금 상태 정보 표시 */}
+                {paymentStatusMap[site.name] && (
+                  <Box sx={{ mt: 2, p: 1, bgcolor: 'grey.100', borderRadius: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      <strong>입금 현황:</strong> {paymentStatusMap[site.name].paymentRate}%
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                      입금: {paymentStatusMap[site.name].paidGisung.toLocaleString()}원 / 전체: {paymentStatusMap[site.name].totalGisung.toLocaleString()}원
+                    </Typography>
+                    <Typography variant="caption" color={paymentStatusMap[site.name].balance <= 0 ? 'success.main' : 'error.main'}>
+                      잔액: {paymentStatusMap[site.name].balance.toLocaleString()}원
+                    </Typography>
+                  </Box>
+                )}
 
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
                   {site.description}

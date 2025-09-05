@@ -55,10 +55,10 @@ import GisungStatusTable from '../components/GisungStatusTable';
 import GisungStatusPage from '../components/GisungStatusPage';
 import * as XLSX from 'xlsx';
 import Cost from './Cost';
-import { useSearchParams, useLocation } from 'react-router-dom';
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
 import { syncProgressToCost } from '../utils/integrationUtils';
-import { generateTemplateBasedGisungExcel } from '../utils/gisungTemplateUtils';
+import { generateDocumentExcel } from '../utils/materialUploadUtils';
 
 // 핀치 줌 훅
 const usePinchZoom = () => {
@@ -219,6 +219,7 @@ const Progress = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [searchParams] = useSearchParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const [progressList, setProgressList] = useState([]);
   const [allCostData, setAllCostData] = useState([]);
   const [open, setOpen] = useState(false);
@@ -295,8 +296,9 @@ const Progress = () => {
     
     const siteId = searchParams.get('siteId');
     const viewMode = searchParams.get('viewMode');
+    const autoSelect = searchParams.get('autoSelect');
     
-    console.log('🔍 URL 파라미터 확인:', { siteId, viewMode });
+    console.log('🔍 URL 파라미터 확인:', { siteId, viewMode, autoSelect });
     console.log('🔍 navigate state 확인:', location.state);
     
     // 현장 선택 해제 상태를 추적하는 플래그
@@ -315,7 +317,33 @@ const Progress = () => {
       return;
     }
     
-
+    // SiteInfoPopup에서 온 경우 특별 처리
+    if (location.state && location.state.fromSiteInfo && location.state.autoSelectSite) {
+      console.log('🔍 SiteInfoPopup에서 온 경우 - 현장 자동 선택');
+      const { selectedSiteId, selectedSiteName } = location.state;
+      
+      if (selectedSiteId && selectedSiteName) {
+        setFilteredSiteId(selectedSiteId);
+        setFilteredSiteName(selectedSiteName);
+        setSelectedSites([selectedSiteName]);
+        
+        // 현장별 뷰로 강제 설정
+        console.log('🔄 SiteInfoPopup에서 왔으므로 현장별 뷰로 강제 설정');
+        setStatusView('site');
+        setTab('gisung'); // 기성현황 탭으로 전환
+        
+        // 강제로 현장별 뷰 유지
+        setTimeout(() => {
+          if (statusView !== 'site' || tab !== 'gisung') {
+            console.log('⚠️ 뷰가 덮어써짐. 강제로 현장별 뷰로 복원');
+            setStatusView('site');
+            setTab('gisung');
+          }
+        }, 100);
+        
+        return; // SiteInfoPopup에서 온 경우는 여기서 처리 완료
+      }
+    }
     
     // URL 파라미터 처리 (기존 로직)
     if (siteId) {
@@ -343,7 +371,7 @@ const Progress = () => {
       setFilteredSiteId(null);
       setFilteredSiteName('');
     }
-  }, [searchParams, sites]);
+  }, [searchParams, sites, location.state]);
 
   // 청구예정 페이지에서 전달받은 현장명과 월 정보 처리
   useEffect(() => {
@@ -492,7 +520,7 @@ const Progress = () => {
     if (item) {
       setSelected(item);
       setFormData({
-        name: item.name,
+        name: item?.name,
         contractAmount: item.contractAmount,
         payments: item.payments || [{ label: '1차 기성', amount: '' }],
       });
@@ -637,7 +665,7 @@ const Progress = () => {
       return sites.map(site => {
         const siteName = site.name;
         // 기성 데이터에서 해당 현장의 데이터 필터링
-        const siteGisungData = progressList.filter(item => item.name === siteName);
+        const siteGisungData = progressList.filter(item => item?.name === siteName);
         const totalContract = siteGisungData.reduce((sum, item) => sum + (parseFloat(item.contractAmount) || 0), 0);
         const totalGisung = siteGisungData.reduce((sum, item) => {
           if (item.payments) {
@@ -847,17 +875,17 @@ const Progress = () => {
       const isSelected = selectedSites.some(selectedSite => {
         // 문자열인 경우 (현장명)
         if (typeof selectedSite === 'string') {
-          return item.name === selectedSite || item.siteId === selectedSite;
+          return item?.name === selectedSite || item.siteId === selectedSite;
         }
         // 객체인 경우 (현장 객체)
         if (selectedSite && typeof selectedSite === 'object') {
-          return item.name === selectedSite.name || item.siteId === selectedSite.id;
+          return item?.name === selectedSite.name || item.siteId === selectedSite.id;
         }
         return false;
       });
       
       console.log('기성 데이터 체크:', {
-        itemName: item.name,
+        itemName: item?.name,
         itemSiteId: item.siteId,
         selectedSites: selectedSites,
         isSelected: isSelected
@@ -968,32 +996,59 @@ const Progress = () => {
   // 엑셀 다운로드 함수 구현 (기성금청구서 템플릿 사용)
   const handleExcelDownload = async () => {
     try {
+      console.log('📊 Progress.jsx 엑셀 다운로드 시작');
+      
+      // progressList 유효성 검사
+      if (!progressList || !Array.isArray(progressList)) {
+        console.error('❌ progressList 데이터가 유효하지 않습니다:', progressList);
+        alert('진행 현황 데이터를 불러올 수 없습니다.');
+        return;
+      }
+
+      // selectedSites 유효성 검사
+      if (!selectedSites || !Array.isArray(selectedSites)) {
+        console.warn('⚠️ selectedSites가 유효하지 않습니다:', selectedSites);
+        // selectedSites가 없으면 빈 배열로 처리
+        selectedSites = [];
+      }
+
       // 필터링된 데이터 준비
       const filteredData = progressList
-        .filter(row => selectedSites.length === 0 || selectedSites.includes(row.name));
+        .filter(row => {
+          if (!row || typeof row !== 'object') {
+            console.warn('⚠️ 유효하지 않은 행 데이터:', row);
+            return false;
+          }
+          return selectedSites.length === 0 || selectedSites.includes(row.name);
+        });
 
       if (filteredData.length === 0) {
+        console.warn('⚠️ 다운로드할 데이터가 없습니다.');
         alert('다운로드할 데이터가 없습니다.');
         return;
       }
 
-      // 기성금청구서 템플릿 사용 (이미 상단에서 import됨)
-      
       // 첫 번째 현장 데이터로 기성금청구서 생성
       const firstRow = filteredData[0];
+      if (!firstRow || typeof firstRow !== 'object') {
+        console.error('❌ 첫 번째 행 데이터가 유효하지 않습니다:', firstRow);
+        alert('현장 데이터가 유효하지 않습니다.');
+        return;
+      }
+
       const siteData = {
-        name: firstRow.name,
-        contractAmount: firstRow.contractAmount || 0,
+        name: firstRow.name || '현장명없음',
+        contractAmount: Number(firstRow.contractAmount || 0),
         manager: firstRow.manager || '',
         company: firstRow.company || '',
         contractor: firstRow.company || '',
         startDate: firstRow.startDate || '',
         endDate: firstRow.endDate || '',
-        advance: firstRow.advance || 0
+        advance: Number(firstRow.advance || 0)
       };
       
-      const gisungData = firstRow.payments || [];
-      const siteItems = firstRow.items || [];
+      const gisungData = Array.isArray(firstRow.payments) ? firstRow.payments : [];
+      const siteItems = Array.isArray(firstRow.items) ? firstRow.items : [];
       
       console.log('🔍 Progress.jsx 디버깅:');
       console.log('📊 firstRow:', firstRow);
@@ -1001,23 +1056,55 @@ const Progress = () => {
       console.log('📊 siteItems:', siteItems);
       console.log('📊 siteItems.length:', siteItems.length);
       
+      // generateDocumentExcel 함수 존재 확인
+      if (typeof generateDocumentExcel !== 'function') {
+        console.error('❌ generateDocumentExcel 함수가 정의되지 않았습니다.');
+        alert('기성금청구서 생성 함수를 찾을 수 없습니다.');
+        return;
+      }
+      
       // 기성금청구서 생성 시작 메시지
       const templateTypeText = firstRow.templateType === 'L' ? 'LONG' : 'NEW';
       setLoadingMessage(`열심히 제작중에 있습니다.\n기성금청구서 [${templateTypeText}]을 생산하고 있습니다.`);
       
-      // 기성금청구서 템플릿으로 엑셀 생성
-      const { workbook, templateType } = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems);
+      // 기성금청구서 생성 (통합 함수 사용)
+      const materialData = { items: siteItems };
+      console.log('🚀 generateDocumentExcel 호출 시작');
+      console.log('📊 siteData:', siteData);
+      console.log('📊 materialData:', materialData);
       
-      // 파일명을 (@차 기성금청구서)현장명 중 유리공사 형식으로 변경
-      const currentSequence = gisungData.length > 0 ? gisungData.length : 1;
-      const fileName = `(${currentSequence}차 기성금청구서)${firstRow.name} 중 유리공사`;
-      XLSX.writeFile(workbook, `${fileName}.xlsx`);
+      const result = await generateDocumentExcel(siteData, materialData, '기성금청구서');
       
-      console.log('기성금청구서 다운로드 완료:', fileName);
+      if (!result) {
+        console.error('❌ generateDocumentExcel이 undefined를 반환했습니다.');
+        alert('기성금청구서 생성에 실패했습니다.');
+        return;
+      }
+      
+      if (!result.success) {
+        console.error('❌ 기성금청구서 생성 실패:', result.error);
+        throw new Error(result.error || '기성금청구서 생성 실패');
+      }
+      
+      console.log('✅ 기성금청구서 다운로드 완료');
       alert('기성금청구서가 다운로드되었습니다!');
     } catch (error) {
-      console.error('기성금청구서 다운로드 실패:', error);
-      alert('기성금청구서 다운로드에 실패했습니다: ' + error.message);
+      console.error('❌ 기성금청구서 다운로드 실패:', error);
+      console.error('❌ 오류 상세:', error.stack);
+      
+      // 사용자에게 더 친화적인 오류 메시지 제공
+      let errorMessage = '기성금청구서 다운로드에 실패했습니다.';
+      if (error.message.includes('템플릿')) {
+        errorMessage = '템플릿 파일을 불러올 수 없습니다. 잠시 후 다시 시도해주세요.';
+      } else if (error.message.includes('Firebase')) {
+        errorMessage = '데이터를 불러올 수 없습니다. 인터넷 연결을 확인해주세요.';
+      } else if (error.message.includes('Excel')) {
+        errorMessage = '엑셀 파일 생성 중 오류가 발생했습니다. 다시 시도해주세요.';
+      } else if (error.message.includes('Cannot read properties of undefined')) {
+        errorMessage = '데이터 처리 중 오류가 발생했습니다. 페이지를 새로고침 후 다시 시도해주세요.';
+      }
+      
+      alert(errorMessage + '\n\n오류: ' + error.message);
     }
   };
 
@@ -1449,7 +1536,7 @@ const Progress = () => {
           <Typography variant="body1" sx={{ fontWeight: 600 }}>
             📍 {filteredSiteName} 현장의 기성관리 데이터를 확인하고 있습니다.
           </Typography>
-          {progressList.filter(item => item.name === filteredSiteName).length === 0 && (
+          {progressList.filter(item => item?.name === filteredSiteName).length === 0 && (
             <Typography variant="body2" sx={{ mt: 1, color: '#ff9800' }}>
               💡 이 현장에 대한 기성 데이터가 없습니다. "기성등록" 및 업로드를 통하여 현장 기성을 등록해주세요.
             </Typography>
