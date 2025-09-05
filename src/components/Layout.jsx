@@ -61,6 +61,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useTheme as useThemeContext } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { isMasterUser, isAdminUser } from '../utils/masterUtils';
 import BottomBar from './dashboard/BottomBar';
 
 const menuItems = [
@@ -101,8 +102,8 @@ const Layout = React.memo(({ children }) => {
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
   const [adminMenuAnchorEl, setAdminMenuAnchorEl] = useState(null);
   const { currentUser, logout } = useAuth();
-  const isAdmin = currentUser?.grade === '마스터' || currentUser?.grade === '관리자';
-  const isMaster = currentUser?.grade === '마스터';
+  const isMaster = isMasterUser(currentUser);
+  const isAdmin = isAdminUser(currentUser);
   const [modal, setModal] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 

@@ -149,8 +149,8 @@ const BottomBar = ({
   };
   const navigate = useNavigate();
   const theme = useTheme();
-  const [isMaster, setIsMaster] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const isMaster = isMasterUser(currentUser);
+  const isAdmin = isAdminUser(currentUser);
 
   const isMobile = useMediaQuery('(max-width:600px)');
 
@@ -1306,24 +1306,7 @@ const BottomBar = ({
     };
   }, [isMobile, handleResize]);
 
-  useEffect(() => {
-    if (currentUser) {
-      // 사용자 권한 확인
-      const checkUserRole = async () => {
-        try {
-          const userDoc = await getDoc(doc(db, 'members', currentUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setIsMaster(userData.role === 'master');
-            setIsAdmin(userData.role === 'admin' || userData.role === 'master');
-          }
-        } catch (error) {
-          devError('사용자 권한 확인 실패:', error);
-        }
-      };
-      checkUserRole();
-    }
-  }, [currentUser]);
+  // 마스터 권한은 masterUtils에서 직접 확인하므로 별도 useEffect 불필요
 
   // 팝업 닫기 함수
   const handleClose = () => {

@@ -128,3 +128,19 @@ export const getMasterConfig = () => {
 if (import.meta.env.DEV) {
   console.log('🔧 Master Utils 초기화:', getMasterConfig());
 }
+
+// 디버깅용 상세 로그 함수
+export const debugMasterUser = (user) => {
+  console.log('🔍 Master User 디버깅:');
+  console.log('- 사용자 객체:', user);
+  console.log('- 이메일:', user?.email);
+  console.log('- UID:', user?.uid);
+  console.log('- 역할:', user?.role);
+  console.log('- 등급:', user?.grade);
+  console.log('- 표시명:', user?.displayName);
+  console.log('- 마스터 이메일 목록:', getMasterEmails());
+  console.log('- 마스터 UID 목록:', getMasterUids());
+  console.log('- 마스터 권한 여부:', isMasterUser(user));
+  console.log('- 환경변수 마스터 이메일:', import.meta.env.VITE_MASTER_EMAIL);
+  console.log('- 전체 환경변수:', import.meta.env);
+};

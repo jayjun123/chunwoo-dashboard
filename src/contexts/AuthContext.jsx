@@ -18,6 +18,7 @@ import {
   logRegister, 
   detectSuspiciousActivity 
 } from '../utils/securityUtils';
+import { debugMasterUser } from '../utils/masterUtils';
 
 
 const AuthContext = createContext();
@@ -374,6 +375,9 @@ export const AuthProvider = ({ children }) => {
                 setCurrentUser(enhancedUser);
                 saveUserToStorage(enhancedUser);
                 console.log('✅ 사용자 정보 설정 완료');
+                
+                // 디버깅 로그 추가
+                debugMasterUser(enhancedUser);
               } else {
                 console.log('⚠️ Firestore에 사용자 데이터가 없습니다.');
                 setCurrentUser(user);
