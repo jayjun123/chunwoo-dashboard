@@ -11,6 +11,13 @@ import {
   signInWithPopup
 } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
+import { 
+  logLoginSuccess, 
+  logLoginFailed, 
+  logLogout, 
+  logRegister, 
+  detectSuspiciousActivity 
+} from '../utils/securityUtils';
 
 
 const AuthContext = createContext();
@@ -107,6 +114,18 @@ export const AuthProvider = ({ children }) => {
         displayName: name
       });
 
+      // 보안 로그 기록
+      try {
+        await logRegister(user.uid, email, {
+          name,
+          organization,
+          registrationMethod: 'email'
+        });
+      } catch (logError) {
+        console.warn('보안 로그 기록 실패:', logError);
+        // 로그 기록 실패해도 회원가입은 계속 진행
+      }
+
       console.log('회원가입 성공:', user.uid);
       return userCredential;
     } catch (error) {
@@ -132,10 +151,33 @@ export const AuthProvider = ({ children }) => {
       setCurrentUser(userInfo);
       saveUserToStorage(userInfo); // localStorage에 사용자 정보 저장
       
+      // 보안 로그 기록 (로그인 성공)
+      try {
+        await logLoginSuccess(userInfo.uid, email, {
+          loginMethod: 'email',
+          userRole: userData.role || 'user'
+        });
+      } catch (logError) {
+        console.warn('보안 로그 기록 실패:', logError);
+        // 로그 기록 실패해도 로그인은 계속 진행
+      }
+      
       console.log('AuthContext - 로그인 완료:', userInfo.uid);
       return userCredential;
     } catch (error) {
       console.error('로그인 실패:', error);
+      
+      // 보안 로그 기록 (로그인 실패)
+      try {
+        await logLoginFailed(email, error.message, {
+          loginMethod: 'email',
+          errorCode: error.code
+        });
+      } catch (logError) {
+        console.warn('보안 로그 기록 실패:', logError);
+        // 로그 기록 실패해도 오류는 계속 throw
+      }
+      
       throw error;
     }
   };
@@ -162,10 +204,33 @@ export const AuthProvider = ({ children }) => {
       setCurrentUser(userInfo);
       saveUserToStorage(userInfo); // localStorage에 사용자 정보 저장
       
+      // 보안 로그 기록 (Google 로그인 성공)
+      try {
+        await logLoginSuccess(userInfo.uid, userInfo.email, {
+          loginMethod: 'google',
+          userRole: userData.role || 'user'
+        });
+      } catch (logError) {
+        console.warn('보안 로그 기록 실패:', logError);
+        // 로그 기록 실패해도 로그인은 계속 진행
+      }
+      
       console.log('AuthContext - Google 로그인 완료:', userInfo.uid);
       return userCredential;
     } catch (error) {
       console.error('Google 로그인 실패:', error);
+      
+      // 보안 로그 기록 (Google 로그인 실패)
+      try {
+        await logLoginFailed(userCredential?.user?.email || 'unknown', error.message, {
+          loginMethod: 'google',
+          errorCode: error.code
+        });
+      } catch (logError) {
+        console.warn('보안 로그 기록 실패:', logError);
+        // 로그 기록 실패해도 오류는 계속 throw
+      }
+      
       throw error;
     }
   };
@@ -174,6 +239,19 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       console.log('AuthContext - 로그아웃 시작');
+      
+      // 보안 로그 기록 (로그아웃)
+      if (currentUser) {
+        try {
+          await logLogout(currentUser.uid, currentUser.email, {
+            logoutMethod: 'manual'
+          });
+        } catch (logError) {
+          console.warn('보안 로그 기록 실패:', logError);
+          // 로그 기록 실패해도 로그아웃은 계속 진행
+        }
+      }
+      
       setCurrentUser(null);
       saveUserToStorage(null); // localStorage에서 사용자 정보 제거
       await signOut(auth);

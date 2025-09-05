@@ -178,7 +178,8 @@ export const collections = {
   schedules: 'schedules',   // 일정 관리
   vendors: 'vendors',       // 거래처 관리
   gisung: 'gisung',         // 기성 관리
-  estimates: 'estimates'    // 견적 관리
+  estimates: 'estimates',   // 견적 관리
+  security_logs: 'security_logs' // 보안 로그
 };
 
 // 최적화된 쿼리 함수들

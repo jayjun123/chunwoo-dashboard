@@ -15,7 +15,20 @@ export const useTodo = () => {
 };
 
 export const TodoProvider = ({ children }) => {
-  const { currentUser } = useAuth();
+  let authContext;
+  let currentUser;
+  let authLoading;
+  
+  try {
+    authContext = useAuth();
+    currentUser = authContext?.currentUser;
+    authLoading = authContext?.loading;
+  } catch (error) {
+    console.warn('TodoContext: useAuth 초기화 실패, 기본값 사용:', error);
+    currentUser = null;
+    authLoading = true;
+  }
+  
   const [todos, setTodos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,6 +38,13 @@ export const TodoProvider = ({ children }) => {
     console.log('=== TodoContext useEffect 실행 ===');
     console.log('currentUser:', currentUser);
     console.log('currentUser?.uid:', currentUser?.uid);
+    console.log('authLoading:', authLoading);
+    
+    // AuthProvider가 아직 로딩 중이면 대기
+    if (authLoading) {
+      console.log('AuthProvider 로딩 중 - 대기');
+      return;
+    }
     
     if (!currentUser?.uid) {
       console.log('사용자 ID가 없음 - todos 초기화');
@@ -73,7 +93,7 @@ export const TodoProvider = ({ children }) => {
     });
 
     return () => unsubscribe();
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, authLoading]);
 
   // 투두 추가 (한국 시간 기준)
   const addTodo = async (text, date = null) => {
