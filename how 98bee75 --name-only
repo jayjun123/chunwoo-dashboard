@@ -1,0 +1,20 @@
+[33m16f8422[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mnew-master[m[33m, [m[1;31morigin/new-master[m[33m)[m Update contractGabjiUtils.js
+[33mfb373b3[m Improve duplicate detection logic - Only treat as duplicate if name, position, and company are all the same
+[33m2eb0474[m Fix vendor duplicate display issue - Add duplicate removal logic and cleanup button
+[33m2c41c41[m Update template system and upload scripts
+[33m4f7db95[m Fix: 기성현황 선택현장에서 돌아가기 버튼 작동 문제 해결
+[33md7d936a[m Fix: 기성현황 페이지 뒤로가기 버튼 및 일정관리 엑셀 다운로드 문제 해결
+[33m0791f8e[m 라우팅 경로 수정: /gisung-status를 /gisung으로 변경하여 올바른 기성현황 페이지 경로 사용
+[33mc8f5381[m 기성등록 버튼 라우팅 개선: 청구예정 및 현장관리 페이지에서 기성등록/기성현황 버튼 클릭 시 해당 현장의 기성현황 페이지(/gisung-status)로 바로 이동하도록 수정
+[33m7041540[m 실물량파악 기능 개선 및 버그 수정: 1) 실물량 업로드 후 현장 선택 다이얼로그 표시 2) 매칭되지 않은 항목들을 단수정리 아래에 새 행으로 추가 3) 기성현황 페이지 뒤로가기 버튼 추가 4) 현장별 기성등록 팝업 금액 정수 표시 5) 기성월 기본값을 전달로 설정 6) excelUtils.jsx의 contractText 변수 오류 수정 7) MUI Grid v2 마이그레이션 적용
+[33m81f15f0[m feat: 실물량 업로드 기능 추가 및 템플릿 타입 표시 간소화
+[33m8684efa[m 진행률 100%일 때 주황색 대신 빨간색으로 변경
+[33mb7269b1[m 차수 계산 로직 수정: 청구완료 상태와 관계없이 연속된 차수로 처리하도록 변경
+[33m839233b[m 기성청구서 엑셀 템플릿 분석 및 물량별 템플릿 선택 로직 확인
+[33m1bd50a2[m 기성금청구서 템플릿 선택 디버깅 로그 추가
+[33m98bee75[m 기성현황 청구서 다운로드 오류 수정 - 동적 import를 정적 import로 변경
+[33m829e4c4[m 모바일 일정관리 페이지 20px 아래로 이동 및 주요현장 모바일 50px 아래로 이동
+[33m93cef62[m 모바일 UI 개선 및 일정관리 색상 순서 조정
+[33m9767f43[m 현장관리 누계기성에 선급금 포함 기능 추가
+[33md96d99c[m  청구예정 엑셀 다운로드 개선 및 헤더 메뉴명 변경
+[33m263f35c[m 청구관리 기능 개선: 엑셀 다운로드/업로드 및 헤더 메뉴 추가

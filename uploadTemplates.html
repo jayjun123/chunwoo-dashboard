@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파이어베이스 템플릿 업로드</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .upload-section:hover {
+            border-color: #4CAF50;
+        }
+        .file-input {
+            display: none;
+        }
+        .upload-btn {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .upload-btn:hover {
+            background: #45a049;
+        }
+        .upload-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #4CAF50;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .url-display {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .copy-btn {
+            background: #007bff;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .copy-btn:hover {
+            background: #0056b3;
+        }
+        .instructions {
+            background: #e7f3ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 파이어베이스 템플릿 업로드</h1>
+        
+        <div class="instructions">
+            <h3>📋 사용 방법</h3>
+            <ol>
+                <li>아래 Firebase 설정을 실제 프로젝트 정보로 수정</li>
+                <li>각 템플릿 파일을 선택하여 업로드</li>
+               3. 업로드 완료 후 다운로드 URL을 복사</li>
+                <li>코드 파일의 templateUrl을 새로운 URL로 업데이트</li>
+            </ol>
+        </div>
+
+        <!-- Firebase 설정 -->
+        <div class="upload-section">
+            <h3>⚙️ Firebase 설정</h3>
+            <p>아래 설정을 실제 프로젝트 정보로 수정하세요:</p>
+            <textarea id="firebaseConfig" rows="8" cols="80" style="width: 100%; font-family: monospace;">
+{
+  "apiKey": "your-api-key",
+  "authDomain": "your-project.firebaseapp.com",
+  "projectId": "your-project-id",
+  "storageBucket": "your-project.appspot.com",
+  "messagingSenderId": "your-sender-id",
+  "appId": "your-app-id"
+}</textarea>
+            <br><br>
+            <button onclick="initializeFirebase()" class="upload-btn">Firebase 초기화</button>
+        </div>
+
+        <!-- 견적서 템플릿 업로드 -->
+        <div class="upload-section">
+            <h3>📄 견적서 템플릿 업로드</h3>
+            
+            <div>
+                <label for="estimateN" class="upload-btn">(N)견적서.xlsx 선택</label>
+                <input type="file" id="estimateN" class="file-input" accept=".xlsx">
+                <button onclick="uploadFile('estimateN', 'templates/(N)견적서.xlsx', 'N 타입 견적서')" class="upload-btn">업로드</button>
+            </div>
+            <div id="estimateNProgress" class="progress" style="display: none;">
+                <div class="progress-bar" id="estimateNProgressBar"></div>
+            </div>
+            <div id="estimateNStatus"></div>
+            <div id="estimateNUrl" class="url-display" style="display: none;"></div>
+            
+            <div style="margin-top: 20px;">
+                <label for="estimateL" class="upload-btn">(L)견적서.xlsx 선택</label>
+                <input type="file" id="estimateL" class="file-input" accept=".xlsx">
+                <button onclick="uploadFile('estimateL', 'templates/(L)견적서.xlsx', 'L 타입 견적서')" class="upload-btn">업로드</button>
+            </div>
+            <div id="estimateLProgress" class="progress" style="display: none;">
+                <div class="progress-bar" id="estimateLProgressBar"></div>
+            </div>
+            <div id="estimateLStatus"></div>
+            <div id="estimateLUrl" class="url-display" style="display: none;"></div>
+        </div>
+
+        <!-- 납품계약서 템플릿 업로드 -->
+        <div class="upload-section">
+            <h3>📋 납품계약서 템플릿 업로드</h3>
+            
+            <div>
+                <label for="contractN" class="upload-btn">(N)납품계약서.xlsx 선택</label>
+                <input type="file" id="contractN" class="file-input" accept=".xlsx">
+                <button onclick="uploadFile('contractN', 'templates/(N)납품계약서.xlsx', 'N 타입 납품계약서')" class="upload-btn">업로드</button>
+            </div>
+            <div id="contractNProgress" class="progress" style="display: none;">
+                <div class="progress-bar" id="contractNProgressBar"></div>
+            </div>
+            <div id="contractNStatus"></div>
+            <div id="contractNUrl" class="url-display" style="display: none;"></div>
+            
+            <div style="margin-top: 20px;">
+                <label for="contractL" class="upload-btn">(L)납품계약서.xlsx 선택</label>
+                <input type="file" id="contractL" class="file-input" accept=".xlsx">
+                <button onclick="uploadFile('contractL', 'templates/(L)납품계약서.xlsx', 'L 타입 납품계약서')" class="upload-btn">업로드</button>
+            </div>
+            <div id="contractLProgress" class="progress" style="display: none;">
+                <div class="progress-bar" id="contractLProgressBar"></div>
+            </div>
+            <div id="contractLStatus"></div>
+            <div id="contractLUrl" class="url-display" style="display: none;"></div>
+        </div>
+
+        <!-- 결과 요약 -->
+        <div class="upload-section">
+            <h3>📊 업로드 결과</h3>
+            <div id="uploadSummary"></div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
+
+        let app, storage;
+
+        // Firebase 초기화
+        window.initializeFirebase = function() {
+            try {
+                const configText = document.getElementById('firebaseConfig').value;
+                const config = JSON.parse(configText);
+                
+                app = initializeApp(config);
+                storage = getStorage(app);
+                
+                showStatus('info', 'Firebase가 성공적으로 초기화되었습니다!');
+                console.log('Firebase 초기화 완료:', app);
+                
+            } catch (error) {
+                showStatus('error', 'Firebase 초기화 실패: ' + error.message);
+                console.error('Firebase 초기화 오류:', error);
+            }
+        };
+
+        // 파일 업로드 함수
+        window.uploadFile = function(inputId, storagePath, description) {
+            if (!storage) {
+                showStatus('error', '먼저 Firebase를 초기화해주세요.');
+                return;
+            }
+
+            const fileInput = document.getElementById(inputId);
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showStatus('error', '파일을 선택해주세요.');
+                return;
+            }
+
+            // 진행률 표시
+            const progressId = inputId + 'Progress';
+            const progressBarId = inputId + 'ProgressBar';
+            const statusId = inputId + 'Status';
+            const urlId = inputId + 'Url';
+            
+            document.getElementById(progressId).style.display = 'block';
+            document.getElementById(statusId).innerHTML = '';
+            document.getElementById(urlId).style.display = 'none';
+
+            // 스토리지 참조 생성
+            const storageRef = ref(storage, storagePath);
+            
+            // 업로드 작업 생성
+            const uploadTask = uploadBytesResumable(storageRef, file);
+
+            // 진행률 모니터링
+            uploadTask.on('state_changed', 
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    document.getElementById(progressBarId).style.width = progress + '%';
+                    
+                    if (progress === 100) {
+                        document.getElementById(statusId).innerHTML = 
+                            '<div class="status info">업로드 완료! 다운로드 URL을 가져오는 중...</div>';
+                    }
+                },
+                (error) => {
+                    showStatus('error', `${description} 업로드 실패: ${error.message}`);
+                    document.getElementById(progressId).style.display = 'none';
+                },
+                async () => {
+                    try {
+                        // 다운로드 URL 가져오기
+                        const downloadURL = await getDownloadURL(storageRef);
+                        
+                        // 성공 상태 표시
+                        document.getElementById(statusId).innerHTML = 
+                            `<div class="status success">${description} 업로드 성공!</div>`;
+                        
+                        // URL 표시
+                        const urlDiv = document.getElementById(urlId);
+                        urlDiv.innerHTML = `
+                            <strong>다운로드 URL:</strong><br>
+                            ${downloadURL}
+                            <button onclick="copyToClipboard('${downloadURL}')" class="copy-btn">복사</button>
+                        `;
+                        urlDiv.style.display = 'block';
+                        
+                        // 진행률 숨기기
+                        document.getElementById(progressId).style.display = 'none';
+                        
+                        // 결과 요약 업데이트
+                        updateUploadSummary();
+                        
+                    } catch (error) {
+                        showStatus('error', `다운로드 URL 가져오기 실패: ${error.message}`);
+                    }
+                }
+            );
+        };
+
+        // 상태 표시 함수
+        function showStatus(type, message) {
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            
+            // 기존 상태 메시지 제거
+            const existingStatus = document.querySelector('.status');
+            if (existingStatus) {
+                existingStatus.remove();
+            }
+            
+            document.body.insertBefore(statusDiv, document.body.firstChild);
+            
+            // 5초 후 자동 제거
+            setTimeout(() => {
+                if (statusDiv.parentNode) {
+                    statusDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // 업로드 결과 요약 업데이트
+        function updateUploadSummary() {
+            const urlDivs = document.querySelectorAll('.url-display');
+            const successCount = Array.from(urlDivs).filter(div => div.style.display !== 'none').length;
+            
+            const summaryDiv = document.getElementById('uploadSummary');
+            summaryDiv.innerHTML = `
+                <div class="status success">
+                    ✅ 성공적으로 업로드된 파일: ${successCount}개
+                </div>
+                <p><strong>다음 단계:</strong></p>
+                <ol>
+                    <li>위의 다운로드 URL들을 복사</li>
+                    <li>코드 파일의 templateUrl을 새로운 URL로 업데이트</li>
+                    <li>물량 타입(N/L)에 따라 올바른 템플릿 사용</li>
+                </ol>
+            `;
+        }
+
+        // 클립보드 복사 함수
+        window.copyToClipboard = function(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('URL이 클립보드에 복사되었습니다!');
+            }).catch(err => {
+                console.error('클립보드 복사 실패:', err);
+                // 대체 방법
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('URL이 클립보드에 복사되었습니다!');
+            });
+        };
+    </script>
+</body>
+</html>

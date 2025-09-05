@@ -71,7 +71,15 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
     if (site && site.id) {
       onClose(); // 팝업 닫기
       // 기성관리 페이지로 이동하면서 해당 현장 선택
-      navigate(`/progress?siteId=${site.id}&viewMode=site`);
+      // 현장별 기성현황 탭에 자동으로 해당 현장이 선택되도록 설정
+      navigate(`/progress?siteId=${site.id}&viewMode=site&autoSelect=true`, {
+        state: {
+          fromSiteInfo: true,
+          selectedSiteId: site.id,
+          selectedSiteName: site.name,
+          autoSelectSite: true
+        }
+      });
     }
   };
 

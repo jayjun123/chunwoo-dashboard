@@ -1,6 +1,6 @@
-import { db } from '../firebase.js';
+import { db } from '../firebase';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
-import { getGisungDataFromFirebase } from '../utils/gisungDataUtils.js';
+import { getGisungDataFromFirebase } from '../utils/gisungDataUtils';
 
 // 기성금회기성 데이터 조회
 export const getGisungItems = async (filters = {}) => {
@@ -15,7 +15,7 @@ export const getGisungItems = async (filters = {}) => {
     
     if (filters.name) {
       filteredData = filteredData.filter(item => 
-        item.name && item.name.toLowerCase().includes(filters.name.toLowerCase())
+        item?.name && item?.name.toLowerCase().includes(filters.name.toLowerCase())
       );
     }
     
@@ -63,7 +63,7 @@ export const getGisungItemByName = async (itemName, specification = '') => {
     const gisungData = await getGisungDataFromFirebase();
     
     const item = gisungData.find(item => 
-      item.name === itemName && 
+      item?.name === itemName && 
       (specification ? item.specification === specification : true)
     );
     
@@ -137,7 +137,7 @@ export const searchGisungData = async (searchTerm) => {
     
     const searchLower = searchTerm.toLowerCase();
     const searchResults = gisungData.filter(item => 
-      (item.name && item.name.toLowerCase().includes(searchLower)) ||
+      (item?.name && item?.name.toLowerCase().includes(searchLower)) ||
       (item.specification && item.specification.toLowerCase().includes(searchLower)) ||
       (item.unit && item.unit.toLowerCase().includes(searchLower))
     );

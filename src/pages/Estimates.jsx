@@ -856,16 +856,27 @@ const Estimates = () => {
                   key={index}
                   label={siteName}
                   size="medium"
+                  onDoubleClick={() => {
+                    // 현장명에서 "/" 이전 부분만 추출하여 검색어로 설정
+                    const siteNameOnly = siteName.split(' / ')[0];
+                    setSearchTerm(siteNameOnly);
+                    console.log('현장칩 더블클릭으로 검색어 설정:', siteNameOnly);
+                  }}
                   sx={{
                     backgroundColor: '#ef5350',
                     color: '#fff',
                     fontSize: '1.2rem',
                     height: '36px',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: '#d32f2f'
+                    },
                     '& .MuiChip-label': {
                       fontSize: '1.2rem',
                       fontWeight: 600
                     }
                   }}
+                  title="더블클릭하여 현장명으로 검색"
                 />
               ))}
             </Box>

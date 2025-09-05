@@ -387,7 +387,7 @@ const BottomBar = ({
       });
       console.log('🔥 금일현설:', todaySetup.length, '개', todaySetup);
       
-      // 금일기타 (type에 '기타' 포함)
+      // 금일실측/기타 (type에 '실측' 또는 '기타' 포함)
       const todayEtc = todaySchedules.filter(item => {
         if (!item.type) return false;
         
@@ -395,17 +395,17 @@ const BottomBar = ({
         if (typeof item.type === 'string') {
           // 쉼표로 구분된 여러 타입이 있을 수 있음
           const types = item.type.split(',').map(t => t.trim());
-          return types.some(type => type.includes('기타'));
+          return types.some(type => type.includes('실측') || type.includes('기타'));
         }
         
         // type이 배열인 경우 (다중 타입)
         if (Array.isArray(item.type)) {
-          return item.type.some(type => type.includes('기타'));
+          return item.type.some(type => type.includes('실측') || type.includes('기타'));
         }
         
         return false;
       });
-      console.log('🔥 금일기타:', todayEtc.length, '개', todayEtc);
+      console.log('🔥 금일실측/기타:', todayEtc.length, '개', todayEtc);
       
       // stats를 한 번에 업데이트 (견적은 별도로 처리)
       const newStats = {
@@ -522,9 +522,15 @@ const BottomBar = ({
       const allEstimates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       console.log('🔥 전체 견적 데이터:', allEstimates);
       
-      // 제출기한이 오늘인 견적과 미제출된 날짜 지난 견적 필터링
+      // 제출기한이 오늘인 견적과 미제출된 날짜 지난 견적 필터링 (보류칩 제외)
       const todayEstimates = allEstimates.filter(estimate => {
         if (!estimate.submissionDeadline) return false;
+        
+        // 보류칩으로 되어있는 견적은 제외
+        if (estimate.submissionStatus === '보류') {
+          console.log('🔥 보류칩 견적 제외:', estimate.siteName || estimate.id, '상태:', estimate.submissionStatus);
+          return false;
+        }
         
         // 개선된 날짜 비교 사용
         const isToday = isSameDate(estimate.submissionDeadline, todayStr);
@@ -1477,7 +1483,7 @@ const BottomBar = ({
               </Box>
               <Box sx={{ fontSize: isMobile ? 12 : 15, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <CategoryIcon sx={{ fontSize: isMobile ? 14 : 18, color: '#9E9E9E', mr: 0.5 }} />
-                {!isMobile && '[기타]'} {stats.etcCount ?? 0}
+                {!isMobile && '[실측/기타]'} {stats.etcCount ?? 0}
               </Box>
             </>
           )}
@@ -2338,10 +2344,10 @@ const BottomBar = ({
             {(!isMobile || etcList.length > 0) && (
               <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
                 <Typography variant="h6" sx={{ mb: 1, color: '#9E9E9E', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
-                  📂 {isMobile ? '기타' : '금일기타'} ({etcList.length}개)
+                  📂 {isMobile ? '실측/기타' : '금일실측/기타'} ({etcList.length}개)
                 </Typography>
                 {etcList.length === 0 ? (
-                  <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 기타 일정이 없습니다.</Typography>
+                  <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 실측/기타 일정이 없습니다.</Typography>
                 ) : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
                     {etcList.map((item, index) => (

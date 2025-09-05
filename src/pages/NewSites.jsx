@@ -4,6 +4,7 @@ import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UploadIcon from '@mui/icons-material/Upload';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import MaterialInventory from '../components/MaterialInventory';
 
 import { collection, onSnapshot, query, orderBy, where, getDocs, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
@@ -106,7 +107,8 @@ const formatDateRange = (startDate, endDate) => {
 };
 import { getSiteIntegratedStatus } from '../utils/integrationUtils';
 import * as XLSX from 'xlsx';
-import { uploadMaterialData, generateEstimateExcel, getMaterialDataFromFirebase } from '../utils/materialUploadUtils';
+import { uploadMaterialData, generateDocumentExcel, getMaterialDataFromFirebase } from '../utils/materialUploadUtils';
+import { downloadNapfoomContract } from '../utils/napfoomUtils';
 import { safeUpdateDoc, debouncedUpdate } from '../utils/databaseUtils';
 
 // 회사명은 사용자 입력값 그대로 저장합니다. 더 이상 표준화하지 않습니다.
@@ -177,6 +179,9 @@ const NewSites = () => {
   const [showQuantityDialog, setShowQuantityDialog] = useState(false);
   const [quantityPassword, setQuantityPassword] = useState('');
   const [quantityPasswordError, setQuantityPasswordError] = useState('');
+  const [showHiddenCompleted, setShowHiddenCompleted] = useState(false);
+  const [showDistributionView, setShowDistributionView] = useState(false);
+  const [paymentStatusMap, setPaymentStatusMap] = useState({}); // 현장별 입금 상태
 
   // 상태별 카운트 계산
   const statusCounts = useMemo(() => {
@@ -201,7 +206,7 @@ const NewSites = () => {
     const pathSegments = location.pathname.split('/');
     if (pathSegments.length > 2 && pathSegments[1] === 'sites') {
       const siteName = decodeURIComponent(pathSegments[2]);
-      const targetSite = sites.find(site => site.name === siteName);
+      const targetSite = sites.find(site => site?.name === siteName);
       if (targetSite) {
         startTransition(() => {
           setSelectedSite(targetSite);
@@ -248,7 +253,7 @@ const NewSites = () => {
   const [gisungData, setGisungData] = useState([]);
   const [costData, setCostData] = useState([]);
   
-  // 기성 데이터 로드
+  // 기성 데이터 로드 및 입금 상태 확인
   useEffect(() => {
     const loadGisungData = async () => {
       try {
@@ -256,6 +261,9 @@ const NewSites = () => {
         const gisungSnapshot = await getDocs(gisungQuery);
         const data = gisungSnapshot.docs.map(doc => doc.data());
         setGisungData(data);
+        
+        // 입금 상태 확인
+        await loadPaymentStatus(data);
       } catch (error) {
         console.error('기성 데이터 로드 오류:', error);
       }
@@ -275,6 +283,69 @@ const NewSites = () => {
     loadGisungData();
     loadCostData();
   }, []);
+
+  // sites 데이터가 변경될 때마다 입금 상태 재확인
+  useEffect(() => {
+    if (sites.length > 0 && gisungData.length > 0) {
+      loadPaymentStatus(gisungData);
+    }
+  }, [sites, gisungData]);
+
+  // 기성현황 데이터를 가져와서 현장별 입금 상태 확인
+  const loadPaymentStatus = async (gisungData) => {
+    try {
+      // 현장별 입금 상태 맵 생성
+      const paymentMap = {};
+      
+      sites.forEach(site => {
+        // 현장명 매칭 (정확한 매칭과 부분 매칭 모두 시도)
+        const siteGisungData = gisungData.filter(g => {
+          const exactMatch = g.name === site.name;
+          const partialMatch = g.name && site.name && g.name.includes(site.name);
+          return exactMatch || partialMatch;
+        });
+        
+        if (siteGisungData.length === 0) {
+          paymentMap[site.name] = { isFullyPaid: false, totalGisung: 0, paidGisung: 0, paymentRate: 0 };
+          return;
+        }
+        
+        // 해당 현장의 모든 기성 데이터 확인
+        const totalGisung = siteGisungData.reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+        const paidGisung = siteGisungData
+          .filter(g => g.paymentStatus === '입금완료')
+          .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+        
+        // 선급금도 고려
+        const advanceAmount = Number(site.advance) || 0;
+        const totalWithAdvance = totalGisung + advanceAmount;
+        
+        // 잔액 계산 (계약금액 - 선급금 - 입금완료된 기성)
+        const contractAmount = Number(site.contractAmount) || 0;
+        const balance = contractAmount - advanceAmount - paidGisung;
+        
+        // 정산완료 조건: 잔액이 0이고 입금완료 칩이 있는 경우
+        const hasPaidGisung = siteGisungData.some(g => g.paymentStatus === '입금완료');
+        const isFullyPaid = balance <= 0 && hasPaidGisung;
+        
+        // 입금률 계산 (참고용)
+        const paymentRate = totalWithAdvance > 0 ? ((paidGisung + advanceAmount) / totalWithAdvance) * 100 : 0;
+        
+        paymentMap[site.name] = {
+          isFullyPaid,
+          totalGisung: totalWithAdvance,
+          paidGisung: paidGisung + advanceAmount,
+          paymentRate: Math.round(paymentRate),
+          balance: balance,
+          contractAmount: contractAmount
+        };
+      });
+      
+      setPaymentStatusMap(paymentMap);
+    } catch (error) {
+      console.error('입금 상태 확인 실패:', error);
+    }
+  };
   
   // 캐시된 데이터를 사용한 통합현황 계산
   useEffect(() => {
@@ -291,7 +362,7 @@ const NewSites = () => {
       }, 0);
       
       // 2. 누계기성: 캐시된 데이터 사용 (선급금 포함)
-      const siteNames = sites.map(site => site.name);
+      const siteNames = sites.map(site => site?.name);
       
       totalProgressAmount = gisungData.reduce((sum, gisung) => {
         if (siteNames.includes(gisung.name)) {
@@ -464,12 +535,12 @@ const NewSites = () => {
       const sitesWithGisung = await Promise.all(
         sitesData.map(async (site) => {
           try {
-            const gisungQuery = query(collection(db, 'gisung'), where('name', '==', site.name));
+            const gisungQuery = query(collection(db, 'gisung'), where('name', '==', site?.name));
             const gisungSnapshot = await getDocs(gisungQuery);
             const totalGisung = gisungSnapshot.docs.reduce((sum, doc) => sum + (Number(doc.data().gisungAmount) || 0), 0);
             return { ...site, totalProgress: totalGisung };
           } catch (error) {
-            console.error(`Error fetching gisung for site ${site.name}:`, error);
+            console.error(`Error fetching gisung for site ${site?.name}:`, error);
             return site;
           }
         })
@@ -525,9 +596,20 @@ const NewSites = () => {
 
   const handleDownloadNapfoomContract = async () => {
     setDownloadLoading(true);
+    
     try {
       console.log('🔍 NAPFOOM 납품계약서 다운로드 시작 - 현재 form 상태:', form);
       console.log('🔍 현재 selectedSite:', selectedSite);
+      console.log('📋 템플릿 타입: AUTO (물량 개수에 따라 자동 결정)');
+      
+      // 물량 개수에 따른 템플릿 타입 미리 계산
+      const previewMaterialItems = selectedSite?.items || [];
+      const itemCount = previewMaterialItems.length;
+      const templateType = itemCount > 20 ? 'L' : 'N';
+      const templateTypeText = templateType === 'L' ? 'LONG' : 'NEW';
+      
+      // 로딩 메시지 설정 (템플릿 타입 포함)
+      setLoadingMessage(`열심히 제작중에 있습니다.\n납품계약서 [${templateTypeText}]을 생산하고 있습니다.`);
       
       // 거래처현황에서 회사 정보 가져오기
       const companyName = form.companyName || form.company || '';
@@ -535,17 +617,32 @@ const NewSites = () => {
       
       console.log('🔍 거래처현황에서 가져온 정보:', vendorInfo);
       
+      // selectedSite 유효성 검사
+      if (!selectedSite) {
+        console.error('❌ selectedSite가 undefined입니다.');
+        alert('현장 정보를 찾을 수 없습니다. 현장을 다시 선택해주세요.');
+        return;
+      }
+
+      if (!selectedSite.name) {
+        console.error('❌ selectedSite.name이 undefined입니다:', selectedSite);
+        alert('현장명 정보가 없습니다. 현장을 다시 선택해주세요.');
+        return;
+      }
+
       // form 데이터를 contractGabjiUtils에서 기대하는 형식으로 변환
       const site = {
         ...form,
         contractAmount: Number(form.contractAmount || 0),
         advance: Number(form.advance || 0),
         companyName: companyName,
-        name: form.name || '',
+        name: selectedSite.name || form.name || '현장명없음',
         address: form.address || '',
         startDate: form.startDate || '',
         endDate: form.endDate || '',
         stampType: form.stampType || '인감없음',
+        // 물량 개수에 따른 templateType 자동 설정 (selectedSite.templateType 무시)
+        templateType: 'AUTO', // 자동 설정 플래그
         // 거래처현황에서 가져온 데이터 우선 사용, 없으면 form 데이터 사용
         businessNumber: vendorInfo?.businessNumber || form.businessNumber || '',
         companyAddress: vendorInfo?.companyAddress || form.companyAddress || '',
@@ -559,24 +656,38 @@ const NewSites = () => {
                 console.log('🔍 downloadContractGabji 함수 로드 완료');
       
       // 현재 선택된 현장의 물량 데이터 가져오기
-      let materialItems = [];
-      if (selectedSite && selectedSite.id) {
+      let napfoomMaterialItems = [];
+      if (selectedSite && selectedSite?.id) {
         try {
-          console.log('🔍 물량 데이터 조회 시작 - siteId:', selectedSite.id);
+          console.log('🔍 물량 데이터 조회 시작 - siteId:', selectedSite?.id);
           const { getMaterialDataFromFirebase } = await import('../utils/materialUploadUtils');
-          const result = await getMaterialDataFromFirebase(selectedSite.id);
+          const result = await getMaterialDataFromFirebase(selectedSite?.id);
           console.log('🔍 물량 데이터 조회 결과:', result);
           
           if (result.success && result.data && result.data.items && result.data.items.length > 0) {
-            materialItems = result.data.items;
-            console.log('✅ 물량 데이터 로드 완료:', materialItems.length, '개 항목');
-            console.log('📊 첫 번째 항목 샘플:', materialItems[0]);
+            napfoomMaterialItems = result.data.items;
+            console.log('✅ 물량 데이터 로드 완료:', napfoomMaterialItems.length, '개 항목');
+            console.log('📊 첫 번째 항목 샘플:', napfoomMaterialItems[0]);
           } else {
-            console.log('⚠️ 물량 데이터가 없습니다. 현장에 견적서를 업로드해주세요.');
-            console.log('📋 물량 데이터 업로드 방법:');
-            console.log('   1. 현장 선택');
-            console.log('   2. "물량관리" 탭 클릭');
-            console.log('   3. 견적서 엑셀 파일 업로드');
+            console.log('⚠️ materialEstimates 비어있음 → sites.items 폴백 시도');
+            try {
+              const { getDoc } = await import('firebase/firestore');
+              const siteSnap = await getDoc(doc(db, 'sites', selectedSite?.id));
+              if (siteSnap.exists()) {
+                const siteDataDoc = siteSnap.data();
+                const siteItems = Array.isArray(siteDataDoc.items) ? siteDataDoc.items : [];
+                if (siteItems.length > 0) {
+                  napfoomMaterialItems = siteItems;
+                  console.log('✅ 폴백 성공: sites.items 로드', napfoomMaterialItems.length, '개');
+                } else {
+                  console.log('⚠️ 폴백 실패: sites.items 비어있음');
+                }
+              } else {
+                console.log('⚠️ 폴백 실패: sites 문서 없음');
+              }
+            } catch (fallbackErr) {
+              console.warn('⚠️ 폴백 중 오류:', fallbackErr);
+            }
           }
         } catch (materialError) {
           console.warn('⚠️ 물량 데이터 로드 실패:', materialError);
@@ -585,8 +696,38 @@ const NewSites = () => {
         console.log('⚠️ 선택된 현장이 없습니다.');
       }
       
-                            await downloadContractGabji(site, materialItems);
-      console.log('✅ 납품계약서 갑지 다운로드 완료');
+                            // 납품계약서 생성 (NAPFOOM 전용 함수 사용)
+                            console.log('🔍 납품계약서 생성용 site 데이터:', site);
+                            console.log('🔍 납품계약서 생성용 materialItems:', napfoomMaterialItems.length, '개');
+                            
+                            let result;
+                            try {
+                              console.log('🚀 createNapfoomContract 호출 시작');
+                              console.log('📊 site 데이터:', site);
+                              console.log('📊 materialItems:', napfoomMaterialItems);
+                              
+                              // NAPFOOM 전용 함수 import 및 호출
+                              const { createNapfoomContract } = await import('../utils/napfoomUtils');
+                              result = await createNapfoomContract(site, napfoomMaterialItems, '납품계약서');
+                              console.log('🔍 createNapfoomContract 결과:', result);
+                            } catch (genError) {
+                              console.error('❌ createNapfoomContract 함수에서 예외 발생:', genError);
+                              console.error('❌ 예외 상세 정보:', {
+                                message: genError.message,
+                                stack: genError.stack,
+                                name: genError.name
+                              });
+                              throw new Error(`납품계약서 생성 중 오류: ${genError.message}`);
+                            }
+                            
+                            if (!result) {
+                              throw new Error('createNapfoomContract가 undefined를 반환했습니다.');
+                            }
+                            
+                            if (!result.success) {
+                              throw new Error(result.error || '납품계약서 생성 실패');
+                            }
+      console.log('✅ NAPFOOM 납품계약서 다운로드 완료');
     } catch (e) {
       console.error('NAPFOOM 납품계약서 다운로드 실패:', e);
       console.error('오류 상세:', e.message);
@@ -594,6 +735,7 @@ const NewSites = () => {
       alert('NAPFOOM 납품계약서 생성에 실패했습니다. 템플릿/데이터를 확인해주세요.');
     } finally {
       setDownloadLoading(false);
+      setLoadingMessage(''); // 로딩 메시지 초기화
     }
   };
 
@@ -604,23 +746,23 @@ const NewSites = () => {
       try {
         const norm = (v) => (v ?? '').toString().trim();
         const currentSite = {
-          name: selectedSite.name || '',
-          contractType: selectedSite.contractType || '',
-          contractAmount: Number(selectedSite.contractAmount || 0),
-          advance: Number(selectedSite.advance || 0),
-          safetyCost: Number(selectedSite.safetyCost ?? 0),
-          address: selectedSite.address || '',
-          startDate: selectedSite.startDate || '',
-          endDate: selectedSite.endDate || '',
-          manager: selectedSite.manager || '',
-          phone: selectedSite.phone || '',
-          team: selectedSite.team || '',
-          estimateType: selectedSite.estimateType || '',
-          note: selectedSite.note || '',
-          desc: selectedSite.desc || '',
-          isFavorite: !!selectedSite.isFavorite,
-          stampType: selectedSite.stampType || '인감없음',
-          companyName: selectedSite.companyName || selectedSite.company || ''
+          name: selectedSite?.name || '',
+          contractType: selectedSite?.contractType || '',
+          contractAmount: Number(selectedSite?.contractAmount || 0),
+          advance: Number(selectedSite?.advance || 0),
+          safetyCost: Number(selectedSite?.safetyCost ?? 0),
+          address: selectedSite?.address || '',
+          startDate: selectedSite?.startDate || '',
+          endDate: selectedSite?.endDate || '',
+          manager: selectedSite?.manager || '',
+          phone: selectedSite?.phone || '',
+          team: selectedSite?.team || '',
+          estimateType: selectedSite?.estimateType || '',
+          note: selectedSite?.note || '',
+          desc: selectedSite?.desc || '',
+          isFavorite: !!selectedSite?.isFavorite,
+          stampType: selectedSite?.stampType || '인감없음',
+          companyName: selectedSite?.companyName || selectedSite?.company || ''
         };
 
         const desired = {
@@ -724,14 +866,53 @@ const NewSites = () => {
     }
   }, [selectedSite]);
 
+  // 숨겨진 완료 현장 수 계산
+  const hiddenCompletedSites = useMemo(() => {
+    if (statusTab !== '완료') return 0;
+    
+    const today = new Date();
+    const sixtyDaysAgo = new Date(today.getTime() - (60 * 24 * 60 * 60 * 1000)); // 60일 전
+    
+    return sites.filter(site => {
+      if (site.status === '완료' && site.endDate) {
+        try {
+          const endDate = new Date(site.endDate);
+          if (!isNaN(endDate.getTime()) && endDate < sixtyDaysAgo) {
+            return true; // 60일 이상 지난 완료 현장은 숨겨짐
+          }
+        } catch (error) {
+          console.warn('현장 준공일 파싱 오류:', site?.name, site.endDate, error);
+        }
+      }
+      return false;
+    }).length;
+  }, [sites, statusTab]);
+
   const filteredSites = useMemo(() => {
+    const today = new Date();
+    const sixtyDaysAgo = new Date(today.getTime() - (60 * 24 * 60 * 60 * 1000)); // 60일 전
+    
     return sites
       .filter(site => site.status === statusTab)
+      .filter(site => {
+        // 완료 상태인 현장의 경우, 준공일이 60일 이상 지났으면 제외 (단, showHiddenCompleted가 true이면 포함)
+        if (site.status === '완료' && site.endDate) {
+          try {
+            const endDate = new Date(site.endDate);
+            if (!isNaN(endDate.getTime()) && endDate < sixtyDaysAgo) {
+              return showHiddenCompleted; // 숨겨진 목록 보기 모드일 때만 포함
+            }
+          } catch (error) {
+            console.warn('현장 준공일 파싱 오류:', site?.name, site.endDate, error);
+          }
+        }
+        return true;
+      })
       .filter(site =>
-        site.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        site?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (site.manager && site.manager.toLowerCase().includes(searchTerm.toLowerCase()))
       );
-  }, [sites, statusTab, searchTerm]);
+  }, [sites, statusTab, searchTerm, showHiddenCompleted]);
 
   const handleSelectSite = async (site) => {
     setSelectedSite(site);
@@ -741,7 +922,7 @@ const NewSites = () => {
       try {
         // 중복 단수정리 항목 자동 정리
         let cleanedItems = site.items || [];
-        const adjustmentItems = cleanedItems.filter(item => item.name === '단수정리');
+        const adjustmentItems = cleanedItems.filter(item => item?.name === '단수정리');
         
         if (adjustmentItems.length > 1) {
           console.log(`중복 단수정리 항목 발견: ${adjustmentItems.length}개`);
@@ -749,7 +930,7 @@ const NewSites = () => {
           // 첫 번째 단수정리 항목만 남기고 나머지 제거
           let foundFirst = false;
           cleanedItems = cleanedItems.filter(item => {
-            if (item.name === '단수정리') {
+            if (item?.name === '단수정리') {
               if (!foundFirst) {
                 foundFirst = true;
                 return true; // 첫 번째는 유지
@@ -780,7 +961,7 @@ const NewSites = () => {
         
         // 2. 누계기성: 캐시된 데이터 사용 (선급금 포함)
         const totalGisungAmount = gisungData.reduce((sum, gisung) => {
-          if (gisung.name === site.name) {
+          if (gisung.name === site?.name) {
             return sum + (Number(gisung.gisungAmount) || 0);
           }
           return sum;
@@ -792,7 +973,7 @@ const NewSites = () => {
         
         // 3. 지출: 캐시된 데이터 사용
         const totalCostAmount = costData.reduce((sum, cost) => {
-          if (cost.siteName === site.name) {
+          if (cost.siteName === site?.name) {
             return sum + (Number(cost.amount) || 0);
           }
           return sum;
@@ -807,7 +988,7 @@ const NewSites = () => {
         };
         
         console.log('현장 통합현황 계산 (캐시 사용):', {
-          siteName: site.name,
+          siteName: site?.name,
           contractAmount,
           totalGisungAmount,
           advanceAmount,
@@ -879,7 +1060,7 @@ const NewSites = () => {
   };
   // 물량내역에서 계약금액(부가세포함) 자동 추출 함수
   const getAutoContractAmount = (items) => {
-    const totalWithVatItem = items?.find(item => item.isTotalWithVat);
+    const totalWithVatItem = items?.find(item => item?.isTotalWithVat);
     return totalWithVatItem ? parseFloat(totalWithVatItem.amount) || 0 : 0;
   };
 
@@ -942,25 +1123,25 @@ const NewSites = () => {
     
     // 총 공사계 자동 재계산 (단수정리 포함)
     const totalAmount = newItems
-      .filter(item => !item.isSpacer && !item.isTotal && !item.isVat && !item.isTotalWithVat)
+      .filter(item => !item?.isSpacer && !item?.isTotal && !item?.isVat && !item?.isTotalWithVat)
       .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
     
     // 총 공사계 업데이트
-    const totalIndex = newItems.findIndex(item => item.isTotal);
+    const totalIndex = newItems.findIndex(item => item?.isTotal);
     if (totalIndex !== -1) {
       newItems[totalIndex].amount = totalAmount.toString();
     }
     
     // 부가세 업데이트 (총공사계의 10%)
     const vatAmount = Math.round(totalAmount * 0.1);
-    const vatIndex = newItems.findIndex(item => item.isVat);
+    const vatIndex = newItems.findIndex(item => item?.isVat);
     if (vatIndex !== -1) {
       newItems[vatIndex].amount = vatAmount.toString();
     }
     
     // 총계 업데이트 (총공사계 + 부가세)
     const totalWithVat = totalAmount + vatAmount;
-    const totalWithVatIndex = newItems.findIndex(item => item.isTotalWithVat);
+    const totalWithVatIndex = newItems.findIndex(item => item?.isTotalWithVat);
     if (totalWithVatIndex !== -1) {
       newItems[totalWithVatIndex].amount = totalWithVat.toString();
     }
@@ -1012,7 +1193,7 @@ const NewSites = () => {
     const currentItems = [...(form.items || [])];
     
     // 총공사계 위의 인덱스 찾기
-    const totalIndex = currentItems.findIndex(item => item.isTotal);
+    const totalIndex = currentItems.findIndex(item => item?.isTotal);
     
     // 총공사계 위에 새 항목 추가
     const newItem = { name: '', quantity: '', price: '', amount: '' };
@@ -1113,7 +1294,7 @@ const NewSites = () => {
     const currentItems = [...(form.items || [])];
     
     // 이미 해당 항목이 있는지 확인
-    const existingAdjustment = currentItems.find(item => item.name === itemType);
+    const existingAdjustment = currentItems.find(item => item?.name === itemType);
     if (existingAdjustment) {
       alert(`${itemType} 항목이 이미 존재합니다.`);
       return;
@@ -1135,7 +1316,7 @@ const NewSites = () => {
     };
     
     // 총계 항목들 앞에 추가
-    const totalIndex = currentItems.findIndex(item => item.isTotal);
+    const totalIndex = currentItems.findIndex(item => item?.isTotal);
     if (totalIndex !== -1) {
       currentItems.splice(totalIndex, 0, adjustmentItem);
     } else {
@@ -1205,25 +1386,25 @@ const NewSites = () => {
     
     // 총 공사계 자동 재계산 (단수정리 포함)
     const totalAmount = newItems
-      .filter(item => !item.isSpacer && !item.isTotal && !item.isVat && !item.isTotalWithVat)
+      .filter(item => !item?.isSpacer && !item?.isTotal && !item?.isVat && !item?.isTotalWithVat)
       .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
     
     // 총 공사계 업데이트
-    const totalIndex = newItems.findIndex(item => item.isTotal);
+    const totalIndex = newItems.findIndex(item => item?.isTotal);
     if (totalIndex !== -1) {
       newItems[totalIndex].amount = totalAmount.toString();
     }
     
     // 부가세 업데이트
     const vatAmount = Math.round(totalAmount * 0.1);
-    const vatIndex = newItems.findIndex(item => item.isVat);
+    const vatIndex = newItems.findIndex(item => item?.isVat);
     if (vatIndex !== -1) {
       newItems[vatIndex].amount = vatAmount.toString();
     }
     
     // 계약금액(부가세포함) 업데이트
     const totalWithVat = totalAmount + vatAmount;
-    const totalWithVatIndex = newItems.findIndex(item => item.isTotalWithVat);
+    const totalWithVatIndex = newItems.findIndex(item => item?.isTotalWithVat);
     if (totalWithVatIndex !== -1) {
       newItems[totalWithVatIndex].amount = totalWithVat.toString();
     }
@@ -1301,10 +1482,10 @@ const NewSites = () => {
     }
 
     try {
-      console.log('🚀 물량 데이터 업로드 시작:', { siteId: selectedSite.id, siteName: selectedSite.name });
+      console.log('🚀 물량 데이터 업로드 시작:', { siteId: selectedSite?.id, siteName: selectedSite?.name });
       
       // materialUploadUtils의 함수 사용
-      const result = await uploadMaterialData(file, selectedSite.id, selectedSite.name);
+      const result = await uploadMaterialData(file, selectedSite?.id, selectedSite?.name);
       
       if (result.success) {
         console.log('✅ 물량 데이터 업로드 성공:', result);
@@ -1313,7 +1494,7 @@ const NewSites = () => {
         // 업로드된 데이터를 현재 폼에 반영
         if (result.data && result.data.items) {
           const uploadedItems = result.data.items.map(item => ({
-            name: item.name,
+            name: item?.name,
             specification: item.specification || '',
             unit: item.unit || '',
             quantity: item.quantity || 0,
@@ -1368,7 +1549,7 @@ const NewSites = () => {
       
       // 총 공사계 자동 계산
       const totalAmount = uploadedItems
-        .filter(item => !item.isSpacer && !item.isTotal && !item.isVat && !item.isTotalWithVat)
+        .filter(item => !item?.isSpacer && !item?.isTotal && !item?.isVat && !item?.isTotalWithVat)
         .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
       
       // 총 공사계 업데이트
@@ -1448,7 +1629,7 @@ const NewSites = () => {
     
     // 총 공사계 자동 재계산 (단수정리 포함)
     const totalAmount = updatedItems
-      .filter(item => !item.isSpacer && !item.isTotal && !item.isVat && !item.isTotalWithVat)
+      .filter(item => !item?.isSpacer && !item?.isTotal && !item?.isVat && !item?.isTotalWithVat)
       .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
     
     // 총 공사계 업데이트
@@ -1484,7 +1665,7 @@ const NewSites = () => {
     
     // 총 공사계 자동 재계산 (단수정리 포함)
     const totalAmount = updatedItems
-      .filter(item => !item.isSpacer && !item.isTotal && !item.isVat && !item.isTotalWithVat)
+      .filter(item => !item?.isSpacer && !item?.isTotal && !item?.isVat && !item?.isTotalWithVat)
       .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
     
     // 총 공사계 업데이트
@@ -1639,22 +1820,21 @@ const NewSites = () => {
     setIsSaving(true);
 
     try {
-      // templateType 자동 설정 (물량 개수 기반)
+      // 물량 개수 계산 (템플릿 타입은 저장하지 않음, 다운로드 시마다 자동 결정)
       // 자동계산 항목만 제외하고 빈 항목은 포함해서 계산
       const actualItems = form.items?.filter(item => 
-        !item.isTotal && !item.isVat && !item.isTotalWithVat
+        !item?.isTotal && !item?.isVat && !item?.isTotalWithVat
       ) || [];
       const itemCount = actualItems.length;
-      const templateType = itemCount > 20 ? 'L' : 'N';
       
       const formDataToSave = { 
         ...form, 
         startDate: formatDateForStorage(form.startDate), 
-        endDate: formatDateForStorage(form.endDate),
-        templateType: templateType // templateType 추가
+        endDate: formatDateForStorage(form.endDate)
+        // templateType 제거 - 다운로드 시마다 물량 개수에 따라 자동 결정
       };
       
-      console.log(`📋 물량 데이터: ${itemCount}개 → ${templateType} 템플릿으로 설정`);
+      console.log(`📋 물량 데이터: ${itemCount}개 (템플릿 타입은 다운로드 시 자동 결정)`);
       
       if (selectedSite) {
         if (window.confirm('수정하시겠습니까?')) {
@@ -1667,7 +1847,7 @@ const NewSites = () => {
         }
       } else {
         // 등록 확인 메시지
-        const confirmMessage = `다음 현장을 등록하시겠습니까?\n\n현장명: ${form.name}\n계약구분: ${form.contractType}\n담당자: ${form.manager}\n시작일: ${form.startDate}\n종료일: ${form.endDate}\n템플릿: ${templateType === 'L' ? 'LONG' : 'NEW'} (${itemCount}개)`;
+        const confirmMessage = `다음 현장을 등록하시겠습니까?\n\n현장명: ${form.name}\n계약구분: ${form.contractType}\n담당자: ${form.manager}\n시작일: ${form.startDate}\n종료일: ${form.endDate}\n물량: ${itemCount}개 (템플릿은 다운로드 시 자동 결정)`;
         
         if (!window.confirm(confirmMessage)) {
           setIsSaving(false);
@@ -1701,11 +1881,14 @@ const NewSites = () => {
 
   const handleGisung = () => {
     if (selectedSite) {
-      // 기존 경로인 /progress로 이동 (안전한 방법)
-      navigate('/progress', { 
-        state: { 
-          selectedSite: selectedSite.name,
-          fromPage: 'sites' // 출발 페이지 정보 추가
+      // 기성관리 페이지로 이동하면서 해당 현장 선택
+      // 현장별 기성현황 탭에 자동으로 해당 현장이 선택되도록 설정
+      navigate(`/progress?siteId=${selectedSite.id}&viewMode=site&autoSelect=true`, {
+        state: {
+          fromSiteInfo: true,
+          selectedSiteId: selectedSite?.id,
+          selectedSiteName: selectedSite?.name,
+          autoSelectSite: true
         }
       });
     } else {
@@ -1713,6 +1896,66 @@ const NewSites = () => {
     }
   };
   const handleWholeList = () => navigate('/whole-list');
+  
+  const handleDistributionView = () => {
+    navigate('/company-distribution');
+  };
+
+  // 회사별 현장 분포 계산
+  const companyDistribution = useMemo(() => {
+    if (!showDistributionView) return [];
+    
+    const today = new Date();
+    const oneYearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+    
+    // 1년 내 현장들만 필터링
+    const recentSites = sites.filter(site => {
+      if (!site.startDate) return false;
+      try {
+        const startDate = new Date(site.startDate);
+        return !isNaN(startDate.getTime()) && startDate >= oneYearAgo;
+      } catch (error) {
+        return false;
+      }
+    });
+
+    // 회사별로 그룹화
+    const companyMap = new Map();
+    
+    recentSites.forEach(site => {
+      const companyName = site.companyName || '미지정';
+      const contractAmount = Number(site.contractAmount) || 0;
+      
+      if (!companyMap.has(companyName)) {
+        companyMap.set(companyName, {
+          companyName,
+          sites: [],
+          totalContractAmount: 0,
+          siteCount: 0,
+          statusCounts: { '예정': 0, '진행중': 0, '완료': 0, '미정': 0 }
+        });
+      }
+      
+      const company = companyMap.get(companyName);
+      company.sites.push({
+        id: site.id,
+        name: site?.name,
+        status: site.status,
+        startDate: site.startDate,
+        endDate: site.endDate,
+        contractAmount: contractAmount,
+        manager: site.manager
+      });
+      
+      company.totalContractAmount += contractAmount;
+      company.siteCount += 1;
+      company.statusCounts[site.status] = (company.statusCounts[site.status] || 0) + 1;
+    });
+
+    // 계약금액 순으로 정렬
+    return Array.from(companyMap.values())
+      .sort((a, b) => b.totalContractAmount - a.totalContractAmount);
+  }, [sites, showDistributionView]);
   const isReadOnly = !isEditing;
 
   const scrollFocus = (ref) => () => {
@@ -1784,7 +2027,7 @@ const NewSites = () => {
     }
 
     const currentItems = [...(form.items || [])];
-    const adjustmentItems = currentItems.filter(item => item.name === '단수정리');
+    const adjustmentItems = currentItems.filter(item => item?.name === '단수정리');
     
     if (adjustmentItems.length <= 1) {
       alert('중복된 단수정리 항목이 없습니다.');
@@ -1799,7 +2042,7 @@ const NewSites = () => {
       // 첫 번째 단수정리 항목만 남기고 나머지 제거
       let foundFirst = false;
       const cleanedItems = currentItems.filter(item => {
-        if (item.name === '단수정리') {
+        if (item?.name === '단수정리') {
           if (!foundFirst) {
             foundFirst = true;
             return true; // 첫 번째는 유지
@@ -1897,53 +2140,160 @@ const NewSites = () => {
 
   // 견적서 보기 함수
   const handleViewEstimate = async () => {
-    if (!selectedSite) {
-      alert('현장을 선택해주세요.');
-      return;
-    }
-
-    setDownloadLoading(true);
     try {
-      console.log('📄 견적서 생성 시작:', selectedSite.name, 'ID:', selectedSite.id);
+      console.log('📄 견적서 보기 시작');
       
-      // 물량 데이터 가져오기
-      const materialResult = await getMaterialDataFromFirebase(selectedSite.id);
-      
-      console.log('📊 물량 데이터 조회 결과:', materialResult);
-      
-      if (!materialResult.success) {
-        alert('물량 데이터를 가져올 수 없습니다: ' + materialResult.error);
+      if (!selectedSite) {
+        console.warn('⚠️ 선택된 현장이 없습니다.');
+        alert('현장을 선택해주세요.');
         return;
       }
 
-      // 물량 데이터가 없는 경우
-      if (!materialResult.data.items || materialResult.data.items.length === 0) {
+      // selectedSite 유효성 검사 추가
+      if (!selectedSite?.name || !selectedSite?.id) {
+        console.error('❌ 선택된 현장 정보가 올바르지 않습니다:', selectedSite);
+        alert('선택된 현장 정보가 올바르지 않습니다. 현장을 다시 선택해주세요.');
+        return;
+      }
+
+      setDownloadLoading(true);
+      
+      console.log('📄 견적서 생성 시작:', selectedSite?.name, 'ID:', selectedSite?.id);
+      
+      // getMaterialDataFromFirebase 함수 존재 확인
+      if (typeof getMaterialDataFromFirebase !== 'function') {
+        console.error('❌ getMaterialDataFromFirebase 함수가 정의되지 않았습니다.');
+        alert('물량 데이터 조회 함수를 찾을 수 없습니다.');
+        return;
+      }
+      
+      // 물량 데이터 가져오기
+      const materialResult = await getMaterialDataFromFirebase(selectedSite?.id);
+      console.log('📊 물량 데이터 조회 결과:', materialResult);
+
+      // 물량 데이터 유효성 검사
+      if (!materialResult || typeof materialResult !== 'object') {
+        console.error('❌ 물량 데이터 조회 결과가 유효하지 않습니다:', materialResult);
+        alert('물량 데이터를 불러올 수 없습니다.');
+        return;
+      }
+
+      let materialData = materialResult.success ? (materialResult.data || { items: [] }) : { items: [] };
+      
+      // materialData 유효성 검사
+      if (!materialData || typeof materialData !== 'object') {
+        console.error('❌ materialData가 유효하지 않습니다:', materialData);
+        materialData = { items: [] };
+      }
+      
+      if (!materialData.items || !Array.isArray(materialData.items)) {
+        console.warn('⚠️ materialData.items가 유효하지 않습니다:', materialData.items);
+        materialData.items = [];
+      }
+      
+      if (materialData.items.length === 0) {
+        console.log('⚠️ 견적서 경로 폴백: materialEstimates 비어있음 → sites.items 조회');
+        try {
+          const { getDoc } = await import('firebase/firestore');
+          const siteSnap = await getDoc(doc(db, 'sites', selectedSite?.id));
+          if (siteSnap.exists()) {
+            const siteDataDoc = siteSnap.data();
+            const siteItems = Array.isArray(siteDataDoc.items) ? siteDataDoc.items : [];
+            if (siteItems.length > 0) {
+              materialData = { items: siteItems };
+              console.log('✅ 견적서 폴백 성공: sites.items', siteItems.length, '개');
+            } else {
+              console.log('⚠️ 견적서 폴백 실패: sites.items 비어있음');
+            }
+          } else {
+            console.log('⚠️ 견적서 폴백 실패: sites 문서 없음');
+          }
+        } catch (fbErr) {
+          console.warn('⚠️ 견적서 폴백 오류:', fbErr);
+        }
+      }
+
+      // 물량 데이터가 여전히 없는 경우
+      if (!materialData.items || materialData.items.length === 0) {
+        console.warn('⚠️ 물량 데이터가 없습니다.');
         alert('이 현장에는 업로드된 물량 데이터가 없습니다. 먼저 견적서를 업로드해주세요.');
         return;
       }
 
       // 실제 물량 항목이 있는지 확인 (총계, 부가세 제외)
-      const actualItems = materialResult.data.items.filter(item => 
-        !item.isTotal && 
-        !item.isVat && 
-        !item.isTotalWithVat && 
-        !item.isAdjustment
-      );
+      const actualItems = materialData.items.filter((item, index) => {
+        try {
+          if (!item || typeof item !== 'object') {
+            console.warn(`⚠️ 항목 ${index}: 유효하지 않은 물량 항목:`, item);
+            return false;
+          }
+          
+          if (!item?.name) {
+            console.warn(`⚠️ 항목 ${index}: name 속성이 없음:`, item);
+            return false;
+          }
+          
+          const isExcluded = item?.isTotal || item?.isVat || item?.isTotalWithVat || item?.isAdjustment;
+          if (isExcluded) {
+            console.log(`⏭️ 항목 ${index}: 제외 (${item?.name})`);
+            return false;
+          }
+          
+          console.log(`✅ 항목 ${index}: 포함 (${item?.name})`);
+          return true;
+        } catch (filterError) {
+          console.error(`❌ 항목 ${index} 필터링 중 오류:`, filterError.message, item);
+          return false;
+        }
+      });
 
       if (actualItems.length === 0) {
+        console.warn('⚠️ 실제 물량 항목이 없습니다.');
         alert('이 현장에는 실제 물량 항목이 없습니다. 먼저 견적서를 업로드해주세요.');
         return;
       }
 
-      console.log('📋 물량 데이터 확인:', materialResult.data.items.length, '개 항목');
+      console.log('📋 물량 데이터 확인:', materialData.items.length, '개 항목');
 
-      // 견적서 생성
-      const result = await generateEstimateExcel(selectedSite, materialResult.data);
+      // 물량 개수에 따른 템플릿 타입 계산
+      const itemCount = materialData.items.length;
+      const templateType = itemCount > 20 ? 'L' : 'N';
+      const templateTypeText = templateType === 'L' ? 'LONG' : 'NEW';
+      
+      // 로딩 메시지 설정 (템플릿 타입 포함)
+      setLoadingMessage(`열심히 제작중에 있습니다.\n견적서 [${templateTypeText}]을 생산하고 있습니다.`);
+
+      // 견적서 생성 (물량 타입 정보 포함)
+      const siteDataWithTemplate = {
+        ...selectedSite,
+        templateType: 'AUTO' // 물량 개수에 따라 자동 설정
+      };
+      
+      // generateDocumentExcel 함수 존재 확인
+      if (typeof generateDocumentExcel !== 'function') {
+        console.error('❌ generateDocumentExcel 함수가 정의되지 않았습니다.');
+        alert('견적서 생성 함수를 찾을 수 없습니다.');
+        return;
+      }
+      
+      console.log('🚀 generateDocumentExcel 호출 시작');
+      console.log('📊 siteDataWithTemplate:', siteDataWithTemplate);
+      console.log('📊 materialData:', materialData);
+      
+      const result = await generateDocumentExcel(siteDataWithTemplate, materialData, '견적서');
+      
+      if (!result) {
+        console.error('❌ generateDocumentExcel이 undefined를 반환했습니다.');
+        alert('견적서 생성에 실패했습니다.');
+        return;
+      }
       
       if (result.success) {
-        alert(result.message);
+        console.log('✅ 견적서 생성 성공:', result.message);
+        alert(result.message || '견적서가 생성되었습니다.');
       } else {
-        alert('견적서 생성 실패: ' + result.error);
+        console.error('❌ 견적서 생성 실패:', result.error);
+        alert('견적서 생성 실패: ' + (result.error || '알 수 없는 오류'));
       }
       
     } catch (error) {
@@ -1951,6 +2301,7 @@ const NewSites = () => {
       alert('견적서 생성 중 오류가 발생했습니다: ' + error.message);
     } finally {
       setDownloadLoading(false);
+      setLoadingMessage(''); // 로딩 메시지 초기화
     }
   };
 
@@ -1997,7 +2348,13 @@ const NewSites = () => {
       }}>
         <Tabs 
           value={statusTab} 
-          onChange={(e, v) => setStatusTab(v)} 
+          onChange={(e, v) => {
+            setStatusTab(v);
+            // 완료 탭을 벗어날 때 숨겨진 목록 보기 상태 초기화
+            if (v !== '완료') {
+              setShowHiddenCompleted(false);
+            }
+          }} 
           variant="fullWidth" 
           sx={{ 
             mb: isMobile ? 1 : 2, 
@@ -2016,7 +2373,11 @@ const NewSites = () => {
           {STATUS_OPTIONS.map(opt => (
             <Tab 
               key={opt} 
-              label={`${opt} (${statusCounts[opt]})`} 
+              label={
+                opt === '완료' && hiddenCompletedSites > 0 
+                  ? `${opt} (${statusCounts[opt] - hiddenCompletedSites}+${hiddenCompletedSites})` 
+                  : `${opt} (${statusCounts[opt]})`
+              }
               value={opt}
               sx={{
                 '& .MuiTab-label': {
@@ -2040,6 +2401,43 @@ const NewSites = () => {
             fieldset: { borderColor: '#444' } 
           }} 
         />
+        
+        {/* 완료 탭에서 숨겨진 현장 안내 메시지와 토글 버튼 */}
+        {statusTab === '완료' && hiddenCompletedSites > 0 && (
+          <Box sx={{ 
+            mb: 1, 
+            p: 1, 
+            bgcolor: 'rgba(255, 152, 0, 0.1)', 
+            border: '1px solid rgba(255, 152, 0, 0.3)', 
+            borderRadius: 1,
+            fontSize: isMobile ? '0.7rem' : '0.75rem'
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+              <Typography variant="caption" sx={{ color: '#ff9800', flex: 1 }}>
+                💡 준공일이 60일 이상 지난 현장 {hiddenCompletedSites}개는 목록에서 숨겨졌습니다
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setShowHiddenCompleted(!showHiddenCompleted)}
+                sx={{
+                  minWidth: 'auto',
+                  px: 1,
+                  py: 0.5,
+                  fontSize: isMobile ? '0.6rem' : '0.7rem',
+                  color: '#ff9800',
+                  borderColor: '#ff9800',
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 152, 0, 0.1)',
+                    borderColor: '#f57c00'
+                  }
+                }}
+              >
+                {showHiddenCompleted ? '숨기기' : '숨긴목록보기'}
+              </Button>
+            </Box>
+          </Box>
+        )}
         
         {/* 모바일에서만 현장 추가 버튼 표시 */}
         {isMobile && (
@@ -2093,6 +2491,18 @@ const NewSites = () => {
             const progress = calculateProgress(site);
             const dateRange = formatDateRange(site.startDate, site.endDate);
             
+            // 숨겨진 완료 현장인지 확인
+            const isHiddenCompleted = site.status === '완료' && site.endDate && (() => {
+              try {
+                const today = new Date();
+                const sixtyDaysAgo = new Date(today.getTime() - (60 * 24 * 60 * 60 * 1000));
+                const endDate = new Date(site.endDate);
+                return !isNaN(endDate.getTime()) && endDate < sixtyDaysAgo;
+              } catch (error) {
+                return false;
+              }
+            })();
+            
             return (
               <ListItem 
                 key={site.id} 
@@ -2103,29 +2513,46 @@ const NewSites = () => {
                   borderRadius: 1,
                   py: isMobile ? 0.25 : 0.5,
                   border: '1px solid',
-                  borderColor: selectedSite?.id === site.id ? '#90caf9' : '#333',
-                  bgcolor: selectedSite?.id === site.id ? '#1e3a5f' : 'transparent',
+                  borderColor: selectedSite?.id === site.id ? '#90caf9' : 
+                              isHiddenCompleted ? '#ff9800' : '#333',
+                  bgcolor: selectedSite?.id === site.id ? '#1e3a5f' : 
+                          isHiddenCompleted ? 'rgba(255, 152, 0, 0.1)' : 'transparent',
                   '&:hover': {
-                    bgcolor: selectedSite?.id === site.id ? '#1e3a5f' : '#2a2d35',
+                    bgcolor: selectedSite?.id === site.id ? '#1e3a5f' : 
+                            isHiddenCompleted ? 'rgba(255, 152, 0, 0.2)' : '#2a2d35',
                     borderColor: '#90caf9'
                   }
                 }}
               >
                 <Box sx={{ width: '100%' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-                    <Typography 
-                      sx={{ 
-                        fontSize: isMobile ? '0.8rem' : 'inherit',
-                        fontWeight: selectedSite?.id === site.id ? 'bold' : 'normal',
-                        color: selectedSite?.id === site.id ? '#90caf9' : '#fff',
-                        flex: 1,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      {site.name}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, overflow: 'hidden' }}>
+                      <Typography 
+                        sx={{ 
+                          fontSize: isMobile ? '0.8rem' : 'inherit',
+                          fontWeight: selectedSite?.id === site.id ? 'bold' : 'normal',
+                          color: selectedSite?.id === site.id ? '#90caf9' : '#fff',
+                          flex: 1,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {site.name}
+                      </Typography>
+                      {isHiddenCompleted && (
+                        <Box
+                          sx={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            bgcolor: '#ff9800',
+                            flexShrink: 0
+                          }}
+                          title="준공일이 60일 이상 지난 완료 현장"
+                        />
+                      )}
+                    </Box>
                     {dateRange && (
                       <Typography 
                         sx={{ 
@@ -2151,13 +2578,14 @@ const NewSites = () => {
                         {site.status}
                       </Typography>
                       
-                      {/* templateType 표시 */}
-                      {site.templateType && (
+                      {/* 물량 타입 표시 (견적서/납품계약서 템플릿 기준) */}
+                      {/* 물량 개수에 따른 템플릿 타입 표시 (실시간 계산) */}
+                      {site.items && site.items.length > 0 && (
                         <Chip
-                          label={site.templateType === 'L' ? 'L' : 'N'}
+                          label={site.items.length > 20 ? 'L' : 'N'}
                           size="small"
                           sx={{
-                            backgroundColor: site.templateType === 'L' ? '#ff9800' : '#4caf50',
+                            backgroundColor: site.items.length > 20 ? '#ff9800' : '#4caf50',
                             color: '#fff',
                             fontWeight: 'bold',
                             fontSize: '0.6rem',
@@ -2165,7 +2593,32 @@ const NewSites = () => {
                             minWidth: 'auto',
                             px: 0.5
                           }}
+                          title={`${site.items.length > 20 ? 'LONG' : 'NEW'} 템플릿 (${site.items.length}개) - 견적서/납품계약서 다운로드 시 자동 선택`}
                         />
+                      )}
+                      
+                      {/* 정산완료 표시 - 현장명 중앙에 겹치게 */}
+                      {paymentStatusMap[site.name]?.isFullyPaid && (
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            zIndex: 10,
+                            backgroundColor: 'transparent',
+                            border: '3px solid #f44336',
+                            borderRadius: '6px',
+                            padding: '4px 12px',
+                            fontSize: '0.9rem',
+                            fontWeight: 'bold',
+                            color: '#f44336',
+                            pointerEvents: 'none',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          정산완료
+                        </Box>
                       )}
                     </Box>
                     
@@ -2275,6 +2728,26 @@ const NewSites = () => {
                  }} size={isMobile ? 'small' : 'small'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', display: isMobile ? 'none' : 'inline-flex' }}>
                    전체 List
                  </Button>
+                 <Button variant="text" onClick={(e) => {
+                   e.preventDefault();
+                   e.stopPropagation();
+                   handleDistributionView();
+                 }} size={isMobile ? 'small' : 'small'} sx={{ 
+                   fontSize: isMobile ? '0.7rem' : 'inherit', 
+                   display: isMobile ? 'none' : 'inline-flex',
+                   ml: 1,
+                   minWidth: 'auto',
+                   px: 1,
+                   border: 'none',
+                   color: '#ffffff',
+                   '&:hover': {
+                     bgcolor: 'rgba(255, 255, 255, 0.1)'
+                   }
+                 }}
+                 title="회사별 현장 분포도 보기"
+                 >
+                   <AccountTreeIcon sx={{ fontSize: '2rem', color: '#ffffff' }} />
+                 </Button>
                </>
              )}
            </Box>
@@ -2289,7 +2762,7 @@ const NewSites = () => {
              border: '1px solid #616161'
            }}>
              <Typography variant="body1" sx={{ mb: 0.5, fontWeight: 'bold', color: '#ffffff', fontSize: isMobile ? '0.9rem' : '1rem' }}>
-               {selectedSite ? `${selectedSite.name} 통합 현황` : '전체 현장 통합 현황'}
+               {selectedSite ? `${selectedSite?.name} 통합 현황` : '전체 현장 통합 현황'}
              </Typography>
              <Grid container spacing={1}>
                <Grid size={{ xs: 4 }}>
@@ -2813,23 +3286,18 @@ const NewSites = () => {
             <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>
               물량 내역
             </Typography>
+            {/* 물량 타입 표시 (견적서/납품계약서 템플릿 선택 기준) */}
             {form.items && form.items.length > 0 && (
               <Chip
                 label={(() => {
-                  if (selectedSite?.templateType) {
-                    return selectedSite.templateType === 'L' ? 'L' : 'N';
-                  }
                   const actualItems = form.items.filter(item => 
-                    !item.isTotal && !item.isVat && !item.isTotalWithVat
+                    !item?.isTotal && !item?.isVat && !item?.isTotalWithVat
                   );
                   return actualItems.length > 20 ? 'L' : 'N';
                 })()}
                 size="small"
                 sx={{
                   backgroundColor: (() => {
-                    if (selectedSite?.templateType) {
-                      return selectedSite.templateType === 'L' ? '#ff9800' : '#4caf50';
-                    }
                     const actualItems = form.items.filter(item => 
                       !item.isTotal && !item.isVat && !item.isTotalWithVat
                     );
@@ -2843,19 +3311,13 @@ const NewSites = () => {
                   px: 1
                 }}
                 title={
-                  selectedSite?.templateType 
-                    ? `${selectedSite.templateType === 'L' ? 'LONG' : 'NEW'} 템플릿 사용 (${(() => {
-                        const actualItems = form.items.filter(item => 
-                          !item.isTotal && !item.isVat && !item.isTotalWithVat
-                        );
-                        return actualItems.length;
-                      })()}개)`
-                    : (() => {
-                        const actualItems = form.items.filter(item => 
-                          !item.isTotal && !item.isVat && !item.isTotalWithVat
-                        );
-                        return actualItems.length > 20 ? '20개 초과 - LONGgisung 템플릿 사용' : '20개 이하 - NEWgisung 템플릿 사용';
-                      })()
+                  (() => {
+                    const actualItems = form.items.filter(item => 
+                      !item.isTotal && !item.isVat && !item.isTotalWithVat
+                    );
+                    const templateType = actualItems.length > 20 ? 'L' : 'N';
+                    return `${actualItems.length}개 → ${templateType === 'L' ? 'LONG' : 'NEW'} 템플릿 사용 - 견적서/납품계약서 다운로드 시 자동 선택`;
+                  })()
                 }
               />
             )}
@@ -2949,7 +3411,7 @@ const NewSites = () => {
         >
           {(form.items || []).map((item, index) => (
             <Box key={index} sx={{ 
-              display: item.isSpacer ? 'none' : 'flex', 
+              display: item?.isSpacer ? 'none' : 'flex', 
               gap: isMobile ? 0.5 : 1, 
               mb: isMobile ? 0.5 : 1, 
               alignItems: 'center', 
@@ -2962,7 +3424,7 @@ const NewSites = () => {
                 mb: 0.5
               })
             }}>
-              {item.isTotal ? (
+              {item?.isTotal ? (
                 <Typography 
                   variant="body2" 
                   sx={{ 
@@ -2975,7 +3437,7 @@ const NewSites = () => {
                 >
                   {isMobile ? '총공사계' : '총 공사계(부가세별도)'}
                 </Typography>
-              ) : item.isVat ? (
+              ) : item?.isVat ? (
                 <Typography 
                   variant="body2" 
                   sx={{ 
@@ -2987,7 +3449,7 @@ const NewSites = () => {
                 >
                   부가세
                 </Typography>
-              ) : item.isTotalWithVat ? (
+              ) : item?.isTotalWithVat ? (
                 <Typography 
                   variant="body2" 
                   sx={{ 
@@ -3000,9 +3462,9 @@ const NewSites = () => {
                 >
                   {isMobile ? '계약금액' : '계약금액(부가세포함)'}
                 </Typography>
-              ) : item.isAdjustment ? (
+              ) : item?.isAdjustment ? (
                 <TextField 
-                  value={item.name ?? ''} 
+                  value={item?.name ?? ''} 
                   onChange={(e) => handleItemsChange(index, 'name', e.target.value)} 
                   size="small" 
                   sx={{ flex: '1 1 120px' }} 
@@ -3012,7 +3474,7 @@ const NewSites = () => {
                 />
               ) : (
                 <TextField 
-                  value={item.name ?? ''} 
+                  value={item?.name ?? ''} 
                   onChange={(e) => handleItemsChange(index, 'name', e.target.value)} 
                   size="small" 
                   sx={{ 
@@ -3034,7 +3496,7 @@ const NewSites = () => {
                 />
               )}
               
-              {item.isTotal || item.isVat || item.isTotalWithVat ? (
+              {item?.isTotal || item?.isVat || item?.isTotalWithVat ? (
                 <Typography variant="body2" sx={{ flex: '1 1 50px', textAlign: 'center' }}>
                   {item.isTotal || item.isVat || item.isTotalWithVat ? '' : ''}
                 </Typography>
@@ -3066,7 +3528,7 @@ const NewSites = () => {
                 />
               )}
               
-              {item.isTotal || item.isVat || item.isTotalWithVat ? (
+              {item?.isTotal || item?.isVat || item?.isTotalWithVat ? (
                 <Typography variant="body2" sx={{ flex: '1 1 60px', textAlign: 'center' }}>
                   {item.isTotal || item.isVat || item.isTotalWithVat ? '' : ''}
                 </Typography>
@@ -3088,7 +3550,7 @@ const NewSites = () => {
                 />
               )}
               
-              {item.isTotal || item.isVat || item.isTotalWithVat ? (
+              {item?.isTotal || item?.isVat || item?.isTotalWithVat ? (
                 <Typography 
                   variant="body2" 
                   sx={{ 
@@ -3208,7 +3670,7 @@ const NewSites = () => {
                     {uploadedItems.map((item, index) => (
                       <TableRow key={item.id || `uploaded-item-${index}`}>
                         <TableCell>
-                          {item.isTotal ? (
+                          {item?.isTotal ? (
                             <Typography 
                               variant="body2" 
                               sx={{ 
@@ -3219,7 +3681,7 @@ const NewSites = () => {
                             >
                               총 공사계(부가세별도)
                             </Typography>
-                          ) : item.isVat ? (
+                          ) : item?.isVat ? (
                             <Typography 
                               variant="body2" 
                               sx={{ 
@@ -3230,7 +3692,7 @@ const NewSites = () => {
                             >
                               부가세
                             </Typography>
-                          ) : item.isTotalWithVat ? (
+                          ) : item?.isTotalWithVat ? (
                             <Typography 
                               variant="body2" 
                               sx={{ 
@@ -3241,17 +3703,17 @@ const NewSites = () => {
                             >
                               계약금액(부가세포함)
                             </Typography>
-                          ) : item.isAdjustment ? (
+                          ) : item?.isAdjustment ? (
                             <TextField
                               size="small"
-                              value={item.name}
+                              value={item?.name}
                               onChange={(e) => handleEditUploadedItem(index, 'name', e.target.value)}
                               fullWidth
                             />
                           ) : (
                             <TextField
                               size="small"
-                              value={item.name}
+                              value={item?.name}
                               onChange={(e) => handleEditUploadedItem(index, 'name', e.target.value)}
                               fullWidth
                             />
@@ -3362,8 +3824,8 @@ const NewSites = () => {
           <Typography variant="h6" sx={{ color: '#90caf9', fontWeight: 600, mb: 1 }}>
             열심히 제작중에 있습니다
           </Typography>
-          <Typography variant="body1" sx={{ color: '#bbb' }}>
-            문서를 생성하고 있습니다.
+          <Typography variant="body1" sx={{ color: '#bbb', whiteSpace: 'pre-line', textAlign: 'center' }}>
+            {loadingMessage || '문서를 생성하고 있습니다.'}
           </Typography>
           <Typography variant="body2" sx={{ color: '#999', mt: 1 }}>
             잠시만 기다려주세요...
