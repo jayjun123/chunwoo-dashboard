@@ -601,8 +601,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         const img = new Image();
         img.onload = () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          drawNotebookBackground(ctx, canvas.width, canvas.height, false); // 도형 미리보기 중이므로 라인 표시
-          ctx.drawImage(img, 0, 0);
+          ctx.drawImage(img, 0, 0); // 기존 이미지를 먼저 그리기 (배경 포함)
           
           // 미리보기 도형 그리기
           ctx.save();
@@ -770,8 +769,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         const img = new Image();
         img.onload = () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          drawNotebookBackground(ctx, canvas.width, canvas.height, false); // 도형 그리기 중이므로 라인 표시
-          ctx.drawImage(img, 0, 0);
+          ctx.drawImage(img, 0, 0); // 기존 이미지를 먼저 그리기 (배경 포함)
           
           // 최종 도형 그리기
           drawShape(ctx, startPoint, { x, y }, currentTool);
