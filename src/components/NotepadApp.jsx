@@ -264,13 +264,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       ctx.lineTo(60, height);
       ctx.stroke();
 
-      // 상단 여백선 (연한 회색)
-      ctx.strokeStyle = '#F0F0F0';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, 40);
-      ctx.lineTo(width, 40);
-      ctx.stroke();
+      // 상단 여백선 제거 (점 문제 해결)
 
       // 페이지 번호 영역 (우하단)
       ctx.fillStyle = '#F8F8F8';
@@ -488,27 +482,19 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       setTextInput('');
       setTextPosition(null);
       
-      // 마커 제거를 위해 캔버스 즉시 다시 그리기
-      const canvasElement = canvasRef.current;
-      if (canvasElement) {
-        const ctx = canvasElement.getContext('2d');
-        if (history.length > 0 && historyIndex >= 0) {
-          const img = new Image();
-          img.onload = () => {
-            ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            drawNotebookBackground(ctx, canvasElement.width, canvasElement.height);
-            ctx.drawImage(img, 0, 0);
-          };
-          img.src = history[historyIndex];
-        }
-      }
+      // 마커는 상태 변경으로 자동 제거됨
     }
-  }, [isTyping, textInput, textPosition, brushSize, currentColor, historyIndex]);
+  }, [isTyping, textInput, textPosition, brushSize, historyIndex]);
 
   // 그리기 시작
   const startDrawing = useCallback((e) => {
     // 터치 이벤트의 기본 동작 방지 (스크롤 등)
     e.preventDefault();
+
+    // 텍스트 입력 중일 때는 모든 펜 입력 차단
+    if (isTyping) {
+      return;
+    }
 
     const { x, y } = getCanvasCoordinates(e);
 
@@ -579,6 +565,11 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
   const draw = useCallback((e) => {
     if (!isDrawing || currentTool === 'text') return;
 
+    // 텍스트 입력 중일 때는 모든 펜 그리기 차단
+    if (isTyping) {
+      return;
+    }
+
     // 터치 이벤트의 기본 동작 방지
     e.preventDefault();
 
@@ -610,7 +601,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         const img = new Image();
         img.onload = () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          drawNotebookBackground(ctx, canvas.width, canvas.height, true); // 텍스트 입력 중이므로 라인 숨김
+          drawNotebookBackground(ctx, canvas.width, canvas.height, false); // 도형 미리보기 중이므로 라인 표시
           ctx.drawImage(img, 0, 0);
           
           // 미리보기 도형 그리기
@@ -670,7 +661,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       setCurrentTool('pen');
     }
     // 한글 입력은 input 이벤트로 처리
-  }, [isTyping, currentTool, textPosition, textInput, brushSize, currentColor, historyIndex]);
+  }, [isTyping, currentTool, textPosition, textInput, brushSize, historyIndex]);
 
   // 키보드 이벤트 리스너 등록 (간단한 방법)
   useEffect(() => {
@@ -750,12 +741,17 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         drawNotebookBackground(ctx, canvas.width, canvas.height, true); // 텍스트 입력 중이므로 라인 숨김
       }
     }
-  }, [isTyping, textPosition, currentColor, history, historyIndex, drawNotebookBackground]);
+  }, [isTyping, textPosition, history, historyIndex, drawNotebookBackground]);
 
 
   // 그리기 종료
   const stopDrawing = useCallback((e) => {
     if (!isDrawing) return;
+
+    // 텍스트 입력 중일 때는 모든 펜 그리기 차단
+    if (isTyping) {
+      return;
+    }
 
     // 터치 이벤트의 기본 동작 방지
     if (e) e.preventDefault();
@@ -774,7 +770,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         const img = new Image();
         img.onload = () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          drawNotebookBackground(ctx, canvas.width, canvas.height, true); // 텍스트 입력 중이므로 라인 숨김
+          drawNotebookBackground(ctx, canvas.width, canvas.height, false); // 도형 그리기 중이므로 라인 표시
           ctx.drawImage(img, 0, 0);
           
           // 최종 도형 그리기
@@ -1004,12 +1000,19 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       
       img.onload = () => {
         ctx.clearRect(0, 0, rect.width, rect.height);
-        drawNotebookBackground(ctx, rect.width, rect.height);
+        drawNotebookBackground(ctx, rect.width, rect.height, false); // 기존 그림 로드 시 라인 표시
         ctx.drawImage(img, 0, 0);
+        
+        // 기존 도형들도 다시 그리기 (저장된 도형 정보가 있는 경우)
+        if (drawing.shapes && drawing.shapes.length > 0) {
+          drawing.shapes.forEach(shape => {
+            drawShape(ctx, shape.start, shape.end, shape.type, shape.color, shape.lineWidth);
+          });
+        }
         
         const imageData = canvas.toDataURL();
         setHistory([imageData]);
-        setHistoryIndex(0);
+        setHistoryIndex(0); // 히스토리 배열의 첫 번째(유일한) 요소의 인덱스
         setShapes(drawing.shapes || []);
       };
       
@@ -1019,7 +1022,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       console.error('그림 로드 실패:', error);
       setAlert({ open: true, message: '그림을 불러오는데 실패했습니다.', severity: 'error' });
     }
-  }, [drawNotebookBackground]);
+  }, [drawNotebookBackground, drawShape]);
 
   // 다운로드
   const downloadDrawing = useCallback(() => {
@@ -1045,6 +1048,11 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       // 검색 드롭다운 외부 클릭
       if (showSiteDropdown && !event.target.closest('.site-search-container')) {
         setShowSiteDropdown(false);
+      }
+      
+      // 저장된 목록 팝업 외부 클릭
+      if (showList && !event.target.closest('.saved-list-container')) {
+        setShowList(false);
       }
       
       // 아이디어패드가 고정되지 않았고, 아이디어패드 외부 클릭 시
@@ -1835,20 +1843,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
                     setTextPosition(null);
                     setCurrentTool('pen');
                     
-                    // 마커 제거를 위해 캔버스 즉시 다시 그리기
-                    const canvasElement = canvasRef.current;
-                    if (canvasElement) {
-                      const ctx = canvasElement.getContext('2d');
-                      if (history.length > 0 && historyIndex >= 0) {
-                        const img = new Image();
-                        img.onload = () => {
-                          ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-                          drawNotebookBackground(ctx, canvasElement.width, canvasElement.height);
-                          ctx.drawImage(img, 0, 0);
-                        };
-                        img.src = history[historyIndex];
-                      }
-                    }
+                    // 마커는 상태 변경으로 자동 제거됨
                   } else if (e.key === 'Escape') {
                     // 텍스트 입력 취소
                     setIsTyping(false);
@@ -1920,6 +1915,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         {/* 저장된 목록 */}
         {showList && (
           <Box
+            className="saved-list-container"
             sx={{
               position: 'absolute',
               top: 60,
