@@ -38,11 +38,12 @@ import {
   Highlight as HighlighterIcon,
   List as ListIcon,
   PushPin as PinIcon,
-  PushPinOutlined as PinOutlinedIcon
+  PushPinOutlined as PinOutlinedIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import { storage, db } from '../firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, setDoc, getDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { doc, setDoc, getDoc, collection, query, orderBy, getDocs, deleteDoc } from 'firebase/firestore';
 
 const IdeaPad = ({ open, onClose, siteId, siteName }) => {
   // 기본 상태
@@ -229,30 +230,58 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
   ];
 
   // 노트북 배경 그리기
-  const drawNotebookBackground = useCallback((ctx, width, height) => {
-    // 배경색
-    ctx.fillStyle = '#f8f9fa';
+  const drawNotebookBackground = useCallback((ctx, width, height, hideLines = false) => {
+    // 안티앨리어싱 비활성화로 선명한 선 그리기
+    ctx.imageSmoothingEnabled = false;
+    
+    // 배경색 (더 밝고 깔끔한 흰색)
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
 
-    // 줄 그리기
-    ctx.strokeStyle = '#e0e0e0';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    
-    const lineSpacing = 20;
-    for (let y = lineSpacing; y < height; y += lineSpacing) {
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-    }
-    ctx.stroke();
+    // 텍스트 입력 중이 아닐 때만 라인 그리기
+    if (!hideLines) {
+      // 줄 그리기 (더 선명하고 예쁜 파란색)
+      ctx.strokeStyle = '#87CEEB'; // 하늘색
+      ctx.lineWidth = 1;
+      ctx.lineCap = 'butt';
+      ctx.lineJoin = 'miter';
+      
+      const lineSpacing = 24; // 줄 간격을 조금 더 넓게
+      for (let y = lineSpacing; y < height; y += lineSpacing) {
+        // 정수 좌표로 정확히 그리기
+        const exactY = Math.round(y);
+        ctx.beginPath();
+        ctx.moveTo(0, exactY);
+        ctx.lineTo(width, exactY);
+        ctx.stroke();
+      }
 
-    // 왼쪽 여백선
-    ctx.strokeStyle = '#ff6b6b';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(60, 0);
-    ctx.lineTo(60, height);
-    ctx.stroke();
+      // 왼쪽 여백선 (더 선명한 빨간색)
+      ctx.strokeStyle = '#FF6B6B';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(60, 0);
+      ctx.lineTo(60, height);
+      ctx.stroke();
+
+      // 상단 여백선 (연한 회색)
+      ctx.strokeStyle = '#F0F0F0';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, 40);
+      ctx.lineTo(width, 40);
+      ctx.stroke();
+
+      // 페이지 번호 영역 (우하단)
+      ctx.fillStyle = '#F8F8F8';
+      ctx.fillRect(width - 80, height - 30, 60, 20);
+      
+      // 페이지 번호 텍스트
+      ctx.fillStyle = '#999999';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('1', width - 50, height - 15);
+    }
   }, []);
 
   // 도형 그리기 함수
@@ -374,7 +403,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
     canvas.style.minHeight = fixedHeight + 'px';
 
     // 노트북 배경 그리기
-    drawNotebookBackground(ctx, fixedWidth, fixedHeight);
+    drawNotebookBackground(ctx, fixedWidth, fixedHeight, false); // 일반 그리기 모드에서는 라인 표시
 
     // 히스토리에 초기 상태 저장
     const imageData = canvas.toDataURL();
@@ -581,7 +610,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         const img = new Image();
         img.onload = () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          drawNotebookBackground(ctx, canvas.width, canvas.height);
+          drawNotebookBackground(ctx, canvas.width, canvas.height, true); // 텍스트 입력 중이므로 라인 숨김
           ctx.drawImage(img, 0, 0);
           
           // 미리보기 도형 그리기
@@ -666,7 +695,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         const img = new Image();
         img.onload = () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          drawNotebookBackground(ctx, canvas.width, canvas.height);
+          drawNotebookBackground(ctx, canvas.width, canvas.height, true); // 텍스트 입력 중이므로 라인 숨김
           ctx.drawImage(img, 0, 0);
           
           // 텍스트 입력 위치에 십자가 표시
@@ -685,7 +714,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       } else {
         // 히스토리가 없는 경우 기본 배경만 그리기
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawNotebookBackground(ctx, canvas.width, canvas.height);
+        drawNotebookBackground(ctx, canvas.width, canvas.height, true); // 텍스트 입력 중이므로 라인 숨김
         
         // 텍스트 입력 위치에 십자가 표시
         ctx.save();
@@ -711,14 +740,14 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         const img = new Image();
         img.onload = () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          drawNotebookBackground(ctx, canvas.width, canvas.height);
+          drawNotebookBackground(ctx, canvas.width, canvas.height, true); // 텍스트 입력 중이므로 라인 숨김
           ctx.drawImage(img, 0, 0);
         };
         img.src = history[historyIndex];
       } else {
         // 히스토리가 없는 경우 기본 배경만 그리기
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawNotebookBackground(ctx, canvas.width, canvas.height);
+        drawNotebookBackground(ctx, canvas.width, canvas.height, true); // 텍스트 입력 중이므로 라인 숨김
       }
     }
   }, [isTyping, textPosition, currentColor, history, historyIndex, drawNotebookBackground]);
@@ -745,7 +774,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         const img = new Image();
         img.onload = () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          drawNotebookBackground(ctx, canvas.width, canvas.height);
+          drawNotebookBackground(ctx, canvas.width, canvas.height, true); // 텍스트 입력 중이므로 라인 숨김
           ctx.drawImage(img, 0, 0);
           
           // 최종 도형 그리기
@@ -788,7 +817,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       const img = new Image();
       img.onload = () => {
         ctx.clearRect(0, 0, rect.width, rect.height);
-        drawNotebookBackground(ctx, rect.width, rect.height);
+        drawNotebookBackground(ctx, rect.width, rect.height, false); // 일반 그리기 모드에서는 라인 표시
         ctx.drawImage(img, 0, 0);
       };
       img.src = history[newIndex];
@@ -808,7 +837,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       const img = new Image();
       img.onload = () => {
         ctx.clearRect(0, 0, rect.width, rect.height);
-        drawNotebookBackground(ctx, rect.width, rect.height);
+        drawNotebookBackground(ctx, rect.width, rect.height, false); // 일반 그리기 모드에서는 라인 표시
         ctx.drawImage(img, 0, 0);
       };
       img.src = history[newIndex];
@@ -821,7 +850,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
     
-    drawNotebookBackground(ctx, rect.width, rect.height);
+    drawNotebookBackground(ctx, rect.width, rect.height, false); // 일반 그리기 모드에서는 라인 표시
     
     const imageData = canvas.toDataURL();
     setHistory([imageData]);
@@ -946,6 +975,24 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       setAlert({ open: true, message: '그림 저장에 실패했습니다.', severity: 'error' });
     }
   }, [selectedSiteId, selectedSiteName, shapes, loadSavedDrawings]);
+
+  // 그림 삭제
+  const deleteDrawing = useCallback(async (drawingId, fileName) => {
+    try {
+      // Firestore에서 문서 삭제
+      await deleteDoc(doc(db, 'notepad_drawings', drawingId));
+      
+      // Storage에서 파일 삭제
+      const storageRef = ref(storage, `notepad_drawings/${fileName}`);
+      await deleteObject(storageRef);
+      
+      setAlert({ open: true, message: '그림이 삭제되었습니다.', severity: 'success' });
+      loadSavedDrawings();
+    } catch (error) {
+      console.error('그림 삭제 실패:', error);
+      setAlert({ open: true, message: '그림 삭제에 실패했습니다.', severity: 'error' });
+    }
+  }, [loadSavedDrawings]);
 
   // 그림 로드
   const loadDrawing = useCallback(async (drawing) => {
@@ -1895,15 +1942,48 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
                 </ListItem>
               ) : (
                 savedDrawings.map((drawing) => (
-                  <ListItemButton
+                  <ListItem
                     key={drawing.id}
-                    onClick={() => loadDrawing(drawing)}
-                    sx={{ color: '#fff' }}
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      px: 2,
+                      py: 1,
+                      '&:hover': {
+                        backgroundColor: '#444'
+                      }
+                    }}
                   >
-                    <Typography variant="body2">
-                      {new Date(drawing.timestamp?.toDate?.() || drawing.timestamp).toLocaleString()}
-                    </Typography>
-                  </ListItemButton>
+                    <ListItemButton
+                      onClick={() => loadDrawing(drawing)}
+                      sx={{ 
+                        color: '#fff',
+                        flex: 1,
+                        textAlign: 'left'
+                      }}
+                    >
+                      <Typography variant="body2">
+                        {new Date(drawing.timestamp?.toDate?.() || drawing.timestamp).toLocaleString()}
+                        {drawing.isAutoSave && ' (자동저장)'}
+                      </Typography>
+                    </ListItemButton>
+                    <IconButton
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteDrawing(drawing.id, drawing.fileName || drawing.id);
+                      }}
+                      sx={{ 
+                        color: '#ff6b6b',
+                        ml: 1,
+                        '&:hover': {
+                          backgroundColor: 'rgba(255, 107, 107, 0.1)'
+                        }
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </ListItem>
                 ))
               )}
             </List>
@@ -1951,8 +2031,23 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         open={alert.open}
         autoHideDuration={3000}
         onClose={() => setAlert({ ...alert, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{
+          '& .MuiSnackbarContent-root': {
+            fontSize: '16px',
+            fontWeight: 'bold'
+          }
+        }}
       >
-        <Alert severity={alert.severity} onClose={() => setAlert({ ...alert, open: false })}>
+        <Alert 
+          severity={alert.severity} 
+          onClose={() => setAlert({ ...alert, open: false })}
+          sx={{
+            fontSize: '16px',
+            fontWeight: 'bold',
+            minWidth: '300px'
+          }}
+        >
           {alert.message}
         </Alert>
       </Snackbar>
