@@ -56,6 +56,7 @@ import {
   Star as StarIcon,
   Gavel as GavelIcon,
   Block as BlockIcon,
+  Palette as PaletteIcon,
 } from '@mui/icons-material';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -63,6 +64,7 @@ import { useTheme as useThemeContext } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { isMasterUser, isAdminUser } from '../utils/masterUtils';
 import BottomBar from './dashboard/BottomBar';
+import IdeaPad from './NotepadApp';
 
 const menuItems = [
   { text: '건설뉴스', icon: <NewspaperIcon />, path: '/news' },
@@ -106,6 +108,7 @@ const Layout = React.memo(({ children }) => {
   const isAdmin = isAdminUser(currentUser);
   const [modal, setModal] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [paintAppOpen, setPaintAppOpen] = useState(false);
 
   // 권한에 따른 메뉴 필터링
   const getFilteredMenuItems = () => {
@@ -292,6 +295,21 @@ const Layout = React.memo(({ children }) => {
             minWidth: 200,
             justifyContent: 'flex-end'
           }}>
+            {/* 그림판 버튼 */}
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={() => setPaintAppOpen(true)}
+              sx={{
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                '&:hover': {
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                }
+              }}
+            >
+              <PaletteIcon />
+            </IconButton>
+
             {/* 회원 등급 표시 */}
             <div 
               style={{ 
@@ -533,6 +551,14 @@ const Layout = React.memo(({ children }) => {
           </MenuItem>
         ))}
       </Menu>
+
+      {/* IDEA PAD 앱 */}
+      <IdeaPad
+        open={paintAppOpen}
+        onClose={() => setPaintAppOpen(false)}
+        siteId={null}
+        siteName={null}
+      />
     </Box>
   );
 });
