@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FaPlus, FaSearch, FaFilter } from 'react-icons/fa';
-import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { collection, getDocs, query, orderBy, where, listAll } from 'firebase/firestore';
+import { ref } from 'firebase/storage';
+import { db, storage } from '../../firebase';
 import '../../styles/SiteList.css';
+import IdeaPad from '../NotepadApp';
 
 const SiteList = () => {
   const [sites, setSites] = useState([]);
@@ -11,6 +13,9 @@ const SiteList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [gisungMap, setGisungMap] = useState({}); // siteId별 누계기성값
+  const [noteCountMap, setNoteCountMap] = useState({}); // siteId별 노트 개수
+  const [ideaPadOpen, setIdeaPadOpen] = useState(false);
+  const [selectedSiteForNotes, setSelectedSiteForNotes] = useState(null);
 
   const isMobile = window.innerWidth <= 600;
 
@@ -52,16 +57,45 @@ const SiteList = () => {
         });
         
         setGisungMap(map);
+        
+        // 3. 현장별 노트 개수 조회
+        await loadNoteCounts(sitesData);
+        
       } catch (error) {
         console.error('현장/기성 데이터 조회 실패:', error);
         setSites([]);
         setGisungMap({});
+        setNoteCountMap({});
       } finally {
         setLoading(false);
       }
     };
     fetchSitesAndGisung();
   }, []);
+
+  // 현장별 노트 개수 로드
+  const loadNoteCounts = async (sitesData) => {
+    try {
+      const noteCounts = {};
+      
+      for (const site of sitesData) {
+        try {
+          const storagePath = `notepad/sites/${site.id}/`;
+          const listRef = ref(storage, storagePath);
+          const result = await listAll(listRef);
+          noteCounts[site.id] = result.items.length;
+        } catch (error) {
+          console.log(`현장 ${site.name}의 노트 개수 조회 실패:`, error);
+          noteCounts[site.id] = 0;
+        }
+      }
+      
+      setNoteCountMap(noteCounts);
+    } catch (error) {
+      console.error('노트 개수 조회 실패:', error);
+      setNoteCountMap({});
+    }
+  };
 
   const filteredSites = sites.filter(site => {
     const matchesSearch = site.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -127,6 +161,9 @@ const SiteList = () => {
               <p><strong>기간:</strong> {site.startDate} ~ {site.endDate}</p>
               <p><strong>예산:</strong> {site.budget || site.contractAmount?.toLocaleString()}</p>
               <p><strong>누계기성:</strong> {getCumulativeAmount(site)}원 (선급금 포함)</p>
+              {noteCountMap[site.id] > 0 && (
+                <p><strong>노트:</strong> {noteCountMap[site.id]}개</p>
+              )}
               <div className="progress-bar">
                 <div 
                   className="progress-fill"
@@ -138,10 +175,32 @@ const SiteList = () => {
             <div className="site-card-footer">
               <button className="edit-btn">수정</button>
               <button className="delete-btn">삭제</button>
+              {noteCountMap[site.id] > 0 && (
+                <button 
+                  className="note-btn"
+                  onClick={() => {
+                    setSelectedSiteForNotes(site);
+                    setIdeaPadOpen(true);
+                  }}
+                >
+                  노트
+                </button>
+              )}
             </div>
           </div>
         ))}
       </div>
+
+      {/* IDEA PAD */}
+      <IdeaPad
+        open={ideaPadOpen}
+        onClose={() => {
+          setIdeaPadOpen(false);
+          setSelectedSiteForNotes(null);
+        }}
+        siteId={selectedSiteForNotes?.id}
+        siteName={selectedSiteForNotes?.name}
+      />
     </div>
   );
 };

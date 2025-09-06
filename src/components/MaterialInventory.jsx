@@ -28,9 +28,11 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Save as SaveIcon
+  Save as SaveIcon,
+  Palette as PaletteIcon
 } from '@mui/icons-material';
 import { uploadMaterialData, getMaterialDataFromFirebase, convertMaterialDataForSiteManagement } from '../utils/materialUploadUtils';
+import IdeaPad from './NotepadApp';
 
 const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => {
   const [materialData, setMaterialData] = useState({
@@ -48,6 +50,7 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+  const [paintAppOpen, setPaintAppOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
@@ -304,6 +307,17 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
             sx={{ color: '#43e97b' }}
           >
             <RefreshIcon />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={() => setPaintAppOpen(true)}
+            sx={{ 
+              color: '#ff6b6b',
+              '&:hover': { backgroundColor: 'rgba(255, 107, 107, 0.1)' }
+            }}
+            title="그림판"
+          >
+            <PaletteIcon />
           </IconButton>
         </Box>
       </Box>
@@ -860,6 +874,14 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* IDEA PAD 앱 */}
+      <IdeaPad
+        open={paintAppOpen}
+        onClose={() => setPaintAppOpen(false)}
+        siteId={siteId}
+        siteName={siteName}
+      />
     </Box>
   );
 };

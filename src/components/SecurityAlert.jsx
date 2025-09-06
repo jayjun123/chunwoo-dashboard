@@ -290,3 +290,6 @@ const SecurityAlert = ({ onViewDetails }) => {
 
 export default SecurityAlert;
 
+
+
+
