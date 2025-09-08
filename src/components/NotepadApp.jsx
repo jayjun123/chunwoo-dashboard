@@ -28,7 +28,6 @@ import {
   Clear as ClearIcon,
   Brush as BrushIcon,
   ContentCut as EraserIcon,
-  TextFields as TextIcon,
   Image as ImageIcon,
   Straighten as LineIcon,
   RadioButtonUnchecked as CircleIcon,
@@ -113,9 +112,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
   const [showList, setShowList] = useState(false);
   const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [textInput, setTextInput] = useState('');
-  const [textPosition, setTextPosition] = useState(null);
-  const [isTyping, setIsTyping] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
 
   // 간단한 그리기를 위한 상태 (필요시 추가)
@@ -465,21 +461,25 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     // 도구별 설정
     if (currentTool === 'pen') {
       if (isHighlighter) {
-        // 형관펜 모드
-        ctx.strokeStyle = highlighterColor;
-        ctx.lineWidth = brushSize * 2; // 형관펜은 더 두껍게
+        // 형관펜 모드 - 시작점에서도 원형으로 그리기
+        ctx.save();
+        ctx.fillStyle = highlighterColor;
         ctx.globalCompositeOperation = 'multiply'; // 형관펜 효과
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
         ctx.globalAlpha = 0.5; // 반투명 효과
+        ctx.beginPath();
+        ctx.arc(x, y, brushSize, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       } else {
-        // 일반 펜 모드
-        ctx.strokeStyle = currentColor;
-        ctx.lineWidth = brushSize;
+        // 일반 펜 모드 - 시작점에서도 원형으로 그리기
+        ctx.save();
+        ctx.fillStyle = currentColor;
         ctx.globalCompositeOperation = 'source-over';
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
         ctx.globalAlpha = 1.0;
+        ctx.beginPath();
+        ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       }
     } else if (currentTool === 'eraser') {
       // 지우개는 시작점에서도 개별적으로 지우기
@@ -515,21 +515,29 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     
     if (currentTool === 'pen') {
       if (isHighlighter) {
-        // 형관펜 모드
+        // 형관펜 모드 - 각 점마다 새로운 경로 시작
+        ctx.save();
         ctx.strokeStyle = highlighterColor;
         ctx.lineWidth = brushSize * 2; // 형관펜은 더 두껍게
         ctx.globalCompositeOperation = 'multiply'; // 형관펜 효과
         ctx.globalAlpha = 0.5; // 반투명 효과
-        ctx.lineTo(x, y);
-        ctx.stroke();
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(x, y, brushSize, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       } else {
-        // 일반 펜 모드
+        // 일반 펜 모드 - 각 점마다 새로운 경로 시작
+        ctx.save();
         ctx.strokeStyle = currentColor;
         ctx.lineWidth = brushSize;
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1.0;
-        ctx.lineTo(x, y);
-        ctx.stroke();
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       }
     } else if (currentTool === 'eraser') {
       // 지우개는 각 점마다 개별적으로 지우기 (깜빡거림 방지)
@@ -651,63 +659,28 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     }
   }, [pressureSensitivity]);
 
-  // 텍스트 입력 자동 완료 함수
-  const completeTextInput = useCallback(() => {
-    if (isTyping && textInput.trim() !== '') {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      
-      ctx.save();
-      ctx.font = `${brushSize * 4}px Arial`;
-      ctx.fillStyle = currentColor;
-      ctx.textBaseline = 'top';
-      
-      const rect = canvas.getBoundingClientRect();
-      const textX = textPosition.x * (rect.width / 550);
-      const textY = textPosition.y * (rect.height / 1122);
-      
-      ctx.fillText(textInput, textX, textY);
-      ctx.restore();
-      
-      const imageData = safeToDataURL(canvas);
-      setHistory(prev => [...prev.slice(0, historyIndex + 1), imageData]);
-      setHistoryIndex(prev => prev + 1);
-      
-      // 텍스트 입력 종료 (십자가 마커 제거)
-      setIsTyping(false);
-      setTextInput('');
-      setTextPosition(null);
-      
-      // 마커는 상태 변경으로 자동 제거됨
-    }
-  }, [isTyping, textInput, textPosition, brushSize, historyIndex]);
 
   // 간단한 그리기 시작
   const startDrawing = useCallback((e) => {
-    if (isTyping) return;
-    
-    // 두 손가락 터치인 경우 스크롤 허용
-    if (e.touches && e.touches.length > 1) return;
+    // 두 손가락 터치인 경우 핀치 줌 허용
+    if (e.touches && e.touches.length > 1) {
+      // 핀치 줌 시작
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.sqrt(
+        Math.pow(touch2.clientX - touch1.clientX, 2) + 
+        Math.pow(touch2.clientY - touch1.clientY, 2)
+      );
+      
+      // 초기 거리 저장 (핀치 줌 구현을 위해)
+      e.initialDistance = distance;
+      return;
+    }
     
     e.preventDefault();
     e.stopPropagation();
     
-    if (currentTool === 'text') {
-      // 텍스트 도구일 때 텍스트 입력 모드 시작
-      const { x, y } = getCanvasCoordinates(e);
-      const canvas = canvasRef.current;
-      const rect = canvas.getBoundingClientRect();
-      
-      // 캔버스 좌표로 변환
-      const canvasX = x * (rect.width / 550);
-      const canvasY = y * (rect.height / 1122);
-      
-      setTextPosition({ x, y, canvasX, canvasY });
-      setIsTyping(true);
-      setTextInput('');
-      
-      console.log('텍스트 입력 모드 시작:', { x, y, canvasX, canvasY });
-    } else if (currentTool === 'pen' || currentTool === 'eraser') {
+    if (currentTool === 'pen' || currentTool === 'eraser') {
       startSimpleDrawing(e);
     } else if (['line', 'rectangle', 'circle', 'triangle', 'star'].includes(currentTool)) {
       const { x, y } = getCanvasCoordinates(e);
@@ -715,14 +688,29 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
       setIsDrawing(true);
       isDrawingRef.current = true;
     }
-  }, [isTyping, currentTool, startSimpleDrawing, getCanvasCoordinates]);
+  }, [currentTool, startSimpleDrawing, getCanvasCoordinates]);
 
   // 간단한 그리기 계속
   const draw = useCallback((e) => {
     if (!isDrawingRef.current) return;
     
-    // 두 손가락 터치인 경우 스크롤 허용
-    if (e.touches && e.touches.length > 1) return;
+    // 두 손가락 터치인 경우 핀치 줌 처리
+    if (e.touches && e.touches.length > 1) {
+      // 핀치 줌 중
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.sqrt(
+        Math.pow(touch2.clientX - touch1.clientX, 2) + 
+        Math.pow(touch2.clientY - touch1.clientY, 2)
+      );
+      
+      if (e.initialDistance) {
+        const scale = distance / e.initialDistance;
+        // 여기서 캔버스 스케일링 로직을 구현할 수 있습니다
+        console.log('핀치 줌 스케일:', scale);
+      }
+      return;
+    }
     
     e.preventDefault();
     e.stopPropagation();
@@ -757,57 +745,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     }
   }, [currentTool, continueSimpleDrawing, getCanvasCoordinates, startPoint, history, historyIndex, drawShape, currentColor, brushSize]);
 
-  // 텍스트 입력 처리 (한글 지원)
-  const handleTextInput = useCallback((e) => {
-    if (!isTyping || currentTool !== 'text') return;
-
-    if (e.key === 'Enter') {
-      // 텍스트를 캔버스에 그리기
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      
-      ctx.save();
-      ctx.font = `${brushSize * 4}px Arial`;
-      ctx.fillStyle = currentColor;
-      ctx.textBaseline = 'top';
-      
-      // 텍스트 위치를 캔버스 좌표로 변환
-      const rect = canvas.getBoundingClientRect();
-      const x = textPosition.x * (rect.width / 550);
-      const y = textPosition.y * (rect.height / 1122);
-      
-      ctx.fillText(textInput, x, y);
-      ctx.restore();
-      
-      // 히스토리에 추가
-      const imageData = safeToDataURL(canvas);
-      setHistory(prev => [...prev.slice(0, historyIndex + 1), imageData]);
-      setHistoryIndex(prev => prev + 1);
-      
-      // 텍스트 입력 종료
-      setIsTyping(false);
-      setTextInput('');
-      setTextPosition(null);
-      setCurrentTool('pen'); // 텍스트 입력 후 펜 도구로 전환
-    } else if (e.key === 'Escape') {
-      // 텍스트 입력 취소
-      setIsTyping(false);
-      setTextInput('');
-      setTextPosition(null);
-      setCurrentTool('pen');
-    }
-    // 한글 입력은 input 이벤트로 처리
-  }, [isTyping, currentTool, textPosition, textInput, brushSize, historyIndex]);
-
-  // 키보드 이벤트 리스너 등록 (간단한 방법)
-  useEffect(() => {
-    if (isTyping) {
-      document.addEventListener('keydown', handleTextInput);
-      return () => {
-        document.removeEventListener('keydown', handleTextInput);
-      };
-    }
-  }, [isTyping, handleTextInput]);
 
   // drawingId가 있을 때 특정 아이디어 불러오기
   useEffect(() => {
@@ -879,75 +816,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     }
   }, [open, drawingId]);
 
-  // 텍스트 입력 중일 때 위치 표시
-  useEffect(() => {
-    if (isTyping && textPosition) {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      
-      const ctx = canvas.getContext('2d');
-      
-      // 현재 히스토리 이미지를 먼저 그리기
-      if (history.length > 0 && historyIndex >= 0) {
-        const img = new Image();
-        img.onload = () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          drawNotebookBackground(ctx, canvas.width, canvas.height, true); // 텍스트 입력 중이므로 라인 숨김
-          ctx.drawImage(img, 0, 0);
-          
-          // 텍스트 입력 위치에 십자가 표시
-          ctx.save();
-          ctx.strokeStyle = currentColor;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(textPosition.canvasX - 8, textPosition.canvasY);
-          ctx.lineTo(textPosition.canvasX + 8, textPosition.canvasY);
-          ctx.moveTo(textPosition.canvasX, textPosition.canvasY - 8);
-          ctx.lineTo(textPosition.canvasX, textPosition.canvasY + 8);
-          ctx.stroke();
-          ctx.restore();
-        };
-        img.src = history[historyIndex];
-      } else {
-        // 히스토리가 없는 경우 기본 배경만 그리기
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawNotebookBackground(ctx, canvas.width, canvas.height, true); // 텍스트 입력 중이므로 라인 숨김
-        
-        // 텍스트 입력 위치에 십자가 표시
-        ctx.save();
-        ctx.strokeStyle = currentColor;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(textPosition.canvasX - 8, textPosition.canvasY);
-        ctx.lineTo(textPosition.canvasX + 8, textPosition.canvasY);
-        ctx.moveTo(textPosition.canvasX, textPosition.canvasY - 8);
-        ctx.lineTo(textPosition.canvasX, textPosition.canvasY + 8);
-        ctx.stroke();
-        ctx.restore();
-      }
-    } else if (!isTyping) {
-      // 텍스트 입력이 완료되면 십자가 마커 제거를 위해 캔버스 다시 그리기
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      
-      const ctx = canvas.getContext('2d');
-      
-      // 현재 히스토리 이미지를 다시 그리기 (십자가 마커 없이)
-      if (history.length > 0 && historyIndex >= 0) {
-        const img = new Image();
-        img.onload = () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          drawNotebookBackground(ctx, canvas.width, canvas.height, true); // 텍스트 입력 중이므로 라인 숨김
-          ctx.drawImage(img, 0, 0);
-        };
-        img.src = history[historyIndex];
-      } else {
-        // 히스토리가 없는 경우 기본 배경만 그리기
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawNotebookBackground(ctx, canvas.width, canvas.height, true); // 텍스트 입력 중이므로 라인 숨김
-      }
-    }
-  }, [isTyping, textPosition, history, historyIndex, drawNotebookBackground]);
 
 
   // 그리기 종료 (아이패드 최적화 - 두 손가락 스크롤 지원)
@@ -1359,10 +1227,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
       
       // 아이디어패드가 고정되지 않았고, 아이디어패드 외부 클릭 시
       if (!isPinned && open && !event.target.closest('.ideapad-container')) {
-        // 현재 텍스트 입력 중이면 완료
-        if (isTyping && textInput.trim() !== '') {
-          completeTextInput();
-        }
         
         // 자동 저장 후 닫기
         const autoSaveAndClose = async () => {
@@ -1407,7 +1271,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showSiteDropdown, isPinned, open, isTyping, textInput, completeTextInput, selectedSiteId, selectedSiteName, onClose]);
+  }, [showSiteDropdown, isPinned, open, selectedSiteId, selectedSiteName, onClose]);
 
   // 창 크기 변경 시 오른쪽 위치 유지
   useEffect(() => {
@@ -1857,7 +1721,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                completeTextInput();
                 setCurrentTool('pen');
                 setIsHighlighter(false);
               }}
@@ -1877,7 +1740,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  completeTextInput();
                   setCurrentTool('pen');
                   setIsHighlighter(true);
                 }}
@@ -1937,7 +1799,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                completeTextInput();
                 setCurrentTool('eraser');
                 setIsHighlighter(false);
               }}
@@ -1958,23 +1819,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
             </IconButton>
           </Tooltip>
 
-          <Tooltip title="텍스트 입력">
-            <IconButton
-              color={currentTool === 'text' ? 'primary' : 'default'}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setCurrentTool('text');
-                setIsHighlighter(false);
-              }}
-              sx={{ 
-                color: '#fff',
-                backgroundColor: currentTool === 'text' ? 'rgba(25, 118, 210, 0.2)' : 'transparent'
-              }}
-            >
-              <TextIcon />
-            </IconButton>
-          </Tooltip>
 
           {/* 도형 버튼들 */}
           <Tooltip title="직선">
@@ -1983,7 +1827,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                completeTextInput();
                 setCurrentTool('line');
                 setIsHighlighter(false);
               }}
@@ -2002,7 +1845,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                completeTextInput();
                 setCurrentTool('rectangle');
                 setIsHighlighter(false);
               }}
@@ -2021,7 +1863,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                completeTextInput();
                 setCurrentTool('circle');
                 setIsHighlighter(false);
               }}
@@ -2040,7 +1881,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                completeTextInput();
                 setCurrentTool('triangle');
                 setIsHighlighter(false);
               }}
@@ -2059,7 +1899,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                completeTextInput();
                 setCurrentTool('star');
                 setIsHighlighter(false);
               }}
@@ -2316,122 +2155,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
             }}
           />
           
-          {/* 텍스트 입력 박스 */}
-          {isTyping && (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                borderRadius: '8px',
-                padding: '16px',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                zIndex: 1000,
-                minWidth: '300px'
-              }}
-            >
-              <TextField
-                fullWidth
-                value={textInput}
-                onChange={(e) => {
-                  console.log('텍스트 입력:', e.target.value);
-                  setTextInput(e.target.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    // 텍스트를 캔버스에 그리기
-                    const canvas = canvasRef.current;
-                    const ctx = canvas.getContext('2d');
-                    
-                    ctx.save();
-                    ctx.font = `${brushSize * 4}px Arial`;
-                    ctx.fillStyle = currentColor;
-                    ctx.textBaseline = 'top';
-                    
-                    // 저장된 캔버스 좌표 사용
-                    ctx.fillText(textInput, textPosition.canvasX, textPosition.canvasY);
-                    ctx.restore();
-                    
-                    // 히스토리에 추가
-                    const imageData = safeToDataURL(canvas);
-                    setHistory(prev => [...prev.slice(0, historyIndex + 1), imageData]);
-                    setHistoryIndex(prev => prev + 1);
-                    
-                    // 텍스트 입력 종료
-                    setIsTyping(false);
-                    setTextInput('');
-                    setTextPosition(null);
-                    setCurrentTool('pen');
-                    
-                    // 마커는 상태 변경으로 자동 제거됨
-                  } else if (e.key === 'Escape') {
-                    // 텍스트 입력 취소
-                    setIsTyping(false);
-                    setTextInput('');
-                    setTextPosition(null);
-                    setCurrentTool('pen');
-                  }
-                }}
-                onBlur={() => {
-                  // 포커스를 잃으면 텍스트 입력 종료
-                  if (textInput.trim() !== '') {
-                    // 텍스트를 캔버스에 그리기
-                    const canvas = canvasRef.current;
-                    const ctx = canvas.getContext('2d');
-                    
-                    ctx.save();
-                    ctx.font = `${brushSize * 4}px Arial`;
-                    ctx.fillStyle = currentColor;
-                    ctx.textBaseline = 'top';
-                    
-                    // 저장된 캔버스 좌표 사용
-                    ctx.fillText(textInput, textPosition.canvasX, textPosition.canvasY);
-                    ctx.restore();
-                    
-                    const imageData = safeToDataURL(canvas);
-                    setHistory(prev => [...prev.slice(0, historyIndex + 1), imageData]);
-                    setHistoryIndex(prev => prev + 1);
-                  }
-                  
-                  setIsTyping(false);
-                  setTextInput('');
-                  setTextPosition(null);
-                  setCurrentTool('pen');
-                }}
-                placeholder="텍스트를 입력하세요"
-                variant="outlined"
-                size="small"
-                autoFocus
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    fontSize: `${brushSize * 4}px`,
-                    color: currentColor,
-                    '& fieldset': {
-                      border: 'none', // 테두리 제거
-                    },
-                    '&:hover fieldset': {
-                      border: 'none',
-                    },
-                    '&.Mui-focused fieldset': {
-                      border: 'none',
-                    },
-                  }
-                }}
-              />
-              <Box sx={{ 
-                mt: 1, 
-                display: 'flex', 
-                justifyContent: 'space-between',
-                fontSize: '12px',
-                color: '#666'
-              }}>
-                <span>Enter: 확인</span>
-                <span>Escape: 취소</span>
-              </Box>
-            </Box>
-          )}
         </Box>
 
         {/* 저장된 목록 */}
