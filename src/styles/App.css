@@ -14,7 +14,7 @@ body::-webkit-scrollbar, html::-webkit-scrollbar {
 }
 
 .app, .main-content {
-  min-height: 90vh; /* 100vh에서 90vh로 줄임 */
+  min-height: 100vh; /* 100vh로 복원하여 전체 화면 사용 */
   display: flex;
   flex-direction: column;
   background: var(--bg-main) !important;
@@ -39,7 +39,7 @@ body::-webkit-scrollbar, html::-webkit-scrollbar {
   max-width: 100% !important;
   width: 100%;
   margin: 0 auto;
-  height: calc(90vh - 60px - 48px); /* 100vh에서 90vh로 줄임, 헤더(60px) + 대시보드바(48px) 제외 */
+  height: calc(100vh - 60px - 48px); /* 100vh로 복원, 헤더(60px) + 대시보드바(48px) 제외 */
   overflow-x: hidden !important;
   overflow-y: auto !important; /* 세로 스크롤 허용 */
   padding-top: 0;

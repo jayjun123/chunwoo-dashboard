@@ -48,16 +48,26 @@ import { exportToExcel } from '../utils/excelUtils';
 const STATUS_OPTIONS = ['계획', '진행중', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급'];
 
-// 정렬 함수
+// 정렬 함수 (개선된 버전)
 const sortData = (data, orderBy, order) => {
-  return data.sort((a, b) => {
+  return [...data].sort((a, b) => {
     let aValue = a[orderBy];
     let bValue = b[orderBy];
 
+    // null/undefined 처리
+    if (aValue === null || aValue === undefined) aValue = '';
+    if (bValue === null || bValue === undefined) bValue = '';
+
     // 날짜 필드 처리
     if (orderBy === 'createdAt' || orderBy === 'updatedAt') {
-      aValue = aValue ? aValue.seconds : 0;
-      bValue = bValue ? bValue.seconds : 0;
+      aValue = aValue ? (aValue.seconds || new Date(aValue).getTime() / 1000) : 0;
+      bValue = bValue ? (bValue.seconds || new Date(bValue).getTime() / 1000) : 0;
+    }
+    
+    // 날짜 문자열 필드 처리 (startDate, endDate)
+    if (orderBy === 'startDate' || orderBy === 'endDate') {
+      aValue = aValue ? new Date(aValue).getTime() : 0;
+      bValue = bValue ? new Date(bValue).getTime() : 0;
     }
     
     // 숫자 필드 처리 (계약금액, 선급금, 누계기성)
@@ -66,12 +76,19 @@ const sortData = (data, orderBy, order) => {
       bValue = parseFloat(bValue) || 0;
     }
 
-    // 문자열 필드 처리
-    if (typeof aValue === 'string') {
-      aValue = aValue.toLowerCase();
-      bValue = bValue.toLowerCase();
+    // 불린 필드 처리 (isFavorite, subcontractGuardian)
+    if (orderBy === 'isFavorite' || orderBy === 'subcontractGuardian') {
+      aValue = Boolean(aValue);
+      bValue = Boolean(bValue);
     }
 
+    // 문자열 필드 처리 (한글 정렬을 위해 localeCompare 사용)
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      const comparison = aValue.localeCompare(bValue, 'ko', { numeric: true });
+      return order === 'desc' ? -comparison : comparison;
+    }
+
+    // 숫자/날짜 비교
     if (order === 'desc') {
       return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
     } else {
@@ -99,8 +116,8 @@ const WholeList = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [uploadDialog, setUploadDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [sortBy, setSortBy] = useState('startDate');
-  const [order, setOrder] = useState('asc');
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [order, setOrder] = useState('desc');
   const [vendors, setVendors] = useState([]); // 거래처 데이터 상태 추가
   const navigate = useNavigate();
 
@@ -151,10 +168,11 @@ const WholeList = () => {
     const isAsc = sortBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setSortBy(property);
+    setPage(0); // 정렬 변경 시 첫 페이지로 이동
   };
 
-  // 정렬된 데이터 (최근순)
-  const sortedSites = sortData([...sites], 'createdAt', 'desc');
+  // 정렬된 데이터 (사용자 선택에 따라)
+  const sortedSites = sortData([...sites], sortBy, order);
 
   // 페이지 변경
   const handleChangePage = (event, newPage) => {

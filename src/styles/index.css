@@ -3,6 +3,7 @@ html, body {
   /* overflow: hidden 제거하여 스크롤 허용 */
   width: 100% !important;
   height: 100% !important;
+  min-height: 100vh !important; /* 최소 높이를 100vh로 설정 */
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
   /* 스크롤바는 숨기지만 스크롤은 허용 */
@@ -161,6 +162,7 @@ input, select, textarea {
   overflow-y: auto !important; /* 세로 스크롤 허용 */
   overflow-x: hidden !important; /* 가로 스크롤만 숨김 */
   width: 100% !important;
+  min-height: 100vh !important; /* 최소 높이를 100vh로 설정 */
 }
 #root::-webkit-scrollbar, .app::-webkit-scrollbar, .main-content::-webkit-scrollbar {
   display: none !important;
@@ -279,4 +281,26 @@ footer::-webkit-scrollbar {
 .overflow-y-auto::-webkit-scrollbar,
 .overflow-x-auto::-webkit-scrollbar {
   display: none !important;
+}
+
+/* 아이패드 전체 화면 스크롤 최적화 */
+html, body, #root {
+  height: 100% !important;
+  min-height: 100vh !important;
+  max-height: none !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+}
+
+/* 아이패드에서 전체 화면 스크롤 보장 */
+@media screen and (max-width: 1024px) {
+  html, body, #root {
+    height: 100% !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
 } 

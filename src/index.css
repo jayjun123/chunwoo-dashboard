@@ -754,7 +754,7 @@ input, textarea, select {
 
 /* 메인 콘텐츠 영역 스크롤 설정 */
 .main-content {
-  height: calc(90vh - 60px - 48px); /* 100vh에서 90vh로 줄임, 헤더(60px) + 대시보드바(48px) 제외 */
+  height: calc(100vh - 60px - 48px); /* 100vh로 복원, 헤더(60px) + 대시보드바(48px) 제외 */
   overflow-y: auto;
   overflow-x: hidden;
   padding-top: 0;

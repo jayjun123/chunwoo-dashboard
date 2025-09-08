@@ -43,20 +43,65 @@ import {
 } from '@mui/icons-material';
 import { storage, db } from '../firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { doc, setDoc, getDoc, collection, query, orderBy, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, orderBy, getDocs, deleteDoc, addDoc } from 'firebase/firestore';
 
-const IdeaPad = ({ open, onClose, siteId, siteName }) => {
+const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
+  // CSS 애니메이션 추가
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(1.2);
+          opacity: 0.7;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
   // 기본 상태
   const [currentTool, setCurrentTool] = useState('pen');
   const [currentColor, setCurrentColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(3);
   const [isHighlighter, setIsHighlighter] = useState(false);
+  const [isTouchEvent, setIsTouchEvent] = useState(false);
   const [highlighterColor, setHighlighterColor] = useState('#FFFF00');
   const [pressureSensitivity, setPressureSensitivity] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
+  const isDrawingRef = useRef(false);
+  const lastEventTime = useRef(0);
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [shapes, setShapes] = useState([]);
+  
+  // 안전한 toDataURL 함수 (CORS 오류 방지)
+  const safeToDataURL = useCallback((canvas) => {
+    try {
+      return canvas.toDataURL();
+    } catch (error) {
+      console.warn('toDataURL 실패, 기본값 사용:', error);
+      // CORS 오류 시 기본 캔버스 데이터 반환
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.fillStyle = '#ffffff';
+      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      return tempCanvas.toDataURL();
+    }
+  }, []);
   const [startPoint, setStartPoint] = useState(null);
   const [selectedSiteId, setSelectedSiteId] = useState(siteId || 'CHUNWOO');
   const [selectedSiteName, setSelectedSiteName] = useState(siteName || '');
@@ -72,6 +117,8 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
   const [textPosition, setTextPosition] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+
+  // 간단한 그리기를 위한 상태 (필요시 추가)
 
   // Refs
   const canvasRef = useRef(null);
@@ -256,13 +303,15 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         ctx.stroke();
       }
 
-      // 왼쪽 여백선 (더 선명한 빨간색)
-      ctx.strokeStyle = '#FF6B6B';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(60, 0);
-      ctx.lineTo(60, height);
-      ctx.stroke();
+      // 왼쪽 여백선 (노트북 스타일 빨간선) - 사용자 요청으로 제거
+      // ctx.save();
+      // ctx.strokeStyle = '#FF6B6B';
+      // ctx.lineWidth = 2;
+      // ctx.beginPath();
+      // ctx.moveTo(60, 0);
+      // ctx.lineTo(60, height);
+      // ctx.stroke();
+      // ctx.restore();
 
       // 상단 여백선 제거 (점 문제 해결)
 
@@ -283,7 +332,10 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
     // 현재 캔버스 상태를 보존하기 위해 새로운 경로만 시작
     ctx.save(); // 현재 상태 저장
     
-    ctx.strokeStyle = color;
+    // 색상 검증 및 로깅
+    const validColor = color || currentColor;
+    console.log('drawShape 호출 - 색상:', validColor, '도구:', tool);
+    ctx.strokeStyle = validColor;
     ctx.lineWidth = lineWidth;
     ctx.fillStyle = 'transparent';
     ctx.lineCap = 'round';
@@ -353,6 +405,130 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
     setShapes(prev => [...prev, newShape]);
   }, [currentColor, brushSize]);
 
+  // 좌표 변환 (마우스와 터치 모두 지원, 아이패드 최적화)
+  const getCanvasCoordinates = useCallback((e) => {
+    try {
+      const canvas = canvasRef.current;
+      if (!canvas) return { x: 0, y: 0 };
+
+      const rect = canvas.getBoundingClientRect();
+      
+      // 터치 이벤트인지 마우스 이벤트인지 확인
+      let clientX, clientY;
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if (e.changedTouches && e.changedTouches.length > 0) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      // 캔버스 내부 좌표로 변환 (고정 크기 기준)
+      const x = (clientX - rect.left) * (550 / rect.width);
+      const y = (clientY - rect.top) * (1122 / rect.height);
+
+      // 좌표 유효성 검사
+      const validX = Math.max(0, Math.min(550, x));
+      const validY = Math.max(0, Math.min(1122, y));
+
+      return { x: validX, y: validY };
+    } catch (error) {
+      console.warn('좌표 변환 중 오류:', error);
+      return { x: 0, y: 0 };
+    }
+  }, []);
+
+  // 간단한 그리기 함수들
+  const startSimpleDrawing = useCallback((e) => {
+    if (!e.isTrusted) return;
+    
+    // 지우개 사용 시 추가 이벤트 차단
+    if (currentTool === 'eraser') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) {
+        e.stopImmediatePropagation();
+      }
+    }
+    
+    const { x, y } = getCanvasCoordinates(e);
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    // 완전히 새로운 경로 시작
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    
+    // 도구별 설정
+    if (currentTool === 'pen') {
+      ctx.strokeStyle = currentColor;
+      ctx.lineWidth = brushSize;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+    } else if (currentTool === 'eraser') {
+      // 지우개는 시작점에서도 개별적으로 지우기
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(x, y, brushSize, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    
+    setIsDrawing(true);
+    isDrawingRef.current = true;
+    
+    console.log('간단한 그리기 시작:', { x, y, tool: currentTool });
+  }, [getCanvasCoordinates, currentColor, brushSize, currentTool]);
+
+  const continueSimpleDrawing = useCallback((e) => {
+    if (!isDrawingRef.current) return;
+    
+    // 지우개 사용 시 추가 이벤트 차단
+    if (currentTool === 'eraser') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) {
+        e.stopImmediatePropagation();
+      }
+    }
+    
+    const { x, y } = getCanvasCoordinates(e);
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    if (currentTool === 'pen') {
+      // 펜은 연속적인 선 그리기
+      ctx.strokeStyle = currentColor;
+      ctx.lineWidth = brushSize;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    } else if (currentTool === 'eraser') {
+      // 지우개는 각 점마다 개별적으로 지우기 (깜빡거림 방지)
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.lineWidth = brushSize * 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(x, y, brushSize, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    
+    console.log('간단한 그리기 계속:', { x, y, tool: currentTool });
+  }, [getCanvasCoordinates, currentTool, currentColor, brushSize]);
+
+  const stopSimpleDrawing = useCallback(() => {
+    setIsDrawing(false);
+    isDrawingRef.current = false;
+    console.log('간단한 그리기 종료');
+  }, []);
+
   // 전역 마우스/터치 이벤트 리스너
   useEffect(() => {
     if (isDragging || isResizing) {
@@ -400,60 +576,57 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
     drawNotebookBackground(ctx, fixedWidth, fixedHeight, false); // 일반 그리기 모드에서는 라인 표시
 
     // 히스토리에 초기 상태 저장
-    const imageData = canvas.toDataURL();
+    const imageData = safeToDataURL(canvas);
     setHistory([imageData]);
     setHistoryIndex(0);
   }, [drawNotebookBackground]);
 
 
-  // 필압 감지 함수
+  // 필압 감지 함수 (아이패드 최적화)
   const getPressure = useCallback((e) => {
     if (!pressureSensitivity) return 1;
     
-    // 터치 이벤트에서 필압 감지
-    if (e.touches && e.touches.length > 0) {
-      const touch = e.touches[0];
-      // force 속성 (iOS Safari에서 지원)
-      if (touch.force !== undefined) {
-        return Math.max(0.1, Math.min(2, touch.force));
+    try {
+      // 터치 이벤트에서 필압 감지
+      if (e.touches && e.touches.length > 0) {
+        const touch = e.touches[0];
+        
+        // iOS Safari에서 force 속성 지원 (아이패드 Apple Pencil)
+        if (touch.force !== undefined && touch.force > 0) {
+          // Apple Pencil의 경우 더 정확한 필압 감지
+          const pressure = Math.max(0.1, Math.min(2, touch.force));
+          console.log('Apple Pencil 필압 감지:', pressure);
+          return pressure;
+        }
+        
+        // radiusX, radiusY로 필압 추정 (일반 터치)
+        if (touch.radiusX !== undefined && touch.radiusY !== undefined) {
+          const radius = Math.min(touch.radiusX, touch.radiusY);
+          const pressure = Math.max(0.1, Math.min(2, 1 - (radius / 50)));
+          console.log('터치 반경 기반 필압 추정:', pressure);
+          return pressure;
+        }
+        
+        // 아이패드에서 필압 정보가 없는 경우 기본값
+        console.log('필압 정보 없음, 기본값 사용');
+        return 1;
       }
-      // radiusX, radiusY로 필압 추정 (Android)
-      if (touch.radiusX !== undefined && touch.radiusY !== undefined) {
-        const radius = Math.min(touch.radiusX, touch.radiusY);
-        return Math.max(0.1, Math.min(2, 1 - (radius / 50)));
+      
+      // changedTouches에서도 확인 (터치 종료 시)
+      if (e.changedTouches && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        if (touch.force !== undefined && touch.force > 0) {
+          return Math.max(0.1, Math.min(2, touch.force));
+        }
       }
+      
+      // 마우스 이벤트에서는 기본값
+      return 1;
+    } catch (error) {
+      console.warn('필압 감지 중 오류:', error);
+      return 1; // 오류 시 기본값 반환
     }
-    
-    // 마우스 이벤트에서는 기본값
-    return 1;
   }, [pressureSensitivity]);
-
-  // 좌표 변환 (마우스와 터치 모두 지원)
-  const getCanvasCoordinates = useCallback((e) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-
-    const rect = canvas.getBoundingClientRect();
-    
-    // 터치 이벤트인지 마우스 이벤트인지 확인
-    let clientX, clientY;
-    if (e.touches && e.touches.length > 0) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else if (e.changedTouches && e.changedTouches.length > 0) {
-      clientX = e.changedTouches[0].clientX;
-      clientY = e.changedTouches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-
-    // 캔버스 내부 좌표로 변환 (고정 크기 기준)
-    const x = (clientX - rect.left) * (550 / rect.width);
-    const y = (clientY - rect.top) * (1122 / rect.height);
-
-    return { x, y };
-  }, []);
 
   // 텍스트 입력 자동 완료 함수
   const completeTextInput = useCallback(() => {
@@ -473,7 +646,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       ctx.fillText(textInput, textX, textY);
       ctx.restore();
       
-      const imageData = canvas.toDataURL();
+      const imageData = safeToDataURL(canvas);
       setHistory(prev => [...prev.slice(0, historyIndex + 1), imageData]);
       setHistoryIndex(prev => prev + 1);
       
@@ -486,124 +659,50 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
     }
   }, [isTyping, textInput, textPosition, brushSize, historyIndex]);
 
-  // 그리기 시작
+  // 간단한 그리기 시작
   const startDrawing = useCallback((e) => {
-    // 터치 이벤트의 기본 동작 방지 (스크롤 등)
+    if (isTyping || currentTool === 'text') return;
+    
+    // 두 손가락 터치인 경우 스크롤 허용
+    if (e.touches && e.touches.length > 1) return;
+    
     e.preventDefault();
-
-    // 텍스트 입력 중일 때는 모든 펜 입력 차단
-    if (isTyping) {
-      return;
-    }
-
-    const { x, y } = getCanvasCoordinates(e);
-
-    // 텍스트 입력 중이고 다른 곳을 클릭한 경우 현재 텍스트를 캔버스에 그리기
-    if (isTyping && currentTool === 'text' && textInput.trim() !== '') {
-      completeTextInput();
-      setCurrentTool('pen'); // 텍스트 입력 후 펜 도구로 전환
-      return;
-    }
-
-    // 텍스트 도구인 경우 텍스트 입력 시작
-    if (currentTool === 'text') {
-      const canvas = canvasRef.current;
-      const rect = canvas.getBoundingClientRect();
-      
-      // 실제 클릭한 화면 좌표 저장 (캔버스 컨테이너 기준)
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-      
-      console.log('텍스트 입력 시작:', { 
-        canvasX: x, 
-        canvasY: y,
-        screenX: screenX,
-        screenY: screenY
-      });
-      
-      // 화면 좌표만 저장 (input 요소 위치용)
-      setTextPosition({ screenX, screenY, canvasX: x, canvasY: y });
-      setIsTyping(true);
-      setTextInput('');
-      return;
-    }
-
-    setIsDrawing(true);
-    const pressure = getPressure(e);
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-
-    // 도형 그리기인 경우 시작점 저장
-    if (['line', 'rectangle', 'circle', 'triangle', 'star'].includes(currentTool)) {
-      setStartPoint({ x, y });
-      return;
-    }
-
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-
-    if (currentTool === 'pen') {
-      if (isHighlighter) {
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.strokeStyle = highlighterColor + '60';
-        ctx.lineWidth = brushSize * 3 * pressure; // 필압 적용
-      } else {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.strokeStyle = currentColor;
-        ctx.lineWidth = brushSize * pressure; // 필압 적용
-      }
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-    } else if (currentTool === 'eraser') {
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.lineWidth = brushSize * 2 * pressure; // 필압 적용
-      ctx.lineCap = 'round';
-    }
-  }, [currentTool, currentColor, brushSize, isHighlighter, highlighterColor, getCanvasCoordinates]);
-
-  // 그리기 중
-  const draw = useCallback((e) => {
-    if (!isDrawing || currentTool === 'text') return;
-
-    // 텍스트 입력 중일 때는 모든 펜 그리기 차단
-    if (isTyping) {
-      return;
-    }
-
-    // 터치 이벤트의 기본 동작 방지
-    e.preventDefault();
-
-    const { x, y } = getCanvasCoordinates(e);
-    const pressure = getPressure(e);
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-
+    e.stopPropagation();
+    
     if (currentTool === 'pen' || currentTool === 'eraser') {
-      // 필압에 따른 선 굵기 동적 조절
-      if (currentTool === 'pen') {
-        if (isHighlighter) {
-          ctx.lineWidth = brushSize * 3 * pressure;
-        } else {
-          ctx.lineWidth = brushSize * pressure;
-        }
-      } else if (currentTool === 'eraser') {
-        ctx.lineWidth = brushSize * 2 * pressure;
-      }
-      
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(x, y);
+      startSimpleDrawing(e);
+    } else if (['line', 'rectangle', 'circle', 'triangle', 'star'].includes(currentTool)) {
+      const { x, y } = getCanvasCoordinates(e);
+      setStartPoint({ x, y });
+      setIsDrawing(true);
+      isDrawingRef.current = true;
+    }
+  }, [isTyping, currentTool, startSimpleDrawing, getCanvasCoordinates]);
+
+  // 간단한 그리기 계속
+  const draw = useCallback((e) => {
+    if (!isDrawingRef.current) return;
+    
+    // 두 손가락 터치인 경우 스크롤 허용
+    if (e.touches && e.touches.length > 1) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (currentTool === 'pen' || currentTool === 'eraser') {
+      continueSimpleDrawing(e);
     } else if (['line', 'rectangle', 'circle', 'triangle', 'star'].includes(currentTool) && startPoint) {
-      // 도형 미리보기 그리기
-      // 현재 히스토리 이미지를 먼저 그리기
+      // 도형 미리보기
+      const { x, y } = getCanvasCoordinates(e);
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      
       if (history.length > 0 && historyIndex >= 0) {
         const img = new Image();
         img.onload = () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0); // 기존 이미지를 먼저 그리기 (배경 포함)
+          ctx.drawImage(img, 0, 0);
           
-          // 미리보기 도형 그리기
           ctx.save();
           ctx.strokeStyle = currentColor;
           ctx.lineWidth = brushSize;
@@ -618,7 +717,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         img.src = history[historyIndex];
       }
     }
-  }, [isDrawing, currentTool, getCanvasCoordinates, startPoint, history, historyIndex, drawShape, currentColor, brushSize, drawNotebookBackground]);
+  }, [currentTool, continueSimpleDrawing, getCanvasCoordinates, startPoint, history, historyIndex, drawShape, currentColor, brushSize]);
 
   // 텍스트 입력 처리 (한글 지원)
   const handleTextInput = useCallback((e) => {
@@ -643,7 +742,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       ctx.restore();
       
       // 히스토리에 추가
-      const imageData = canvas.toDataURL();
+      const imageData = safeToDataURL(canvas);
       setHistory(prev => [...prev.slice(0, historyIndex + 1), imageData]);
       setHistoryIndex(prev => prev + 1);
       
@@ -671,6 +770,76 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       };
     }
   }, [isTyping, handleTextInput]);
+
+  // drawingId가 있을 때 특정 아이디어 불러오기
+  useEffect(() => {
+    if (open && drawingId) {
+      console.log('🔍 drawingId로 아이디어 불러오기:', drawingId);
+      // loadSpecificDrawing 함수가 정의된 후에 호출
+      const loadDrawing = async () => {
+        try {
+          console.log('🔍 특정 아이디어 불러오기:', drawingId);
+          
+          const docRef = doc(db, 'notepad_drawings', drawingId);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            console.log('🔍 불러온 아이디어 데이터:', data);
+            
+        // 간단한 방법으로 이미지 로드 (CORS 문제 무시)
+        const img = new Image();
+        
+        img.onload = () => {
+          const canvas = canvasRef.current;
+          if (!canvas) {
+            console.error('캔버스가 존재하지 않습니다.');
+            return;
+          }
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            console.error('캔버스 컨텍스트를 가져올 수 없습니다.');
+            return;
+          }
+          
+          // 캔버스 초기화
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          
+          // 이미지 그리기
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          // 히스토리는 이미지 로드 후에만 설정
+          setHistory([data.url]); // 원본 URL을 히스토리에 저장
+          setHistoryIndex(0);
+          
+          console.log('🔍 아이디어가 캔버스에 로드됨');
+        };
+        
+        img.onerror = (error) => {
+          console.error('이미지 로드 실패:', error);
+          alert('이미지 로드에 실패했습니다. 네트워크 연결을 확인해주세요.');
+        };
+        
+        img.src = data.url;
+            
+            // 현장 정보 설정
+            if (data.siteId && data.siteName) {
+              setSelectedSiteId(data.siteId);
+              setSelectedSiteName(data.siteName);
+              setSearchQuery(data.siteName);
+            }
+          } else {
+            console.log('🔍 아이디어를 찾을 수 없음');
+          }
+        } catch (error) {
+          console.error('특정 아이디어 불러오기 실패:', error);
+        }
+      };
+      
+      loadDrawing();
+    }
+  }, [open, drawingId]);
 
   // 텍스트 입력 중일 때 위치 표시
   useEffect(() => {
@@ -743,43 +912,46 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
   }, [isTyping, textPosition, history, historyIndex, drawNotebookBackground]);
 
 
-  // 그리기 종료
+  // 그리기 종료 (아이패드 최적화 - 두 손가락 스크롤 지원)
+  // 간단한 그리기 종료
   const stopDrawing = useCallback((e) => {
-    if (!isDrawing) return;
-
-    // 텍스트 입력 중일 때는 모든 펜 그리기 차단
-    if (isTyping) {
-      return;
-    }
-
-    // 터치 이벤트의 기본 동작 방지
-    if (e) e.preventDefault();
-
-    setIsDrawing(false);
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    ctx.globalCompositeOperation = 'source-over';
-
-    // 도형 그리기인 경우 도형 추가 및 그리기
-    if (['line', 'rectangle', 'circle', 'triangle', 'star'].includes(currentTool) && startPoint) {
-      const { x, y } = getCanvasCoordinates(e);
+    if (!isDrawingRef.current) return;
+    
+    // 두 손가락 터치인 경우 스크롤 허용
+    if (e && e.touches && e.touches.length > 1) return;
+    
+    e?.preventDefault();
+    e?.stopPropagation();
+    
+    if (currentTool === 'pen' || currentTool === 'eraser') {
+      stopSimpleDrawing();
       
-      // 히스토리 이미지를 먼저 복원
+      // 히스토리에 저장
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const imageData = safeToDataURL(canvas);
+        const newHistory = history.slice(0, historyIndex + 1);
+        newHistory.push(imageData);
+        setHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+      }
+    } else if (['line', 'rectangle', 'circle', 'triangle', 'star'].includes(currentTool) && startPoint) {
+      // 도형 그리기 완료
+      const { x, y } = getCanvasCoordinates(e);
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      
       if (history.length > 0 && historyIndex >= 0) {
         const img = new Image();
         img.onload = () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0); // 기존 이미지를 먼저 그리기 (배경 포함)
+          ctx.drawImage(img, 0, 0);
           
-          // 최종 도형 그리기
           drawShape(ctx, startPoint, { x, y }, currentTool);
-          
-          // 도형 추가
           addShape(startPoint, { x, y }, currentTool);
           setStartPoint(null);
           
-          // 도형이 그려진 후의 캔버스를 히스토리에 저장
-          const newImageData = canvas.toDataURL();
+          const newImageData = safeToDataURL(canvas);
           const newHistory = history.slice(0, historyIndex + 1);
           newHistory.push(newImageData);
           setHistory(newHistory);
@@ -787,16 +959,12 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         };
         img.src = history[historyIndex];
       }
-      return; // 도형 그리기 완료 시 여기서 종료
+      
+      // 도형 그리기 완료 후 상태 리셋
+      setIsDrawing(false);
+      isDrawingRef.current = false;
     }
-
-    // 히스토리에 저장
-    const imageData = canvas.toDataURL();
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(imageData);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  }, [isDrawing, history, historyIndex, currentTool, startPoint, getCanvasCoordinates, addShape, drawShape]);
+  }, [currentTool, stopSimpleDrawing, history, historyIndex, startPoint, getCanvasCoordinates, addShape, drawShape]);
 
   // 실행 취소
   const undo = useCallback(() => {
@@ -846,7 +1014,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
     
     drawNotebookBackground(ctx, rect.width, rect.height, false); // 일반 그리기 모드에서는 라인 표시
     
-    const imageData = canvas.toDataURL();
+    const imageData = safeToDataURL(canvas);
     setHistory([imageData]);
     setHistoryIndex(0);
     setShapes([]);
@@ -868,8 +1036,78 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       
       setAllSites(sitesList);
       setFilteredSites(sitesList);
+      
+      // 각 현장의 아이디어 저장 상태 확인
+      checkSitesWithIdeas(sitesList);
     } catch (error) {
       console.error('현장 목록 로드 실패:', error);
+    }
+  }, []);
+
+  // 아이디어가 저장된 현장 확인
+  const checkSitesWithIdeas = useCallback(async (sites) => {
+    try {
+      const ideasQuery = query(collection(db, 'notepad_drawings'));
+      const ideasSnapshot = await getDocs(ideasQuery);
+      const sitesWithIdeas = new Set();
+      
+      console.log('🔍 모든 저장된 아이디어 확인 중...');
+      
+      ideasSnapshot.forEach((doc) => {
+        const data = doc.data();
+        console.log('🔍 저장된 아이디어 데이터:', {
+          id: doc.id,
+          siteName: data.siteName,
+          displayName: data.displayName,
+          isAutoSave: data.isAutoSave
+        });
+        
+        if (data.siteName && !data.isAutoSave) {
+          sitesWithIdeas.add(data.siteName);
+        }
+      });
+      
+      console.log('🔍 아이디어가 저장된 현장들:', Array.from(sitesWithIdeas));
+      console.log('🔍 현재 현장 목록:', sites.map(site => site.name));
+      
+      // 현장 목록에 아이디어 표시 정보 추가
+      const updatedSites = sites.map(site => {
+        // 정확한 일치 확인
+        let hasIdeas = sitesWithIdeas.has(site.name);
+        
+        // 정확한 일치만 허용 (부분 일치 제거)
+        // if (!hasIdeas) {
+        //   for (const savedSiteName of sitesWithIdeas) {
+        //     // 더 엄격한 부분 일치: 현장명의 주요 부분이 일치하는지 확인
+        //     const siteNameWords = site.name.split(' ').filter(word => word.length > 2);
+        //     const savedNameWords = savedSiteName.split(' ').filter(word => word.length > 2);
+        //     
+        //     // 주요 단어들이 일치하는지 확인
+        //     const hasCommonWords = siteNameWords.some(word => 
+        //       savedNameWords.some(savedWord => 
+        //         word.includes(savedWord) || savedWord.includes(word)
+        //       )
+        //     );
+        //     
+        //     if (hasCommonWords) {
+        //       hasIdeas = true;
+        //       console.log(`🔍 부분 일치 발견: "${site.name}" <-> "${savedSiteName}"`);
+        //       break;
+        //     }
+        //   }
+        // }
+        
+        console.log(`🔍 현장 "${site.name}" 아이디어 여부:`, hasIdeas);
+        return {
+          ...site,
+          hasIdeas: hasIdeas
+        };
+      });
+      
+      setAllSites(updatedSites);
+      setFilteredSites(updatedSites);
+    } catch (error) {
+      console.error('아이디어 저장 현장 확인 실패:', error);
     }
   }, []);
 
@@ -925,8 +1163,19 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
       const querySnapshot = await getDocs(q);
       const drawings = [];
       
+      console.log('🔍 저장된 그림 로드 중, 선택된 현장 ID:', selectedSiteId);
+      
       querySnapshot.forEach((doc) => {
         const data = doc.data();
+        console.log('🔍 저장된 그림 데이터:', {
+          id: doc.id,
+          siteId: data.siteId,
+          siteName: data.siteName,
+          displayName: data.displayName,
+          selectedSiteId: selectedSiteId,
+          matches: data.siteId === selectedSiteId
+        });
+        
         if (data.siteId === selectedSiteId) {
           drawings.push({
             id: doc.id,
@@ -935,6 +1184,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         }
       });
       
+      console.log('🔍 로드된 그림 개수:', drawings.length);
       setSavedDrawings(drawings);
     } catch (error) {
       console.error('저장된 그림 로드 실패:', error);
@@ -942,11 +1192,14 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
     }
   }, [selectedSiteId]);
 
+
   // 그림 저장
   const saveDrawing = useCallback(async () => {
     try {
       const canvas = canvasRef.current;
-      const fileName = `drawing_${Date.now()}.png`;
+      const timestamp = new Date();
+      const siteName = selectedSiteName || 'CHUNWOO';
+      const fileName = `${siteName}_${timestamp.getTime()}.png`;
       const storageRef = ref(storage, `notepad_drawings/${fileName}`);
       
       canvas.toBlob(async (blob) => {
@@ -956,19 +1209,31 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         await setDoc(doc(db, 'notepad_drawings', fileName), {
           url: downloadURL,
           siteId: selectedSiteId,
-          siteName: selectedSiteName || 'CHUNWOO',
-          timestamp: new Date(),
+          siteName: siteName,
+          displayName: `${siteName} - ${timestamp.toLocaleDateString()} ${timestamp.toLocaleTimeString()}`,
+          timestamp: timestamp,
           shapes: shapes
         });
         
-        setAlert({ open: true, message: '그림이 저장되었습니다.', severity: 'success' });
+        console.log('🔍 아이디어패드 저장 완료:', {
+          fileName: fileName,
+          siteName: siteName,
+          siteId: selectedSiteId,
+          displayName: `${siteName} - ${timestamp.toLocaleDateString()} ${timestamp.toLocaleTimeString()}`
+        });
+        
+        setAlert({ open: true, message: `${siteName} 현장의 아이디어가 저장되었습니다.`, severity: 'success' });
         loadSavedDrawings();
+        
+        // 현장 목록을 다시 로드하여 아이디어 표시 업데이트
+        console.log('🔍 저장 완료 후 현장 목록 다시 로드 중...');
+        loadSites();
       });
     } catch (error) {
       console.error('그림 저장 실패:', error);
       setAlert({ open: true, message: '그림 저장에 실패했습니다.', severity: 'error' });
     }
-  }, [selectedSiteId, selectedSiteName, shapes, loadSavedDrawings]);
+  }, [selectedSiteId, selectedSiteName, shapes, loadSavedDrawings, loadSites]);
 
   // 그림 삭제
   const deleteDrawing = useCallback(async (drawingId, fileName) => {
@@ -1004,11 +1269,12 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         // 기존 도형들도 다시 그리기 (저장된 도형 정보가 있는 경우)
         if (drawing.shapes && drawing.shapes.length > 0) {
           drawing.shapes.forEach(shape => {
+            console.log('저장된 도형 로드 - 색상:', shape.color, '타입:', shape.type);
             drawShape(ctx, shape.start, shape.end, shape.type, shape.color, shape.lineWidth);
           });
         }
         
-        const imageData = canvas.toDataURL();
+        const imageData = safeToDataURL(canvas);
         setHistory([imageData]);
         setHistoryIndex(0); // 히스토리 배열의 첫 번째(유일한) 요소의 인덱스
         setShapes(drawing.shapes || []);
@@ -1027,7 +1293,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
     const canvas = canvasRef.current;
     const link = document.createElement('a');
     link.download = `idea_pad_${Date.now()}.png`;
-    link.href = canvas.toDataURL();
+    link.href = safeToDataURL(canvas);
     link.click();
   }, []);
 
@@ -1065,9 +1331,11 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
           try {
             const canvas = canvasRef.current;
             if (canvas && history.length > 1) { // 초기 상태가 아닌 경우만 저장
-              const fileName = `autosave_${Date.now()}.png`;
+              const timestamp = new Date();
+              const siteName = selectedSiteName || 'CHUNWOO';
+              const fileName = `${siteName}_autosave_${timestamp.getTime()}.png`;
               const storageRef = ref(storage, `notepad_drawings/${fileName}`);
-              const canvasDataURL = canvas.toDataURL('image/png');
+              const canvasDataURL = safeToDataURL(canvas);
               const response = await fetch(canvasDataURL);
               const blob = await response.blob();
               
@@ -1076,14 +1344,15 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
               
               await addDoc(collection(db, 'notepad_drawings'), {
                 siteId: selectedSiteId,
-                siteName: selectedSiteName,
+                siteName: siteName,
+                displayName: `${siteName} - 자동저장 ${timestamp.toLocaleDateString()} ${timestamp.toLocaleTimeString()}`,
                 fileName,
                 downloadURL,
-                timestamp: new Date(),
+                timestamp: timestamp,
                 isAutoSave: true
               });
               
-              console.log('자동 저장 완료');
+              console.log(`${siteName} 현장 자동 저장 완료`);
             }
           } catch (error) {
             console.error('자동 저장 실패:', error);
@@ -1157,20 +1426,87 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
     }
   }, [dialogSize, open, history, historyIndex]);
 
-  // 아이패드/터치 디바이스 최적화
+  // 아이패드/터치 디바이스 최적화 (개선된 버전)
   useEffect(() => {
     if (open) {
-      // 터치 디바이스 감지
-      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      
-      if (isTouchDevice) {
-        // 터치 디바이스에서 더 부드러운 그리기를 위한 설정
-        const canvas = canvasRef.current;
-        if (canvas) {
-          const ctx = canvas.getContext('2d');
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
+      try {
+        // 터치 디바이스 감지
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isIPad = /iPad/.test(navigator.userAgent) || 
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        
+        console.log('디바이스 정보:', { isTouchDevice, isIOS, isIPad });
+        
+        if (isTouchDevice) {
+          // 터치 디바이스에서 더 부드러운 그리기를 위한 설정
+          const canvas = canvasRef.current;
+          if (canvas) {
+            const ctx = canvas.getContext('2d');
+            
+            // 이미지 스무딩 설정
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            
+            // 아이패드 특별 설정
+            if (isIPad) {
+              // Apple Pencil 지원을 위한 추가 설정
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              
+              // 터치 이벤트 최적화
+              canvas.style.touchAction = 'none';
+              canvas.style.webkitTouchCallout = 'none';
+              canvas.style.webkitUserSelect = 'none';
+              canvas.style.userSelect = 'none';
+              
+              console.log('아이패드 최적화 설정 적용 완료');
+            }
+            
+            // 일반 터치 디바이스 설정
+            canvas.style.touchAction = 'none';
+            canvas.style.webkitUserSelect = 'none';
+            canvas.style.userSelect = 'none';
+            
+            console.log('터치 디바이스 최적화 설정 적용 완료');
+          }
         }
+
+        // 전역 터치 이벤트 리스너 추가 (두 손가락 스크롤 지원)
+        const handleGlobalTouch = (e) => {
+          // IDEA PAD 컨테이너 내부에서만 처리
+          const ideapadContainer = document.querySelector('.ideapad-container');
+          if (ideapadContainer && ideapadContainer.contains(e.target)) {
+            // 캔버스 영역이 아닌 경우에만 스크롤 허용
+            if (!e.target.closest('canvas')) {
+              // 스크롤 허용
+              return;
+            } else {
+              // 캔버스 영역에서는 두 손가락 터치인 경우에만 스크롤 허용
+              if (e.touches && e.touches.length > 1) {
+                console.log('전역 이벤트: 두 손가락 터치 감지 - 스크롤 허용');
+                return; // 스크롤 허용
+              } else {
+                // 한 손가락 터치인 경우 스크롤 차단
+                e.preventDefault();
+              }
+            }
+          }
+        };
+
+        // 전역 이벤트 리스너 등록
+        document.addEventListener('touchstart', handleGlobalTouch, { passive: false });
+        document.addEventListener('touchmove', handleGlobalTouch, { passive: false });
+        document.addEventListener('touchend', handleGlobalTouch, { passive: false });
+
+        // 정리 함수
+        return () => {
+          document.removeEventListener('touchstart', handleGlobalTouch);
+          document.removeEventListener('touchmove', handleGlobalTouch);
+          document.removeEventListener('touchend', handleGlobalTouch);
+        };
+      } catch (error) {
+        console.warn('터치 디바이스 최적화 설정 중 오류:', error);
       }
     }
   }, [open]);
@@ -1201,7 +1537,52 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
         borderRadius: '8px',
         zIndex: 1300,
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        // 터치 스크롤 제어 (두 손가락 스크롤 지원)
+        touchAction: 'pan-y pinch-zoom', // 세로 스크롤과 핀치 줌 허용
+        webkitTouchCallout: 'none',
+        webkitUserSelect: 'none',
+        userSelect: 'none',
+        webkitOverflowScrolling: 'touch'
+      }}
+      onTouchStart={(e) => {
+        // 캔버스 영역이 아닌 경우에만 스크롤 허용
+        if (!e.target.closest('canvas')) {
+          // 스크롤 허용
+        } else {
+          // 캔버스 영역에서는 두 손가락 터치인 경우에만 스크롤 허용
+          if (e.touches && e.touches.length > 1) {
+            // 스크롤 허용
+          } else {
+            e.preventDefault();
+          }
+        }
+      }}
+      onTouchMove={(e) => {
+        // 캔버스 영역이 아닌 경우에만 스크롤 허용
+        if (!e.target.closest('canvas')) {
+          // 스크롤 허용
+        } else {
+          // 캔버스 영역에서는 두 손가락 터치인 경우에만 스크롤 허용
+          if (e.touches && e.touches.length > 1) {
+            // 스크롤 허용
+          } else {
+            e.preventDefault();
+          }
+        }
+      }}
+      onTouchEnd={(e) => {
+        // 캔버스 영역이 아닌 경우에만 스크롤 허용
+        if (!e.target.closest('canvas')) {
+          // 스크롤 허용
+        } else {
+          // 캔버스 영역에서는 두 손가락 터치인 경우에만 스크롤 허용
+          if (e.touches && e.touches.length > 1) {
+            // 스크롤 허용
+          } else {
+            e.preventDefault();
+          }
+        }
       }}
     >
       <Box
@@ -1301,6 +1682,11 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
                   borderRadius: '0 0 4px 4px',
                   maxHeight: 200,
                   overflowY: 'auto',
+                  '&::-webkit-scrollbar': {
+                    display: 'none'
+                  },
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
                   zIndex: 1000,
                   boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
                 }}
@@ -1347,7 +1733,18 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
                         }
                       }}
                     >
-                      {highlightText(site.name, searchQuery)}
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Box>{highlightText(site.name, searchQuery)}</Box>
+                        {site.hasIdeas && (
+                          <EditNoteIcon
+                            sx={{
+                              fontSize: 16,
+                              color: '#FFD700',
+                              marginLeft: '8px'
+                            }}
+                          />
+                        )}
+                      </Box>
                     </Box>
                   );
                 })}
@@ -1419,7 +1816,9 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
           <Tooltip title="펜">
             <IconButton
               color={currentTool === 'pen' && !isHighlighter ? 'primary' : 'default'}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 completeTextInput();
                 setCurrentTool('pen');
                 setIsHighlighter(false);
@@ -1437,7 +1836,9 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
             <Box sx={{ position: 'relative' }}>
               <IconButton
                 color={isHighlighter ? 'primary' : 'default'}
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   completeTextInput();
                   setCurrentTool('pen');
                   setIsHighlighter(true);
@@ -1495,7 +1896,9 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
           <Tooltip title="지우개">
             <IconButton
               color={currentTool === 'eraser' ? 'primary' : 'default'}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 completeTextInput();
                 setCurrentTool('eraser');
                 setIsHighlighter(false);
@@ -1520,7 +1923,9 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
           <Tooltip title="텍스트 입력">
             <IconButton
               color={currentTool === 'text' ? 'primary' : 'default'}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 setCurrentTool('text');
                 setIsHighlighter(false);
               }}
@@ -1537,7 +1942,9 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
           <Tooltip title="직선">
             <IconButton
               color={currentTool === 'line' ? 'primary' : 'default'}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 completeTextInput();
                 setCurrentTool('line');
                 setIsHighlighter(false);
@@ -1554,7 +1961,9 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
           <Tooltip title="사각형">
             <IconButton
               color={currentTool === 'rectangle' ? 'primary' : 'default'}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 completeTextInput();
                 setCurrentTool('rectangle');
                 setIsHighlighter(false);
@@ -1571,7 +1980,9 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
           <Tooltip title="원">
             <IconButton
               color={currentTool === 'circle' ? 'primary' : 'default'}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 completeTextInput();
                 setCurrentTool('circle');
                 setIsHighlighter(false);
@@ -1588,7 +1999,9 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
           <Tooltip title="삼각형">
             <IconButton
               color={currentTool === 'triangle' ? 'primary' : 'default'}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 completeTextInput();
                 setCurrentTool('triangle');
                 setIsHighlighter(false);
@@ -1605,7 +2018,9 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
           <Tooltip title="별">
             <IconButton
               color={currentTool === 'star' ? 'primary' : 'default'}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 completeTextInput();
                 setCurrentTool('star');
                 setIsHighlighter(false);
@@ -1665,7 +2080,10 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
               {colors.map((color) => (
                 <Box
                   key={color}
-                  onClick={() => setCurrentColor(color)}
+                  onClick={() => {
+                    console.log('색상 변경:', color);
+                    setCurrentColor(color);
+                  }}
                   sx={{
                     width: 24,
                     height: 24,
@@ -1758,18 +2176,71 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
           </Box>
         </Box>
 
-        {/* 캔버스 영역 */}
-        <Box sx={{ 
-          position: 'relative', 
-          flex: 1, 
-          overflow: 'hidden',
-          width: '100%',
-          height: '800px', // 고정 높이
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: '#f5f5f5'
-        }}>
+        {/* 캔버스 영역 - 스크롤 가능하도록 개선 */}
+        <Box 
+          sx={{ 
+            position: 'relative', 
+            flex: 1, 
+            overflow: 'auto', // 스크롤 허용
+            '&::-webkit-scrollbar': {
+              display: 'none'
+            },
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            width: '100%',
+            height: '100%', // 전체 높이 사용
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'flex-start', // 상단 정렬로 변경
+            backgroundColor: '#f5f5f5',
+            padding: '20px', // 여백 추가
+            // 터치 스크롤 제어 (두 손가락 스크롤 지원)
+            touchAction: 'pan-y pinch-zoom', // 세로 스크롤과 핀치 줌 허용
+            webkitTouchCallout: 'none',
+            webkitUserSelect: 'none',
+            userSelect: 'none',
+            webkitOverflowScrolling: 'touch'
+          }}
+          onTouchStart={(e) => {
+            // 캔버스 영역이 아닌 경우에만 스크롤 허용
+            if (!e.target.closest('canvas')) {
+              // 스크롤 허용
+            } else {
+              // 캔버스 영역에서는 두 손가락 터치인 경우에만 스크롤 허용
+              if (e.touches && e.touches.length > 1) {
+                // 스크롤 허용
+              } else {
+                e.preventDefault();
+              }
+            }
+          }}
+          onTouchMove={(e) => {
+            // 캔버스 영역이 아닌 경우에만 스크롤 허용
+            if (!e.target.closest('canvas')) {
+              // 스크롤 허용
+            } else {
+              // 캔버스 영역에서는 두 손가락 터치인 경우에만 스크롤 허용
+              if (e.touches && e.touches.length > 1) {
+                // 스크롤 허용
+              } else {
+                e.preventDefault();
+              }
+            }
+          }}
+          onTouchEnd={(e) => {
+            // 캔버스 영역이 아닌 경우에만 스크롤 허용
+            if (!e.target.closest('canvas')) {
+              // 스크롤 허용
+            } else {
+              // 캔버스 영역에서는 두 손가락 터치인 경우에만 스크롤 허용
+              if (e.touches && e.touches.length > 1) {
+                // 스크롤 허용
+              } else {
+                e.preventDefault();
+              }
+            }
+          }}
+        >
           <canvas
             ref={canvasRef}
             onMouseDown={startDrawing}
@@ -1779,16 +2250,31 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
             onTouchStart={startDrawing}
             onTouchMove={draw}
             onTouchEnd={stopDrawing}
+            onContextMenu={(e) => e.preventDefault()}
             style={{
               cursor: currentTool === 'pen' ? 'crosshair' : 
+                     currentTool === 'eraser' ? 'crosshair' :
                      currentTool === 'text' ? 'text' : 'default',
               display: 'block',
               width: '550px', // 고정 너비
               height: '1122px', // 고정 높이
-              touchAction: 'none', // 터치 스크롤 방지
+              touchAction: 'pan-y pinch-zoom', // 두 손가락 스크롤과 핀치 줌 허용
               border: '1px solid #444',
               backgroundColor: '#f8f9fa',
-              imageRendering: 'pixelated' // 크기 고정
+              imageRendering: 'pixelated', // 크기 고정
+              // 아이패드 최적화 추가 스타일
+              webkitTouchCallout: 'none',
+              webkitUserSelect: 'none',
+              userSelect: 'none',
+              webkitTapHighlightColor: 'transparent',
+              // 터치 이벤트 최적화
+              pointerEvents: 'auto',
+              // Apple Pencil 지원
+              webkitAppearance: 'none',
+              appearance: 'none',
+              // 하단 접근을 위한 추가 스타일
+              marginBottom: '40px', // 하단 여백 추가
+              boxShadow: '0 4px 8px rgba(0,0,0,0.1)' // 그림자 추가로 구분
             }}
           />
           
@@ -1831,7 +2317,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
                     ctx.restore();
                     
                     // 히스토리에 추가
-                    const imageData = canvas.toDataURL();
+                    const imageData = safeToDataURL(canvas);
                     setHistory(prev => [...prev.slice(0, historyIndex + 1), imageData]);
                     setHistoryIndex(prev => prev + 1);
                     
@@ -1866,7 +2352,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
                     ctx.fillText(textInput, textPosition.canvasX, textPosition.canvasY);
                     ctx.restore();
                     
-                    const imageData = canvas.toDataURL();
+                    const imageData = safeToDataURL(canvas);
                     setHistory(prev => [...prev.slice(0, historyIndex + 1), imageData]);
                     setHistoryIndex(prev => prev + 1);
                   }
@@ -1929,7 +2415,15 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
             <Typography variant="h6" sx={{ p: 2, color: '#fff' }}>
               저장된 목록
             </Typography>
-            <List sx={{ maxHeight: 300, overflow: 'auto' }}>
+            <List sx={{ 
+              maxHeight: 300, 
+              overflow: 'auto',
+              '&::-webkit-scrollbar': {
+                display: 'none'
+              },
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+            }}>
               {savedDrawings.length === 0 ? (
                 <ListItem>
                   <Typography sx={{ color: '#ccc' }}>저장된 목록이 없습니다</Typography>
@@ -1958,7 +2452,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName }) => {
                       }}
                     >
                       <Typography variant="body2">
-                        {new Date(drawing.timestamp?.toDate?.() || drawing.timestamp).toLocaleString()}
+                        {drawing.displayName || `${drawing.siteName || 'CHUNWOO'} - ${new Date(drawing.timestamp?.toDate?.() || drawing.timestamp).toLocaleString()}`}
                         {drawing.isAutoSave && ' (자동저장)'}
                       </Typography>
                     </ListItemButton>

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, Autocomplete } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
+import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, EditNote as EditNoteIcon } from '@mui/icons-material';
 import CustomCalendar from '../CustomCalendar';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, where, getDocs } from 'firebase/firestore';
@@ -12,6 +12,28 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useNavigate } from 'react-router-dom';
 import { subscribeToEstimates } from '../../api/estimates';
 import SiteInfoPopup from '../common/SiteInfoPopup';
+
+// CSS 애니메이션을 위한 스타일
+const pulseAnimation = `
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 4px rgba(255, 215, 0, 0.6);
+    }
+    50% {
+      box-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
+    }
+    100% {
+      box-shadow: 0 0 4px rgba(255, 215, 0, 0.6);
+    }
+  }
+`;
+
+// 스타일을 head에 추가
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = pulseAnimation;
+  document.head.appendChild(style);
+}
 
 function isInMonth(site, year, month) {
   if (!site.startDate || !site.endDate) return false;
@@ -100,6 +122,7 @@ const ScheduleManagement = ({
   onDateClick,
   selectedSchedules,
   checkedSchedules,
+  onOpenIdeaPad,
   onCheckSchedule,
   onDeleteSelectedSchedules
 }) => {
@@ -140,6 +163,12 @@ const ScheduleManagement = ({
   // 현장 정보 팝업 상태
   const [siteInfoPopup, setSiteInfoPopup] = useState({ open: false, site: null });
   const [copiedItem, setCopiedItem] = useState(null); // 복사된 항목 상태
+  
+  // 저장된 아이디어 데이터 상태
+  const [savedIdeas, setSavedIdeas] = useState([]);
+  
+  // 저장된 아이디어 팝업 상태
+  const [savedIdeasPopup, setSavedIdeasPopup] = useState({ open: false, site: null, ideas: [] });
 
   useEffect(() => {
     console.log('🔍 ScheduleManagement: 사이트 데이터 로딩 시작');
@@ -148,7 +177,10 @@ const ScheduleManagement = ({
     // props로 전달받은 sites가 있으면 사용, 없으면 기존 로직 사용
     if (propSites && propSites.length > 0) {
       console.log('🔍 props로 전달받은 사이트 사용:', propSites.length);
-      setSites(propSites);
+      // props로 받은 sites에도 아이디어 정보 확인
+      checkSitesWithIdeas(propSites).then(updatedPropSites => {
+        setSites(updatedPropSites);
+      });
       return;
     }
     
@@ -161,14 +193,17 @@ const ScheduleManagement = ({
           const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           console.log('🔍 사이트 데이터 로드됨:', sitesData.length, '개');
           
-          // 이전 상태와 비교하여 실제로 변경되었을 때만 업데이트
-          setSites(prev => {
-            const prevStr = JSON.stringify(prev);
-            const newStr = JSON.stringify(sitesData);
-            if (prevStr === newStr) {
-              return prev; // 변경사항이 없으면 이전 상태 반환
-            }
-            return sitesData;
+          // 아이디어 정보 확인 및 추가
+          checkSitesWithIdeas(sitesData).then(updatedSitesData => {
+            // 이전 상태와 비교하여 실제로 변경되었을 때만 업데이트
+            setSites(prev => {
+              const prevStr = JSON.stringify(prev);
+              const newStr = JSON.stringify(updatedSitesData);
+              if (prevStr === newStr) {
+                return prev; // 변경사항이 없으면 이전 상태 반환
+              }
+              return updatedSitesData;
+            });
           });
         } catch (error) {
           console.error('사이트 데이터 처리 오류:', error);
@@ -193,6 +228,172 @@ const ScheduleManagement = ({
       }
     };
   }, [propSites?.length || 0]); // propSites.length만 의존성으로 사용 (기본값 0)
+
+  // 아이디어가 저장된 현장 확인
+  const checkSitesWithIdeas = async (sites) => {
+    try {
+      const ideasQuery = query(collection(db, 'notepad_drawings'));
+      const ideasSnapshot = await getDocs(ideasQuery);
+      const sitesWithIdeas = new Set();
+      
+      console.log('🔍 ScheduleManagement: 모든 저장된 아이디어 확인 중...');
+      
+      ideasSnapshot.forEach((doc) => {
+        const data = doc.data();
+        console.log('🔍 ScheduleManagement: 저장된 아이디어 데이터:', {
+          id: doc.id,
+          siteName: data.siteName,
+          displayName: data.displayName,
+          isAutoSave: data.isAutoSave
+        });
+        
+        if (data.siteName && !data.isAutoSave) {
+          sitesWithIdeas.add(data.siteName);
+        }
+      });
+      
+      console.log('🔍 ScheduleManagement: 아이디어가 저장된 현장들:', Array.from(sitesWithIdeas));
+      console.log('🔍 ScheduleManagement: 현재 현장 목록:', sites.map(site => site.name));
+      
+      // 현장 목록에 아이디어 표시 정보 추가
+      const updatedSites = sites.map(site => {
+        // 정확한 일치 확인
+        let hasIdeas = sitesWithIdeas.has(site.name);
+        
+        // 정확한 일치만 허용 (부분 일치 제거)
+        // if (!hasIdeas) {
+        //   for (const savedSiteName of sitesWithIdeas) {
+        //     // 더 엄격한 부분 일치: 현장명의 주요 부분이 일치하는지 확인
+        //     const siteNameWords = site.name.split(' ').filter(word => word.length > 2);
+        //     const savedNameWords = savedSiteName.split(' ').filter(word => word.length > 2);
+        //     
+        //     // 주요 단어들이 일치하는지 확인
+        //     const hasCommonWords = siteNameWords.some(word => 
+        //       savedNameWords.some(savedWord => 
+        //         word.includes(savedWord) || savedWord.includes(word)
+        //       )
+        //     );
+        //     
+        //     if (hasCommonWords) {
+        //       hasIdeas = true;
+        //       console.log(`🔍 ScheduleManagement: 부분 일치 발견: "${site.name}" <-> "${savedSiteName}"`);
+        //       break;
+        //     }
+        //   }
+        // }
+        
+        console.log(`🔍 ScheduleManagement: 현장 "${site.name}" 아이디어 여부:`, hasIdeas);
+        return {
+          ...site,
+          hasIdeas: hasIdeas
+        };
+      });
+      
+      return updatedSites;
+    } catch (error) {
+      console.error('ScheduleManagement: 아이디어 저장 현장 확인 실패:', error);
+      return sites; // 오류 시 원본 반환
+    }
+  };
+
+  // 저장된 아이디어 표시 핸들러
+  const handleShowSavedIdeas = async (site) => {
+    try {
+      console.log('🔍 저장된 아이디어 표시:', site.name);
+      
+      // 모든 저장된 아이디어에서 해당 현장과 매칭되는 것들 찾기
+      const allIdeasQuery = query(collection(db, 'notepad_drawings'));
+      const allIdeasSnapshot = await getDocs(allIdeasQuery);
+      const ideas = [];
+      
+      console.log('🔍 모든 저장된 아이디어:', allIdeasSnapshot.docs.map(doc => ({
+        id: doc.id,
+        siteName: doc.data().siteName,
+        displayName: doc.data().displayName,
+        isAutoSave: doc.data().isAutoSave
+      })));
+      
+      allIdeasSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.isAutoSave) return; // 자동저장 제외
+        
+        // 정확한 일치만 확인
+        let matches = data.siteName === site.name;
+        
+        console.log('🔍 아이디어 데이터 확인:', {
+          id: doc.id,
+          siteName: data.siteName,
+          currentSite: site.name,
+          isAutoSave: data.isAutoSave,
+          exactMatch: data.siteName === site.name,
+          partialMatch: matches
+        });
+        
+        if (matches) {
+          ideas.push({
+            id: doc.id,
+            ...data
+          });
+        }
+      });
+      
+      console.log('🔍 조회된 아이디어:', ideas);
+      
+      if (ideas.length > 0) {
+        // 아이디어 목록을 표시하는 팝업 또는 다이얼로그
+        setSavedIdeasPopup({
+          open: true,
+          site: site,
+          ideas: ideas
+        });
+      } else {
+        alert(`저장된 아이디어가 없습니다.\n현장명: "${site.name}"`);
+      }
+    } catch (error) {
+      console.error('저장된 아이디어 조회 실패:', error);
+      alert('저장된 아이디어를 불러오는데 실패했습니다.');
+    }
+  };
+
+  // 저장된 아이디어 삭제 핸들러
+  const handleDeleteIdea = async (ideaId, ideaName) => {
+    try {
+      const confirmDelete = window.confirm(`"${ideaName}" 아이디어를 삭제하시겠습니까?\n\n삭제된 아이디어는 복구할 수 없습니다.`);
+      
+      if (!confirmDelete) return;
+      
+      console.log('🗑️ 아이디어 삭제 시작:', ideaId);
+      
+      // Firestore에서 문서 삭제
+      await deleteDoc(doc(db, 'notepad_drawings', ideaId));
+      
+      console.log('🗑️ 아이디어 삭제 완료:', ideaId);
+      
+      // 팝업의 아이디어 목록에서 삭제된 아이디어 제거
+      const updatedIdeas = savedIdeasPopup.ideas.filter(idea => idea.id !== ideaId);
+      setSavedIdeasPopup(prev => ({
+        ...prev,
+        ideas: updatedIdeas
+      }));
+      
+      // 아이디어가 모두 삭제되었으면 팝업 닫기
+      if (updatedIdeas.length === 0) {
+        setSavedIdeasPopup({ open: false, site: null, ideas: [] });
+      }
+      
+      // 현장 목록의 hasIdeas 상태 업데이트
+      const updatedSites = await checkSitesWithIdeas(sites);
+      if (updatedSites) {
+        setSites(updatedSites);
+      }
+      
+      alert('아이디어가 성공적으로 삭제되었습니다.');
+      
+    } catch (error) {
+      console.error('아이디어 삭제 실패:', error);
+      alert('아이디어 삭제에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
 
   // 견적 데이터 구독
   useEffect(() => {
@@ -236,6 +437,38 @@ const ScheduleManagement = ({
         unsubscribe();
       }
     };
+  }, []);
+
+  // 저장된 아이디어 데이터 로딩
+  useEffect(() => {
+    console.log('🔍 ScheduleManagement: 저장된 아이디어 데이터 로딩 시작');
+    
+    const q = query(
+      collection(db, 'notepad_drawings'),
+      where('isAutoSave', '!=', true) // 자동저장 제외
+    );
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const ideas = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        ideas.push({
+          id: doc.id,
+          siteName: data.siteName,
+          siteId: data.siteId,
+          timestamp: data.timestamp,
+          displayName: data.displayName
+        });
+      });
+      
+      console.log('🔍 저장된 아이디어 데이터:', ideas.length, '개');
+      console.log('🔍 저장된 아이디어 상세:', ideas);
+      setSavedIdeas(ideas);
+    }, (error) => {
+      console.error('🔍 저장된 아이디어 데이터 로딩 실패:', error);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // 인증 상태와 로딩 상태를 모두 고려한 일정 데이터 로딩
@@ -414,6 +647,11 @@ const ScheduleManagement = ({
   }, [authUser.currentUser, authUser.loading, estimates]); // 견적 데이터도 의존성에 추가
 
   const filteredSites = useMemo(() => {
+    // sites가 undefined이거나 배열이 아닌 경우 빈 배열 반환
+    if (!sites || !Array.isArray(sites)) {
+      return [];
+    }
+    
     const monthFiltered = sites.filter(site => isInMonth(site, year, month));
     let searchFiltered = monthFiltered;
     
@@ -1465,23 +1703,44 @@ const ScheduleManagement = ({
                                 }
                               }}
                             >
-                              <Typography sx={{ 
-                                fontWeight: 400,
-                                color: (() => {
-                                  // 상태별 색상 적용 (왼쪽 리스트에서만)
-                                  switch (site.status) {
-                                    case '예정':
-                                      return '#ef4444'; // 빨간색
-                                    case '완료':
-                                      return '#22c55e'; // 초록색
-                                    default:
-                                      return '#fff'; // 기본 흰색
-                                  }
-                                })()
-                              }}>
-                                {site.name.slice(0, 10)}
-                                {site.status ? ` (${site.status})` : ''}
-                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography sx={{ 
+                                  fontWeight: 400,
+                                  color: (() => {
+                                    // 상태별 색상 적용 (왼쪽 리스트에서만)
+                                    switch (site.status) {
+                                      case '예정':
+                                        return '#ef4444'; // 빨간색
+                                      case '완료':
+                                        return '#22c55e'; // 초록색
+                                      default:
+                                        return '#fff'; // 기본 흰색
+                                    }
+                                  })()
+                                }}>
+                                  {site.name.slice(0, 10)}
+                                  {site.status ? ` (${site.status})` : ''}
+                                </Typography>
+                                {/* 저장된 아이디어 표시 */}
+                                {site.hasIdeas && (
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleShowSavedIdeas(site);
+                                    }}
+                                    sx={{
+                                      color: '#FFD700',
+                                      p: 0.5,
+                                      '&:hover': {
+                                        backgroundColor: 'rgba(255, 215, 0, 0.1)'
+                                      }
+                                    }}
+                                  >
+                                    <EditNoteIcon sx={{ fontSize: 16 }} />
+                                  </IconButton>
+                                )}
+                              </Box>
                             </Paper>
                           )}
                         </Draggable>
@@ -1731,6 +1990,147 @@ const ScheduleManagement = ({
               ))
             ) : (
               <Typography color="text.secondary">일정이 없습니다.</Typography>
+            )}
+          </Box>
+        </Box>
+      )}
+      
+      {/* 저장된 아이디어 팝업 */}
+      {savedIdeasPopup.open && (
+        <Box
+          onClick={(e) => {
+            e.stopPropagation();
+            setSavedIdeasPopup({ open: false, site: null, ideas: [] });
+          }}
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            bgcolor: 'rgba(0,0,0,0.4)',
+            zIndex: 3000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <Box
+            onClick={(e) => e.stopPropagation()}
+            sx={{
+              minWidth: 500,
+              maxWidth: 800,
+              maxHeight: '80vh',
+              bgcolor: '#2a2b32',
+              borderRadius: 3,
+              p: 3,
+              boxShadow: 5,
+              position: 'relative',
+              zIndex: 3100,
+              overflow: 'auto'
+            }}
+          >
+            <IconButton
+              onClick={(e) => {
+                e.stopPropagation();
+                setSavedIdeasPopup({ open: false, site: null, ideas: [] });
+              }}
+              sx={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                color: '#fff'
+              }}
+            >
+              ✕
+            </IconButton>
+            
+            <Typography variant="h6" sx={{ color: '#fff', mb: 2 }}>
+              📝 {savedIdeasPopup.site?.name} - 저장된 아이디어
+            </Typography>
+            
+            {savedIdeasPopup.ideas.length > 0 ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {savedIdeasPopup.ideas.map((idea, index) => (
+                  <Paper
+                    key={idea.id}
+                    sx={{
+                      p: 2,
+                      bgcolor: '#333',
+                      border: '1px solid #555',
+                      borderRadius: 2,
+                      position: 'relative',
+                      '&:hover': {
+                        bgcolor: '#444'
+                      }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box
+                        component="img"
+                        src={idea.url}
+                        alt={idea.displayName}
+                        sx={{
+                          width: 80,
+                          height: 60,
+                          objectFit: 'cover',
+                          borderRadius: 1,
+                          border: '1px solid #666',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => {
+                          // 아이디어패드에서 해당 아이디어 열기
+                          setSavedIdeasPopup({ open: false, site: null, ideas: [] });
+                          // 아이디어패드 열기 (부모 컴포넌트에 전달)
+                          if (onOpenIdeaPad) {
+                            onOpenIdeaPad(idea.siteId, idea.siteName, idea.id);
+                          }
+                        }}
+                      />
+                      <Box sx={{ flex: 1, cursor: 'pointer' }}
+                        onClick={() => {
+                          // 아이디어패드에서 해당 아이디어 열기
+                          setSavedIdeasPopup({ open: false, site: null, ideas: [] });
+                          // 아이디어패드 열기 (부모 컴포넌트에 전달)
+                          if (onOpenIdeaPad) {
+                            onOpenIdeaPad(idea.siteId, idea.siteName, idea.id);
+                          }
+                        }}
+                      >
+                        <Typography variant="subtitle1" sx={{ color: '#fff', mb: 0.5 }}>
+                          {idea.displayName || `${savedIdeasPopup.site?.name} - 아이디어 ${index + 1}`}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#bbb' }}>
+                          {idea.timestamp ? new Date(idea.timestamp.seconds * 1000).toLocaleString('ko-KR') : '날짜 정보 없음'}
+                        </Typography>
+                      </Box>
+                      
+                      {/* 삭제 버튼 */}
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteIdea(idea.id, idea.displayName || `${savedIdeasPopup.site?.name} - 아이디어 ${index + 1}`);
+                        }}
+                        sx={{
+                          color: '#ff6b6b',
+                          '&:hover': {
+                            backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                            color: '#ff5252'
+                          }
+                        }}
+                        title="아이디어 삭제"
+                      >
+                        🗑️
+                      </IconButton>
+                    </Box>
+                  </Paper>
+                ))}
+              </Box>
+            ) : (
+              <Typography sx={{ color: '#bbb', textAlign: 'center', py: 4 }}>
+                저장된 아이디어가 없습니다.
+              </Typography>
             )}
           </Box>
         </Box>

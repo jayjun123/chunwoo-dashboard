@@ -25,9 +25,38 @@ import LoadingProvider from './components/common/LoadingProvider';
 import PopupProvider from './contexts/PopupContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import SplashScreen from './components/common/SplashScreen';
+
+// 성능 최적화: 로딩 컴포넌트
+const LoadingSpinner = () => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '200px',
+    flexDirection: 'column',
+    gap: '16px'
+  }}>
+    <div style={{
+      width: '40px',
+      height: '40px',
+      border: '4px solid #f3f3f3',
+      borderTop: '4px solid #43e97b',
+      borderRadius: '50%',
+      animation: 'spin 1s linear infinite'
+    }} />
+    <div style={{ color: '#666', fontSize: '14px' }}>로딩 중...</div>
+    <style>{`
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `}</style>
+  </div>
+);
 import TemplateUpload from './pages/TemplateUpload';
 import CompanyDistribution from './pages/CompanyDistribution';
 import { URL_ALIASES, expandUrl } from './utils/urlShortener';
+import errorHandler from './utils/errorHandler';
 
 // 임시: 현장명 동기화 함수
 import { syncSiteNames } from './scripts/syncSiteNames';
@@ -173,35 +202,37 @@ const SafetyInspections = React.lazy(() => import('./components/safety/SafetyIns
 const SafetyIncidents = React.lazy(() => import('./components/safety/SafetyIncidents'));
 const SafetyTraining = React.lazy(() => import('./components/safety/SafetyTraining'));
 const SafetyReports = React.lazy(() => import('./components/safety/SafetyReports'));
-import Documents from './pages/Documents';
-import ConstructionTeam from './pages/DaemaTeam';
-import Discussions from './pages/Discussions';
-import Vendors from './pages/Vendors';
-import VendorManagement from './pages/VendorManagement';
-import Progress from './pages/Progress';
-import Members from './pages/Members';
-import Permissions from './pages/Permissions';
-import TodoList from './components/TodoList';
-import Settings from './pages/Settings';
-import Cost from './pages/Cost';
-import Users from './pages/Users';
-import ImportantSite from './pages/ImportantSite';
-import NewSites from './pages/NewSites';
-import GisungStatusPage from './components/GisungStatusPage';
-import SiteDetail from './components/sites/SiteDetail';
+// 성능 최적화: 페이지 컴포넌트들을 lazy loading으로 변경
+const Documents = React.lazy(() => import('./pages/Documents'));
+const ConstructionTeam = React.lazy(() => import('./pages/DaemaTeam'));
+const Discussions = React.lazy(() => import('./pages/Discussions'));
+const Vendors = React.lazy(() => import('./pages/Vendors'));
+const VendorManagement = React.lazy(() => import('./pages/VendorManagement'));
+const Progress = React.lazy(() => import('./pages/Progress'));
+const Members = React.lazy(() => import('./pages/Members'));
+const Permissions = React.lazy(() => import('./pages/Permissions'));
+const TodoList = React.lazy(() => import('./components/TodoList'));
+const Settings = React.lazy(() => import('./pages/Settings'));
+const Cost = React.lazy(() => import('./pages/Cost'));
+const Users = React.lazy(() => import('./pages/Users'));
+const ImportantSite = React.lazy(() => import('./pages/ImportantSite'));
+const NewSites = React.lazy(() => import('./pages/NewSites'));
+const GisungStatusPage = React.lazy(() => import('./components/GisungStatusPage'));
+const SiteDetail = React.lazy(() => import('./components/sites/SiteDetail'));
 
-import WholeList from './pages/WholeList';
-import Profile from './components/Profile';
-import NewsFavorites from './pages/NewsFavorites';
-import PDFTest from './pages/PDFTest';
-import NotFound from './components/NotFound';
-import Register from './components/Register';
-import RegisterSuccess from './components/RegisterSuccess';
-import ForgotPassword from './components/ForgotPassword';
-import CustomSchedule from './pages/CustomSchedule';
-import CustomScheduleMobile from './pages/CustomScheduleMobile';
-import QuantityCheck from './pages/QuantityCheck';
-import ScheduleManagement from './components/schedule/ScheduleManagement';
+const WholeList = React.lazy(() => import('./pages/WholeList'));
+const Profile = React.lazy(() => import('./components/Profile'));
+const NewsFavorites = React.lazy(() => import('./pages/NewsFavorites'));
+const PDFTest = React.lazy(() => import('./pages/PDFTest'));
+const NotFound = React.lazy(() => import('./components/NotFound'));
+const Register = React.lazy(() => import('./components/Register'));
+const RegisterSuccess = React.lazy(() => import('./components/RegisterSuccess'));
+const ForgotPassword = React.lazy(() => import('./components/ForgotPassword'));
+const CustomSchedule = React.lazy(() => import('./pages/CustomSchedule'));
+const CustomScheduleMobile = React.lazy(() => import('./pages/CustomScheduleMobile'));
+const QuantityCheck = React.lazy(() => import('./pages/QuantityCheck'));
+const ScheduleManagement = React.lazy(() => import('./components/schedule/ScheduleManagement'));
+const NotepadApp = React.lazy(() => import('./components/NotepadApp'));
 const GanttChartPage = React.lazy(() => import('./pages/GanttChart'));
 const Estimates = React.lazy(() => import('./pages/Estimates'));
 const Claims = React.lazy(() => import('./pages/Claims'));
@@ -241,6 +272,29 @@ const ProtectedRoute = ({ children }) => {
 
 const App = React.memo(() => {
   const isMobile = useMediaQuery('(max-width:600px)');
+  
+  // 아이디어패드 상태
+  const [ideaPadOpen, setIdeaPadOpen] = useState(false);
+  const [ideaPadSiteId, setIdeaPadSiteId] = useState(null);
+  const [ideaPadSiteName, setIdeaPadSiteName] = useState('');
+  const [ideaPadDrawingId, setIdeaPadDrawingId] = useState(null);
+  
+  // 아이디어패드 열기 함수
+  const handleOpenIdeaPad = (siteId, siteName, drawingId = null) => {
+    console.log('🔍 아이디어패드 열기:', { siteId, siteName, drawingId });
+    setIdeaPadSiteId(siteId);
+    setIdeaPadSiteName(siteName);
+    setIdeaPadDrawingId(drawingId);
+    setIdeaPadOpen(true);
+  };
+  
+  // 아이디어패드 닫기 함수
+  const handleCloseIdeaPad = () => {
+    setIdeaPadOpen(false);
+    setIdeaPadSiteId(null);
+    setIdeaPadSiteName('');
+    setIdeaPadDrawingId(null);
+  };
 
   // 전역 cleanup 매니저 및 성능 모니터링 초기화
   useEffect(() => {
@@ -361,6 +415,7 @@ const App = React.memo(() => {
   }, []);
 
   return (
+    <>
     <ErrorBoundary>
       <Provider store={store}>
         <AuthProvider>
@@ -448,7 +503,7 @@ const App = React.memo(() => {
                               </MobileLayout>
                             ) : (
                               <Layout>
-                                <ScheduleManagement />
+                                <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
                               </Layout>
                             )}
                           </ProtectedRoute>
@@ -464,7 +519,7 @@ const App = React.memo(() => {
                               </MobileLayout>
                             ) : (
                               <Layout>
-                                <ScheduleManagement />
+                                <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
                               </Layout>
                             )}
                           </ProtectedRoute>
@@ -540,13 +595,13 @@ const App = React.memo(() => {
                           <ProtectedRoute>
                             {isMobile ? (
                               <MobileLayout>
-                                <Suspense fallback={<div>로딩 중...</div>}>
+                                <Suspense fallback={<LoadingSpinner />}>
                                   <Safety />
                                 </Suspense>
                               </MobileLayout>
                             ) : (
                               <Layout>
-                                <Suspense fallback={<div>로딩 중...</div>}>
+                                <Suspense fallback={<LoadingSpinner />}>
                                   <Safety />
                                 </Suspense>
                               </Layout>
@@ -628,7 +683,7 @@ const App = React.memo(() => {
                               </MobileLayout>
                             ) : (
                               <Layout>
-                                <ScheduleManagement />
+                                <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
                               </Layout>
                             )}
                           </ProtectedRoute>
@@ -1025,6 +1080,18 @@ const App = React.memo(() => {
       </AuthProvider>
     </Provider>
     </ErrorBoundary>
+    
+    {/* 아이디어패드 */}
+    <Suspense fallback={<div>Loading...</div>}>
+      <NotepadApp 
+        open={ideaPadOpen}
+        onClose={handleCloseIdeaPad}
+        siteId={ideaPadSiteId}
+        siteName={ideaPadSiteName}
+        drawingId={ideaPadDrawingId}
+      />
+    </Suspense>
+    </>
   );
 });
 
