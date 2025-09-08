@@ -84,6 +84,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [shapes, setShapes] = useState([]);
+  const [lastPoint, setLastPoint] = useState(null);
   
   // 안전한 toDataURL 함수 (CORS 오류 방지)
   const safeToDataURL = useCallback((canvas) => {
@@ -454,32 +455,31 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
-    // 완전히 새로운 경로 시작
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    
     // 도구별 설정
     if (currentTool === 'pen') {
+      // 시작점 저장
+      setLastPoint({ x, y });
+      
       if (isHighlighter) {
-        // 형관펜 모드 - 시작점에서도 원형으로 그리기
-        ctx.save();
-        ctx.fillStyle = highlighterColor;
-        ctx.globalCompositeOperation = 'multiply'; // 형관펜 효과
-        ctx.globalAlpha = 0.5; // 반투명 효과
+        // 형관펜 모드 - 연속적인 선을 위한 설정
+        ctx.strokeStyle = highlighterColor;
+        ctx.lineWidth = Math.max(brushSize * 2, 2); // 최소 2px
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.globalAlpha = 0.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.arc(x, y, brushSize, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        ctx.moveTo(x, y);
       } else {
-        // 일반 펜 모드 - 시작점에서도 원형으로 그리기
-        ctx.save();
-        ctx.fillStyle = currentColor;
+        // 일반 펜 모드 - 연속적인 선을 위한 설정
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = Math.max(brushSize, 1); // 최소 1px
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1.0;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        ctx.moveTo(x, y);
       }
     } else if (currentTool === 'eraser') {
       // 지우개는 시작점에서도 개별적으로 지우기
@@ -514,31 +514,28 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     const ctx = canvas.getContext('2d');
     
     if (currentTool === 'pen') {
+      // 연속적인 선 그리기 (점선 방지)
       if (isHighlighter) {
-        // 형관펜 모드 - 각 점마다 새로운 경로 시작
-        ctx.save();
         ctx.strokeStyle = highlighterColor;
-        ctx.lineWidth = brushSize * 2; // 형관펜은 더 두껍게
-        ctx.globalCompositeOperation = 'multiply'; // 형관펜 효과
-        ctx.globalAlpha = 0.5; // 반투명 효과
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.arc(x, y, brushSize, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        ctx.lineWidth = Math.max(brushSize * 2, 2);
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.globalAlpha = 0.5;
       } else {
-        // 일반 펜 모드 - 각 점마다 새로운 경로 시작
-        ctx.save();
         ctx.strokeStyle = currentColor;
-        ctx.lineWidth = brushSize;
+        ctx.lineWidth = Math.max(brushSize, 1);
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1.0;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
       }
+      
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      // 연속적인 선을 위해 lineTo 사용
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      
+      // 현재 점을 다음 그리기를 위한 이전 점으로 저장
+      setLastPoint({ x, y });
     } else if (currentTool === 'eraser') {
       // 지우개는 각 점마다 개별적으로 지우기 (깜빡거림 방지)
       ctx.save();
@@ -552,11 +549,12 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     }
     
     console.log('간단한 그리기 계속:', { x, y, tool: currentTool, isHighlighter, highlighterColor });
-  }, [getCanvasCoordinates, currentTool, currentColor, brushSize, isHighlighter, highlighterColor]);
+  }, [getCanvasCoordinates, currentTool, currentColor, brushSize, isHighlighter, highlighterColor, lastPoint]);
 
   const stopSimpleDrawing = useCallback(() => {
     setIsDrawing(false);
     isDrawingRef.current = false;
+    setLastPoint(null); // 그리기 종료 시 이전 점 초기화
     console.log('간단한 그리기 종료');
   }, []);
 

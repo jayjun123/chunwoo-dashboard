@@ -175,36 +175,112 @@ export const exportCalendarToExcel = (calendarData, fileName = '일정관리.xls
 /**
  * 일정 데이터를 Excel로 내보내기
  */
-export const exportScheduleToExcel = (scheduleData, fileName = 'schedule.xlsx') => {
+export const exportScheduleToExcel = async (scheduleData, fileName = 'schedule.xlsx', year = null, month = null) => {
   try {
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(scheduleData);
+    // ExcelJS 동적 import
+    const ExcelJS = await import('exceljs');
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('일정관리');
     
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Schedule');
+    // 현재 날짜 정보
+    const currentYear = year || new Date().getFullYear();
+    const currentMonth = month !== null ? month + 1 : new Date().getMonth() + 1;
     
-    // 파일명 정리 (특수문자 제거, 공백 처리)
+    // 1행: 제목 (A~E열 병합)
+    const titleRow = worksheet.getRow(1);
+    titleRow.height = 30;
+    const titleCell = titleRow.getCell(1);
+    titleCell.value = `${currentYear}년 ${currentMonth}월 천우건업(주) 일일보고서`;
+    titleCell.font = { size: 22, bold: true };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    
+    // A1~F1 병합
+    worksheet.mergeCells('A1:F1');
+    
+    // 2행: 빈 행 (여백)
+    const emptyRow = worksheet.getRow(2);
+    emptyRow.height = 10;
+    
+    // 3행: 헤더
+    const headerRow = worksheet.getRow(3);
+    headerRow.height = 25;
+    const headers = ['일자', '분류', '현장명', '설명', 'E열', '체크박스유무'];
+    headers.forEach((header, index) => {
+      const cell = headerRow.getCell(index + 1);
+      cell.value = header;
+      cell.font = { size: 12, bold: true };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
+      };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+    
+    // 4행부터: 데이터
+    scheduleData.forEach((row, index) => {
+      const dataRow = worksheet.getRow(index + 4);
+      dataRow.height = 20;
+      
+      const rowData = [
+        row.일자 || '',
+        row.분류 || '',
+        row.현장명 || '',
+        row.설명 || '',
+        row.E열 || '',
+        row.체크박스유무 || ''
+      ];
+      
+      rowData.forEach((value, colIndex) => {
+        const cell = dataRow.getCell(colIndex + 1);
+        cell.value = value;
+        cell.font = { size: 10 };
+        cell.alignment = { 
+          horizontal: colIndex === 0 ? 'center' : 'left', 
+          vertical: 'middle' 
+        };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+    });
+    
+    // 열 너비 설정
+    worksheet.columns = [
+      { width: 12 }, // 일자
+      { width: 10 }, // 분류
+      { width: 25 }, // 현장명
+      { width: 30 }, // 설명
+      { width: 20 }, // E열
+      { width: 15 }  // 체크박스유무
+    ];
+    
+    // 파일명 정리
     let cleanFileName = fileName
-      .replace(/[<>:"/\\|?*]/g, '') // Windows에서 사용할 수 없는 문자 제거
-      .replace(/\s+/g, '_') // 공백을 언더스코어로 변경
+      .replace(/[<>:"/\\|?*]/g, '')
+      .replace(/\s+/g, '_')
       .trim();
     
-    // 파일명에 확장자 추가 (없는 경우)
-    const finalFileName = cleanFileName.endsWith('.xlsx') ? cleanFileName : `${cleanFileName}.xlsx`;
-    
-    // 현재 날짜를 파일명에 추가하여 고유성 보장
+    // 현재 날짜를 파일명에 추가
     const now = new Date();
     const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
     const timeStr = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
     const uniqueFileName = `${cleanFileName.replace('.xlsx', '')}_${dateStr}_${timeStr}.xlsx`;
     
-    // 더 안전한 엑셀 다운로드 방법 사용
-    const excelBuffer = XLSX.write(workbook, { 
-      bookType: 'xlsx', 
-      type: 'array' 
-    });
+    // Excel 파일 생성
+    const buffer = await workbook.xlsx.writeBuffer();
     
     // Blob 생성 및 다운로드
-    const blob = new Blob([excelBuffer], { 
+    const blob = new Blob([buffer], { 
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
     });
     

@@ -755,10 +755,24 @@ const GanttChart = () => {
     try {
       console.log('현장현황표 엑셀 내보내기 시작');
       
-      // 현재 표시된 현장들의 데이터 준비
+      // 현재 표시된 현장들의 데이터 준비 (착공일 빠른 순으로 정렬)
       const displaySites = selectedSites.length > 0 
         ? sites.filter(site => selectedSites.includes(site.id))
         : sites;
+      
+      // 착공일 빠른 순으로 정렬 (아래부터 위로 나열)
+      displaySites.sort((a, b) => {
+        const aStartDate = a.startDate ? new Date(a.startDate) : new Date('9999-12-31');
+        const bStartDate = b.startDate ? new Date(b.startDate) : new Date('9999-12-31');
+        
+        // 착공일이 없는 현장은 맨 뒤로
+        if (!a.startDate && !b.startDate) return 0;
+        if (!a.startDate) return 1;
+        if (!b.startDate) return -1;
+        
+        // 착공일 오름차순 정렬 (빠른 날짜가 먼저)
+        return aStartDate - bStartDate;
+      });
 
       if (displaySites.length === 0) {
         alert('내보낼 현장 데이터가 없습니다.');

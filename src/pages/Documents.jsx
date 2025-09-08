@@ -62,12 +62,14 @@ const Documents = () => {
   const { currentUser } = useAuth();
   
   const [documents, setDocuments] = useState([]);
+  const [filteredDocuments, setFilteredDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [open, setOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     category: '',
@@ -80,6 +82,20 @@ const Documents = () => {
     loadDocuments();
   }, []);
 
+  // 검색어에 따른 문서 필터링
+  useEffect(() => {
+    if (searchTerm.trim() === '') {
+      setFilteredDocuments(documents);
+    } else {
+      const filtered = documents.filter(doc => 
+        doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredDocuments(filtered);
+    }
+  }, [documents, searchTerm]);
+
   const loadDocuments = async () => {
     try {
       setLoading(true);
@@ -89,7 +105,18 @@ const Documents = () => {
         id: doc.id,
         ...doc.data()
       }));
-      setDocuments(docs);
+      
+      // 샘플 문서 필터링 (제목에 '샘플' 또는 'Sample'이 포함된 문서 제외)
+      const filteredDocs = docs.filter(doc => {
+        const title = doc.title || '';
+        const isSample = title.toLowerCase().includes('샘플') || 
+                        title.toLowerCase().includes('sample') ||
+                        title.toLowerCase().includes('예시') ||
+                        title.toLowerCase().includes('example');
+        return !isSample;
+      });
+      
+      setDocuments(filteredDocs);
     } catch (error) {
       console.error('문서 로드 실패:', error);
       setSnackbar({ open: true, message: '문서 목록을 불러오는데 실패했습니다.', severity: 'error' });
@@ -281,7 +308,7 @@ const Documents = () => {
     }
   };
 
-  const categories = ['계획서', '안전', '일지', '계약서', '기타'];
+  const categories = ['안전', '일지', '계약서', '기타'];
 
   return (
     <Box sx={{ 
@@ -338,7 +365,7 @@ const Documents = () => {
 
           {/* 문서 통계 */}
           <Grid container spacing={2} sx={{ mb: 2, px: 2 }}>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card sx={{ bgcolor: '#2d3748', color: 'white' }}>
                 <CardContent>
                   <Typography color="textSecondary" gutterBottom>
@@ -350,7 +377,7 @@ const Documents = () => {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card sx={{ bgcolor: '#2d3748', color: 'white' }}>
                 <CardContent>
                   <Typography color="textSecondary" gutterBottom>
@@ -360,21 +387,6 @@ const Documents = () => {
                     {documents.length > 0
                       ? format(documents[0].uploadDate?.toDate?.() || new Date(documents[0].uploadDate), 'yyyy.MM.dd')
                       : '-'}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Card sx={{ bgcolor: '#2d3748', color: 'white' }}>
-                <CardContent>
-                  <Typography color="textSecondary" gutterBottom>
-                    총 용량
-                  </Typography>
-                  <Typography variant="h4" sx={{ color: '#ff9800' }}>
-                    {documents.reduce((sum, doc) => {
-                      const size = parseFloat(doc.fileSize?.replace(/[^\d.]/g, '')) || 0;
-                      return sum + size;
-                    }, 0).toFixed(1)}MB
                   </Typography>
                 </CardContent>
               </Card>
@@ -407,29 +419,79 @@ const Documents = () => {
             {/* 왼쪽 패널: 문서 목록 */}
             <Box sx={{ width: '50%' }}>
               <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#2d3748' }}>
-                <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: '#444' }}>
-                  <Typography variant="h6" sx={{ color: 'white' }}>문서 목록</Typography>
-                  <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => handleOpen()}
+                <Box sx={{ p: 2, borderBottom: 1, borderColor: '#444' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" sx={{ color: 'white' }}>문서 목록</Typography>
+                    <Button
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      onClick={() => handleOpen()}
+                      size="small"
+                      sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#45a049' } }}
+                    >
+                      문서 추가
+                    </Button>
+                  </Box>
+                  <TextField
+                    placeholder="문서 검색..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     size="small"
-                    sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#45a049' } }}
-                  >
-                    문서 추가
-                  </Button>
+                    fullWidth
+                    sx={{
+                      '& .MuiInputBase-root': { 
+                        bgcolor: '#444',
+                        color: 'white',
+                        '&:hover': { bgcolor: '#555' },
+                        '&.Mui-focused': { bgcolor: '#555' }
+                      },
+                      '& .MuiInputBase-input': { 
+                        color: 'white',
+                        '&::placeholder': { color: '#ccc', opacity: 1 }
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#666',
+                        '&:hover': { borderColor: '#888' },
+                        '&.Mui-focused': { borderColor: '#90caf9' }
+                      }
+                    }}
+                  />
                 </Box>
-                <List sx={{ flex: 1, overflow: 'auto' }}>
+                <List sx={{ 
+                  flex: 1, 
+                  overflow: 'auto',
+                  '&::-webkit-scrollbar': {
+                    display: 'none !important',
+                    width: '0 !important',
+                    height: '0 !important'
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    display: 'none !important'
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    display: 'none !important'
+                  },
+                  '&::-webkit-scrollbar-corner': {
+                    display: 'none !important'
+                  },
+                  '-ms-overflow-style': 'none !important',
+                  'scrollbar-width': 'none !important',
+                  'scrollbar-color': 'transparent transparent !important',
+                  'overflow-y': 'scroll !important',
+                  'scrollbar-gutter': 'stable'
+                }}>
                   {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
                       <Typography sx={{ color: '#ccc' }}>로딩 중...</Typography>
                     </Box>
-                  ) : documents.length === 0 ? (
+                  ) : filteredDocuments.length === 0 ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
-                      <Typography sx={{ color: '#ccc' }}>업로드된 문서가 없습니다.</Typography>
+                      <Typography sx={{ color: '#ccc' }}>
+                        {searchTerm ? '검색 결과가 없습니다.' : '업로드된 문서가 없습니다.'}
+                      </Typography>
                     </Box>
                   ) : (
-                    documents.map((doc) => (
+                    filteredDocuments.map((doc) => (
                       <ListItem
                         key={doc.id}
                         sx={{ 
@@ -511,7 +573,26 @@ const Documents = () => {
                   flexDirection: 'column', 
                   gap: 2,
                   height: 'calc(100% - 60px)',
-                  overflow: 'auto'
+                  overflow: 'auto',
+                  '&::-webkit-scrollbar': {
+                    display: 'none !important',
+                    width: '0 !important',
+                    height: '0 !important'
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    display: 'none !important'
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    display: 'none !important'
+                  },
+                  '&::-webkit-scrollbar-corner': {
+                    display: 'none !important'
+                  },
+                  '-ms-overflow-style': 'none !important',
+                  'scrollbar-width': 'none !important',
+                  'scrollbar-color': 'transparent transparent !important',
+                  'overflow-y': 'scroll !important',
+                  'scrollbar-gutter': 'stable'
                 }}>
                   <Card sx={{ bgcolor: '#444' }}>
                     <CardContent>

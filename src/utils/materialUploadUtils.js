@@ -1196,12 +1196,18 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
     console.log(`📋 템플릿 타입: ${templateType}, 문서 타입: ${documentType}`);
     
     // 템플릿 다운로드
+    console.log(`📥 템플릿 파일 다운로드 중...`);
+    console.log(`🔗 요청 URL: ${templateUrl}`);
+    
     const response = await fetch(templateUrl);
     if (!response.ok) {
-      throw new Error(`템플릿 파일 다운로드 실패: ${response.status}`);
+      console.error(`❌ 템플릿 다운로드 실패: HTTP ${response.status} ${response.statusText}`);
+      console.error(`❌ 응답 내용:`, await response.text());
+      throw new Error(`템플릿 파일을 찾을 수 없습니다. HTTP error! status: ${response.status}`);
     }
     
     const arrayBuffer = await response.arrayBuffer();
+    console.log(`✅ 템플릿 다운로드 완료: ${templateKey} (${arrayBuffer.byteLength} bytes)`);
     
     // 워크북 로드 (완전 안전 모드)
     const workbook = new ExcelJS.Workbook();
@@ -1238,6 +1244,11 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
       try {
         // 시트 이름 안전하게 설정
         if (!sheet.name || typeof sheet.name !== 'string' || sheet.name.trim() === '') {
+          sheet.name = `Sheet${sheetIndex + 1}`;
+        }
+        
+        // 시트 이름이 여전히 undefined인 경우 강제 설정
+        if (sheet.name === undefined || sheet.name === null) {
           sheet.name = `Sheet${sheetIndex + 1}`;
         }
         
@@ -1549,12 +1560,23 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
       throw new Error('필수 시트(갑지/내역서)를 찾을 수 없습니다.');
     }
     
-    console.log(`✅ 필수 시트 확인 완료: ${cover.name}, ${detail.name}`);
+    console.log(`✅ 필수 시트 확인 완료: ${cover?.name || '갑지'}, ${detail?.name || '내역서'}`);
     
-    // 3. 시트 속성 안전하게 설정
+    // 3. 시트 속성 안전하게 설정 및 이름 강제 설정
     [cover, detail].forEach((sheet, index) => {
       try {
-        console.log(`📋 시트 ${index + 1} (${sheet.name}) 속성 정리 중...`);
+        // 시트 이름 강제 설정
+        const targetName = index === 0 ? '갑지' : '내역서';
+        if (!sheet.name || sheet.name.trim() === '' || sheet.name !== targetName) {
+          sheet.name = targetName;
+          // ExcelJS 내부 속성도 강제 설정
+          if (sheet._name !== undefined) {
+            sheet._name = targetName;
+          }
+        }
+        
+        const sheetName = sheet?.name || targetName;
+        console.log(`📋 시트 ${index + 1} (${sheetName}) 속성 정리 중...`);
         
         // 시트 상태 설정
         if (sheet.state === undefined || sheet.state === null) {
@@ -1564,6 +1586,11 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
         // 시트 속성 설정
         if (!sheet.properties || typeof sheet.properties !== 'object') {
           sheet.properties = {};
+        }
+        
+        // ExcelJS 내부 속성 강제 설정
+        if (!sheet.properties.name) {
+          sheet.properties.name = targetName;
         }
         
         if (!sheet.pageSetup || typeof sheet.pageSetup !== 'object') {
@@ -1582,7 +1609,9 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
     // 4. 셀/스타일 정리 (옵셔널 체이닝과 가드 사용)
     [cover, detail].forEach((sheet, index) => {
       try {
-        console.log(`📋 시트 ${index + 1} (${sheet.name}) 셀/스타일 정리 중...`);
+        // 시트 이름 안전하게 처리
+        const sheetName = sheet?.name || `Sheet${index + 1}`;
+        console.log(`📋 시트 ${index + 1} (${sheetName}) 셀/스타일 정리 중...`);
         
         // ExcelJS의 eachRow/eachCell API 사용 (더 안전함)
         sheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
@@ -1679,12 +1708,24 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
       const sheetInfo = [];
       workbook.worksheets.forEach((ws, index) => {
         try {
+          // 워크시트 이름 안전하게 처리
+          let wsName = ws?.name;
+          if (!wsName || typeof wsName !== 'string' || wsName.trim() === '') {
+            wsName = `Sheet${index + 1}`;
+          }
+          
+          // 워크시트 상태 안전하게 처리
+          let wsState = ws?.state;
+          if (!wsState || typeof wsState !== 'string') {
+            wsState = 'visible';
+          }
+          
           sheetInfo.push({
             index: index,
-            name: ws?.name || `Sheet${index + 1}`,
-            state: ws?.state || 'visible',
+            name: wsName,
+            state: wsState,
             hasProperties: !!ws?.properties,
-            isValid: !!(ws?.name && ws?.state && ws?.properties)
+            isValid: !!(wsName && wsState && ws?.properties)
           });
         } catch (error) {
           sheetInfo.push({
@@ -1717,69 +1758,93 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
       throw new Error(`워크북 검증 실패: ${infoError.message}`);
     }
     
-    // 6. Excel 파일 생성 (세분화된 오류 처리)
+    // 6. Excel 파일 생성 (완전히 새로운 워크북으로 재생성)
     let buffer;
     try {
-      // 첫 번째 시도: ExcelJS 표준 내보내기
-      console.log('🔄 ExcelJS 표준 옵션으로 Excel 생성 시도...');
-      buffer = await workbook.xlsx.writeBuffer({
-        useStyles: true,
-        useSharedStrings: true,
+      console.log('🔄 새로운 워크북으로 Excel 재생성 시도...');
+      
+      // 완전히 새로운 워크북 생성
+      const newWorkbook = new ExcelJS.Workbook();
+      
+      // 갑지 시트 생성
+      const newCoverSheet = newWorkbook.addWorksheet('갑지');
+      const newDetailSheet = newWorkbook.addWorksheet('내역서');
+      
+      // 갑지 데이터 복사
+      if (cover && cover.getRow) {
+        cover.eachRow((row, rowNumber) => {
+          const newRow = newCoverSheet.getRow(rowNumber);
+          row.eachCell((cell, colNumber) => {
+            const newCell = newRow.getCell(colNumber);
+            newCell.value = cell.value;
+            if (cell.font) newCell.font = cell.font;
+            if (cell.fill) newCell.fill = cell.fill;
+            if (cell.border) newCell.border = cell.border;
+            if (cell.alignment) newCell.alignment = cell.alignment;
+          });
+        });
+      }
+      
+      // 내역서 데이터 복사
+      if (detail && detail.getRow) {
+        detail.eachRow((row, rowNumber) => {
+          const newRow = newDetailSheet.getRow(rowNumber);
+          row.eachCell((cell, colNumber) => {
+            const newCell = newRow.getCell(colNumber);
+            newCell.value = cell.value;
+            if (cell.font) newCell.font = cell.font;
+            if (cell.fill) newCell.fill = cell.fill;
+            if (cell.border) newCell.border = cell.border;
+            if (cell.alignment) newCell.alignment = cell.alignment;
+          });
+        });
+      }
+      
+      // 새로운 워크북으로 버퍼 생성
+      buffer = await newWorkbook.xlsx.writeBuffer({
+        useStyles: false,
+        useSharedStrings: false
       });
-      console.log('✅ Excel 파일 생성 성공 (표준 옵션)');
-    } catch (firstError) {
-      console.warn('⚠️ 표준 옵션 실패, 안전 모드로 재시도:', firstError.message);
-      console.error('❌ 첫 번째 오류 상세:', firstError);
+      
+      console.log('✅ 새로운 워크북으로 Excel 생성 성공');
+      
+    } catch (newWorkbookError) {
+      console.warn('⚠️ 새로운 워크북 생성 실패, 원본 워크북으로 재시도:', newWorkbookError.message);
       
       try {
-        // 두 번째 시도: 안전 옵션
-        console.log('🔄 안전 옵션으로 Excel 생성 시도...');
+        // 원본 워크북으로 최소 옵션 시도
+        console.log('🔄 원본 워크북 최소 옵션으로 Excel 생성 시도...');
         buffer = await workbook.xlsx.writeBuffer({
-          useSharedStrings: false,
           useStyles: false,
+          useSharedStrings: false,
           useCellStyles: false,
-          useCellFormats: false
+          useCellFormats: false,
+          useCellDates: false,
+          useCellComments: false,
+          useCellHyperlinks: false,
+          useCellDataValidation: false
         });
-        console.log('✅ Excel 파일 생성 성공 (안전 옵션)');
-      } catch (secondError) {
-        console.warn('⚠️ 안전 옵션도 실패, 최소 옵션으로 재시도:', secondError.message);
-        console.error('❌ 두 번째 오류 상세:', secondError);
+        console.log('✅ 원본 워크북으로 Excel 생성 성공');
+      } catch (finalError) {
+        console.error('❌ 모든 방법 실패:', finalError.message);
+        console.error('❌ 최종 오류 상세:', finalError);
         
+        // 실패 시 워크시트 상태 재확인
+        console.log('🔍 실패 시 워크시트 상태 재확인...');
         try {
-          // 세 번째 시도: 최소 옵션
-          console.log('🔄 최소 옵션으로 Excel 생성 시도...');
-          buffer = await workbook.xlsx.writeBuffer({
-            useSharedStrings: false,
-            useStyles: false,
-            useCellStyles: false,
-            useCellFormats: false,
-            useCellDates: false,
-            useCellComments: false,
-            useCellHyperlinks: false,
-            useCellDataValidation: false
+          const finalCover = workbook.getWorksheet('갑지');
+          const finalDetail = workbook.getWorksheet('내역서');
+          
+          console.log('시트 상태:', {
+            cover: finalCover ? { name: finalCover.name, state: finalCover.state } : '없음',
+            detail: finalDetail ? { name: finalDetail.name, state: finalDetail.state } : '없음',
+            totalSheets: workbook.worksheets.length
           });
-          console.log('✅ Excel 파일 생성 성공 (최소 옵션)');
-        } catch (thirdError) {
-          console.error('❌ 모든 옵션 실패:', thirdError.message);
-          console.error('❌ 세 번째 오류 상세:', thirdError);
-          
-          // 실패 시 워크시트 상태 재확인 (안전한 참조 사용)
-          console.log('🔍 실패 시 워크시트 상태 재확인...');
-          try {
-            const finalCover = workbook.getWorksheet('갑지');
-            const finalDetail = workbook.getWorksheet('내역서');
-            
-            console.log('시트 상태:', {
-              cover: finalCover ? { name: finalCover.name, state: finalCover.state } : '없음',
-              detail: finalDetail ? { name: finalDetail.name, state: finalDetail.state } : '없음',
-              totalSheets: workbook.worksheets.length
-            });
-          } catch (checkError) {
-            console.error('❌ 워크시트 상태 확인 실패:', checkError.message);
-          }
-          
-          throw new Error(`Excel 파일 생성에 실패했습니다: ${thirdError.message}`);
+        } catch (checkError) {
+          console.error('❌ 워크시트 상태 확인 실패:', checkError.message);
         }
+        
+        throw new Error(`Excel 파일 생성에 실패했습니다: ${finalError.message}`);
       }
     }
     
