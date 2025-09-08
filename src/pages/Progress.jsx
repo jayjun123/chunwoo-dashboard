@@ -1006,10 +1006,11 @@ const Progress = () => {
       }
 
       // selectedSites 유효성 검사
-      if (!selectedSites || !Array.isArray(selectedSites)) {
-        console.warn('⚠️ selectedSites가 유효하지 않습니다:', selectedSites);
+      let validSelectedSites = selectedSites;
+      if (!validSelectedSites || !Array.isArray(validSelectedSites)) {
+        console.warn('⚠️ selectedSites가 유효하지 않습니다:', validSelectedSites);
         // selectedSites가 없으면 빈 배열로 처리
-        selectedSites = [];
+        validSelectedSites = [];
       }
 
       // 필터링된 데이터 준비
@@ -1019,7 +1020,7 @@ const Progress = () => {
             console.warn('⚠️ 유효하지 않은 행 데이터:', row);
             return false;
           }
-          return selectedSites.length === 0 || selectedSites.includes(row.name);
+          return validSelectedSites.length === 0 || validSelectedSites.includes(row.name);
         });
 
       if (filteredData.length === 0) {
