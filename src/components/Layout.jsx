@@ -68,20 +68,20 @@ import IdeaPad from './NotepadApp';
 
 const menuItems = [
   { text: '건설뉴스', icon: <NewspaperIcon />, path: '/news' },
-  { text: '일정관리', icon: <EventIcon />, path: '/schedule' },
+  { text: '일정관리', icon: <EventIcon />, path: '/schedule', iconColor: '#9C27B0' },
   { text: '현장일정', icon: <TimelineIcon />, path: '/gantt' },
-  { text: '주요현장', icon: <StarIcon />, path: '/importantSite' },
+  { text: '주요현장', icon: <StarIcon />, path: '/importantSite', iconColor: '#FFD700' },
   { text: '현장관리', icon: <BusinessIcon />, path: '/sites', iconColor: '#4CAF50' },
   { text: '안전관리', icon: <SecurityIcon />, path: '/safety' },
   { text: '견적요청', icon: <DescriptionIcon />, path: '/estimates', iconColor: '#FF9800' },
   { text: '토론의견', icon: <ForumIcon />, path: '/discussions' },
   { text: '입찰현황', icon: <GavelIcon />, path: '/vendors' },
   { text: '거래처관리', icon: <PeopleIcon />, path: '/vendor-management' },
-  { text: '청구예정', icon: <AttachMoneyIcon />, path: '/claims', iconColor: '#9C27B0' },
+  { text: '청구예정', icon: <AttachMoneyIcon />, path: '/claims', iconColor: '#FFD700' },
   { text: '기성관리', icon: <MonetizationOnIcon />, path: '/progress', iconColor: '#2196F3' },
-  { text: '시공팀', icon: <AssessmentIcon />, path: '/daema-team' },
+  { text: '시공팀', icon: <AssessmentIcon />, path: '/daema-team', iconColor: '#8B4513' },
   { text: '문서관리', icon: <DescriptionIcon />, path: '/documents' },
-  { text: '대외비', icon: <BlockIcon />, path: '/confidential' }
+  { text: '대외비', icon: <BlockIcon />, path: '/confidential', iconColor: '#FF0000' }
 ];
 
 const adminMenuItems = [

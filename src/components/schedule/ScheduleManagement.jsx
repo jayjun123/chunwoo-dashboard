@@ -1186,15 +1186,39 @@ const ScheduleManagement = ({
     }));
   };
 
-  const handleExcel = () => {
+  const handleExcel = async () => {
     // PC에서만 엑셀 다운로드 가능
     if (isMobile) {
       alert('PC에서만 엑셀 다운로드가 가능합니다.');
       return;
     }
     
-    // 현재 월의 첫날과 마지막날 계산 (더 정확한 방법)
-    const firstDay = new Date(year, month, 1);
+    try {
+      // 현장 데이터 로드 (시공팀 정보 매칭용)
+      const sitesSnapshot = await getDocs(collection(db, 'sites'));
+      const sitesData = sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 현장 ID를 키로 하는 맵 생성
+      const sitesMap = {};
+      sitesData.forEach(site => {
+        sitesMap[site.id] = site;
+      });
+      
+      // 의뢰자 데이터 로드 (견적 일정용)
+      const requestersSnapshot = await getDocs(collection(db, 'requesters'));
+      const requestersData = requestersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 의뢰자 이름을 키로 하는 맵 생성
+      const requestersMap = {};
+      requestersData.forEach(requester => {
+        requestersMap[requester.name] = requester;
+      });
+      
+      console.log('🏗️ 현장 데이터 로드 완료:', sitesData.length, '개');
+      console.log('👤 의뢰자 데이터 로드 완료:', requestersData.length, '개');
+      
+      // 현재 월의 첫날과 마지막날 계산 (시간대 문제 해결)
+      const firstDay = new Date(year, month, 1);
     
     // 월의 마지막 날을 정확하게 계산하는 함수
     const getLastDayOfMonth = (year, month) => {
@@ -1218,10 +1242,15 @@ const ScheduleManagement = ({
     const monthlyData = [];
     
     // 해당 월의 모든 날짜를 생성 (1일부터 마지막 날까지)
+    // 시간대 문제를 피하기 위해 로컬 날짜 문자열 사용
     const allDatesInMonth = [];
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const currentDate = new Date(year, month, day);
-      const dateStr = currentDate.toISOString().split('T')[0];
+      // toISOString() 대신 로컬 날짜 문자열 사용
+      const yearStr = currentDate.getFullYear();
+      const monthStr = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(currentDate.getDate()).padStart(2, '0');
+      const dateStr = `${yearStr}-${monthStr}-${dayStr}`;
       allDatesInMonth.push(dateStr);
     }
     
@@ -1238,6 +1267,7 @@ const ScheduleManagement = ({
           분류: '',
           현장명: '',
           설명: '',
+          E열: '',
           체크박스유무: ''
         });
       } else {
@@ -1246,23 +1276,63 @@ const ScheduleManagement = ({
           // 같은 날짜인 경우 첫 번째 항목에만 날짜 표시
           const displayDate = index === 0 ? dateStr : '';
           
+          // E열 정보: 분류에 따라 다르게 설정
+          let eColumnInfo = '';
+          const itemType = item.type || '현장';
+          
+          if (itemType === '현장') {
+            // 현장인 경우: 시공팀 정보
+            if (item.siteId && sitesMap[item.siteId]) {
+              const site = sitesMap[item.siteId];
+              eColumnInfo = site.team || site.constructionTeam || site.constructionManager || '';
+            } else {
+              // siteId가 없는 경우 기존 방식 사용
+              eColumnInfo = item.team || item.constructionTeam || item.siteName || '';
+            }
+          } else if (itemType === '견적' || itemType === '입찰') {
+            // 견적/입찰인 경우: 의뢰자 정보
+            // 견적/입찰 일정의 text에서 의뢰자 이름 추출 시도
+            const text = item.text || '';
+            if (text) {
+              // text에서 의뢰자 이름을 찾아서 requestersMap에서 조회
+              const requester = requestersMap[text];
+              if (requester) {
+                // 의뢰자 이름과 회사명을 함께 표시
+                if (requester.company) {
+                  eColumnInfo = `${requester.fullName || requester.name} (${requester.company})`;
+                } else {
+                  eColumnInfo = requester.fullName || requester.name || text;
+                }
+              } else {
+                // requestersMap에서 찾지 못한 경우 text 그대로 사용
+                eColumnInfo = text;
+              }
+            }
+          }
+          
           monthlyData.push({
             일자: displayDate,
-            분류: item.type || '현장',
+            분류: itemType,
             현장명: item.text || '',
             설명: item.desc || '',
+            E열: eColumnInfo,
             체크박스유무: checkedItems[`${dateStr}-${item.id}`] ? '체크' : '미체크'
           });
         });
       }
     });
     
-    // 파일명에 월 정보 포함
-    const monthStr = `${year}년 ${month + 1}월`;
-    const fileName = `일정관리_${monthStr}`;
-    
-    // 새로운 스타일링이 적용된 함수 사용
-    exportScheduleToExcel(monthlyData, fileName);
+      // 파일명에 월 정보 포함
+      const monthStr = `${year}년 ${month + 1}월`;
+      const fileName = `일정관리_${monthStr}`;
+      
+      // 새로운 스타일링이 적용된 함수 사용
+      await exportScheduleToExcel(monthlyData, fileName, year, month);
+      
+    } catch (error) {
+      console.error('엑셀 다운로드 오류:', error);
+      alert('엑셀 다운로드 중 오류가 발생했습니다: ' + error.message);
+    }
   };
 
   const handleCheckItem = async (date, id, checked) => {

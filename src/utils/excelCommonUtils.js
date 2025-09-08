@@ -13,6 +13,16 @@ export const getSafePrice = (item, priceType) => {
   try {
     let price = 0;
     
+    // 디버깅을 위한 로그
+    console.log(`🔍 getSafePrice 호출 - ${priceType} 타입:`, {
+      itemName: item?.name,
+      JEprice: item.JEprice,
+      NOprice: item.NOprice,
+      KYprice: item.KYprice,
+      unitPrice: item.unitPrice,
+      price: item.price
+    });
+    
     switch (priceType) {
       case 'JE': // 재료비 단가
         if (item.JEprice !== undefined && item.JEprice !== null && item.JEprice !== '') {
@@ -72,6 +82,8 @@ export const getSafePrice = (item, priceType) => {
     if (isNaN(price)) {
       price = 0;
     }
+    
+    console.log(`✅ getSafePrice 결과 - ${priceType} 타입: ${price}`);
     
     return price;
   } catch (error) {
@@ -522,9 +534,9 @@ export const fillGisungStyleData = (sheet, materialItems, startRow = 6, sheetNam
       return;
     }
     
-    // 필터링된 물량 데이터 (계약서 자동계산 항목 제외)
+    // 필터링된 물량 데이터 (계약서 자동계산 항목 제외, 단수정리는 포함)
     const filteredItems = materialItems.filter(item => 
-      !item.isTotal && !item.isVat && !item.isTotalWithVat && item?.name !== '단수정리'
+      !item.isTotal && !item.isVat && !item.isTotalWithVat
     );
     
     console.log(`📊 필터링된 물량 데이터: ${filteredItems.length}개`);
@@ -545,12 +557,21 @@ export const fillGisungStyleData = (sheet, materialItems, startRow = 6, sheetNam
       const rowNumber = index + startRow;
       
       try {
+        // 단수정리 항목 특별 처리
+        let unitPrice = item.price || item.unitPrice || 0;
+        if (item?.name === '단수정리') {
+          console.log(`🔧 기성금청구서 단수정리 특별 처리 (${rowNumber}행)`);
+          // 단수정리의 경우 unitPrice 또는 JEprice 사용
+          unitPrice = item.unitPrice || item.JEprice || item.price || 0;
+          console.log(`📊 단수정리 단가: ${unitPrice} (unitPrice: ${item.unitPrice}, JEprice: ${item.JEprice}, price: ${item.price})`);
+        }
+        
         const cells = [
           { col: 1, value: item?.name || '' }, // A열: 품명
           { col: 2, value: item.specification || '' }, // B열: 규격
           { col: 3, value: item.unit || '' }, // C열: 단위
           { col: 4, value: item.quantity || 0 }, // D열: 수량
-          { col: 5, value: item.price || 0 } // E열: 단가
+          { col: 5, value: unitPrice } // E열: 단가
         ];
         
         cells.forEach(({ col, value }) => {
