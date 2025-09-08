@@ -464,11 +464,23 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     
     // 도구별 설정
     if (currentTool === 'pen') {
-      ctx.strokeStyle = currentColor;
-      ctx.lineWidth = brushSize;
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+      if (isHighlighter) {
+        // 형관펜 모드
+        ctx.strokeStyle = highlighterColor;
+        ctx.lineWidth = brushSize * 2; // 형관펜은 더 두껍게
+        ctx.globalCompositeOperation = 'multiply'; // 형관펜 효과
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalAlpha = 0.5; // 반투명 효과
+      } else {
+        // 일반 펜 모드
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = brushSize;
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalAlpha = 1.0;
+      }
     } else if (currentTool === 'eraser') {
       // 지우개는 시작점에서도 개별적으로 지우기
       ctx.save();
@@ -482,8 +494,8 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     setIsDrawing(true);
     isDrawingRef.current = true;
     
-    console.log('간단한 그리기 시작:', { x, y, tool: currentTool });
-  }, [getCanvasCoordinates, currentColor, brushSize, currentTool]);
+    console.log('간단한 그리기 시작:', { x, y, tool: currentTool, isHighlighter, highlighterColor });
+  }, [getCanvasCoordinates, currentColor, brushSize, currentTool, isHighlighter, highlighterColor]);
 
   const continueSimpleDrawing = useCallback((e) => {
     if (!isDrawingRef.current) return;
@@ -502,12 +514,23 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     const ctx = canvas.getContext('2d');
     
     if (currentTool === 'pen') {
-      // 펜은 연속적인 선 그리기
-      ctx.strokeStyle = currentColor;
-      ctx.lineWidth = brushSize;
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.lineTo(x, y);
-      ctx.stroke();
+      if (isHighlighter) {
+        // 형관펜 모드
+        ctx.strokeStyle = highlighterColor;
+        ctx.lineWidth = brushSize * 2; // 형관펜은 더 두껍게
+        ctx.globalCompositeOperation = 'multiply'; // 형관펜 효과
+        ctx.globalAlpha = 0.5; // 반투명 효과
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      } else {
+        // 일반 펜 모드
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = brushSize;
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1.0;
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
     } else if (currentTool === 'eraser') {
       // 지우개는 각 점마다 개별적으로 지우기 (깜빡거림 방지)
       ctx.save();
@@ -520,8 +543,8 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
       ctx.restore();
     }
     
-    console.log('간단한 그리기 계속:', { x, y, tool: currentTool });
-  }, [getCanvasCoordinates, currentTool, currentColor, brushSize]);
+    console.log('간단한 그리기 계속:', { x, y, tool: currentTool, isHighlighter, highlighterColor });
+  }, [getCanvasCoordinates, currentTool, currentColor, brushSize, isHighlighter, highlighterColor]);
 
   const stopSimpleDrawing = useCallback(() => {
     setIsDrawing(false);
@@ -661,7 +684,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
 
   // 간단한 그리기 시작
   const startDrawing = useCallback((e) => {
-    if (isTyping || currentTool === 'text') return;
+    if (isTyping) return;
     
     // 두 손가락 터치인 경우 스크롤 허용
     if (e.touches && e.touches.length > 1) return;
@@ -669,7 +692,22 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (currentTool === 'pen' || currentTool === 'eraser') {
+    if (currentTool === 'text') {
+      // 텍스트 도구일 때 텍스트 입력 모드 시작
+      const { x, y } = getCanvasCoordinates(e);
+      const canvas = canvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      
+      // 캔버스 좌표로 변환
+      const canvasX = x * (rect.width / 550);
+      const canvasY = y * (rect.height / 1122);
+      
+      setTextPosition({ x, y, canvasX, canvasY });
+      setIsTyping(true);
+      setTextInput('');
+      
+      console.log('텍스트 입력 모드 시작:', { x, y, canvasX, canvasY });
+    } else if (currentTool === 'pen' || currentTool === 'eraser') {
       startSimpleDrawing(e);
     } else if (['line', 'rectangle', 'circle', 'triangle', 'star'].includes(currentTool)) {
       const { x, y } = getCanvasCoordinates(e);
