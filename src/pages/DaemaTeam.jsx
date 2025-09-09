@@ -68,6 +68,11 @@ const ConstructionTeam = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [editingTeam, setEditingTeam] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [draggedTeam, setDraggedTeam] = useState(null);
+  const [openSiteDialog, setOpenSiteDialog] = useState(false);
+  const [selectedTeamForSite, setSelectedTeamForSite] = useState(null);
+  const [siteType, setSiteType] = useState('진행중');
+  const [siteSearchTerm, setSiteSearchTerm] = useState('');
   
   // 폼 데이터
   const [formData, setFormData] = useState({
@@ -93,7 +98,16 @@ const ConstructionTeam = () => {
     try {
       const snapshot = await getDocs(collection(db, 'constructionTeams'));
       const teamsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setTeams(teamsData);
+      
+      // 순서 정보에 따라 정렬 (order 필드가 없는 경우를 위해 기본값 설정)
+      const sortedTeams = teamsData.sort((a, b) => {
+        const orderA = a.order !== undefined ? a.order : 999; // order가 없으면 맨 뒤로
+        const orderB = b.order !== undefined ? b.order : 999;
+        return orderA - orderB;
+      });
+      
+      setTeams(sortedTeams);
+      console.log('시공팀 데이터 로드됨 (순서 적용):', sortedTeams.map(team => ({ name: team.teamName, order: team.order })));
     } catch (error) {
       console.error('시공팀 데이터 로드 오류:', error);
     }
@@ -111,6 +125,14 @@ const ConstructionTeam = () => {
       setSites(sitesData);
       
       console.log('현장 데이터:', sitesData);
+      console.log('진행중 현장:', sitesData.filter(site => site.status === '진행중'));
+      console.log('예정 현장:', sitesData.filter(site => site.status === '예정'));
+      
+      // 특정 현장들 확인
+      const specificSites = sitesData.filter(site => 
+        site.name.includes('중리동') || site.name.includes('옥송') || site.name.includes('경로당') || site.name.includes('상록공원')
+      );
+      console.log('특정 현장들:', specificSites);
     } catch (error) {
       console.error('현장 데이터 로드 오류:', error);
     }
@@ -162,8 +184,11 @@ const ConstructionTeam = () => {
           updatedAt: serverTimestamp()
         });
       } else {
+        // 새 팀 추가 시 순서를 맨 뒤로 설정
+        const maxOrder = teams.length > 0 ? Math.max(...teams.map(team => team.order || 0)) : -1;
         await addDoc(collection(db, 'constructionTeams'), {
           ...formData,
+          order: maxOrder + 1,
           createdAt: serverTimestamp()
         });
       }
@@ -450,6 +475,207 @@ const ConstructionTeam = () => {
     return team.currentSites ? team.currentSites.length : 0;
   };
 
+  // 드래그 앤 드롭 핸들러
+  const handleDragStart = (e, team) => {
+    setDraggedTeam(team);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e, targetTeam) => {
+    e.preventDefault();
+    if (!draggedTeam || draggedTeam.id === targetTeam.id) {
+      setDraggedTeam(null);
+      return;
+    }
+
+    try {
+      // 팀 순서 변경
+      const draggedIndex = teams.findIndex(team => team.id === draggedTeam.id);
+      const targetIndex = teams.findIndex(team => team.id === targetTeam.id);
+      
+      const newTeams = [...teams];
+      const [draggedItem] = newTeams.splice(draggedIndex, 1);
+      newTeams.splice(targetIndex, 0, draggedItem);
+
+      // 순서 필드 추가하여 업데이트
+      const updatePromises = newTeams.map((team, index) => {
+        // order 필드가 변경된 경우에만 업데이트
+        if (team.order !== index) {
+          return updateDoc(doc(db, 'constructionTeams', team.id), {
+            order: index,
+            updatedAt: serverTimestamp()
+          });
+        }
+        return Promise.resolve(); // 변경사항이 없으면 Promise.resolve() 반환
+      });
+
+      await Promise.all(updatePromises);
+      
+      // 로컬 상태도 순서 정보와 함께 업데이트
+      const updatedTeams = newTeams.map((team, index) => ({
+        ...team,
+        order: index
+      }));
+      
+      setTeams(updatedTeams);
+      setSnackbar({
+        open: true,
+        message: '팀 순서가 변경되었습니다.',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('순서 변경 오류:', error);
+      setSnackbar({
+        open: true,
+        message: '순서 변경 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
+    }
+    
+    setDraggedTeam(null);
+  };
+
+  // 현장 추가 다이얼로그 열기
+  const handleOpenSiteDialog = (team, type) => {
+    setSelectedTeamForSite(team);
+    setSiteType(type);
+    setOpenSiteDialog(true);
+    
+    console.log('현장 선택 다이얼로그 열림:', {
+      team: team.teamName,
+      type: type,
+      currentSites: team.currentSites,
+      scheduledSites: team.scheduledSites
+    });
+  };
+
+  // 현장 추가 다이얼로그 닫기
+  const handleCloseSiteDialog = () => {
+    setOpenSiteDialog(false);
+    setSelectedTeamForSite(null);
+    setSiteType('진행중');
+    setSiteSearchTerm('');
+  };
+
+  // 현장 추가 처리
+  const handleAddSite = async (selectedSite) => {
+    if (!selectedTeamForSite || !selectedSite) return;
+
+    try {
+      // 시공팀의 현장 목록에 현장 추가 (중복 방지)
+      if (siteType === '진행중') {
+        const currentSites = selectedTeamForSite.currentSites || [];
+        // 중복 체크
+        if (!currentSites.includes(selectedSite.name)) {
+          const updatedCurrentSites = [...currentSites, selectedSite.name];
+          
+          await updateDoc(doc(db, 'constructionTeams', selectedTeamForSite.id), {
+            currentSites: updatedCurrentSites,
+            updatedAt: serverTimestamp()
+          });
+        }
+      } else if (siteType === '예정') {
+        const scheduledSites = selectedTeamForSite.scheduledSites || [];
+        // 중복 체크
+        if (!scheduledSites.includes(selectedSite.name)) {
+          const updatedScheduledSites = [...scheduledSites, selectedSite.name];
+          
+          await updateDoc(doc(db, 'constructionTeams', selectedTeamForSite.id), {
+            scheduledSites: updatedScheduledSites,
+            updatedAt: serverTimestamp()
+          });
+        }
+      }
+
+      // 현장 데이터의 비고칸에도 시공팀 정보 추가
+      const currentNotes = selectedSite.notes || '';
+      const teamInfo = `[시공팀: ${selectedTeamForSite.teamName}]`;
+      
+      // 이미 해당 시공팀 정보가 있는지 확인
+      if (!currentNotes.includes(teamInfo)) {
+        const updatedNotes = currentNotes ? `${currentNotes}\n${teamInfo}` : teamInfo;
+        
+        await updateDoc(doc(db, 'sites', selectedSite.id), {
+          notes: updatedNotes,
+          updatedAt: serverTimestamp()
+        });
+        
+        console.log('현장 비고 업데이트:', {
+          siteName: selectedSite.name,
+          teamName: selectedTeamForSite.teamName,
+          originalNotes: currentNotes,
+          updatedNotes: updatedNotes
+        });
+      }
+
+      // 중복 체크 결과에 따른 메시지
+      const isDuplicate = (siteType === '진행중' && (selectedTeamForSite.currentSites || []).includes(selectedSite.name)) ||
+                         (siteType === '예정' && (selectedTeamForSite.scheduledSites || []).includes(selectedSite.name));
+      
+      setSnackbar({
+        open: true,
+        message: isDuplicate ? 
+          `${selectedSite.name}은(는) 이미 ${selectedTeamForSite.teamName}에 있습니다.` :
+          `${selectedSite.name}이(가) ${selectedTeamForSite.teamName}에 추가되었습니다.`,
+        severity: isDuplicate ? 'warning' : 'success'
+      });
+
+      handleCloseSiteDialog();
+      loadTeams();
+      loadSites();
+    } catch (error) {
+      console.error('현장 추가 오류:', error);
+      setSnackbar({
+        open: true,
+        message: '현장 추가 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
+  // 직접 추가한 현장 삭제
+  const handleRemoveSite = async (team, siteName, siteType) => {
+    if (!window.confirm(`${siteName}을(를) ${team.teamName}에서 제거하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      if (siteType === '진행중') {
+        const updatedCurrentSites = (team.currentSites || []).filter(name => name !== siteName);
+        await updateDoc(doc(db, 'constructionTeams', team.id), {
+          currentSites: updatedCurrentSites,
+          updatedAt: serverTimestamp()
+        });
+      } else if (siteType === '예정') {
+        const updatedScheduledSites = (team.scheduledSites || []).filter(name => name !== siteName);
+        await updateDoc(doc(db, 'constructionTeams', team.id), {
+          scheduledSites: updatedScheduledSites,
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      setSnackbar({
+        open: true,
+        message: `${siteName}이(가) ${team.teamName}에서 제거되었습니다.`,
+        severity: 'success'
+      });
+
+      loadTeams();
+    } catch (error) {
+      console.error('현장 제거 오류:', error);
+      setSnackbar({
+        open: true,
+        message: '현장 제거 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
   return (
     <Box sx={{ 
       p: isMobile ? 2 : 3, 
@@ -612,11 +838,22 @@ const ConstructionTeam = () => {
       }}>
         {teams.map((team) => (
           <Grid item xs={12} md={6} key={team.id}>
-            <Card sx={{ 
-              bgcolor: '#1a1d21', 
-              border: '1px solid #333',
-              '&:hover': { borderColor: '#f59e42' }
-            }}>
+            <Card 
+              draggable
+              onDragStart={(e) => handleDragStart(e, team)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, team)}
+              sx={{ 
+                bgcolor: '#1a1d21', 
+                border: '1px solid #333',
+                cursor: 'move',
+                '&:hover': { borderColor: '#f59e42' },
+                '&:active': { 
+                  transform: 'scale(0.98)',
+                  transition: 'transform 0.1s ease-in-out'
+                }
+              }}
+            >
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                   <Box sx={{ flex: 1 }}>
@@ -668,20 +905,56 @@ const ConstructionTeam = () => {
                 <Box sx={{ mb: 2 }}>
                   {/* 진행중인 현장 */}
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ color: '#43e97b', mb: 1, fontWeight: 'bold' }}>
-                      진행 현장 ({sites.filter(site => {
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: '#43e97b', fontWeight: 'bold' }}>
+                        진행 현장 ({(() => {
+                          // 현장관리에서 연결된 현장들
+                          const linkedSites = sites.filter(site => {
+                            const siteTeamName = (site.team || '').replace(/팀$/, '');
+                            const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
+                            return site.status === '진행중' && 
+                              (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                          });
+                          
+                          // 직접 추가한 현장들
+                          const directSites = team.currentSites || [];
+                          
+                          // 중복 제거하여 총 개수 계산
+                          const allSiteNames = new Set([
+                            ...linkedSites.map(site => site.name),
+                            ...directSites
+                          ]);
+                          
+                          return allSiteNames.size;
+                        })()}개)
+                      </Typography>
+                      <Tooltip title="진행 현장 추가">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenSiteDialog(team, '진행중')}
+                          sx={{ 
+                            color: '#43e97b',
+                            '&:hover': { bgcolor: 'rgba(67, 233, 123, 0.1)' }
+                          }}
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                    {(() => {
+                      // 현장관리에서 연결된 현장들
+                      const linkedSites = sites.filter(site => {
                         const siteTeamName = (site.team || '').replace(/팀$/, '');
                         const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
                         return site.status === '진행중' && 
                           (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
-                      }).length}개)
-                    </Typography>
-                    {sites.filter(site => {
-                      const siteTeamName = (site.team || '').replace(/팀$/, '');
-                      const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                      return site.status === '진행중' && 
-                        (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
-                    }).length > 0 ? (
+                      });
+                      
+                      // 직접 추가한 현장들
+                      const directSites = team.currentSites || [];
+                      
+                      return linkedSites.length > 0 || directSites.length > 0;
+                    })() ? (
                       <List sx={{ 
                         p: 0,
                         '& .MuiListItem-root': {
@@ -693,41 +966,125 @@ const ConstructionTeam = () => {
                           }
                         }
                       }}>
-                        {sites.filter(site => {
-                          const siteTeamName = (site.team || '').replace(/팀$/, '');
-                          const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                          return site.status === '진행중' && 
-                            (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
-                        }).map((site, index) => (
-                          <Tooltip title="더블클릭하여 현장관리 페이지로 이동" placement="top">
-                            <ListItem 
-                              key={site.id} 
-                              disableGutters
-                              sx={{ 
-                                cursor: 'pointer',
-                                '&:hover': {
-                                  bgcolor: '#374151'
-                                }
-                              }}
-                              onDoubleClick={() => {
-                                // 현장관리 페이지로 이동하면서 해당 현장 선택
-                                navigate('/sites', { 
-                                  state: { 
-                                    selectedSiteId: site.id,
-                                    selectedSiteName: site.name
-                                  }
+                        {(() => {
+                          // 현장관리에서 연결된 현장들
+                          const linkedSites = sites.filter(site => {
+                            const siteTeamName = (site.team || '').replace(/팀$/, '');
+                            const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
+                            return site.status === '진행중' && 
+                              (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                          });
+                          
+                          // 직접 추가한 현장들
+                          const directSites = team.currentSites || [];
+                          
+                          return [
+                            // 기존 연동 현장들
+                            ...linkedSites.map(site => (
+                              <Tooltip key={site.id} title="더블클릭하여 현장관리 페이지로 이동" placement="top">
+                                <ListItem 
+                                  disableGutters
+                                  sx={{ 
+                                    cursor: 'pointer',
+                                    '&:hover': {
+                                      bgcolor: '#374151'
+                                    }
+                                  }}
+                                  onDoubleClick={() => {
+                                    navigate('/sites', { 
+                                      state: { 
+                                        selectedSiteId: site.id,
+                                        selectedSiteName: site.name
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <Typography sx={{ 
+                                    color: '#fff',
+                                    fontSize: '0.875rem'
+                                  }}>
+                                    {site.name}
+                                  </Typography>
+                                </ListItem>
+                              </Tooltip>
+                            )),
+                            // 직접 추가한 현장들 (현장관리에서 연결되지 않은 현장만)
+                            ...directSites.filter(siteName => {
+                              // 현장관리에서 이미 연결된 현장은 제외
+                              const site = sites.find(s => s.name === siteName);
+                              const isLinkedByTeam = site?.team === team.teamName || site?.team === team.teamName.replace(/팀$/, '');
+                              const isLinkedByManager = site?.manager === team.managerName;
+                              
+                              // 디버깅: 현장 배정 방식 확인
+                              if (siteName.includes('중리') || siteName.includes('경로당')) {
+                                console.log('현장 배정 디버그:', {
+                                  siteName: siteName,
+                                  teamName: team.teamName,
+                                  siteTeam: site?.team,
+                                  siteManager: site?.manager,
+                                  isDirectlyAdded: directSites.includes(siteName),
+                                  isLinkedByTeam: isLinkedByTeam,
+                                  isLinkedByManager: isLinkedByManager,
+                                  shouldShowDeleteButton: !isLinkedByTeam && !isLinkedByManager
                                 });
-                              }}
-                            >
-                              <Typography sx={{ 
-                                color: '#fff',
-                                fontSize: '0.875rem'
-                              }}>
-                                {site.name}
-                              </Typography>
-                            </ListItem>
-                          </Tooltip>
-                        ))}
+                              }
+                              
+                              return !isLinkedByTeam && !isLinkedByManager;
+                            }).map((siteName, index) => {
+                              const site = sites.find(s => s.name === siteName);
+                              return (
+                                <Tooltip key={`direct-${index}`} title="더블클릭하여 현장관리 페이지로 이동" placement="top">
+                                  <ListItem 
+                                    disableGutters
+                                    sx={{ 
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      '&:hover': {
+                                        bgcolor: '#374151'
+                                      }
+                                    }}
+                                    onDoubleClick={() => {
+                                      if (site) {
+                                        navigate('/sites', { 
+                                          state: { 
+                                            selectedSiteId: site.id,
+                                            selectedSiteName: site.name
+                                          }
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <Typography sx={{ 
+                                      color: '#fff',
+                                      fontSize: '0.875rem',
+                                      flex: 1
+                                    }}>
+                                      {siteName}
+                                    </Typography>
+                                    <IconButton
+                                      size="small"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveSite(team, siteName, '진행중');
+                                      }}
+                                      sx={{ 
+                                        color: '#ef4444',
+                                        ml: 1,
+                                        '&:hover': { 
+                                          bgcolor: 'rgba(239, 68, 68, 0.1)' 
+                                        }
+                                      }}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </ListItem>
+                                </Tooltip>
+                              );
+                            })
+                          ];
+                        })()}
                       </List>
                     ) : (
                       <Typography variant="body2" sx={{ color: '#666', fontStyle: 'italic' }}>
@@ -738,20 +1095,56 @@ const ConstructionTeam = () => {
 
                   {/* 예정 현장 */}
                   <Box>
-                    <Typography variant="body2" sx={{ color: '#f59e42', mb: 1, fontWeight: 'bold' }}>
-                      예정 현장 ({sites.filter(site => {
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: '#f59e42', fontWeight: 'bold' }}>
+                        예정 현장 ({(() => {
+                          // 현장관리에서 연결된 현장들
+                          const linkedSites = sites.filter(site => {
+                            const siteTeamName = (site.team || '').replace(/팀$/, '');
+                            const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
+                            return site.status === '예정' && 
+                              (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                          });
+                          
+                          // 직접 추가한 현장들
+                          const directSites = team.scheduledSites || [];
+                          
+                          // 중복 제거하여 총 개수 계산
+                          const allSiteNames = new Set([
+                            ...linkedSites.map(site => site.name),
+                            ...directSites
+                          ]);
+                          
+                          return allSiteNames.size;
+                        })()}개)
+                      </Typography>
+                      <Tooltip title="예정 현장 추가">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenSiteDialog(team, '예정')}
+                          sx={{ 
+                            color: '#f59e42',
+                            '&:hover': { bgcolor: 'rgba(245, 158, 66, 0.1)' }
+                          }}
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                    {(() => {
+                      // 현장관리에서 연결된 현장들
+                      const linkedSites = sites.filter(site => {
                         const siteTeamName = (site.team || '').replace(/팀$/, '');
                         const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
                         return site.status === '예정' && 
                           (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
-                      }).length}개)
-                    </Typography>
-                    {sites.filter(site => {
-                      const siteTeamName = (site.team || '').replace(/팀$/, '');
-                      const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                      return site.status === '예정' && 
-                        (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
-                    }).length > 0 ? (
+                      });
+                      
+                      // 직접 추가한 현장들
+                      const directSites = team.scheduledSites || [];
+                      
+                      return linkedSites.length > 0 || directSites.length > 0;
+                    })() ? (
                       <List sx={{ 
                         p: 0,
                         '& .MuiListItem-root': {
@@ -763,41 +1156,111 @@ const ConstructionTeam = () => {
                           }
                         }
                       }}>
-                        {sites.filter(site => {
-                          const siteTeamName = (site.team || '').replace(/팀$/, '');
-                          const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                          return site.status === '예정' && 
-                            (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
-                        }).map((site, index) => (
-                          <Tooltip title="더블클릭하여 현장관리 페이지로 이동" placement="top">
-                            <ListItem 
-                              key={site.id} 
-                              disableGutters
-                              sx={{ 
-                                cursor: 'pointer',
-                                '&:hover': {
-                                  bgcolor: '#374151'
-                                }
-                              }}
-                              onDoubleClick={() => {
-                                // 현장관리 페이지로 이동하면서 해당 현장 선택
-                                navigate('/sites', { 
-                                  state: { 
-                                    selectedSiteId: site.id,
-                                    selectedSiteName: site.name
-                                  }
-                                });
-                              }}
-                            >
-                              <Typography sx={{ 
-                                color: '#fff',
-                                fontSize: '0.875rem'
-                              }}>
-                                {site.name}
-                              </Typography>
-                            </ListItem>
-                          </Tooltip>
-                        ))}
+                        {(() => {
+                          // 현장관리에서 연결된 현장들
+                          const linkedSites = sites.filter(site => {
+                            const siteTeamName = (site.team || '').replace(/팀$/, '');
+                            const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
+                            return site.status === '예정' && 
+                              (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                          });
+                          
+                          // 직접 추가한 현장들
+                          const directSites = team.scheduledSites || [];
+                          
+                          return [
+                            // 기존 연동 현장들
+                            ...linkedSites.map(site => (
+                              <Tooltip key={site.id} title="더블클릭하여 현장관리 페이지로 이동" placement="top">
+                                <ListItem 
+                                  disableGutters
+                                  sx={{ 
+                                    cursor: 'pointer',
+                                    '&:hover': {
+                                      bgcolor: '#374151'
+                                    }
+                                  }}
+                                  onDoubleClick={() => {
+                                    navigate('/sites', { 
+                                      state: { 
+                                        selectedSiteId: site.id,
+                                        selectedSiteName: site.name
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <Typography sx={{ 
+                                    color: '#fff',
+                                    fontSize: '0.875rem'
+                                  }}>
+                                    {site.name}
+                                  </Typography>
+                                </ListItem>
+                              </Tooltip>
+                            )),
+                            // 직접 추가한 현장들 (현장관리에서 연결되지 않은 현장만)
+                            ...directSites.filter(siteName => {
+                              // 현장관리에서 이미 연결된 현장은 제외
+                              const site = sites.find(s => s.name === siteName);
+                              const isLinkedByTeam = site?.team === team.teamName || site?.team === team.teamName.replace(/팀$/, '');
+                              const isLinkedByManager = site?.manager === team.managerName;
+                              
+                              return !isLinkedByTeam && !isLinkedByManager;
+                            }).map((siteName, index) => {
+                              const site = sites.find(s => s.name === siteName);
+                              return (
+                                <Tooltip key={`direct-${index}`} title="더블클릭하여 현장관리 페이지로 이동" placement="top">
+                                  <ListItem 
+                                    disableGutters
+                                    sx={{ 
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      '&:hover': {
+                                        bgcolor: '#374151'
+                                      }
+                                    }}
+                                    onDoubleClick={() => {
+                                      if (site) {
+                                        navigate('/sites', { 
+                                          state: { 
+                                            selectedSiteId: site.id,
+                                            selectedSiteName: site.name
+                                          }
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <Typography sx={{ 
+                                      color: '#fff',
+                                      fontSize: '0.875rem',
+                                      flex: 1
+                                    }}>
+                                      {siteName}
+                                    </Typography>
+                                    <IconButton
+                                      size="small"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveSite(team, siteName, '예정');
+                                      }}
+                                      sx={{ 
+                                        color: '#ef4444',
+                                        ml: 1,
+                                        '&:hover': { 
+                                          bgcolor: 'rgba(239, 68, 68, 0.1)' 
+                                        }
+                                      }}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </ListItem>
+                                </Tooltip>
+                              );
+                            })
+                          ];
+                        })()}
                       </List>
                     ) : (
                       <Typography variant="body2" sx={{ color: '#666', fontStyle: 'italic' }}>
@@ -926,11 +1389,17 @@ const ConstructionTeam = () => {
                     onChange={(e) => setFormData({ ...formData, currentSites: e.target.value })}
                     sx={{ color: '#fff' }}
                   >
-                    {sites.map((site) => (
-                      <MenuItem key={site.id} value={site.name}>
-                        {site.name}
-                      </MenuItem>
-                    ))}
+                    {sites
+                      .filter(site => {
+                        // 같은 팀에 이미 등록된 현장은 제외 (중복 방지)
+                        const isAlreadyAssigned = (formData.currentSites || []).includes(site.name);
+                        return !isAlreadyAssigned;
+                      })
+                      .map((site) => (
+                        <MenuItem key={site.id} value={site.name}>
+                          {site.name}
+                        </MenuItem>
+                      ))}
                   </Select>
                 </FormControl>
               </Grid>
@@ -972,6 +1441,192 @@ const ConstructionTeam = () => {
           </Button>
           <Button onClick={handleSave} variant="contained" sx={{ bgcolor: '#f59e42' }}>
             저장
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 현장 선택 다이얼로그 */}
+      <Dialog open={openSiteDialog} onClose={handleCloseSiteDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: '#1a1d21', color: '#fff' }}>
+          {siteType} 현장 추가 - {selectedTeamForSite?.teamName}
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: '#1a1d21', color: '#fff' }}>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body2" sx={{ color: '#bbb', mb: 2 }}>
+              {selectedTeamForSite?.teamName}에 추가할 {siteType} 현장을 선택하세요.
+            </Typography>
+            
+            {/* 검색 입력창 */}
+            <TextField
+              fullWidth
+              placeholder="현장명으로 검색..."
+              value={siteSearchTerm}
+              onChange={(e) => setSiteSearchTerm(e.target.value)}
+              sx={{ 
+                mb: 2,
+                '& .MuiOutlinedInput-root': { 
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#f59e42' }
+                },
+                '& .MuiInputLabel-root': { color: '#bbb' },
+                '& .MuiInputBase-input::placeholder': { color: '#666' }
+              }}
+            />
+            
+            <List sx={{ 
+              maxHeight: 400, 
+              overflow: 'auto',
+              // 스크롤바 숨기기
+              '&::-webkit-scrollbar': {
+                display: 'none'
+              },
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              '& .MuiListItem-root': {
+                border: '1px solid #333',
+                borderRadius: 1,
+                mb: 1,
+                '&:hover': {
+                  bgcolor: '#374151'
+                }
+              }
+            }}>
+              {(() => {
+                const filteredSites = sites.filter(site => {
+                  const matchesStatus = site.status === siteType;
+                  
+                  // 검색어가 없으면 모든 현장 표시, 있으면 검색 조건 확인
+                  const searchTerm = siteSearchTerm ? siteSearchTerm.trim().toLowerCase() : '';
+                  const siteName = site.name ? site.name.toLowerCase() : '';
+                  const siteAddress = site.address ? site.address.toLowerCase() : '';
+                  
+                  const matchesSearch = !searchTerm || 
+                    siteName.includes(searchTerm) ||
+                    siteAddress.includes(searchTerm);
+                  
+                  // 디버깅: 검색 로직 상세 확인
+                  if (siteSearchTerm && (site.name.includes('중리동') || site.name.includes('옥송'))) {
+                    console.log('검색 로직 디버그:', {
+                      originalSiteName: site.name,
+                      siteName: siteName,
+                      originalSearchTerm: siteSearchTerm,
+                      searchTerm: searchTerm,
+                      nameMatch: siteName.includes(searchTerm),
+                      addressMatch: siteAddress.includes(searchTerm),
+                      finalMatch: matchesSearch
+                    });
+                  }
+                  
+                  // 같은 팀에 이미 등록된 현장만 제외 (다른 팀끼리는 중복 가능)
+                  const isAlreadyAssignedToThisTeam = siteType === '진행중' 
+                    ? (selectedTeamForSite?.currentSites || []).includes(site.name)
+                    : (selectedTeamForSite?.scheduledSites || []).includes(site.name);
+                  
+                  // 디버깅: 중복 체크 로직 확인
+                  if (siteSearchTerm && (site.name.includes('중리동') || site.name.includes('옥송'))) {
+                    console.log('중복 체크 디버그:', {
+                      siteName: site.name,
+                      teamName: selectedTeamForSite?.teamName,
+                      currentSites: selectedTeamForSite?.currentSites,
+                      scheduledSites: selectedTeamForSite?.scheduledSites,
+                      siteType: siteType,
+                      isAlreadyAssignedToThisTeam: isAlreadyAssignedToThisTeam
+                    });
+                  }
+                  
+                  const result = matchesStatus && matchesSearch && !isAlreadyAssignedToThisTeam;
+                  
+                  // 디버깅 로그
+                  if (siteSearchTerm && (site.name.includes('중리동') || site.name.includes('옥송'))) {
+                    console.log('현장 필터링 최종 디버그:', {
+                      siteName: site.name,
+                      siteStatus: site.status,
+                      siteType: siteType,
+                      matchesStatus,
+                      matchesSearch,
+                      isAlreadyAssignedToThisTeam,
+                      result,
+                      searchTerm: siteSearchTerm,
+                      finalResult: result
+                    });
+                  }
+                  
+                  return result;
+                });
+                
+                console.log('필터링된 현장 목록:', {
+                  totalSites: sites.length,
+                  filteredSites: filteredSites.length,
+                  siteType: siteType,
+                  searchTerm: siteSearchTerm,
+                  filteredSiteNames: filteredSites.map(s => s.name)
+                });
+                
+                return filteredSites;
+              })()
+                .map((site) => (
+                  <ListItem
+                    key={site.id}
+                    onClick={() => handleAddSite(site)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: siteType === '진행중' ? '#43e97b' : '#f59e42' }}>
+                        <LocationIcon />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={site.name}
+                      secondary={
+                        <Box>
+                          <Typography variant="body2" sx={{ color: '#bbb' }}>
+                            주소: {site.address || '주소 없음'}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: '#bbb' }}>
+                            계약금액: {site.contractAmount ? formatNumber(site.contractAmount, true) : '미정'}
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                ))}
+            </List>
+            {(() => {
+              const filteredSites = sites.filter(site => {
+                const matchesStatus = site.status === siteType;
+                
+                // 검색어가 없으면 모든 현장 표시, 있으면 검색 조건 확인
+                const searchTerm = siteSearchTerm ? siteSearchTerm.trim().toLowerCase() : '';
+                const siteName = site.name ? site.name.toLowerCase() : '';
+                const siteAddress = site.address ? site.address.toLowerCase() : '';
+                
+                const matchesSearch = !searchTerm || 
+                  siteName.includes(searchTerm) ||
+                  siteAddress.includes(searchTerm);
+                
+                // 같은 팀에 이미 등록된 현장만 제외 (다른 팀끼리는 중복 가능)
+                const isAlreadyAssignedToThisTeam = siteType === '진행중' 
+                  ? (selectedTeamForSite?.currentSites || []).includes(site.name)
+                  : (selectedTeamForSite?.scheduledSites || []).includes(site.name);
+                
+                return matchesStatus && matchesSearch && !isAlreadyAssignedToThisTeam;
+              });
+              
+              return filteredSites.length === 0;
+            })() && (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography variant="body2" sx={{ color: '#666' }}>
+                  {siteSearchTerm ? '검색 결과가 없습니다.' : `${siteType} 현장이 없습니다.`}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: '#1a1d21' }}>
+          <Button onClick={handleCloseSiteDialog} sx={{ color: '#bbb' }}>
+            취소
           </Button>
         </DialogActions>
       </Dialog>

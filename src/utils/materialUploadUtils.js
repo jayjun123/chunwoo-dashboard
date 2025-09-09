@@ -1209,17 +1209,20 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
     const arrayBuffer = await response.arrayBuffer();
     console.log(`✅ 템플릿 다운로드 완료: ${templateKey} (${arrayBuffer.byteLength} bytes)`);
     
-    // 워크북 로드 (완전 안전 모드)
+    // 워크북 로드 (완전 안전 모드 - 오류 방지 강화)
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(arrayBuffer, {
       sharedFormula: false,
-      ignoreNodes: ['sharedFormula', 'extLst', 'calcChain', 'pivotCacheDefinition', 'pivotCacheRecords'],
+      ignoreNodes: ['sharedFormula', 'extLst', 'calcChain', 'pivotCacheDefinition', 'pivotCacheRecords', 'volatileDependencies'],
       ignoreStyles: false,
       ignoreDataValidations: false,
       ignoreConditionalFormats: false,
       ignoreHyperlinks: true,
       ignoreComments: true,
-      ignoreDrawings: true
+      ignoreDrawings: true,
+      ignoreFormulas: false, // 수식은 유지하되 오류 처리
+      ignoreMergedCells: false,
+      ignoreProtectedRanges: false
     });
     
     console.log('✅ 템플릿 로드 완료');
@@ -1264,18 +1267,29 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
         
         console.log(`📋 시트 ${sheetIndex + 1} (${sheet.name}) 완전 검증 중...`);
         
-        // 모든 셀 완전 안전 처리 (범위를 줄여서 성능 향상)
+        // 모든 셀 완전 안전 처리 (보호된 셀 제외)
         for (let row = 1; row <= 100; row++) {
           for (let col = 1; col <= 30; col++) {
             try {
               const cell = sheet.getCell(row, col);
               if (cell && cell.value !== undefined) {
+                // 보호된 셀은 건드리지 않음
+                if (cell.protection && cell.protection.locked) {
+                  continue;
+                }
+                
+                // #VALUE! 오류 방지 (보호되지 않은 셀만)
+                if (cell.value === '#VALUE!' || cell.value === '#REF!' || cell.value === '#NAME?' || cell.value === '#DIV/0!') {
+                  console.log(`🔧 셀 ${cell.address}의 오류 값 수정: ${cell.value} → 빈 문자열`);
+                  cell.value = '';
+                }
+                
                 // 셀 값이 있는 경우에만 처리
                 if (cell.value === null) {
                   cell.value = '';
                 }
                 
-                // 셀 속성 안전하게 설정
+                // 셀 속성 안전하게 설정 (보호되지 않은 셀만)
                 if (!cell.type) cell.type = 'string';
                 if (!cell.style) cell.style = {};
                 if (!cell.address) cell.address = `${String.fromCharCode(64 + col)}${row}`;
@@ -1486,9 +1500,9 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
           } else {
             // 견적서: L, N 템플릿에 따라 다르게 처리
             if (templateType === 'L') {
-              // L 템플릿: A,B,C,D,E,G,I열 입력, F,H,J,K,L 수식 유지
-              detailSheet.getCell(`A${row}`).value = safeString(item?.specification);
-              detailSheet.getCell(`B${row}`).value = safeString(item?.name);
+              // L 템플릿: 납품계약서 인덱스 2와 동일한 방식 (수식 유지)
+              detailSheet.getCell(`A${row}`).value = safeString(item?.name || item?.itemName || '');
+              detailSheet.getCell(`B${row}`).value = safeString(item?.specification || item?.spec || '');
               detailSheet.getCell(`C${row}`).value = unit;
               detailSheet.getCell(`D${row}`).value = quantity;
               
@@ -1496,17 +1510,22 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
               const noPrice = safeNumber(item?.NOprice || item?.NO프라이스 || item?.NO || item?.노무비);
               const kyPrice = safeNumber(item?.KYprice || item?.KY프라이스 || item?.KY || item?.경비);
               
+              // E열: 재료비 단가만 입력 (수식 유지)
               detailSheet.getCell(`E${row}`).value = jePrice;
-              // F열은 수식 유지 (입력하지 않음)
+              // F열: 수식 유지 (D*E)
+              // G열: 노무비 단가만 입력 (수식 유지)
               detailSheet.getCell(`G${row}`).value = noPrice;
-              // H열은 수식 유지 (입력하지 않음)
+              // H열: 수식 유지 (D*G)
+              // I열: 경비 단가만 입력 (수식 유지)
               detailSheet.getCell(`I${row}`).value = kyPrice;
-              // J,K,L열은 수식 유지 (입력하지 않음)
-              detailSheet.getCell(`M${row}`).value = safeString(item?.note);
+              // J열: 수식 유지 (D*I)
+              // K열: 수식 유지 (E+G+I)
+              // L열: 수식 유지 (D*K)
+              detailSheet.getCell(`M${row}`).value = safeString(item?.note || item?.remark || '');
             } else {
-              // N 템플릿: A,B,C,D,E,G,I열 입력, F,H,J,K,L 수식 유지
-              detailSheet.getCell(`A${row}`).value = safeString(item?.specification);
-              detailSheet.getCell(`B${row}`).value = safeString(item?.name);
+              // N 템플릿: 모든 열에 실제 계산된 값 입력 (수식 제거)
+              detailSheet.getCell(`A${row}`).value = safeString(item?.name);
+              detailSheet.getCell(`B${row}`).value = safeString(item?.specification);
               detailSheet.getCell(`C${row}`).value = unit;
               detailSheet.getCell(`D${row}`).value = quantity;
               
@@ -1515,12 +1534,19 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
               const kyPrice = safeNumber(item?.KYprice || item?.KY프라이스 || item?.KY || item?.경비);
               
               detailSheet.getCell(`E${row}`).value = jePrice;
-              // F열은 수식 유지 (입력하지 않음)
+              // F열: 재료비 금액 (단가 × 수량)
+              detailSheet.getCell(`F${row}`).value = jePrice * quantity;
               detailSheet.getCell(`G${row}`).value = noPrice;
-              // H열은 수식 유지 (입력하지 않음)
+              // H열: 노무비 금액 (단가 × 수량)
+              detailSheet.getCell(`H${row}`).value = noPrice * quantity;
               detailSheet.getCell(`I${row}`).value = kyPrice;
-              // J,K,L열은 수식 유지 (입력하지 않음)
-              detailSheet.getCell(`M${row}`).value = safeString(item?.note);
+              // J열: 경비 금액 (단가 × 수량)
+              detailSheet.getCell(`J${row}`).value = kyPrice * quantity;
+              // K열: 소계 (재료비 + 노무비 + 경비)
+              detailSheet.getCell(`K${row}`).value = (jePrice * quantity) + (noPrice * quantity) + (kyPrice * quantity);
+              // L열: 합계 (소계와 동일)
+              detailSheet.getCell(`L${row}`).value = (jePrice * quantity) + (noPrice * quantity) + (kyPrice * quantity);
+              detailSheet.getCell(`M${row}`).value = ''; // M열 비고는 비워둠
             }
           }
           

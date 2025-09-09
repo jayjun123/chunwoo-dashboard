@@ -171,6 +171,7 @@ const NewSites = () => {
   // 다운로드 로딩 상태
   const [downloadLoading, setDownloadLoading] = useState(false);
   
+  
   // 마이그레이션 로딩 상태
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
@@ -708,7 +709,8 @@ const NewSites = () => {
                               
                               // NAPFOOM 전용 함수 import 및 호출
                               const { createNapfoomContract } = await import('../utils/napfoomUtils');
-                              result = await createNapfoomContract(site, napfoomMaterialItems, '납품계약서');
+                              const fileName = `(납품계약서)${site?.name || '현장'} 중 유리납품`;
+                              result = await createNapfoomContract(site, napfoomMaterialItems, fileName);
                               console.log('🔍 createNapfoomContract 결과:', result);
                             } catch (genError) {
                               console.error('❌ createNapfoomContract 함수에서 예외 발생:', genError);
@@ -1093,6 +1095,7 @@ const NewSites = () => {
       setSaveTimer(null);
     }
   }, [isEditing, saveTimer]);
+
 
   const handleItemsChange = async (index, field, value) => {
     // 수정 모드가 아닌 경우 편집 불가
@@ -1895,6 +1898,7 @@ const NewSites = () => {
       navigate('/progress');
     }
   };
+
   const handleWholeList = () => navigate('/whole-list');
   
   const handleDistributionView = () => {
@@ -2138,6 +2142,7 @@ const NewSites = () => {
     }
   };
 
+
   // 견적서 보기 함수
   const handleViewEstimate = async () => {
     try {
@@ -2269,21 +2274,17 @@ const NewSites = () => {
         templateType: 'AUTO' // 물량 개수에 따라 자동 설정
       };
       
-      // generateDocumentExcel 함수 존재 확인
-      if (typeof generateDocumentExcel !== 'function') {
-        console.error('❌ generateDocumentExcel 함수가 정의되지 않았습니다.');
-        alert('견적서 생성 함수를 찾을 수 없습니다.');
-        return;
-      }
-      
-      console.log('🚀 generateDocumentExcel 호출 시작');
+      // 견적서 전용 함수 import 및 호출
+      console.log('🚀 createEstimate 호출 시작');
       console.log('📊 siteDataWithTemplate:', siteDataWithTemplate);
       console.log('📊 materialData:', materialData);
       
-      const result = await generateDocumentExcel(siteDataWithTemplate, materialData, '견적서');
+      const { createEstimate } = await import('../utils/estimateUtils');
+      const fileName = `(견적서)${siteDataWithTemplate?.name || '현장'} 중 유리공사`;
+      const result = await createEstimate(siteDataWithTemplate, materialData.items || [], fileName);
       
       if (!result) {
-        console.error('❌ generateDocumentExcel이 undefined를 반환했습니다.');
+        console.error('❌ createEstimate이 undefined를 반환했습니다.');
         alert('견적서 생성에 실패했습니다.');
         return;
       }
@@ -3238,6 +3239,7 @@ const NewSites = () => {
              견적서보기
            </Button>
 
+
            {form?.contractType === '납품계약' && (
              <Button variant="contained" color="primary" onClick={(e) => {
                e.preventDefault();
@@ -3263,6 +3265,7 @@ const NewSites = () => {
            }} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
              기성현황
            </Button>
+
          </Box>
       </Paper>
       
