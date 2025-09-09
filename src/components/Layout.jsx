@@ -51,6 +51,7 @@ import {
   MonetizationOn as MonetizationOnIcon,
   Assignment as AssignmentIcon,
   Payments as PaymentsIcon,
+  Architecture as ArchitectureIcon,
   Newspaper as NewspaperIcon,
   Timeline as TimelineIcon,
   Star as StarIcon,
