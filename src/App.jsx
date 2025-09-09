@@ -485,7 +485,7 @@ const App = React.memo(() => {
         <Route path="/cl" element={<Navigate to="/claims" replace />} />
         <Route path="/es" element={<Navigate to="/estimates" replace />} />
         <Route path="/set" element={<Navigate to="/settings" replace />} />
-        <Route path="/cd" element={<Navigate to="/company-distribution" replace />} />
+                      <Route path="/cd" element={<Navigate to="/company-distribution" replace />} />
                       
                       {/* 기존 라우트들 */}
                       <Route path="/login" element={<Login />} />

@@ -29,7 +29,9 @@ import {
   InputLabel,
   Select,
   Checkbox,
-  Autocomplete
+  Autocomplete,
+  Pagination,
+  Stack
 } from '@mui/material';
 import { 
   Add as AddIcon, 
@@ -57,6 +59,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   const [sortField, setSortField] = useState('itemType');
   const [sortDirection, setSortDirection] = useState('asc');
   const [selectedItems, setSelectedItems] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [form, setForm] = useState({
     site: '',
     itemType: '',
@@ -100,6 +104,11 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     };
     fetchSites();
   }, []);
+
+  // 검색이나 필터 조건이 변경될 때 첫 페이지로 이동
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, viewType, selectedSites, sortField, sortDirection]);
 
   // 검색 및 정렬된 데이터
   const filteredAndSortedCosts = useMemo(() => {
@@ -220,11 +229,13 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
 
   // 체크박스 관련 함수들
   const handleSelectAll = (event) => {
-    const filtered = filteredData || filteredAndSortedCosts;
     if (event.target.checked) {
-      setSelectedItems(filtered.map(item => item.id));
+      // 현재 페이지의 모든 항목 선택
+      setSelectedItems(prev => [...new Set([...prev, ...currentData.map(item => item.id)])]);
     } else {
-      setSelectedItems([]);
+      // 현재 페이지의 모든 항목 선택 해제
+      const currentPageIds = currentData.map(item => item.id);
+      setSelectedItems(prev => prev.filter(id => !currentPageIds.includes(id)));
     }
   };
 
@@ -720,6 +731,23 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   // 필터 적용 (상위 컴포넌트에서 전달받은 filteredData 사용)
   const filtered = filteredData ? filteredAndSortedCosts : filteredAndSortedCosts;
 
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentData = filtered.slice(startIndex, endIndex);
+
+  // 페이지 변경 함수
+  const handlePageChange = (event, newPage) => {
+    setCurrentPage(newPage);
+  };
+
+  // 페이지당 항목 수 변경 함수
+  const handleItemsPerPageChange = (event) => {
+    setItemsPerPage(parseInt(event.target.value));
+    setCurrentPage(1); // 페이지당 항목 수가 변경되면 첫 페이지로 이동
+  };
+
   return (
     <Box sx={{ 
       width: isMobile ? '100%' : 'calc(100% - 20px)', 
@@ -823,8 +851,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   maxWidth: '100%'
                 }}>
                   <Checkbox
-                    indeterminate={selectedItems.length > 0 && selectedItems.length < filtered.length}
-                    checked={filtered.length > 0 && selectedItems.length === filtered.length}
+                    indeterminate={currentData.some(item => selectedItems.includes(item.id)) && !currentData.every(item => selectedItems.includes(item.id))}
+                    checked={currentData.length > 0 && currentData.every(item => selectedItems.includes(item.id))}
                     onChange={handleSelectAll}
                     sx={{ color: '#fff' }}
                   />
@@ -959,7 +987,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map(cost => (
+                currentData.map(cost => (
                   <TableRow 
                     key={cost.id} 
                     sx={{ 
@@ -996,8 +1024,10 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                         sx={{ 
                           bgcolor: cost.itemType === '노무비' ? '#ffd600' : 
                                   cost.itemType === '경비' ? '#ef5350' : 
-                                  cost.itemType === 'RnD' ? '#43e97b' : '#a084e8',
-                          color: '#000',
+                                  cost.itemType === 'RnD' ? '#43e97b' : 
+                                  cost.itemType === '지게차' ? '#ff9800' : 
+                                  cost.itemType === '월세' ? '#ffffff' : '#a084e8',
+                          color: cost.itemType === '월세' ? '#000' : '#000',
                           fontWeight: 700
                         }} 
                       />
@@ -1081,6 +1111,62 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             </TableBody>
           </Table>
         </TableContainer>
+        
+        {/* 페이지네이션 */}
+        {filtered.length > 0 && (
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            p: 2, 
+            borderTop: '1px solid #333' 
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body2" sx={{ color: '#bbb' }}>
+                페이지당 항목 수:
+              </Typography>
+              <Select
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
+                size="small"
+                sx={{
+                  color: '#fff',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
+                  '& .MuiSvgIcon-root': { color: '#fff' },
+                  minWidth: 70
+                }}
+              >
+                <MenuItem value={5}>5</MenuItem>
+                <MenuItem value={10}>10</MenuItem>
+                <MenuItem value={20}>20</MenuItem>
+                <MenuItem value={50}>50</MenuItem>
+              </Select>
+              <Typography variant="body2" sx={{ color: '#bbb' }}>
+                {startIndex + 1}-{Math.min(endIndex, filtered.length)} / {filtered.length}개
+              </Typography>
+            </Box>
+            
+            <Pagination
+              count={totalPages}
+              page={currentPage}
+              onChange={handlePageChange}
+              color="primary"
+              sx={{
+                '& .MuiPaginationItem-root': {
+                  color: '#fff',
+                  borderColor: '#555',
+                  '&:hover': {
+                    backgroundColor: '#333'
+                  },
+                  '&.Mui-selected': {
+                    backgroundColor: '#1976d2',
+                    color: '#fff'
+                  }
+                }
+              }}
+            />
+          </Box>
+        )}
       </Paper>
 
       {/* 항목 추가/수정 다이얼로그 */}
@@ -1135,7 +1221,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                 />
               </Box>
               <Autocomplete
-                options={['노무비', '경비', 'RnD', '기타']}
+                options={['노무비', '경비', 'RnD', '스카이', '장비', '자재비', '운반비', '임대료', '유류비', '식대', '지게차', '월세', '기타']}
                 value={form.itemType ?? ''}
                 onChange={(event, newValue) => {
                   console.log('항목 변경:', newValue);
