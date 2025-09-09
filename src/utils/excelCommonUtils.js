@@ -101,38 +101,42 @@ export const setCellValueSafely = (cell, value) => {
   try {
     if (!cell) return;
     
+    // undefined, null 값 처리
+    if (value === null || value === undefined) {
+      cell.value = '';
+      return;
+    }
+    
     // [object Object] 완전 방지
-    if (value !== null && value !== undefined) {
-      if (typeof value === 'object') {
-        let safeValue = '';
-        try {
-          if (value.toString && value.toString() !== '[object Object]') {
-            safeValue = value.toString();
-          } else if (value.name) {
-            safeValue = value.name;
-          } else if (value.text) {
-            safeValue = value.text;
-          } else if (value.value) {
-            safeValue = value.value;
-          } else {
-            safeValue = JSON.stringify(value);
-          }
-          
-          // [object Object]가 포함된 경우 안전한 값으로 교체
-          if (safeValue.includes('[object Object]') || safeValue.includes('[object ')) {
-            safeValue = '데이터오류';
-          }
-          
-          value = safeValue;
-        } catch (stringifyError) {
-          value = '데이터오류';
+    if (typeof value === 'object') {
+      let safeValue = '';
+      try {
+        if (value.toString && value.toString() !== '[object Object]') {
+          safeValue = value.toString();
+        } else if (value.name) {
+          safeValue = value.name;
+        } else if (value.text) {
+          safeValue = value.text;
+        } else if (value.value) {
+          safeValue = value.value;
+        } else {
+          safeValue = JSON.stringify(value);
         }
-      }
-      
-      // 문자열에 [object Object] 포함된 경우 처리
-      else if (typeof value === 'string' && value.includes('[object Object]')) {
+        
+        // [object Object]가 포함된 경우 안전한 값으로 교체
+        if (safeValue && (safeValue.includes('[object Object]') || safeValue.includes('[object '))) {
+          safeValue = '데이터오류';
+        }
+        
+        value = safeValue || '';
+      } catch (stringifyError) {
         value = '데이터오류';
       }
+    }
+    
+    // 문자열에 [object Object] 포함된 경우 처리
+    else if (typeof value === 'string' && value.includes('[object Object]')) {
+      value = '데이터오류';
     }
     
     // 셀 값 설정
@@ -177,19 +181,19 @@ export const filterMaterialItems = (materialItems) => {
       return true;
     }
     
-    // 총계, 부가세, 계약금액 관련 항목 제외
+    // 소계, 총계, 부가세, 계약금액 관련 항목만 제외 (구분자는 포함)
     const isTotalItem = name.includes('총공사계') || name.includes('총 공사계') || 
                        name.includes('부가세') || name.includes('계약금액') ||
                        name.includes('합계') || name.includes('소계') ||
                        item.isTotal || item.isVat || item.isTotalWithVat;
     
-    // 실제 물량 데이터만 포함 (단수정리 제외한 총계 항목들)
+    // 구분자 항목은 포함하고, 소계/총계 항목만 제외
     const shouldInclude = !isTotalItem;
     
     if (shouldInclude) {
       console.log(`✅ 물량 데이터 포함: ${name}`);
     } else {
-      console.log(`❌ 총계 항목 제외: ${name}`);
+      console.log(`❌ 항목 제외: ${name} (총계/소계 항목)`);
     }
     
     return shouldInclude;
@@ -328,30 +332,26 @@ export const fillEstimateStyleData = (sheet, materialItems, startRow = 5, sheetN
         
         // 단수정리 특별 처리
         if (item?.name === '단수정리') {
-          console.log(`🔧 ${row}행 단수정리 특별 처리`);
+          console.log(`🔧 ${row}행 단수정리 특별 처리 (기성금청구서 방식)`);
           
-          // 단수정리의 경우 수량을 그대로 유지 (음수 값도 허용)
-          const quantity = item.quantity || item.qty || 0;
-          console.log(`📊 단수정리 수량: ${quantity}`);
+          // 기성금청구서 방식: amount/quantity로 단가 계산
+          const totalAmount = item.amount && item.quantity ? item.amount / item.quantity : 0;
+          console.log(`📊 단수정리 단가 계산: ${item.amount} / ${item.quantity} = ${totalAmount}`);
           
-          // 단수정리도 일반 물량 데이터와 마찬가지로 단가 정보 입력
-          // E열: 재료비단가 (JE프라이스)
-          const jePrice = getSafePrice(item, 'JE');
-          setCellValueSafely(sheet.getCell(`E${row}`), jePrice);
+          // E열: 재료비단가 (기성금청구서 방식으로 계산된 단가 사용)
+          setCellValueSafely(sheet.getCell(`E${row}`), totalAmount);
           
-          // G열: 노무비단가 (NO프라이스)
-          const noPrice = getSafePrice(item, 'NO');
-          setCellValueSafely(sheet.getCell(`G${row}`), noPrice);
+          // G열: 노무비단가 (0으로 설정)
+          setCellValueSafely(sheet.getCell(`G${row}`), 0);
           
-          // I열: 경비단가 (KY프라이스)
-          const kyPrice = getSafePrice(item, 'KY');
-          setCellValueSafely(sheet.getCell(`I${row}`), kyPrice);
+          // I열: 경비단가 (0으로 설정)
+          setCellValueSafely(sheet.getCell(`I${row}`), 0);
           
           // K열: 수식 유지 (건드리지 않음) - E+G+I
           console.log(`📝 ${row}행 K열 수식 유지: E+G+I`);
           
           // F, H, J, L열은 수식 유지 (건드리지 않음)
-          console.log(`✅ ${row}행 단수정리 완료: 수량(${quantity}), 단가정보 입력 완료`);
+          console.log(`✅ ${row}행 단수정리 완료: 기성금청구서 방식 적용`);
         } else {
           // 일반 물량 데이터 처리
           
@@ -382,8 +382,8 @@ export const fillEstimateStyleData = (sheet, materialItems, startRow = 5, sheetN
           // L열: 수식 유지 (건드리지 않음) - D*K
           console.log(`📝 ${row}행 L열 수식 유지: D*K`);
           
-          // M열: 비고
-          sheet.getCell(`M${row}`).value = item.note || item.remark || '';
+          // M열: 비고 (비워둠)
+          sheet.getCell(`M${row}`).value = '';
           
           console.log(`✅ ${row}행 물량데이터 입력 완료 (수식 유지)`);
         }
@@ -448,28 +448,28 @@ export const fillContractStyleData = (sheet, materialItems, startRow = 5, sheetN
         dCell.value = Number(item.quantity || item.qty || 0).toFixed(2);
         dCell.alignment = { horizontal: 'right' };
         
-        // 단수정리 특별 처리
+        // 단수정리 특별 처리 (기성금청구서 방식 적용)
         if (item?.name === '단수정리') {
-          console.log(`🔧 ${row}행 단수정리 특별 처리`);
+          console.log(`🔧 ${row}행 단수정리 특별 처리 (기성금청구서 방식)`);
           
-          // 단수정리도 일반 물량 데이터와 마찬가지로 단가 정보 입력
-          // E열: 재료비단가 (JE프라이스)
-          const jePrice = getSafePrice(item, 'JE');
-          setCellValueSafely(sheet.getCell(`E${row}`), jePrice);
+          // 기성금청구서 방식: amount/quantity로 단가 계산
+          const totalAmount = item.amount && item.quantity ? item.amount / item.quantity : 0;
+          console.log(`📊 단수정리 단가 계산: ${item.amount} / ${item.quantity} = ${totalAmount}`);
           
-          // G열: 노무비단가 (NO프라이스)
-          const noPrice = getSafePrice(item, 'NO');
-          setCellValueSafely(sheet.getCell(`G${row}`), noPrice);
+          // E열: 재료비단가 (기성금청구서 방식으로 계산된 단가 사용)
+          setCellValueSafely(sheet.getCell(`E${row}`), totalAmount);
           
-          // I열: 경비단가 (KY프라이스)
-          const kyPrice = getSafePrice(item, 'KY');
-          setCellValueSafely(sheet.getCell(`I${row}`), kyPrice);
+          // G열: 노무비단가 (0으로 설정)
+          setCellValueSafely(sheet.getCell(`G${row}`), 0);
+          
+          // I열: 경비단가 (0으로 설정)
+          setCellValueSafely(sheet.getCell(`I${row}`), 0);
           
           // K열: 수식 유지 (건드리지 않음) - E+G+I
           console.log(`📝 ${row}행 K열 수식 유지: E+G+I`);
           
           // F, H, J, L열은 수식 유지 (건드리지 않음)
-          console.log(`✅ ${row}행 단수정리 완료: 단가정보 입력 완료`);
+          console.log(`✅ ${row}행 단수정리 완료: 기성금청구서 방식 적용`);
         } else {
           // 일반 물량 데이터 처리
           
@@ -500,8 +500,8 @@ export const fillContractStyleData = (sheet, materialItems, startRow = 5, sheetN
           // L열: 수식 유지 (건드리지 않음) - D*K
           console.log(`📝 ${row}행 L열 수식 유지: D*K`);
           
-          // M열: 비고
-          sheet.getCell(`M${row}`).value = item.note || item.remark || '';
+          // M열: 비고 (비워둠)
+          sheet.getCell(`M${row}`).value = '';
           
           console.log(`✅ ${row}행 물량데이터 입력 완료 (수식 유지)`);
         }
@@ -557,18 +557,27 @@ export const fillGisungStyleData = (sheet, materialItems, startRow = 6, sheetNam
       const rowNumber = index + startRow;
       
       try {
-        // 단수정리 항목 특별 처리
-        let unitPrice = item.price || item.unitPrice || 0;
+        // 단가 계산 (기성금청구서용)
+        let unitPrice = 0;
+        
         if (item?.name === '단수정리') {
           console.log(`🔧 기성금청구서 단수정리 특별 처리 (${rowNumber}행)`);
-          // 단수정리의 경우 unitPrice 또는 JEprice 사용
-          unitPrice = item.unitPrice || item.JEprice || item.price || 0;
-          console.log(`📊 단수정리 단가: ${unitPrice} (unitPrice: ${item.unitPrice}, JEprice: ${item.JEprice}, price: ${item.price})`);
+          // 단수정리의 경우 amount/quantity로 계산
+          unitPrice = item.amount && item.quantity ? item.amount / item.quantity : 0;
+          console.log(`📊 단수정리 단가: ${unitPrice} (amount: ${item.amount}, quantity: ${item.quantity})`);
+        } else {
+          // 일반 항목의 경우 amount/quantity로 계산하거나 기존 단가 사용
+          if (item.amount && item.quantity && item.quantity > 0) {
+            unitPrice = item.amount / item.quantity;
+          } else {
+            unitPrice = item.price || item.unitPrice || 0;
+          }
+          console.log(`📊 일반 항목 단가: ${unitPrice} (amount: ${item.amount}, quantity: ${item.quantity}, price: ${item.price}, unitPrice: ${item.unitPrice})`);
         }
         
         const cells = [
-          { col: 1, value: item?.name || '' }, // A열: 품명
-          { col: 2, value: item.specification || '' }, // B열: 규격
+          { col: 1, value: item.specification || '' }, // A열: 규격
+          { col: 2, value: item?.name || '' }, // B열: 품명
           { col: 3, value: item.unit || '' }, // C열: 단위
           { col: 4, value: item.quantity || 0 }, // D열: 수량
           { col: 5, value: unitPrice } // E열: 단가
@@ -584,27 +593,8 @@ export const fillGisungStyleData = (sheet, materialItems, startRow = 6, sheetNam
       }
     }
     
-    // 단수정리 항목 처리
-    const dansooItem = materialItems.find(item => item?.name === '단수정리');
-    if (dansooItem) {
-      try {
-        const summaryStartRow = materialItems.length <= 20 ? 26 : 51;
-        const cells = [
-          { col: 1, value: dansooItem?.name || '' }, // A열: 품명
-          { col: 2, value: dansooItem.specification || '' }, // B열: 규격
-          { col: 3, value: dansooItem.unit || '' }, // C열: 단위
-          { col: 4, value: dansooItem.quantity || 0 }, // D열: 수량
-          { col: 5, value: dansooItem.price || 0 } // E열: 단가
-        ];
-        cells.forEach(({ col, value }) => {
-          const cell = sheet.getCell(summaryStartRow, col);
-          cell.value = value;
-        });
-        console.log(`✅ 단수정리 항목 입력 완료: 행 ${summaryStartRow}`);
-      } catch (e) {
-        console.warn('⚠️ 단수정리 항목 입력 실패:', e.message);
-      }
-    }
+    // 단수정리 항목은 이미 일반 물량 데이터와 함께 처리되었으므로 별도 처리하지 않음
+    console.log('📋 단수정리 항목은 일반 물량 데이터와 함께 처리됨');
     
     console.log(`✅ ${sheetName} 스타일 물량 데이터 입력 완료`);
     

@@ -16,7 +16,7 @@ export const createNapfoomContract = async (siteData, materialItems = [], fileNa
   try {
     console.log('📋 NAPFOOM 납품계약서 생성 시작...', { siteData, materialItems });
     
-        // Firebase Storage에서 템플릿 다운로드 (물량 타입에 따라 다른 템플릿 사용)
+    // Firebase Storage에서 템플릿 다운로드 (물량 타입에 따라 다른 템플릿 사용)
     // 물량 개수에 따른 템플릿 타입 자동 결정
     const itemCount = materialItems?.length || 0;
     
@@ -42,134 +42,63 @@ export const createNapfoomContract = async (siteData, materialItems = [], fileNa
     console.log(`🔗 실제 요청할 URL: ${templateUrl}`);
     
     const response = await fetch(templateUrl);
+    if (!response.ok) {
+      console.error(`❌ L 타입 템플릿 다운로드 실패: HTTP ${response.status} ${response.statusText}`);
+      console.error(`❌ 요청 URL: ${templateUrl}`);
+      throw new Error(`L 타입 템플릿 파일을 찾을 수 없습니다. HTTP error! status: ${response.status}`);
+    }
     const arrayBuffer = await response.arrayBuffer();
+    console.log(`✅ L 타입 템플릿 다운로드 완료: ${arrayBuffer.byteLength} bytes`);
     
-    // 템플릿 로드 (공유셀 완전 무시 - 수식까지 무시하고 로드)
+    // 템플릿 로드 (간단한 방식)
     const workbook = new ExcelJS.Workbook();
     try {
-      console.log('📥 NAPFOOM 템플릿 로드 시작 (수식 무시 모드)...');
-      // 수식까지 무시하고 로드하여 Shared Formula 문제 완전 회피
-      await workbook.xlsx.load(arrayBuffer, {
-        sharedFormula: false,
-        ignoreSharedFormulas: true,
-        ignoreFormulas: true,  // 수식 무시
-        ignoreFormulaErrors: true,
-        ignoreStyles: false,
-        ignoreDataValidations: false,
-        ignoreConditionalFormats: false,
-        ignoreNodes: ['sharedFormula', 'si', 'ref', 'sharedFormulas', 'sharedFormulaRef', 'sharedFormulaMaster', 'formula'],
-        ignoreElements: ['sharedFormula', 'si', 'ref', 'sharedFormulas', 'sharedFormulaRef', 'sharedFormulaMaster', 'formula']
-      });
-      console.log('✅ 수식 무시 모드로 NAPFOOM 템플릿 로드 성공');
+      console.log(`📥 NAPFOOM ${templateType} 타입 템플릿 로드 시작...`);
+      
+      // 템플릿 로드 (옵션 없이 순수하게 로드)
+      await workbook.xlsx.load(arrayBuffer);
+      
+      console.log(`✅ ${templateType} 타입 NAPFOOM 템플릿 로드 성공`);
     } catch (loadError) {
-      console.error('❌ NAPFOOM 템플릿 로드 실패:', loadError.message);
-      throw new Error(`NAPFOOM 템플릿 로드 실패: ${loadError.message}`);
+      console.error(`❌ ${templateType} 타입 NAPFOOM 템플릿 로드 실패:`, loadError.message);
+      console.error('❌ 로드 오류 상세:', loadError);
+      
+      // 대체 방법으로 다시 시도
+      try {
+        console.log('🔄 대체 방법으로 템플릿 로드 재시도...');
+        await workbook.xlsx.load(arrayBuffer);
+        console.log('✅ 대체 방법으로 로드 성공');
+      } catch (fallbackError) {
+        console.error('❌ 대체 방법도 실패:', fallbackError.message);
+        throw new Error(`${templateType} 타입 NAPFOOM 템플릿 로드 실패: ${loadError.message}`);
+      }
     }
     
-    // 수식 무시 모드로 로드했으므로 F열 재생성 불필요
-    console.log('✅ 수식 무시 모드로 로드하여 F열 재생성 불필요');
+    // 템플릿은 그대로 두고 데이터만 입력
+    console.log('✅ 템플릿 로드 완료 - 데이터 입력 준비');
     
-    // Shared Formula 문제만 해결 (수식은 보존)
-    fixNapfoomSharedFormulaIssues(workbook);
-    console.log('✅ Shared Formula 문제 해결 완료 (수식 보존)');
+    // L타입의 경우 공유수식 완전 제거 (H6 오류 방지)
+    if (templateType === 'L') {
+      console.log('🔧 L타입 공유수식 완전 제거 시작...');
+      removeAllSharedFormulasCompletely(workbook);
+      console.log('✅ L타입 공유수식 완전 제거 완료');
+    }
     
     // 데이터 입력
+    console.log('📝 데이터 입력 시작');
     await fillNapfoomData(workbook, siteData, materialItems);
+    console.log('✅ 데이터 입력 완료');
     
-    // 데이터 입력 후 수식 재설정 (더 안전함)
-    try {
-      console.log('🔧 NAPFOOM 데이터 입력 후 수식 재설정 시작...');
-      workbook.worksheets.forEach(sheet => {
-        console.log(`🔧 ${sheet?.name} 시트 수식 재설정 중...`);
-        // F, H, J, K, L열에 필요한 수식들 재설정 (5행부터 100행까지)
-        for (let row = 5; row <= 100; row++) {
-          try {
-            // F열: D*E
-            const fCell = sheet.getCell(`F${row}`);
-            if (fCell) {
-              fCell.formula = `D${row}*E${row}`;
-            }
-            
-            // H열: D*G
-            const hCell = sheet.getCell(`H${row}`);
-            if (hCell) {
-              hCell.formula = `D${row}*G${row}`;
-            }
-            
-            // J열: D*I
-            const jCell = sheet.getCell(`J${row}`);
-            if (jCell) {
-              jCell.formula = `D${row}*I${row}`;
-            }
-            
-            // K열: E+G+I
-            const kCell = sheet.getCell(`K${row}`);
-            if (kCell) {
-              kCell.formula = `E${row}+G${row}+I${row}`;
-            }
-            
-            // L열: D*K
-            const lCell = sheet.getCell(`L${row}`);
-            if (lCell) {
-              lCell.formula = `D${row}*K${row}`;
-            }
-          } catch (cellError) {
-            // 일부 셀이 존재하지 않을 수 있음 - 무시
-          }
-        }
-        console.log(`✅ ${sheet?.name} 시트 수식 재설정 완료`);
-      });
-      console.log('✅ NAPFOOM 데이터 입력 후 수식 재설정 완료');
-    } catch (formulaError) {
-      console.warn('⚠️ 수식 재설정 실패:', formulaError.message);
+    // L타입의 경우 수식 재설정
+    if (templateType === 'L') {
+      console.log('🔧 L타입 개별 수식 재설정 시작...');
+      resetFormulasIndividually(workbook);
+      console.log('✅ L타입 개별 수식 재설정 완료');
     }
     
-    // 파일 생성 전 최종 Shared Formula 체크 및 정리
-    console.log('🔍 파일 생성 전 최종 Shared Formula 체크 시작...');
-    try {
-      workbook.worksheets.forEach(sheet => {
-        let finalCheckCount = 0;
-        sheet.eachRow((row, rowNumber) => {
-          row.eachCell((cell, colNumber) => {
-            try {
-              if (cell.sharedFormula !== undefined || cell.si !== undefined || cell.ref !== undefined) {
-                const colName = String.fromCharCode(64 + colNumber);
-                console.log(`🔧 최종 체크: ${colName}${rowNumber} 셀 Shared Formula 정리`);
-                
-                if (cell.sharedFormula !== undefined) delete cell.sharedFormula;
-                if (cell.si !== undefined) delete cell.si;
-                if (cell.ref !== undefined) delete cell.ref;
-                
-                finalCheckCount++;
-              }
-            } catch (finalError) {
-              // 개별 셀 오류는 무시
-            }
-          });
-        });
-        
-        if (finalCheckCount > 0) {
-          console.log(`✅ ${sheet?.name} 시트 최종 정리 완료: ${finalCheckCount}개 셀`);
-        }
-      });
-      console.log('✅ 파일 생성 전 최종 Shared Formula 체크 완료');
-    } catch (finalCheckError) {
-      console.warn('⚠️ 최종 Shared Formula 체크 중 오류:', finalCheckError.message);
-    }
-    
-    // 파일 생성 및 다운로드 (수식 보존 강제)
+    // 파일 생성 및 다운로드 (옵션 없이 순수하게)
     console.log('💾 파일 생성 중...');
-    const buffer = await workbook.xlsx.writeBuffer({
-      sharedFormula: false,
-      ignoreFormulas: false,  // 수식 보존 강제
-      ignoreSharedFormulas: true,
-      ignoreStyles: false,
-      ignoreDataValidations: false,
-      ignoreConditionalFormats: false,
-      ignoreMacros: false,
-      ignorePictures: false,
-      ignoreCharts: false
-    });
+    const buffer = await workbook.xlsx.writeBuffer();
     console.log('📦 버퍼 생성 완료 (수식 보존), 크기:', buffer.byteLength);
     
     const blob = new Blob([buffer], { 
@@ -220,100 +149,7 @@ export const createNapfoomContract = async (siteData, materialItems = [], fileNa
   }
 };
 
-/**
- * NAPFOOM Shared Formula 문제 해결 함수 (수식 보존)
- * @param {ExcelJS.Workbook} workbook - 워크북
- */
-const fixNapfoomSharedFormulaIssues = (workbook) => {
-  try {
-    console.log('🔧 NAPFOOM Shared Formula 문제 해결 시작');
-    
-    workbook.worksheets.forEach(sheet => {
-      console.log(`🔧 ${sheet?.name} 시트 Shared Formula 문제 해결`);
-      
-      // 모든 셀에서 Shared Formula 속성 제거 (개별 셀 지정 방식 제거)
-      console.log(`🔍 ${sheet?.name} 시트 전체 Shared Formula 속성 제거 시작...`);
-      let removedCount = 0;
-      
-      // 모든 셀을 스캔하여 Shared Formula 속성 제거
-      for (let row = 1; row <= 100; row++) { // 100행까지 스캔
-        for (let col = 1; col <= 26; col++) { // A-Z 열까지 스캔
-          try {
-            const cell = sheet.getCell(row, col);
-            if (cell) {
-              let hasRemoved = false;
-              
-              // Shared Formula 관련 속성 제거
-              if (cell.sharedFormula !== undefined) {
-                delete cell.sharedFormula;
-                hasRemoved = true;
-              }
-              if (cell.si !== undefined) {
-                delete cell.si;
-                hasRemoved = true;
-              }
-              if (cell.ref !== undefined) {
-                delete cell.ref;
-                hasRemoved = true;
-              }
-              
-              // 수식에 si 참조가 포함된 경우 정리
-              if (cell.formula && typeof cell.formula === 'string' && cell.formula.includes('si=')) {
-                cell.formula = cell.formula.replace(/si=\d+/g, '');
-                hasRemoved = true;
-              }
-              
-              if (hasRemoved) {
-                const colName = String.fromCharCode(64 + col);
-                console.log(`🔧 ${colName}${row} 셀 Shared Formula 속성 제거`);
-                removedCount++;
-              }
-            }
-          } catch (scanError) {
-            // 개별 셀 스캔 오류는 무시하고 계속 진행
-          }
-        }
-      }
-      
-      if (removedCount > 0) {
-        console.log(`✅ ${sheet?.name} 시트 Shared Formula 속성 제거 완료: ${removedCount}개 셀`);
-      }
-      
-      // 추가: 모든 셀을 스캔하여 Shared Formula 문제 자동 감지 및 처리
-      console.log(`🔍 ${sheet?.name} 시트 전체 Shared Formula 문제 자동 스캔 시작...`);
-      let autoFixedCount = 0;
-      
-      for (let row = 1; row <= 100; row++) { // 100행까지 스캔
-        for (let col = 1; col <= 26; col++) { // A-Z 열까지 스캔
-          try {
-            const cell = sheet.getCell(row, col);
-            if (cell && (cell.sharedFormula !== undefined || cell.si !== undefined || cell.ref !== undefined)) {
-              const colName = String.fromCharCode(64 + col); // 1=A, 2=B, ...
-              console.log(`🔧 자동 감지: ${colName}${row} 셀 Shared Formula 문제 발견`);
-              
-              // Shared Formula 관련 속성 제거
-              if (cell.sharedFormula !== undefined) delete cell.sharedFormula;
-              if (cell.si !== undefined) delete cell.si;
-              if (cell.ref !== undefined) delete cell.ref;
-              
-              autoFixedCount++;
-            }
-          } catch (scanError) {
-            // 개별 셀 스캔 오류는 무시하고 계속 진행
-          }
-        }
-      }
-      
-      if (autoFixedCount > 0) {
-        console.log(`✅ ${sheet?.name} 시트 자동 수정 완료: ${autoFixedCount}개 셀`);
-      }
-    });
-    
-    console.log('✅ NAPFOOM Shared Formula 문제 해결 완료');
-  } catch (error) {
-    console.warn('⚠️ NAPFOOM Shared Formula 문제 해결 중 오류:', error.message);
-  }
-};
+
 
 /**
  * 모든 공유수식 제거 (기존 함수 유지)
@@ -749,3 +585,132 @@ export const downloadNapfoomContract = async (site, materialItems = []) => {
     throw error;
   }
 };
+
+/**
+ * 모든 공유수식 완전 제거
+ * @param {ExcelJS.Workbook} workbook - 워크북
+ */
+const removeAllSharedFormulasCompletely = (workbook) => {
+  try {
+    console.log('🧹 공유수식 완전 제거 중...');
+    
+    workbook.worksheets.forEach((worksheet, sheetIndex) => {
+      console.log(`🔧 시트 ${sheetIndex + 1}: ${worksheet.name} 처리 중...`);
+      
+      // 모든 셀을 순회하면서 공유수식 제거
+      worksheet.eachRow((row, rowNumber) => {
+        row.eachCell((cell, colNumber) => {
+          try {
+            // 공유수식 관련 속성 완전 제거
+            if (cell.sharedFormula) {
+              console.log(`🔧 ${rowNumber}행 ${colNumber}열 공유수식 제거: ${cell.sharedFormula}`);
+              delete cell.sharedFormula;
+            }
+            
+            if (cell.si !== undefined) {
+              delete cell.si;
+            }
+            
+            if (cell.ref) {
+              delete cell.ref;
+            }
+            
+            if (cell.sharedFormulaMaster) {
+              delete cell.sharedFormulaMaster;
+            }
+            
+            if (cell.sharedFormulaRef) {
+              delete cell.sharedFormulaRef;
+            }
+            
+            // 수식이 있으면 개별 수식으로 변환
+            if (cell.formula) {
+              const formula = cell.formula.toString();
+              if (formula.includes('shared') || formula.includes('undefined')) {
+                console.log(`🔧 ${rowNumber}행 ${colNumber}열 문제 있는 수식 제거: ${formula}`);
+                delete cell.formula;
+                cell.value = 0; // 기본값으로 설정
+              }
+            }
+          } catch (cellError) {
+            console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 처리 실패:`, cellError.message);
+          }
+        });
+      });
+      
+      // 시트 레벨 공유수식 정보도 완전 제거
+      if (worksheet.sharedFormulas) {
+        delete worksheet.sharedFormulas;
+      }
+      if (worksheet._sharedFormulas) {
+        delete worksheet._sharedFormulas;
+      }
+      
+      console.log(`✅ 시트 ${sheetIndex + 1}: ${worksheet.name} 공유수식 제거 완료`);
+    });
+    
+    console.log('✅ 모든 공유수식 완전 제거 완료');
+  } catch (error) {
+    console.error('❌ 공유수식 제거 실패:', error);
+  }
+};
+
+/**
+ * 개별 수식 재설정
+ * @param {ExcelJS.Workbook} workbook - 워크북
+ */
+const resetFormulasIndividually = (workbook) => {
+  try {
+    console.log('🔧 개별 수식 재설정 중...');
+    
+    workbook.worksheets.forEach((worksheet, sheetIndex) => {
+      // 내역서 시트(인덱스 2)에서만 수식 재설정
+      if (sheetIndex === 2) {
+        console.log(`🔧 ${worksheet.name} 시트 수식 재설정 중...`);
+        
+        // F, H, J, K, L열에 필요한 수식들 재설정 (5행부터 100행까지)
+        for (let row = 5; row <= 100; row++) {
+          try {
+            // F열: D*E (재료비 금액)
+            const fCell = worksheet.getCell(`F${row}`);
+            if (fCell && !fCell.formula) {
+              fCell.formula = `D${row}*E${row}`;
+            }
+            
+            // H열: D*G (노무비 금액)
+            const hCell = worksheet.getCell(`H${row}`);
+            if (hCell && !hCell.formula) {
+              hCell.formula = `D${row}*G${row}`;
+            }
+            
+            // J열: D*I (경비 금액)
+            const jCell = worksheet.getCell(`J${row}`);
+            if (jCell && !jCell.formula) {
+              jCell.formula = `D${row}*I${row}`;
+            }
+            
+            // K열: E+G+I (합계 단가)
+            const kCell = worksheet.getCell(`K${row}`);
+            if (kCell && !kCell.formula) {
+              kCell.formula = `E${row}+G${row}+I${row}`;
+            }
+            
+            // L열: D*K (합계 금액)
+            const lCell = worksheet.getCell(`L${row}`);
+            if (lCell && !lCell.formula) {
+              lCell.formula = `D${row}*K${row}`;
+            }
+          } catch (cellError) {
+            // 일부 셀이 존재하지 않을 수 있음 - 무시
+          }
+        }
+        console.log(`✅ ${worksheet.name} 시트 수식 재설정 완료`);
+      }
+    });
+    
+    console.log('✅ 개별 수식 재설정 완료');
+  } catch (error) {
+    console.error('❌ 수식 재설정 실패:', error);
+  }
+};
+

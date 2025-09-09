@@ -29,9 +29,12 @@ import {
   LocationOn as LocationIcon,
   CalendarToday as CalendarIcon,
   People as PeopleIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
+import { generateDocumentExcel } from '../utils/materialUploadUtils';
+import { templateUrls } from '../utils/templateUrls';
 
 const ConstructionStatus = () => {
   const [sites, setSites] = useState([]);
@@ -271,6 +274,35 @@ const ConstructionStatus = () => {
         return '대기중';
       default:
         return status;
+    }
+  };
+
+  // 견적서 다운로드 함수
+  const handleDownloadEstimate = async (site) => {
+    try {
+      console.log('📋 견적서 다운로드 시작:', site.name);
+      
+      // 현장 데이터를 견적서 형식으로 변환
+      const estimateData = {
+        siteName: site.name || '현장명',
+        company: site.company || '회사명',
+        manager: site.manager || '현장소장',
+        address: site.location || '주소',
+        contractAmount: site.contractAmount || site.budget || 0,
+        startDate: site.startDate || '',
+        endDate: site.endDate || '',
+        description: site.description || '현장 설명',
+        status: site.status || 'pending'
+      };
+
+      // 견적서 템플릿 사용하여 엑셀 생성
+      const fileName = `${site.name}_견적서.xlsx`;
+      await generateDocumentExcel(estimateData, templateUrls.estimate, fileName);
+      
+      console.log('✅ 견적서 다운로드 완료:', fileName);
+    } catch (error) {
+      console.error('견적서 다운로드 오류:', error);
+      setError('견적서 다운로드 중 오류가 발생했습니다: ' + error.message);
     }
   };
 

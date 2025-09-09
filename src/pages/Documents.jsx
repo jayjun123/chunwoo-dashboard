@@ -68,6 +68,7 @@ const Documents = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [open, setOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const [previewDoc, setPreviewDoc] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
@@ -76,6 +77,9 @@ const Documents = () => {
     description: '',
     file: null,
   });
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
+  const [previewFileUrl, setPreviewFileUrl] = useState(null);
 
   // 문서 목록 로드
   useEffect(() => {
@@ -155,6 +159,16 @@ const Documents = () => {
       description: '',
       file: null,
     });
+    // 미리보기 URL 정리
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    if (previewFileUrl) {
+      URL.revokeObjectURL(previewFileUrl);
+      setPreviewFileUrl(null);
+    }
+    setPreviewFile(null);
   };
 
   const handleFileChange = (e) => {
@@ -166,6 +180,22 @@ const Documents = () => {
         return;
       }
       setFormData({ ...formData, file });
+    }
+  };
+
+  const handlePreviewFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // 파일 크기 제한 (50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        setSnackbar({ open: true, message: '파일 크기는 50MB 이하여야 합니다.', severity: 'error' });
+        return;
+      }
+      setPreviewFile(file);
+      
+      // 미리보기 URL 생성
+      const url = URL.createObjectURL(file);
+      setPreviewFileUrl(url);
     }
   };
 
@@ -195,6 +225,7 @@ const Documents = () => {
       let fileUrl = selectedDoc?.fileUrl;
       let fileName = selectedDoc?.fileName;
       let fileSize = selectedDoc?.fileSize;
+      let previewFileUrl = selectedDoc?.previewFileUrl;
 
       // 새 파일 업로드
       if (formData.file) {
@@ -234,6 +265,35 @@ const Documents = () => {
         }
       }
 
+      // 미리보기 파일 업로드
+      if (previewFile) {
+        const timestamp = Date.now();
+        const previewFileNameWithTimestamp = `${timestamp}_preview_${previewFile.name}`;
+        const previewStorageRef = ref(storage, `documents/${previewFileNameWithTimestamp}`);
+        
+        const previewMetadata = {
+          customMetadata: {
+            uploadedBy: currentUser?.uid || 'anonymous',
+            uploadedAt: new Date().toISOString(),
+            originalName: previewFile.name,
+            type: 'preview'
+          }
+        };
+
+        const previewSnapshot = await uploadBytes(previewStorageRef, previewFile, previewMetadata);
+        previewFileUrl = await getDownloadURL(previewSnapshot.ref);
+
+        // 기존 미리보기 파일 삭제 (수정 시)
+        if (selectedDoc?.previewFileUrl) {
+          try {
+            const oldPreviewFileRef = ref(storage, selectedDoc.previewFileUrl);
+            await deleteObject(oldPreviewFileRef);
+          } catch (error) {
+            console.warn('기존 미리보기 파일 삭제 실패:', error);
+          }
+        }
+      }
+
       const documentData = {
         title: formData.title.trim(),
         category: formData.category,
@@ -241,6 +301,7 @@ const Documents = () => {
         fileUrl,
         fileName,
         fileSize,
+        previewFileUrl,
         updatedAt: serverTimestamp(),
         updatedBy: currentUser?.uid || 'anonymous',
       };
@@ -258,6 +319,11 @@ const Documents = () => {
       }
 
       setUploadProgress(100);
+      // 미리보기 URL 정리
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
       handleClose();
       loadDocuments();
     } catch (error) {
@@ -306,6 +372,151 @@ const Documents = () => {
       console.error('다운로드 실패:', error);
       setSnackbar({ open: true, message: '다운로드에 실패했습니다.', severity: 'error' });
     }
+  };
+
+  const handlePreview = (doc) => {
+    setPreviewDoc(doc);
+  };
+
+  const getFileIcon = (fileName) => {
+    if (!fileName) return <DescriptionIcon />;
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return <DescriptionIcon sx={{ color: '#f44336' }} />;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return <DescriptionIcon sx={{ color: '#4caf50' }} />;
+      case 'doc':
+      case 'docx':
+        return <DescriptionIcon sx={{ color: '#2196f3' }} />;
+      case 'xls':
+      case 'xlsx':
+        return <DescriptionIcon sx={{ color: '#4caf50' }} />;
+      default:
+        return <DescriptionIcon sx={{ color: '#90caf9' }} />;
+    }
+  };
+
+  const renderPreview = () => {
+    if (!previewDoc) {
+      return (
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          height: '100%',
+          color: '#ccc',
+          textAlign: 'center',
+          p: 3
+        }}>
+          <Box>
+            <DescriptionIcon sx={{ fontSize: 64, color: '#666', mb: 2 }} />
+            <Typography variant="h6" sx={{ color: '#ccc' }}>
+              문서를 선택하면 미리보기가 표시됩니다
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#888', mt: 1 }}>
+              왼쪽 목록에서 문서를 클릭하세요
+            </Typography>
+          </Box>
+        </Box>
+      );
+    }
+
+    // 미리보기 파일이 있으면 미리보기 파일을 사용, 없으면 원본 파일 사용
+    const displayUrl = previewDoc.previewFileUrl || previewDoc.fileUrl;
+    const isImage = previewDoc.fileName && /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(previewDoc.fileName);
+    const isPdf = previewDoc.fileName && previewDoc.fileName.toLowerCase().endsWith('.pdf');
+
+    return (
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {/* 미리보기 영역만 표시 */}
+        <Box sx={{ flex: 1, overflow: 'auto', bgcolor: '#1a1a1a', borderRadius: '8px' }}>
+          {previewDoc.previewFileUrl ? (
+            // 미리보기 파일이 있는 경우
+            <Box sx={{ 
+              textAlign: 'center', 
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              p: 2
+            }}>
+              <img
+                src={previewDoc.previewFileUrl}
+                alt={previewDoc.title}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                }}
+              />
+            </Box>
+          ) : isImage ? (
+            // 미리보기 파일이 없고 원본이 이미지인 경우
+            <Box sx={{ 
+              textAlign: 'center', 
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              p: 2
+            }}>
+              <img
+                src={previewDoc.fileUrl}
+                alt={previewDoc.title}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                }}
+              />
+            </Box>
+          ) : isPdf ? (
+            // PDF 파일인 경우
+            <Box sx={{ height: '100%' }}>
+              <iframe
+                src={previewDoc.fileUrl}
+                width="100%"
+                height="100%"
+                style={{ border: 'none', borderRadius: '8px' }}
+                title={previewDoc.title}
+              />
+            </Box>
+          ) : (
+            // 미리보기를 지원하지 않는 파일 형식
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              height: '100%',
+              flexDirection: 'column',
+              gap: 2,
+              p: 3
+            }}>
+              {getFileIcon(previewDoc.fileName)}
+              <Typography variant="h6" sx={{ color: '#ccc' }}>
+                미리보기를 지원하지 않는 파일 형식입니다
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={() => handleDownload(previewDoc)}
+                sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#45a049' } }}
+              >
+                다운로드
+              </Button>
+            </Box>
+          )}
+        </Box>
+      </Box>
+    );
   };
 
   const categories = ['안전', '일지', '계약서', '기타'];
@@ -494,49 +705,69 @@ const Documents = () => {
                     filteredDocuments.map((doc) => (
                       <ListItem
                         key={doc.id}
+                        onClick={() => handlePreview(doc)}
                         sx={{ 
                           borderBottom: '1px solid #444',
-                          '&:hover': { bgcolor: '#444' }
+                          cursor: 'pointer',
+                          bgcolor: previewDoc?.id === doc.id ? '#4caf50' : 'transparent',
+                          '&:hover': { 
+                            bgcolor: previewDoc?.id === doc.id ? '#45a049' : '#444' 
+                          }
                         }}
                       >
                         <ListItemIcon>
-                          <DescriptionIcon sx={{ color: '#90caf9' }} />
+                          {getFileIcon(doc.fileName)}
                         </ListItemIcon>
                         <ListItemText
                           primary={
-                            <Typography sx={{ color: 'white', fontWeight: 'bold' }}>
-                              {doc.title}
-                            </Typography>
-                          }
-                          secondary={
-                            <Box sx={{ mt: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                              <Typography sx={{ 
+                                color: previewDoc?.id === doc.id ? 'white' : 'white', 
+                                fontWeight: 'bold',
+                                flex: 1
+                              }}>
+                                {doc.title}
+                              </Typography>
                               <Chip 
                                 label={doc.category} 
                                 size="small" 
                                 sx={{ 
-                                  bgcolor: '#4caf50', 
+                                  bgcolor: previewDoc?.id === doc.id ? '#2e7d32' : '#4caf50', 
                                   color: 'white', 
-                                  mr: 1,
-                                  fontSize: '0.7rem'
+                                  fontSize: '0.7rem',
+                                  height: '20px'
                                 }} 
                               />
-                              <Typography variant="body2" sx={{ color: '#ccc', mt: 1 }}>
+                            </Box>
+                          }
+                          secondary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography variant="body2" sx={{ 
+                                color: previewDoc?.id === doc.id ? '#e8f5e8' : '#ccc',
+                                flex: 1,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
                                 {doc.description}
                               </Typography>
-                              <Typography variant="caption" sx={{ color: '#888' }}>
-                                {format(doc.uploadDate?.toDate?.() || new Date(doc.uploadDate), 'yyyy.MM.dd HH:mm')}
+                              <Typography variant="caption" sx={{ 
+                                color: previewDoc?.id === doc.id ? '#c8e6c9' : '#888',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {format(doc.uploadDate?.toDate?.() || new Date(doc.uploadDate), 'MM/dd')}
                                 {' • '}
                                 {doc.fileSize}
                               </Typography>
                             </Box>
                           }
                         />
-                        <Box>
+                        <Box onClick={(e) => e.stopPropagation()}>
                           <IconButton 
                             edge="end" 
                             onClick={() => handleDownload(doc)} 
                             size="small"
-                            sx={{ color: '#4caf50' }}
+                            sx={{ color: previewDoc?.id === doc.id ? '#e8f5e8' : '#4caf50' }}
                           >
                             <DownloadIcon />
                           </IconButton>
@@ -544,7 +775,7 @@ const Documents = () => {
                             edge="end" 
                             onClick={() => handleOpen(doc)} 
                             size="small"
-                            sx={{ color: '#90caf9' }}
+                            sx={{ color: previewDoc?.id === doc.id ? '#e8f5e8' : '#90caf9' }}
                           >
                             <EditIcon />
                           </IconButton>
@@ -552,7 +783,7 @@ const Documents = () => {
                             edge="end" 
                             onClick={() => handleDelete(doc)} 
                             size="small"
-                            sx={{ color: '#f44336' }}
+                            sx={{ color: previewDoc?.id === doc.id ? '#ffcdd2' : '#f44336' }}
                           >
                             <DeleteIcon />
                           </IconButton>
@@ -564,69 +795,11 @@ const Documents = () => {
               </Paper>
             </Box>
 
-            {/* 오른쪽 패널: 문서 상세 정보 */}
+            {/* 오른쪽 패널: 문서 미리보기 */}
             <Box sx={{ width: '50%' }}>
               <Paper sx={{ height: '100%', p: 2, bgcolor: '#2d3748' }}>
-                <Typography variant="h6" sx={{ mb: 2, color: 'white' }}>문서 상세 정보</Typography>
-                <Box sx={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: 2,
-                  height: 'calc(100% - 60px)',
-                  overflow: 'auto',
-                  '&::-webkit-scrollbar': {
-                    display: 'none !important',
-                    width: '0 !important',
-                    height: '0 !important'
-                  },
-                  '&::-webkit-scrollbar-thumb': {
-                    display: 'none !important'
-                  },
-                  '&::-webkit-scrollbar-track': {
-                    display: 'none !important'
-                  },
-                  '&::-webkit-scrollbar-corner': {
-                    display: 'none !important'
-                  },
-                  '-ms-overflow-style': 'none !important',
-                  'scrollbar-width': 'none !important',
-                  'scrollbar-color': 'transparent transparent !important',
-                  'overflow-y': 'scroll !important',
-                  'scrollbar-gutter': 'stable'
-                }}>
-                  <Card sx={{ bgcolor: '#444' }}>
-                    <CardContent>
-                      <Typography variant="subtitle1" gutterBottom sx={{ color: 'white' }}>문서 분류별 통계</Typography>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {categories.map(category => {
-                          const count = documents.filter(doc => doc.category === category).length;
-                          return (
-                            <Box key={category} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <Typography variant="body2" sx={{ color: '#ccc' }}>{category}</Typography>
-                              <Typography variant="body2" fontWeight="bold" sx={{ color: '#90caf9' }}>{count}개</Typography>
-                            </Box>
-                          );
-                        })}
-                      </Box>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card sx={{ bgcolor: '#444' }}>
-                    <CardContent>
-                      <Typography variant="subtitle1" gutterBottom sx={{ color: 'white' }}>최근 업로드된 문서</Typography>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {documents.slice(0, 5).map(doc => (
-                          <Box key={doc.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" sx={{ flex: 1, color: '#ccc' }}>{doc.title}</Typography>
-                            <Typography variant="caption" sx={{ color: '#888' }}>
-                              {format(doc.uploadDate?.toDate?.() || new Date(doc.uploadDate), 'MM/dd')}
-                            </Typography>
-                          </Box>
-                        ))}
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Box>
+                <Typography variant="h6" sx={{ mb: 2, color: 'white' }}>문서 미리보기</Typography>
+                {renderPreview()}
               </Paper>
             </Box>
           </Box>
@@ -711,6 +884,36 @@ const Documents = () => {
                     선택된 파일: {formData.file.name} ({formatFileSize(formData.file.size)})
                   </Typography>
                 )}
+                
+                {/* 미리보기 파일 업로드 */}
+                <Box sx={{ mt: 2, p: 2, border: '1px solid #444', borderRadius: '8px' }}>
+                  <Typography variant="subtitle2" sx={{ color: '#90caf9', mb: 1 }}>
+                    미리보기 파일 (선택사항)
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    startIcon={<CloudUploadIcon />}
+                    size="small"
+                    sx={{ 
+                      borderColor: '#4caf50', 
+                      color: '#4caf50',
+                      '&:hover': { borderColor: '#45a049' }
+                    }}
+                  >
+                    {previewFile ? previewFile.name : '미리보기 파일 선택'}
+                    <input
+                      type="file"
+                      hidden
+                      onChange={handlePreviewFileChange}
+                    />
+                  </Button>
+                  {previewFile && (
+                    <Typography variant="body2" sx={{ color: '#4caf50', mt: 1 }}>
+                      미리보기 파일: {previewFile.name} ({formatFileSize(previewFile.size)})
+                    </Typography>
+                  )}
+                </Box>
               </Box>
             </DialogContent>
             <DialogActions>

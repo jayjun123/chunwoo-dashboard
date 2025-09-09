@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -23,6 +23,15 @@ import {
   Chip,
   InputAdornment,
   Tooltip,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  Card,
+  CardContent,
+  CardMedia,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -34,6 +43,7 @@ import {
   PictureAsPdf as PdfIcon,
   Image as ImageIcon,
   Folder as FolderIcon,
+  Visibility as PreviewIcon,
 } from '@mui/icons-material';
 import { collection, query, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -45,6 +55,7 @@ const DocumentManagement = () => {
   const [documents, setDocuments] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
+  const [previewDocument, setPreviewDocument] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [formData, setFormData] = useState({
@@ -242,6 +253,10 @@ const DocumentManagement = () => {
     }
   };
 
+  const handlePreviewDocument = (document) => {
+    setPreviewDocument(document);
+  };
+
   const getFileIcon = (fileType) => {
     if (fileType?.includes('pdf')) {
       return <PdfIcon color="error" />;
@@ -250,6 +265,100 @@ const DocumentManagement = () => {
     } else {
       return <DescriptionIcon />;
     }
+  };
+
+  const renderPreview = () => {
+    if (!previewDocument) {
+      return (
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          height: '100%',
+          color: 'text.secondary'
+        }}>
+          <Typography variant="h6">
+            문서를 선택하면 미리보기가 표시됩니다
+          </Typography>
+        </Box>
+      );
+    }
+
+    const isImage = previewDocument.fileType?.includes('image');
+    const isPdf = previewDocument.fileType?.includes('pdf');
+
+    return (
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {/* 문서 정보 헤더 */}
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              {getFileIcon(previewDocument.fileType)}
+              <Typography variant="h6">{previewDocument.title}</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              {previewDocument.description}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+              {previewDocument.tags.map((tag, index) => (
+                <Chip key={index} label={tag} size="small" variant="outlined" />
+              ))}
+            </Box>
+            <Typography variant="caption" color="text.secondary">
+              등록일: {new Date(previewDocument.createdAt).toLocaleDateString()}
+            </Typography>
+          </CardContent>
+        </Card>
+
+        {/* 미리보기 영역 */}
+        <Paper sx={{ flex: 1, p: 2, overflow: 'auto' }}>
+          {isImage ? (
+            <Box sx={{ textAlign: 'center' }}>
+              <img
+                src={previewDocument.fileUrl}
+                alt={previewDocument.title}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '600px',
+                  objectFit: 'contain'
+                }}
+              />
+            </Box>
+          ) : isPdf ? (
+            <Box sx={{ height: '600px' }}>
+              <iframe
+                src={previewDocument.fileUrl}
+                width="100%"
+                height="100%"
+                style={{ border: 'none' }}
+                title={previewDocument.title}
+              />
+            </Box>
+          ) : (
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              height: '400px',
+              flexDirection: 'column',
+              gap: 2
+            }}>
+              {getFileIcon(previewDocument.fileType)}
+              <Typography variant="h6" color="text.secondary">
+                미리보기를 지원하지 않는 파일 형식입니다
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={() => handleDownload(previewDocument)}
+              >
+                다운로드
+              </Button>
+            </Box>
+          )}
+        </Paper>
+      </Box>
+    );
   };
 
   const filteredDocuments = documents.filter(doc => {
@@ -269,7 +378,8 @@ const DocumentManagement = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, height: 'calc(100vh - 64px)' }}>
+      {/* 헤더 */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
           문서 관리
@@ -289,6 +399,7 @@ const DocumentManagement = () => {
         </Alert>
       )}
 
+      {/* 검색 및 필터 */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={6}>
           <TextField
@@ -323,87 +434,119 @@ const DocumentManagement = () => {
         </Grid>
       </Grid>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>문서명</TableCell>
-              <TableCell>카테고리</TableCell>
-              <TableCell>설명</TableCell>
-              <TableCell>태그</TableCell>
-              <TableCell>등록일</TableCell>
-              <TableCell>관리</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredDocuments.map((document) => (
-              <TableRow key={document.id}>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {getFileIcon(document.fileType)}
-                    {document.title}
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={categories.find(cat => cat.value === document.category)?.label}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>{document.description}</TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                    {document.tags.map((tag, index) => (
-                      <Chip
-                        key={index}
-                        label={tag}
-                        size="small"
-                        variant="outlined"
-                      />
-                    ))}
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  {new Date(document.createdAt).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
-                  <Tooltip title="다운로드">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDownload(document)}
-                    >
-                      <DownloadIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="수정">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleOpenDialog(document)}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="삭제">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDelete(document)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filteredDocuments.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  등록된 문서가 없습니다.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {/* 메인 컨텐츠 - 좌우 분할 */}
+      <Grid container spacing={2} sx={{ height: 'calc(100% - 200px)' }}>
+        {/* 왼쪽: 문서 목록 */}
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+              <Typography variant="h6">
+                문서 목록 ({filteredDocuments.length})
+              </Typography>
+            </Box>
+            <Box sx={{ flex: 1, overflow: 'auto' }}>
+              {filteredDocuments.length === 0 ? (
+                <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
+                  <Typography>등록된 문서가 없습니다.</Typography>
+                </Box>
+              ) : (
+                <List>
+                  {filteredDocuments.map((document, index) => (
+                    <React.Fragment key={document.id}>
+                      <ListItem disablePadding>
+                        <ListItemButton
+                          onClick={() => handlePreviewDocument(document)}
+                          selected={previewDocument?.id === document.id}
+                          sx={{
+                            '&.Mui-selected': {
+                              backgroundColor: 'primary.main',
+                              color: 'primary.contrastText',
+                              '&:hover': {
+                                backgroundColor: 'primary.dark',
+                              },
+                            },
+                          }}
+                        >
+                          <ListItemIcon sx={{ color: 'inherit' }}>
+                            {getFileIcon(document.fileType)}
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={document.title}
+                            secondary={
+                              <Box>
+                                <Typography variant="caption" display="block">
+                                  {categories.find(cat => cat.value === document.category)?.label}
+                                </Typography>
+                                <Typography variant="caption" display="block">
+                                  {new Date(document.createdAt).toLocaleDateString()}
+                                </Typography>
+                              </Box>
+                            }
+                          />
+                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <Tooltip title="미리보기">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePreviewDocument(document);
+                                }}
+                              >
+                                <PreviewIcon />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="다운로드">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownload(document);
+                                }}
+                              >
+                                <DownloadIcon />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="수정">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenDialog(document);
+                                }}
+                              >
+                                <EditIcon />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="삭제">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(document);
+                                }}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </ListItemButton>
+                      </ListItem>
+                      {index < filteredDocuments.length - 1 && <Divider />}
+                    </React.Fragment>
+                  ))}
+                </List>
+              )}
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* 오른쪽: 미리보기 */}
+        <Grid item xs={12} md={8}>
+          <Paper sx={{ height: '100%', p: 2 }}>
+            {renderPreview()}
+          </Paper>
+        </Grid>
+      </Grid>
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>

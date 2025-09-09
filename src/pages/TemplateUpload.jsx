@@ -13,7 +13,7 @@ import {
   LinearProgress
 } from '@mui/material';
 import { Upload as UploadIcon, Download as DownloadIcon, CloudUpload as CloudUploadIcon } from '@mui/icons-material';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
 import { storage } from '../firebase';
 
 const TemplateUpload = () => {
@@ -22,6 +22,121 @@ const TemplateUpload = () => {
   const [progressStep, setProgressStep] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedTemplates, setUploadedTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  // Firebase Storage에서 템플릿 목록 가져오기
+  const loadUploadedTemplates = async () => {
+    try {
+      setLoadingTemplates(true);
+      const templatesRef = ref(storage, 'templates');
+      const result = await listAll(templatesRef);
+      
+      const templates = await Promise.all(
+        result.items.map(async (item) => {
+          try {
+            const downloadURL = await getDownloadURL(item);
+            return {
+              name: item.name,
+              url: downloadURL,
+              fullPath: item.fullPath
+            };
+          } catch (error) {
+            console.warn(`템플릿 ${item.name} URL 가져오기 실패:`, error);
+            return {
+              name: item.name,
+              url: null,
+              fullPath: item.fullPath
+            };
+          }
+        })
+      );
+      
+      setUploadedTemplates(templates);
+      console.log('📋 업로드된 템플릿 목록:', templates);
+    } catch (error) {
+      console.error('템플릿 목록 로드 실패:', error);
+      setMessage('템플릿 목록을 불러오는데 실패했습니다: ' + error.message);
+      setMessageType('error');
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  // 컴포넌트 마운트 시 템플릿 목록 로드
+  React.useEffect(() => {
+    loadUploadedTemplates();
+  }, []);
+
+  // templateUrls.js 파일 내용 생성
+  const generateTemplateUrlsFile = () => {
+    const currentDate = new Date().toISOString();
+    const projectId = 'chunwooo-edf9f'; // Firebase 프로젝트 ID
+    
+    let fileContent = `// Firebase Storage 템플릿 다운로드 URL
+// 생성일: ${currentDate}
+// 프로젝트: ${projectId}
+
+export const templateUrls = {`;
+
+    // 템플릿 매핑 규칙
+    const templateMapping = {
+      'NEW.xlsx': '(N)기성금청구서',
+      'LONG.xlsx': '(L)기성금청구서',
+      'Ngyunjuk.xlsx': '(N)견적서',
+      'Lgyunjuk.xlsx': '(L)견적서',
+      'Nnapfoom.xlsx': '(N)납품계약서',
+      'Lnapfoom.xlsx': '(L)납품계약서'
+    };
+
+    uploadedTemplates.forEach(template => {
+      if (template.url && templateMapping[template.name]) {
+        const key = templateMapping[template.name];
+        fileContent += `\n  // ${template.name}\n`;
+        fileContent += `  "${key}": "${template.url}",`;
+      }
+    });
+
+    fileContent += `\n};
+
+// 사용 예시:
+// import { templateUrls } from './templateUrls';
+// const estimateNUrl = templateUrls['(N)견적서'];
+// const estimateLUrl = templateUrls['(L)견적서'];
+// const contractNUrl = templateUrls['(N)납품계약서'];
+// const contractLUrl = templateUrls['(L)납품계약서'];
+// const gisungNUrl = templateUrls['(N)기성금청구서'];
+// const gisungLUrl = templateUrls['(L)기성금청구서'];
+
+// 템플릿 타입별 설명
+export const templateDescriptions = {`;
+
+    uploadedTemplates.forEach(template => {
+      if (template.url && templateMapping[template.name]) {
+        const key = templateMapping[template.name];
+        const description = key.includes('N)') ? 
+          `${key.replace(/[()]/g, '')} (물량 20개 이하)` : 
+          `${key.replace(/[()]/g, '')} (물량 21개 이상)`;
+        fileContent += `\n  "${key}": "${description}",`;
+      }
+    });
+
+    fileContent += `\n};`;
+
+    return fileContent;
+  };
+
+  // templateUrls.js 파일 내용 복사
+  const copyTemplateUrlsFile = () => {
+    const fileContent = generateTemplateUrlsFile();
+    navigator.clipboard.writeText(fileContent).then(() => {
+      setMessage('templateUrls.js 파일 내용이 클립보드에 복사되었습니다! src/utils/templateUrls.js 파일을 업데이트하세요.');
+      setMessageType('success');
+    }).catch(() => {
+      setMessage('파일 내용 복사에 실패했습니다.');
+      setMessageType('error');
+    });
+  };
 
   // Firebase Storage에 템플릿 업로드 (권한 문제 우회)
   const handleFirebaseUpload = async (file, templateName) => {
@@ -54,6 +169,9 @@ const TemplateUpload = () => {
       setMessage(`${templateName} 템플릿이 Firebase Storage에 성공적으로 업로드되었습니다!`);
       setMessageType('success');
       setProgressStep('');
+      
+      // 템플릿 목록 새로고침
+      await loadUploadedTemplates();
 
     } catch (error) {
       console.error(`❌ ${templateName} 템플릿 업로드 실패:`, error);
@@ -88,9 +206,12 @@ const TemplateUpload = () => {
       setUploadProgress(10);
 
       const templates = [
-        { name: 'NEWgisung.xlsx', path: '/NEWgisung.xlsx' },
-        { name: '견적서.xlsx', path: '/견적서.xlsx' },
-        { name: '납품계약서 갑지.xlsx', path: '/납품계약서 갑지.xlsx' }
+        { name: 'NEW.xlsx', path: '/NEW.xlsx', description: '기성금청구서 N타입 (20개 이하 물량)' },
+        { name: 'LONG.xlsx', path: '/LONG.xlsx', description: '기성금청구서 L타입 (21개 이상 물량)' },
+        { name: 'Ngyunjuk.xlsx', path: '/Ngyunjuk.xlsx', description: '견적서 N타입' },
+        { name: 'Lgyunjuk.xlsx', path: '/Lgyunjuk.xlsx', description: '견적서 L타입' },
+        { name: 'Nnapfoom.xlsx', path: '/Nnapfoom.xlsx', description: '납품계약서 N타입' },
+        { name: 'Lnapfoom.xlsx', path: '/Lnapfoom.xlsx', description: '납품계약서 L타입' }
       ];
 
       for (let i = 0; i < templates.length; i++) {
@@ -123,6 +244,8 @@ const TemplateUpload = () => {
       if (uploadProgress >= 90) {
         setMessage('모든 템플릿이 Firebase Storage에 성공적으로 업로드되었습니다!');
         setMessageType('success');
+        // 템플릿 목록 새로고침
+        await loadUploadedTemplates();
       }
 
     } catch (error) {
@@ -148,9 +271,12 @@ const TemplateUpload = () => {
     const { storage } = await import('./src/firebase.js');
     
     const templates = [
-      { name: 'NEWgisung.xlsx', path: '/NEWgisung.xlsx' },
-      { name: '견적서.xlsx', path: '/견적서.xlsx' },
-      { name: '납품계약서 갑지.xlsx', path: '/납품계약서 갑지.xlsx' }
+      { name: 'NEW.xlsx', path: '/NEW.xlsx' },
+      { name: 'LONG.xlsx', path: '/LONG.xlsx' },
+      { name: 'Ngyunjuk.xlsx', path: '/Ngyunjuk.xlsx' },
+      { name: 'Lgyunjuk.xlsx', path: '/Lgyunjuk.xlsx' },
+      { name: 'Nnapfoom.xlsx', path: '/Nnapfoom.xlsx' },
+      { name: 'Lnapfoom.xlsx', path: '/Lnapfoom.xlsx' }
     ];
     
     for (const template of templates) {
@@ -223,6 +349,112 @@ const TemplateUpload = () => {
         )}
 
         <Grid container spacing={3}>
+          {/* 업로드된 템플릿 목록 */}
+          <Grid item xs={12}>
+            <Card sx={{ bgcolor: '#f8f9fa' }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  📋 업로드된 템플릿 목록
+                </Typography>
+                {loadingTemplates ? (
+                  <Typography variant="body2" color="text.secondary">
+                    템플릿 목록을 불러오는 중...
+                  </Typography>
+                ) : uploadedTemplates.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    업로드된 템플릿이 없습니다.
+                  </Typography>
+                ) : (
+                  <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+                    {uploadedTemplates.map((template, index) => (
+                      <Box key={index} sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        p: 1,
+                        mb: 1,
+                        bgcolor: 'white',
+                        borderRadius: 1,
+                        border: '1px solid #e0e0e0'
+                      }}>
+                        <Box>
+                          <Typography variant="body2" fontWeight="bold">
+                            {template.name}
+                          </Typography>
+                          {template.url && (
+                            <Typography variant="caption" color="text.secondary" sx={{ 
+                              display: 'block',
+                              wordBreak: 'break-all',
+                              maxWidth: '400px'
+                            }}>
+                              {template.url}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          {template.url && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => {
+                                navigator.clipboard.writeText(template.url);
+                                setMessage(`${template.name} URL이 클립보드에 복사되었습니다.`);
+                                setMessageType('success');
+                              }}
+                            >
+                              URL 복사
+                            </Button>
+                          )}
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            onClick={async () => {
+                              if (window.confirm(`${template.name}을 삭제하시겠습니까?`)) {
+                                try {
+                                  const templateRef = ref(storage, template.fullPath);
+                                  await deleteObject(templateRef);
+                                  setMessage(`${template.name}이 삭제되었습니다.`);
+                                  setMessageType('success');
+                                  await loadUploadedTemplates();
+                                } catch (error) {
+                                  console.error('템플릿 삭제 실패:', error);
+                                  setMessage(`템플릿 삭제에 실패했습니다: ${error.message}`);
+                                  setMessageType('error');
+                                }
+                              }
+                            }}
+                          >
+                            삭제
+                          </Button>
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+                <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={loadUploadedTemplates}
+                    disabled={loadingTemplates}
+                    size="small"
+                  >
+                    목록 새로고침
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={copyTemplateUrlsFile}
+                    disabled={uploadedTemplates.length === 0}
+                    size="small"
+                  >
+                    templateUrls.js 생성
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
           {/* 브라우저 콘솔 스크립트 */}
           <Grid item xs={12}>
             <Card sx={{ bgcolor: '#f5f5f5' }}>
@@ -276,22 +508,22 @@ const TemplateUpload = () => {
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  기성금청구서 템플릿
+                  기성금청구서 N타입
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  NEWgisung.xlsx
+                  NEW.xlsx (20개 이하 물량)
                 </Typography>
               </CardContent>
               <CardActions>
                 <input
                   accept=".xlsx"
                   style={{ display: 'none' }}
-                  id="gisung-template-upload"
+                  id="gisung-n-template-upload"
                   type="file"
-                  onChange={(e) => handleFileUpload(e, 'NEWgisung.xlsx')}
+                  onChange={(e) => handleFileUpload(e, 'NEW.xlsx')}
                   disabled={uploading}
                 />
-                <label htmlFor="gisung-template-upload">
+                <label htmlFor="gisung-n-template-upload">
                   <Button
                     variant="outlined"
                     component="span"
@@ -310,22 +542,22 @@ const TemplateUpload = () => {
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  견적서 템플릿
+                  기성금청구서 L타입
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  견적서.xlsx
+                  LONG.xlsx (21개 이상 물량)
                 </Typography>
               </CardContent>
               <CardActions>
                 <input
                   accept=".xlsx"
                   style={{ display: 'none' }}
-                  id="estimate-template-upload"
+                  id="gisung-l-template-upload"
                   type="file"
-                  onChange={(e) => handleFileUpload(e, '견적서.xlsx')}
+                  onChange={(e) => handleFileUpload(e, 'LONG.xlsx')}
                   disabled={uploading}
                 />
-                <label htmlFor="estimate-template-upload">
+                <label htmlFor="gisung-l-template-upload">
                   <Button
                     variant="outlined"
                     component="span"
@@ -344,22 +576,124 @@ const TemplateUpload = () => {
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  납품계약서 템플릿
+                  견적서 N타입
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  납품계약서 갑지.xlsx
+                  Ngyunjuk.xlsx
                 </Typography>
               </CardContent>
               <CardActions>
                 <input
                   accept=".xlsx"
                   style={{ display: 'none' }}
-                  id="contract-template-upload"
+                  id="estimate-n-template-upload"
                   type="file"
-                  onChange={(e) => handleFileUpload(e, '납품계약서 갑지.xlsx')}
+                  onChange={(e) => handleFileUpload(e, 'Ngyunjuk.xlsx')}
                   disabled={uploading}
                 />
-                <label htmlFor="contract-template-upload">
+                <label htmlFor="estimate-n-template-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    startIcon={<UploadIcon />}
+                    disabled={uploading}
+                    fullWidth
+                  >
+                    업로드
+                  </Button>
+                </label>
+              </CardActions>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  견적서 L타입
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Lgyunjuk.xlsx
+                </Typography>
+              </CardContent>
+              <CardActions>
+                <input
+                  accept=".xlsx"
+                  style={{ display: 'none' }}
+                  id="estimate-l-template-upload"
+                  type="file"
+                  onChange={(e) => handleFileUpload(e, 'Lgyunjuk.xlsx')}
+                  disabled={uploading}
+                />
+                <label htmlFor="estimate-l-template-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    startIcon={<UploadIcon />}
+                    disabled={uploading}
+                    fullWidth
+                  >
+                    업로드
+                  </Button>
+                </label>
+              </CardActions>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  납품계약서 N타입
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Nnapfoom.xlsx
+                </Typography>
+              </CardContent>
+              <CardActions>
+                <input
+                  accept=".xlsx"
+                  style={{ display: 'none' }}
+                  id="contract-n-template-upload"
+                  type="file"
+                  onChange={(e) => handleFileUpload(e, 'Nnapfoom.xlsx')}
+                  disabled={uploading}
+                />
+                <label htmlFor="contract-n-template-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    startIcon={<UploadIcon />}
+                    disabled={uploading}
+                    fullWidth
+                  >
+                    업로드
+                  </Button>
+                </label>
+              </CardActions>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  납품계약서 L타입
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Lnapfoom.xlsx
+                </Typography>
+              </CardContent>
+              <CardActions>
+                <input
+                  accept=".xlsx"
+                  style={{ display: 'none' }}
+                  id="contract-l-template-upload"
+                  type="file"
+                  onChange={(e) => handleFileUpload(e, 'Lnapfoom.xlsx')}
+                  disabled={uploading}
+                />
+                <label htmlFor="contract-l-template-upload">
                   <Button
                     variant="outlined"
                     component="span"
