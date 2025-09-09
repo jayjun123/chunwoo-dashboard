@@ -117,7 +117,6 @@ const normalizeCompanyName = (value) => (value ?? '').toString();
 const STATUS_OPTIONS = ['예정', '진행중', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급', '관급'];
 const ESTIMATE_STATUS_OPTIONS = ['제출대기', '제출완료', '수주', '미수주', '기타'];
-const ESTIMATE_TYPE_OPTIONS = ['견적', '입찰', '수의', '소개'];
 
 const initialFormState = {
   name: '',
@@ -141,7 +140,7 @@ const initialFormState = {
   safetyCost: 0,
   items: [],
   estimateStatus: '',
-  estimateType: '', // 견적유무 필드 추가
+  windowCompany: '', // 창호업체 필드
   note: '', // estimateNote를 note로 변경
 };
 
@@ -759,7 +758,7 @@ const NewSites = () => {
           manager: selectedSite?.manager || '',
           phone: selectedSite?.phone || '',
           team: selectedSite?.team || '',
-          estimateType: selectedSite?.estimateType || '',
+          windowCompany: selectedSite?.windowCompany || '',
           note: selectedSite?.note || '',
           desc: selectedSite?.desc || '',
           isFavorite: !!selectedSite?.isFavorite,
@@ -778,7 +777,7 @@ const NewSites = () => {
           manager: form.manager || '',
           phone: form.phone || '',
           team: form.team || '',
-          estimateType: form.estimateType || '',
+          windowCompany: form.windowCompany || '',
           note: form.note || '',
           desc: form.desc || '',
           safetyCost: Number(form.safetyCost ?? 0),
@@ -848,7 +847,7 @@ const NewSites = () => {
   }, [selectedSite,
       form.name, form.contractType, form.contractAmount, form.advance, form.address,
       form.startDate, form.endDate, form.manager, form.phone, form.team,
-      form.estimateType, form.note, form.desc, form.isFavorite, form.stampType,
+      form.windowCompany, form.note, form.desc, form.isFavorite, form.stampType,
       form.companyName, companyFocused]);
 
   useEffect(() => {
@@ -2017,7 +2016,7 @@ const NewSites = () => {
   const phoneRef = useRef();
   const teamRef = useRef();
   const descRef = useRef();
-  const estimateTypeRef = useRef();
+  const windowCompanyRef = useRef();
   const noteRef = useRef();
 
   // 중복 단수정리 항목 정리 함수
@@ -3117,7 +3116,7 @@ const NewSites = () => {
            </Box>
            
            <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
-             <Box sx={{ flex: isMobile ? 'none' : 4 }}>
+             <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  시공팀
                </Typography>
@@ -3132,29 +3131,32 @@ const NewSites = () => {
                  onFocus={scrollFocus(teamRef)}
                />
              </Box>
-             <Box sx={{ flex: isMobile ? 'none' : 4 }}>
+             <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
-                 견적유무
+                 창호업체
                </Typography>
-               <FormControl fullWidth size="small">
-                 <Select 
-                   name="estimateType" 
-                   value={form.estimateType ?? ''} 
-                   onChange={handleChange} 
-                   disabled={isReadOnly}
-                   inputRef={estimateTypeRef}
-                   onFocus={scrollFocus(estimateTypeRef)}
-                 >
-                   <MenuItem value="">선택하세요</MenuItem>
-                   {ESTIMATE_TYPE_OPTIONS.map(opt => (
-                     <MenuItem key={opt} value={opt}>
-                       {opt}
-                     </MenuItem>
-                   ))}
-                 </Select>
-               </FormControl>
+               <TextField 
+                 name="windowCompany" 
+                 value={form.windowCompany ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth
+                 size="small" 
+                 disabled={isReadOnly}
+                 placeholder="창호업체명을 입력하세요"
+                 sx={{
+                   '& .MuiOutlinedInput-root': {
+                     '& fieldset': { borderColor: '#ffffff' },
+                     '&:hover fieldset': { borderColor: '#ffffff' },
+                     '&.Mui-focused fieldset': { borderColor: '#ffffff' }
+                   },
+                   '& .MuiInputLabel-root': { color: '#bbb' },
+                   '& .MuiInputBase-input': { color: '#fff' }
+                 }}
+                 inputRef={windowCompanyRef}
+                 onFocus={scrollFocus(windowCompanyRef)}
+               />
              </Box>
-             <Box sx={{ flex: isMobile ? 'none' : 4 }}>
+             <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  비고
                </Typography>
