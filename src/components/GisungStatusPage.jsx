@@ -659,10 +659,15 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       .filter(gisung => gisung.claimStatus === '청구완료')
       .reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
     
+    // 입금완료된 기성만 입금완료금액에 포함
+    const totalPaidAmount = filteredAndSortedGisung
+      .filter(gisung => gisung.paymentStatus === '입금완료')
+      .reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
+    
     // 잔액 = 계약금액 - 선급금 - 기성금액
     const totalBalance = totalContractAmount - totalAdvance - totalGisungAmount;
     
-    return { totalContractAmount, totalAdvance, totalPrevGisung, totalGisungAmount, totalBalance };
+    return { totalContractAmount, totalAdvance, totalPrevGisung, totalGisungAmount, totalPaidAmount, totalBalance };
   }, [filteredAndSortedGisung, sites, viewType, selectedSites]);
 
   // 기성현황 엑셀 다운로드 함수 (원래 기능)
@@ -2219,11 +2224,11 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
        <Grid container spacing={isMobile ? 0.7 : 2} sx={{ mb: 3 }}>
          <StatCard title={isMobile ? "계약금액" : "총 계약금액"} value={stats.totalContractAmount} color="#43e97b" />
          <StatCard title={isMobile ? "선급금" : "총 선급금"} value={stats.totalAdvance} color="#ffd600" />
-         <StatCard title={isMobile ? "누계기성" : "총 누계기성"} value={stats.totalAdvance + stats.totalGisungAmount} color="#ff6b35" />
+         <StatCard title={isMobile ? "기성금액" : "총 기성금액"} value={stats.totalGisungAmount} color="#ef5350" />
+         <StatCard title={isMobile ? "입금완료금액" : "입금완료금액"} value={stats.totalPaidAmount} color="#4caf50" />
          {viewType !== 'month' && (
            <StatCard title="잔액" value={stats.totalBalance} color="#a084e8" />
          )}
-         <StatCard title={isMobile ? "기성금액" : "총 기성금액"} value={stats.totalGisungAmount} color="#ef5350" />
        </Grid>
 
              {/* 버튼들 */}
