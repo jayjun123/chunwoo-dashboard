@@ -1257,12 +1257,36 @@ const Claims = () => {
           });
         }
       }
+      
+      // 이월에서 청구대기로 변경된 경우 다음달 이월 데이터 삭제
+      if (claim.claimStatus === '이월' && newStatus === 'X') {
+        console.log(`🗑️ 이월에서 청구대기로 변경 - 다음달 이월 데이터 삭제 시작: ${claim.siteName}`);
+        try {
+          await deleteCarryoverFromNextMonth(claim);
+          console.log(`✅ 다음달 이월 데이터 삭제 성공: ${claim.siteName}`);
+        } catch (error) {
+          console.error('❌ 다음달 이월 데이터 삭제 실패:', error);
+          console.error('❌ 에러 상세:', error.message, error.stack);
+          // 삭제 실패 시에도 원래 항목은 청구대기 상태로 유지
+          setSnackbar({
+            open: true,
+            message: `이월 데이터 삭제에 실패했습니다: ${error.message}`,
+            severity: 'error'
+          });
+        }
+      }
 
       // 성공 메시지
       if (newStatus === '이월') {
         setSnackbar({
           open: true,
-          message: `청구여부가 이월로 변경되었습니다. 9월에 복제된 항목이 생성되었습니다.`,
+          message: `청구여부가 이월로 변경되었습니다. 다음달에 복제된 항목이 생성되었습니다.`,
+          severity: 'success'
+        });
+      } else if (claim.claimStatus === '이월' && newStatus === 'X') {
+        setSnackbar({
+          open: true,
+          message: `청구여부가 청구대기로 변경되었습니다. 다음달 이월 데이터가 삭제되었습니다.`,
           severity: 'success'
         });
       } else {
@@ -1293,6 +1317,61 @@ const Claims = () => {
     }
   };
 
+
+  // 다음달 이월 데이터 삭제
+  const deleteCarryoverFromNextMonth = async (claim) => {
+    try {
+      console.log(`🗑️ 다음달 이월 데이터 삭제 시작`);
+      console.log(`📋 원본 항목 데이터:`, claim);
+      console.log(`📅 현재 항목 월: ${claim.claimMonth}`);
+      
+      // 현재 항목의 월에서 다음달 계산
+      const [year, month] = claim.claimMonth.split('-').map(Number);
+      let nextYear = year;
+      let nextMonth = month + 1;
+      
+      // 12월을 넘어가면 다음 해 1월로
+      if (nextMonth > 12) {
+        nextYear += 1;
+        nextMonth = 1;
+      }
+      
+      const nextMonthStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+      console.log(`📅 삭제할 다음달: "${nextMonthStr}"`);
+      
+      // 다음달의 이월 항목 찾기
+      const { getDocs, collection, query, where, deleteDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      
+      const carryoverQuery = query(
+        collection(db, 'claims'),
+        where('siteName', '==', claim.siteName),
+        where('claimMonth', '==', nextMonthStr),
+        where('sequence', '==', claim.sequence),
+        where('isCarryover', '==', true)
+      );
+      
+      const carryoverSnapshot = await getDocs(carryoverQuery);
+      
+      if (carryoverSnapshot.empty) {
+        console.log(`⚠️ ${nextMonthStr}에 삭제할 이월 항목이 없습니다.`);
+        return;
+      }
+      
+      // 이월 항목들 삭제
+      const deletePromises = carryoverSnapshot.docs.map(doc => {
+        console.log(`🗑️ 이월 항목 삭제: ${doc.id}`);
+        return deleteDoc(doc.ref);
+      });
+      
+      await Promise.all(deletePromises);
+      console.log(`✅ ${nextMonthStr}의 이월 항목 ${carryoverSnapshot.docs.length}개 삭제 완료`);
+      
+    } catch (error) {
+      console.error('❌ 이월 데이터 삭제 실패:', error);
+      throw error;
+    }
+  };
 
   // 다음달 청구예정에 이월 항목 추가
   const addCarryoverToNextMonth = async (claim) => {
