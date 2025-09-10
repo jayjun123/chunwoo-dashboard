@@ -1518,7 +1518,7 @@ const Claims = () => {
                 <Card sx={{ backgroundColor: '#444', color: 'white', minWidth: '80px' }}>
                   <CardContent sx={{ textAlign: 'center', p: 1 }}>
                     <Typography variant="h6" sx={{ color: '#f44336' }}>{stats.notClaimed}</Typography>
-                    <Typography variant="caption">대기</Typography>
+                    <Typography variant="caption">이월</Typography>
                   </CardContent>
                 </Card>
                 <Card sx={{ backgroundColor: '#444', color: 'white', minWidth: '100px' }}>

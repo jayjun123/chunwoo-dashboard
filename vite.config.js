@@ -23,7 +23,8 @@ export default defineConfig(({ command, mode }) => {
       registerType: 'autoUpdate',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024 // 5MB로 증가
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB로 증가
+        globIgnores: ['**/opencv.js'] // opencv.js 파일은 캐시에서 제외
       }
     })
   ],
