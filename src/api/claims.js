@@ -169,7 +169,12 @@ export const getClaimStats = async (month = null) => {
       claimStatus: c.claimStatus
     })));
     
+    // 이월된 현장의 금액은 총액에서 제외
     const totalAmount = claims.reduce((sum, c) => {
+      if (c.claimStatus === '이월') {
+        console.log(`이월 현장 제외: ${c.siteName} - ${c.claimAmount}`);
+        return sum; // 이월된 현장은 총액에 포함하지 않음
+      }
       const amount = Number(c.claimAmount || 0);
       console.log(`청구금액 누적: ${sum} + ${amount} = ${sum + amount}`);
       return sum + amount;
@@ -180,7 +185,7 @@ export const getClaimStats = async (month = null) => {
     const stats = {
       total: claims.length,
       claimed: claims.filter(c => c.claimStatus === 'O').length,
-      notClaimed: claims.filter(c => c.claimStatus === 'X').length,
+      notClaimed: claims.filter(c => c.claimStatus === '이월').length, // 이월 상태만 카운트
       totalAmount: totalAmount
     };
     
