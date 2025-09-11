@@ -217,6 +217,26 @@ const NewSites = () => {
     }
   }, [location.pathname, sites]);
 
+  // URL 쿼리 파라미터에서 siteId 처리
+  useEffect(() => {
+    if (sites.length > 0) {
+      const urlParams = new URLSearchParams(location.search);
+      const siteId = urlParams.get('siteId');
+      
+      if (siteId) {
+        const targetSite = sites.find(site => site?.id === siteId);
+        if (targetSite) {
+          console.log('🔍 URL 파라미터로 현장 선택:', targetSite.name);
+          startTransition(() => {
+            setSelectedSite(targetSite);
+            setForm(targetSite);
+            setIsEditing(false);
+          });
+        }
+      }
+    }
+  }, [location.search, sites]);
+
   // location state에서 전달받은 현장 정보 처리
   useEffect(() => {
     if (location.state && sites.length > 0) {
