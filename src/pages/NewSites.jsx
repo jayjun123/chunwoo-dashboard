@@ -121,7 +121,7 @@ const ESTIMATE_STATUS_OPTIONS = ['제출대기', '제출완료', '수주', '미�
 const initialFormState = {
   name: '',
   status: '진행중',
-  contractType: '관급',
+  contractType: '계약없음',
   subcontractGuardian: false,
   installment: '',
   contractAmount: '',
@@ -1730,7 +1730,7 @@ const NewSites = () => {
     
     setForm({
       name: '',
-      contractType: '관급',
+      contractType: '계약없음',
       manager: '',
       startDate: '',
       endDate: '',
@@ -2928,7 +2928,7 @@ const NewSites = () => {
                  계약구분
                </Typography>
                <FormControl fullWidth size="small">
-                 <Select name="contractType" value={form.contractType ?? '관급'} onChange={handleChange} disabled={isReadOnly}>
+                 <Select name="contractType" value={form.contractType ?? '계약없음'} onChange={handleChange} disabled={isReadOnly}>
                    {CONTRACT_TYPE_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
                  </Select>
                </FormControl>
