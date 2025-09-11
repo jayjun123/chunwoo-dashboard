@@ -110,10 +110,12 @@ const ConstructionStatus = () => {
           return;
         }
         
-        // 해당 현장의 모든 기성 데이터 확인
-        const totalGisung = siteGisungData.reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+        // 해당 현장의 모든 기성 데이터 확인 (청구완료된 것만)
+        const totalGisung = siteGisungData
+          .filter(g => g.claimStatus === '청구완료')
+          .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
         const paidGisung = siteGisungData
-          .filter(g => g.paymentStatus === '입금완료')
+          .filter(g => g.claimStatus === '청구완료' && g.paymentStatus === '입금완료')
           .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
         
         // 선급금도 고려

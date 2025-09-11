@@ -667,12 +667,14 @@ const Progress = () => {
         // 기성 데이터에서 해당 현장의 데이터 필터링
         const siteGisungData = progressList.filter(item => item?.name === siteName);
         const totalContract = siteGisungData.reduce((sum, item) => sum + (parseFloat(item.contractAmount) || 0), 0);
-        const totalGisung = siteGisungData.reduce((sum, item) => {
-          if (item.payments) {
-            return sum + item.payments.reduce((pSum, payment) => pSum + (parseFloat(payment.amount) || 0), 0);
-          }
-          return sum + (parseFloat(item.gisungAmount) || 0);
-        }, 0);
+        const totalGisung = siteGisungData
+          .filter(item => item.claimStatus === '청구완료')
+          .reduce((sum, item) => {
+            if (item.payments) {
+              return sum + item.payments.reduce((pSum, payment) => pSum + (parseFloat(payment.amount) || 0), 0);
+            }
+            return sum + (parseFloat(item.gisungAmount) || 0);
+          }, 0);
         
         // 선급금을 기성금에 포함
         const siteData = sites.find(site => site.name === siteName);
@@ -711,12 +713,14 @@ const Progress = () => {
       // 기성 데이터에서 해당 현장의 데이터 필터링
       const siteGisungData = progressList.filter(item => item.name === siteName);
       const totalContract = siteGisungData.reduce((sum, item) => sum + (parseFloat(item.contractAmount) || 0), 0);
-      const totalGisung = siteGisungData.reduce((sum, item) => {
-        if (item.payments) {
-          return sum + item.payments.reduce((pSum, payment) => pSum + (parseFloat(payment.amount) || 0), 0);
-        }
-        return sum + (parseFloat(item.gisungAmount) || 0);
-      }, 0);
+      const totalGisung = siteGisungData
+        .filter(item => item.claimStatus === '청구완료')
+        .reduce((sum, item) => {
+          if (item.payments) {
+            return sum + item.payments.reduce((pSum, payment) => pSum + (parseFloat(payment.amount) || 0), 0);
+          }
+          return sum + (parseFloat(item.gisungAmount) || 0);
+        }, 0);
       
       // 선급금을 기성금에 포함
       const siteData = sites.find(site => site.name === siteName);
@@ -792,12 +796,14 @@ const Progress = () => {
       });
       
       const totalContract = monthGisungData.reduce((sum, item) => sum + (parseFloat(item.contractAmount) || 0), 0);
-      const totalGisung = monthGisungData.reduce((sum, item) => {
-        if (item.payments) {
-          return sum + item.payments.reduce((pSum, payment) => pSum + (parseFloat(payment.amount) || 0), 0);
-        }
-        return sum + (parseFloat(item.gisungAmount) || 0);
-      }, 0);
+      const totalGisung = monthGisungData
+        .filter(item => item.claimStatus === '청구완료')
+        .reduce((sum, item) => {
+          if (item.payments) {
+            return sum + item.payments.reduce((pSum, payment) => pSum + (parseFloat(payment.amount) || 0), 0);
+          }
+          return sum + (parseFloat(item.gisungAmount) || 0);
+        }, 0);
       
       // 지출 데이터에서 해당 월의 데이터 필터링
       const monthCostData = allCostData.filter(cost => {
