@@ -97,8 +97,10 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
         const gisungSnapshot = await getDocs(gisungQuery);
         const gisungData = gisungSnapshot.docs.map(doc => doc.data());
         
-        // 총 기성금액 계산
-        const totalGisungAmount = gisungData.reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
+        // 총 기성금액 계산 (청구완료된 것만)
+        const totalGisungAmount = gisungData
+          .filter(item => item.claimStatus === '청구완료')
+          .reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
         
         // 기성률 계산: (총기성금액 + 선급금) / 총계약금액 * 100
         const contractAmount = Number(site.contractAmount) || 0;

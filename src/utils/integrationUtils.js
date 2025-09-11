@@ -189,12 +189,14 @@ export const getSiteIntegratedStatus = async (siteName) => {
     console.log('기성 데이터 개수:', progressData.length);
     console.log('기성 데이터:', progressData);
     
-    const totalProgressAmount = progressData.reduce((sum, progress) => {
-      // 기성관리에서 사용하는 gisungAmount 필드 사용
-      const gisungAmount = parseFloat(progress.gisungAmount) || 0;
-      console.log('기성 항목:', progress.name, '차수:', progress.sequence, '금액:', gisungAmount);
-      return sum + gisungAmount;
-    }, 0);
+    const totalProgressAmount = progressData
+      .filter(progress => progress.claimStatus === '청구완료')
+      .reduce((sum, progress) => {
+        // 기성관리에서 사용하는 gisungAmount 필드 사용
+        const gisungAmount = parseFloat(progress.gisungAmount) || 0;
+        console.log('기성 항목:', progress.name, '차수:', progress.sequence, '금액:', gisungAmount);
+        return sum + gisungAmount;
+      }, 0);
     
     // 선급금을 누계기성에 포함
     const advanceAmount = parseFloat(siteData.advance) || 0;
