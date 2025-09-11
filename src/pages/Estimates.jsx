@@ -570,10 +570,28 @@ const Estimates = () => {
     }
   };
 
-  // 제출상태 필터 핸들러
+  // 제출상태 필터 핸들러 (토글 기능 포함)
   const handleSubmissionStatusFilter = (status) => {
-    setSubmissionStatusFilter(status);
-    console.log('제출상태 필터 변경:', status);
+    // 현재 필터와 같은 상태를 클릭하면 전체보기로 토글
+    if (submissionStatusFilter === status) {
+      setSubmissionStatusFilter('전체');
+      console.log('제출상태 필터 토글: 전체보기');
+    } else {
+      setSubmissionStatusFilter(status);
+      console.log('제출상태 필터 변경:', status);
+    }
+  };
+
+  // 미제출 견적 필터 핸들러 (토글 기능 포함)
+  const handlePendingFilter = () => {
+    // 현재 미제출 필터가 적용되어 있으면 전체보기로 토글
+    if (submissionStatusFilter === '제출대기') {
+      setSubmissionStatusFilter('전체');
+      console.log('미제출 필터 토글: 전체보기');
+    } else {
+      setSubmissionStatusFilter('제출대기');
+      console.log('미제출 필터 적용');
+    }
   };
 
   // 필터 초기화 핸들러
@@ -839,19 +857,32 @@ const Estimates = () => {
           </Typography>
         </Paper>
         
-        <Paper sx={{ 
-          p: 2, 
-          bgcolor: '#232734', 
-          border: '1px solid #333',
-          borderRadius: 2,
-          minWidth: 200,
-          flex: '0 0 auto'
-        }}>
+        <Paper 
+          onClick={handlePendingFilter}
+          sx={{ 
+            p: 2, 
+            bgcolor: submissionStatusFilter === '제출대기' ? '#2a2f3a' : '#232734',
+            border: submissionStatusFilter === '제출대기' ? '1px solid #ef5350' : '1px solid #333',
+            borderRadius: 2,
+            minWidth: 200,
+            flex: '0 0 auto',
+            cursor: 'pointer',
+            '&:hover': {
+              bgcolor: submissionStatusFilter === '제출대기' ? '#2a2f3a' : '#2a2f3a',
+              border: '1px solid #ef5350'
+            }
+          }}
+        >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <AssignmentIcon sx={{ color: '#ef5350', fontSize: '1.2rem' }} />
             <Typography variant="body2" sx={{ color: '#bbb', fontSize: '0.9rem' }}>
               현재 미제출 견적
             </Typography>
+            {submissionStatusFilter === '제출대기' && (
+              <Typography variant="caption" sx={{ color: '#ef5350', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                (필터 적용됨)
+              </Typography>
+            )}
           </Box>
           <Typography variant="h4" sx={{ color: '#ef5350', fontWeight: 'bold' }}>
             {smartCardStats.pendingCount}개
@@ -864,14 +895,14 @@ const Estimates = () => {
             onClick={() => handleSubmissionStatusFilter('보류')}
             sx={{ 
               p: 2, 
-              bgcolor: '#232734', 
-              border: '1px solid #333',
+              bgcolor: submissionStatusFilter === '보류' ? '#2a2f3a' : '#232734',
+              border: submissionStatusFilter === '보류' ? '1px solid #f44336' : '1px solid #333',
               borderRadius: 2,
               minWidth: 200,
               flex: '0 0 auto',
               cursor: 'pointer',
               '&:hover': {
-                bgcolor: '#2a2f3a',
+                bgcolor: submissionStatusFilter === '보류' ? '#2a2f3a' : '#2a2f3a',
                 border: '1px solid #f44336'
               }
             }}
@@ -881,6 +912,11 @@ const Estimates = () => {
               <Typography variant="body2" sx={{ color: '#bbb', fontSize: '0.9rem' }}>
                 보류 중인 견적
               </Typography>
+              {submissionStatusFilter === '보류' && (
+                <Typography variant="caption" sx={{ color: '#f44336', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                  (필터 적용됨)
+                </Typography>
+              )}
             </Box>
             <Typography variant="h4" sx={{ color: '#f44336', fontWeight: 'bold' }}>
               {smartCardStats.onHoldCount}개
@@ -910,18 +946,23 @@ const Estimates = () => {
                   key={index}
                   label={siteName}
                   size="medium"
+                  onClick={() => {
+                    // 클릭 시 미제출 필터 적용
+                    handlePendingFilter();
+                  }}
                   onDoubleClick={() => {
-                    // 현장명에서 "/" 이전 부분만 추출하여 검색어로 설정
+                    // 더블클릭 시 현장명으로 검색
                     const siteNameOnly = siteName.split(' / ')[0];
                     setSearchTerm(siteNameOnly);
                     console.log('현장칩 더블클릭으로 검색어 설정:', siteNameOnly);
                   }}
                   sx={{
-                    backgroundColor: '#ef5350',
+                    backgroundColor: submissionStatusFilter === '제출대기' ? '#d32f2f' : '#ef5350',
                     color: '#fff',
                     fontSize: '1.2rem',
                     height: '36px',
                     cursor: 'pointer',
+                    border: submissionStatusFilter === '제출대기' ? '2px solid #fff' : 'none',
                     '&:hover': {
                       backgroundColor: '#d32f2f'
                     },
@@ -930,7 +971,7 @@ const Estimates = () => {
                       fontWeight: 600
                     }
                   }}
-                  title="더블클릭하여 현장명으로 검색"
+                  title="클릭: 미제출 필터, 더블클릭: 현장명 검색"
                 />
               ))}
             </Box>
@@ -969,15 +1010,16 @@ const Estimates = () => {
             />
             {smartCardStats.onHoldCount > 0 && (
               <Chip 
-                label={`보류 ${smartCardStats.onHoldCount}개`} 
+                label={`보류 ${smartCardStats.onHoldCount}개${submissionStatusFilter === '보류' ? ' ✓' : ''}`} 
                 size={isMobile ? 'small' : 'medium'}
                 onClick={() => handleSubmissionStatusFilter('보류')}
                 sx={{ 
-                  backgroundColor: '#f44336', 
+                  backgroundColor: submissionStatusFilter === '보류' ? '#d32f2f' : '#f44336', 
                   color: '#fff',
                   fontWeight: 'bold',
                   fontSize: isMobile ? '0.75rem' : 'inherit',
                   cursor: 'pointer',
+                  border: submissionStatusFilter === '보류' ? '2px solid #fff' : 'none',
                   '&:hover': {
                     backgroundColor: '#d32f2f'
                   }
