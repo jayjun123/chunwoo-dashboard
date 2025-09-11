@@ -1194,6 +1194,15 @@ const CustomScheduleMobile = () => {
       type = '입찰';
     }
 
+    // 현장 클릭 시 해당 날짜로 이동
+    if (schedule.date) {
+      const scheduleDate = new Date(schedule.date);
+      setSelectedDay(scheduleDate.getDate());
+      setMonth(scheduleDate.getMonth());
+      setYear(scheduleDate.getFullYear());
+      console.log('현장 클릭으로 날짜 이동:', scheduleDate.toLocaleDateString());
+    }
+
     try {
       if (type === '견적') {
         // 견적 데이터 찾기
@@ -1694,6 +1703,16 @@ const CustomScheduleMobile = () => {
                 return (
                   <Box 
                     key={item.id} 
+                    onClick={() => {
+                      // 현장 클릭 시 해당 날짜로 이동
+                      if (item.date) {
+                        const scheduleDate = new Date(item.date);
+                        setSelectedDay(scheduleDate.getDate());
+                        setMonth(scheduleDate.getMonth());
+                        setYear(scheduleDate.getFullYear());
+                        console.log('현장 클릭으로 날짜 이동:', scheduleDate.toLocaleDateString());
+                      }
+                    }}
                     sx={{ 
                       display: 'flex',
                       alignItems: 'center',
@@ -1710,7 +1729,11 @@ const CustomScheduleMobile = () => {
                       minHeight: 28, // 최소 높이 더 증가
                       maxHeight: 28, // 최대 높이 더 증가
                       width: '100%', // 전체 너비 사용
-                      overflow: 'hidden' // 넘치는 내용 숨김
+                      overflow: 'hidden', // 넘치는 내용 숨김
+                      cursor: 'pointer', // 클릭 가능함을 표시
+                      '&:hover': {
+                        opacity: 0.8 // 호버 효과
+                      }
                     }}
                   >
                     <Box sx={{ 

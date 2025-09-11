@@ -65,6 +65,7 @@ const Estimates = () => {
   const [editingEstimate, setEditingEstimate] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [companyFilter, setCompanyFilter] = useState('전체'); // 회사별 필터링 - 전체 기본값 (견적관리 페이지)
+  const [submissionStatusFilter, setSubmissionStatusFilter] = useState('전체'); // 제출상태 필터링
   const [sortField, setSortField] = useState('createdAt'); // 등록 순서대로 정렬
   const [sortDirection, setSortDirection] = useState('asc'); // 저장 순서대로 (오래된 순)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -91,6 +92,11 @@ const Estimates = () => {
       estimate.submissionStatus === '제출대기' || estimate.submissionStatus === '미제출'
     );
     
+    // 보류 상태 견적 개수
+    const onHoldEstimates = estimates.filter(estimate => 
+      estimate.submissionStatus === '보류'
+    );
+    
     // 미제출 현장명과 의뢰자 목록 (중복 제거)
     const pendingSiteRequesterPairs = [...new Set(
       pendingEstimates
@@ -101,6 +107,7 @@ const Estimates = () => {
     return {
       recentCount: recentEstimates.length,
       pendingCount: pendingEstimates.length,
+      onHoldCount: onHoldEstimates.length,
       pendingSiteNames: pendingSiteRequesterPairs
     };
   }, [estimates]);
@@ -563,15 +570,32 @@ const Estimates = () => {
     }
   };
 
-  // 검색어, 회사 필터 또는 정렬 변경 시 페이지 리셋
+  // 제출상태 필터 핸들러
+  const handleSubmissionStatusFilter = (status) => {
+    setSubmissionStatusFilter(status);
+    console.log('제출상태 필터 변경:', status);
+  };
+
+  // 필터 초기화 핸들러
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setCompanyFilter('전체');
+    setSubmissionStatusFilter('전체');
+    console.log('모든 필터 초기화');
+  };
+
+  // 검색어, 회사 필터, 제출상태 필터 또는 정렬 변경 시 페이지 리셋
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, companyFilter, sortField, sortDirection]);
+  }, [searchTerm, companyFilter, submissionStatusFilter, sortField, sortDirection]);
 
   // 검색 필터링 및 정렬
   const filteredEstimates = estimates.filter(estimate => {
     // 회사별 필터링
     const matchesCompany = companyFilter === '전체' || estimate.company === companyFilter;
+    
+    // 제출상태 필터링
+    const matchesSubmissionStatus = submissionStatusFilter === '전체' || estimate.submissionStatus === submissionStatusFilter;
     
     // 검색어 필터링
     const matchesSearch = 
@@ -580,7 +604,7 @@ const Estimates = () => {
       estimate.requester?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       estimate.requestContent?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    return matchesCompany && matchesSearch;
+    return matchesCompany && matchesSubmissionStatus && matchesSearch;
   }).sort((a, b) => {
     let aValue, bValue;
     
@@ -834,6 +858,36 @@ const Estimates = () => {
           </Typography>
         </Paper>
 
+        {/* 보류 견적 카드 */}
+        {smartCardStats.onHoldCount > 0 && (
+          <Paper 
+            onClick={() => handleSubmissionStatusFilter('보류')}
+            sx={{ 
+              p: 2, 
+              bgcolor: '#232734', 
+              border: '1px solid #333',
+              borderRadius: 2,
+              minWidth: 200,
+              flex: '0 0 auto',
+              cursor: 'pointer',
+              '&:hover': {
+                bgcolor: '#2a2f3a',
+                border: '1px solid #f44336'
+              }
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <AssignmentIcon sx={{ color: '#f44336', fontSize: '1.2rem' }} />
+              <Typography variant="body2" sx={{ color: '#bbb', fontSize: '0.9rem' }}>
+                보류 중인 견적
+              </Typography>
+            </Box>
+            <Typography variant="h4" sx={{ color: '#f44336', fontWeight: 'bold' }}>
+              {smartCardStats.onHoldCount}개
+            </Typography>
+          </Paper>
+        )}
+
         {/* 미제출 현장명 목록 */}
         {smartCardStats.pendingSiteNames.length > 0 && (
           <Paper sx={{ 
@@ -886,15 +940,51 @@ const Estimates = () => {
 
       {/* 헤더 */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <AssignmentIcon sx={{ fontSize: '2rem', color: '#ff9800' }} />
-          <Typography variant="h4" sx={{ fontWeight: 600, color: '#fff' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: isMobile ? 1 : 2,
+          flexWrap: isMobile ? 'wrap' : 'nowrap'
+        }}>
+          <AssignmentIcon sx={{ 
+            fontSize: isMobile ? '1.5rem' : '2rem', 
+            color: '#ff9800' 
+          }} />
+          <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ 
+            fontWeight: 600, 
+            color: '#fff',
+            fontSize: isMobile ? '1.3rem' : 'inherit'
+          }}>
             견적 관리
           </Typography>
-          <Chip 
-            label={`총 ${filteredEstimates.length}개`} 
-            sx={{ backgroundColor: '#ff9800', color: '#fff' }} 
-          />
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Chip 
+              label={`총 ${filteredEstimates.length}개`} 
+              size={isMobile ? 'small' : 'medium'}
+              sx={{ 
+                backgroundColor: '#ff9800', 
+                color: '#fff',
+                fontSize: isMobile ? '0.75rem' : 'inherit'
+              }} 
+            />
+            {smartCardStats.onHoldCount > 0 && (
+              <Chip 
+                label={`보류 ${smartCardStats.onHoldCount}개`} 
+                size={isMobile ? 'small' : 'medium'}
+                onClick={() => handleSubmissionStatusFilter('보류')}
+                sx={{ 
+                  backgroundColor: '#f44336', 
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  fontSize: isMobile ? '0.75rem' : 'inherit',
+                  cursor: 'pointer',
+                  '&:hover': {
+                    backgroundColor: '#d32f2f'
+                  }
+                }} 
+              />
+            )}
+          </Box>
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -1023,6 +1113,29 @@ const Estimates = () => {
             <MenuItem value="기타">기타</MenuItem>
           </Select>
         </FormControl>
+
+        {/* 제출상태 필터링 */}
+        <FormControl sx={{ minWidth: 140 }}>
+          <InputLabel sx={{ color: '#ccc' }}>제출상태</InputLabel>
+          <Select
+            value={submissionStatusFilter}
+            onChange={(e) => setSubmissionStatusFilter(e.target.value)}
+            sx={{
+              color: '#fff',
+              '& .MuiOutlinedInput-root': {
+                '& fieldset': { borderColor: '#444' },
+                '&:hover fieldset': { borderColor: '#666' },
+                '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+              }
+            }}
+          >
+            <MenuItem value="전체">전체</MenuItem>
+            <MenuItem value="제출대기">제출대기</MenuItem>
+            <MenuItem value="제출완료">제출완료</MenuItem>
+            <MenuItem value="보류">보류</MenuItem>
+            <MenuItem value="제출지연">제출지연</MenuItem>
+          </Select>
+        </FormControl>
         
         <FormControl sx={{ minWidth: 120 }}>
           <InputLabel sx={{ color: '#ccc' }}>정렬</InputLabel>
@@ -1054,6 +1167,24 @@ const Estimates = () => {
             <MenuItem value="siteName-desc">현장명 ↓</MenuItem>
           </Select>
         </FormControl>
+
+        {/* 필터 초기화 버튼 */}
+        {(searchTerm || companyFilter !== '전체' || submissionStatusFilter !== '전체') && (
+          <Button
+            variant="outlined"
+            onClick={handleClearFilters}
+            sx={{
+              borderColor: '#666',
+              color: '#fff',
+              '&:hover': { 
+                borderColor: '#ff9800',
+                backgroundColor: 'rgba(255, 152, 0, 0.1)'
+              }
+            }}
+          >
+            필터 초기화
+          </Button>
+        )}
       </Box>
 
       {/* 견적 테이블 */}

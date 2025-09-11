@@ -53,6 +53,7 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
   const [paintAppOpen, setPaintAppOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // templateType에 따른 표시 텍스트
   const getTemplateTypeText = () => {
@@ -88,23 +89,42 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
 
   // 물량 데이터 로드
   const loadMaterialData = async () => {
-    if (!siteId) return;
+    if (!siteId) {
+      console.warn('⚠️ siteId가 없어서 데이터를 로드할 수 없습니다.');
+      return;
+    }
     
     setLoading(true);
     setError('');
     
     try {
+      console.log('📥 물량 데이터 로드 시작:', siteId);
+      
       const result = await getMaterialDataFromFirebase(siteId);
       
-      if (result.success) {
+      if (result && result.success && result.data) {
         setMaterialData(result.data);
-        console.log('✅ 물량 데이터 로드 완료:', result.data.items.length, '개 항목');
+        console.log('✅ 물량 데이터 로드 완료:', result.data.items?.length || 0, '개 항목');
       } else {
-        setError('물량 데이터를 불러올 수 없습니다.');
+        const errorMsg = result?.error || '물량 데이터를 불러올 수 없습니다.';
+        console.error('❌ 데이터 로드 실패:', errorMsg);
+        setError(errorMsg);
       }
     } catch (error) {
-      console.error('❌ 물량 데이터 로드 실패:', error);
-      setError('물량 데이터 로드 중 오류가 발생했습니다.');
+      console.error('❌ 물량 데이터 로드 중 예외 발생:', error);
+      console.error('❌ 에러 스택:', error.stack);
+      
+      // 더 구체적인 에러 메시지 제공
+      let errorMessage = '물량 데이터 로드 중 오류가 발생했습니다.';
+      if (error.message.includes('Network')) {
+        errorMessage = '네트워크 연결을 확인해주세요.';
+      } else if (error.message.includes('Firebase')) {
+        errorMessage = '데이터베이스 연결에 문제가 있습니다.';
+      } else if (error.message.includes('Permission')) {
+        errorMessage = '데이터 접근 권한이 없습니다.';
+      }
+      
+      setError(`${errorMessage} (${error.message})`);
     } finally {
       setLoading(false);
     }
@@ -115,6 +135,14 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
     loadMaterialData();
   }, [siteId]);
 
+  // 컴포넌트 언마운트 시 정리
+  useEffect(() => {
+    return () => {
+      // 비동기 작업 취소를 위한 플래그
+      console.log('🧹 MaterialInventory 컴포넌트 정리');
+    };
+  }, []);
+
   // 물량 항목 편집 함수들
   const handleEditItem = (item, index) => {
     setEditingItem({ ...item, index });
@@ -122,52 +150,97 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
   };
 
   const handleSaveEdit = async () => {
-    if (!editingItem) return;
+    if (!editingItem) {
+      console.warn('⚠️ 편집할 항목이 없습니다.');
+      return;
+    }
     
     try {
+      console.log('📝 물량 항목 수정 시작:', editingItem);
+      
       const updatedItems = [...materialData.items];
       updatedItems[editingItem.index] = {
         ...editingItem,
         amount: (editingItem.quantity * editingItem.unitPrice).toString()
       };
       
-      // Firebase에 업데이트
-      const { doc, updateDoc, collection, serverTimestamp } = await import('firebase/firestore');
-      const { db } = await import('../firebase');
+      // Firebase 모듈 동적 import with error handling
+      let doc, updateDoc, collection, serverTimestamp, query, where, getDocs, db;
+      
+      try {
+        const firestoreModule = await import('firebase/firestore');
+        const firebaseModule = await import('../firebase');
+        
+        doc = firestoreModule.doc;
+        updateDoc = firestoreModule.updateDoc;
+        collection = firestoreModule.collection;
+        serverTimestamp = firestoreModule.serverTimestamp;
+        query = firestoreModule.query;
+        where = firestoreModule.where;
+        getDocs = firestoreModule.getDocs;
+        db = firebaseModule.db;
+        
+        if (!db) {
+          throw new Error('Firebase 데이터베이스 연결이 실패했습니다.');
+        }
+      } catch (importError) {
+        console.error('❌ Firebase 모듈 로드 실패:', importError);
+        throw new Error('데이터베이스 연결에 실패했습니다.');
+      }
       
       // materialEstimates 컬렉션 업데이트
-      const { query, where, getDocs } = await import('firebase/firestore');
       const materialQuery = query(
         collection(db, 'materialEstimates'),
         where('siteId', '==', siteId)
       );
+      
       const materialDocs = await getDocs(materialQuery);
       
-      if (!materialDocs.empty) {
-        const materialDoc = materialDocs.docs[0];
-        await updateDoc(doc(db, 'materialEstimates', materialDoc.id), {
-          items: updatedItems,
-          updatedAt: serverTimestamp()
-        });
-        
-        // 로컬 상태 업데이트
-        setMaterialData(prev => ({
-          ...prev,
-          items: updatedItems
-        }));
-        
-        setSuccess('물량 항목이 수정되었습니다.');
-        setEditDialogOpen(false);
-        setEditingItem(null);
-        
-        // 부모 컴포넌트에 업데이트 알림
-        if (onDataUpdate) {
+      if (materialDocs.empty) {
+        throw new Error('해당 현장의 물량 데이터를 찾을 수 없습니다.');
+      }
+      
+      const materialDoc = materialDocs.docs[0];
+      await updateDoc(doc(db, 'materialEstimates', materialDoc.id), {
+        items: updatedItems,
+        updatedAt: serverTimestamp()
+      });
+      
+      // 로컬 상태 업데이트
+      setMaterialData(prev => ({
+        ...prev,
+        items: updatedItems
+      }));
+      
+      setSuccess('물량 항목이 수정되었습니다.');
+      setEditDialogOpen(false);
+      setEditingItem(null);
+      
+      // 부모 컴포넌트에 업데이트 알림
+      if (onDataUpdate) {
+        try {
           onDataUpdate();
+        } catch (updateError) {
+          console.error('❌ 부모 컴포넌트 업데이트 실패:', updateError);
         }
       }
+      
+      console.log('✅ 물량 항목 수정 완료');
     } catch (error) {
       console.error('❌ 물량 항목 수정 실패:', error);
-      setError('물량 항목 수정 중 오류가 발생했습니다.');
+      console.error('❌ 에러 스택:', error.stack);
+      
+      // 더 구체적인 에러 메시지 제공
+      let errorMessage = '물량 항목 수정 중 오류가 발생했습니다.';
+      if (error.message.includes('Firebase')) {
+        errorMessage = '데이터베이스 연결에 문제가 있습니다.';
+      } else if (error.message.includes('찾을 수 없습니다')) {
+        errorMessage = error.message;
+      } else if (error.message.includes('Network')) {
+        errorMessage = '네트워크 연결을 확인해주세요.';
+      }
+      
+      setError(`${errorMessage} (${error.message})`);
     }
   };
 
@@ -198,38 +271,71 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
 
   // 파일 업로드 핸들러
   const handleUpload = async () => {
+    if (isProcessing) {
+      console.warn('⚠️ 이미 처리 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
     if (!selectedFile || !siteId) {
       setError('파일과 현장 정보가 필요합니다.');
       return;
     }
 
+    setIsProcessing(true);
     setUploading(true);
     setError('');
     setSuccess('');
 
     try {
+      console.log('📤 업로드 시작:', { fileName: selectedFile.name, siteId, siteName });
+      
       const result = await uploadMaterialData(selectedFile, siteId, siteName);
       
-      if (result.success) {
+      if (result && result.success) {
+        console.log('✅ 업로드 성공:', result.message);
         setSuccess(result.message);
         setUploadDialogOpen(false);
         setSelectedFile(null);
         
         // 데이터 새로고침
-        await loadMaterialData();
+        try {
+          await loadMaterialData();
+        } catch (reloadError) {
+          console.error('❌ 데이터 새로고침 실패:', reloadError);
+          setError('업로드는 완료되었지만 데이터 새로고침에 실패했습니다.');
+        }
         
         // 부모 컴포넌트에 업데이트 알림
-        if (onDataUpdate) {
-          onDataUpdate(result.data);
+        if (onDataUpdate && result.data) {
+          try {
+            onDataUpdate(result.data);
+          } catch (updateError) {
+            console.error('❌ 부모 컴포넌트 업데이트 실패:', updateError);
+          }
         }
       } else {
-        setError(result.error || '업로드에 실패했습니다.');
+        const errorMsg = result?.error || '업로드에 실패했습니다.';
+        console.error('❌ 업로드 실패:', errorMsg);
+        setError(errorMsg);
       }
     } catch (error) {
-      console.error('❌ 업로드 실패:', error);
-      setError('업로드 중 오류가 발생했습니다.');
+      console.error('❌ 업로드 중 예외 발생:', error);
+      console.error('❌ 에러 스택:', error.stack);
+      
+      // 더 구체적인 에러 메시지 제공
+      let errorMessage = '업로드 중 오류가 발생했습니다.';
+      if (error.message.includes('Network')) {
+        errorMessage = '네트워크 연결을 확인해주세요.';
+      } else if (error.message.includes('Firebase')) {
+        errorMessage = '데이터베이스 연결에 문제가 있습니다.';
+      } else if (error.message.includes('File')) {
+        errorMessage = '파일 처리 중 오류가 발생했습니다.';
+      }
+      
+      setError(`${errorMessage} (${error.message})`);
     } finally {
       setUploading(false);
+      setIsProcessing(false);
     }
   };
 
@@ -291,20 +397,38 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
             variant="outlined"
             size="small"
             startIcon={<UploadIcon />}
-            onClick={() => setUploadDialogOpen(true)}
+            onClick={() => {
+              if (!isProcessing) {
+                setUploadDialogOpen(true);
+              }
+            }}
+            disabled={isProcessing}
             sx={{
               borderColor: '#43e97b',
               color: '#43e97b',
-              '&:hover': { borderColor: '#2dd36f' }
+              '&:hover': { borderColor: '#2dd36f' },
+              '&:disabled': { 
+                borderColor: '#666', 
+                color: '#666',
+                cursor: 'not-allowed'
+              }
             }}
           >
-            업로드
+            {isProcessing ? '처리중...' : '업로드'}
           </Button>
           <IconButton
             size="small"
-            onClick={loadMaterialData}
-            disabled={loading}
-            sx={{ color: '#43e97b' }}
+            onClick={() => {
+              if (!isProcessing && !loading) {
+                loadMaterialData();
+              }
+            }}
+            disabled={loading || isProcessing}
+            sx={{ 
+              color: '#43e97b',
+              '&:disabled': { color: '#666' }
+            }}
+            title={isProcessing ? '처리 중입니다' : '새로고침'}
           >
             <RefreshIcon />
           </IconButton>
@@ -854,19 +978,23 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
           </Button>
           <Button 
             onClick={handleUpload}
-            disabled={!selectedFile || uploading}
+            disabled={!selectedFile || uploading || isProcessing}
             variant="contained"
             sx={{
               bgcolor: '#43e97b',
               color: '#000',
               '&:hover': { bgcolor: '#2dd36f' },
-              '&:disabled': { bgcolor: '#333', color: '#666' }
+              '&:disabled': { 
+                bgcolor: '#333', 
+                color: '#666',
+                cursor: 'not-allowed'
+              }
             }}
           >
-            {uploading ? (
+            {uploading || isProcessing ? (
               <>
                 <CircularProgress size={16} sx={{ mr: 1, color: '#000' }} />
-                업로드 중...
+                {uploading ? '업로드 중...' : '처리 중...'}
               </>
             ) : (
               '업로드'

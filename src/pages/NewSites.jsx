@@ -2665,7 +2665,7 @@ const NewSites = () => {
         display: { xs: isMobile && isEditing ? 'flex' : 'none', md: 'flex' },
         flexDirection: 'column', 
         bgcolor: '#232734', 
-        p: isMobile ? 2 : 3, 
+        p: isMobile ? 1 : 3, 
         borderRadius: 2, 
         minWidth: 0, 
         height: { xs: 'auto', md: '100%' }, // 모바일에서는 자동 높이
@@ -2819,7 +2819,7 @@ const NewSites = () => {
            gap: isMobile ? 0.5 : 1,
            height: { xs: 'auto', md: 'calc(100% - 100px)' }, // 모바일에서는 자동 높이
            minHeight: { xs: 'auto', md: 'auto' }, // 모바일에서 자동 높이
-           overflowY: { xs: 'visible', md: 'auto' }, // 모바일에서는 스크롤 없음
+           overflowY: 'auto', // 모바일에서도 스크롤 허용
            WebkitOverflowScrolling: 'touch',
            scrollBehavior: 'smooth',
            touchAction: 'pan-y',
@@ -3279,11 +3279,11 @@ const NewSites = () => {
         display: { xs: isMobile && isEditing ? 'flex' : 'none', md: 'flex' }, // 모바일에서는 편집 모드일 때만 표시
         flexDirection: 'column', 
         bgcolor: '#232734', 
-        p: isMobile ? 2 : 3, 
+        p: isMobile ? 1 : 3, 
         borderRadius: 2, 
         position: isMobile ? 'relative' : 'static',
         top: isMobile ? '0px' : 'auto',
-        left: isMobile ? '2.5%' : 'auto', // 모바일에서 중앙 정렬
+        left: isMobile ? '1%' : 'auto', // 모바일에서 중앙 정렬
         overflow: 'auto' // 모바일에서 스크롤 허용
       }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
