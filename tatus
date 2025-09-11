@@ -4,3 +4,194 @@
   [31mremotes/origin/main[m
   [31mremotes/origin/master[m
   [31mremotes/origin/new-master[m
+warning: in the working copy of 'src/pages/Estimates.jsx', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/src/pages/Estimates.jsx b/src/pages/Estimates.jsx[m
+[1mindex d4b10d8..4209997 100644[m
+[1m--- a/src/pages/Estimates.jsx[m
+[1m+++ b/src/pages/Estimates.jsx[m
+[36m@@ -120,7 +120,8 @@[m [mconst Estimates = () => {[m
+     receptionDate: getKoreanDate(),[m
+     type: '견적', // 견적 또는 입찰 구분[m
+     requester: '',[m
+[31m-    submissionMethod: '',[m
+[32m+[m[32m    submissionMethod: '메일',[m
+[32m+[m[32m    customSubmissionMethod: '',[m
+     company: '',[m
+     siteName: '',[m
+     requestContent: '',[m
+[36m@@ -262,7 +263,8 @@[m [mconst Estimates = () => {[m
+       receptionDate: getKoreanDate(),[m
+       type: '견적',[m
+       requester: '',[m
+[31m-      submissionMethod: '',[m
+[32m+[m[32m      submissionMethod: '메일',[m
+[32m+[m[32m      customSubmissionMethod: '',[m
+       company: '',[m
+       siteName: '',[m
+       requestContent: '',[m
+[36m@@ -285,7 +287,8 @@[m [mconst Estimates = () => {[m
+         receptionDate: estimate.receptionDate || getKoreanDate(),[m
+         type: estimate.type || '견적',[m
+         requester: estimate.requester || '',[m
+[31m-        submissionMethod: estimate.submissionMethod || '',[m
+[32m+[m[32m        submissionMethod: estimate.submissionMethod || '메일',[m
+[32m+[m[32m        customSubmissionMethod: estimate.customSubmissionMethod || '',[m
+         company: estimate.company || '',[m
+         siteName: estimate.siteName || '',[m
+         requestContent: estimate.requestContent || '',[m
+[36m@@ -1545,6 +1548,7 @@[m [mconst Estimates = () => {[m
+         </DialogTitle>[m
+         <DialogContent>[m
+           <Grid container spacing={2} sx={{ mt: 1 }}>[m
+[32m+[m[32m            {/* 1줄: 접수일, 타입, 의뢰자 */}[m
+             <Grid item xs={6} md={2}>[m
+               <TextField[m
+                 fullWidth[m
+[36m@@ -1584,7 +1588,7 @@[m [mconst Estimates = () => {[m
+                 </Select>[m
+               </FormControl>[m
+             </Grid>[m
+[31m-            <Grid item xs={6} md={2}>[m
+[32m+[m[32m            <Grid item xs={12} md={6}>[m
+               <Autocomplete[m
+                 options={requesters.map(requester => {[m
+                   // 이름과 직위만 표시 (회사명 제외)[m
+[36m@@ -1640,27 +1644,58 @@[m [mconst Estimates = () => {[m
+                 }}[m
+               />[m
+             </Grid>[m
+[32m+[m
+[32m+[m[32m            {/* 2줄: 제출방법, 회사명, 현장명 */}[m
+             <Grid item xs={6} md={1}>[m
+[31m-              <TextField[m
+[31m-                fullWidth[m
+[31m-                label="제출방법"[m
+[31m-                value={formData.submissionMethod}[m
+[31m-                onChange={(e) => {[m
+[31m-                  console.log('=== 제출방법 변경 ===');[m
+[31m-                  console.log('새로운 값:', e.target.value);[m
+[31m-                  setFormData({ ...formData, submissionMethod: e.target.value });[m
+[31m-                }}[m
+[31m-                sx={{[m
+[31m-                  '& .MuiOutlinedInput-root': {[m
+[31m-                    '& fieldset': { borderColor: '#444' },[m
+[31m-                    '&:hover fieldset': { borderColor: '#666' },[m
+[31m-                    '&.Mui-focused fieldset': { borderColor: '#ff9800' }[m
+[31m-                  },[m
+[31m-                  '& .MuiInputLabel-root': { color: '#ccc' },[m
+[31m-                  '& .MuiInputBase-input': { color: '#fff' }[m
+[31m-                }}[m
+[31m-              />[m
+[32m+[m[32m              <FormControl fullWidth>[m
+[32m+[m[32m                <InputLabel sx={{ color: '#ccc' }}>제출방법</InputLabel>[m
+[32m+[m[32m                <Select[m
+[32m+[m[32m                  value={formData.submissionMethod || '메일'}[m
+[32m+[m[32m                  onChange={(e) => {[m
+[32m+[m[32m                    console.log('=== 제출방법 변경 ===');[m
+[32m+[m[32m                    console.log('새로운 값:', e.target.value);[m
+[32m+[m[32m                    setFormData({ ...formData, submissionMethod: e.target.value });[m
+[32m+[m[32m                  }}[m
+[32m+[m[32m                  sx={{[m
+[32m+[m[32m                    color: '#fff',[m
+[32m+[m[32m                    '& .MuiOutlinedInput-root': {[m
+[32m+[m[32m                      '& fieldset': { borderColor: '#444' },[m
+[32m+[m[32m                      '&:hover fieldset': { borderColor: '#666' },[m
+[32m+[m[32m                      '&.Mui-focused fieldset': { borderColor: '#ff9800' }[m
+[32m+[m[32m                    }[m
+[32m+[m[32m                  }}[m
+[32m+[m[32m                >[m
+[32m+[m[32m                  <MenuItem value="메일">메일</MenuItem>[m
+[32m+[m[32m                  <MenuItem value="우편">우편</MenuItem>[m
+[32m+[m[32m                  <MenuItem value="직접">직접</MenuItem>[m
+[32m+[m[32m                  <MenuItem value="메일/우편">메일/우편</MenuItem>[m
+[32m+[m[32m                  <MenuItem value="기타">기타</MenuItem>[m
+[32m+[m[32m                </Select>[m
+[32m+[m[32m              </FormControl>[m
+             </Grid>[m
+[32m+[m[32m            {formData.submissionMethod === '기타' && ([m
+[32m+[m[32m              <Grid item xs={6} md={1}>[m
+[32m+[m[32m                <TextField[m
+[32m+[m[32m                  fullWidth[m
+[32m+[m[32m                  label="기타 제출방법"[m
+[32m+[m[32m                  value={formData.customSubmissionMethod || ''}[m
+[32m+[m[32m                  onChange={(e) => {[m
+[32m+[m[32m                    console.log('=== 기타 제출방법 변경 ===');[m
+[32m+[m[32m                    console.log('새로운 값:', e.target.value);[m
+[32m+[m[32m                    setFormData({ ...formData, customSubmissionMethod: e.target.value });[m
+[32m+[m[32m                  }}[m
+[32m+[m[32m                  sx={{[m
+[32m+[m[32m                    '& .MuiOutlinedInput-root': {[m
+[32m+[m[32m                      '& fieldset': { borderColor: '#444' },[m
+[32m+[m[32m                      '&:hover fieldset': { borderColor: '#666' },[m
+[32m+[m[32m                      '&.Mui-focused fieldset': { borderColor: '#ff9800' }[m
+[32m+[m[32m                    },[m
+[32m+[m[32m                    '& .MuiInputLabel-root': { color: '#ccc' },[m
+[32m+[m[32m                    '& .MuiInputBase-input': { color: '#fff' }[m
+[32m+[m[32m                  }}[m
+[32m+[m[32m                />[m
+[32m+[m[32m              </Grid>[m
+[32m+[m[32m            )}[m
+             <Grid item xs={6} md={2}>[m
+               <TextField[m
+                 fullWidth[m
+[36m@@ -1682,7 +1717,7 @@[m [mconst Estimates = () => {[m
+                 }}[m
+               />[m
+             </Grid>[m
+[31m-            <Grid item xs={12} md={4}>[m
+[32m+[m[32m            <Grid item xs={12} md={6}>[m
+               <TextField[m
+                 fullWidth[m
+                 label="현장명"[m
+[36m@@ -1703,6 +1738,8 @@[m [mconst Estimates = () => {[m
+                 }}[m
+               />[m
+             </Grid>[m
+[32m+[m
+[32m+[m[32m            {/* 3줄: 제출기한, 요청내용, 제출상태 */}[m
+             <Grid item xs={6} md={2}>[m
+               <TextField[m
+                 fullWidth[m
+[36m@@ -1726,7 +1763,7 @@[m [mconst Estimates = () => {[m
+                 }}[m
+               />[m
+             </Grid>[m
+[31m-            <Grid item xs={12} md={2}>[m
+[32m+[m[32m            <Grid item xs={6} md={2}>[m
+               <TextField[m
+                 fullWidth[m
+                 label="요청내용"[m
+[36m@@ -1736,8 +1773,6 @@[m [mconst Estimates = () => {[m
+                   console.log('새로운 값:', e.target.value);[m
+                   setFormData({ ...formData, requestContent: e.target.value });[m
+                 }}[m
+[31m-                multiline[m
+[31m-                rows={3}[m
+                 sx={{[m
+                   '& .MuiOutlinedInput-root': {[m
+                     '& fieldset': { borderColor: '#444' },[m
+[36m@@ -1775,6 +1810,8 @@[m [mconst Estimates = () => {[m
+                 </Select>[m
+               </FormControl>[m
+             </Grid>[m
+[32m+[m
+[32m+[m[32m            {/* 4줄: 수주상태, 비고 */}[m
+             <Grid item xs={6} md={1}>[m
+               <FormControl fullWidth>[m
+                 <InputLabel sx={{ color: '#ccc' }}>수주상태</InputLabel>[m
+[36m@@ -1800,14 +1837,12 @@[m [mconst Estimates = () => {[m
+                 </Select>[m
+               </FormControl>[m
+             </Grid>[m
+[31m-            <Grid item xs={12} md={2}>[m
+[32m+[m[32m            <Grid item xs={12} md={6}>[m
+               <TextField[m
+                 fullWidth[m
+                 label="비고"[m
+                 value={formData.notes}[m
+                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}[m
+[31m-                multiline[m
+[31m-                rows={2}[m
+                 sx={{[m
+                   '& .MuiOutlinedInput-root': {[m
+                     '& fieldset': { borderColor: '#444' },[m
