@@ -991,6 +991,23 @@ export default function ImportantSite() {
                 <Box sx={{ mt: 0, mb: isMobile ? 1 : 2, display: 'flex', gap: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
                   <Button 
                     variant="contained" 
+                    color="info" 
+                    size={isMobile ? 'small' : 'medium'}
+                    sx={{ 
+                      borderRadius: 2, 
+                      fontWeight: 700,
+                      fontSize: isMobile ? '0.65rem' : 'inherit',
+                      padding: isMobile ? '4px 8px' : 'inherit',
+                      minWidth: isMobile ? 'auto' : 'inherit'
+                    }} 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate(`/sites?siteId=${site.id}`);
+                    }}
+                  >현장관리</Button>
+                  <Button 
+                    variant="contained" 
                     color="primary" 
                     size={isMobile ? 'small' : 'medium'}
                     sx={{ 
