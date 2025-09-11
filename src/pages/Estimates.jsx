@@ -120,7 +120,8 @@ const Estimates = () => {
     receptionDate: getKoreanDate(),
     type: '견적', // 견적 또는 입찰 구분
     requester: '',
-    submissionMethod: '',
+    submissionMethod: '메일',
+    customSubmissionMethod: '',
     company: '',
     siteName: '',
     requestContent: '',
@@ -262,7 +263,8 @@ const Estimates = () => {
       receptionDate: getKoreanDate(),
       type: '견적',
       requester: '',
-      submissionMethod: '',
+      submissionMethod: '메일',
+      customSubmissionMethod: '',
       company: '',
       siteName: '',
       requestContent: '',
@@ -285,7 +287,8 @@ const Estimates = () => {
         receptionDate: estimate.receptionDate || getKoreanDate(),
         type: estimate.type || '견적',
         requester: estimate.requester || '',
-        submissionMethod: estimate.submissionMethod || '',
+        submissionMethod: estimate.submissionMethod || '메일',
+        customSubmissionMethod: estimate.customSubmissionMethod || '',
         company: estimate.company || '',
         siteName: estimate.siteName || '',
         requestContent: estimate.requestContent || '',
@@ -1545,6 +1548,7 @@ const Estimates = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
+            {/* 1줄: 접수일, 타입, 의뢰자 */}
             <Grid item xs={6} md={2}>
               <TextField
                 fullWidth
@@ -1584,7 +1588,7 @@ const Estimates = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={6} md={2}>
+            <Grid item xs={12} md={6}>
               <Autocomplete
                 options={requesters.map(requester => {
                   // 이름과 직위만 표시 (회사명 제외)
@@ -1636,31 +1640,66 @@ const Estimates = () => {
                 )}
                 sx={{
                   '& .MuiAutocomplete-popupIndicator': { color: '#ccc' },
-                  '& .MuiAutocomplete-clearIndicator': { color: '#ccc' }
+                  '& .MuiAutocomplete-clearIndicator': { color: '#ccc' },
+                  '& .MuiInputBase-root': { 
+                    minWidth: '160px',
+                    width: '100%'
+                  }
                 }}
               />
             </Grid>
+
+            {/* 2줄: 제출방법, 회사명, 현장명 */}
             <Grid item xs={6} md={1}>
-              <TextField
-                fullWidth
-                label="제출방법"
-                value={formData.submissionMethod}
-                onChange={(e) => {
-                  console.log('=== 제출방법 변경 ===');
-                  console.log('새로운 값:', e.target.value);
-                  setFormData({ ...formData, submissionMethod: e.target.value });
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#444' },
-                    '&:hover fieldset': { borderColor: '#666' },
-                    '&.Mui-focused fieldset': { borderColor: '#ff9800' }
-                  },
-                  '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: '#fff' }
-                }}
-              />
+              <FormControl fullWidth>
+                <InputLabel sx={{ color: '#ccc' }}>제출방법</InputLabel>
+                <Select
+                  value={formData.submissionMethod || '메일'}
+                  onChange={(e) => {
+                    console.log('=== 제출방법 변경 ===');
+                    console.log('새로운 값:', e.target.value);
+                    setFormData({ ...formData, submissionMethod: e.target.value });
+                  }}
+                  sx={{
+                    color: '#fff',
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                    }
+                  }}
+                >
+                  <MenuItem value="메일">메일</MenuItem>
+                  <MenuItem value="우편">우편</MenuItem>
+                  <MenuItem value="직접">직접</MenuItem>
+                  <MenuItem value="메일/우편">메일/우편</MenuItem>
+                  <MenuItem value="기타">기타</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
+            {formData.submissionMethod === '기타' && (
+              <Grid item xs={6} md={1}>
+                <TextField
+                  fullWidth
+                  label="기타 제출방법"
+                  value={formData.customSubmissionMethod || ''}
+                  onChange={(e) => {
+                    console.log('=== 기타 제출방법 변경 ===');
+                    console.log('새로운 값:', e.target.value);
+                    setFormData({ ...formData, customSubmissionMethod: e.target.value });
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#fff' }
+                  }}
+                />
+              </Grid>
+            )}
             <Grid item xs={6} md={2}>
               <TextField
                 fullWidth
@@ -1682,7 +1721,7 @@ const Estimates = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="현장명"
@@ -1699,10 +1738,14 @@ const Estimates = () => {
                     '&.Mui-focused fieldset': { borderColor: '#ff9800' }
                   },
                   '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: '#fff' }
+                  '& .MuiInputBase-input': { color: '#fff' },
+                  minWidth: '500px',
+                  width: '100%'
                 }}
               />
             </Grid>
+
+            {/* 3줄: 제출기한, 요청내용, 제출상태 */}
             <Grid item xs={6} md={2}>
               <TextField
                 fullWidth
@@ -1726,7 +1769,7 @@ const Estimates = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={2}>
+            <Grid item xs={6} md={2}>
               <TextField
                 fullWidth
                 label="요청내용"
@@ -1736,8 +1779,6 @@ const Estimates = () => {
                   console.log('새로운 값:', e.target.value);
                   setFormData({ ...formData, requestContent: e.target.value });
                 }}
-                multiline
-                rows={3}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#444' },
@@ -1775,6 +1816,8 @@ const Estimates = () => {
                 </Select>
               </FormControl>
             </Grid>
+
+            {/* 4줄: 수주상태, 비고 */}
             <Grid item xs={6} md={1}>
               <FormControl fullWidth>
                 <InputLabel sx={{ color: '#ccc' }}>수주상태</InputLabel>
@@ -1800,14 +1843,12 @@ const Estimates = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={2}>
+            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="비고"
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                multiline
-                rows={2}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: '#444' },
