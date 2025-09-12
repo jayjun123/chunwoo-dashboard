@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import React, { useState, useEffect, useCallback } from 'react';
-=======
-import React, { useState, useEffect } from 'react';
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
 import {
   Box,
   Typography,
@@ -92,11 +88,7 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
   }, []);
 
   // 물량 데이터 로드
-<<<<<<< HEAD
   const loadMaterialData = useCallback(async () => {
-=======
-  const loadMaterialData = async () => {
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
     if (!siteId) {
       console.warn('⚠️ siteId가 없어서 데이터를 로드할 수 없습니다.');
       return;
@@ -136,20 +128,12 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
     } finally {
       setLoading(false);
     }
-<<<<<<< HEAD
   }, [siteId]);
-=======
-  };
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
 
   // 컴포넌트 마운트 시 데이터 로드
   useEffect(() => {
     loadMaterialData();
-<<<<<<< HEAD
   }, [siteId, loadMaterialData]);
-=======
-  }, [siteId]);
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
 
   // 컴포넌트 언마운트 시 정리
   useEffect(() => {
@@ -506,7 +490,6 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
                 </Box>
               ) : (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-<<<<<<< HEAD
                   {materialData.items.map((item, index) => {
                     // item 유효성 검사
                     if (!item || typeof item !== 'object') {
@@ -533,27 +516,6 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
                         }}>
                           {item.name || '품목명없음'}
                         </Typography>
-=======
-                  {materialData.items.map((item, index) => (
-                    <Box
-                      key={index}
-                      sx={{
-                        bgcolor: '#1e252b',
-                        borderRadius: 1,
-                        p: 2,
-                        border: '1px solid #333',
-                        '&:hover': { bgcolor: '#2a3441' }
-                      }}
-                    >
-                      <Typography variant="subtitle2" sx={{ 
-                        color: '#fff', 
-                        fontWeight: 'bold',
-                        mb: 1,
-                        fontSize: '0.9rem'
-                      }}>
-                        {item.name}
-                      </Typography>
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
                       
                       {item.specification && (
                         <Typography variant="caption" sx={{ 
@@ -573,17 +535,10 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
                         mb: 1
                       }}>
                         <Typography variant="body2" sx={{ color: '#b0b0b0', fontSize: '0.8rem' }}>
-<<<<<<< HEAD
                           물량: {formatQuantity(item.quantity || 0, item.unit || '식')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: '#b0b0b0', fontSize: '0.8rem' }}>
                           단가: {formatCurrency(item.unitPrice || 0)}
-=======
-                          물량: {formatQuantity(item.quantity, item.unit)}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#b0b0b0', fontSize: '0.8rem' }}>
-                          단가: {formatCurrency(item.unitPrice)}
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
                         </Typography>
                       </Box>
                       
@@ -593,11 +548,7 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
                         textAlign: 'right',
                         fontSize: '0.9rem'
                       }}>
-<<<<<<< HEAD
                         {formatCurrency(item.amount || 0)}
-=======
-                        {formatCurrency(item.amount)}
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
                       </Typography>
                       
                       <Box sx={{ 
@@ -617,12 +568,8 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
                         </IconButton>
                       </Box>
                     </Box>
-<<<<<<< HEAD
                     );
                   })}
-=======
-                  ))}
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
                 </Box>
               )}
             </Box>
@@ -698,7 +645,6 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
                       </TableCell>
                     </TableRow>
                   ) : (
-<<<<<<< HEAD
                     materialData.items.map((item, index) => {
                       // item 유효성 검사
                       if (!item || typeof item !== 'object') {
@@ -773,74 +719,6 @@ const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => 
                         </TableRow>
                       );
                     })
-=======
-                    materialData.items.map((item, index) => (
-                      <TableRow 
-                        key={index}
-                        sx={{ 
-                          '&:hover': { bgcolor: '#2a3441' },
-                          '&:nth-of-type(odd)': { bgcolor: '#1e252b' }
-                        }}
-                      >
-                        <TableCell sx={{ 
-                          color: '#fff', 
-                          borderBottom: '1px solid #333',
-                          maxWidth: 200,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                              {item.name}
-                            </Typography>
-                            {item.specification && (
-                              <Typography variant="caption" sx={{ color: '#999' }}>
-                                {item.specification}
-                              </Typography>
-                            )}
-                          </Box>
-                        </TableCell>
-                        <TableCell sx={{ 
-                          color: '#fff', 
-                          borderBottom: '1px solid #333',
-                          textAlign: 'right'
-                        }}>
-                          {formatQuantity(item.quantity, item.unit)}
-                        </TableCell>
-                        <TableCell sx={{ 
-                          color: '#fff', 
-                          borderBottom: '1px solid #333',
-                          textAlign: 'right'
-                        }}>
-                          {formatCurrency(item.unitPrice)}
-                        </TableCell>
-                        <TableCell sx={{ 
-                          color: '#43e97b', 
-                          borderBottom: '1px solid #333',
-                          textAlign: 'right',
-                          fontWeight: 'bold'
-                        }}>
-                          {formatCurrency(item.amount)}
-                        </TableCell>
-                        <TableCell sx={{ 
-                          color: '#fff', 
-                          borderBottom: '1px solid #333',
-                          textAlign: 'center'
-                        }}>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEditItem(item, index)}
-                            sx={{ 
-                              color: '#43e97b',
-                              '&:hover': { bgcolor: '#2a3441' }
-                            }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
                   )}
                 </TableBody>
               </Table>
