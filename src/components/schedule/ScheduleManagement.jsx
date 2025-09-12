@@ -60,6 +60,12 @@ function formatKoreanDate(dateStr) {
 function convertEstimateToSchedule(estimate) {
   if (!estimate.submissionDeadline) return null;
   
+  // 제출완료 상태인 견적은 일정에서 제외
+  if (estimate.submissionStatus === '제출완료') {
+    console.log('🔍 제출완료 견적 제외:', estimate.siteName || estimate.company);
+    return null;
+  }
+  
   // 견적 상태에 따른 체크 상태 결정
   const isChecked = estimate.submissionStatus === '제출완료';
   
