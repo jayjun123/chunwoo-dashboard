@@ -58,7 +58,7 @@ import Cost from './Cost';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
 import { syncProgressToCost } from '../utils/integrationUtils';
-import { generateDocumentExcel } from '../utils/materialUploadUtils';
+import { generateDocumentExcel } from '../utils/materialUploadUtils.jsx';
 
 // 핀치 줌 훅
 const usePinchZoom = () => {

@@ -33,7 +33,7 @@ import {
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { generateDocumentExcel } from '../utils/materialUploadUtils';
+import { generateDocumentExcel } from '../utils/materialUploadUtils.jsx';
 import { templateUrls } from '../utils/templateUrls';
 
 const ConstructionStatus = () => {

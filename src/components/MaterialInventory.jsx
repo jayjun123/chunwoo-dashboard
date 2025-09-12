@@ -35,7 +35,7 @@ import {
   Save as SaveIcon,
   Palette as PaletteIcon
 } from '@mui/icons-material';
-import { uploadMaterialData, getMaterialDataFromFirebase, convertMaterialDataForSiteManagement } from '../utils/materialUploadUtils';
+import { uploadMaterialData, getMaterialDataFromFirebase, convertMaterialDataForSiteManagement } from '../utils/materialUploadUtils.jsx';
 import IdeaPad from './NotepadApp';
 
 const MaterialInventory = ({ siteId, siteName, templateType, onDataUpdate }) => {

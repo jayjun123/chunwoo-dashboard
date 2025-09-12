@@ -107,7 +107,7 @@ const formatDateRange = (startDate, endDate) => {
 };
 import { getSiteIntegratedStatus } from '../utils/integrationUtils';
 import * as XLSX from 'xlsx';
-import { uploadMaterialData, generateDocumentExcel, getMaterialDataFromFirebase } from '../utils/materialUploadUtils';
+import { uploadMaterialData, generateDocumentExcel, getMaterialDataFromFirebase } from '../utils/materialUploadUtils.jsx';
 import { downloadNapfoomContract } from '../utils/napfoomUtils';
 import { safeUpdateDoc, debouncedUpdate } from '../utils/databaseUtils';
 
@@ -680,7 +680,7 @@ const NewSites = () => {
       if (selectedSite && selectedSite?.id) {
         try {
           console.log('🔍 물량 데이터 조회 시작 - siteId:', selectedSite?.id);
-          const { getMaterialDataFromFirebase } = await import('../utils/materialUploadUtils');
+          const { getMaterialDataFromFirebase } = await import('../utils/materialUploadUtils.jsx');
           const result = await getMaterialDataFromFirebase(selectedSite?.id);
           console.log('🔍 물량 데이터 조회 결과:', result);
           
