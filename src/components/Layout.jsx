@@ -58,7 +58,10 @@ import {
   Gavel as GavelIcon,
   Block as BlockIcon,
   EditNote as EditNoteIcon,
+<<<<<<< HEAD
   Help as HelpIcon,
+=======
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
 } from '@mui/icons-material';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -176,11 +179,14 @@ const Layout = React.memo(({ children }) => {
     }
   };
 
+<<<<<<< HEAD
   const handleManualOpen = () => {
     navigate('/manual');
     handleMenuClose();
   };
 
+=======
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
   return (
     <Box sx={{ 
       display: 'flex', 
@@ -221,10 +227,14 @@ const Layout = React.memo(({ children }) => {
                 } else {
                   // 권한에 따라 다른 페이지로 이동
                   if (isMaster) {
+<<<<<<< HEAD
                     // 히트맵 탭에서도 일정관리 탭으로 이동하도록 강제 업데이트
                     navigate('/schedule', { state: { initialTab: 0 }, replace: true }); // 마스터는 일정관리 페이지로 (일정관리 탭)
                     // 커스텀 이벤트 발생
                     window.dispatchEvent(new CustomEvent('logoClick'));
+=======
+                    navigate('/schedule'); // 마스터는 일정관리 페이지로
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
                   } else {
                     navigate('/gantt'); // 일반 사용자는 현장일정 페이지로
                   }
@@ -266,6 +276,7 @@ const Layout = React.memo(({ children }) => {
                       color: muiTheme.palette.primary.main,
                     },
                   }}
+<<<<<<< HEAD
                   onClick={() => {
                     if (item.path === '/schedule') {
                       navigate(item.path, { state: { initialTab: 0 } });
@@ -273,6 +284,9 @@ const Layout = React.memo(({ children }) => {
                       navigate(item.path);
                     }
                   }}
+=======
+                  onClick={() => navigate(item.path)}
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
                 >
                   <Box
                     sx={{
@@ -402,11 +416,15 @@ const Layout = React.memo(({ children }) => {
                 bgcolor: location.pathname === item.path ? 'action.selected' : 'transparent',
               }}
               onClick={() => {
+<<<<<<< HEAD
                 if (item.path === '/schedule') {
                   navigate(item.path, { state: { initialTab: 0 } });
                 } else {
                   navigate(item.path);
                 }
+=======
+                navigate(item.path);
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
                 setDrawerOpen(false);
               }}
             >
@@ -517,9 +535,12 @@ const Layout = React.memo(({ children }) => {
         }}>
           프로필
         </MenuItem>
+<<<<<<< HEAD
         <MenuItem onClick={handleManualOpen}>
           사용설명서
         </MenuItem>
+=======
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
         <Divider />
         <MenuItem onClick={handleLogout}>
           로그아웃
@@ -588,7 +609,10 @@ const Layout = React.memo(({ children }) => {
         siteId={null}
         siteName={null}
       />
+<<<<<<< HEAD
 
+=======
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
     </Box>
   );
 });

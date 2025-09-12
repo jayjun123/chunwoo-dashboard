@@ -239,8 +239,11 @@ const Claims = React.lazy(() => import('./pages/Claims'));
 const EstimatesMobile = React.lazy(() => import('./pages/EstimatesMobile'));
 const ClaimsMobile = React.lazy(() => import('./pages/ClaimsMobile'));
 const Confidential = React.lazy(() => import('./pages/Confidential'));
+<<<<<<< HEAD
 const UserManual = React.lazy(() => import('./pages/UserManual'));
 const EstimateAnalysis = React.lazy(() => import('./pages/EstimateAnalysis'));
+=======
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { CircularProgress } from '@mui/material';
 
@@ -1070,6 +1073,7 @@ const App = React.memo(() => {
                           </ProtectedRoute>
                         }
                       />
+<<<<<<< HEAD
                       <Route
                         path="/manual"
                         element={
@@ -1102,6 +1106,8 @@ const App = React.memo(() => {
                           </ProtectedRoute>
                         }
                       />
+=======
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
 
                       <Route path="*" element={<NotFound />} />
                     </Routes>

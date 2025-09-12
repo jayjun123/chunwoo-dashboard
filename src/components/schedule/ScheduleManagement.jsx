@@ -1,8 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
+<<<<<<< HEAD
 import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, Autocomplete, Tabs, Tab } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, EditNote as EditNoteIcon, CalendarToday as CalendarIcon, BarChart as BarChartIcon } from '@mui/icons-material';
 import CustomCalendar from '../CustomCalendar';
 import ScheduleHeatmap from './ScheduleHeatmap';
+=======
+import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, Autocomplete } from '@mui/material';
+import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, EditNote as EditNoteIcon } from '@mui/icons-material';
+import CustomCalendar from '../CustomCalendar';
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
@@ -10,7 +16,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { exportCalendarToExcel, exportToExcel, exportScheduleToExcel } from '../../utils/excelUtils.jsx';
 import useMediaQuery from '@mui/material/useMediaQuery';
+<<<<<<< HEAD
 import { useNavigate, useLocation } from 'react-router-dom';
+=======
+import { useNavigate } from 'react-router-dom';
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
 import { subscribeToEstimates } from '../../api/estimates';
 import SiteInfoPopup from '../common/SiteInfoPopup';
 
@@ -125,14 +135,21 @@ const ScheduleManagement = ({
   checkedSchedules,
   onOpenIdeaPad,
   onCheckSchedule,
+<<<<<<< HEAD
   onDeleteSelectedSchedules,
   initialTab = 0
+=======
+  onDeleteSelectedSchedules
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
 }) => {
 
   const isMobile = useMediaQuery('(max-width:600px)');
   const authUser = useAuth();
   const navigate = useNavigate();
+<<<<<<< HEAD
   const location = useLocation();
+=======
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -152,6 +169,7 @@ const ScheduleManagement = ({
   const colorChoices = ['transparent', '#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
   const [selectedColor, setSelectedColor] = useState(colorChoices[0]);
   
+<<<<<<< HEAD
   // 탭 상태 (location.state에서 initialTab 가져오기)
   const [activeTab, setActiveTab] = useState(location.state?.initialTab ?? initialTab);
   
@@ -185,6 +203,8 @@ const ScheduleManagement = ({
     };
   }, []);
   
+=======
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
 
   const [showListPopup, setShowListPopup] = useState(false);
   const [listPopupDate, setListPopupDate] = useState('');
@@ -697,6 +717,7 @@ const ScheduleManagement = ({
       );
     }
     
+<<<<<<< HEAD
     // 정렬 로직: 1순위 - 공기 유무 (공기 있음 → 공기 없음), 2순위 - 공기 날짜 (늦은 순), 3순위 - 가나다순
     return searchFiltered.sort((a, b) => {
       const today = new Date();
@@ -719,6 +740,28 @@ const ScheduleManagement = ({
       }
       
       // 3순위: 가나다순 정렬
+=======
+    // 정렬 로직: 1순위 - 상태별 정렬 (진행중 → 예정 → 완료), 2순위 - 가나다순
+    return searchFiltered.sort((a, b) => {
+      // 상태별 우선순위 정의
+      const statusPriority = {
+        '진행중': 1,
+        '예정': 2,
+        '완료': 3
+      };
+      
+      // 1순위: 상태별 정렬
+      const aStatus = a.status || '';
+      const bStatus = b.status || '';
+      const aPriority = statusPriority[aStatus] || 999; // 상태가 없으면 맨 뒤로
+      const bPriority = statusPriority[bStatus] || 999;
+      
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      
+      // 2순위: 가나다순 정렬
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
       const aName = a.name || '';
       const bName = b.name || '';
       return aName.localeCompare(bName, 'ko');
@@ -1590,6 +1633,7 @@ const ScheduleManagement = ({
         </Box>
       )}
 
+<<<<<<< HEAD
       {/* 탭별 콘텐츠 */}
       {activeTab === 0 && (
         /* 일정 관리 탭 */
@@ -1606,6 +1650,22 @@ const ScheduleManagement = ({
           }}
           onDragEnd={onDragEnd}
         >
+=======
+
+      <DragDropContext 
+        onDragStart={(result) => {
+          // 길게 터치하지 않은 경우 드래그 취소
+          const itemKey = result.draggableId;
+          // CustomCalendar에서 전달받은 터치 상태 확인
+          const touchState = window.touchStates?.[itemKey];
+          if (!touchState || !touchState.isLongPress) {
+            console.log('길게 터치하지 않아 드래그 취소:', itemKey);
+            return false; // 드래그 취소
+          }
+        }}
+        onDragEnd={onDragEnd}
+      >
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
                   <Box sx={{ 
             display: 'flex', 
             flexDirection: { xs: 'column-reverse', md: 'row' }, 
@@ -1656,6 +1716,7 @@ const ScheduleManagement = ({
               bgcolor: '#23242a',
               color: '#fff'
             }}>
+<<<<<<< HEAD
               {/* 탭 메뉴 - 컴팩트 */}
               <Paper sx={{ bgcolor: '#232734', border: '1px solid #333', borderRadius: 0, mb: 1, py: 0 }}>
                 <Tabs
@@ -1691,6 +1752,8 @@ const ScheduleManagement = ({
                 </Tabs>
               </Paper>
               
+=======
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
               <Box sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -1963,6 +2026,7 @@ const ScheduleManagement = ({
           </Box>
         </Box>
       </DragDropContext>
+<<<<<<< HEAD
       )}
 
       {activeTab === 1 && (
@@ -1980,6 +2044,8 @@ const ScheduleManagement = ({
           />
         </Box>
       )}
+=======
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
       
       {/* 현장 정보 팝업 */}
       <SiteInfoPopup

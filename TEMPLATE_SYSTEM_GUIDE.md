@@ -145,5 +145,8 @@ if (siteData.templateType === 'L') {
 
 
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> ae5decb092edae570c53532171b77e663caa0146
