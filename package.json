@@ -31,11 +31,7 @@
     "@vitejs/plugin-react": "^4.5.1",
     "axios": "^1.9.0",
     "bcryptjs": "^3.0.2",
-<<<<<<< HEAD
     "chart.js": "^4.5.0",
-=======
-    "chart.js": "^4.4.9",
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
     "cors": "^2.8.5",
     "date-fns": "^3.6.0",
     "dotenv": "^16.5.0",

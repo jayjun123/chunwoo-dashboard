@@ -189,7 +189,6 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
   try {
     console.log('📊 견적서 엑셀 파싱 시작:', { siteId, siteName });
     
-<<<<<<< HEAD
     // 파일 검증
     if (!file) {
       throw new Error('파일이 제공되지 않았습니다.');
@@ -208,9 +207,6 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
     }
     
     const arrayBuffer = await file.arrayBuffer();
-=======
-         const arrayBuffer = await file.arrayBuffer();
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
      
      // ExcelJS를 사용하여 수식과 값을 모두 읽음 (Shared Formula 문제 방지)
      const workbook = new ExcelJS.Workbook();
@@ -732,7 +728,6 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
     
   } catch (error) {
     console.error('❌ 견적서 파싱 실패:', error);
-<<<<<<< HEAD
     console.error('❌ 오류 스택:', error.stack);
     
     // 더 구체적인 에러 메시지 제공
@@ -748,11 +743,6 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
     return {
       success: false,
       error: `${errorMessage} (${error.message})`
-=======
-    return {
-      success: false,
-      error: error.message
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
     };
   }
 };
@@ -765,7 +755,6 @@ export const saveMaterialDataToFirebase = async (siteId, siteName, parsedData) =
   try {
     console.log('💾 파이어베이스 저장 시작:', { siteId, siteName });
     
-<<<<<<< HEAD
     // 매개변수 검증
     if (!siteId || typeof siteId !== 'string' || siteId.trim() === '') {
       throw new Error('siteId가 유효하지 않습니다.');
@@ -782,9 +771,6 @@ export const saveMaterialDataToFirebase = async (siteId, siteName, parsedData) =
     if (!parsedData.items || !Array.isArray(parsedData.items)) {
       throw new Error('parsedData.items가 유효한 배열이 아닙니다.');
     }
-    
-=======
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
     const { items, summary } = parsedData;
     
     // 단수정리 항목 확인

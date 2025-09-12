@@ -837,19 +837,11 @@ const Estimates = () => {
 
 
     return (
-<<<<<<< HEAD
     <Box sx={{ p: 2, backgroundColor: '#1a1a1a', color: '#fff', marginTop: '64px' }}>
       {/* 스마트 카드 */}
       <Box sx={{ display: 'flex', gap: 1.5, mb: 2, width: '100%' }}>
         <Paper sx={{ 
-          p: 1.5, 
-=======
-    <Box sx={{ p: 3, backgroundColor: '#1a1a1a', color: '#fff', marginTop: '64px' }}>
-      {/* 스마트 카드 */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, width: '100%' }}>
-        <Paper sx={{ 
-          p: 2, 
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
+          p: 1.5,
           bgcolor: '#232734', 
           border: '1px solid #333',
           borderRadius: 2,
@@ -871,11 +863,7 @@ const Estimates = () => {
         <Paper 
           onClick={handlePendingFilter}
           sx={{ 
-<<<<<<< HEAD
-            p: 1.5, 
-=======
-            p: 2, 
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
+            p: 1.5,
             bgcolor: submissionStatusFilter === '제출대기' ? '#2a2f3a' : '#232734',
             border: submissionStatusFilter === '제출대기' ? '1px solid #ef5350' : '1px solid #333',
             borderRadius: 2,
@@ -909,11 +897,7 @@ const Estimates = () => {
           <Paper 
             onClick={() => handleSubmissionStatusFilter('보류')}
             sx={{ 
-<<<<<<< HEAD
-              p: 1.5, 
-=======
-              p: 2, 
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
+              p: 1.5,
               bgcolor: submissionStatusFilter === '보류' ? '#2a2f3a' : '#232734',
               border: submissionStatusFilter === '보류' ? '1px solid #f44336' : '1px solid #333',
               borderRadius: 2,
@@ -946,11 +930,7 @@ const Estimates = () => {
         {/* 미제출 현장명 목록 */}
         {smartCardStats.pendingSiteNames.length > 0 && (
           <Paper sx={{ 
-<<<<<<< HEAD
-            p: 1.5, 
-=======
-            p: 2, 
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
+            p: 1.5,
             bgcolor: '#232734', 
             border: '1px solid #333',
             borderRadius: 2,
@@ -970,16 +950,11 @@ const Estimates = () => {
                   label={siteName}
                   size="medium"
                   onClick={() => {
-<<<<<<< HEAD
                     // 클릭 시 해당 현장의 미제출 견적만 필터링
                     const siteNameOnly = siteName.split(' / ')[0];
                     setSearchTerm(siteNameOnly);
                     setSubmissionStatusFilter('제출대기');
                     console.log('현장칩 클릭으로 필터링:', siteNameOnly);
-=======
-                    // 클릭 시 미제출 필터 적용
-                    handlePendingFilter();
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
                   }}
                   onDoubleClick={() => {
                     // 더블클릭 시 현장명으로 검색
@@ -1011,11 +986,7 @@ const Estimates = () => {
       </Box>
 
       {/* 헤더 */}
-<<<<<<< HEAD
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-=======
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
         <Box sx={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -1026,7 +997,6 @@ const Estimates = () => {
             fontSize: isMobile ? '1.5rem' : '2rem', 
             color: '#ff9800' 
           }} />
-<<<<<<< HEAD
           <Typography variant={isMobile ? 'h4' : 'h3'} sx={{ 
             fontWeight: 700, 
             color: '#fff',
@@ -1052,48 +1022,10 @@ const Estimates = () => {
             sx={{ 
               backgroundColor: '#ff9800', 
               color: '#fff',
-              fontSize: isMobile ? '0.75rem' : 'inherit',
+                fontSize: isMobile ? '0.75rem' : 'inherit',
               ml: 1
             }} 
           />
-=======
-          <Typography variant={isMobile ? 'h5' : 'h4'} sx={{ 
-            fontWeight: 600, 
-            color: '#fff',
-            fontSize: isMobile ? '1.3rem' : 'inherit'
-          }}>
-            견적 관리
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Chip 
-              label={`총 ${filteredEstimates.length}개`} 
-              size={isMobile ? 'small' : 'medium'}
-              sx={{ 
-                backgroundColor: '#ff9800', 
-                color: '#fff',
-                fontSize: isMobile ? '0.75rem' : 'inherit'
-              }} 
-            />
-            {smartCardStats.onHoldCount > 0 && (
-              <Chip 
-                label={`보류 ${smartCardStats.onHoldCount}개${submissionStatusFilter === '보류' ? ' ✓' : ''}`} 
-                size={isMobile ? 'small' : 'medium'}
-                onClick={() => handleSubmissionStatusFilter('보류')}
-                sx={{ 
-                  backgroundColor: submissionStatusFilter === '보류' ? '#d32f2f' : '#f44336', 
-                  color: '#fff',
-                  fontWeight: 'bold',
-                  fontSize: isMobile ? '0.75rem' : 'inherit',
-                  cursor: 'pointer',
-                  border: submissionStatusFilter === '보류' ? '2px solid #fff' : 'none',
-                  '&:hover': {
-                    backgroundColor: '#d32f2f'
-                  }
-                }} 
-              />
-            )}
-          </Box>
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -1128,8 +1060,6 @@ const Estimates = () => {
             다운로드
           </Button>
           <Button
-<<<<<<< HEAD
-=======
             variant="outlined"
             onClick={async () => {
               try {
@@ -1160,7 +1090,6 @@ const Estimates = () => {
             기존 데이터 연동
           </Button>
           <Button
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
             variant="contained"
             startIcon={<AddIcon />}
             onClick={(e) => {
@@ -1182,11 +1111,7 @@ const Estimates = () => {
       </Box>
 
       {/* 검색 및 정렬 */}
-<<<<<<< HEAD
       <Box sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
-=======
-      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
         <TextField
           placeholder="견적 검색..."
           value={searchTerm}
@@ -1304,17 +1229,10 @@ const Estimates = () => {
       </Box>
 
       {/* 견적 테이블 */}
-<<<<<<< HEAD
       <TableContainer component={Paper} sx={{ backgroundColor: '#2a2a2a', maxHeight: '60vh' }}>
         <Table>
           <TableHead>
             <TableRow sx={{ backgroundColor: '#333', '& .MuiTableCell-root': { py: 1.5 } }}>
-=======
-      <TableContainer component={Paper} sx={{ backgroundColor: '#2a2a2a' }}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: '#333' }}>
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
               <TableCell sx={{ color: '#fff', fontWeight: 600, width: 80 }}>NO.</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('receptionDate')}>
                 접수일 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
@@ -1348,11 +1266,7 @@ const Estimates = () => {
           </TableHead>
           <TableBody>
             {currentEstimates.map((estimate, index) => (
-<<<<<<< HEAD
               <TableRow key={estimate.id} sx={{ '&:hover': { backgroundColor: '#333' }, '& .MuiTableCell-root': { py: 1.5 } }}>
-=======
-              <TableRow key={estimate.id} sx={{ '&:hover': { backgroundColor: '#333' } }}>
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
                 <TableCell sx={{ color: '#fff' }}>{filteredEstimates.length - filteredEstimates.findIndex(e => e.id === estimate.id)}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{estimate.receptionDate}</TableCell>
                 <TableCell>
@@ -1507,13 +1421,8 @@ const Estimates = () => {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-<<<<<<< HEAD
           mt: 2, 
-          p: 1.5, 
-=======
-          mt: 3, 
-          p: 2, 
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
+          p: 1.5,
           backgroundColor: '#2a2a2a',
           borderRadius: 1
         }}>
@@ -1759,13 +1668,9 @@ const Estimates = () => {
                   <MenuItem value="메일">메일</MenuItem>
                   <MenuItem value="우편">우편</MenuItem>
                   <MenuItem value="직접">직접</MenuItem>
-<<<<<<< HEAD
                   <MenuItem value="카톡">카톡</MenuItem>
                   <MenuItem value="메일/우편">메일/우편</MenuItem>
                   <MenuItem value="메일/카톡">메일/카톡</MenuItem>
-=======
-                  <MenuItem value="메일/우편">메일/우편</MenuItem>
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
                   <MenuItem value="기타">기타</MenuItem>
                 </Select>
               </FormControl>

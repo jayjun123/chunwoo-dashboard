@@ -163,7 +163,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
         clientY = e.clientY;
       }
       
-<<<<<<< HEAD
       // 좌표 유효성 검사
       if (typeof clientX === 'number' && typeof clientY === 'number' && 
           !isNaN(clientX) && !isNaN(clientY)) {
@@ -172,12 +171,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
           y: clientY - dragStart.y
         });
       }
-=======
-      setDialogPosition({
-        x: clientX - dragStart.x,
-        y: clientY - dragStart.y
-      });
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
     }
   }, [isDragging, dragStart]);
 
@@ -221,7 +214,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
         clientY = e.clientY;
       }
       
-<<<<<<< HEAD
       // 좌표 유효성 검사
       if (typeof clientX === 'number' && typeof clientY === 'number' && 
           !isNaN(clientX) && !isNaN(clientY)) {
@@ -233,15 +225,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
           height: Math.max(300, resizeStart.height + deltaY)
         });
       }
-=======
-      const deltaX = clientX - resizeStart.x;
-      const deltaY = clientY - resizeStart.y;
-      
-      setDialogSize({
-        width: Math.max(400, resizeStart.width + deltaX),
-        height: Math.max(300, resizeStart.height + deltaY)
-      });
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
     }
   }, [isResizing, resizeStart]);
 
@@ -448,16 +431,12 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
         clientY = e.clientY;
       }
 
-<<<<<<< HEAD
       // 좌표 유효성 검사
       if (typeof clientX !== 'number' || typeof clientY !== 'number' || 
           isNaN(clientX) || isNaN(clientY)) {
         console.warn('유효하지 않은 좌표:', { clientX, clientY });
         return { x: 0, y: 0 };
       }
-
-=======
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
       // 캔버스 내부 좌표로 변환 (고정 크기 기준)
       const x = (clientX - rect.left) * (550 / rect.width);
       const y = (clientY - rect.top) * (1122 / rect.height);
@@ -613,7 +592,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     }
   }, [isDragging, isResizing, handleMouseMove, handleMouseUp, handleResizeMove, handleResizeEnd]);
 
-<<<<<<< HEAD
   // 전역 터치 이벤트 핸들러
   const handleGlobalTouch = useCallback((e) => {
     // IDEA PAD 컨테이너 내부에서만 처리
@@ -649,9 +627,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
       document.removeEventListener('touchend', handleGlobalTouch);
     };
   }, [handleMouseMove, handleMouseUp, handleGlobalTouch]);
-
-=======
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
   // 캔버스 초기화
   const initializeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -794,11 +769,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
       const { x, y } = getCanvasCoordinates(e);
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      
-<<<<<<< HEAD
-
-=======
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
       if (history.length > 0 && historyIndex >= 0) {
         const img = new Image();
         img.onload = () => {
@@ -1001,34 +971,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     setHistoryIndex(0);
     setShapes([]);
   }, [drawNotebookBackground]);
-
-<<<<<<< HEAD
-=======
-  // 현장 목록 로드
-  const loadSites = useCallback(async () => {
-    try {
-      const q = query(collection(db, 'sites'), orderBy('name'));
-      const querySnapshot = await getDocs(q);
-      const sitesList = [];
-      
-      querySnapshot.forEach((doc) => {
-        sitesList.push({
-          id: doc.id,
-          ...doc.data()
-        });
-      });
-      
-      setAllSites(sitesList);
-      setFilteredSites(sitesList);
-      
-      // 각 현장의 아이디어 저장 상태 확인
-      checkSitesWithIdeas(sitesList);
-    } catch (error) {
-      console.error('현장 목록 로드 실패:', error);
-    }
-  }, []);
-
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
   // 아이디어가 저장된 현장 확인
   const checkSitesWithIdeas = useCallback(async (sites) => {
     try {
@@ -1096,7 +1038,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     }
   }, []);
 
-<<<<<<< HEAD
   // 현장 목록 로드
   const loadSites = useCallback(async () => {
     try {
@@ -1120,9 +1061,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
       console.error('현장 목록 로드 실패:', error);
     }
   }, [checkSitesWithIdeas]);
-
-=======
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
   // 현장 검색 (개선된 검색)
   const handleSiteSearch = useCallback((query) => {
     if (query.trim() === '') {
@@ -1481,8 +1419,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
         }
 
         // 전역 터치 이벤트 리스너 추가 (두 손가락 스크롤 지원)
-<<<<<<< HEAD
-=======
         const handleGlobalTouch = (e) => {
           // IDEA PAD 컨테이너 내부에서만 처리
           const ideapadContainer = document.querySelector('.ideapad-container');
@@ -1503,7 +1439,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
             }
           }
         };
->>>>>>> ae5decb092edae570c53532171b77e663caa0146
 
         // 전역 이벤트 리스너 등록
         document.addEventListener('touchstart', handleGlobalTouch, { passive: false });
