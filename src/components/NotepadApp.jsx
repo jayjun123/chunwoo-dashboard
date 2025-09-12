@@ -163,10 +163,14 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
         clientY = e.clientY;
       }
       
-      setDialogPosition({
-        x: clientX - dragStart.x,
-        y: clientY - dragStart.y
-      });
+      // 좌표 유효성 검사
+      if (typeof clientX === 'number' && typeof clientY === 'number' && 
+          !isNaN(clientX) && !isNaN(clientY)) {
+        setDialogPosition({
+          x: clientX - dragStart.x,
+          y: clientY - dragStart.y
+        });
+      }
     }
   }, [isDragging, dragStart]);
 
@@ -210,13 +214,17 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
         clientY = e.clientY;
       }
       
-      const deltaX = clientX - resizeStart.x;
-      const deltaY = clientY - resizeStart.y;
-      
-      setDialogSize({
-        width: Math.max(400, resizeStart.width + deltaX),
-        height: Math.max(300, resizeStart.height + deltaY)
-      });
+      // 좌표 유효성 검사
+      if (typeof clientX === 'number' && typeof clientY === 'number' && 
+          !isNaN(clientX) && !isNaN(clientY)) {
+        const deltaX = clientX - resizeStart.x;
+        const deltaY = clientY - resizeStart.y;
+        
+        setDialogSize({
+          width: Math.max(400, resizeStart.width + deltaX),
+          height: Math.max(300, resizeStart.height + deltaY)
+        });
+      }
     }
   }, [isResizing, resizeStart]);
 
@@ -423,6 +431,13 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
         clientY = e.clientY;
       }
 
+      // 좌표 유효성 검사
+      if (typeof clientX !== 'number' || typeof clientY !== 'number' || 
+          isNaN(clientX) || isNaN(clientY)) {
+        console.warn('유효하지 않은 좌표:', { clientX, clientY });
+        return { x: 0, y: 0 };
+      }
+
       // 캔버스 내부 좌표로 변환 (고정 크기 기준)
       const x = (clientX - rect.left) * (550 / rect.width);
       const y = (clientY - rect.top) * (1122 / rect.height);
@@ -578,6 +593,42 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     }
   }, [isDragging, isResizing, handleMouseMove, handleMouseUp, handleResizeMove, handleResizeEnd]);
 
+  // 전역 터치 이벤트 핸들러
+  const handleGlobalTouch = useCallback((e) => {
+    // IDEA PAD 컨테이너 내부에서만 처리
+    const ideapadContainer = document.querySelector('.ideapad-container');
+    if (ideapadContainer && ideapadContainer.contains(e.target)) {
+      // 캔버스 영역이 아닌 경우에만 스크롤 허용
+      if (!e.target.closest('canvas')) {
+        // 스크롤 허용
+        return;
+      } else {
+        // 캔버스 영역에서는 두 손가락 터치인 경우에만 스크롤 허용
+        if (e.touches && e.touches.length > 1) {
+          console.log('전역 이벤트: 두 손가락 터치 감지 - 스크롤 허용');
+          return; // 스크롤 허용
+        } else {
+          // 한 손가락 터치인 경우 스크롤 차단
+          e.preventDefault();
+        }
+      }
+    }
+  }, []);
+
+  // 컴포넌트 언마운트 시 정리
+  useEffect(() => {
+    return () => {
+      // 모든 이벤트 리스너 정리
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleMouseMove);
+      document.removeEventListener('touchend', handleMouseUp);
+      document.removeEventListener('touchstart', handleGlobalTouch);
+      document.removeEventListener('touchmove', handleGlobalTouch);
+      document.removeEventListener('touchend', handleGlobalTouch);
+    };
+  }, [handleMouseMove, handleMouseUp, handleGlobalTouch]);
+
   // 캔버스 초기화
   const initializeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -721,6 +772,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       
+
       if (history.length > 0 && historyIndex >= 0) {
         const img = new Image();
         img.onload = () => {
@@ -924,30 +976,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     setShapes([]);
   }, [drawNotebookBackground]);
 
-  // 현장 목록 로드
-  const loadSites = useCallback(async () => {
-    try {
-      const q = query(collection(db, 'sites'), orderBy('name'));
-      const querySnapshot = await getDocs(q);
-      const sitesList = [];
-      
-      querySnapshot.forEach((doc) => {
-        sitesList.push({
-          id: doc.id,
-          ...doc.data()
-        });
-      });
-      
-      setAllSites(sitesList);
-      setFilteredSites(sitesList);
-      
-      // 각 현장의 아이디어 저장 상태 확인
-      checkSitesWithIdeas(sitesList);
-    } catch (error) {
-      console.error('현장 목록 로드 실패:', error);
-    }
-  }, []);
-
   // 아이디어가 저장된 현장 확인
   const checkSitesWithIdeas = useCallback(async (sites) => {
     try {
@@ -1014,6 +1042,30 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
       console.error('아이디어 저장 현장 확인 실패:', error);
     }
   }, []);
+
+  // 현장 목록 로드
+  const loadSites = useCallback(async () => {
+    try {
+      const q = query(collection(db, 'sites'), orderBy('name'));
+      const querySnapshot = await getDocs(q);
+      const sitesList = [];
+      
+      querySnapshot.forEach((doc) => {
+        sitesList.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+      
+      setAllSites(sitesList);
+      setFilteredSites(sitesList);
+      
+      // 각 현장의 아이디어 저장 상태 확인
+      checkSitesWithIdeas(sitesList);
+    } catch (error) {
+      console.error('현장 목록 로드 실패:', error);
+    }
+  }, [checkSitesWithIdeas]);
 
   // 현장 검색 (개선된 검색)
   const handleSiteSearch = useCallback((query) => {
@@ -1373,26 +1425,6 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
         }
 
         // 전역 터치 이벤트 리스너 추가 (두 손가락 스크롤 지원)
-        const handleGlobalTouch = (e) => {
-          // IDEA PAD 컨테이너 내부에서만 처리
-          const ideapadContainer = document.querySelector('.ideapad-container');
-          if (ideapadContainer && ideapadContainer.contains(e.target)) {
-            // 캔버스 영역이 아닌 경우에만 스크롤 허용
-            if (!e.target.closest('canvas')) {
-              // 스크롤 허용
-              return;
-            } else {
-              // 캔버스 영역에서는 두 손가락 터치인 경우에만 스크롤 허용
-              if (e.touches && e.touches.length > 1) {
-                console.log('전역 이벤트: 두 손가락 터치 감지 - 스크롤 허용');
-                return; // 스크롤 허용
-              } else {
-                // 한 손가락 터치인 경우 스크롤 차단
-                e.preventDefault();
-              }
-            }
-          }
-        };
 
         // 전역 이벤트 리스너 등록
         document.addEventListener('touchstart', handleGlobalTouch, { passive: false });

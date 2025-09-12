@@ -239,6 +239,8 @@ const Claims = React.lazy(() => import('./pages/Claims'));
 const EstimatesMobile = React.lazy(() => import('./pages/EstimatesMobile'));
 const ClaimsMobile = React.lazy(() => import('./pages/ClaimsMobile'));
 const Confidential = React.lazy(() => import('./pages/Confidential'));
+const UserManual = React.lazy(() => import('./pages/UserManual'));
+const EstimateAnalysis = React.lazy(() => import('./pages/EstimateAnalysis'));
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { CircularProgress } from '@mui/material';
 
@@ -1063,6 +1065,38 @@ const App = React.memo(() => {
                             ) : (
                               <Layout>
                                 <TemplateUpload />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/manual"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <UserManual />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <UserManual />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/estimate-analysis"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <EstimateAnalysis />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <EstimateAnalysis />
                               </Layout>
                             )}
                           </ProtectedRoute>

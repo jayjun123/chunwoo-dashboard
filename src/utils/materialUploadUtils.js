@@ -189,7 +189,24 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
   try {
     console.log('📊 견적서 엑셀 파싱 시작:', { siteId, siteName });
     
-         const arrayBuffer = await file.arrayBuffer();
+    // 파일 검증
+    if (!file) {
+      throw new Error('파일이 제공되지 않았습니다.');
+    }
+    
+    if (!(file instanceof File)) {
+      throw new Error('유효하지 않은 파일 형식입니다.');
+    }
+    
+    if (file.size === 0) {
+      throw new Error('빈 파일입니다.');
+    }
+    
+    if (!file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.xls')) {
+      throw new Error('엑셀 파일만 업로드 가능합니다. (.xlsx, .xls)');
+    }
+    
+    const arrayBuffer = await file.arrayBuffer();
      
      // ExcelJS를 사용하여 수식과 값을 모두 읽음 (Shared Formula 문제 방지)
      const workbook = new ExcelJS.Workbook();
@@ -711,9 +728,21 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
     
   } catch (error) {
     console.error('❌ 견적서 파싱 실패:', error);
+    console.error('❌ 오류 스택:', error.stack);
+    
+    // 더 구체적인 에러 메시지 제공
+    let errorMessage = '견적서 파싱 중 오류가 발생했습니다.';
+    if (error.message.includes('File')) {
+      errorMessage = '파일을 읽을 수 없습니다. 파일이 손상되었거나 지원하지 않는 형식입니다.';
+    } else if (error.message.includes('Sheet')) {
+      errorMessage = '엑셀 시트를 찾을 수 없습니다. 파일 형식을 확인해주세요.';
+    } else if (error.message.includes('Network')) {
+      errorMessage = '네트워크 연결을 확인해주세요.';
+    }
+    
     return {
       success: false,
-      error: error.message
+      error: `${errorMessage} (${error.message})`
     };
   }
 };
@@ -725,6 +754,23 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
 export const saveMaterialDataToFirebase = async (siteId, siteName, parsedData) => {
   try {
     console.log('💾 파이어베이스 저장 시작:', { siteId, siteName });
+    
+    // 매개변수 검증
+    if (!siteId || typeof siteId !== 'string' || siteId.trim() === '') {
+      throw new Error('siteId가 유효하지 않습니다.');
+    }
+    
+    if (!siteName || typeof siteName !== 'string' || siteName.trim() === '') {
+      throw new Error('siteName이 유효하지 않습니다.');
+    }
+    
+    if (!parsedData || typeof parsedData !== 'object') {
+      throw new Error('parsedData가 유효하지 않습니다.');
+    }
+    
+    if (!parsedData.items || !Array.isArray(parsedData.items)) {
+      throw new Error('parsedData.items가 유효한 배열이 아닙니다.');
+    }
     
     const { items, summary } = parsedData;
     

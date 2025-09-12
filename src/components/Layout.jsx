@@ -58,6 +58,7 @@ import {
   Gavel as GavelIcon,
   Block as BlockIcon,
   EditNote as EditNoteIcon,
+  Help as HelpIcon,
 } from '@mui/icons-material';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -175,6 +176,11 @@ const Layout = React.memo(({ children }) => {
     }
   };
 
+  const handleManualOpen = () => {
+    navigate('/manual');
+    handleMenuClose();
+  };
+
   return (
     <Box sx={{ 
       display: 'flex', 
@@ -215,7 +221,10 @@ const Layout = React.memo(({ children }) => {
                 } else {
                   // 권한에 따라 다른 페이지로 이동
                   if (isMaster) {
-                    navigate('/schedule'); // 마스터는 일정관리 페이지로
+                    // 히트맵 탭에서도 일정관리 탭으로 이동하도록 강제 업데이트
+                    navigate('/schedule', { state: { initialTab: 0 }, replace: true }); // 마스터는 일정관리 페이지로 (일정관리 탭)
+                    // 커스텀 이벤트 발생
+                    window.dispatchEvent(new CustomEvent('logoClick'));
                   } else {
                     navigate('/gantt'); // 일반 사용자는 현장일정 페이지로
                   }
@@ -257,7 +266,13 @@ const Layout = React.memo(({ children }) => {
                       color: muiTheme.palette.primary.main,
                     },
                   }}
-                  onClick={() => navigate(item.path)}
+                  onClick={() => {
+                    if (item.path === '/schedule') {
+                      navigate(item.path, { state: { initialTab: 0 } });
+                    } else {
+                      navigate(item.path);
+                    }
+                  }}
                 >
                   <Box
                     sx={{
@@ -387,7 +402,11 @@ const Layout = React.memo(({ children }) => {
                 bgcolor: location.pathname === item.path ? 'action.selected' : 'transparent',
               }}
               onClick={() => {
-                navigate(item.path);
+                if (item.path === '/schedule') {
+                  navigate(item.path, { state: { initialTab: 0 } });
+                } else {
+                  navigate(item.path);
+                }
                 setDrawerOpen(false);
               }}
             >
@@ -498,6 +517,9 @@ const Layout = React.memo(({ children }) => {
         }}>
           프로필
         </MenuItem>
+        <MenuItem onClick={handleManualOpen}>
+          사용설명서
+        </MenuItem>
         <Divider />
         <MenuItem onClick={handleLogout}>
           로그아웃
@@ -566,6 +588,7 @@ const Layout = React.memo(({ children }) => {
         siteId={null}
         siteName={null}
       />
+
     </Box>
   );
 });
