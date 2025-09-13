@@ -702,28 +702,55 @@ const ScheduleManagement = ({
       );
     }
     
-    // 정렬 로직: 1순위 - 공기 유무 (공기 있음 → 공기 없음), 2순위 - 공기 날짜 (늦은 순), 3순위 - 가나다순
+    // 정렬 로직: 1순위 - 진행중인 현장 (공기 많이 남은 순), 2순위 - 예정현장, 3순위 - 완료현장, 4순위 - 가나다순
     return searchFiltered.sort((a, b) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      // 공기 유무 확인
-      const aHasEndDate = a.endDate && new Date(a.endDate) >= today;
-      const bHasEndDate = b.endDate && new Date(b.endDate) >= today;
+      // 현장 상태 분류 - status 필드 우선, 없으면 날짜로 판단
+      const getSiteStatus = (site) => {
+        // status 필드가 있으면 그것을 사용
+        if (site.status) {
+          if (site.status === '진행중') return 'ongoing';
+          if (site.status === '예정') return 'scheduled';
+          if (site.status === '완료') return 'completed';
+        }
+        
+        // status 필드가 없으면 날짜로 판단
+        if (!site.startDate || !site.endDate) return 'scheduled'; // 예정현장
+        
+        const startDate = new Date(site.startDate);
+        const endDate = new Date(site.endDate);
+        
+        if (startDate > today) return 'scheduled'; // 예정현장
+        if (endDate < today) return 'completed'; // 완료현장
+        return 'ongoing'; // 진행중인 현장
+      };
       
-      // 1순위: 공기 유무 (공기 있음이 위로)
-      if (aHasEndDate !== bHasEndDate) {
-        return aHasEndDate ? -1 : 1;
+      const aStatus = getSiteStatus(a);
+      const bStatus = getSiteStatus(b);
+      
+      // 1순위: 현장 상태 (진행중 → 예정 → 완료)
+      const statusOrder = { 'ongoing': 1, 'scheduled': 2, 'completed': 3 };
+      if (aStatus !== bStatus) {
+        return statusOrder[aStatus] - statusOrder[bStatus];
       }
       
-      // 2순위: 공기 날짜 (늦은 순)
-      if (aHasEndDate && bHasEndDate) {
+      // 2순위: 진행중인 현장의 경우 공기 많이 남은 순 (늦은 종료일)
+      if (aStatus === 'ongoing' && bStatus === 'ongoing') {
         const aEndDate = new Date(a.endDate);
         const bEndDate = new Date(b.endDate);
         return bEndDate - aEndDate; // 늦은 날짜가 위로
       }
       
-      // 3순위: 가나다순 정렬
+      // 3순위: 예정현장의 경우 시작일 순
+      if (aStatus === 'scheduled' && bStatus === 'scheduled') {
+        const aStartDate = new Date(a.startDate);
+        const bStartDate = new Date(b.startDate);
+        return aStartDate - bStartDate; // 빠른 날짜가 위로
+      }
+      
+      // 4순위: 가나다순 정렬
       const aName = a.name || '';
       const bName = b.name || '';
       return aName.localeCompare(bName, 'ko');

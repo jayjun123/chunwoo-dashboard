@@ -101,7 +101,55 @@ const CustomSchedule = () => {
     };
   }, []);
 
-  const filteredSites = useMemo(() => sites.filter(site => isInMonth(site, year, month)), [sites, year, month]);
+  const filteredSites = useMemo(() => {
+    const monthFiltered = sites.filter(site => isInMonth(site, year, month));
+    
+    // 현장 상태별로 그룹화하여 정렬
+    return monthFiltered.sort((a, b) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // 현장 상태 분류
+      const getSiteStatus = (site) => {
+        if (!site.startDate || !site.endDate) return 'scheduled'; // 예정현장
+        
+        const startDate = new Date(site.startDate);
+        const endDate = new Date(site.endDate);
+        
+        if (startDate > today) return 'scheduled'; // 예정현장
+        if (endDate < today) return 'completed'; // 완료현장
+        return 'ongoing'; // 진행중인 현장
+      };
+      
+      const aStatus = getSiteStatus(a);
+      const bStatus = getSiteStatus(b);
+      
+      // 1순위: 현장 상태 (진행중 → 예정 → 완료)
+      const statusOrder = { 'ongoing': 1, 'scheduled': 2, 'completed': 3 };
+      if (aStatus !== bStatus) {
+        return statusOrder[aStatus] - statusOrder[bStatus];
+      }
+      
+      // 2순위: 진행중인 현장의 경우 공기 많이 남은 순 (늦은 종료일)
+      if (aStatus === 'ongoing' && bStatus === 'ongoing') {
+        const aEndDate = new Date(a.endDate);
+        const bEndDate = new Date(b.endDate);
+        return bEndDate - aEndDate; // 늦은 날짜가 위로
+      }
+      
+      // 3순위: 예정현장의 경우 시작일 순
+      if (aStatus === 'scheduled' && bStatus === 'scheduled') {
+        const aStartDate = new Date(a.startDate);
+        const bStartDate = new Date(b.startDate);
+        return aStartDate - bStartDate; // 빠른 날짜가 위로
+      }
+      
+      // 4순위: 가나다순 정렬
+      const aName = a.name || '';
+      const bName = b.name || '';
+      return aName.localeCompare(bName, 'ko');
+    });
+  }, [sites, year, month]);
 
   // 길게 터치 감지 함수
   const handleTouchStart = (e) => {

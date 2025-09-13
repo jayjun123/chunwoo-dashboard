@@ -51,6 +51,8 @@ import { db } from '../firebase';
 import { subMonths, format, startOfMonth, endOfMonth, eachMonthOfInterval, startOfYear, endOfYear } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -120,6 +122,37 @@ const EstimateAnalysis = () => {
   const [companyTabYear, setCompanyTabYear] = useState(new Date().getFullYear());
   const [companyTabMonth, setCompanyTabMonth] = useState(new Date().getMonth() + 1);
   
+  // 기간 설정 상태 (회사별 현황용)
+  const [companyStartDate, setCompanyStartDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1); // 이번 달 1일
+  });
+  const [companyEndDate, setCompanyEndDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0); // 이번 달 마지막 날
+  });
+  
+  // 회사 필터 상태
+  const [selectedCompany, setSelectedCompany] = useState('');
+  const [companyList, setCompanyList] = useState([]);
+  
+  // 회사 목록 로드
+  const loadCompanyList = async () => {
+    try {
+      const estimatesQuery = query(collection(db, 'estimates'), orderBy('company', 'asc'));
+      const snapshot = await getDocs(estimatesQuery);
+      
+      const companies = [...new Set(snapshot.docs
+        .map(doc => doc.data().company)
+        .filter(company => company && company.trim() !== '')
+      )].sort();
+      
+      setCompanyList(companies);
+    } catch (error) {
+      console.error('회사 목록 로드 실패:', error);
+    }
+  };
+
   // 데이터 로드
   const loadEstimates = async () => {
     try {
@@ -144,6 +177,7 @@ const EstimateAnalysis = () => {
 
   useEffect(() => {
     loadEstimates();
+    loadCompanyList();
   }, []);
 
   // 기간 필터링된 견적 데이터 (제출 날짜 기준)
@@ -230,19 +264,24 @@ const EstimateAnalysis = () => {
     return stats;
   }, [filteredEstimates]);
 
-  // 회사별현황 탭용 월별 필터링된 데이터
+  // 회사별현황 탭용 기간 필터링된 데이터
   const companyTabFilteredEstimates = useMemo(() => {
     if (!estimates.length) return [];
     
-    const targetDate = new Date(companyTabYear, companyTabMonth - 1, 1);
-    const monthStart = startOfMonth(targetDate);
-    const monthEnd = endOfMonth(targetDate);
-    
     return estimates.filter(estimate => {
       const estimateDate = estimate.createdAt?.toDate ? estimate.createdAt.toDate() : new Date(estimate.createdAt);
-      return estimateDate >= monthStart && estimateDate <= monthEnd;
+      const isInDateRange = estimateDate >= companyStartDate && estimateDate <= companyEndDate;
+      
+      // 회사 필터 적용
+      const matchesCompany = !selectedCompany || estimate.company === selectedCompany;
+      
+      // 검색어 필터 적용 (의뢰자명)
+      const matchesSearch = !searchTerm || 
+        (estimate.requester && estimate.requester.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      return isInDateRange && matchesCompany && matchesSearch;
     });
-  }, [estimates, companyTabYear, companyTabMonth]);
+  }, [estimates, companyStartDate, companyEndDate, selectedCompany, searchTerm]);
 
   // 회사별현황 탭용 통계
   const companyTabStats = useMemo(() => {
@@ -562,45 +601,143 @@ const EstimateAnalysis = () => {
     return format(date, 'yyyy-MM-dd', { locale: ko });
   };
 
-  // 엑셀 다운로드 함수
-  const handleExcelDownload = () => {
+  // 엑셀 다운로드 함수 (차트 포함)
+  const handleExcelDownload = async () => {
     try {
-      // CSV 데이터 생성
-      const csvData = [
-        ['회사명', '의뢰자', '총 견적', '수주', '제출전', '보류', '수주율(%)'],
-        ...sortedCompanyStats.map(stat => [
-          stat.company,
-          stat.requesters.join(', '),
-          stat.total,
-          stat.won,
-          stat.pending,
-          stat.hold,
-          stat.winRate
-        ])
-      ];
-
-      // CSV 문자열 생성
-      const csvContent = csvData.map(row => 
-        row.map(cell => `"${cell}"`).join(',')
-      ).join('\n');
-
-      // BOM 추가 (한글 깨짐 방지)
-      const BOM = '\uFEFF';
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      console.log('엑셀 다운로드 시작...');
       
-      // 다운로드 링크 생성
+      // 데이터 확인
+      if (!sortedCompanyStats || sortedCompanyStats.length === 0) {
+        alert('다운로드할 데이터가 없습니다.');
+        return;
+      }
+      
+      const workbook = new ExcelJS.Workbook();
+      
+      // 1. 데이터 시트 생성
+      const dataSheet = workbook.addWorksheet('견적정리분석');
+      
+      // 제목 행 추가 (A1:H1 병합)
+      dataSheet.mergeCells('A1:H1');
+      const titleCell = dataSheet.getCell('A1');
+      titleCell.value = `천우건업(주) 견적 현황[${format(companyStartDate, 'yyyy년MM월dd일')}~${format(companyEndDate, 'yyyy년MM월dd일')}]`;
+      titleCell.font = { size: 20, bold: true };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      
+      // 헤더 설정 (2행)
+      const headerRow = dataSheet.getRow(2);
+      headerRow.values = ['회사명', '의뢰자', '총 견적', '수주', '제출전', '보류', '수주율(%)', '비고'];
+      
+      // 컬럼 너비 설정
+      dataSheet.columns = [
+        { width: 20 }, // 회사명
+        { width: 30 }, // 의뢰자
+        { width: 12 }, // 총 견적
+        { width: 12 }, // 수주
+        { width: 12 }, // 제출전
+        { width: 12 }, // 보류
+        { width: 15 }, // 수주율(%)
+        { width: 20 }  // 비고
+      ];
+      
+      // 데이터 추가 (현재 필터링된 데이터 사용)
+      const filteredStats = Object.values(companyTabStats);
+      filteredStats.forEach((stat, index) => {
+        const row = dataSheet.getRow(index + 3); // 3행부터 시작
+        row.values = [
+          stat.company || '',
+          Array.isArray(stat.requesters) ? stat.requesters.join(', ') : '',
+          stat.total || 0,
+          stat.won || 0,
+          stat.pending || 0,
+          stat.hold || 0,
+          stat.winRate || 0,
+          '' // 비고 컬럼
+        ];
+      });
+      
+      // 헤더 스타일링 (2행)
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+      
+      // 데이터 행 스타일링 및 테두리 추가
+      for (let i = 2; i <= filteredStats.length + 2; i++) {
+        const row = dataSheet.getRow(i);
+        row.eachCell((cell) => {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          if (cell.col >= 3 && cell.col <= 6) { // 숫자 컬럼들
+            cell.numFmt = '0';
+          } else if (cell.col === 7) { // 수주율 컬럼
+            cell.numFmt = '0.0';
+          }
+          
+          // 테두리 추가
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        });
+      }
+      
+      // 2. 요약 시트 생성
+      const summarySheet = workbook.addWorksheet('요약분석');
+      
+      // 요약 데이터 추가
+      summarySheet.getCell('A1').value = '항목';
+      summarySheet.getCell('B1').value = '값';
+      
+      const summaryData = [
+        ['분석 기간', `${format(companyStartDate, 'yyyy-MM-dd')} ~ ${format(companyEndDate, 'yyyy-MM-dd')}`],
+        ['선택된 회사', selectedCompany || '전체 회사'],
+        ['총 회사 수', filteredStats.length],
+        ['총 견적 수', filteredStats.reduce((sum, stat) => sum + (stat.total || 0), 0)],
+        ['총 수주 수', filteredStats.reduce((sum, stat) => sum + (stat.won || 0), 0)],
+        ['평균 수주율', filteredStats.length > 0 ? 
+          (filteredStats.reduce((sum, stat) => sum + parseFloat(stat.winRate || 0), 0) / filteredStats.length).toFixed(1) + '%' : '0%'
+        ]
+      ];
+      
+      summaryData.forEach((row, index) => {
+        summarySheet.getCell(`A${index + 2}`).value = row[0];
+        summarySheet.getCell(`B${index + 2}`).value = row[1];
+      });
+      
+      // 헤더 스타일링
+      summarySheet.getRow(1).eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+      
+      // 파일 다운로드
+      console.log('엑셀 파일 생성 중...');
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `견적정리분석_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+      const periodText = `${format(companyStartDate, 'yyyyMMdd')}_${format(companyEndDate, 'yyyyMMdd')}`;
+      const companyText = selectedCompany ? `_${selectedCompany.replace(/[^a-zA-Z0-9가-힣]/g, '_')}` : '';
+      link.setAttribute('download', `견적정리분석_${periodText}${companyText}.xlsx`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
+      // 메모리 정리
+      URL.revokeObjectURL(url);
+      
       console.log('엑셀 다운로드 완료');
+      alert('엑셀 파일이 다운로드되었습니다.');
     } catch (error) {
       console.error('엑셀 다운로드 실패:', error);
+      alert(`엑셀 다운로드에 실패했습니다: ${error.message}`);
     }
   };
 
@@ -678,88 +815,101 @@ const EstimateAnalysis = () => {
         
         {/* 회사별현황 탭용 컨트롤 */}
         {activeTab === 1 && (
-          <Paper sx={{ p: 2, bgcolor: '#232734', border: '1px solid #333' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-              {/* 왼쪽: 월별 네비게이션 */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    if (companyTabMonth === 1) {
-                      setCompanyTabYear(companyTabYear - 1);
-                      setCompanyTabMonth(12);
-                    } else {
-                      setCompanyTabMonth(companyTabMonth - 1);
-                    }
-                  }}
-                  size="small"
-                  sx={{
-                    borderColor: '#666',
-                    color: '#fff',
-                    '&:hover': { borderColor: '#ff9800' }
-                  }}
-                >
-                  이전월
-                </Button>
-                <Typography variant="h6" sx={{ color: '#fff', minWidth: 120, textAlign: 'center' }}>
-                  {companyTabYear}년 {companyTabMonth}월
-                </Typography>
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    if (companyTabMonth === 12) {
-                      setCompanyTabYear(companyTabYear + 1);
-                      setCompanyTabMonth(1);
-                    } else {
-                      setCompanyTabMonth(companyTabMonth + 1);
-                    }
-                  }}
-                  size="small"
-                  sx={{
-                    borderColor: '#666',
-                    color: '#fff',
-                    '&:hover': { borderColor: '#ff9800' }
-                  }}
-                >
-                  다음월
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    const now = new Date();
-                    setCompanyTabYear(now.getFullYear());
-                    setCompanyTabMonth(now.getMonth() + 1);
-                  }}
-                  size="small"
-                  sx={{
-                    borderColor: '#666',
-                    color: '#fff',
-                    '&:hover': { borderColor: '#ff9800' }
-                  }}
-                >
-                  이번달
-                </Button>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, ml: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body1" sx={{ color: '#ccc', fontSize: '1.1rem' }}>총 견적:</Typography>
-                    <Typography variant="body1" sx={{ color: '#fff', fontWeight: 'bold', fontSize: '1.2rem' }}>
-                      {companyTabTotalStats.total}개
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body1" sx={{ color: '#ccc', fontSize: '1.1rem' }}>수주:</Typography>
-                    <Typography variant="body1" sx={{ color: '#4caf50', fontWeight: 'bold', fontSize: '1.2rem' }}>
-                      {companyTabTotalStats.won}개 ({companyTabTotalStats.winRate}%)
-                    </Typography>
-                  </Box>
+          <Paper sx={{ p: 2, bgcolor: '#232734', border: '1px solid #333', mb: 1 }}>
+            <Grid container spacing={2} alignItems="center">
+              {/* 기간 설정 */}
+              <Grid item xs={12} md={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ color: '#ccc', minWidth: 60 }}>
+                    기간:
+                  </Typography>
+                  <TextField
+                    type="date"
+                    value={format(companyStartDate, 'yyyy-MM-dd')}
+                    onChange={(e) => setCompanyStartDate(new Date(e.target.value))}
+                    size="small"
+                    InputProps={{
+                      sx: {
+                        color: '#fff',
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#666'
+                        },
+                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#ff9800'
+                        },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#ff9800'
+                        }
+                      }
+                    }}
+                    sx={{ width: 150 }}
+                  />
+                  <Typography variant="body2" sx={{ color: '#ccc' }}>~</Typography>
+                  <TextField
+                    type="date"
+                    value={format(companyEndDate, 'yyyy-MM-dd')}
+                    onChange={(e) => setCompanyEndDate(new Date(e.target.value))}
+                    size="small"
+                    InputProps={{
+                      sx: {
+                        color: '#fff',
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#666'
+                        },
+                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#ff9800'
+                        },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#ff9800'
+                        }
+                      }
+                    }}
+                    sx={{ width: 150 }}
+                  />
                 </Box>
-              </Box>
+              </Grid>
               
-              {/* 오른쪽: 검색창 */}
-              <Box sx={{ minWidth: 300 }}>
+              {/* 회사 필터 */}
+              <Grid item xs={12} md={3}>
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel sx={{ color: '#ccc' }}>회사 선택</InputLabel>
+                  <Select
+                    value={selectedCompany}
+                    onChange={(e) => setSelectedCompany(e.target.value)}
+                    sx={{
+                      color: '#fff',
+                      minWidth: 150,
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#666'
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#ff9800'
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#ff9800'
+                      },
+                      '& .MuiSvgIcon-root': {
+                        color: '#ccc'
+                      }
+                    }}
+                  >
+                    <MenuItem value="">
+                      <em>전체 회사</em>
+                    </MenuItem>
+                    {companyList.map((company) => (
+                      <MenuItem key={company} value={company}>
+                        {company}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              {/* 검색창 */}
+              <Grid item xs={12} md={3}>
                 <TextField
                   fullWidth
-                  placeholder="회사명 또는 의뢰자명 검색..."
+                  placeholder="의뢰자명 검색..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   size="small"
@@ -779,20 +929,44 @@ const EstimateAnalysis = () => {
                           <CloseIcon />
                         </IconButton>
                       </InputAdornment>
-                    )
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      color: '#fff',
-                      '& fieldset': { borderColor: '#444' },
-                      '&:hover fieldset': { borderColor: '#666' },
-                      '&.Mui-focused fieldset': { borderColor: '#ff9800' }
-                    },
-                    '& .MuiInputLabel-root': { color: '#ccc' }
+                    ),
+                    sx: {
+                      backgroundColor: '#333',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#666'
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#ff9800'
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#ff9800'
+                      },
+                      '& .MuiInputBase-input': {
+                        color: '#fff'
+                      }
+                    }
                   }}
                 />
-              </Box>
-            </Box>
+              </Grid>
+              
+              {/* 통계 정보 */}
+              <Grid item xs={12} md={2}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" sx={{ color: '#ccc' }}>총 견적:</Typography>
+                    <Typography variant="body2" sx={{ color: '#fff', fontWeight: 'bold' }}>
+                      {companyTabTotalStats.total}개
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" sx={{ color: '#ccc' }}>수주:</Typography>
+                    <Typography variant="body2" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
+                      {companyTabTotalStats.won}개 ({companyTabTotalStats.winRate}%)
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            </Grid>
           </Paper>
         )}
       </Box>
@@ -909,22 +1083,25 @@ const EstimateAnalysis = () => {
                   <TableRow 
                     sx={{ 
                       '&:hover': { bgcolor: '#2a2a2a' },
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      '& .MuiTableCell-root': { 
+                        py: 1
+                      }
                     }}
                     onClick={() => handleRowToggle(company)}
                   >
-                    <TableCell sx={{ color: '#fff', fontWeight: 500, fontSize: '1rem' }}>
+                    <TableCell sx={{ color: '#fff', fontWeight: 500 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <BusinessIcon sx={{ color: '#ff9800', mr: 1, fontSize: '1.2rem' }} />
                         <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '1rem' }}>{company}</Typography>
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 500, fontSize: '1rem' }}>
+                    <TableCell sx={{ color: '#fff', fontWeight: 500 }}>
                       <Typography variant="body2" sx={{ fontSize: '1rem' }}>
                         {requesters.join(', ')}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ color: '#fff', textAlign: 'center', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                    <TableCell sx={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>
                       <Typography 
                         variant="body1" 
                         sx={{ 
@@ -936,7 +1113,7 @@ const EstimateAnalysis = () => {
                         {total}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ color: '#4caf50', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                    <TableCell sx={{ color: '#4caf50', textAlign: 'center', fontWeight: 'bold' }}>
                       <Typography 
                         variant="body1" 
                         sx={{ 
@@ -948,7 +1125,7 @@ const EstimateAnalysis = () => {
                         {won}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ color: '#ff9800', textAlign: 'center', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                    <TableCell sx={{ color: '#ff9800', textAlign: 'center', fontWeight: 'bold' }}>
                       <Typography 
                         variant="body1" 
                         sx={{ 
@@ -960,7 +1137,7 @@ const EstimateAnalysis = () => {
                         {pending}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ color: '#f44336', textAlign: 'center', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                    <TableCell sx={{ color: '#f44336', textAlign: 'center', fontWeight: 'bold' }}>
                       <Typography 
                         variant="body1" 
                         sx={{ 
@@ -972,7 +1149,7 @@ const EstimateAnalysis = () => {
                         {hold}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ color: '#fff', textAlign: 'center', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                    <TableCell sx={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>
                       <Typography 
                         variant="body1" 
                         sx={{ 
