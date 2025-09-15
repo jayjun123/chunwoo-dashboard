@@ -55,6 +55,8 @@ const LoadingSpinner = () => (
 );
 import TemplateUpload from './pages/TemplateUpload';
 import CompanyDistribution from './pages/CompanyDistribution';
+import SettlementManagement from './pages/SettlementManagement';
+import SettlementDetail from './pages/SettlementDetail';
 import { URL_ALIASES, expandUrl } from './utils/urlShortener';
 import errorHandler from './utils/errorHandler';
 
@@ -985,6 +987,38 @@ const App = React.memo(() => {
                             ) : (
                               <Layout>
                                 <Claims />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/settlement"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <SettlementManagement />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <SettlementManagement />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/settlement/:siteId"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <SettlementDetail />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <SettlementDetail />
                               </Layout>
                             )}
                           </ProtectedRoute>

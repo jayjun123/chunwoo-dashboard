@@ -355,12 +355,19 @@ const Progress = () => {
         setFilteredSiteName(site.name);
         setSelectedSites([site.name]);
         
-        // viewMode가 'site'이면 현장별 뷰로 설정
-        if (viewMode === 'site') {
-          console.log('🔄 현장별 뷰로 설정');
-          setStatusView('site');
-          setTab('gisung'); // 기성현황 탭으로 전환
-        }
+        // 현장별 뷰로 강제 설정
+        console.log('🔄 현장별 뷰로 강제 설정');
+        setStatusView('site');
+        setTab('gisung'); // 기성현황 탭으로 전환
+        
+        // 현장별 뷰 유지 강제
+        setTimeout(() => {
+          if (statusView !== 'site' || tab !== 'gisung') {
+            console.log('⚠️ 뷰가 덮어써짐. 강제로 현장별 뷰로 복원');
+            setStatusView('site');
+            setTab('gisung');
+          }
+        }, 100);
       } else {
         console.log('⚠️ 현장을 찾을 수 없음:', siteId);
       }

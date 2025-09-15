@@ -20,6 +20,7 @@ const MOBILE_TAB_LABELS = ['안전 점검', '사고예방', '안전 교육', '�
 const SafetyPage = () => {
   const [tab, setTab] = useState(0);
   const [data, setData] = useState([]);
+  const [sites, setSites] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
@@ -94,6 +95,9 @@ const SafetyPage = () => {
     const q = query(collection(db, 'sites'));
     const unsub = onSnapshot(q, (snapshot) => {
       const allSites = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // sites 상태 설정
+      setSites(allSites);
       
       // 유효한 현장명만 필터링 (빈 문자열, undefined, null 제외)
       const validSiteNames = allSites
@@ -226,25 +230,33 @@ const SafetyPage = () => {
   // URL 파라미터에서 siteId 읽기
   useEffect(() => {
     const siteId = searchParams.get('siteId');
-    if (siteId && siteOptions.length > 0) {
+    if (siteId) {
       setFilteredSiteId(siteId);
-      // siteOptions는 현장명 배열이므로, siteId로 현장명 찾기 필요
-      // siteOptions에 id가 없으면, sites 컬렉션에서 id로 name을 찾아야 함
-      // 간단히 siteOptions에 id가 있다면 아래처럼, 없다면 별도 쿼리 필요
+      console.log('🔍 Safety.jsx - siteId 파라미터 받음:', siteId);
+      
+      // sites 컬렉션에서 siteId로 현장명 찾기
+      if (sites.length > 0) {
+        const site = sites.find(s => s.id === siteId);
+        if (site) {
+          console.log('✅ Safety.jsx - 현장 찾음:', site.name);
+          setFilteredSiteName(site.name);
+        } else {
+          console.log('⚠️ Safety.jsx - 현장을 찾을 수 없음:', siteId);
+        }
+      }
     }
-  }, [searchParams, siteOptions]);
+  }, [searchParams, sites]);
 
   // 데이터 필터링
   const filteredData = React.useMemo(() => {
-    if (filteredSiteId && data && data.length > 0) {
-      const site = data.find(s => s.id === filteredSiteId);
-      if (site) {
-        setFilteredSiteName(site.siteName);
-        return data.filter(row => row.siteName === site.siteName);
-      }
+    if (filteredSiteName && data && data.length > 0) {
+      console.log('🔍 Safety.jsx - 현장별 필터링 적용:', filteredSiteName);
+      const filtered = data.filter(row => row.siteName === filteredSiteName);
+      console.log('🔍 Safety.jsx - 필터링된 데이터 개수:', filtered.length);
+      return filtered;
     }
     return data;
-  }, [filteredSiteId, data]);
+  }, [filteredSiteName, data]);
 
   const openDialog = (row = null) => {
     console.log('=== 다이얼로그 열기 ===');

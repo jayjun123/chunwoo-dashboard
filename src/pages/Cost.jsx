@@ -1025,9 +1025,12 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                           bgcolor: cost.itemType === '노무비' ? '#ffd600' : 
                                   cost.itemType === '경비' ? '#ef5350' : 
                                   cost.itemType === 'RnD' ? '#43e97b' : 
+                                  cost.itemType === '자재비' ? '#2196f3' :
+                                  cost.itemType === '부자재' ? '#9c27b0' :
                                   cost.itemType === '지게차' ? '#ff9800' : 
+                                  cost.itemType === '곤도라' ? '#ff9800' :
                                   cost.itemType === '월세' ? '#ffffff' : '#a084e8',
-                          color: cost.itemType === '월세' ? '#000' : '#000',
+                          color: cost.itemType === '월세' || cost.itemType === '지게차' || cost.itemType === '곤도라' ? '#000' : '#000',
                           fontWeight: 700
                         }} 
                       />
@@ -1221,7 +1224,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                 />
               </Box>
               <Autocomplete
-                options={['노무비', '경비', 'RnD', '스카이', '장비', '자재비', '운반비', '임대료', '유류비', '식대', '지게차', '월세', '기타']}
+                options={['노무비', '경비', 'RnD', '스카이', '장비', '자재비', '부자재', '운반비', '임대료', '유류비', '식대', '지게차', '곤도라', '월세', '기타']}
                 value={form.itemType ?? ''}
                 onChange={(event, newValue) => {
                   console.log('항목 변경:', newValue);
@@ -1236,6 +1239,16 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                 }}
                 onInputChange={(event, newInputValue) => setForm({ ...form, itemType: newInputValue })}
                 freeSolo
+                ListboxProps={{
+                  style: {
+                    maxHeight: '200px',
+                    '&::-webkit-scrollbar': {
+                      display: 'none'
+                    },
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none'
+                  }
+                }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -1260,7 +1273,13 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   minWidth: 140,
                   '& .MuiAutocomplete-popupIndicator': { color: '#fff' },
                   '& .MuiAutocomplete-clearIndicator': { color: '#fff' },
-                  '& .MuiAutocomplete-option': { color: '#fff' }
+                  '& .MuiAutocomplete-option': { color: '#fff' },
+                  '& .MuiAutocomplete-listbox': {
+                    '&::-webkit-scrollbar': { display: 'none' },
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    maxHeight: '200px'
+                  }
                 }}
               />
             </Box>
