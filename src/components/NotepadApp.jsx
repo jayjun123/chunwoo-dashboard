@@ -471,30 +471,24 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     
     // 도구별 설정
     if (currentTool === 'pen') {
-      // 시작점 저장
+      // 시작점 저장 (굿노트 스타일)
       setLastPoint({ x, y });
       
+      // 시작점에 작은 점 그리기 (더 자연스러운 그리기)
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(brushSize / 2, 0.5), 0, Math.PI * 2);
+      
       if (isHighlighter) {
-        // 형관펜 모드 - 연속적인 선을 위한 설정
-        ctx.strokeStyle = highlighterColor;
-        ctx.lineWidth = Math.max(brushSize * 2, 2); // 최소 2px
+        ctx.fillStyle = highlighterColor;
         ctx.globalCompositeOperation = 'multiply';
         ctx.globalAlpha = 0.5;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(x, y);
       } else {
-        // 일반 펜 모드 - 연속적인 선을 위한 설정
-        ctx.strokeStyle = currentColor;
-        ctx.lineWidth = Math.max(brushSize, 1); // 최소 1px
+        ctx.fillStyle = currentColor;
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1.0;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(x, y);
       }
+      
+      ctx.fill();
     } else if (currentTool === 'eraser') {
       // 지우개는 시작점에서도 개별적으로 지우기
       ctx.save();
@@ -514,6 +508,13 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
   const continueSimpleDrawing = useCallback((e) => {
     if (!isDrawingRef.current) return;
     
+    // 성능 최적화를 위한 throttling (60fps)
+    const now = performance.now();
+    if (now - lastEventTime.current < 16) { // 약 60fps
+      return;
+    }
+    lastEventTime.current = now;
+    
     // 지우개 사용 시 추가 이벤트 차단
     if (currentTool === 'eraser') {
       e.preventDefault();
@@ -528,28 +529,44 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     const ctx = canvas.getContext('2d');
     
     if (currentTool === 'pen') {
-      // 연속적인 선 그리기 (점선 방지)
-      if (isHighlighter) {
-        ctx.strokeStyle = highlighterColor;
-        ctx.lineWidth = Math.max(brushSize * 2, 2);
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.globalAlpha = 0.5;
-      } else {
-        ctx.strokeStyle = currentColor;
-        ctx.lineWidth = Math.max(brushSize, 1);
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.globalAlpha = 1.0;
+      // lastPoint가 있는 경우에만 선 그리기 (굿노트 스타일)
+      if (lastPoint) {
+        // 거리 계산
+        const distance = Math.sqrt(Math.pow(x - lastPoint.x, 2) + Math.pow(y - lastPoint.y, 2));
+        
+        // 너무 가까운 점들은 건너뛰기
+        if (distance < 2) return; 
+        
+        // 🔥 핵심: 너무 큰 점프는 무시 (빠른 그리기 시 원하지 않는 연결선 방지)
+        if (distance > 100) {
+          console.log('큰 점프 감지, 연결 건너뛰기:', distance);
+          setLastPoint({ x, y }); // 현재 점을 새로운 시작점으로 설정
+          return;
+        }
+        
+        ctx.beginPath();
+        ctx.moveTo(lastPoint.x, lastPoint.y);
+        ctx.lineTo(x, y);
+        
+        if (isHighlighter) {
+          ctx.strokeStyle = highlighterColor;
+          ctx.lineWidth = Math.max(brushSize * 2, 2);
+          ctx.globalCompositeOperation = 'multiply';
+          ctx.globalAlpha = 0.5;
+        } else {
+          ctx.strokeStyle = currentColor;
+          ctx.lineWidth = Math.max(brushSize, 1);
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = 1.0;
+        }
+        
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+        
+        // 현재 점을 다음 그리기를 위한 이전 점으로 저장
+        setLastPoint({ x, y });
       }
-      
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      
-      // 연속적인 선을 위해 lineTo 사용
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      
-      // 현재 점을 다음 그리기를 위한 이전 점으로 저장
-      setLastPoint({ x, y });
     } else if (currentTool === 'eraser') {
       // 지우개는 각 점마다 개별적으로 지우기 (깜빡거림 방지)
       ctx.save();
@@ -562,7 +579,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
       ctx.restore();
     }
     
-    console.log('간단한 그리기 계속:', { x, y, tool: currentTool, isHighlighter, highlighterColor });
+    console.log('간단한 그리기 계속:', { x, y, tool: currentTool, distance: lastPoint ? Math.sqrt(Math.pow(x - lastPoint.x, 2) + Math.pow(y - lastPoint.y, 2)) : 0 });
   }, [getCanvasCoordinates, currentTool, currentColor, brushSize, isHighlighter, highlighterColor, lastPoint]);
 
   const stopSimpleDrawing = useCallback(() => {
@@ -2179,10 +2196,10 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
               display: 'block',
               width: '550px', // 고정 너비
               height: '1122px', // 고정 높이
-              touchAction: 'pan-y pinch-zoom', // 두 손가락 스크롤과 핀치 줌 허용
+              touchAction: 'none', // 모든 터치 기본 동작 비활성화 (정확한 그리기를 위해)
               border: '1px solid #444',
               backgroundColor: '#f8f9fa',
-              imageRendering: 'pixelated', // 크기 고정
+              imageRendering: 'auto', // 더 부드러운 렌더링
               // 아이패드 최적화 추가 스타일
               webkitTouchCallout: 'none',
               webkitUserSelect: 'none',
@@ -2195,7 +2212,10 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
               appearance: 'none',
               // 하단 접근을 위한 추가 스타일
               marginBottom: '40px', // 하단 여백 추가
-              boxShadow: '0 4px 8px rgba(0,0,0,0.1)' // 그림자 추가로 구분
+              boxShadow: '0 4px 8px rgba(0,0,0,0.1)', // 그림자 추가로 구분
+              // 더 매끄러운 그리기를 위한 추가 스타일
+              msContentZooming: 'none',
+              msTouchAction: 'none'
             }}
           />
           
