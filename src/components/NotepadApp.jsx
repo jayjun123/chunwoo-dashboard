@@ -665,37 +665,48 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
       document.removeEventListener('touchend', handleGlobalTouch);
     };
   }, [handleMouseMove, handleMouseUp, handleGlobalTouch]);
-  // 캔버스 초기화
+  // 캔버스 초기화 (안정성 개선)
   const initializeCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    try {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        console.warn('캔버스가 존재하지 않습니다.');
+        return;
+      }
 
-    const ctx = canvas.getContext('2d');
-    
-    // 고정 크기 (550px × 1122px)
-    const fixedWidth = 550;
-    const fixedHeight = 1122;
-    
-    // 캔버스 크기 설정 (고정 크기)
-    canvas.width = fixedWidth;
-    canvas.height = fixedHeight;
-    
-    // CSS 크기 설정 (고정)
-    canvas.style.width = fixedWidth + 'px';
-    canvas.style.height = fixedHeight + 'px';
-    canvas.style.maxWidth = fixedWidth + 'px';
-    canvas.style.maxHeight = fixedHeight + 'px';
-    canvas.style.minWidth = fixedWidth + 'px';
-    canvas.style.minHeight = fixedHeight + 'px';
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        console.error('캔버스 컨텍스트를 가져올 수 없습니다.');
+        return;
+      }
+      
+      // 고정 크기 (550px × 1122px)
+      const fixedWidth = 550;
+      const fixedHeight = 1122;
+      
+      // 캔버스 크기 설정 (고정 크기)
+      canvas.width = fixedWidth;
+      canvas.height = fixedHeight;
+      
+      // CSS 크기 설정 (고정)
+      canvas.style.width = fixedWidth + 'px';
+      canvas.style.height = fixedHeight + 'px';
+      canvas.style.maxWidth = fixedWidth + 'px';
+      canvas.style.maxHeight = fixedHeight + 'px';
+      canvas.style.minWidth = fixedWidth + 'px';
+      canvas.style.minHeight = fixedHeight + 'px';
 
-    // 노트북 배경 그리기
-    drawNotebookBackground(ctx, fixedWidth, fixedHeight, false); // 일반 그리기 모드에서는 라인 표시
+      // 노트북 배경 그리기
+      drawNotebookBackground(ctx, fixedWidth, fixedHeight, false); // 일반 그리기 모드에서는 라인 표시
 
-    // 히스토리에 초기 상태 저장
-    const imageData = safeToDataURL(canvas);
-    setHistory([imageData]);
-    setHistoryIndex(0);
-  }, [drawNotebookBackground]);
+      // 히스토리에 초기 상태 저장
+      const imageData = safeToDataURL(canvas);
+      setHistory([imageData]);
+      setHistoryIndex(0);
+    } catch (error) {
+      console.error('캔버스 초기화 중 오류:', error);
+    }
+  }, [drawNotebookBackground, safeToDataURL]);
 
 
   // 필압 감지 함수 (아이패드 최적화)
@@ -1181,45 +1192,60 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
   }, [selectedSiteId]);
 
 
-  // 그림 저장
+  // 그림 저장 (안정성 개선)
   const saveDrawing = useCallback(async () => {
     try {
       const canvas = canvasRef.current;
+      if (!canvas) {
+        console.error('캔버스가 존재하지 않습니다.');
+        setAlert({ open: true, message: '캔버스를 찾을 수 없습니다.', severity: 'error' });
+        return;
+      }
+
       const timestamp = new Date();
       const siteName = selectedSiteName || 'CHUNWOO';
       const fileName = `${siteName}_${timestamp.getTime()}.png`;
       const storageRef = ref(storage, `notepad_drawings/${fileName}`);
       
       canvas.toBlob(async (blob) => {
-        await uploadBytes(storageRef, blob);
-        const downloadURL = await getDownloadURL(storageRef);
-        
-        await setDoc(doc(db, 'notepad_drawings', fileName), {
-          url: downloadURL,
-          siteId: selectedSiteId,
-          siteName: siteName,
-          displayName: `${siteName} - ${timestamp.toLocaleDateString()} ${timestamp.toLocaleTimeString()}`,
-          timestamp: timestamp,
-          shapes: shapes
-        });
-        
-        console.log('🔍 아이디어패드 저장 완료:', {
-          fileName: fileName,
-          siteName: siteName,
-          siteId: selectedSiteId,
-          displayName: `${siteName} - ${timestamp.toLocaleDateString()} ${timestamp.toLocaleTimeString()}`
-        });
-        
-        setAlert({ open: true, message: `${siteName} 현장의 아이디어가 저장되었습니다.`, severity: 'success' });
-        loadSavedDrawings();
-        
-        // 현장 목록을 다시 로드하여 아이디어 표시 업데이트
-        console.log('🔍 저장 완료 후 현장 목록 다시 로드 중...');
-        loadSites();
-      });
+        try {
+          if (!blob) {
+            throw new Error('캔버스 데이터를 생성할 수 없습니다.');
+          }
+
+          await uploadBytes(storageRef, blob);
+          const downloadURL = await getDownloadURL(storageRef);
+          
+          await setDoc(doc(db, 'notepad_drawings', fileName), {
+            url: downloadURL,
+            siteId: selectedSiteId,
+            siteName: siteName,
+            displayName: `${siteName} - ${timestamp.toLocaleDateString()} ${timestamp.toLocaleTimeString()}`,
+            timestamp: timestamp,
+            shapes: shapes
+          });
+          
+          console.log('🔍 아이디어패드 저장 완료:', {
+            fileName: fileName,
+            siteName: siteName,
+            siteId: selectedSiteId,
+            displayName: `${siteName} - ${timestamp.toLocaleDateString()} ${timestamp.toLocaleTimeString()}`
+          });
+          
+          setAlert({ open: true, message: `${siteName} 현장의 아이디어가 저장되었습니다.`, severity: 'success' });
+          loadSavedDrawings();
+          
+          // 현장 목록을 다시 로드하여 아이디어 표시 업데이트
+          console.log('🔍 저장 완료 후 현장 목록 다시 로드 중...');
+          loadSites();
+        } catch (error) {
+          console.error('그림 저장 중 오류:', error);
+          setAlert({ open: true, message: '그림 저장에 실패했습니다: ' + error.message, severity: 'error' });
+        }
+      }, 'image/png', 0.9);
     } catch (error) {
       console.error('그림 저장 실패:', error);
-      setAlert({ open: true, message: '그림 저장에 실패했습니다.', severity: 'error' });
+      setAlert({ open: true, message: '그림 저장에 실패했습니다: ' + error.message, severity: 'error' });
     }
   }, [selectedSiteId, selectedSiteName, shapes, loadSavedDrawings, loadSites]);
 
@@ -1285,12 +1311,19 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     link.click();
   }, []);
 
-  // Effects
+  // Effects (안정성 개선)
   useEffect(() => {
     if (open) {
-      initializeCanvas();
-      loadSites();
-      loadSavedDrawings();
+      try {
+        console.log('🔍 아이디어패드 초기화 시작');
+        initializeCanvas();
+        loadSites();
+        loadSavedDrawings();
+        console.log('🔍 아이디어패드 초기화 완료');
+      } catch (error) {
+        console.error('아이디어패드 초기화 중 오류:', error);
+        setAlert({ open: true, message: '아이디어패드 초기화에 실패했습니다.', severity: 'error' });
+      }
     }
   }, [open, initializeCanvas, loadSites, loadSavedDrawings]);
 
@@ -1510,6 +1543,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     }
   }, [isPinned, onClose]);
 
+  // 아이디어패드가 열리지 않은 경우 렌더링하지 않음 (성능 최적화)
   if (!open) return null;
 
   return (

@@ -411,12 +411,13 @@ export const parseSilmulExcel = (file, targetSiteName = '') => {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, {
           type: 'array',
-          cellFormula: true,
-          cellText: true,  // cellText: true로 변경하여 텍스트 값도 읽기
-          cellDates: true,
-          cellNF: true,    // cellNF: true로 변경하여 숫자 형식 정보 읽기
+          cellFormula: true,  // 계산된 값 가져오기
+          cellText: true,     // 텍스트 값도 읽기
+          cellDates: true,    // 날짜 값 읽기
+          cellNF: true,       // 숫자 형식 정보 읽기
           cellStyles: false,
-          cellHTML: false
+          cellHTML: false,
+          raw: false          // 계산된 값을 가져오기 위해 raw: false
         });
 
         // 첫 번째 시트 사용 (시트가 없으면 에러)
@@ -499,7 +500,7 @@ export const parseSilmulExcel = (file, targetSiteName = '') => {
         const wonjangData = XLSX.utils.sheet_to_json(wonjangSheet, {
           header: 1,
           defval: '',
-          raw: true,  // raw: true로 변경하여 원본 값 그대로 가져오기
+          raw: false,  // raw: false로 변경하여 계산된 값 가져오기
           dateNF: 'yyyy-mm-dd'
         });
 
@@ -581,7 +582,7 @@ export const parseWonjangData = (data, targetSiteName = '', hiddenRows = [], hid
     if (currentSite && !cValue.startsWith('(')) {
       const itemName = String(row[2] || '').trim(); // C열 항목명
       
-      // 숫자 처리 함수 (대폭 개선된 버전)
+      // 숫자 처리 함수 (계산된 값 우선 처리)
       const getCellValue = (cellValue) => {
         if (cellValue === null || cellValue === undefined || cellValue === '') return 0;
 
@@ -591,37 +592,54 @@ export const parseWonjangData = (data, targetSiteName = '', hiddenRows = [], hid
         if (typeof cellValue === 'object' && cellValue !== null) {
           console.log(`📦 객체 타입 셀 값:`, cellValue);
           
+          // 계산된 값(result)을 최우선으로 처리
           if (cellValue.result !== undefined) {
             const result = parseFloat(cellValue.result);
             if (!isNaN(result)) {
-              console.log(`✅ F/G/J열 값 파싱 (result): ${cellValue.result} -> ${result}`);
+              console.log(`✅ F/G/J열 값 파싱 (계산된 값 result): ${cellValue.result} -> ${result}`);
               return result;
             }
-          } else if (cellValue.v !== undefined) {
+          }
+          
+          // 계산된 값(w)을 두 번째로 처리
+          if (cellValue.w !== undefined) {
+            const wValue = parseFloat(cellValue.w);
+            if (!isNaN(wValue)) {
+              console.log(`✅ F/G/J열 값 파싱 (계산된 값 w): ${cellValue.w} -> ${wValue}`);
+              return wValue;
+            }
+          }
+          
+          // 원본 값(v)을 세 번째로 처리
+          if (cellValue.v !== undefined) {
             const value = parseFloat(cellValue.v);
             if (!isNaN(value)) {
-              console.log(`✅ F/G/J열 값 파싱 (v): ${cellValue.v} -> ${value}`);
+              console.log(`✅ F/G/J열 값 파싱 (원본 값 v): ${cellValue.v} -> ${value}`);
               return value;
             }
-          } else if (cellValue.t === 'n' && cellValue.v !== undefined) {
-            // 숫자 타입인 경우
+          }
+          
+          // 숫자 타입인 경우
+          if (cellValue.t === 'n' && cellValue.v !== undefined) {
             const value = parseFloat(cellValue.v);
             if (!isNaN(value)) {
               console.log(`✅ F/G/J열 값 파싱 (숫자타입): ${cellValue.v} -> ${value}`);
               return value;
             }
-          } else if (cellValue.t === 's' && cellValue.v !== undefined) {
-            // 문자열 타입인 경우
+          }
+          
+          // 문자열 타입인 경우
+          if (cellValue.t === 's' && cellValue.v !== undefined) {
             const cleanValue = cellValue.v.trim().replace(/[,\s]/g, '');
             const parsed = parseFloat(cleanValue);
             if (!isNaN(parsed)) {
               console.log(`✅ F/G/J열 값 파싱 (문자열타입): "${cellValue.v}" -> ${parsed}`);
               return parsed;
             }
-          } else {
-            console.log('❌ 알 수 없는 숫자 객체:', cellValue);
-            return 0;
           }
+          
+          console.log('❌ 알 수 없는 숫자 객체:', cellValue);
+          return 0;
         }
 
         // 문자열이나 숫자 값 처리
@@ -652,7 +670,7 @@ export const parseWonjangData = (data, targetSiteName = '', hiddenRows = [], hid
       const jValue = getCellValue(row[9]); // J열 금액
 
       // F, G, J 열 원본 값 로깅 (디버깅용)
-      if (rowIndex < 50) { // 처음 50행만 로깅
+      if (rowIndex < 100) { // 처음 100행만 로깅
         console.log(`행 ${rowIndex + 1} 파싱:`, {
           itemName: `"${itemName}"`,
           fOriginal: row[5],
@@ -660,7 +678,13 @@ export const parseWonjangData = (data, targetSiteName = '', hiddenRows = [], hid
           gOriginal: row[6], 
           gParsed: gValue,
           jOriginal: row[9],
-          jParsed: jValue
+          jParsed: jValue,
+          fType: typeof row[5],
+          gType: typeof row[6],
+          jType: typeof row[9],
+          fIsNumber: !isNaN(fValue),
+          gIsNumber: !isNaN(gValue),
+          jIsNumber: !isNaN(jValue)
         });
       }
 
@@ -791,7 +815,26 @@ export const aggregateItemsByType = (items) => {
   const aggregated = {};
 
   items.forEach(item => {
-    const key = item.itemName.trim();
+    // 실물량 데이터만 통합 (기존 계약 데이터는 건드리지 않음)
+    let key = item.itemName.trim();
+    
+    // 실물량 데이터에서만 같은 항목끼리 통합
+    if (key.includes('복층') || key.includes('유리') || key.includes('로이복층') || key.includes('창호유리') || 
+        key.includes('투명') || key.includes('아르곤') || key.includes('듀라') || key.includes('강화') ||
+        key.includes('masterone') || key.includes('master') || key.includes('mct') || key.includes('mzt')) {
+      key = '복층유리';
+    }
+    
+    // 22T 투명+아르곤 관련 항목들을 통합
+    if (key.includes('22t') || key.includes('22T') || (key.includes('투명') && key.includes('아르곤'))) {
+      key = '22T 투명+아르곤';
+    }
+    
+    // 운임비 관련 항목들을 통합
+    if (key.includes('운임') || key.includes('지게차') || key.includes('빈용기') || key.includes('출고')) {
+      key = '운임비';
+    }
+    
     if (!aggregated[key]) {
       aggregated[key] = {
         itemName: key,
@@ -801,6 +844,17 @@ export const aggregateItemsByType = (items) => {
         count: 0
       };
     }
+
+    console.log(`🔍 집계 중: "${item.itemName}" -> "${key}"`, {
+      fValue: item.fValue,
+      gValue: item.gValue,
+      jValue: item.jValue,
+      현재fSum: aggregated[key].fSum,
+      현재jSum: aggregated[key].jSum,
+      fValueType: typeof item.fValue,
+      gValueType: typeof item.gValue,
+      jValueType: typeof item.jValue
+    });
 
     aggregated[key].fSum += item.fValue;
     aggregated[key].jSum += item.jValue;
@@ -814,14 +868,15 @@ export const aggregateItemsByType = (items) => {
 
   // 집계된 값들로 변환
   return Object.values(aggregated).map(item => {
-    // 수량 = F열값 / 10.89 (소수점 2자리까지)
-    const quantity = Math.round((item.fSum / 10.89) * 100) / 100;
+    // 실물수량 = F열값 ÷ 10.89 (소수점 2자리까지)
+    const quantity = item.fSum && !isNaN(item.fSum) ? Math.round((item.fSum / 10.89) * 100) / 100 : 0;
     
-    // 단가 = G값 * 10.89 / 1.1 (첫 번째 값 사용, 정수로 반올림)
-    const unitPrice = item.gValues.length > 0 ? Math.round((item.gValues[0] * 10.89 / 1.1)) : 0;
+    // 단가 = G열값 × 10.89 ÷ 1.1 (첫 번째 값 사용, 정수로 반올림)
+    const unitPrice = item.gValues && item.gValues.length > 0 && !isNaN(item.gValues[0]) ? 
+      Math.round((item.gValues[0] * 10.89 / 1.1)) : 0;
     
-    // 금액 = J값 / 1.1 (정수로 반올림)
-    const amount = Math.round(item.jSum / 1.1);
+    // 실금액 = J열값 ÷ 1.1 (정수로 반올림)
+    const amount = item.jSum && !isNaN(item.jSum) ? Math.round(item.jSum / 1.1) : 0;
 
     console.log(`항목 "${item.itemName}" 집계 결과:`, {
       fSum: item.fSum,
@@ -831,9 +886,9 @@ export const aggregateItemsByType = (items) => {
       unitPrice: unitPrice,
       amount: amount,
       calculation: {
-        quantityFormula: `${item.fSum} / 10.89 = ${quantity}`,
-        unitPriceFormula: `${item.gValues[0] || 0} * 10.89 / 1.1 = ${unitPrice}`,
-        amountFormula: `${item.jSum} / 1.1 = ${amount}`
+        quantityFormula: `${item.fSum} ÷ 10.89 = ${quantity}`,
+        unitPriceFormula: `${item.gValues[0] || 0} × 10.89 ÷ 1.1 = ${unitPrice}`,
+        amountFormula: `${item.jSum} ÷ 1.1 = ${amount}`
       }
     });
 
@@ -859,7 +914,9 @@ export const aggregateDataBySelectedSites = (siteData, selectedSiteNames) => {
   
   const allItems = [];
   selectedSites.forEach(site => {
-    allItems.push(...site.items);
+    // 각 현장의 아이템들을 집계해서 추가
+    const aggregatedItems = aggregateItemsByType(site.items);
+    allItems.push(...aggregatedItems);
   });
   
   return {
@@ -927,12 +984,60 @@ export const matchContractWithSilmul = (contractItems, silmulItems) => {
           return itemName.includes('콘크리트') || itemName.includes('concrete');
         }
       },
-      // 5. 일반적인 키워드 매칭 (더 유연한 매칭)
+      // 5. 유리 관련 매칭 (구체적인 키워드)
+      {
+        condition: (contractText) => contractText.includes('유리') || contractText.includes('glass') || 
+                   contractText.includes('복층') || contractText.includes('투명') || 
+                   contractText.includes('아르곤') || contractText.includes('듀라') ||
+                   contractText.includes('강화') || contractText.includes('반강화'),
+        match: (silmulItem) => {
+          const itemName = silmulItem.itemName.toLowerCase();
+          
+          // 유리 관련 키워드가 있는지 확인
+          const hasGlassKeywords = itemName.includes('투명') || itemName.includes('아르곤') || 
+                                   itemName.includes('듀라') || itemName.includes('반강화') ||
+                                   itemName.includes('강화') || itemName.includes('블루') ||
+                                   itemName.includes('그린') || itemName.includes('브론즈') ||
+                                   itemName.includes('mct') || itemName.includes('mzt') ||
+                                   itemName.includes('skn') || itemName.includes('sks');
+          
+          if (!hasGlassKeywords) return false;
+          
+          // 숫자 매칭 확인 (두 자리 이상의 숫자)
+          const contractNumbers = fullContractText.match(/\d{2,}/g) || [];
+          const itemNumbers = itemName.match(/\d{2,}/g) || [];
+          
+          if (contractNumbers.length > 0 && itemNumbers.length > 0) {
+            const hasCommonNumber = contractNumbers.some(cNum => 
+              itemNumbers.some(iNum => cNum === iNum)
+            );
+            if (hasCommonNumber) {
+              console.log(`🔢 유리 숫자 매칭: 계약="${contractNumbers.join(',')}", 실물="${itemNumbers.join(',')}"`);
+              return true;
+            }
+          }
+          
+          // 키워드 매칭
+          const contractWords = fullContractText.split(/\s+/).filter(word => word.length > 2);
+          return contractWords.some(keyword => itemName.includes(keyword));
+        }
+      },
+      // 6. 운임비 관련 매칭 (낮은 우선순위)
+      {
+        condition: (contractText) => contractText.includes('운임') || contractText.includes('운송') || 
+                   contractText.includes('지게차') || contractText.includes('빈용기'),
+        match: (silmulItem) => {
+          const itemName = silmulItem.itemName.toLowerCase();
+          return itemName.includes('운임') || itemName.includes('지게차') || 
+                 itemName.includes('빈용기') || itemName.includes('출고');
+        }
+      },
+      // 7. 일반적인 키워드 매칭 (가장 낮은 우선순위)
       {
         condition: (contractText) => true,
         match: (silmulItem) => {
           const itemName = silmulItem.itemName.toLowerCase();
-          const contractWords = fullContractText.split(/\s+/).filter(word => word.length > 1);
+          const contractWords = fullContractText.split(/\s+/).filter(word => word.length > 2);
           
           // 숫자가 포함된 경우 우선 매칭
           const contractNumbers = fullContractText.match(/\d+/g) || [];
@@ -949,8 +1054,8 @@ export const matchContractWithSilmul = (contractItems, silmulItems) => {
             }
           }
           
-          // 일반 키워드 매칭
-          return contractWords.some(keyword => itemName.includes(keyword));
+          // 일반 키워드 매칭 (최소 3글자 이상)
+          return contractWords.some(keyword => keyword.length >= 3 && itemName.includes(keyword));
         }
       }
     ];
@@ -1002,12 +1107,12 @@ export const matchContractWithSilmul = (contractItems, silmulItems) => {
     
     const matchedItem = {
       ...contractItem,
-      actualQuantity: matchedSilmulItem ? matchedSilmulItem.quantity.toFixed(2) : '',
-      actualPrice: matchedSilmulItem ? Math.round(matchedSilmulItem.unitPrice) : '',
-      actualAmount: matchedSilmulItem ? Math.round(matchedSilmulItem.amount) : '',
-      quantityDifference: matchedSilmulItem ? 
+      actualQuantity: matchedSilmulItem && matchedSilmulItem.quantity !== undefined ? matchedSilmulItem.quantity.toFixed(2) : '',
+      actualPrice: matchedSilmulItem && matchedSilmulItem.unitPrice !== undefined ? Math.round(matchedSilmulItem.unitPrice) : '',
+      actualAmount: matchedSilmulItem && matchedSilmulItem.amount !== undefined ? Math.round(matchedSilmulItem.amount) : '',
+      quantityDifference: matchedSilmulItem && matchedSilmulItem.quantity !== undefined ? 
         (matchedSilmulItem.quantity - (parseFloat(contractItem.contractQuantity) || 0)).toFixed(2) : '',
-      amountDifference: matchedSilmulItem ? 
+      amountDifference: matchedSilmulItem && matchedSilmulItem.amount !== undefined ? 
         (matchedSilmulItem.amount - (parseFloat(contractItem.contractAmount) || 0)) : '',
       matchedSilmulItem: matchedSilmulItem
     };

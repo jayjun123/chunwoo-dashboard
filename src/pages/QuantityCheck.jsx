@@ -36,7 +36,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { doc, getDoc, updateDoc, collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { parseSilmulExcel, aggregateDataBySelectedSites, matchContractWithSilmul, formatNumber, formatCurrency } from '../utils/excelUtils.jsx';
+import { parseSilmulExcel, aggregateDataBySelectedSites, formatNumber, formatCurrency } from '../utils/excelUtils.jsx';
 import * as XLSX from 'xlsx';
 
 // 파일 업로드 로그 타입 정의
@@ -95,6 +95,11 @@ const QuantityCheck = () => {
   const [unmatchedSilmulItems, setUnmatchedSilmulItems] = useState([]);
   const [uploadLogs, setUploadLogs] = useState([]);
   const [searchKeyword, setSearchKeyword] = useState('');
+
+  // 업로드 로그 삭제 함수
+  const deleteUploadLog = (index) => {
+    setUploadLogs(prev => prev.filter((_, i) => i !== index));
+  };
 
 
 
@@ -298,7 +303,7 @@ const QuantityCheck = () => {
     if (!file) return;
 
     try {
-      setUploadProgress('파일을 읽는 중...');
+      setUploadProgress('📁 파일을 읽는 중...');
       setUploadStatus('loading');
 
       // 파일 유효성 검사
@@ -306,9 +311,18 @@ const QuantityCheck = () => {
         throw new Error('유효하지 않은 파일입니다.');
       }
 
+      // 파일 분석 중 메시지
+      setUploadProgress('🔍 Excel 파일을 분석하고 있습니다...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       // 실물량 데이터 파싱 - 원본 파일을 전달
+      setUploadProgress('📊 실물량 데이터를 파싱하고 있습니다...');
       const silmulData = await parseSilmulExcel(file);
       setTempSilmulData(silmulData);
+      
+      // 현장명 검색 중 메시지
+      setUploadProgress('🔎 현장명을 검색하고 있습니다...');
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // 검색 키워드로 필터링된 현장명 찾기
       const filteredSiteNames = silmulData.siteData
@@ -336,7 +350,7 @@ const QuantityCheck = () => {
   };
 
   // 현장명 선택 확인 핸들러
-  const handleSiteSelectionConfirm = () => {
+  const handleSiteSelectionConfirm = async () => {
     if (selectedSiteNames.length > 0) {
       console.log('✅ 사용자가 선택한 현장명들:', selectedSiteNames);
       console.log('🔍 tempSilmulData:', tempSilmulData);
@@ -344,110 +358,83 @@ const QuantityCheck = () => {
       
       setShowSiteSelectionDialog(false);
       setUploadProgress(`선택된 ${selectedSiteNames.length}개 현장명으로 데이터를 합산하고 있습니다...`);
+      setUploadStatus('loading');
       
       if (tempSilmulData && tempSilmulData.siteData) {
+        // 데이터 집계 중 메시지
+        setUploadProgress(`📊 실물량 데이터를 집계하고 있습니다... (${selectedSiteNames.length}개 현장)`);
+        
+        // 약간의 지연을 두어 사용자가 진행 상태를 확인할 수 있도록 함
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         const aggregatedData = aggregateDataBySelectedSites(tempSilmulData.siteData, selectedSiteNames);
         console.log('🔍 aggregateDataBySelectedSites 결과:', aggregatedData);
         console.log('🔍 aggregatedData.items:', aggregatedData.items);
         console.log('🔍 현재 quantityItems:', quantityItems);
         
+        // 데이터 처리 중 메시지
+        setUploadProgress(`🔄 실물량 데이터를 처리하고 있습니다... (${aggregatedData.items.length}개 항목)`);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
         if (aggregatedData.items.length > 0) {
-          const matchResult = matchContractWithSilmul(quantityItems, aggregatedData.items);
-          console.log('🔍 matchContractWithSilmul 결과:', matchResult);
+          console.log('🔍 실물량 데이터를 매칭 없이 직접 추가합니다:', aggregatedData.items);
           
-          // 매칭된 항목들 업데이트
-          const updatedItems = [...quantityItems];
-          let matchedCount = 0;
-          let unmatchedCount = 0;
-
-          matchResult.matchedItems.forEach((matchedItem, index) => {
-            if (matchedItem.actualQuantity) {
-              updatedItems[index] = {
-                ...updatedItems[index],
-                actualQuantity: matchedItem.actualQuantity,
-                actualPrice: matchedItem.actualPrice,
-                actualAmount: matchedItem.actualAmount,
-                quantityDifference: matchedItem.quantityDifference,
-                amountDifference: matchedItem.amountDifference
-              };
-              matchedCount++;
-            }
-          });
-
-          setQuantityItems(updatedItems);
-          setUnmatchedSilmulItems(matchResult.unmatchedSilmulItems || []);
+          // 항목 변환 중 메시지
+          setUploadProgress(`📝 실물량 항목을 변환하고 있습니다... (${aggregatedData.items.length}개 항목)`);
+          await new Promise(resolve => setTimeout(resolve, 200));
           
-          // 매칭되지 않은 항목들을 새 행으로 추가
-          if (matchResult.unmatchedSilmulItems && matchResult.unmatchedSilmulItems.length > 0) {
-            console.log('🔍 매칭되지 않은 항목들:', matchResult.unmatchedSilmulItems);
-            
-            const newItems = matchResult.unmatchedSilmulItems.map(item => {
-              console.log('🔍 새 항목 생성:', item);
-              return {
-                name: item.itemName || item.name || '',
-                specification: item.specification || '',
-                unit: item.unit || '',
-                contractQuantity: '',
-                contractPrice: '',
-                contractAmount: '',
-                actualQuantity: item.quantity || item.actualQuantity || '',
-                actualPrice: item.unitPrice || item.actualPrice || '',
-                actualAmount: item.amount || item.actualAmount || '',
-                quantityDifference: '',
-                amountDifference: '',
-                note: '업로드된 실물량 데이터'
-              };
-            });
-            
-            console.log('🔍 새로 추가될 항목들:', newItems);
-            const finalItems = [...updatedItems, ...newItems];
-            console.log('🔍 최종 quantityItems:', finalItems);
-            
-            setQuantityItems(finalItems);
-            unmatchedCount = matchResult.unmatchedSilmulItems.length;
-          } else {
-            // 매칭되지 않은 항목이 없으면 모든 실물량 데이터를 새로 추가
-            console.log('🔍 매칭되지 않은 항목이 없음. 모든 실물량 데이터를 새로 추가합니다.');
-            console.log('🔍 aggregatedData.items:', aggregatedData.items);
-            
-            const allNewItems = aggregatedData.items.map(item => ({
+          // 매칭 없이 실물량 데이터를 그대로 추가 (같은 항목끼리 합쳐진 상태)
+          const newItems = aggregatedData.items.map(item => {
+            console.log('🔍 실물량 항목 추가:', item);
+            console.log('🔍 계산된 수량:', item.quantity, '단가:', item.unitPrice, '금액:', item.amount);
+            console.log('🔍 원본 데이터:', { fSum: item.fSum, gFirst: item.gValues?.[0], jSum: item.jSum });
+            return {
               name: item.itemName || item.name || '',
               specification: item.specification || '',
               unit: item.unit || '',
               contractQuantity: '',
               contractPrice: '',
               contractAmount: '',
-              actualQuantity: item.quantity || item.actualQuantity || '',
-              actualPrice: item.unitPrice || item.actualPrice || '',
-              actualAmount: item.amount || item.actualAmount || '',
+              actualQuantity: item.quantity || 0,
+              actualPrice: item.unitPrice || 0,
+              actualAmount: item.amount || 0,
               quantityDifference: '',
               amountDifference: '',
-              note: '업로드된 실물량 데이터 (매칭되지 않음)'
-            }));
-            
-            console.log('🔍 모든 실물량 데이터를 새 항목으로 추가:', allNewItems);
-            const finalItems = [...updatedItems, ...allNewItems];
-            setQuantityItems(finalItems);
-            unmatchedCount = allNewItems.length;
-          }
+              note: '업로드된 실물량 데이터 (집계됨)'
+            };
+          });
+          
+          console.log('🔍 추가될 실물량 항목들:', newItems);
+          
+          // 데이터 저장 중 메시지
+          setUploadProgress(`💾 실물량 데이터를 저장하고 있습니다...`);
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          const finalItems = [...quantityItems, ...newItems];
+          console.log('🔍 최종 quantityItems:', finalItems);
+          
+          setQuantityItems(finalItems);
+          setUnmatchedSilmulItems([]);
+          
+          const addedCount = newItems.length;
           
           // 업로드 로그 생성
           const uploadLog = {
             fileName: tempSilmulData.fileName || '실물량_데이터.xlsx',
             uploadTime: new Date(),
             totalRows: aggregatedData.items.length,
-            matchedRows: matchedCount,
-            unmatchedRows: unmatchedCount,
+            matchedRows: 0,
+            unmatchedRows: addedCount,
             details: [
               `선택된 현장: ${selectedSiteNames.join(', ')}`,
-              `매칭된 항목: ${matchedCount}개`,
-              `새로 추가된 항목: ${unmatchedCount}개`
+              `추가된 실물량 항목: ${addedCount}개`,
+              `매칭 없이 직접 추가됨`
             ]
           };
           
           setUploadLogs(prev => [uploadLog, ...prev]);
           
-          let progressMessage = `성공! ${matchedCount}개 항목이 업데이트되고 ${unmatchedCount}개 항목이 새로 추가되었습니다.`;
+          let progressMessage = `성공! ${addedCount}개 실물량 항목이 추가되었습니다.`;
           setUploadProgress(progressMessage);
           setUploadStatus('success');
         } else {
@@ -1004,15 +991,15 @@ const QuantityCheck = () => {
 
       </Paper>
 
-      {/* 업로드 로그 테이블 */}
+      {/* 업로드 로그 테이블 - 최신 1개만 표시 */}
       {uploadLogs.length > 0 && (
         <Paper sx={{ bgcolor: '#232734', border: '1px solid #444', mt: 3 }}>
           <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" sx={{ color: '#90caf9' }}>
-              업로드 로그 ({uploadLogs.length}개)
+              최신 업로드 로그
             </Typography>
             <Typography variant="body2" sx={{ color: '#bbb' }}>
-              실물량 데이터 업로드 기록입니다.
+              가장 최근 업로드 기록입니다.
             </Typography>
           </Box>
           
@@ -1025,11 +1012,12 @@ const QuantityCheck = () => {
                   <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '10%' }}>전체 행</TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '10%' }}>매칭된 행</TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '10%' }}>새로 추가된 행</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '40%' }}>상세 정보</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '35%' }}>상세 정보</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '5%' }}>액션</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {uploadLogs.map((log, index) => (
+                {uploadLogs.slice(0, 1).map((log, index) => (
                   <TableRow key={index} sx={{ '&:hover': { bgcolor: '#2a2d31' } }}>
                     <TableCell sx={{ color: '#fff', py: 0.5 }}>
                       <Typography variant="body2">
@@ -1064,6 +1052,27 @@ const QuantityCheck = () => {
                           </Typography>
                         ))}
                       </Box>
+                    </TableCell>
+                    <TableCell sx={{ color: '#fff', py: 0.5, textAlign: 'center' }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => deleteUploadLog(index)}
+                        sx={{
+                          color: '#f44336',
+                          borderColor: '#f44336',
+                          minWidth: 'auto',
+                          px: 1,
+                          py: 0.5,
+                          fontSize: '0.75rem',
+                          '&:hover': {
+                            borderColor: '#d32f2f',
+                            bgcolor: 'rgba(244, 67, 54, 0.1)'
+                          }
+                        }}
+                      >
+                        삭제
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1138,8 +1147,16 @@ const QuantityCheck = () => {
                   severity={uploadStatus === 'success' ? 'success' : 
                            uploadStatus === 'error' ? 'error' : 'info'}
                   sx={{ bgcolor: '#1a1d21' }}
+                  icon={uploadStatus === 'loading' ? <CircularProgress size={20} /> : undefined}
                 >
-                  {uploadProgress}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {uploadStatus === 'loading' && (
+                      <CircularProgress size={16} sx={{ color: '#90caf9' }} />
+                    )}
+                    <Typography variant="body2">
+                      {uploadProgress}
+                    </Typography>
+                  </Box>
                 </Alert>
               </Grid>
             )}
@@ -1307,6 +1324,21 @@ const QuantityCheck = () => {
           <Typography variant="body2" sx={{ color: '#bbb', mb: 2 }}>
             "{factorySiteName}"을 포함한 현장들을 발견했습니다. 분석할 현장들을 선택해주세요.
           </Typography>
+          
+          {uploadProgress && uploadStatus === 'loading' && (
+            <Alert 
+              severity="info"
+              sx={{ bgcolor: '#1a1d21', mb: 2 }}
+              icon={<CircularProgress size={20} />}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={16} sx={{ color: '#90caf9' }} />
+                <Typography variant="body2">
+                  {uploadProgress}
+                </Typography>
+              </Box>
+            </Alert>
+          )}
           
           <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
             {foundSiteNames.map((siteName, index) => (

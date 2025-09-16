@@ -918,11 +918,11 @@ const App = React.memo(() => {
                           <ProtectedRoute>
                             {isMobile ? (
                               <MobileLayout>
-                                <GisungStatusPage />
+                                <GisungStatusPage onOpenIdeaPad={handleOpenIdeaPad} />
                               </MobileLayout>
                             ) : (
                               <Layout>
-                                <GisungStatusPage />
+                                <GisungStatusPage onOpenIdeaPad={handleOpenIdeaPad} />
                               </Layout>
                             )}
                           </ProtectedRoute>
@@ -982,11 +982,11 @@ const App = React.memo(() => {
                           <ProtectedRoute>
                             {isMobile ? (
                               <MobileLayout>
-                                <ClaimsMobile />
+                                <ClaimsMobile onOpenIdeaPad={handleOpenIdeaPad} />
                               </MobileLayout>
                             ) : (
                               <Layout>
-                                <Claims />
+                                <Claims onOpenIdeaPad={handleOpenIdeaPad} />
                               </Layout>
                             )}
                           </ProtectedRoute>
