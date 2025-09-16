@@ -59,11 +59,17 @@ export default function MobileLayout({ children }) {
     <Box sx={{ 
       minHeight: { xs: '100vh', sm: '100dvh' }, // 100vh로 복원하여 전체 화면 사용
       width: '100vw', 
-      bgcolor: '#181a20', 
+      bgcolor: '#181a20 !important',
+      backgroundColor: '#181a20 !important',
       position: 'relative', 
       overflow: 'auto', // 스크롤 허용
       // paddingTop은 iOS에서만 적용, Android는 무시
       paddingTop: { xs: 0, sm: 'env(safe-area-inset-top, 0px)' },
+      // 아이패드 다크 테마 강화
+      color: '#ffffff !important',
+      '& *': {
+        color: 'inherit !important'
+      }
     }}>
       {/* 모바일 헤더 - 항상 표시 */}
       <MobileHeader />

@@ -1232,21 +1232,49 @@ export default function SettlementDetail() {
   const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
+    // 아이패드/터치 디바이스 최적화
+    interaction: {
+      intersect: false,
+      mode: 'index'
+    },
+    // 애니메이션 비활성화 (아이패드 성능 개선)
+    animation: {
+      duration: 0
+    },
+    // 터치 이벤트 최적화
+    onHover: (event, activeElements) => {
+      event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
+    },
     plugins: {
       legend: {
         position: 'top',
         labels: {
           color: '#fff',
-          font: { size: 12 }
+          font: { size: 12 },
+          usePointStyle: true,
+          padding: 20
         }
       },
       title: {
         display: false
+      },
+      tooltip: {
+        enabled: true,
+        mode: 'index',
+        intersect: false,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: '#43e97b',
+        borderWidth: 1
       }
     },
     scales: {
       x: {
-        grid: { color: '#333' },
+        grid: { 
+          color: '#333',
+          drawBorder: false
+        },
         ticks: { 
           color: '#bbb',
           maxRotation: 0,
@@ -1258,7 +1286,10 @@ export default function SettlementDetail() {
         }
       },
       y: {
-        grid: { color: '#333' },
+        grid: { 
+          color: '#333',
+          drawBorder: false
+        },
         ticks: { 
           color: '#bbb',
           font: {
@@ -2025,7 +2056,18 @@ export default function SettlementDetail() {
               월별 기성금 및 지출 추이 분석
             </Typography>
             {chartData ? (
-              <Box sx={{ height: '400px', width: '100%' }}>
+              <Box sx={{ 
+                height: '400px', 
+                width: '100%',
+                // 아이패드 최적화
+                touchAction: 'manipulation',
+                WebkitTouchCallout: 'none',
+                WebkitUserSelect: 'none',
+                userSelect: 'none',
+                // 하드웨어 가속 활성화
+                transform: 'translateZ(0)',
+                willChange: 'transform'
+              }}>
                 <Line data={chartData} options={chartOptions} />
               </Box>
             ) : (

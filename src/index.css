@@ -1116,6 +1116,32 @@ body.popup-open {
   }
 }
 
+/* 아이패드 다크 테마 강제 적용 */
+@media screen and (min-width: 768px) and (max-width: 1024px) {
+  /* iPad에서 다크 테마 강제 적용 */
+  body, #root {
+    background-color: #181a20 !important;
+    color: #ffffff !important;
+  }
+  
+  /* 모든 Material-UI 컴포넌트 다크 테마 강제 */
+  .MuiBox-root, .MuiPaper-root, .MuiCard-root, .MuiContainer-root {
+    background-color: #181a20 !important;
+    color: #ffffff !important;
+  }
+  
+  /* Typography 다크 테마 강제 */
+  .MuiTypography-root {
+    color: #ffffff !important;
+  }
+  
+  /* 아이패드에서 현장일정 페이지 다크 테마 강제 */
+  .ideapad-container, .mobile-layout, .custom-schedule-mobile {
+    background-color: #181a20 !important;
+    color: #ffffff !important;
+  }
+}
+
 /* iPadOS PWA 전용 스타일 */
 @media (display-mode: standalone) and (min-width: 768px) {
   /* iPad에서 PWA 모드일 때 */
@@ -1130,6 +1156,9 @@ body.popup-open {
     overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
+    /* 아이패드 다크 테마 강제 적용 */
+    background-color: #181a20 !important;
+    color: #ffffff !important;
   }
   
   #root {

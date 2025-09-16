@@ -410,7 +410,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     setShapes(prev => [...prev, newShape]);
   }, [currentColor, brushSize]);
 
-  // 좌표 변환 (마우스와 터치 모두 지원, 아이패드 최적화)
+  // 좌표 변환 (마우스, 터치, 애플펜 모두 지원, 아이패드 최적화)
   const getCanvasCoordinates = useCallback((e) => {
     try {
       const canvas = canvasRef.current;
@@ -418,17 +418,32 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
 
       const rect = canvas.getBoundingClientRect();
       
-      // 터치 이벤트인지 마우스 이벤트인지 확인
+      // 애플펜, 터치, 마우스 이벤트 모두 처리
       let clientX, clientY;
-      if (e.touches && e.touches.length > 0) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      } else if (e.changedTouches && e.changedTouches.length > 0) {
-        clientX = e.changedTouches[0].clientX;
-        clientY = e.changedTouches[0].clientY;
-      } else {
+      
+      // 포인터 이벤트 (애플펜 우선)
+      if (e.pointerType && (e.pointerType === 'pen' || e.pointerType === 'touch')) {
         clientX = e.clientX;
         clientY = e.clientY;
+        console.log('애플펜/포인터 이벤트:', { clientX, clientY, pointerType: e.pointerType });
+      }
+      // 터치 이벤트
+      else if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+        console.log('터치 이벤트:', { clientX, clientY });
+      } 
+      // 변경된 터치 이벤트
+      else if (e.changedTouches && e.changedTouches.length > 0) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+        console.log('변경된 터치 이벤트:', { clientX, clientY });
+      } 
+      // 마우스 이벤트
+      else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+        console.log('마우스 이벤트:', { clientX, clientY });
       }
 
       // 좌표 유효성 검사
@@ -437,14 +452,20 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
         console.warn('유효하지 않은 좌표:', { clientX, clientY });
         return { x: 0, y: 0 };
       }
-      // 캔버스 내부 좌표로 변환 (고정 크기 기준)
-      const x = (clientX - rect.left) * (550 / rect.width);
-      const y = (clientY - rect.top) * (1122 / rect.height);
 
-      // 좌표 유효성 검사
-      const validX = Math.max(0, Math.min(550, x));
-      const validY = Math.max(0, Math.min(1122, y));
+      // 아이패드에서 스크롤 오프셋 보정
+      const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+      const scrollY = window.pageYOffset || document.documentElement.scrollTop;
 
+      // 좌표 계산 (스크롤 오프셋 포함)
+      const x = (clientX - rect.left + scrollX) * (canvas.width / rect.width);
+      const y = (clientY - rect.top + scrollY) * (canvas.height / rect.height);
+
+      // 좌표 유효성 검사 (캔버스 범위 내)
+      const validX = Math.max(0, Math.min(canvas.width, x));
+      const validY = Math.max(0, Math.min(canvas.height, y));
+
+      console.log('최종 좌표:', { validX, validY, originalX: x, originalY: y });
       return { x: validX, y: validY };
     } catch (error) {
       console.warn('좌표 변환 중 오류:', error);
@@ -1422,6 +1443,14 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
               canvas.style.webkitTouchCallout = 'none';
               canvas.style.webkitUserSelect = 'none';
               canvas.style.userSelect = 'none';
+              
+              // 아이패드에서 좌표 정확도 개선
+              canvas.style.position = 'relative';
+              canvas.style.zIndex = '1';
+              
+              // 하드웨어 가속 활성화
+              canvas.style.transform = 'translateZ(0)';
+              canvas.style.willChange = 'transform';
               
               console.log('아이패드 최적화 설정 적용 완료');
             }

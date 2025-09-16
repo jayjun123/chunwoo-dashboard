@@ -1343,7 +1343,8 @@ const CustomScheduleMobile = () => {
   return (
     <MobileLayout>
       <Box sx={{
-        bgcolor: '#181a20',
+        bgcolor: '#181a20 !important',
+        backgroundColor: '#181a20 !important',
         height: 'calc(90vh - 50px)', // 100vh에서 90vh로 줄임
         width: '100vw',
         overflow: 'hidden',
@@ -1355,7 +1356,12 @@ const CustomScheduleMobile = () => {
         WebkitOverflowScrolling: 'none',
         userSelect: 'none',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        // 아이패드 다크 테마 강화
+        color: '#ffffff !important',
+        '& *': {
+          color: 'inherit !important'
+        }
       }}>
         {loading && (
           <Box sx={{ 
