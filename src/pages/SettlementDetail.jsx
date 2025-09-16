@@ -91,7 +91,8 @@ export default function SettlementDetail() {
     month: '',
     company: '',
     amount: '',
-    차수: 1
+    차수: 1,
+    note: ''
   });
   const [materialData, setMaterialData] = useState([]);
   const [savedCompanies, setSavedCompanies] = useState([]);
@@ -487,6 +488,20 @@ export default function SettlementDetail() {
   const netProfit = totalGisungAmount - totalCostAmount;
 
   // 지출 항목별 상세 내용 보기
+  // 금액 천단위 쉼표 포맷팅 함수
+  const formatAmountInput = (value) => {
+    // 숫자가 아닌 문자 제거
+    const numericValue = value.replace(/[^0-9]/g, '');
+    // 천단위 쉼표 추가
+    return numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  };
+
+  // 금액 입력 핸들러
+  const handleAmountChange = (e) => {
+    const formattedValue = formatAmountInput(e.target.value);
+    setMaterialForm({...materialForm, amount: formattedValue});
+  };
+
   // 자재비 추가 함수 (메모이제이션으로 불필요한 재렌더링 방지)
   const handleAddMaterial = useCallback(async () => {
     if (materialForm.item && materialForm.month && materialForm.company && materialForm.amount) {
@@ -494,7 +509,7 @@ export default function SettlementDetail() {
         const newMaterial = {
           id: Date.now(),
           ...materialForm,
-          amount: Number(materialForm.amount),
+          amount: Number(materialForm.amount.replace(/,/g, '')), // 쉼표 제거 후 숫자 변환
           siteId: siteId,
           createdAt: new Date()
         };
@@ -520,7 +535,8 @@ export default function SettlementDetail() {
           month: '',
           company: materialForm.company, // 회사명 유지
           amount: '',
-          차수: new차수
+          차수: new차수,
+          note: ''
         });
         setSnackbar({ open: true, message: '자재비가 추가되었습니다.', severity: 'success' });
       } catch (error) {
@@ -2294,9 +2310,30 @@ export default function SettlementDetail() {
                 <TextField
                   fullWidth
                   label="금액"
-                  type="number"
                   value={materialForm.amount}
-                  onChange={(e) => setMaterialForm({...materialForm, amount: e.target.value})}
+                  onChange={handleAmountChange}
+                  placeholder="예: 1,000,000"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: '#fff',
+                      '& fieldset': { borderColor: '#555' },
+                      '&:hover fieldset': { borderColor: '#43e97b' },
+                      '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#bbb' },
+                    '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="비고"
+                  value={materialForm.note}
+                  onChange={(e) => setMaterialForm({...materialForm, note: e.target.value})}
+                  placeholder="자재비 관련 비고사항을 입력하세요"
+                  multiline
+                  rows={2}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       color: '#fff',
@@ -2370,6 +2407,11 @@ export default function SettlementDetail() {
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>
                         {item.month} | {formatGisungAmount(item.amount)}
                       </Typography>
+                      {item.note && (
+                        <Typography sx={{ color: '#888', fontSize: '0.8rem', mt: 0.5, fontStyle: 'italic' }}>
+                          비고: {item.note}
+                        </Typography>
+                      )}
                     </Box>
                     <Button
                       size="small"
