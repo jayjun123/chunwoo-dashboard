@@ -41,9 +41,11 @@ import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import { Line } from 'react-chartjs-2';
+import * as XLSX from 'xlsx';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -95,6 +97,7 @@ export default function SettlementDetail() {
   const [savedCompanies, setSavedCompanies] = useState([]);
   const [materialItems] = useState(['복층', '강화', '접합', '기타']);
   const [safetyData, setSafetyData] = useState([]);
+  const [scheduleData, setScheduleData] = useState([]);
 
   // 현장 정보 로드
   useEffect(() => {
@@ -273,6 +276,25 @@ export default function SettlementDetail() {
            console.error('안전관리비 데이터 로드 오류:', safetyError);
            setSafetyData([]);
          }
+         
+         // 일정 데이터 가져오기 (공수 계산용)
+         try {
+           const scheduleQuery = query(
+             collection(db, 'schedules'),
+             where('siteId', '==', siteId)
+           );
+           const scheduleSnapshot = await getDocs(scheduleQuery);
+           const scheduleItems = scheduleSnapshot.docs.map(doc => ({
+             id: doc.id,
+             ...doc.data()
+           }));
+           
+           console.log('일정 데이터 로드 완료:', scheduleItems);
+           setScheduleData(scheduleItems);
+         } catch (scheduleError) {
+           console.error('일정 데이터 로드 오류:', scheduleError);
+           setScheduleData([]);
+         }
         
       } catch (error) {
         console.error('데이터 로드 오류:', error);
@@ -300,6 +322,15 @@ export default function SettlementDetail() {
     console.log('기성금 데이터:', gisungData);
     console.log('필터링된 기성금:', filtered);
     console.log('기성금 합계:', total);
+    return total;
+  }, [gisungData]);
+
+  // 청구완료(미지급) 금액 계산
+  const totalClaimedUnpaidAmount = useMemo(() => {
+    const filtered = gisungData.filter(item => item.claimStatus === '청구완료' && item.paymentStatus !== '입금완료');
+    const total = filtered.reduce((sum, item) => sum + (Number(item.gisungAmount) || 0), 0);
+    console.log('청구완료(미지급) 데이터:', filtered);
+    console.log('청구완료(미지급) 합계:', total);
     return total;
   }, [gisungData]);
 
@@ -386,6 +417,71 @@ export default function SettlementDetail() {
     console.log('안전관리비 최종 합계:', total);
     return total;
   }, [safetyData]);
+
+  // 일정에서 공수 추출하는 함수 (히트맵 분석과 동일)
+  const extractManpowerFromDescription = (description) => {
+    if (!description) return 0;
+    
+    // "0명", "1명", "2명" 등의 패턴을 찾아서 숫자 추출
+    const matches = description.match(/(\d+)명/g);
+    if (matches) {
+      return matches.reduce((sum, match) => {
+        const num = parseInt(match.replace('명', ''));
+        return sum + (isNaN(num) ? 0 : num);
+      }, 0);
+    }
+    
+    // "0인", "1인", "2인" 등의 패턴도 찾기
+    const matches2 = description.match(/(\d+)인/g);
+    if (matches2) {
+      return matches2.reduce((sum, match) => {
+        const num = parseInt(match.replace('인', ''));
+        return sum + (isNaN(num) ? 0 : num);
+      }, 0);
+    }
+    
+    return 0;
+  };
+
+  // 회사명에서 불필요한 단어 제거하는 함수
+  const cleanCompanyName = (companyName) => {
+    if (!companyName) return companyName;
+    
+    // 제거할 단어들 목록
+    const wordsToRemove = ['글라스', '유리', '안전유리', '강화유리', '복층유리'];
+    
+    let cleanedName = companyName;
+    wordsToRemove.forEach(word => {
+      // 단어 앞뒤로 공백이나 특수문자가 있는 경우도 제거
+      const regex = new RegExp(`\\s*${word}\\s*`, 'g');
+      cleanedName = cleanedName.replace(regex, '');
+    });
+    
+    return cleanedName.trim();
+  };
+
+  // 총 공수 계산 (일정 데이터에서)
+  const totalWorkers = useMemo(() => {
+    let total = 0;
+    
+    // 일정 데이터에서 공수 추출
+    scheduleData.forEach(schedule => {
+      if (schedule.desc) {
+        const manpower = extractManpowerFromDescription(schedule.desc);
+        total += manpower;
+      }
+    });
+    
+    // 노무비 데이터에서도 공수 추출 (기존 방식)
+    const laborItems = costData.filter(item => item.itemType === '노무비');
+    laborItems.forEach(item => {
+      const workers = Number(item.workers) || 0;
+      total += workers;
+    });
+    
+    console.log('총 공수 (일정 + 노무비):', total);
+    return total;
+  }, [scheduleData, costData]);
 
   // 순수익 계산
   const netProfit = totalGisungAmount - totalCostAmount;
@@ -484,18 +580,323 @@ export default function SettlementDetail() {
     }
   }, [materialData]);
 
-  // 자재비 상세내역 표시
+  // 자재비 상세내역 표시 (항목별로 정리)
   const showMaterialDetails = () => {
+    // 자재비를 항목별로 분류
+    const 복층Items = materialData.filter(item => item.item === '복층').map(item => ({
+      name: `복층 - ${item.company}`,
+      amount: Number(item.amount) || 0,
+      date: item.month,
+      type: '복층',
+      차수: item.차수 || 1
+    }));
+    
+    const 강화Items = materialData.filter(item => item.item === '강화').map(item => ({
+      name: `강화 - ${item.company}`,
+      amount: Number(item.amount) || 0,
+      date: item.month,
+      type: '강화',
+      차수: item.차수 || 1
+    }));
+    
+    const 접합Items = materialData.filter(item => item.item === '접합').map(item => ({
+      name: `접합 - ${item.company}`,
+      amount: Number(item.amount) || 0,
+      date: item.month,
+      type: '접합',
+      차수: item.차수 || 1
+    }));
+    
+    const 기타Items = materialData.filter(item => item.item === '기타').map(item => ({
+      name: `기타 - ${item.company}`,
+      amount: Number(item.amount) || 0,
+      date: item.month,
+      type: '기타',
+      차수: item.차수 || 1
+    }));
+    
+    // 모든 항목을 합쳐서 정렬 (최신 월이 위에)
+    const allItems = [...복층Items, ...강화Items, ...접합Items, ...기타Items].sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateB - dateA;
+    });
+    
     setDetailDialog({
       open: true,
       title: '자재비',
-      items: materialData.map(item => ({
-        name: `${item.item} (${item.company})`,
-        amount: item.amount,
-        date: item.month,
-        type: '자재비'
-      }))
+      items: allItems
     });
+  };
+
+  // 엑셀 다운로드 함수
+  const handleExcelDownload = () => {
+    try {
+      // 워크북 생성
+      const workbook = XLSX.utils.book_new();
+      
+      // 1. 대시보드 시트 (브리프용)
+      const dashboardData = [
+        // 헤더
+        ['', '', '', '', '', ''],
+        ['', '', '🏗️ 현장 정산 대시보드', '', '', ''],
+        ['', '', `${site?.name || '현장명'} - ${new Date().toLocaleDateString()} 기준`, '', '', ''],
+        ['', '', '', '', '', ''],
+        
+        // 현장 기본 정보
+        ['📋 현장 기본 정보', '', '', '', '', ''],
+        ['현장명', site?.name || '', '', '', '', ''],
+        ['계약회사', site?.companyName || site?.company || '', '', '', '', ''],
+        ['현장소장', site?.manager || '', '', '', '', ''],
+        ['공사기간', `${site?.startDate || ''} ~ ${site?.endDate || ''}`, '', '', '', ''],
+        ['계약유형', site?.contractType || '', '', '', '', ''],
+        ['', '', '', '', '', ''],
+        
+        // 정산 현황
+        ['💰 정산 현황', '', '', '', '', ''],
+        ['계약금액', site?.contractAmount ? formatContractAmount(site.contractAmount) : '0원', '', '', '', ''],
+        ['기성금액 (입금완료)', formatGisungAmount(totalGisungAmount), '', '', '', ''],
+        ['청구완료 (미지급)', formatGisungAmount(totalClaimedUnpaidAmount), '', '', '', ''],
+        ['총 지출', formatGisungAmount(totalCostAmount), '', '', '', ''],
+        ['차액', formatBalanceAmount(totalGisungAmount - totalCostAmount), '', '', '', ''],
+        ['', '', '', '', '', ''],
+        
+        // 지출 세부 내역
+        ['💸 지출 세부 내역', '', '', '', '', ''],
+        ['노무비', formatGisungAmount(costBreakdown.labor), '', '', '', ''],
+        ['자재비', formatGisungAmount(costBreakdown.material), '', '', '', ''],
+        ['부자재비', formatGisungAmount(costBreakdown.subMaterial), '', '', '', ''],
+        ['장비비', formatGisungAmount(costBreakdown.equipment), '', '', '', ''],
+        ['경비', formatGisungAmount(costBreakdown.expense), '', '', '', ''],
+        ['기타', formatGisungAmount(costBreakdown.other), '', '', '', ''],
+        ['', '', '', '', '', ''],
+        
+        // 공수 정보
+        ['👷 공수 정보', '', '', '', '', ''],
+        ['총 공수', `${totalWorkers.toLocaleString()}명`, '', '', '', ''],
+        ['', '', '', '', '', ''],
+        
+        // 월별 정산 요약 (최근 6개월)
+        ['📊 월별 정산 요약', '', '', '', '', ''],
+        ['월', '기성금', '지출', '자재비', '수지', ''],
+      ];
+      
+      // 월별 데이터 추가
+      const dashboardMonths = new Set();
+      gisungData.forEach(item => {
+        if (item.gisungDate) {
+          const date = new Date(item.gisungDate);
+          const month = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+          dashboardMonths.add(month);
+        }
+      });
+      costData.forEach(item => {
+        if (item.date) {
+          const date = new Date(item.date);
+          const month = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+          dashboardMonths.add(month);
+        }
+      });
+      materialData.forEach(item => {
+        if (item.month) {
+          dashboardMonths.add(item.month);
+        }
+      });
+      
+      const dashboardSortedMonths = Array.from(dashboardMonths).sort().slice(-6); // 최근 6개월
+      dashboardSortedMonths.forEach(month => {
+        const monthGisung = gisungData
+          .filter(item => {
+            if (!item.gisungDate) return false;
+            const date = new Date(item.gisungDate);
+            const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+            return itemMonth === month;
+          })
+          .reduce((sum, item) => sum + (Number(item.gisungAmount) || 0), 0);
+        
+        const monthCost = costData
+          .filter(item => {
+            if (!item.date) return false;
+            const date = new Date(item.date);
+            const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+            return itemMonth === month;
+          })
+          .reduce((sum, item) => sum + (Number(item.totalValue) || 0), 0);
+        
+        const monthMaterial = materialData
+          .filter(item => item.month === month)
+          .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+        
+        dashboardData.push([
+          month,
+          formatGisungAmount(monthGisung),
+          formatContractAmount(monthCost),
+          formatContractAmount(monthMaterial),
+          formatContractAmount(monthGisung - monthCost - monthMaterial),
+          ''
+        ]);
+      });
+      
+      const dashboardSheet = XLSX.utils.aoa_to_sheet(dashboardData);
+      
+      // 컬럼 너비 설정
+      dashboardSheet['!cols'] = [
+        { wch: 20 }, // A열
+        { wch: 25 }, // B열
+        { wch: 15 }, // C열
+        { wch: 15 }, // D열
+        { wch: 15 }, // E열
+        { wch: 10 }  // F열
+      ];
+      
+      XLSX.utils.book_append_sheet(workbook, dashboardSheet, '📊 대시보드');
+      
+      // 2. 현장 정보 시트
+      const siteInfoData = [
+        ['현장명', site?.name || ''],
+        ['계약금액', site?.contractAmount ? formatContractAmount(site.contractAmount) : '0원'],
+        ['기성금액', formatGisungAmount(totalGisungAmount)],
+        ['청구완료(미지급)', formatGisungAmount(totalClaimedUnpaidAmount)],
+        ['총 지출', formatGisungAmount(totalCostAmount)],
+        ['차액', formatBalanceAmount(totalGisungAmount - totalCostAmount)],
+        ['총 공수', `${totalWorkers.toLocaleString()}명`],
+        ['공사기간', `${site?.startDate || ''} ~ ${site?.endDate || ''}`],
+        ['계약회사', site?.companyName || ''],
+        ['현장소장', site?.manager || '']
+      ];
+      
+      const siteInfoSheet = XLSX.utils.aoa_to_sheet(siteInfoData);
+      XLSX.utils.book_append_sheet(workbook, siteInfoSheet, '현장정보');
+      
+      // 3. 기성금 내역 시트
+      const gisungExcelData = gisungData.map(item => [
+        item.gisungDate ? new Date(item.gisungDate).toLocaleDateString() : '',
+        item.gisungAmount ? formatGisungAmount(item.gisungAmount) : '0원',
+        item.claimStatus || '',
+        item.paymentStatus || '',
+        item.description || ''
+      ]);
+      gisungExcelData.unshift(['기성일', '기성금액', '청구상태', '입금상태', '비고']);
+      
+      const gisungSheet = XLSX.utils.aoa_to_sheet(gisungExcelData);
+      XLSX.utils.book_append_sheet(workbook, gisungSheet, '기성금내역');
+      
+      // 4. 지출 내역 시트
+      const costExcelData = costData.map(item => [
+        item.date ? new Date(item.date).toLocaleDateString() : '',
+        item.itemType || '',
+        item.itemName || '',
+        item.quantity || 0,
+        item.unitPrice || 0,
+        item.totalValue ? formatContractAmount(item.totalValue) : '0원',
+        item.차수 || 1,
+        item.description || ''
+      ]);
+      costExcelData.unshift(['지출일', '항목', '세부항목', '수량', '단가', '금액', '차수', '비고']);
+      
+      const costSheet = XLSX.utils.aoa_to_sheet(costExcelData);
+      XLSX.utils.book_append_sheet(workbook, costSheet, '지출내역');
+      
+      // 5. 자재비 내역 시트
+      const materialExcelData = materialData.map(item => [
+        item.month || '',
+        item.item || '',
+        item.company || '',
+        item.amount ? formatContractAmount(item.amount) : '0원',
+        item.차수 || 1,
+        item.description || ''
+      ]);
+      materialExcelData.unshift(['월', '항목', '업체', '금액', '차수', '비고']);
+      
+      const materialSheet = XLSX.utils.aoa_to_sheet(materialExcelData);
+      XLSX.utils.book_append_sheet(workbook, materialSheet, '자재비내역');
+      
+      // 6. 월별 정산 요약 시트
+      const monthlySummary = [];
+      const summaryMonths = new Set();
+      
+      // 기성금 월별 집계
+      gisungData.forEach(item => {
+        if (item.gisungDate) {
+          const date = new Date(item.gisungDate);
+          const month = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+          summaryMonths.add(month);
+        }
+      });
+      
+      // 지출 월별 집계
+      costData.forEach(item => {
+        if (item.date) {
+          const date = new Date(item.date);
+          const month = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+          summaryMonths.add(month);
+        }
+      });
+      
+      // 자재비 월별 집계
+      materialData.forEach(item => {
+        if (item.month) {
+          summaryMonths.add(item.month);
+        }
+      });
+      
+      // 월별 데이터 정리
+      const summarySortedMonths = Array.from(summaryMonths).sort();
+      summarySortedMonths.forEach(month => {
+        const monthGisung = gisungData
+          .filter(item => {
+            if (!item.gisungDate) return false;
+            const date = new Date(item.gisungDate);
+            const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+            return itemMonth === month;
+          })
+          .reduce((sum, item) => sum + (Number(item.gisungAmount) || 0), 0);
+        
+        const monthCost = costData
+          .filter(item => {
+            if (!item.date) return false;
+            const date = new Date(item.date);
+            const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+            return itemMonth === month;
+          })
+          .reduce((sum, item) => sum + (Number(item.totalValue) || 0), 0);
+        
+        const monthMaterial = materialData
+          .filter(item => item.month === month)
+          .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+        
+        monthlySummary.push([
+          month,
+          formatGisungAmount(monthGisung),
+          formatContractAmount(monthCost),
+          formatContractAmount(monthMaterial),
+          formatContractAmount(monthGisung - monthCost - monthMaterial)
+        ]);
+      });
+      
+      monthlySummary.unshift(['월', '기성금', '지출', '자재비', '수지']);
+      
+      const summarySheet = XLSX.utils.aoa_to_sheet(monthlySummary);
+      XLSX.utils.book_append_sheet(workbook, summarySheet, '월별정산요약');
+      
+      // 파일 다운로드
+      const fileName = `${site?.name || '정산내역'}_${new Date().toISOString().substring(0, 10)}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      
+      setSnackbar({
+        open: true,
+        message: '엑셀 파일이 다운로드되었습니다.',
+        severity: 'success'
+      });
+      
+    } catch (error) {
+      console.error('엑셀 다운로드 오류:', error);
+      setSnackbar({
+        open: true,
+        message: '엑셀 다운로드에 실패했습니다.',
+        severity: 'error'
+      });
+    }
   };
 
   const showItemDetails = (itemType, title) => {
@@ -577,6 +978,42 @@ export default function SettlementDetail() {
         const dateB = new Date(b.date);
         return dateB - dateA;
       });
+    } else if (itemType === 'subMaterial') {
+      // 부자재비는 기성관리 데이터에서 가져오기
+      const subMaterialItems = [];
+      
+      // gisungData에서 부자재 항목들 찾기
+      gisungData.forEach(gisung => {
+        if (gisung.items && Array.isArray(gisung.items)) {
+          gisung.items.forEach(item => {
+            if (item.itemType === '부자재') {
+              subMaterialItems.push({
+                name: `${item.itemName || '부자재'} (${gisung.gisungNumber}차)`,
+                amount: Number(item.amount) || 0,
+                date: gisung.gisungDate ? new Date(gisung.gisungDate).toLocaleDateString() : '-',
+                type: '부자재',
+                description: item.description || item.remark || '-'
+              });
+            }
+          });
+        }
+      });
+      
+      // costData에서도 부자재 항목들 찾기
+      const costSubMaterialItems = costData.filter(item => item.itemType === '부자재').map(item => ({
+        name: `${item.itemName || '부자재'}${item.차수 ? ` (${item.차수}차)` : ''}`,
+        amount: Number(item.totalValue) || 0,
+        date: item.date ? new Date(item.date).toLocaleDateString() : '-',
+        type: '부자재',
+        description: item.description || '-'
+      }));
+      
+      items = [...subMaterialItems, ...costSubMaterialItems].sort((a, b) => {
+        // 월 기준으로 정렬 (최신 월이 위에)
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateB - dateA;
+      });
     } else {
       // 기타 항목들은 기존 로직 사용
       items = costData.filter(item => {
@@ -586,8 +1023,6 @@ export default function SettlementDetail() {
             return type === '노무비';
           case 'material':
             return false; // 자재비는 별도 입력용이므로 데이터 없음
-          case 'subMaterial':
-            return type === '자재비' || type === '부자재';
           case 'other':
             return ['기타', 'RnD'].includes(type) || !['노무비', '자재비', '부자재', '지게차', '스카이', '곤도라', '월세', '임대료', '식대', '유류비'].includes(type);
           default:
@@ -655,6 +1090,7 @@ export default function SettlementDetail() {
     const laborByMonth = {}; // 노무비
     const materialByMonth = {}; // 자재비 (materialData에서)
     const otherByMonth = {}; // 나머지 지출 (부자재비 포함)
+    const workersByMonth = {}; // 월별 공수
     
     // 자재비 데이터 처리 (materialData에서)
     materialData.forEach(item => {
@@ -676,6 +1112,11 @@ export default function SettlementDetail() {
         if (item.itemType === '노무비') {
           if (!laborByMonth[monthKey]) laborByMonth[monthKey] = 0;
           laborByMonth[monthKey] += amount;
+          
+          // 공수 데이터 추가
+          const workers = Number(item.workers) || 0;
+          if (!workersByMonth[monthKey]) workersByMonth[monthKey] = 0;
+          workersByMonth[monthKey] += workers;
         } else {
           // 자재비를 제외한 모든 지출 (부자재비, 장비비, 경비, 기타 등)
           if (!otherByMonth[monthKey]) otherByMonth[monthKey] = 0;
@@ -684,29 +1125,64 @@ export default function SettlementDetail() {
       }
     });
     
+    // 일정 데이터에서 월별 공수 계산
+    scheduleData.forEach(schedule => {
+      if (schedule.date) {
+        let date;
+        if (schedule.date.toDate) {
+          date = schedule.date.toDate();
+        } else if (schedule.date instanceof Date) {
+          date = schedule.date;
+        } else {
+          date = new Date(schedule.date);
+        }
+        
+        const monthKey = `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        const manpower = extractManpowerFromDescription(schedule.desc || '');
+        
+        if (!workersByMonth[monthKey]) workersByMonth[monthKey] = 0;
+        workersByMonth[monthKey] += manpower;
+      }
+    });
+    
     console.log('차트용 노무비 데이터:', laborByMonth);
     console.log('차트용 자재비 데이터:', materialByMonth);
     console.log('차트용 기타 지출 데이터:', otherByMonth);
+    console.log('차트용 월별 공수 데이터:', workersByMonth);
+    console.log('일정 데이터:', scheduleData);
 
     const gisungValues = labels.map(label => gisungByMonth[label] || 0);
     const laborValues = labels.map(label => laborByMonth[label] || 0);
     const materialValues = labels.map(label => materialByMonth[label] || 0);
     const otherValues = labels.map(label => otherByMonth[label] || 0);
+    const workersValues = labels.map(label => workersByMonth[label] || 0);
+    
+    console.log('월별 공수 값들:', workersValues);
     
     // 지출 총합계 계산 (노무비 + 자재비 + 기타지출)
     const totalCostValues = labels.map((label, index) => 
       (laborValues[index] || 0) + (materialValues[index] || 0) + (otherValues[index] || 0)
     );
 
+    // 차트 라벨에 공수 정보 추가 (공수가 있는 경우에만)
+    const labelsWithWorkers = labels.map((label, index) => {
+      const workers = workersValues[index] || 0;
+      return workers > 0 ? `${label}\n(${workers}명)` : label;
+    });
+    
+    console.log('최종 차트 라벨:', labelsWithWorkers);
+
     console.log('차트 라벨:', labels);
+    console.log('차트 라벨 (공수 포함):', labelsWithWorkers);
     console.log('기성금 값들:', gisungValues);
     console.log('노무비 값들:', laborValues);
     console.log('자재비 값들:', materialValues);
     console.log('기타 지출 값들:', otherValues);
+    console.log('월별 공수 값들:', workersValues);
     console.log('지출 총합계 값들:', totalCostValues);
 
     return {
-      labels,
+      labels: labelsWithWorkers,
       datasets: [
         {
           label: '기성금',
@@ -751,7 +1227,7 @@ export default function SettlementDetail() {
         }
       ]
     };
-  }, [site, gisungData, costData, materialData]);
+  }, [site, gisungData, costData, materialData, scheduleData]);
 
   const chartOptions = useMemo(() => ({
     responsive: true,
@@ -771,12 +1247,23 @@ export default function SettlementDetail() {
     scales: {
       x: {
         grid: { color: '#333' },
-        ticks: { color: '#bbb' }
+        ticks: { 
+          color: '#bbb',
+          maxRotation: 0,
+          minRotation: 0,
+          padding: 30,
+          font: {
+            size: 14
+          }
+        }
       },
       y: {
         grid: { color: '#333' },
         ticks: { 
           color: '#bbb',
+          font: {
+            size: 12
+          },
           callback: function(value) {
             return value.toLocaleString() + '원';
           }
@@ -895,6 +1382,17 @@ export default function SettlementDetail() {
               variant="outlined"
             />
             <Button
+              startIcon={<DownloadIcon />}
+              onClick={handleExcelDownload}
+              variant="contained"
+              sx={{ 
+                bgcolor: '#4caf50',
+                '&:hover': { bgcolor: '#45a049' }
+              }}
+            >
+              엑셀 다운로드
+            </Button>
+            <Button
               startIcon={<DeleteIcon />}
               onClick={() => setDeleteDialog({ open: true, siteId, siteName: site.name })}
               sx={{ 
@@ -968,6 +1466,12 @@ export default function SettlementDetail() {
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography sx={{ color: '#bbb' }}>청구완료(미지급):</Typography>
+                    <Typography sx={{ fontWeight: 'bold', color: '#ff9800', fontSize: '1.1rem' }}>
+                      {formatGisungAmount(totalClaimedUnpaidAmount)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography sx={{ color: '#bbb' }}>총 지출:</Typography>
                     <Typography sx={{ fontWeight: 'bold', color: '#f44336', fontSize: '1.1rem' }}>
                       {formatGisungAmount(totalCostAmount)}
@@ -978,9 +1482,9 @@ export default function SettlementDetail() {
                     <Typography sx={{ 
                       fontWeight: 'bold', 
                       fontSize: '1.1rem',
-                      color: netProfit >= 0 ? '#43e97b' : '#f44336'
+                      color: (totalGisungAmount - totalCostAmount) >= 0 ? '#43e97b' : '#f44336'
                     }}>
-                      {formatBalanceAmount(netProfit)}
+                      {formatBalanceAmount(totalGisungAmount - totalCostAmount)}
                     </Typography>
                   </Box>
                   <Divider sx={{ bgcolor: '#333', my: 1 }} />
@@ -1038,6 +1542,11 @@ export default function SettlementDetail() {
                         <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>노무비:</Typography>
                         <Typography sx={{ fontWeight: 'bold', fontSize: '1rem' }}>
                           {formatGisungAmount(costBreakdown.labor)}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ pl: 1, pb: 0.5, textAlign: 'right' }}>
+                        <Typography sx={{ color: '#999', fontSize: '1rem', fontWeight: 'bold' }}>
+                          (총 공수: {totalWorkers.toLocaleString()}명)
                         </Typography>
                       </Box>
                       <Box 
@@ -1152,7 +1661,7 @@ export default function SettlementDetail() {
                           {detailDialog.items.filter(item => item.name.includes('스카이')).length > 0 && (
                             <Box sx={{ flex: 1, minWidth: '200px' }}>
                               <Typography sx={{ color: '#fff', fontSize: '1rem', fontWeight: 'bold', mb: 1 }}>
-                                스카이 [<span style={{ color: '#ff4444' }}>{detailDialog.items.filter(item => item.name.includes('스카이')).reduce((sum, item) => sum + item.amount, 0).toLocaleString()}원</span>]
+                                스카이 [<span style={{ color: '#ff4444' }}>{formatGisungAmount(detailDialog.items.filter(item => item.name.includes('스카이')).reduce((sum, item) => sum + item.amount, 0))}</span>]
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('스카이')).map((item, index) => {
@@ -1178,7 +1687,7 @@ export default function SettlementDetail() {
                           {detailDialog.items.filter(item => item.name.includes('곤도라')).length > 0 && (
                             <Box sx={{ flex: 1, minWidth: '200px' }}>
                               <Typography sx={{ color: '#fff', fontSize: '1rem', fontWeight: 'bold', mb: 1 }}>
-                                곤도라 [<span style={{ color: '#ff4444' }}>{detailDialog.items.filter(item => item.name.includes('곤도라')).reduce((sum, item) => sum + item.amount, 0).toLocaleString()}원</span>]
+                                곤도라 [<span style={{ color: '#ff4444' }}>{formatGisungAmount(detailDialog.items.filter(item => item.name.includes('곤도라')).reduce((sum, item) => sum + item.amount, 0))}</span>]
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('곤도라')).map((item, index) => {
@@ -1204,7 +1713,7 @@ export default function SettlementDetail() {
                           {detailDialog.items.filter(item => item.name.includes('지게차')).length > 0 && (
                             <Box sx={{ flex: 1, minWidth: '200px' }}>
                               <Typography sx={{ color: '#fff', fontSize: '1rem', fontWeight: 'bold', mb: 1 }}>
-                                지게차 [<span style={{ color: '#ff4444' }}>{detailDialog.items.filter(item => item.name.includes('지게차')).reduce((sum, item) => sum + item.amount, 0).toLocaleString()}원</span>]
+                                지게차 [<span style={{ color: '#ff4444' }}>{formatGisungAmount(detailDialog.items.filter(item => item.name.includes('지게차')).reduce((sum, item) => sum + item.amount, 0))}</span>]
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('지게차')).map((item, index) => {
@@ -1228,13 +1737,140 @@ export default function SettlementDetail() {
                             </Box>
                           )}
                         </Box>
+                      ) : detailDialog.title.includes('부자재비') ? (
+                        // 부자재비는 다른 항목들과 같은 형식으로 표시
+                        detailDialog.items.map((item, index) => {
+                          const date = new Date(item.date);
+                          const year = date.getFullYear();
+                          const month = String(date.getMonth() + 1).padStart(2, '0');
+                          return (
+                            <Typography key={index} sx={{ 
+                              color: '#fff', 
+                              fontSize: '1rem',
+                              p: 0.5,
+                              bgcolor: '#333',
+                              borderRadius: 1,
+                              mb: 0.5
+                            }}>
+                              {item.name} {year}.{month} &nbsp; <span style={{ color: '#ff4444' }}>{formatGisungAmount(item.amount)}</span>
+                            </Typography>
+                          );
+                        })
+                      ) : detailDialog.title.includes('자재비') ? (
+                        // 자재비도 세부 항목별로 가로 배치
+                        <Box sx={{ display: 'flex', gap: 2, height: '100%' }}>
+                          {detailDialog.items.filter(item => item.name.includes('복층')).length > 0 && (
+                            <Box sx={{ flex: 1, minWidth: '330px' }}>
+                              <Typography sx={{ color: '#fff', fontSize: '1rem', fontWeight: 'bold', mb: 1 }}>
+                                복층 [<span style={{ color: '#ff4444' }}>{formatGisungAmount(detailDialog.items.filter(item => item.name.includes('복층')).reduce((sum, item) => sum + item.amount, 0))}</span>]
+                              </Typography>
+                              <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+                                {detailDialog.items.filter(item => item.name.includes('복층')).map((item, index) => {
+                                  const date = new Date(item.date);
+                                  const year = date.getFullYear();
+                                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                                  return (
+                                    <Typography key={index} sx={{ 
+                                      color: '#fff', 
+                                      fontSize: '1rem',
+                                      p: 0.5,
+                                      bgcolor: '#333',
+                                      borderRadius: 1,
+                                      mb: 0.5
+                                    }}>
+                                      {cleanCompanyName(item.name.replace('복층 - ', ''))} ({item.차수}차) {year}.{month} &nbsp; <span style={{ color: '#ff4444' }}>{formatGisungAmount(item.amount)}</span>
+                                    </Typography>
+                                  );
+                                })}
+                              </Box>
+                            </Box>
+                          )}
+                          {detailDialog.items.filter(item => item.name.includes('강화')).length > 0 && (
+                            <Box sx={{ flex: 1, minWidth: '330px' }}>
+                              <Typography sx={{ color: '#fff', fontSize: '1rem', fontWeight: 'bold', mb: 1 }}>
+                                강화 [<span style={{ color: '#ff4444' }}>{formatGisungAmount(detailDialog.items.filter(item => item.name.includes('강화')).reduce((sum, item) => sum + item.amount, 0))}</span>]
+                              </Typography>
+                              <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+                                {detailDialog.items.filter(item => item.name.includes('강화')).map((item, index) => {
+                                  const date = new Date(item.date);
+                                  const year = date.getFullYear();
+                                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                                  return (
+                                    <Typography key={index} sx={{ 
+                                      color: '#fff', 
+                                      fontSize: '1rem',
+                                      p: 0.5,
+                                      bgcolor: '#333',
+                                      borderRadius: 1,
+                                      mb: 0.5
+                                    }}>
+                                      {cleanCompanyName(item.name.replace('강화 - ', ''))} ({item.차수}차) {year}.{month} &nbsp; <span style={{ color: '#ff4444' }}>{formatGisungAmount(item.amount)}</span>
+                                    </Typography>
+                                  );
+                                })}
+                              </Box>
+                            </Box>
+                          )}
+                          {detailDialog.items.filter(item => item.name.includes('접합')).length > 0 && (
+                            <Box sx={{ flex: 1, minWidth: '330px' }}>
+                              <Typography sx={{ color: '#fff', fontSize: '1rem', fontWeight: 'bold', mb: 1 }}>
+                                접합 [<span style={{ color: '#ff4444' }}>{formatGisungAmount(detailDialog.items.filter(item => item.name.includes('접합')).reduce((sum, item) => sum + item.amount, 0))}</span>]
+                              </Typography>
+                              <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+                                {detailDialog.items.filter(item => item.name.includes('접합')).map((item, index) => {
+                                  const date = new Date(item.date);
+                                  const year = date.getFullYear();
+                                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                                  return (
+                                    <Typography key={index} sx={{ 
+                                      color: '#fff', 
+                                      fontSize: '1rem',
+                                      p: 0.5,
+                                      bgcolor: '#333',
+                                      borderRadius: 1,
+                                      mb: 0.5
+                                    }}>
+                                      {cleanCompanyName(item.name.replace('접합 - ', ''))} ({item.차수}차) {year}.{month} &nbsp; <span style={{ color: '#ff4444' }}>{formatGisungAmount(item.amount)}</span>
+                                    </Typography>
+                                  );
+                                })}
+                              </Box>
+                            </Box>
+                          )}
+                          {detailDialog.items.filter(item => item.name.includes('기타')).length > 0 && (
+                            <Box sx={{ flex: 1, minWidth: '330px' }}>
+                              <Typography sx={{ color: '#fff', fontSize: '1rem', fontWeight: 'bold', mb: 1 }}>
+                                기타 [<span style={{ color: '#ff4444' }}>{formatGisungAmount(detailDialog.items.filter(item => item.name.includes('기타')).reduce((sum, item) => sum + item.amount, 0))}</span>]
+                              </Typography>
+                              <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+                                {detailDialog.items.filter(item => item.name.includes('기타')).map((item, index) => {
+                                  const date = new Date(item.date);
+                                  const year = date.getFullYear();
+                                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                                  return (
+                                    <Typography key={index} sx={{ 
+                                      color: '#fff', 
+                                      fontSize: '1rem',
+                                      p: 0.5,
+                                      bgcolor: '#333',
+                                      borderRadius: 1,
+                                      mb: 0.5
+                                    }}>
+                                      {cleanCompanyName(item.name.replace('기타 - ', ''))} ({item.차수}차) {year}.{month} &nbsp; <span style={{ color: '#ff4444' }}>{formatGisungAmount(item.amount)}</span>
+                                    </Typography>
+                                  );
+                                })}
+                              </Box>
+                            </Box>
+                          )}
+                        </Box>
                       ) : detailDialog.title.includes('경비') ? (
                         // 경비도 세부 항목별로 가로 배치
                         <Box sx={{ display: 'flex', gap: 2, height: '100%' }}>
                           {detailDialog.items.filter(item => item.name.includes('월세')).length > 0 && (
                             <Box sx={{ flex: 1, minWidth: '150px' }}>
                               <Typography sx={{ color: '#fff', fontSize: '1rem', fontWeight: 'bold', mb: 1 }}>
-                                월세 [<span style={{ color: '#ff4444' }}>{detailDialog.items.filter(item => item.name.includes('월세')).reduce((sum, item) => sum + item.amount, 0).toLocaleString()}원</span>]
+                                월세 [<span style={{ color: '#ff4444' }}>{formatGisungAmount(detailDialog.items.filter(item => item.name.includes('월세')).reduce((sum, item) => sum + item.amount, 0))}</span>]
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('월세')).map((item, index) => {
@@ -1260,7 +1896,7 @@ export default function SettlementDetail() {
                           {detailDialog.items.filter(item => item.name.includes('임대료')).length > 0 && (
                             <Box sx={{ flex: 1, minWidth: '150px' }}>
                               <Typography sx={{ color: '#fff', fontSize: '1rem', fontWeight: 'bold', mb: 1 }}>
-                                임대료 [<span style={{ color: '#ff4444' }}>{detailDialog.items.filter(item => item.name.includes('임대료')).reduce((sum, item) => sum + item.amount, 0).toLocaleString()}원</span>]
+                                임대료 [<span style={{ color: '#ff4444' }}>{formatGisungAmount(detailDialog.items.filter(item => item.name.includes('임대료')).reduce((sum, item) => sum + item.amount, 0))}</span>]
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('임대료')).map((item, index) => {
@@ -1286,7 +1922,7 @@ export default function SettlementDetail() {
                           {detailDialog.items.filter(item => item.name.includes('식대')).length > 0 && (
                             <Box sx={{ flex: 1, minWidth: '150px' }}>
                               <Typography sx={{ color: '#fff', fontSize: '1rem', fontWeight: 'bold', mb: 1 }}>
-                                식대 [<span style={{ color: '#ff4444' }}>{detailDialog.items.filter(item => item.name.includes('식대')).reduce((sum, item) => sum + item.amount, 0).toLocaleString()}원</span>]
+                                식대 [<span style={{ color: '#ff4444' }}>{formatGisungAmount(detailDialog.items.filter(item => item.name.includes('식대')).reduce((sum, item) => sum + item.amount, 0))}</span>]
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('식대')).map((item, index) => {
@@ -1312,7 +1948,7 @@ export default function SettlementDetail() {
                           {detailDialog.items.filter(item => item.name.includes('유류비')).length > 0 && (
                             <Box sx={{ flex: 1, minWidth: '150px' }}>
                               <Typography sx={{ color: '#fff', fontSize: '1rem', fontWeight: 'bold', mb: 1 }}>
-                                유류비 [<span style={{ color: '#ff4444' }}>{detailDialog.items.filter(item => item.name.includes('유류비')).reduce((sum, item) => sum + item.amount, 0).toLocaleString()}원</span>]
+                                유류비 [<span style={{ color: '#ff4444' }}>{formatGisungAmount(detailDialog.items.filter(item => item.name.includes('유류비')).reduce((sum, item) => sum + item.amount, 0))}</span>]
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('유류비')).map((item, index) => {
@@ -1341,7 +1977,7 @@ export default function SettlementDetail() {
                         <>
                           {detailDialog.items.length > 0 && (
                             <Typography sx={{ color: '#fff', fontSize: '1rem', fontWeight: 'bold', mb: 1 }}>
-                              {detailDialog.title} [<span style={{ color: '#ff4444' }}>{detailDialog.items.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}원</span>]
+                              {detailDialog.title} [<span style={{ color: '#ff4444' }}>{formatGisungAmount(detailDialog.items.reduce((sum, item) => sum + item.amount, 0))}</span>]
                             </Typography>
                           )}
                           {detailDialog.items.map((item, index) => {
@@ -1389,12 +2025,12 @@ export default function SettlementDetail() {
               월별 기성금 및 지출 추이 분석
             </Typography>
             {chartData ? (
-              <Box sx={{ height: '300px', width: '100%' }}>
+              <Box sx={{ height: '400px', width: '100%' }}>
                 <Line data={chartData} options={chartOptions} />
               </Box>
             ) : (
               <Box sx={{ 
-                height: '300px', 
+                height: '400px', 
                 width: '100%',
                 display: 'flex', 
                 alignItems: 'center', 

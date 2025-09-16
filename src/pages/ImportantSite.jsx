@@ -101,7 +101,17 @@ export default function ImportantSite() {
         siteName: site?.name || '알 수 없는 현장'
       });
     } else {
-      // OFF로 변경 시 - 정산 페이지 숨기기
+      // OFF로 변경 시 - 정산 페이지가 있으면 토글로 오프 불가능
+      if (settlementPages[siteId]) {
+        setSnackbar({
+          open: true,
+          message: '정산 페이지가 있는 경우 토글로 비활성화할 수 없습니다. 정산 페이지에서 삭제하세요.',
+          severity: 'warning'
+        });
+        return;
+      }
+      
+      // 정산 페이지가 없는 경우에만 OFF 가능
       try {
         const siteRef = doc(db, 'sites', siteId);
         await updateDoc(siteRef, { 
@@ -341,6 +351,32 @@ export default function ImportantSite() {
         toggles[site.id] = site.settlementEnabled || false;
         pages[site.id] = site.settlementPageCreated || false;
       });
+      
+      // 금사동 현장의 정산을 자동으로 ON으로 설정
+      const geumsaSites = finalSitesData.filter(site => 
+        site.name && site.name.includes('금사동')
+      );
+      
+      for (const site of geumsaSites) {
+        if (!site.settlementEnabled) {
+          console.log(`금사동 현장 "${site.name}" 정산을 ON으로 설정 중...`);
+          try {
+            updateDoc(doc(db, 'sites', site.id), {
+              settlementEnabled: true,
+              settlementPageCreated: true,
+              settlementUpdatedAt: serverTimestamp()
+            });
+            
+            toggles[site.id] = true;
+            pages[site.id] = true;
+            
+            console.log(`금사동 현장 "${site.name}" 정산 설정 완료`);
+          } catch (error) {
+            console.error(`금사동 현장 "${site.name}" 정산 설정 오류:`, error);
+          }
+        }
+      }
+      
       setSettlementToggles(toggles);
       setSettlementPages(pages);
       

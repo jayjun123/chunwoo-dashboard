@@ -27,7 +27,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  CircularProgress
+  CircularProgress,
+  Pagination
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -62,6 +63,20 @@ const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [uploadDialog, setUploadDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // 페이지당 10개 항목
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(gisungData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPageData = gisungData.slice(startIndex, endIndex);
+
+  // 페이지 변경 핸들러
+  const handlePageChange = (event, page) => {
+    setCurrentPage(page);
+  };
 
   useEffect(() => {
     if (siteId) {
@@ -95,6 +110,12 @@ const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       data.sort((a, b) => a.gisungNumber - b.gisungNumber);
       setGisungData(data);
+      
+      // 현재 페이지가 총 페이지 수를 초과하면 마지막 페이지로 조정
+      const newTotalPages = Math.ceil(data.length / itemsPerPage);
+      if (currentPage > newTotalPages && newTotalPages > 0) {
+        setCurrentPage(newTotalPages);
+      }
     } catch (error) {
       console.error('기성 데이터 로드 오류:', error);
       setSnackbar({ open: true, message: '데이터 로드 중 오류가 발생했습니다.', severity: 'error' });
@@ -404,7 +425,7 @@ const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {gisungData.map((gisung) => (
+            {currentPageData.map((gisung) => (
               <TableRow key={gisung.id}>
                 <TableCell sx={{ color: '#fff' }}>
                   <Chip label={`${gisung.gisungNumber}차`} color="primary" onClick={() => {}} />
@@ -489,6 +510,31 @@ const GisungManagement = ({ siteId, siteData: initialSiteData }) => {
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* 페이지네이션 */}
+      {totalPages > 1 && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 2 }}>
+          <Pagination
+            count={totalPages}
+            page={currentPage}
+            onChange={handlePageChange}
+            color="primary"
+            size="large"
+            sx={{
+              '& .MuiPaginationItem-root': {
+                color: '#fff',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                }
+              },
+              '& .Mui-selected': {
+                backgroundColor: '#f59e42 !important',
+                color: '#fff'
+              }
+            }}
+          />
+        </Box>
+      )}
 
       {/* 기성금 추가/수정 다이얼로그 */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
