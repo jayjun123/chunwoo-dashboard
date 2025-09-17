@@ -18,6 +18,7 @@ import {
   DialogActions,
   Alert,
   CircularProgress,
+  Pagination,
   Chip,
   Grid,
   Card,
@@ -95,10 +96,24 @@ const QuantityCheck = () => {
   const [unmatchedSilmulItems, setUnmatchedSilmulItems] = useState([]);
   const [uploadLogs, setUploadLogs] = useState([]);
   const [searchKeyword, setSearchKeyword] = useState('');
+  
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   // 업로드 로그 삭제 함수
   const deleteUploadLog = (index) => {
     setUploadLogs(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // 페이지네이션 로직
+  const totalPages = Math.ceil(quantityItems.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = quantityItems.slice(startIndex, endIndex);
+
+  const handlePageChange = (event, page) => {
+    setCurrentPage(page);
   };
 
 
@@ -781,9 +796,17 @@ const QuantityCheck = () => {
       {/* 실물량 테이블 */}
       <Paper sx={{ bgcolor: '#232734', border: '1px solid #444' }}>
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6" sx={{ color: '#fff' }}>
-            실물량 내역
-          </Typography>
+          <Box>
+            <Typography variant="h6" sx={{ color: '#fff' }}>
+              실물량 내역
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#bbb', mt: 0.5 }}>
+              총 {quantityItems.length}개 항목 
+              {quantityItems.length > itemsPerPage && 
+                ` (${currentPage}/${totalPages} 페이지, ${startIndex + 1}-${Math.min(endIndex, quantityItems.length)}번째 표시)`
+              }
+            </Typography>
+          </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
               variant="outlined"
@@ -825,12 +848,14 @@ const QuantityCheck = () => {
                 </TableRow>
              </TableHead>
             <TableBody>
-                             {quantityItems.map((item, index) => (
-                 <TableRow key={index} sx={{ '&:hover': { bgcolor: '#2a2d31' } }}>
+                             {currentItems.map((item, index) => {
+                               const actualIndex = startIndex + index;
+                               return (
+                 <TableRow key={actualIndex} sx={{ '&:hover': { bgcolor: '#2a2d31' } }}>
                    <TableCell sx={{ color: '#fff', py: 0.5 }}>
                      <TextField
                        value={item.specification}
-                       onChange={(e) => handleItemUpdate(index, 'specification', e.target.value)}
+                       onChange={(e) => handleItemUpdate(actualIndex, 'specification', e.target.value)}
                        size="small"
                        sx={{
                          '& .MuiInputBase-root': { color: '#fff' },
@@ -841,7 +866,7 @@ const QuantityCheck = () => {
                    <TableCell sx={{ color: '#fff', py: 0.5 }}>
                      <TextField
                        value={item.name}
-                       onChange={(e) => handleItemUpdate(index, 'name', e.target.value)}
+                       onChange={(e) => handleItemUpdate(actualIndex, 'name', e.target.value))
                        size="small"
                        sx={{
                          '& .MuiInputBase-root': { color: '#fff' },
@@ -852,7 +877,7 @@ const QuantityCheck = () => {
                   <TableCell sx={{ color: '#fff', py: 0.5 }}>
                     <TextField
                       value={item.unit}
-                      onChange={(e) => handleItemUpdate(index, 'unit', e.target.value)}
+                      onChange={(e) => handleItemUpdate(actualIndex, 'unit', e.target.value))
                       size="small"
                       sx={{
                         '& .MuiInputBase-root': { color: '#fff' },
@@ -863,7 +888,7 @@ const QuantityCheck = () => {
                                                                            <TableCell sx={{ color: '#fff', py: 0.5 }}>
                       <TextField
                         value={formatNumber(item.contractQuantity)}
-                        onChange={(e) => handleItemUpdate(index, 'contractQuantity', e.target.value)}
+                        onChange={(e) => handleItemUpdate(actualIndex, 'contractQuantity', e.target.value))
                         size="small"
                         inputProps={{ style: { textAlign: 'right' } }}
                         sx={{
@@ -875,7 +900,7 @@ const QuantityCheck = () => {
                                       <TableCell sx={{ color: '#fff', py: 0.5 }}>
                       <TextField
                         value={formatPrice(item.contractPrice)}
-                        onChange={(e) => handleItemUpdate(index, 'contractPrice', e.target.value)}
+                        onChange={(e) => handleItemUpdate(actualIndex, 'contractPrice', e.target.value))
                         size="small"
                         inputProps={{ style: { textAlign: 'right' } }}
                         sx={{
@@ -899,7 +924,7 @@ const QuantityCheck = () => {
                                                                            <TableCell sx={{ color: '#fff', py: 0.5 }}>
                       <TextField
                         value={formatNumber(item.actualQuantity)}
-                        onChange={(e) => handleItemUpdate(index, 'actualQuantity', e.target.value)}
+                        onChange={(e) => handleItemUpdate(actualIndex, 'actualQuantity', e.target.value))
                         size="small"
                         inputProps={{ style: { textAlign: 'right' } }}
                         sx={{
@@ -911,7 +936,7 @@ const QuantityCheck = () => {
                                       <TableCell sx={{ color: '#fff', py: 0.5 }}>
                       <TextField
                         value={formatPrice(item.actualPrice)}
-                        onChange={(e) => handleItemUpdate(index, 'actualPrice', e.target.value)}
+                        onChange={(e) => handleItemUpdate(actualIndex, 'actualPrice', e.target.value))
                         size="small"
                         inputProps={{ style: { textAlign: 'right' } }}
                         sx={{
@@ -965,7 +990,7 @@ const QuantityCheck = () => {
                   <TableCell sx={{ color: '#fff', py: 0.5 }}>
                     <TextField
                       value={item.note}
-                      onChange={(e) => handleItemUpdate(index, 'note', e.target.value)}
+                      onChange={(e) => handleItemUpdate(actualIndex, 'note', e.target.value))
                       size="small"
                       sx={{
                         '& .MuiInputBase-root': { color: '#fff' },
@@ -975,7 +1000,7 @@ const QuantityCheck = () => {
                   </TableCell>
                   <TableCell sx={{ py: 0.5 }}>
                     <IconButton
-                      onClick={() => handleDeleteItem(index)}
+                      onClick={() => handleDeleteItem(actualIndex)}
                       sx={{ color: '#f44336' }}
                       size="small"
                     >
@@ -983,11 +1008,39 @@ const QuantityCheck = () => {
                     </IconButton>
                   </TableCell>
                 </TableRow>
-              ))}
+              );
+                             })}
             </TableBody>
           </Table>
         </TableContainer>
         
+        {/* 페이지네이션 */}
+        {quantityItems.length > itemsPerPage && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 2 }}>
+            <Pagination
+              count={totalPages}
+              page={currentPage}
+              onChange={handlePageChange}
+              color="primary"
+              sx={{
+                '& .MuiPaginationItem-root': {
+                  color: '#fff',
+                  borderColor: '#555',
+                  '&:hover': {
+                    backgroundColor: '#333'
+                  }
+                },
+                '& .Mui-selected': {
+                  backgroundColor: '#43e97b',
+                  color: '#000',
+                  '&:hover': {
+                    backgroundColor: '#32d667'
+                  }
+                }
+              }}
+            />
+          </Box>
+        )}
 
       </Paper>
 

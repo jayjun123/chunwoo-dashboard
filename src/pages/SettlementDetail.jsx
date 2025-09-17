@@ -31,7 +31,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Autocomplete
+  Autocomplete,
+  Tooltip
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -53,7 +54,7 @@ import {
   PointElement,
   LineElement,
   Title,
-  Tooltip,
+  Tooltip as ChartTooltip,
   Legend,
   Filler
 } from 'chart.js';
@@ -62,7 +63,7 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { formatContractAmount, formatGisungAmount, formatBalanceAmount } from '../utils/formatUtils';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, ChartTooltip, Legend, Filler);
 
 export default function SettlementDetail() {
   const { siteId } = useParams();
@@ -86,19 +87,80 @@ export default function SettlementDetail() {
   const [deleteDialog, setDeleteDialog] = useState({ open: false, siteId: null, siteName: '' });
   const [detailDialog, setDetailDialog] = useState({ open: false, title: '', items: [] });
   const [materialDialog, setMaterialDialog] = useState({ open: false });
+  
+  // 자재비 폼 초기화 함수
+  const resetMaterialForm = () => {
+    setMaterialForm({
+      item: '',
+      month: '',
+      company: '',
+      amount: '',
+      actualQuantity: '',
+      unit: 'M2',
+      차수: 1,
+      note: '',
+      siteItem: '',
+      quantityNote: '',
+      quantityItems: []
+    });
+    setEditingMaterial(null);
+  };
+  const [quantityDialog, setQuantityDialog] = useState({ open: false });
   const [materialForm, setMaterialForm] = useState({
     item: '',
     month: '',
     company: '',
     amount: '',
+    actualQuantity: '',
+    unit: 'M2',
+    siteItem: '',
     차수: 1,
-    note: ''
+    note: '',
+    quantityItems: [] // 여러 실물량 항목들
   });
+  const [editingMaterial, setEditingMaterial] = useState(null);
   const [materialData, setMaterialData] = useState([]);
   const [savedCompanies, setSavedCompanies] = useState([]);
   const [materialItems] = useState(['복층', '강화', '접합', '기타']);
   const [safetyData, setSafetyData] = useState([]);
   const [scheduleData, setScheduleData] = useState([]);
+  const [showQuantityDetails, setShowQuantityDetails] = useState(false);
+  const [quantityForm, setQuantityForm] = useState({
+    siteItem: '',
+    unit: 'M2',
+    actualQuantity: '',
+    note: ''
+  });
+  const [quantityData, setQuantityData] = useState([]);
+  const [showQuantityExpanded, setShowQuantityExpanded] = useState(false);
+  const [showDetailBox, setShowDetailBox] = useState(false);
+  const [quantityCalculationMode, setQuantityCalculationMode] = useState('cumulative'); // 'cumulative' 또는 'latest'
+  const [calculationModeDialog, setCalculationModeDialog] = useState({
+    open: false,
+    newMode: null
+  });
+
+  // 계산 방식 변경 요청 처리
+  const handleCalculationModeChange = (newMode) => {
+    if (newMode === quantityCalculationMode) return; // 같은 모드면 무시
+    
+    setCalculationModeDialog({
+      open: true,
+      newMode: newMode
+    });
+  };
+
+  // 계산 방식 변경 확인
+  const confirmCalculationModeChange = () => {
+    setQuantityCalculationMode(calculationModeDialog.newMode);
+    setCalculationModeDialog({ open: false, newMode: null });
+  };
+
+  // 계산 방식 변경 취소
+  const cancelCalculationModeChange = () => {
+    setCalculationModeDialog({ open: false, newMode: null });
+  };
+
 
   // 현장 정보 로드
   useEffect(() => {
@@ -117,7 +179,7 @@ export default function SettlementDetail() {
             message: '현장 정보를 찾을 수 없습니다.',
             severity: 'error'
           });
-          navigate('/important-sites');
+          navigate('/importantsite');
           return;
         }
         
@@ -316,6 +378,93 @@ export default function SettlementDetail() {
     }
   }, [siteId, navigate]);
 
+  // 실시간 데이터 리스너들
+  useEffect(() => {
+    if (!siteId) return;
+
+    const unsubscribers = [];
+
+    // 자재비 실시간 리스너
+    const materialQuery = query(
+      collection(db, 'material_costs'),
+      where('siteId', '==', siteId)
+    );
+    const unsubscribeMaterial = onSnapshot(materialQuery, (snapshot) => {
+      const materialItems = snapshot.docs.map(doc => ({
+        id: doc.data().id || doc.id,
+        firebaseId: doc.id,
+        ...doc.data()
+      }));
+      setMaterialData(materialItems);
+      console.log('자재비 데이터 실시간 업데이트:', materialItems.length, '개');
+    }, (error) => {
+      console.error('자재비 실시간 리스너 오류:', error);
+    });
+    unsubscribers.push(unsubscribeMaterial);
+
+    // 실물량 데이터 실시간 리스너
+    const quantityQuery = query(
+      collection(db, 'quantity_info'),
+      where('siteId', '==', siteId)
+    );
+    const unsubscribeQuantity = onSnapshot(quantityQuery, (snapshot) => {
+      const quantityItems = snapshot.docs.map(doc => ({
+        id: doc.data().id || doc.id,
+        firebaseId: doc.id,
+        ...doc.data()
+      }));
+      setQuantityData(quantityItems);
+      console.log('실물량 데이터 실시간 업데이트:', quantityItems.length, '개');
+    }, (error) => {
+      console.error('실물량 실시간 리스너 오류:', error);
+    });
+    unsubscribers.push(unsubscribeQuantity);
+
+    // 지출 데이터 실시간 리스너
+    const costQuery = query(
+      collection(db, 'costs'),
+      where('siteId', '==', siteId)
+    );
+    const unsubscribeCost = onSnapshot(costQuery, (snapshot) => {
+      const costItems = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setCostData(costItems);
+      console.log('지출 데이터 실시간 업데이트:', costItems.length, '개');
+    }, (error) => {
+      console.error('지출 실시간 리스너 오류:', error);
+    });
+    unsubscribers.push(unsubscribeCost);
+
+    // 기성금 데이터 실시간 리스너
+    const gisungQuery = query(
+      collection(db, 'gisung'),
+      where('siteId', '==', siteId)
+    );
+    const unsubscribeGisung = onSnapshot(gisungQuery, (snapshot) => {
+      const gisungItems = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })).sort((a, b) => {
+        const dateA = new Date(a.gisungDate || 0);
+        const dateB = new Date(b.gisungDate || 0);
+        return dateA - dateB;
+      });
+      setGisungData(gisungItems);
+      console.log('기성금 데이터 실시간 업데이트:', gisungItems.length, '개');
+    }, (error) => {
+      console.error('기성금 실시간 리스너 오류:', error);
+    });
+    unsubscribers.push(unsubscribeGisung);
+
+    // 정리 함수
+    return () => {
+      unsubscribers.forEach(unsubscribe => unsubscribe());
+      console.log('실시간 리스너들 정리됨');
+    };
+  }, [siteId]);
+
   // 기성금 합계 계산 (청구완료 및 입금완료만)
   const totalGisungAmount = useMemo(() => {
     const filtered = gisungData.filter(item => item.claimStatus === '청구완료' && item.paymentStatus === '입금완료');
@@ -502,49 +651,285 @@ export default function SettlementDetail() {
     setMaterialForm({...materialForm, amount: formattedValue});
   };
 
-  // 자재비 추가 함수 (메모이제이션으로 불필요한 재렌더링 방지)
+  // 자재비 추가/수정 함수 (메모이제이션으로 불필요한 재렌더링 방지)
   const handleAddMaterial = useCallback(async () => {
+    // 필수 필드 검증
+    if (!materialForm.item || !materialForm.month || !materialForm.company || !materialForm.amount) {
+      setSnackbar({ open: true, message: '필수 항목을 모두 입력해주세요.', severity: 'error' });
+      return;
+    }
+    
     if (materialForm.item && materialForm.month && materialForm.company && materialForm.amount) {
       try {
-        const newMaterial = {
-          id: Date.now(),
+        const materialData_to_save = {
           ...materialForm,
           amount: Number(materialForm.amount.replace(/,/g, '')), // 쉼표 제거 후 숫자 변환
           siteId: siteId,
-          createdAt: new Date()
+          updatedAt: new Date()
         };
+
+        // 실물량 항목들 먼저 검증 및 저장
+        const quantityResults = [];
+        if (materialForm.quantityItems && materialForm.quantityItems.length > 0) {
+          for (const quantityItem of materialForm.quantityItems) {
+            if (quantityItem.siteItem && quantityItem.actualQuantity) {
+              const quantityData = {
+                id: Date.now() + Math.random(), // 고유 ID
+                siteItem: quantityItem.siteItem,
+                specification: quantityItem.specification || '',
+                unit: quantityItem.unit,
+                actualQuantity: Number(quantityItem.actualQuantity),
+                note: quantityItem.quantityNote || '',
+                siteId: siteId,
+                materialId: null, // 나중에 설정
+                createdAt: new Date()
+              };
+              
+              try {
+                const quantityDocRef = await addDoc(collection(db, 'quantity_info'), quantityData);
+                console.log('실물량 정보 저장됨:', quantityDocRef.id, quantityItem.siteItem);
+                
+                quantityResults.push({
+                  data: { ...quantityData, firebaseId: quantityDocRef.id },
+                  docRef: quantityDocRef
+                });
+              } catch (quantityError) {
+                console.error('실물량 정보 저장 오류:', quantityError, quantityItem.siteItem);
+                
+                // 이미 저장된 실물량 데이터들 삭제 (롤백)
+                for (const result of quantityResults) {
+                  try {
+                    await deleteDoc(doc(db, 'quantity_info', result.docRef.id));
+                  } catch (rollbackError) {
+                    console.error('실물량 롤백 오류:', rollbackError);
+                  }
+                }
+                
+                throw new Error(`실물량 저장 실패: ${quantityItem.siteItem}`);
+              }
+            }
+          }
+        }
+
+        // 실물량 저장이 모두 성공했으면 자재비 저장
+        let savedMaterial;
+
+        if (editingMaterial) {
+          // 수정 모드
+          const docRef = doc(db, 'material_costs', editingMaterial.firebaseId);
+          await updateDoc(docRef, materialData_to_save);
+          
+          // 로컬 상태 업데이트
+          const updatedMaterialData = materialData.map(item => 
+            item.id === editingMaterial.id 
+              ? { ...item, ...materialData_to_save }
+              : item
+          );
+          setMaterialData(updatedMaterialData);
+          
+          savedMaterial = { ...editingMaterial, ...materialData_to_save };
+        } else {
+          // 추가 모드 - 차수 재계산 (같은 회사의 기존 항목들 확인)
+          const currentCompanyItems = materialData.filter(item => 
+            item.company === materialForm.company && item.item === materialForm.item
+          );
+          const nextSequence = currentCompanyItems.length + 1;
+          
+          const newMaterial = {
+            id: Date.now(),
+            ...materialData_to_save,
+            차수: nextSequence,
+            createdAt: new Date()
+          };
+          
+          // Firebase에 저장
+          const docRef = await addDoc(collection(db, 'material_costs'), newMaterial);
+          
+          // 로컬 상태 업데이트 (Firebase ID 포함)
+          const materialWithId = { ...newMaterial, firebaseId: docRef.id };
+          const updatedMaterialData = [...materialData, materialWithId];
+          setMaterialData(updatedMaterialData);
+          
+          savedMaterial = materialWithId;
+        }
         
-        // Firebase에 저장
-        const docRef = await addDoc(collection(db, 'material_costs'), newMaterial);
-        
-        // 로컬 상태 업데이트 (Firebase ID 포함)
-        const materialWithId = { ...newMaterial, firebaseId: docRef.id };
-        const updatedMaterialData = [...materialData, materialWithId];
-        setMaterialData(updatedMaterialData);
+        // 실물량 데이터에 materialId 업데이트
+        for (const result of quantityResults) {
+          try {
+            const quantityDocRef = doc(db, 'quantity_info', result.docRef.id);
+            await updateDoc(quantityDocRef, { materialId: savedMaterial.id });
+            
+            // 로컬 상태에도 추가
+            const quantityWithMaterialId = { ...result.data, materialId: savedMaterial.id };
+            setQuantityData(prev => [...prev, quantityWithMaterialId]);
+          } catch (updateError) {
+            console.error('실물량 materialId 업데이트 오류:', updateError);
+          }
+        }
         
         // 회사명 저장 (중복 제거)
         if (!savedCompanies.includes(materialForm.company)) {
           setSavedCompanies([...savedCompanies, materialForm.company]);
         }
         
-        // 차수 계산 (업데이트된 데이터 기준)
-        const new차수 = updatedMaterialData.filter(item => item.company === materialForm.company).length;
-        
-        setMaterialForm({
-          item: '',
-          month: '',
-          company: materialForm.company, // 회사명 유지
-          amount: '',
-          차수: new차수,
-          note: ''
+        // 성공 메시지 표시
+        setSnackbar({ 
+          open: true, 
+          message: editingMaterial ? '자재비가 수정되었습니다.' : '자재비가 추가되었습니다.', 
+          severity: 'success' 
         });
-        setSnackbar({ open: true, message: '자재비가 추가되었습니다.', severity: 'success' });
+        
+        // 모달 닫기 및 폼 초기화
+        setMaterialDialog({ open: false });
+        resetMaterialForm();
       } catch (error) {
         console.error('자재비 저장 오류:', error);
-        setSnackbar({ open: true, message: '자재비 저장에 실패했습니다.', severity: 'error' });
+        setSnackbar({ open: true, message: `자재비 저장에 실패했습니다: ${error.message}`, severity: 'error' });
       }
     }
-  }, [materialForm, materialData, siteId, savedCompanies]);
+  }, [materialForm, materialData, siteId, savedCompanies, editingMaterial]);
+
+  // 품목명에서 특정 단어 숨기기 함수
+  const hideGlassWords = useCallback((itemName) => {
+    if (!itemName) return itemName;
+    
+    return itemName
+      .replace(/투명/g, '')
+      .replace(/유리/g, '')
+      .replace(/^\s+|\s+$/g, '') // 앞뒤 공백 제거
+      .replace(/\s+/g, ' '); // 중복 공백을 하나로
+  }, []);
+
+  // 자재비 수정 시작 함수
+  const handleEditMaterial = useCallback(async (material) => {
+    setEditingMaterial(material);
+    
+    // 해당 자재비와 연결된 실물량 데이터 로드
+    let connectedQuantityItems = [];
+    try {
+      const quantityQuery = query(
+        collection(db, 'quantity_info'), 
+        where('materialId', '==', material.id),
+        where('siteId', '==', siteId)
+      );
+      const quantitySnapshot = await getDocs(quantityQuery);
+      
+      connectedQuantityItems = quantitySnapshot.docs.map(doc => ({
+        id: Date.now() + Math.random(), // 폼에서 사용할 임시 ID
+        firebaseId: doc.id, // Firebase 문서 ID
+        siteItem: doc.data().siteItem,
+        specification: doc.data().specification || '',
+        unit: doc.data().unit,
+        actualQuantity: doc.data().actualQuantity.toString(),
+        quantityNote: doc.data().note || ''
+      }));
+      
+      console.log('연결된 실물량 데이터 로드됨:', connectedQuantityItems);
+    } catch (error) {
+      console.error('실물량 데이터 로드 오류:', error);
+    }
+    
+    setMaterialForm({
+      item: material.item,
+      month: material.month,
+      company: material.company,
+      amount: material.amount.toLocaleString(),
+      actualQuantity: material.actualQuantity || '',
+      unit: material.unit || 'M2',
+      siteItem: material.siteItem || '',
+      차수: material.차수,
+      note: material.note || '',
+      quantityItems: connectedQuantityItems
+    });
+  }, [siteId]);
+
+  // 자재비 수정 취소 함수
+  const handleCancelEdit = useCallback(() => {
+    resetMaterialForm();
+  }, []);
+
+  // 기존 자재비들의 차수 재정렬 함수
+  const reorderExistingSequences = useCallback(async () => {
+    try {
+      // 회사 + 품목 조합별로 그룹화
+      const groupedItems = {};
+      materialData.forEach(item => {
+        const key = `${item.company}_${item.item}`;
+        if (!groupedItems[key]) {
+          groupedItems[key] = [];
+        }
+        groupedItems[key].push(item);
+      });
+
+      // 각 그룹별로 월 순서대로 정렬하고 차수 재할당
+      const updatePromises = [];
+      
+      Object.keys(groupedItems).forEach(key => {
+        const items = groupedItems[key];
+        console.log(`${key} 그룹 재정렬 시작:`, items.map(item => ({ month: item.month, 차수: item.차수 })));
+        
+        // 월 순서대로 정렬 (오래된 것부터)
+        items.sort((a, b) => {
+          const monthA = a.month || '';
+          const monthB = b.month || '';
+          return monthA.localeCompare(monthB);
+        });
+        
+        console.log(`${key} 그룹 정렬 후:`, items.map(item => ({ month: item.month, 차수: item.차수 })));
+        
+        // 차수 재할당
+        items.forEach((item, index) => {
+          const newSequence = index + 1;
+          if (item.차수 !== newSequence) {
+            console.log(`${key}: ${item.month} ${item.차수}차 → ${newSequence}차`);
+            
+            // Firebase 업데이트
+            if (item.firebaseId) {
+              const updatePromise = updateDoc(doc(db, 'material_costs', item.firebaseId), {
+                차수: newSequence
+              });
+              updatePromises.push(updatePromise);
+            }
+            
+            // 로컬 상태 업데이트
+            item.차수 = newSequence;
+          }
+        });
+      });
+
+      // 모든 Firebase 업데이트 실행
+      await Promise.all(updatePromises);
+      
+      // Firebase에서 최신 데이터 다시 로드
+      const materialQuery = query(
+        collection(db, 'material_costs'),
+        where('siteId', '==', siteId),
+        orderBy('createdAt', 'desc')
+      );
+      const materialSnapshot = await getDocs(materialQuery);
+      const updatedMaterialData = materialSnapshot.docs.map(doc => ({
+        id: doc.data().id || doc.id,
+        firebaseId: doc.id,
+        ...doc.data()
+      }));
+      
+      setMaterialData(updatedMaterialData);
+      
+      setSnackbar({ 
+        open: true, 
+        message: `기존 자재비 차수가 재정렬되었습니다. (${updatePromises.length}개 항목 업데이트)`, 
+        severity: 'success' 
+      });
+      
+    } catch (error) {
+      console.error('차수 재정렬 오류:', error);
+      setSnackbar({ 
+        open: true, 
+        message: '차수 재정렬에 실패했습니다.', 
+        severity: 'error' 
+      });
+    }
+  }, [materialData]);
 
   // 자재비 삭제 함수 (메모이제이션으로 불필요한 재렌더링 방지)
   const handleDeleteMaterial = useCallback(async (id) => {
@@ -596,8 +981,286 @@ export default function SettlementDetail() {
     }
   }, [materialData]);
 
+  // 현장 등록된 모든 항목 정보 가져오기
+  const getRegisteredItems = useMemo(() => {
+    if (!site || !site.items) {
+      return [];
+    }
+
+    // 현장의 items에서 실제 항목들만 필터링 (합계, 부가세 등 제외)
+    const registeredItems = site.items.filter(item => 
+      !item.isTotal && !item.isVat && !item.isTotalWithVat && !item.isAdjustment
+    ).map(item => ({
+      name: item.name,
+      quantity: item.quantity || item.qty || 0,
+      unit: item.unit || 'M2',
+      price: item.price || 0,
+      amount: item.amount || 0,
+      specification: item.specification || ''
+    }));
+
+    return registeredItems;
+  }, [site]);
+
+  // 현장 물량내역에서 품목 옵션 추출 (규격 포함)
+  const siteItemOptions = useMemo(() => {
+    if (!getRegisteredItems || getRegisteredItems.length === 0) {
+      return [];
+    }
+    
+    // 품목명과 규격을 함께 포함하는 객체 배열 생성
+    const itemsWithSpec = getRegisteredItems.map(item => ({
+      name: item.name,
+      specification: item.specification || '',
+      unit: item.unit,
+      displayText: item.specification ? `${item.name} (${item.specification})` : item.name
+    }));
+    
+    // 중복 제거 (name + specification 조합으로)
+    const uniqueItems = itemsWithSpec.filter((item, index, self) => 
+      index === self.findIndex(t => t.name === item.name && t.specification === item.specification)
+    );
+    
+    
+    // 우선순위 정렬: 로이복층 → 강화 → 코킹 → 나머지
+    const getPriority = (name) => {
+      const cleanName = hideGlassWords(name).toLowerCase();
+      if (cleanName.includes('로이복층')) return 1;
+      if (cleanName.includes('강화')) return 2;
+      if (cleanName.includes('코킹')) return 3;
+      return 4; // 나머지
+    };
+    
+    return uniqueItems.sort((a, b) => {
+      const priorityA = getPriority(a.name);
+      const priorityB = getPriority(b.name);
+      
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB; // 우선순위 순서
+      }
+      
+      // 같은 우선순위 내에서는 알파벳 순
+      return a.displayText.localeCompare(b.displayText);
+    });
+  }, [getRegisteredItems, hideGlassWords]);
+
+  // 품목 선택 시 단위 자동 설정
+  const handleItemChange = useCallback((selectedItem) => {
+    const matchedItem = getRegisteredItems.find(item => item.name === selectedItem);
+    const unit = matchedItem ? matchedItem.unit : 'M2';
+    
+    setMaterialForm({
+      ...materialForm, 
+      item: selectedItem,
+      unit: unit
+    });
+  }, [materialForm, getRegisteredItems]);
+
+  // 물량 정보 추가 함수
+  const handleAddQuantity = useCallback(async () => {
+    if (quantityForm.siteItem && quantityForm.actualQuantity) {
+      try {
+        const newQuantity = {
+          id: Date.now(),
+          ...quantityForm,
+          actualQuantity: Number(quantityForm.actualQuantity),
+          siteId: siteId,
+          createdAt: new Date()
+        };
+        
+        // Firebase에 저장
+        const docRef = await addDoc(collection(db, 'quantity_info'), newQuantity);
+        
+        // 로컬 상태 업데이트
+        const quantityWithId = { ...newQuantity, firebaseId: docRef.id };
+        setQuantityData([...quantityData, quantityWithId]);
+        
+        // 폼 초기화
+        setQuantityForm({
+          siteItem: '',
+          unit: 'M2',
+          actualQuantity: '',
+          note: ''
+        });
+        
+        // 다이얼로그 닫기
+        setQuantityDialog({ open: false });
+        
+        setSnackbar({ open: true, message: '물량 정보가 추가되었습니다.', severity: 'success' });
+      } catch (error) {
+        console.error('물량 정보 저장 오류:', error);
+        setSnackbar({ open: true, message: '물량 정보 저장에 실패했습니다.', severity: 'error' });
+      }
+    }
+  }, [quantityForm, quantityData, siteId]);
+
+  // 실물량 항목 추가 함수
+  const addQuantityItem = () => {
+    const newItem = {
+      id: Date.now(),
+      siteItem: '',
+      specification: '',
+      unit: 'M2',
+      actualQuantity: '',
+      quantityNote: ''
+    };
+    setMaterialForm({
+      ...materialForm,
+      quantityItems: [...(materialForm.quantityItems || []), newItem]
+    });
+  };
+
+  // 실물량 항목 삭제 함수
+  const removeQuantityItem = (id) => {
+    setMaterialForm({
+      ...materialForm,
+      quantityItems: (materialForm.quantityItems || []).filter(item => item.id !== id)
+    });
+  };
+
+  // 실물량 항목 업데이트 함수 (단일 필드)
+  const updateQuantityItem = (id, field, value) => {
+    setMaterialForm(prevForm => {
+      const updatedItems = (prevForm.quantityItems || []).map(item => {
+        if (item.id === id) {
+          return { ...item, [field]: value };
+        }
+        return item;
+      });
+      
+      return {
+        ...prevForm,
+        quantityItems: updatedItems
+      };
+    });
+  };
+
+  // 실물량 항목 업데이트 함수 (여러 필드 동시)
+  const updateQuantityItemMultiple = (id, updates) => {
+    setMaterialForm(prevForm => {
+      const updatedItems = (prevForm.quantityItems || []).map(item => {
+        if (item.id === id) {
+          return { ...item, ...updates };
+        }
+        return item;
+      });
+      
+      return {
+        ...prevForm,
+        quantityItems: updatedItems
+      };
+    });
+  };
+
+  // 물량 정보 삭제 함수
+  const handleDeleteQuantity = useCallback(async (id) => {
+    try {
+      const quantityDoc = quantityData.find(item => item.id === id);
+      if (quantityDoc && quantityDoc.firebaseId) {
+        await deleteDoc(doc(db, 'quantity_info', quantityDoc.firebaseId));
+      }
+      
+      setQuantityData(quantityData.filter(item => item.id !== id));
+      setSnackbar({ open: true, message: '물량 정보가 삭제되었습니다.', severity: 'success' });
+    } catch (error) {
+      console.error('물량 정보 삭제 오류:', error);
+      setSnackbar({ open: true, message: '물량 정보 삭제에 실패했습니다.', severity: 'error' });
+    }
+  }, [quantityData]);
+
+  // 남은 물량 계산 함수 (품목명 + 규격 기준)
+  const getRemainingQuantity = useCallback((itemName, specification) => {
+    if (!quantityData || quantityData.length === 0) return null;
+    
+    // 해당 품목과 규격에 대한 데이터 필터링
+    const filteredQuantities = quantityData.filter(qty => 
+      qty.siteItem === itemName && 
+      (qty.specification || '') === (specification || '')
+    );
+    
+    if (filteredQuantities.length === 0) return null;
+    
+    let usedQuantity;
+    
+    if (quantityCalculationMode === 'cumulative') {
+      // 차수별 누적 합계
+      usedQuantity = filteredQuantities.reduce((sum, qty) => sum + (qty.actualQuantity || 0), 0);
+    } else {
+      // 최신 데이터만 사용 (createdAt 기준으로 가장 최근)
+      const latestQuantity = filteredQuantities.reduce((latest, current) => {
+        const latestTime = latest.createdAt?.toDate?.() || new Date(latest.createdAt || 0);
+        const currentTime = current.createdAt?.toDate?.() || new Date(current.createdAt || 0);
+        return currentTime > latestTime ? current : latest;
+      });
+      usedQuantity = latestQuantity.actualQuantity || 0;
+    }
+    
+    // 원래 등록된 물량 (품목명 + 규격으로 매칭)
+    const originalItem = getRegisteredItems.find(item => 
+      item.name === itemName && 
+      (item.specification || '') === (specification || '')
+    );
+    if (!originalItem) return null;
+    
+    const remaining = originalItem.quantity - usedQuantity;
+    return {
+      used: usedQuantity,
+      remaining: remaining,
+      unit: originalItem.unit
+    };
+  }, [quantityData, getRegisteredItems, quantityCalculationMode]);
+
+
+  // 전체 물량 대비 사용 퍼센트 계산 함수 (유리 항목만 필터링)
+  const getQuantityPercentage = useCallback(() => {
+    if (!getRegisteredItems || getRegisteredItems.length === 0 || !quantityData || quantityData.length === 0) {
+      return 0;
+    }
+    
+    // 유리가 포함된 항목들만 필터링
+    const glassItems = getRegisteredItems.filter(item => 
+      item.name.includes('유리')
+    );
+    
+    if (glassItems.length === 0) return 0;
+    
+    // 유리 항목들의 총 개수
+    const totalGlassItems = glassItems.length;
+    
+    let usedGlassItems;
+    
+    if (quantityCalculationMode === 'cumulative') {
+      // 차수별 누적: 사용된 유리 품목 개수 (품목명 + 규격 조합으로 중복 제거)
+      const usedGlassItemKeys = [...new Set(quantityData
+        .filter(qty => qty.siteItem.includes('유리'))
+        .map(qty => `${qty.siteItem}|${qty.specification || ''}`)
+      )];
+      usedGlassItems = usedGlassItemKeys.length;
+    } else {
+      // 최신 데이터만: 각 품목별로 최신 데이터만 고려
+      const glassQuantityData = quantityData.filter(qty => qty.siteItem.includes('유리'));
+      
+      // 품목명 + 규격별로 그룹화하여 최신 데이터만 선택
+      const latestByItem = {};
+      glassQuantityData.forEach(qty => {
+        const key = `${qty.siteItem}|${qty.specification || ''}`;
+        const currentTime = qty.createdAt?.toDate?.() || new Date(qty.createdAt || 0);
+        
+        if (!latestByItem[key] || currentTime > (latestByItem[key].createdAt?.toDate?.() || new Date(latestByItem[key].createdAt || 0))) {
+          latestByItem[key] = qty;
+        }
+      });
+      
+      // 최신 데이터 중에서 실제 물량이 있는 항목만 카운트
+      usedGlassItems = Object.values(latestByItem).filter(qty => qty.actualQuantity > 0).length;
+    }
+    
+    return totalGlassItems > 0 ? Math.round((usedGlassItems / totalGlassItems) * 100) : 0;
+  }, [getRegisteredItems, quantityData, quantityCalculationMode]);
+
   // 자재비 상세내역 표시 (항목별로 정리)
   const showMaterialDetails = () => {
+    setShowDetailBox(true); // 상세내역 박스 표시
     // 자재비를 항목별로 분류
     const 복층Items = materialData.filter(item => item.item === '복층').map(item => ({
       name: `복층 - ${item.company}`,
@@ -916,6 +1579,7 @@ export default function SettlementDetail() {
   };
 
   const showItemDetails = (itemType, title) => {
+    setShowDetailBox(true); // 상세내역 박스 표시
     let items = [];
     
     if (itemType === 'equipment') {
@@ -1346,7 +2010,7 @@ export default function SettlementDetail() {
         severity: 'success'
       });
 
-      navigate('/important-sites');
+      navigate('/importantsite');
     } catch (error) {
       console.error('정산 페이지 삭제 오류:', error);
       setSnackbar({
@@ -1408,7 +2072,7 @@ export default function SettlementDetail() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Button
               startIcon={<ArrowBackIcon />}
-              onClick={() => navigate('/important-sites')}
+              onClick={() => navigate('/importantsite')}
               sx={{ 
                 color: '#90caf9',
                 '&:hover': { bgcolor: '#333' }
@@ -1455,15 +2119,35 @@ export default function SettlementDetail() {
 
       {/* 모든 내용을 한 페이지에 배치 */}
       <Box sx={{ px: 3 }}>
-        {/* 현장정보, 순수익정보, 지출정보를 한 줄에 배치 */}
+        {/* 현장정보, 물량내역, 정산내역, 지출정보를 한 줄에 배치 */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
           {/* 현장정보 */}
-          <Grid item xs={12} md={4}>
-            <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '100%' }}>
+          <Grid item xs={12} md={showQuantityExpanded ? 2 : 3}>
+            <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '382px' }}>
               <CardContent>
-                <Typography variant="h6" sx={{ mb: 2, color: '#43e97b', display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <BusinessIcon /> 현장정보
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" sx={{ color: '#43e97b', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <BusinessIcon /> 현장정보
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => setShowQuantityExpanded(!showQuantityExpanded)}
+                    sx={{
+                      color: '#90caf9',
+                      borderColor: '#90caf9',
+                      fontSize: '0.7rem',
+                      px: 1,
+                      py: 0.5,
+                      '&:hover': {
+                        borderColor: '#64b5f6',
+                        color: '#64b5f6'
+                      }
+                    }}
+                  >
+                    📋 물량내역 {showQuantityExpanded ? '접기' : '펼치기'}
+                  </Button>
+                </Box>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography sx={{ color: '#bbb' }}>현장명:</Typography>
@@ -1493,14 +2177,195 @@ export default function SettlementDetail() {
                     <Typography sx={{ color: '#bbb' }}>계약유형:</Typography>
                     <Typography sx={{ fontWeight: 'bold' }}>{site.contractType || '-'}</Typography>
                   </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Typography sx={{ color: '#bbb' }}>물량진행률:</Typography>
+                      <Chip 
+                        label={quantityCalculationMode === 'cumulative' ? '차수더하기' : '최신물량적용'}
+                        size="small"
+                        sx={{ 
+                          height: '16px', 
+                          fontSize: '0.55rem',
+                          bgcolor: quantityCalculationMode === 'cumulative' ? '#43e97b' : '#ff9800',
+                          color: '#fff'
+                        }}
+                      />
+                    </Box>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: getQuantityPercentage() > 0 ? '#43e97b' : '#888'
+                    }}>
+                      {getQuantityPercentage()}%
+                    </Typography>
+                  </Box>
+                  
                 </Box>
               </CardContent>
             </Card>
           </Grid>
 
+          {/* 물량 내역 카드 - 조건부 표시 */}
+          {showQuantityExpanded && (
+            <Grid item xs={12} md={6}>
+            <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '382px', width: '100%' }}>
+              <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Typography variant="h6" sx={{ color: '#90caf9', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    📋 물량 내역 ({getRegisteredItems.length}개)
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography sx={{ fontSize: '0.75rem', color: '#999' }}>
+                      물량 산출방식:
+                    </Typography>
+                    <Tooltip title="항목별 차수 더하기 - 모든 차수의 물량을 더한 누적 합계로 계산" placement="top">
+                      <Button
+                        size="small"
+                        variant={quantityCalculationMode === 'cumulative' ? 'contained' : 'outlined'}
+                        onClick={() => handleCalculationModeChange('cumulative')}
+                        sx={{
+                          fontSize: '0.65rem',
+                          minWidth: '80px',
+                          height: '24px',
+                          color: quantityCalculationMode === 'cumulative' ? '#fff' : '#90caf9',
+                          borderColor: '#90caf9',
+                          bgcolor: quantityCalculationMode === 'cumulative' ? '#90caf9' : 'transparent',
+                          '&:hover': {
+                            bgcolor: quantityCalculationMode === 'cumulative' ? '#64b5f6' : 'rgba(144, 202, 249, 0.1)'
+                          }
+                        }}
+                      >
+                        항목별 차수 더하기
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="항목별 최신 물량 적용 - 가장 최근에 입력된 물량 데이터만 사용" placement="top">
+                      <Button
+                        size="small"
+                        variant={quantityCalculationMode === 'latest' ? 'contained' : 'outlined'}
+                        onClick={() => handleCalculationModeChange('latest')}
+                        sx={{
+                          fontSize: '0.65rem',
+                          minWidth: '80px',
+                          height: '24px',
+                          color: quantityCalculationMode === 'latest' ? '#fff' : '#90caf9',
+                          borderColor: '#90caf9',
+                          bgcolor: quantityCalculationMode === 'latest' ? '#90caf9' : 'transparent',
+                          '&:hover': {
+                            bgcolor: quantityCalculationMode === 'latest' ? '#64b5f6' : 'rgba(144, 202, 249, 0.1)'
+                          }
+                        }}
+                      >
+                        항목별 최신 물량 적용
+                      </Button>
+                    </Tooltip>
+                  </Box>
+                </Box>
+                {getRegisteredItems.length > 0 ? (
+                  <Box sx={{ 
+                    height: '300px',
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    ...scrollbarHiddenStyle,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 0.8,
+                    // 추가 스크롤바 숨기기 스타일
+                    '&::-webkit-scrollbar': {
+                      display: 'none',
+                      width: 0,
+                      height: 0
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      display: 'none'
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      display: 'none'
+                    },
+                    '-ms-overflow-style': 'none',
+                    'scrollbar-width': 'none'
+                  }}>
+                    {getRegisteredItems.map((item, index) => (
+                      <Box key={index} sx={{ 
+                        p: 1, 
+                        bgcolor: '#1a1d21', 
+                        borderRadius: 1,
+                        border: '1px solid #333',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          borderColor: '#90caf9',
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 2px 8px rgba(144, 202, 249, 0.2)'
+                        }
+                      }}>
+                        {/* 품목명과 규격을 한 줄에 배치 */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.3 }}>
+                          <Typography sx={{ 
+                            color: '#fff', 
+                            fontSize: '0.9rem', 
+                            fontWeight: 'bold',
+                            lineHeight: 1.1
+                          }}>
+                            {hideGlassWords(item.name)}
+                          </Typography>
+                          {item.specification && (
+                            <Typography sx={{ 
+                              color: '#bbb', 
+                              fontSize: '0.8rem',
+                              lineHeight: 1.1
+                            }}>
+                              📏 {item.specification}
+                            </Typography>
+                          )}
+                        </Box>
+                        
+                        {/* 전체, 실물량, 잔여를 한 줄에 배치 */}
+                        {(() => {
+                          const remainingInfo = getRemainingQuantity(item.name, item.specification);
+                          return (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.2 }}>
+                              <Typography sx={{ color: '#90caf9', fontSize: '0.9rem' }}>
+                                전체: {item.quantity.toLocaleString()} {item.unit}
+                              </Typography>
+                              {remainingInfo && remainingInfo.used > 0 && (
+                                <>
+                                  <Typography sx={{ color: '#43e97b', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                                    실물량: {remainingInfo.used.toLocaleString()} {remainingInfo.unit}
+                                  </Typography>
+                                  <Typography sx={{ 
+                                    color: remainingInfo.remaining > 0 ? '#f44336' : '#666', 
+                                    fontSize: '0.9rem',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    잔여: {remainingInfo.remaining.toLocaleString()} {remainingInfo.unit}
+                                  </Typography>
+                                </>
+                              )}
+                            </Box>
+                          );
+                        })()}
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    height: '200px',
+                    color: '#666'
+                  }}>
+                    <Typography sx={{ fontSize: '0.9rem', fontStyle: 'italic' }}>
+                      등록된 물량이 없습니다
+                    </Typography>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+            </Grid>
+          )}
+
           {/* 순수익정보 */}
-          <Grid item xs={12} md={4}>
-            <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '100%', width: '280px' }}>
+          <Grid item xs={12} md={showQuantityExpanded ? 4 : 4}>
+            <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '382px', width: '100%' }}>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2, color: '#ff9800', display: 'flex', alignItems: 'center', gap: 1 }}>
                   <AttachMoneyIcon /> 정산내역
@@ -1551,7 +2416,7 @@ export default function SettlementDetail() {
             <Grid container spacing={2}>
               {/* 지출정보 */}
               <Grid item xs={12} md={6}>
-                <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '100%', width: '280px' }}>
+                <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '382px', width: '230px' }}>
                   <CardContent>
                     <Typography variant="h6" sx={{ mb: 2, color: '#f44336', display: 'flex', alignItems: 'center', gap: 1 }}>
                       <TrendingDownIcon /> 지출정보
@@ -1669,18 +2534,19 @@ export default function SettlementDetail() {
                 </Card>
               </Grid>
 
-              {/* 상세내역 */}
-              <Grid item xs={12} md={6}>
-                <Box sx={{ 
-                  bgcolor: '#232b3b', 
-                  color: '#fff', 
-                  height: '100%', 
-                  width: '100%',
-                  p: 2,
-                  borderRadius: 2,
-                  border: '1px solid #333',
-                  ...scrollbarHiddenStyle
-                }}>
+              {/* 상세내역 - 조건부 표시 */}
+              {showDetailBox && (
+                <Grid item xs={12} md={6}>
+                  <Box sx={{ 
+                    bgcolor: '#232b3b', 
+                    color: '#fff', 
+                    height: '100%', 
+                    width: '100%',
+                    p: 2,
+                    borderRadius: 2,
+                    border: '1px solid #333',
+                    ...scrollbarHiddenStyle
+                  }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
                       <TrendingDownIcon /> {detailDialog.title}
@@ -1689,7 +2555,10 @@ export default function SettlementDetail() {
                       <Button
                         variant="contained"
                         size="small"
-                        onClick={() => setMaterialDialog({ open: true })}
+                        onClick={() => {
+                          resetMaterialForm();
+                          setMaterialDialog({ open: true });
+                        }}
                         sx={{
                           bgcolor: '#43e97b',
                           color: '#000',
@@ -2058,11 +2927,13 @@ export default function SettlementDetail() {
                       </Box>
                     )}
                   </Box>
-                </Box>
-              </Grid>
+                  </Box>
+                </Grid>
+              )}
             </Grid>
           </Grid>
         </Grid>
+
 
 
         {/* 차트분석 */}
@@ -2169,7 +3040,10 @@ export default function SettlementDetail() {
       {/* 자재비 관리 다이얼로그 */}
       <Dialog
         open={materialDialog.open}
-        onClose={() => setMaterialDialog({ open: false })}
+        onClose={() => {
+          setMaterialDialog({ open: false });
+          resetMaterialForm();
+        }}
         maxWidth="md"
         fullWidth
         PaperProps={{
@@ -2181,15 +3055,34 @@ export default function SettlementDetail() {
         }}
       >
         <DialogTitle sx={{ color: '#43e97b', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <AttachMoneyIcon /> 자재비 관리
+          <AttachMoneyIcon /> 
+          {editingMaterial ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <span>자재비 수정</span>
+              <Chip 
+                label={`${editingMaterial.sequence || '0'}차`}
+                size="small"
+                sx={{ 
+                  bgcolor: '#ff9800',
+                  color: '#fff',
+                  fontSize: '0.75rem',
+                  height: '20px'
+                }}
+              />
+            </Box>
+          ) : '자재비 관리'}
         </DialogTitle>
         <DialogContent sx={scrollbarHiddenStyle}>
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" sx={{ mb: 2, color: '#fff' }}>자재비 추가</Typography>
+            <Typography variant="h6" sx={{ mb: 2, color: '#fff' }}>
+              {editingMaterial ? '자재비 수정' : '자재비 추가'}
+            </Typography>
+
             <Grid container spacing={2}>
+              {/* 품목 (원래 방식) */}
               <Grid item xs={6} sm={3}>
                 <FormControl fullWidth>
-                  <InputLabel sx={{ color: '#bbb' }}>항목</InputLabel>
+                  <InputLabel sx={{ color: '#bbb' }}>품목</InputLabel>
                   <Select
                     value={materialForm.item}
                     onChange={(e) => setMaterialForm({...materialForm, item: e.target.value})}
@@ -2206,15 +3099,25 @@ export default function SettlementDetail() {
                       '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#43e97b' },
                       '& .MuiSvgIcon-root': { color: '#fff' }
                     }}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          bgcolor: '#232b3b',
+                          maxHeight: '300px'
+                        }
+                      }
+                    }}
                   >
                     {materialItems.map((item) => (
-                      <MenuItem key={item} value={item} sx={{ color: '#fff' }}>
+                      <MenuItem key={item} value={item} sx={{ color: '#fff', minHeight: '32px', py: 0.5 }}>
                         {item}
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
               </Grid>
+              
+              {/* 월 */}
               <Grid item xs={6} sm={3}>
                 <FormControl>
                   <InputLabel sx={{ color: '#bbb' }}>월</InputLabel>
@@ -2256,7 +3159,7 @@ export default function SettlementDetail() {
                         for (let month = startMonth; month <= endMonth; month++) {
                           const monthKey = `${year}.${String(month).padStart(2, '0')}`;
                           months.push(
-                            <MenuItem key={monthKey} value={monthKey} sx={{ color: '#fff' }}>
+                            <MenuItem key={monthKey} value={monthKey} sx={{ color: '#fff', minHeight: '32px', py: 0.5 }}>
                               {year}년 {month}월
                             </MenuItem>
                           );
@@ -2267,6 +3170,8 @@ export default function SettlementDetail() {
                   </Select>
                 </FormControl>
               </Grid>
+              
+              {/* 회사명 */}
               <Grid item xs={12} sm={6}>
                 <Autocomplete
                   freeSolo
@@ -2274,13 +3179,27 @@ export default function SettlementDetail() {
                   value={materialForm.company}
                   onChange={(event, newValue) => {
                     const company = newValue || '';
-                    const 차수 = materialData.filter(item => item.company === company).length + 1;
-                    setMaterialForm({...materialForm, company, 차수});
+                    // 수정 모드가 아닐 때만 차수 자동 계산 (같은 회사, 같은 품목 기준)
+                    if (!editingMaterial) {
+                      const 차수 = materialData.filter(item => 
+                        item.company === company && item.item === materialForm.item
+                      ).length + 1;
+                      setMaterialForm({...materialForm, company, 차수});
+                    } else {
+                      setMaterialForm({...materialForm, company});
+                    }
                   }}
                   onInputChange={(event, newInputValue) => {
                     const company = newInputValue || '';
-                    const 차수 = materialData.filter(item => item.company === company).length + 1;
-                    setMaterialForm({...materialForm, company, 차수});
+                    // 수정 모드가 아닐 때만 차수 자동 계산 (같은 회사, 같은 품목 기준)
+                    if (!editingMaterial) {
+                      const 차수 = materialData.filter(item => 
+                        item.company === company && item.item === materialForm.item
+                      ).length + 1;
+                      setMaterialForm({...materialForm, company, 차수});
+                    } else {
+                      setMaterialForm({...materialForm, company});
+                    }
                   }}
                   renderInput={(params) => (
                     <TextField
@@ -2346,7 +3265,275 @@ export default function SettlementDetail() {
                   }}
                 />
               </Grid>
+              
             </Grid>
+
+            {/* 실물량정보 (선택사항) */}
+            <Box sx={{ mt: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ color: '#90caf9', fontWeight: 'bold' }}>
+                  📊 실물량정보 (선택사항)
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={addQuantityItem}
+                  sx={{
+                    color: '#43e97b',
+                    borderColor: '#43e97b',
+                    fontSize: '0.7rem',
+                    px: 1,
+                    py: 0.3,
+                    minWidth: 'auto',
+                    '&:hover': {
+                      borderColor: '#35d16a',
+                      color: '#35d16a'
+                    }
+                  }}
+                >
+                  + 물량추가
+                </Button>
+              </Box>
+              {/* 동적 실물량 항목들 */}
+              {(materialForm.quantityItems || []).map((item, index) => (
+                <Box key={item.id} sx={{ mb: 1 }}>
+                  <Grid container spacing={1} alignItems="center">
+                    {/* 품목명 드롭다운 */}
+                    <Grid item xs={12} sm={5}>
+                      {item.siteItem && !siteItemOptions.find(option => option.name === item.siteItem) ? (
+                        // 직접 입력 모드
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="품목명 (직접입력)"
+                          value={item.siteItem}
+                          onChange={(e) => updateQuantityItem(item.id, 'siteItem', e.target.value)}
+                          sx={{
+                            minWidth: '200px',
+                            '& .MuiOutlinedInput-root': {
+                              color: '#fff',
+                              fontSize: '0.9rem',
+                              '& fieldset': { borderColor: '#555' },
+                              '&:hover fieldset': { borderColor: '#43e97b' },
+                              '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                            },
+                            '& .MuiInputLabel-root': { color: '#bbb', fontSize: '0.85rem' },
+                            '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                          }}
+                          InputProps={{
+                            endAdornment: (
+                              <Button
+                                size="small"
+                                onClick={() => updateQuantityItem(item.id, 'siteItem', '')}
+                                sx={{ minWidth: 'auto', p: 0.5, color: '#90caf9' }}
+                              >
+                                ↩
+                              </Button>
+                            )
+                          }}
+                        />
+                      ) : (
+                        // 드롭다운 모드
+                        <FormControl fullWidth size="small" sx={{ minWidth: '200px' }}>
+                          <InputLabel sx={{ color: '#bbb', fontSize: '0.85rem' }}>품목명</InputLabel>
+                          <Select
+                            value={(() => {
+                              // 현재 선택된 품목의 displayText를 찾아서 반환
+                              const currentOption = siteItemOptions.find(option => 
+                                option.name === item.siteItem && option.specification === item.specification
+                              );
+                              return currentOption ? currentOption.displayText : (item.siteItem || '');
+                            })()}
+                            onChange={(e) => {
+                              
+                              if (e.target.value === '') {
+                                // 직접 입력 선택시
+                                updateQuantityItemMultiple(item.id, {
+                                  siteItem: '직접입력',
+                                  unit: 'M2',
+                                  specification: ''
+                                });
+                              } else {
+                                // displayText로 옵션을 찾기
+                                const selectedOption = siteItemOptions.find(option => option.displayText === e.target.value);
+                                if (selectedOption) {
+                                  updateQuantityItemMultiple(item.id, {
+                                    siteItem: selectedOption.name,
+                                    specification: selectedOption.specification,
+                                    unit: selectedOption.unit
+                                  });
+                                } else {
+                                  // 품목명을 그대로 사용 (직접 입력 케이스)
+                                  updateQuantityItem(item.id, 'siteItem', e.target.value);
+                                }
+                              }
+                            }}
+                          MenuProps={{
+                            PaperProps: {
+                              sx: {
+                                bgcolor: '#232b3b',
+                                maxHeight: '200px',
+                                '& .MuiList-root': {
+                                  maxHeight: '200px',
+                                  overflowY: 'auto',
+                                  '&::-webkit-scrollbar': {
+                                    display: 'none',
+                                    width: 0,
+                                    height: 0
+                                  },
+                                  '&::-webkit-scrollbar-track': {
+                                    display: 'none'
+                                  },
+                                  '&::-webkit-scrollbar-thumb': {
+                                    display: 'none'
+                                  },
+                                  '&::-webkit-scrollbar-corner': {
+                                    display: 'none'
+                                  },
+                                  '-ms-overflow-style': 'none',
+                                  'scrollbar-width': 'none',
+                                  scrollbarWidth: 'none'
+                                }
+                              }
+                            }
+                          }}
+                          sx={{
+                            color: '#fff',
+                            fontSize: '0.9rem',
+                            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#555' },
+                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#43e97b' },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#43e97b' },
+                            '& .MuiSvgIcon-root': { color: '#fff' }
+                          }}
+                        >
+                          <MenuItem value="" sx={{ color: '#fff', fontSize: '0.9rem' }}>
+                            직접 입력
+                          </MenuItem>
+                          {siteItemOptions && siteItemOptions.length > 0 ? (
+                            siteItemOptions.map((option) => (
+                              <MenuItem 
+                                key={`${option.name}-${option.specification}`} 
+                                value={option.displayText} 
+                                sx={{ 
+                                  color: '#fff', 
+                                  minHeight: '32px',
+                                  fontSize: '0.9rem'
+                                }}
+                              >
+                                <Box>
+                                  <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
+                                    {hideGlassWords(option.name)}
+                                  </div>
+                                  {option.specification && (
+                                    <div style={{ fontSize: '0.75rem', color: '#bbb' }}>
+                                      📏 {option.specification}
+                                    </div>
+                                  )}
+                                </Box>
+                              </MenuItem>
+                            ))
+                          ) : (
+                            <MenuItem disabled sx={{ color: '#666', fontSize: '0.9rem' }}>
+                              등록된 품목이 없습니다
+                            </MenuItem>
+                          )}
+                        </Select>
+                      </FormControl>
+                      )}
+                    </Grid>
+
+                    {/* 단위 */}
+                    <Grid item xs={3} sm={1}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="단위"
+                        value={item.unit}
+                        onChange={(e) => updateQuantityItem(item.id, 'unit', e.target.value)}
+                        sx={{
+                          minWidth: '50px',
+                          maxWidth: '50px',
+                          '& .MuiOutlinedInput-root': {
+                            color: '#fff',
+                            fontSize: '0.9rem',
+                            '& fieldset': { borderColor: '#555' },
+                            '&:hover fieldset': { borderColor: '#43e97b' },
+                            '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                          },
+                          '& .MuiInputLabel-root': { color: '#bbb', fontSize: '0.85rem' },
+                          '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                        }}
+                      />
+                    </Grid>
+
+                    {/* 실물량 */}
+                    <Grid item xs={3} sm={1.5}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="실물량"
+                        value={item.actualQuantity}
+                        onChange={(e) => updateQuantityItem(item.id, 'actualQuantity', e.target.value)}
+                        type="number"
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            color: '#fff',
+                            fontSize: '0.9rem',
+                            '& fieldset': { borderColor: '#555' },
+                            '&:hover fieldset': { borderColor: '#43e97b' },
+                            '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                          },
+                          '& .MuiInputLabel-root': { color: '#bbb', fontSize: '0.85rem' },
+                          '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                        }}
+                      />
+                    </Grid>
+
+                    {/* 비고 */}
+                    <Grid item xs={5} sm={4}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="비고"
+                        value={item.quantityNote}
+                        onChange={(e) => updateQuantityItem(item.id, 'quantityNote', e.target.value)}
+                        placeholder="물량 관련 메모"
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            color: '#fff',
+                            fontSize: '0.9rem',
+                            '& fieldset': { borderColor: '#555' },
+                            '&:hover fieldset': { borderColor: '#43e97b' },
+                            '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                          },
+                          '& .MuiInputLabel-root': { color: '#bbb', fontSize: '0.85rem' },
+                          '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                        }}
+                      />
+                    </Grid>
+
+                    {/* 삭제 버튼 */}
+                    <Grid item xs={1} sm={1}>
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={() => removeQuantityItem(item.id)}
+                        sx={{ minWidth: 'auto', p: 0.5 }}
+                      >
+                        ✕
+                      </Button>
+                    </Grid>
+                  </Grid>
+                </Box>
+              ))}
+
+              {(materialForm.quantityItems || []).length === 0 && (
+                <Typography sx={{ color: '#666', textAlign: 'center', py: 2, fontStyle: 'italic' }}>
+                  + 물량추가 버튼을 눌러서 실물량 항목을 추가하세요
+                </Typography>
+              )}
+            </Box>
+
             <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
               <Button
                 variant="contained"
@@ -2357,8 +3544,21 @@ export default function SettlementDetail() {
                   '&:hover': { bgcolor: '#35d16a' }
                 }}
               >
-                추가
+                {editingMaterial ? '수정' : '추가'}
               </Button>
+              {editingMaterial && (
+                <Button
+                  variant="outlined"
+                  onClick={handleCancelEdit}
+                  sx={{
+                    borderColor: '#f44336',
+                    color: '#f44336',
+                    '&:hover': { borderColor: '#d32f2f', color: '#d32f2f' }
+                  }}
+                >
+                  취소
+                </Button>
+              )}
               <Button
                 variant="outlined"
                 onClick={showMaterialDetails}
@@ -2376,7 +3576,27 @@ export default function SettlementDetail() {
           <Divider sx={{ borderColor: '#555', mb: 2 }} />
 
           <Box>
-            <Typography variant="h6" sx={{ mb: 2, color: '#fff' }}>등록된 자재비</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" sx={{ color: '#fff' }}>등록된 자재비</Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={reorderExistingSequences}
+                sx={{
+                  color: '#90caf9',
+                  borderColor: '#90caf9',
+                  fontSize: '0.75rem',
+                  px: 1,
+                  py: 0.5,
+                  '&:hover': {
+                    borderColor: '#64b5f6',
+                    color: '#64b5f6'
+                  }
+                }}
+              >
+                차수 재정렬
+              </Button>
+            </Box>
             {materialData.length > 0 ? (
               <Box sx={{ maxHeight: '300px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                 {materialData
@@ -2389,38 +3609,71 @@ export default function SettlementDetail() {
                   .map((item, index) => (
                   <Box
                     key={item.id}
+                    onClick={() => handleEditMaterial(item)}
                     sx={{
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      p: 2,
-                      mb: 1,
+                      p: 1,
+                      mb: 0.5,
                       bgcolor: '#333',
                       borderRadius: 1,
-                      border: '1px solid #555'
+                      border: '1px solid #555',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: '#404040',
+                        borderColor: '#90caf9',
+                        transform: 'translateY(-1px)',
+                        boxShadow: '0 2px 8px rgba(144, 202, 249, 0.2)'
+                      }
                     }}
                   >
-                    <Box>
-                      <Typography sx={{ color: '#fff', fontWeight: 'bold' }}>
+                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Typography sx={{ color: '#fff', fontWeight: 'bold', fontSize: '1rem' }}>
                         {item.item} ({item.company}) - {item.차수}차
                       </Typography>
-                      <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>
+                      <Typography sx={{ color: '#bbb', fontSize: '0.95rem' }}>
                         {item.month} | {formatGisungAmount(item.amount)}
                       </Typography>
+                      {item.siteItem && item.actualQuantity && (
+                        <Typography sx={{ color: '#64b5f6', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                          📊 {item.siteItem}: {item.actualQuantity} {item.unit || 'M2'}
+                        </Typography>
+                      )}
+                      {item.quantityNote && (
+                        <Typography sx={{ color: '#888', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                          실물량 비고: {item.quantityNote}
+                        </Typography>
+                      )}
                       {item.note && (
-                        <Typography sx={{ color: '#888', fontSize: '0.8rem', mt: 0.5, fontStyle: 'italic' }}>
+                        <Typography sx={{ color: '#888', fontSize: '0.85rem', fontStyle: 'italic' }}>
                           비고: {item.note}
                         </Typography>
                       )}
                     </Box>
-                    <Button
-                      size="small"
-                      color="error"
-                      onClick={() => handleDeleteMaterial(item.id)}
-                      sx={{ minWidth: 'auto', p: 1 }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Button
+                        size="small"
+                        onClick={() => handleEditMaterial(item)}
+                        sx={{ 
+                          minWidth: 'auto', 
+                          p: 0.5,
+                          color: '#90caf9',
+                          '&:hover': { bgcolor: 'rgba(144, 202, 249, 0.1)' }
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={() => handleDeleteMaterial(item.id)}
+                        sx={{ minWidth: 'auto', p: 0.5 }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </Button>
+                    </Box>
                   </Box>
                 ))}
               </Box>
@@ -2433,10 +3686,143 @@ export default function SettlementDetail() {
         </DialogContent>
         <DialogActions>
           <Button
-            onClick={() => setMaterialDialog({ open: false })}
+            onClick={() => {
+              setMaterialDialog({ open: false });
+              resetMaterialForm();
+            }}
             sx={{ color: '#bbb' }}
           >
             닫기
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 물량 추가 다이얼로그 */}
+      <Dialog
+        open={quantityDialog.open}
+        onClose={() => setQuantityDialog({ open: false })}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: '#232b3b',
+            color: '#fff',
+            border: '1px solid #43e97b'
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: '#43e97b', fontWeight: 'bold' }}>
+          📊 물량 항목 추가
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <Grid container spacing={2}>
+              {/* 품목명 */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="품목명"
+                  value={quantityForm.siteItem}
+                  onChange={(e) => setQuantityForm({...quantityForm, siteItem: e.target.value})}
+                  placeholder="예: a항목 물량, b하옥 물량"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: '#fff',
+                      '& fieldset': { borderColor: '#555' },
+                      '&:hover fieldset': { borderColor: '#43e97b' },
+                      '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#bbb' },
+                    '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                  }}
+                />
+              </Grid>
+
+              {/* 단위 */}
+              <Grid item xs={6} sm={3}>
+                <TextField
+                  fullWidth
+                  label="단위"
+                  value={quantityForm.unit}
+                  onChange={(e) => setQuantityForm({...quantityForm, unit: e.target.value})}
+                  placeholder="예: M2, EA"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: '#fff',
+                      '& fieldset': { borderColor: '#555' },
+                      '&:hover fieldset': { borderColor: '#43e97b' },
+                      '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#bbb' },
+                    '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                  }}
+                />
+              </Grid>
+
+              {/* 물량 */}
+              <Grid item xs={6} sm={3}>
+                <TextField
+                  fullWidth
+                  label="물량"
+                  value={quantityForm.actualQuantity}
+                  onChange={(e) => setQuantityForm({...quantityForm, actualQuantity: e.target.value})}
+                  placeholder="예: 100"
+                  type="number"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: '#fff',
+                      '& fieldset': { borderColor: '#555' },
+                      '&:hover fieldset': { borderColor: '#43e97b' },
+                      '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#bbb' },
+                    '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                  }}
+                />
+              </Grid>
+
+              {/* 비고 */}
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="비고"
+                  value={quantityForm.note}
+                  onChange={(e) => setQuantityForm({...quantityForm, note: e.target.value})}
+                  placeholder="물량 관련 메모"
+                  multiline
+                  rows={2}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: '#fff',
+                      '& fieldset': { borderColor: '#555' },
+                      '&:hover fieldset': { borderColor: '#43e97b' },
+                      '&.Mui-focused fieldset': { borderColor: '#43e97b' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#bbb' },
+                    '& .MuiInputLabel-root.Mui-focused': { color: '#43e97b' }
+                  }}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setQuantityDialog({ open: false })}
+            sx={{ color: '#bbb' }}
+          >
+            취소
+          </Button>
+          <Button
+            onClick={handleAddQuantity}
+            variant="contained"
+            sx={{
+              bgcolor: '#43e97b',
+              color: '#000',
+              '&:hover': { bgcolor: '#35d16a' }
+            }}
+          >
+            추가
           </Button>
         </DialogActions>
       </Dialog>
@@ -2450,6 +3836,85 @@ export default function SettlementDetail() {
         severity={snackbar.severity}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       />
+
+      {/* 물량 산출방식 변경 확인 대화상자 */}
+      <Dialog
+        open={calculationModeDialog.open}
+        onClose={cancelCalculationModeChange}
+        sx={{
+          '& .MuiDialog-paper': {
+            bgcolor: '#1e293b',
+            color: '#fff',
+            minWidth: '400px'
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: '#90caf9', borderBottom: '1px solid #334155' }}>
+          🔄 물량 산출방식 변경
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Typography sx={{ mb: 2, color: '#e2e8f0' }}>
+            물량 산출방식을 변경하시겠습니까?
+          </Typography>
+          <Box sx={{ pl: 2, mb: 2 }}>
+            <Typography sx={{ fontSize: '0.9rem', color: '#94a3b8', mb: 1 }}>
+              <strong>현재:</strong> {quantityCalculationMode === 'cumulative' ? '항목별 차수 더하기' : '항목별 최신 물량 적용'}
+            </Typography>
+            <Typography sx={{ fontSize: '0.9rem', color: '#94a3b8' }}>
+              <strong>변경할 방식:</strong> {calculationModeDialog.newMode === 'cumulative' ? '항목별 차수 더하기' : '항목별 최신 물량 적용'}
+            </Typography>
+          </Box>
+          <Box sx={{ bgcolor: '#334155', p: 2, borderRadius: 1, mb: 2 }}>
+            {calculationModeDialog.newMode === 'cumulative' ? (
+              <>
+                <Typography sx={{ fontSize: '0.85rem', color: '#fbbf24', mb: 1, fontWeight: 'bold' }}>
+                  📊 항목별 차수 더하기
+                </Typography>
+                <Typography sx={{ fontSize: '0.8rem', color: '#d1d5db' }}>
+                  • 모든 차수의 물량을 누적하여 더한 합계로 계산합니다<br/>
+                  • 예: 1차(100) + 2차(50) + 3차(30) = 총 180개<br/>
+                  • 전체 프로젝트 누적 사용량을 확인할 때 사용
+                </Typography>
+              </>
+            ) : (
+              <>
+                <Typography sx={{ fontSize: '0.85rem', color: '#10b981', mb: 1, fontWeight: 'bold' }}>
+                  📈 항목별 최신 물량 적용
+                </Typography>
+                <Typography sx={{ fontSize: '0.8rem', color: '#d1d5db' }}>
+                  • 가장 최근에 입력된 물량 데이터만 사용합니다<br/>
+                  • 예: 1차(100), 2차(50), 3차(30) → 최신인 30개만 적용<br/>
+                  • 현재 시점의 실제 물량 상황을 확인할 때 사용
+                </Typography>
+              </>
+            )}
+          </Box>
+          <Alert severity="info" sx={{ bgcolor: '#1e40af', color: '#bfdbfe' }}>
+            변경하면 모든 물량 표시와 진행률이 새로운 방식으로 다시 계산됩니다.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button
+            onClick={cancelCalculationModeChange}
+            sx={{ 
+              color: '#94a3b8',
+              '&:hover': { bgcolor: 'rgba(148, 163, 184, 0.1)' }
+            }}
+          >
+            취소
+          </Button>
+          <Button
+            onClick={confirmCalculationModeChange}
+            variant="contained"
+            sx={{
+              bgcolor: '#3b82f6',
+              '&:hover': { bgcolor: '#2563eb' }
+            }}
+          >
+            변경하기
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
