@@ -3055,27 +3055,12 @@ export default function SettlementDetail() {
         }}
       >
         <DialogTitle sx={{ color: '#43e97b', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <AttachMoneyIcon /> 
-          {editingMaterial ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <span>자재비 수정</span>
-              <Chip 
-                label={`${editingMaterial.sequence || '0'}차`}
-                size="small"
-                sx={{ 
-                  bgcolor: '#ff9800',
-                  color: '#fff',
-                  fontSize: '0.75rem',
-                  height: '20px'
-                }}
-              />
-            </Box>
-          ) : '자재비 관리'}
+          <AttachMoneyIcon /> {editingMaterial ? '자재비 관리' : '자재비 관리'}
         </DialogTitle>
         <DialogContent sx={scrollbarHiddenStyle}>
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" sx={{ mb: 2, color: '#fff' }}>
-              {editingMaterial ? '자재비 수정' : '자재비 추가'}
+              {editingMaterial ? `자재비 수정 (${editingMaterial.차수 || editingMaterial.sequence || '0'}차)` : '자재비 추가'}
             </Typography>
 
             <Grid container spacing={2}>
