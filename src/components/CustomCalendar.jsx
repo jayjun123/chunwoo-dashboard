@@ -29,6 +29,12 @@ const CustomCalendar = (props) => {
   const isLargeDesktop = useMediaQuery(theme.breakpoints.up('xl'));
   const navigate = useNavigate();
 
+  // 기간 설정 상태
+  const [showPeriodDialog, setShowPeriodDialog] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [useCustomPeriod, setUseCustomPeriod] = useState(false);
+
   console.log('🔍 CustomCalendar 렌더링:', {
     calendarItems: props.calendarItems,
     calendarItemsCount: Object.keys(props.calendarItems || {}).length,
@@ -495,7 +501,21 @@ const CustomCalendar = (props) => {
             flex: viewMode === 'month' ? 'none' : 1
           }}>
             {viewMode === 'month' 
-              ? `${year}년 ${String(month + 1).padStart(2, '0')}월`
+              ? (
+                <Typography
+                  sx={{
+                    cursor: 'pointer',
+                    fontSize: { xs: '1.2rem', md: '1.5rem' },
+                    '&:hover': {
+                      color: '#ff9800',
+                      textDecoration: 'underline'
+                    }
+                  }}
+                  onClick={() => setShowPeriodDialog(true)}
+                >
+                  {year}년 {String(month + 1).padStart(2, '0')}월
+                </Typography>
+              )
               : viewMode === '3days'
                 ? (() => {
                     const currentDate = currentViewDate || today;
@@ -560,6 +580,43 @@ const CustomCalendar = (props) => {
           </IconButton>
 
         </Box>
+        
+        {/* 기간 설정 표시 */}
+        {useCustomPeriod && startDate && endDate && (
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1, 
+            bgcolor: '#ff9800', 
+            color: '#fff', 
+            px: 2, 
+            py: 1, 
+            borderRadius: 2,
+            fontSize: '0.9rem',
+            fontWeight: 'bold'
+          }}>
+            <span>
+              {new Date(startDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })} ~ 
+              {new Date(endDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+            </span>
+            <IconButton
+              size="small"
+              onClick={() => {
+                setUseCustomPeriod(false);
+                setStartDate('');
+                setEndDate('');
+              }}
+              sx={{ 
+                color: '#fff', 
+                p: 0.5,
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
+              }}
+            >
+              ×
+            </IconButton>
+          </Box>
+        )}
+        
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
           <ToggleButtonGroup value={viewMode} exclusive onChange={onViewModeChange} size="small"
             sx={{
@@ -607,8 +664,29 @@ const CustomCalendar = (props) => {
                 onClick={() => {
                   try {
                     console.log('📊 엑셀 다운로드 버튼 클릭');
+                    
+                    // 설정된 기간이 있으면 해당 기간의 데이터만 필터링
+                    let filteredCalendarItems = calendarItems;
+                    if (useCustomPeriod && startDate && endDate) {
+                      console.log('🔍 사용자 정의 기간으로 필터링:', { startDate, endDate });
+                      filteredCalendarItems = {};
+                      
+                      const start = new Date(startDate);
+                      const end = new Date(endDate);
+                      
+                      Object.keys(calendarItems).forEach(dateStr => {
+                        const date = new Date(dateStr);
+                        if (date >= start && date <= end) {
+                          filteredCalendarItems[dateStr] = calendarItems[dateStr];
+                        }
+                      });
+                      
+                      console.log('📅 필터링된 데이터:', Object.keys(filteredCalendarItems).length, '개');
+                    }
+                    
                     if (onExcel && typeof onExcel === 'function') {
-                      onExcel();
+                      // 필터링된 데이터를 전달
+                      onExcel(filteredCalendarItems, useCustomPeriod ? { startDate, endDate } : null);
                     } else {
                       console.warn('⚠️ onExcel 함수가 정의되지 않았습니다.');
                       alert('엑셀 다운로드 기능을 사용할 수 없습니다.');
@@ -1446,6 +1524,91 @@ const CustomCalendar = (props) => {
             disabled={!editPopup.item || (!editPopup.item.text?.trim() && !editPopup.item.siteName?.trim())}
           >
             저장
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 기간 설정 다이얼로그 */}
+      <Dialog 
+        open={showPeriodDialog} 
+        onClose={() => setShowPeriodDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ color: '#fff', bgcolor: '#232b3b' }}>
+          기간 설정
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: '#232b3b', color: '#fff' }}>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="시작일"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#666' },
+                  '&:hover fieldset': { borderColor: '#ff9800' },
+                  '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' }
+              }}
+            />
+            <TextField
+              label="종료일"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#666' },
+                  '&:hover fieldset': { borderColor: '#ff9800' },
+                  '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' }
+              }}
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={useCustomPeriod}
+                  onChange={(e) => setUseCustomPeriod(e.target.checked)}
+                  sx={{ color: '#ff9800' }}
+                />
+              }
+              label="사용자 정의 기간 사용"
+              sx={{ color: '#fff' }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: '#232b3b' }}>
+          <Button 
+            onClick={() => setShowPeriodDialog(false)}
+            sx={{ color: '#ccc' }}
+          >
+            취소
+          </Button>
+          <Button 
+            onClick={() => {
+              if (startDate && endDate) {
+                setUseCustomPeriod(true);
+                setShowPeriodDialog(false);
+              } else {
+                alert('시작일과 종료일을 모두 입력해주세요.');
+              }
+            }}
+            variant="contained"
+            disabled={!startDate || !endDate}
+            sx={{ 
+              bgcolor: '#ff9800',
+              '&:hover': { bgcolor: '#f57c00' }
+            }}
+          >
+            설정 완료
           </Button>
         </DialogActions>
       </Dialog>

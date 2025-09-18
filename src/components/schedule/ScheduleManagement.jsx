@@ -1257,7 +1257,7 @@ const ScheduleManagement = ({
     }));
   };
 
-  const handleExcel = async () => {
+  const handleExcel = async (filteredCalendarItems = null, customPeriod = null) => {
     // PC에서만 엑셀 다운로드 가능
     if (isMobile) {
       alert('PC에서만 엑셀 다운로드가 가능합니다.');
@@ -1288,48 +1288,50 @@ const ScheduleManagement = ({
       console.log('🏗️ 현장 데이터 로드 완료:', sitesData.length, '개');
       console.log('👤 의뢰자 데이터 로드 완료:', requestersData.length, '개');
       
-      // 현재 월의 첫날과 마지막날 계산 (시간대 문제 해결)
-      const firstDay = new Date(year, month, 1);
-    
-    // 월의 마지막 날을 정확하게 계산하는 함수
-    const getLastDayOfMonth = (year, month) => {
-      // 해당 월의 마지막 날짜를 정확하게 계산
-      return new Date(year, month + 1, 0);
-    };
-    
-    const lastDay = getLastDayOfMonth(year, month);
-    
-    // 디버깅을 위한 로그
-    console.log('📅 엑셀 다운로드 날짜 범위:', {
-      year,
-      month: month + 1,
-      firstDay: firstDay.toISOString().split('T')[0],
-      lastDay: lastDay.toISOString().split('T')[0],
-      lastDayDate: lastDay.getDate(),
-      daysInMonth: lastDay.getDate()
-    });
-    
-    // 월별 데이터 정리
-    const monthlyData = [];
-    
-    // 해당 월의 모든 날짜를 생성 (1일부터 마지막 날까지)
-    // 시간대 문제를 피하기 위해 로컬 날짜 문자열 사용
-    const allDatesInMonth = [];
-    for (let day = 1; day <= lastDay.getDate(); day++) {
-      const currentDate = new Date(year, month, day);
-      // toISOString() 대신 로컬 날짜 문자열 사용
-      const yearStr = currentDate.getFullYear();
-      const monthStr = String(currentDate.getMonth() + 1).padStart(2, '0');
-      const dayStr = String(currentDate.getDate()).padStart(2, '0');
-      const dateStr = `${yearStr}-${monthStr}-${dayStr}`;
-      allDatesInMonth.push(dateStr);
-    }
-    
-    console.log('📅 해당 월의 모든 날짜:', allDatesInMonth);
-    
-    // 각 날짜별로 데이터 생성
-    allDatesInMonth.forEach(dateStr => {
-      const items = calendarItems[dateStr] || [];
+      // 사용할 데이터 결정: 필터링된 데이터가 있으면 사용, 없으면 현재 월 데이터 사용
+      const dataToUse = filteredCalendarItems || calendarItems;
+      const isCustomPeriod = customPeriod && customPeriod.startDate && customPeriod.endDate;
+      
+      console.log('📅 엑셀 다운로드 데이터:', {
+        isCustomPeriod,
+        customPeriod,
+        dataKeys: Object.keys(dataToUse).length,
+        originalKeys: Object.keys(calendarItems).length
+      });
+      
+      // 월별 데이터 정리
+      const monthlyData = [];
+      
+      // 사용할 날짜 목록 생성
+      let datesToProcess = [];
+      
+      if (isCustomPeriod) {
+        // 사용자 정의 기간인 경우: 필터링된 데이터의 키 사용
+        datesToProcess = Object.keys(dataToUse).sort();
+        console.log('📅 사용자 정의 기간 날짜들:', datesToProcess);
+      } else {
+        // 현재 월의 모든 날짜를 생성 (1일부터 마지막 날까지)
+        const getLastDayOfMonth = (year, month) => {
+          return new Date(year, month + 1, 0);
+        };
+        
+        const lastDay = getLastDayOfMonth(year, month);
+        
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+          const currentDate = new Date(year, month, day);
+          const yearStr = currentDate.getFullYear();
+          const monthStr = String(currentDate.getMonth() + 1).padStart(2, '0');
+          const dayStr = String(currentDate.getDate()).padStart(2, '0');
+          const dateStr = `${yearStr}-${monthStr}-${dayStr}`;
+          datesToProcess.push(dateStr);
+        }
+        
+        console.log('📅 현재 월의 모든 날짜:', datesToProcess);
+      }
+      
+      // 각 날짜별로 데이터 생성
+      datesToProcess.forEach(dateStr => {
+        const items = dataToUse[dateStr] || [];
       
       if (items.length === 0) {
         // 일정이 없는 날짜는 빈 행으로 추가
@@ -1393,9 +1395,18 @@ const ScheduleManagement = ({
       }
     });
     
-      // 파일명에 월 정보 포함
-      const monthStr = `${year}년 ${month + 1}월`;
-      const fileName = `일정관리_${monthStr}`;
+      // 파일명 설정: 사용자 정의 기간이면 기간 정보 포함, 아니면 월 정보 포함
+      let fileName;
+      if (isCustomPeriod) {
+        const startDateStr = customPeriod.startDate.replace(/-/g, '.');
+        const endDateStr = customPeriod.endDate.replace(/-/g, '.');
+        fileName = `일정관리_${startDateStr}_${endDateStr}`;
+      } else {
+        const monthStr = `${year}년 ${month + 1}월`;
+        fileName = `일정관리_${monthStr}`;
+      }
+      
+      console.log('📄 엑셀 파일명:', fileName);
       
       // 새로운 스타일링이 적용된 함수 사용
       await exportScheduleToExcel(monthlyData, fileName, year, month);
