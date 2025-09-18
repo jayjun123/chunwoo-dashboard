@@ -16,7 +16,11 @@ import {
   TextField,
   Checkbox,
   FormControlLabel,
-  Autocomplete
+  Autocomplete,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
@@ -52,6 +56,7 @@ const ScheduleHeatmap = ({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [useCustomPeriod, setUseCustomPeriod] = useState(false);
+  const [showPeriodDialog, setShowPeriodDialog] = useState(false);
   
   // 현장 선택 상태
   const [selectedSites, setSelectedSites] = useState([]);
@@ -619,7 +624,20 @@ const ScheduleHeatmap = ({
                   이전달
                 </Button>
                 
-                <Typography variant="h6" sx={{ color: '#fff', minWidth: 120, textAlign: 'center' }}>
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    color: '#fff', 
+                    minWidth: 120, 
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    '&:hover': { 
+                      color: '#ff9800',
+                      textDecoration: 'underline'
+                    }
+                  }}
+                  onClick={() => setShowPeriodDialog(true)}
+                >
                   {year}년 {month + 1}월
                 </Typography>
                 
@@ -659,6 +677,23 @@ const ScheduleHeatmap = ({
                   }}
                 >
                   이번달
+                </Button>
+                
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<DownloadIcon />}
+                  onClick={handleHeatmapExcelDownload}
+                  sx={{
+                    borderColor: '#4caf50',
+                    color: '#4caf50',
+                    '&:hover': { 
+                      borderColor: '#45a049',
+                      bgcolor: 'rgba(76, 175, 80, 0.1)'
+                    }
+                  }}
+                >
+                  엑셀 다운로드
                 </Button>
               </>
             )}
@@ -1020,6 +1055,86 @@ const ScheduleHeatmap = ({
           </Typography>
         </Box>
       </Paper>
+
+      {/* 기간 설정 다이얼로그 */}
+      <Dialog 
+        open={showPeriodDialog} 
+        onClose={() => setShowPeriodDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ color: '#fff', bgcolor: '#232b3b' }}>
+          기간 설정
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: '#232b3b', color: '#fff' }}>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="시작일"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#666' },
+                  '&:hover fieldset': { borderColor: '#ff9800' },
+                  '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' }
+              }}
+            />
+            <TextField
+              label="종료일"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#666' },
+                  '&:hover fieldset': { borderColor: '#ff9800' },
+                  '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' }
+              }}
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={useCustomPeriod}
+                  onChange={(e) => setUseCustomPeriod(e.target.checked)}
+                  sx={{ color: '#ff9800' }}
+                />
+              }
+              label="사용자 정의 기간 사용"
+              sx={{ color: '#fff' }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: '#232b3b' }}>
+          <Button 
+            onClick={() => setShowPeriodDialog(false)}
+            sx={{ color: '#ccc' }}
+          >
+            취소
+          </Button>
+          <Button 
+            onClick={() => {
+              setShowPeriodDialog(false);
+              // 기간 설정 완료 로직
+            }}
+            variant="contained"
+            sx={{ 
+              bgcolor: '#ff9800',
+              '&:hover': { bgcolor: '#f57c00' }
+            }}
+          >
+            설정 완료
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
