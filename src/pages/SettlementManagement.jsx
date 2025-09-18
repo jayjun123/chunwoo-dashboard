@@ -215,7 +215,7 @@ const SettlementManagement = () => {
     let bVal = b[sortField] || 0;
     
     // 숫자 필드들
-    if (['contractAmount', 'gisungAmount', 'materialCost', 'laborCost', 'subMaterialCost', 'equipmentCost', 'expenseCost', 'safetyCost'].includes(sortField)) {
+    if (['contractAmount', 'gisungAmount', 'gisungRate', 'materialCost', 'laborCost', 'subMaterialCost', 'equipmentCost', 'expenseCost', 'safetyCost'].includes(sortField)) {
       aVal = Number(aVal);
       bVal = Number(bVal);
     }
@@ -486,7 +486,17 @@ const SettlementManagement = () => {
           }
         });
         
-        const settlementsData = Object.values(siteSummary);
+        const settlementsData = Object.values(siteSummary).map(settlement => {
+          // 기성률 계산 추가
+          const contractAmount = settlement.contractAmount || 0;
+          const gisungAmount = settlement.gisungAmount || 0;
+          const gisungRate = contractAmount > 0 ? Math.round((gisungAmount / contractAmount) * 100) : 0;
+          
+          return {
+            ...settlement,
+            gisungRate: gisungRate
+          };
+        });
         console.log('정산 데이터 로드 완료:', settlementsData);
         setSettlements(settlementsData);
         
@@ -1207,6 +1217,12 @@ const SettlementManagement = () => {
               </TableCell>
               <TableCell 
                 sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                onClick={() => handleSort('gisungRate')}
+              >
+                기성률 {sortField === 'gisungRate' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableCell>
+              <TableCell 
+                sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
                 onClick={() => handleSort('materialCost')}
               >
                 자재비 {sortField === 'materialCost' && (sortDirection === 'asc' ? '↑' : '↓')}
@@ -1248,7 +1264,7 @@ const SettlementManagement = () => {
               <TableBody>
             {sortedSettlements.length === 0 ? (
                 <TableRow key="no-data">
-                <TableCell colSpan={12} sx={{ textAlign: 'center', py: 4, color: '#bbb' }}>
+                <TableCell colSpan={13} sx={{ textAlign: 'center', py: 4, color: '#bbb' }}>
                   정산 데이터가 없습니다.
                   </TableCell>
                 </TableRow>
@@ -1270,6 +1286,40 @@ const SettlementManagement = () => {
                       </TableCell>
                   <TableCell sx={{ color: '#43e97b', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
                     {formatNumber(settlement.gisungAmount || 0)}원
+                      </TableCell>
+                  <TableCell sx={{ color: '#fff', fontSize: '1.1rem' }}>
+                    {(() => {
+                      const contractAmount = settlement.contractAmount || 0;
+                      const gisungAmount = settlement.gisungAmount || 0;
+                      const gisungRate = contractAmount > 0 ? Math.round((gisungAmount / contractAmount) * 100) : 0;
+                      
+                      return (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ 
+                            width: '60px', 
+                            height: '8px', 
+                            bgcolor: '#333', 
+                            borderRadius: '4px',
+                            overflow: 'hidden'
+                          }}>
+                            <Box sx={{ 
+                              width: `${Math.min(gisungRate, 100)}%`, 
+                              height: '100%', 
+                              bgcolor: gisungRate >= 100 ? '#f44336' : gisungRate > 80 ? '#ff9800' : '#4caf50',
+                              transition: 'width 0.3s ease'
+                            }} />
+                          </Box>
+                          <Typography sx={{ 
+                            fontSize: '0.9rem',
+                            color: gisungRate >= 100 ? '#f44336' : gisungRate > 80 ? '#ff9800' : '#4caf50',
+                            fontWeight: 'bold',
+                            minWidth: '35px'
+                          }}>
+                            {gisungRate}%
+                          </Typography>
+                        </Box>
+                      );
+                    })()}
                       </TableCell>
                   <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
                     {formatNumber(settlement.materialCost || 0)}원
