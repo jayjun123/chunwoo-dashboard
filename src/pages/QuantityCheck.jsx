@@ -866,7 +866,7 @@ const QuantityCheck = () => {
                    <TableCell sx={{ color: '#fff', py: 0.5 }}>
                      <TextField
                        value={item.name}
-                       onChange={(e) => handleItemUpdate(actualIndex, 'name', e.target.value))
+                       onChange={(e) => handleItemUpdate(actualIndex, 'name', e.target.value)}
                        size="small"
                        sx={{
                          '& .MuiInputBase-root': { color: '#fff' },
