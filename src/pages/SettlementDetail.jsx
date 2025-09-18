@@ -2298,8 +2298,21 @@ export default function SettlementDetail() {
             >
               뒤로가기
             </Button>
-            <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#fff' }}>
+            {/* 데스크톱용 전체 제목 */}
+            <Typography variant="h4" sx={{ 
+              fontWeight: 'bold', 
+              color: '#fff',
+              display: { xs: 'none', md: 'block' }
+            }}>
               {site.name}_{todayString} 기준 정산내역
+            </Typography>
+            {/* 아이패드용 짧은 제목 */}
+            <Typography variant="h4" sx={{ 
+              fontWeight: 'bold', 
+              color: '#fff',
+              display: { xs: 'block', md: 'none' }
+            }}>
+              {site.name}_{todayString} 기준
             </Typography>
           </Box>
           
@@ -2309,6 +2322,14 @@ export default function SettlementDetail() {
               label="정산관리" 
               color="primary" 
               variant="outlined"
+              onClick={() => navigate('/settlement')}
+              sx={{ 
+                cursor: 'pointer',
+                '&:hover': { 
+                  bgcolor: 'rgba(25, 118, 210, 0.1)',
+                  borderColor: '#1976d2'
+                }
+              }}
             />
             <Button
               startIcon={<DownloadIcon />}
