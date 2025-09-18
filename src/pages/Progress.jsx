@@ -693,17 +693,27 @@ const Progress = () => {
         const totalLabor = siteCostData
           .filter(cost => cost.itemType === '노무비')
           .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+        
+        // 경비: 순수한 경비 항목들 (노무비, 기타 제외)
         const totalExpense = siteCostData
-          .filter(cost => cost.itemType === '경비')
+          .filter(cost => ['경비', '월세', '임대료', '식대', '유류비'].includes(cost.itemType))
           .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+        
+        // 기타: RnD, 기타, 부자재비, 장비비 등
         const totalEtc = siteCostData
-          .filter(cost => cost.itemType === 'RnD' || cost.itemType === '기타')
+          .filter(cost => cost.itemType === 'RnD' || cost.itemType === '기타' || cost.itemType === '부자재비' || cost.itemType === '장비비')
           .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+        
+        // 입금완료 금액 계산 (기성 데이터에서 paymentStatus가 '입금완료'인 항목들)
+        const totalPaidGisung = siteGisungData
+          .filter(item => item.paymentStatus === '입금완료')
+          .reduce((sum, item) => sum + (parseFloat(item.gisungAmount) || 0), 0);
         
         const result = {
           name: siteName,
           '계약금': totalContract,
           '기성금': totalWithAdvance, // 선급금 포함
+          '입금완료': totalPaidGisung,
           '노무': totalLabor,
           '경비': totalExpense,
           '기타': totalEtc,
@@ -739,17 +749,27 @@ const Progress = () => {
       const totalLabor = siteCostData
         .filter(cost => cost.itemType === '노무비')
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+      
+      // 경비: 순수한 경비 항목들 (노무비, 기타 제외)
       const totalExpense = siteCostData
-        .filter(cost => cost.itemType === '경비')
+        .filter(cost => ['경비', '월세', '임대료', '식대', '유류비'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+      
+      // 기타: RnD, 기타, 부자재비, 장비비 등
       const totalEtc = siteCostData
-        .filter(cost => cost.itemType === 'RnD' || cost.itemType === '기타')
+        .filter(cost => cost.itemType === 'RnD' || cost.itemType === '기타' || cost.itemType === '부자재비' || cost.itemType === '장비비')
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+      
+      // 입금완료 금액 계산 (기성 데이터에서 paymentStatus가 '입금완료'인 항목들)
+      const totalPaidGisung = siteGisungData
+        .filter(item => item.paymentStatus === '입금완료')
+        .reduce((sum, item) => sum + (parseFloat(item.gisungAmount) || 0), 0);
       
       const result = {
         name: siteName,
         '계약금': totalContract,
         '기성금': totalWithAdvance, // 선급금 포함
+        '입금완료': totalPaidGisung,
         '노무': totalLabor,
         '경비': totalExpense,
         '기타': totalEtc,
@@ -831,13 +851,15 @@ const Progress = () => {
         .filter(cost => cost.itemType === '노무비')
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
-      // 경비: 노무비를 제외한 모든 지출 항목 (경비, RnD, 기타, 부자재비, 장비비 등)
+      // 경비: 순수한 경비 항목들 (노무비, 기타 제외)
       const totalExpense = monthCostData
-        .filter(cost => cost.itemType !== '노무비')
+        .filter(cost => ['경비', '월세', '임대료', '식대', '유류비'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
-      // 기타는 0으로 설정 (모든 지출이 경비에 포함됨)
-      const totalEtc = 0;
+      // 기타: RnD, 기타, 부자재비, 장비비 등
+      const totalEtc = monthCostData
+        .filter(cost => cost.itemType === 'RnD' || cost.itemType === '기타' || cost.itemType === '부자재비' || cost.itemType === '장비비')
+        .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
       monthData.push({
         name: `${month}월`,
@@ -1668,22 +1690,25 @@ const Progress = () => {
                     }}
                     tick={{ fontSize: isMobile ? 14 : 16 }}
                   />
-                  <Tooltip contentStyle={{ fontSize: isMobile ? 14 : 16 }} />
+                  <Tooltip 
+                    contentStyle={{ fontSize: isMobile ? 14 : 16 }} 
+                    formatter={(value, name) => [value ? value.toLocaleString() + '원' : '0원', name]}
+                  />
                   <Legend wrapperStyle={{ fontSize: isMobile ? 14 : 16 }} />
                   <Bar dataKey="기성금" fill="#82ca9d">
-                    <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 12 : 14} />
+                    <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} />
                   </Bar>
                   <Bar dataKey="입금완료" fill="#00bcd4">
-                    <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 12 : 14} offset={20} />
+                    <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={25} />
                   </Bar>
                   <Bar dataKey="노무" fill="#ffc658">
-                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 12 : 14} offset={40} />
+                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={50} />
                   </Bar>
                   <Bar dataKey="경비" fill="#ff6b6b">
-                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 12 : 14} offset={60} />
+                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={75} />
                   </Bar>
                   <Bar dataKey="기타" fill="#a084e8">
-                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 12 : 14} offset={80} />
+                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={100} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -1720,22 +1745,25 @@ const Progress = () => {
                     }}
                     tick={{ fontSize: isMobile ? 14 : 16 }}
                   />
-                  <Tooltip contentStyle={{ fontSize: isMobile ? 14 : 16 }} />
+                  <Tooltip 
+                    contentStyle={{ fontSize: isMobile ? 14 : 16 }} 
+                    formatter={(value, name) => [value ? value.toLocaleString() + '원' : '0원', name]}
+                  />
                   <Legend wrapperStyle={{ fontSize: isMobile ? 14 : 16 }} />
                   <Bar dataKey="기성금" fill="#82ca9d">
-                    <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 12 : 14} />
+                    <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} />
                   </Bar>
                   <Bar dataKey="입금완료" fill="#00bcd4">
-                    <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 12 : 14} offset={20} />
+                    <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={25} />
                   </Bar>
                   <Bar dataKey="노무" fill="#ffc658">
-                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 12 : 14} offset={40} />
+                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={50} />
                   </Bar>
                   <Bar dataKey="경비" fill="#ff6b6b">
-                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 12 : 14} offset={60} />
+                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={75} />
                   </Bar>
                   <Bar dataKey="기타" fill="#a084e8">
-                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 12 : 14} offset={80} />
+                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={100} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
