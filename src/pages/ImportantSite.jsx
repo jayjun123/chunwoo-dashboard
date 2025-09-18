@@ -1024,6 +1024,7 @@ export default function ImportantSite() {
           {/* 정산확인 버튼 */}
           <Button
             variant="outlined"
+            size="small"
             startIcon={<AttachMoneyIcon />}
             onClick={() => {
               // 정산페이지로 이동
@@ -1034,11 +1035,11 @@ export default function ImportantSite() {
               color: '#f44336',
               borderColor: '#fff',
               fontWeight: 'bold',
-              fontSize: '1.2rem',
-              px: 2,
-              borderRadius: 3,
-              height: '56px',
-              minHeight: '56px',
+              fontSize: '0.875rem',
+              px: 1.5,
+              borderRadius: 2,
+              height: '40px',
+              minHeight: '40px',
               '&:hover': {
                 backgroundColor: 'rgba(244, 67, 54, 0.1)',
                 borderColor: '#fff',
@@ -1182,7 +1183,20 @@ export default function ImportantSite() {
                         e.stopPropagation();
                         handleSettlementToggle(site.id, e.target.checked);
                       }}
-                      color="primary"
+                      sx={{
+                        '& .MuiSwitch-switchBase.Mui-checked': {
+                          color: '#ffeb3b',
+                          '&:hover': {
+                            backgroundColor: 'rgba(255, 235, 59, 0.1)',
+                          },
+                        },
+                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                          backgroundColor: '#ffeb3b',
+                        },
+                        '& .MuiSwitch-track': {
+                          backgroundColor: '#666',
+                        },
+                      }}
                       size={isMobile ? 'small' : 'medium'}
                     />
                     <Button
