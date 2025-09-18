@@ -1874,8 +1874,6 @@ export default function SettlementDetail() {
 
     // 월별 기성금 데이터 (전체)
     const gisungByMonth = {};
-    // 월별 입금완료 금액 데이터
-    const paidGisungByMonth = {};
     
     gisungData.forEach(item => {
       console.log('기성금 항목:', item);
@@ -1890,14 +1888,6 @@ export default function SettlementDetail() {
           gisungByMonth[monthKey] = 0;
         }
         gisungByMonth[monthKey] += amount;
-        
-        // 입금완료만 별도 계산
-        if (item.paymentStatus === '입금완료') {
-          if (!paidGisungByMonth[monthKey]) {
-            paidGisungByMonth[monthKey] = 0;
-          }
-          paidGisungByMonth[monthKey] += amount;
-        }
         
         console.log('기성금 추가됨:', { monthKey, amount: item.gisungAmount, paymentStatus: item.paymentStatus });
       }
@@ -1975,11 +1965,9 @@ export default function SettlementDetail() {
     console.log('차트용 경비 데이터:', expenseByMonth);
     console.log('차트용 기타 지출 데이터:', otherByMonth);
     console.log('차트용 월별 공수 데이터:', workersByMonth);
-    console.log('차트용 입금완료 데이터:', paidGisungByMonth);
     console.log('일정 데이터:', scheduleData);
 
     const gisungValues = labels.map(label => gisungByMonth[label] || 0);
-    const paidGisungValues = labels.map(label => paidGisungByMonth[label] || 0);
     const laborValues = labels.map(label => laborByMonth[label] || 0);
     const materialValues = labels.map(label => materialByMonth[label] || 0);
     const expenseValues = labels.map(label => expenseByMonth[label] || 0);
@@ -2004,7 +1992,6 @@ export default function SettlementDetail() {
     console.log('차트 라벨:', labels);
     console.log('차트 라벨 (공수 포함):', labelsWithWorkers);
     console.log('기성금 값들:', gisungValues);
-    console.log('입금완료 값들:', paidGisungValues);
     console.log('노무비 값들:', laborValues);
     console.log('자재비 값들:', materialValues);
     console.log('경비 값들:', expenseValues);
@@ -2020,14 +2007,6 @@ export default function SettlementDetail() {
           data: gisungValues,
           borderColor: '#43e97b',
           backgroundColor: 'rgba(67, 233, 123, 0.1)',
-          tension: 0,
-          fill: false
-        },
-        {
-          label: '입금완료',
-          data: paidGisungValues,
-          borderColor: '#00bcd4',
-          backgroundColor: 'rgba(0, 188, 212, 0.1)',
           tension: 0,
           fill: false
         },
@@ -3236,6 +3215,7 @@ export default function SettlementDetail() {
                 transform: 'translateZ(0)',
                 willChange: 'transform'
               }}>
+                {console.log('차트 렌더링 중 - chartData:', chartData)}
                 <Line data={chartData} options={chartOptions} />
               </Box>
             ) : (
@@ -3249,7 +3229,8 @@ export default function SettlementDetail() {
                 borderRadius: 2
               }}>
                 <Typography sx={{ color: '#bbb' }}>
-                  차트 데이터를 불러오는 중...
+                  {console.log('차트 데이터 없음 - site:', site, 'gisungData:', gisungData.length, 'costData:', costData.length)}
+                  차트 데이터를 불러오는 중... (기성금: {gisungData.length}개, 지출: {costData.length}개)
                 </Typography>
               </Box>
             )}

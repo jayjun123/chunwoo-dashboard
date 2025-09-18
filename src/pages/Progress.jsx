@@ -812,6 +812,11 @@ const Progress = () => {
           return sum + (parseFloat(item.gisungAmount) || 0);
         }, 0);
       
+      // 입금완료 금액 계산
+      const totalPaidGisung = monthGisungData
+        .filter(item => item.paymentStatus === '입금완료')
+        .reduce((sum, item) => sum + (parseFloat(item.gisungAmount) || 0), 0);
+      
       // 지출 데이터에서 해당 월의 데이터 필터링
       const monthCostData = allCostData.filter(cost => {
         if (cost.date) {
@@ -835,6 +840,7 @@ const Progress = () => {
       monthData.push({
         name: `${month}월`,
         '기성금': totalGisung,
+        '입금완료': totalPaidGisung,
         '노무': totalLabor,
         '경비': totalExpense,
         '기타': totalEtc,
@@ -1665,6 +1671,9 @@ const Progress = () => {
                   <Bar dataKey="기성금" fill="#82ca9d">
                     <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
                   </Bar>
+                  <Bar dataKey="입금완료" fill="#00bcd4">
+                    <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
+                  </Bar>
                   <Bar dataKey="노무" fill="#ffc658">
                     <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
                   </Bar>
@@ -1713,6 +1722,9 @@ const Progress = () => {
                   <Legend wrapperStyle={{ fontSize: isMobile ? 14 : 16 }} />
                   <Bar dataKey="기성금" fill="#82ca9d">
                     <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
+                  </Bar>
+                  <Bar dataKey="입금완료" fill="#00bcd4">
+                    <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
                   </Bar>
                   <Bar dataKey="노무" fill="#ffc658">
                     <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 14 : 16} />
