@@ -877,7 +877,7 @@ const QuantityCheck = () => {
                   <TableCell sx={{ color: '#fff', py: 0.5 }}>
                     <TextField
                       value={item.unit}
-                      onChange={(e) => handleItemUpdate(actualIndex, 'unit', e.target.value))
+                      onChange={(e) => handleItemUpdate(actualIndex, 'unit', e.target.value)}
                       size="small"
                       sx={{
                         '& .MuiInputBase-root': { color: '#fff' },
@@ -888,7 +888,7 @@ const QuantityCheck = () => {
                                                                            <TableCell sx={{ color: '#fff', py: 0.5 }}>
                       <TextField
                         value={formatNumber(item.contractQuantity)}
-                        onChange={(e) => handleItemUpdate(actualIndex, 'contractQuantity', e.target.value))
+                        onChange={(e) => handleItemUpdate(actualIndex, 'contractQuantity', e.target.value)}
                         size="small"
                         inputProps={{ style: { textAlign: 'right' } }}
                         sx={{
@@ -900,7 +900,7 @@ const QuantityCheck = () => {
                                       <TableCell sx={{ color: '#fff', py: 0.5 }}>
                       <TextField
                         value={formatPrice(item.contractPrice)}
-                        onChange={(e) => handleItemUpdate(actualIndex, 'contractPrice', e.target.value))
+                        onChange={(e) => handleItemUpdate(actualIndex, 'contractPrice', e.target.value)}
                         size="small"
                         inputProps={{ style: { textAlign: 'right' } }}
                         sx={{
@@ -924,7 +924,7 @@ const QuantityCheck = () => {
                                                                            <TableCell sx={{ color: '#fff', py: 0.5 }}>
                       <TextField
                         value={formatNumber(item.actualQuantity)}
-                        onChange={(e) => handleItemUpdate(actualIndex, 'actualQuantity', e.target.value))
+                        onChange={(e) => handleItemUpdate(actualIndex, 'actualQuantity', e.target.value)}
                         size="small"
                         inputProps={{ style: { textAlign: 'right' } }}
                         sx={{
@@ -936,7 +936,7 @@ const QuantityCheck = () => {
                                       <TableCell sx={{ color: '#fff', py: 0.5 }}>
                       <TextField
                         value={formatPrice(item.actualPrice)}
-                        onChange={(e) => handleItemUpdate(actualIndex, 'actualPrice', e.target.value))
+                        onChange={(e) => handleItemUpdate(actualIndex, 'actualPrice', e.target.value)}
                         size="small"
                         inputProps={{ style: { textAlign: 'right' } }}
                         sx={{
@@ -990,7 +990,7 @@ const QuantityCheck = () => {
                   <TableCell sx={{ color: '#fff', py: 0.5 }}>
                     <TextField
                       value={item.note}
-                      onChange={(e) => handleItemUpdate(actualIndex, 'note', e.target.value))
+                      onChange={(e) => handleItemUpdate(actualIndex, 'note', e.target.value)}
                       size="small"
                       sx={{
                         '& .MuiInputBase-root': { color: '#fff' },
