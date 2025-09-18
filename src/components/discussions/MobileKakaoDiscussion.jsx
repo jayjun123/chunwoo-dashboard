@@ -13,6 +13,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserDisplayName, logUserInfo, getDeviceInfo } from '../../utils/discussionUtils';
+import { fixAriaHiddenIssues } from '../../utils/materialUploadUtils';
 import SearchableSiteSelect from '../common/SearchableSiteSelect';
 import {
   Box,
@@ -152,6 +153,15 @@ const MobileKakaoDiscussion = () => {
       }
     };
   }, []);
+
+  // aria-hidden 접근성 문제 해결
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fixAriaHiddenIssues();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [selectedDiscussion]);
 
   // 선택된 토론의 메시지 실시간 구독
   useEffect(() => {

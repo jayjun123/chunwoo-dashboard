@@ -1031,18 +1031,18 @@ export default function ImportantSite() {
             }}
             sx={{
               backgroundColor: 'transparent',
-              color: '#ff9800',
-              borderColor: '#ff9800',
+              color: '#f44336',
+              borderColor: '#fff',
               fontWeight: 'bold',
-              fontSize: '0.9rem',
+              fontSize: '1.2rem',
               px: 2,
-              py: 0.5,
-              borderRadius: 2,
-              minHeight: '32px',
+              borderRadius: 3,
+              height: '56px',
+              minHeight: '56px',
               '&:hover': {
-                backgroundColor: 'rgba(255, 152, 0, 0.1)',
-                borderColor: '#f57c00',
-                color: '#f57c00'
+                backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                borderColor: '#fff',
+                color: '#f44336'
               }
             }}
           >
@@ -1167,13 +1167,60 @@ export default function ImportantSite() {
                     ⋮⋮
                   </Box>
                 </Box>
-                <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
+                <Box sx={{ display: 'flex', gap: isMobile ? 1 : 3, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6, justifyContent: 'space-between' }}>
                   <Typography sx={{ 
                     fontSize: isMobile ? '0.75rem' : 16, 
                     color: '#43e97b', 
                     fontWeight: 700, 
                     textAlign: 'left' 
                   }}>계약구분: {site.contractType}</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Switch
+                      checked={settlementToggles[site.id] || site.settlementEnabled || false}
+                      onChange={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleSettlementToggle(site.id, e.target.checked);
+                      }}
+                      color="primary"
+                      size={isMobile ? 'small' : 'medium'}
+                    />
+                    <Button
+                      variant="outlined"
+                      size={isMobile ? 'small' : 'medium'}
+                      onClick={(e) => {
+                        if (settlementPages[site.id]) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleGoToSettlement(site.id);
+                        }
+                      }}
+                      disabled={!settlementPages[site.id]}
+                      sx={{
+                        backgroundColor: 'transparent',
+                        color: '#f44336',
+                        borderColor: '#fff',
+                        fontWeight: 'bold',
+                        fontSize: isMobile ? '0.6rem' : '0.8rem',
+                        borderRadius: 2,
+                        minWidth: isMobile ? '40px' : '50px',
+                        height: isMobile ? '28px' : '30px',
+                        minHeight: isMobile ? '28px' : '30px',
+                        padding: isMobile ? '2px 4px' : '4px 8px',
+                        '&:hover': {
+                          backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                          borderColor: '#fff',
+                          color: '#f44336'
+                        },
+                        '&.Mui-disabled': {
+                          color: '#666',
+                          borderColor: '#444'
+                        }
+                      }}
+                    >
+                      정산
+                    </Button>
+                  </Box>
                 </Box>
                 <Box sx={{ display: 'flex', gap: isMobile ? 1 : 2, width: '100%', alignItems: 'center', mb: isMobile ? 0.3 : 0.6 }}>
                   <Typography sx={{ 
@@ -1220,7 +1267,14 @@ export default function ImportantSite() {
                   width: '100%', 
                   mb: isMobile ? 0.3 : 0.6 
                 }}>시공팀: {site.team}</Typography>
-                <Box sx={{ mt: 0, mb: isMobile ? 1 : 2, display: 'flex', gap: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
+                <Box sx={{ 
+                  mt: 0, 
+                  mb: isMobile ? 1 : 2, 
+                  display: 'flex', 
+                  gap: isMobile ? 0.5 : 1, 
+                  flexWrap: 'wrap',
+                  alignItems: 'center'
+                }}>
                   <Button 
                     variant="contained" 
                     color="info" 
@@ -1289,52 +1343,6 @@ export default function ImportantSite() {
                       navigate(`/discussions?siteId=${site.id}`);
                     }}
                   >토론</Button>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={settlementToggles[site.id] || site.settlementEnabled || false}
-                        onChange={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleSettlementToggle(site.id, e.target.checked);
-                        }}
-                        color="primary"
-                        size={isMobile ? 'small' : 'medium'}
-                      />
-                    }
-                    label={
-                      <Box 
-                        sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: 0.5,
-                          cursor: settlementPages[site.id] ? 'pointer' : 'default'
-                        }}
-                        onClick={(e) => {
-                          if (settlementPages[site.id]) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleGoToSettlement(site.id);
-                          }
-                        }}
-                      >
-                        <AttachMoneyIcon sx={{ fontSize: isMobile ? 14 : 16 }} />
-                        <Typography sx={{ 
-                          fontSize: isMobile ? '0.65rem' : '0.75rem',
-                          fontWeight: 700,
-                          color: '#000'
-                        }}>
-                          정산
-                        </Typography>
-                      </Box>
-                    }
-                    sx={{ 
-                      m: 0,
-                      '& .MuiFormControlLabel-label': {
-                        fontSize: isMobile ? '0.65rem' : '0.75rem'
-                      }
-                    }}
-                  />
                 </Box>
               </Box>
               {/* 가운데: 차트 - 모바일에서 숨김 */}

@@ -58,7 +58,7 @@ import {
   Legend,
   Filler
 } from 'chart.js';
-import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, where, orderBy, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { formatContractAmount, formatGisungAmount, formatBalanceAmount } from '../utils/formatUtils';
@@ -87,6 +87,12 @@ export default function SettlementDetail() {
   const [deleteDialog, setDeleteDialog] = useState({ open: false, siteId: null, siteName: '' });
   const [detailDialog, setDetailDialog] = useState({ open: false, title: '', items: [] });
   const [materialDialog, setMaterialDialog] = useState({ open: false });
+  
+  // 정산페이지 접근 인증 관련 상태
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   // 자재비 폼 초기화 함수
   const resetMaterialForm = () => {
@@ -150,9 +156,28 @@ export default function SettlementDetail() {
     });
   };
 
+  // 사용자 설정을 Firestore에 저장하는 함수
+  const saveUserSettings = async (mode) => {
+    if (!currentUser?.uid) return;
+    
+    try {
+      const userSettingsRef = doc(db, 'userSettings', currentUser.uid);
+      await setDoc(userSettingsRef, {
+        quantityCalculationMode: mode,
+        updatedAt: new Date()
+      }, { merge: true });
+      console.log('사용자 설정 저장 완료:', mode);
+    } catch (error) {
+      console.error('사용자 설정 저장 실패:', error);
+    }
+  };
+
   // 계산 방식 변경 확인
-  const confirmCalculationModeChange = () => {
-    setQuantityCalculationMode(calculationModeDialog.newMode);
+  const confirmCalculationModeChange = async () => {
+    const newMode = calculationModeDialog.newMode;
+    setQuantityCalculationMode(newMode);
+    // Firestore에 저장
+    await saveUserSettings(newMode);
     setCalculationModeDialog({ open: false, newMode: null });
   };
 
@@ -162,9 +187,60 @@ export default function SettlementDetail() {
   };
 
 
+  // 컴포넌트 마운트 시 비밀번호 다이얼로그 표시
+  useEffect(() => {
+    setShowPasswordDialog(true);
+  }, []);
+
+  // 사용자 설정 로드
+  useEffect(() => {
+    const loadUserSettings = async () => {
+      if (!currentUser?.uid || !isAuthenticated) return;
+      
+      try {
+        const userSettingsRef = doc(db, 'userSettings', currentUser.uid);
+        const userSettingsDoc = await getDoc(userSettingsRef);
+        
+        if (userSettingsDoc.exists()) {
+          const settings = userSettingsDoc.data();
+          if (settings.quantityCalculationMode) {
+            setQuantityCalculationMode(settings.quantityCalculationMode);
+            console.log('사용자 설정 로드 완료:', settings.quantityCalculationMode);
+          }
+        }
+      } catch (error) {
+        console.error('사용자 설정 로드 실패:', error);
+      }
+    };
+
+    loadUserSettings();
+  }, [currentUser?.uid, isAuthenticated]);
+
+  // 비밀번호 인증 관련 함수들
+  const handlePasswordSubmit = () => {
+    if (password === '2046') {
+      setShowPasswordDialog(false);
+      setPassword('');
+      setPasswordError('');
+      setIsAuthenticated(true);
+      // 타임아웃 제거 - 데이터 로딩 완료를 기다림
+    } else {
+      setPasswordError('비밀번호가 올바르지 않습니다.');
+    }
+  };
+
+  const handlePasswordDialogClose = () => {
+    // 비밀번호 입력 없이 닫으면 이전 페이지로 이동
+    navigate(-1);
+  };
+
   // 현장 정보 로드
   useEffect(() => {
     const fetchSiteData = async () => {
+      if (!isAuthenticated) {
+        return;
+      }
+
       try {
         setLoading(true);
         
@@ -174,12 +250,14 @@ export default function SettlementDetail() {
         const currentSite = sitesData.find(s => s.id === siteId);
         
         if (!currentSite) {
+          console.error('현장을 찾을 수 없습니다. siteId:', siteId);
+          console.log('사용 가능한 현장들:', sitesData.map(s => ({ id: s.id, name: s.name })));
           setSnackbar({
             open: true,
             message: '현장 정보를 찾을 수 없습니다.',
             severity: 'error'
           });
-          navigate('/importantsite');
+          setLoading(false); // 로딩 해제
           return;
         }
         
@@ -187,20 +265,50 @@ export default function SettlementDetail() {
         
         // 기성금 데이터 가져오기
          try {
-           const gisungQuery = query(
+           // 먼저 siteId로 쿼리 시도
+           let gisungQuery = query(
              collection(db, 'gisung'),
              where('siteId', '==', siteId)
            );
-           const gisungSnapshot = await getDocs(gisungQuery);
-           const gisungItems = gisungSnapshot.docs.map(doc => ({
+           let gisungSnapshot = await getDocs(gisungQuery);
+           let gisungItems = gisungSnapshot.docs.map(doc => ({
              id: doc.id,
              ...doc.data()
-           })).sort((a, b) => {
+           }));
+           
+           console.log('siteId로 기성금 쿼리 결과:', gisungItems.length, '개');
+           
+           // siteId로 찾지 못했으면 현장명으로 쿼리 시도
+           if (gisungItems.length === 0 && currentSite?.name) {
+             console.log('siteId로 기성금을 찾지 못해서 현장명으로 재시도:', currentSite.name);
+             gisungQuery = query(
+               collection(db, 'gisung'),
+               where('name', '==', currentSite.name)
+             );
+             gisungSnapshot = await getDocs(gisungQuery);
+             gisungItems = gisungSnapshot.docs.map(doc => ({
+               id: doc.id,
+               ...doc.data()
+             }));
+             console.log('현장명으로 기성금 쿼리 결과:', gisungItems.length, '개');
+           }
+           
+           // 날짜순 정렬
+           gisungItems.sort((a, b) => {
              const dateA = new Date(a.gisungDate || 0);
              const dateB = new Date(b.gisungDate || 0);
              return dateA - dateB;
            });
-           console.log('기성금 쿼리 성공:', gisungItems);
+           
+           console.log('최종 기성금 데이터:', gisungItems);
+           console.log('기성금 데이터 상세:', gisungItems.map(item => ({
+             id: item.id,
+             name: item.name,
+             gisungAmount: item.gisungAmount,
+             claimStatus: item.claimStatus,
+             paymentStatus: item.paymentStatus
+           })));
+           
            setGisungData(gisungItems);
          } catch (gisungError) {
            console.error('기성금 데이터 로드 오류:', gisungError);
@@ -373,10 +481,10 @@ export default function SettlementDetail() {
       }
     };
 
-    if (siteId) {
+    if (siteId && isAuthenticated) {
       fetchSiteData();
     }
-  }, [siteId, navigate]);
+  }, [siteId, isAuthenticated, navigate]);
 
   // 실시간 데이터 리스너들
   useEffect(() => {
@@ -463,15 +571,32 @@ export default function SettlementDetail() {
       unsubscribers.forEach(unsubscribe => unsubscribe());
       console.log('실시간 리스너들 정리됨');
     };
-  }, [siteId]);
+  }, [siteId, isAuthenticated]);
 
-  // 기성금 합계 계산 (청구완료 및 입금완료만)
+  // 기성금 합계 계산 (입금완료만)
   const totalGisungAmount = useMemo(() => {
-    const filtered = gisungData.filter(item => item.claimStatus === '청구완료' && item.paymentStatus === '입금완료');
-    const total = filtered.reduce((sum, item) => sum + (Number(item.gisungAmount) || 0), 0);
-    console.log('기성금 데이터:', gisungData);
-    console.log('필터링된 기성금:', filtered);
+    console.log('=== 기성금 합계 계산 시작 ===');
+    console.log('전체 기성금 데이터:', gisungData);
+    console.log('기성금 데이터 개수:', gisungData.length);
+    
+    // 입금완료 상태만 필터링
+    const filtered = gisungData.filter(item => {
+      const isPaymentComplete = item.paymentStatus === '입금완료';
+      console.log(`기성금 필터링: ${item.name} - ${item.sequence} - 입금상태: ${item.paymentStatus} - 포함여부: ${isPaymentComplete}`);
+      return isPaymentComplete;
+    });
+    
+    console.log('입금완료 필터링된 기성금:', filtered);
+    console.log('입금완료 데이터 개수:', filtered.length);
+    
+    const total = filtered.reduce((sum, item) => {
+      const amount = Number(item.gisungAmount) || 0;
+      console.log(`기성금 합산: ${item.name} - ${item.sequence} - 금액: ${amount}`);
+      return sum + amount;
+    }, 0);
+    
     console.log('기성금 합계:', total);
+    console.log('=== 기성금 합계 계산 완료 ===');
     return total;
   }, [gisungData]);
 
@@ -2024,6 +2149,99 @@ export default function SettlementDetail() {
   const today = new Date();
   const todayString = `${today.getFullYear()}.${(today.getMonth() + 1).toString().padStart(2, '0')}.${today.getDate().toString().padStart(2, '0')}`;
 
+  // 인증되지 않은 경우
+  if (!isAuthenticated) {
+    return (
+      <Box sx={{ 
+        backgroundColor: '#1a1a1a', 
+        minHeight: '100vh',
+        color: 'white',
+        p: 3,
+        textAlign: 'center'
+      }}>
+        <Typography variant="h4" sx={{ color: '#ff9800', mb: 2 }}>
+          정산페이지 접근 인증
+        </Typography>
+        <Typography>인증이 필요합니다.</Typography>
+        
+        {/* 정산페이지 비밀번호 입력 다이얼로그 */}
+        <Dialog 
+          open={showPasswordDialog} 
+          maxWidth="sm" 
+          fullWidth
+          onClose={handlePasswordDialogClose}
+          PaperProps={{
+            sx: {
+              bgcolor: '#181f2e',
+              color: '#fff',
+              borderRadius: 4,
+              p: 4
+            }
+          }}
+        >
+          <DialogTitle sx={{ color: '#fff', textAlign: 'center', pb: 1 }}>
+            정산페이지 접근
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+              <Typography variant="body1" sx={{ color: '#bbb', textAlign: 'center', mb: 2 }}>
+                정산페이지에 접근하려면 비밀번호를 입력하세요.
+              </Typography>
+              <TextField
+                type="password"
+                label="비밀번호"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                error={!!passwordError}
+                helperText={passwordError}
+                fullWidth
+                autoFocus
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handlePasswordSubmit();
+                  }
+                }}
+                sx={{
+                  '& .MuiInputBase-root': { 
+                    bgcolor: '#232b3b',
+                    color: '#fff'
+                  },
+                  '& .MuiInputLabel-root': { 
+                    color: '#bbb'
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': { 
+                    borderColor: '#444'
+                  },
+                  '& .MuiFormHelperText-root': { 
+                    color: '#f44336'
+                  }
+                }}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ p: 3, pt: 1 }}>
+            <Button 
+              onClick={handlePasswordDialogClose}
+              sx={{ color: '#bbb' }}
+            >
+              취소
+            </Button>
+            <Button 
+              onClick={handlePasswordSubmit}
+              variant="contained"
+              sx={{ 
+                bgcolor: '#ff9800',
+                '&:hover': { bgcolor: '#f57c00' }
+              }}
+            >
+              확인
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    );
+  }
+
   if (loading) {
     return (
       <Box sx={{ 
@@ -2365,7 +2583,7 @@ export default function SettlementDetail() {
 
           {/* 순수익정보 */}
           <Grid item xs={12} md={showQuantityExpanded ? 4 : 4}>
-            <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '382px', width: '100%' }}>
+            <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '382px', width: '290px' }}>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2, color: '#ff9800', display: 'flex', alignItems: 'center', gap: 1 }}>
                   <AttachMoneyIcon /> 정산내역
@@ -2416,7 +2634,7 @@ export default function SettlementDetail() {
             <Grid container spacing={2}>
               {/* 지출정보 */}
               <Grid item xs={12} md={6}>
-                <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '382px', width: '230px' }}>
+                <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '382px', width: '260px' }}>
                   <CardContent>
                     <Typography variant="h6" sx={{ mb: 2, color: '#f44336', display: 'flex', alignItems: 'center', gap: 1 }}>
                       <TrendingDownIcon /> 지출정보
@@ -3900,6 +4118,7 @@ export default function SettlementDetail() {
           </Button>
         </DialogActions>
       </Dialog>
+
     </Box>
   );
 }

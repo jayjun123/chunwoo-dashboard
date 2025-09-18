@@ -33,6 +33,7 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  DeleteSweep as DeleteSweepIcon,
   Search as SearchIcon,
   Download as DownloadIcon,
   Upload as UploadIcon,
@@ -640,6 +641,8 @@ const Vendors = () => {
         // T열(업체명), V열(현장명), AK열(금액), AA열(날짜)에서 데이터 추출
         const vendorsToAdd = [];
         const uniqueCombinations = new Set(); // 중복 제거용
+        const duplicateItems = []; // 중복된 항목 추적
+        const updatedItems = []; // 업데이트된 항목 추적
 
         jsonData.forEach(row => {
           // T열(19), V열(21), AK열(36), AA열(26) - 0부터 시작하는 인덱스
@@ -672,28 +675,89 @@ const Vendors = () => {
               
               const latestDate = dates[0] || '';
 
-              vendorsToAdd.push({
-                companyName: companyName,
-                siteName: siteName,
-                winningCompany: '', // 낙찰회사 추가
-                amount: totalAmount.toString(),
-                bidDate: latestDate,
-                item: '',
-                quantity: '',
-                note: '관급', // 업로드한 데이터는 비고에 "관급" 표시
-                contractStatus: '미수주',
-                createdAt: new Date() // 현재 날짜로 업로드 날짜 설정
-              });
+              // 기존 데이터에서 중복 확인
+              const existingVendor = vendors.find(v => 
+                v.companyName === companyName && 
+                v.siteName === siteName
+              );
+
+              if (existingVendor) {
+                // 중복된 경우: 기존 데이터를 업데이트할지 물어보기
+                duplicateItems.push({
+                  companyName,
+                  siteName,
+                  existingAmount: existingVendor.amount,
+                  newAmount: totalAmount.toString(),
+                  existingDate: existingVendor.bidDate,
+                  newDate: latestDate,
+                  vendorId: existingVendor.id
+                });
+              } else {
+                // 새로운 데이터
+                vendorsToAdd.push({
+                  companyName: companyName,
+                  siteName: siteName,
+                  winningCompany: '', // 낙찰회사 추가
+                  amount: totalAmount.toString(),
+                  bidDate: latestDate,
+                  item: '',
+                  quantity: '',
+                  note: '관급', // 업로드한 데이터는 비고에 "관급" 표시
+                  contractStatus: '미수주',
+                  createdAt: new Date() // 현재 날짜로 업로드 날짜 설정
+                });
+              }
             }
           }
         });
 
-        // Firestore에 데이터 추가
+        // 중복 처리 확인
+        if (duplicateItems.length > 0) {
+          const duplicateMessage = duplicateItems.map(item => 
+            `• ${item.companyName} - ${item.siteName}\n  기존: ${item.existingAmount}원 (${item.existingDate})\n  신규: ${item.newAmount}원 (${item.newDate})`
+          ).join('\n\n');
+          
+          const shouldUpdate = window.confirm(
+            `다음 ${duplicateItems.length}개 항목이 이미 존재합니다.\n\n${duplicateMessage}\n\n기존 데이터를 새 데이터로 업데이트하시겠습니까?\n\n'확인': 기존 데이터 업데이트\n'취소': 중복 항목 무시하고 새 항목만 추가`
+          );
+
+          if (shouldUpdate) {
+            // 기존 데이터 업데이트
+            for (const item of duplicateItems) {
+              try {
+                const vendorRef = doc(db, 'bids', item.vendorId);
+                await updateDoc(vendorRef, {
+                  amount: item.newAmount,
+                  bidDate: item.newDate,
+                  note: '관급 (업데이트됨)',
+                  updatedAt: new Date()
+                });
+                updatedItems.push(item);
+              } catch (error) {
+                console.error(`업데이트 실패: ${item.companyName} - ${item.siteName}`, error);
+              }
+            }
+          }
+        }
+
+        // 새로운 데이터 추가
         for (const vendor of vendorsToAdd) {
           await addDoc(collection(db, 'bids'), vendor);
         }
 
-        alert(`${vendorsToAdd.length}개의 입찰현황 데이터가 성공적으로 업로드되었습니다.`);
+        // 결과 메시지
+        let resultMessage = '';
+        if (vendorsToAdd.length > 0) {
+          resultMessage += `${vendorsToAdd.length}개의 새로운 입찰현황 데이터가 추가되었습니다.`;
+        }
+        if (updatedItems.length > 0) {
+          resultMessage += `\n${updatedItems.length}개의 기존 데이터가 업데이트되었습니다.`;
+        }
+        if (duplicateItems.length > 0 && updatedItems.length === 0) {
+          resultMessage += `\n${duplicateItems.length}개의 중복 항목이 무시되었습니다.`;
+        }
+        
+        alert(resultMessage || '업로드할 새로운 데이터가 없습니다.');
         fetchVendors();
         setUploadDialogOpen(false);
       };
@@ -701,6 +765,70 @@ const Vendors = () => {
     } catch (error) {
       console.error('파일 업로드 오류:', error);
       alert('파일 업로드 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 중복 데이터 제거 함수
+  const handleRemoveDuplicates = async () => {
+    if (vendors.length === 0) {
+      alert('제거할 데이터가 없습니다.');
+      return;
+    }
+
+    // 중복 찾기 (업체명 + 현장명 조합으로)
+    const duplicateGroups = {};
+    const duplicatesToRemove = [];
+
+    vendors.forEach(vendor => {
+      const key = `${vendor.companyName}-${vendor.siteName}`;
+      if (!duplicateGroups[key]) {
+        duplicateGroups[key] = [];
+      }
+      duplicateGroups[key].push(vendor);
+    });
+
+    // 2개 이상인 그룹에서 중복 찾기
+    Object.values(duplicateGroups).forEach(group => {
+      if (group.length > 1) {
+        // 가장 최근 데이터를 남기고 나머지 제거
+        const sortedGroup = group.sort((a, b) => {
+          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
+          const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
+          return dateB - dateA; // 최신순 정렬
+        });
+        
+        // 첫 번째(최신)를 제외하고 나머지를 중복으로 처리
+        duplicatesToRemove.push(...sortedGroup.slice(1));
+      }
+    });
+
+    if (duplicatesToRemove.length === 0) {
+      alert('중복된 데이터가 없습니다.');
+      return;
+    }
+
+    // 중복 항목 정보 표시
+    const duplicateMessage = duplicatesToRemove.map(item => 
+      `• ${item.companyName} - ${item.siteName} (${item.amount}원, ${formatDate(item.bidDate)})`
+    ).join('\n');
+
+    const shouldRemove = window.confirm(
+      `${duplicatesToRemove.length}개의 중복 데이터를 발견했습니다.\n\n${duplicateMessage}\n\n가장 최근 데이터를 남기고 나머지를 삭제하시겠습니까?`
+    );
+
+    if (!shouldRemove) return;
+
+    try {
+      // 중복 데이터 삭제
+      for (const duplicate of duplicatesToRemove) {
+        await deleteDoc(doc(db, 'bids', duplicate.id));
+      }
+
+      alert(`${duplicatesToRemove.length}개의 중복 데이터가 삭제되었습니다.`);
+      await fetchVendors(); // 데이터 새로고침
+    } catch (error) {
+      console.error('중복 데이터 삭제 오류:', error);
+      alert('중복 데이터 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -1014,8 +1142,11 @@ const Vendors = () => {
           <IconButton onClick={() => setCompanyDialogOpen(true)} title="업체명 등록">
             <BusinessIcon />
           </IconButton>
-          <IconButton onClick={() => setUploadDialogOpen(true)}>
+          <IconButton onClick={() => setUploadDialogOpen(true)} title="파일 업로드">
             <UploadIcon />
+          </IconButton>
+          <IconButton onClick={handleRemoveDuplicates} title="중복 데이터 제거">
+            <DeleteSweepIcon />
           </IconButton>
           <IconButton onClick={handleDownload}>
             <DownloadIcon />

@@ -7,7 +7,7 @@ import UploadIcon from '@mui/icons-material/Upload';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import MaterialInventory from '../components/MaterialInventory';
 
-import { collection, onSnapshot, query, orderBy, where, getDocs, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where, getDocs, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { addSite, updateSite, deleteSite } from '../api/sites';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -622,14 +622,8 @@ const NewSites = () => {
       console.log('🔍 현재 selectedSite:', selectedSite);
       console.log('📋 템플릿 타입: AUTO (물량 개수에 따라 자동 결정)');
       
-      // 물량 개수에 따른 템플릿 타입 미리 계산
-      const previewMaterialItems = selectedSite?.items || [];
-      const itemCount = previewMaterialItems.length;
-      const templateType = itemCount > 20 ? 'L' : 'N';
-      const templateTypeText = templateType === 'L' ? 'LONG' : 'NEW';
-      
-      // 로딩 메시지 설정 (템플릿 타입 포함)
-      setLoadingMessage(`열심히 제작중에 있습니다.\n납품계약서 [${templateTypeText}]을 생산하고 있습니다.`);
+      // 초기 로딩 메시지 (물량 확인 전)
+      setLoadingMessage(`열심히 제작중에 있습니다.\n납품계약서를 생산하고 있습니다.`);
       
       // 거래처현황에서 회사 정보 가져오기
       const companyName = form.companyName || form.company || '';
@@ -719,6 +713,12 @@ const NewSites = () => {
                             // 납품계약서 생성 (NAPFOOM 전용 함수 사용)
                             console.log('🔍 납품계약서 생성용 site 데이터:', site);
                             console.log('🔍 납품계약서 생성용 materialItems:', napfoomMaterialItems.length, '개');
+                            
+                            // 실제 물량 개수에 따른 템플릿 타입 계산 및 로딩 메시지 업데이트
+                            const actualItemCount = napfoomMaterialItems.length;
+                            const actualTemplateType = actualItemCount > 20 ? 'L' : 'N';
+                            const actualTemplateTypeText = actualTemplateType === 'L' ? 'LONG' : 'NEW';
+                            setLoadingMessage(`열심히 제작중에 있습니다.\n납품계약서 [${actualTemplateTypeText}]을 생산하고 있습니다.`);
                             
                             let result;
                             try {
@@ -1389,10 +1389,7 @@ const NewSites = () => {
       return;
     }
     
-    // 수정하기 모드일 때 자동 저장 방지
-    if (preventAutoSave()) {
-      return;
-    }
+    // 항목 삭제는 즉시 처리 (자동 저장 방지 우회)
     
     // 삭제하려는 항목이 단수정리인지 확인
     const itemToRemove = form.items[index];
@@ -1443,36 +1440,69 @@ const NewSites = () => {
     // Firebase에 실시간 저장 (수정 모드일 때만)
     if (selectedSite && isEditing) {
       try {
-        // sites 컬렉션 업데이트
-        await updateDoc(doc(db, 'sites', selectedSite.id), {
-          items: newItems,
-          contractAmount: autoContractAmount > 0 ? autoContractAmount.toString() : form.contractAmount,
-          updatedAt: new Date()
-        });
+        console.log('🔄 Firebase에 항목 삭제 저장 시작...');
         
-        // materialEstimates 컬렉션도 함께 업데이트
-        const materialQuery = query(
-          collection(db, 'materialEstimates'),
-          where('siteId', '==', selectedSite.id)
-        );
-        const materialDocs = await getDocs(materialQuery);
+        // sites 컬렉션 업데이트 (재시도 로직 포함)
+        let retryCount = 0;
+        const maxRetries = 3;
         
-        if (!materialDocs.empty) {
-          const materialDoc = materialDocs.docs[0];
-          const materialData = materialDoc.data();
-          
-          // 삭제된 항목을 materialEstimates의 items에서도 제거
-          const updatedItems = materialData.items.filter((_, i) => i !== index);
-          
-          await updateDoc(doc(db, 'materialEstimates', materialDoc.id), {
-            items: updatedItems,
-            updatedAt: serverTimestamp()
-          });
-          
-          console.log('✅ materialEstimates 컬렉션에서도 품목 삭제 완료');
+        while (retryCount < maxRetries) {
+          try {
+            await updateDoc(doc(db, 'sites', selectedSite.id), {
+              items: newItems,
+              contractAmount: autoContractAmount > 0 ? autoContractAmount.toString() : form.contractAmount,
+              updatedAt: new Date()
+            });
+            console.log('✅ sites 컬렉션 업데이트 완료');
+            break;
+          } catch (siteError) {
+            retryCount++;
+            console.warn(`⚠️ sites 업데이트 실패 (${retryCount}/${maxRetries}):`, siteError);
+            if (retryCount === maxRetries) {
+              throw siteError;
+            }
+            // 잠시 대기 후 재시도
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          }
         }
+        
+        // materialEstimates 컬렉션도 함께 업데이트 (선택적)
+        try {
+          const materialQuery = query(
+            collection(db, 'materialEstimates'),
+            where('siteId', '==', selectedSite.id)
+          );
+          const materialDocs = await getDocs(materialQuery);
+          
+          if (!materialDocs.empty) {
+            const materialDoc = materialDocs.docs[0];
+            const materialData = materialDoc.data();
+            
+            // 삭제된 항목을 materialEstimates의 items에서도 제거
+            const updatedItems = materialData.items.filter((_, i) => i !== index);
+            
+            await updateDoc(doc(db, 'materialEstimates', materialDoc.id), {
+              items: updatedItems,
+              updatedAt: serverTimestamp()
+            });
+            
+            console.log('✅ materialEstimates 컬렉션에서도 품목 삭제 완료');
+          }
+        } catch (materialError) {
+          console.warn('⚠️ materialEstimates 업데이트 실패 (무시함):', materialError);
+          // materialEstimates 업데이트 실패는 무시하고 계속 진행
+        }
+        
+        console.log('✅ 항목 삭제 완료');
+        
       } catch (error) {
-        console.error('품목 삭제 실시간 저장 오류:', error);
+        console.error('❌ 품목 삭제 실시간 저장 오류:', error);
+        
+        // 사용자에게 오류 알림
+        alert('항목 삭제 중 오류가 발생했습니다. 페이지를 새로고침 후 다시 시도해주세요.');
+        
+        // 로컬 상태 롤백 (실패 시 원래 상태로 복원)
+        // setForm 호출 이전 상태로 되돌리기는 복잡하므로, 사용자에게 새로고침 권장
       }
     }
   };

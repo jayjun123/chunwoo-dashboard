@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, Autocomplete, Tabs, Tab } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, EditNote as EditNoteIcon, CalendarToday as CalendarIcon, BarChart as BarChartIcon } from '@mui/icons-material';
+import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, Autocomplete, Tabs, Tab, InputAdornment } from '@mui/material';
+import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, EditNote as EditNoteIcon, CalendarToday as CalendarIcon, BarChart as BarChartIcon, Clear as ClearIcon } from '@mui/icons-material';
 import CustomCalendar from '../CustomCalendar';
 import ScheduleHeatmap from './ScheduleHeatmap';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -996,13 +996,14 @@ const ScheduleManagement = ({
         event.preventDefault();
         console.log('Ctrl+C 감지됨');
         if (selectedItems && selectedItems.length > 0) {
-          // 선택된 항목 중 첫 번째 항목을 복사
+          // 선택된 항목 중 첫 번째 항목을 복사 (덮어쓰기 허용)
           const selectedItem = selectedItems[0];
           const item = calendarItems[selectedItem.date]?.find(item => item.id === selectedItem.id);
           if (item) {
-            setCopiedItem(item);
-            console.log('항목 복사됨:', item);
-            alert('항목이 복사되었습니다!');
+            // 기존 복사된 항목이 있어도 새로운 항목으로 덮어쓰기
+            setCopiedItem({...item}); // 객체 복사로 독립적인 복사본 생성
+            console.log('항목 복사됨 (덮어쓰기):', item);
+            alert(`현장 "${item.siteName || item.text}"이(가) 복사되었습니다!`);
           } else {
             console.log('복사할 항목을 찾을 수 없음');
           }
@@ -1831,7 +1832,65 @@ const ScheduleManagement = ({
                 onChange={(e) => {
                   setSiteSearchTerm(e.target.value);
                 }}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={() => setSiteSearchTerm('')}
+                        sx={{
+                          color: siteSearchTerm ? '#ccc' : '#666',
+                          '&:hover': {
+                            color: '#fff',
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                          },
+                          padding: '4px',
+                          opacity: siteSearchTerm ? 1 : 0.5
+                        }}
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
               />
+              
+              {/* 복사된 현장 표시 영역 */}
+              {copiedItem && (
+                <Box sx={{
+                  mt: 1,
+                  p: 1,
+                  bgcolor: 'rgba(255, 152, 0, 0.1)',
+                  border: '1px solid rgba(255, 152, 0, 0.3)',
+                  borderRadius: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="caption" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
+                      📋 복사됨:
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#fff', fontWeight: 500 }}>
+                      {copiedItem.siteName || copiedItem.text}
+                    </Typography>
+                  </Box>
+                  <IconButton
+                    size="small"
+                    onClick={() => setCopiedItem(null)}
+                    sx={{
+                      color: '#ff9800',
+                      '&:hover': {
+                        color: '#fff',
+                        backgroundColor: 'rgba(255, 152, 0, 0.2)'
+                      },
+                      padding: '2px'
+                    }}
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              )}
             </Box>
             <Droppable droppableId="siteList">
               {(provided, snapshot) => (

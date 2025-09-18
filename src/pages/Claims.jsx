@@ -63,7 +63,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { syncClaimToProgress } from '../utils/integrationUtils';
 
@@ -198,22 +198,36 @@ const Claims = () => {
   const [pendingData, setPendingData] = useState([]);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
 
-  // 임시저장 관련 함수들
-  const saveToLocalStorage = (key, data) => {
+  // 임시저장 관련 함수들 (Firestore 사용)
+  const saveToFirestore = async (key, data) => {
+    if (!currentUser?.uid) return;
+    
     try {
-      localStorage.setItem(key, JSON.stringify(data));
-      console.log(`${key} 로컬 저장 완료`);
+      const userDataRef = doc(db, 'userTempData', currentUser.uid);
+      await setDoc(userDataRef, {
+        [key]: data,
+        updatedAt: new Date()
+      }, { merge: true });
+      console.log(`${key} Firestore 저장 완료`);
     } catch (error) {
-      console.error('로컬 저장 오류:', error);
+      console.error('Firestore 저장 오류:', error);
     }
   };
 
-  const loadFromLocalStorage = (key) => {
+  const loadFromFirestore = async (key) => {
+    if (!currentUser?.uid) return null;
+    
     try {
-      const data = localStorage.getItem(key);
-      return data ? JSON.parse(data) : null;
+      const userDataRef = doc(db, 'userTempData', currentUser.uid);
+      const userDataDoc = await getDoc(userDataRef);
+      
+      if (userDataDoc.exists()) {
+        const data = userDataDoc.data();
+        return data[key] || null;
+      }
+      return null;
     } catch (error) {
-      console.error('로컬 로드 오류:', error);
+      console.error('Firestore 로드 오류:', error);
       return null;
     }
   };
@@ -226,7 +240,7 @@ const Claims = () => {
       type: 'claim'
     };
     setPendingData(prev => [...prev, newPending]);
-    saveToLocalStorage('pendingClaims', [...pendingData, newPending]);
+    saveToFirestore('pendingClaims', [...pendingData, newPending]);
   };
 
   const syncPendingData = async () => {

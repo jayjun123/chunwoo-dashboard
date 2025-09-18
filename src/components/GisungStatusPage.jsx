@@ -68,6 +68,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   const [sortField, setSortField] = useState('gisungMonth');
   const [sortDirection, setSortDirection] = useState('desc');
   const [selectedItems, setSelectedItems] = useState([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 10;
   
   // 네비게이션 상태
   const [viewType, setViewType] = useState(initialViewType || 'month');
@@ -2344,7 +2346,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
               </Typography>
             </Box>
           ) : (
-            filteredAndSortedGisung.map(row => (
+            filteredAndSortedGisung.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map(row => (
               <MobileGisungCard
                 key={row.id}
                 gisung={row}
@@ -2430,7 +2432,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredAndSortedGisung.map(row => (
+                  filteredAndSortedGisung.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map(row => (
                     <TableRow 
                       key={row.id}
                       sx={{ 
@@ -2578,7 +2580,83 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
               </TableBody>
             </Table>
           </TableContainer>
+          
+          {/* 페이지네이션 - 데스크톱 */}
+          {filteredAndSortedGisung.length > itemsPerPage && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 2, gap: 2, bgcolor: '#181f2e' }}>
+              <Button
+                variant="outlined"
+                disabled={currentPage === 0}
+                onClick={() => setCurrentPage(currentPage - 1)}
+                sx={{ 
+                  color: '#fff', 
+                  borderColor: '#666', 
+                  '&:hover': { borderColor: '#90caf9' },
+                  minWidth: '80px'
+                }}
+              >
+                이전
+              </Button>
+              
+              <Typography sx={{ color: '#fff', mx: 2, fontWeight: 'bold' }}>
+                {currentPage + 1} / {Math.ceil(filteredAndSortedGisung.length / itemsPerPage)} 페이지
+              </Typography>
+              
+              <Button
+                variant="outlined"
+                disabled={currentPage >= Math.ceil(filteredAndSortedGisung.length / itemsPerPage) - 1}
+                onClick={() => setCurrentPage(currentPage + 1)}
+                sx={{ 
+                  color: '#fff', 
+                  borderColor: '#666', 
+                  '&:hover': { borderColor: '#90caf9' },
+                  minWidth: '80px'
+                }}
+              >
+                다음
+              </Button>
+            </Box>
+          )}
         </Paper>
+      )}
+      
+      {/* 페이지네이션 - 모바일 */}
+      {isMobile && filteredAndSortedGisung.length > itemsPerPage && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 2, gap: 2 }}>
+          <Button
+            variant="outlined"
+            disabled={currentPage === 0}
+            onClick={() => setCurrentPage(currentPage - 1)}
+            sx={{ 
+              color: '#fff', 
+              borderColor: '#666', 
+              '&:hover': { borderColor: '#90caf9' },
+              minWidth: '80px',
+              fontSize: '0.8rem'
+            }}
+          >
+            이전
+          </Button>
+          
+          <Typography sx={{ color: '#fff', mx: 2, fontWeight: 'bold', fontSize: '0.9rem' }}>
+            {currentPage + 1} / {Math.ceil(filteredAndSortedGisung.length / itemsPerPage)}
+          </Typography>
+          
+          <Button
+            variant="outlined"
+            disabled={currentPage >= Math.ceil(filteredAndSortedGisung.length / itemsPerPage) - 1}
+            onClick={() => setCurrentPage(currentPage + 1)}
+            sx={{ 
+              color: '#fff', 
+              borderColor: '#666', 
+              '&:hover': { borderColor: '#90caf9' },
+              minWidth: '80px',
+              fontSize: '0.8rem'
+            }}
+          >
+            다음
+          </Button>
+        </Box>
       )}
 
       {/* 등록/수정 다이얼로그 */}

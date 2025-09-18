@@ -8,6 +8,8 @@ import { db } from '../firebase';
 
 const GisungStatusTable = ({ onNewGisung }) => {
   const [gisungList, setGisungList] = useState([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     fetchGisung();
@@ -80,7 +82,7 @@ const GisungStatusTable = ({ onNewGisung }) => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {gisungList.map((row) => (
+            {gisungList.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map((row) => (
               <TableRow key={row.id}>
                 <TableCell padding="checkbox"><Checkbox /></TableCell>
                 <TableCell>{row.name}</TableCell>
@@ -108,6 +110,33 @@ const GisungStatusTable = ({ onNewGisung }) => {
           </TableBody>
         </Table>
       </TableContainer>
+      
+      {/* 페이지네이션 */}
+      {gisungList.length > itemsPerPage && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 3, gap: 2 }}>
+          <Button
+            variant="outlined"
+            disabled={currentPage === 0}
+            onClick={() => setCurrentPage(currentPage - 1)}
+            sx={{ minWidth: '80px' }}
+          >
+            이전
+          </Button>
+          
+          <Typography sx={{ mx: 2, fontWeight: 'bold' }}>
+            {currentPage + 1} / {Math.ceil(gisungList.length / itemsPerPage)} 페이지
+          </Typography>
+          
+          <Button
+            variant="outlined"
+            disabled={currentPage >= Math.ceil(gisungList.length / itemsPerPage) - 1}
+            onClick={() => setCurrentPage(currentPage + 1)}
+            sx={{ minWidth: '80px' }}
+          >
+            다음
+          </Button>
+        </Box>
+      )}
     </Paper>
   );
 };

@@ -15,6 +15,7 @@ import { db } from '../../firebase';
 import { sendNewPostNotification, checkNotificationPermission, loadNotificationSettings } from '../../utils/notificationUtils';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserDisplayName, logUserInfo, getDeviceInfo } from '../../utils/discussionUtils';
+import { fixAriaHiddenIssues } from '../../utils/materialUploadUtils';
 import SearchableSiteSelect from '../common/SearchableSiteSelect';
 import {
   Box,
@@ -155,6 +156,15 @@ const PCKakaoDiscussion = () => {
       unsubscribeDiscussions();
     };
   }, []);
+
+  // aria-hidden 접근성 문제 해결
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fixAriaHiddenIssues();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [selectedDiscussion]);
 
   // 선택된 토론의 메시지 구독
   useEffect(() => {

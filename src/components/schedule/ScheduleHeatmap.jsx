@@ -103,6 +103,24 @@ const ScheduleHeatmap = ({
   
   const dateRange = getDateRange();
 
+  // 정규화 함수 (공통 사용)
+  const normalizeTeamName = (name) => {
+    if (!name) return '';
+    // 공백 제거
+    let normalized = name.trim();
+    
+    // "[협력]" 접두사 제거
+    normalized = normalized.replace(/^\[협력\]/, '');
+    
+    // "팀"으로 끝나지 않으면 추가
+    if (!normalized.endsWith('팀')) {
+      normalized = normalized + '팀';
+    }
+    
+    return normalized;
+  };
+
+
   // 시공팀 데이터 상태
   const [constructionTeams, setConstructionTeams] = useState([]);
 
@@ -122,32 +140,38 @@ const ScheduleHeatmap = ({
 
   // 시공팀 목록 추출 (팁 이름 포함)
   const teams = useMemo(() => {
+    // constructionTeams 데이터를 우선으로 사용하고, 중복 제거
     const teamMap = new Map();
     
-    // constructionTeams에서 팀 정보 가져오기
+    // constructionTeams에서 팀 정보 가져오기 (이것이 정확한 팀 목록)
     constructionTeams.forEach(team => {
       if (team.teamName) {
-        const displayName = team.managerName 
-          ? `${team.teamName} ${team.managerName}`
-          : team.teamName;
-        teamMap.set(team.teamName, displayName);
+        // 팀 이름을 정규화하여 키로 사용
+        const normalizedName = normalizeTeamName(team.teamName);
+        teamMap.set(normalizedName, normalizedName);
       }
     });
     
-    // sites에서 추가 팀 정보 수집
+    // sites에서 추가 팀 정보 수집 (constructionTeams에 없는 경우만)
     sites.forEach(site => {
-      if (site.team && !teamMap.has(site.team)) {
-        teamMap.set(site.team, site.team);
-      }
-      if (site.constructionTeam && !teamMap.has(site.constructionTeam)) {
-        teamMap.set(site.constructionTeam, site.constructionTeam);
-      }
-      if (site.constructionManager && !teamMap.has(site.constructionManager)) {
-        teamMap.set(site.constructionManager, site.constructionManager);
+      const siteTeam = site.team || site.constructionTeam || site.constructionManager;
+      if (siteTeam) {
+        const normalizedName = normalizeTeamName(siteTeam);
+        if (!teamMap.has(normalizedName)) {
+          teamMap.set(normalizedName, normalizedName);
+        }
       }
     });
     
-    return Array.from(teamMap.entries()).map(([key, value]) => ({ key, value }));
+    const result = Array.from(teamMap.entries()).map(([key, value]) => ({ key, value }));
+    
+    // 디버깅을 위한 로그
+    console.log('=== 시공팀 디버깅 ===');
+    console.log('constructionTeams 데이터:', constructionTeams);
+    console.log('정규화된 팀 목록:', result);
+    console.log('==================');
+    
+    return result;
   }, [sites, constructionTeams]);
 
   // 현장별 투입일수 및 공수 계산
@@ -160,7 +184,11 @@ const ScheduleHeatmap = ({
     targetSites.forEach(site => {
       const siteId = site.id;
       const siteName = site.name;
-      const team = site.team || site.constructionTeam || site.constructionManager || '미분류';
+      // 팀 정보 우선순위: team > constructionTeam > constructionManager
+      const rawTeam = site.team || site.constructionTeam || site.constructionManager || '미분류';
+      
+      
+      const team = normalizeTeamName(rawTeam);
       
       if (!workDays[siteId]) {
         workDays[siteId] = {
@@ -225,12 +253,18 @@ const ScheduleHeatmap = ({
         dailyManpower: {} // 일별 공수
       };
       
-      // 해당 팀의 현장들 찾기
-      const teamSites = sites.filter(site => 
-        site.team === team.key || 
-        site.constructionTeam === team.key || 
-        site.constructionManager === team.key
-      );
+      
+      // 해당 팀의 현장들 찾기 (정규화된 이름으로 비교)
+      const teamSites = sites.filter(site => {
+        const siteTeam = site.team || site.constructionTeam || site.constructionManager;
+        if (!siteTeam) return false;
+        
+        // 정규화된 이름으로 비교
+        const normalizedSiteTeam = normalizeTeamName(siteTeam);
+        const normalizedTeamKey = normalizeTeamName(team.key);
+        
+        return normalizedSiteTeam === normalizedTeamKey;
+      });
       
       teamStats[team.key].siteCount = teamSites.length;
       

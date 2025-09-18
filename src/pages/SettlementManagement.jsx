@@ -35,7 +35,8 @@ import {
   InputAdornment,
   Tooltip,
   Tabs,
-  Tab
+  Tab,
+  Checkbox
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -68,7 +69,7 @@ import {
   ArcElement,
 } from 'chart.js';
 import { Bar as ChartBar, Pie as ChartPie } from 'react-chartjs-2';
-import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, Legend as RechartsLegend, ResponsiveContainer, LabelList, LineChart, Line, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, Legend as RechartsLegend, ResponsiveContainer, LabelList, LineChart, Line, CartesianGrid, ReferenceLine, ComposedChart } from 'recharts';
 import { PieChart, Pie, Cell } from 'recharts';
 
 ChartJS.register(
@@ -93,7 +94,7 @@ const SettlementManagement = () => {
   const [costs, setCosts] = useState([]);
   const [safetyCosts, setSafetyCosts] = useState([]);
   const [gisungData, setGisungData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSettlement, setEditingSettlement] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -105,7 +106,54 @@ const SettlementManagement = () => {
   const [expensePage, setExpensePage] = useState(0);
   const [safetyPage, setSafetyPage] = useState(0);
   const [gisungPage, setGisungPage] = useState(0);
+  const [settlementPage, setSettlementPage] = useState(0);
   const itemsPerPage = 10;
+  
+  // 체크박스 필터링 상태 (차트용)
+  const [selectedSites, setSelectedSites] = useState(new Set());
+  const [isAllSelected, setIsAllSelected] = useState(true);
+  
+  // 테이블 정렬 상태
+  const [sortField, setSortField] = useState('');
+  const [sortDirection, setSortDirection] = useState('asc');
+  
+  // 체크박스 핸들러 함수들
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedSites(new Set());
+      setIsAllSelected(false);
+    } else {
+      setSelectedSites(new Set(settlements.map(s => s.siteId)));
+      setIsAllSelected(true);
+    }
+  };
+  
+  const handleSiteSelect = (siteId) => {
+    const newSelected = new Set(selectedSites);
+    if (newSelected.has(siteId)) {
+      newSelected.delete(siteId);
+    } else {
+      newSelected.add(siteId);
+    }
+    setSelectedSites(newSelected);
+    setIsAllSelected(newSelected.size === settlements.length);
+  };
+  
+  // 정렬 핸들러
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+  
+  // 정산페이지 접근 인증 관련 상태
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   // 차트 데이터 생성 함수
   const getChartData = (site, totalGisung) => {
@@ -154,27 +202,66 @@ const SettlementManagement = () => {
     }
   };
 
-  // 꺾은선 차트 데이터 생성
+  // 차트용 필터링된 settlements 데이터 (체크박스 기준)
+  const chartFilteredSettlements = settlements.filter(settlement => 
+    isAllSelected || selectedSites.has(settlement.siteId)
+  );
+  
+  // 테이블용 정렬된 settlements 데이터 (모든 데이터 표시, 정렬만 적용)
+  const sortedSettlements = [...settlements].sort((a, b) => {
+    if (!sortField) return 0;
+    
+    let aVal = a[sortField] || 0;
+    let bVal = b[sortField] || 0;
+    
+    // 숫자 필드들
+    if (['contractAmount', 'gisungAmount', 'materialCost', 'laborCost', 'subMaterialCost', 'equipmentCost', 'expenseCost', 'safetyCost'].includes(sortField)) {
+      aVal = Number(aVal);
+      bVal = Number(bVal);
+    }
+    // 문자열 필드들
+    else if (sortField === 'siteName') {
+      aVal = String(aVal).toLowerCase();
+      bVal = String(bVal).toLowerCase();
+    }
+    
+    if (sortDirection === 'asc') {
+      return aVal > bVal ? 1 : -1;
+    } else {
+      return aVal < bVal ? 1 : -1;
+    }
+  });
+
+  // 꺾은선 차트 데이터 생성 (백만원 단위)
   const getLineChartData = () => {
-    return settlements.map(settlement => ({
-      name: settlement.siteName,
-      계약금액: settlement.contractAmount || 0,
-      기성금액: settlement.gisungAmount || 0,
-      총비용: (settlement.materialCost || 0) + (settlement.laborCost || 0) + 
-              (settlement.subMaterialCost || 0) + (settlement.equipmentCost || 0) + 
-              (settlement.expenseCost || 0) + (settlement.safetyCost || 0),
-      순이익: (settlement.gisungAmount || 0) - 
-              ((settlement.materialCost || 0) + (settlement.laborCost || 0) + 
-               (settlement.subMaterialCost || 0) + (settlement.equipmentCost || 0) + 
-               (settlement.expenseCost || 0) + (settlement.safetyCost || 0))
-    }));
+    return chartFilteredSettlements.map(settlement => {
+      const contractAmount = settlement.contractAmount || 0;
+      const gisungAmount = settlement.gisungAmount || 0;
+      const gisungRate = contractAmount > 0 ? Math.round((gisungAmount / contractAmount) * 100) : 0;
+      const balanceAmount = contractAmount - gisungAmount;
+      
+      return {
+        name: settlement.siteName ? settlement.siteName.substring(0, 6) : '',
+        계약금액: Math.round(contractAmount / 1000000),
+        기성금액: Math.round(gisungAmount / 1000000),
+        잔액: Math.round(balanceAmount / 1000000),
+        기성률: gisungRate, // 퍼센트
+        총비용: Math.round(((settlement.materialCost || 0) + (settlement.laborCost || 0) + 
+                (settlement.subMaterialCost || 0) + (settlement.equipmentCost || 0) + 
+                (settlement.expenseCost || 0) + (settlement.safetyCost || 0)) / 1000000),
+        순이익: Math.round(((settlement.gisungAmount || 0) - 
+                ((settlement.materialCost || 0) + (settlement.laborCost || 0) + 
+                 (settlement.subMaterialCost || 0) + (settlement.equipmentCost || 0) + 
+                 (settlement.expenseCost || 0) + (settlement.safetyCost || 0))) / 1000000)
+      };
+    });
   };
 
   // 통계 데이터 계산
   const getStats = () => {
-    const totalContract = settlements.reduce((sum, s) => sum + (s.contractAmount || 0), 0);
-    const totalGisung = settlements.reduce((sum, s) => sum + (s.gisungAmount || 0), 0);
-    const totalCost = settlements.reduce((sum, s) => 
+    const totalContract = chartFilteredSettlements.reduce((sum, s) => sum + (s.contractAmount || 0), 0);
+    const totalGisung = chartFilteredSettlements.reduce((sum, s) => sum + (s.gisungAmount || 0), 0);
+    const totalCost = chartFilteredSettlements.reduce((sum, s) => 
       sum + (s.materialCost || 0) + (s.laborCost || 0) + (s.subMaterialCost || 0) + 
       (s.equipmentCost || 0) + (s.expenseCost || 0) + (s.safetyCost || 0), 0);
     const totalProfit = totalGisung - totalCost;
@@ -210,8 +297,10 @@ const SettlementManagement = () => {
     notes: ''
   });
 
-  // 현장 데이터 로드
+  // 현장 데이터 로드 (인증된 경우에만)
   useEffect(() => {
+    if (!isAuthenticated) return;
+    
     const loadSites = async () => {
       try {
         const sitesSnapshot = await getDocs(collection(db, 'sites'));
@@ -220,15 +309,19 @@ const SettlementManagement = () => {
           ...doc.data()
         }));
         setSites(sitesData);
+        console.log('현장 데이터 로드 완료:', sitesData.length, '개');
       } catch (error) {
         console.error('현장 데이터 로드 실패:', error);
+        setSites([]); // 오류 시 빈 배열로 설정
       }
     };
     loadSites();
-  }, []);
+  }, [isAuthenticated]);
 
   // 정산 데이터 로드 (기성관리페이지에서 데이터 가져오기)
   useEffect(() => {
+    if (!isAuthenticated || sites.length === 0) return;
+    
     const loadSettlements = async () => {
       try {
         console.log('정산 데이터 로드 시작...');
@@ -253,9 +346,19 @@ const SettlementManagement = () => {
           id: doc.id,
           ...doc.data()
         }));
+
+        // 자재비 데이터 로드 (정산 상세페이지에서 입력된 자재비)
+        const materialSnapshot = await getDocs(collection(db, 'material_costs'));
+        const materialData = materialSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
         
-        // 정산페이지가 생성된 현장만 필터링
-        const sitesWithSettlement = sites.filter(site => site.settlementPageCreated === true);
+        // 정산페이지가 생성된 현장만 필터링 (sites가 로드되었을 때만)
+        const sitesWithSettlement = sites.length > 0 ? sites.filter(site => site.settlementPageCreated === true) : [];
+        console.log('전체 현장 수:', sites.length);
+        console.log('정산페이지가 있는 현장 수:', sitesWithSettlement.length);
+        console.log('정산페이지가 있는 현장들:', sitesWithSettlement.map(s => s.name));
         
         // 현장별로 데이터 집계 (정산페이지가 생성된 현장만)
         const siteSummary = {};
@@ -285,14 +388,44 @@ const SettlementManagement = () => {
         });
         
         // 기성금관리페이지 (gisung 컬렉션)에서 데이터 집계
+        console.log('기성금 데이터 총 개수:', gisungData.length);
+        const statusCounts = {};
         gisungData.forEach(gisung => {
-          if (siteSummary[gisung.siteId]) {
-            if (gisung.claimStatus === '청구완료') {
-              // 기성금관리페이지의 기성금액 (청구완료만)
-              siteSummary[gisung.siteId].gisungAmount += Number(gisung.gisungAmount) || 0;
+          // 모든 필드 출력
+          console.log('기성금 데이터 전체:', gisung);
+          
+          // 상태별 카운트 (여러 가능한 필드명 확인)
+          const status = gisung.claimStatus || gisung.status || gisung.paymentStatus || gisung.state;
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+          
+          // siteId로 먼저 매칭 시도
+          let matchedSiteId = null;
+          if (gisung.siteId && siteSummary[gisung.siteId]) {
+            matchedSiteId = gisung.siteId;
+          } 
+          // siteId가 없거나 매칭되지 않으면 현장명으로 매칭 시도
+          else if (gisung.name) {
+            const matchedSite = sitesWithSettlement.find(site => site.name === gisung.name);
+            if (matchedSite && siteSummary[matchedSite.id]) {
+              matchedSiteId = matchedSite.id;
             }
           }
+          
+          if (matchedSiteId) {
+            console.log(`기성금 매칭 성공: 현장=${gisung.name || gisung.siteId}, siteId=${matchedSiteId}, 상태=${status}, 금액=${gisung.gisungAmount}`);
+            // 입금완료 상태의 기성금만 포함
+            if (gisung.paymentStatus === '입금완료') {
+              // 기성금관리페이지의 기성금액 (입금완료만)
+              siteSummary[matchedSiteId].gisungAmount += Number(gisung.gisungAmount) || 0;
+              console.log(`✅ 입금완료 기성금 추가: ${gisung.name} - ${Number(gisung.gisungAmount) || 0}원`);
+            } else {
+              console.log(`❌ 기성금 제외: ${gisung.name} - ${Number(gisung.gisungAmount) || 0}원 (claimStatus: ${gisung.claimStatus}, paymentStatus: ${gisung.paymentStatus || '미설정'})`);
+            }
+          } else {
+            console.log(`기성금 매칭 실패: 현장=${gisung.name || gisung.siteId}, siteId=${gisung.siteId}`);
+          }
         });
+        console.log('기성금 상태별 개수:', statusCounts);
         
         // 지출관리페이지 (costs 컬렉션)에서 데이터 집계
         costsData.forEach(cost => {
@@ -344,10 +477,23 @@ const SettlementManagement = () => {
             }
           }
         });
+
+        // 자재비 (material_costs 컬렉션)에서 데이터 집계
+        materialData.forEach(material => {
+          if (material.siteId && siteSummary[material.siteId]) {
+            // 정산 상세페이지에서 입력된 자재비 (amount 필드 사용)
+            siteSummary[material.siteId].materialCost += Number(material.amount) || 0;
+          }
+        });
         
         const settlementsData = Object.values(siteSummary);
         console.log('정산 데이터 로드 완료:', settlementsData);
         setSettlements(settlementsData);
+        
+        // 기본적으로 모든 사이트 선택
+        setSelectedSites(new Set(settlementsData.map(s => s.siteId)));
+        setIsAllSelected(true);
+        
         setLoading(false);
       } catch (error) {
         console.error('정산 데이터 로드 실패:', error);
@@ -356,10 +502,40 @@ const SettlementManagement = () => {
       }
     };
     loadSettlements();
-  }, [sites]);
+  }, [isAuthenticated, sites]);
+
+  // 컴포넌트 마운트 시 비밀번호 다이얼로그 표시
+  useEffect(() => {
+    setShowPasswordDialog(true);
+  }, []);
+
+  // 비밀번호 인증 관련 함수들
+  const handlePasswordSubmit = () => {
+    if (password === '2046') {
+      setShowPasswordDialog(false);
+      setPassword('');
+      setPasswordError('');
+      setIsAuthenticated(true);
+      setLoading(true); // 인증 후 데이터 로딩 시작
+      
+      // 3초 후 로딩 해제 (데이터 로딩 완료를 기다리지 않고)
+      setTimeout(() => {
+        setLoading(false);
+      }, 3000);
+    } else {
+      setPasswordError('비밀번호가 올바르지 않습니다.');
+    }
+  };
+
+  const handlePasswordDialogClose = () => {
+    // 비밀번호 입력 없이 닫으면 이전 페이지로 이동
+    navigate(-1);
+  };
 
   // 지출 데이터 로드
   useEffect(() => {
+    if (!isAuthenticated) return;
+    
     const loadCosts = async () => {
       try {
         const costsSnapshot = await getDocs(collection(db, 'costs'));
@@ -373,7 +549,102 @@ const SettlementManagement = () => {
       }
     };
     loadCosts();
-  }, []);
+  }, [isAuthenticated]);
+
+  // 인증되지 않은 경우 비밀번호 다이얼로그만 표시
+  if (!isAuthenticated) {
+    return (
+      <>
+        <Box sx={{ 
+          backgroundColor: '#1a1a1a', 
+          minHeight: '100vh',
+          color: 'white',
+          p: 3,
+          textAlign: 'center'
+        }}>
+          <Typography variant="h4" sx={{ color: '#ff9800', mb: 2 }}>
+            정산페이지 접근 인증
+          </Typography>
+          <Typography>인증이 필요합니다.</Typography>
+        </Box>
+        
+        {/* 정산페이지 비밀번호 입력 다이얼로그 */}
+        <Dialog 
+          open={showPasswordDialog} 
+          maxWidth="sm" 
+          fullWidth
+          onClose={handlePasswordDialogClose}
+          PaperProps={{
+            sx: {
+              bgcolor: '#181f2e',
+              color: '#fff',
+              borderRadius: 4,
+              p: 4
+            }
+          }}
+        >
+          <DialogTitle sx={{ color: '#fff', textAlign: 'center', pb: 1 }}>
+            정산페이지 접근
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+              <Typography variant="body1" sx={{ color: '#bbb', textAlign: 'center', mb: 2 }}>
+                정산페이지에 접근하려면 비밀번호를 입력하세요.
+              </Typography>
+              <TextField
+                type="password"
+                label="비밀번호"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                error={!!passwordError}
+                helperText={passwordError}
+                fullWidth
+                autoFocus
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handlePasswordSubmit();
+                  }
+                }}
+                sx={{
+                  '& .MuiInputBase-root': { 
+                    bgcolor: '#232b3b',
+                    color: '#fff'
+                  },
+                  '& .MuiInputLabel-root': { 
+                    color: '#bbb'
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': { 
+                    borderColor: '#444'
+                  },
+                  '& .MuiFormHelperText-root': { 
+                    color: '#f44336'
+                  }
+                }}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ p: 3, pt: 1 }}>
+            <Button 
+              onClick={handlePasswordDialogClose}
+              sx={{ color: '#bbb' }}
+            >
+              취소
+            </Button>
+            <Button 
+              onClick={handlePasswordSubmit}
+              variant="contained"
+              sx={{ 
+                bgcolor: '#ff9800',
+                '&:hover': { bgcolor: '#f57c00' }
+              }}
+            >
+              확인
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </>
+    );
+  }
 
   if (loading) {
     return (
@@ -405,7 +676,7 @@ const SettlementManagement = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <AttachMoneyIcon sx={{ fontSize: '2rem', color: '#ff9800' }} />
           <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold' }}>
-            {siteId ? '현장명 정산내역' : '현장명 정산내역'}
+            정산내역
           </Typography>
           <Chip 
             label={`총 ${settlements.length}개`} 
@@ -597,6 +868,7 @@ const SettlementManagement = () => {
           <Paper sx={{ 
             p: 3, 
             height: '400px', 
+            width: '850px',
             bgcolor: '#181f2e',
             border: '1px solid #232b3b'
           }}>
@@ -613,20 +885,28 @@ const SettlementManagement = () => {
                 <XAxis 
                   dataKey="name" 
                   stroke="#bbb"
-                  fontSize={12}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
+                  tick={{ fontSize: 16, fontWeight: 'bold', dx: 0, dy: 0 }}
+                  angle={0}
+                  textAnchor="middle"
+                  height={60}
+                  interval={0}
                 />
-                <YAxis stroke="#bbb" fontSize={12} />
+                <YAxis 
+                  stroke="#bbb" 
+                  fontSize={12}
+                  tickFormatter={(value) => `${value.toLocaleString()}`}
+                  label={{ value: '금액 (백만원)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#bbb' } }}
+                />
                 <RechartsTooltip 
                   contentStyle={{ 
                     backgroundColor: '#2a2a2a', 
                     border: '1px solid #333',
                     color: '#fff'
-                  }} 
+                  }}
+                  formatter={(value, name) => [`${value.toLocaleString()}백만원`, name]}
                 />
                 <RechartsLegend />
+                <ReferenceLine y={0} stroke="#ff0000" strokeDasharray="5 5" strokeWidth={2} />
                 <Line 
                   type="monotone" 
                   dataKey="기성금액" 
@@ -656,6 +936,7 @@ const SettlementManagement = () => {
           <Paper sx={{ 
             p: 3, 
             height: '400px', 
+            width: '850px',
             bgcolor: '#181f2e',
             border: '1px solid #232b3b'
           }}>
@@ -667,28 +948,51 @@ const SettlementManagement = () => {
               현장별 계약금/기성/잔액
             </Typography>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={getLineChartData()}>
+              <ComposedChart data={getLineChartData()}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                 <XAxis 
                   dataKey="name" 
                   stroke="#bbb"
-                  fontSize={12}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
+                  tick={{ fontSize: 16, fontWeight: 'bold', dx: 0, dy: 0 }}
+                  angle={0}
+                  textAnchor="middle"
+                  height={60}
+                  interval={0}
                 />
-                <YAxis stroke="#bbb" fontSize={12} />
+                <YAxis 
+                  yAxisId="left"
+                  stroke="#bbb" 
+                  fontSize={12}
+                  tickFormatter={(value) => `${value.toLocaleString()}`}
+                  label={{ value: '금액 (백만원)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#bbb' } }}
+                />
+                <YAxis 
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#ff9800" 
+                  fontSize={12}
+                  tickFormatter={(value) => `${value}%`}
+                  label={{ value: '기성률 (%)', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: '#ff9800' } }}
+                />
                 <RechartsTooltip 
                   contentStyle={{ 
                     backgroundColor: '#2a2a2a', 
                     border: '1px solid #333',
                     color: '#fff'
-                  }} 
+                  }}
+                  formatter={(value, name) => {
+                    if (name === '기성률') {
+                      return [`${value}%`, name];
+                    }
+                    return [`${value.toLocaleString()}백만원`, name];
+                  }}
                 />
                 <RechartsLegend />
-                <Bar dataKey="계약금액" fill="#1976d2" name="계약금액" />
-                <Bar dataKey="기성금액" fill="#43e97b" name="기성금액" />
-              </BarChart>
+                <Bar yAxisId="left" dataKey="계약금액" fill="#1976d2" name="계약금액" />
+                <Bar yAxisId="left" dataKey="기성금액" fill="#43e97b" name="기성금액" />
+                <Bar yAxisId="left" dataKey="잔액" fill="#f44336" name="잔액" />
+                <Line yAxisId="right" type="monotone" dataKey="기성률" stroke="#ff9800" strokeWidth={3} name="기성률" dot={{ fill: '#ff9800', strokeWidth: 2, r: 4 }} />
+              </ComposedChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
@@ -825,37 +1129,37 @@ const SettlementManagement = () => {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        <TableRow>
+                        <TableRow key="material-cost">
                           <TableCell sx={{ color: '#fff' }}>자재비</TableCell>
                           <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right' }}>
                             {formatNumber(siteSettlement?.materialCost || 0)}원
                           </TableCell>
                         </TableRow>
-                        <TableRow>
+                        <TableRow key="labor-cost">
                           <TableCell sx={{ color: '#fff' }}>노무비</TableCell>
                           <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right' }}>
                             {formatNumber(siteSettlement?.laborCost || 0)}원
                           </TableCell>
                         </TableRow>
-                        <TableRow>
+                        <TableRow key="sub-material-cost">
                           <TableCell sx={{ color: '#fff' }}>부자재비</TableCell>
                           <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right' }}>
                             {formatNumber(siteSettlement?.subMaterialCost || 0)}원
                           </TableCell>
                         </TableRow>
-                        <TableRow>
+                        <TableRow key="equipment-cost">
                           <TableCell sx={{ color: '#fff' }}>장비비</TableCell>
                           <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right' }}>
                             {formatNumber(siteSettlement?.equipmentCost || 0)}원
                           </TableCell>
                         </TableRow>
-                        <TableRow>
+                        <TableRow key="expense-cost">
                           <TableCell sx={{ color: '#fff' }}>경비</TableCell>
                           <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right' }}>
                             {formatNumber(siteSettlement?.expenseCost || 0)}원
                           </TableCell>
                         </TableRow>
-                        <TableRow>
+                        <TableRow key="safety-cost">
                           <TableCell sx={{ color: '#fff' }}>안전관리비</TableCell>
                           <TableCell sx={{ color: '#ff9800', fontWeight: 'bold', textAlign: 'right' }}>
                             {formatNumber(siteSettlement?.safetyCost || 0)}원
@@ -870,62 +1174,122 @@ const SettlementManagement = () => {
           })()}
         </Box>
       ) : (
-        /* 전체 정산 목록 (기존 테이블) */
+        <Box>
+        {/* 전체 정산 목록 (기존 테이블) */}
           <TableContainer component={Paper} sx={{ backgroundColor: '#2a2a2a' }}>
             <Table>
               <TableHead>
             <TableRow sx={{ backgroundColor: '#333' }}>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '12%', textAlign: 'center' }}>현장명</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '10%', textAlign: 'center' }}>계약금액</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '10%', textAlign: 'center' }}>기성금액</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '10%', textAlign: 'center' }}>자재비</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '10%', textAlign: 'center' }}>노무비</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '10%', textAlign: 'center' }}>부자재비</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '12%', textAlign: 'center' }}>장비비</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '12%', textAlign: 'center' }}>경비</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '10%', textAlign: 'center' }}>안전관리비</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '10%', textAlign: 'center' }}>비고</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center' }}>관리</TableCell>
+              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '5%', textAlign: 'center', fontSize: '1.1rem' }}>
+                <Checkbox
+                  checked={isAllSelected}
+                  onChange={handleSelectAll}
+                  sx={{ color: '#fff' }}
+                />
+              </TableCell>
+              <TableCell 
+                sx={{ color: '#fff', fontWeight: 600, width: '15%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                onClick={() => handleSort('siteName')}
+              >
+                현장명 {sortField === 'siteName' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableCell>
+              <TableCell 
+                sx={{ color: '#fff', fontWeight: 600, width: '10%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                onClick={() => handleSort('contractAmount')}
+              >
+                계약금액 {sortField === 'contractAmount' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableCell>
+              <TableCell 
+                sx={{ color: '#fff', fontWeight: 600, width: '10%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                onClick={() => handleSort('gisungAmount')}
+              >
+                기성금액 {sortField === 'gisungAmount' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableCell>
+              <TableCell 
+                sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                onClick={() => handleSort('materialCost')}
+              >
+                자재비 {sortField === 'materialCost' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableCell>
+              <TableCell 
+                sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                onClick={() => handleSort('laborCost')}
+              >
+                노무비 {sortField === 'laborCost' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableCell>
+              <TableCell 
+                sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                onClick={() => handleSort('subMaterialCost')}
+              >
+                부자재비 {sortField === 'subMaterialCost' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableCell>
+              <TableCell 
+                sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                onClick={() => handleSort('equipmentCost')}
+              >
+                장비비 {sortField === 'equipmentCost' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableCell>
+              <TableCell 
+                sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                onClick={() => handleSort('expenseCost')}
+              >
+                경비 {sortField === 'expenseCost' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableCell>
+              <TableCell 
+                sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                onClick={() => handleSort('safetyCost')}
+              >
+                안전관리비 {sortField === 'safetyCost' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableCell>
+              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '6%', textAlign: 'center', fontSize: '1.1rem' }}>비고</TableCell>
+              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '6%', textAlign: 'center', fontSize: '1.1rem' }}>관리</TableCell>
             </TableRow>
               </TableHead>
               <TableBody>
-            {settlements.length === 0 ? (
-                <TableRow>
-                <TableCell colSpan={11} sx={{ textAlign: 'center', py: 4, color: '#bbb' }}>
+            {sortedSettlements.length === 0 ? (
+                <TableRow key="no-data">
+                <TableCell colSpan={12} sx={{ textAlign: 'center', py: 4, color: '#bbb' }}>
                   정산 데이터가 없습니다.
                   </TableCell>
                 </TableRow>
               ) : (
-              settlements.map((settlement) => (
+              sortedSettlements.slice(settlementPage * itemsPerPage, (settlementPage + 1) * itemsPerPage).map((settlement) => (
                 <TableRow key={settlement.id} sx={{ '&:hover': { backgroundColor: '#333' } }}>
-                  <TableCell sx={{ color: '#fff', fontWeight: 500 }}>
+                  <TableCell sx={{ textAlign: 'center' }}>
+                    <Checkbox
+                      checked={isAllSelected || selectedSites.has(settlement.siteId)}
+                      onChange={() => handleSiteSelect(settlement.siteId)}
+                      sx={{ color: '#fff' }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 500, fontSize: '1.1rem' }}>
                     {settlement.siteName || '미정'}
                       </TableCell>
-                  <TableCell sx={{ color: '#43e97b', fontWeight: 'bold', textAlign: 'right' }}>
+                  <TableCell sx={{ color: '#43e97b', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
                     {formatNumber(settlement.contractAmount || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#43e97b', fontWeight: 'bold', textAlign: 'right' }}>
+                  <TableCell sx={{ color: '#43e97b', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
                     {formatNumber(settlement.gisungAmount || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right' }}>
+                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
                     {formatNumber(settlement.materialCost || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right' }}>
+                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
                     {formatNumber(settlement.laborCost || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right' }}>
+                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
                     {formatNumber(settlement.subMaterialCost || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right' }}>
+                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
                     {formatNumber(settlement.equipmentCost || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right' }}>
+                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
                     {formatNumber(settlement.expenseCost || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#ff9800', fontWeight: 'bold', textAlign: 'right' }}>
+                  <TableCell sx={{ color: '#ff9800', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
                     {formatNumber(settlement.safetyCost || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#bbb', fontSize: '0.9rem' }}>
+                  <TableCell sx={{ color: '#bbb', fontSize: '1.1rem' }}>
                     {settlement.notes || '-'}
                       </TableCell>
                       <TableCell>
@@ -948,6 +1312,34 @@ const SettlementManagement = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
+              
+              {/* 페이지네이션 */}
+              {sortedSettlements.length > itemsPerPage && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 3, gap: 2 }}>
+                  <Button
+                    variant="outlined"
+                    disabled={settlementPage === 0}
+                    onClick={() => setSettlementPage(settlementPage - 1)}
+                    sx={{ color: '#fff', borderColor: '#666', '&:hover': { borderColor: '#ff9800' } }}
+                  >
+                    이전
+                  </Button>
+                  
+                  <Typography sx={{ color: '#fff', mx: 2 }}>
+                    {settlementPage + 1} / {Math.ceil(sortedSettlements.length / itemsPerPage)} 페이지
+                  </Typography>
+                  
+                  <Button
+                    variant="outlined"
+                    disabled={settlementPage >= Math.ceil(sortedSettlements.length / itemsPerPage) - 1}
+                    onClick={() => setSettlementPage(settlementPage + 1)}
+                    sx={{ color: '#fff', borderColor: '#666', '&:hover': { borderColor: '#ff9800' } }}
+                  >
+                    다음
+                  </Button>
+                </Box>
+              )}
+        </Box>
       )}
 
       {/* 스낵바 */}

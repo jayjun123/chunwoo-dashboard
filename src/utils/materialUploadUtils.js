@@ -10,7 +10,7 @@ import { templateUrls, templateDescriptions } from './templateUrls';
  * aria-hidden 문제 해결 함수
  * 포커스 가능한 요소가 있는 경우 aria-hidden 제거
  */
-const fixAriaHiddenIssues = () => {
+export const fixAriaHiddenIssues = () => {
   try {
     console.log('🔧 aria-hidden 문제 해결 시작');
     
@@ -1526,6 +1526,9 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
             return; // 이 행은 여기서 종료
           }
           
+          // 단수정리 항목인지 확인
+          const isAdjustmentItem = item?.name === '단수정리' || item?.name === 'NEGO' || item?.name === '간접비';
+          
           // 템플릿 타입에 따른 데이터 입력
           if (documentType === '기성금청구서') {
             // 기성금청구서: A,B,C,D,E열만 입력, 나머지 수식 유지
@@ -1535,7 +1538,8 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
               itemName: item?.name,
               unitPrice: item?.unitPrice,
               price: item?.price,
-              finalEValue: eValue
+              finalEValue: eValue,
+              isAdjustmentItem: isAdjustmentItem
             });
             
             detailSheet.getCell(`A${row}`).value = safeString(item?.name);
@@ -1552,9 +1556,29 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
               detailSheet.getCell(`C${row}`).value = unit;
               detailSheet.getCell(`D${row}`).value = quantity;
               
-              const jePrice = safeNumber(item?.JEprice || item?.JE프라이스 || item?.JE || item?.재료비 || item?.자재비);
-              const noPrice = safeNumber(item?.NOprice || item?.NO프라이스 || item?.NO || item?.노무비);
-              const kyPrice = safeNumber(item?.KYprice || item?.KY프라이스 || item?.KY || item?.경비);
+              // 단수정리 항목인 경우 unitPrice를 사용, 아니면 개별 단가 사용
+              let jePrice, noPrice, kyPrice;
+              
+              if (isAdjustmentItem) {
+                // 단수정리: unitPrice를 E열에만 입력하고, G, I열은 0으로 설정
+                const unitPrice = safeNumber(item?.unitPrice || item?.price);
+                jePrice = unitPrice;
+                noPrice = 0;
+                kyPrice = 0;
+                
+                console.log(`🔍 단수정리 항목 단가 처리 - 행 ${row}:`, {
+                  itemName: item?.name,
+                  unitPrice: unitPrice,
+                  jePrice: jePrice,
+                  noPrice: noPrice,
+                  kyPrice: kyPrice
+                });
+              } else {
+                // 일반 항목: 개별 단가 사용
+                jePrice = safeNumber(item?.JEprice || item?.JE프라이스 || item?.JE || item?.재료비 || item?.자재비);
+                noPrice = safeNumber(item?.NOprice || item?.NO프라이스 || item?.NO || item?.노무비);
+                kyPrice = safeNumber(item?.KYprice || item?.KY프라이스 || item?.KY || item?.경비);
+              }
               
               // E열: 재료비 단가만 입력 (수식 유지)
               detailSheet.getCell(`E${row}`).value = jePrice;
@@ -1575,9 +1599,29 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
               detailSheet.getCell(`C${row}`).value = unit;
               detailSheet.getCell(`D${row}`).value = quantity;
               
-              const jePrice = safeNumber(item?.JEprice || item?.JE프라이스 || item?.JE || item?.재료비 || item?.자재비);
-              const noPrice = safeNumber(item?.NOprice || item?.NO프라이스 || item?.NO || item?.노무비);
-              const kyPrice = safeNumber(item?.KYprice || item?.KY프라이스 || item?.KY || item?.경비);
+              // 단수정리 항목인 경우 unitPrice를 사용, 아니면 개별 단가 사용
+              let jePrice, noPrice, kyPrice;
+              
+              if (isAdjustmentItem) {
+                // 단수정리: unitPrice를 E열에만 입력하고, G, I열은 0으로 설정
+                const unitPrice = safeNumber(item?.unitPrice || item?.price);
+                jePrice = unitPrice;
+                noPrice = 0;
+                kyPrice = 0;
+                
+                console.log(`🔍 단수정리 항목 단가 처리 (N템플릿) - 행 ${row}:`, {
+                  itemName: item?.name,
+                  unitPrice: unitPrice,
+                  jePrice: jePrice,
+                  noPrice: noPrice,
+                  kyPrice: kyPrice
+                });
+              } else {
+                // 일반 항목: 개별 단가 사용
+                jePrice = safeNumber(item?.JEprice || item?.JE프라이스 || item?.JE || item?.재료비 || item?.자재비);
+                noPrice = safeNumber(item?.NOprice || item?.NO프라이스 || item?.NO || item?.노무비);
+                kyPrice = safeNumber(item?.KYprice || item?.KY프라이스 || item?.KY || item?.경비);
+              }
               
               detailSheet.getCell(`E${row}`).value = jePrice;
               // F열: 재료비 금액 (단가 × 수량)

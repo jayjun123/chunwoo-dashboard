@@ -70,10 +70,10 @@ export const subscribeToMessages = (discussionId, callback) => {
   }
 
   try {
+    // 임시 해결: 인덱스 생성 전까지 단순 쿼리 사용
     const q = query(
       messagesCollection,
-      where('discussionId', '==', discussionId),
-      orderBy('timestamp', 'asc')
+      where('discussionId', '==', discussionId)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -88,7 +88,15 @@ export const subscribeToMessages = (discussionId, callback) => {
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt
         });
       });
-      console.log('🔥 실시간 메시지 업데이트:', discussionId, messages.length, '개');
+
+      // 클라이언트 사이드에서 timestamp로 정렬
+      messages.sort((a, b) => {
+        const aTime = a.timestamp || a.createdAt || new Date(0);
+        const bTime = b.timestamp || b.createdAt || new Date(0);
+        return aTime - bTime; // 오름차순 정렬
+      });
+
+      console.log('🔥 실시간 메시지 업데이트:', discussionId, messages.length, '개 (정렬 완료)');
       callback(messages);
     }, (error) => {
       console.error('🔥 메시지 구독 오류:', error);
