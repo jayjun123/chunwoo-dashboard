@@ -1673,7 +1673,7 @@ const Progress = () => {
               <ResponsiveContainer width="100%" minWidth="100vw" height={isMobile ? 300 : 600} minHeight={isMobile ? 200 : 500} style={{ margin: '0 auto', display: 'flex', justifyContent: 'center', width: '100%', maxWidth: 'none' }}>
                 <BarChart
                   data={getMonthChartData}
-                  margin={{ top: 20, right: 20, left: isMobile ? 10 : 20, bottom: 20 }}
+                  margin={{ top: 80, right: 20, left: isMobile ? 10 : 20, bottom: 20 }}
                   barCategoryGap="100%"
                   barSize={60}
                 >
@@ -1699,16 +1699,16 @@ const Progress = () => {
                     <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} />
                   </Bar>
                   <Bar dataKey="입금완료" fill="#00bcd4">
-                    <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={25} />
+                    <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={30} />
                   </Bar>
                   <Bar dataKey="노무" fill="#ffc658">
-                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={50} />
+                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={60} />
                   </Bar>
                   <Bar dataKey="경비" fill="#ff6b6b">
-                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={75} />
+                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={90} />
                   </Bar>
                   <Bar dataKey="기타" fill="#a084e8">
-                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={100} />
+                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={120} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -1728,7 +1728,7 @@ const Progress = () => {
               <ResponsiveContainer width="100%" minWidth="100vw" height={isMobile ? 300 : 600} minHeight={isMobile ? 200 : 500} style={{ margin: 'flex', justifyContent: 'center', width: '100%', maxWidth: 'none' }}>
                 <BarChart
                   data={getSiteChartData}
-                  margin={{ top: 20, right: 20, left: 20, bottom: 20 }}
+                  margin={{ top: 80, right: 20, left: 20, bottom: 20 }}
                   barCategoryGap="100%"
                   barSize={60}
                 >
@@ -1754,16 +1754,16 @@ const Progress = () => {
                     <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} />
                   </Bar>
                   <Bar dataKey="입금완료" fill="#00bcd4">
-                    <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={25} />
+                    <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={30} />
                   </Bar>
                   <Bar dataKey="노무" fill="#ffc658">
-                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={50} />
+                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={60} />
                   </Bar>
                   <Bar dataKey="경비" fill="#ff6b6b">
-                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={75} />
+                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={90} />
                   </Bar>
                   <Bar dataKey="기타" fill="#a084e8">
-                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={100} />
+                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={120} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
