@@ -2340,7 +2340,7 @@ export default function SettlementDetail() {
                 '&:hover': { bgcolor: '#45a049' }
               }}
             >
-              엑셀 다운로드
+              EXCEL
             </Button>
             <Button
               startIcon={<DeleteIcon />}
@@ -2350,7 +2350,7 @@ export default function SettlementDetail() {
                 '&:hover': { bgcolor: 'rgba(244, 67, 54, 0.1)' }
               }}
             >
-              정산 삭제
+              삭제
             </Button>
           </Box>
         </Box>
