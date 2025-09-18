@@ -1705,7 +1705,7 @@ const Progress = () => {
                     <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={60} />
                   </Bar>
                   <Bar dataKey="경비" fill="#ff6b6b">
-                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={90} />
+                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={10} />
                   </Bar>
                   <Bar dataKey="기타" fill="#a084e8">
                     <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={120} />
@@ -1760,7 +1760,7 @@ const Progress = () => {
                     <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={60} />
                   </Bar>
                   <Bar dataKey="경비" fill="#ff6b6b">
-                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={90} />
+                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={10} />
                   </Bar>
                   <Bar dataKey="기타" fill="#a084e8">
                     <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={120} />
