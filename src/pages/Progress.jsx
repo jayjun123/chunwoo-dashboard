@@ -694,14 +694,14 @@ const Progress = () => {
           .filter(cost => cost.itemType === '노무비')
           .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
         
-        // 경비: 순수한 경비 항목들 (노무비, 기타 제외)
+        // 경비: 노무비와 기타를 제외한 모든 지출 항목들
         const totalExpense = siteCostData
-          .filter(cost => ['경비', '월세', '임대료', '식대', '유류비'].includes(cost.itemType))
+          .filter(cost => !['노무비', '기타'].includes(cost.itemType))
           .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
         
-        // 기타: RnD, 기타, 부자재비, 장비비 등
+        // 기타: 기타 항목만
         const totalEtc = siteCostData
-          .filter(cost => cost.itemType === 'RnD' || cost.itemType === '기타' || cost.itemType === '부자재비' || cost.itemType === '장비비')
+          .filter(cost => cost.itemType === '기타')
           .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
         
         // 입금완료 금액 계산 (기성 데이터에서 paymentStatus가 '입금완료'인 항목들)
@@ -750,14 +750,14 @@ const Progress = () => {
         .filter(cost => cost.itemType === '노무비')
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
-      // 경비: 순수한 경비 항목들 (노무비, 기타 제외)
+      // 경비: 노무비와 기타를 제외한 모든 지출 항목들
       const totalExpense = siteCostData
-        .filter(cost => ['경비', '월세', '임대료', '식대', '유류비'].includes(cost.itemType))
+        .filter(cost => !['노무비', '기타'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
-      // 기타: RnD, 기타, 부자재비, 장비비 등
+      // 기타: 기타 항목만
       const totalEtc = siteCostData
-        .filter(cost => cost.itemType === 'RnD' || cost.itemType === '기타' || cost.itemType === '부자재비' || cost.itemType === '장비비')
+        .filter(cost => cost.itemType === '기타')
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
       // 입금완료 금액 계산 (기성 데이터에서 paymentStatus가 '입금완료'인 항목들)
@@ -851,14 +851,14 @@ const Progress = () => {
         .filter(cost => cost.itemType === '노무비')
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
-      // 경비: 순수한 경비 항목들 (노무비, 기타 제외)
+      // 경비: 노무비와 기타를 제외한 모든 지출 항목들
       const totalExpense = monthCostData
-        .filter(cost => ['경비', '월세', '임대료', '식대', '유류비'].includes(cost.itemType))
+        .filter(cost => !['노무비', '기타'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
-      // 기타: RnD, 기타, 부자재비, 장비비 등
+      // 기타: 기타 항목만
       const totalEtc = monthCostData
-        .filter(cost => cost.itemType === 'RnD' || cost.itemType === '기타' || cost.itemType === '부자재비' || cost.itemType === '장비비')
+        .filter(cost => cost.itemType === '기타')
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
       monthData.push({
