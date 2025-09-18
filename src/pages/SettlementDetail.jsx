@@ -1872,19 +1872,34 @@ export default function SettlementDetail() {
       `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}`
     );
 
-    // 월별 기성금 데이터
+    // 월별 기성금 데이터 (전체)
     const gisungByMonth = {};
+    // 월별 입금완료 금액 데이터
+    const paidGisungByMonth = {};
+    
     gisungData.forEach(item => {
       console.log('기성금 항목:', item);
       // gisungMonth 필드 사용 (예: '2025-07')
       if (item.gisungMonth && item.gisungAmount) {
         // gisungMonth를 차트 라벨 형식으로 변환 (2025-07 -> 2025.07)
         const monthKey = item.gisungMonth.replace('-', '.');
+        const amount = Number(item.gisungAmount) || 0;
+        
+        // 전체 기성금
         if (!gisungByMonth[monthKey]) {
           gisungByMonth[monthKey] = 0;
         }
-        gisungByMonth[monthKey] += Number(item.gisungAmount) || 0;
-        console.log('기성금 추가됨:', { monthKey, amount: item.gisungAmount });
+        gisungByMonth[monthKey] += amount;
+        
+        // 입금완료만 별도 계산
+        if (item.paymentStatus === '입금완료') {
+          if (!paidGisungByMonth[monthKey]) {
+            paidGisungByMonth[monthKey] = 0;
+          }
+          paidGisungByMonth[monthKey] += amount;
+        }
+        
+        console.log('기성금 추가됨:', { monthKey, amount: item.gisungAmount, paymentStatus: item.paymentStatus });
       }
     });
     
@@ -1894,7 +1909,8 @@ export default function SettlementDetail() {
     // 월별 지출 데이터를 항목별로 분리
     const laborByMonth = {}; // 노무비
     const materialByMonth = {}; // 자재비 (materialData에서)
-    const otherByMonth = {}; // 나머지 지출 (부자재비 포함)
+    const expenseByMonth = {}; // 경비
+    const otherByMonth = {}; // 기타 지출 (부자재비, 장비비 등)
     const workersByMonth = {}; // 월별 공수
     
     // 자재비 데이터 처리 (materialData에서)
@@ -1922,8 +1938,12 @@ export default function SettlementDetail() {
           const workers = Number(item.workers) || 0;
           if (!workersByMonth[monthKey]) workersByMonth[monthKey] = 0;
           workersByMonth[monthKey] += workers;
+        } else if (item.itemType === '경비') {
+          // 경비 별도 처리
+          if (!expenseByMonth[monthKey]) expenseByMonth[monthKey] = 0;
+          expenseByMonth[monthKey] += amount;
         } else {
-          // 자재비를 제외한 모든 지출 (부자재비, 장비비, 경비, 기타 등)
+          // 기타 지출 (부자재비, 장비비, 기타 등)
           if (!otherByMonth[monthKey]) otherByMonth[monthKey] = 0;
           otherByMonth[monthKey] += amount;
         }
@@ -1952,21 +1972,25 @@ export default function SettlementDetail() {
     
     console.log('차트용 노무비 데이터:', laborByMonth);
     console.log('차트용 자재비 데이터:', materialByMonth);
+    console.log('차트용 경비 데이터:', expenseByMonth);
     console.log('차트용 기타 지출 데이터:', otherByMonth);
     console.log('차트용 월별 공수 데이터:', workersByMonth);
+    console.log('차트용 입금완료 데이터:', paidGisungByMonth);
     console.log('일정 데이터:', scheduleData);
 
     const gisungValues = labels.map(label => gisungByMonth[label] || 0);
+    const paidGisungValues = labels.map(label => paidGisungByMonth[label] || 0);
     const laborValues = labels.map(label => laborByMonth[label] || 0);
     const materialValues = labels.map(label => materialByMonth[label] || 0);
+    const expenseValues = labels.map(label => expenseByMonth[label] || 0);
     const otherValues = labels.map(label => otherByMonth[label] || 0);
     const workersValues = labels.map(label => workersByMonth[label] || 0);
     
     console.log('월별 공수 값들:', workersValues);
     
-    // 지출 총합계 계산 (노무비 + 자재비 + 기타지출)
+    // 지출 총합계 계산 (노무비 + 자재비 + 경비 + 기타지출)
     const totalCostValues = labels.map((label, index) => 
-      (laborValues[index] || 0) + (materialValues[index] || 0) + (otherValues[index] || 0)
+      (laborValues[index] || 0) + (materialValues[index] || 0) + (expenseValues[index] || 0) + (otherValues[index] || 0)
     );
 
     // 차트 라벨에 공수 정보 추가 (공수가 있는 경우에만)
@@ -1980,8 +2004,10 @@ export default function SettlementDetail() {
     console.log('차트 라벨:', labels);
     console.log('차트 라벨 (공수 포함):', labelsWithWorkers);
     console.log('기성금 값들:', gisungValues);
+    console.log('입금완료 값들:', paidGisungValues);
     console.log('노무비 값들:', laborValues);
     console.log('자재비 값들:', materialValues);
+    console.log('경비 값들:', expenseValues);
     console.log('기타 지출 값들:', otherValues);
     console.log('월별 공수 값들:', workersValues);
     console.log('지출 총합계 값들:', totalCostValues);
@@ -1994,6 +2020,14 @@ export default function SettlementDetail() {
           data: gisungValues,
           borderColor: '#43e97b',
           backgroundColor: 'rgba(67, 233, 123, 0.1)',
+          tension: 0,
+          fill: false
+        },
+        {
+          label: '입금완료',
+          data: paidGisungValues,
+          borderColor: '#00bcd4',
+          backgroundColor: 'rgba(0, 188, 212, 0.1)',
           tension: 0,
           fill: false
         },
@@ -2023,7 +2057,15 @@ export default function SettlementDetail() {
           fill: false
         },
         {
-          label: '기타 지출',
+          label: '경비',
+          data: expenseValues,
+          borderColor: '#4caf50',
+          backgroundColor: 'rgba(76, 175, 80, 0.1)',
+          tension: 0,
+          fill: false
+        },
+        {
+          label: '기타',
           data: otherValues,
           borderColor: '#ff9800',
           backgroundColor: 'rgba(255, 152, 0, 0.1)',
