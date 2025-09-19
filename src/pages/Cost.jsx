@@ -49,6 +49,42 @@ import { useAuth } from '../contexts/AuthContext';
 import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
 import { syncCostToSite } from '../utils/integrationUtils';
 
+// iOS 호환 날짜 파싱 함수
+const parseDate = (dateStr) => {
+  if (!dateStr) return new Date(0);
+  
+  // 문자열인 경우 iOS 호환 형식으로 변환
+  if (typeof dateStr === 'string') {
+    // YYYY-MM-DD 형식인 경우
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return new Date(dateStr + 'T12:00:00');
+    }
+    // YYYY-MM 형식인 경우 (월까지만 있는 경우)
+    if (dateStr.match(/^\d{4}-\d{2}$/)) {
+      return new Date(dateStr + '-01T12:00:00');
+    }
+    // YYYY.MM 형식인 경우
+    if (dateStr.match(/^\d{4}\.\d{2}$/)) {
+      const [year, month] = dateStr.split('.');
+      return new Date(`${year}-${month}-01T12:00:00`);
+    }
+    // 다른 형식인 경우 그대로 파싱
+    return new Date(dateStr);
+  }
+  
+  // Firestore Timestamp인 경우
+  if (dateStr.toDate) {
+    return dateStr.toDate();
+  }
+  
+  // Date 객체인 경우
+  if (dateStr instanceof Date) {
+    return dateStr;
+  }
+  
+  return new Date(dateStr);
+};
+
 const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }) => {
   const { currentUser } = useAuth();
   const [costs, setCosts] = useState([]);
@@ -185,8 +221,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         aValue = Number(a.totalValue) || 0;
         bValue = Number(b.totalValue) || 0;
       } else if (sortField === 'date') {
-        aValue = new Date(a.date || 0);
-        bValue = new Date(b.date || 0);
+        aValue = parseDate(a.date || 0);
+        bValue = parseDate(b.date || 0);
       } else if (sortField === 'itemType') {
         aValue = String(a.itemType || '').toLowerCase();
         bValue = String(b.itemType || '').toLowerCase();
@@ -542,8 +578,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     
     // 사용날짜 순으로 정렬
     const sortedCosts = existingCosts.sort((a, b) => {
-      const dateA = new Date(a.date || 0);
-      const dateB = new Date(b.date || 0);
+      const dateA = parseDate(a.date || 0);
+      const dateB = parseDate(b.date || 0);
       return dateA - dateB;
     });
     
@@ -555,12 +591,12 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     
     // 선택된 날짜가 있으면 해당 날짜 기준으로 차수 계산
     if (selectedDate) {
-      const selectedDateObj = new Date(selectedDate);
+      const selectedDateObj = parseDate(selectedDate);
       console.log('📅 선택된 날짜:', selectedDateObj);
       
       // 선택된 날짜 이전 데이터 기준으로 기본 차수 계산
       const previousCosts = sortedCosts.filter(cost => {
-        const costDate = new Date(cost.date || 0);
+        const costDate = parseDate(cost.date || 0);
         const isBefore = costDate < selectedDateObj;
         console.log(`📅 ${cost.sequence} (${cost.date}) < ${selectedDate}? ${isBefore}`);
         return isBefore;
@@ -589,7 +625,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       
       // 같은 날짜의 데이터 필터링
       const sameDateCosts = sortedCosts.filter(cost => {
-        const costDate = new Date(cost.date || 0);
+        const costDate = parseDate(cost.date || 0);
         return costDate.toDateString() === selectedDateObj.toDateString();
       });
       
@@ -682,8 +718,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     const sortedList = siteItemCosts
       .filter(item => item.date) // 사용날짜가 있는 항목만
       .sort((a, b) => {
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
+        const dateA = parseDate(a.date);
+        const dateB = parseDate(b.date);
         return dateA - dateB;
       });
     
@@ -725,8 +761,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         const sortedCosts = groupCosts
           .filter(cost => cost.date)
           .sort((a, b) => {
-            const dateA = new Date(a.date);
-            const dateB = new Date(b.date);
+            const dateA = parseDate(a.date);
+            const dateB = parseDate(b.date);
             return dateA - dateB;
           });
 
@@ -1150,7 +1186,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                     }}>{(() => {
                       try {
                         if (!cost.date) return '-';
-                        const date = new Date(cost.date);
+                        const date = parseDate(cost.date);
                         return isNaN(date.getTime()) ? cost.date : date.toLocaleDateString();
                       } catch (e) {
                         return cost.date || '-';
