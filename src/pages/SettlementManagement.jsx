@@ -962,7 +962,7 @@ const SettlementManagement = () => {
                 <YAxis 
                   stroke="#bbb" 
                   fontSize={12}
-                  tickFormatter={(value) => `${(value / 1000000).toFixed(1)}백만원`}
+                  tickFormatter={(value) => `${value.toLocaleString()}`}
                   label={{ value: '금액 (백만원)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#bbb' } }}
                 />
                 <RechartsTooltip 
@@ -1035,7 +1035,7 @@ const SettlementManagement = () => {
                   yAxisId="left"
                   stroke="#bbb" 
                   fontSize={12}
-                  tickFormatter={(value) => `${(value / 1000000).toFixed(1)}백만원`}
+                  tickFormatter={(value) => `${value.toLocaleString()}`}
                   label={{ value: '금액 (백만원)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#bbb' } }}
                 />
                 <YAxis 
