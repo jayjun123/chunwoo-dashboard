@@ -2629,9 +2629,8 @@ export default function SettlementDetail() {
           maxTicksLimit: 8,
           stepSize: 1000000, // 100만원 단위로 표시
           callback: function(value) {
-            // 아이패드 Safari 최적화: 값이 0이면 빈 문자열 반환
-            if (value === 0) return '';
-            return (value / 1000000).toFixed(1) + '백만원';
+            // Recharts와 동일한 방식으로 포맷팅
+            return value.toLocaleString();
           }
         }
       }
