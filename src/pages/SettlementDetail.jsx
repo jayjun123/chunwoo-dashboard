@@ -3495,7 +3495,7 @@ export default function SettlementDetail() {
                                     {item.name} {isExpanded ? '▼' : '▶'}
                                     <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                                       <span style={{ color: '#ff4444' }}>{formatGisungAmount(item.amount)}</span>
-                                      <span style={{ color: '#bbb', fontSize: '0.9rem' }}>{item.date}</span>
+                                      <span style={{ color: '#bbb', fontSize: '0.9rem' }}>{formatDate(item.date)}</span>
                                     </Box>
                                   </Typography>
                                 </Box>
@@ -4706,7 +4706,7 @@ export default function SettlementDetail() {
                         {item.item} ({item.company}) - {item.차수}차
                       </Typography>
                       <Typography sx={{ color: '#bbb', fontSize: '0.95rem' }}>
-                        {item.month} | {formatGisungAmount(item.amount)}
+                        {formatDate(item.month)} | {formatGisungAmount(item.amount)}
                       </Typography>
                       {item.siteItem && item.actualQuantity && (
                         <Typography sx={{ color: '#64b5f6', fontSize: '0.9rem', fontWeight: 'bold' }}>
