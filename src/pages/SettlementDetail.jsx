@@ -1745,7 +1745,11 @@ export default function SettlementDetail() {
   }, [getRegisteredItems, quantityData, quantityCalculationMode]);
 
   // 자재비 상세내역 표시 (항목별로 정리)
-  const showMaterialDetails = () => {
+  const showMaterialDetails = (event) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     setShowDetailBox(true); // 상세내역 박스 표시
     // 자재비를 항목별로 분류
     const 복층Items = materialData.filter(item => item.item === '복층').map(item => ({
