@@ -2173,6 +2173,12 @@ export default function SettlementDetail() {
       // costData에서도 부자재 항목들 찾기 (세분화 표시)
       const costSubMaterialItems = costData.filter(item => item.itemType === '부자재').map(item => {
         const subMaterialDetail = item.subMaterialDetail || '기타';
+        console.log('부자재비 데이터 생성:', {
+          itemName: item.itemName,
+          subMaterialDetail: subMaterialDetail,
+          originalDate: item.date,
+          formattedDate: formatDate(item.date)
+        });
         return {
           name: `${item.itemName || '부자재'} - ${subMaterialDetail}${item.차수 ? ` (${item.차수}차)` : ''}`,
           amount: Number(item.totalValue) || 0,
@@ -3506,7 +3512,14 @@ export default function SettlementDetail() {
                                 {isExpanded && item.items && item.items.map((subItem, subIndex) => {
                                   // originalDate가 있으면 사용, 없으면 date 사용
                                   const dateToUse = subItem.originalDate || subItem.date;
+                                  console.log('부자재비 날짜 디버깅:', {
+                                    subItem: subItem.name,
+                                    originalDate: subItem.originalDate,
+                                    date: subItem.date,
+                                    dateToUse: dateToUse
+                                  });
                                   const date = parseDate(dateToUse);
+                                  console.log('파싱된 날짜:', date, 'isNaN:', isNaN(date.getTime()));
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
