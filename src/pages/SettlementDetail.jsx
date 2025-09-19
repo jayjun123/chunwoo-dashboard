@@ -2161,6 +2161,7 @@ export default function SettlementDetail() {
                 name: `${item.itemName || '부자재'} (${gisung.gisungNumber}차)`,
                 amount: Number(item.amount) || 0,
                 date: gisung.gisungDate ? formatDate(gisung.gisungDate) : '-',
+                originalDate: gisung.gisungDate, // 원본 날짜도 저장
                 type: '부자재',
                 description: item.description || item.remark || '-'
               });
@@ -2176,6 +2177,7 @@ export default function SettlementDetail() {
           name: `${item.itemName || '부자재'} - ${subMaterialDetail}${item.차수 ? ` (${item.차수}차)` : ''}`,
           amount: Number(item.totalValue) || 0,
           date: formatDate(item.date),
+          originalDate: item.date, // 원본 날짜도 저장
           type: '부자재',
           subType: subMaterialDetail, // 세부 타입 추가
           description: item.description || '-'
@@ -3502,7 +3504,9 @@ export default function SettlementDetail() {
                                 
                                 {/* 확장된 세부내역 */}
                                 {isExpanded && item.items && item.items.map((subItem, subIndex) => {
-                                  const date = parseDate(subItem.date);
+                                  // originalDate가 있으면 사용, 없으면 date 사용
+                                  const dateToUse = subItem.originalDate || subItem.date;
+                                  const date = parseDate(dateToUse);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
