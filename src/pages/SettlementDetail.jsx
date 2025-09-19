@@ -2568,14 +2568,14 @@ export default function SettlementDetail() {
         borderColor: '#43e97b',
         borderWidth: 2,
         titleFont: {
-          size: 16,
+          size: 20,
           weight: 'bold'
         },
         bodyFont: {
-          size: 14,
+          size: 18,
           weight: 'normal'
         },
-        padding: 12,
+        padding: 20,
         cornerRadius: 8,
         displayColors: true,
         callbacks: {
