@@ -3839,9 +3839,7 @@ export default function SettlementDetail() {
                   overflow: 'visible',
                   // 아이패드에서 그래프선이 더 선명하게 보이도록
                   '& canvas': {
-                    imageRendering: 'crisp-edges',
-                    imageRendering: '-webkit-crisp-edges',
-                    imageRendering: 'pixelated'
+                    imageRendering: 'crisp-edges, -webkit-crisp-edges, pixelated'
                   }
                 }}>
                   {console.log('차트 렌더링 중 - chartData:', chartData)}
