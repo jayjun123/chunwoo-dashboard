@@ -289,7 +289,7 @@ const SettlementManagement = () => {
       const balanceAmount = contractAmount - gisungAmount;
       
       return {
-        name: settlement.siteName ? settlement.siteName.substring(0, 6) : '',
+        name: settlement.siteName || '',
         계약금액: Math.round(contractAmount / 1000000),
         기성금액: Math.round(gisungAmount / 1000000),
         잔액: Math.round(balanceAmount / 1000000),
@@ -1488,9 +1488,34 @@ const SettlementManagement = () => {
                       sx={{ color: '#fff' }}
                     />
                   </TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 500, fontSize: '1.1rem' }}>
-                    {(settlement.siteName || '미정').substring(0, 6)}
-                      </TableCell>
+                  <TableCell sx={{ 
+                    color: '#fff', 
+                    fontWeight: 500, 
+                    fontSize: '1.1rem',
+                    // 아이패드에서만 6글자로 제한
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      '&::after': {
+                        content: '""',
+                        display: 'block',
+                        width: '100%',
+                        height: '0',
+                        overflow: 'hidden'
+                      }
+                    }
+                  }}>
+                    <span sx={{
+                      // 아이패드에서만 6글자로 제한
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'inline-block',
+                        maxWidth: '6ch',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }
+                    }}>
+                      {settlement.siteName || '미정'}
+                    </span>
+                  </TableCell>
                   <TableCell sx={{ 
                     color: '#fff', 
                     fontSize: '1.1rem', 
