@@ -1247,7 +1247,19 @@ const SettlementManagement = () => {
                 현장명 {sortField === 'siteName' && (sortDirection === 'asc' ? '↑' : '↓')}
               </TableCell>
               <TableCell 
-                sx={{ color: '#fff', fontWeight: 600, width: '6%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600, 
+                  width: '8%', 
+                  textAlign: 'center', 
+                  fontSize: '1.1rem', 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: '#444' },
+                  // 아이패드에서 더 넓게
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    width: '12%'
+                  }
+                }}
                 onClick={() => handleSort('gisungRate')}
               >
                 기성률 {sortField === 'gisungRate' && (sortDirection === 'asc' ? '↑' : '↓')}
@@ -1431,7 +1443,16 @@ const SettlementManagement = () => {
                   <TableCell sx={{ color: '#fff', fontWeight: 500, fontSize: '1.1rem' }}>
                     {settlement.siteName || '미정'}
                       </TableCell>
-                  <TableCell sx={{ color: '#fff', fontSize: '1.1rem', width: '6%', padding: '8px 4px' }}>
+                  <TableCell sx={{ 
+                    color: '#fff', 
+                    fontSize: '1.1rem', 
+                    width: '8%', 
+                    padding: '8px 4px',
+                    // 아이패드에서 더 넓게
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      width: '12%'
+                    }
+                  }}>
                     {(() => {
                       const contractAmount = settlement.contractAmount || 0;
                       const gisungAmount = settlement.gisungAmount || 0;
