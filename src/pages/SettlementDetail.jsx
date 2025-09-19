@@ -2162,7 +2162,14 @@ export default function SettlementDetail() {
               subMaterialItems.push({
                 name: `${item.itemName || '부자재'} (${gisung.gisungNumber}차)`,
                 amount: Number(item.amount) || 0,
-                date: gisung.gisungDate ? new Date(gisung.gisungDate).toLocaleDateString() : '-',
+                date: gisung.gisungDate ? (() => {
+                  try {
+                    const date = new Date(gisung.gisungDate);
+                    return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
+                  } catch (e) {
+                    return '-';
+                  }
+                })() : '-',
                 type: '부자재',
                 description: item.description || item.remark || '-'
               });

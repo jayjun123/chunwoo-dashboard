@@ -1147,7 +1147,15 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       minWidth: 0,
                       maxWidth: '100%',
                       fontSize: isMobile ? '0.7rem' : '0.95rem'
-                    }}>{cost.date || '-'}</TableCell>
+                    }}>{(() => {
+                      try {
+                        if (!cost.date) return '-';
+                        const date = new Date(cost.date);
+                        return isNaN(date.getTime()) ? cost.date : date.toLocaleDateString();
+                      } catch (e) {
+                        return cost.date || '-';
+                      }
+                    })()}</TableCell>
                     <TableCell sx={{ 
                       color: '#ef5350', 
                       fontWeight: 700,
