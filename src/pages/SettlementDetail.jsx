@@ -3411,7 +3411,8 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('스카이')).map((item, index) => {
-                                  const date = parseDate(item.date);
+                                  const dateToUse = item.originalDate || item.date;
+                                  const date = parseDate(dateToUse);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3437,7 +3438,8 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('곤도라')).map((item, index) => {
-                                  const date = parseDate(item.date);
+                                  const dateToUse = item.originalDate || item.date;
+                                  const date = parseDate(dateToUse);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3463,7 +3465,8 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('지게차')).map((item, index) => {
-                                  const date = parseDate(item.date);
+                                  const dateToUse = item.originalDate || item.date;
+                                  const date = parseDate(dateToUse);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3788,7 +3791,8 @@ export default function SettlementDetail() {
                             </Typography>
                           )}
                                 {detailDialog.items.map((item, index) => {
-                            const date = parseDate(item.date);
+                            const dateToUse = item.originalDate || item.date;
+                            const date = parseDate(dateToUse);
                             const year = date.getFullYear();
                             const month = String(date.getMonth() + 1).padStart(2, '0');
                             return (
