@@ -2425,6 +2425,11 @@ export default function SettlementDetail() {
                    expenseValues.some(v => v > 0) || otherValues.some(v => v > 0);
     console.log('차트에 데이터가 있는가?', hasData);
     console.log('라벨 개수:', labels.length);
+    console.log('기성금 데이터 상세:', gisungByMonth);
+    console.log('노무비 데이터 상세:', laborByMonth);
+    console.log('자재비 데이터 상세:', materialByMonth);
+    console.log('최대 기성금 값:', Math.max(...gisungValues));
+    console.log('최대 지출 값:', Math.max(...totalCostValues));
 
     return {
       labels: labelsWithWorkers,

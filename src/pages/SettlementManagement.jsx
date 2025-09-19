@@ -730,7 +730,13 @@ const SettlementManagement = () => {
       pt: { xs: '49px', md: '74px' }
     }}>
       {/* 헤더 */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: { xs: 2, md: 3 }, // 아이패드에서 마진 줄임
+        p: { xs: 2, md: 0 } // 아이패드에서 패딩 추가
+      }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <AttachMoneyIcon sx={{ fontSize: '2rem', color: '#ff9800' }} />
           <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold' }}>
