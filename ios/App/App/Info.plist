@@ -45,5 +45,50 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>UIWebViewBounces</key>
+	<false/>
+	<key>UIWebViewScrollEnabled</key>
+	<true/>
+	<key>UIWebViewAllowsInlineMediaPlayback</key>
+	<true/>
+	<key>UIWebViewAllowsAirPlayForMediaPlayback</key>
+	<true/>
+	<key>UIWebViewAllowsPictureInPictureMediaPlayback</key>
+	<true/>
+	<key>UIWebViewAllowsBackForwardNavigationGestures</key>
+	<false/>
+	<key>UIWebViewAllowsLinkPreview</key>
+	<false/>
+	<key>UIWebViewDisallowOverscroll</key>
+	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+	</dict>
+	<key>NSTimeZone</key>
+	<string>Asia/Seoul</string>
+	<key>NSCalendar</key>
+	<string>gregorian</string>
+	<key>NSLocale</key>
+	<string>ko_KR</string>
+	<key>UIWebViewAllowsInlineMediaPlayback</key>
+	<true/>
+	<key>UIWebViewAllowsAirPlayForMediaPlayback</key>
+	<true/>
+	<key>UIWebViewAllowsPictureInPictureMediaPlayback</key>
+	<true/>
+	<key>UIWebViewAllowsBackForwardNavigationGestures</key>
+	<false/>
+	<key>UIWebViewAllowsLinkPreview</key>
+	<false/>
+	<key>UIWebViewDisallowOverscroll</key>
+	<true/>
+	<key>UIWebViewScrollEnabled</key>
+	<true/>
+	<key>UIWebViewBounces</key>
+	<false/>
 </dict>
 </plist>

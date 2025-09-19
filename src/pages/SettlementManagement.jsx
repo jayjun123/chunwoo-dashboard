@@ -902,7 +902,11 @@ const SettlementManagement = () => {
             height: '400px', 
             width: '850px',
             bgcolor: '#181f2e',
-            border: '1px solid #232b3b'
+            border: '1px solid #232b3b',
+            // 아이패드에서만 500px로 설정
+            '@media (min-width: 768px) and (max-width: 1024px)': {
+              width: '500px'
+            }
           }}>
             <Typography variant="h6" sx={{ 
               color: '#fff', 
@@ -970,7 +974,11 @@ const SettlementManagement = () => {
             height: '400px', 
             width: '850px',
             bgcolor: '#181f2e',
-            border: '1px solid #232b3b'
+            border: '1px solid #232b3b',
+            // 아이패드에서만 500px로 설정
+            '@media (min-width: 768px) and (max-width: 1024px)': {
+              width: '500px'
+            }
           }}>
             <Typography variant="h6" sx={{ 
               color: '#fff', 

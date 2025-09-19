@@ -70,6 +70,55 @@ export default function SettlementDetail() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   
+  // iOS 호환 날짜 파싱 함수
+  const parseDate = (dateStr) => {
+    if (!dateStr) return new Date(0);
+    
+    // 문자열인 경우 iOS 호환 형식으로 변환
+    if (typeof dateStr === 'string') {
+      // YYYY-MM-DD 형식인 경우
+      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return new Date(dateStr + 'T12:00:00');
+      }
+      // YYYY-MM 형식인 경우 (월까지만 있는 경우)
+      if (dateStr.match(/^\d{4}-\d{2}$/)) {
+        return new Date(dateStr + '-01T12:00:00');
+      }
+      // YYYY.MM 형식인 경우
+      if (dateStr.match(/^\d{4}\.\d{2}$/)) {
+        const [year, month] = dateStr.split('.');
+        return new Date(`${year}-${month}-01T12:00:00`);
+      }
+      // 다른 형식인 경우 그대로 파싱
+      return new Date(dateStr);
+    }
+    
+    // Firestore Timestamp인 경우
+    if (dateStr.toDate) {
+      return dateStr.toDate();
+    }
+    
+    // Date 객체인 경우
+    if (dateStr instanceof Date) {
+      return dateStr;
+    }
+    
+    return new Date(dateStr);
+  };
+  
+  // 날짜를 한국어 형식으로 포맷하는 함수
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    
+    try {
+      const date = parseDate(dateStr);
+      return isNaN(date.getTime()) ? '-' : date.toLocaleDateString('ko-KR');
+    } catch (e) {
+      console.error('날짜 포맷 오류:', e, dateStr);
+      return '-';
+    }
+  };
+  
   // 스크롤바 숨기기 스타일
   const scrollbarHiddenStyle = {
     '&::-webkit-scrollbar': {
@@ -299,8 +348,8 @@ export default function SettlementDetail() {
            
            // 날짜순 정렬
            gisungItems.sort((a, b) => {
-             const dateA = new Date(a.gisungDate || 0);
-             const dateB = new Date(b.gisungDate || 0);
+             const dateA = parseDate(a.gisungDate);
+             const dateB = parseDate(b.gisungDate);
              return dateA - dateB;
            });
            
@@ -350,8 +399,8 @@ export default function SettlementDetail() {
            }
 
            costItems = costItems.sort((a, b) => {
-             const dateA = new Date(a.date || 0);
-             const dateB = new Date(b.date || 0);
+             const dateA = parseDate(a.date);
+             const dateB = parseDate(b.date);
              return dateA - dateB;
            });
            console.log('지출 쿼리 성공:', costItems);
@@ -542,6 +591,14 @@ export default function SettlementDetail() {
         id: doc.id,
         ...doc.data()
       }));
+      
+      // 날짜순 정렬
+      costItems.sort((a, b) => {
+        const dateA = parseDate(a.date);
+        const dateB = parseDate(b.date);
+        return dateA - dateB;
+      });
+      
       setCostData(costItems);
       console.log('지출 데이터 실시간 업데이트:', costItems.length, '개');
     }, (error) => {
@@ -559,8 +616,8 @@ export default function SettlementDetail() {
         id: doc.id,
         ...doc.data()
       })).sort((a, b) => {
-        const dateA = new Date(a.gisungDate || 0);
-        const dateB = new Date(b.gisungDate || 0);
+        const dateA = parseDate(a.gisungDate);
+        const dateB = parseDate(b.gisungDate);
         return dateA - dateB;
       });
       setGisungData(gisungItems);
@@ -1898,14 +1955,7 @@ export default function SettlementDetail() {
       
       // 4. 지출 내역 시트
       const costExcelData = costData.map(item => [
-        item.date ? (() => {
-          try {
-            const date = new Date(item.date);
-            return isNaN(date.getTime()) ? '' : date.toLocaleDateString();
-          } catch (e) {
-            return '';
-          }
-        })() : '',
+        formatDate(item.date),
         item.itemType || '',
         item.itemName || '',
         item.quantity || 0,
@@ -1940,7 +1990,7 @@ export default function SettlementDetail() {
       // 기성금 월별 집계
       gisungData.forEach(item => {
         if (item.gisungDate) {
-          const date = new Date(item.gisungDate);
+          const date = parseDate(item.gisungDate);
           const month = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
           summaryMonths.add(month);
         }
@@ -1949,7 +1999,7 @@ export default function SettlementDetail() {
       // 지출 월별 집계
       costData.forEach(item => {
         if (item.date) {
-          const date = new Date(item.date);
+          const date = parseDate(item.date);
           const month = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
           summaryMonths.add(month);
         }
@@ -2033,14 +2083,7 @@ export default function SettlementDetail() {
       const skyItems = equipmentItems.filter(item => item.itemType === '스카이').map(item => ({
         name: `스카이 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? (() => {
-          try {
-            const date = new Date(item.date);
-            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
-          } catch (e) {
-            return '-';
-          }
-        })() : '-',
+        date: formatDate(item.date),
         type: item.itemType || '-'
       }));
       
@@ -2048,14 +2091,7 @@ export default function SettlementDetail() {
       const gondolaItems = equipmentItems.filter(item => item.itemType === '곤도라').map(item => ({
         name: `곤도라 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? (() => {
-          try {
-            const date = new Date(item.date);
-            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
-          } catch (e) {
-            return '-';
-          }
-        })() : '-',
+        date: formatDate(item.date),
         type: item.itemType || '-'
       }));
       
@@ -2063,14 +2099,7 @@ export default function SettlementDetail() {
       const forkliftItems = equipmentItems.filter(item => item.itemType === '지게차').map(item => ({
         name: `지게차 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? (() => {
-          try {
-            const date = new Date(item.date);
-            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
-          } catch (e) {
-            return '-';
-          }
-        })() : '-',
+        date: formatDate(item.date),
         type: item.itemType || '-'
       }));
       
@@ -2088,14 +2117,7 @@ export default function SettlementDetail() {
       const rentItems = expenseItems.filter(item => item.itemType === '월세').map(item => ({
         name: `월세 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? (() => {
-          try {
-            const date = new Date(item.date);
-            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
-          } catch (e) {
-            return '-';
-          }
-        })() : '-',
+        date: formatDate(item.date),
         type: item.itemType || '-'
       }));
       
@@ -2103,14 +2125,7 @@ export default function SettlementDetail() {
       const rentalItems = expenseItems.filter(item => item.itemType === '임대료').map(item => ({
         name: `임대료 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? (() => {
-          try {
-            const date = new Date(item.date);
-            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
-          } catch (e) {
-            return '-';
-          }
-        })() : '-',
+        date: formatDate(item.date),
         type: item.itemType || '-'
       }));
       
@@ -2118,14 +2133,7 @@ export default function SettlementDetail() {
       const mealItems = expenseItems.filter(item => item.itemType === '식대').map(item => ({
         name: `식대 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? (() => {
-          try {
-            const date = new Date(item.date);
-            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
-          } catch (e) {
-            return '-';
-          }
-        })() : '-',
+        date: formatDate(item.date),
         type: item.itemType || '-'
       }));
       
@@ -2133,14 +2141,7 @@ export default function SettlementDetail() {
       const fuelItems = expenseItems.filter(item => item.itemType === '유류비').map(item => ({
         name: `유류비 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? (() => {
-          try {
-            const date = new Date(item.date);
-            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
-          } catch (e) {
-            return '-';
-          }
-        })() : '-',
+        date: formatDate(item.date),
         type: item.itemType || '-'
       }));
       
@@ -2184,14 +2185,7 @@ export default function SettlementDetail() {
         return {
           name: `${item.itemName || '부자재'} - ${subMaterialDetail}${item.차수 ? ` (${item.차수}차)` : ''}`,
           amount: Number(item.totalValue) || 0,
-          date: item.date ? (() => {
-          try {
-            const date = new Date(item.date);
-            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
-          } catch (e) {
-            return '-';
-          }
-        })() : '-',
+          date: formatDate(item.date),
           type: '부자재',
           subType: subMaterialDetail, // 세부 타입 추가
           description: item.description || '-'
@@ -2260,14 +2254,7 @@ export default function SettlementDetail() {
       }).map(item => ({
         name: `${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? (() => {
-          try {
-            const date = new Date(item.date);
-            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
-          } catch (e) {
-            return '-';
-          }
-        })() : '-',
+        date: formatDate(item.date),
         type: item.itemType || '-'
       })).sort((a, b) => {
         // 월 기준으로 정렬 (최신 월이 위에)
@@ -2347,7 +2334,7 @@ export default function SettlementDetail() {
     
     costData.forEach(item => {
       if (item.date) {
-        const date = new Date(item.date);
+        const date = parseDate(item.date);
         const monthKey = `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}`;
         const amount = Number(item.totalValue) || 0;
         
@@ -2374,15 +2361,7 @@ export default function SettlementDetail() {
     // 일정 데이터에서 월별 공수 계산
     scheduleData.forEach(schedule => {
       if (schedule.date) {
-        let date;
-        if (schedule.date.toDate) {
-          date = schedule.date.toDate();
-        } else if (schedule.date instanceof Date) {
-          date = schedule.date;
-        } else {
-          date = new Date(schedule.date);
-        }
-        
+        const date = parseDate(schedule.date);
         const monthKey = `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}`;
         const manpower = extractManpowerFromDescription(schedule.desc || '');
         
@@ -3824,8 +3803,13 @@ export default function SettlementDetail() {
 
         {/* 차트분석과 노무능률 */}
         <Box sx={{ display: 'flex', gap: 2, width: '100%' }}>
-          {/* 차트분석 (75%) */}
-          <Card sx={{ bgcolor: '#232b3b', color: '#fff', flex: '0 0 75%' }}>
+          {/* 차트분석 (아이패드에서 더 넓게) */}
+          <Card sx={{ 
+            bgcolor: '#232b3b', 
+            color: '#fff', 
+            flex: { xs: '0 0 100%', sm: '0 0 100%', md: '0 0 75%' },
+            minWidth: { xs: '400px', sm: '400px', md: 'auto' }
+          }}>
             <CardContent sx={{ width: '100%' }}>
               <Typography variant="h6" sx={{ mb: 3, color: '#43e97b' }}>
                 월별 기성금 및 지출 추이 분석
@@ -3833,7 +3817,8 @@ export default function SettlementDetail() {
               {chartData ? (
                 <Box sx={{ 
                   height: '400px', 
-                  width: '100%',
+                  width: { xs: '400px', sm: '400px', md: '100%' },
+                  minWidth: { xs: '400px', sm: '400px', md: 'auto' },
                   // 아이패드 최적화
                   touchAction: 'manipulation',
                   WebkitTouchCallout: 'none',

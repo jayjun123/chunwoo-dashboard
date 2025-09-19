@@ -21,13 +21,24 @@ const config: CapacitorConfig = {
     backgroundColor: '#181A20',
     contentInset: 'automatic',
     scheme: 'com.chunwoo.ai',
-    limitsNavigationsToAppBoundDomains: true
+    limitsNavigationsToAppBoundDomains: true,
+    scrollEnabled: true,
+    allowsInlineMediaPlayback: true,
+    allowsAirPlayForMediaPlayback: true,
+    allowsPictureInPictureMediaPlayback: true,
+    allowsBackForwardNavigationGestures: false,
+    allowsLinkPreview: false,
+    isScrollEnabled: true,
+    disallowOverscroll: true
   },
   plugins: {
     Keyboard: {
       resize: KeyboardResize.Ionic,
       style: KeyboardStyle.Default,
       resizeOnFullScreen: true
+    },
+    CapacitorHttp: {
+      enabled: true
     },
     SplashScreen: {
       launchShowDuration: 2000,
