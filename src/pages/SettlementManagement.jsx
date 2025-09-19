@@ -935,9 +935,9 @@ const SettlementManagement = () => {
             width: '850px',
             bgcolor: '#181f2e',
             border: '1px solid #232b3b',
-            // 아이패드에서만 500px로 설정
+            // 아이패드에서만 300px로 설정
             '@media (min-width: 768px) and (max-width: 1024px)': {
-              width: '500px'
+              width: '300px'
             }
           }}>
             <Typography variant="h6" sx={{ 
@@ -1007,9 +1007,9 @@ const SettlementManagement = () => {
             width: '850px',
             bgcolor: '#181f2e',
             border: '1px solid #232b3b',
-            // 아이패드에서만 500px로 설정
+            // 아이패드에서만 300px로 설정
             '@media (min-width: 768px) and (max-width: 1024px)': {
-              width: '500px'
+              width: '300px'
             }
           }}>
             <Typography variant="h6" sx={{ 
