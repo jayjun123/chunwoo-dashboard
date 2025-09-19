@@ -2626,6 +2626,7 @@ export default function SettlementDetail() {
             size: 12
           },
           callback: function(value) {
+            console.log('Y축 값:', value, '백만원으로 변환:', (value / 1000000).toFixed(1));
             return (value / 1000000).toFixed(1) + '백만원';
           }
         }
