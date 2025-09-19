@@ -1229,7 +1229,19 @@ const SettlementManagement = () => {
                 />
               </TableCell>
               <TableCell 
-                sx={{ color: '#fff', fontWeight: 600, width: '12%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600, 
+                  width: '18%', 
+                  textAlign: 'center', 
+                  fontSize: '1.1rem', 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: '#444' },
+                  // 아이패드에서 더 넓게
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    width: '25%'
+                  }
+                }}
                 onClick={() => handleSort('siteName')}
               >
                 현장명 {sortField === 'siteName' && (sortDirection === 'asc' ? '↑' : '↓')}
@@ -1241,49 +1253,145 @@ const SettlementManagement = () => {
                 기성률 {sortField === 'gisungRate' && (sortDirection === 'asc' ? '↑' : '↓')}
               </TableCell>
               <TableCell 
-                sx={{ color: '#fff', fontWeight: 600, width: '10%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600, 
+                  width: '10%', 
+                  textAlign: 'center', 
+                  fontSize: '1.1rem', 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: '#444' },
+                  // 아이패드에서 더 넓게
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    width: '15%'
+                  }
+                }}
                 onClick={() => handleSort('contractAmount')}
               >
                 계약금액 {sortField === 'contractAmount' && (sortDirection === 'asc' ? '↑' : '↓')}
               </TableCell>
               <TableCell 
-                sx={{ color: '#fff', fontWeight: 600, width: '10%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600, 
+                  width: '10%', 
+                  textAlign: 'center', 
+                  fontSize: '1.1rem', 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: '#444' },
+                  // 아이패드에서 더 넓게
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    width: '15%'
+                  }
+                }}
                 onClick={() => handleSort('gisungAmount')}
               >
                 기성금액 {sortField === 'gisungAmount' && (sortDirection === 'asc' ? '↑' : '↓')}
               </TableCell>
               <TableCell 
-                sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600, 
+                  width: '8%', 
+                  textAlign: 'center', 
+                  fontSize: '1.1rem', 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: '#444' },
+                  // 아이패드에서 더 넓게
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    width: '12%'
+                  }
+                }}
                 onClick={() => handleSort('materialCost')}
               >
                 자재비 {sortField === 'materialCost' && (sortDirection === 'asc' ? '↑' : '↓')}
               </TableCell>
               <TableCell 
-                sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600, 
+                  width: '8%', 
+                  textAlign: 'center', 
+                  fontSize: '1.1rem', 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: '#444' },
+                  // 아이패드에서 더 넓게
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    width: '12%'
+                  }
+                }}
                 onClick={() => handleSort('laborCost')}
               >
                 노무비 {sortField === 'laborCost' && (sortDirection === 'asc' ? '↑' : '↓')}
               </TableCell>
               <TableCell 
-                sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600, 
+                  width: '8%', 
+                  textAlign: 'center', 
+                  fontSize: '1.1rem', 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: '#444' },
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}
                 onClick={() => handleSort('subMaterialCost')}
               >
                 부자재비 {sortField === 'subMaterialCost' && (sortDirection === 'asc' ? '↑' : '↓')}
               </TableCell>
               <TableCell 
-                sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600, 
+                  width: '8%', 
+                  textAlign: 'center', 
+                  fontSize: '1.1rem', 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: '#444' },
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}
                 onClick={() => handleSort('equipmentCost')}
               >
                 장비비 {sortField === 'equipmentCost' && (sortDirection === 'asc' ? '↑' : '↓')}
               </TableCell>
               <TableCell 
-                sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600, 
+                  width: '8%', 
+                  textAlign: 'center', 
+                  fontSize: '1.1rem', 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: '#444' },
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}
                 onClick={() => handleSort('expenseCost')}
               >
                 경비 {sortField === 'expenseCost' && (sortDirection === 'asc' ? '↑' : '↓')}
               </TableCell>
               <TableCell 
-                sx={{ color: '#fff', fontWeight: 600, width: '8%', textAlign: 'center', fontSize: '1.1rem', cursor: 'pointer', '&:hover': { backgroundColor: '#444' } }}
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600, 
+                  width: '8%', 
+                  textAlign: 'center', 
+                  fontSize: '1.1rem', 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: '#444' },
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}
                 onClick={() => handleSort('safetyCost')}
               >
                 안전관리비 {sortField === 'safetyCost' && (sortDirection === 'asc' ? '↑' : '↓')}
@@ -1295,7 +1403,18 @@ const SettlementManagement = () => {
               <TableBody>
             {sortedSettlements.length === 0 ? (
                 <TableRow key="no-data">
-                <TableCell colSpan={13} sx={{ textAlign: 'center', py: 4, color: '#bbb' }}>
+                <TableCell 
+                  colSpan={13} 
+                  sx={{ 
+                    textAlign: 'center', 
+                    py: 4, 
+                    color: '#bbb',
+                    // 아이패드에서는 숨겨진 컬럼 수만큼 colSpan 조정
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      colSpan: 9
+                    }
+                  }}
+                >
                   정산 데이터가 없습니다.
                   </TableCell>
                 </TableRow>
@@ -1359,16 +1478,52 @@ const SettlementManagement = () => {
                   <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right', fontSize: '0.9rem' }}>
                     {formatNumber(settlement.laborCost || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right', fontSize: '0.9rem' }}>
+                  <TableCell sx={{ 
+                    color: '#ef5350', 
+                    fontWeight: 'bold', 
+                    textAlign: 'right', 
+                    fontSize: '0.9rem',
+                    // 아이패드에서 숨김
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      display: 'none'
+                    }
+                  }}>
                     {formatNumber(settlement.subMaterialCost || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right', fontSize: '0.9rem' }}>
+                  <TableCell sx={{ 
+                    color: '#ef5350', 
+                    fontWeight: 'bold', 
+                    textAlign: 'right', 
+                    fontSize: '0.9rem',
+                    // 아이패드에서 숨김
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      display: 'none'
+                    }
+                  }}>
                     {formatNumber(settlement.equipmentCost || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right', fontSize: '0.9rem' }}>
+                  <TableCell sx={{ 
+                    color: '#ef5350', 
+                    fontWeight: 'bold', 
+                    textAlign: 'right', 
+                    fontSize: '0.9rem',
+                    // 아이패드에서 숨김
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      display: 'none'
+                    }
+                  }}>
                     {formatNumber(settlement.expenseCost || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#ff9800', fontWeight: 'bold', textAlign: 'right', fontSize: '0.9rem' }}>
+                  <TableCell sx={{ 
+                    color: '#ff9800', 
+                    fontWeight: 'bold', 
+                    textAlign: 'right', 
+                    fontSize: '0.9rem',
+                    // 아이패드에서 숨김
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      display: 'none'
+                    }
+                  }}>
                     {formatNumber(settlement.safetyCost || 0)}원
                       </TableCell>
                   <TableCell sx={{ color: '#bbb', fontSize: '1.1rem' }}>
