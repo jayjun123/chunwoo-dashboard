@@ -3848,8 +3848,8 @@ export default function SettlementDetail() {
               {chartData ? (
                 <Box sx={{ 
                   height: '400px', 
-                  width: { xs: '400px', sm: '400px', md: '100%' },
-                  minWidth: { xs: '400px', sm: '400px', md: 'auto' },
+                  width: { xs: '300px', sm: '300px', md: '100%' },
+                  minWidth: { xs: '300px', sm: '300px', md: 'auto' },
                   // 아이패드 최적화
                   touchAction: 'manipulation',
                   WebkitTouchCallout: 'none',

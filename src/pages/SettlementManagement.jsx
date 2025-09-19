@@ -1434,7 +1434,21 @@ const SettlementManagement = () => {
               >
                 안전관리비 {sortField === 'safetyCost' && (sortDirection === 'asc' ? '↑' : '↓')}
               </TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '6%', textAlign: 'center', fontSize: '1.1rem' }}>비고</TableCell>
+              <TableCell 
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600, 
+                  width: '6%', 
+                  textAlign: 'center', 
+                  fontSize: '1.1rem',
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}
+              >
+                비고
+              </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, width: '6%', textAlign: 'center', fontSize: '1.1rem' }}>관리</TableCell>
             </TableRow>
               </TableHead>
@@ -1467,7 +1481,7 @@ const SettlementManagement = () => {
                     />
                   </TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 500, fontSize: '1.1rem' }}>
-                    {settlement.siteName || '미정'}
+                    {(settlement.siteName || '미정').substring(0, 6)}
                       </TableCell>
                   <TableCell sx={{ 
                     color: '#fff', 
@@ -1573,9 +1587,18 @@ const SettlementManagement = () => {
                   }}>
                     {formatNumber(settlement.safetyCost || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#bbb', fontSize: '1.1rem' }}>
+                  <TableCell 
+                    sx={{ 
+                      color: '#bbb', 
+                      fontSize: '1.1rem',
+                      // 아이패드에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}
+                  >
                     {settlement.notes || '-'}
-                      </TableCell>
+                  </TableCell>
                       <TableCell>
                 <Button
                   variant="outlined"
