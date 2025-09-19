@@ -2562,11 +2562,31 @@ export default function SettlementDetail() {
         enabled: true,
         mode: 'index',
         intersect: false,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
         titleColor: '#fff',
         bodyColor: '#fff',
         borderColor: '#43e97b',
-        borderWidth: 1
+        borderWidth: 2,
+        titleFont: {
+          size: 16,
+          weight: 'bold'
+        },
+        bodyFont: {
+          size: 14,
+          weight: 'normal'
+        },
+        padding: 12,
+        cornerRadius: 8,
+        displayColors: true,
+        callbacks: {
+          title: function(context) {
+            return context[0].label;
+          },
+          label: function(context) {
+            const value = context.parsed.y;
+            return `${context.dataset.label}: ${(value / 1000000).toFixed(1)}백만원`;
+          }
+        }
       }
     },
     scales: {
