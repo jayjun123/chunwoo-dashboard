@@ -1850,7 +1850,7 @@ export default function SettlementDetail() {
       const dashboardMonths = new Set();
       gisungData.forEach(item => {
         if (item.gisungDate) {
-          const date = new Date(item.gisungDate);
+          const date = parseDate(item.gisungDate);
           const month = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
           dashboardMonths.add(month);
         }
@@ -1873,7 +1873,7 @@ export default function SettlementDetail() {
         const monthGisung = gisungData
           .filter(item => {
             if (!item.gisungDate) return false;
-            const date = new Date(item.gisungDate);
+            const date = parseDate(item.gisungDate);
             const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
             return itemMonth === month;
           })
@@ -1935,14 +1935,7 @@ export default function SettlementDetail() {
       
       // 3. 기성금 내역 시트
       const gisungExcelData = gisungData.map(item => [
-        item.gisungDate ? (() => {
-          try {
-            const date = new Date(item.gisungDate);
-            return isNaN(date.getTime()) ? '' : date.toLocaleDateString();
-          } catch (e) {
-            return '';
-          }
-        })() : '',
+        item.gisungDate ? formatDate(item.gisungDate) : '',
         item.gisungAmount ? formatGisungAmount(item.gisungAmount) : '0원',
         item.claimStatus || '',
         item.paymentStatus || '',
@@ -2018,7 +2011,7 @@ export default function SettlementDetail() {
         const monthGisung = gisungData
           .filter(item => {
             if (!item.gisungDate) return false;
-            const date = new Date(item.gisungDate);
+            const date = parseDate(item.gisungDate);
             const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
             return itemMonth === month;
           })
@@ -2269,8 +2262,8 @@ export default function SettlementDetail() {
     if (!site) return null;
 
     // 공사기간 월별 데이터 생성
-    const startDate = new Date(site.startDate);
-    const endDate = new Date(site.endDate);
+    const startDate = parseDate(site.startDate);
+    const endDate = parseDate(site.endDate);
     const months = [];
     
     let currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
