@@ -862,7 +862,7 @@ export default function SettlementDetail() {
         } else if (schedule.date instanceof Date) {
           date = schedule.date;
         } else {
-          date = new Date(schedule.date);
+          date = parseDate(schedule.date);
         }
         
         const scheduleYear = date.getFullYear();
@@ -882,7 +882,7 @@ export default function SettlementDetail() {
     const laborItems = costData.filter(item => item.itemType === '노무비');
     laborItems.forEach(item => {
       if (item.date) {
-        const date = new Date(item.date);
+        const date = parseDate(item.date);
         const itemYear = date.getFullYear();
         const itemMonth = date.getMonth() + 1;
         
@@ -1782,8 +1782,8 @@ export default function SettlementDetail() {
     
     // 모든 항목을 합쳐서 정렬 (최신 월이 위에)
     const allItems = [...복층Items, ...강화Items, ...접합Items, ...기타Items].sort((a, b) => {
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
+      const dateA = parseDate(a.date);
+      const dateB = parseDate(b.date);
       return dateB - dateA;
     });
     
@@ -1857,7 +1857,7 @@ export default function SettlementDetail() {
       });
       costData.forEach(item => {
         if (item.date) {
-          const date = new Date(item.date);
+          const date = parseDate(item.date);
           const month = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
           dashboardMonths.add(month);
         }
@@ -1882,7 +1882,7 @@ export default function SettlementDetail() {
         const monthCost = costData
           .filter(item => {
             if (!item.date) return false;
-            const date = new Date(item.date);
+            const date = parseDate(item.date);
             const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
             return itemMonth === month;
           })
@@ -2027,7 +2027,7 @@ export default function SettlementDetail() {
         const monthCost = costData
           .filter(item => {
             if (!item.date) return false;
-            const date = new Date(item.date);
+            const date = parseDate(item.date);
             const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
             return itemMonth === month;
           })
@@ -2105,8 +2105,8 @@ export default function SettlementDetail() {
       
       items = [...skyItems, ...gondolaItems, ...forkliftItems].sort((a, b) => {
         // 월 기준으로 정렬 (최신 월이 위에)
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
+        const dateA = parseDate(a.date);
+        const dateB = parseDate(b.date);
         return dateB - dateA;
       });
     } else if (itemType === 'expense') {
@@ -2147,8 +2147,8 @@ export default function SettlementDetail() {
       
       items = [...rentItems, ...rentalItems, ...mealItems, ...fuelItems].sort((a, b) => {
         // 월 기준으로 정렬 (최신 월이 위에)
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
+        const dateA = parseDate(a.date);
+        const dateB = parseDate(b.date);
         return dateB - dateA;
       });
     } else if (itemType === 'subMaterial') {
@@ -2163,14 +2163,7 @@ export default function SettlementDetail() {
               subMaterialItems.push({
                 name: `${item.itemName || '부자재'} (${gisung.gisungNumber}차)`,
                 amount: Number(item.amount) || 0,
-                date: gisung.gisungDate ? (() => {
-                  try {
-                    const date = new Date(gisung.gisungDate);
-                    return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
-                  } catch (e) {
-                    return '-';
-                  }
-                })() : '-',
+                date: gisung.gisungDate ? formatDate(gisung.gisungDate) : '-',
                 type: '부자재',
                 description: item.description || item.remark || '-'
               });
@@ -2220,8 +2213,8 @@ export default function SettlementDetail() {
         if (groupedSubMaterialItems[subType] && groupedSubMaterialItems[subType].length > 0) {
           // 각 세부 타입별로 정렬
           const sortedItems = groupedSubMaterialItems[subType].sort((a, b) => {
-            const dateA = new Date(a.date);
-            const dateB = new Date(b.date);
+            const dateA = parseDate(a.date);
+            const dateB = parseDate(b.date);
             return dateB - dateA;
           });
           
@@ -2258,8 +2251,8 @@ export default function SettlementDetail() {
         type: item.itemType || '-'
       })).sort((a, b) => {
         // 월 기준으로 정렬 (최신 월이 위에)
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
+        const dateA = parseDate(a.date);
+        const dateB = parseDate(b.date);
         return dateB - dateA;
       });
     }
@@ -3401,7 +3394,7 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('스카이')).map((item, index) => {
-                                  const date = new Date(item.date);
+                                  const date = parseDate(item.date);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3427,7 +3420,7 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('곤도라')).map((item, index) => {
-                                  const date = new Date(item.date);
+                                  const date = parseDate(item.date);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3453,7 +3446,7 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('지게차')).map((item, index) => {
-                                  const date = new Date(item.date);
+                                  const date = parseDate(item.date);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3512,7 +3505,7 @@ export default function SettlementDetail() {
                                 
                                 {/* 확장된 세부내역 */}
                                 {isExpanded && item.items && item.items.map((subItem, subIndex) => {
-                                  const date = new Date(subItem.date);
+                                  const date = parseDate(subItem.date);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3546,7 +3539,7 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('복층')).map((item, index) => {
-                                  const date = new Date(item.date);
+                                  const date = parseDate(item.date);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3572,7 +3565,7 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('강화')).map((item, index) => {
-                                  const date = new Date(item.date);
+                                  const date = parseDate(item.date);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3598,7 +3591,7 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('접합')).map((item, index) => {
-                                  const date = new Date(item.date);
+                                  const date = parseDate(item.date);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3624,7 +3617,7 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('기타')).map((item, index) => {
-                                  const date = new Date(item.date);
+                                  const date = parseDate(item.date);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3654,7 +3647,7 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('월세')).map((item, index) => {
-                                  const date = new Date(item.date);
+                                  const date = parseDate(item.date);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3680,7 +3673,7 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('임대료')).map((item, index) => {
-                                  const date = new Date(item.date);
+                                  const date = parseDate(item.date);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3706,7 +3699,7 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('식대')).map((item, index) => {
-                                  const date = new Date(item.date);
+                                  const date = parseDate(item.date);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3732,7 +3725,7 @@ export default function SettlementDetail() {
                               </Typography>
                               <Box sx={{ maxHeight: '250px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {detailDialog.items.filter(item => item.name.includes('유류비')).map((item, index) => {
-                                  const date = new Date(item.date);
+                                  const date = parseDate(item.date);
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3760,8 +3753,8 @@ export default function SettlementDetail() {
                               {detailDialog.title} [<span style={{ color: '#ff4444' }}>{formatGisungAmount(detailDialog.items.reduce((sum, item) => sum + item.amount, 0))}</span>]
                             </Typography>
                           )}
-                          {detailDialog.items.map((item, index) => {
-                            const date = new Date(item.date);
+                                {detailDialog.items.map((item, index) => {
+                            const date = parseDate(item.date);
                             const year = date.getFullYear();
                             const month = String(date.getMonth() + 1).padStart(2, '0');
                             return (
