@@ -2281,6 +2281,12 @@ export default function SettlementDetail() {
     });
   };
 
+  // 차트 데이터 검증
+  const hasData = useMemo(() => {
+    if (!site) return false;
+    return true; // 기본적으로 true로 설정
+  }, [site]);
+
   // 차트 데이터 생성 (메모이제이션으로 불필요한 재렌더링 방지)
   const chartData = useMemo(() => {
     if (!site) return null;
@@ -2419,10 +2425,8 @@ export default function SettlementDetail() {
     console.log('월별 공수 값들:', workersValues);
     console.log('지출 총합계 값들:', totalCostValues);
     
-    // 차트 데이터 검증
-    const hasData = gisungValues.some(v => v > 0) || totalCostValues.some(v => v > 0) || 
-                   laborValues.some(v => v > 0) || materialValues.some(v => v > 0) || 
-                   expenseValues.some(v => v > 0) || otherValues.some(v => v > 0);
+    // 차트 데이터 검증 - 라벨이 있으면 차트 표시
+    const hasData = labels.length > 0;
     console.log('차트에 데이터가 있는가?', hasData);
     console.log('라벨 개수:', labels.length);
     console.log('기성금 데이터 상세:', gisungByMonth);
