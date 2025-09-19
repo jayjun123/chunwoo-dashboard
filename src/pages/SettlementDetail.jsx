@@ -2778,8 +2778,8 @@ export default function SettlementDetail() {
       {/* 헤더 */}
       <Box sx={{ 
         bgcolor: '#232b3b', 
-        p: 3, 
-        mb: 3,
+        p: { xs: 2, md: 3 }, // 아이패드에서 패딩 줄임
+        mb: { xs: 2, md: 3 }, // 아이패드에서 마진 줄임
         borderBottom: '2px solid #333'
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
@@ -2858,7 +2858,11 @@ export default function SettlementDetail() {
         <Grid container spacing={3} sx={{ mb: 3 }}>
           {/* 현장정보 */}
           <Grid item xs={12} md={showQuantityExpanded ? 2 : 3}>
-            <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '382px' }}>
+            <Card sx={{ 
+              bgcolor: '#232b3b', 
+              color: '#fff', 
+              height: { xs: '372px', md: '382px' } // 아이패드에서 10px 줄임
+            }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6" sx={{ color: '#43e97b', display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -2983,7 +2987,12 @@ export default function SettlementDetail() {
           {/* 물량 내역 카드 - 조건부 표시 */}
           {showQuantityExpanded && (
             <Grid item xs={12} md={6}>
-            <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '382px', width: '100%' }}>
+            <Card sx={{ 
+              bgcolor: '#232b3b', 
+              color: '#fff', 
+              height: { xs: '372px', md: '382px' }, // 아이패드에서 10px 줄임
+              width: '100%' 
+            }}>
               <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                   <Typography variant="h6" sx={{ color: '#90caf9', display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -3144,7 +3153,7 @@ export default function SettlementDetail() {
             <Card sx={{ 
               bgcolor: '#232b3b', 
               color: '#fff', 
-              height: '382px', 
+              height: { xs: '372px', md: '382px' }, // 아이패드에서 10px 줄임
               width: { xs: '100%', md: '290px' } // 아이패드에서 전체 너비 사용
             }}>
               <CardContent>
@@ -3249,7 +3258,7 @@ export default function SettlementDetail() {
             <Card sx={{ 
               bgcolor: '#232b3b', 
               color: '#fff', 
-              height: '382px', 
+              height: { xs: '372px', md: '382px' }, // 아이패드에서 10px 줄임
               width: { xs: '100%', md: '260px' } // 아이패드에서 전체 너비 사용
             }}>
                   <CardContent>
