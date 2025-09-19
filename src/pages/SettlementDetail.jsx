@@ -421,8 +421,8 @@ export default function SettlementDetail() {
              firebaseId: doc.id,
              ...doc.data()
            })).sort((a, b) => {
-             const dateA = new Date(a.createdAt || 0);
-             const dateB = new Date(b.createdAt || 0);
+             const dateA = parseDate(a.createdAt || 0);
+             const dateB = parseDate(b.createdAt || 0);
              return dateA - dateB;
            });
            
@@ -1674,8 +1674,8 @@ export default function SettlementDetail() {
     } else {
       // 최신 데이터만 사용 (createdAt 기준으로 가장 최근)
       const latestQuantity = filteredQuantities.reduce((latest, current) => {
-        const latestTime = latest.createdAt?.toDate?.() || new Date(latest.createdAt || 0);
-        const currentTime = current.createdAt?.toDate?.() || new Date(current.createdAt || 0);
+        const latestTime = latest.createdAt?.toDate?.() || parseDate(latest.createdAt || 0);
+        const currentTime = current.createdAt?.toDate?.() || parseDate(current.createdAt || 0);
         return currentTime > latestTime ? current : latest;
       });
       usedQuantity = latestQuantity.actualQuantity || 0;
@@ -1730,9 +1730,9 @@ export default function SettlementDetail() {
       const latestByItem = {};
       glassQuantityData.forEach(qty => {
         const key = `${qty.siteItem}|${qty.specification || ''}`;
-        const currentTime = qty.createdAt?.toDate?.() || new Date(qty.createdAt || 0);
+        const currentTime = qty.createdAt?.toDate?.() || parseDate(qty.createdAt || 0);
         
-        if (!latestByItem[key] || currentTime > (latestByItem[key].createdAt?.toDate?.() || new Date(latestByItem[key].createdAt || 0))) {
+        if (!latestByItem[key] || currentTime > (latestByItem[key].createdAt?.toDate?.() || parseDate(latestByItem[key].createdAt || 0))) {
           latestByItem[key] = qty;
         }
       });
