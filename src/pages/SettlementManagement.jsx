@@ -1459,12 +1459,12 @@ const SettlementManagement = () => {
                       const gisungRate = contractAmount > 0 ? Math.round((gisungAmount / contractAmount) * 100) : 0;
                       
                       return (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: 'center' }}>
                           <Box sx={{ 
-                            width: '60px', 
-                            height: '10px', 
+                            width: '80px', 
+                            height: '12px', 
                             bgcolor: '#333', 
-                            borderRadius: '5px',
+                            borderRadius: '6px',
                             overflow: 'hidden'
                           }}>
                             <Box sx={{ 
@@ -1475,10 +1475,10 @@ const SettlementManagement = () => {
                             }} />
                           </Box>
                           <Typography sx={{ 
-                            fontSize: '1rem',
+                            fontSize: '1.2rem',
                             color: getGisungRateColor(gisungRate),
                             fontWeight: 'bold',
-                            minWidth: '40px',
+                            minWidth: '50px',
                             textAlign: 'center'
                           }}>
                             {gisungRate}%
