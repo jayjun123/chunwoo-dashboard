@@ -265,6 +265,9 @@ html, body, #root {
   transform: none !important;
   scale: 1 !important;
   zoom: 1 !important;
+  /* 스크롤 바운스 방지 */
+  overscroll-behavior: none !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 body {
@@ -287,6 +290,9 @@ body {
   transform: none !important;
   scale: 1 !important;
   zoom: 1 !important;
+  /* 스크롤 바운스 방지 */
+  overscroll-behavior: none !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 h1 {
@@ -314,6 +320,9 @@ code {
   transform: none !important;
   scale: 1 !important;
   zoom: 1 !important;
+  /* 스크롤 바운스 방지 */
+  overscroll-behavior: none !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 /* 모바일에서 상태바 고려한 올바른 레이아웃 */
@@ -731,6 +740,9 @@ html, body {
   -ms-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  /* 모든 요소에 스크롤 바운스 방지 */
+  overscroll-behavior: none !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 /* 입력 필드는 선택 가능 */
@@ -761,6 +773,9 @@ input, textarea, select {
   margin-top: 0;
   flex: 1;
   min-height: 0;
+  /* 스크롤 바운스 방지 */
+  overscroll-behavior: none !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 /* 모바일에서 메인 콘텐츠 영역 */
@@ -1087,6 +1102,20 @@ body.popup-open {
   /* iPad에서 폰트 크기 조정 */
   body {
     font-size: 16px;
+    /* 스크롤 바운스 방지 */
+    overscroll-behavior: none !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* iPad에서 스크롤 컨테이너 최적화 */
+  #root {
+    overscroll-behavior: none !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  .main-content {
+    overscroll-behavior: none !important;
+    -webkit-overflow-scrolling: touch !important;
   }
   
   h1 { font-size: 2.5rem; }
@@ -1159,6 +1188,9 @@ body.popup-open {
     /* 아이패드 다크 테마 강제 적용 */
     background-color: #181a20 !important;
     color: #ffffff !important;
+    /* 스크롤 바운스 방지 */
+    overscroll-behavior: none !important;
+    -webkit-overflow-scrolling: touch !important;
   }
   
   #root {

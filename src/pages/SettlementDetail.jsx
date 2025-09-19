@@ -1878,7 +1878,14 @@ export default function SettlementDetail() {
       
       // 3. 기성금 내역 시트
       const gisungExcelData = gisungData.map(item => [
-        item.gisungDate ? new Date(item.gisungDate).toLocaleDateString() : '',
+        item.gisungDate ? (() => {
+          try {
+            const date = new Date(item.gisungDate);
+            return isNaN(date.getTime()) ? '' : date.toLocaleDateString();
+          } catch (e) {
+            return '';
+          }
+        })() : '',
         item.gisungAmount ? formatGisungAmount(item.gisungAmount) : '0원',
         item.claimStatus || '',
         item.paymentStatus || '',
@@ -1891,7 +1898,14 @@ export default function SettlementDetail() {
       
       // 4. 지출 내역 시트
       const costExcelData = costData.map(item => [
-        item.date ? new Date(item.date).toLocaleDateString() : '',
+        item.date ? (() => {
+          try {
+            const date = new Date(item.date);
+            return isNaN(date.getTime()) ? '' : date.toLocaleDateString();
+          } catch (e) {
+            return '';
+          }
+        })() : '',
         item.itemType || '',
         item.itemName || '',
         item.quantity || 0,
@@ -2019,7 +2033,14 @@ export default function SettlementDetail() {
       const skyItems = equipmentItems.filter(item => item.itemType === '스카이').map(item => ({
         name: `스카이 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? new Date(item.date).toLocaleDateString() : '-',
+        date: item.date ? (() => {
+          try {
+            const date = new Date(item.date);
+            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
+          } catch (e) {
+            return '-';
+          }
+        })() : '-',
         type: item.itemType || '-'
       }));
       
@@ -2027,7 +2048,14 @@ export default function SettlementDetail() {
       const gondolaItems = equipmentItems.filter(item => item.itemType === '곤도라').map(item => ({
         name: `곤도라 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? new Date(item.date).toLocaleDateString() : '-',
+        date: item.date ? (() => {
+          try {
+            const date = new Date(item.date);
+            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
+          } catch (e) {
+            return '-';
+          }
+        })() : '-',
         type: item.itemType || '-'
       }));
       
@@ -2035,7 +2063,14 @@ export default function SettlementDetail() {
       const forkliftItems = equipmentItems.filter(item => item.itemType === '지게차').map(item => ({
         name: `지게차 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? new Date(item.date).toLocaleDateString() : '-',
+        date: item.date ? (() => {
+          try {
+            const date = new Date(item.date);
+            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
+          } catch (e) {
+            return '-';
+          }
+        })() : '-',
         type: item.itemType || '-'
       }));
       
@@ -2053,7 +2088,14 @@ export default function SettlementDetail() {
       const rentItems = expenseItems.filter(item => item.itemType === '월세').map(item => ({
         name: `월세 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? new Date(item.date).toLocaleDateString() : '-',
+        date: item.date ? (() => {
+          try {
+            const date = new Date(item.date);
+            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
+          } catch (e) {
+            return '-';
+          }
+        })() : '-',
         type: item.itemType || '-'
       }));
       
@@ -2061,7 +2103,14 @@ export default function SettlementDetail() {
       const rentalItems = expenseItems.filter(item => item.itemType === '임대료').map(item => ({
         name: `임대료 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? new Date(item.date).toLocaleDateString() : '-',
+        date: item.date ? (() => {
+          try {
+            const date = new Date(item.date);
+            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
+          } catch (e) {
+            return '-';
+          }
+        })() : '-',
         type: item.itemType || '-'
       }));
       
@@ -2069,7 +2118,14 @@ export default function SettlementDetail() {
       const mealItems = expenseItems.filter(item => item.itemType === '식대').map(item => ({
         name: `식대 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? new Date(item.date).toLocaleDateString() : '-',
+        date: item.date ? (() => {
+          try {
+            const date = new Date(item.date);
+            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
+          } catch (e) {
+            return '-';
+          }
+        })() : '-',
         type: item.itemType || '-'
       }));
       
@@ -2077,7 +2133,14 @@ export default function SettlementDetail() {
       const fuelItems = expenseItems.filter(item => item.itemType === '유류비').map(item => ({
         name: `유류비 - ${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? new Date(item.date).toLocaleDateString() : '-',
+        date: item.date ? (() => {
+          try {
+            const date = new Date(item.date);
+            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
+          } catch (e) {
+            return '-';
+          }
+        })() : '-',
         type: item.itemType || '-'
       }));
       
@@ -2114,7 +2177,14 @@ export default function SettlementDetail() {
         return {
           name: `${item.itemName || '부자재'} - ${subMaterialDetail}${item.차수 ? ` (${item.차수}차)` : ''}`,
           amount: Number(item.totalValue) || 0,
-          date: item.date ? new Date(item.date).toLocaleDateString() : '-',
+          date: item.date ? (() => {
+          try {
+            const date = new Date(item.date);
+            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
+          } catch (e) {
+            return '-';
+          }
+        })() : '-',
           type: '부자재',
           subType: subMaterialDetail, // 세부 타입 추가
           description: item.description || '-'
@@ -2183,7 +2253,14 @@ export default function SettlementDetail() {
       }).map(item => ({
         name: `${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
-        date: item.date ? new Date(item.date).toLocaleDateString() : '-',
+        date: item.date ? (() => {
+          try {
+            const date = new Date(item.date);
+            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
+          } catch (e) {
+            return '-';
+          }
+        })() : '-',
         type: item.itemType || '-'
       })).sort((a, b) => {
         // 월 기준으로 정렬 (최신 월이 위에)
