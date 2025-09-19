@@ -117,36 +117,42 @@ const SettlementManagement = () => {
 
   // 백만원을 억원 단위로 변환하는 함수
   const formatMillionToEok = (value) => {
-    const eok = Math.floor(value / 100); // 억 단위
-    const remainder = value % 100; // 나머지 (백만원 단위)
+    const isNegative = value < 0;
+    const absValue = Math.abs(value);
+    const eok = Math.floor(absValue / 100); // 억 단위
+    const remainder = absValue % 100; // 나머지 (백만원 단위)
+    
+    let result = '';
     
     if (eok === 0) {
       if (remainder < 10) {
-        return `${remainder}백만원`;
+        result = `${remainder}백만원`;
       } else {
         const cheonman = Math.floor(remainder / 10); // 천만원 단위
         const baekman = remainder % 10; // 백만원 단위
         if (baekman === 0) {
-          return `${cheonman}천만원`;
+          result = `${cheonman}천만원`;
         } else {
-          return `${cheonman}천${baekman}백만원`;
+          result = `${cheonman}천${baekman}백만원`;
         }
       }
     } else if (remainder === 0) {
-      return `${eok}억원`;
+      result = `${eok}억원`;
     } else {
       if (remainder < 10) {
-        return `${eok}억${remainder}백만원`;
+        result = `${eok}억${remainder}백만원`;
       } else {
         const cheonman = Math.floor(remainder / 10); // 천만원 단위
         const baekman = remainder % 10; // 백만원 단위
         if (baekman === 0) {
-          return `${eok}억${cheonman}천만원`;
+          result = `${eok}억${cheonman}천만원`;
         } else {
-          return `${eok}억${cheonman}천${baekman}백만원`;
+          result = `${eok}억${cheonman}천${baekman}백만원`;
         }
       }
     }
+    
+    return isNegative ? `-${result}` : result;
   };
   const [settlementPage, setSettlementPage] = useState(0);
   const itemsPerPage = 10;

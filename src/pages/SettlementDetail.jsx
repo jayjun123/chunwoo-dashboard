@@ -1755,7 +1755,7 @@ export default function SettlementDetail() {
     const 복층Items = materialData.filter(item => item.item === '복층').map(item => ({
       name: `복층 - ${item.company}`,
       amount: Number(item.amount) || 0,
-      date: item.month,
+      date: formatDate(item.month),
       type: '복층',
       차수: item.차수 || 1
     }));
@@ -1763,7 +1763,7 @@ export default function SettlementDetail() {
     const 강화Items = materialData.filter(item => item.item === '강화').map(item => ({
       name: `강화 - ${item.company}`,
       amount: Number(item.amount) || 0,
-      date: item.month,
+      date: formatDate(item.month),
       type: '강화',
       차수: item.차수 || 1
     }));
@@ -1771,7 +1771,7 @@ export default function SettlementDetail() {
     const 접합Items = materialData.filter(item => item.item === '접합').map(item => ({
       name: `접합 - ${item.company}`,
       amount: Number(item.amount) || 0,
-      date: item.month,
+      date: formatDate(item.month),
       type: '접합',
       차수: item.차수 || 1
     }));
@@ -1779,7 +1779,7 @@ export default function SettlementDetail() {
     const 기타Items = materialData.filter(item => item.item === '기타').map(item => ({
       name: `기타 - ${item.company}`,
       amount: Number(item.amount) || 0,
-      date: item.month,
+      date: formatDate(item.month),
       type: '기타',
       차수: item.차수 || 1
     }));
