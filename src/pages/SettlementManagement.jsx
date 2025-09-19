@@ -289,7 +289,7 @@ const SettlementManagement = () => {
       const balanceAmount = contractAmount - gisungAmount;
       
       return {
-        name: settlement.siteName || '',
+        name: settlement.siteName ? settlement.siteName.substring(0, 6) : '',
         계약금액: Math.round(contractAmount / 1000000),
         기성금액: Math.round(gisungAmount / 1000000),
         잔액: Math.round(balanceAmount / 1000000),
