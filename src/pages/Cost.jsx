@@ -69,6 +69,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     paymentType: '',
     description: '',
     sequence: '',
+    subMaterialDetail: '기타', // 부자재 세부내용 (기타를 기본값으로)
+    quantity: '', // 부자재 물량 (현장별 정산페이지용)
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const isMobile = useMediaQuery('(max-width:900px)');
@@ -189,14 +191,58 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         aValue = String(a.itemType || '').toLowerCase();
         bValue = String(b.itemType || '').toLowerCase();
       } else if (sortField === 'sequence') {
-        // 차수 문자열에서 숫자만 추출 (예: "1차" -> 1, "2차" -> 2)
-        const getSequenceNumber = (sequenceStr) => {
-          if (!sequenceStr) return 0;
-          const match = sequenceStr.toString().match(/(\d+)/);
-          return match ? Number(match[1]) : 0;
+        // 차수 문자열 정렬 (예: "2차-5" > "2차-1" > "1차")
+        const getSequenceValue = (sequenceStr) => {
+          if (!sequenceStr) return { base: 0, sub: 0 };
+          const str = sequenceStr.toString();
+          
+          // 세분화된 차수 패턴 확인 (예: "2차-5")
+          const subMatch = str.match(/(\d+)차-(\d+)/);
+          if (subMatch) {
+            return { base: Number(subMatch[1]), sub: Number(subMatch[2]) };
+          }
+          
+          // 기본 차수 패턴 확인 (예: "2차")
+          const baseMatch = str.match(/(\d+)차/);
+          if (baseMatch) {
+            return { base: Number(baseMatch[1]), sub: 0 };
+          }
+          
+          return { base: 0, sub: 0 };
         };
-        aValue = getSequenceNumber(a.sequence);
-        bValue = getSequenceNumber(b.sequence);
+        
+        const aSeq = getSequenceValue(a.sequence);
+        const bSeq = getSequenceValue(b.sequence);
+        
+        console.log('🔍 차수 정렬 비교:', {
+          a: { sequence: a.sequence, parsed: aSeq },
+          b: { sequence: b.sequence, parsed: bSeq }
+        });
+        
+        // 먼저 기본 차수로 비교, 같으면 세분화 차수로 비교
+        if (aSeq.base !== bSeq.base) {
+          aValue = aSeq.base;
+          bValue = bSeq.base;
+        } else {
+          // 같은 기본 차수일 때: 세분화된 차수가 있으면 위에, 없으면 아래에
+          if (aSeq.sub > 0 && bSeq.sub > 0) {
+            // 둘 다 세분화된 차수: 큰 숫자가 위에 (내림차순)
+            aValue = bSeq.sub; // 내림차순을 위해 순서 바꿈
+            bValue = aSeq.sub;
+          } else if (aSeq.sub > 0 && bSeq.sub === 0) {
+            // a는 세분화, b는 기본: a가 위에
+            aValue = 0; // 세분화된 차수가 위에
+            bValue = 1;
+          } else if (aSeq.sub === 0 && bSeq.sub > 0) {
+            // a는 기본, b는 세분화: b가 위에
+            aValue = 1;
+            bValue = 0; // 세분화된 차수가 위에
+          } else {
+            // 둘 다 기본 차수: 기본 차수로 비교
+            aValue = aSeq.sub;
+            bValue = bSeq.sub;
+          }
+        }
       } else {
         aValue = String(a[sortField] || '').toLowerCase();
         bValue = String(b[sortField] || '').toLowerCase();
@@ -320,6 +366,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         paymentType: cost.paymentType || '',
         description: cost.description || '',
         sequence: cost.sequence || '',
+        subMaterialDetail: cost.subMaterialDetail || '기타', // 부자재 세부내용 로드
+        quantity: cost.quantity || '', // 부자재 물량 로드
       });
     } else {
       setEditId(null);
@@ -343,6 +391,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         paymentType: '',
         description: '',
         sequence: '',
+        subMaterialDetail: '기타', // 부자재 세부내용 초기화
+        quantity: '', // 부자재 물량 초기화
       });
     }
     setDialogOpen(true);
@@ -359,6 +409,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       paymentType: '',
       description: '',
       sequence: '',
+      subMaterialDetail: '기타', // 부자재 세부내용 초기화
+      quantity: '', // 부자재 물량 초기화
     });
   };
 
@@ -374,8 +426,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       if (!editId) {
         // 차수가 비어있거나 1차인 경우에만 다시 계산
         if (!form.sequence || form.sequence === '1차') {
-          console.log('저장 시 차수 계산:', { site: form.site, itemType: form.itemType, date: form.date });
-          finalForm.sequence = calculateNextSequence(form.site, form.itemType, form.date);
+          console.log('저장 시 차수 계산:', { site: form.site, itemType: form.itemType, date: form.date, subMaterialDetail: form.subMaterialDetail });
+          finalForm.sequence = calculateNextSequence(form.site, form.itemType, form.date, form.subMaterialDetail);
           console.log('저장 시 설정된 차수:', finalForm.sequence);
         } else {
           console.log('저장 시 기존 차수 유지:', form.sequence);
@@ -435,6 +487,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         paymentType: '',
         description: '',
         sequence: '',
+        subMaterialDetail: '기타', // 부자재 세부내용 초기화
+        quantity: '', // 부자재 물량 초기화
       });
     } catch (error) {
       console.error('지출 항목 저장 실패:', error);
@@ -461,10 +515,10 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   };
 
   // 차수 계산 함수 (새 지출 등록용)
-  const calculateNextSequence = (siteName, itemType, selectedDate = null) => {
+  const calculateNextSequence = (siteName, itemType, selectedDate = null, subMaterialDetail = null) => {
     if (!siteName || !itemType) return '';
     
-    console.log('🔍 차수 계산 시작:', { siteName, itemType, selectedDate });
+    console.log('🔍 차수 계산 시작:', { siteName, itemType, selectedDate, subMaterialDetail });
     
     // 해당 현장과 항목의 기존 지출 데이터 필터링
     const existingCosts = costs.filter(cost => 
@@ -477,7 +531,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       sequence: c.sequence, 
       date: c.date, 
       site: c.site, 
-      itemType: c.itemType 
+      itemType: c.itemType,
+      subMaterialDetail: c.subMaterialDetail
     })));
     
     if (existingCosts.length === 0) {
@@ -494,7 +549,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     
     console.log('📅 날짜순 정렬된 데이터:', sortedCosts.map(c => ({ 
       sequence: c.sequence, 
-      date: c.date 
+      date: c.date,
+      subMaterialDetail: c.subMaterialDetail
     })));
     
     // 선택된 날짜가 있으면 해당 날짜 기준으로 차수 계산
@@ -502,11 +558,11 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       const selectedDateObj = new Date(selectedDate);
       console.log('📅 선택된 날짜:', selectedDateObj);
       
-      // 선택된 날짜보다 이전인 항목들만 필터링
+      // 선택된 날짜 이전 데이터 기준으로 기본 차수 계산
       const previousCosts = sortedCosts.filter(cost => {
         const costDate = new Date(cost.date || 0);
-        const isBefore = costDate <= selectedDateObj;
-        console.log(`📅 ${cost.sequence} (${cost.date}) <= ${selectedDate}? ${isBefore}`);
+        const isBefore = costDate < selectedDateObj;
+        console.log(`📅 ${cost.sequence} (${cost.date}) < ${selectedDate}? ${isBefore}`);
         return isBefore;
       });
       
@@ -528,15 +584,56 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         }
       });
       
-      // 차수 패턴이 없으면 데이터 개수로 계산
-      if (maxSequence === 0) {
-        const nextSequence = `${previousCosts.length + 1}차`;
-        console.log('🔢 차수 패턴 없음, 이전 데이터 개수 기반 계산:', `${previousCosts.length}개 → ${nextSequence}`);
-        return nextSequence;
+      // 기본 차수 계산
+      const baseSequence = maxSequence + 1;
+      
+      // 같은 날짜의 데이터 필터링
+      const sameDateCosts = sortedCosts.filter(cost => {
+        const costDate = new Date(cost.date || 0);
+        return costDate.toDateString() === selectedDateObj.toDateString();
+      });
+      
+      console.log('📅 같은 날짜 데이터:', sameDateCosts.map(c => ({ 
+        sequence: c.sequence, 
+        date: c.date,
+        subMaterialDetail: c.subMaterialDetail
+      })));
+      
+      if (sameDateCosts.length > 0) {
+        // 같은 날짜에 데이터가 있으면 세분화된 차수 계산
+        const lastSameDateCost = sameDateCosts[sameDateCosts.length - 1];
+        const lastSequence = lastSameDateCost.sequence || '';
+        
+        console.log('🔍 마지막 같은 날짜 데이터의 sequence:', lastSequence);
+        
+        // 기존 차수에서 -숫자 패턴 확인
+        const subMatch = lastSequence.match(/(\d+)차-(\d+)/);
+        if (subMatch) {
+          const baseSequenceFromMatch = parseInt(subMatch[1]);
+          const subNumber = parseInt(subMatch[2]) + 1;
+          const nextSequence = `${baseSequenceFromMatch}차-${subNumber}`;
+          console.log('🔢 같은 날짜 세분화 차수 (기존 세분화 있음):', nextSequence);
+          return nextSequence;
+        } else {
+          // 기존 차수에 -1 추가
+          const baseMatch = lastSequence.match(/(\d+)차/);
+          if (baseMatch) {
+            const baseSequenceFromMatch = parseInt(baseMatch[1]);
+            const nextSequence = `${baseSequenceFromMatch}차-1`;
+            console.log('🔢 같은 날짜 첫 세분화 차수 (기존 세분화 없음):', nextSequence);
+            return nextSequence;
+          } else {
+            // 차수 패턴이 없으면 기본 차수에 -1 추가
+            const nextSequence = `${baseSequence}차-1`;
+            console.log('🔢 차수 패턴 없음, 기본 차수에 -1 추가:', nextSequence);
+            return nextSequence;
+          }
+        }
       }
       
-      const nextSequence = `${maxSequence + 1}차`;
-      console.log('🔢 최대 차수:', maxSequence, '다음 차수:', nextSequence);
+      // 같은 날짜에 데이터가 없으면 기본 차수 반환
+      const nextSequence = `${baseSequence}차`;
+      console.log('🔢 기본 차수:', nextSequence);
       return nextSequence;
     }
     
@@ -1210,8 +1307,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                     setForm({ ...form, site: newValue });
                     // 현장명이 변경되면 차수 자동 업데이트
                     if (newValue && form.itemType && !editId) {
-                      console.log('차수 계산 호출:', { site: newValue, itemType: form.itemType, date: form.date });
-                      const nextSequence = calculateNextSequence(newValue, form.itemType, form.date);
+                      console.log('차수 계산 호출:', { site: newValue, itemType: form.itemType, date: form.date, subMaterialDetail: form.subMaterialDetail });
+                      const nextSequence = calculateNextSequence(newValue, form.itemType, form.date, form.subMaterialDetail);
                       console.log('계산된 차수:', nextSequence);
                       setForm(prev => ({ ...prev, sequence: nextSequence }));
                     }
@@ -1231,8 +1328,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   setForm({ ...form, itemType: newValue || '' });
                   // 항목이 변경되면 차수 자동 업데이트
                   if (newValue && form.site && !editId) {
-                    console.log('차수 계산 호출:', { site: form.site, itemType: newValue, date: form.date });
-                    const nextSequence = calculateNextSequence(form.site, newValue, form.date);
+                    console.log('차수 계산 호출:', { site: form.site, itemType: newValue, date: form.date, subMaterialDetail: form.subMaterialDetail });
+                    const nextSequence = calculateNextSequence(form.site, newValue, form.date, form.subMaterialDetail);
                     console.log('계산된 차수:', nextSequence);
                     setForm(prev => ({ ...prev, sequence: nextSequence }));
                   }
@@ -1283,6 +1380,77 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                 }}
               />
             </Box>
+            
+            {/* 부자재 세부내용 드롭다운 + 물량 입력칸 (부자재 선택 시에만 표시) */}
+            {form.itemType === '부자재' && (
+              <Box display="flex" width="100%" justifyContent="center" gap={2}>
+                <Autocomplete
+                  options={['웨더실란트', '일반실란트', '구조용실란트', '노턴테이프', '기타']}
+                  value={form.subMaterialDetail || '기타'}
+                  onChange={(event, newValue) => {
+                    setForm({ ...form, subMaterialDetail: newValue || '기타' });
+                    // 부자재 세부내용이 변경되면 차수 자동 업데이트
+                    if (form.site && form.itemType === '부자재' && form.date && !editId) {
+                      console.log('차수 계산 호출 (세부내용 변경):', { site: form.site, itemType: form.itemType, date: form.date, subMaterialDetail: newValue });
+                      const nextSequence = calculateNextSequence(form.site, form.itemType, form.date, newValue);
+                      console.log('계산된 차수:', nextSequence);
+                      setForm(prev => ({ ...prev, sequence: nextSequence }));
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="세부내용"
+                      placeholder="세부내용을 선택하세요"
+                      size="medium"
+                      sx={{
+                        flex: 1,
+                        minWidth: 140,
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': { borderColor: '#333' },
+                          '&:hover fieldset': { borderColor: '#555' },
+                          '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                        },
+                        '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
+                        '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                      }}
+                    />
+                  )}
+                  sx={{
+                    flex: 1,
+                    minWidth: 140,
+                    '& .MuiAutocomplete-popupIndicator': { color: '#fff' },
+                    '& .MuiAutocomplete-clearIndicator': { color: '#fff' },
+                    '& .MuiAutocomplete-option': { color: '#fff' },
+                    '& .MuiAutocomplete-listbox': {
+                      '&::-webkit-scrollbar': { display: 'none' },
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none',
+                      maxHeight: '200px'
+                    }
+                  }}
+                />
+                <TextField
+                  label="물량"
+                  value={form.quantity || ''}
+                  onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+                  placeholder="물량을 입력하세요"
+                  size="medium"
+                  sx={{
+                    flex: 1,
+                    minWidth: 140,
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#333' },
+                      '&:hover fieldset': { borderColor: '#555' },
+                      '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
+                    '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                  }}
+                />
+              </Box>
+            )}
+            
             {/* 2줄: 차수 + 사용날짜 */}
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
               <TextField
@@ -1312,8 +1480,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   setForm({ ...form, date: e.target.value });
                   // 날짜가 변경되면 차수 자동 업데이트
                   if (e.target.value && form.site && form.itemType && !editId) {
-                    console.log('차수 계산 호출:', { site: form.site, itemType: form.itemType, date: e.target.value });
-                    const nextSequence = calculateNextSequence(form.site, form.itemType, e.target.value);
+                    console.log('차수 계산 호출:', { site: form.site, itemType: form.itemType, date: e.target.value, subMaterialDetail: form.subMaterialDetail });
+                    const nextSequence = calculateNextSequence(form.site, form.itemType, e.target.value, form.subMaterialDetail);
                     console.log('계산된 차수:', nextSequence);
                     setForm(prev => ({ ...prev, sequence: nextSequence }));
                   }

@@ -88,6 +88,10 @@ export default function SettlementDetail() {
   const [detailDialog, setDetailDialog] = useState({ open: false, title: '', items: [] });
   const [materialDialog, setMaterialDialog] = useState({ open: false });
   
+  // 노무능률 단위 전환 상태 (true: M²/일, false: M²/명)
+  const [isDailyEfficiency, setIsDailyEfficiency] = useState(false);
+  const [expandedSubMaterial, setExpandedSubMaterial] = useState({});
+  
   // 정산페이지 접근 인증 관련 상태
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [password, setPassword] = useState('');
@@ -758,6 +762,281 @@ export default function SettlementDetail() {
     return total;
   }, [scheduleData, costData]);
 
+  // 복층유리와 강화유리 물량 계산
+  const glassQuantities = useMemo(() => {
+    let 복층유리 = 0;
+    let 강화유리 = 0;
+    
+    console.log('quantityData 전체:', quantityData);
+    
+    quantityData.forEach(item => {
+      const quantity = Number(item.actualQuantity) || 0;
+      const siteItem = item.siteItem || '';
+      
+      console.log('물량 항목:', { siteItem, quantity, actualQuantity: item.actualQuantity });
+      
+      if (siteItem.includes('복층') || siteItem.includes('복층유리')) {
+        복층유리 += quantity;
+        console.log('복층 추가:', quantity, '총합:', 복층유리);
+      } else if (siteItem.includes('강화') || siteItem.includes('강화유리') || siteItem.includes('8T강화') || siteItem.includes('8T강화유리')) {
+        강화유리 += quantity;
+        console.log('강화 추가:', quantity, '총합:', 강화유리);
+      }
+    });
+    
+    console.log('최종 glassQuantities:', { 복층유리, 강화유리 });
+    return { 복층유리, 강화유리 };
+  }, [quantityData]);
+
+  // 이전 달까지의 공수 계산 (오늘 날짜 기준)
+  const workersUpToLastMonth = useMemo(() => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1; // 0부터 시작하므로 +1
+    
+    let total = 0;
+    
+    // 일정 데이터에서 이전 달까지의 공수 추출
+    scheduleData.forEach(schedule => {
+      if (schedule.date) {
+        let date;
+        if (schedule.date.toDate) {
+          date = schedule.date.toDate();
+        } else if (schedule.date instanceof Date) {
+          date = schedule.date;
+        } else {
+          date = new Date(schedule.date);
+        }
+        
+        const scheduleYear = date.getFullYear();
+        const scheduleMonth = date.getMonth() + 1;
+        
+        // 이전 달까지의 데이터만 포함 (현재 월의 1일~30일은 모두 이전 달까지로 계산)
+        if (scheduleYear < currentYear || (scheduleYear === currentYear && scheduleMonth < currentMonth)) {
+          if (schedule.desc) {
+            const manpower = extractManpowerFromDescription(schedule.desc);
+            total += manpower;
+          }
+        }
+      }
+    });
+    
+    // 노무비 데이터에서도 이전 달까지의 공수 추출
+    const laborItems = costData.filter(item => item.itemType === '노무비');
+    laborItems.forEach(item => {
+      if (item.date) {
+        const date = new Date(item.date);
+        const itemYear = date.getFullYear();
+        const itemMonth = date.getMonth() + 1;
+        
+        // 이전 달까지의 데이터만 포함 (현재 월의 1일~30일은 모두 이전 달까지로 계산)
+        if (itemYear < currentYear || (itemYear === currentYear && itemMonth < currentMonth)) {
+          const workers = Number(item.workers) || 0;
+          total += workers;
+        }
+      }
+    });
+    
+    console.log('이전 달까지의 총 공수:', total, `(현재: ${currentYear}년 ${currentMonth}월 - 1일~30일은 모두 이전 달까지로 계산)`);
+    return total;
+  }, [scheduleData, costData]);
+
+  // 노무능률 계산 (전체 물량을 총 공수로 나눈 후 비율로 분배)
+  const laborEfficiency = useMemo(() => {
+    const totalQuantity = glassQuantities.복층유리 + glassQuantities.강화유리;
+    const totalWorkers = workersUpToLastMonth;
+    
+    if (totalWorkers === 0 || totalQuantity === 0) {
+      return { 복층: 0, 강화: 0 };
+    }
+    
+    // 전체 노무능률 계산 (전체 물량 / 총 공수)
+    const totalEfficiency = totalQuantity / totalWorkers;
+    
+    // 복층과 강화의 비율 계산
+    const 복층비율 = glassQuantities.복층유리 / totalQuantity;
+    const 강화비율 = glassQuantities.강화유리 / totalQuantity;
+    
+    // 비율에 따라 노무능률 분배
+    const 복층능률 = totalEfficiency * 복층비율;
+    const 강화능률 = totalEfficiency * 강화비율;
+    
+    console.log('노무능률 계산:', {
+      전체물량: totalQuantity,
+      총공수: totalWorkers,
+      전체노무능률: totalEfficiency,
+      복층비율: 복층비율,
+      강화비율: 강화비율,
+      복층능률: 복층능률,
+      강화능률: 강화능률
+    });
+    
+    return { 복층: 복층능률, 강화: 강화능률 };
+  }, [glassQuantities, workersUpToLastMonth]);
+
+  // 일 단위 노무능률 계산 (전달까지 공수가 있는 날만 합쳐서 계산)
+  const dailyLaborEfficiency = useMemo(() => {
+    const totalQuantity = glassQuantities.복층유리 + glassQuantities.강화유리;
+    
+    if (totalQuantity === 0) {
+      return { 복층: 0, 강화: 0, 총일수: 0 };
+    }
+    
+    // 전달까지의 공수가 있는 날들만 계산
+    let totalWorkingDays = 0;
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1;
+    
+    // 이전 달까지의 모든 날짜를 확인
+    for (let year = 2024; year <= currentYear; year++) {
+      const endMonth = year === currentYear ? currentMonth - 1 : 12;
+      const startMonth = year === 2024 ? 1 : 1;
+      
+      for (let month = startMonth; month <= endMonth; month++) {
+        // 해당 월의 모든 날짜 확인
+        const daysInMonth = new Date(year, month, 0).getDate();
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+          const checkDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          
+          // 해당 날짜에 공수가 있는지 확인
+          const hasWorkers = scheduleData.some(item => {
+            const itemDate = item.date;
+            if (typeof itemDate === 'string') {
+              return itemDate === checkDate;
+            } else if (itemDate && itemDate.toDate) {
+              const dateStr = itemDate.toDate().toISOString().split('T')[0];
+              return dateStr === checkDate;
+            }
+            return false;
+          });
+          
+          if (hasWorkers) {
+            totalWorkingDays++;
+          }
+        }
+      }
+    }
+    
+    if (totalWorkingDays === 0) {
+      return { 복층: 0, 강화: 0, 총일수: 0 };
+    }
+    
+    // 일 평균 물량 계산
+    const dailyAverageQuantity = totalQuantity / totalWorkingDays;
+    
+    // 복층과 강화의 비율 계산
+    const 복층비율 = glassQuantities.복층유리 / totalQuantity;
+    const 강화비율 = glassQuantities.강화유리 / totalQuantity;
+    
+    // 비율에 따라 일 평균 노무능률 분배
+    const 복층일능률 = dailyAverageQuantity * 복층비율;
+    const 강화일능률 = dailyAverageQuantity * 강화비율;
+    
+    console.log('일 단위 노무능률 계산:', {
+      전체물량: totalQuantity,
+      총작업일수: totalWorkingDays,
+      일평균물량: dailyAverageQuantity,
+      복층비율: 복층비율,
+      강화비율: 강화비율,
+      복층일능률: 복층일능률,
+      강화일능률: 강화일능률
+    });
+    
+    return { 복층: 복층일능률, 강화: 강화일능률, 총일수: totalWorkingDays };
+  }, [glassQuantities, scheduleData]);
+
+  // 물량대비 주요 부자재 양 계산
+  const subMaterialUsage = useMemo(() => {
+    const totalQuantity = glassQuantities.복층유리 + glassQuantities.강화유리;
+    
+    if (totalQuantity === 0) {
+      return {
+        구조용: { 복층: 0, 강화: 0 },
+        웨더: { 복층: 0, 강화: 0 },
+        일반: { 복층: 0, 강화: 0 },
+        노턴테이프: { 복층: 0, 강화: 0 }
+      };
+    }
+
+    // 부자재별 사용량 계산 (실제 데이터에서 가져와야 함)
+    const subMaterialData = costData.filter(item => item.itemType === '부자재');
+    
+    let 구조용복층 = 0, 구조용강화 = 0;
+    let 웨더복층 = 0, 웨더강화 = 0;
+    let 일반복층 = 0, 일반강화 = 0;
+    let 노턴테이프복층 = 0, 노턴테이프강화 = 0;
+
+    console.log('부자재 데이터:', subMaterialData);
+    console.log('유리 물량:', glassQuantities);
+    
+    subMaterialData.forEach(item => {
+      const quantity = parseFloat(item.quantity) || 0;
+      const subType = item.subMaterialDetail || '기타';
+      
+      console.log('부자재 항목:', { subType, quantity, item });
+      
+      // 금사동 현장은 복층과 12T강화 포함, 다른 현장은 복층만
+      const isGeumsa = site?.name?.includes('금사동');
+      
+      if (subType === '구조용실란트') {
+        구조용복층 += quantity; // 모든 현장에서 복층에만 사용
+      } else if (subType === '웨더실란트') {
+        if (isGeumsa) {
+          웨더복층 += quantity * 0.5;
+          웨더강화 += quantity * 0.5;
+        } else {
+          웨더복층 += quantity;
+        }
+      } else if (subType === '일반실란트') {
+        일반강화 += quantity;
+      } else if (subType === '노턴테이프') {
+        노턴테이프복층 += quantity;
+      }
+    });
+    
+    console.log('계산된 부자재 사용량:', {
+      구조용복층, 구조용강화,
+      웨더복층, 웨더강화,
+      일반복층, 일반강화,
+      노턴테이프복층, 노턴테이프강화
+    });
+
+    // 금사동 현장은 복층과 12T강화를 모두 포함해서 계산
+    const isGeumsa = site?.name?.includes('금사동');
+    const totalGlassQuantity = isGeumsa ? glassQuantities.복층유리 + glassQuantities.강화유리 : glassQuantities.복층유리;
+    
+    const result = {
+      구조용: { 
+        복층: totalGlassQuantity > 0 ? 구조용복층 / totalGlassQuantity : 0,
+        강화: totalGlassQuantity > 0 ? 구조용강화 / totalGlassQuantity : 0
+      },
+      웨더: { 
+        복층: totalGlassQuantity > 0 ? 웨더복층 / totalGlassQuantity : 0,
+        강화: totalGlassQuantity > 0 ? 웨더강화 / totalGlassQuantity : 0
+      },
+      일반: { 
+        복층: glassQuantities.복층유리 > 0 ? 일반복층 / glassQuantities.복층유리 : 0,
+        강화: glassQuantities.강화유리 > 0 ? 일반강화 / glassQuantities.강화유리 : 0  // 8T강화 물량
+      },
+      노턴테이프: { 
+        복층: totalGlassQuantity > 0 ? 노턴테이프복층 / totalGlassQuantity : 0,
+        강화: totalGlassQuantity > 0 ? 노턴테이프강화 / totalGlassQuantity : 0
+      }
+    };
+    
+    console.log('최종 결과:', result);
+    console.log('유리 물량으로 나눈 값들:', {
+      '구조용/복층': glassQuantities.복층유리,
+      '구조용/강화': glassQuantities.강화유리,
+      '웨더/복층': glassQuantities.복층유리,
+      '웨더/강화': glassQuantities.강화유리
+    });
+    
+    return result;
+  }, [glassQuantities, costData, site]);
+
   // 순수익 계산
   const netProfit = totalGisungAmount - totalCostAmount;
 
@@ -797,6 +1076,12 @@ export default function SettlementDetail() {
         const quantityResults = [];
         if (materialForm.quantityItems && materialForm.quantityItems.length > 0) {
           for (const quantityItem of materialForm.quantityItems) {
+            // 이미 Firebase에 저장된 항목은 건너뛰기
+            if (quantityItem.firebaseId) {
+              console.log('이미 저장된 실물량 항목 건너뛰기:', quantityItem.firebaseId);
+              continue;
+            }
+            
             if (quantityItem.siteItem && quantityItem.actualQuantity) {
               const quantityData = {
                 id: Date.now() + Math.random(), // 고유 ID
@@ -812,7 +1097,7 @@ export default function SettlementDetail() {
               
               try {
                 const quantityDocRef = await addDoc(collection(db, 'quantity_info'), quantityData);
-                console.log('실물량 정보 저장됨:', quantityDocRef.id, quantityItem.siteItem);
+                console.log('새 실물량 정보 저장됨:', quantityDocRef.id, quantityItem.siteItem);
                 
                 quantityResults.push({
                   data: { ...quantityData, firebaseId: quantityDocRef.id },
@@ -1235,8 +1520,27 @@ export default function SettlementDetail() {
     });
   };
 
-  // 실물량 항목 삭제 함수
-  const removeQuantityItem = (id) => {
+  // 실물량 항목 삭제 함수 (Firebase에서도 즉시 삭제)
+  const removeQuantityItem = async (id) => {
+    const itemToRemove = materialForm.quantityItems?.find(item => item.id === id);
+    
+    // Firebase에 저장된 항목인 경우 즉시 삭제
+    if (itemToRemove?.firebaseId) {
+      try {
+        await deleteDoc(doc(db, 'quantity_info', itemToRemove.firebaseId));
+        console.log('Firebase에서 실물량 항목 삭제됨:', itemToRemove.firebaseId);
+      } catch (error) {
+        console.error('Firebase 실물량 항목 삭제 오류:', error);
+        setSnackbar({ 
+          open: true, 
+          message: '실물량 항목 삭제에 실패했습니다.', 
+          severity: 'error' 
+        });
+        return;
+      }
+    }
+    
+    // 로컬 상태에서도 삭제
     setMaterialForm({
       ...materialForm,
       quantityItems: (materialForm.quantityItems || []).filter(item => item.id !== id)
@@ -1804,20 +2108,63 @@ export default function SettlementDetail() {
         }
       });
       
-      // costData에서도 부자재 항목들 찾기
-      const costSubMaterialItems = costData.filter(item => item.itemType === '부자재').map(item => ({
-        name: `${item.itemName || '부자재'}${item.차수 ? ` (${item.차수}차)` : ''}`,
-        amount: Number(item.totalValue) || 0,
-        date: item.date ? new Date(item.date).toLocaleDateString() : '-',
-        type: '부자재',
-        description: item.description || '-'
-      }));
+      // costData에서도 부자재 항목들 찾기 (세분화 표시)
+      const costSubMaterialItems = costData.filter(item => item.itemType === '부자재').map(item => {
+        const subMaterialDetail = item.subMaterialDetail || '기타';
+        return {
+          name: `${item.itemName || '부자재'} - ${subMaterialDetail}${item.차수 ? ` (${item.차수}차)` : ''}`,
+          amount: Number(item.totalValue) || 0,
+          date: item.date ? new Date(item.date).toLocaleDateString() : '-',
+          type: '부자재',
+          subType: subMaterialDetail, // 세부 타입 추가
+          description: item.description || '-'
+        };
+      });
       
-      items = [...subMaterialItems, ...costSubMaterialItems].sort((a, b) => {
-        // 월 기준으로 정렬 (최신 월이 위에)
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
-        return dateB - dateA;
+      // 부자재비 세부 타입별로 그룹화
+      const groupedSubMaterialItems = {};
+      
+      // costData의 부자재 항목들을 세부 타입별로 그룹화
+      costSubMaterialItems.forEach(item => {
+        const subType = item.subType || '기타';
+        if (!groupedSubMaterialItems[subType]) {
+          groupedSubMaterialItems[subType] = [];
+        }
+        groupedSubMaterialItems[subType].push(item);
+      });
+      
+      // gisungData의 부자재 항목들도 기타로 분류
+      if (subMaterialItems.length > 0) {
+        if (!groupedSubMaterialItems['기타']) {
+          groupedSubMaterialItems['기타'] = [];
+        }
+        groupedSubMaterialItems['기타'].push(...subMaterialItems);
+      }
+      
+      // 세부 타입별로 정렬하여 표시
+      const subMaterialTypes = ['웨더실란트', '일반실란트', '구조용실란트', '노턴테이프', '기타'];
+      items = [];
+      
+      subMaterialTypes.forEach(subType => {
+        if (groupedSubMaterialItems[subType] && groupedSubMaterialItems[subType].length > 0) {
+          // 각 세부 타입별로 정렬
+          const sortedItems = groupedSubMaterialItems[subType].sort((a, b) => {
+            const dateA = new Date(a.date);
+            const dateB = new Date(b.date);
+            return dateB - dateA;
+          });
+          
+          // 세부 타입 총계만 표시 (클릭 가능)
+          items.push({
+            name: subType,
+            amount: sortedItems.reduce((sum, item) => sum + item.amount, 0),
+            date: `${sortedItems.length}건`,
+            type: 'header',
+            subType: subType,
+            items: sortedItems, // 세부 아이템들을 items 속성에 저장
+            clickable: true // 클릭 가능 표시
+          });
+        }
       });
     } else {
       // 기타 항목들은 기존 로직 사용
@@ -2007,49 +2354,84 @@ export default function SettlementDetail() {
           data: gisungValues,
           borderColor: '#43e97b',
           backgroundColor: 'rgba(67, 233, 123, 0.1)',
-          tension: 0,
-          fill: false
+          tension: 0.1,
+          fill: false,
+          borderWidth: 4, // 아이패드에서 더 잘 보이도록 선 두께 증가
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          pointBorderWidth: 2,
+          pointBackgroundColor: '#43e97b',
+          pointBorderColor: '#fff'
         },
         {
           label: '지출 총합계',
           data: totalCostValues,
           borderColor: '#f44336',
           backgroundColor: 'rgba(244, 67, 54, 0.1)',
-          tension: 0,
+          tension: 0.1,
           fill: false,
-          borderWidth: 3
+          borderWidth: 4, // 아이패드에서 더 잘 보이도록 선 두께 증가
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          pointBorderWidth: 2,
+          pointBackgroundColor: '#f44336',
+          pointBorderColor: '#fff'
         },
         {
           label: '노무비',
           data: laborValues,
           borderColor: '#ffeb3b',
           backgroundColor: 'rgba(255, 235, 59, 0.1)',
-          tension: 0,
-          fill: false
+          tension: 0.1,
+          fill: false,
+          borderWidth: 3,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBorderWidth: 2,
+          pointBackgroundColor: '#ffeb3b',
+          pointBorderColor: '#fff'
         },
         {
           label: '자재비',
           data: materialValues,
           borderColor: '#9c27b0',
           backgroundColor: 'rgba(156, 39, 176, 0.1)',
-          tension: 0,
-          fill: false
+          tension: 0.1,
+          fill: false,
+          borderWidth: 3,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBorderWidth: 2,
+          pointBackgroundColor: '#9c27b0',
+          pointBorderColor: '#fff'
         },
         {
           label: '경비',
           data: expenseValues,
           borderColor: '#4caf50',
           backgroundColor: 'rgba(76, 175, 80, 0.1)',
-          tension: 0,
-          fill: false
+          tension: 0.1,
+          fill: false,
+          borderWidth: 3,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBorderWidth: 2,
+          pointBackgroundColor: '#4caf50',
+          pointBorderColor: '#fff'
         },
         {
           label: '기타',
           data: otherValues,
           borderColor: '#ff9800',
           backgroundColor: 'rgba(255, 152, 0, 0.1)',
-          tension: 0,
-          fill: false
+          tension: 0.1,
+          fill: false,
+          borderWidth: 3,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBorderWidth: 2,
+          pointBackgroundColor: '#ff9800',
+          pointBorderColor: '#fff'
         }
       ]
     };
@@ -2070,6 +2452,18 @@ export default function SettlementDetail() {
     // 터치 이벤트 최적화
     onHover: (event, activeElements) => {
       event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
+    },
+    // 아이패드에서 그래프선이 보이도록 추가 설정
+    elements: {
+      line: {
+        borderWidth: 3, // 선 두께 증가
+        tension: 0.1, // 약간의 곡선 추가
+      },
+      point: {
+        radius: 6, // 점 크기 증가
+        hoverRadius: 8,
+        borderWidth: 2,
+      }
     },
     plugins: {
       legend: {
@@ -2409,31 +2803,71 @@ export default function SettlementDetail() {
                   </Button>
                 </Box>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' }, // 아이패드에서 세로 배치
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
                     <Typography sx={{ color: '#bbb' }}>현장명:</Typography>
                     <Typography sx={{ fontWeight: 'bold' }}>{site.name}</Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' }, // 아이패드에서 세로 배치
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
                     <Typography sx={{ color: '#bbb' }}>회사명:</Typography>
                     <Typography sx={{ fontWeight: 'bold' }}>{site.companyName || site.company || '-'}</Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' }, // 아이패드에서 세로 배치
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
                     <Typography sx={{ color: '#bbb' }}>계약금액:</Typography>
-                    <Typography sx={{ fontWeight: 'bold', color: '#43e97b' }}>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: '#43e97b',
+                      whiteSpace: 'nowrap' // 아이패드에서 숫자와 원이 한 줄에 나오도록
+                    }}>
                       {formatContractAmount(site.contractAmount)}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' }, // 아이패드에서 세로 배치
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
                     <Typography sx={{ color: '#bbb' }}>공사기간:</Typography>
                     <Typography sx={{ fontWeight: 'bold' }}>
                       {site.startDate} ~ {site.endDate}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' }, // 아이패드에서 세로 배치
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
                     <Typography sx={{ color: '#bbb' }}>현장장:</Typography>
                     <Typography sx={{ fontWeight: 'bold' }}>{site.manager || '-'}</Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' }, // 아이패드에서 세로 배치
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
                     <Typography sx={{ color: '#bbb' }}>계약유형:</Typography>
                     <Typography sx={{ fontWeight: 'bold' }}>{site.contractType || '-'}</Typography>
                   </Box>
@@ -2458,6 +2892,7 @@ export default function SettlementDetail() {
                       {getQuantityPercentage()}%
                     </Typography>
                   </Box>
+                  
                   
                 </Box>
               </CardContent>
@@ -2623,46 +3058,102 @@ export default function SettlementDetail() {
             </Grid>
           )}
 
-          {/* 순수익정보 */}
-          <Grid item xs={12} md={showQuantityExpanded ? 4 : 4}>
-            <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '382px', width: '290px' }}>
+          {/* 순수익정보 - 아이패드에서 가로 절반 차지 */}
+          <Grid item xs={6} md={showQuantityExpanded ? 4 : 4}>
+            <Card sx={{ 
+              bgcolor: '#232b3b', 
+              color: '#fff', 
+              height: '382px', 
+              width: { xs: '100%', md: '290px' } // 아이패드에서 전체 너비 사용
+            }}>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2, color: '#ff9800', display: 'flex', alignItems: 'center', gap: 1 }}>
                   <AttachMoneyIcon /> 정산내역
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' }, // 아이패드에서 세로 배치
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
                     <Typography sx={{ color: '#bbb' }}>기성금:</Typography>
-                    <Typography sx={{ fontWeight: 'bold', color: '#43e97b', fontSize: '1.1rem' }}>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: '#43e97b', 
+                      fontSize: '1.1rem',
+                      whiteSpace: 'nowrap' // 아이패드에서 숫자와 원이 한 줄에 나오도록
+                    }}>
                       {formatGisungAmount(totalGisungAmount)}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' }, // 아이패드에서 세로 배치
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
                     <Typography sx={{ color: '#bbb' }}>청구완료(미지급):</Typography>
-                    <Typography sx={{ fontWeight: 'bold', color: '#ff9800', fontSize: '1.1rem' }}>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: '#ff9800', 
+                      fontSize: '1.1rem',
+                      whiteSpace: 'nowrap' // 아이패드에서 숫자와 원이 한 줄에 나오도록
+                    }}>
                       {formatGisungAmount(totalClaimedUnpaidAmount)}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' }, // 아이패드에서 세로 배치
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
                     <Typography sx={{ color: '#bbb' }}>총 지출:</Typography>
-                    <Typography sx={{ fontWeight: 'bold', color: '#f44336', fontSize: '1.1rem' }}>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: '#f44336', 
+                      fontSize: '1.1rem',
+                      whiteSpace: 'nowrap' // 아이패드에서 숫자와 원이 한 줄에 나오도록
+                    }}>
                       {formatGisungAmount(totalCostAmount)}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' }, // 아이패드에서 세로 배치
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
                     <Typography sx={{ color: '#bbb' }}>차액:</Typography>
                     <Typography sx={{ 
                       fontWeight: 'bold', 
                       fontSize: '1.1rem',
-                      color: (totalGisungAmount - totalCostAmount) >= 0 ? '#43e97b' : '#f44336'
+                      color: (totalGisungAmount - totalCostAmount) >= 0 ? '#43e97b' : '#f44336',
+                      whiteSpace: 'nowrap' // 아이패드에서 숫자와 원이 한 줄에 나오도록
                     }}>
                       {formatBalanceAmount(totalGisungAmount - totalCostAmount)}
                     </Typography>
                   </Box>
                   <Divider sx={{ bgcolor: '#333', my: 1 }} />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' }, // 아이패드에서 세로 배치
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
                     <Typography sx={{ color: '#bbb' }}>안전관리비:</Typography>
-                    <Typography sx={{ fontWeight: 'bold', color: '#ff9800', fontSize: '1.1rem' }}>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: '#ff9800', 
+                      fontSize: '1.1rem',
+                      whiteSpace: 'nowrap' // 아이패드에서 숫자와 원이 한 줄에 나오도록
+                    }}>
                       {formatGisungAmount(totalSafetyAmount)}
                     </Typography>
                   </Box>
@@ -2671,12 +3162,15 @@ export default function SettlementDetail() {
             </Card>
           </Grid>
 
-          {/* 지출정보와 상세내역을 나란히 배치 */}
-          <Grid item xs={12} md={8}>
-            <Grid container spacing={2}>
-              {/* 지출정보 */}
-              <Grid item xs={12} md={6}>
-                <Card sx={{ bgcolor: '#232b3b', color: '#fff', height: '382px', width: '260px' }}>
+          {/* 지출정보 - 아이패드에서 가로 절반 차지 */}
+          <Grid item xs={6} md={4}>
+            {/* 지출정보 */}
+            <Card sx={{ 
+              bgcolor: '#232b3b', 
+              color: '#fff', 
+              height: '382px', 
+              width: { xs: '100%', md: '260px' } // 아이패드에서 전체 너비 사용
+            }}>
                   <CardContent>
                     <Typography variant="h6" sx={{ mb: 2, color: '#f44336', display: 'flex', alignItems: 'center', gap: 1 }}>
                       <TrendingDownIcon /> 지출정보
@@ -2792,11 +3286,14 @@ export default function SettlementDetail() {
                     </Box>
                   </CardContent>
                 </Card>
-              </Grid>
+          </Grid>
 
-              {/* 상세내역 - 조건부 표시 */}
-              {showDetailBox && (
-                <Grid item xs={12} md={6}>
+          {/* 상세내역 - 조건부 표시 */}
+          {showDetailBox && (
+            <Grid item xs={12} md={8}>
+              <Grid container spacing={2}>
+                {/* 기존 상세내역 */}
+                <Grid item xs={12} md={8}>
                   <Box sx={{ 
                     bgcolor: '#232b3b', 
                     color: '#fff', 
@@ -2914,23 +3411,67 @@ export default function SettlementDetail() {
                           )}
                         </Box>
                       ) : detailDialog.title.includes('부자재비') ? (
-                        // 부자재비는 다른 항목들과 같은 형식으로 표시
+                        // 부자재비는 세부 타입별로 그룹화하여 표시 (클릭으로 확장/축소)
                         detailDialog.items.map((item, index) => {
-                          const date = new Date(item.date);
-                          const year = date.getFullYear();
-                          const month = String(date.getMonth() + 1).padStart(2, '0');
-                          return (
-                            <Typography key={index} sx={{ 
-                              color: '#fff', 
-                              fontSize: '1rem',
-                              p: 0.5,
-                              bgcolor: '#333',
-                              borderRadius: 1,
-                              mb: 0.5
-                            }}>
-                              {item.name} {year}.{month} &nbsp; <span style={{ color: '#ff4444' }}>{formatGisungAmount(item.amount)}</span>
-                            </Typography>
-                          );
+                          // 헤더 항목인 경우 (클릭 가능)
+                          if (item.type === 'header') {
+                            const isExpanded = expandedSubMaterial[item.subType] || false;
+                            return (
+                              <Box key={index}>
+                                <Box sx={{ 
+                                  bgcolor: '#444', 
+                                  borderRadius: 1, 
+                                  p: 1, 
+                                  mb: 1,
+                                  border: '1px solid #666',
+                                  cursor: 'pointer',
+                                  '&:hover': { bgcolor: '#555' }
+                                }}
+                                onClick={() => setExpandedSubMaterial(prev => ({
+                                  ...prev,
+                                  [item.subType]: !prev[item.subType]
+                                }))}>
+                                  <Typography sx={{ 
+                                    color: '#43e97b', 
+                                    fontSize: '1.1rem',
+                                    fontWeight: 'bold',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                  }}>
+                                    {item.name} {isExpanded ? '▼' : '▶'}
+                                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                                      <span style={{ color: '#ff4444' }}>{formatGisungAmount(item.amount)}</span>
+                                      <span style={{ color: '#bbb', fontSize: '0.9rem' }}>{item.date}</span>
+                                    </Box>
+                                  </Typography>
+                                </Box>
+                                
+                                {/* 확장된 세부내역 */}
+                                {isExpanded && item.items && item.items.map((subItem, subIndex) => {
+                                  const date = new Date(subItem.date);
+                                  const year = date.getFullYear();
+                                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                                  return (
+                                    <Typography key={subIndex} sx={{ 
+                                      color: '#fff', 
+                                      fontSize: '1rem',
+                                      p: 0.5,
+                                      bgcolor: '#333',
+                                      borderRadius: 1,
+                                      mb: 0.5,
+                                      ml: 2 // 헤더보다 들여쓰기
+                                    }}>
+                                      {subItem.name} {year}.{month} &nbsp; <span style={{ color: '#ff4444' }}>{formatGisungAmount(subItem.amount)}</span>
+                                    </Typography>
+                                  );
+                                })}
+                              </Box>
+                            );
+                          }
+                          
+                          // 일반 항목인 경우 (이제는 표시되지 않음)
+                          return null;
                         })
                       ) : detailDialog.title.includes('자재비') ? (
                         // 자재비도 세부 항목별로 가로 배치
@@ -3189,53 +3730,278 @@ export default function SettlementDetail() {
                   </Box>
                   </Box>
                 </Grid>
-              )}
+                
+              </Grid>
             </Grid>
-          </Grid>
+          )}
         </Grid>
 
 
 
-        {/* 차트분석 */}
-        <Card sx={{ bgcolor: '#232b3b', color: '#fff', width: '100%' }}>
-          <CardContent sx={{ width: '100%' }}>
-            <Typography variant="h6" sx={{ mb: 3, color: '#43e97b' }}>
-              월별 기성금 및 지출 추이 분석
-            </Typography>
-            {chartData ? (
-              <Box sx={{ 
-                height: '400px', 
-                width: '100%',
-                // 아이패드 최적화
-                touchAction: 'manipulation',
-                WebkitTouchCallout: 'none',
-                WebkitUserSelect: 'none',
-                userSelect: 'none',
-                // 하드웨어 가속 활성화
-                transform: 'translateZ(0)',
-                willChange: 'transform'
-              }}>
-                {console.log('차트 렌더링 중 - chartData:', chartData)}
-                <Line data={chartData} options={chartOptions} />
+        {/* 차트분석과 노무능률 */}
+        <Box sx={{ display: 'flex', gap: 2, width: '100%' }}>
+          {/* 차트분석 (75%) */}
+          <Card sx={{ bgcolor: '#232b3b', color: '#fff', flex: '0 0 75%' }}>
+            <CardContent sx={{ width: '100%' }}>
+              <Typography variant="h6" sx={{ mb: 3, color: '#43e97b' }}>
+                월별 기성금 및 지출 추이 분석
+              </Typography>
+              {chartData ? (
+                <Box sx={{ 
+                  height: '400px', 
+                  width: '100%',
+                  // 아이패드 최적화
+                  touchAction: 'manipulation',
+                  WebkitTouchCallout: 'none',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none',
+                  // 하드웨어 가속 활성화
+                  transform: 'translateZ(0)',
+                  willChange: 'transform',
+                  // 아이패드에서 차트가 더 잘 보이도록 추가 스타일
+                  position: 'relative',
+                  overflow: 'visible',
+                  // 아이패드에서 그래프선이 더 선명하게 보이도록
+                  '& canvas': {
+                    imageRendering: 'crisp-edges',
+                    imageRendering: '-webkit-crisp-edges',
+                    imageRendering: 'pixelated'
+                  }
+                }}>
+                  {console.log('차트 렌더링 중 - chartData:', chartData)}
+                  <Line data={chartData} options={chartOptions} />
+                </Box>
+              ) : (
+                <Box sx={{ 
+                  height: '400px', 
+                  width: '100%',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  bgcolor: '#333',
+                  borderRadius: 2
+                }}>
+                  <Typography sx={{ color: '#bbb' }}>
+                    {console.log('차트 데이터 없음 - site:', site, 'gisungData:', gisungData.length, 'costData:', costData.length)}
+                    차트 데이터를 불러오는 중... (기성금: {gisungData.length}개, 지출: {costData.length}개)
+                  </Typography>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* 노무 능률 (25%) */}
+          <Card sx={{ 
+            bgcolor: '#232b3b', 
+            color: '#fff', 
+            flex: '0 0 25%'
+          }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2, color: '#43e97b', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <TrendingUpIcon /> 분석
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                
+                {/* 노무자 1명 기준 평균 물량 */}
+                <Box sx={{ mt: 2 }}>
+                  <Typography sx={{ 
+                    color: '#43e97b', 
+                    fontSize: '1.1rem', 
+                    fontWeight: 'bold',
+                    mb: 1
+                  }}>
+                    노무자 1명 기준 평균물량
+                  </Typography>
+                  
+                  {/* 복층 (노무자 기준) */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' },
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 },
+                    mb: 0.5
+                  }}>
+                    <Typography sx={{ color: '#bbb', fontSize: '1rem' }}>복층:</Typography>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: '#ffeb3b',
+                      whiteSpace: 'nowrap',
+                      fontSize: '1.1rem'
+                    }}>
+                      {laborEfficiency.복층.toFixed(1)}
+                      <span style={{ color: '#fff', fontSize: '0.9em' }}> (M²/명)</span>
+                    </Typography>
+                  </Box>
+                  
+                  {/* 강화 (노무자 기준) */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' },
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
+                    <Typography sx={{ color: '#bbb', fontSize: '1rem' }}>강화:</Typography>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: '#ffeb3b',
+                      whiteSpace: 'nowrap',
+                      fontSize: '1.1rem'
+                    }}>
+                      {laborEfficiency.강화.toFixed(1)}
+                      <span style={{ color: '#fff', fontSize: '0.9em' }}> (M²/명)</span>
+                    </Typography>
+                  </Box>
+                </Box>
+                
+                {/* 일일 기준 평균 물량 */}
+                <Box sx={{ mt: 2 }}>
+                  <Typography sx={{ 
+                    color: '#43e97b', 
+                    fontSize: '1.1rem', 
+                    fontWeight: 'bold',
+                    mb: 1
+                  }}>
+                    일일 기준 평균물량
+                  </Typography>
+                  
+                  {/* 복층 (일일 기준) */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' },
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 },
+                    mb: 0.5
+                  }}>
+                    <Typography sx={{ color: '#bbb', fontSize: '1rem' }}>복층:</Typography>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: '#9c27b0',
+                      whiteSpace: 'nowrap',
+                      fontSize: '1.1rem'
+                    }}>
+                      {dailyLaborEfficiency.복층.toFixed(1)}
+                      <span style={{ color: '#fff', fontSize: '0.9em' }}> (M²/일)</span>
+                    </Typography>
+                  </Box>
+                  
+                  {/* 강화 (일일 기준) */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' },
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
+                    <Typography sx={{ color: '#bbb', fontSize: '1rem' }}>강화:</Typography>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: '#9c27b0',
+                      whiteSpace: 'nowrap',
+                      fontSize: '1.1rem'
+                    }}>
+                      {dailyLaborEfficiency.강화.toFixed(1)}
+                      <span style={{ color: '#fff', fontSize: '0.9em' }}> (M²/일)</span>
+                    </Typography>
+                  </Box>
+                </Box>
+                
+                {/* 물량대비 주요 부자재 양 */}
+                <Box sx={{ mt: 2 }}>
+                  <Typography sx={{ 
+                    color: '#43e97b', 
+                    fontSize: '1.1rem', 
+                    fontWeight: 'bold',
+                    mb: 1
+                  }}>
+                    물량대비 주요 부자재 양
+                  </Typography>
+                  
+                  {/* 구조용 */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' },
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 },
+                    mb: 0.5
+                  }}>
+                    <Typography sx={{ color: '#bbb', fontSize: '1rem' }}>구조용(커튼월 1m²당):</Typography>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: '#ff9800',
+                      whiteSpace: 'nowrap',
+                      fontSize: '1.1rem'
+                    }}>
+                      {subMaterialUsage.구조용.복층.toFixed(2)}EA
+                    </Typography>
+                  </Box>
+                  
+                  {/* 웨더 */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' },
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 },
+                    mb: 0.5
+                  }}>
+                    <Typography sx={{ color: '#bbb', fontSize: '1rem' }}>웨더(커튼월 1m²당):</Typography>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: '#ff9800',
+                      whiteSpace: 'nowrap',
+                      fontSize: '1.1rem'
+                    }}>
+                      {subMaterialUsage.웨더.복층.toFixed(2)}EA
+                    </Typography>
+                  </Box>
+                  
+                  {/* 일반 */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' },
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 },
+                    mb: 0.5
+                  }}>
+                    <Typography sx={{ color: '#bbb', fontSize: '1rem' }}>일반(강화 1m²당):</Typography>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: '#ff9800',
+                      whiteSpace: 'nowrap',
+                      fontSize: '1.1rem'
+                    }}>
+                      {subMaterialUsage.일반.강화.toFixed(2)}EA
+                    </Typography>
+                  </Box>
+                  
+                  {/* 노턴테이프 */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', md: 'row' },
+                    justifyContent: { xs: 'flex-start', md: 'space-between' }, 
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: { xs: 0.5, md: 0 }
+                  }}>
+                    <Typography sx={{ color: '#bbb', fontSize: '1rem' }}>노턴테이프(1m²당):</Typography>
+                    <Typography sx={{ 
+                      fontWeight: 'bold', 
+                      color: '#ff9800',
+                      whiteSpace: 'nowrap',
+                      fontSize: '1.1rem'
+                    }}>
+                      {subMaterialUsage.노턴테이프.복층.toFixed(2)}EA
+                    </Typography>
+                  </Box>
+                </Box>
               </Box>
-            ) : (
-              <Box sx={{ 
-                height: '400px', 
-                width: '100%',
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                bgcolor: '#333',
-                borderRadius: 2
-              }}>
-                <Typography sx={{ color: '#bbb' }}>
-                  {console.log('차트 데이터 없음 - site:', site, 'gisungData:', gisungData.length, 'costData:', costData.length)}
-                  차트 데이터를 불러오는 중... (기성금: {gisungData.length}개, 지출: {costData.length}개)
-                </Typography>
-              </Box>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Box>
       </Box>
 
       {/* 정산 삭제 확인 다이얼로그 */}
@@ -3764,7 +4530,7 @@ export default function SettlementDetail() {
                       <Button
                         size="small"
                         color="error"
-                        onClick={() => removeQuantityItem(item.id)}
+                        onClick={async () => await removeQuantityItem(item.id)}
                         sx={{ minWidth: 'auto', p: 0.5 }}
                       >
                         ✕

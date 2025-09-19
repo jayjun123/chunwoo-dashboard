@@ -1499,23 +1499,35 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     }
   };
 
-  // 현장명 선택 시 해당 현장의 누계기성(전회기성) 자동 합산
+  // 현장명 선택 시 해당 현장의 누계기성(전회기성) 자동 합산 및 차수 자동 계산
   const handleSiteChange = (e) => {
     const siteName = e.target.value;
     const selectedSite = sites.find(s => s.name === siteName);
-    // name 매칭을 trim, 대소문자 구분 없이 엄격하게, 청구완료된 것만
+    
+    // 해당 현장의 모든 기성 데이터 개수 계산 (청구완료 상태와 관계없이)
     const siteGisungData = allGisungData.filter(
+      g => (g.name || '').trim().toLowerCase() === siteName.trim().toLowerCase()
+    );
+    
+    // 차수 계산 - 해당 현장의 기존 기성 데이터 개수 + 1
+    const existingGisungCount = siteGisungData.length;
+    const nextSequence = existingGisungCount + 1;
+    
+    console.log(`📊 차수 계산: ${siteName} - 기존 ${existingGisungCount}개 → ${nextSequence}차`);
+    
+    // name 매칭을 trim, 대소문자 구분 없이 엄격하게, 청구완료된 것만
+    const completedSiteGisungData = allGisungData.filter(
       g => (g.name || '').trim().toLowerCase() === siteName.trim().toLowerCase() && g.claimStatus === '청구완료'
     );
     
     // 여러 필드에서 기성금액 찾기 (청구완료된 것만)
-    const prevSum = siteGisungData.reduce((sum, g) => {
+    const prevSum = completedSiteGisungData.reduce((sum, g) => {
       const amount = Number(g.gisungAmount) || Number(g.currentGisung) || 0;
       console.log(`📊 누계기성 계산: ${g.sequence} - gisungAmount: ${g.gisungAmount}, currentGisung: ${g.currentGisung}, 계산된값: ${amount}, 청구상태: ${g.claimStatus}`);
       return sum + amount;
     }, 0);
     
-    console.log(`🔍 현장 변경: ${siteName} - 누계기성: ${prevSum.toLocaleString()}원`);
+    console.log(`🔍 현장 변경: ${siteName} - 누계기성: ${prevSum.toLocaleString()}원, 차수: ${nextSequence}차`);
     
     setFormData({
       ...formData,
@@ -1523,6 +1535,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       contractAmount: selectedSite?.contractAmount || '',
       advance: selectedSite?.advance || '',
       prevGisung: prevSum.toString(),
+      sequence: `${nextSequence}차`, // 차수 자동 설정
     });
   };
 

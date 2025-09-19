@@ -2308,6 +2308,7 @@ const Claims = () => {
                 size="small"
                 isMobile={isMobile}
                 sx={{ 
+                  width: '250px', // 현장명 입력칸 너비를 250px로 설정
                   '& .MuiOutlinedInput-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
                   '& .MuiInputBase-input': { color: 'white' }
@@ -2334,6 +2335,7 @@ const Claims = () => {
                 onChange={(e) => setFormData(prev => ({ ...prev, sequence: e.target.value }))}
                 size="small"
                 sx={{ 
+                  width: '150px', // 차수 입력부분 너비를 150px로 설정
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
                   '& .MuiInputBase-input': { color: 'white' }
@@ -2417,6 +2419,7 @@ const Claims = () => {
                   size="medium"
                   isMobile={isMobile}
                   sx={{ 
+                    width: '250px', // 현장명 입력칸 너비를 250px로 설정
                     '& .MuiOutlinedInput-root': { backgroundColor: '#444' },
                     '& .MuiInputLabel-root': { color: '#ccc' },
                     '& .MuiInputBase-input': { color: 'white' }
@@ -2443,6 +2446,7 @@ const Claims = () => {
                   value={formData.sequence}
                   onChange={(e) => setFormData(prev => ({ ...prev, sequence: e.target.value }))}
                   sx={{ 
+                    width: '150px', // 차수 입력부분 너비를 150px로 설정
                     '& .MuiInputBase-root': { backgroundColor: '#444' },
                     '& .MuiInputLabel-root': { color: '#ccc' },
                     '& .MuiInputBase-input': { color: 'white' }
