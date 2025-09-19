@@ -1970,7 +1970,15 @@ const Claims = () => {
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구 전 기성율(%)</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>청구금액</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구여부</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>비고</TableCell>
+                    <TableCell sx={{ 
+                      color: 'white', 
+                      fontWeight: 'bold', 
+                      minWidth: 100,
+                      // 아이패드에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}>비고</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>관리</TableCell>
                   </>
                 )}
@@ -2081,7 +2089,13 @@ const Claims = () => {
                             }}
                           />
                         </TableCell>
-                        <TableCell sx={{ color: 'white' }}>{claim.notes}</TableCell>
+                        <TableCell sx={{ 
+                          color: 'white',
+                          // 아이패드에서 숨김
+                          '@media (min-width: 768px) and (max-width: 1024px)': {
+                            display: 'none'
+                          }
+                        }}>{claim.notes}</TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', gap: 0.5 }}>
                             <Tooltip title="기성등록">
@@ -2092,18 +2106,19 @@ const Claims = () => {
                                 sx={{ 
                                   color: '#4caf50',
                                   borderColor: '#4caf50',
-                                  fontSize: '0.75rem',
-                                  py: 0.5,
-                                  px: 1,
-                                  minWidth: 'auto',
-                                  height: '28px',
+                                  fontSize: '1.2rem',
+                                  fontWeight: 'bold',
+                                  minWidth: '32px',
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '50%',
                                   '&:hover': {
                                     borderColor: '#45a049',
                                     backgroundColor: 'rgba(76, 175, 80, 0.1)'
                                   }
                                 }}
                               >
-                                기성등록
+                                +
                               </Button>
                             </Tooltip>
                             <Tooltip title="수정">
