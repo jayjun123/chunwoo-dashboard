@@ -3887,7 +3887,7 @@ export default function SettlementDetail() {
               <Typography variant="h6" sx={{ mb: 3, color: '#43e97b' }}>
                 월별 기성금 및 지출 추이 분석
               </Typography>
-              {chartData ? (
+              {chartData && hasData ? (
                 <Box sx={{ 
                   height: '400px', 
                   width: { xs: '300px', sm: '300px', md: '100%' },
