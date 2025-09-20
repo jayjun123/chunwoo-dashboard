@@ -927,20 +927,20 @@ const SettlementManagement = () => {
       </Grid>
 
       {/* 차트 섹션 */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ 
-            p: 3, 
-            height: '400px', 
-            width: '850px',
-            bgcolor: '#181f2e',
-            border: '1px solid #232b3b',
-            // 아이패드에서만 300px로 설정
-            '@media (min-width: 768px) and (max-width: 1024px)': {
-              width: '300px !important',
-              maxWidth: '300px !important'
-            }
-          }}>
+      <Box sx={{ 
+        display: 'flex', 
+        gap: 2, 
+        mb: 3, 
+        width: '100%',
+        maxWidth: '100%'
+      }}>
+        <Paper sx={{ 
+          p: 3, 
+          height: '400px', 
+          flex: 1,
+          bgcolor: '#181f2e',
+          border: '1px solid #232b3b'
+        }}>
             <Typography variant="h6" sx={{ 
               color: '#fff', 
               mb: 2, 
@@ -1000,20 +1000,13 @@ const SettlementManagement = () => {
               </LineChart>
             </ResponsiveContainer>
           </Paper>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ 
-            p: 3, 
-            height: '400px', 
-            width: '850px',
-            bgcolor: '#181f2e',
-            border: '1px solid #232b3b',
-            // 아이패드에서만 300px로 설정
-            '@media (min-width: 768px) and (max-width: 1024px)': {
-              width: '300px !important',
-              maxWidth: '300px !important'
-            }
-          }}>
+        <Paper sx={{ 
+          p: 3, 
+          height: '400px', 
+          flex: 1,
+          bgcolor: '#181f2e',
+          border: '1px solid #232b3b'
+        }}>
             <Typography variant="h6" sx={{ 
               color: '#fff', 
               mb: 2, 
@@ -1070,8 +1063,7 @@ const SettlementManagement = () => {
               </ComposedChart>
             </ResponsiveContainer>
           </Paper>
-        </Grid>
-      </Grid>
+      </Box>
 
       {/* 개별 현장 정산 상세 페이지 */}
       {siteId ? (

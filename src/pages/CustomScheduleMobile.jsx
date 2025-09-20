@@ -587,7 +587,7 @@ const CustomScheduleMobile = () => {
                               item.type === '현설' ? '[현설]' : 
                               item.type === '견적' ? '[견적]' : 
                               item.type === '실측' ? '[실측]' : 
-                              item.type === '기타' ? '[기타]' : '';
+                              item.type === '기타' ? '' : ''; // 기타 분류 시 [기타] 붙이지 않음
                             const title = item.text || item.title || '제목 없음';
                             
                             // 디버깅 로그 추가
@@ -839,7 +839,7 @@ const CustomScheduleMobile = () => {
                                 item.type === '현설' ? '[현설]' : 
                                 item.type === '견적' ? '[견적]' : 
                                 item.type === '실측' ? '[실측]' : 
-                                item.type === '기타' ? '[기타]' : '';
+                                item.type === '기타' ? '' : ''; // 기타 분류 시 [기타] 붙이지 않음
                               const title = item.text || item.title || '제목 없음';
                               
                               // 제목이 없거나 너무 짧은 경우 처리
@@ -1772,7 +1772,7 @@ const CustomScheduleMobile = () => {
                             item.type === '현설' ? '[현설]' : 
                             item.type === '견적' ? '[견적]' : 
                             item.type === '실측' ? '[실측]' : 
-                            item.type === '기타' ? '[기타]' : '';
+                            item.type === '기타' ? '' : ''; // 기타 분류 시 [기타] 붙이지 않음
                           const siteName = item.siteName || '';
                           const title = item.text || item.title || '제목 없음';
                           

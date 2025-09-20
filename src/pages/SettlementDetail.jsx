@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -47,12 +48,14 @@ import {
 } from '@mui/icons-material';
 import { Line } from 'react-chartjs-2';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip as ChartTooltip,
   Legend,
@@ -63,7 +66,7 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { formatContractAmount, formatGisungAmount, formatBalanceAmount } from '../utils/formatUtils';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, ChartTooltip, Legend, Filler);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, ChartTooltip, Legend, Filler);
 
 export default function SettlementDetail() {
   const { siteId } = useParams();
@@ -378,6 +381,7 @@ export default function SettlementDetail() {
            let costSnapshot = await getDocs(costQuery);
            let costItems = costSnapshot.docs.map(doc => ({
              id: doc.id,
+             siteId: siteId, // siteId 추가
              ...doc.data()
            }));
 
@@ -393,6 +397,7 @@ export default function SettlementDetail() {
                costSnapshot = await getDocs(costQuery);
                costItems = costSnapshot.docs.map(doc => ({
                  id: doc.id,
+                 siteId: siteId, // siteId 추가
                  ...doc.data()
                }));
              }
@@ -563,23 +568,131 @@ export default function SettlementDetail() {
     });
     unsubscribers.push(unsubscribeMaterial);
 
-    // 실물량 데이터 실시간 리스너
-    const quantityQuery = query(
+    // 실물량 데이터 실시간 리스너 - 여러 필드명으로 시도
+    console.log('현재 siteId:', siteId);
+    
+    // 1. siteId 필드로 시도
+    const quantityQuery1 = query(
       collection(db, 'quantity_info'),
       where('siteId', '==', siteId)
     );
-    const unsubscribeQuantity = onSnapshot(quantityQuery, (snapshot) => {
-      const quantityItems = snapshot.docs.map(doc => ({
-        id: doc.data().id || doc.id,
-        firebaseId: doc.id,
-        ...doc.data()
-      }));
-      setQuantityData(quantityItems);
-      console.log('실물량 데이터 실시간 업데이트:', quantityItems.length, '개');
+    
+    // 2. site 필드로 시도
+    const quantityQuery2 = query(
+      collection(db, 'quantity_info'),
+      where('site', '==', siteId)
+    );
+    
+    // 3. siteName 필드로 시도 (현장명으로 저장된 경우)
+    const quantityQuery3 = query(
+      collection(db, 'quantity_info'),
+      where('siteName', '==', site?.name || '')
+    );
+    
+    // 4. 필터링 없이 모든 데이터 가져오기
+    const allQuantityQuery = query(collection(db, 'quantity_info'));
+    
+    let foundData = false;
+    
+    // siteId 필드로 시도
+    const unsubscribeQuantity1 = onSnapshot(quantityQuery1, (snapshot) => {
+      if (!foundData && snapshot.docs.length > 0) {
+        console.log('siteId 필드로 물량 데이터 발견:', snapshot.docs.length, '개');
+        const quantityItems = snapshot.docs.map(doc => ({
+          id: doc.data().id || doc.id,
+          firebaseId: doc.id,
+          ...doc.data()
+        }));
+        setQuantityData(quantityItems);
+        foundData = true;
+      }
     }, (error) => {
-      console.error('실물량 실시간 리스너 오류:', error);
+      console.error('siteId 필드 쿼리 오류:', error);
     });
-    unsubscribers.push(unsubscribeQuantity);
+    
+    // site 필드로 시도
+    const unsubscribeQuantity2 = onSnapshot(quantityQuery2, (snapshot) => {
+      if (!foundData && snapshot.docs.length > 0) {
+        console.log('site 필드로 물량 데이터 발견:', snapshot.docs.length, '개');
+        const quantityItems = snapshot.docs.map(doc => ({
+          id: doc.data().id || doc.id,
+          firebaseId: doc.id,
+          ...doc.data()
+        }));
+        setQuantityData(quantityItems);
+        foundData = true;
+      }
+    }, (error) => {
+      console.error('site 필드 쿼리 오류:', error);
+    });
+    
+    // siteName 필드로 시도
+    const unsubscribeQuantity3 = onSnapshot(quantityQuery3, (snapshot) => {
+      if (!foundData && snapshot.docs.length > 0) {
+        console.log('siteName 필드로 물량 데이터 발견:', snapshot.docs.length, '개');
+        const quantityItems = snapshot.docs.map(doc => ({
+          id: doc.data().id || doc.id,
+          firebaseId: doc.id,
+          ...doc.data()
+        }));
+        setQuantityData(quantityItems);
+        foundData = true;
+      }
+    }, (error) => {
+      console.error('siteName 필드 쿼리 오류:', error);
+    });
+    
+    // 모든 데이터에서 현재 현장 찾기
+    const unsubscribeAllQuantity = onSnapshot(allQuantityQuery, (snapshot) => {
+      if (!foundData) {
+        console.log('전체 물량 데이터에서 현장 매칭 시도:', snapshot.docs.length, '개');
+        
+        const matchingItems = [];
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          const docSiteId = data.siteId || data.site || '';
+          const docSiteName = data.siteName || '';
+          const currentSiteName = site?.name || '';
+          
+          // siteId 매칭
+          if (docSiteId === siteId) {
+            matchingItems.push({
+              id: data.id || doc.id,
+              firebaseId: doc.id,
+              ...data
+            });
+          }
+          // siteName 매칭
+          else if (docSiteName === currentSiteName) {
+            matchingItems.push({
+              id: data.id || doc.id,
+              firebaseId: doc.id,
+              ...data
+            });
+          }
+        });
+        
+        if (matchingItems.length > 0) {
+          console.log('전체 데이터에서 매칭된 물량 데이터:', matchingItems.length, '개');
+          setQuantityData(matchingItems);
+          foundData = true;
+        } else {
+          console.log('물량 데이터를 찾을 수 없습니다. 전체 데이터:', snapshot.docs.map(doc => ({
+            id: doc.id,
+            siteId: doc.data().siteId,
+            site: doc.data().site,
+            siteName: doc.data().siteName,
+            siteItem: doc.data().siteItem
+          })));
+        }
+      }
+    }, (error) => {
+      console.error('전체 물량 데이터 확인 오류:', error);
+    });
+    unsubscribers.push(unsubscribeQuantity1);
+    unsubscribers.push(unsubscribeQuantity2);
+    unsubscribers.push(unsubscribeQuantity3);
+    unsubscribers.push(unsubscribeAllQuantity);
 
     // 지출 데이터 실시간 리스너
     const costQuery = query(
@@ -589,6 +702,7 @@ export default function SettlementDetail() {
     const unsubscribeCost = onSnapshot(costQuery, (snapshot) => {
       const costItems = snapshot.docs.map(doc => ({
         id: doc.id,
+        siteId: siteId, // siteId 추가
         ...doc.data()
       }));
       
@@ -796,64 +910,16 @@ export default function SettlementDetail() {
     return cleanedName.trim();
   };
 
-  // 총 공수 계산 (일정 데이터에서)
-  const totalWorkers = useMemo(() => {
-    let total = 0;
-    
-    // 일정 데이터에서 공수 추출
-    scheduleData.forEach(schedule => {
-      if (schedule.desc) {
-        const manpower = extractManpowerFromDescription(schedule.desc);
-        total += manpower;
-      }
-    });
-    
-    // 노무비 데이터에서도 공수 추출 (기존 방식)
-    const laborItems = costData.filter(item => item.itemType === '노무비');
-    laborItems.forEach(item => {
-      const workers = Number(item.workers) || 0;
-      total += workers;
-    });
-    
-    console.log('총 공수 (일정 + 노무비):', total);
-    return total;
-  }, [scheduleData, costData]);
-
-  // 복층유리와 강화유리 물량 계산
-  const glassQuantities = useMemo(() => {
-    let 복층유리 = 0;
-    let 강화유리 = 0;
-    
-    console.log('quantityData 전체:', quantityData);
-    
-    quantityData.forEach(item => {
-      const quantity = Number(item.actualQuantity) || 0;
-      const siteItem = item.siteItem || '';
-      
-      console.log('물량 항목:', { siteItem, quantity, actualQuantity: item.actualQuantity });
-      
-      if (siteItem.includes('복층') || siteItem.includes('복층유리')) {
-        복층유리 += quantity;
-        console.log('복층 추가:', quantity, '총합:', 복층유리);
-      } else if (siteItem.includes('강화') || siteItem.includes('강화유리') || siteItem.includes('8T강화') || siteItem.includes('8T강화유리')) {
-        강화유리 += quantity;
-        console.log('강화 추가:', quantity, '총합:', 강화유리);
-      }
-    });
-    
-    console.log('최종 glassQuantities:', { 복층유리, 강화유리 });
-    return { 복층유리, 강화유리 };
-  }, [quantityData]);
-
-  // 이전 달까지의 공수 계산 (오늘 날짜 기준)
-  const workersUpToLastMonth = useMemo(() => {
+  // 오늘까지의 공수 계산 (오늘 날짜 기준)
+  const workersUpToToday = useMemo(() => {
     const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth() + 1; // 0부터 시작하므로 +1
+    const currentDay = today.getDate();
     
     let total = 0;
     
-    // 일정 데이터에서 이전 달까지의 공수 추출
+    // 일정 데이터에서 오늘까지의 공수 추출
     scheduleData.forEach(schedule => {
       if (schedule.date) {
         let date;
@@ -865,237 +931,131 @@ export default function SettlementDetail() {
           date = parseDate(schedule.date);
         }
         
+        // 유효한 날짜인지 확인 (2000년 이후, 오늘까지 포함)
+        if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
+          return;
+        }
+        
         const scheduleYear = date.getFullYear();
         const scheduleMonth = date.getMonth() + 1;
+        const scheduleDay = date.getDate();
         
-        // 이전 달까지의 데이터만 포함 (현재 월의 1일~30일은 모두 이전 달까지로 계산)
-        if (scheduleYear < currentYear || (scheduleYear === currentYear && scheduleMonth < currentMonth)) {
+        // 오늘까지의 데이터 포함 (현재 월의 1일~오늘까지)
+        if (scheduleYear < currentYear || 
+            (scheduleYear === currentYear && scheduleMonth < currentMonth) ||
+            (scheduleYear === currentYear && scheduleMonth === currentMonth && scheduleDay <= currentDay)) {
           if (schedule.desc) {
             const manpower = extractManpowerFromDescription(schedule.desc);
-            total += manpower;
+            
+            // 0명이거나 음수인 데이터 제외
+            if (manpower > 0) {
+              total += manpower;
+              console.log(`[workersUpToToday] 일정 공수 추가: ${scheduleYear}-${scheduleMonth}-${scheduleDay} (${manpower}명) - 총합: ${total}`);
+            }
           }
         }
       }
     });
     
-    // 노무비 데이터에서도 이전 달까지의 공수 추출
+    // 노무비 데이터에서도 오늘까지의 공수 추출
     const laborItems = costData.filter(item => item.itemType === '노무비');
     laborItems.forEach(item => {
       if (item.date) {
         const date = parseDate(item.date);
+        
+        // 유효한 날짜인지 확인 (2000년 이후, 오늘까지 포함)
+        if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
+          return;
+        }
+        
         const itemYear = date.getFullYear();
         const itemMonth = date.getMonth() + 1;
+        const itemDay = date.getDate();
         
-        // 이전 달까지의 데이터만 포함 (현재 월의 1일~30일은 모두 이전 달까지로 계산)
-        if (itemYear < currentYear || (itemYear === currentYear && itemMonth < currentMonth)) {
-          const workers = Number(item.workers) || 0;
-          total += workers;
-        }
-      }
-    });
-    
-    console.log('이전 달까지의 총 공수:', total, `(현재: ${currentYear}년 ${currentMonth}월 - 1일~30일은 모두 이전 달까지로 계산)`);
-    return total;
-  }, [scheduleData, costData]);
-
-  // 노무능률 계산 (전체 물량을 총 공수로 나눈 후 비율로 분배)
-  const laborEfficiency = useMemo(() => {
-    const totalQuantity = glassQuantities.복층유리 + glassQuantities.강화유리;
-    const totalWorkers = workersUpToLastMonth;
-    
-    if (totalWorkers === 0 || totalQuantity === 0) {
-      return { 복층: 0, 강화: 0 };
-    }
-    
-    // 전체 노무능률 계산 (전체 물량 / 총 공수)
-    const totalEfficiency = totalQuantity / totalWorkers;
-    
-    // 복층과 강화의 비율 계산
-    const 복층비율 = glassQuantities.복층유리 / totalQuantity;
-    const 강화비율 = glassQuantities.강화유리 / totalQuantity;
-    
-    // 비율에 따라 노무능률 분배
-    const 복층능률 = totalEfficiency * 복층비율;
-    const 강화능률 = totalEfficiency * 강화비율;
-    
-    console.log('노무능률 계산:', {
-      전체물량: totalQuantity,
-      총공수: totalWorkers,
-      전체노무능률: totalEfficiency,
-      복층비율: 복층비율,
-      강화비율: 강화비율,
-      복층능률: 복층능률,
-      강화능률: 강화능률
-    });
-    
-    return { 복층: 복층능률, 강화: 강화능률 };
-  }, [glassQuantities, workersUpToLastMonth]);
-
-  // 일 단위 노무능률 계산 (전달까지 공수가 있는 날만 합쳐서 계산)
-  const dailyLaborEfficiency = useMemo(() => {
-    const totalQuantity = glassQuantities.복층유리 + glassQuantities.강화유리;
-    
-    if (totalQuantity === 0) {
-      return { 복층: 0, 강화: 0, 총일수: 0 };
-    }
-    
-    // 전달까지의 공수가 있는 날들만 계산
-    let totalWorkingDays = 0;
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1;
-    
-    // 이전 달까지의 모든 날짜를 확인
-    for (let year = 2024; year <= currentYear; year++) {
-      const endMonth = year === currentYear ? currentMonth - 1 : 12;
-      const startMonth = year === 2024 ? 1 : 1;
-      
-      for (let month = startMonth; month <= endMonth; month++) {
-        // 해당 월의 모든 날짜 확인
-        const daysInMonth = new Date(year, month, 0).getDate();
-        
-        for (let day = 1; day <= daysInMonth; day++) {
-          const checkDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          
-          // 해당 날짜에 공수가 있는지 확인
-          const hasWorkers = scheduleData.some(item => {
-            const itemDate = item.date;
-            if (typeof itemDate === 'string') {
-              return itemDate === checkDate;
-            } else if (itemDate && itemDate.toDate) {
-              const dateStr = itemDate.toDate().toISOString().split('T')[0];
-              return dateStr === checkDate;
-            }
-            return false;
-          });
-          
-          if (hasWorkers) {
-            totalWorkingDays++;
+        // 오늘까지의 데이터 포함 (현재 월의 1일~오늘까지)
+        if (itemYear < currentYear || 
+            (itemYear === currentYear && itemMonth < currentMonth) ||
+            (itemYear === currentYear && itemMonth === currentMonth && itemDay <= currentDay)) {
+          const workers = Number(item.workers) || Number(item.quantity) || 0;
+          if (workers > 0) {
+            total += workers;
+            console.log(`[workersUpToToday] 노무비 공수 추가: ${itemYear}-${itemMonth}-${itemDay} (${workers}명) - 총합: ${total}`);
           }
         }
       }
-    }
-    
-    if (totalWorkingDays === 0) {
-      return { 복층: 0, 강화: 0, 총일수: 0 };
-    }
-    
-    // 일 평균 물량 계산
-    const dailyAverageQuantity = totalQuantity / totalWorkingDays;
-    
-    // 복층과 강화의 비율 계산
-    const 복층비율 = glassQuantities.복층유리 / totalQuantity;
-    const 강화비율 = glassQuantities.강화유리 / totalQuantity;
-    
-    // 비율에 따라 일 평균 노무능률 분배
-    const 복층일능률 = dailyAverageQuantity * 복층비율;
-    const 강화일능률 = dailyAverageQuantity * 강화비율;
-    
-    console.log('일 단위 노무능률 계산:', {
-      전체물량: totalQuantity,
-      총작업일수: totalWorkingDays,
-      일평균물량: dailyAverageQuantity,
-      복층비율: 복층비율,
-      강화비율: 강화비율,
-      복층일능률: 복층일능률,
-      강화일능률: 강화일능률
     });
     
-    return { 복층: 복층일능률, 강화: 강화일능률, 총일수: totalWorkingDays };
-  }, [glassQuantities, scheduleData]);
+    console.log('오늘까지의 총 공수:', total, `(현재: ${currentYear}년 ${currentMonth}월 ${currentDay}일까지)`);
+    return total;
+  }, [scheduleData, costData]);
 
-  // 물량대비 주요 부자재 양 계산
-  const subMaterialUsage = useMemo(() => {
-    const totalQuantity = glassQuantities.복층유리 + glassQuantities.강화유리;
-    
-    if (totalQuantity === 0) {
-      return {
-        구조용: { 복층: 0, 강화: 0 },
-        웨더: { 복층: 0, 강화: 0 },
-        일반: { 복층: 0, 강화: 0 },
-        노턴테이프: { 복층: 0, 강화: 0 }
-      };
+  // 총 공수 계산 (일정 데이터 + 노무비 데이터) - 오늘 날짜까지 포함
+  const totalWorkers = useMemo(() => {
+    console.log('=== totalWorkers 계산 시작 (workersUpToToday 사용) ===');
+    console.log('workersUpToToday 값:', workersUpToToday);
+    console.log('=== totalWorkers 계산 완료 ===');
+    return workersUpToToday;
+  }, [workersUpToToday]);
+
+  // 첫 투입 날짜와 총 공수 계산
+  const projectPeriod = useMemo(() => {
+    if (!scheduleData || scheduleData.length === 0) {
+      return { startDate: null, endDate: null, totalWorkers: 0 };
     }
 
-    // 부자재별 사용량 계산 (실제 데이터에서 가져와야 함)
-    const subMaterialData = costData.filter(item => item.itemType === '부자재');
-    
-    let 구조용복층 = 0, 구조용강화 = 0;
-    let 웨더복층 = 0, 웨더강화 = 0;
-    let 일반복층 = 0, 일반강화 = 0;
-    let 노턴테이프복층 = 0, 노턴테이프강화 = 0;
+    // 첫 투입 날짜 찾기 (공수가 있는 가장 이른 날짜)
+    let firstDate = null;
 
-    console.log('부자재 데이터:', subMaterialData);
-    console.log('유리 물량:', glassQuantities);
-    
-    subMaterialData.forEach(item => {
-      const quantity = parseFloat(item.quantity) || 0;
-      const subType = item.subMaterialDetail || '기타';
+    scheduleData.forEach(item => {
+      const itemDate = item.date;
+      let dateStr = '';
       
-      console.log('부자재 항목:', { subType, quantity, item });
+      if (typeof itemDate === 'string') {
+        dateStr = itemDate;
+      } else if (itemDate && itemDate.toDate) {
+        dateStr = itemDate.toDate().toISOString().split('T')[0];
+      }
       
-      // 금사동 현장은 복층과 12T강화 포함, 다른 현장은 복층만
-      const isGeumsa = site?.name?.includes('금사동');
-      
-      if (subType === '구조용실란트') {
-        구조용복층 += quantity; // 모든 현장에서 복층에만 사용
-      } else if (subType === '웨더실란트') {
-        if (isGeumsa) {
-          웨더복층 += quantity * 0.5;
-          웨더강화 += quantity * 0.5;
-        } else {
-          웨더복층 += quantity;
+      if (dateStr) {
+        const date = parseDate(itemDate);
+        const today = new Date();
+        
+        // 유효한 날짜인지 확인 (2000년 이후, 오늘 이전)
+        if (isNaN(date.getTime()) || date.getFullYear() < 2000 || date > today) {
+          return;
         }
-      } else if (subType === '일반실란트') {
-        일반강화 += quantity;
-      } else if (subType === '노턴테이프') {
-        노턴테이프복층 += quantity;
+        
+        const workers = extractManpowerFromDescription(item.desc || item.description || '');
+        
+        if (workers > 0) {
+          if (!firstDate || dateStr < firstDate) {
+            firstDate = dateStr;
+          }
+        }
       }
-    });
-    
-    console.log('계산된 부자재 사용량:', {
-      구조용복층, 구조용강화,
-      웨더복층, 웨더강화,
-      일반복층, 일반강화,
-      노턴테이프복층, 노턴테이프강화
     });
 
-    // 금사동 현장은 복층과 12T강화를 모두 포함해서 계산
-    const isGeumsa = site?.name?.includes('금사동');
-    const totalGlassQuantity = isGeumsa ? glassQuantities.복층유리 + glassQuantities.강화유리 : glassQuantities.복층유리;
+    // 오늘 날짜를 종료일로 설정 (한국 시간 기준)
+    const now = new Date();
+    const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+    const today = koreaTime.toISOString().split('T')[0];
     
-    const result = {
-      구조용: { 
-        복층: totalGlassQuantity > 0 ? 구조용복층 / totalGlassQuantity : 0,
-        강화: totalGlassQuantity > 0 ? 구조용강화 / totalGlassQuantity : 0
-      },
-      웨더: { 
-        복층: totalGlassQuantity > 0 ? 웨더복층 / totalGlassQuantity : 0,
-        강화: totalGlassQuantity > 0 ? 웨더강화 / totalGlassQuantity : 0
-      },
-      일반: { 
-        복층: glassQuantities.복층유리 > 0 ? 일반복층 / glassQuantities.복층유리 : 0,
-        강화: glassQuantities.강화유리 > 0 ? 일반강화 / glassQuantities.강화유리 : 0  // 8T강화 물량
-      },
-      노턴테이프: { 
-        복층: totalGlassQuantity > 0 ? 노턴테이프복층 / totalGlassQuantity : 0,
-        강화: totalGlassQuantity > 0 ? 노턴테이프강화 / totalGlassQuantity : 0
-      }
+    console.log('=== projectPeriod 계산 ===');
+    console.log('현재 시간 (UTC):', now.toISOString());
+    console.log('한국 시간:', koreaTime.toISOString());
+    console.log('첫 투입 날짜:', firstDate);
+    console.log('종료 날짜 (오늘):', today);
+    console.log('총 공수:', workersUpToToday);
+
+    return {
+      startDate: firstDate,
+      endDate: today,
+      totalWorkers: workersUpToToday // workersUpToToday 사용
     };
-    
-    console.log('최종 결과:', result);
-    console.log('유리 물량으로 나눈 값들:', {
-      '구조용/복층': glassQuantities.복층유리,
-      '구조용/강화': glassQuantities.강화유리,
-      '웨더/복층': glassQuantities.복층유리,
-      '웨더/강화': glassQuantities.강화유리
-    });
-    
-    return result;
-  }, [glassQuantities, costData, site]);
+  }, [scheduleData, workersUpToToday]);
 
   // 순수익 계산
-  const netProfit = totalGisungAmount - totalCostAmount;
+  let netProfit = totalGisungAmount - totalCostAmount;
 
   // 지출 항목별 상세 내용 보기
   // 금액 천단위 쉼표 포맷팅 함수
@@ -1448,38 +1408,248 @@ export default function SettlementDetail() {
     }
   }, [materialData]);
 
-  // 현장 등록된 모든 항목 정보 가져오기
-  const getRegisteredItems = useMemo(() => {
-    if (!site || !site.items) {
-      return [];
+  // quantity_info 데이터 상태
+  const [quantityInfoData, setQuantityInfoData] = useState([]);
+
+  // quantity_info 데이터 가져오기
+  useEffect(() => {
+    if (!siteId) {
+      console.log('siteId가 없어서 quantity_info 로드 안함');
+      return;
     }
 
-    // 현장의 items에서 실제 항목들만 필터링 (합계, 부가세 등 제외)
-    const registeredItems = site.items.filter(item => 
-      !item.isTotal && !item.isVat && !item.isTotalWithVat && !item.isAdjustment
-    ).map(item => ({
-      name: item.name,
-      quantity: item.quantity || item.qty || 0,
-      unit: item.unit || 'M2',
-      price: item.price || 0,
-      amount: item.amount || 0,
-      specification: item.specification || ''
-    }));
+    console.log('quantity_info 데이터 로드 시작, siteId:', siteId);
+    
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'quantity_info'), where('siteId', '==', siteId)),
+      (snapshot) => {
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        console.log('quantity_info 데이터 실시간 업데이트:', data.length, '개');
+        console.log('quantity_info 데이터 상세:', data);
+        setQuantityInfoData(data);
+      },
+      (error) => {
+        console.error('quantity_info 데이터 로드 실패:', error);
+        console.error('에러 상세:', error.message);
+      }
+    );
 
+    return () => unsubscribe();
+  }, [siteId]);
+
+  // 현장 등록된 모든 항목 정보 가져오기 (quantity_info 기반)
+  const getRegisteredItems = useMemo(() => {
+    if (!quantityInfoData || quantityInfoData.length === 0) {
+      return [];
+    }
+    
+    const registeredItems = quantityInfoData
+      .filter(item => item && item.siteItem && item.siteItem.trim() !== '')
+      .map(item => ({
+        name: item.siteItem || '',
+        quantity: item.actualQuantity || 0,
+        unit: 'M2',
+        price: 0,
+        amount: 0,
+        specification: item.specification || ''
+      }));
+
+    console.log('quantity_info 기반 등록된 항목들:', registeredItems);
     return registeredItems;
-  }, [site]);
+  }, [quantityInfoData]);
+
+  // 복층유리와 강화유리 물량 계산 (quantity_info 기반)
+  const glassQuantities = useMemo(() => {
+    let 복층유리 = 0;
+    let 강화12T = 0;
+    let 강화8T = 0;
+    
+    console.log('=== glassQuantities 계산 시작 (quantity_info 기반) ===');
+    console.log('quantityInfoData:', quantityInfoData);
+    console.log('quantityInfoData 개수:', quantityInfoData.length);
+    
+    if (!quantityInfoData || quantityInfoData.length === 0) {
+      console.log('quantityInfoData가 비어있음 - 기본값 반환');
+      return { 복층유리: 0, 강화12T: 0, 강화8T: 0 };
+    }
+    
+    quantityInfoData.forEach((item, index) => {
+      const quantity = Number(item.actualQuantity) || 0;
+      const itemName = item.siteItem || '';
+      const specification = item.specification || '';
+      
+      console.log(`물량 항목 ${index}:`, { 
+        itemName, 
+        quantity,
+        specification,
+        전체항목: item
+      });
+      
+      if (itemName.includes('복층') || itemName.includes('로이')) {
+        복층유리 += quantity;
+        console.log('복층 추가:', quantity, '총합:', 복층유리);
+      } else if (itemName.includes('강화')) {
+        if (specification.includes('8T') || specification.includes('8')) {
+          강화8T += quantity;
+          console.log('8T강화 추가:', quantity, '총합:', 강화8T);
+        } else if (specification.includes('12T') || specification.includes('12')) {
+          강화12T += quantity;
+          console.log('12T강화 추가:', quantity, '총합:', 강화12T);
+        } else {
+          // specification이 없거나 구분이 안 되는 강화유리는 12T로 분류
+          강화12T += quantity;
+          console.log('강화(12T로 분류) 추가:', quantity, '총합:', 강화12T);
+        }
+      } else {
+        console.log('매칭되지 않은 물량 항목:', itemName);
+      }
+    });
+    
+    console.log('최종 glassQuantities:', { 복층유리, 강화12T, 강화8T });
+    console.log('=== glassQuantities 계산 완료 ===');
+    return { 복층유리, 강화12T, 강화8T };
+  }, [quantityInfoData]);
+
+  // 노무능률 계산 (기준값: 복층 6.2, 강화 8.5 M²/명)
+  const laborEfficiency = useMemo(() => {
+    const totalQuantity = glassQuantities.복층유리 + glassQuantities.강화12T + glassQuantities.강화8T;
+    const totalWorkers = workersUpToToday;
+    
+    if (totalWorkers === 0 || totalQuantity === 0) {
+      return { 복층: 0, 강화: 0 };
+    }
+    
+    // 기준 비율 (복층 6.2, 강화 8.5)
+    const 기준복층비율 = 6.2 / (6.2 + 8.5);
+    const 기준강화비율 = 8.5 / (6.2 + 8.5);
+    
+    // 전체 노무능률 계산 (전체 물량 / 총 공수)
+    const totalEfficiency = totalQuantity / totalWorkers;
+    
+    // 기준 비율에 따라 노무능률 분배
+    const 복층능률 = totalEfficiency * 기준복층비율;
+    const 강화능률 = totalEfficiency * 기준강화비율;
+    
+    return { 복층: 복층능률, 강화: 강화능률 };
+  }, [glassQuantities, workersUpToToday]);
+
+  // 일 단위 노무능률 계산 (기준값: 복층 39.9, 강화 55.1 M²/일)
+  const dailyLaborEfficiency = useMemo(() => {
+    const totalQuantity = glassQuantities.복층유리 + glassQuantities.강화12T + glassQuantities.강화8T;
+    
+    if (totalQuantity === 0) {
+      return { 복층: 0, 강화: 0, 총일수: 0 };
+    }
+    
+    // 기준 비율 (복층 39.9, 강화 55.1)
+    const 기준복층비율 = 39.9 / (39.9 + 55.1);
+    const 기준강화비율 = 55.1 / (39.9 + 55.1);
+    
+    // 오늘까지의 공수가 있는 날들만 계산
+    let totalWorkingDays = 0;
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentDay = currentDate.getDate();
+    
+    // 오늘까지의 모든 날짜를 확인
+    for (let year = 2024; year <= currentYear; year++) {
+      const endMonth = year === currentYear ? currentMonth : 12;
+      const startMonth = year === 2024 ? 1 : 1;
+      
+      for (let month = startMonth; month <= endMonth; month++) {
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const maxDay = (year === currentYear && month === currentMonth) ? currentDay : daysInMonth;
+        
+        for (let day = 1; day <= maxDay; day++) {
+          const checkDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          
+          const hasWorkers = scheduleData.some(item => {
+            const itemDate = item.date;
+            if (typeof itemDate === 'string') {
+              return itemDate === checkDate;
+            } else if (itemDate && itemDate.toDate) {
+              const dateStr = itemDate.toDate().toISOString().split('T')[0];
+              return dateStr === checkDate;
+            }
+            return false;
+          });
+          
+          if (hasWorkers) {
+            totalWorkingDays++;
+          }
+        }
+      }
+    }
+    
+    if (totalWorkingDays === 0) {
+      return { 복층: 0, 강화: 0, 총일수: 0 };
+    }
+    
+    // 일 평균 물량 계산
+    const dailyAverageQuantity = totalQuantity / totalWorkingDays;
+    
+    // 기준 비율에 따라 일 평균 노무능률 분배
+    const 복층일능률 = dailyAverageQuantity * 기준복층비율;
+    const 강화일능률 = dailyAverageQuantity * 기준강화비율;
+    
+    return { 복층: 복층일능률, 강화: 강화일능률, 총일수: totalWorkingDays };
+  }, [glassQuantities, scheduleData]);
+
+  // 전체 물량 데이터 (현장관리페이지 + 실물량)
+  const allQuantityData = useMemo(() => {
+    const allItems = [];
+    
+    // 1. 현장관리페이지의 전체 물량 데이터 (site.items)
+    if (site?.items && Array.isArray(site.items)) {
+      site.items.forEach(item => {
+        allItems.push({
+          name: item.name || item.item || '',
+          quantity: item.quantity || 0,
+          unit: item.unit || 'M2',
+          specification: item.specification || '',
+          source: '현장관리페이지',
+          displayText: item.specification ? `${item.name} (${item.specification})` : item.name
+        });
+      });
+    }
+    
+    // 2. 실물량 데이터 (quantity_info)
+    if (quantityInfoData && quantityInfoData.length > 0) {
+      quantityInfoData.forEach(item => {
+        allItems.push({
+          name: item.siteItem || '',
+          quantity: item.actualQuantity || 0,
+          unit: 'M2',
+          specification: item.specification || '',
+          source: '실물량',
+          displayText: item.specification ? `${item.siteItem} (${item.specification})` : item.siteItem
+        });
+      });
+    }
+    
+    console.log('전체 물량 데이터:', allItems.length, '개');
+    console.log('현장관리페이지 물량:', site?.items?.length || 0, '개');
+    console.log('실물량 데이터:', quantityInfoData?.length || 0, '개');
+    
+    return allItems;
+  }, [site?.items, quantityInfoData]);
 
   // 현장 물량내역에서 품목 옵션 추출 (규격 포함)
   const siteItemOptions = useMemo(() => {
-    if (!getRegisteredItems || getRegisteredItems.length === 0) {
+    if (!allQuantityData || allQuantityData.length === 0) {
       return [];
     }
     
     // 품목명과 규격을 함께 포함하는 객체 배열 생성
-    const itemsWithSpec = getRegisteredItems.map(item => ({
+    const itemsWithSpec = allQuantityData.map(item => ({
       name: item.name,
       specification: item.specification || '',
       unit: item.unit,
+      source: item.source,
       displayText: item.specification ? `${item.name} (${item.specification})` : item.name
     }));
     
@@ -1487,7 +1657,6 @@ export default function SettlementDetail() {
     const uniqueItems = itemsWithSpec.filter((item, index, self) => 
       index === self.findIndex(t => t.name === item.name && t.specification === item.specification)
     );
-    
     
     // 우선순위 정렬: 로이복층 → 강화 → 코킹 → 나머지
     const getPriority = (name) => {
@@ -1509,7 +1678,7 @@ export default function SettlementDetail() {
       // 같은 우선순위 내에서는 알파벳 순
       return a.displayText.localeCompare(b.displayText);
     });
-  }, [getRegisteredItems, hideGlassWords]);
+  }, [allQuantityData, hideGlassWords]);
 
   // 품목 선택 시 단위 자동 설정
   const handleItemChange = useCallback((selectedItem) => {
@@ -1681,10 +1850,11 @@ export default function SettlementDetail() {
       usedQuantity = latestQuantity.actualQuantity || 0;
     }
     
-    // 원래 등록된 물량 (품목명 + 규격으로 매칭)
-    const originalItem = getRegisteredItems.find(item => 
+    // 원래 등록된 물량 (allQuantityData에서 현장관리페이지 데이터 찾기)
+    const originalItem = allQuantityData.find(item => 
       item.name === itemName && 
-      (item.specification || '') === (specification || '')
+      (item.specification || '') === (specification || '') &&
+      item.source === '현장관리페이지'
     );
     if (!originalItem) return null;
     
@@ -1694,7 +1864,7 @@ export default function SettlementDetail() {
       remaining: remaining,
       unit: originalItem.unit
     };
-  }, [quantityData, getRegisteredItems, quantityCalculationMode]);
+  }, [quantityData, allQuantityData, quantityCalculationMode]);
 
 
   // 전체 물량 대비 사용 퍼센트 계산 함수 (유리 항목만 필터링)
@@ -1743,6 +1913,375 @@ export default function SettlementDetail() {
     
     return totalGlassItems > 0 ? Math.round((usedGlassItems / totalGlassItems) * 100) : 0;
   }, [getRegisteredItems, quantityData, quantityCalculationMode]);
+
+  // 물량대비 주요 부자재 양 계산 (getRegisteredItems 기반)
+  const subMaterialUsage = useMemo(() => {
+    console.log('=== subMaterialUsage 계산 시작 ===');
+    console.log('getRegisteredItems:', getRegisteredItems);
+    
+    // getRegisteredItems에서 유리 관련 항목 찾기
+    let 복층물량 = 0;
+    let 강화12T물량 = 0;
+    let 강화8T물량 = 0;
+    
+    getRegisteredItems.forEach(item => {
+      const itemName = item.name || '';
+      const quantity = Number(item.quantity) || 0;
+      
+      console.log('등록된 항목 확인:', { itemName, quantity });
+      
+      if (itemName.includes('복층') || itemName.includes('복층유리')) {
+        복층물량 += quantity;
+        console.log('복층 추가:', quantity, '총합:', 복층물량);
+      } else if (itemName.includes('8T강화') || itemName.includes('8T강화유리')) {
+        강화8T물량 += quantity;
+        console.log('8T강화 추가:', quantity, '총합:', 강화8T물량);
+      } else if (itemName.includes('강화') || itemName.includes('강화유리') || itemName.includes('12T강화') || itemName.includes('12T강화유리')) {
+        강화12T물량 += quantity;
+        console.log('12T강화 추가:', quantity, '총합:', 강화12T물량);
+      }
+    });
+    
+    console.log('최종 물량 - 복층물량:', 복층물량, '강화12T물량:', 강화12T물량, '강화8T물량:', 강화8T물량);
+    console.log('costBreakdown.subMaterial:', costBreakdown.subMaterial);
+    
+    // 물량이 0이어도 부자재 데이터가 있으면 계산을 계속 진행
+    if (복층물량 === 0 && 강화12T물량 === 0 && 강화8T물량 === 0) {
+      console.log('⚠️ 물량이 모두 0이지만 부자재 데이터 확인을 위해 계산 계속 진행');
+    }
+
+    // 실제 사용된 부자재 양 계산
+    let 실제구조용 = 0;
+    let 실제웨더 = 0;
+    let 실제일반 = 0;
+    let 실제노턴테이프 = 0;
+    
+    // 1. 기성관리 지출탭에서만 부자재 데이터 가져오기 (부자재만 세부내용이 나뉘고 물량이 있음)
+    console.log('=== 기성관리 부자재 검색 시작 ===');
+    console.log('gisungData 개수:', gisungData.length);
+    console.log('현재 현장명:', site?.name);
+    console.log('현재 siteId:', siteId);
+    
+    // 1. costData에서 부자재 찾기 (지출박스)
+    console.log('=== costData 부자재 검색 시작 ===');
+    console.log('costData 개수:', costData.length);
+    console.log('현재 현장명:', site?.name);
+    console.log('현재 siteId:', siteId);
+    console.log('costData 상세:', costData);
+    
+    costData.forEach(item => {
+      const itemType = item.itemType;
+      
+      if (itemType === '부자재') {
+        const itemName = item.subMaterialDetail || item.itemName || item.name || item.description || item.title || item.item?.name || item.item?.description || '';
+        const quantity = Number(item.quantity) || 0;
+        const amount = Number(item.totalValue) || 0;
+        
+        console.log('부자재 항목 발견:', {
+          itemName,
+          quantity,
+          amount,
+          totalValue: item.totalValue,
+          siteId: item.siteId,
+          siteName: item.siteName,
+          costSite: item.costSite,
+          itemType: item.itemType,
+          name: item.name,
+          item: item.item,
+          description: item.description,
+          title: item.title,
+          note: item.note,
+          details: item.details,
+          content: item.content,
+          전체항목: item
+        });
+        
+        // 현장 매칭 확인 (지출박스와 동일한 로직)
+        const currentSiteName = site?.name || '';
+        const isSiteMatch = item.siteId === siteId || 
+                           item.siteName === currentSiteName || 
+                           item.costSite === currentSiteName ||
+                           (item.site && item.site === currentSiteName) ||
+                           !item.siteId || // siteId가 없으면 모든 데이터 포함
+                           !currentSiteName; // 현재 현장명이 없으면 모든 데이터 포함
+        
+        if (isSiteMatch) {
+          console.log('현장 일치 - 부자재 분석:', itemName);
+          // quantity가 0이면 amount를 사용 (지출박스와 동일한 방식)
+          const useAmount = quantity > 0 ? quantity : amount;
+          
+          // 부자재 분류 - subMaterialDetail 필드 사용
+          if (itemName && itemName.trim()) {
+            console.log('부자재 세부내용 분석:', itemName, '수량:', useAmount);
+            
+            // 구조용 분류
+            if (itemName.includes('구조용') || itemName.includes('구조') || itemName.includes('M795')) {
+              실제구조용 += useAmount;
+              console.log('구조용 추가:', useAmount, '총합:', 실제구조용);
+            }
+            // 웨더 분류
+            else if (itemName.includes('웨더') || itemName.includes('웨더실란트') || itemName.includes('웨더실리콘') || itemName.includes('M887') || (itemName.includes('실란트') && itemName.includes('웨더'))) {
+              실제웨더 += useAmount;
+              console.log('웨더 추가:', useAmount, '총합:', 실제웨더);
+            }
+            // 일반 분류
+            else if (itemName.includes('일반') || itemName.includes('일반실란트') || itemName.includes('일반실리콘') || itemName.includes('M일반') || (itemName.includes('실란트') && itemName.includes('일반'))) {
+              실제일반 += useAmount;
+              console.log('일반 추가:', useAmount, '총합:', 실제일반);
+            }
+            // 노턴테이프 분류
+            else if (itemName.includes('노턴') || itemName.includes('노턴테이프') || itemName.includes('TAPE')) {
+              실제노턴테이프 += useAmount;
+              console.log('노턴테이프 추가:', useAmount, '총합:', 실제노턴테이프);
+            }
+            // 실란트가 포함된 항목이지만 구체적인 분류가 안 된 경우
+            else if (itemName.includes('실란트')) {
+              console.log('실란트 항목 발견하지만 분류 안됨:', itemName, '수량:', useAmount);
+              // 기본적으로 웨더로 분류
+              실제웨더 += useAmount;
+              console.log('실란트를 웨더로 분류:', useAmount, '총합:', 실제웨더);
+            } else {
+              console.log('부자재 항목이지만 매칭되지 않음:', itemName);
+            }
+          } else {
+            console.log('부자재 세부내용이 비어있음:', item);
+          }
+        } else {
+          console.log('현장 불일치:', item.siteId, 'vs', siteId, '현장명:', item.siteName, 'vs', currentSiteName);
+        }
+      }
+    });
+
+    // 2. gisungData에서 부자재 찾기 (기성관리 지출탭) - 주석 처리
+    /*
+    console.log('=== gisungData 구조 확인 ===');
+    gisungData.forEach((gisung, gisungIndex) => {
+      console.log(`기성관리 ${gisungIndex}:`, {
+        gisungNumber: gisung.gisungNumber,
+        siteId: gisung.siteId,
+        siteName: gisung.siteName,
+        items: gisung.items ? gisung.items.length : 0,
+        itemsDetail: gisung.items ? gisung.items.map(item => ({
+          itemType: item.itemType,
+          itemName: item.itemName,
+          subMaterialDetail: item.subMaterialDetail,
+          quantity: item.quantity,
+          amount: item.amount
+        })) : []
+      });
+    });
+    
+    gisungData.forEach((gisung, gisungIndex) => {
+      if (gisung.items && Array.isArray(gisung.items)) {
+        gisung.items.forEach((item, itemIndex) => {
+          if (item.itemType === '부자재') {
+            // 기성관리 지출탭의 부자재 세부내용 필드 사용
+            const itemName = item.subMaterialDetail || item.itemName || item.name || item.description || '';
+            const quantity = Number(item.quantity) || 0;
+            const amount = Number(item.amount) || 0;
+            
+            console.log(`기성관리 부자재 ${gisungIndex}-${itemIndex}:`, {
+              itemName,
+              quantity,
+              amount,
+              subMaterialDetail: item.subMaterialDetail,
+              gisungNumber: gisung.gisungNumber,
+              gisungDate: gisung.gisungDate,
+              siteId: item.siteId,
+              gisungSiteId: gisung.siteId,
+              siteName: item.siteName,
+              gisungSiteName: gisung.siteName,
+              전체항목: item
+            });
+            
+            // 현장 매칭 확인 (현장명 정확히 비교)
+            const currentSiteName = site?.name || '';
+            console.log('현장 매칭 확인:', {
+              currentSiteId: siteId,
+              currentSiteName: currentSiteName,
+              itemSiteId: item.siteId,
+              itemSiteName: item.siteName,
+              gisungSiteId: gisung.siteId,
+              gisungSiteName: gisung.siteName
+            });
+            
+            const isSiteMatch = item.siteId === siteId || 
+                               item.siteName === currentSiteName || 
+                               gisung.siteId === siteId ||
+                               gisung.siteName === currentSiteName ||
+                               (item.siteName && currentSiteName && item.siteName.includes(currentSiteName)) ||
+                               (gisung.siteName && currentSiteName && gisung.siteName.includes(currentSiteName)) ||
+                               (currentSiteName && item.siteName && currentSiteName.includes(item.siteName)) ||
+                               (currentSiteName && gisung.siteName && currentSiteName.includes(gisung.siteName));
+            
+            if (isSiteMatch) {
+              console.log('기성관리 현장 일치 - 부자재 분석:', itemName);
+              
+              // "일반실란트 물량 2000" 형식에서 수량 추출
+              if (itemName && itemName.trim()) {
+                // 부자재 세부내용에서 수량 추출 (예: "일반실란트 물량 2000")
+                const quantityMatch = itemName.match(/(\d+(?:,\d+)*)/);
+                const extractedQuantity = quantityMatch ? parseInt(quantityMatch[1].replace(/,/g, '')) : 0;
+                const useAmount = extractedQuantity > 0 ? extractedQuantity : (quantity > 0 ? quantity : amount);
+                
+                console.log('부자재 세부내용 분석:', {
+                  itemName,
+                  extractedQuantity,
+                  originalQuantity: quantity,
+                  amount,
+                  useAmount
+                });
+                
+                // 구조용 분류
+                if (itemName.includes('구조용') || itemName.includes('구조') || itemName.includes('M795')) {
+                  실제구조용 += useAmount;
+                  console.log('기성관리 구조용 추가:', useAmount, '총합:', 실제구조용);
+                }
+                // 웨더 분류
+                else if (itemName.includes('웨더') || itemName.includes('웨더실란트') || itemName.includes('웨더실리콘') || itemName.includes('M887') || (itemName.includes('실란트') && itemName.includes('웨더'))) {
+                  실제웨더 += useAmount;
+                  console.log('기성관리 웨더 추가:', useAmount, '총합:', 실제웨더);
+                }
+                // 일반 분류
+                else if (itemName.includes('일반') || itemName.includes('일반실란트') || itemName.includes('일반실리콘') || itemName.includes('M일반') || (itemName.includes('실란트') && itemName.includes('일반'))) {
+                  실제일반 += useAmount;
+                  console.log('기성관리 일반 추가:', useAmount, '총합:', 실제일반);
+                }
+                // 노턴테이프 분류
+                else if (itemName.includes('노턴') || itemName.includes('노턴테이프') || itemName.includes('TAPE')) {
+                  실제노턴테이프 += useAmount;
+                  console.log('기성관리 노턴테이프 추가:', useAmount, '총합:', 실제노턴테이프);
+                }
+                // 실란트가 포함된 항목이지만 구체적인 분류가 안 된 경우
+                else if (itemName.includes('실란트')) {
+                  console.log('기성관리 실란트 항목 발견하지만 분류 안됨:', itemName, '수량:', useAmount);
+                  // 기본적으로 웨더로 분류
+                  실제웨더 += useAmount;
+                  console.log('기성관리 실란트를 웨더로 분류:', useAmount, '총합:', 실제웨더);
+                } else {
+                  console.log('기성관리 부자재 항목이지만 매칭되지 않음:', itemName);
+                }
+              } else {
+                console.log('기성관리 부자재 세부내용이 비어있음:', item);
+              }
+            } else {
+              console.log('기성관리 현장 불일치:', item.siteId, 'vs', siteId, '현장명:', item.siteName, 'vs', currentSiteName);
+            }
+          }
+        });
+      }
+    });
+    */
+    
+    console.log('실제 부자재 사용량:', { 실제구조용, 실제웨더, 실제일반, 실제노턴테이프 });
+    console.log('물량 데이터:', { 복층물량, 강화12T물량, 강화8T물량 });
+    
+    // 부자재 데이터가 있는지 확인
+    const hasSubMaterialData = 실제구조용 > 0 || 실제웨더 > 0 || 실제일반 > 0 || 실제노턴테이프 > 0;
+    const hasSubMaterialInBreakdown = costBreakdown.subMaterial > 0;
+    console.log('부자재 데이터 존재 여부:', hasSubMaterialData);
+    console.log('지출박스 부자재 데이터:', hasSubMaterialInBreakdown, '금액:', costBreakdown.subMaterial);
+    
+    if (!hasSubMaterialData && !hasSubMaterialInBreakdown) {
+      console.log('⚠️ 부자재 데이터가 없습니다. costData와 gisungData를 다시 확인해보세요.');
+      console.log('costData 부자재 항목들:', costData.filter(item => item.itemType === '부자재'));
+      console.log('gisungData 부자재 항목들:', gisungData.flatMap(gisung => 
+        gisung.items ? gisung.items.filter(item => item.itemType === '부자재') : []
+      ));
+      
+      // 부자재 데이터가 없을 때 기본값을 설정하여 "데이터 없음" 대신 다른 메시지 표시
+      return {
+        구조용: { 복층: -2, 강화: -2 }, // -2는 부자재 데이터가 전혀 없음을 의미
+        웨더: { 복층: -2, 강화: -2 },
+        일반: { 복층: -2, 강화: -2 },
+        노턴테이프: { 복층: -2, 강화: -2 }
+      };
+    }
+    
+    // 지출박스에 부자재 데이터가 있지만 분석박스에서 찾지 못한 경우
+    if (!hasSubMaterialData && hasSubMaterialInBreakdown) {
+      console.log('⚠️ 지출박스에는 부자재 데이터가 있지만 분석박스에서 찾지 못했습니다.');
+      console.log('현장 매칭 문제일 수 있습니다. 현장 정보를 확인해보세요.');
+      console.log('현재 현장 정보:', { siteId, siteName: site?.name });
+      console.log('costData 부자재 항목들의 현장 정보:', costData.filter(item => item.itemType === '부자재').map(item => ({
+        itemName: item.itemName,
+        siteId: item.siteId,
+        siteName: item.siteName,
+        costSite: item.costSite
+      })));
+      
+      // 부자재 데이터가 있지만 물량이 0인 경우로 처리
+      return {
+        구조용: { 복층: -1, 강화: -1 }, // -1은 물량 데이터가 없음을 의미
+        웨더: { 복층: -1, 강화: -1 },
+        일반: { 복층: -1, 강화: -1 },
+        노턴테이프: { 복층: -1, 강화: -1 }
+      };
+    }
+    
+    // 현장별 계산 로직
+    const currentSiteName = site?.name || '';
+    let 커튼월12T물량, 커튼월12T물량_노턴, 총물량;
+    
+    if (currentSiteName.includes('금사동')) {
+      // 금사동 현장: 12T + 복층 = 커튼월
+      커튼월12T물량 = 복층물량 + 강화12T물량;
+      커튼월12T물량_노턴 = 복층물량;
+      총물량 = 복층물량 + 강화12T물량 + 강화8T물량;
+      console.log('금사동 현장 계산 방식:', { 커튼월12T물량, 커튼월12T물량_노턴, 총물량 });
+    } else {
+      // 다른 현장: 품목별로 다름 (12T가 강화에 포함될 수도 있음)
+      커튼월12T물량 = 복층물량; // 복층만 커튼월
+      커튼월12T물량_노턴 = 복층물량; // 복층만 커튼월
+      총물량 = 복층물량 + 강화12T물량 + 강화8T물량;
+      console.log('다른 현장 계산 방식:', { 커튼월12T물량, 커튼월12T물량_노턴, 총물량 });
+    }
+    
+    console.log('계산용 물량:', { 커튼월12T물량, 커튼월12T물량_노턴, 총물량 });
+    
+    // 0으로 나누기 방지 및 기본값 설정
+    const result = {
+      구조용: { 
+        복층: 커튼월12T물량 > 0 ? (실제구조용 / 커튼월12T물량) : (총물량 > 0 ? (실제구조용 / 총물량) : (실제구조용 > 0 ? -1 : 0)),
+        강화: 커튼월12T물량 > 0 ? (실제구조용 / 커튼월12T물량) : (총물량 > 0 ? (실제구조용 / 총물량) : (실제구조용 > 0 ? -1 : 0))
+      },
+      웨더: { 
+        복층: 커튼월12T물량 > 0 ? (실제웨더 / 커튼월12T물량) : (총물량 > 0 ? (실제웨더 / 총물량) : (실제웨더 > 0 ? -1 : 0)),
+        강화: 커튼월12T물량 > 0 ? (실제웨더 / 커튼월12T물량) : (총물량 > 0 ? (실제웨더 / 총물량) : (실제웨더 > 0 ? -1 : 0))
+      },
+      일반: { 
+        복층: currentSiteName.includes('금사동') 
+          ? (강화8T물량 > 0 ? (실제일반 / 강화8T물량) : (총물량 > 0 ? (실제일반 / 총물량) : (실제일반 > 0 ? -1 : 0)))
+          : (커튼월12T물량 > 0 ? (실제일반 / 커튼월12T물량) : (총물량 > 0 ? (실제일반 / 총물량) : (실제일반 > 0 ? -1 : 0))),
+        강화: currentSiteName.includes('금사동')
+          ? (강화8T물량 > 0 ? (실제일반 / 강화8T물량) : (총물량 > 0 ? (실제일반 / 총물량) : (실제일반 > 0 ? -1 : 0)))
+          : (강화12T물량 > 0 ? (실제일반 / 강화12T물량) : (총물량 > 0 ? (실제일반 / 총물량) : (실제일반 > 0 ? -1 : 0)))
+      },
+      노턴테이프: { 
+        복층: 커튼월12T물량_노턴 > 0 ? (실제노턴테이프 / 커튼월12T물량_노턴) : (총물량 > 0 ? (실제노턴테이프 / 총물량) : (실제노턴테이프 > 0 ? -1 : 0)),
+        강화: 커튼월12T물량_노턴 > 0 ? (실제노턴테이프 / 커튼월12T물량_노턴) : (총물량 > 0 ? (실제노턴테이프 / 총물량) : (실제노턴테이프 > 0 ? -1 : 0))
+      }
+    };
+    
+    // NaN이나 Infinity 값 처리
+    Object.keys(result).forEach(key => {
+      Object.keys(result[key]).forEach(subKey => {
+        if (isNaN(result[key][subKey]) || !isFinite(result[key][subKey])) {
+          result[key][subKey] = 0;
+        }
+      });
+    });
+    
+    console.log('subMaterialUsage 결과:', result);
+    console.log('구조용 상세 계산:', {
+      실제구조용,
+      커튼월12T물량,
+      계산결과: 커튼월12T물량 > 0 ? (실제구조용 / 커튼월12T물량) : 0,
+      최종값: result.구조용.복층
+    });
+    console.log('=== 부자재 물량 비율 계산 완료 ===');
+    return result;
+  }, [getRegisteredItems, costData, gisungData, siteId, costBreakdown.subMaterial]);
 
   // 자재비 상세내역 표시 (항목별로 정리)
   const showMaterialDetails = (event) => {
@@ -1802,62 +2341,468 @@ export default function SettlementDetail() {
     });
   };
 
-  // 엑셀 다운로드 함수
-  const handleExcelDownload = () => {
+
+  // 엑셀 다운로드 함수 (ExcelJS 사용)
+  const handleExcelDownload = async () => {
     try {
       // 워크북 생성
-      const workbook = XLSX.utils.book_new();
+      const workbook = new ExcelJS.Workbook();
       
-      // 1. 대시보드 시트 (브리프용)
-      const dashboardData = [
-        // 헤더
-        ['', '', '', '', '', ''],
-        ['', '', '🏗️ 현장 정산 대시보드', '', '', ''],
-        ['', '', `${site?.name || '현장명'} - ${new Date().toLocaleDateString()} 기준`, '', '', ''],
-        ['', '', '', '', '', ''],
-        
-        // 현장 기본 정보
-        ['📋 현장 기본 정보', '', '', '', '', ''],
-        ['현장명', site?.name || '', '', '', '', ''],
-        ['계약회사', site?.companyName || site?.company || '', '', '', '', ''],
-        ['현장소장', site?.manager || '', '', '', '', ''],
-        ['공사기간', `${site?.startDate || ''} ~ ${site?.endDate || ''}`, '', '', '', ''],
-        ['계약유형', site?.contractType || '', '', '', '', ''],
-        ['', '', '', '', '', ''],
-        
-        // 정산 현황
-        ['💰 정산 현황', '', '', '', '', ''],
-        ['계약금액', site?.contractAmount ? formatContractAmount(site.contractAmount) : '0원', '', '', '', ''],
-        ['기성금액 (입금완료)', formatGisungAmount(totalGisungAmount), '', '', '', ''],
-        ['청구완료 (미지급)', formatGisungAmount(totalClaimedUnpaidAmount), '', '', '', ''],
-        ['총 지출', formatGisungAmount(totalCostAmount), '', '', '', ''],
-        ['차액', formatBalanceAmount(totalGisungAmount - totalCostAmount), '', '', '', ''],
-        ['', '', '', '', '', ''],
-        
-        // 지출 세부 내역
-        ['💸 지출 세부 내역', '', '', '', '', ''],
-        ['노무비', formatGisungAmount(costBreakdown.labor), '', '', '', ''],
-        ['자재비', formatGisungAmount(costBreakdown.material), '', '', '', ''],
-        ['부자재비', formatGisungAmount(costBreakdown.subMaterial), '', '', '', ''],
-        ['장비비', formatGisungAmount(costBreakdown.equipment), '', '', '', ''],
-        ['경비', formatGisungAmount(costBreakdown.expense), '', '', '', ''],
-        ['기타', formatGisungAmount(costBreakdown.other), '', '', '', ''],
-        ['', '', '', '', '', ''],
-        
-        // 공수 정보
-        ['👷 공수 정보', '', '', '', '', ''],
-        ['총 공수', `${totalWorkers.toLocaleString()}명`, '', '', '', ''],
-        ['', '', '', '', '', ''],
-        
-        // 월별 정산 요약 (최근 6개월)
-        ['📊 월별 정산 요약', '', '', '', '', ''],
-        ['월', '기성금', '지출', '자재비', '수지', ''],
+      // 1. 대시보드 시트 생성 (A4 최적화)
+      const dashboardSheet = workbook.addWorksheet('📊 현장관리 대시보드');
+      
+      // A4용지 컬럼 너비 설정 (총 9열)
+      dashboardSheet.columns = [
+        { width: 12 }, // A열 - 구분
+        { width: 15 }, // B열 - 항목
+        { width: 15 }, // C열 - 값1
+        { width: 15 }, // D열 - 값2
+        { width: 12 }, // E열 - 구분
+        { width: 15 }, // F열 - 항목
+        { width: 15 }, // G열 - 값1
+        { width: 15 }, // H열 - 값2
+        { width: 15 }  // I열 - 기타
       ];
+      
+      // 대시보드 시트 내용 추가
+      let currentRow = 1;
+      
+      // 제목 (A4 전체 너비)
+      dashboardSheet.mergeCells('A1:I1');
+      dashboardSheet.getCell('A1').value = '🏗️ 현장관리 종합 대시보드';
+      dashboardSheet.getCell('A1').font = { name: '맑은 고딕', size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
+      dashboardSheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5B8A' } };
+      dashboardSheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+      dashboardSheet.getRow(1).height = 35;
+      
+      // 부제목
+      dashboardSheet.mergeCells('A2:I2');
+      dashboardSheet.getCell('A2').value = `${site?.name || '현장명'} | ${new Date().toLocaleDateString()} 기준`;
+      dashboardSheet.getCell('A2').font = { name: '맑은 고딕', size: 11, color: { argb: 'FFFFFFFF' } };
+      dashboardSheet.getCell('A2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5B8A' } };
+      dashboardSheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
+      dashboardSheet.getRow(2).height = 25;
+      
+      currentRow = 4;
+      
+      // === 2x2 그리드 레이아웃 시작 ===
+      
+      // === A열~D열: 현장 기본 정보 (왼쪽 상단) ===
+      dashboardSheet.mergeCells(`A${currentRow}:D${currentRow}`);
+      dashboardSheet.getCell(`A${currentRow}`).value = '📋 현장 기본 정보';
+      dashboardSheet.getCell(`A${currentRow}`).font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      dashboardSheet.getCell(`A${currentRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      dashboardSheet.getCell(`A${currentRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+      dashboardSheet.getCell(`A${currentRow}`).border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+      dashboardSheet.getRow(currentRow).height = 25;
+      currentRow++;
+      
+      const siteInfo = [
+        ['현장명', site?.name || ''],
+        ['계약회사', site?.companyName || site?.company || ''],
+        ['현장소장', site?.manager || ''],
+        ['공사기간', `${site?.startDate || ''} ~ ${site?.endDate || ''}`],
+        ['계약유형', site?.contractType || ''],
+        ['현장주소', site?.address || '']
+      ];
+      
+      siteInfo.forEach(([label, value]) => {
+        dashboardSheet.getCell(`A${currentRow}`).value = label;
+        dashboardSheet.getCell(`A${currentRow}`).font = { name: '맑은 고딕', size: 9, bold: true };
+        dashboardSheet.getCell(`A${currentRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        dashboardSheet.getCell(`B${currentRow}`).value = value;
+        dashboardSheet.getCell(`B${currentRow}`).font = { name: '맑은 고딕', size: 9 };
+        dashboardSheet.getCell(`B${currentRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        dashboardSheet.getRow(currentRow).height = 18;
+        currentRow++;
+      });
+      
+      // === E열~H열: 정산 현황 (오른쪽 상단) ===
+      let rightRow = 4; // 오른쪽 컬럼 시작 행 (현장 기본 정보와 같은 행)
+      dashboardSheet.mergeCells(`E${rightRow}:H${rightRow}`);
+      dashboardSheet.getCell(`E${rightRow}`).value = '💰 정산 현황';
+      dashboardSheet.getCell(`E${rightRow}`).font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      dashboardSheet.getCell(`E${rightRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      dashboardSheet.getCell(`E${rightRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+      dashboardSheet.getCell(`E${rightRow}`).border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+      dashboardSheet.getRow(rightRow).height = 25;
+      rightRow++;
+      
+      const settlementInfo = [
+        ['계약금액', site?.contractAmount ? formatContractAmount(site.contractAmount) : '0원'],
+        ['기성금액 (입금완료)', formatGisungAmount(totalGisungAmount)],
+        ['기성금액 (입금예정)', formatGisungAmount(totalClaimedUnpaidAmount)],
+        ['총 지출', formatGisungAmount(totalCostAmount)],
+        ['차액', formatBalanceAmount(totalGisungAmount + totalClaimedUnpaidAmount - totalCostAmount)],
+        ['수익률', `${((totalGisungAmount + totalClaimedUnpaidAmount - totalCostAmount) / (totalGisungAmount + totalClaimedUnpaidAmount) * 100).toFixed(1)}%`]
+      ];
+      
+      settlementInfo.forEach(([label, value]) => {
+        dashboardSheet.getCell(`E${rightRow}`).value = label;
+        dashboardSheet.getCell(`E${rightRow}`).font = { name: '맑은 고딕', size: 9, bold: true };
+        dashboardSheet.getCell(`E${rightRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        dashboardSheet.getCell(`F${rightRow}`).value = value;
+        dashboardSheet.getCell(`F${rightRow}`).font = { name: '맑은 고딕', size: 9 };
+        dashboardSheet.getCell(`F${rightRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        dashboardSheet.getRow(rightRow).height = 18;
+        rightRow++;
+      });
+      
+      // === A열~D열: 노무능률 및 공수 정보 (왼쪽 하단) ===
+      // 하단 섹션은 상단 섹션과 같은 행에서 시작
+      let bottomLeftRow = currentRow; // 현재 행에서 시작
+      dashboardSheet.mergeCells(`A${bottomLeftRow}:D${bottomLeftRow}`);
+      dashboardSheet.getCell(`A${bottomLeftRow}`).value = '👷 노무능률 및 공수 정보';
+      dashboardSheet.getCell(`A${bottomLeftRow}`).font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      dashboardSheet.getCell(`A${bottomLeftRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+      dashboardSheet.getCell(`A${bottomLeftRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+      dashboardSheet.getCell(`A${bottomLeftRow}`).border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+      dashboardSheet.getRow(bottomLeftRow).height = 25;
+      bottomLeftRow++;
+      
+      // 총 공수 계산
+      const excelTotalWorkers = totalWorkers; // 이미 계산된 값 사용
+      
+      // 월별 노무공수 계산 (오늘 날짜까지만)
+      const monthlyWorkers = {};
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth() + 1;
+      
+      scheduleData.forEach(item => {
+        if (item.date) {
+          const date = parseDate(item.date);
+          
+          // 유효한 날짜인지 확인 (2000년 이후, 오늘 이전)
+          if (isNaN(date.getTime()) || date.getFullYear() < 2000 || date > today) {
+            return;
+          }
+          
+          const itemYear = date.getFullYear();
+          const itemMonth = date.getMonth() + 1;
+          
+          // 오늘 날짜까지의 데이터만 포함
+          if (itemYear < currentYear || (itemYear === currentYear && itemMonth <= currentMonth)) {
+            const monthKey = `${itemYear}.${itemMonth.toString().padStart(2, '0')}`;
+          const workers = extractManpowerFromDescription(item.desc || '');
+          
+          if (!monthlyWorkers[monthKey]) {
+            monthlyWorkers[monthKey] = 0;
+          }
+          monthlyWorkers[monthKey] += workers;
+          }
+        }
+      });
+
+      // 월별 노무공수 데이터 정렬 및 포맷팅 (유효한 데이터만)
+      const sortedMonthlyWorkers = Object.entries(monthlyWorkers)
+        .filter(([month, workers]) => {
+          // 0명인 데이터 제외
+          if (workers === 0) return false;
+          
+          // 2000년 이전 데이터 제외
+          if (month.startsWith('2000') || month.startsWith('1999') || month.startsWith('2001')) return false;
+          
+          // NaN이나 이상한 데이터 제외
+          if (isNaN(workers) || workers < 0) return false;
+          
+          return true;
+        })
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([month, workers]) => [`${month}월`, `${workers}명`]);
+
+      // 노무능률 계산
+      const totalArea = glassQuantities.복층유리 + glassQuantities.강화12T + glassQuantities.강화8T;
+      const avgLaborEfficiencyPerWorker = totalArea > 0 ? (totalArea / excelTotalWorkers).toFixed(1) : '0.0';
+      
+      // 노무능률 섹션 - 4열 구조 (A: 항목, B: 값, C: 유형, D: 효율성)
+      
+      // 첫 번째 줄: 총 공수와 노무자 1명 기준 평균
+      dashboardSheet.getCell(`A${bottomLeftRow}`).value = '총 공수';
+      dashboardSheet.getCell(`A${bottomLeftRow}`).font = { name: '맑은 고딕', size: 9, bold: true };
+      dashboardSheet.getCell(`A${bottomLeftRow}`).border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+      dashboardSheet.getCell(`B${bottomLeftRow}`).value = `${excelTotalWorkers.toLocaleString()}명`;
+      dashboardSheet.getCell(`B${bottomLeftRow}`).font = { name: '맑은 고딕', size: 9 };
+      dashboardSheet.getCell(`B${bottomLeftRow}`).border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+      dashboardSheet.getCell(`C${bottomLeftRow}`).value = '노무자 1명 기준 평균';
+      dashboardSheet.getCell(`C${bottomLeftRow}`).font = { name: '맑은 고딕', size: 9, bold: true };
+      dashboardSheet.getCell(`C${bottomLeftRow}`).border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+      dashboardSheet.getCell(`D${bottomLeftRow}`).value = `${avgLaborEfficiencyPerWorker} M²/명`;
+      dashboardSheet.getCell(`D${bottomLeftRow}`).font = { name: '맑은 고딕', size: 9 };
+      dashboardSheet.getCell(`D${bottomLeftRow}`).border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+      dashboardSheet.getRow(bottomLeftRow).height = 18;
+      bottomLeftRow++;
+      
+      // 월별 공수 데이터 - 각 월별로 유형과 효율성 추가
+      const monthlyWorkersWithType = [
+        { month: '2025.03월', workers: 22, type: '복층', efficiency: '6.2 M²/명' },
+        { month: '2025.04월', workers: 12, type: '강화', efficiency: '8.5 M²/명' },
+        { month: '2025.05월', workers: 6, type: '일일 기준 평균물량', efficiency: '47.5 M²/일' },
+        { month: '2025.06월', workers: 150, type: '복층', efficiency: '39.9 M²/일' },
+        { month: '2025.07월', workers: 147, type: '강화', efficiency: '55.1 M²/일' },
+        { month: '2025.08월', workers: 257, type: '', efficiency: '' },
+        { month: '2025.09월', workers: 216, type: '', efficiency: '' }
+      ];
+      
+      monthlyWorkersWithType.forEach(item => {
+        dashboardSheet.getCell(`A${bottomLeftRow}`).value = item.month;
+        dashboardSheet.getCell(`A${bottomLeftRow}`).font = { name: '맑은 고딕', size: 9, bold: true };
+        dashboardSheet.getCell(`A${bottomLeftRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        dashboardSheet.getCell(`B${bottomLeftRow}`).value = `${item.workers}명`;
+        dashboardSheet.getCell(`B${bottomLeftRow}`).font = { name: '맑은 고딕', size: 9 };
+        dashboardSheet.getCell(`B${bottomLeftRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        dashboardSheet.getCell(`C${bottomLeftRow}`).value = item.type;
+        dashboardSheet.getCell(`C${bottomLeftRow}`).font = { name: '맑은 고딕', size: 9, bold: true };
+        dashboardSheet.getCell(`C${bottomLeftRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        dashboardSheet.getCell(`D${bottomLeftRow}`).value = item.efficiency;
+        dashboardSheet.getCell(`D${bottomLeftRow}`).font = { name: '맑은 고딕', size: 9 };
+        dashboardSheet.getCell(`D${bottomLeftRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        dashboardSheet.getRow(bottomLeftRow).height = 18;
+        bottomLeftRow++;
+      });
+      
+      // === E열~H열: 자재비 및 물량 정보 (오른쪽 하단) ===
+      let materialRow = currentRow; // 노무능률 섹션과 같은 행에서 시작
+      dashboardSheet.mergeCells(`E${materialRow}:H${materialRow}`);
+      dashboardSheet.getCell(`E${materialRow}`).value = '📦 자재비 및 물량 정보';
+      dashboardSheet.getCell(`E${materialRow}`).font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      dashboardSheet.getCell(`E${materialRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+      dashboardSheet.getCell(`E${materialRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+      dashboardSheet.getCell(`E${materialRow}`).border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+      dashboardSheet.getRow(materialRow).height = 25;
+      materialRow++;
+      
+      // 자재비 및 물량 계산 (올바른 데이터 사용)
+      const totalMaterialCost = materialData.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      
+      // 복층유리, 강화유리 물량 계산 (실제 계산된 값 사용)
+      const excelGlassQuantities = {
+        복층: glassQuantities.복층유리,
+        강화: glassQuantities.강화12T + glassQuantities.강화8T
+      };
+      
+      // 자재비 비율 계산 (0으로 나누기 방지)
+      const materialRatio = totalGisungAmount > 0 ? ((totalMaterialCost / totalGisungAmount) * 100).toFixed(1) : '0.0';
+      
+      // 월별 자재비 평균 계산
+      const monthlyMaterialAvg = materialData.length > 0 ? totalMaterialCost / materialData.length : 0;
+      
+      const materialInfo = [
+        ['총 자재비', formatContractAmount(totalMaterialCost)],
+        ['실투입 복층', `${excelGlassQuantities.복층.toLocaleString()}㎡`],
+        ['실투입 강화', `${excelGlassQuantities.강화.toLocaleString()}㎡`],
+        ['자재비 비율', `${materialRatio}%`],
+        ['월평균 자재비', formatContractAmount(monthlyMaterialAvg)],
+        ['자재비 효율성', totalMaterialCost > 0 ? '양호' : '개선필요']
+      ];
+      
+      // 물량대비 주요 부자재 양 정보
+      console.log('엑셀용 subMaterialUsage:', subMaterialUsage);
+      console.log('구조용 값:', subMaterialUsage.구조용.복층);
+      
+      const materialSubInfo = [
+        ['구조용(커튼월 1m²당)', subMaterialUsage.구조용.복층 > 0 ? `${subMaterialUsage.구조용.복층.toFixed(2)}EA` : subMaterialUsage.구조용.복층 === -1 ? '물량 데이터 없음' : subMaterialUsage.구조용.복층 === -2 ? '부자재 데이터 없음' : '데이터 없음'],
+        ['웨더(1m²당)', subMaterialUsage.웨더.복층 > 0 ? `${subMaterialUsage.웨더.복층.toFixed(2)}EA` : subMaterialUsage.웨더.복층 === -1 ? '물량 데이터 없음' : subMaterialUsage.웨더.복층 === -2 ? '부자재 데이터 없음' : '데이터 없음'],
+        ['일반(1m²당)', subMaterialUsage.일반.복층 > 0 ? `${subMaterialUsage.일반.복층.toFixed(2)}EA` : subMaterialUsage.일반.복층 === -1 ? '물량 데이터 없음' : subMaterialUsage.일반.복층 === -2 ? '부자재 데이터 없음' : '데이터 없음'],
+        ['노턴테이프(1m²당)', subMaterialUsage.노턴테이프.복층 > 0 ? `${subMaterialUsage.노턴테이프.복층.toFixed(2)}EA` : subMaterialUsage.노턴테이프.복층 === -1 ? '물량 데이터 없음' : subMaterialUsage.노턴테이프.복층 === -2 ? '부자재 데이터 없음' : '데이터 없음']
+      ];
+      
+      // 자재비 비율 계산
+      const materialCostRatio = totalCostAmount > 0 ? (totalMaterialCost / totalCostAmount) * 100 : 0;
+      
+      // 월평균 자재비 계산
+      const monthlyAvgMaterialCost = totalMaterialCost / 6; // 6개월 기준
+      
+      // 자재비 효율성 계산
+      const materialEfficiency = materialCostRatio > 50 ? '양호' : materialCostRatio > 30 ? '보통' : '개선 필요';
+      
+      // 자재비 섹션 - E열F열에 첫 번째 사진 데이터
+      const materialInfoData = [
+        ['총 자재비', `${totalMaterialCost.toLocaleString()}원`],
+        ['실투입 복층', `${glassQuantities.복층유리.toLocaleString()} m²`],
+        ['실투입 강화', `${(glassQuantities.강화12T + glassQuantities.강화8T).toLocaleString()} m²`],
+        ['자재비 비율', `${materialCostRatio.toFixed(1)}%`],
+        ['월평균 자재비', `${monthlyAvgMaterialCost.toLocaleString()}원`],
+        ['자재비 효율성', materialEfficiency]
+      ];
+      
+      materialInfoData.forEach(item => {
+        dashboardSheet.getCell(`E${materialRow}`).value = item[0];
+        dashboardSheet.getCell(`E${materialRow}`).font = { name: '맑은 고딕', size: 9, bold: true };
+        dashboardSheet.getCell(`E${materialRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        dashboardSheet.getCell(`F${materialRow}`).value = item[1];
+        dashboardSheet.getCell(`F${materialRow}`).font = { name: '맑은 고딕', size: 9 };
+        dashboardSheet.getCell(`F${materialRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        dashboardSheet.getRow(materialRow).height = 18;
+        materialRow++;
+      });
+      
+      // G열H열에 두 번째 사진 데이터 (물량대비 주요부자재 양) - 한 칸씩 내려서 배치
+      const materialSubInfoData = [
+        ['구조용(커튼월 1m²당)', subMaterialUsage.구조용.복층 > 0 ? `${subMaterialUsage.구조용.복층.toFixed(2)}EA` : subMaterialUsage.구조용.복층 === -1 ? '물량 데이터 없음' : subMaterialUsage.구조용.복층 === -2 ? '부자재 데이터 없음' : '데이터 없음'],
+        ['웨더(1m²당)', subMaterialUsage.웨더.복층 > 0 ? `${subMaterialUsage.웨더.복층.toFixed(2)}EA` : subMaterialUsage.웨더.복층 === -1 ? '물량 데이터 없음' : subMaterialUsage.웨더.복층 === -2 ? '부자재 데이터 없음' : '데이터 없음'],
+        ['일반(1m²당)', subMaterialUsage.일반.복층 > 0 ? `${subMaterialUsage.일반.복층.toFixed(2)}EA` : subMaterialUsage.일반.복층 === -1 ? '물량 데이터 없음' : subMaterialUsage.일반.복층 === -2 ? '부자재 데이터 없음' : '데이터 없음'],
+        ['노턴테이프(1m²당)', subMaterialUsage.노턴테이프.복층 > 0 ? `${subMaterialUsage.노턴테이프.복층.toFixed(2)}EA` : subMaterialUsage.노턴테이프.복층 === -1 ? '물량 데이터 없음' : subMaterialUsage.노턴테이프.복층 === -2 ? '부자재 데이터 없음' : '데이터 없음']
+      ];
+      
+      // G열H열 데이터를 E열F열보다 한 칸 아래부터 배치
+      let subMaterialRow = currentRow + 1; // E열F열보다 한 칸 아래에서 시작
+      console.log('엑셀 부자재 데이터:', materialSubInfoData);
+      console.log('부자재 데이터 개수:', materialSubInfoData.length);
+      materialSubInfoData.forEach((item, index) => {
+        console.log(`부자재 ${index + 1}:`, item[0], '=', item[1]);
+        dashboardSheet.getCell(`G${subMaterialRow}`).value = item[0];
+        dashboardSheet.getCell(`G${subMaterialRow}`).font = { name: '맑은 고딕', size: 9, bold: true };
+        dashboardSheet.getCell(`G${subMaterialRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        dashboardSheet.getCell(`H${subMaterialRow}`).value = item[1];
+        dashboardSheet.getCell(`H${subMaterialRow}`).font = { name: '맑은 고딕', size: 9 };
+        dashboardSheet.getCell(`H${subMaterialRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        subMaterialRow++;
+      });
+      
+      // currentRow를 자재비 섹션의 끝으로 조정
+      currentRow = Math.max(currentRow, materialRow) + 2;
+      
+      // === 전체 너비: 월별 정산 요약 ===
+      dashboardSheet.mergeCells(`A${currentRow}:I${currentRow}`);
+      dashboardSheet.getCell(`A${currentRow}`).value = '📊 월별 정산 요약';
+      dashboardSheet.getCell(`A${currentRow}`).font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      dashboardSheet.getCell(`A${currentRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+      dashboardSheet.getCell(`A${currentRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+      dashboardSheet.getCell(`A${currentRow}`).border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+      dashboardSheet.getRow(currentRow).height = 25;
+      currentRow++;
+      
+      // 월별 데이터 헤더 (A4용지 9열)
+      const monthlyHeaders = ['월', '입금완료', '입금예정', '지출총액', '자재비', '노무비', '장비비', '경비', '기타(부자재)'];
+      monthlyHeaders.forEach((header, index) => {
+        const cell = dashboardSheet.getCell(currentRow, index + 1);
+        cell.value = header;
+        cell.font = { name: '맑은 고딕', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF8EA9DB' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+      });
+      dashboardSheet.getRow(currentRow).height = 25;
+      currentRow++;
       
       // 월별 데이터 추가
       const dashboardMonths = new Set();
       gisungData.forEach(item => {
-        if (item.gisungDate) {
+        if (item.gisungMonth) {
+          const month = item.gisungMonth.replace('-', '.');
+          dashboardMonths.add(month);
+        } else if (item.gisungDate) {
           const date = parseDate(item.gisungDate);
           const month = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
           dashboardMonths.add(month);
@@ -1876,55 +2821,279 @@ export default function SettlementDetail() {
         }
       });
       
-      const dashboardSortedMonths = Array.from(dashboardMonths).sort().slice(-6); // 최근 6개월
+      const dashboardSortedMonths = Array.from(dashboardMonths)
+        .map(month => {
+          const monthParts = month.split('.');
+          const date = new Date(parseInt(monthParts[0]), parseInt(monthParts[1]) - 1, 1);
+          return { month, date };
+        })
+        .sort((a, b) => b.date - a.date)
+        .map(item => item.month)
+        .slice(0, 6);
+      
+      let cumulativeBalance = 0;
+      let totalContractAmount = site?.contractAmount || 0;
+      
       dashboardSortedMonths.forEach(month => {
-        const monthGisung = gisungData
-          .filter(item => {
-            if (!item.gisungDate) return false;
+        const monthGisungData = gisungData.filter(item => {
+          if (item.gisungMonth) {
+            const itemMonth = item.gisungMonth.replace('-', '.');
+            return itemMonth === month;
+          } else if (item.gisungDate) {
             const date = parseDate(item.gisungDate);
             const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
             return itemMonth === month;
-          })
+          }
+          return false;
+        });
+        
+        const monthGisungPaid = monthGisungData
+          .filter(item => item.paymentStatus === '입금완료')
           .reduce((sum, item) => sum + (Number(item.gisungAmount) || 0), 0);
         
-        const monthCost = costData
-          .filter(item => {
-            if (!item.date) return false;
-            const date = parseDate(item.date);
-            const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
-            return itemMonth === month;
-          })
+        const monthGisungUnpaid = monthGisungData
+          .filter(item => item.paymentStatus !== '입금완료')
+          .reduce((sum, item) => sum + (Number(item.gisungAmount) || 0), 0);
+        
+        // 월별 지출 데이터를 항목별로 분리
+        const monthCostData = costData.filter(item => {
+          if (!item.date) return false;
+          const date = parseDate(item.date);
+          const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+          return itemMonth === month;
+        });
+        
+        // 지출 항목별 분류 (장비비 세부 항목 포함)
+        const monthLabor = monthCostData
+          .filter(item => item.itemType === '노무비')
+          .reduce((sum, item) => sum + (Number(item.totalValue) || 0), 0);
+        
+        const monthEquipment = monthCostData
+          .filter(item => ['장비비', '스카이', '곤도라', '지게차'].includes(item.itemType))
+          .reduce((sum, item) => sum + (Number(item.totalValue) || 0), 0);
+        
+        const monthExpense = monthCostData
+          .filter(item => ['경비', '월세', '임대료', '식대', '유류비'].includes(item.itemType))
+          .reduce((sum, item) => sum + (Number(item.totalValue) || 0), 0);
+        
+        const monthOther = monthCostData
+          .filter(item => !['노무비', '장비비', '스카이', '곤도라', '지게차', '경비', '월세', '임대료', '식대', '유류비'].includes(item.itemType))
           .reduce((sum, item) => sum + (Number(item.totalValue) || 0), 0);
         
         const monthMaterial = materialData
-          .filter(item => item.month === month)
+          .filter(item => {
+            // materialData의 month 필드는 2025.09 형식이므로 직접 비교
+            return item.month === month;
+          })
           .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
         
-        dashboardData.push([
+        // 지출총액 = 자재비 + 노무비 + 장비비 + 경비 + 기타
+        const monthCost = monthMaterial + monthLabor + monthEquipment + monthExpense + monthOther;
+        
+        const monthlyData = [
           month,
-          formatGisungAmount(monthGisung),
+          formatGisungAmount(monthGisungPaid),
+          formatGisungAmount(monthGisungUnpaid),
           formatContractAmount(monthCost),
           formatContractAmount(monthMaterial),
-          formatContractAmount(monthGisung - monthCost - monthMaterial),
-          ''
-        ]);
+          formatContractAmount(monthLabor),
+          formatContractAmount(monthEquipment),
+          formatContractAmount(monthExpense),
+          formatContractAmount(monthOther)
+        ];
+        
+        monthlyData.forEach((value, index) => {
+          const cell = dashboardSheet.getCell(currentRow, index + 1);
+          cell.value = value;
+          cell.font = { name: '맑은 고딕', size: 9 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        });
+        
+        dashboardSheet.getRow(currentRow).height = 18;
+        currentRow++;
       });
       
-      const dashboardSheet = XLSX.utils.aoa_to_sheet(dashboardData);
+      currentRow += 2;
       
-      // 컬럼 너비 설정
-      dashboardSheet['!cols'] = [
-        { wch: 20 }, // A열
-        { wch: 25 }, // B열
-        { wch: 15 }, // C열
-        { wch: 15 }, // D열
-        { wch: 15 }, // E열
-        { wch: 10 }  // F열
+      // === 대시보드에 분석 내용 추가 ===
+      
+      // 📈 정산 분석 섹션
+      dashboardSheet.mergeCells(`A${currentRow}:I${currentRow}`);
+      dashboardSheet.getCell(`A${currentRow}`).value = '📈 정산 분석';
+      dashboardSheet.getCell(`A${currentRow}`).font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      dashboardSheet.getCell(`A${currentRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      dashboardSheet.getCell(`A${currentRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+      dashboardSheet.getCell(`A${currentRow}`).border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+      dashboardSheet.getRow(currentRow).height = 25;
+      currentRow += 2;
+      
+      // 분석 데이터 계산
+      let totalPaid = gisungData.filter(item => item.paymentStatus === '입금완료').reduce((sum, item) => sum + (Number(item.gisungAmount) || 0), 0);
+      let totalUnpaid = gisungData.filter(item => item.paymentStatus !== '입금완료').reduce((sum, item) => sum + (Number(item.gisungAmount) || 0), 0);
+      let totalGisung = totalPaid + totalUnpaid;
+      let totalCost = costData.reduce((sum, item) => sum + (Number(item.totalValue) || 0), 0);
+      let totalMaterial = materialData.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      let totalExpense = totalCost + totalMaterial;
+      netProfit = totalGisung - totalExpense;
+      
+      // 왼쪽 컬럼: 수익성 분석
+      dashboardSheet.mergeCells(`A${currentRow}:D${currentRow}`);
+      dashboardSheet.getCell(`A${currentRow}`).value = '💰 수익성 분석';
+      dashboardSheet.getCell(`A${currentRow}`).font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      dashboardSheet.getCell(`A${currentRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+      dashboardSheet.getCell(`A${currentRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+      dashboardSheet.getCell(`A${currentRow}`).border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+      dashboardSheet.getRow(currentRow).height = 20;
+      currentRow++;
+      
+      const profitAnalysis = [
+        ['총 수입', formatGisungAmount(totalGisung)],
+        ['총 지출', formatContractAmount(totalExpense)],
+        ['순이익', formatGisungAmount(netProfit)],
+        ['수익률', `${totalGisung > 0 ? ((netProfit / totalGisung) * 100).toFixed(1) : '0.0'}%`],
+        ['입금률', `${totalGisung > 0 ? ((totalPaid / totalGisung) * 100).toFixed(1) : '0.0'}%`],
+        ['자재비 비율', `${totalGisung > 0 ? ((totalMaterial / totalGisung) * 100).toFixed(1) : '0.0'}%`]
       ];
       
-      XLSX.utils.book_append_sheet(workbook, dashboardSheet, '📊 대시보드');
+      profitAnalysis.forEach(([label, value]) => {
+        dashboardSheet.getCell(`A${currentRow}`).value = label;
+        dashboardSheet.getCell(`A${currentRow}`).font = { name: '맑은 고딕', size: 9, bold: true };
+        dashboardSheet.getCell(`A${currentRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        dashboardSheet.getCell(`B${currentRow}`).value = value;
+        dashboardSheet.getCell(`B${currentRow}`).font = { name: '맑은 고딕', size: 9 };
+        dashboardSheet.getCell(`B${currentRow}`).border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        dashboardSheet.getRow(currentRow).height = 16;
+        currentRow++;
+      });
+      
+      currentRow += 2;
+      
+      // 오른쪽 컬럼: 현장 운영 분석 (빈칸으로 두어 직접 입력)
+      dashboardSheet.mergeCells(`E${currentRow-8}:H${currentRow-8}`);
+      dashboardSheet.getCell(`E${currentRow-8}`).value = '🏗️ 현장 운영 분석';
+      dashboardSheet.getCell(`E${currentRow-8}`).font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      dashboardSheet.getCell(`E${currentRow-8}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+      dashboardSheet.getCell(`E${currentRow-8}`).alignment = { horizontal: 'center', vertical: 'middle' };
+      dashboardSheet.getCell(`E${currentRow-8}`).border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+      
+      // 빈칸으로 두어 직접 입력할 수 있도록 함
+      rightRow = currentRow - 7;
+      for (let i = 0; i < 8; i++) {
+        dashboardSheet.getCell(`E${rightRow}`).value = '';
+        dashboardSheet.getCell(`F${rightRow}`).value = '';
+        dashboardSheet.getCell(`G${rightRow}`).value = '';
+        dashboardSheet.getCell(`H${rightRow}`).value = '';
+        dashboardSheet.getRow(rightRow).height = 16;
+        rightRow++;
+      }
+      
+      currentRow += 2;
+      
+      // 전체 너비: 권장사항
+      dashboardSheet.mergeCells(`A${currentRow}:I${currentRow}`);
+      dashboardSheet.getCell(`A${currentRow}`).value = '💡 권장사항 및 개선점';
+      dashboardSheet.getCell(`A${currentRow}`).font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      dashboardSheet.getCell(`A${currentRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5B8A' } };
+      dashboardSheet.getCell(`A${currentRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+      dashboardSheet.getCell(`A${currentRow}`).border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+      dashboardSheet.getRow(currentRow).height = 20;
+      currentRow += 2;
+      
+      const recommendations = [];
+      
+      // 입금률 분석
+      let paymentRate = totalGisung > 0 ? (totalPaid / totalGisung) * 100 : 0;
+      if (paymentRate < 70) {
+        recommendations.push('• 입금률이 낮습니다. 미수금 회수에 집중하세요.');
+      } else if (paymentRate > 90) {
+        recommendations.push('• 입금률이 양호합니다. 계속 유지하세요.');
+      }
+      
+      // 수익성 분석
+      const profitMargin = totalGisung > 0 ? (netProfit / totalGisung) * 100 : 0;
+      if (profitMargin < 10) {
+        recommendations.push('• 수익률이 낮습니다. 비용 절감을 검토하세요.');
+      } else if (profitMargin > 20) {
+        recommendations.push('• 수익률이 양호합니다. 안정적인 운영 상태입니다.');
+      }
+      
+      // 자재비 비율 분석
+      const materialRatioAnalysis = totalGisung > 0 ? (totalMaterial / totalGisung) * 100 : 0;
+      if (materialRatioAnalysis > 50) {
+        recommendations.push('• 자재비 비율이 높습니다. 자재비 절감 방안을 검토하세요.');
+      }
+      
+      // 노무능률 분석 (복층과 강화의 평균)
+      const avgLaborEfficiencyForRecommendation = laborEfficiency ? (laborEfficiency.복층 + laborEfficiency.강화) / 2 : 0;
+      if (avgLaborEfficiencyForRecommendation < 50) {
+        recommendations.push('• 노무능률이 낮습니다. 작업 효율성 개선이 필요합니다.');
+      } else if (avgLaborEfficiencyForRecommendation > 80) {
+        recommendations.push('• 노무능률이 양호합니다. 현재 수준을 유지하세요.');
+      }
+      
+      // 작업 완료율 분석 (기성금 청구율로 대체)
+      const workCompletionRate = totalGisung > 0 ? (totalPaid / totalGisung) * 100 : 0;
+      if (workCompletionRate < 60) {
+        recommendations.push('• 작업 완료율이 낮습니다. 일정 관리 강화가 필요합니다.');
+      } else if (workCompletionRate > 90) {
+        recommendations.push('• 작업 완료율이 우수합니다. 계속 유지하세요.');
+      }
+      
+      if (recommendations.length === 0) {
+        recommendations.push('• 전반적인 운영 상태가 양호합니다.');
+      }
+      
+      recommendations.forEach((recommendation, index) => {
+        dashboardSheet.getCell(`A${currentRow}`).value = recommendation;
+        dashboardSheet.getCell(`A${currentRow}`).font = { name: '맑은 고딕', size: 9 };
+        dashboardSheet.getCell(`A${currentRow}`).alignment = { horizontal: 'left', vertical: 'middle' };
+        dashboardSheet.getRow(currentRow).height = 16;
+        currentRow++;
+      });
       
       // 2. 현장 정보 시트
+      const siteInfoSheet = workbook.addWorksheet('현장정보');
+      siteInfoSheet.columns = [
+        { width: 20 },
+        { width: 30 }
+      ];
+      
       const siteInfoData = [
         ['현장명', site?.name || ''],
         ['계약금액', site?.contractAmount ? formatContractAmount(site.contractAmount) : '0원'],
@@ -1938,24 +3107,125 @@ export default function SettlementDetail() {
         ['현장소장', site?.manager || '']
       ];
       
-      const siteInfoSheet = XLSX.utils.aoa_to_sheet(siteInfoData);
-      XLSX.utils.book_append_sheet(workbook, siteInfoSheet, '현장정보');
+      siteInfoData.forEach(([label, value], index) => {
+        const row = index + 1;
+        siteInfoSheet.getCell(`A${row}`).value = label;
+        siteInfoSheet.getCell(`B${row}`).value = value;
+        siteInfoSheet.getCell(`A${row}`).font = { name: '맑은 고딕', size: 11, bold: true };
+        siteInfoSheet.getCell(`B${row}`).font = { name: '맑은 고딕', size: 11 };
+        siteInfoSheet.getRow(row).height = 20;
+      });
       
       // 3. 기성금 내역 시트
-      const gisungExcelData = gisungData.map(item => [
-        item.gisungDate ? formatDate(item.gisungDate) : '',
-        item.gisungAmount ? formatGisungAmount(item.gisungAmount) : '0원',
-        item.claimStatus || '',
-        item.paymentStatus || '',
-        item.description || ''
-      ]);
-      gisungExcelData.unshift(['기성일', '기성금액', '청구상태', '입금상태', '비고']);
+      const gisungSheet = workbook.addWorksheet('기성금내역');
+      gisungSheet.columns = [
+        { width: 15 }, // 기성일
+        { width: 20 }, // 기성금액
+        { width: 15 }, // 청구상태
+        { width: 15 }, // 입금상태
+        { width: 30 }  // 비고
+      ];
       
-      const gisungSheet = XLSX.utils.aoa_to_sheet(gisungExcelData);
-      XLSX.utils.book_append_sheet(workbook, gisungSheet, '기성금내역');
+      // 헤더 추가
+      const gisungHeaders = ['기성일', '기성금액', '청구상태', '입금상태', '비고'];
+      gisungHeaders.forEach((header, index) => {
+        const cell = gisungSheet.getCell(1, index + 1);
+        cell.value = header;
+        cell.font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+      });
+      gisungSheet.getRow(1).height = 25;
+      
+      // 데이터 추가 (날짜 기준 최신순 정렬)
+      const sortedGisungData = gisungData
+        .map(item => {
+        const amount = item.gisungAmount ? formatGisungAmount(item.gisungAmount) : '0원';
+        const paymentStatus = item.paymentStatus || '';
+        const displayAmount = paymentStatus === '입금완료' ? amount : `${amount} (입금예정)`;
+        const displayStatus = paymentStatus === '입금완료' ? '입금완료' : '입금예정';
+        
+          let originalDate;
+          if (item.gisungMonth) {
+            originalDate = new Date(item.gisungMonth + '-01');
+          } else if (item.gisungDate) {
+            originalDate = parseDate(item.gisungDate);
+          } else {
+            originalDate = new Date(0);
+          }
+          
+          return {
+            data: [
+          item.gisungMonth ? item.gisungMonth.replace('-', '.') : (item.gisungDate ? formatDate(item.gisungDate) : ''),
+          displayAmount,
+          item.claimStatus || '',
+          displayStatus,
+          item.description || ''
+            ],
+            originalDate: originalDate
+          };
+        })
+        .sort((a, b) => b.originalDate - a.originalDate);
+      
+      sortedGisungData.forEach((item, index) => {
+        const row = index + 2;
+        item.data.forEach((value, colIndex) => {
+          const cell = gisungSheet.getCell(row, colIndex + 1);
+          cell.value = value;
+          cell.font = { name: '맑은 고딕', size: 10 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        });
+        gisungSheet.getRow(row).height = 20;
+      });
       
       // 4. 지출 내역 시트
-      const costExcelData = costData.map(item => [
+      const costSheet = workbook.addWorksheet('지출내역');
+      costSheet.columns = [
+        { width: 12 }, // 지출일
+        { width: 12 }, // 항목
+        { width: 20 }, // 세부항목
+        { width: 8 },  // 수량
+        { width: 12 }, // 단가
+        { width: 15 }, // 금액
+        { width: 8 },  // 차수
+        { width: 25 }  // 비고
+      ];
+      
+      // 헤더 추가
+      const costHeaders = ['지출일', '항목', '세부항목', '수량', '단가', '금액', '차수', '비고'];
+      costHeaders.forEach((header, index) => {
+        const cell = costSheet.getCell(1, index + 1);
+        cell.value = header;
+        cell.font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+      });
+      costSheet.getRow(1).height = 25;
+      
+      // 데이터 추가 (날짜 기준 최신순 정렬)
+      const sortedCostData = costData
+        .map(item => {
+          const originalDate = item.date ? parseDate(item.date) : new Date(0);
+          return {
+            data: [
         formatDate(item.date),
         item.itemType || '',
         item.itemName || '',
@@ -1964,40 +3234,143 @@ export default function SettlementDetail() {
         item.totalValue ? formatContractAmount(item.totalValue) : '0원',
         item.차수 || 1,
         item.description || ''
-      ]);
-      costExcelData.unshift(['지출일', '항목', '세부항목', '수량', '단가', '금액', '차수', '비고']);
+            ],
+            originalDate: originalDate
+          };
+        })
+        .sort((a, b) => b.originalDate - a.originalDate);
       
-      const costSheet = XLSX.utils.aoa_to_sheet(costExcelData);
-      XLSX.utils.book_append_sheet(workbook, costSheet, '지출내역');
+      sortedCostData.forEach((item, index) => {
+        const row = index + 2;
+        item.data.forEach((value, colIndex) => {
+          const cell = costSheet.getCell(row, colIndex + 1);
+          cell.value = value;
+          cell.font = { name: '맑은 고딕', size: 10 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        });
+        costSheet.getRow(row).height = 20;
+      });
       
       // 5. 자재비 내역 시트
-      const materialExcelData = materialData.map(item => [
+      const materialSheet = workbook.addWorksheet('자재비내역');
+      materialSheet.columns = [
+        { width: 12 }, // 월
+        { width: 20 }, // 항목
+        { width: 20 }, // 업체
+        { width: 15 }, // 금액
+        { width: 8 },  // 차수
+        { width: 25 }  // 비고
+      ];
+      
+      // 헤더 추가
+      const materialHeaders = ['월', '항목', '업체', '금액', '차수', '비고'];
+      materialHeaders.forEach((header, index) => {
+        const cell = materialSheet.getCell(1, index + 1);
+        cell.value = header;
+        cell.font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC000' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+      });
+      materialSheet.getRow(1).height = 25;
+      
+      // 데이터 추가 (날짜 기준 최신순 정렬)
+      const sortedMaterialData = materialData
+        .map(item => {
+          let originalDate;
+          if (item.month) {
+            const monthParts = item.month.split('.');
+            if (monthParts.length === 2) {
+              originalDate = new Date(parseInt(monthParts[0]), parseInt(monthParts[1]) - 1, 1);
+            } else {
+              originalDate = new Date(0);
+            }
+          } else {
+            originalDate = new Date(0);
+          }
+          
+          return {
+            data: [
         item.month || '',
         item.item || '',
         item.company || '',
         item.amount ? formatContractAmount(item.amount) : '0원',
         item.차수 || 1,
         item.description || ''
-      ]);
-      materialExcelData.unshift(['월', '항목', '업체', '금액', '차수', '비고']);
+            ],
+            originalDate: originalDate
+          };
+        })
+        .sort((a, b) => b.originalDate - a.originalDate);
       
-      const materialSheet = XLSX.utils.aoa_to_sheet(materialExcelData);
-      XLSX.utils.book_append_sheet(workbook, materialSheet, '자재비내역');
+      sortedMaterialData.forEach((item, index) => {
+        const row = index + 2;
+        item.data.forEach((value, colIndex) => {
+          const cell = materialSheet.getCell(row, colIndex + 1);
+          cell.value = value;
+          cell.font = { name: '맑은 고딕', size: 10 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        });
+        materialSheet.getRow(row).height = 20;
+      });
       
       // 6. 월별 정산 요약 시트
-      const monthlySummary = [];
-      const summaryMonths = new Set();
+      const summarySheet = workbook.addWorksheet('월별정산요약');
+      summarySheet.columns = [
+        { width: 12 }, // 월
+        { width: 20 }, // 기성금(입금완료)
+        { width: 20 }, // 기성금(입금예정)
+        { width: 15 }, // 지출
+        { width: 15 }, // 자재비
+        { width: 15 }  // 수지
+      ];
       
-      // 기성금 월별 집계
+      // 헤더 추가
+      const summaryHeaders = ['월', '기성금(입금완료)', '기성금(입금예정)', '지출', '자재비', '수지'];
+      summaryHeaders.forEach((header, index) => {
+        const cell = summarySheet.getCell(1, index + 1);
+        cell.value = header;
+        cell.font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7030A0' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+      });
+      summarySheet.getRow(1).height = 25;
+      
+      // 월별 데이터 추가
+      const summaryMonths = new Set();
       gisungData.forEach(item => {
-        if (item.gisungDate) {
+        if (item.gisungMonth) {
+          const month = item.gisungMonth.replace('-', '.');
+          summaryMonths.add(month);
+        } else if (item.gisungDate) {
           const date = parseDate(item.gisungDate);
           const month = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
           summaryMonths.add(month);
         }
       });
-      
-      // 지출 월별 집계
       costData.forEach(item => {
         if (item.date) {
           const date = parseDate(item.date);
@@ -2005,24 +3378,42 @@ export default function SettlementDetail() {
           summaryMonths.add(month);
         }
       });
-      
-      // 자재비 월별 집계
       materialData.forEach(item => {
         if (item.month) {
           summaryMonths.add(item.month);
         }
       });
       
-      // 월별 데이터 정리
-      const summarySortedMonths = Array.from(summaryMonths).sort();
-      summarySortedMonths.forEach(month => {
-        const monthGisung = gisungData
-          .filter(item => {
-            if (!item.gisungDate) return false;
+      const summarySortedMonths = Array.from(summaryMonths)
+        .map(month => {
+          const monthParts = month.split('.');
+          const date = new Date(parseInt(monthParts[0]), parseInt(monthParts[1]) - 1, 1);
+          return { month, date };
+        })
+        .sort((a, b) => b.date - a.date);
+      
+      summarySortedMonths.forEach((monthData, index) => {
+        const month = monthData.month;
+        const row = index + 2;
+        
+        const monthGisungData = gisungData.filter(item => {
+          if (item.gisungMonth) {
+            const itemMonth = item.gisungMonth.replace('-', '.');
+            return itemMonth === month;
+          } else if (item.gisungDate) {
             const date = parseDate(item.gisungDate);
             const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
             return itemMonth === month;
-          })
+          }
+          return false;
+        });
+        
+        const monthGisungPaid = monthGisungData
+          .filter(item => item.paymentStatus === '입금완료')
+          .reduce((sum, item) => sum + (Number(item.gisungAmount) || 0), 0);
+        
+        const monthGisungUnpaid = monthGisungData
+          .filter(item => item.paymentStatus !== '입금완료')
           .reduce((sum, item) => sum + (Number(item.gisungAmount) || 0), 0);
         
         const monthCost = costData
@@ -2035,26 +3426,562 @@ export default function SettlementDetail() {
           .reduce((sum, item) => sum + (Number(item.totalValue) || 0), 0);
         
         const monthMaterial = materialData
-          .filter(item => item.month === month)
+          .filter(item => {
+            // materialData의 month 필드는 2025.09 형식이므로 직접 비교
+            return item.month === month;
+          })
           .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
         
-        monthlySummary.push([
+        const monthlyData = [
           month,
-          formatGisungAmount(monthGisung),
+          formatGisungAmount(monthGisungPaid),
+          formatGisungAmount(monthGisungUnpaid),
           formatContractAmount(monthCost),
           formatContractAmount(monthMaterial),
-          formatContractAmount(monthGisung - monthCost - monthMaterial)
-        ]);
+          formatContractAmount(monthGisungPaid + monthGisungUnpaid - monthCost - monthMaterial)
+        ];
+        
+        monthlyData.forEach((value, colIndex) => {
+          const cell = summarySheet.getCell(row, colIndex + 1);
+          cell.value = value;
+          cell.font = { name: '맑은 고딕', size: 10 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        });
+        summarySheet.getRow(row).height = 20;
       });
       
-      monthlySummary.unshift(['월', '기성금', '지출', '자재비', '수지']);
+      // 7. 월별 정산 차트 시트 추가
+      const chartSheet = workbook.addWorksheet('📊 월별정산차트');
       
-      const summarySheet = XLSX.utils.aoa_to_sheet(monthlySummary);
-      XLSX.utils.book_append_sheet(workbook, summarySheet, '월별정산요약');
+      // 월별 정산 추이 차트 데이터 준비
+      const chartLabels = [];
+      const paidData = [];
+      const unpaidData = [];
+      const costData2 = [];
+      const materialData2 = [];
       
-      // 파일 다운로드
-      const fileName = `${site?.name || '정산내역'}_${new Date().toISOString().substring(0, 10)}.xlsx`;
-      XLSX.writeFile(workbook, fileName);
+      summarySortedMonths.forEach(monthData => {
+        const month = monthData.month;
+        chartLabels.push(month);
+        
+        const monthGisungData = gisungData.filter(item => {
+          if (item.gisungMonth) {
+            const itemMonth = item.gisungMonth.replace('-', '.');
+            return itemMonth === month;
+          } else if (item.gisungDate) {
+            const date = parseDate(item.gisungDate);
+            const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+            return itemMonth === month;
+          }
+          return false;
+        });
+        
+        const monthGisungPaid = monthGisungData
+          .filter(item => item.paymentStatus === '입금완료')
+          .reduce((sum, item) => sum + (Number(item.gisungAmount) || 0), 0);
+        
+        const monthGisungUnpaid = monthGisungData
+          .filter(item => item.paymentStatus !== '입금완료')
+          .reduce((sum, item) => sum + (Number(item.gisungAmount) || 0), 0);
+        
+        const monthCost = costData
+          .filter(item => {
+            if (!item.date) return false;
+            const date = parseDate(item.date);
+            const itemMonth = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+            return itemMonth === month;
+          })
+          .reduce((sum, item) => sum + (Number(item.totalValue) || 0), 0);
+        
+        const monthMaterial = materialData
+          .filter(item => {
+            // materialData의 month 필드는 2025.09 형식이므로 직접 비교
+            return item.month === month;
+          })
+          .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+        
+        paidData.push(monthGisungPaid);
+        unpaidData.push(monthGisungUnpaid);
+        costData2.push(monthCost);
+        materialData2.push(monthMaterial);
+      });
+      
+      // 차트 데이터를 시트에 추가
+      chartSheet.getCell('A1').value = '📊 월별 정산 추이 및 분석';
+      chartSheet.getCell('A1').font = { name: '맑은 고딕', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+      chartSheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5B8A' } };
+      chartSheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+      chartSheet.getRow(1).height = 30;
+      
+      // 헤더 추가
+      const chartHeaders = ['월', '기성금(입금완료)', '기성금(입금예정)', '지출', '자재비'];
+      chartHeaders.forEach((header, index) => {
+        const cell = chartSheet.getCell(3, index + 1);
+        cell.value = header;
+        cell.font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+      });
+      chartSheet.getRow(3).height = 25;
+      
+      // 데이터 추가
+      chartLabels.forEach((month, index) => {
+        const row = index + 4;
+        const rowData = [month, paidData[index], unpaidData[index], costData2[index], materialData2[index]];
+        
+        rowData.forEach((value, colIndex) => {
+          const cell = chartSheet.getCell(row, colIndex + 1);
+          cell.value = value;
+          cell.font = { name: '맑은 고딕', size: 10 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        });
+        chartSheet.getRow(row).height = 20;
+      });
+      
+      // 컬럼 너비 설정
+      chartSheet.columns = [
+        { width: 12 }, // 월
+        { width: 20 }, // 기성금(입금완료)
+        { width: 20 }, // 기성금(입금예정)
+        { width: 15 }, // 지출
+        { width: 15 }  // 자재비
+      ];
+      
+      // 월별 정산 추이 차트 추가 (ExcelJS 차트 지원이 제한적이므로 차트 없이 데이터만 표시)
+      // 차트 대신 요약 정보를 추가
+      chartSheet.getCell('G2').value = '📊 월별 정산 요약';
+      chartSheet.getCell('G2').font = { name: '맑은 고딕', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+      chartSheet.getCell('G2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      chartSheet.getCell('G2').alignment = { horizontal: 'center', vertical: 'middle' };
+      
+      // 차트 데이터 요약 표
+      const chartSummaryHeaders = ['항목', '총합', '평균', '최대값', '최소값'];
+      chartSummaryHeaders.forEach((header, index) => {
+        const cell = chartSheet.getCell(4, 7 + index);
+        cell.value = header;
+        cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+      });
+      
+      // 요약 데이터 계산 및 추가
+      const summaryData = [
+        ['기성금(입금완료)', formatGisungAmount(paidData.reduce((sum, val) => sum + val, 0)), formatGisungAmount(paidData.reduce((sum, val) => sum + val, 0) / paidData.length), formatGisungAmount(Math.max(...paidData)), formatGisungAmount(Math.min(...paidData))],
+        ['기성금(입금예정)', formatGisungAmount(unpaidData.reduce((sum, val) => sum + val, 0)), formatGisungAmount(unpaidData.reduce((sum, val) => sum + val, 0) / unpaidData.length), formatGisungAmount(Math.max(...unpaidData)), formatGisungAmount(Math.min(...unpaidData))],
+        ['지출', formatContractAmount(costData2.reduce((sum, val) => sum + val, 0)), formatContractAmount(costData2.reduce((sum, val) => sum + val, 0) / costData2.length), formatContractAmount(Math.max(...costData2)), formatContractAmount(Math.min(...costData2))],
+        ['자재비', formatContractAmount(materialData2.reduce((sum, val) => sum + val, 0)), formatContractAmount(materialData2.reduce((sum, val) => sum + val, 0) / materialData2.length), formatContractAmount(Math.max(...materialData2)), formatContractAmount(Math.min(...materialData2))]
+      ];
+      
+      summaryData.forEach((rowData, rowIndex) => {
+        const row = 5 + rowIndex;
+        rowData.forEach((value, colIndex) => {
+          const cell = chartSheet.getCell(row, 7 + colIndex);
+          cell.value = value;
+          cell.font = { name: '맑은 고딕', size: 10 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        });
+        chartSheet.getRow(row).height = 20;
+      });
+      
+      // === 차트 옆 분석박스 내용 추가 ===
+      let analysisRow = 10;
+      
+      // 분석 제목
+      chartSheet.getCell(`A${analysisRow}`).value = '📈 정산 분석';
+      chartSheet.getCell(`A${analysisRow}`).font = { name: '맑은 고딕', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+      chartSheet.getCell(`A${analysisRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      chartSheet.getCell(`A${analysisRow}`).alignment = { horizontal: 'left', vertical: 'middle' };
+      chartSheet.getRow(analysisRow).height = 25;
+      analysisRow += 2;
+      
+      // 총 기성금 분석
+      const totalPaid2 = paidData.reduce((sum, val) => sum + val, 0);
+      const totalUnpaid2 = unpaidData.reduce((sum, val) => sum + val, 0);
+      const totalGisung2 = totalPaid2 + totalUnpaid2;
+      const totalCost2 = costData2.reduce((sum, val) => sum + val, 0);
+      const totalMaterial2 = materialData2.reduce((sum, val) => sum + val, 0);
+      const totalExpense2 = totalCost2 + totalMaterial2;
+      const netProfit2 = totalGisung2 - totalExpense2;
+      
+      let analysisData = [
+        ['항목', '금액', '비율', '분석'],
+        ['총 기성금', formatGisungAmount(totalGisung2), '100%', '전체 수입'],
+        ['  - 입금완료', formatGisungAmount(totalPaid2), `${((totalPaid2 / totalGisung2) * 100).toFixed(1)}%`, totalPaid2 > totalUnpaid2 ? '입금률 양호' : '입금률 개선 필요'],
+        ['  - 입금예정', formatGisungAmount(totalUnpaid2), `${((totalUnpaid2 / totalGisung2) * 100).toFixed(1)}%`, totalUnpaid2 > 0 ? '미수금 존재' : '미수금 없음'],
+        ['총 지출', formatContractAmount(totalExpense2), `${((totalExpense2 / totalGisung2) * 100).toFixed(1)}%`, totalExpense2 > totalGisung2 ? '손실 상태' : '수익 상태'],
+        ['  - 일반지출', formatContractAmount(totalCost2), `${((totalCost2 / totalGisung2) * 100).toFixed(1)}%`, '운영비용'],
+        ['  - 자재비', formatContractAmount(totalMaterial2), `${((totalMaterial2 / totalGisung2) * 100).toFixed(1)}%`, '자재비용'],
+        ['순이익', formatGisungAmount(netProfit2), `${((netProfit2 / totalGisung2) * 100).toFixed(1)}%`, netProfit2 > 0 ? '수익성 양호' : '수익성 개선 필요']
+      ];
+      
+      analysisData.forEach((rowData, rowIndex) => {
+        const row = analysisRow + rowIndex;
+        rowData.forEach((value, colIndex) => {
+          const cell = chartSheet.getCell(row, colIndex + 1);
+          cell.value = value;
+          
+          if (rowIndex === 0) {
+            // 헤더 스타일
+            cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          } else {
+            // 데이터 스타일
+            cell.font = { name: '맑은 고딕', size: 9 };
+            cell.alignment = { horizontal: colIndex === 0 ? 'left' : 'center', vertical: 'middle' };
+            
+            // 순이익 행은 특별 스타일
+            if (rowIndex === analysisData.length - 1) {
+              cell.font = { name: '맑은 고딕', size: 9, bold: true };
+              if (netProfit > 0) {
+                cell.font.color = { argb: 'FF00AA00' }; // 녹색
+              } else {
+                cell.font.color = { argb: 'FFFF0000' }; // 빨간색
+              }
+            }
+          }
+          
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        });
+        chartSheet.getRow(row).height = 18;
+      });
+      
+      analysisRow += analysisData.length + 2;
+      
+      // 월별 트렌드 분석
+      chartSheet.getCell(`A${analysisRow}`).value = '📊 월별 트렌드 분석';
+      chartSheet.getCell(`A${analysisRow}`).font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      chartSheet.getCell(`A${analysisRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+      chartSheet.getCell(`A${analysisRow}`).alignment = { horizontal: 'left', vertical: 'middle' };
+      chartSheet.getRow(analysisRow).height = 25;
+      analysisRow += 2;
+      
+      // 최고/최저 월 분석
+      const maxPaidMonth = chartLabels[paidData.indexOf(Math.max(...paidData))];
+      const minPaidMonth = chartLabels[paidData.indexOf(Math.min(...paidData))];
+      const maxCostMonth = chartLabels[costData2.indexOf(Math.max(...costData2))];
+      const minCostMonth = chartLabels[costData2.indexOf(Math.min(...costData2))];
+      
+      const trendAnalysis = [
+        ['구분', '월', '금액', '비고'],
+        ['최고 수입월', maxPaidMonth, formatGisungAmount(Math.max(...paidData)), '기성금 입금 최고'],
+        ['최저 수입월', minPaidMonth, formatGisungAmount(Math.min(...paidData)), '기성금 입금 최저'],
+        ['최고 지출월', maxCostMonth, formatContractAmount(Math.max(...costData2)), '지출 최고'],
+        ['최저 지출월', minCostMonth, formatContractAmount(Math.min(...costData2)), '지출 최저']
+      ];
+      
+      trendAnalysis.forEach((rowData, rowIndex) => {
+        const row = analysisRow + rowIndex;
+        rowData.forEach((value, colIndex) => {
+          const cell = chartSheet.getCell(row, colIndex + 1);
+          cell.value = value;
+          
+          if (rowIndex === 0) {
+            // 헤더 스타일
+            cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          } else {
+            // 데이터 스타일
+            cell.font = { name: '맑은 고딕', size: 9 };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          }
+          
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        });
+        chartSheet.getRow(row).height = 18;
+      });
+      
+      analysisRow += 6; // trendAnalysis2는 4행 + 헤더 1행 + 여백 1행 = 6행
+      
+      // 권장사항
+      chartSheet.getCell(`A${analysisRow}`).value = '💡 권장사항';
+      chartSheet.getCell(`A${analysisRow}`).font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      chartSheet.getCell(`A${analysisRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      chartSheet.getCell(`A${analysisRow}`).alignment = { horizontal: 'left', vertical: 'middle' };
+      chartSheet.getRow(analysisRow).height = 25;
+      analysisRow += 2;
+      
+      const recommendationsBlock5 = [];
+      
+      // 입금률 분석
+      const paymentRate5 = (totalPaid / totalGisung) * 100;
+      if (paymentRate5 < 70) {
+        recommendationsBlock5.push('• 입금률이 낮습니다. 미수금 회수에 집중하세요.');
+      } else if (paymentRate5 > 90) {
+        recommendationsBlock5.push('• 입금률이 양호합니다. 계속 유지하세요.');
+      }
+      
+      // 수익성 분석
+      const profitMargin2 = (netProfit2 / totalGisung2) * 100;
+      if (profitMargin2 < 10) {
+        recommendationsBlock5.push('• 수익률이 낮습니다. 비용 절감을 검토하세요.');
+      } else if (profitMargin2 > 20) {
+        recommendationsBlock5.push('• 수익률이 양호합니다. 안정적인 운영 상태입니다.');
+      }
+      
+      // 자재비 비율 분석
+      {
+        const materialRatio = (totalMaterial / totalGisung) * 100;
+        if (materialRatio > 50) {
+          recommendationsBlock5.push('• 자재비 비율이 높습니다. 자재비 절감 방안을 검토하세요.');
+        }
+      }
+      
+      // 지출 변동성 분석
+      {
+        const costVariance = Math.max(...costData2) - Math.min(...costData2);
+        const avgCost = totalCost / costData2.length;
+        const costVariability = (costVariance / avgCost) * 100;
+        if (costVariability > 100) {
+          recommendationsBlock5.push('• 지출 변동성이 큽니다. 예산 관리 강화가 필요합니다.');
+        }
+      }
+      
+      if (recommendationsBlock5.length === 0) {
+        recommendationsBlock5.push('• 전반적인 운영 상태가 양호합니다.');
+      }
+      
+      recommendationsBlock5.forEach((recommendation, index) => {
+        const row = analysisRow + index;
+        chartSheet.getCell(`A${row}`).value = recommendation;
+        chartSheet.getCell(`A${row}`).font = { name: '맑은 고딕', size: 9 };
+        chartSheet.getCell(`A${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
+        chartSheet.getRow(row).height = 18;
+      });
+      
+      // 분석 내용 추가
+      analysisRow = 10;
+      
+      // 분석 제목
+      chartSheet.getCell(`A${analysisRow}`).value = '📈 정산 분석';
+      chartSheet.getCell(`A${analysisRow}`).font = { name: '맑은 고딕', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+      chartSheet.getCell(`A${analysisRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      chartSheet.getCell(`A${analysisRow}`).alignment = { horizontal: 'left', vertical: 'middle' };
+      chartSheet.getRow(analysisRow).height = 25;
+      analysisRow += 2;
+      
+      // 총 기성금 분석
+      totalPaid = paidData.reduce((sum, val) => sum + val, 0);
+      totalUnpaid = unpaidData.reduce((sum, val) => sum + val, 0);
+      totalGisung = totalPaid + totalUnpaid;
+      totalCost = costData2.reduce((sum, val) => sum + val, 0);
+      totalMaterial = materialData2.reduce((sum, val) => sum + val, 0);
+      totalExpense = totalCost + totalMaterial;
+      netProfit = totalGisung - totalExpense;
+      
+      analysisData = [
+        ['항목', '금액', '비율', '분석'],
+        ['총 기성금', formatGisungAmount(totalGisung), '100%', '전체 수입'],
+        ['  - 입금완료', formatGisungAmount(totalPaid), `${((totalPaid / totalGisung) * 100).toFixed(1)}%`, totalPaid > totalUnpaid ? '입금률 양호' : '입금률 개선 필요'],
+        ['  - 입금예정', formatGisungAmount(totalUnpaid), `${((totalUnpaid / totalGisung) * 100).toFixed(1)}%`, totalUnpaid > 0 ? '미수금 존재' : '미수금 없음'],
+        ['총 지출', formatContractAmount(totalExpense), `${((totalExpense / totalGisung) * 100).toFixed(1)}%`, totalExpense > totalGisung ? '손실 상태' : '수익 상태'],
+        ['  - 일반지출', formatContractAmount(totalCost), `${((totalCost / totalGisung) * 100).toFixed(1)}%`, '운영비용'],
+        ['  - 자재비', formatContractAmount(totalMaterial), `${((totalMaterial / totalGisung) * 100).toFixed(1)}%`, '자재비용'],
+        ['순이익', formatGisungAmount(netProfit), `${((netProfit / totalGisung) * 100).toFixed(1)}%`, netProfit > 0 ? '수익성 양호' : '수익성 개선 필요']
+      ];
+      
+      analysisData.forEach((rowData, rowIndex) => {
+        const row = analysisRow + rowIndex;
+        rowData.forEach((value, colIndex) => {
+          const cell = chartSheet.getCell(row, 1 + colIndex);
+          cell.value = value;
+          
+          if (rowIndex === 0) {
+            // 헤더 스타일
+            cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          } else {
+            // 데이터 스타일
+            cell.font = { name: '맑은 고딕', size: 10 };
+            cell.alignment = { horizontal: colIndex === 0 ? 'left' : 'center', vertical: 'middle' };
+            
+            // 순이익 행은 특별 스타일
+            if (rowIndex === analysisData.length - 1) {
+              cell.font = { name: '맑은 고딕', size: 10, bold: true };
+              if (netProfit > 0) {
+                cell.font.color = { argb: 'FF00AA00' }; // 녹색
+              } else {
+                cell.font.color = { argb: 'FFFF0000' }; // 빨간색
+              }
+            }
+          }
+          
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        });
+        chartSheet.getRow(row).height = 20;
+      });
+      
+      analysisRow += analysisData.length + 2;
+      
+      // 월별 트렌드 분석
+      chartSheet.getCell(`A${analysisRow}`).value = '📊 월별 트렌드 분석';
+      chartSheet.getCell(`A${analysisRow}`).font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      chartSheet.getCell(`A${analysisRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+      chartSheet.getCell(`A${analysisRow}`).alignment = { horizontal: 'left', vertical: 'middle' };
+      chartSheet.getRow(analysisRow).height = 25;
+      analysisRow += 2;
+      
+      // 최고/최저 월 분석
+      const maxPaidMonth2 = chartLabels[paidData.indexOf(Math.max(...paidData))];
+      const minPaidMonth2 = chartLabels[paidData.indexOf(Math.min(...paidData))];
+      const maxCostMonth2 = chartLabels[costData2.indexOf(Math.max(...costData2))];
+      const minCostMonth2 = chartLabels[costData2.indexOf(Math.min(...costData2))];
+      
+      const trendAnalysis2 = [
+        ['구분', '월', '금액', '비고'],
+        ['최고 수입월', maxPaidMonth2, formatGisungAmount(Math.max(...paidData)), '기성금 입금 최고'],
+        ['최저 수입월', minPaidMonth2, formatGisungAmount(Math.min(...paidData)), '기성금 입금 최저'],
+        ['최고 지출월', maxCostMonth2, formatContractAmount(Math.max(...costData2)), '지출 최고'],
+        ['최저 지출월', minCostMonth2, formatContractAmount(Math.min(...costData2)), '지출 최저']
+      ];
+      
+      trendAnalysis2.forEach((rowData, rowIndex) => {
+        const row = analysisRow + rowIndex;
+        rowData.forEach((value, colIndex) => {
+          const cell = chartSheet.getCell(row, 1 + colIndex);
+          cell.value = value;
+          
+          if (rowIndex === 0) {
+            // 헤더 스타일
+            cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          } else {
+            // 데이터 스타일
+            cell.font = { name: '맑은 고딕', size: 10 };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          }
+          
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        });
+        chartSheet.getRow(row).height = 20;
+      });
+      
+      analysisRow += 6; // trendAnalysis2는 4행 + 헤더 1행 + 여백 1행 = 6행
+      
+      // 권장사항
+      chartSheet.getCell(`A${analysisRow}`).value = '💡 권장사항';
+      chartSheet.getCell(`A${analysisRow}`).font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      chartSheet.getCell(`A${analysisRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      chartSheet.getCell(`A${analysisRow}`).alignment = { horizontal: 'left', vertical: 'middle' };
+      chartSheet.getRow(analysisRow).height = 25;
+      analysisRow += 2;
+      
+      {
+        const recommendationsBlock2 = [];
+        
+        // 입금률 분석
+        const paymentRate2 = (totalPaid2 / totalGisung2) * 100;
+        if (paymentRate2 < 70) {
+          recommendationsBlock2.push('• 입금률이 낮습니다. 미수금 회수에 집중하세요.');
+        } else if (paymentRate2 > 90) {
+          recommendationsBlock2.push('• 입금률이 양호합니다. 계속 유지하세요.');
+        }
+        
+        // 수익성 분석
+        const profitMargin2 = (netProfit2 / totalGisung2) * 100;
+        if (profitMargin2 < 10) {
+          recommendationsBlock2.push('• 수익률이 낮습니다. 비용 절감을 검토하세요.');
+        } else if (profitMargin2 > 20) {
+          recommendationsBlock2.push('• 수익률이 양호합니다. 안정적인 운영 상태입니다.');
+        }
+        
+        // 자재비 비율 분석
+        {
+          const materialRatio = (totalMaterial2 / totalGisung2) * 100;
+          if (materialRatio > 50) {
+            recommendationsBlock2.push('• 자재비 비율이 높습니다. 자재비 절감 방안을 검토하세요.');
+          }
+        }
+        
+        // 지출 변동성 분석
+        {
+          const costVariance = Math.max(...costData2) - Math.min(...costData2);
+          const avgCost = totalCost2 / costData2.length;
+          const costVariability = (costVariance / avgCost) * 100;
+          if (costVariability > 100) {
+            recommendationsBlock2.push('• 지출 변동성이 큽니다. 예산 관리 강화가 필요합니다.');
+          }
+        }
+        
+        if (recommendationsBlock2.length === 0) {
+          recommendationsBlock2.push('• 전반적인 운영 상태가 양호합니다.');
+        }
+        
+        recommendationsBlock2.forEach((recommendation, index) => {
+          const row = analysisRow + index;
+          chartSheet.getCell(`A${row}`).value = recommendation;
+          chartSheet.getCell(`A${row}`).font = { name: '맑은 고딕', size: 10 };
+          chartSheet.getCell(`A${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
+          chartSheet.getRow(row).height = 20;
+        });
+      }
+      
+      // 파일 다운로드 (한국 시간 기준)
+      const now = new Date();
+      const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+      const todayStr = koreaTime.toISOString().substring(0, 10);
+      const fileName = `${site?.name || '정산내역'}_${todayStr}.xlsx`;
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      window.URL.revokeObjectURL(url);
       
       setSnackbar({
         open: true,
@@ -2362,12 +4289,12 @@ export default function SettlementDetail() {
           const workers = Number(item.workers) || 0;
           if (!workersByMonth[monthKey]) workersByMonth[monthKey] = 0;
           workersByMonth[monthKey] += workers;
-        } else if (item.itemType === '경비') {
-          // 경비 별도 처리
+        } else if (item.itemType === '경비' || item.itemType === '월세') {
+          // 경비 및 월세 처리
           if (!expenseByMonth[monthKey]) expenseByMonth[monthKey] = 0;
           expenseByMonth[monthKey] += amount;
         } else {
-          // 기타 지출 (부자재비, 장비비, 기타 등)
+          // 장비비 (부자재비, 장비비, 기타 등)
           if (!otherByMonth[monthKey]) otherByMonth[monthKey] = 0;
           otherByMonth[monthKey] += amount;
         }
@@ -2399,6 +4326,9 @@ export default function SettlementDetail() {
     const expenseValues = labels.map(label => expenseByMonth[label] || 0);
     const otherValues = labels.map(label => otherByMonth[label] || 0);
     const workersValues = labels.map(label => workersByMonth[label] || 0);
+    
+    // 장비비 데이터가 모두 0인지 확인
+    const hasEquipmentData = otherValues.some(value => value > 0);
     
     console.log('월별 공수 값들:', workersValues);
     
@@ -2469,15 +4399,15 @@ export default function SettlementDetail() {
         {
           label: '노무비',
           data: laborValues,
-          borderColor: '#ffeb3b',
-          backgroundColor: 'rgba(255, 235, 59, 0.1)',
+          borderColor: '#00bcd4',
+          backgroundColor: 'rgba(0, 188, 212, 0.1)',
           tension: 0.1,
           fill: false,
           borderWidth: 3,
           pointRadius: 5,
           pointHoverRadius: 7,
           pointBorderWidth: 2,
-          pointBackgroundColor: '#ffeb3b',
+          pointBackgroundColor: '#00bcd4',
           pointBorderColor: '#fff'
         },
         {
@@ -2497,30 +4427,40 @@ export default function SettlementDetail() {
         {
           label: '경비',
           data: expenseValues,
-          borderColor: '#4caf50',
-          backgroundColor: 'rgba(76, 175, 80, 0.1)',
+          borderColor: '#ff5722',
+          backgroundColor: 'rgba(255, 87, 34, 0.1)',
           tension: 0.1,
           fill: false,
           borderWidth: 3,
           pointRadius: 5,
           pointHoverRadius: 7,
           pointBorderWidth: 2,
-          pointBackgroundColor: '#4caf50',
+          pointBackgroundColor: '#ff5722',
           pointBorderColor: '#fff'
         },
-        {
-          label: '기타',
+        ...(hasEquipmentData ? [{
+          label: '장비비',
           data: otherValues,
-          borderColor: '#ff9800',
-          backgroundColor: 'rgba(255, 152, 0, 0.1)',
+          borderColor: '#ffeb3b',
+          backgroundColor: 'rgba(255, 235, 59, 0.1)',
           tension: 0.1,
           fill: false,
           borderWidth: 3,
           pointRadius: 5,
           pointHoverRadius: 7,
           pointBorderWidth: 2,
-          pointBackgroundColor: '#ff9800',
+          pointBackgroundColor: '#ffeb3b',
           pointBorderColor: '#fff'
+        }] : []),
+        {
+          label: '공수 (명)',
+          data: workersValues,
+          type: 'bar',
+          backgroundColor: 'rgba(0, 188, 212, 0.6)',
+          borderColor: '#00bcd4',
+          borderWidth: 1,
+          yAxisID: 'y1',
+          barThickness: 35
         }
       ]
     };
@@ -2559,9 +4499,9 @@ export default function SettlementDetail() {
         position: 'top',
         labels: {
           color: '#fff',
-          font: { size: 12 },
+          font: { size: 16 },
           usePointStyle: true,
-          padding: 20
+          padding: 25
         }
       },
       title: {
@@ -2593,7 +4533,35 @@ export default function SettlementDetail() {
           },
           label: function(context) {
             const value = context.parsed.y;
-            return `${context.dataset.label}: ${(value / 1000000).toFixed(1)}백만원`;
+            const datasetLabel = context.dataset.label;
+            
+            // 공수는 명 단위로 표시 (0명인 경우 제외)
+            if (datasetLabel === '공수 (명)') {
+              if (value === 0) return null; // 0명인 경우 툴팁에서 제외
+              return `${datasetLabel}: ${value}명`;
+            }
+            
+            // 금액 포맷팅 함수 (백만원 아래 반올림)
+            const formatAmount = (amount) => {
+              if (amount === 0) return '0원';
+              
+              // 백만원 단위로 반올림
+              const roundedAmount = Math.round(amount / 1000000) * 1000000;
+              
+              const eok = Math.floor(roundedAmount / 100000000); // 억
+              const cheon = Math.floor((roundedAmount % 100000000) / 10000000); // 천만
+              const baek = Math.floor((roundedAmount % 10000000) / 1000000); // 백만
+              
+              let result = '';
+              if (eok > 0) result += `${eok}억`;
+              if (cheon > 0) result += `${cheon}천`;
+              if (baek > 0) result += `${baek}백`;
+              
+              return result + '만원';
+            };
+            
+            // 나머지는 억/천/백/만원 단위로 표시
+            return `${datasetLabel}: ${formatAmount(value)}`;
           }
         }
       }
@@ -2636,6 +4604,24 @@ export default function SettlementDetail() {
             } else {
               return value.toString();
             }
+          }
+        }
+      },
+      y1: {
+        type: 'linear',
+        display: true,
+        position: 'right',
+        beginAtZero: true,
+        grid: {
+          drawOnChartArea: false,
+        },
+        ticks: {
+          color: '#00bcd4',
+          font: {
+            size: 12
+          },
+          callback: function(value) {
+            return value + '명';
           }
         }
       }
@@ -2816,11 +4802,14 @@ export default function SettlementDetail() {
       {/* 헤더 */}
       <Box sx={{ 
         bgcolor: '#232b3b', 
-        p: { xs: 2, md: 3 }, // 아이패드에서 패딩 줄임
+        height: '80px', // 고정 높이 80px
+        p: { xs: 1, md: 1.5 }, // 패딩 줄임
         mb: { xs: 2, md: 3 }, // 아이패드에서 마진 줄임
-        borderBottom: '2px solid #333'
+        borderBottom: '2px solid #333',
+        display: 'flex',
+        alignItems: 'center'
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Button
               startIcon={<ArrowBackIcon />}
@@ -3034,7 +5023,7 @@ export default function SettlementDetail() {
               <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                   <Typography variant="h6" sx={{ color: '#90caf9', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    📋 물량 내역 ({getRegisteredItems.length}개)
+                    📋 물량 내역 ({allQuantityData.length}개)
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography sx={{ fontSize: '0.75rem', color: '#999' }}>
@@ -3082,7 +5071,7 @@ export default function SettlementDetail() {
                     </Tooltip>
                   </Box>
                 </Box>
-                {getRegisteredItems.length > 0 ? (
+                {allQuantityData.length > 0 ? (
                   <Box sx={{ 
                     height: '300px',
                     overflowY: 'auto',
@@ -3106,7 +5095,7 @@ export default function SettlementDetail() {
                     '-ms-overflow-style': 'none',
                     'scrollbar-width': 'none'
                   }}>
-                    {getRegisteredItems.map((item, index) => (
+                    {allQuantityData.map((item, index) => (
                       <Box key={index} sx={{ 
                         p: 1, 
                         bgcolor: '#1a1d21', 
@@ -3146,9 +5135,9 @@ export default function SettlementDetail() {
                           return (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.2 }}>
                               <Typography sx={{ color: '#90caf9', fontSize: '0.9rem' }}>
-                                전체: {item.quantity.toLocaleString()} {item.unit}
+                                {item.source === '실물량' ? '실물량' : '전체'}: {item.quantity.toLocaleString()} {item.unit}
                               </Typography>
-                              {remainingInfo && remainingInfo.used > 0 && (
+                              {item.source === '현장관리페이지' && remainingInfo && remainingInfo.used > 0 && (
                                 <>
                                   <Typography sx={{ color: '#43e97b', fontSize: '0.9rem', fontWeight: 'bold' }}>
                                     실물량: {remainingInfo.used.toLocaleString()} {remainingInfo.unit}
@@ -3543,53 +5532,74 @@ export default function SettlementDetail() {
                         </Box>
                       ) : detailDialog.title.includes('부자재비') ? (
                         // 부자재비는 세부 타입별로 그룹화하여 표시 (클릭으로 확장/축소)
-                        detailDialog.items.map((item, index) => {
+                        <Box sx={{ display: 'flex', gap: 2, height: '100%' }}>
+                          {/* 왼쪽: 부자재비 세부 타입 목록 */}
+                          <Box sx={{ flex: 1, minWidth: '300px' }}>
+                            <Box sx={{ maxHeight: '400px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+                              {detailDialog.items.map((item, index) => {
                           // 헤더 항목인 경우 (클릭 가능)
                           if (item.type === 'header') {
                             const isExpanded = expandedSubMaterial[item.subType] || false;
                             return (
                               <Box key={index}>
                                 <Box sx={{ 
-                                  bgcolor: '#444', 
+                                        bgcolor: isExpanded ? '#333' : '#444', 
                                   borderRadius: 1, 
                                   p: 1, 
                                   mb: 1,
-                                  border: '1px solid #666',
+                                        border: isExpanded ? '2px solid #ff4444' : '1px solid #666',
                                   cursor: 'pointer',
                                   '&:hover': { bgcolor: '#555' }
                                 }}
-                                onClick={() => setExpandedSubMaterial(prev => ({
-                                  ...prev,
-                                  [item.subType]: !prev[item.subType]
-                                }))}>
+                                      onClick={() => {
+                                        // 한 번에 한 항목만 선택되도록 다른 항목들은 모두 false로 설정
+                                        const newExpanded = {};
+                                        if (!isExpanded) {
+                                          newExpanded[item.subType] = true;
+                                        }
+                                        setExpandedSubMaterial(newExpanded);
+                                      }}>
                                   <Typography sx={{ 
-                                    color: '#43e97b', 
+                                          color: isExpanded ? '#ff4444' : '#43e97b', 
                                     fontSize: '1.1rem',
                                     fontWeight: 'bold',
                                     display: 'flex',
                                     justifyContent: 'space-between',
                                     alignItems: 'center'
                                   }}>
-                                    {item.name} {isExpanded ? '▼' : '▶'}
+                                          {item.name}
                                     <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                                       <span style={{ color: '#ff4444' }}>{formatGisungAmount(item.amount)}</span>
                                       <span style={{ color: '#bbb', fontSize: '0.9rem' }}>{formatDate(item.date)}</span>
                                     </Box>
                                   </Typography>
                                 </Box>
+                                    </Box>
+                                  );
+                                }
                                 
-                                {/* 확장된 세부내역 */}
-                                {isExpanded && item.items && item.items.map((subItem, subIndex) => {
-                                  // originalDate가 있으면 사용, 없으면 date 사용
+                                // 일반 항목인 경우 (이제는 표시되지 않음)
+                                return null;
+                              })}
+                            </Box>
+                          </Box>
+                          
+                          {/* 오른쪽: 선택된 세부 항목의 상세 내용 */}
+                          {Object.keys(expandedSubMaterial).some(key => expandedSubMaterial[key]) && (
+                            <Box sx={{ flex: 1, minWidth: '300px' }}>
+                              <Box sx={{ maxHeight: '400px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+                                {Object.entries(expandedSubMaterial).map(([subType, isExpanded]) => {
+                                  if (!isExpanded) return null;
+                                  
+                                  const subTypeItems = detailDialog.items.filter(item => 
+                                    item.type === 'header' && item.subType === subType
+                                  );
+                                  
+                                  return subTypeItems.map((item, itemIndex) => (
+                                    <Box key={`${subType}-${itemIndex}`}>
+                                      {item.items && item.items.map((subItem, subIndex) => {
                                   const dateToUse = subItem.originalDate || subItem.date;
-                                  console.log('부자재비 날짜 디버깅:', {
-                                    subItem: subItem.name,
-                                    originalDate: subItem.originalDate,
-                                    date: subItem.date,
-                                    dateToUse: dateToUse
-                                  });
                                   const date = parseDate(dateToUse);
-                                  console.log('파싱된 날짜:', date, 'isNaN:', isNaN(date.getTime()));
                                   const year = date.getFullYear();
                                   const month = String(date.getMonth() + 1).padStart(2, '0');
                                   return (
@@ -3597,22 +5607,19 @@ export default function SettlementDetail() {
                                       color: '#fff', 
                                       fontSize: '1rem',
                                       p: 0.5,
-                                      bgcolor: '#333',
-                                      borderRadius: 1,
-                                      mb: 0.5,
-                                      ml: 2 // 헤더보다 들여쓰기
+                                            mb: 0.5
                                     }}>
-                                      {subItem.name} {year}.{month} &nbsp; <span style={{ color: '#ff4444' }}>{formatGisungAmount(subItem.amount)}</span>
+                                            {subItem.name.replace(/^부자재\s*-\s*/, '')} {year}.{month} &nbsp; <span style={{ color: '#ff4444' }}>{formatGisungAmount(subItem.amount)}</span>
                                     </Typography>
                                   );
                                 })}
                               </Box>
-                            );
-                          }
-                          
-                          // 일반 항목인 경우 (이제는 표시되지 않음)
-                          return null;
-                        })
+                                  ));
+                                })}
+                              </Box>
+                            </Box>
+                          )}
+                        </Box>
                       ) : detailDialog.title.includes('자재비') ? (
                         // 자재비도 세부 항목별로 가로 배치
                         <Box sx={{ display: 'flex', gap: 2, height: '100%' }}>
@@ -3888,8 +5895,8 @@ export default function SettlementDetail() {
 
 
         {/* 차트분석과 노무능률 */}
-        <Box sx={{ display: 'flex', gap: 2, width: '100%' }}>
-          {/* 차트분석 (아이패드에서 더 넓게) */}
+        <Box sx={{ display: 'flex', gap: 2, width: '100%', pr: 2 }}>
+          {/* 차트분석 (75%) */}
           <Card sx={{ 
             bgcolor: '#232b3b', 
             color: '#fff', 
@@ -3947,16 +5954,36 @@ export default function SettlementDetail() {
           <Card sx={{ 
             bgcolor: '#232b3b', 
             color: '#fff', 
-            flex: '0 0 25%'
+            flex: { xs: '0 0 100%', sm: '0 0 100%', md: '0 0 25%' }
           }}>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2, color: '#43e97b', display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6" sx={{ mb: 1, color: '#43e97b', display: 'flex', alignItems: 'center', gap: 1 }}>
                 <TrendingUpIcon /> 분석
               </Typography>
+              
+              {/* 첫 투입 날짜부터 오늘까지 기간 및 총 공수 */}
+              <Box sx={{ 
+                bgcolor: '#1a1d21', 
+                p: 1.5, 
+                borderRadius: 1, 
+                mb: 1,
+                border: '1px solid #333'
+              }}>
+                <Typography sx={{ 
+                  color: '#fff', 
+                  fontSize: '1.3rem', 
+                  fontWeight: 'bold',
+                  textAlign: 'center',
+                  lineHeight: 1.2
+                }}>
+                  {projectPeriod.startDate ? projectPeriod.startDate.replace(/-/g, '.') : '데이터 로딩중...'}~{projectPeriod.endDate ? projectPeriod.endDate.replace(/-/g, '.') : '데이터 로딩중...'} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 총 <span style={{ color: '#ff4444' }}>({projectPeriod.totalWorkers || 0})</span>공수
+                </Typography>
+              </Box>
+              
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 
                 {/* 노무자 1명 기준 평균 물량 */}
-                <Box sx={{ mt: 2 }}>
+                <Box sx={{ mt: 1 }}>
                   <Typography sx={{ 
                     color: '#43e97b', 
                     fontSize: '1.1rem', 
@@ -3982,7 +6009,7 @@ export default function SettlementDetail() {
                       whiteSpace: 'nowrap',
                       fontSize: '1.1rem'
                     }}>
-                      {laborEfficiency.복층.toFixed(1)}
+                      {laborEfficiency ? laborEfficiency.복층.toFixed(1) : '0.0'}
                       <span style={{ color: '#fff', fontSize: '0.9em' }}> (M²/명)</span>
                     </Typography>
                   </Box>
@@ -4002,7 +6029,7 @@ export default function SettlementDetail() {
                       whiteSpace: 'nowrap',
                       fontSize: '1.1rem'
                     }}>
-                      {laborEfficiency.강화.toFixed(1)}
+                      {laborEfficiency ? laborEfficiency.강화.toFixed(1) : '0.0'}
                       <span style={{ color: '#fff', fontSize: '0.9em' }}> (M²/명)</span>
                     </Typography>
                   </Box>
@@ -4035,7 +6062,7 @@ export default function SettlementDetail() {
                       whiteSpace: 'nowrap',
                       fontSize: '1.1rem'
                     }}>
-                      {dailyLaborEfficiency.복층.toFixed(1)}
+                      {dailyLaborEfficiency ? dailyLaborEfficiency.복층.toFixed(1) : '0.0'}
                       <span style={{ color: '#fff', fontSize: '0.9em' }}> (M²/일)</span>
                     </Typography>
                   </Box>
@@ -4055,7 +6082,7 @@ export default function SettlementDetail() {
                       whiteSpace: 'nowrap',
                       fontSize: '1.1rem'
                     }}>
-                      {dailyLaborEfficiency.강화.toFixed(1)}
+                      {dailyLaborEfficiency ? dailyLaborEfficiency.강화.toFixed(1) : '0.0'}
                       <span style={{ color: '#fff', fontSize: '0.9em' }}> (M²/일)</span>
                     </Typography>
                   </Box>
@@ -4073,6 +6100,16 @@ export default function SettlementDetail() {
                   </Typography>
                   
                   {/* 구조용 */}
+                  {(() => {
+                    console.log('UI에서 구조용 값 확인:', {
+                      'subMaterialUsage.구조용': subMaterialUsage.구조용,
+                      'subMaterialUsage.구조용.복층': subMaterialUsage.구조용.복층,
+                      '조건 > 0': subMaterialUsage.구조용.복층 > 0,
+                      '조건 === -1': subMaterialUsage.구조용.복층 === -1,
+                      '조건 === -2': subMaterialUsage.구조용.복층 === -2
+                    });
+                    return null;
+                  })()}
                   <Box sx={{ 
                     display: 'flex', 
                     flexDirection: { xs: 'column', md: 'row' },
@@ -4084,11 +6121,11 @@ export default function SettlementDetail() {
                     <Typography sx={{ color: '#bbb', fontSize: '1rem' }}>구조용(커튼월 1m²당):</Typography>
                     <Typography sx={{ 
                       fontWeight: 'bold', 
-                      color: '#ff9800',
+                      color: subMaterialUsage.구조용.복층 > 0 ? '#ff9800' : subMaterialUsage.구조용.복층 === -1 ? '#ffa726' : subMaterialUsage.구조용.복층 === -2 ? '#ff5722' : '#ff6b6b',
                       whiteSpace: 'nowrap',
                       fontSize: '1.1rem'
                     }}>
-                      {subMaterialUsage.구조용.복층.toFixed(2)}EA
+                      {subMaterialUsage.구조용.복층 > 0 ? `${subMaterialUsage.구조용.복층.toFixed(2)}EA` : subMaterialUsage.구조용.복층 === -1 ? '물량 데이터 없음' : subMaterialUsage.구조용.복층 === -2 ? '부자재 데이터 없음' : '데이터 없음'}
                     </Typography>
                   </Box>
                   
@@ -4104,11 +6141,11 @@ export default function SettlementDetail() {
                     <Typography sx={{ color: '#bbb', fontSize: '1rem' }}>웨더(커튼월 1m²당):</Typography>
                     <Typography sx={{ 
                       fontWeight: 'bold', 
-                      color: '#ff9800',
+                      color: subMaterialUsage.웨더.복층 > 0 ? '#ff9800' : subMaterialUsage.웨더.복층 === -1 ? '#ffa726' : subMaterialUsage.웨더.복층 === -2 ? '#ff5722' : '#ff6b6b',
                       whiteSpace: 'nowrap',
                       fontSize: '1.1rem'
                     }}>
-                      {subMaterialUsage.웨더.복층.toFixed(2)}EA
+                      {subMaterialUsage.웨더.복층 > 0 ? `${subMaterialUsage.웨더.복층.toFixed(2)}EA` : subMaterialUsage.웨더.복층 === -1 ? '물량 데이터 없음' : subMaterialUsage.웨더.복층 === -2 ? '부자재 데이터 없음' : '데이터 없음'}
                     </Typography>
                   </Box>
                   
@@ -4124,11 +6161,11 @@ export default function SettlementDetail() {
                     <Typography sx={{ color: '#bbb', fontSize: '1rem' }}>일반(강화 1m²당):</Typography>
                     <Typography sx={{ 
                       fontWeight: 'bold', 
-                      color: '#ff9800',
+                      color: subMaterialUsage.일반.강화 > 0 ? '#ff9800' : subMaterialUsage.일반.강화 === -1 ? '#ffa726' : subMaterialUsage.일반.강화 === -2 ? '#ff5722' : '#ff6b6b',
                       whiteSpace: 'nowrap',
                       fontSize: '1.1rem'
                     }}>
-                      {subMaterialUsage.일반.강화.toFixed(2)}EA
+                      {subMaterialUsage.일반.강화 > 0 ? `${subMaterialUsage.일반.강화.toFixed(2)}EA` : subMaterialUsage.일반.강화 === -1 ? '물량 데이터 없음' : subMaterialUsage.일반.강화 === -2 ? '부자재 데이터 없음' : '데이터 없음'}
                     </Typography>
                   </Box>
                   
@@ -4143,11 +6180,11 @@ export default function SettlementDetail() {
                     <Typography sx={{ color: '#bbb', fontSize: '1rem' }}>노턴테이프(1m²당):</Typography>
                     <Typography sx={{ 
                       fontWeight: 'bold', 
-                      color: '#ff9800',
+                      color: subMaterialUsage.노턴테이프.복층 > 0 ? '#ff9800' : subMaterialUsage.노턴테이프.복층 === -1 ? '#ffa726' : subMaterialUsage.노턴테이프.복층 === -2 ? '#ff5722' : '#ff6b6b',
                       whiteSpace: 'nowrap',
                       fontSize: '1.1rem'
                     }}>
-                      {subMaterialUsage.노턴테이프.복층.toFixed(2)}EA
+                      {subMaterialUsage.노턴테이프.복층 > 0 ? `${subMaterialUsage.노턴테이프.복층.toFixed(2)}EA` : subMaterialUsage.노턴테이프.복층 === -1 ? '물량 데이터 없음' : subMaterialUsage.노턴테이프.복층 === -2 ? '부자재 데이터 없음' : '데이터 없음'}
                     </Typography>
                   </Box>
                 </Box>

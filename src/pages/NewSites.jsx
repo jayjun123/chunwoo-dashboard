@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef, startTransition } from 'react';
-import { Grid, Paper, Tabs, Tab, TextField, List, ListItem, ListItemText, Button, IconButton, Typography, Box, FormControl, Select, MenuItem, Checkbox, FormControlLabel, InputLabel, Autocomplete, Chip, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress } from '@mui/material';
+import { Grid, Paper, Tabs, Tab, TextField, List, ListItem, ListItemText, Button, IconButton, Typography, Box, FormControl, Select, MenuItem, Checkbox, FormControlLabel, InputLabel, Autocomplete, Chip, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, InputAdornment } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UploadIcon from '@mui/icons-material/Upload';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import ClearIcon from '@mui/icons-material/Clear';
 import MaterialInventory from '../components/MaterialInventory';
 
 import { collection, onSnapshot, query, orderBy, where, getDocs, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
@@ -913,7 +914,7 @@ const NewSites = () => {
     const today = new Date();
     const sixtyDaysAgo = new Date(today.getTime() - (60 * 24 * 60 * 60 * 1000)); // 60일 전
     
-    return sites
+    let filtered = sites
       .filter(site => site.status === statusTab)
       .filter(site => {
         // 완료 상태인 현장의 경우, 준공일이 60일 이상 지났으면 제외 (단, showHiddenCompleted가 true이면 포함)
@@ -933,7 +934,25 @@ const NewSites = () => {
         site?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (site.manager && site.manager.toLowerCase().includes(searchTerm.toLowerCase()))
       );
-  }, [sites, statusTab, searchTerm, showHiddenCompleted]);
+    
+    // 정산완료된 현장을 제일 아래쪽에 배치
+    const activeSites = [];
+    const completedSites = [];
+    
+    filtered.forEach(site => {
+      // 정산완료 여부 확인
+      const isFullyPaid = paymentStatusMap[site.name]?.isFullyPaid || false;
+      
+      if (isFullyPaid) {
+        completedSites.push(site);
+      } else {
+        activeSites.push(site);
+      }
+    });
+    
+    // 진행중인 현장을 먼저, 정산완료된 현장을 나중에 배치
+    return [...activeSites, ...completedSites];
+  }, [sites, statusTab, searchTerm, showHiddenCompleted, paymentStatusMap]);
 
   const handleSelectSite = async (site) => {
     setSelectedSite(site);
@@ -2445,6 +2464,19 @@ const NewSites = () => {
           onChange={e => setSearchTerm(e.target.value)} 
           variant="outlined" 
           size="small" 
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton 
+                  size="small" 
+                  onClick={() => setSearchTerm('')}
+                  sx={{ mr: 0.5 }}
+                >
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              </InputAdornment>
+            )
+          }}
           sx={{ 
             mb: isMobile ? 1 : 2, 
             input: { color: '#fff', fontSize: isMobile ? '0.8rem' : 'inherit' }, 

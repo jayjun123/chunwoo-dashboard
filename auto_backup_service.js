@@ -1,13 +1,26 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, cert } from 'firebase/app';
 import { getFirestore, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { getStorage, ref, listAll, getDownloadURL } from 'firebase/storage';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Firebase 서비스 계정 키 (실제 키로 교체 필요)
+const serviceAccount = {
+  "type": "service_account",
+  "project_id": "chunwooo-edf9f",
+  "private_key_id": "YOUR_PRIVATE_KEY_ID",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-xxxxx@chunwooo-edf9f.iam.gserviceaccount.com",
+  "client_id": "YOUR_CLIENT_ID",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-xxxxx%40chunwooo-edf9f.iam.gserviceaccount.com"
+};
 
 // Firebase 설정
 const firebaseConfig = {
@@ -20,30 +33,10 @@ const firebaseConfig = {
   measurementId: "G-653CL9XWFH"
 };
 
-// Firebase 초기화
+// Firebase 초기화 (서비스 계정 사용)
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
-const auth = getAuth(app);
-
-// Firebase 인증 함수
-const authenticateFirebase = async () => {
-  try {
-    // 실제 관리자 계정 정보로 변경하세요
-    const adminEmail = 'admin@chunwoo.com';  // 실제 관리자 이메일로 변경
-    const adminPassword = 'admin123';        // 실제 관리자 비밀번호로 변경
-    
-    console.log('🔐 Firebase 인증 중...');
-    await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-    console.log('✅ Firebase 인증 완료');
-    return true;
-  } catch (error) {
-    console.error('❌ Firebase 인증 실패:', error.message);
-    console.log('💡 auto_backup.js 파일에서 adminEmail과 adminPassword를 실제 관리자 계정으로 변경하세요.');
-    console.log('💡 또는 Firebase Console에서 서비스 계정 키를 사용하는 방법도 있습니다.');
-    return false;
-  }
-};
 
 // 백업할 컬렉션 목록
 const collectionsToBackup = [
@@ -160,23 +153,17 @@ const createBackupMetadata = () => {
     collections: collectionsToBackup,
     totalCollections: collectionsToBackup.length,
     backupType: 'full',
-    description: 'Firebase 전체 데이터 자동 백업'
+    description: 'Firebase 전체 데이터 자동 백업 (서비스 계정)'
   };
 };
 
 // 메인 백업 함수
 const performBackup = async () => {
   const startTime = Date.now();
-  console.log('🚀 Firebase 자동 백업 시작...');
+  console.log('🚀 Firebase 자동 백업 시작 (서비스 계정)...');
   console.log('📅 백업 시간:', new Date().toLocaleString('ko-KR'));
   
   try {
-    // Firebase 인증 먼저 실행
-    const isAuthenticated = await authenticateFirebase();
-    if (!isAuthenticated) {
-      console.error('❌ 인증 실패로 백업을 중단합니다.');
-      return;
-    }
     const backupDir = createBackupDirectory();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupFolder = path.join(backupDir, `backup_${timestamp}`);
@@ -214,8 +201,8 @@ const performBackup = async () => {
     // 백업 요약 파일 생성
     const summaryFile = path.join(backupFolder, 'backup_summary.txt');
     const summary = `
-Firebase 자동 백업 완료
-=======================
+Firebase 자동 백업 완료 (서비스 계정)
+=====================================
 
 백업 시간: ${new Date().toLocaleString('ko-KR')}
 백업 폴더: ${backupFolder}
@@ -284,25 +271,9 @@ const cleanupOldBackups = (backupDir) => {
   }
 };
 
-// 스케줄러 설정 (일주일마다 실행)
-const scheduleBackup = () => {
-  const oneWeek = 7 * 24 * 60 * 60 * 1000; // 7일을 밀리초로
-  
-  // 즉시 첫 번째 백업 실행
-  performBackup();
-  
-  // 일주일마다 반복
-  setInterval(() => {
-    console.log('⏰ 일주일마다 자동 백업 실행...');
-    performBackup();
-  }, oneWeek);
-  
-  console.log('📅 자동 백업 스케줄러 설정 완료 (일주일마다)');
-};
-
 // 수동 백업 실행
 const manualBackup = () => {
-  console.log('🔧 수동 백업 실행...');
+  console.log('🔧 수동 백업 실행 (서비스 계정)...');
   performBackup();
 };
 
@@ -310,7 +281,9 @@ const manualBackup = () => {
 if (process.argv.includes('--manual')) {
   manualBackup();
 } else {
-  scheduleBackup();
+  console.log('💡 사용법: node auto_backup_service.js --manual');
+  console.log('💡 먼저 Firebase Console에서 서비스 계정 키를 다운로드하고');
+  console.log('💡 serviceAccount 객체의 값들을 실제 키로 교체하세요.');
 }
 
-export { performBackup, scheduleBackup, manualBackup };
+export { performBackup, manualBackup };

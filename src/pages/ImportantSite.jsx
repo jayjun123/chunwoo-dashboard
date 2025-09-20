@@ -27,6 +27,7 @@ import {
 } from '@mui/material';
 import Image from '../components/common/Image';
 import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import CommentIcon from '@mui/icons-material/Comment';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import AddCommentIcon from '@mui/icons-material/AddComment';
@@ -604,7 +605,80 @@ export default function ImportantSite() {
       filtered = filtered.filter(site => site.name.includes(search.trim()));
     }
     
-    return filtered;
+    // 정산완료된 현장(공사기간 종료)을 제일 아래쪽에 배치
+    const today = new Date();
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    const activeSites = [];
+    const completedSites = [];
+    
+    filtered.forEach(site => {
+      let isCompleted = false;
+      
+      // 공사기간이 끝났는지 확인
+      if (site.endDate) {
+        let endDate;
+        
+        if (typeof site.endDate === 'string') {
+          const endDateStr = String(site.endDate);
+          
+          // 무효한 날짜 형식 체크
+          if (endDateStr.match(/^0{4}[.\/-]0{1,2}[.\/-]0{1,2}$/) ||
+              endDateStr === '0000.00.00' || 
+              endDateStr === '0000/00/00' || 
+              endDateStr === '0000-00-00' ||
+              endDateStr === '0000.0.00') {
+            isCompleted = false;
+          } else {
+            if (site.endDate.includes('-')) {
+              endDate = new Date(site.endDate + 'T00:00:00');
+            } else if (site.endDate.includes('/')) {
+              endDate = new Date(site.endDate + 'T00:00:00');
+            } else if (site.endDate.includes('.')) {
+              const parts = site.endDate.split('.');
+              if (parts.length === 2) {
+                const month = parseInt(parts[0]) - 1;
+                const day = parseInt(parts[1]);
+                const currentYear = new Date().getFullYear();
+                endDate = new Date(currentYear, month, day);
+              } else if (parts.length === 3) {
+                const year = parseInt(parts[0]);
+                const month = parseInt(parts[1]) - 1;
+                const day = parseInt(parts[2]);
+                endDate = new Date(year, month, day);
+              } else {
+                endDate = new Date(site.endDate + 'T00:00:00');
+              }
+            } else if (site.endDate.length === 8) {
+              const year = site.endDate.substring(0, 4);
+              const month = site.endDate.substring(4, 6);
+              const day = site.endDate.substring(6, 8);
+              endDate = new Date(`${year}-${month}-${day}T00:00:00`);
+            } else {
+              endDate = new Date(site.endDate + 'T00:00:00');
+            }
+          }
+        } else if (site.endDate instanceof Date) {
+          endDate = site.endDate;
+        } else {
+          endDate = site.endDate.toDate ? site.endDate.toDate() : new Date(site.endDate);
+        }
+        
+        if (endDate) {
+          const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+          isCompleted = todayDate.getTime() > endDateOnly.getTime();
+        }
+      }
+      
+      if (isCompleted) {
+        completedSites.push(site);
+      } else {
+        activeSites.push(site);
+      }
+    });
+    
+    // 진행중인 현장을 먼저, 완료된 현장을 나중에 배치
+    return [...activeSites, ...completedSites];
   }, [sortedSites, selectedSiteId, search]);
 
   const handleRemarkChange = (id, value) => {
@@ -1006,6 +1080,13 @@ export default function ImportantSite() {
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
+                  <IconButton 
+                    size="small" 
+                    onClick={() => setSearch('')}
+                    sx={{ mr: 0.5 }}
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
                   <IconButton>
                     <SearchIcon />
                   </IconButton>

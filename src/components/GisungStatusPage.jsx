@@ -38,7 +38,8 @@ import {
   Delete as DeleteIcon,
   CloudDownload as CloudDownloadIcon,
   Search as SearchIcon,
-  Upload as UploadIcon
+  Upload as UploadIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -1083,7 +1084,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         
         // 기성금청구서 생성 시작 메시지
         const templateTypeText = siteData.templateType === 'L' ? 'LONG' : 'NEW';
-        setLoadingMessage(`열심히 제작중에 있습니다.\n기성금청구서 [${templateTypeText}]을 생산하고 있습니다.`);
+        setLoadingMessage(`기성금청구서 생성 중...\n${templateTypeText} 템플릿 처리 중`);
         
         console.log('🔍 generateTemplateBasedGisungExcel 호출 전 디버깅:');
         console.log('🔍 siteData.templateType:', siteData.templateType);
@@ -1098,7 +1099,28 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         }
         
         // 기성금청구서 템플릿으로 엑셀 생성 (데이터만 입력)
-        const result = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems, currentSequence, previousGisungData);
+        let result;
+        try {
+          result = await generateTemplateBasedGisungExcel(siteData, gisungData, siteItems, currentSequence, previousGisungData);
+        } catch (templateError) {
+          console.error('❌ 템플릿 생성 중 오류:', templateError);
+          
+          // 사용자에게 더 친화적인 오류 메시지 표시
+          let userMessage = '기성금청구서 생성 중 오류가 발생했습니다.';
+          
+          if (templateError.message.includes('네트워크 연결')) {
+            userMessage = '네트워크 연결에 문제가 있습니다.\n인터넷 연결을 확인하고 다시 시도해주세요.';
+          } else if (templateError.message.includes('시간이 초과')) {
+            userMessage = '템플릿 다운로드 시간이 초과되었습니다.\n잠시 후 다시 시도해주세요.';
+          } else if (templateError.message.includes('보안 정책')) {
+            userMessage = '브라우저 보안 정책으로 인해 다운로드가 차단되었습니다.\n다른 브라우저를 사용해보세요.';
+          } else {
+            userMessage = `기성금청구서 생성 중 오류가 발생했습니다:\n${templateError.message}`;
+          }
+          
+          alert(userMessage);
+          throw templateError;
+        }
         
         if (!result || !result.workbook) {
           console.error('❌ 기성금청구서 생성 결과가 유효하지 않습니다:', result);
@@ -2139,7 +2161,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   };
 
   const StatCard = ({ title, value, color }) => (
-    <Grid size={{ xs: 3, sm: 6, md: 3 }}>
+    <Grid size={{ xs: 2.4, sm: 6, md: 2.4 }}>
       <Card sx={{ 
           p: isMobile ? 2 : 2, 
           height: '100%', 
@@ -2252,10 +2274,55 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
          gap: isMobile ? 1 : 2, 
          mb: 3, 
          alignItems: 'center',
-         justifyContent: isMobile ? 'center' : 'flex-end',
+         justifyContent: isMobile ? 'center' : 'space-between',
          flexDirection: isMobile ? 'column' : 'row',
          flexWrap: isMobile ? 'wrap' : 'nowrap'
        }}>
+         {/* 검색 입력칸 - 왼쪽 끝 */}
+         <TextField
+           size="small"
+           placeholder="현장명, 금액, 상태 검색"
+           value={search}
+           onChange={e => setSearch(e.target.value)}
+           InputProps={{
+             endAdornment: (
+               <InputAdornment position="end">
+                 <IconButton 
+                   size="small" 
+                   onClick={() => setSearch('')}
+                   sx={{ mr: 0.5 }}
+                 >
+                   <ClearIcon fontSize="small" />
+                 </IconButton>
+               </InputAdornment>
+             )
+           }}
+           sx={{ 
+             width: 300, 
+             bgcolor: '#232b3b', 
+             borderRadius: 2, 
+             input: { color: '#fff' },
+             '& .MuiOutlinedInput-root': {
+               '& fieldset': {
+                 borderColor: '#444',
+               },
+               '&:hover fieldset': {
+                 borderColor: '#666',
+               },
+               '&.Mui-focused fieldset': {
+                 borderColor: '#1976d2',
+               },
+             },
+           }} 
+         />
+         
+         {/* 버튼들 - 오른쪽 끝 */}
+         <Box sx={{ 
+           display: 'flex', 
+           gap: isMobile ? 1 : 2, 
+           alignItems: 'center',
+           flexWrap: isMobile ? 'wrap' : 'nowrap'
+         }}>
                  {selectedItems.length > 0 && (
            <Button 
              variant="contained" 
@@ -2331,8 +2398,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
          >
            {isMobile ? '기성업로드' : (viewType === 'site' ? '기성금청구서 업로드' : '목록 업로드')}
              </Button>
-
-
+         </Box>
       </Box>
 
       {/* 데이터 표시 */}

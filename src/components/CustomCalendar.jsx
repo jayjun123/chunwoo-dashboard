@@ -226,7 +226,7 @@ const CustomCalendar = (props) => {
         type === '현설' ? '[현설]' : 
         type === '견적' ? '[견적]' : 
         type === '실측' ? '[실측]' : 
-        type === '기타' ? '[기타]' : '';
+        type === '기타' ? '' : ''; // 기타 분류 시 [기타] 붙이지 않음
       
       // 견적 일정의 경우 title 필드도 확인
       let displayText = text || '';
@@ -861,7 +861,7 @@ const CustomCalendar = (props) => {
                         item.type === '현설' ? '[현설]' : 
                         item.type === '지원' ? '[지원]' : 
                         item.type === '실측' ? '[실측]' : 
-                        item.type === '기타' ? '[기타]' : '';
+                        item.type === '기타' ? '' : ''; // 기타 분류 시 [기타] 붙이지 않음
                       return typePrefix + (viewMode === '3days' ? item.text : item.text.slice(0, 9));
                     })()}
                   </Box>
@@ -1296,7 +1296,7 @@ const CustomCalendar = (props) => {
                                           item.type === '현설' ? '[현설]' : 
                                           item.type === '견적' ? '[견적]' : 
                                           item.type === '실측' ? '[실측]' : 
-                                          item.type === '기타' ? '[기타]' : '';
+                                          item.type === '기타' ? '' : ''; // 기타 분류 시 [기타] 붙이지 않음
                                         const siteName = item.siteName || '';
                                         const title = item.text || '';
                                         

@@ -277,6 +277,15 @@ export const parseGisungExcelUpload = async (file, siteData) => {
     // gisung_uploads 컬렉션에 저장
     const docRef = await addDoc(collection(db, 'gisung_uploads'), gisungData);
     
+    // 누계기성 데이터 저장 (각 항목별 K값 저장)
+    try {
+      const { saveCumulativeGisungData } = await import('./gisungTemplateUtils');
+      await saveCumulativeGisungData(siteData.id, `${sequence}차`, extractedItems);
+      console.log('✅ 누계기성 데이터 저장 완료');
+    } catch (cumulativeError) {
+      console.warn('⚠️ 누계기성 데이터 저장 실패:', cumulativeError);
+    }
+    
     // gisung 컬렉션에도 저장 (테이블 표시용)
     const gisungTableData = {
       name: siteData.name,

@@ -42,6 +42,7 @@ import {
   Snackbar,
   Chip,
   LinearProgress,
+  InputAdornment,
 } from '@mui/material';
 import { OptimizedTextField, useIMEHandler, usePWAKeyboardOptimization } from '../utils/imeHandler.jsx';
 import { useKeyboardManager } from '../utils/pwaKeyboardUtils';
@@ -58,6 +59,7 @@ import {
   Sort as SortIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -308,6 +310,7 @@ const ProgressManagement = () => {
   const [showPlanned, setShowPlanned] = useState(true);
   const [showActual, setShowActual] = useState(true);
   const [viewMode, setViewMode] = useState('all'); // 'all', 'site'
+  const [searchTerm, setSearchTerm] = useState('');
 
   // 네비게이션으로 전달받은 상태 처리
   useEffect(() => {
@@ -530,9 +533,21 @@ const ProgressManagement = () => {
       if (item.isPlanned && !showPlanned) return false;
       if (!item.isPlanned && !showActual) return false;
       
+      // 검색어 필터링
+      if (searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = 
+          item.description?.toLowerCase().includes(searchLower) ||
+          item.category?.toLowerCase().includes(searchLower) ||
+          item.amount?.toString().includes(searchLower) ||
+          item.siteName?.toLowerCase().includes(searchLower);
+        
+        if (!matchesSearch) return false;
+      }
+      
       return true;
     });
-  }, [progressData, selectedMonth, showPlanned, showActual]);
+  }, [progressData, selectedMonth, showPlanned, showActual, searchTerm]);
 
   // 차트 데이터
   const chartData = useMemo(() => {
@@ -832,8 +847,55 @@ const ProgressManagement = () => {
                     </ResponsiveContainer>
                   </Paper>
 
+                  {/* 검색 입력칸 */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'flex-end', 
+                    alignItems: 'center', 
+                    mb: 2, 
+                    mt: 3,
+                    px: 2
+                  }}>
+                    <TextField
+                      size="small"
+                      placeholder="설명, 카테고리, 금액, 현장명 검색"
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => setSearchTerm('')}
+                              sx={{ mr: 0.5 }}
+                            >
+                              <ClearIcon fontSize="small" />
+                            </IconButton>
+                          </InputAdornment>
+                        )
+                      }}
+                      sx={{ 
+                        width: 300, 
+                        bgcolor: '#232b3b', 
+                        borderRadius: 2, 
+                        input: { color: '#fff' },
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': {
+                            borderColor: '#444',
+                          },
+                          '&:hover fieldset': {
+                            borderColor: '#666',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#1976d2',
+                          },
+                        },
+                      }} 
+                    />
+                  </Box>
+
                   {/* 데이터 테이블 */}
-                  <Paper sx={{ width: '100vw', maxWidth: '100vw', boxSizing: 'border-box', m: 0, p: 0, mt: 3 }}>
+                  <Paper sx={{ width: '100vw', maxWidth: '100vw', boxSizing: 'border-box', m: 0, p: 0, mt: 0 }}>
                     <TableContainer sx={{ width: '100vw', maxWidth: '100vw', boxSizing: 'border-box', m: 0, p: 0 }}>
                       <Table sx={{ width: '100vw', maxWidth: '100vw', minWidth: '100vw', boxSizing: 'border-box', m: 0, p: 0 }}>
                         <TableHead>

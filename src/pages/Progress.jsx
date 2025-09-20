@@ -43,6 +43,7 @@ import {
   CheckCircle as CheckCircleIcon,
   CloudDownload as CloudDownloadIcon,
   Search as SearchIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { format, addMonths, subMonths } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -231,6 +232,7 @@ const Progress = () => {
   });
   const [tab, setTab] = useState('chart');
   const [statusView, setStatusView] = useState('month'); // 'month' or 'site'
+  const [searchTerm, setSearchTerm] = useState('');
   // 월 상태 관리
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
@@ -995,7 +997,7 @@ const Progress = () => {
   // 필터링된 기성 데이터 - 월별
   const getFilteredGisungDataByMonth = useMemo(() => {
     const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-    return progressList.filter(item => {
+    let filtered = progressList.filter(item => {
       if (item.gisungMonth) {
         return item.gisungMonth === monthStr;
       }
@@ -1011,11 +1013,25 @@ const Progress = () => {
       }
       return false;
     });
-  }, [progressList, currentMonth]);
+
+    // 검색어 필터링
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(item => 
+        item.name?.toLowerCase().includes(searchLower) ||
+        item.contractAmount?.toString().includes(searchLower) ||
+        item.gisungAmount?.toString().includes(searchLower) ||
+        item.claimStatus?.toLowerCase().includes(searchLower) ||
+        item.paymentStatus?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return filtered;
+  }, [progressList, currentMonth, searchTerm]);
 
   // 필터링된 지출 데이터 - 월별
   const getFilteredCostDataByMonth = useMemo(() => {
-    return allCostData.filter(cost => {
+    let filtered = allCostData.filter(cost => {
       if (cost.date) {
         const costDate = new Date(cost.date);
         return costDate.getFullYear() === currentMonth.getFullYear() && 
@@ -1023,7 +1039,21 @@ const Progress = () => {
       }
       return false;
     });
-  }, [allCostData, currentMonth]);
+
+    // 검색어 필터링
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(cost => 
+        cost.site?.toLowerCase().includes(searchLower) ||
+        cost.itemType?.toLowerCase().includes(searchLower) ||
+        cost.totalValue?.toString().includes(searchLower) ||
+        cost.description?.toLowerCase().includes(searchLower) ||
+        cost.paymentType?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return filtered;
+  }, [allCostData, currentMonth, searchTerm]);
 
   // 전체 진행률 계산
   const totalProgress = Math.round(
@@ -1183,7 +1213,8 @@ const Progress = () => {
         flexDirection: isMobile ? 'column' : 'row',
         mt: isMobile ? '15px' : 0
       }}>
-        {/* 왼쪽: 기성관리/기성현황/지출 */}
+
+        {/* 기성관리/기성현황/지출 버튼들 */}
         <ButtonGroup 
           variant="outlined" 
           size={isMobile ? 'small' : 'medium'}

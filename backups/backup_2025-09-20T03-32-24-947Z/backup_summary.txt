@@ -1,0 +1,28 @@
+
+Firebase 자동 백업 완료
+=======================
+
+백업 시간: 2025. 9. 20. 오후 12:32:26
+백업 폴더: D:\MyProject\MyProject\backups\backup_2025-09-20T03-32-24-947Z
+
+📊 Firestore 데이터:
+  - sites: 0개 문서
+  - gisung: 0개 문서
+  - claims: 0개 문서
+  - documents: 0개 문서
+  - discussions: 0개 문서
+  - safety: 0개 문서
+  - estimates: 0개 문서
+  - progress: 0개 문서
+  - users: 0개 문서
+  - templates: 0개 문서
+
+📁 Storage 파일:
+
+
+총 문서 수: 0개
+총 파일 수: 0개
+백업 소요 시간: 1248ms
+
+백업 파일: backup_data.json
+    

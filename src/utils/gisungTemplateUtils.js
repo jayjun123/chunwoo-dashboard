@@ -1,35 +1,176 @@
 // 기성금청구서 유틸리티 (템플릿 기반)
 import ExcelJS from 'exceljs';
-import { templateUrls } from './templateUrls';
 import { getSafePrice, setCellValueSafely, filterMaterialItems, logMaterialItem, cleanSheetData, fillGisungStyleData } from './excelCommonUtils';
 import { ref, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
 
-// templateUrls를 사용하여 템플릿 다운로드
+// Firebase Storage에서 템플릿 다운로드
 const downloadTemplateFromUrls = async (templateKey) => {
   try {
-    console.log(`📥 templateUrls에서 템플릿 다운로드 시작: ${templateKey}`);
+    console.log(`📥 템플릿 다운로드 시작: ${templateKey}`);
     
-    const templateUrl = templateUrls[templateKey];
-    if (!templateUrl) {
-      throw new Error(`템플릿 URL을 찾을 수 없습니다: ${templateKey}`);
+    // 템플릿 파일명 매핑
+    const templateFileMap = {
+      "(N)견적서": "Ngyunjuk.xlsx",
+      "(L)견적서": "Lgyunjuk.xlsx",
+      "(N)납품계약서": "Nnapfoom.xlsx",
+      "(L)납품계약서": "Lnapfoom.xlsx",
+      "(N)기성금청구서": "NEW.xlsx",
+      "(L)기성금청구서": "LONG.xlsx"
+    };
+    
+    const fileName = templateFileMap[templateKey];
+    if (!fileName) {
+      throw new Error(`템플릿 파일명을 찾을 수 없습니다: ${templateKey}`);
     }
     
-    // 템플릿 파일 다운로드
-    console.log('📥 템플릿 파일 다운로드 중...');
-    const response = await fetch(templateUrl);
+    // 재시도 로직을 위한 함수
+    const retryFetch = async (url, options, maxRetries = 3) => {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`🔄 다운로드 시도 ${attempt}/${maxRetries}: ${url}`);
+          
+          // 타임아웃을 위한 AbortController 생성
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => {
+            controller.abort();
+          }, 10000); // 10초 타임아웃으로 단축
+          
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const arrayBuffer = await response.arrayBuffer();
+          console.log(`✅ 다운로드 성공 (시도 ${attempt}): ${arrayBuffer.byteLength} bytes`);
+          return arrayBuffer;
+        } catch (error) {
+          console.warn(`⚠️ 시도 ${attempt} 실패:`, error.message);
+          
+          if (attempt === maxRetries) {
+            throw error;
+          }
+          
+          // 지수 백오프로 재시도 간격 증가
+          const delay = Math.pow(2, attempt) * 1000;
+          console.log(`⏳ ${delay}ms 후 재시도...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    };
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    // 1. 로컬 파일 우선 사용 (가장 빠름)
+    try {
+      console.log(`📁 로컬 파일 시도: /${fileName}`);
+      const localUrl = `/${fileName}`;
+      
+      const arrayBuffer = await retryFetch(localUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Cache-Control': 'no-cache'
+        },
+        mode: 'cors'
+      });
+      
+      console.log(`✅ 로컬 파일로 템플릿 다운로드 완료: ${templateKey} (${arrayBuffer.byteLength} bytes)`);
+      return arrayBuffer;
+    } catch (localError) {
+      console.warn(`⚠️ 로컬 파일 접근 실패: ${localError.message}`);
     }
     
-    const arrayBuffer = await response.arrayBuffer();
-    console.log(`✅ 템플릿 다운로드 완료: ${templateKey} (${arrayBuffer.byteLength} bytes)`);
+    // 3. 공개 URL 사용 시도 (여러 URL 변형 시도)
+    const publicUrlVariants = {
+      "(N)기성금청구서": [
+        "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2FNEW.xlsx?alt=media",
+        "https://storage.googleapis.com/chunwooo-edf9f.firebasestorage.app/templates/NEW.xlsx",
+        "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2FNEW.xlsx?alt=media&token=public"
+      ],
+      "(L)기성금청구서": [
+        "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2FLONG.xlsx?alt=media",
+        "https://storage.googleapis.com/chunwooo-edf9f.firebasestorage.app/templates/LONG.xlsx",
+        "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2FLONG.xlsx?alt=media&token=public"
+      ],
+      "(N)견적서": [
+        "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2FNgyunjuk.xlsx?alt=media",
+        "https://storage.googleapis.com/chunwooo-edf9f.firebasestorage.app/templates/Ngyunjuk.xlsx"
+      ],
+      "(L)견적서": [
+        "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2FLgyunjuk.xlsx?alt=media",
+        "https://storage.googleapis.com/chunwooo-edf9f.firebasestorage.app/templates/Lgyunjuk.xlsx"
+      ],
+      "(N)납품계약서": [
+        "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2FNnapfoom.xlsx?alt=media",
+        "https://storage.googleapis.com/chunwooo-edf9f.firebasestorage.app/templates/Nnapfoom.xlsx"
+      ],
+      "(L)납품계약서": [
+        "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates%2FLnapfoom.xlsx?alt=media",
+        "https://storage.googleapis.com/chunwooo-edf9f.firebasestorage.app/templates/Lnapfoom.xlsx"
+      ]
+    };
     
-    return arrayBuffer;
+    const urlVariants = publicUrlVariants[templateKey];
+    if (!urlVariants || urlVariants.length === 0) {
+      throw new Error(`공개 URL을 찾을 수 없습니다: ${templateKey}`);
+    }
+    
+    // 각 URL 변형을 순차적으로 시도
+    for (let i = 0; i < urlVariants.length; i++) {
+      try {
+        const url = urlVariants[i];
+        console.log(`📥 공개 URL 시도 ${i + 1}/${urlVariants.length}: ${url}`);
+        
+        const arrayBuffer = await retryFetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control': 'no-cache',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          },
+          mode: 'cors',
+          credentials: 'omit'
+        });
+        
+        console.log(`✅ 공개 URL로 템플릿 다운로드 완료: ${templateKey} (${arrayBuffer.byteLength} bytes)`);
+        return arrayBuffer;
+      } catch (urlError) {
+        console.warn(`⚠️ URL ${i + 1} 실패:`, urlError.message);
+        if (i === urlVariants.length - 1) {
+          // 마지막 URL도 실패하면 로컬 파일 시도
+          break;
+        }
+      }
+    }
+    
+    
+    // 모든 방법이 실패한 경우
+    throw new Error('모든 다운로드 방법이 실패했습니다. 네트워크 연결을 확인하고 다시 시도해주세요.');
+    
   } catch (error) {
     console.error(`❌ 템플릿 다운로드 실패: ${templateKey}`, error);
-    throw new Error(`템플릿 다운로드 중 오류가 발생했습니다: ${error.message}`);
+    
+    // 더 구체적인 오류 메시지 제공
+    let errorMessage = '템플릿 다운로드 중 오류가 발생했습니다.';
+    
+    if (error.name === 'AbortError' || error.message.includes('timeout')) {
+      errorMessage = '템플릿 다운로드 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.';
+    } else if (error.message.includes('Failed to fetch') || error.message.includes('ERR_FAILED')) {
+      errorMessage = '네트워크 연결에 문제가 있습니다. 인터넷 연결을 확인하고 다시 시도해주세요.';
+    } else if (error.message.includes('CORS')) {
+      errorMessage = '브라우저 보안 정책으로 인해 다운로드가 차단되었습니다. 다른 브라우저를 사용해보세요.';
+    } else if (error.message.includes('HTTP 403') || error.message.includes('HTTP 404')) {
+      errorMessage = '템플릿 파일에 접근할 수 없습니다. 관리자에게 문의해주세요.';
+    } else {
+      errorMessage = `템플릿 다운로드 중 오류가 발생했습니다: ${error.message}`;
+    }
+    
+    throw new Error(errorMessage);
   }
 };
 
@@ -56,11 +197,7 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
     console.log(`📊 물량 개수: ${itemCount}개 → ${templateType} 타입 템플릿 사용`);
     console.log(`📋 기성금청구서 템플릿 선택: ${templateType} 타입 (${templateType === 'L' ? 'LONG' : 'NEW'})`);
     
-    if (!templateUrls[templateKey]) {
-      throw new Error(`템플릿 URL을 찾을 수 없습니다: ${templateKey}`);
-    }
-    
-    // 템플릿 다운로드 (templateUrls 사용)
+    // 템플릿 다운로드 (Firebase Storage 사용)
     const arrayBuffer = await downloadTemplateFromUrls(templateKey);
     
     // 워크북 로드 (원본 수식 보존, Shared Formula 문제 해결)
@@ -365,7 +502,7 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
          console.log('🖊️ 실제 사용할 인감 타입:', actualStampType);
          
          try {
-           // 인감 이미지 다운로드 함수 (납품계약서와 동일한 방식)
+           // 인감 이미지 다운로드 함수 (로컬 파일 우선 사용)
            const downloadSignatureImage = async (stampType = 'A인감') => {
              const stampImageMap = {
                'A인감': 'A.png',
@@ -385,20 +522,40 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
                return null;
              }
              
-             // Firebase Storage에서 인감 이미지 가져오기
-             console.log('🔥 Firebase Storage에서 인감 이미지 가져오기');
-             const stampsRef = ref(storage, `stamps/${mappedImageName}`);
-             const downloadURL = await getDownloadURL(stampsRef);
-             console.log('📁 Firebase Storage 이미지 경로:', downloadURL);
-             
-             const response = await fetch(downloadURL);
-             if (!response.ok) {
-               throw new Error(`인감 이미지 다운로드 실패: ${response.status}`);
+             // 1. 로컬 파일 우선 시도
+             try {
+               console.log('📁 로컬 인감 이미지 시도:', mappedImageName);
+               const localUrl = `/${mappedImageName}`;
+               const response = await fetch(localUrl);
+               
+               if (response.ok) {
+                 const arrayBuffer = await response.arrayBuffer();
+                 console.log('✅ 로컬 인감 이미지 다운로드 완료:', mappedImageName);
+                 return arrayBuffer;
+               }
+             } catch (localError) {
+               console.warn('⚠️ 로컬 인감 이미지 실패:', localError.message);
              }
              
-             const arrayBuffer = await response.arrayBuffer();
-             console.log('✅ 인감 이미지 다운로드 완료:', mappedImageName);
-             return arrayBuffer;
+             // 2. Firebase Storage에서 인감 이미지 가져오기 (대체 방법)
+             try {
+               console.log('🔥 Firebase Storage에서 인감 이미지 가져오기');
+               const stampsRef = ref(storage, `stamps/${mappedImageName}`);
+               const downloadURL = await getDownloadURL(stampsRef);
+               console.log('📁 Firebase Storage 이미지 경로:', downloadURL);
+               
+               const response = await fetch(downloadURL);
+               if (!response.ok) {
+                 throw new Error(`인감 이미지 다운로드 실패: ${response.status}`);
+               }
+               
+               const arrayBuffer = await response.arrayBuffer();
+               console.log('✅ Firebase Storage 인감 이미지 다운로드 완료:', mappedImageName);
+               return arrayBuffer;
+             } catch (firebaseError) {
+               console.warn('⚠️ Firebase Storage 인감 이미지 실패:', firebaseError.message);
+               return null;
+             }
            };
            
                         // F40 셀 위치에 인감 이미지 추가
@@ -540,16 +697,16 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
            
            console.log('📊 추출된 항목들:', extractedItems);
            
-           // 모든 항목의 K값을 G값으로 복사 (보호된 셀 제외)
+           // 모든 항목의 K값(누계수량)을 G값(전회수량)으로 복사
            const maxGisungRow = siteItems.length <= 20 ? 25 : 50;
            for (let row = 6; row <= maxGisungRow; row++) {
-             // 해당 행의 K값 찾기
+             // 해당 행의 K값(누계수량) 찾기
              const item = extractedItems.find(item => item.row === row);
              
              if (item && item.kValue !== null && item.kValue !== undefined) {
                const gCell = detailSheet.getCell(`G${row}`);
-               gCell.value = item.kValue;
-               console.log(`✅ 행 ${row}: K값(${item.kValue}) → G값으로 복사 완료 - ${item.itemName}`);
+               gCell.value = item.kValue; // K값(누계수량)을 G값(전회수량)으로 복사
+               console.log(`✅ 행 ${row}: K값(누계수량 ${item.kValue}) → G값(전회수량)으로 복사 완료 - ${item.itemName}`);
              } else {
                // 해당 행에 데이터가 없으면 0으로 설정
                const gCell = detailSheet.getCell(`G${row}`);
@@ -562,6 +719,14 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
          } catch (error) {
            console.warn('⚠️ 전회기성 설정 실패:', error);
          }
+       } else if (previousGisungData && previousGisungData.prevGisung) {
+         // extractedItems가 없어도 prevGisung 값이 있으면 사용
+         console.log('📊 prevGisung 값으로 전회기성 설정:', previousGisungData.prevGisung);
+         
+         // 전회기성 총액을 첫 번째 행에 표시 (임시)
+         const gCell = detailSheet.getCell('G6');
+         gCell.value = previousGisungData.prevGisung;
+         console.log(`✅ G6에 전회기성 총액 설정: ${previousGisungData.prevGisung}`);
        } else {
          console.log('📊 이전 기성금청구서 데이터가 없어 전회기성 설정 건너뜀');
        }
@@ -755,12 +920,76 @@ const getPreviousMonth = () => {
   return `${previousMonth.getFullYear()}.${String(previousMonth.getMonth() + 1).padStart(2, '0')}.`;
 };
 
+// 기성금 업로드 시 각 항목별 누계기성 값 저장 (수량과 금액 모두)
+export const saveCumulativeGisungData = async (siteId, sequence, extractedItems) => {
+  try {
+    console.log('💾 누계기성 데이터 저장 시작:', { siteId, sequence, extractedItems });
+    
+    const { doc, setDoc, collection } = await import('firebase/firestore');
+    const { db } = await import('../firebase');
+    
+    // 누계기성 데이터 저장 (K열=누계수량, L열=누계금액)
+    const cumulativeData = {
+      siteId: siteId,
+      sequence: sequence,
+      extractedItems: extractedItems, // K값(누계수량)과 L값(누계금액) 모두 포함
+      savedAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    // gisung_cumulative 컬렉션에 저장
+    const docRef = doc(collection(db, 'gisung_cumulative'), `${siteId}_${sequence}`);
+    await setDoc(docRef, cumulativeData, { merge: true });
+    
+    console.log('✅ 누계기성 데이터 저장 완료:', docRef.id);
+    console.log('📊 저장된 데이터:', {
+      siteId,
+      sequence,
+      itemCount: extractedItems.length,
+      sampleItem: extractedItems[0] // 첫 번째 항목 샘플
+    });
+    
+    return { success: true, docId: docRef.id };
+    
+  } catch (error) {
+    console.error('❌ 누계기성 데이터 저장 실패:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// 누계기성 데이터 가져오기
+export const getCumulativeGisungData = async (siteId, sequence) => {
+  try {
+    console.log('📥 누계기성 데이터 가져오기:', { siteId, sequence });
+    
+    const { doc, getDoc, collection } = await import('firebase/firestore');
+    const { db } = await import('../firebase');
+    
+    // gisung_cumulative 컬렉션에서 데이터 가져오기
+    const docRef = doc(collection(db, 'gisung_cumulative'), `${siteId}_${sequence}`);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      console.log('✅ 누계기성 데이터 가져오기 완료:', data);
+      return { success: true, data: data };
+    } else {
+      console.log('📊 누계기성 데이터 없음');
+      return { success: false, data: null };
+    }
+    
+  } catch (error) {
+    console.error('❌ 누계기성 데이터 가져오기 실패:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 // 기성금 데이터 이동 함수들
 export const moveCurrentToPrevious = async (siteId, gisungId) => {
   try {
     console.log('🔄 기성금 데이터 이동 시작:', { siteId, gisungId });
     
-    const { doc, getDoc, updateDoc, collection, query, where, getDocs } = await import('firebase/firestore');
+    const { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc } = await import('firebase/firestore');
     const { db } = await import('../firebase');
     
     // 현재 기성 데이터 가져오기
@@ -800,17 +1029,41 @@ export const moveCurrentToPrevious = async (siteId, gisungId) => {
     
     console.log('✅ 현재 기성 데이터 청구완료 처리 완료');
     
+    // 현재 기성 데이터의 내역을 전회기성으로 저장
+    const currentGisungAmount = currentGisung.gisungAmount || 0;
+    const currentPrevGisung = currentGisung.prevGisung || 0;
+    const totalPrevGisung = currentPrevGisung + currentGisungAmount;
+    
+    console.log(`📊 전회기성 계산: ${currentPrevGisung} + ${currentGisungAmount} = ${totalPrevGisung}`);
+    
     // 다음 차수 기성 데이터가 있으면 전회기성 업데이트
     if (nextGisungDoc) {
-      const nextGisungData = nextGisungDoc.data();
-      const updatedPrevGisung = (nextGisungData.prevGisung || 0) + (currentGisung.gisungAmount || 0);
-      
       await updateDoc(doc(db, 'gisung', nextGisungDoc.id), {
-        prevGisung: updatedPrevGisung,
+        prevGisung: totalPrevGisung,
         updatedAt: new Date()
       });
       
-      console.log('✅ 다음 차수 전회기성 업데이트 완료:', updatedPrevGisung);
+      console.log('✅ 다음 차수 전회기성 업데이트 완료:', totalPrevGisung);
+    } else {
+      // 다음 차수가 없으면 새로 생성
+      const nextGisungData = {
+        siteId: siteId,
+        name: currentGisung.name,
+        sequence: `${nextSequence}차`,
+        status: '미청구',
+        claimStatus: '미청구',
+        contractAmount: currentGisung.contractAmount || 0,
+        advance: currentGisung.advance || 0,
+        prevGisung: totalPrevGisung, // 현재 기성금을 전회기성으로 설정
+        gisungAmount: 0, // 새로운 기성금은 0으로 초기화
+        gisungMonth: getCurrentMonth(),
+        note: '',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      const newGisungDoc = await addDoc(collection(db, 'gisung'), nextGisungData);
+      console.log('✅ 다음 차수 기성 데이터 생성 완료:', newGisungDoc.id);
     }
     
     return { success: true, message: '기성금 데이터 이동이 완료되었습니다.' };

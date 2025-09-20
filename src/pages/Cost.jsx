@@ -40,7 +40,8 @@ import {
   CloudDownload as CloudDownloadIcon,
   CloudUpload as CloudUploadIcon,
   Search as SearchIcon,
-  Sort as SortIcon
+  Sort as SortIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { db } from '../firebase';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy, serverTimestamp, getDocs } from 'firebase/firestore';
@@ -928,7 +929,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         <Box sx={{ 
           display: 'flex', 
           alignItems: 'center', 
-          gap: 2, 
+          justifyContent: 'space-between',
           mb: 2, 
           position: 'relative',
           width: '100%',
@@ -936,25 +937,71 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
           px: { xs: 1, md: 2 },
           boxSizing: 'border-box'
         }}>
-          <Typography variant="h6" sx={{ 
-            flex: 1, 
-            display: isMobile ? 'none' : 'block',
-          }}>지출현황</Typography>
-          
+          {/* 왼쪽: 지출현황 제목과 검색칸 */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2
+          }}>
+            <Typography variant="h6" sx={{ 
+              display: isMobile ? 'none' : 'block',
+            }}>지출현황</Typography>
+            
+            {/* 검색 입력칸 */}
+            <TextField
+              size="small"
+              placeholder="항목, 금액, 비고 검색"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton 
+                      size="small" 
+                      onClick={() => setSearch('')}
+                      sx={{ mr: 0.5 }}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+              sx={{ 
+                width: 250, 
+                bgcolor: '#232b3b', 
+                borderRadius: 2, 
+                input: { color: '#fff' },
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: '#444',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: '#666',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#1976d2',
+                  },
+                },
+              }} 
+            />
+          </Box>
 
-          
-          <Button variant="contained" color="success" startIcon={<AddIcon />} sx={{ 
-            ml: 1, 
-            display: isMobile ? 'none' : 'flex',
-          }} onClick={() => openDialog()}>새 지출</Button>
-          <Button variant="contained" color="primary" startIcon={<CloudDownloadIcon />} sx={{ 
-            ml: 1, 
-            display: isMobile ? 'none' : 'flex',
-          }} onClick={handleExcelDownload}>엑셀 다운로드</Button>
-          <Button variant="contained" color="primary" startIcon={<CloudUploadIcon />} sx={{ 
-            ml: 1, 
-            display: isMobile ? 'none' : 'flex',
-          }}>엑셀 업로드</Button>
+          {/* 오른쪽: 버튼들 */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1
+          }}>
+            <Button variant="contained" color="success" startIcon={<AddIcon />} sx={{ 
+              display: isMobile ? 'none' : 'flex',
+            }} onClick={() => openDialog()}>새 지출</Button>
+            <Button variant="contained" color="primary" startIcon={<CloudDownloadIcon />} sx={{ 
+              display: isMobile ? 'none' : 'flex',
+            }} onClick={handleExcelDownload}>엑셀 다운로드</Button>
+            <Button variant="contained" color="primary" startIcon={<CloudUploadIcon />} sx={{ 
+              display: isMobile ? 'none' : 'flex',
+            }}>엑셀 업로드</Button>
+          </Box>
 
         </Box>
         <TableContainer sx={{ 
@@ -981,7 +1028,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   display: isMobile ? 'none' : 'table-cell',
                   width: 'auto',
                   minWidth: 0,
-                  maxWidth: '100%'
+                  maxWidth: '100%',
+                  py: 0.5
                 }}>
                   <Checkbox
                     indeterminate={currentData.some(item => selectedItems.includes(item.id)) && !currentData.every(item => selectedItems.includes(item.id))}
@@ -996,7 +1044,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   ml: isMobile ? '-8px' : 0,
                   width: 'auto',
                   minWidth: 0,
-                  maxWidth: '100%'
+                  maxWidth: '100%',
+                  py: 0.5
                 }}>현장명</TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
@@ -1006,7 +1055,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   minWidth: 0,
                   maxWidth: '100%',
                   cursor: 'pointer',
-                  '&:hover': { bgcolor: '#2a3441' }
+                  '&:hover': { bgcolor: '#2a3441' },
+                  py: 0.5
                 }} onClick={() => handleSort('itemType')}>
                   항목
                   {sortField === 'itemType' && (
@@ -1024,7 +1074,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   maxWidth: '100%',
                   fontSize: isMobile ? '0.7rem' : '0.95rem',
                   cursor: 'pointer',
-                  '&:hover': { bgcolor: '#2a3441' }
+                  '&:hover': { bgcolor: '#2a3441' },
+                  py: 0.5
                 }} onClick={() => handleSort('sequence')}>
                   차수
                   {sortField === 'sequence' && (
@@ -1040,7 +1091,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   width: 'auto',
                   minWidth: 0,
                   maxWidth: '100%',
-                  fontSize: isMobile ? '0.7rem' : '0.95rem'
+                  fontSize: isMobile ? '0.7rem' : '0.95rem',
+                  py: 0.5
                 }}>사용날짜</TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
@@ -1050,7 +1102,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   minWidth: 0,
                   maxWidth: '100%',
                   cursor: 'pointer',
-                  '&:hover': { bgcolor: '#2a3441' }
+                  '&:hover': { bgcolor: '#2a3441' },
+                  py: 0.5
                 }} onClick={() => handleSort('totalValue')}>
                   금액
                   {sortField === 'totalValue' && (
@@ -1065,7 +1118,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   display: isMobile ? 'none' : 'table-cell',
                   width: 'auto',
                   minWidth: 0,
-                  maxWidth: '100%'
+                  maxWidth: '100%',
+                  py: 0.5
                 }}>결제</TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
@@ -1073,7 +1127,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   display: isMobile ? 'none' : 'table-cell',
                   width: '350px',
                   minWidth: '300px',
-                  maxWidth: '400px'
+                  maxWidth: '400px',
+                  py: 0.5
                 }}>비고</TableCell>
 
                 <TableCell sx={{ 
@@ -1082,7 +1137,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   display: isMobile ? 'none' : 'table-cell',
                   width: 'auto',
                   minWidth: 0,
-                  maxWidth: '100%'
+                  maxWidth: '100%',
+                  py: 0.5
                 }}>관리</TableCell>
               </TableRow>
             </TableHead>
@@ -1132,7 +1188,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       display: isMobile ? 'none' : 'table-cell',
                       width: 'auto',
                       minWidth: 0,
-                      maxWidth: '100%'
+                      maxWidth: '100%',
+                      py: 0.5
                     }}>
                       <Checkbox
                         checked={selectedItems.includes(cost.id)}
@@ -1144,12 +1201,14 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       color: '#fff',
                       width: 'auto',
                       minWidth: 0,
-                      maxWidth: '100%'
+                      maxWidth: '100%',
+                      py: 0.5
                     }}>{cost.site || '-'}</TableCell>
                     <TableCell sx={{
                       width: 'auto',
                       minWidth: 0,
-                      maxWidth: '100%'
+                      maxWidth: '100%',
+                      py: 0.5
                     }}>
                       <Chip 
                         label={cost.itemType || '-'} 
@@ -1174,7 +1233,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       width: 'auto',
                       minWidth: 0,
                       maxWidth: '100%',
-                      fontSize: isMobile ? '0.7rem' : '0.95rem'
+                      fontSize: isMobile ? '0.7rem' : '0.95rem',
+                      py: 0.5
                     }}>{calculateSequence(cost)}</TableCell>
                     <TableCell sx={{ 
                       color: '#fff', 
@@ -1182,7 +1242,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       width: 'auto',
                       minWidth: 0,
                       maxWidth: '100%',
-                      fontSize: isMobile ? '0.7rem' : '0.95rem'
+                      fontSize: isMobile ? '0.7rem' : '0.95rem',
+                      py: 0.5
                     }}>{(() => {
                       try {
                         if (!cost.date) return '-';
@@ -1197,7 +1258,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       fontWeight: 700,
                       width: 'auto',
                       minWidth: 0,
-                      maxWidth: '100%'
+                      maxWidth: '100%',
+                      py: 0.5
                     }}>
                       {Number(cost.totalValue || 0).toLocaleString()}원
                     </TableCell>
@@ -1205,7 +1267,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       display: isMobile ? 'none' : 'table-cell',
                       width: 'auto',
                       minWidth: 0,
-                      maxWidth: '100%'
+                      maxWidth: '100%',
+                      py: 0.5
                     }}>
                       <Chip 
                         label={cost.paymentType || '-'} 
@@ -1225,14 +1288,16 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       maxWidth: '200px',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap'
+                      whiteSpace: 'nowrap',
+                      py: 0.5
                     }}>{cost.description || '-'}</TableCell>
 
                     <TableCell sx={{ 
                       display: isMobile ? 'none' : 'table-cell',
                       width: 'auto',
                       minWidth: 0,
-                      maxWidth: '100%'
+                      maxWidth: '100%',
+                      py: 0.5
                     }}>
                       <IconButton 
                         size="small" 
