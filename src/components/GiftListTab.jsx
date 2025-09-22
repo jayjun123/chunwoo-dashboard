@@ -502,38 +502,45 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       sections.forEach((section, sectionIndex) => {
         if (!section.cards || section.cards.length === 0) return;
         
-        // 섹션 헤더와 데이터 헤더를 합친 행 추가
-        const headers = ['번호', '수혜자', '회사명', '직책', '전화번호', '주소', '선물', '개수', '비고'];
-        const combinedRow = worksheet.addRow([`📋 ${section.title}`, ...headers]);
-        combinedRow.height = 25;
+        // 섹션 제목 행 추가 (A1~J1 병합)
+        const sectionTitleRow = worksheet.addRow([`📋 ${section.title}`]);
+        sectionTitleRow.height = 25;
         
-        // 첫 번째 셀 (섹션 이름) 스타일 적용
-        const sectionCell = worksheet.getCell(currentRow, 1);
-        sectionCell.font = {
+        // 섹션 제목 셀 병합 (A~J열)
+        worksheet.mergeCells(`A${currentRow}:J${currentRow}`);
+        const sectionTitleCell = worksheet.getCell(`A${currentRow}`);
+        sectionTitleCell.font = {
           name: '맑은 고딕',
           size: 14,
           bold: true,
           color: { argb: 'FFFFFFFF' }
         };
-        sectionCell.alignment = {
+        sectionTitleCell.alignment = {
           horizontal: 'center',
           vertical: 'middle'
         };
-        sectionCell.fill = {
+        sectionTitleCell.fill = {
           type: 'pattern',
           pattern: 'solid',
           fgColor: { argb: 'FF4472C4' } // 파란색 배경
         };
-        sectionCell.border = {
+        sectionTitleCell.border = {
           top: { style: 'medium', color: { argb: 'FF000000' } },
           left: { style: 'medium', color: { argb: 'FF000000' } },
           bottom: { style: 'medium', color: { argb: 'FF000000' } },
           right: { style: 'medium', color: { argb: 'FF000000' } }
         };
         
-        // 나머지 헤더 셀들 스타일 적용
+        currentRow++;
+        
+        // 헤더 행 추가
+        const headers = ['번호', '수혜자', '회사명', '직책', '전화번호', '주소', '선물', '개수', '비고'];
+        const headerRow = worksheet.addRow(headers);
+        headerRow.height = 25;
+        
+        // 헤더 셀들 스타일 적용
         headers.forEach((header, index) => {
-          const cell = worksheet.getCell(currentRow, index + 2);
+          const cell = worksheet.getCell(currentRow, index + 1);
           cell.font = {
             name: '맑은 고딕',
             size: 12,
@@ -569,7 +576,6 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         // 데이터 행 추가
         sortedCards.forEach((card, cardIndex) => {
           const dataRow = worksheet.addRow([
-            '', // 첫 번째 열은 빈 값 (섹션 이름 자리)
             cardIndex + 1,
             card.name || '',
             card.company || '',
@@ -583,7 +589,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           dataRow.height = 20;
           
           // 데이터 셀 스타일 적용
-          for (let col = 1; col <= 10; col++) {
+          for (let col = 1; col <= 9; col++) {
             const cell = worksheet.getCell(currentRow, col);
             cell.font = {
               name: '맑은 고딕',
@@ -607,7 +613,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         
         // 섹션 간 구분을 위한 빈 행 추가 (마지막 섹션이 아닌 경우)
         if (sectionIndex < sections.length - 1) {
-          const emptyRow = worksheet.addRow(['', '', '', '', '', '', '', '', '', '']);
+          const emptyRow = worksheet.addRow(['', '', '', '', '', '', '', '', '']);
           emptyRow.height = 10;
           currentRow++;
         }
@@ -615,7 +621,6 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       
       // 열 너비 설정
       worksheet.columns = [
-        { width: 15 }, // 섹션 이름
         { width: 8 },  // 번호
         { width: 15 }, // 수혜자
         { width: 20 }, // 회사명
