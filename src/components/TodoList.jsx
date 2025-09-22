@@ -26,6 +26,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import { useAuth } from '../contexts/AuthContext';
+import { useTodo } from '../contexts/TodoContext';
 import { isMasterUser } from '../utils/masterUtils';
 import * as XLSX from 'xlsx';
 import { format, startOfDay, endOfDay, isToday, isYesterday, subDays } from 'date-fns';
@@ -38,7 +39,7 @@ const statusColor = (completed, planned) => {
 };
 
 const TodoList = () => {
-  const [todos, setTodos] = useState([]);
+  const { todos, loading, error, addTodo, updateTodo, deleteTodo, toggleTodo } = useTodo();
   const [allUsers, setAllUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -75,37 +76,8 @@ const TodoList = () => {
     }
   }, [userId, isMaster]);
 
-  useEffect(() => {
-    if (!userId) return;
-    
-    let q;
-    const targetUserId = isMaster && selectedUser ? selectedUser : userId;
-    
-    if (isMaster && selectedUser) {
-      // 마스터 계정이 특정 사용자 선택 시
-      q = query(
-        collection(db, collections.todos),
-        where('userId', '==', targetUserId),
-        orderBy('createdAt', 'desc')
-      );
-    } else {
-      // 일반 사용자 또는 마스터 계정이 자신의 투두리스트
-      q = query(
-        collection(db, collections.todos),
-        where('userId', '==', targetUserId),
-        orderBy('createdAt', 'desc')
-      );
-    }
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('투두 데이터 업데이트:', data.length, '개');
-      console.log('투두 데이터:', data);
-      setTodos(data);
-    });
-    
-    return () => unsubscribe();
-  }, [userId, isMaster, selectedUser]);
+  // TodoContext에서 todos 데이터를 가져오므로 별도 쿼리 불필요
+  // 마스터 계정의 경우 selectedUser에 따른 필터링은 UI에서 처리
 
   // 일자별 그룹핑
   const grouped = todos.reduce((acc, todo) => {
@@ -162,25 +134,15 @@ const TodoList = () => {
     const todoText = newTodos[date] || '';
     if (!todoText.trim()) return;
     
-    const targetUserId = isMaster && selectedUser ? selectedUser : userId;
-    
     console.log('투두 추가 시도:', {
       text: todoText.trim(),
-      date: date,
-      userId: targetUserId
+      date: date
     });
     
     try {
-      const docRef = await addDoc(collection(db, collections.todos), {
-        text: todoText.trim(),
-        completed: false,
-        userId: targetUserId,
-        date: date,
-        createdAt: new Date(),
-        carriedOver: false
-      });
+      await addTodo(todoText.trim(), date);
       
-      console.log('투두 추가 성공:', docRef.id);
+      console.log('투두 추가 성공');
       // 해당 날짜의 입력창 초기화
       setNewTodos(prev => ({
         ...prev,
@@ -198,7 +160,7 @@ const TodoList = () => {
   // 투두 삭제
   const handleDeleteTodo = async (id) => {
     try {
-      await deleteDoc(doc(db, collections.todos, id));
+      await deleteTodo(id);
     } catch (error) {
       console.error('투두 삭제 오류:', error);
     }
@@ -208,9 +170,7 @@ const TodoList = () => {
   const handleToggleTodo = async (id) => {
     try {
       const todo = todos.find(t => t.id === id);
-      await updateDoc(doc(db, collections.todos, id), {
-        completed: !todo.completed
-      });
+      await toggleTodo(id, !todo.completed);
     } catch (error) {
       console.error('투두 상태 변경 오류:', error);
     }
@@ -226,9 +186,7 @@ const TodoList = () => {
   // 투두 저장
   const handleSaveEdit = async (id) => {
     try {
-      await updateDoc(doc(db, collections.todos, id), {
-        text: editText
-      });
+      await updateTodo(id, { text: editText });
       setEditingId(null);
       setEditText('');
     } catch (error) {
