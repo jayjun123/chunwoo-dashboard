@@ -6,7 +6,7 @@
  */
 export const getKoreanDate = () => {
   const now = new Date();
-  const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+  const koreanTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
   return koreanTime.toISOString().split('T')[0];
 };
 
@@ -17,7 +17,7 @@ export const getKoreanDate = () => {
  */
 export const getKoreanDateFromDate = (date) => {
   const targetDate = new Date(date);
-  const koreanTime = new Date(targetDate.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+  const koreanTime = new Date(targetDate.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
   return koreanTime.toISOString().split('T')[0];
 };
 
@@ -69,6 +69,6 @@ export const normalizeDate = (dateStr) => {
  */
 export const getKoreanISOString = () => {
   const now = new Date();
-  const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+  const koreanTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
   return koreanTime.toISOString();
 }; 

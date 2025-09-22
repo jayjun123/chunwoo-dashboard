@@ -706,14 +706,14 @@ const BottomBar = ({
       
       // 한국 시간 기준으로 오늘 날짜 범위 계산
       const now = new Date();
-      const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+      const koreanTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
       const todayStart = new Date(koreanTime.getFullYear(), koreanTime.getMonth(), koreanTime.getDate(), 0, 0, 0);
       const todayEnd = new Date(koreanTime.getFullYear(), koreanTime.getMonth(), koreanTime.getDate(), 23, 59, 59);
       
       const todayTodos = userTodos.filter(item => {
         // 한국 시간 기준으로 오늘 날짜 생성
         const now = new Date();
-        const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+        const koreanTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
         const todayYear = koreanTime.getFullYear();
         const todayMonth = String(koreanTime.getMonth() + 1).padStart(2, '0');
         const todayDay = String(koreanTime.getDate()).padStart(2, '0');
@@ -855,7 +855,7 @@ const BottomBar = ({
     try {
       // 한국 시간 기준으로 오늘 날짜 생성
       const now = new Date();
-      const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+      const koreanTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
       const todayYear = koreanTime.getFullYear();
       const todayMonth = String(koreanTime.getMonth() + 1).padStart(2, '0');
       const todayDay = String(koreanTime.getDate()).padStart(2, '0');
@@ -917,11 +917,15 @@ const BottomBar = ({
 
   // 매일 00:00 리셋 기능 (한국 시간 기준)
   useEffect(() => {
-    const checkDailyReset = () => {
-      // 한국 시간 기준으로 현재 시간 계산
+    const getKoreanTime = () => {
+      // 한국 시간대 (Asia/Seoul) 기준으로 현재 시간 계산
       const now = new Date();
-      const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
-      
+      const koreanTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
+      return koreanTime;
+    };
+
+    const checkDailyReset = () => {
+      const koreanTime = getKoreanTime();
       const lastReset = localStorage.getItem('lastTodoReset');
       const lastResetDate = lastReset ? new Date(lastReset) : null;
       
@@ -930,17 +934,27 @@ const BottomBar = ({
       const todayMonth = koreanTime.getMonth();
       const todayDate = koreanTime.getDate();
       
+      console.log('리셋 체크 - 한국시간:', koreanTime.toLocaleString(), '오늘 날짜:', `${todayYear}-${todayMonth + 1}-${todayDate}`);
+      
       // 마지막 리셋 날짜와 비교 (한국 시간 기준)
       let shouldReset = false;
       
       if (!lastResetDate) {
         shouldReset = true;
+        console.log('첫 리셋 - lastResetDate 없음');
       } else {
-        const lastResetKorean = new Date(lastResetDate.getTime() + (9 * 60 * 60 * 1000));
-        if (lastResetKorean.getDate() !== todayDate || 
-            lastResetKorean.getMonth() !== todayMonth || 
-            lastResetKorean.getFullYear() !== todayYear) {
+        const lastResetKorean = new Date(lastResetDate.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
+        const lastResetYear = lastResetKorean.getFullYear();
+        const lastResetMonth = lastResetKorean.getMonth();
+        const lastResetDateNum = lastResetKorean.getDate();
+        
+        console.log('마지막 리셋 날짜:', `${lastResetYear}-${lastResetMonth + 1}-${lastResetDateNum}`);
+        
+        if (lastResetYear !== todayYear || 
+            lastResetMonth !== todayMonth || 
+            lastResetDateNum !== todayDate) {
           shouldReset = true;
+          console.log('날짜 변경 감지 - 리셋 필요');
         }
       }
       
@@ -971,13 +985,39 @@ const BottomBar = ({
       }
     };
 
-    // 페이지 로드 시 체크
+    // 다음 자정까지의 시간 계산 (한국 시간 기준)
+    const scheduleNextReset = () => {
+      const koreanTime = getKoreanTime();
+      const tomorrow = new Date(koreanTime);
+      tomorrow.setDate(koreanTime.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      
+      const timeUntilMidnight = tomorrow.getTime() - koreanTime.getTime();
+      
+      console.log('다음 리셋까지 남은 시간:', Math.round(timeUntilMidnight / 1000 / 60), '분');
+      
+      // 자정에 정확히 리셋되도록 타이머 설정
+      const resetTimer = setTimeout(() => {
+        checkDailyReset();
+        scheduleNextReset(); // 다음 자정을 위해 재귀 호출
+      }, timeUntilMidnight);
+      
+      return resetTimer;
+    };
+
+    // 페이지 로드 시 즉시 체크
     checkDailyReset();
     
-    // 매분마다 체크 (00:00에 리셋되도록)
+    // 다음 자정까지의 타이머 설정
+    const resetTimer = scheduleNextReset();
+    
+    // 매분마다도 체크 (백업용)
     const interval = setInterval(checkDailyReset, 60000);
     
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(resetTimer);
+    };
   }, []); // todoList 의존성 제거
 
   // 리셋 정보 초기화 (디버깅용)
@@ -1789,7 +1829,7 @@ const BottomBar = ({
             {(() => {
               // 한국 시간 기준으로 오늘 날짜 계산
               const now = new Date();
-              const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+              const koreanTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
               const todayStart = new Date(koreanTime.getFullYear(), koreanTime.getMonth(), koreanTime.getDate(), 0, 0, 0);
               const todayEnd = new Date(koreanTime.getFullYear(), koreanTime.getMonth(), koreanTime.getDate(), 23, 59, 59);
               

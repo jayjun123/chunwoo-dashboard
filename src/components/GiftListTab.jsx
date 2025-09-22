@@ -56,7 +56,7 @@ import { db, storage } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { isMasterUser } from '../utils/masterUtils';
 import { formatNumber } from '../utils/formatUtils';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSelectedHoliday }) => {
   const { currentUser } = useAuth();
@@ -80,10 +80,17 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   const [sections, setSections] = useState([]);
   const [editingSection, setEditingSection] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [sectionEditingStates, setSectionEditingStates] = useState({});
+  
+  // 카드 편집 상태
   const [editingCard, setEditingCard] = useState(null);
+  const [editingCardName, setEditingCardName] = useState('');
+  const [editingCardCompany, setEditingCardCompany] = useState('');
+  const [editingCardPosition, setEditingCardPosition] = useState('');
+  const [editingCardPhone, setEditingCardPhone] = useState('');
+  const [editingCardAddress, setEditingCardAddress] = useState('');
   const [editingCardQuantity, setEditingCardQuantity] = useState(1);
   const [editingCardNote, setEditingCardNote] = useState('');
-  const [sectionEditingStates, setSectionEditingStates] = useState({});
   
   // 선택 상태 관리
   const [selectedCards, setSelectedCards] = useState(new Set());
@@ -99,6 +106,26 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   
   // 섹션별 검색 상태
   const [sectionSearchTerms, setSectionSearchTerms] = useState({});
+
+  // 전화번호 포맷팅 함수
+  const formatPhoneNumber = (value) => {
+    // 숫자만 추출
+    const numbers = value.replace(/\D/g, '');
+    
+    if (numbers.length <= 3) {
+      return numbers;
+    } else if (numbers.length <= 7) {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
+    } else if (numbers.length === 10) {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(6)}`;
+    } else if (numbers.length === 11) {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
+    } else {
+      // 11자리를 초과하면 11자리까지만 사용
+      return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
+    }
+  };
+
   
   // 폼 데이터
   const [formData, setFormData] = useState({
@@ -221,8 +248,15 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         ...doc.data()
       }));
       
-      console.log('로드된 섹션 데이터:', sectionsData);
-      setSections(sectionsData);
+      // order 필드로 정렬 (order가 없는 경우 999로 설정하여 맨 뒤로)
+      const sortedSections = sectionsData.sort((a, b) => {
+        const orderA = a.order !== undefined ? a.order : 999;
+        const orderB = b.order !== undefined ? b.order : 999;
+        return orderA - orderB;
+      });
+      
+      console.log('로드된 섹션 데이터 (정렬됨):', sortedSections);
+      setSections(sortedSections);
     } catch (error) {
       console.error('섹션 데이터 로드 오류:', error);
       // 오류 발생 시 빈 배열로 설정 (기본 섹션 생성하지 않음)
@@ -425,105 +459,205 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     }
   };
 
-  // 엑셀 다운로드
-  const handleDownload = () => {
-    // 모든 섹션의 카드 데이터를 수집
-    const allCards = sections.flatMap(section => section.cards || []);
-    
-    // 2차원 배열로 데이터 구성
-    const title = `${selectedYear}년 ${selectedHoliday} 리스트`;
-    const headers = ['번호', '수령자', '회사명', '직책', '선물', '개수', '비고'];
-    
-    // 데이터 행들
-    const dataRows = allCards.map((card, index) => [
-      index + 1,
-      card.name || '',
-      card.company || '',
-      card.position || '',
-      card.giftType || card.type || '',
-      card.quantity || 1,
-      card.note || ''
-    ]);
-    
-    // 전체 데이터 구성 (제목 + 헤더 + 데이터)
-    const allData = [
-      [title], // 1행: 제목
-      headers, // 2행: 헤더
-      ...dataRows // 3행부터: 데이터
-    ];
-    
-    // 워크시트 생성
-    const ws = XLSX.utils.aoa_to_sheet(allData);
-    
-    // 제목 행 병합 (A1~G1)
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }
-    ];
-    
-    // 제목 스타일 적용
-    ws['A1'] = { 
-      v: title, 
-      s: { 
-        font: { bold: true, size: 16 }, 
-        alignment: { horizontal: 'center', vertical: 'center' }
-      } 
-    };
-    
-    // 헤더 스타일 적용
-    headers.forEach((header, index) => {
-      const cellAddress = XLSX.utils.encode_cell({ r: 1, c: index });
-      ws[cellAddress] = { 
-        v: header, 
-        s: { 
-          font: { bold: true }, 
-          fill: { fgColor: { rgb: 'E0E0E0' } },
-          alignment: { horizontal: 'center', vertical: 'center' },
-          border: {
-            top: { style: 'thin', color: { rgb: '000000' } },
-            bottom: { style: 'thin', color: { rgb: '000000' } },
-            left: { style: 'thin', color: { rgb: '000000' } },
-            right: { style: 'thin', color: { rgb: '000000' } }
-          }
-        } 
+  // 엑셀 다운로드 (ExcelJS 사용, 섹션별로 구분)
+  const handleDownload = async () => {
+    try {
+      // 새 워크북 생성
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('명절선물목록');
+      
+      // 제목 설정
+      const title = `${selectedYear}년 ${selectedHoliday} 선물 리스트`;
+      const titleRow = worksheet.addRow([title]);
+      titleRow.height = 30;
+      
+      // 제목 셀 병합 (A1~J1)
+      worksheet.mergeCells('A1:J1');
+      const titleCell = worksheet.getCell('A1');
+      titleCell.font = {
+        name: '맑은 고딕',
+        size: 18,
+        bold: true,
+        color: { argb: 'FF000000' }
       };
-    });
-    
-    // 데이터 행 스타일 적용
-    dataRows.forEach((row, rowIndex) => {
-      row.forEach((cell, colIndex) => {
-        const cellAddress = XLSX.utils.encode_cell({ r: rowIndex + 2, c: colIndex });
-        ws[cellAddress] = { 
-          v: cell, 
-          s: { 
-            alignment: { horizontal: 'center', vertical: 'center' },
-            border: {
-              top: { style: 'thin', color: { rgb: '000000' } },
-              bottom: { style: 'thin', color: { rgb: '000000' } },
-              left: { style: 'thin', color: { rgb: '000000' } },
-              right: { style: 'thin', color: { rgb: '000000' } }
-            }
-          } 
+      titleCell.alignment = {
+        horizontal: 'center',
+        vertical: 'middle'
+      };
+      titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFFFFFF' }
+      };
+      titleCell.border = {
+        top: { style: 'medium', color: { argb: 'FF000000' } },
+        left: { style: 'medium', color: { argb: 'FF000000' } },
+        bottom: { style: 'medium', color: { argb: 'FF000000' } },
+        right: { style: 'medium', color: { argb: 'FF000000' } }
+      };
+      
+      let currentRow = 3; // 제목 다음 행부터 시작
+      
+      // 각 섹션별로 처리
+      sections.forEach((section, sectionIndex) => {
+        if (!section.cards || section.cards.length === 0) return;
+        
+        // 섹션 헤더와 데이터 헤더를 합친 행 추가
+        const headers = ['번호', '수혜자', '회사명', '직책', '전화번호', '주소', '선물', '개수', '비고'];
+        const combinedRow = worksheet.addRow([`📋 ${section.title}`, ...headers]);
+        combinedRow.height = 25;
+        
+        // 첫 번째 셀 (섹션 이름) 스타일 적용
+        const sectionCell = worksheet.getCell(currentRow, 1);
+        sectionCell.font = {
+          name: '맑은 고딕',
+          size: 14,
+          bold: true,
+          color: { argb: 'FFFFFFFF' }
         };
+        sectionCell.alignment = {
+          horizontal: 'center',
+          vertical: 'middle'
+        };
+        sectionCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF4472C4' } // 파란색 배경
+        };
+        sectionCell.border = {
+          top: { style: 'medium', color: { argb: 'FF000000' } },
+          left: { style: 'medium', color: { argb: 'FF000000' } },
+          bottom: { style: 'medium', color: { argb: 'FF000000' } },
+          right: { style: 'medium', color: { argb: 'FF000000' } }
+        };
+        
+        // 나머지 헤더 셀들 스타일 적용
+        headers.forEach((header, index) => {
+          const cell = worksheet.getCell(currentRow, index + 2);
+          cell.font = {
+            name: '맑은 고딕',
+            size: 12,
+            bold: true,
+            color: { argb: 'FF000000' }
+          };
+          cell.alignment = {
+            horizontal: 'center',
+            vertical: 'middle'
+          };
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE0E0E0' }
+          };
+          cell.border = {
+            top: { style: 'medium', color: { argb: 'FF000000' } },
+            left: { style: 'medium', color: { argb: 'FF000000' } },
+            bottom: { style: 'medium', color: { argb: 'FF000000' } },
+            right: { style: 'medium', color: { argb: 'FF000000' } }
+          };
+        });
+        
+        currentRow++;
+        
+        // 섹션 내 카드들을 가나다 순으로 정렬
+        const sortedCards = section.cards.sort((a, b) => {
+          const nameA = (a.name || '').trim();
+          const nameB = (b.name || '').trim();
+          return nameA.localeCompare(nameB, 'ko');
+        });
+        
+        // 데이터 행 추가
+        sortedCards.forEach((card, cardIndex) => {
+          const dataRow = worksheet.addRow([
+            '', // 첫 번째 열은 빈 값 (섹션 이름 자리)
+            cardIndex + 1,
+            card.name || '',
+            card.company || '',
+            card.position || '',
+            card.phone || '',
+            card.address || '',
+            card.giftType || card.type || '',
+            card.quantity || 1,
+            card.note || ''
+          ]);
+          dataRow.height = 20;
+          
+          // 데이터 셀 스타일 적용
+          for (let col = 1; col <= 10; col++) {
+            const cell = worksheet.getCell(currentRow, col);
+            cell.font = {
+              name: '맑은 고딕',
+              size: 11,
+              color: { argb: 'FF000000' }
+            };
+            cell.alignment = {
+              horizontal: 'center',
+              vertical: 'middle'
+            };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FF000000' } },
+              left: { style: 'thin', color: { argb: 'FF000000' } },
+              bottom: { style: 'thin', color: { argb: 'FF000000' } },
+              right: { style: 'thin', color: { argb: 'FF000000' } }
+            };
+          }
+          
+          currentRow++;
+        });
+        
+        // 섹션 간 구분을 위한 빈 행 추가 (마지막 섹션이 아닌 경우)
+        if (sectionIndex < sections.length - 1) {
+          const emptyRow = worksheet.addRow(['', '', '', '', '', '', '', '', '', '']);
+          emptyRow.height = 10;
+          currentRow++;
+        }
       });
-    });
-    
-    // 열 너비 설정
-    ws['!cols'] = [
-      { wch: 8 },  // 번호
-      { wch: 15 }, // 수령자
-      { wch: 20 }, // 회사명
-      { wch: 15 }, // 직책
-      { wch: 15 }, // 선물
-      { wch: 8 },  // 개수
-      { wch: 20 }  // 비고
-    ];
-    
-    // 워크북 생성 및 파일 저장
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '명절선물목록');
-    
-    const fileName = `${selectedYear}년_${selectedHoliday}_리스트_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+      
+      // 열 너비 설정
+      worksheet.columns = [
+        { width: 15 }, // 섹션 이름
+        { width: 8 },  // 번호
+        { width: 15 }, // 수혜자
+        { width: 20 }, // 회사명
+        { width: 15 }, // 직책
+        { width: 15 }, // 전화번호
+        { width: 25 }, // 주소
+        { width: 15 }, // 선물
+        { width: 8 },  // 개수
+        { width: 20 }  // 비고
+      ];
+      
+      // 파일 다운로드
+      const fileName = `${selectedYear}년_${selectedHoliday}_선물리스트_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const buffer = await workbook.xlsx.writeBuffer();
+      
+      // Blob 생성 및 다운로드
+      const blob = new Blob([buffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      setSnackbar({ 
+        open: true, 
+        message: '엑셀 파일이 다운로드되었습니다.', 
+        severity: 'success' 
+      });
+      
+    } catch (error) {
+      console.error('엑셀 다운로드 오류:', error);
+      setSnackbar({ 
+        open: true, 
+        message: '엑셀 파일 다운로드 중 오류가 발생했습니다.', 
+        severity: 'error' 
+      });
+    }
   };
 
 
@@ -534,7 +668,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       setVendorFormData({
         name: vendor.name || '',
         position: vendor.position || '',
-        phone: vendor.phone || '',
+        phone: formatPhoneNumber(vendor.phone || ''), // 기존 전화번호도 포맷팅
         email: vendor.email || '',
         company: vendor.company || '',
         ceo: vendor.ceo || '',
@@ -937,10 +1071,6 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     setSectionEditingStates({});
   };
 
-  // 카드 편집 상태
-  const [editingCardName, setEditingCardName] = useState('');
-  const [editingCardCompany, setEditingCardCompany] = useState('');
-  const [editingCardPosition, setEditingCardPosition] = useState('');
 
   // 카드 편집 시작
   const handleEditCard = (cardId, sectionId) => {
@@ -951,33 +1081,41 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       setEditingCardName(card.name || '');
       setEditingCardCompany(card.company || '');
       setEditingCardPosition(card.position || '');
+      setEditingCardPhone(card.phone || '');
+      setEditingCardAddress(card.address || '');
       setEditingCardQuantity(card.quantity || 1);
       setEditingCardNote(card.note || '');
     }
   };
 
-  // 거래처 중복확인 및 자동 추가
-  const checkAndAddVendor = async (personName, companyName, position = '') => {
-    if (!personName || personName.trim() === '') return;
+  // 거래처 중복확인 및 자동 추가 (이름, 회사명, 직책이 모두 있을 때만)
+  const checkAndAddVendor = async (personName, companyName, position = '', phone = '', address = '') => {
+    // 이름, 회사명, 직책이 모두 있어야 거래처 등록
+    if (!personName || !companyName || !position || 
+        personName.trim() === '' || companyName.trim() === '' || position.trim() === '') {
+      return;
+    }
     
     try {
-      // 기존 거래처에서 이름부터 검색 (이름이 우선)
+      // 기존 거래처에서 이름, 회사명, 직책으로 중복 확인
       const existingVendor = vendorData.find(vendor => 
-        vendor.name?.toLowerCase() === personName.toLowerCase()
+        vendor.name?.toLowerCase() === personName.toLowerCase() &&
+        vendor.company?.toLowerCase() === companyName.toLowerCase() &&
+        vendor.position?.toLowerCase() === position.toLowerCase()
       );
       
       if (!existingVendor) {
         // 거래처가 없으면 새로 추가
         const newVendorData = {
           name: personName,
-          company: companyName || personName, // 회사명이 없으면 이름으로 설정
-          position: position || '',
-          phone: '',
+          company: companyName,
+          position: position,
+          phone: phone || '',
+          address: address || '',
           email: '',
           ceo: '',
           businessNumber: '',
-          address: '',
-          note: '자동 추가됨',
+          note: '카드에서 자동 등록됨',
           createdAt: serverTimestamp(),
           createdBy: currentUser?.email || 'unknown'
         };
@@ -989,27 +1127,29 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         setVendorData(prev => [...prev, newVendor]);
         
         console.log('새 거래처 추가됨:', newVendor);
-        setSnackbar({ open: true, message: `새 거래처 "${personName}"이 추가되었습니다.`, severity: 'success' });
+        setSnackbar({ open: true, message: `새 거래처가 자동으로 등록되었습니다: ${personName} (${companyName})`, severity: 'success' });
       } else {
         console.log('기존 거래처 발견:', existingVendor);
-        // 기존 거래처의 회사명이 다르면 업데이트
-        if (companyName && existingVendor.company !== companyName) {
+        // 기존 거래처의 전화번호나 주소가 다르면 업데이트
+        if ((phone && existingVendor.phone !== phone) || (address && existingVendor.address !== address)) {
           try {
-            await updateDoc(doc(db, 'vendors', existingVendor.id), {
-              company: companyName,
-              updatedAt: serverTimestamp()
-            });
+            const updateData = {};
+            if (phone && existingVendor.phone !== phone) updateData.phone = phone;
+            if (address && existingVendor.address !== address) updateData.address = address;
+            updateData.updatedAt = serverTimestamp();
+            
+            await updateDoc(doc(db, 'vendors', existingVendor.id), updateData);
             
             // 로컬 데이터도 업데이트
             setVendorData(prev => prev.map(vendor => 
               vendor.id === existingVendor.id 
-                ? { ...vendor, company: companyName }
+                ? { ...vendor, ...updateData }
                 : vendor
             ));
             
-            console.log('거래처 회사명 업데이트됨:', { name: personName, company: companyName });
+            console.log('거래처 정보 업데이트됨:', { name: personName, company: companyName, ...updateData });
           } catch (error) {
-            console.error('거래처 회사명 업데이트 오류:', error);
+            console.error('거래처 정보 업데이트 오류:', error);
           }
         }
       }
@@ -1023,15 +1163,18 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   const handleSaveCardEdit = async () => {
     if (editingCard) {
       try {
-        // 수령자 이름이 있으면 거래처 중복확인 및 추가
-        if (editingCardName && editingCardName.trim() !== '') {
-          await checkAndAddVendor(editingCardName, editingCardCompany, editingCardPosition);
+        // 이름, 회사명, 직책이 모두 있으면 거래처 중복확인 및 추가
+        if (editingCardName && editingCardCompany && editingCardPosition &&
+            editingCardName.trim() !== '' && editingCardCompany.trim() !== '' && editingCardPosition.trim() !== '') {
+          await checkAndAddVendor(editingCardName, editingCardCompany, editingCardPosition, editingCardPhone, editingCardAddress);
         }
         
         await updateDoc(doc(db, 'giftCards', editingCard), {
           name: editingCardName,
           company: editingCardCompany,
           position: editingCardPosition,
+          phone: editingCardPhone,
+          address: editingCardAddress,
           quantity: editingCardQuantity,
           note: editingCardNote,
           updatedAt: serverTimestamp()
@@ -1041,14 +1184,16 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           ...section,
           cards: section.cards.map(card => 
             card.id === editingCard 
-              ? { 
-                  ...card, 
-                  name: editingCardName,
-                  company: editingCardCompany,
-                  position: editingCardPosition,
-                  quantity: editingCardQuantity, 
-                  note: editingCardNote 
-                }
+                ? { 
+                    ...card, 
+                    name: editingCardName,
+                    company: editingCardCompany,
+                    position: editingCardPosition,
+                    phone: editingCardPhone,
+                    address: editingCardAddress,
+                    quantity: editingCardQuantity, 
+                    note: editingCardNote 
+                  }
               : card
           )
         })));
@@ -1063,6 +1208,8 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       setEditingCardName('');
       setEditingCardCompany('');
       setEditingCardPosition('');
+      setEditingCardPhone('');
+      setEditingCardAddress('');
       setEditingCardQuantity(1);
       setEditingCardNote('');
     }
@@ -1074,6 +1221,8 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     setEditingCardName('');
     setEditingCardCompany('');
     setEditingCardPosition('');
+    setEditingCardPhone('');
+    setEditingCardAddress('');
     setEditingCardQuantity(1);
     setEditingCardNote('');
   };
@@ -1131,6 +1280,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         unitPrice: 0,
         year: selectedYear,
         holiday: selectedHoliday,
+        order: sections.length, // 마지막 순서로 설정
         createdAt: serverTimestamp(),
         createdBy: currentUser?.email || 'unknown'
       };
@@ -1204,7 +1354,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   };
 
   // 섹션 드롭
-  const handleSectionDrop = (e, targetSectionId) => {
+  const handleSectionDrop = async (e, targetSectionId) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -1216,8 +1366,8 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
 
     console.log('섹션 드롭:', draggedSection.title, '->', targetSectionId);
     
-    setSections(prev => {
-      const newSections = [...prev];
+    try {
+      const newSections = [...sections];
       const draggedIndex = newSections.findIndex(s => s.id === draggedSection.id);
       const targetIndex = newSections.findIndex(s => s.id === targetSectionId);
       
@@ -1225,10 +1375,34 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         // 섹션 순서 변경
         const [draggedItem] = newSections.splice(draggedIndex, 1);
         newSections.splice(targetIndex, 0, draggedItem);
+        
+        // 새로운 순서로 섹션들 업데이트
+        const updatePromises = newSections.map((section, index) => {
+          return updateDoc(doc(db, 'giftSections', section.id), {
+            order: index,
+            updatedAt: serverTimestamp()
+          });
+        });
+        
+        await Promise.all(updatePromises);
+        
+        // 섹션 순서 저장 후 데이터를 다시 불러와서 정확한 순서 보장
+        await loadSectionsData();
+        
+        setSnackbar({ 
+          open: true, 
+          message: '섹션 순서가 저장되었습니다.', 
+          severity: 'success' 
+        });
       }
-      
-      return newSections;
-    });
+    } catch (error) {
+      console.error('섹션 순서 저장 오류:', error);
+      setSnackbar({ 
+        open: true, 
+        message: '섹션 순서 저장 중 오류가 발생했습니다.', 
+        severity: 'error' 
+      });
+    }
     
     setDraggedSection(null);
     setDragOverSectionId(null);
@@ -1285,32 +1459,86 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           }
         });
 
-        // 중복 확인 및 같은 이름 확인
-        const allExistingNames = sections.flatMap(section => section.cards.map(card => card.name));
-        const duplicateNames = [];
+        // 중복 확인 및 상세 정보 수집
+        const allExistingCards = sections.flatMap(section => 
+          section.cards.map(card => ({
+            ...card,
+            sectionTitle: section.title
+          }))
+        );
+        
+        const duplicateInfo = [];
         const newNames = [];
 
         Object.entries(giftGroups).forEach(([giftType, names]) => {
           names.forEach(name => {
-            if (allExistingNames.includes(name)) {
-              duplicateNames.push(name);
+            // 기존 데이터베이스에서 같은 이름 찾기
+            const existingCards = allExistingCards.filter(card => card.name === name);
+            
+            if (existingCards.length > 0) {
+              // 중복 정보 수집
+              existingCards.forEach(existingCard => {
+                duplicateInfo.push({
+                  name: name,
+                  uploadGiftType: giftType,
+                  existingInfo: {
+                    giftType: existingCard.giftType || existingCard.type,
+                    company: existingCard.company || '회사명 없음',
+                    position: existingCard.position || '직책 없음',
+                    sectionTitle: existingCard.sectionTitle,
+                    note: existingCard.note || ''
+                  }
+                });
+              });
             } else {
               newNames.push({ name, giftType });
             }
           });
         });
 
-        // 중복된 이름이 있으면 확인
-        if (duplicateNames.length > 0) {
-          const confirmed = window.confirm(
-            `다음 이름들이 이미 존재합니다:\n${duplicateNames.join(', ')}\n\n같은 사람인가요? 확인하면 추가됩니다.`
-          );
-          if (confirmed) {
-            duplicateNames.forEach(name => {
-              const giftType = giftData.find(item => item.name === name)?.giftType;
-              if (giftType) {
-                newNames.push({ name, giftType });
+        // 중복된 이름이 있으면 상세 정보와 함께 확인
+        if (duplicateInfo.length > 0) {
+          // 중복 정보를 이름별로 그룹화
+          const groupedDuplicates = {};
+          duplicateInfo.forEach(dup => {
+            if (!groupedDuplicates[dup.name]) {
+              groupedDuplicates[dup.name] = [];
+            }
+            groupedDuplicates[dup.name].push(dup);
+          });
+
+          // 상세 정보 메시지 생성
+          let detailMessage = '다음 이름들이 이미 데이터베이스에 존재합니다:\n\n';
+          
+          Object.entries(groupedDuplicates).forEach(([name, duplicates]) => {
+            detailMessage += `📋 ${name}\n`;
+            detailMessage += `   업로드할 선물: ${duplicates[0].uploadGiftType}\n`;
+            
+            duplicates.forEach((dup, index) => {
+              detailMessage += `   기존 정보 ${index + 1}:\n`;
+              detailMessage += `     - 선물: ${dup.existingInfo.giftType}\n`;
+              detailMessage += `     - 회사: ${dup.existingInfo.company}\n`;
+              detailMessage += `     - 직책: ${dup.existingInfo.position}\n`;
+              detailMessage += `     - 섹션: ${dup.existingInfo.sectionTitle}\n`;
+              if (dup.existingInfo.note) {
+                detailMessage += `     - 비고: ${dup.existingInfo.note}\n`;
               }
+            });
+            detailMessage += '\n';
+          });
+          
+          detailMessage += '같은 사람인가요? 확인하면 추가됩니다.';
+
+          const confirmed = window.confirm(detailMessage);
+          if (confirmed) {
+            // 중복된 이름들도 추가
+            duplicateInfo.forEach(dup => {
+              newNames.push({ 
+                name: dup.name, 
+                giftType: dup.uploadGiftType,
+                isDuplicate: true,
+                existingInfo: dup.existingInfo
+              });
             });
           }
         }
@@ -1344,6 +1572,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
               unitPrice: 0,
               year: selectedYear,
               holiday: selectedHoliday,
+              order: sections.length + newSections.length, // 적절한 순서 설정
               isUploaded: true,
               uploadDate: new Date().toISOString(),
               createdAt: serverTimestamp(),
@@ -1353,19 +1582,32 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
             const docRef = await addDoc(collection(db, 'giftSections'), newSectionData);
             const newSection = { id: docRef.id, ...newSectionData };
             
-            // 카드들을 Firebase에 추가
-            const cardPromises = names.map(async (name) => {
+            // 카드들을 Firebase에 추가 (중복 항목을 맨 위로)
+            const sortedNames = names.sort((a, b) => {
+              // 중복된 항목(isDuplicate: true)을 맨 위로
+              if (a.isDuplicate && !b.isDuplicate) return -1;
+              if (!a.isDuplicate && b.isDuplicate) return 1;
+              return 0;
+            });
+            
+            const cardPromises = sortedNames.map(async (nameData) => {
+              const name = typeof nameData === 'string' ? nameData : nameData.name;
+              const isDuplicate = typeof nameData === 'object' ? nameData.isDuplicate : false;
+              const existingInfo = typeof nameData === 'object' ? nameData.existingInfo : null;
+              
               const cardData = {
                 type: 'gift',
                 name: name,
                 giftType: giftType,
                 quantity: 1,
-                note: '',
-                company: '회사명 없음',
-                position: '',
+                note: isDuplicate ? `[중복] 기존: ${existingInfo?.giftType} (${existingInfo?.company})` : '',
+                company: existingInfo?.company || '회사명 없음',
+                position: existingInfo?.position || '',
                 sectionId: docRef.id,
                 year: selectedYear,
                 holiday: selectedHoliday,
+                isDuplicate: isDuplicate,
+                duplicateInfo: existingInfo,
                 createdAt: serverTimestamp(),
                 createdBy: currentUser?.email || 'unknown'
               };
@@ -1378,19 +1620,32 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
             newSection.cards = newCards;
             newSections.push(newSection);
           } else {
-            // 기존 섹션에 모든 카드 추가
-            const cardPromises = names.map(async (name) => {
+            // 기존 섹션에 모든 카드 추가 (중복 항목을 맨 위로)
+            const sortedNames = names.sort((a, b) => {
+              // 중복된 항목(isDuplicate: true)을 맨 위로
+              if (a.isDuplicate && !b.isDuplicate) return -1;
+              if (!a.isDuplicate && b.isDuplicate) return 1;
+              return 0;
+            });
+            
+            const cardPromises = sortedNames.map(async (nameData) => {
+              const name = typeof nameData === 'string' ? nameData : nameData.name;
+              const isDuplicate = typeof nameData === 'object' ? nameData.isDuplicate : false;
+              const existingInfo = typeof nameData === 'object' ? nameData.existingInfo : null;
+              
               const cardData = {
                 type: 'gift',
                 name: name,
                 giftType: giftType,
                 quantity: 1,
-                note: '',
-                company: '회사명 없음',
-                position: '',
+                note: isDuplicate ? `[중복] 기존: ${existingInfo?.giftType} (${existingInfo?.company})` : '',
+                company: existingInfo?.company || '회사명 없음',
+                position: existingInfo?.position || '',
                 sectionId: targetSection.id,
                 year: selectedYear,
                 holiday: selectedHoliday,
+                isDuplicate: isDuplicate,
+                duplicateInfo: existingInfo,
                 createdAt: serverTimestamp(),
                 createdBy: currentUser?.email || 'unknown'
               };
@@ -1412,7 +1667,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
               section.id === targetSection.id
                 ? { 
                     ...section, 
-                    cards: [...section.cards, ...newCards], 
+                    cards: [...newCards, ...section.cards], // 중복 항목을 맨 위로
                     unitPrice: section.unitPrice || 0,
                     isUploaded: true,
                     uploadDate: new Date().toISOString()
@@ -1638,6 +1893,10 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
                 setEditingCardCompany={setEditingCardCompany}
                 editingCardPosition={editingCardPosition}
                 setEditingCardPosition={setEditingCardPosition}
+                editingCardPhone={editingCardPhone}
+                setEditingCardPhone={setEditingCardPhone}
+                editingCardAddress={editingCardAddress}
+                setEditingCardAddress={setEditingCardAddress}
               />
             </Box>
           </Paper>
@@ -1814,7 +2073,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
                 fullWidth
                 label="전화번호"
                 value={vendorFormData.phone}
-                onChange={(e) => setVendorFormData({ ...vendorFormData, phone: e.target.value })}
+                onChange={(e) => setVendorFormData({ ...vendorFormData, phone: formatPhoneNumber(e.target.value) })}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     color: '#fff',
@@ -2088,7 +2347,7 @@ const DatabaseTab = ({
       }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, height: '100%', pb: 0 }}>
           {filteredVendors.map((vendor) => (
-            <Box key={vendor.id} sx={{ width: 'calc(50% - 4px)', height: '62px' }}>
+            <Box key={`vendor-${vendor.id}`} sx={{ width: 'calc(50% - 4px)', height: '62px' }}>
               <Card 
                 draggable
                 onDragStart={(e) => onDragStart(e, vendor)}
@@ -2202,7 +2461,11 @@ const GiftManagementTab = ({
   editingCardCompany,
   setEditingCardCompany,
   editingCardPosition,
-  setEditingCardPosition
+  setEditingCardPosition,
+  editingCardPhone,
+  setEditingCardPhone,
+  editingCardAddress,
+  setEditingCardAddress
 }) => {
   // 상태별 색상
   const getStatusColor = (status) => {
@@ -2436,7 +2699,7 @@ const GiftManagementTab = ({
         ) : (
           sections.map((section, index) => (
             <Box 
-              key={section.id}
+              key={`section-${section.id}`}
               data-section-id={section.id}
               draggable
               onDragStart={(e) => handleSectionDragStart(e, section)}
@@ -2817,7 +3080,7 @@ const GiftManagementTab = ({
                   const isSelected = selectedCards.has(card.id);
                   return (
                     <Card
-                      key={card.id}
+                      key={`${section.id}-${card.id}`}
                       draggable={!selectMode && !editingCard}
                       onDragStart={(e) => {
                         if (selectMode || editingCard) {
@@ -2838,8 +3101,8 @@ const GiftManagementTab = ({
                         handleEditCard(card.id, section.id);
                       }}
                       sx={{
-                        bgcolor: isSelected ? '#ff4444' : '#2a2a2a',
-                        border: isSelected ? '2px solid #ff6666' : '1px solid #444',
+                        bgcolor: isSelected ? '#ff4444' : (card.isDuplicate ? '#4a2c2a' : '#2a2a2a'),
+                        border: isSelected ? '2px solid #ff6666' : (card.isDuplicate ? '2px solid #ff6b6b' : '1px solid #444'),
                         cursor: selectMode ? 'pointer' : editingCard ? 'default' : 'grab',
                         height: '60px',
                         display: 'flex',
@@ -2890,7 +3153,7 @@ const GiftManagementTab = ({
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap'
                         }}>
-                          {index + 1}. {card.name}
+                          {index + 1}. {card.name} {card.isDuplicate && '🔴'}
                         </Typography>
                         <Typography variant="caption" sx={{ 
                           color: isSelected ? '#fff' : '#999', 
@@ -2956,11 +3219,8 @@ const GiftManagementTab = ({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
               label="이름"
-              value={editingCardName}
-              onChange={(e) => setEditingCardName(e.target.value)}
-              size="small"
-              required
               sx={{
+                mt: 2,
                 '& .MuiOutlinedInput-root': {
                   color: '#fff',
                   '& fieldset': { borderColor: '#666' },
@@ -2970,6 +3230,10 @@ const GiftManagementTab = ({
                 '& .MuiInputLabel-root': { color: '#999' },
                 '& .MuiInputLabel-root.Mui-focused': { color: '#ff4444' }
               }}
+              value={editingCardName}
+              onChange={(e) => setEditingCardName(e.target.value)}
+              size="small"
+              required
             />
             <TextField
               label="회사명"
@@ -2992,6 +3256,40 @@ const GiftManagementTab = ({
               value={editingCardPosition}
               onChange={(e) => setEditingCardPosition(e.target.value)}
               size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#666' },
+                  '&:hover fieldset': { borderColor: '#ff4444' },
+                  '&.Mui-focused fieldset': { borderColor: '#ff4444' }
+                },
+                '& .MuiInputLabel-root': { color: '#999' },
+                '& .MuiInputLabel-root.Mui-focused': { color: '#ff4444' }
+              }}
+            />
+            <TextField
+              label="전화번호"
+              value={editingCardPhone}
+              onChange={(e) => setEditingCardPhone(formatPhoneNumber(e.target.value))}
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#666' },
+                  '&:hover fieldset': { borderColor: '#ff4444' },
+                  '&.Mui-focused fieldset': { borderColor: '#ff4444' }
+                },
+                '& .MuiInputLabel-root': { color: '#999' },
+                '& .MuiInputLabel-root.Mui-focused': { color: '#ff4444' }
+              }}
+            />
+            <TextField
+              label="주소"
+              value={editingCardAddress}
+              onChange={(e) => setEditingCardAddress(e.target.value)}
+              size="small"
+              multiline
+              rows={2}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   color: '#fff',

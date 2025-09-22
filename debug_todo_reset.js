@@ -6,7 +6,7 @@ const debugTodoReset = async () => {
   
   // 1. 현재 시간 확인 (로컬 vs 한국 시간)
   const now = new Date();
-  const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+  const koreanTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
   
   console.log('현재 시간 (로컬):', now.toLocaleString());
   console.log('현재 시간 (한국):', koreanTime.toLocaleString());

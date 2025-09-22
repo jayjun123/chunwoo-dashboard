@@ -106,7 +106,7 @@ export const TodoProvider = ({ children }) => {
       } else {
         // 한국 시간 기준으로 오늘 날짜 생성
         const now = new Date();
-        const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+        const koreanTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
         const todayYear = koreanTime.getFullYear();
         const todayMonth = String(koreanTime.getMonth() + 1).padStart(2, '0');
         const todayDay = String(koreanTime.getDate()).padStart(2, '0');
@@ -176,7 +176,7 @@ export const TodoProvider = ({ children }) => {
   const getTodayTodos = useCallback(() => {
     // 한국 시간 기준으로 오늘 날짜 생성
     const now = new Date();
-    const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+    const koreanTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
     const todayYear = koreanTime.getFullYear();
     const todayMonth = String(koreanTime.getMonth() + 1).padStart(2, '0');
     const todayDay = String(koreanTime.getDate()).padStart(2, '0');
@@ -205,7 +205,7 @@ export const TodoProvider = ({ children }) => {
     try {
       // 한국 시간 기준으로 전날과 오늘 날짜 계산
       const now = new Date();
-      const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+      const koreanTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
       
       const yesterday = new Date(koreanTime);
       yesterday.setDate(koreanTime.getDate() - 1);

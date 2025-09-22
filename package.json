@@ -38,7 +38,7 @@
     "eslint": "^9.32.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
-    "exceljs": "^4.3.0",
+    "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "firebase": "^11.10.0",
     "firebase-admin": "^13.4.0",

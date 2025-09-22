@@ -54,16 +54,18 @@ const VendorManagement = () => {
   // 전화번호 포맷팅 함수
   const formatPhoneNumber = (value) => {
     // 숫자만 추출
-    const numbers = value.replace(/[^\d]/g, '');
+    const numbers = value.replace(/\D/g, '');
     
-    // 길이에 따라 포맷팅
     if (numbers.length <= 3) {
       return numbers;
     } else if (numbers.length <= 7) {
       return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
-    } else if (numbers.length <= 11) {
+    } else if (numbers.length === 10) {
+      return `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(6)}`;
+    } else if (numbers.length === 11) {
       return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
     } else {
+      // 11자리를 초과하면 11자리까지만 사용
       return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
     }
   };
@@ -188,6 +190,7 @@ const VendorManagement = () => {
     ceo: '',
     businessNumber: '',
     address: '',
+    companyPhone: '', // 회사번호 추가
     note: ''
   });
 
@@ -228,6 +231,7 @@ const VendorManagement = () => {
       ceo: '',
       businessNumber: '',
       address: '',
+      companyPhone: '', // 회사번호 추가
       note: ''
     });
     setEditingVendor(null);
@@ -316,7 +320,12 @@ const VendorManagement = () => {
   // 다이얼로그 열기
   const handleOpenDialog = (vendor = null) => {
     if (vendor) {
-      setFormData(vendor);
+      setFormData({
+        ...vendor,
+        phone: formatPhoneNumber(vendor.phone || ''), // 기존 전화번호도 포맷팅
+        businessNumber: formatBusinessNumber(vendor.businessNumber || ''), // 기존 사업자번호도 포맷팅
+        companyPhone: formatPhoneNumber(vendor.companyPhone || '') // 기존 회사번호도 포맷팅
+      });
       setEditingVendor(vendor);
     } else {
       resetForm();
@@ -649,7 +658,9 @@ const VendorManagement = () => {
       vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.phone?.includes(searchTerm) ||
-      vendor.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      vendor.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vendor.companyPhone?.includes(searchTerm) ||
+      vendor.address?.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
       // 최신 등록 순서대로 정렬 (createdAt 기준, 내림차순)
@@ -709,11 +720,11 @@ const VendorManagement = () => {
         '이름': vendor.name || '',
         '직위': vendor.position || '',
         '번호': vendor.phone || '',
+        '주소': vendor.address || '',
         '메일': vendor.email || '',
-        '회사명': vendor.companyName || '',
         '대표자': vendor.ceo || '',
         '사업자번호': vendor.businessNumber || '',
-        '주소': vendor.address || '',
+        '회사번호': vendor.companyPhone || '',
         '비고': vendor.note || ''
       };
     }) : [
@@ -722,11 +733,11 @@ const VendorManagement = () => {
         '이름': '',
         '직위': '',
         '번호': '',
+        '주소': '',
         '메일': '',
-        '회사명': '',
         '대표자': '',
         '사업자번호': '',
-        '주소': '',
+        '회사번호': '',
         '비고': ''
       }
     ];
@@ -1032,6 +1043,7 @@ const VendorManagement = () => {
               ceo: row['대표자'] || '',
               businessNumber: row['사업자번호'] || '',
               address: row['주소'] || '',
+              companyPhone: row['회사번호'] || '',
               note: row['비고'] || '',
               createdAt: new Date()
             };
@@ -1233,7 +1245,7 @@ const VendorManagement = () => {
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('name')}>
                 이름 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
               </TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>직위</TableCell>
+              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>직책</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>번호</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>메일</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('companyName')}>
@@ -1477,31 +1489,63 @@ const VendorManagement = () => {
                 '& .MuiInputBase-input': { color: '#fff' }
               }}
             />
-            <Box sx={{ position: 'relative' }}>
-              <TextField
-                label="회사명"
-                value={formData.companyName}
-                onChange={(e) => handleCompanyNameChange(e.target.value)}
-                onFocus={() => {
-                  if (companySuggestions.length > 0) {
-                    setShowSuggestions(true);
-                  }
-                }}
-                onBlur={() => {
-                  // 약간의 지연을 두어 클릭 이벤트가 처리되도록 함
-                  setTimeout(() => setShowSuggestions(false), 200);
-                }}
-                placeholder="회사명 입력 시 기존 정보 자동 입력"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#444' },
-                    '&:hover fieldset': { borderColor: '#666' },
-                    '&.Mui-focused fieldset': { borderColor: '#4caf50' }
-                  },
-                  '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: '#fff' }
-                }}
-              />
+            <Box sx={{ position: 'relative', gridColumn: '1 / -1' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '4fr 3fr 3fr', gap: 2 }}>
+                <TextField
+                  label="회사명"
+                  value={formData.companyName}
+                  onChange={(e) => handleCompanyNameChange(e.target.value)}
+                  onFocus={() => {
+                    if (companySuggestions.length > 0) {
+                      setShowSuggestions(true);
+                    }
+                  }}
+                  onBlur={() => {
+                    // 약간의 지연을 두어 클릭 이벤트가 처리되도록 함
+                    setTimeout(() => setShowSuggestions(false), 200);
+                  }}
+                  placeholder="회사명 입력 시 기존 정보 자동 입력"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#fff' }
+                  }}
+                />
+                <TextField
+                  label="대표자"
+                  value={formData.ceo}
+                  onChange={(e) => setFormData({ ...formData, ceo: e.target.value })}
+                  placeholder="대표자명"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#fff' }
+                  }}
+                />
+                <TextField
+                  label="사업자번호"
+                  value={formData.businessNumber}
+                  onChange={(e) => setFormData({ ...formData, businessNumber: formatBusinessNumber(e.target.value) })}
+                  placeholder="000-00-00000"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#fff' }
+                  }}
+                />
+              </Box>
               {showSuggestions && companySuggestions.length > 0 && (
                 <Box
                   sx={{
@@ -1540,41 +1584,26 @@ const VendorManagement = () => {
               )}
             </Box>
             <TextField
-              label="대표자"
-              value={formData.ceo}
-              onChange={(e) => setFormData({ ...formData, ceo: e.target.value })}
-              placeholder="대표자명"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': { borderColor: '#444' },
-                  '&:hover fieldset': { borderColor: '#666' },
-                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
-                },
-                '& .MuiInputLabel-root': { color: '#ccc' },
-                '& .MuiInputBase-input': { color: '#fff' }
-              }}
-            />
-            <TextField
-              label="사업자번호"
-              value={formData.businessNumber}
-              onChange={(e) => setFormData({ ...formData, businessNumber: formatBusinessNumber(e.target.value) })}
-              placeholder="000-00-00000"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': { borderColor: '#444' },
-                  '&:hover fieldset': { borderColor: '#666' },
-                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
-                },
-                '& .MuiInputLabel-root': { color: '#ccc' },
-                '& .MuiInputBase-input': { color: '#fff' }
-              }}
-            />
-            <TextField
               label="주소"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               sx={{
                 gridColumn: '1 / -1',
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+                '& .MuiInputBase-input': { color: '#fff' }
+              }}
+            />
+            <TextField
+              label="회사번호"
+              value={formData.companyPhone}
+              onChange={(e) => setFormData({ ...formData, companyPhone: formatPhoneNumber(e.target.value) })}
+              placeholder="000-0000-0000 또는 000-000-0000"
+              sx={{
                 '& .MuiOutlinedInput-root': {
                   '& fieldset': { borderColor: '#444' },
                   '&:hover fieldset': { borderColor: '#666' },

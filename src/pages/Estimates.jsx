@@ -1587,17 +1587,28 @@ const Estimates = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <Autocomplete
-                options={requesters.map(requester => {
+                options={requesters.map((requester, index) => {
                   // 이름과 직위만 표시 (회사명 제외)
                   let displayName = requester.name;
                   if (requester.title) displayName += ` ${requester.title}`;
-                  return displayName;
-                }).filter(name => name)}
+                  return { label: displayName, value: displayName, id: requester.id || `requester-${index}` };
+                }).filter(option => option.label)}
+                getOptionLabel={(option) => typeof option === 'string' ? option : option.label}
+                isOptionEqualToValue={(option, value) => {
+                  if (typeof option === 'string' && typeof value === 'string') {
+                    return option === value;
+                  }
+                  if (typeof option === 'object' && typeof value === 'object') {
+                    return option.label === value.label;
+                  }
+                  return false;
+                }}
                 value={formData.requester}
                 onChange={(event, newValue) => {
                   console.log('=== 의뢰자 변경 ===');
                   console.log('새로운 값:', newValue);
-                  setFormData({ ...formData, requester: newValue || '' });
+                  const selectedValue = typeof newValue === 'string' ? newValue : newValue?.label || '';
+                  setFormData({ ...formData, requester: selectedValue });
                   
                   // 선택된 의뢰자의 회사명도 자동으로 설정
                   if (newValue) {
