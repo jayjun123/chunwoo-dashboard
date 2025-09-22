@@ -48,6 +48,8 @@ import {
   Calculate as CalculateIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
+  LightMode as LightModeIcon,
+  DarkMode as DarkModeIcon,
   Business as BusinessIcon,
   Assignment as AssignmentIcon,
   AttachMoney as AttachMoneyIcon,
@@ -106,6 +108,9 @@ const SettlementManagement = () => {
   const [expensePage, setExpensePage] = useState(0);
   const [safetyPage, setSafetyPage] = useState(0);
   const [gisungPage, setGisungPage] = useState(0);
+  
+  // 차트 테마 상태 (true: 화이트모드, false: 다크모드)
+  const [isChartLightMode, setIsChartLightMode] = useState(false);
 
   // 기성률에 따른 색상 결정 함수
   const getGisungRateColor = (rate) => {
@@ -938,39 +943,59 @@ const SettlementManagement = () => {
           p: 3, 
           height: '400px', 
           flex: 1,
-          bgcolor: '#181f2e',
-          border: '1px solid #232b3b'
+          bgcolor: isChartLightMode ? '#ffffff' : '#181f2e',
+          border: isChartLightMode ? '1px solid #e0e0e0' : '1px solid #232b3b'
         }}>
-            <Typography variant="h6" sx={{ 
-              color: '#fff', 
-              mb: 2, 
-              fontWeight: 'bold' 
-            }}>
-              현장별 수익/비용 비교
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" sx={{ 
+                color: isChartLightMode ? '#333' : '#fff', 
+                fontWeight: 'bold' 
+              }}>
+                현장별 수익/비용 비교
+              </Typography>
+              <Tooltip title={isChartLightMode ? "다크모드로 변경" : "화이트모드로 변경"}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setIsChartLightMode(!isChartLightMode)}
+                  startIcon={isChartLightMode ? <DarkModeIcon /> : <LightModeIcon />}
+                  sx={{
+                    borderColor: isChartLightMode ? '#666' : '#43e97b',
+                    color: isChartLightMode ? '#666' : '#43e97b',
+                    '&:hover': {
+                      borderColor: isChartLightMode ? '#333' : '#43e97b',
+                      backgroundColor: isChartLightMode ? 'rgba(0, 0, 0, 0.1)' : 'rgba(67, 233, 123, 0.1)'
+                    }
+                  }}
+                >
+                  {isChartLightMode ? '다크모드' : '화이트모드'}
+                </Button>
+              </Tooltip>
+            </Box>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={getLineChartData()}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                <CartesianGrid strokeDasharray="3 3" stroke={isChartLightMode ? '#e0e0e0' : '#333'} />
                 <XAxis 
                   dataKey="name" 
-                  stroke="#bbb"
-                  tick={{ fontSize: 16, fontWeight: 'bold', dx: 0, dy: 0 }}
+                  stroke={isChartLightMode ? '#666' : '#bbb'}
+                  tick={{ fontSize: 16, fontWeight: 'bold', dx: 0, dy: 0, fill: isChartLightMode ? '#333' : '#bbb' }}
                   angle={0}
                   textAnchor="middle"
                   height={60}
                   interval={0}
                 />
                 <YAxis 
-                  stroke="#bbb" 
+                  stroke={isChartLightMode ? '#666' : '#bbb'} 
                   fontSize={12}
+                  tick={{ fill: isChartLightMode ? '#333' : '#bbb' }}
                   tickFormatter={(value) => `${value.toLocaleString()}`}
-                  label={{ value: '금액 (백만원)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#bbb' } }}
+                  label={{ value: '금액 (백만원)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: isChartLightMode ? '#333' : '#bbb' } }}
                 />
                 <RechartsTooltip 
                   contentStyle={{ 
-                    backgroundColor: '#2a2a2a', 
-                    border: '1px solid #333',
-                    color: '#fff'
+                    backgroundColor: isChartLightMode ? '#ffffff' : '#2a2a2a', 
+                    border: isChartLightMode ? '1px solid #e0e0e0' : '1px solid #333',
+                    color: isChartLightMode ? '#333' : '#fff'
                   }}
                   formatter={(value, name) => [formatMillionToEok(value), name]}
                 />
@@ -1004,11 +1029,11 @@ const SettlementManagement = () => {
           p: 3, 
           height: '400px', 
           flex: 1,
-          bgcolor: '#181f2e',
-          border: '1px solid #232b3b'
+          bgcolor: isChartLightMode ? '#ffffff' : '#181f2e',
+          border: isChartLightMode ? '1px solid #e0e0e0' : '1px solid #232b3b'
         }}>
             <Typography variant="h6" sx={{ 
-              color: '#fff', 
+              color: isChartLightMode ? '#333' : '#fff', 
               mb: 2, 
               fontWeight: 'bold' 
             }}>
@@ -1016,11 +1041,11 @@ const SettlementManagement = () => {
             </Typography>
             <ResponsiveContainer width="100%" height={300}>
               <ComposedChart data={getLineChartData()}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                <CartesianGrid strokeDasharray="3 3" stroke={isChartLightMode ? '#e0e0e0' : '#333'} />
                 <XAxis 
                   dataKey="name" 
-                  stroke="#bbb"
-                  tick={{ fontSize: 16, fontWeight: 'bold', dx: 0, dy: 0 }}
+                  stroke={isChartLightMode ? '#666' : '#bbb'}
+                  tick={{ fontSize: 16, fontWeight: 'bold', dx: 0, dy: 0, fill: isChartLightMode ? '#333' : '#bbb' }}
                   angle={0}
                   textAnchor="middle"
                   height={60}
@@ -1028,25 +1053,27 @@ const SettlementManagement = () => {
                 />
                 <YAxis 
                   yAxisId="left"
-                  stroke="#bbb" 
+                  stroke={isChartLightMode ? '#666' : '#bbb'} 
                   fontSize={12}
+                  tick={{ fill: isChartLightMode ? '#333' : '#bbb' }}
                   tickFormatter={(value) => `${value.toLocaleString()}`}
-                  label={{ value: '금액 (백만원)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#bbb' } }}
+                  label={{ value: '금액 (백만원)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: isChartLightMode ? '#333' : '#bbb' } }}
                 />
                 <YAxis 
                   yAxisId="right"
                   orientation="right"
                   stroke="#ff9800" 
                   fontSize={12}
+                  tick={{ fill: '#ff9800' }}
                   tickFormatter={(value) => `${value}%`}
                   domain={[0, 100]}
                   label={{ value: '기성률 (%)', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: '#ff9800' } }}
                 />
                 <RechartsTooltip 
                   contentStyle={{ 
-                    backgroundColor: '#2a2a2a', 
-                    border: '1px solid #333',
-                    color: '#fff'
+                    backgroundColor: isChartLightMode ? '#ffffff' : '#2a2a2a', 
+                    border: isChartLightMode ? '1px solid #e0e0e0' : '1px solid #333',
+                    color: isChartLightMode ? '#333' : '#fff'
                   }}
                   formatter={(value, name) => {
                     if (name === '기성률') {

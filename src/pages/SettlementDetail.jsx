@@ -44,7 +44,9 @@ import {
   TrendingDown as TrendingDownIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
-  Download as DownloadIcon
+  Download as DownloadIcon,
+  LightMode as LightModeIcon,
+  DarkMode as DarkModeIcon
 } from '@mui/icons-material';
 import { Line } from 'react-chartjs-2';
 import * as XLSX from 'xlsx';
@@ -143,6 +145,9 @@ export default function SettlementDetail() {
   // 노무능률 단위 전환 상태 (true: M²/일, false: M²/명)
   const [isDailyEfficiency, setIsDailyEfficiency] = useState(false);
   const [expandedSubMaterial, setExpandedSubMaterial] = useState({});
+  
+  // 차트 테마 상태 (true: 화이트모드, false: 다크모드)
+  const [isChartLightMode, setIsChartLightMode] = useState(false);
   
   // 정산페이지 접근 인증 관련 상태
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
@@ -4835,7 +4840,7 @@ export default function SettlementDetail() {
       legend: {
         position: 'top',
         labels: {
-          color: '#fff',
+          color: isChartLightMode ? '#333' : '#fff',
           font: { size: 16 },
           usePointStyle: true,
           padding: 25
@@ -4848,9 +4853,9 @@ export default function SettlementDetail() {
         enabled: true,
         mode: 'index',
         intersect: false,
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-        titleColor: '#fff',
-        bodyColor: '#fff',
+        backgroundColor: isChartLightMode ? 'rgba(255, 255, 255, 0.95)' : 'rgba(0, 0, 0, 0.9)',
+        titleColor: isChartLightMode ? '#333' : '#fff',
+        bodyColor: isChartLightMode ? '#333' : '#fff',
         borderColor: '#43e97b',
         borderWidth: 2,
         titleFont: {
@@ -4940,11 +4945,11 @@ export default function SettlementDetail() {
       y: {
         beginAtZero: true,
         grid: { 
-          color: '#333',
+          color: isChartLightMode ? '#e0e0e0' : '#333',
           drawBorder: false
         },
         ticks: { 
-          color: '#bbb',
+          color: isChartLightMode ? '#666' : '#bbb',
           font: {
             size: 12
           },
@@ -4981,7 +4986,7 @@ export default function SettlementDetail() {
         }
       }
     }
-  }), []);
+  }), [isChartLightMode]);
 
   // 정산 페이지 삭제
   const handleDeleteSettlement = async () => {
@@ -6260,9 +6265,29 @@ export default function SettlementDetail() {
             minWidth: { xs: '400px', sm: '400px', md: 'auto' }
           }}>
             <CardContent sx={{ width: '100%' }}>
-              <Typography variant="h6" sx={{ mb: 3, color: '#43e97b' }}>
-                월별 기성금 및 지출 추이 분석
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h6" sx={{ color: '#43e97b' }}>
+                  월별 기성금 및 지출 추이 분석
+                </Typography>
+                <Tooltip title={isChartLightMode ? "다크모드로 변경" : "화이트모드로 변경"}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setIsChartLightMode(!isChartLightMode)}
+                    startIcon={isChartLightMode ? <DarkModeIcon /> : <LightModeIcon />}
+                    sx={{
+                      borderColor: '#43e97b',
+                      color: '#43e97b',
+                      '&:hover': {
+                        borderColor: '#43e97b',
+                        backgroundColor: 'rgba(67, 233, 123, 0.1)'
+                      }
+                    }}
+                  >
+                    {isChartLightMode ? '다크모드' : '화이트모드'}
+                  </Button>
+                </Tooltip>
+              </Box>
               {chartData && hasData ? (
                 <Box sx={{ 
                   height: '360px', 
@@ -6294,10 +6319,10 @@ export default function SettlementDetail() {
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
-                  bgcolor: '#333',
+                  bgcolor: isChartLightMode ? '#f5f5f5' : '#333',
                   borderRadius: 2
                 }}>
-                  <Typography sx={{ color: '#bbb' }}>
+                  <Typography sx={{ color: isChartLightMode ? '#666' : '#bbb' }}>
                     {console.log('차트 데이터 없음 - site:', site, 'gisungData:', gisungData.length, 'costData:', costData.length)}
                     차트 데이터를 불러오는 중... (기성금: {gisungData.length}개, 지출: {costData.length}개)
                   </Typography>
