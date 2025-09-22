@@ -205,7 +205,6 @@ const SafetyIncidents = React.lazy(() => import('./components/safety/SafetyIncid
 const SafetyTraining = React.lazy(() => import('./components/safety/SafetyTraining'));
 const SafetyReports = React.lazy(() => import('./components/safety/SafetyReports'));
 // 성능 최적화: 페이지 컴포넌트들을 lazy loading으로 변경
-const Documents = React.lazy(() => import('./pages/Documents'));
 const ConstructionTeam = React.lazy(() => import('./pages/DaemaTeam'));
 const Discussions = React.lazy(() => import('./pages/Discussions'));
 const Vendors = React.lazy(() => import('./pages/Vendors'));
@@ -473,7 +472,6 @@ const App = React.memo(() => {
                       <Route path="/p" element={<Navigate to="/progress" replace />} />
                       <Route path="/c" element={<Navigate to="/cost" replace />} />
                       <Route path="/dt" element={<Navigate to="/daema-team" replace />} />
-                      <Route path="/doc" element={<Navigate to="/documents" replace />} />
                       <Route path="/cf" element={<Navigate to="/confidential" replace />} />
                       <Route path="/m" element={<Navigate to="/members" replace />} />
                       <Route path="/pm" element={<Navigate to="/permissions" replace />} />
@@ -704,22 +702,6 @@ const App = React.memo(() => {
                             ) : (
                               <Layout>
                                 <GanttChartPage />
-                              </Layout>
-                            )}
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/documents"
-                        element={
-                          <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Documents />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <Documents />
                               </Layout>
                             )}
                           </ProtectedRoute>

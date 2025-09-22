@@ -292,7 +292,7 @@ const BottomBar = ({
       );
       console.log('🔥 모든 입찰 관련 일정:', allBidRelated);
       
-      // 금일현장 (type에 '현장' 또는 '실측' 포함)
+      // 금일현장 (type에 '현장' 포함)
       const todaySites = todaySchedules.filter(item => {
         if (!item.type) return false;
         
@@ -300,12 +300,12 @@ const BottomBar = ({
         if (typeof item.type === 'string') {
           // 쉼표로 구분된 여러 타입이 있을 수 있음
           const types = item.type.split(',').map(t => t.trim());
-          return types.some(type => type.includes('현장') || type.includes('실측'));
+          return types.some(type => type.includes('현장'));
         }
         
         // type이 배열인 경우 (다중 타입)
         if (Array.isArray(item.type)) {
-          return item.type.some(type => type.includes('현장') || type.includes('실측'));
+          return item.type.some(type => type.includes('현장'));
         }
         
         return false;
@@ -389,7 +389,7 @@ const BottomBar = ({
       });
       console.log('🔥 금일현설:', todaySetup.length, '개', todaySetup);
       
-      // 금일실측/기타 (type에 '실측' 또는 '기타' 포함)
+      // 금일실측/기타 (type에 '실측', '확인요청' 또는 '기타' 포함)
       const todayEtc = todaySchedules.filter(item => {
         if (!item.type) return false;
         
@@ -397,12 +397,12 @@ const BottomBar = ({
         if (typeof item.type === 'string') {
           // 쉼표로 구분된 여러 타입이 있을 수 있음
           const types = item.type.split(',').map(t => t.trim());
-          return types.some(type => type.includes('실측') || type.includes('기타'));
+          return types.some(type => type.includes('실측') || type.includes('확인요청') || type.includes('기타'));
         }
         
         // type이 배열인 경우 (다중 타입)
         if (Array.isArray(item.type)) {
-          return item.type.some(type => type.includes('실측') || type.includes('기타'));
+          return item.type.some(type => type.includes('실측') || type.includes('확인요청') || type.includes('기타'));
         }
         
         return false;
@@ -1925,11 +1925,11 @@ const BottomBar = ({
             gap: { xs: 2, md: 2 }, // 모바일 간격 줄임
             justifyContent: 'space-between'
           }}>
-            {/* 금일현장 목록 */}
+            {/* 금일현장 목록 - [현장]이 포함된 것만 표시 */}
             {(!isMobile || progressList.length > 0) && (
               <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
                 <Typography variant="h6" sx={{ mb: 1, color: '#FFD600', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
-                  🏗️ {isMobile ? '현장' : '금일현장'} ({progressList.length}개)
+                  🏗️ {isMobile ? '[현장]' : '[현장] 금일현장'} ({progressList.length}개)
                 </Typography>
                 {progressList.length === 0 ? (
                   <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 현장 일정이 없습니다.</Typography>
@@ -1956,12 +1956,7 @@ const BottomBar = ({
                               mt: 0.5, 
                               overflow: 'hidden', 
                               textOverflow: 'ellipsis', 
-                              whiteSpace: 'normal',
-                              lineHeight: 1.3,
-                              maxHeight: '2.6em',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical'
+                              whiteSpace: 'nowrap'
                             }}>
                               {item.desc || item.description}
                             </Typography>
@@ -2335,7 +2330,17 @@ const BottomBar = ({
                   <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 실측/기타 일정이 없습니다.</Typography>
                 ) : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
-                    {etcList.map((item, index) => (
+                    {etcList
+                      .sort((a, b) => {
+                        const getSortOrder = (item) => {
+                          const itemType = item.type || '';
+                          if (itemType.includes('실측')) return 1;
+                          if (itemType.includes('확인요청')) return 2;
+                          return 3; // 기타
+                        };
+                        return getSortOrder(a) - getSortOrder(b);
+                      })
+                      .map((item, index) => (
                       <Box key={index} sx={{ 
                         p: { xs: 1, md: 1 }, // 모바일 패딩 줄임
                         bgcolor: '#2a2a2a', 
@@ -2355,7 +2360,23 @@ const BottomBar = ({
                             textDecoration: item.completed ? 'line-through' : 'none',
                             opacity: item.completed ? 0.6 : 1
                           }}>
-                            {item.title || item.text || item.description || item.desc || '설명 없음'}
+                            {(() => {
+                              const itemType = item.type || '';
+                              const itemText = item.title || item.text || item.description || item.desc || '설명 없음';
+                              
+                              // type에 '실측'이 포함되어 있으면 [실측] 표시
+                              if (itemType.includes('실측')) {
+                                return `[실측] ${itemText}`;
+                              }
+                              // type에 '확인요청'이 포함되어 있으면 [확인요청] 표시
+                              else if (itemType.includes('확인요청')) {
+                                return `[확인요청] ${itemText}`;
+                              }
+                              // 기타는 그냥 표시 (접두사 없음)
+                              else {
+                                return itemText;
+                              }
+                            })()}
                           </Typography>
                           {(item.description || item.desc) && (item.description || item.desc).trim() && (
                             <Typography sx={{ 

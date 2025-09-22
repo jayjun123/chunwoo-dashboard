@@ -82,7 +82,6 @@ const menuItems = [
   { text: '청구예정', icon: <AttachMoneyIcon />, path: '/claims', iconColor: '#FFD700' },
   { text: '기성관리', icon: <MonetizationOnIcon />, path: '/progress', iconColor: '#2196F3' },
   { text: '시공팀', icon: <AssessmentIcon />, path: '/daema-team', iconColor: '#8B4513' },
-  { text: '문서관리', icon: <DescriptionIcon />, path: '/documents' },
   { text: '대외비', icon: <BlockIcon />, path: '/confidential', iconColor: '#FF0000' }
 ];
 
@@ -120,7 +119,7 @@ const Layout = React.memo(({ children }) => {
     } else {
       // 마스터 외 사용자는 제한된 메뉴만 접근 가능
       return menuItems.filter(item => 
-        ['현장일정', '주요현장', '청구예정', '견적요청', '토론의견', '문서관리'].includes(item.text)
+        ['현장일정', '주요현장', '청구예정', '견적요청', '토론의견'].includes(item.text)
       );
     }
   };

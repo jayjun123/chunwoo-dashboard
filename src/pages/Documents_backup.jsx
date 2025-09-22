@@ -24,6 +24,17 @@ import {
   Alert,
   LinearProgress,
   Chip,
+  Tabs,
+  Tab,
+  FormControl,
+  InputLabel,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import {
   Description as DescriptionIcon,
@@ -80,6 +91,15 @@ const Documents = () => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
   const [previewFileUrl, setPreviewFileUrl] = useState(null);
+  
+  // 탭 관련 상태
+  const [currentTab, setCurrentTab] = useState(0);
+  
+  // 보고서 다운로드 관련 상태
+  const [reportType, setReportType] = useState('');
+  const [reportPeriod, setReportPeriod] = useState('');
+  const [reportData, setReportData] = useState([]);
+  const [reportLoading, setReportLoading] = useState(false);
 
   // 문서 목록 로드
   useEffect(() => {
@@ -205,6 +225,95 @@ const Documents = () => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // 탭 변경 핸들러
+  const handleTabChange = (event, newValue) => {
+    setCurrentTab(newValue);
+  };
+
+  // 보고서 데이터 생성
+  const generateReportData = () => {
+    const now = new Date();
+    const reportTypes = {
+      'monthly': '월간 보고서',
+      'quarterly': '분기 보고서',
+      'yearly': '연간 보고서',
+      'custom': '사용자 정의 보고서'
+    };
+
+    const reportData = documents.map(doc => ({
+      id: doc.id,
+      title: doc.title,
+      category: doc.category,
+      uploadDate: doc.uploadDate,
+      fileSize: doc.fileSize,
+      uploader: doc.uploader || 'Unknown'
+    }));
+
+    return {
+      type: reportTypes[reportType] || '보고서',
+      period: reportPeriod,
+      generatedAt: now.toLocaleString('ko-KR'),
+      totalDocuments: reportData.length,
+      data: reportData
+    };
+  };
+
+  // 보고서 다운로드 핸들러
+  const handleReportDownload = async () => {
+    if (!reportType) {
+      setSnackbar({ open: true, message: '보고서 유형을 선택해주세요.', severity: 'error' });
+      return;
+    }
+
+    try {
+      setReportLoading(true);
+      const reportData = generateReportData();
+      
+      // CSV 형태로 다운로드
+      const csvContent = generateCSV(reportData);
+      downloadCSV(csvContent, `문서_보고서_${new Date().toISOString().split('T')[0]}.csv`);
+      
+      setSnackbar({ open: true, message: '보고서가 다운로드되었습니다.', severity: 'success' });
+    } catch (error) {
+      console.error('보고서 다운로드 실패:', error);
+      setSnackbar({ open: true, message: '보고서 다운로드에 실패했습니다.', severity: 'error' });
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  // CSV 생성
+  const generateCSV = (reportData) => {
+    const headers = ['문서명', '카테고리', '업로드일', '파일크기', '업로더'];
+    const csvRows = [headers.join(',')];
+    
+    reportData.data.forEach(doc => {
+      const row = [
+        `"${doc.title}"`,
+        `"${doc.category}"`,
+        `"${doc.uploadDate}"`,
+        `"${doc.fileSize}"`,
+        `"${doc.uploader}"`
+      ];
+      csvRows.push(row.join(','));
+    });
+    
+    return csvRows.join('\n');
+  };
+
+  // CSV 다운로드
+  const downloadCSV = (csvContent, filename) => {
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleSubmit = async () => {
@@ -537,44 +646,302 @@ const Documents = () => {
       bgcolor: '#1a1d21',
       color: 'white'
     }}>
-      {isMobile ? (
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100%', 
-          flexDirection: 'column',
-          p: 3,
-          textAlign: 'center'
-        }}>
-          <Typography variant="h4" sx={{ mb: 3, color: '#90caf9' }}>
-            📱 모바일 제한 안내
-          </Typography>
-          <Box sx={{ 
-            p: 3, 
-            bgcolor: '#232b3b', 
-            borderRadius: 2, 
-            border: '1px solid #90caf9',
-            maxWidth: '400px'
-          }}>
-            <Typography variant="body1" sx={{ color: '#90caf9', fontWeight: 'bold', mb: 2 }}>
-              문서관리 기능
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#bbb', lineHeight: 1.6, mb: 2 }}>
-              문서 업로드, 다운로드, 관리 기능이 모바일에서 제한됩니다.
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
-              PC로 접속하여 이용해 주세요.
-            </Typography>
-          </Box>
-        </Box>
-      ) : (
-        <>
-          <Typography variant="h4" gutterBottom sx={{ color: '#90caf9', fontWeight: 'bold', p: 2 }}>
-            📄 문서 관리
-          </Typography>
+      {/* 헤더 - 제목과 탭 */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        p: 2, 
+        borderBottom: 1, 
+        borderColor: 'divider', 
+        bgcolor: '#232b3b' 
+      }}>
+        <Typography variant="h5" sx={{ color: '#90caf9', fontWeight: 'bold' }}>
+          📁 문서 관리
+        </Typography>
+        
+        <Tabs 
+          value={currentTab} 
+          onChange={handleTabChange}
+          sx={{
+            minHeight: 'auto',
+            '& .MuiTab-root': {
+              color: '#90caf9',
+              minHeight: '32px',
+              padding: '4px 12px',
+              fontSize: '0.875rem',
+              textTransform: 'none',
+              '&.Mui-selected': {
+                color: '#4caf50'
+              }
+            },
+            '& .MuiTabs-indicator': {
+              backgroundColor: '#4caf50',
+              height: '2px'
+            }
+          }}
+        >
+          <Tab label="문서 관리" />
+          <Tab label="보고서 다운로드" />
+        </Tabs>
+      </Box>
+      {/* 탭 내용 */}
+      <Box sx={{ flex: 1, overflow: 'hidden' }}>
+        {currentTab === 0 && (
+          // 문서 관리 탭
+          isMobile ? (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              height: '100%', 
+              flexDirection: 'column',
+              p: 3,
+              textAlign: 'center'
+            }}>
+              <Typography variant="h4" sx={{ mb: 3, color: '#90caf9' }}>
+                📱 모바일 제한 안내
+              </Typography>
+              <Box sx={{ 
+                p: 3, 
+                bgcolor: '#232b3b', 
+                borderRadius: 2, 
+                border: '1px solid #90caf9',
+                maxWidth: '400px'
+              }}>
+                <Typography variant="body1" sx={{ color: '#90caf9', fontWeight: 'bold', mb: 2 }}>
+                  문서관리 기능
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#bbb', lineHeight: 1.6, mb: 2 }}>
+                  문서 업로드, 다운로드, 관리 기능이 모바일에서 제한됩니다.
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
+                  PC로 접속하여 이용해 주세요.
+                </Typography>
+              </Box>
+            </Box>
+          ) : (
+            // PC 문서 관리 내용
+            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              {/* 문서 관리 UI */}
+              <Box sx={{ p: 2, borderBottom: '1px solid #444' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2 }}>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => setOpen(true)}
+                    sx={{ 
+                      bgcolor: '#4caf50', 
+                      '&:hover': { bgcolor: '#45a049' },
+                      color: 'white'
+                    }}
+                  >
+                    새 문서 추가
+                  </Button>
+                </Box>
+                
+                {/* 검색 */}
+                <TextField
+                  fullWidth
+                  placeholder="문서 검색..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'white',
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#90caf9' },
+                      '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                    },
+                    '& .MuiInputBase-input::placeholder': { color: '#bbb' }
+                  }}
+                />
+              </Box>
 
-          {/* 문서 통계 */}
+              {/* 문서 목록 */}
+              <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
+                    <LinearProgress sx={{ width: '100%' }} />
+                  </Box>
+                ) : filteredDocuments.length === 0 ? (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography variant="h6" sx={{ color: '#bbb', mb: 2 }}>
+                      등록된 문서가 없습니다
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#666' }}>
+                      새 문서를 추가해보세요
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Grid container spacing={2}>
+                    {filteredDocuments.map((doc) => (
+                      <Grid item xs={12} sm={6} md={4} key={doc.id}>
+                        <Card sx={{ 
+                          bgcolor: '#232b3b', 
+                          border: '1px solid #444',
+                          '&:hover': { borderColor: '#4caf50' }
+                        }}>
+                          <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                              <DescriptionIcon sx={{ color: '#4caf50', mr: 1 }} />
+                              <Typography variant="h6" sx={{ color: 'white', flex: 1 }}>
+                                {doc.title}
+                              </Typography>
+                            </Box>
+                            <Typography variant="body2" sx={{ color: '#bbb', mb: 1 }}>
+                              {doc.category}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#666' }}>
+                              {doc.uploadDate}
+                            </Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                              <IconButton 
+                                size="small" 
+                                onClick={() => handlePreview(doc)}
+                                sx={{ color: '#90caf9' }}
+                              >
+                                <DescriptionIcon />
+                              </IconButton>
+                              <IconButton 
+                                size="small" 
+                                onClick={() => handleDownload(doc)}
+                                sx={{ color: '#4caf50' }}
+                              >
+                                <DownloadIcon />
+                              </IconButton>
+                              <IconButton 
+                                size="small" 
+                                onClick={() => handleEdit(doc)}
+                                sx={{ color: '#ff9800' }}
+                              >
+                                <EditIcon />
+                              </IconButton>
+                              <IconButton 
+                                size="small" 
+                                onClick={() => handleDelete(doc.id)}
+                                sx={{ color: '#f44336' }}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    ))}
+                  </Grid>
+                )}
+              </Box>
+            </Box>
+          )
+        )}
+
+        {currentTab === 1 && (
+          // 보고서 다운로드 탭
+          <Box sx={{ height: '100%', p: 3 }}>
+            <Typography variant="h5" sx={{ color: '#90caf9', fontWeight: 'bold', mb: 3 }}>
+              📊 보고서 다운로드
+            </Typography>
+            
+            <Paper sx={{ p: 3, bgcolor: '#232b3b', border: '1px solid #444' }}>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel sx={{ color: '#90caf9' }}>보고서 유형</InputLabel>
+                    <Select
+                      value={reportType}
+                      onChange={(e) => setReportType(e.target.value)}
+                      sx={{
+                        color: 'white',
+                        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#444' },
+                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4caf50' }
+                      }}
+                    >
+                      <MenuItem value="monthly">월간 보고서</MenuItem>
+                      <MenuItem value="quarterly">분기 보고서</MenuItem>
+                      <MenuItem value="yearly">연간 보고서</MenuItem>
+                      <MenuItem value="custom">사용자 정의 보고서</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="보고서 기간"
+                    value={reportPeriod}
+                    onChange={(e) => setReportPeriod(e.target.value)}
+                    placeholder="예: 2024년 1월"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        color: 'white',
+                        '& fieldset': { borderColor: '#444' },
+                        '&:hover fieldset': { borderColor: '#90caf9' },
+                        '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                      },
+                      '& .MuiInputLabel-root': { color: '#90caf9' }
+                    }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <Button
+                    variant="contained"
+                    onClick={handleReportDownload}
+                    disabled={reportLoading || !reportType}
+                    startIcon={<DownloadIcon />}
+                    sx={{ 
+                      bgcolor: '#4caf50', 
+                      '&:hover': { bgcolor: '#45a049' },
+                      color: 'white',
+                      minWidth: '200px'
+                    }}
+                  >
+                    {reportLoading ? '생성 중...' : '보고서 다운로드'}
+                  </Button>
+                </Grid>
+              </Grid>
+              
+              {/* 보고서 미리보기 */}
+              {reportData.length > 0 && (
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="h6" sx={{ color: '#90caf9', mb: 2 }}>
+                    보고서 미리보기
+                  </Typography>
+                  <TableContainer component={Paper} sx={{ bgcolor: '#1a1d21' }}>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ color: '#90caf9', fontWeight: 'bold' }}>문서명</TableCell>
+                          <TableCell sx={{ color: '#90caf9', fontWeight: 'bold' }}>카테고리</TableCell>
+                          <TableCell sx={{ color: '#90caf9', fontWeight: 'bold' }}>업로드일</TableCell>
+                          <TableCell sx={{ color: '#90caf9', fontWeight: 'bold' }}>파일크기</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {reportData.slice(0, 5).map((doc, index) => (
+                          <TableRow key={index}>
+                            <TableCell sx={{ color: 'white' }}>{doc.title}</TableCell>
+                            <TableCell sx={{ color: 'white' }}>{doc.category}</TableCell>
+                            <TableCell sx={{ color: 'white' }}>{doc.uploadDate}</TableCell>
+                            <TableCell sx={{ color: 'white' }}>{doc.fileSize}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                  {reportData.length > 5 && (
+                    <Typography variant="caption" sx={{ color: '#666', mt: 1, display: 'block' }}>
+                      ... 외 {reportData.length - 5}개 문서
+                    </Typography>
+                  )}
+                </Box>
+              )}
+            </Paper>
+          </Box>
+        )}
+      </Box>
           <Grid container spacing={2} sx={{ mb: 2, px: 2 }}>
             <Grid size={{ xs: 12, md: 6 }}>
               <Card sx={{ bgcolor: '#2d3748', color: 'white' }}>

@@ -1438,7 +1438,7 @@ const SettlementManagement = () => {
                 sx={{ 
                   color: '#fff', 
                   fontWeight: 600, 
-                  width: '6%', 
+                  width: '15%', 
                   textAlign: 'center', 
                   fontSize: '1.1rem',
                   // 아이패드에서 숨김
@@ -1616,6 +1616,7 @@ const SettlementManagement = () => {
                     sx={{ 
                       color: '#bbb', 
                       fontSize: '1.1rem',
+                      width: '15%',
                       // 아이패드에서 숨김
                       '@media (min-width: 768px) and (max-width: 1024px)': {
                         display: 'none'

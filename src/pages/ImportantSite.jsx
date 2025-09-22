@@ -1190,7 +1190,7 @@ export default function ImportantSite() {
                   display: 'flex', 
                   flexDirection: { xs: 'column', md: 'row' }, 
                   alignItems: 'stretch', 
-                  height: isMobile ? 'auto' : 400, // 높이를 380에서 400으로 통일
+                  height: isMobile ? 'auto' : 400, // 높이를 400으로 통일
                   minWidth: isMobile ? 'calc(100vw - 20px)' : '500px', 
                   width: '100%', 
                   p: 0, 
@@ -1442,9 +1442,9 @@ export default function ImportantSite() {
               </Box>
               {/* 가운데: 차트 - 모바일에서 숨김 */}
               {!isMobile && (
-                <Box sx={{ flex: 1.7, minWidth: 320, maxWidth: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', bgcolor: '#181f2e', p: 0, height: '380px', borderRight: { md: '2px solid #232b3b' }, mt: 1 }}>
+                <Box sx={{ flex: 1.7, minWidth: 320, maxWidth: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', bgcolor: '#181f2e', p: 0, height: '360px', borderRight: { md: '2px solid #232b3b' }, mt: 0.5 }}>
                   {/* 공사진행률 가로 차트 - 상단 고정 */}
-                  <Box sx={{ width: '90%', mb: 2 }}>
+                  <Box sx={{ width: '90%', mb: 3 }}>
                     <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: 15, mb: 0.5 }}>공사진행률</Typography>
                     {(() => {
                       // 저장된 진행률이 있으면 우선 사용, 없으면 기성 데이터 기반으로 계산
@@ -1569,7 +1569,7 @@ export default function ImportantSite() {
                     );
                   })()}
                   {/* 차트 - 하단 배치 */}
-                  <Box sx={{ width: '100%', height: '100%', flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', p: 0, m: 0 }}>
+                  <Box sx={{ width: '100%', height: '290px', flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', p: 0, m: 0 }}>
                     <Bar
                       data={getChartData(site, totalGisung)}
                       options={{

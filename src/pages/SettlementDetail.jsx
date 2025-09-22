@@ -553,7 +553,8 @@ export default function SettlementDetail() {
     // 자재비 실시간 리스너
     const materialQuery = query(
       collection(db, 'material_costs'),
-      where('siteId', '==', siteId)
+      where('siteId', '==', siteId),
+      orderBy('createdAt', 'desc')
     );
     const unsubscribeMaterial = onSnapshot(materialQuery, (snapshot) => {
       const materialItems = snapshot.docs.map(doc => ({
@@ -565,6 +566,7 @@ export default function SettlementDetail() {
       console.log('자재비 데이터 실시간 업데이트:', materialItems.length, '개');
     }, (error) => {
       console.error('자재비 실시간 리스너 오류:', error);
+      // 오류 발생 시 빈 배열로 설정하지 않고 기존 데이터 유지
     });
     unsubscribers.push(unsubscribeMaterial);
 
@@ -1146,6 +1148,41 @@ export default function SettlementDetail() {
           const docRef = doc(db, 'material_costs', editingMaterial.firebaseId);
           await updateDoc(docRef, materialData_to_save);
           
+          // 실물량 항목들 수정/추가
+          if (materialForm.quantityItems && materialForm.quantityItems.length > 0) {
+            for (const quantityItem of materialForm.quantityItems) {
+              if (quantityItem.firebaseId) {
+                // 기존 실물량 수정
+                const quantityDocRef = doc(db, 'quantity_info', quantityItem.firebaseId);
+                await updateDoc(quantityDocRef, {
+                  siteItem: quantityItem.siteItem,
+                  specification: quantityItem.specification || '',
+                  unit: quantityItem.unit,
+                  actualQuantity: Number(quantityItem.actualQuantity),
+                  note: quantityItem.quantityNote || '',
+                  updatedAt: new Date()
+                });
+                console.log('실물량 수정됨:', quantityItem.firebaseId, quantityItem.siteItem);
+              } else if (quantityItem.siteItem && quantityItem.actualQuantity) {
+                // 새 실물량 추가
+                const quantityData = {
+                  id: Date.now() + Math.random(),
+                  siteItem: quantityItem.siteItem,
+                  specification: quantityItem.specification || '',
+                  unit: quantityItem.unit,
+                  actualQuantity: Number(quantityItem.actualQuantity),
+                  note: quantityItem.quantityNote || '',
+                  siteId: siteId,
+                  materialId: editingMaterial.firebaseId,
+                  createdAt: new Date()
+                };
+                
+                const quantityDocRef = await addDoc(collection(db, 'quantity_info'), quantityData);
+                console.log('새 실물량 추가됨:', quantityDocRef.id, quantityItem.siteItem);
+              }
+            }
+          }
+          
           // 로컬 상태 업데이트
           const updatedMaterialData = materialData.map(item => 
             item.id === editingMaterial.id 
@@ -1205,6 +1242,43 @@ export default function SettlementDetail() {
           message: editingMaterial ? '자재비가 수정되었습니다.' : '자재비가 추가되었습니다.', 
           severity: 'success' 
         });
+        
+        // 실시간으로 데이터 다시 불러오기
+        try {
+          console.log('자재비 추가 후 데이터 새로고침 시작...');
+          
+          // materialData 다시 불러오기
+          const materialQuery = query(
+            collection(db, 'material'),
+            where('siteId', '==', siteId)
+          );
+          const materialSnapshot = await getDocs(materialQuery);
+          const updatedMaterialData = materialSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          // materialData 상태 업데이트
+          setMaterialData(updatedMaterialData);
+          console.log('자재비 데이터 새로고침 완료:', updatedMaterialData.length, '개');
+          
+          // costData도 다시 불러오기 (자재비가 costData에 포함될 수 있음)
+          const costQuery = query(
+            collection(db, 'cost'),
+            where('siteId', '==', siteId)
+          );
+          const costSnapshot = await getDocs(costQuery);
+          const updatedCostData = costSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          setCostData(updatedCostData);
+          console.log('비용 데이터 새로고침 완료:', updatedCostData.length, '개');
+          
+        } catch (refreshError) {
+          console.error('데이터 새로고침 오류:', refreshError);
+        }
         
         // 모달 닫기 및 폼 초기화
         setMaterialDialog({ open: false });
@@ -1402,6 +1476,44 @@ export default function SettlementDetail() {
       }
       
       setSnackbar({ open: true, message: '자재비가 삭제되었습니다.', severity: 'success' });
+      
+      // 실시간으로 데이터 다시 불러오기
+      try {
+        console.log('자재비 삭제 후 데이터 새로고침 시작...');
+        
+        // materialData 다시 불러오기
+        const materialQuery = query(
+          collection(db, 'material'),
+          where('siteId', '==', siteId)
+        );
+        const materialSnapshot = await getDocs(materialQuery);
+        const updatedMaterialData = materialSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        // materialData 상태 업데이트
+        setMaterialData(updatedMaterialData);
+        console.log('자재비 데이터 새로고침 완료:', updatedMaterialData.length, '개');
+        
+        // costData도 다시 불러오기
+        const costQuery = query(
+          collection(db, 'cost'),
+          where('siteId', '==', siteId)
+        );
+        const costSnapshot = await getDocs(costQuery);
+        const updatedCostData = costSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        setCostData(updatedCostData);
+        console.log('비용 데이터 새로고침 완료:', updatedCostData.length, '개');
+        
+      } catch (refreshError) {
+        console.error('데이터 새로고침 오류:', refreshError);
+      }
+      
     } catch (error) {
       console.error('자재비 삭제 오류:', error);
       setSnackbar({ open: true, message: '자재비 삭제에 실패했습니다.', severity: 'error' });
@@ -1603,31 +1715,49 @@ export default function SettlementDetail() {
   const allQuantityData = useMemo(() => {
     const allItems = [];
     
-    // 1. 현장관리페이지의 전체 물량 데이터 (site.items)
+    // 1. 현장관리페이지의 전체 물량 데이터 (site.items) - 금액 관련 항목 제외
     if (site?.items && Array.isArray(site.items)) {
       site.items.forEach(item => {
+        const itemName = item.name || item.item || '';
+        
+        // 금액 관련 항목들 제외
+        if (itemName.includes('총 공사계') || 
+            itemName.includes('부가세') || 
+            itemName.includes('계약금액')) {
+          return; // 이 항목들은 건너뛰기
+        }
+        
         allItems.push({
-          name: item.name || item.item || '',
+          name: itemName,
           quantity: item.quantity || 0,
           unit: item.unit || 'M2',
           specification: item.specification || '',
           source: '현장관리페이지',
-          displayText: item.specification ? `${item.name} (${item.specification})` : item.name
+          displayText: item.specification ? `${itemName} (${item.specification})` : itemName
         });
       });
     }
     
-    // 2. 실물량 데이터 (quantity_info)
+    // 2. 실물량 데이터 (quantity_info) - 중복 제거하면서 추가
     if (quantityInfoData && quantityInfoData.length > 0) {
       quantityInfoData.forEach(item => {
-        allItems.push({
-          name: item.siteItem || '',
-          quantity: item.actualQuantity || 0,
-          unit: 'M2',
-          specification: item.specification || '',
-          source: '실물량',
-          displayText: item.specification ? `${item.siteItem} (${item.specification})` : item.siteItem
-        });
+        // 현장관리페이지에 같은 품목이 있는지 확인
+        const existingItem = allItems.find(existing => 
+          existing.name === item.siteItem && 
+          existing.specification === (item.specification || '')
+        );
+        
+        if (!existingItem) {
+          // 중복되지 않는 경우만 추가
+          allItems.push({
+            name: item.siteItem || '',
+            quantity: item.actualQuantity || 0,
+            unit: item.unit || 'M2',
+            specification: item.specification || '',
+            source: '실물량',
+            displayText: item.specification ? `${item.siteItem} (${item.specification})` : item.siteItem
+          });
+        }
       });
     }
     
@@ -1867,52 +1997,137 @@ export default function SettlementDetail() {
   }, [quantityData, allQuantityData, quantityCalculationMode]);
 
 
-  // 전체 물량 대비 사용 퍼센트 계산 함수 (유리 항목만 필터링)
+  // 전체 물량 대비 사용 퍼센트 계산 함수 (실제 물량 기반)
   const getQuantityPercentage = useCallback(() => {
-    if (!getRegisteredItems || getRegisteredItems.length === 0 || !quantityData || quantityData.length === 0) {
+    if (!site?.items || !Array.isArray(site.items) || !quantityData || quantityData.length === 0) {
       return 0;
     }
     
-    // 유리가 포함된 항목들만 필터링
-    const glassItems = getRegisteredItems.filter(item => 
-      item.name.includes('유리')
-    );
+    // 유리가 포함된 항목들만 필터링 (site.items에서) - 면적 단위(M²)만 포함
+    const glassItems = site.items.filter(item => {
+      const itemName = item.name || item.item || '';
+      const unit = item.unit || '';
+      return itemName.includes('유리') && unit === 'M2';
+    });
     
     if (glassItems.length === 0) return 0;
     
-    // 유리 항목들의 총 개수
-    const totalGlassItems = glassItems.length;
+    let totalPlannedQuantity = 0; // 전체 계획 물량 (site.items에서)
+    let totalActualQuantity = 0;  // 전체 실제 물량 (quantityData에서)
     
-    let usedGlassItems;
+    console.log('=== 물량 진행률 계산 디버깅 ===');
+    console.log('site.items 전체:', site.items);
+    console.log('site.items (유리 항목):', glassItems);
+    console.log('quantityData (실물량 데이터):', quantityData);
+    console.log('quantityCalculationMode:', quantityCalculationMode);
     
-    if (quantityCalculationMode === 'cumulative') {
-      // 차수별 누적: 사용된 유리 품목 개수 (품목명 + 규격 조합으로 중복 제거)
-      const usedGlassItemKeys = [...new Set(quantityData
-        .filter(qty => qty.siteItem.includes('유리'))
-        .map(qty => `${qty.siteItem}|${qty.specification || ''}`)
-      )];
-      usedGlassItems = usedGlassItemKeys.length;
-    } else {
-      // 최신 데이터만: 각 품목별로 최신 데이터만 고려
-      const glassQuantityData = quantityData.filter(qty => qty.siteItem.includes('유리'));
-      
-      // 품목명 + 규격별로 그룹화하여 최신 데이터만 선택
-      const latestByItem = {};
-      glassQuantityData.forEach(qty => {
-        const key = `${qty.siteItem}|${qty.specification || ''}`;
-        const currentTime = qty.createdAt?.toDate?.() || parseDate(qty.createdAt || 0);
-        
-        if (!latestByItem[key] || currentTime > (latestByItem[key].createdAt?.toDate?.() || parseDate(latestByItem[key].createdAt || 0))) {
-          latestByItem[key] = qty;
-        }
+    // site.items에서 유리 항목들 상세 확인
+    glassItems.forEach((item, index) => {
+      console.log(`site.items[${index}]:`, {
+        name: item.name || item.item,
+        specification: item.specification,
+        quantity: item.quantity,
+        unit: item.unit
       });
-      
-      // 최신 데이터 중에서 실제 물량이 있는 항목만 카운트
-      usedGlassItems = Object.values(latestByItem).filter(qty => qty.actualQuantity > 0).length;
-    }
+    });
     
-    return totalGlassItems > 0 ? Math.round((usedGlassItems / totalGlassItems) * 100) : 0;
-  }, [getRegisteredItems, quantityData, quantityCalculationMode]);
+    // quantityData에서 유리 항목들 상세 확인
+    const glassQuantityData = quantityData.filter(qty => 
+      (qty.siteItem || '').includes('유리')
+    );
+    console.log('quantityData에서 유리 항목들:', glassQuantityData);
+    glassQuantityData.forEach((qty, index) => {
+      console.log(`quantityData[${index}]:`, {
+        siteItem: qty.siteItem,
+        specification: qty.specification,
+        actualQuantity: qty.actualQuantity,
+        unit: qty.unit
+      });
+    });
+    
+    // 품목명+규격별로 그룹화하여 중복 제거
+    const processedItems = new Map();
+    
+    glassItems.forEach((item, index) => {
+      const itemName = item.name || item.item || '';
+      const specification = item.specification || '';
+      const key = `${itemName}|${specification}`;
+      
+      // 계획 물량 누적 (site.items에서)
+      const plannedQuantity = item.quantity || 0;
+      if (processedItems.has(key)) {
+        processedItems.get(key).plannedQuantity += plannedQuantity;
+      } else {
+        processedItems.set(key, {
+          itemName,
+          specification,
+          plannedQuantity,
+          actualQuantity: 0
+        });
+      }
+      
+      console.log(`항목 ${index + 1}: ${itemName} (${specification}) - 계획물량: ${plannedQuantity}`);
+    });
+    
+    // 실제 물량 계산 (중복 제거된 항목들에 대해)
+    processedItems.forEach((item, key) => {
+      const { itemName, specification } = item;
+      
+      if (quantityCalculationMode === 'cumulative') {
+        // 차수별 누적: 같은 품목+규격의 모든 차수 합계
+        const matchingQuantities = quantityData.filter(qty => 
+          qty.siteItem === itemName && 
+          (qty.specification || '') === specification
+        );
+        item.actualQuantity = matchingQuantities.reduce((sum, qty) => sum + (qty.actualQuantity || 0), 0);
+        
+        console.log(`실제물량 계산: ${itemName} (${specification})`, {
+          plannedQuantity: item.plannedQuantity,
+          matchingQuantities: matchingQuantities.length,
+          actualQuantity: item.actualQuantity,
+          matchingData: matchingQuantities
+        });
+      } else {
+        // 최신 데이터만: 같은 품목+규격의 최신 데이터
+        const matchingQuantities = quantityData.filter(qty => 
+          qty.siteItem === itemName && 
+          (qty.specification || '') === specification
+        );
+        
+        if (matchingQuantities.length > 0) {
+          // 생성일 기준으로 최신 데이터 선택
+          const latest = matchingQuantities.reduce((latest, current) => {
+            const latestTime = latest.createdAt?.toDate?.() || parseDate(latest.createdAt || 0);
+            const currentTime = current.createdAt?.toDate?.() || parseDate(current.createdAt || 0);
+            return currentTime > latestTime ? current : latest;
+          });
+          item.actualQuantity = latest.actualQuantity || 0;
+        }
+        
+        console.log(`실제물량 계산: ${itemName} (${specification})`, {
+          plannedQuantity: item.plannedQuantity,
+          matchingQuantities: matchingQuantities.length,
+          actualQuantity: item.actualQuantity
+        });
+      }
+      
+      totalPlannedQuantity += item.plannedQuantity;
+      totalActualQuantity += item.actualQuantity;
+    });
+    
+    const percentage = totalPlannedQuantity > 0 ? (totalActualQuantity / totalPlannedQuantity) * 100 : 0;
+    
+    console.log('=== 최종 물량 진행률 계산 결과 ===', {
+      totalPlannedQuantity,
+      totalActualQuantity,
+      percentage: Math.round(percentage * 10) / 10,
+      processedItemsCount: processedItems.size,
+      originalItemsCount: glassItems.length,
+      quantityDataCount: quantityData.length
+    });
+    
+    return Math.round(percentage * 10) / 10;
+  }, [site?.items, quantityData, quantityCalculationMode]);
 
   // 물량대비 주요 부자재 양 계산 (getRegisteredItems 기반)
   const subMaterialUsage = useMemo(() => {
@@ -2411,26 +2626,34 @@ export default function SettlementDetail() {
         ['현장주소', site?.address || '']
       ];
       
-      siteInfo.forEach(([label, value]) => {
-        dashboardSheet.getCell(`A${currentRow}`).value = label;
-        dashboardSheet.getCell(`A${currentRow}`).font = { name: '맑은 고딕', size: 9, bold: true };
-        dashboardSheet.getCell(`A${currentRow}`).border = {
+      siteInfo.forEach(([label, value], index) => {
+        const row = currentRow + index;
+        
+        // A열: 라벨
+        dashboardSheet.getCell(`A${row}`).value = label;
+        dashboardSheet.getCell(`A${row}`).font = { name: '맑은 고딕', size: 9, bold: true };
+        dashboardSheet.getCell(`A${row}`).border = {
           top: { style: 'thin', color: { argb: 'FF000000' } },
           bottom: { style: 'thin', color: { argb: 'FF000000' } },
           left: { style: 'thin', color: { argb: 'FF000000' } },
           right: { style: 'thin', color: { argb: 'FF000000' } }
         };
-        dashboardSheet.getCell(`B${currentRow}`).value = value;
-        dashboardSheet.getCell(`B${currentRow}`).font = { name: '맑은 고딕', size: 9 };
-        dashboardSheet.getCell(`B${currentRow}`).border = {
+        
+        // B,C열 병합
+        dashboardSheet.mergeCells(`B${row}:C${row}`);
+        dashboardSheet.getCell(`B${row}`).value = value;
+        dashboardSheet.getCell(`B${row}`).font = { name: '맑은 고딕', size: 9 };
+        dashboardSheet.getCell(`B${row}`).alignment = { horizontal: 'left', vertical: 'middle' };
+        dashboardSheet.getCell(`B${row}`).border = {
           top: { style: 'thin', color: { argb: 'FF000000' } },
           bottom: { style: 'thin', color: { argb: 'FF000000' } },
           left: { style: 'thin', color: { argb: 'FF000000' } },
           right: { style: 'thin', color: { argb: 'FF000000' } }
         };
-        dashboardSheet.getRow(currentRow).height = 18;
-        currentRow++;
+        dashboardSheet.getRow(row).height = 18;
       });
+      
+      currentRow += siteInfo.length;
       
       // === E열~H열: 정산 현황 (오른쪽 상단) ===
       let rightRow = 4; // 오른쪽 컬럼 시작 행 (현장 기본 정보와 같은 행)
@@ -2481,6 +2704,7 @@ export default function SettlementDetail() {
       // === A열~D열: 노무능률 및 공수 정보 (왼쪽 하단) ===
       // 하단 섹션은 상단 섹션과 같은 행에서 시작
       let bottomLeftRow = currentRow; // 현재 행에서 시작
+      
       dashboardSheet.mergeCells(`A${bottomLeftRow}:D${bottomLeftRow}`);
       dashboardSheet.getCell(`A${bottomLeftRow}`).value = '👷 노무능률 및 공수 정보';
       dashboardSheet.getCell(`A${bottomLeftRow}`).font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -2636,8 +2860,13 @@ export default function SettlementDetail() {
         bottomLeftRow++;
       });
       
+      // 노무능률 섹션 아래에 빈 줄 추가
+      dashboardSheet.getRow(bottomLeftRow).height = 15; // 빈 줄 높이
+      bottomLeftRow++;
+      
       // === E열~H열: 자재비 및 물량 정보 (오른쪽 하단) ===
       let materialRow = currentRow; // 노무능률 섹션과 같은 행에서 시작
+      
       dashboardSheet.mergeCells(`E${materialRow}:H${materialRow}`);
       dashboardSheet.getCell(`E${materialRow}`).value = '📦 자재비 및 물량 정보';
       dashboardSheet.getCell(`E${materialRow}`).font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -2664,8 +2893,8 @@ export default function SettlementDetail() {
       // 자재비 비율 계산 (0으로 나누기 방지)
       const materialRatio = totalGisungAmount > 0 ? ((totalMaterialCost / totalGisungAmount) * 100).toFixed(1) : '0.0';
       
-      // 월별 자재비 평균 계산
-      const monthlyMaterialAvg = materialData.length > 0 ? totalMaterialCost / materialData.length : 0;
+      // 월별 자재비 평균 계산 (정수로 반올림)
+      const monthlyMaterialAvg = materialData.length > 0 ? Math.round(totalMaterialCost / materialData.length) : 0;
       
       const materialInfo = [
         ['총 자재비', formatContractAmount(totalMaterialCost)],
@@ -2690,8 +2919,8 @@ export default function SettlementDetail() {
       // 자재비 비율 계산
       const materialCostRatio = totalCostAmount > 0 ? (totalMaterialCost / totalCostAmount) * 100 : 0;
       
-      // 월평균 자재비 계산
-      const monthlyAvgMaterialCost = totalMaterialCost / 6; // 6개월 기준
+      // 월평균 자재비 계산 (정수로 반올림)
+      const monthlyAvgMaterialCost = Math.round(totalMaterialCost / 6); // 6개월 기준
       
       // 자재비 효율성 계산
       const materialEfficiency = materialCostRatio > 50 ? '양호' : materialCostRatio > 30 ? '보통' : '개선 필요';
@@ -2948,6 +3177,7 @@ export default function SettlementDetail() {
       netProfit = totalGisung - totalExpense;
       
       // 왼쪽 컬럼: 수익성 분석
+      const profitAnalysisRow = currentRow; // 수익성분석 헤더 행 번호 저장
       dashboardSheet.mergeCells(`A${currentRow}:D${currentRow}`);
       dashboardSheet.getCell(`A${currentRow}`).value = '💰 수익성 분석';
       dashboardSheet.getCell(`A${currentRow}`).font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -2992,23 +3222,21 @@ export default function SettlementDetail() {
         currentRow++;
       });
       
-      currentRow += 2;
-      
-      // 오른쪽 컬럼: 현장 운영 분석 (빈칸으로 두어 직접 입력)
-      dashboardSheet.mergeCells(`E${currentRow-8}:H${currentRow-8}`);
-      dashboardSheet.getCell(`E${currentRow-8}`).value = '🏗️ 현장 운영 분석';
-      dashboardSheet.getCell(`E${currentRow-8}`).font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-      dashboardSheet.getCell(`E${currentRow-8}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
-      dashboardSheet.getCell(`E${currentRow-8}`).alignment = { horizontal: 'center', vertical: 'middle' };
-      dashboardSheet.getCell(`E${currentRow-8}`).border = {
+      // 오른쪽 컬럼: 현장 운영 분석 (수익성 분석과 같은 줄)
+      dashboardSheet.mergeCells(`E${profitAnalysisRow}:H${profitAnalysisRow}`);
+      dashboardSheet.getCell(`E${profitAnalysisRow}`).value = '🏗️ 현장 운영 분석';
+      dashboardSheet.getCell(`E${profitAnalysisRow}`).font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      dashboardSheet.getCell(`E${profitAnalysisRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+      dashboardSheet.getCell(`E${profitAnalysisRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+      dashboardSheet.getCell(`E${profitAnalysisRow}`).border = {
         top: { style: 'thin', color: { argb: 'FF000000' } },
         bottom: { style: 'thin', color: { argb: 'FF000000' } },
         left: { style: 'thin', color: { argb: 'FF000000' } },
         right: { style: 'thin', color: { argb: 'FF000000' } }
       };
       
-      // 빈칸으로 두어 직접 입력할 수 있도록 함
-      rightRow = currentRow - 7;
+      // 빈칸으로 두어 직접 입력할 수 있도록 함 (수익성 분석과 같은 레벨)
+      rightRow = profitAnalysisRow + 1;
       for (let i = 0; i < 8; i++) {
         dashboardSheet.getCell(`E${rightRow}`).value = '';
         dashboardSheet.getCell(`F${rightRow}`).value = '';
@@ -3123,7 +3351,7 @@ export default function SettlementDetail() {
         { width: 20 }, // 기성금액
         { width: 15 }, // 청구상태
         { width: 15 }, // 입금상태
-        { width: 30 }  // 비고
+        { width: 50 }  // 비고 (너비 늘림)
       ];
       
       // 헤더 추가
@@ -3200,7 +3428,7 @@ export default function SettlementDetail() {
         { width: 12 }, // 단가
         { width: 15 }, // 금액
         { width: 8 },  // 차수
-        { width: 25 }  // 비고
+        { width: 50 }  // 비고 (너비 늘림)
       ];
       
       // 헤더 추가
@@ -3265,7 +3493,7 @@ export default function SettlementDetail() {
         { width: 20 }, // 업체
         { width: 15 }, // 금액
         { width: 8 },  // 차수
-        { width: 25 }  // 비고
+        { width: 50 }  // 비고 (너비 늘림)
       ];
       
       // 헤더 추가
@@ -3333,6 +3561,9 @@ export default function SettlementDetail() {
       
       // 6. 월별 정산 요약 시트
       const summarySheet = workbook.addWorksheet('월별정산요약');
+      
+      // 월별정산 섹션 위에 빈 줄 추가
+      summarySheet.getRow(1).height = 15; // 빈 줄 높이
       summarySheet.columns = [
         { width: 12 }, // 월
         { width: 20 }, // 기성금(입금완료)
@@ -3458,6 +3689,9 @@ export default function SettlementDetail() {
       
       // 7. 월별 정산 차트 시트 추가
       const chartSheet = workbook.addWorksheet('📊 월별정산차트');
+      
+      // 월별정산차트 섹션 위에 빈 줄 추가
+      chartSheet.getRow(1).height = 15; // 빈 줄 높이
       
       // 월별 정산 추이 차트 데이터 준비
       const chartLabels = [];
@@ -4214,6 +4448,63 @@ export default function SettlementDetail() {
     return true; // 기본적으로 true로 설정
   }, [site]);
 
+  // 차트 라벨 생성 (공수 정보 포함) - chartData와 동일한 데이터 사용
+  const chartLabels = useMemo(() => {
+    if (!site) return [];
+
+    // 공사기간 월별 데이터 생성
+    const startDate = parseDate(site.startDate);
+    const endDate = parseDate(site.endDate);
+    const months = [];
+    
+    let currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    while (currentDate <= endDate) {
+      months.push(new Date(currentDate));
+      currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+
+    const labels = months.map(date => 
+      `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}`
+    );
+
+    // chartData에서 사용하는 것과 동일한 workersByMonth 계산
+    const workersByMonth = {};
+    
+    // costData에서 공수 정보 가져오기 (chartData와 동일한 로직)
+    costData.forEach(item => {
+      if (item.month) {
+        const monthKey = item.month;
+        const workers = Number(item.workers) || 0;
+        if (!workersByMonth[monthKey]) workersByMonth[monthKey] = 0;
+        workersByMonth[monthKey] += workers;
+      }
+    });
+    
+    // scheduleData에서 공수 정보 가져오기 (chartData와 동일한 로직)
+    scheduleData.forEach(schedule => {
+      if (schedule.date) {
+        const date = parseDate(schedule.date);
+        const monthKey = `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        const manpower = extractManpowerFromDescription(schedule.desc || '');
+        
+        if (!workersByMonth[monthKey]) workersByMonth[monthKey] = 0;
+        workersByMonth[monthKey] += manpower;
+      }
+    });
+    
+    console.log('chartLabels - workersByMonth (chartData와 동일):', workersByMonth);
+
+    // 차트 라벨을 한 줄로 구성 (월/년 + 공수 정보)
+    const result = labels.map((label, index) => {
+      const workers = workersByMonth[label] || 0;
+      console.log(`chartLabels - ${label}: ${workers}명`);
+      return `${label}(${workers}명)`;
+    });
+
+    console.log('chartLabels 생성됨 (한 줄, 공수 포함):', result);
+    return result;
+  }, [site, scheduleData, costData]);
+
   // 차트 데이터 생성 (메모이제이션으로 불필요한 재렌더링 방지)
   const chartData = useMemo(() => {
     if (!site) return null;
@@ -4261,7 +4552,9 @@ export default function SettlementDetail() {
     const laborByMonth = {}; // 노무비
     const materialByMonth = {}; // 자재비 (materialData에서)
     const expenseByMonth = {}; // 경비
-    const otherByMonth = {}; // 기타 지출 (부자재비, 장비비 등)
+    const subMaterialByMonth = {}; // 부자재비 (분리)
+    const equipmentByMonth = {}; // 장비비 (분리)
+    const otherByMonth = {}; // 기타 지출
     const workersByMonth = {}; // 월별 공수
     
     // 자재비 데이터 처리 (materialData에서)
@@ -4272,6 +4565,21 @@ export default function SettlementDetail() {
         
         if (!materialByMonth[monthKey]) materialByMonth[monthKey] = 0;
         materialByMonth[monthKey] += amount;
+      }
+    });
+    
+    // 기성관리 데이터에서 부자재비 추출
+    gisungData.forEach(gisung => {
+      if (gisung.gisungMonth && gisung.items && Array.isArray(gisung.items)) {
+        const monthKey = gisung.gisungMonth.replace('-', '.');
+        
+        gisung.items.forEach(item => {
+          if (item.itemType === '부자재' && item.amount) {
+            const amount = Number(item.amount) || 0;
+            if (!subMaterialByMonth[monthKey]) subMaterialByMonth[monthKey] = 0;
+            subMaterialByMonth[monthKey] += amount;
+          }
+        });
       }
     });
     
@@ -4293,8 +4601,16 @@ export default function SettlementDetail() {
           // 경비 및 월세 처리
           if (!expenseByMonth[monthKey]) expenseByMonth[monthKey] = 0;
           expenseByMonth[monthKey] += amount;
+        } else if (item.itemType === '부자재') {
+          // 부자재비 분리
+          if (!subMaterialByMonth[monthKey]) subMaterialByMonth[monthKey] = 0;
+          subMaterialByMonth[monthKey] += amount;
+        } else if (['지게차', '스카이', '곤도라'].includes(item.itemType)) {
+          // 장비비 분리
+          if (!equipmentByMonth[monthKey]) equipmentByMonth[monthKey] = 0;
+          equipmentByMonth[monthKey] += amount;
         } else {
-          // 장비비 (부자재비, 장비비, 기타 등)
+          // 기타 지출
           if (!otherByMonth[monthKey]) otherByMonth[monthKey] = 0;
           otherByMonth[monthKey] += amount;
         }
@@ -4316,37 +4632,39 @@ export default function SettlementDetail() {
     console.log('차트용 노무비 데이터:', laborByMonth);
     console.log('차트용 자재비 데이터:', materialByMonth);
     console.log('차트용 경비 데이터:', expenseByMonth);
+    console.log('차트용 부자재비 데이터:', subMaterialByMonth);
+    console.log('차트용 장비비 데이터:', equipmentByMonth);
     console.log('차트용 기타 지출 데이터:', otherByMonth);
-    console.log('차트용 월별 공수 데이터:', workersByMonth);
+    console.log('차트용 월별 공수 데이터 (chartData):', workersByMonth);
     console.log('일정 데이터:', scheduleData);
+    console.log('costData:', costData);
 
     const gisungValues = labels.map(label => gisungByMonth[label] || 0);
     const laborValues = labels.map(label => laborByMonth[label] || 0);
     const materialValues = labels.map(label => materialByMonth[label] || 0);
     const expenseValues = labels.map(label => expenseByMonth[label] || 0);
+    const subMaterialValues = labels.map(label => subMaterialByMonth[label] || 0);
+    const equipmentValues = labels.map(label => equipmentByMonth[label] || 0);
     const otherValues = labels.map(label => otherByMonth[label] || 0);
     const workersValues = labels.map(label => workersByMonth[label] || 0);
     
-    // 장비비 데이터가 모두 0인지 확인
-    const hasEquipmentData = otherValues.some(value => value > 0);
+    // 부자재비와 장비비 데이터가 있는지 확인
+    const hasSubMaterialData = subMaterialValues.some(value => value > 0);
+    const hasEquipmentData = equipmentValues.some(value => value > 0);
     
     console.log('월별 공수 값들:', workersValues);
+    console.log('부자재비 값들:', subMaterialValues);
+    console.log('장비비 값들:', equipmentValues);
     
-    // 지출 총합계 계산 (노무비 + 자재비 + 경비 + 기타지출)
+    // 지출 총합계 계산 (노무비 + 자재비 + 경비 + 부자재비 + 장비비 + 기타지출)
     const totalCostValues = labels.map((label, index) => 
-      (laborValues[index] || 0) + (materialValues[index] || 0) + (expenseValues[index] || 0) + (otherValues[index] || 0)
+      (laborValues[index] || 0) + (materialValues[index] || 0) + (expenseValues[index] || 0) + 
+      (subMaterialValues[index] || 0) + (equipmentValues[index] || 0) + (otherValues[index] || 0)
     );
 
-    // 차트 라벨에 공수 정보 추가 (공수가 있는 경우에만)
-    const labelsWithWorkers = labels.map((label, index) => {
-      const workers = workersValues[index] || 0;
-      return workers > 0 ? `${label}\n(${workers}명)` : label;
-    });
-    
-    console.log('최종 차트 라벨:', labelsWithWorkers);
+    console.log('최종 차트 라벨:', chartLabels);
 
-    console.log('차트 라벨:', labels);
-    console.log('차트 라벨 (공수 포함):', labelsWithWorkers);
+    console.log('차트 라벨:', chartLabels);
     console.log('기성금 값들:', gisungValues);
     console.log('노무비 값들:', laborValues);
     console.log('자재비 값들:', materialValues);
@@ -4366,7 +4684,7 @@ export default function SettlementDetail() {
     console.log('최대 지출 값:', Math.max(...totalCostValues));
 
     return {
-      labels: labelsWithWorkers,
+      labels: chartLabels,
       datasets: [
         {
           label: '기성금',
@@ -4375,7 +4693,7 @@ export default function SettlementDetail() {
           backgroundColor: 'rgba(67, 233, 123, 0.1)',
           tension: 0.1,
           fill: false,
-          borderWidth: 4, // 아이패드에서 더 잘 보이도록 선 두께 증가
+          borderWidth: 4, // 실선
           pointRadius: 6,
           pointHoverRadius: 8,
           pointBorderWidth: 2,
@@ -4389,7 +4707,7 @@ export default function SettlementDetail() {
           backgroundColor: 'rgba(244, 67, 54, 0.1)',
           tension: 0.1,
           fill: false,
-          borderWidth: 4, // 아이패드에서 더 잘 보이도록 선 두께 증가
+          borderWidth: 4, // 실선
           pointRadius: 6,
           pointHoverRadius: 8,
           pointBorderWidth: 2,
@@ -4403,10 +4721,11 @@ export default function SettlementDetail() {
           backgroundColor: 'rgba(0, 188, 212, 0.1)',
           tension: 0.1,
           fill: false,
-          borderWidth: 3,
-          pointRadius: 5,
-          pointHoverRadius: 7,
-          pointBorderWidth: 2,
+          borderWidth: 2, // 얇은 선
+          borderDash: [5, 3], // 얇은 점선
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBorderWidth: 1,
           pointBackgroundColor: '#00bcd4',
           pointBorderColor: '#fff'
         },
@@ -4417,10 +4736,11 @@ export default function SettlementDetail() {
           backgroundColor: 'rgba(156, 39, 176, 0.1)',
           tension: 0.1,
           fill: false,
-          borderWidth: 3,
-          pointRadius: 5,
-          pointHoverRadius: 7,
-          pointBorderWidth: 2,
+          borderWidth: 2, // 얇은 선
+          borderDash: [5, 3], // 얇은 점선
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBorderWidth: 1,
           pointBackgroundColor: '#9c27b0',
           pointBorderColor: '#fff'
         },
@@ -4431,24 +4751,41 @@ export default function SettlementDetail() {
           backgroundColor: 'rgba(255, 87, 34, 0.1)',
           tension: 0.1,
           fill: false,
-          borderWidth: 3,
-          pointRadius: 5,
-          pointHoverRadius: 7,
-          pointBorderWidth: 2,
+          borderWidth: 2, // 얇은 선
+          borderDash: [5, 3], // 얇은 점선
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBorderWidth: 1,
           pointBackgroundColor: '#ff5722',
           pointBorderColor: '#fff'
         },
+        ...(hasSubMaterialData ? [{
+          label: '부자재비',
+          data: subMaterialValues,
+          borderColor: '#ff9800',
+          backgroundColor: 'rgba(255, 152, 0, 0.1)',
+          tension: 0.1,
+          fill: false,
+          borderWidth: 2, // 얇은 선
+          borderDash: [5, 3], // 얇은 점선
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBorderWidth: 1,
+          pointBackgroundColor: '#ff9800',
+          pointBorderColor: '#fff'
+        }] : []),
         ...(hasEquipmentData ? [{
           label: '장비비',
-          data: otherValues,
+          data: equipmentValues,
           borderColor: '#ffeb3b',
           backgroundColor: 'rgba(255, 235, 59, 0.1)',
           tension: 0.1,
           fill: false,
-          borderWidth: 3,
-          pointRadius: 5,
-          pointHoverRadius: 7,
-          pointBorderWidth: 2,
+          borderWidth: 2, // 얇은 선
+          borderDash: [5, 3], // 얇은 점선
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBorderWidth: 1,
           pointBackgroundColor: '#ffeb3b',
           pointBorderColor: '#fff'
         }] : []),
@@ -4464,7 +4801,7 @@ export default function SettlementDetail() {
         }
       ]
     };
-  }, [site, gisungData, costData, materialData, scheduleData]);
+  }, [site, gisungData, costData, materialData, scheduleData, chartLabels]);
 
   const chartOptions = useMemo(() => ({
     responsive: true,
@@ -4529,7 +4866,9 @@ export default function SettlementDetail() {
         displayColors: true,
         callbacks: {
           title: function(context) {
-            return context[0].label;
+            // 월 표시에서 공수 정보 제거
+            const label = context[0].label;
+            return label.replace(/\(\d+명\)/, ''); // (숫자명) 패턴 제거
           },
           label: function(context) {
             const value = context.parsed.y;
@@ -4541,23 +4880,36 @@ export default function SettlementDetail() {
               return `${datasetLabel}: ${value}명`;
             }
             
-            // 금액 포맷팅 함수 (백만원 아래 반올림)
+            // 금액 포맷팅 함수
             const formatAmount = (amount) => {
               if (amount === 0) return '0원';
               
-              // 백만원 단위로 반올림
-              const roundedAmount = Math.round(amount / 1000000) * 1000000;
-              
-              const eok = Math.floor(roundedAmount / 100000000); // 억
-              const cheon = Math.floor((roundedAmount % 100000000) / 10000000); // 천만
-              const baek = Math.floor((roundedAmount % 10000000) / 1000000); // 백만
+              const eok = Math.floor(amount / 100000000); // 억
+              const cheon = Math.floor((amount % 100000000) / 10000000); // 천만
+              const baek = Math.floor((amount % 10000000) / 1000000); // 백만
+              const man = Math.floor((amount % 1000000) / 10000); // 만
               
               let result = '';
-              if (eok > 0) result += `${eok}억`;
-              if (cheon > 0) result += `${cheon}천`;
-              if (baek > 0) result += `${baek}백`;
-              
-              return result + '만원';
+              if (eok > 0) {
+                result += `${eok}억`;
+                if (cheon > 0) result += `${cheon}천`;
+                if (baek > 0) result += `${baek}백`;
+                if (man > 0) result += `${man}만`;
+                return result + '원';
+              } else if (cheon > 0) {
+                result += `${cheon}천`;
+                if (baek > 0) result += `${baek}백`;
+                if (man > 0) result += `${man}만`;
+                return result + '원';
+              } else if (baek > 0) {
+                result += `${baek}백`;
+                if (man > 0) result += `${man}만`;
+                return result + '원';
+              } else if (man > 0) {
+                return `${man}만원`;
+              } else {
+                return '0원';
+              }
             };
             
             // 나머지는 억/천/백/만원 단위로 표시
@@ -4573,13 +4925,16 @@ export default function SettlementDetail() {
           drawBorder: false
         },
         ticks: { 
-          color: '#bbb',
+          color: '#ffffff',
           maxRotation: 0,
           minRotation: 0,
-          padding: 30,
+          padding: 50,
           font: {
-            size: 14
-          }
+            size: 16,
+            weight: 'bold'
+          },
+          // maxTicksLimit 제거 - 모든 달 표시
+          // callback 제거 - 기본 라벨 사용
         }
       },
       y: {
@@ -4793,17 +5148,18 @@ export default function SettlementDetail() {
 
   return (
     <Box sx={{ 
-      minHeight: '100vh', 
+      height: 'calc(100vh - 64px)', // 헤더 아래부터 하단바 위까지
       bgcolor: '#1a1d21', 
       color: '#fff',
-      pb: 4,
-      pt: 8  // 64px 아래로 내리기 위해 상단 패딩 추가
+      pb: 2,
+      pt: 8,  // 64px 아래로 이동
+      overflow: 'hidden' // 스크롤 방지
     }}>
       {/* 헤더 */}
       <Box sx={{ 
         bgcolor: '#232b3b', 
-        height: '80px', // 고정 높이 80px
-        p: { xs: 1, md: 1.5 }, // 패딩 줄임
+        height: '60px', // 높이 줄임
+        p: { xs: 0.5, md: 1 }, // 패딩 더 줄임
         mb: { xs: 2, md: 3 }, // 아이패드에서 마진 줄임
         borderBottom: '2px solid #333',
         display: 'flex',
@@ -4882,13 +5238,13 @@ export default function SettlementDetail() {
       {/* 모든 내용을 한 페이지에 배치 */}
       <Box sx={{ px: 3 }}>
         {/* 현장정보, 물량내역, 정산내역, 지출정보를 한 줄에 배치 */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
           {/* 현장정보 */}
           <Grid item xs={12} md={showQuantityExpanded ? 2 : 3}>
             <Card sx={{ 
               bgcolor: '#232b3b', 
               color: '#fff', 
-              height: { xs: '372px', md: '382px' } // 아이패드에서 10px 줄임
+              height: { xs: '350px', md: '360px' } // 높이 늘림
             }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -5017,7 +5373,7 @@ export default function SettlementDetail() {
             <Card sx={{ 
               bgcolor: '#232b3b', 
               color: '#fff', 
-              height: { xs: '372px', md: '382px' }, // 아이패드에서 10px 줄임
+              height: { xs: '350px', md: '360px' }, // 높이 늘림
               width: '100%' 
             }}>
               <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -5180,7 +5536,7 @@ export default function SettlementDetail() {
             <Card sx={{ 
               bgcolor: '#232b3b', 
               color: '#fff', 
-              height: { xs: '372px', md: '382px' }, // 아이패드에서 10px 줄임
+              height: { xs: '350px', md: '360px' }, // 높이 늘림
               width: { xs: '100%', md: '290px' } // 아이패드에서 전체 너비 사용
             }}>
               <CardContent>
@@ -5285,7 +5641,7 @@ export default function SettlementDetail() {
             <Card sx={{ 
               bgcolor: '#232b3b', 
               color: '#fff', 
-              height: { xs: '372px', md: '382px' }, // 아이패드에서 10px 줄임
+              height: { xs: '350px', md: '360px' }, // 높이 늘림
               width: { xs: '100%', md: '260px' } // 아이패드에서 전체 너비 사용
             }}>
                   <CardContent>
@@ -5443,7 +5799,7 @@ export default function SettlementDetail() {
                       </Button>
                     )}
                   </Box>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, height: '300px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, height: '280px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                     {detailDialog.items.length > 0 ? (
                       detailDialog.title.includes('장비비') ? (
                         // 장비비는 세부 항목별로 가로 배치
@@ -5530,12 +5886,12 @@ export default function SettlementDetail() {
                             </Box>
                           )}
                         </Box>
-                      ) : detailDialog.title.includes('부자재비') ? (
-                        // 부자재비는 세부 타입별로 그룹화하여 표시 (클릭으로 확장/축소)
-                        <Box sx={{ display: 'flex', gap: 2, height: '100%' }}>
-                          {/* 왼쪽: 부자재비 세부 타입 목록 */}
-                          <Box sx={{ flex: 1, minWidth: '300px' }}>
-                            <Box sx={{ maxHeight: '400px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+                     ) : detailDialog.title.includes('부자재비') ? (
+                       // 부자재비는 세부 타입별로 그룹화하여 표시 (클릭으로 확장/축소)
+                       <Box sx={{ display: 'flex', gap: 2, height: '100%' }}>
+                         {/* 왼쪽: 부자재비 세부 타입 목록 */}
+                         <Box sx={{ flex: 1, minWidth: '300px' }}>
+                           <Box sx={{ maxHeight: '360px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                               {detailDialog.items.map((item, index) => {
                           // 헤더 항목인 경우 (클릭 가능)
                           if (item.type === 'header') {
@@ -5587,7 +5943,7 @@ export default function SettlementDetail() {
                           {/* 오른쪽: 선택된 세부 항목의 상세 내용 */}
                           {Object.keys(expandedSubMaterial).some(key => expandedSubMaterial[key]) && (
                             <Box sx={{ flex: 1, minWidth: '300px' }}>
-                              <Box sx={{ maxHeight: '400px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+                              <Box sx={{ maxHeight: '360px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {Object.entries(expandedSubMaterial).map(([subType, isExpanded]) => {
                                   if (!isExpanded) return null;
                                   
@@ -5909,7 +6265,7 @@ export default function SettlementDetail() {
               </Typography>
               {chartData && hasData ? (
                 <Box sx={{ 
-                  height: '400px', 
+                  height: '360px', 
                   width: { xs: '300px', sm: '300px', md: '100%' },
                   minWidth: { xs: '300px', sm: '300px', md: 'auto' },
                   // 아이패드 최적화
@@ -5933,7 +6289,7 @@ export default function SettlementDetail() {
                 </Box>
               ) : (
                 <Box sx={{ 
-                  height: '400px', 
+                  height: '360px', 
                   width: '100%',
                   display: 'flex', 
                   alignItems: 'center', 
@@ -6268,7 +6624,9 @@ export default function SettlementDetail() {
           sx: {
             bgcolor: '#232b3b',
             color: '#fff',
-            borderRadius: 2
+            borderRadius: 2,
+            maxHeight: '80vh',
+            height: '80vh'
           }
         }}
       >
@@ -6801,7 +7159,7 @@ export default function SettlementDetail() {
               </Button>
             </Box>
             {materialData.length > 0 ? (
-              <Box sx={{ maxHeight: '300px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+              <Box sx={{ maxHeight: '360px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                 {materialData
                   .sort((a, b) => {
                     // 월 기준으로 정렬 (2025.09가 맨 위, 2025.04가 맨 아래)

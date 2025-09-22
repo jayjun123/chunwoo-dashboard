@@ -62,14 +62,19 @@ import {
   VisibilityOff as VisibilityOffIcon,
   CalendarToday as CalendarIcon,
   Gavel as GavelIcon,
-  OpenInNew as OpenInNewIcon
+  OpenInNew as OpenInNewIcon,
+  CloudUpload as CloudUploadIcon,
+  AttachFile as AttachFileIcon,
+  Image as ImageIcon
 } from '@mui/icons-material';
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, serverTimestamp, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { db, storage } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { isMasterUser } from '../utils/masterUtils';
 import { formatNumber } from '../utils/formatUtils';
 import * as XLSX from 'xlsx';
+import GiftListTab from '../components/GiftListTab';
 
 const Confidential = () => {
   const theme = useTheme();
@@ -81,6 +86,11 @@ const Confidential = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
+  
+  // 탭 상태
+  const [activeTab, setActiveTab] = useState(0);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedHoliday, setSelectedHoliday] = useState('설날');
   
   // 데이터 상태
   const [confidentialData, setConfidentialData] = useState([]);
@@ -124,8 +134,9 @@ const Confidential = () => {
   // 데이터 로드
   const loadData = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'confidential'));
-      const data = snapshot.docs.map(doc => {
+      // 악성미수금 데이터 로드
+      const confidentialSnapshot = await getDocs(collection(db, 'confidential'));
+      const confidentialData = confidentialSnapshot.docs.map(doc => {
         const docData = doc.data();
         
         // 날짜 필드 처리
@@ -181,10 +192,10 @@ const Confidential = () => {
         };
       });
       
-      console.log('로드된 데이터:', data);
-      setConfidentialData(data);
+      console.log('로드된 악성미수금 데이터:', confidentialData);
+      setConfidentialData(confidentialData);
     } catch (error) {
-      console.error('대외비 데이터 로드 오류:', error);
+      console.error('데이터 로드 오류:', error);
       setSnackbar({ open: true, message: '데이터 로드 중 오류가 발생했습니다.', severity: 'error' });
     }
   };
@@ -511,6 +522,7 @@ const Confidential = () => {
     }
   };
 
+
   // 인증되지 않은 경우 비밀번호 입력 화면
   if (!isAuthenticated) {
     return (
@@ -574,7 +586,15 @@ const Confidential = () => {
   }
 
   return (
-    <Box sx={{ p: 3, marginTop: '64px', pb: '60px', position: 'relative' }}>
+    <Box sx={{ 
+      p: 3, 
+      marginTop: '64px', 
+      pb: '60px', 
+      position: 'relative',
+      bgcolor: '#1a1a1a',
+      minHeight: 'calc(100vh - 64px)',
+      color: '#fff'
+    }}>
       {/* 워터마크 */}
       <Box sx={{
         position: 'fixed',
@@ -582,7 +602,7 @@ const Confidential = () => {
         left: '50%',
         transform: 'translate(-50%, -50%)',
         zIndex: 1,
-        opacity: 0.3,
+        opacity: 0.1,
         pointerEvents: 'none',
         width: '400px',
         height: '300px',
@@ -604,14 +624,14 @@ const Confidential = () => {
           <Typography 
             variant="h1" 
             sx={{ 
-              color: 'red', 
+              color: '#ff4444', 
               fontWeight: 'bold',
               fontSize: '4rem',
               textShadow: '3px 3px 6px rgba(0,0,0,0.7)',
               textAlign: 'center',
               lineHeight: 1.2,
               transform: 'rotate(-15deg)',
-              opacity: 0.8,
+              opacity: 0.3,
               marginBottom: '20px'
             }}
           >
@@ -620,68 +640,121 @@ const Confidential = () => {
           <Typography 
             variant="h2" 
             sx={{ 
-              color: 'red', 
+              color: '#ff4444', 
               fontWeight: 'bold',
               fontSize: '1.5rem',
               textShadow: '2px 2px 4px rgba(0,0,0,0.7)',
               textAlign: 'center',
               transform: 'rotate(-15deg)',
-              opacity: 0.8
+              opacity: 0.3
             }}
           >
             SECRET ISSUE
           </Typography>
         </Box>
       </Box>
-             {/* 헤더 */}
-       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-           <GavelIcon sx={{ fontSize: 40, color: 'error.main' }} />
-           <Box>
-             <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-               악성미수금확인
-             </Typography>
-             <Typography variant="body2" color="text.secondary">
-               대외비 자료
-             </Typography>
-           </Box>
-         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            startIcon={<OpenInNewIcon />}
-            onClick={() => window.open('https://www.scourt.go.kr/portal/information/events/search/search.jsp', '_blank')}
-            sx={{ 
-              mr: 1,
-              borderColor: '#1976d2',
-              color: '#1976d2',
-              '&:hover': { 
-                borderColor: '#1565c0',
-                bgcolor: 'rgba(25, 118, 210, 0.04)'
+      
+      {/* 헤더 */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <GavelIcon sx={{ fontSize: 40, color: '#ff4444' }} />
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: '#fff' }}>
+              대외비 관리
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#ccc' }}>
+              악성미수금 및 명절선물 관리
+            </Typography>
+          </Box>
+        </Box>
+        
+        {/* 탭 메뉴 */}
+        <Paper sx={{ 
+          bgcolor: '#2d2d2d',
+          border: '1px solid #444',
+          borderRadius: 2,
+          display: 'inline-block'
+        }}>
+          <Tabs
+            value={activeTab}
+            onChange={(e, newValue) => setActiveTab(newValue)}
+            sx={{
+              '& .MuiTab-root': {
+                color: '#ccc',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                py: 1.5,
+                px: 3,
+                minHeight: 'auto',
+                '&.Mui-selected': {
+                  color: '#ff4444',
+                  bgcolor: '#1a1a1a'
+                },
+                '&:hover': {
+                  color: '#fff',
+                  bgcolor: '#333'
+                }
+              },
+              '& .MuiTabs-indicator': {
+                backgroundColor: '#ff4444',
+                height: 3
               }
             }}
           >
-            대법원 바로가기
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<CloudDownloadIcon />}
-            onClick={handleDownload}
-            sx={{ mr: 1 }}
-          >
-            엑셀 다운로드
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog()}
-          >
-            새로 등록
-          </Button>
-        </Box>
+            <Tab 
+              icon={<GavelIcon sx={{ fontSize: 20 }} />} 
+              label="악성미수금확인" 
+              iconPosition="start"
+            />
+            <Tab 
+              icon={<StarIcon sx={{ fontSize: 20 }} />} 
+              label="명절선물LIST" 
+              iconPosition="start"
+            />
+          </Tabs>
+        </Paper>
       </Box>
 
-      {/* 카드 그리드 */}
+      {/* 탭별 콘텐츠 */}
+      <Box sx={{ mt: -8 }}>
+      {activeTab === 0 && (
+        <>
+          {/* 악성미수금확인 탭 */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2, transform: 'translate(-350px, -10px)' }}>
+            <Button
+              variant="outlined"
+              startIcon={<OpenInNewIcon />}
+              onClick={() => window.open('https://www.scourt.go.kr/portal/information/events/search/search.jsp', '_blank')}
+              sx={{ 
+                mr: 1,
+                borderColor: '#1976d2',
+                color: '#1976d2',
+                '&:hover': { 
+                  borderColor: '#1565c0',
+                  bgcolor: 'rgba(25, 118, 210, 0.04)'
+                }
+              }}
+            >
+              대법원 바로가기
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<CloudDownloadIcon />}
+              onClick={handleDownload}
+              sx={{ mr: 1 }}
+            >
+              엑셀 다운로드
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenDialog()}
+            >
+              새로 등록
+            </Button>
+          </Box>
+
+          {/* 카드 그리드 */}
       <Grid container spacing={2}>
         {confidentialData.map((item) => (
           <Grid item xs={12} sm={6} md={4} key={item.id}>
@@ -690,20 +763,23 @@ const Confidential = () => {
               minWidth: 320,
               display: 'flex',
               flexDirection: 'column',
+              bgcolor: '#2d2d2d',
+              border: '1px solid #444',
               '&:hover': {
-                boxShadow: 4,
+                boxShadow: '0 8px 32px rgba(255, 68, 68, 0.2)',
                 transform: 'translateY(-2px)',
-                transition: 'all 0.2s ease-in-out'
+                transition: 'all 0.2s ease-in-out',
+                borderColor: '#ff4444'
               }
             }}>
               <CardContent sx={{ flexGrow: 1, p: 2 }}>
                 {/* 헤더 */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                   <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 0.5, color: '#fff' }}>
                       {item.company}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: '#ccc' }}>
                       {item.manager}
                     </Typography>
                   </Box>
@@ -852,13 +928,17 @@ const Confidential = () => {
       {/* 데이터가 없을 때 */}
       {confidentialData.length === 0 && (
         <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="h6" sx={{ mb: 2, color: '#ccc' }}>
             등록된 데이터가 없습니다
           </Typography>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => handleOpenDialog()}
+            sx={{
+              bgcolor: '#ff4444',
+              '&:hover': { bgcolor: '#ff6666' }
+            }}
           >
             첫 번째 데이터 등록
           </Button>
@@ -1042,6 +1122,28 @@ const Confidential = () => {
           </Button>
         </DialogActions>
       </Dialog>
+        </>
+      )}
+
+      {/* 명절선물LIST 탭 */}
+      {activeTab === 1 && (
+        <Box>
+          {/* 명절선물 관리 제목 */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <StarIcon sx={{ fontSize: 40, color: '#ff4444' }} />
+              <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#fff' }}>
+                {selectedYear}년 {selectedHoliday} 선물 관리
+              </Typography>
+            </Box>
+          </Box>
+          <GiftListTab 
+            selectedYear={selectedYear}
+            selectedHoliday={selectedHoliday}
+          />
+        </Box>
+      )}
+      </Box>
 
       {/* 스낵바 */}
       <Snackbar
