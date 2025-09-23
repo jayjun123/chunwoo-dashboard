@@ -502,12 +502,12 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       sections.forEach((section, sectionIndex) => {
         if (!section.cards || section.cards.length === 0) return;
         
-        // 섹션 제목 행 추가 (A1~J1 병합)
+        // 섹션 제목 행 추가 (A~J열 병합)
         const sectionTitleRow = worksheet.addRow([`📋 ${section.title}`]);
         sectionTitleRow.height = 25;
         
-        // 섹션 제목 셀 병합 (A~J열)
-        worksheet.mergeCells(`A${currentRow}:J${currentRow}`);
+        // 섹션 제목 셀 병합 (A~I열)
+        worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
         const sectionTitleCell = worksheet.getCell(`A${currentRow}`);
         sectionTitleCell.font = {
           name: '맑은 고딕',
