@@ -4926,11 +4926,11 @@ export default function SettlementDetail() {
     scales: {
       x: {
         grid: { 
-          color: '#333',
+          color: isChartLightMode ? '#e0e0e0' : '#333',
           drawBorder: false
         },
         ticks: { 
-          color: '#ffffff',
+          color: isChartLightMode ? '#333' : '#ffffff',
           maxRotation: 0,
           minRotation: 0,
           padding: 50,
