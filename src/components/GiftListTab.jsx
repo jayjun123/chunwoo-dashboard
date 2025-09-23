@@ -471,14 +471,14 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       const titleRow = worksheet.addRow([title]);
       titleRow.height = 30;
       
-      // 제목 셀 병합 (A1~J1)
-      worksheet.mergeCells('A1:J1');
+      // 제목 셀 병합 (A1~I1)
+      worksheet.mergeCells('A1:I1');
       const titleCell = worksheet.getCell('A1');
       titleCell.font = {
         name: '맑은 고딕',
         size: 18,
         bold: true,
-        color: { argb: 'FF000000' }
+        color: { argb: 'FFFFFFFF' }
       };
       titleCell.alignment = {
         horizontal: 'center',
@@ -487,7 +487,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       titleCell.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FFFFFFFF' }
+        fgColor: { argb: 'FF4472C4' } // 파란색 배경
       };
       titleCell.border = {
         top: { style: 'medium', color: { argb: 'FF000000' } },
@@ -576,6 +576,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         // 데이터 행 추가
         sortedCards.forEach((card, cardIndex) => {
           const dataRow = worksheet.addRow([
+            '', // A열은 빈 값 (섹션명 자리)
             cardIndex + 1,
             card.name || '',
             card.company || '',
@@ -589,7 +590,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           dataRow.height = 20;
           
           // 데이터 셀 스타일 적용
-          for (let col = 1; col <= 9; col++) {
+          for (let col = 1; col <= 10; col++) {
             const cell = worksheet.getCell(currentRow, col);
             cell.font = {
               name: '맑은 고딕',
@@ -613,7 +614,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         
         // 섹션 간 구분을 위한 빈 행 추가 (마지막 섹션이 아닌 경우)
         if (sectionIndex < sections.length - 1) {
-          const emptyRow = worksheet.addRow(['', '', '', '', '', '', '', '', '']);
+          const emptyRow = worksheet.addRow(['', '', '', '', '', '', '', '', '', '']);
           emptyRow.height = 10;
           currentRow++;
         }
@@ -621,15 +622,16 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       
       // 열 너비 설정
       worksheet.columns = [
-        { width: 8 },  // 번호
-        { width: 15 }, // 수혜자
-        { width: 20 }, // 회사명
-        { width: 15 }, // 직책
-        { width: 15 }, // 전화번호
-        { width: 25 }, // 주소
-        { width: 15 }, // 선물
-        { width: 8 },  // 개수
-        { width: 20 }  // 비고
+        { width: 15 }, // A열 (섹션명 자리)
+        { width: 8 },  // B열 (번호)
+        { width: 15 }, // C열 (수혜자)
+        { width: 20 }, // D열 (회사명)
+        { width: 15 }, // E열 (직책)
+        { width: 15 }, // F열 (전화번호)
+        { width: 25 }, // G열 (주소)
+        { width: 15 }, // H열 (선물)
+        { width: 8 },  // I열 (개수)
+        { width: 20 }  // J열 (비고)
       ];
       
       // 파일 다운로드
