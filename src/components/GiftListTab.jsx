@@ -502,45 +502,38 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       sections.forEach((section, sectionIndex) => {
         if (!section.cards || section.cards.length === 0) return;
         
-        // 섹션 제목 행 추가 (A~J열 병합)
-        const sectionTitleRow = worksheet.addRow([`📋 ${section.title}`]);
-        sectionTitleRow.height = 25;
+        // 섹션 헤더 행 추가 (섹션명 + 헤더를 한 행에)
+        const headers = ['번호', '수혜자', '회사명', '직책', '전화번호', '주소', '선물', '개수', '비고'];
+        const sectionHeaderRow = worksheet.addRow([`📋 ${section.title}`, ...headers]);
+        sectionHeaderRow.height = 25;
         
-        // 섹션 제목 셀 병합 (A~I열)
-        worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
-        const sectionTitleCell = worksheet.getCell(`A${currentRow}`);
-        sectionTitleCell.font = {
+        // 섹션명 셀 (A열) 스타일 적용
+        const sectionCell = worksheet.getCell(currentRow, 1);
+        sectionCell.font = {
           name: '맑은 고딕',
           size: 14,
           bold: true,
           color: { argb: 'FFFFFFFF' }
         };
-        sectionTitleCell.alignment = {
+        sectionCell.alignment = {
           horizontal: 'center',
           vertical: 'middle'
         };
-        sectionTitleCell.fill = {
+        sectionCell.fill = {
           type: 'pattern',
           pattern: 'solid',
           fgColor: { argb: 'FF4472C4' } // 파란색 배경
         };
-        sectionTitleCell.border = {
+        sectionCell.border = {
           top: { style: 'medium', color: { argb: 'FF000000' } },
           left: { style: 'medium', color: { argb: 'FF000000' } },
           bottom: { style: 'medium', color: { argb: 'FF000000' } },
           right: { style: 'medium', color: { argb: 'FF000000' } }
         };
         
-        currentRow++;
-        
-        // 헤더 행 추가
-        const headers = ['번호', '수혜자', '회사명', '직책', '전화번호', '주소', '선물', '개수', '비고'];
-        const headerRow = worksheet.addRow(headers);
-        headerRow.height = 25;
-        
-        // 헤더 셀들 스타일 적용
+        // 헤더 셀들 스타일 적용 (B~J열)
         headers.forEach((header, index) => {
-          const cell = worksheet.getCell(currentRow, index + 1);
+          const cell = worksheet.getCell(currentRow, index + 2);
           cell.font = {
             name: '맑은 고딕',
             size: 12,
