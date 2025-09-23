@@ -6259,8 +6259,8 @@ export default function SettlementDetail() {
         <Box sx={{ display: 'flex', gap: 2, width: '100%', pr: 2 }}>
           {/* 차트분석 (75%) */}
           <Card sx={{ 
-            bgcolor: '#232b3b', 
-            color: '#fff', 
+            bgcolor: isChartLightMode ? '#ffffff' : '#232b3b', 
+            color: isChartLightMode ? '#333' : '#fff', 
             flex: { xs: '0 0 100%', sm: '0 0 100%', md: '0 0 75%' },
             minWidth: { xs: '400px', sm: '400px', md: 'auto' }
           }}>
