@@ -2771,7 +2771,7 @@ const DatabaseTab = ({
                     {vendor.name} {vendor.position && `${vendor.position}`} ({vendor.company || vendor.companyName || '회사명 없음'})
                   </Typography>
                   <Typography variant="body1" sx={{ color: '#999', fontSize: '1.2rem', lineHeight: 1.0, mt: 0.1 }}>
-                    전화번호: {vendor.phone || '미등록'}
+                    {vendor.phone || '미등록'}
                   </Typography>
                 </CardContent>
               </Card>

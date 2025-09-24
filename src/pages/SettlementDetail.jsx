@@ -48,27 +48,25 @@ import {
   LightMode as LightModeIcon,
   DarkMode as DarkModeIcon
 } from '@mui/icons-material';
-import { Line } from 'react-chartjs-2';
+import {
+  LineChart,
+  Line,
+  Bar,
+  ComposedChart,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip as ChartTooltip,
-  Legend,
-  Filler
-} from 'chart.js';
 import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, where, orderBy, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { formatContractAmount, formatGisungAmount, formatBalanceAmount } from '../utils/formatUtils';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, ChartTooltip, Legend, Filler);
 
 export default function SettlementDetail() {
   const { siteId } = useParams();
@@ -83,16 +81,24 @@ export default function SettlementDetail() {
     if (typeof dateStr === 'string') {
       // YYYY-MM-DD 형식인 경우
       if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        return new Date(dateStr + 'T12:00:00');
+        // iOS에서 안전한 형식으로 변환
+        const [year, month, day] = dateStr.split('-');
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
       }
       // YYYY-MM 형식인 경우 (월까지만 있는 경우)
       if (dateStr.match(/^\d{4}-\d{2}$/)) {
-        return new Date(dateStr + '-01T12:00:00');
+        const [year, month] = dateStr.split('-');
+        return new Date(parseInt(year), parseInt(month) - 1, 1, 12, 0, 0);
       }
       // YYYY.MM 형식인 경우
       if (dateStr.match(/^\d{4}\.\d{2}$/)) {
         const [year, month] = dateStr.split('.');
-        return new Date(`${year}-${month}-01T12:00:00`);
+        return new Date(parseInt(year), parseInt(month) - 1, 1, 12, 0, 0);
+      }
+      // YYYY.MM.DD 형식인 경우 (iOS에서 문제가 될 수 있는 형식)
+      if (dateStr.match(/^\d{4}\.\d{2}\.\d{2}$/)) {
+        const [year, month, day] = dateStr.split('.');
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 12, 0, 0);
       }
       // 다른 형식인 경우 그대로 파싱
       return new Date(dateStr);
@@ -4548,6 +4554,20 @@ export default function SettlementDetail() {
         gisungByMonth[monthKey] += amount;
         
         console.log('기성금 추가됨:', { monthKey, amount: item.gisungAmount, paymentStatus: item.paymentStatus });
+      } else if (item.gisungDate) {
+        // gisungDate가 있는 경우 월별로 변환
+        const date = parseDate(item.gisungDate);
+        if (!isNaN(date.getTime())) {
+          const monthKey = `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+          const amount = Number(item.gisungAmount) || 0;
+          
+          if (!gisungByMonth[monthKey]) {
+            gisungByMonth[monthKey] = 0;
+          }
+          gisungByMonth[monthKey] += amount;
+          
+          console.log('기성금 추가됨 (gisungDate):', { monthKey, amount: item.gisungAmount, gisungDate: item.gisungDate });
+        }
       }
     });
     
@@ -4592,33 +4612,39 @@ export default function SettlementDetail() {
     costData.forEach(item => {
       if (item.date) {
         const date = parseDate(item.date);
-        const monthKey = `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-        const amount = Number(item.totalValue) || 0;
+        console.log('지출 항목 날짜 파싱:', { originalDate: item.date, parsedDate: date, isValid: !isNaN(date.getTime()) });
         
-        if (item.itemType === '노무비') {
-          if (!laborByMonth[monthKey]) laborByMonth[monthKey] = 0;
-          laborByMonth[monthKey] += amount;
+        if (!isNaN(date.getTime())) {
+          const monthKey = `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+          const amount = Number(item.totalValue) || 0;
           
-          // 공수 데이터 추가
-          const workers = Number(item.workers) || 0;
-          if (!workersByMonth[monthKey]) workersByMonth[monthKey] = 0;
-          workersByMonth[monthKey] += workers;
-        } else if (item.itemType === '경비' || item.itemType === '월세') {
-          // 경비 및 월세 처리
-          if (!expenseByMonth[monthKey]) expenseByMonth[monthKey] = 0;
-          expenseByMonth[monthKey] += amount;
-        } else if (item.itemType === '부자재') {
-          // 부자재비 분리
-          if (!subMaterialByMonth[monthKey]) subMaterialByMonth[monthKey] = 0;
-          subMaterialByMonth[monthKey] += amount;
-        } else if (['지게차', '스카이', '곤도라'].includes(item.itemType)) {
-          // 장비비 분리
-          if (!equipmentByMonth[monthKey]) equipmentByMonth[monthKey] = 0;
-          equipmentByMonth[monthKey] += amount;
-        } else {
-          // 기타 지출
-          if (!otherByMonth[monthKey]) otherByMonth[monthKey] = 0;
-          otherByMonth[monthKey] += amount;
+          console.log('지출 항목 처리:', { monthKey, amount, itemType: item.itemType, originalDate: item.date });
+          
+          if (item.itemType === '노무비') {
+            if (!laborByMonth[monthKey]) laborByMonth[monthKey] = 0;
+            laborByMonth[monthKey] += amount;
+            
+            // 공수 데이터 추가
+            const workers = Number(item.workers) || 0;
+            if (!workersByMonth[monthKey]) workersByMonth[monthKey] = 0;
+            workersByMonth[monthKey] += workers;
+          } else if (item.itemType === '경비' || item.itemType === '월세') {
+            // 경비 및 월세 처리
+            if (!expenseByMonth[monthKey]) expenseByMonth[monthKey] = 0;
+            expenseByMonth[monthKey] += amount;
+          } else if (item.itemType === '부자재') {
+            // 부자재비 분리
+            if (!subMaterialByMonth[monthKey]) subMaterialByMonth[monthKey] = 0;
+            subMaterialByMonth[monthKey] += amount;
+          } else if (['지게차', '스카이', '곤도라'].includes(item.itemType)) {
+            // 장비비 분리
+            if (!equipmentByMonth[monthKey]) equipmentByMonth[monthKey] = 0;
+            equipmentByMonth[monthKey] += amount;
+          } else {
+            // 기타 지출
+            if (!otherByMonth[monthKey]) otherByMonth[monthKey] = 0;
+            otherByMonth[monthKey] += amount;
+          }
         }
       }
     });
@@ -4681,313 +4707,53 @@ export default function SettlementDetail() {
     
     // 차트 데이터 검증 - 라벨이 있으면 차트 표시
     const hasData = labels.length > 0;
+    console.log('=== 차트 데이터 검증 ===');
     console.log('차트에 데이터가 있는가?', hasData);
     console.log('라벨 개수:', labels.length);
+    console.log('라벨 목록:', labels);
     console.log('기성금 데이터 상세:', gisungByMonth);
     console.log('노무비 데이터 상세:', laborByMonth);
     console.log('자재비 데이터 상세:', materialByMonth);
-    console.log('최대 기성금 값:', Math.max(...gisungValues));
+    console.log('경비 데이터 상세:', expenseByMonth);
+    console.log('부자재비 데이터 상세:', subMaterialByMonth);
+    console.log('장비비 데이터 상세:', equipmentByMonth);
+    console.log('기타 지출 데이터 상세:', otherByMonth);
+    console.log('월별 공수 데이터 상세:', workersByMonth);
+    console.log('기성금 값들:', gisungValues);
+    console.log('노무비 값들:', laborValues);
+    console.log('자재비 값들:', materialValues);
+    console.log('경비 값들:', expenseValues);
+    console.log('부자재비 값들:', subMaterialValues);
+    console.log('장비비 값들:', equipmentValues);
+    console.log('기타 지출 값들:', otherValues);
+    console.log('월별 공수 값들:', workersValues);
+    console.log('지출 총합계 값들:', totalCostValues);
+    console.log('최대 기성금 값:', Math.max(...gisungValues, 0));
+    console.log('최대 지출 값:', Math.max(...totalCostValues, 0));
+    console.log('==================');
     console.log('최대 지출 값:', Math.max(...totalCostValues));
 
+    // Recharts 형식으로 데이터 변환
+    const chartDataArray = chartLabels.map((label, index) => ({
+      month: label,
+      기성금: gisungValues[index] || 0,
+      지출총합계: totalCostValues[index] || 0,
+      노무비: laborValues[index] || 0,
+      자재비: materialValues[index] || 0,
+      경비: expenseValues[index] || 0,
+      ...(hasSubMaterialData && { 부자재비: subMaterialValues[index] || 0 }),
+      ...(hasEquipmentData && { 장비비: equipmentValues[index] || 0 }),
+      공수: workersValues[index] || 0
+    }));
+
     return {
-      labels: chartLabels,
-      datasets: [
-        {
-          label: '기성금',
-          data: gisungValues,
-          borderColor: '#43e97b',
-          backgroundColor: 'rgba(67, 233, 123, 0.1)',
-          tension: 0.1,
-          fill: false,
-          borderWidth: 4, // 실선
-          pointRadius: 6,
-          pointHoverRadius: 8,
-          pointBorderWidth: 2,
-          pointBackgroundColor: '#43e97b',
-          pointBorderColor: '#fff'
-        },
-        {
-          label: '지출 총합계',
-          data: totalCostValues,
-          borderColor: '#f44336',
-          backgroundColor: 'rgba(244, 67, 54, 0.1)',
-          tension: 0.1,
-          fill: false,
-          borderWidth: 4, // 실선
-          pointRadius: 6,
-          pointHoverRadius: 8,
-          pointBorderWidth: 2,
-          pointBackgroundColor: '#f44336',
-          pointBorderColor: '#fff'
-        },
-        {
-          label: '노무비',
-          data: laborValues,
-          borderColor: '#00bcd4',
-          backgroundColor: 'rgba(0, 188, 212, 0.1)',
-          tension: 0.1,
-          fill: false,
-          borderWidth: 2, // 얇은 선
-          borderDash: [5, 3], // 얇은 점선
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          pointBorderWidth: 1,
-          pointBackgroundColor: '#00bcd4',
-          pointBorderColor: '#fff'
-        },
-        {
-          label: '자재비',
-          data: materialValues,
-          borderColor: '#9c27b0',
-          backgroundColor: 'rgba(156, 39, 176, 0.1)',
-          tension: 0.1,
-          fill: false,
-          borderWidth: 2, // 얇은 선
-          borderDash: [5, 3], // 얇은 점선
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          pointBorderWidth: 1,
-          pointBackgroundColor: '#9c27b0',
-          pointBorderColor: '#fff'
-        },
-        {
-          label: '경비',
-          data: expenseValues,
-          borderColor: '#ff5722',
-          backgroundColor: 'rgba(255, 87, 34, 0.1)',
-          tension: 0.1,
-          fill: false,
-          borderWidth: 2, // 얇은 선
-          borderDash: [5, 3], // 얇은 점선
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          pointBorderWidth: 1,
-          pointBackgroundColor: '#ff5722',
-          pointBorderColor: '#fff'
-        },
-        ...(hasSubMaterialData ? [{
-          label: '부자재비',
-          data: subMaterialValues,
-          borderColor: '#ff9800',
-          backgroundColor: 'rgba(255, 152, 0, 0.1)',
-          tension: 0.1,
-          fill: false,
-          borderWidth: 2, // 얇은 선
-          borderDash: [5, 3], // 얇은 점선
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          pointBorderWidth: 1,
-          pointBackgroundColor: '#ff9800',
-          pointBorderColor: '#fff'
-        }] : []),
-        ...(hasEquipmentData ? [{
-          label: '장비비',
-          data: equipmentValues,
-          borderColor: '#ffeb3b',
-          backgroundColor: 'rgba(255, 235, 59, 0.1)',
-          tension: 0.1,
-          fill: false,
-          borderWidth: 2, // 얇은 선
-          borderDash: [5, 3], // 얇은 점선
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          pointBorderWidth: 1,
-          pointBackgroundColor: '#ffeb3b',
-          pointBorderColor: '#fff'
-        }] : []),
-        {
-          label: '공수 (명)',
-          data: workersValues,
-          type: 'bar',
-          backgroundColor: 'rgba(0, 188, 212, 0.6)',
-          borderColor: '#00bcd4',
-          borderWidth: 1,
-          yAxisID: 'y1',
-          barThickness: 35
-        }
-      ]
+      data: chartDataArray,
+      hasSubMaterialData,
+      hasEquipmentData
     };
   }, [site, gisungData, costData, materialData, scheduleData, chartLabels]);
 
-  const chartOptions = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    // 아이패드/터치 디바이스 최적화
-    interaction: {
-      intersect: false,
-      mode: 'index'
-    },
-    // 애니메이션 비활성화 (아이패드 성능 개선)
-    animation: {
-      duration: 0
-    },
-    // 터치 이벤트 최적화
-    onHover: (event, activeElements) => {
-      event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
-    },
-    // 아이패드에서 그래프선이 보이도록 추가 설정
-    elements: {
-      line: {
-        borderWidth: 3, // 선 두께 증가
-        tension: 0.1, // 약간의 곡선 추가
-      },
-      point: {
-        radius: 6, // 점 크기 증가
-        hoverRadius: 8,
-        borderWidth: 2,
-      }
-    },
-    plugins: {
-      legend: {
-        position: 'top',
-        labels: {
-          color: isChartLightMode ? '#333' : '#fff',
-          font: { size: 16 },
-          usePointStyle: true,
-          padding: 25
-        }
-      },
-      title: {
-        display: false
-      },
-      tooltip: {
-        enabled: true,
-        mode: 'index',
-        intersect: false,
-        backgroundColor: isChartLightMode ? 'rgba(255, 255, 255, 0.95)' : 'rgba(0, 0, 0, 0.9)',
-        titleColor: isChartLightMode ? '#333' : '#fff',
-        bodyColor: isChartLightMode ? '#333' : '#fff',
-        borderColor: '#43e97b',
-        borderWidth: 2,
-        titleFont: {
-          size: 20,
-          weight: 'bold'
-        },
-        bodyFont: {
-          size: 18,
-          weight: 'normal'
-        },
-        padding: 20,
-        cornerRadius: 8,
-        displayColors: true,
-        callbacks: {
-          title: function(context) {
-            // 월 표시에서 공수 정보 제거
-            const label = context[0].label;
-            return label.replace(/\(\d+명\)/, ''); // (숫자명) 패턴 제거
-          },
-          label: function(context) {
-            const value = context.parsed.y;
-            const datasetLabel = context.dataset.label;
-            
-            // 공수는 명 단위로 표시 (0명인 경우 제외)
-            if (datasetLabel === '공수 (명)') {
-              if (value === 0) return null; // 0명인 경우 툴팁에서 제외
-              return `${datasetLabel}: ${value}명`;
-            }
-            
-            // 금액 포맷팅 함수
-            const formatAmount = (amount) => {
-              if (amount === 0) return '0원';
-              
-              const eok = Math.floor(amount / 100000000); // 억
-              const cheon = Math.floor((amount % 100000000) / 10000000); // 천만
-              const baek = Math.floor((amount % 10000000) / 1000000); // 백만
-              const man = Math.floor((amount % 1000000) / 10000); // 만
-              
-              let result = '';
-              if (eok > 0) {
-                result += `${eok}억`;
-                if (cheon > 0) result += `${cheon}천`;
-                if (baek > 0) result += `${baek}백`;
-                if (man > 0) result += `${man}만`;
-                return result + '원';
-              } else if (cheon > 0) {
-                result += `${cheon}천`;
-                if (baek > 0) result += `${baek}백`;
-                if (man > 0) result += `${man}만`;
-                return result + '원';
-              } else if (baek > 0) {
-                result += `${baek}백`;
-                if (man > 0) result += `${man}만`;
-                return result + '원';
-              } else if (man > 0) {
-                return `${man}만원`;
-              } else {
-                return '0원';
-              }
-            };
-            
-            // 나머지는 억/천/백/만원 단위로 표시
-            return `${datasetLabel}: ${formatAmount(value)}`;
-          }
-        }
-      }
-    },
-    scales: {
-      x: {
-        grid: { 
-          color: isChartLightMode ? '#e0e0e0' : '#333',
-          drawBorder: false
-        },
-        ticks: { 
-          color: isChartLightMode ? '#333' : '#ffffff',
-          maxRotation: 0,
-          minRotation: 0,
-          padding: 50,
-          font: {
-            size: 16,
-            weight: 'bold'
-          },
-          // maxTicksLimit 제거 - 모든 달 표시
-          // callback 제거 - 기본 라벨 사용
-        }
-      },
-      y: {
-        beginAtZero: true,
-        grid: { 
-          color: isChartLightMode ? '#e0e0e0' : '#333',
-          drawBorder: false
-        },
-        ticks: { 
-          color: isChartLightMode ? '#666' : '#bbb',
-          font: {
-            size: 12
-          },
-          // 아이패드 Safari 최적화
-          maxTicksLimit: 8,
-          callback: function(value) {
-            // 아이패드에서 값 확인을 위해 더 간단한 포맷팅
-            if (value >= 1000000) {
-              return (value / 1000000).toFixed(1) + 'M';
-            } else if (value >= 1000) {
-              return (value / 1000).toFixed(0) + 'K';
-            } else {
-              return value.toString();
-            }
-          }
-        }
-      },
-      y1: {
-        type: 'linear',
-        display: true,
-        position: 'right',
-        beginAtZero: true,
-        grid: {
-          drawOnChartArea: false,
-        },
-        ticks: {
-          color: '#00bcd4',
-          font: {
-            size: 12
-          },
-          callback: function(value) {
-            return value + '명';
-          }
-        }
-      }
-    }
-  }), [isChartLightMode]);
+  // Chart.js 옵션 제거됨 - Recharts 사용
 
 
   // 정산 페이지 삭제
@@ -5039,6 +4805,7 @@ export default function SettlementDetail() {
         minHeight: '100vh',
         color: 'white',
         p: 3,
+        paddingTop: '64px',
         textAlign: 'center'
       }}>
         <Typography variant="h4" sx={{ color: '#ff9800', mb: 2 }}>
@@ -5251,7 +5018,7 @@ export default function SettlementDetail() {
             <Card sx={{ 
               bgcolor: '#232b3b', 
               color: '#fff', 
-              height: { xs: '350px', md: '360px' } // 높이 늘림
+              height: { xs: '350px', md: '320px' } // 높이 조정
             }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -5380,7 +5147,7 @@ export default function SettlementDetail() {
             <Card sx={{ 
               bgcolor: '#232b3b', 
               color: '#fff', 
-              height: { xs: '350px', md: '360px' }, // 높이 늘림
+              height: { xs: '350px', md: '320px' }, // 높이 조정
               width: '100%' 
             }}>
               <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -5543,7 +5310,7 @@ export default function SettlementDetail() {
             <Card sx={{ 
               bgcolor: '#232b3b', 
               color: '#fff', 
-              height: { xs: '350px', md: '360px' }, // 높이 늘림
+              height: { xs: '350px', md: '320px' }, // 높이 조정
               width: { xs: '100%', md: '290px' } // 아이패드에서 전체 너비 사용
             }}>
               <CardContent>
@@ -5648,7 +5415,7 @@ export default function SettlementDetail() {
             <Card sx={{ 
               bgcolor: '#232b3b', 
               color: '#fff', 
-              height: { xs: '350px', md: '360px' }, // 높이 늘림
+              height: { xs: '350px', md: '320px' }, // 높이 조정
               width: { xs: '100%', md: '260px' } // 아이패드에서 전체 너비 사용
             }}>
                   <CardContent>
@@ -5806,7 +5573,7 @@ export default function SettlementDetail() {
                       </Button>
                     )}
                   </Box>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, height: '280px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, height: '238px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                     {detailDialog.items.length > 0 ? (
                       detailDialog.title.includes('장비비') ? (
                         // 장비비는 세부 항목별로 가로 배치
@@ -5898,7 +5665,7 @@ export default function SettlementDetail() {
                        <Box sx={{ display: 'flex', gap: 2, height: '100%' }}>
                          {/* 왼쪽: 부자재비 세부 타입 목록 */}
                          <Box sx={{ flex: 1, minWidth: '300px' }}>
-                           <Box sx={{ maxHeight: '360px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+                           <Box sx={{ maxHeight: '280px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                               {detailDialog.items.map((item, index) => {
                           // 헤더 항목인 경우 (클릭 가능)
                           if (item.type === 'header') {
@@ -5908,7 +5675,7 @@ export default function SettlementDetail() {
                                 <Box sx={{ 
                                         bgcolor: isExpanded ? '#333' : '#444', 
                                   borderRadius: 1, 
-                                  p: 1, 
+                                  p: 0.5, 
                                   mb: 1,
                                         border: isExpanded ? '2px solid #ff4444' : '1px solid #666',
                                   cursor: 'pointer',
@@ -5950,7 +5717,7 @@ export default function SettlementDetail() {
                           {/* 오른쪽: 선택된 세부 항목의 상세 내용 */}
                           {Object.keys(expandedSubMaterial).some(key => expandedSubMaterial[key]) && (
                             <Box sx={{ flex: 1, minWidth: '300px' }}>
-                              <Box sx={{ maxHeight: '360px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+                              <Box sx={{ maxHeight: '320px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                                 {Object.entries(expandedSubMaterial).map(([subType, isExpanded]) => {
                                   if (!isExpanded) return null;
                                   
@@ -5969,8 +5736,9 @@ export default function SettlementDetail() {
                                     <Typography key={subIndex} sx={{ 
                                       color: '#fff', 
                                       fontSize: '1rem',
-                                      p: 0.5,
-                                            mb: 0.5
+                                      p: 0.2,
+                                            mb: 0.2,
+                                            lineHeight: 1.1
                                     }}>
                                             {subItem.name.replace(/^부자재\s*-\s*/, '')} {year}.{month} &nbsp; <span style={{ color: '#ff4444' }}>{formatGisungAmount(subItem.amount)}</span>
                                     </Typography>
@@ -6268,7 +6036,7 @@ export default function SettlementDetail() {
           }}>
             <CardContent sx={{ width: '100%' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6" sx={{ color: '#43e97b' }}>
+                <Typography variant="h6" sx={{ color: isChartLightMode ? '#000' : '#43e97b' }}>
                   월별 기성금 및 지출 추이 분석
                 </Typography>
                 <Tooltip title={isChartLightMode ? "다크모드로 변경" : "화이트모드로 변경"}>
@@ -6290,11 +6058,13 @@ export default function SettlementDetail() {
                   </Button>
                 </Tooltip>
               </Box>
-              {chartData && hasData ? (
+              {chartData?.data && hasData ? (
                 <Box sx={{ 
-                  height: '360px', 
+                  height: '400px', 
                   width: { xs: '300px', sm: '300px', md: '100%' },
                   minWidth: { xs: '300px', sm: '300px', md: 'auto' },
+                  // 차트와 라벨을 10px 올림
+                  marginTop: '-10px',
                   // 아이패드 최적화
                   touchAction: 'manipulation',
                   WebkitTouchCallout: 'none',
@@ -6312,11 +6082,258 @@ export default function SettlementDetail() {
                   }
                 }}>
                   {console.log('차트 렌더링 중 - chartData:', chartData)}
-                  <Line data={chartData} options={chartOptions} />
+                  
+                  {/* 범례를 차트 위에 별도로 표시 */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    gap: 4, 
+                    mb: 4, 
+                    justifyContent: 'center',
+                    color: isChartLightMode ? '#000' : '#fff'
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box sx={{ width: 40, height: 5, bgcolor: '#43e97b' }} />
+                      <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600 }}>기성금</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box sx={{ width: 40, height: 5, bgcolor: '#f44336' }} />
+                      <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600 }}>지출총합계</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box sx={{ 
+                        width: 40, 
+                        height: 5, 
+                        background: 'repeating-linear-gradient(to right, #00bcd4 0px, #00bcd4 8px, transparent 8px, transparent 12px)'
+                      }} />
+                      <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600, color: '#fff' }}>노무비</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box sx={{ 
+                        width: 40, 
+                        height: 5, 
+                        background: 'repeating-linear-gradient(to right, #9c27b0 0px, #9c27b0 8px, transparent 8px, transparent 12px)'
+                      }} />
+                      <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600 }}>자재비</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box sx={{ 
+                        width: 40, 
+                        height: 5, 
+                        background: 'repeating-linear-gradient(to right, #ff5722 0px, #ff5722 8px, transparent 8px, transparent 12px)'
+                      }} />
+                      <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600 }}>경비</Typography>
+                    </Box>
+                    {chartData.hasSubMaterialData && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Box sx={{ 
+                          width: 40, 
+                          height: 5, 
+                          background: 'repeating-linear-gradient(to right, #ff9800 0px, #ff9800 8px, transparent 8px, transparent 12px)'
+                        }} />
+                        <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600 }}>부자재비</Typography>
+                      </Box>
+                    )}
+                    {chartData.hasEquipmentData && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Box sx={{ 
+                          width: 40, 
+                          height: 5, 
+                          background: 'repeating-linear-gradient(to right, #ffeb3b 0px, #ffeb3b 8px, transparent 8px, transparent 12px)'
+                        }} />
+                        <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600 }}>장비비</Typography>
+                      </Box>
+                    )}
+                  </Box>
+                  
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={chartData.data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={isChartLightMode ? '#e0e0e0' : '#333'} />
+                      <XAxis 
+                        dataKey="month" 
+                        stroke={isChartLightMode ? '#000' : '#fff'}
+                        fontSize={16}
+                        height={80}
+                        interval={0}
+                        tick={(props) => {
+                          const { x, y, payload } = props;
+                          const value = payload.value;
+                          const parts = value.split('(');
+                          const month = parts[0];
+                          const workers = parts[1] ? parts[1].replace(')', '') : '';
+                          
+                          return (
+                            <g transform={`translate(${x},${y})`}>
+                              <text 
+                                x={0} 
+                                y={0} 
+                                dy={16} 
+                                textAnchor="middle" 
+                                fill={isChartLightMode ? '#000' : '#fff'} 
+                                fontSize="15"
+                              >
+                                {month}
+                              </text>
+                              <text 
+                                x={0} 
+                                y={0} 
+                                dy={32} 
+                                textAnchor="middle" 
+                                fill="#00bcd4" 
+                                fontSize="16"
+                              >
+                                ({workers})
+                              </text>
+                            </g>
+                          );
+                        }}
+                      />
+                      <YAxis 
+                        yAxisId="left"
+                        stroke={isChartLightMode ? '#000' : '#bbb'}
+                        fontSize={12}
+                        tickCount={5}
+                        tickFormatter={(value) => {
+                          if (value >= 1000000) {
+                            return (value / 1000000).toFixed(1) + 'M';
+                          } else if (value >= 1000) {
+                            return (value / 1000).toFixed(0) + 'K';
+                          } else {
+                            return value.toString();
+                          }
+                        }}
+                      />
+                      <YAxis 
+                        yAxisId="right"
+                        orientation="right"
+                        stroke="#00bcd4"
+                        fontSize={12}
+                        tickCount={5}
+                        tickFormatter={(value) => value + '명'}
+                      />
+                      <RechartsTooltip 
+                        contentStyle={{
+                          backgroundColor: isChartLightMode ? 'rgba(255, 255, 255, 0.95)' : 'rgba(0, 0, 0, 0.9)',
+                          color: isChartLightMode ? '#000' : '#fff',
+                          border: '2px solid #43e97b',
+                          borderRadius: '8px'
+                        }}
+                        formatter={(value, name) => {
+                          if (name === '공수') {
+                            return [`${value}명`, name];
+                          } else {
+                            const formatAmount = (amount) => {
+                              if (amount === 0) return '0원';
+                              const eok = Math.floor(amount / 100000000);
+                              const cheon = Math.floor((amount % 100000000) / 10000000);
+                              const baek = Math.floor((amount % 10000000) / 1000000);
+                              const man = Math.floor((amount % 1000000) / 10000);
+                              
+                              let result = '';
+                              if (eok > 0) {
+                                result += `${eok}억`;
+                                if (cheon > 0) result += `${cheon}천`;
+                                if (baek > 0) result += `${baek}백`;
+                                if (man > 0) result += `${man}만`;
+                                return result + '원';
+                              } else if (cheon > 0) {
+                                result += `${cheon}천`;
+                                if (baek > 0) result += `${baek}백`;
+                                if (man > 0) result += `${man}만`;
+                                return result + '원';
+                              } else if (baek > 0) {
+                                result += `${baek}백`;
+                                if (man > 0) result += `${man}만`;
+                                return result + '원';
+                              } else if (man > 0) {
+                                return `${man}만원`;
+                              } else {
+                                return '0원';
+                              }
+                            };
+                            return [formatAmount(value), name];
+                          }
+                        }}
+                      />
+                      <Bar 
+                        yAxisId="right"
+                        dataKey="공수" 
+                        fill="#00bcd4" 
+                        fillOpacity={0.3}
+                        radius={[2, 2, 0, 0]}
+                        maxBarSize={40}
+                      />
+                      <Line 
+                        yAxisId="left"
+                        dataKey="기성금" 
+                        stroke="#43e97b" 
+                        strokeWidth={4}
+                        dot={{ r: 6 }}
+                        activeDot={{ r: 8 }}
+                      />
+                      <Line 
+                        yAxisId="left"
+                        dataKey="지출총합계" 
+                        stroke="#f44336" 
+                        strokeWidth={4}
+                        dot={{ r: 6 }}
+                        activeDot={{ r: 8 }}
+                      />
+                      <Line 
+                        yAxisId="left"
+                        dataKey="노무비" 
+                        stroke="#00bcd4" 
+                        strokeWidth={2}
+                        strokeDasharray="5 3"
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                      <Line 
+                        yAxisId="left"
+                        dataKey="자재비" 
+                        stroke="#9c27b0" 
+                        strokeWidth={2}
+                        strokeDasharray="5 3"
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                      <Line 
+                        yAxisId="left"
+                        dataKey="경비" 
+                        stroke="#ff5722" 
+                        strokeWidth={2}
+                        strokeDasharray="5 3"
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                      {chartData.hasSubMaterialData && (
+                        <Line 
+                          yAxisId="left"
+                          dataKey="부자재비" 
+                          stroke="#ff9800" 
+                          strokeWidth={2}
+                          strokeDasharray="5 3"
+                          dot={{ r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      )}
+                      {chartData.hasEquipmentData && (
+                        <Line 
+                          yAxisId="left"
+                          dataKey="장비비" 
+                          stroke="#ffeb3b" 
+                          strokeWidth={2}
+                          strokeDasharray="5 3"
+                          dot={{ r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      )}
+                    </ComposedChart>
+                  </ResponsiveContainer>
                 </Box>
               ) : (
                 <Box sx={{ 
-                  height: '360px', 
+                  height: '400px', 
                   width: '100%',
                   display: 'flex', 
                   alignItems: 'center', 
@@ -6325,8 +6342,10 @@ export default function SettlementDetail() {
                   borderRadius: 2
                 }}>
                   <Typography sx={{ color: isChartLightMode ? '#666' : '#bbb' }}>
-                    {console.log('차트 데이터 없음 - site:', site, 'gisungData:', gisungData.length, 'costData:', costData.length)}
-                    차트 데이터를 불러오는 중... (기성금: {gisungData.length}개, 지출: {costData.length}개)
+                    {console.log('차트 데이터 없음 - site:', site, 'gisungData:', gisungData.length, 'costData:', costData.length, 'materialData:', materialData.length)}
+                    차트 데이터를 불러오는 중... (기성금: {gisungData.length}개, 지출: {costData.length}개, 자재비: {materialData.length}개)
+                    <br />
+                    {chartData?.data ? '차트 데이터는 있지만 렌더링 중...' : '차트 데이터가 없습니다.'}
                   </Typography>
                 </Box>
               )}
@@ -6347,9 +6366,9 @@ export default function SettlementDetail() {
               {/* 첫 투입 날짜부터 오늘까지 기간 및 총 공수 */}
               <Box sx={{ 
                 bgcolor: '#1a1d21', 
-                p: 1.5, 
+                p: 1.2, 
                 borderRadius: 1, 
-                mb: 1,
+                mb: 0.8,
                 border: '1px solid #333'
               }}>
                 <Typography sx={{ 
@@ -6366,7 +6385,7 @@ export default function SettlementDetail() {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 
                 {/* 노무자 1명 기준 평균 물량 */}
-                <Box sx={{ mt: 1 }}>
+                <Box sx={{ mt: 0.5 }}>
                   <Typography sx={{ 
                     color: '#43e97b', 
                     fontSize: '1.1rem', 
@@ -6419,7 +6438,7 @@ export default function SettlementDetail() {
                 </Box>
                 
                 {/* 일일 기준 평균 물량 */}
-                <Box sx={{ mt: 2 }}>
+                <Box sx={{ mt: 1 }}>
                   <Typography sx={{ 
                     color: '#43e97b', 
                     fontSize: '1.1rem', 
@@ -6472,7 +6491,7 @@ export default function SettlementDetail() {
                 </Box>
                 
                 {/* 물량대비 주요 부자재 양 */}
-                <Box sx={{ mt: 2 }}>
+                <Box sx={{ mt: 1 }}>
                   <Typography sx={{ 
                     color: '#43e97b', 
                     fontSize: '1.1rem', 
@@ -7186,7 +7205,7 @@ export default function SettlementDetail() {
               </Button>
             </Box>
             {materialData.length > 0 ? (
-              <Box sx={{ maxHeight: '360px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
+              <Box sx={{ maxHeight: '320px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
                 {materialData
                   .sort((a, b) => {
                     // 월 기준으로 정렬 (2025.09가 맨 위, 2025.04가 맨 아래)

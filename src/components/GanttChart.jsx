@@ -994,7 +994,7 @@ const GanttChart = () => {
               }}>
                 {!isMobile && (
                   <Typography variant="h6">
-                    현장별 진행 상황 ({Object.keys(siteSchedules).length}개 현장)
+                    현장별 진행 상황 ({Object.keys(siteSchedules).length}개)
                   </Typography>
                 )}
                 <Box sx={{ 

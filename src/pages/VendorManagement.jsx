@@ -1283,8 +1283,24 @@ const VendorManagement = () => {
         <Table>
           <TableHead>
             <TableRow sx={{ backgroundColor: '#333' }}>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: 80 }}>NO.</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('name')}>
+              <TableCell sx={{ 
+                color: '#fff', 
+                fontWeight: 600, 
+                width: 80,
+                // 아이패드에서 표시
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  width: '10%'
+                }
+              }}>NO.</TableCell>
+              <TableCell sx={{ 
+                color: '#fff', 
+                fontWeight: 600, 
+                cursor: 'pointer',
+                // 아이패드에서 표시
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  width: '15%'
+                }
+              }} onClick={() => handleSort('name')}>
                 이름 
                 <SortIcon sx={{ 
                   fontSize: '1rem', 
@@ -1293,10 +1309,39 @@ const VendorManagement = () => {
                   transition: 'transform 0.2s'
                 }} />
               </TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>직책</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>번호</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>메일</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('companyName')}>
+              <TableCell sx={{ 
+                color: '#fff', 
+                fontWeight: 600,
+                // 아이패드에서 표시
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  width: '12%'
+                }
+              }}>직책</TableCell>
+              <TableCell sx={{ 
+                color: '#fff', 
+                fontWeight: 600,
+                // 아이패드에서 표시
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  width: '15%'
+                }
+              }}>번호</TableCell>
+              <TableCell sx={{ 
+                color: '#fff', 
+                fontWeight: 600,
+                // 아이패드에서 표시
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  width: '18%'
+                }
+              }}>메일</TableCell>
+              <TableCell sx={{ 
+                color: '#fff', 
+                fontWeight: 600, 
+                cursor: 'pointer',
+                // 아이패드에서 표시
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  width: '15%'
+                }
+              }} onClick={() => handleSort('companyName')}>
                 회사명 
                 <SortIcon sx={{ 
                   fontSize: '1rem', 
@@ -1305,11 +1350,47 @@ const VendorManagement = () => {
                   transition: 'transform 0.2s'
                 }} />
               </TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>대표자</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>사업자번호</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>주소</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>비고</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: 120 }}>관리</TableCell>
+              <TableCell sx={{ 
+                color: '#fff', 
+                fontWeight: 600,
+                // 아이패드에서 숨김
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  display: 'none'
+                }
+              }}>대표자</TableCell>
+              <TableCell sx={{ 
+                color: '#fff', 
+                fontWeight: 600,
+                // 아이패드에서 숨김
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  display: 'none'
+                }
+              }}>사업자번호</TableCell>
+              <TableCell sx={{ 
+                color: '#fff', 
+                fontWeight: 600,
+                // 아이패드에서 숨김
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  display: 'none'
+                }
+              }}>주소</TableCell>
+              <TableCell sx={{ 
+                color: '#fff', 
+                fontWeight: 600,
+                // 아이패드에서 숨김
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  display: 'none'
+                }
+              }}>비고</TableCell>
+              <TableCell sx={{ 
+                color: '#fff', 
+                fontWeight: 600, 
+                width: 120,
+                // 아이패드에서 표시
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  width: '15%'
+                }
+              }}>관리</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -1318,17 +1399,84 @@ const VendorManagement = () => {
               const globalIndex = filteredVendors.length - filteredVendors.findIndex(v => v.id === vendor.id);
               return (
                 <TableRow key={vendor.id} sx={{ '&:hover': { backgroundColor: '#333' } }}>
-                  <TableCell sx={{ color: '#fff' }}>{globalIndex}</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{vendor.name}</TableCell>
-                <TableCell sx={{ color: '#fff' }}>{vendor.position}</TableCell>
-                <TableCell sx={{ color: '#fff' }}>{vendor.phone}</TableCell>
-                <TableCell sx={{ color: '#fff' }}>{vendor.email}</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{vendor.companyName}</TableCell>
-                <TableCell sx={{ color: '#fff' }}>{vendor.ceo}</TableCell>
-                <TableCell sx={{ color: '#fff' }}>{vendor.businessNumber}</TableCell>
-                <TableCell sx={{ color: '#fff' }}>{vendor.address}</TableCell>
-                <TableCell sx={{ color: '#fff' }}>{vendor.note}</TableCell>
-                <TableCell>
+                  <TableCell sx={{ 
+                    color: '#fff',
+                    // 아이패드에서 표시
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      display: 'table-cell'
+                    }
+                  }}>{globalIndex}</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff', 
+                  fontWeight: 500,
+                  // 아이패드에서 표시
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'table-cell'
+                  }
+                }}>{vendor.name}</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff',
+                  // 아이패드에서 표시
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'table-cell'
+                  }
+                }}>{vendor.position}</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff',
+                  // 아이패드에서 표시
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'table-cell'
+                  }
+                }}>{vendor.phone}</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff',
+                  // 아이패드에서 표시
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'table-cell'
+                  }
+                }}>{vendor.email}</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff', 
+                  fontWeight: 500,
+                  // 아이패드에서 표시
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'table-cell'
+                  }
+                }}>{vendor.companyName}</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff',
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>{vendor.ceo}</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff',
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>{vendor.businessNumber}</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff',
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>{vendor.address}</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff',
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>{vendor.note}</TableCell>
+                <TableCell sx={{
+                  // 아이패드에서 표시
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'table-cell'
+                  }
+                }}>
                   <Box sx={{ display: 'flex', gap: 0.5 }}>
                     <Tooltip title="수정">
                       <IconButton

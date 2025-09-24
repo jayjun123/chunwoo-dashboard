@@ -90,6 +90,20 @@ const SettlementManagement = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
+  // 화면 크기 감지
+  const [isIpad, setIsIpad] = useState(false);
+  
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsIpad(window.innerWidth >= 768 && window.innerWidth <= 1024);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+  
   // 상태 관리
   const [sites, setSites] = useState([]);
   const [settlements, setSettlements] = useState([]);
@@ -1292,7 +1306,7 @@ const SettlementManagement = () => {
                   '&:hover': { backgroundColor: '#444' },
                   // 아이패드에서 더 넓게
                   '@media (min-width: 768px) and (max-width: 1024px)': {
-                    width: '25%'
+                    width: '20%'
                   }
                 }}
                 onClick={() => handleSort('siteName')}
@@ -1308,7 +1322,7 @@ const SettlementManagement = () => {
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
-                  // 아이패드에서 더 넓게
+                  // 아이패드에서 표시
                   '@media (min-width: 768px) and (max-width: 1024px)': {
                     width: '12%'
                   }
@@ -1326,7 +1340,7 @@ const SettlementManagement = () => {
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
-                  // 아이패드에서 더 넓게
+                  // 아이패드에서 표시
                   '@media (min-width: 768px) and (max-width: 1024px)': {
                     width: '15%'
                   }
@@ -1344,7 +1358,7 @@ const SettlementManagement = () => {
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
-                  // 아이패드에서 더 넓게
+                  // 아이패드에서 표시
                   '@media (min-width: 768px) and (max-width: 1024px)': {
                     width: '15%'
                   }
@@ -1357,14 +1371,32 @@ const SettlementManagement = () => {
                 sx={{ 
                   color: '#fff', 
                   fontWeight: 600, 
+                  width: '10%', 
+                  textAlign: 'center', 
+                  fontSize: '1.1rem', 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: '#444' },
+                  // 아이패드에서 표시
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    width: '15%'
+                  }
+                }}
+                onClick={() => handleSort('totalExpense')}
+              >
+                총지출액 {sortField === 'totalExpense' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </TableCell>
+              <TableCell 
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600, 
                   width: '8%', 
                   textAlign: 'center', 
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
-                  // 아이패드에서 더 넓게
+                  // 아이패드에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
-                    width: '12%'
+                    display: 'none'
                   }
                 }}
                 onClick={() => handleSort('materialCost')}
@@ -1380,9 +1412,9 @@ const SettlementManagement = () => {
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
-                  // 아이패드에서 더 넓게
+                  // 아이패드에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
-                    width: '12%'
+                    display: 'none'
                   }
                 }}
                 onClick={() => handleSort('laborCost')}
@@ -1452,9 +1484,9 @@ const SettlementManagement = () => {
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
-                  // 아이패드에서 숨김
+                  // 아이패드에서 표시
                   '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
+                    width: '12%'
                   }
                 }}
                 onClick={() => handleSort('safetyCost')}
@@ -1465,9 +1497,10 @@ const SettlementManagement = () => {
                 sx={{ 
                   color: '#fff', 
                   fontWeight: 600, 
-                  width: '15%', 
+                  width: '20%', 
                   textAlign: 'center', 
                   fontSize: '1.1rem',
+                  minWidth: '150px',
                   // 아이패드에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
                     display: 'none'
@@ -1476,7 +1509,17 @@ const SettlementManagement = () => {
               >
                 비고
               </TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '6%', textAlign: 'center', fontSize: '1.1rem' }}>관리</TableCell>
+              <TableCell sx={{ 
+                color: '#fff', 
+                fontWeight: 600, 
+                width: '6%', 
+                textAlign: 'center', 
+                fontSize: '1.1rem',
+                // 아이패드에서 표시
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  width: '10%'
+                }
+              }}>관리</TableCell>
             </TableRow>
               </TableHead>
               <TableBody>
@@ -1488,9 +1531,9 @@ const SettlementManagement = () => {
                     textAlign: 'center', 
                     py: 4, 
                     color: '#bbb',
-                    // 아이패드에서는 숨겨진 컬럼 수만큼 colSpan 조정
+                    // 아이패드에서는 7개 컬럼만 표시
                     '@media (min-width: 768px) and (max-width: 1024px)': {
-                      colSpan: 9
+                      colSpan: 7
                     }
                   }}
                 >
@@ -1532,7 +1575,12 @@ const SettlementManagement = () => {
                         whiteSpace: 'nowrap'
                       }
                     }}>
-                      {settlement.siteName || '미정'}
+                      {isIpad 
+                        ? (settlement.siteName && settlement.siteName.length > 6 
+                          ? settlement.siteName.substring(0, 6) + '...' 
+                          : settlement.siteName || '미정')
+                        : settlement.siteName || '미정'
+                      }
                     </span>
                   </TableCell>
                   <TableCell sx={{ 
@@ -1585,10 +1633,40 @@ const SettlementManagement = () => {
                   <TableCell sx={{ color: '#43e97b', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
                     {formatNumber(settlement.gisungAmount || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right', fontSize: '0.9rem' }}>
+                  <TableCell sx={{ 
+                    color: '#ff6b6b', 
+                    fontWeight: 'bold', 
+                    textAlign: 'right', 
+                    fontSize: '1.1rem',
+                    // 아이패드에서 표시
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      display: 'table-cell'
+                    }
+                  }}>
+                    {formatNumber((settlement.materialCost || 0) + (settlement.laborCost || 0) + (settlement.subMaterialCost || 0) + (settlement.equipmentCost || 0) + (settlement.expenseCost || 0))}원
+                      </TableCell>
+                  <TableCell sx={{ 
+                    color: '#ef5350', 
+                    fontWeight: 'bold', 
+                    textAlign: 'right', 
+                    fontSize: '0.9rem',
+                    // 아이패드에서 숨김
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      display: 'none'
+                    }
+                  }}>
                     {formatNumber(settlement.materialCost || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right', fontSize: '0.9rem' }}>
+                  <TableCell sx={{ 
+                    color: '#ef5350', 
+                    fontWeight: 'bold', 
+                    textAlign: 'right', 
+                    fontSize: '0.9rem',
+                    // 아이패드에서 숨김
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      display: 'none'
+                    }
+                  }}>
                     {formatNumber(settlement.laborCost || 0)}원
                       </TableCell>
                   <TableCell sx={{ 
@@ -1632,9 +1710,9 @@ const SettlementManagement = () => {
                     fontWeight: 'bold', 
                     textAlign: 'right', 
                     fontSize: '0.9rem',
-                    // 아이패드에서 숨김
+                    // 아이패드에서 표시
                     '@media (min-width: 768px) and (max-width: 1024px)': {
-                      display: 'none'
+                      display: 'table-cell'
                     }
                   }}>
                     {formatNumber(settlement.safetyCost || 0)}원
@@ -1643,7 +1721,9 @@ const SettlementManagement = () => {
                     sx={{ 
                       color: '#bbb', 
                       fontSize: '1.1rem',
-                      width: '15%',
+                      width: '20%',
+                      minWidth: '150px',
+                      wordBreak: 'break-word',
                       // 아이패드에서 숨김
                       '@media (min-width: 768px) and (max-width: 1024px)': {
                         display: 'none'
@@ -1652,7 +1732,12 @@ const SettlementManagement = () => {
                   >
                     {settlement.notes || '-'}
                   </TableCell>
-                      <TableCell>
+                      <TableCell sx={{
+                        // 아이패드에서 표시
+                        '@media (min-width: 768px) and (max-width: 1024px)': {
+                          display: 'table-cell'
+                        }
+                      }}>
                 <Button
                   variant="outlined"
                   size="small"

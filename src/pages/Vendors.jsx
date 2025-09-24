@@ -1265,7 +1265,14 @@ const Vendors = () => {
               </TableCell>
               <TableCell 
                 onClick={() => handleSort('bidDate')}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                sx={{ 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                  // 테블릿에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   낙찰일
@@ -1287,7 +1294,14 @@ const Vendors = () => {
               </TableCell>
               <TableCell 
                 onClick={() => handleSort('winningCompany')}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                sx={{ 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                  // 테블릿에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   낙찰회사
@@ -1332,7 +1346,14 @@ const Vendors = () => {
               <TableCell>비고</TableCell>
               <TableCell 
                 onClick={() => handleSort('contractStatus')}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                sx={{ 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                  // 테블릿에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   수주여부
@@ -1368,9 +1389,19 @@ const Vendors = () => {
                   </Box>
                 </TableCell>
                 <TableCell>{vendor.companyName}</TableCell>
-                <TableCell>{formatDate(vendor.bidDate)}</TableCell>
+                <TableCell sx={{
+                  // 테블릿에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>{formatDate(vendor.bidDate)}</TableCell>
                 <TableCell>{vendor.siteName}</TableCell>
-                <TableCell>{vendor.winningCompany || '-'}</TableCell>
+                <TableCell sx={{
+                  // 테블릿에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>{vendor.winningCompany || '-'}</TableCell>
                 <TableCell>{formatAmount(vendor.amount)}</TableCell>
                 <TableCell>{vendor.item}</TableCell>
                 <TableCell>{vendor.quantity}</TableCell>

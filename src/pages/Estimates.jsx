@@ -937,7 +937,11 @@ const Estimates = () => {
             border: '1px solid #333',
             borderRadius: 2,
             minWidth: 400,
-            flex: 1
+            flex: 1,
+            // 테블릿에서 숨김
+            '@media (min-width: 768px) and (max-width: 1024px)': {
+              display: 'none'
+            }
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <AssignmentIcon sx={{ color: '#ef5350', fontSize: '1.2rem' }} />
