@@ -262,118 +262,145 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     return filtered;
   }, [giftData, searchTerm, selectedYear, selectedHoliday]);
 
-  // Firebase에서 섹션 데이터 로드
-  const loadSectionsData = async () => {
-    try {
-      console.log('섹션 데이터 로드 시작:', { selectedYear, selectedHoliday });
-      
-      // 현재 선택된 연도와 명절에 맞는 섹션만 쿼리
-      const sectionsQuery = query(
-        collection(db, 'giftSections'),
-        where('year', '==', selectedYear),
-        where('holiday', '==', selectedHoliday)
-      );
-      
-      const sectionsSnapshot = await getDocs(sectionsQuery);
-      const sectionsData = sectionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      // order 필드로 정렬 (order가 없는 경우 999로 설정하여 맨 뒤로)
-      const sortedSections = sectionsData.sort((a, b) => {
-        const orderA = a.order !== undefined ? a.order : 999;
-        const orderB = b.order !== undefined ? b.order : 999;
-        return orderA - orderB;
-      });
-      
-      console.log('로드된 섹션 데이터 (정렬됨):', sortedSections);
-      setSections(sortedSections);
-    } catch (error) {
-      console.error('섹션 데이터 로드 오류:', error);
-      // 오류 발생 시 빈 배열로 설정 (기본 섹션 생성하지 않음)
+  // Firebase에서 섹션 데이터 실시간 로드
+  const loadSectionsData = () => {
+    console.log('섹션 데이터 실시간 로드 시작:', { selectedYear, selectedHoliday });
+    
+    // 현재 선택된 연도와 명절에 맞는 섹션만 쿼리
+    const sectionsQuery = query(
+      collection(db, 'giftSections'),
+      where('year', '==', selectedYear),
+      where('holiday', '==', selectedHoliday)
+    );
+    
+    // 실시간 리스너 설정
+    const unsubscribe = onSnapshot(sectionsQuery, (sectionsSnapshot) => {
+      try {
+        const sectionsData = sectionsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        // order 필드로 정렬 (order가 없는 경우 999로 설정하여 맨 뒤로)
+        const sortedSections = sectionsData.sort((a, b) => {
+          const orderA = a.order !== undefined ? a.order : 999;
+          const orderB = b.order !== undefined ? b.order : 999;
+          return orderA - orderB;
+        });
+        
+        console.log('실시간 섹션 데이터 업데이트 (정렬됨):', sortedSections);
+        setSections(sortedSections);
+      } catch (error) {
+        console.error('섹션 데이터 처리 오류:', error);
+        setSections([]);
+      }
+    }, (error) => {
+      console.error('섹션 데이터 구독 오류:', error);
       setSections([]);
-    }
+    });
+    
+    return unsubscribe;
   };
 
-  // Firebase에서 카드 데이터 로드
-  const loadCardsData = async () => {
-    try {
-      console.log('카드 데이터 로드 시작:', { selectedYear, selectedHoliday });
-      
-      // 현재 선택된 연도와 명절에 맞는 카드만 쿼리
-      const cardsQuery = query(
-        collection(db, 'giftCards'),
-        where('year', '==', selectedYear),
-        where('holiday', '==', selectedHoliday)
-      );
-      
-      const cardsSnapshot = await getDocs(cardsQuery);
-      const cardsData = cardsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      console.log('로드된 카드 데이터:', cardsData);
-      
-      // 섹션별로 카드 그룹화 및 번호 할당
-      const cardsBySection = {};
-      cardsData.forEach(card => {
-        if (!cardsBySection[card.sectionId]) {
-          cardsBySection[card.sectionId] = [];
-        }
-        cardsBySection[card.sectionId].push(card);
-      });
-      
-      // 기존 카드 번호는 그대로 유지 (정렬만 적용)
-      sections.forEach(section => {
-        const sectionCards = cardsBySection[section.id] || [];
-        
-        if (sectionCards.length > 0) {
-          // 섹션 내에서 정렬: 직책이 회사인 카드들을 이름 가나다 순으로 앞쪽에, 나머지를 이름 가나다 순으로 뒤쪽에
-          const sortedCards = sectionCards.sort((a, b) => {
-            // 직책이 "회사"인지 확인
-            const isCompanyA = a.position === '회사';
-            const isCompanyB = b.position === '회사';
-            
-            // 직책이 회사인 카드들을 앞쪽에 배치
-            if (isCompanyA && !isCompanyB) return -1; // 회사 카드를 먼저
-            if (!isCompanyA && isCompanyB) return 1;  // 개인 카드를 나중에
-            
-            // 같은 타입 내에서 이름으로 가나다 순 정렬
-            const nameA = (a.name || '').trim();
-            const nameB = (b.name || '').trim();
-            return nameA.localeCompare(nameB, 'ko');
-          });
-          
-          // 기존 카드 번호는 그대로 유지 (정렬만 적용)
-          // cardNumber는 기존 값 그대로 사용
-        }
-      });
-      
-      console.log('섹션별 카드 그룹화:', cardsBySection);
-      
-      // 섹션에 카드 데이터 추가
-      setSections(prev => {
-        const updatedSections = prev.map(section => ({
-          ...section,
-          cards: cardsBySection[section.id] || []
+  // Firebase에서 카드 데이터 실시간 로드
+  const loadCardsData = () => {
+    console.log('카드 데이터 실시간 로드 시작:', { selectedYear, selectedHoliday });
+    
+    // 현재 선택된 연도와 명절에 맞는 카드만 쿼리
+    const cardsQuery = query(
+      collection(db, 'giftCards'),
+      where('year', '==', selectedYear),
+      where('holiday', '==', selectedHoliday)
+    );
+    
+    // 실시간 리스너 설정
+    const unsubscribe = onSnapshot(cardsQuery, (cardsSnapshot) => {
+      try {
+        const cardsData = cardsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
         }));
-        console.log('업데이트된 섹션들:', updatedSections);
-        return updatedSections;
-      });
-    } catch (error) {
-      console.error('카드 데이터 로드 오류:', error);
-    }
+        
+        console.log('실시간 카드 데이터 업데이트:', cardsData);
+        
+        // 섹션별로 카드 그룹화
+        const cardsBySection = {};
+        cardsData.forEach(card => {
+          if (!cardsBySection[card.sectionId]) {
+            cardsBySection[card.sectionId] = [];
+          }
+          cardsBySection[card.sectionId].push(card);
+        });
+        
+        // 섹션 내에서 정렬: 새카드는 맨 뒤로, 기존 카드는 직책별로 정렬
+        Object.keys(cardsBySection).forEach(sectionId => {
+          const sectionCards = cardsBySection[sectionId];
+          if (sectionCards.length > 0) {
+            const sortedCards = sectionCards.sort((a, b) => {
+              // 새카드인지 확인 (isNewCard가 true이거나 이름이 '새 카드'인 경우)
+              const isNewCardA = a.isNewCard === true || a.name === '새 카드';
+              const isNewCardB = b.isNewCard === true || b.name === '새 카드';
+              
+              // 새카드는 항상 맨 뒤로
+              if (isNewCardA && !isNewCardB) return 1; // 새카드를 뒤로
+              if (!isNewCardA && isNewCardB) return -1; // 기존 카드를 앞으로
+              
+              // 둘 다 새카드이거나 둘 다 기존 카드인 경우
+              if (isNewCardA && isNewCardB) {
+                // 새카드끼리는 카드 번호 순으로 정렬
+                return (a.cardNumber || 0) - (b.cardNumber || 0);
+              }
+              
+              // 기존 카드들끼리는 기존 정렬 로직 적용
+              // 직책이 "회사"인지 확인
+              const isCompanyA = a.position === '회사';
+              const isCompanyB = b.position === '회사';
+              
+              // 직책이 회사인 카드들을 앞쪽에 배치
+              if (isCompanyA && !isCompanyB) return -1; // 회사 카드를 먼저
+              if (!isCompanyA && isCompanyB) return 1;  // 개인 카드를 나중에
+              
+              // 같은 타입 내에서 이름으로 가나다 순 정렬
+              const nameA = (a.name || '').trim();
+              const nameB = (b.name || '').trim();
+              return nameA.localeCompare(nameB, 'ko');
+            });
+            
+            cardsBySection[sectionId] = sortedCards;
+          }
+        });
+        
+        console.log('실시간 섹션별 카드 그룹화:', cardsBySection);
+        
+        // 섹션에 카드 데이터 추가
+        setSections(prev => {
+          const updatedSections = prev.map(section => ({
+            ...section,
+            cards: cardsBySection[section.id] || []
+          }));
+          console.log('실시간 업데이트된 섹션들:', updatedSections);
+          return updatedSections;
+        });
+      } catch (error) {
+        console.error('카드 데이터 처리 오류:', error);
+      }
+    }, (error) => {
+      console.error('카드 데이터 구독 오류:', error);
+    });
+    
+    return unsubscribe;
   };
 
   useEffect(() => {
     let unsubscribeVendor = null;
+    let unsubscribeSections = null;
+    let unsubscribeCards = null;
     
     const initializeData = async () => {
       unsubscribeVendor = await loadVendorData();
       loadGiftData();
-      loadSectionsData();
+      unsubscribeSections = loadSectionsData();
+      unsubscribeCards = loadCardsData();
     };
     
     initializeData();
@@ -383,20 +410,14 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       if (unsubscribeVendor && typeof unsubscribeVendor === 'function') {
         unsubscribeVendor();
       }
+      if (unsubscribeSections && typeof unsubscribeSections === 'function') {
+        unsubscribeSections();
+      }
+      if (unsubscribeCards && typeof unsubscribeCards === 'function') {
+        unsubscribeCards();
+      }
     };
-  }, []);
-
-  // 섹션 데이터 로드 후 카드 데이터 로드
-  useEffect(() => {
-    if (sections && sections.length > 0) {
-      loadCardsData();
-    }
-  }, [sections?.length]);
-
-  // 연도나 명절이 변경될 때 섹션과 카드 데이터 다시 로드
-  useEffect(() => {
-    loadSectionsData();
-  }, [selectedYear, selectedHoliday]);
+  }, [selectedYear, selectedHoliday]); // 연도/명절 변경 시에도 리스너 재설정
 
   // props가 변경될 때 상태 업데이트
   useEffect(() => {
@@ -974,18 +995,19 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           return;
         }
         
-        // 해당 섹션의 최대 카드 번호 찾기
-        const targetSection = sections.find(s => s.id === sectionId);
+        // 전체 섹션의 최대 카드 번호 찾기 (1-100번 저장, 새카드는 101번부터)
         let maxCardNumber = 0;
-        if (targetSection?.cards) {
-          targetSection.cards.forEach(card => {
-            if (card.cardNumber && card.cardNumber > maxCardNumber) {
-              maxCardNumber = card.cardNumber;
-            }
-          });
-        }
+        sections.forEach(section => {
+          if (section?.cards) {
+            section.cards.forEach(card => {
+              if (card.cardNumber && card.cardNumber > maxCardNumber) {
+                maxCardNumber = card.cardNumber;
+              }
+            });
+          }
+        });
         
-        // 새 카드 번호는 해당 섹션의 최대 번호 + 1
+        // 새 카드 번호는 전체 최대 번호 + 1 (101번부터 시작)
         const newCardNumber = maxCardNumber + 1;
         
         const newCardData = {
@@ -1011,17 +1033,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         // 거래처 자동 추가
         await checkAndAddVendor(cardName, cardCompany, draggedItem.data.position || '', draggedItem.data.phone || '', draggedItem.data.address || '');
         
-        setSections(prev => {
-          const newSections = prev.map(section => {
-            if (section.id === sectionId) {
-              console.log('카드 추가:', { sectionId, newCard, currentCards: section.cards });
-              return { ...section, cards: [...(section.cards || []), newCard] };
-            }
-            return section;
-          });
-          console.log('업데이트된 섹션들:', newSections);
-          return newSections;
-        });
+        // Firebase 실시간 리스너가 자동으로 UI를 업데이트하므로 로컬 상태 업데이트 제거
         
         setSnackbar({ open: true, message: '거래처가 추가되었습니다.', severity: 'success' });
       } else if (draggedCard) {
@@ -1031,22 +1043,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           updatedAt: serverTimestamp()
         });
         
-        setSections(prev => {
-          const newSections = prev.map(section => {
-            if (section.id === draggedCard.sourceSectionId) {
-              // 원본 섹션에서 카드 제거
-              console.log('원본 섹션에서 카드 제거:', { sectionId: section.id, cardId: draggedCard.card.id, currentCards: section.cards });
-              return { ...section, cards: (section.cards || []).filter(card => card.id !== draggedCard.card.id) };
-            } else if (section.id === sectionId) {
-              // 대상 섹션에 카드 추가
-              console.log('대상 섹션에 카드 추가:', { sectionId: section.id, card: draggedCard.card, currentCards: section.cards });
-              return { ...section, cards: [...(section.cards || []), { ...draggedCard.card, sectionId }] };
-            }
-            return section;
-          });
-          console.log('카드 이동 후 섹션들:', newSections);
-          return newSections;
-        });
+        // Firebase 실시간 리스너가 자동으로 UI를 업데이트하므로 로컬 상태 업데이트 제거
         
         setSnackbar({ open: true, message: '카드가 이동되었습니다.', severity: 'success' });
       }
@@ -1066,11 +1063,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     try {
       await deleteDoc(doc(db, 'giftCards', cardId));
       
-      setSections(prev => prev.map(section => 
-        section.id === sectionId 
-          ? { ...section, cards: (section.cards || []).filter(card => card.id !== cardId) }
-          : section
-      ));
+      // Firebase 실시간 리스너가 자동으로 UI를 업데이트하므로 로컬 상태 업데이트 제거
       
       setSnackbar({ open: true, message: '카드가 삭제되었습니다.', severity: 'success' });
     } catch (error) {
@@ -1109,15 +1102,25 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   };
 
   // 선택된 카드들 삭제
-  const handleDeleteSelectedCards = () => {
+  const handleDeleteSelectedCards = async () => {
     if (selectedCards.size === 0) return;
     
-    setSections(prev => prev.map(section => ({
-      ...section,
-      cards: (section.cards || []).filter(card => !selectedCards.has(card.id))
-    })));
-    setSelectedCards(new Set());
-    setSelectMode(false);
+    try {
+      // 선택된 카드들을 Firebase에서 삭제
+      const deletePromises = Array.from(selectedCards).map(cardId => 
+        deleteDoc(doc(db, 'giftCards', cardId))
+      );
+      await Promise.all(deletePromises);
+      
+      // Firebase 실시간 리스너가 자동으로 UI를 업데이트하므로 로컬 상태 업데이트 제거
+      
+      setSelectedCards(new Set());
+      setSelectMode(false);
+      setSnackbar({ open: true, message: `${selectedCards.size}개 카드가 삭제되었습니다.`, severity: 'success' });
+    } catch (error) {
+      console.error('선택된 카드들 삭제 오류:', error);
+      setSnackbar({ open: true, message: '삭제 중 오류가 발생했습니다.', severity: 'error' });
+    }
   };
 
   // 선택 모드 토글
@@ -1465,27 +1468,11 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           address: editingCardAddress,
           quantity: editingCardQuantity,
           note: editingCardNote,
+          isNewCard: false, // 편집된 카드는 새카드가 아님
           updatedAt: serverTimestamp()
         });
         
-        setSections(prev => prev.map(section => ({
-          ...section,
-          cards: (section.cards || []).map(card => 
-            card.id === editingCard 
-                ? { 
-                    ...card, 
-                    name: editingCardName,
-                    company: editingCardCompany,
-                    position: editingCardPosition,
-                    phone: editingCardPhone,
-                    address: editingCardAddress,
-                    quantity: editingCardQuantity, 
-                    note: editingCardNote,
-                    giftName: editingCardGiftName
-                  }
-              : card
-          )
-        })));
+        // Firebase 실시간 리스너가 자동으로 UI를 업데이트하므로 로컬 상태 업데이트 제거
         
         setSnackbar({ open: true, message: '카드가 수정되었습니다.', severity: 'success' });
       } catch (error) {
@@ -1544,19 +1531,21 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         return;
       }
       
-      // 해당 섹션의 최대 카드 번호 찾기
+      // 전체 섹션의 최대 카드 번호 찾기 (1-100번 저장, 새카드는 101번부터)
       let maxCardNumber = 0;
-      if (targetSection?.cards) {
-        targetSection.cards.forEach(card => {
-          if (card.cardNumber && card.cardNumber > maxCardNumber) {
-            maxCardNumber = card.cardNumber;
-          }
-        });
-      }
+      sections.forEach(section => {
+        if (section?.cards) {
+          section.cards.forEach(card => {
+            if (card.cardNumber && card.cardNumber > maxCardNumber) {
+              maxCardNumber = card.cardNumber;
+            }
+          });
+        }
+      });
       
-      // 새 카드 번호는 해당 섹션의 최대 번호 + 1
+      // 새 카드 번호는 전체 최대 번호 + 1 (101번부터 시작)
       const newCardNumber = maxCardNumber + 1;
-      console.log('섹션 최대 번호:', maxCardNumber, '새 카드 번호:', newCardNumber);
+      console.log('전체 최대 번호:', maxCardNumber, '새 카드 번호:', newCardNumber);
       
       const newCardData = {
         type: 'manual',
@@ -1583,11 +1572,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       console.log('✅ Firebase에 카드 추가 완료:', newCard);
       console.log('새 카드 ID:', docRef.id);
       
-      setSections(prev => prev.map(section => 
-        section.id === sectionId 
-          ? { ...section, cards: [...section.cards, newCard] }
-          : section
-      ));
+      // Firebase 실시간 리스너가 자동으로 UI를 업데이트하므로 로컬 상태 업데이트 제거
       
       console.log('로컬 상태 업데이트 완료');
       
@@ -1671,7 +1656,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         // 섹션 삭제
         await deleteDoc(doc(db, 'giftSections', sectionId));
         
-        setSections(prev => prev.filter(section => section.id !== sectionId));
+        // Firebase 실시간 리스너가 자동으로 UI를 업데이트하므로 로컬 상태 업데이트 제거
         setSnackbar({ open: true, message: '섹션이 삭제되었습니다.', severity: 'success' });
       } catch (error) {
         console.error('섹션 삭제 오류:', error);
@@ -1738,8 +1723,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         
         await Promise.all(updatePromises);
         
-        // 섹션 순서 저장 후 데이터를 다시 불러와서 정확한 순서 보장
-        await loadSectionsData();
+        // Firebase 실시간 리스너가 자동으로 UI를 업데이트하므로 수동 로드 제거
         
         setSnackbar({ 
           open: true, 
@@ -1761,10 +1745,6 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   };
 
 
-  // 명절/년도 변경 시 데이터 자동 불러오기
-  useEffect(() => {
-    loadSectionsData();
-  }, [selectedYear, selectedHoliday]);
 
 
   // 엑셀 업로드 처리 (B,G열: 이름, C,H열: 선물종류)
