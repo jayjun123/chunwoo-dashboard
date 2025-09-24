@@ -43,7 +43,7 @@ import {
   FirstPage as FirstPageIcon,
   LastPage as LastPageIcon
 } from '@mui/icons-material';
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, orderBy, where, getDocs as getFirestoreDocs } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, orderBy, where, getDocs as getFirestoreDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import * as XLSX from 'xlsx';
 
@@ -167,8 +167,8 @@ const VendorManagement = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState('name');
-  const [sortDirection, setSortDirection] = useState('asc');
+  const [sortField, setSortField] = useState('createdAt');
+  const [sortDirection, setSortDirection] = useState('desc');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [uploadProgress, setUploadProgress] = useState({ show: false, current: 0, total: 0 });
 
@@ -194,31 +194,47 @@ const VendorManagement = () => {
     note: ''
   });
 
-  // 거래처 데이터 로드
-  const loadVendors = async () => {
+  // 거래처 데이터 실시간 로드
+  const loadVendors = () => {
     try {
       setLoading(true);
-      console.log('=== 거래처 데이터 로드 시작 ===');
-      const vendorsQuery = query(collection(db, 'vendors'), orderBy(sortField, sortDirection));
-      const querySnapshot = await getDocs(vendorsQuery);
-      const vendorsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      console.log('거래처 데이터 로드 완료:', vendorsData.length, '개');
-      console.log('거래처 데이터 샘플:', vendorsData.slice(0, 3));
-      setVendors(vendorsData);
+      console.log('=== 거래처 데이터 실시간 로드 시작 ===');
+      // 정렬은 클라이언트 사이드에서 처리하므로 기본 정렬만 사용
+      const vendorsQuery = query(collection(db, 'vendors'), orderBy('createdAt', 'desc'));
+      
+      const unsubscribe = onSnapshot(vendorsQuery, (snapshot) => {
+        const vendorsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        console.log('거래처 데이터 실시간 업데이트:', vendorsData.length, '개');
+        console.log('거래처 데이터 샘플:', vendorsData.slice(0, 3));
+        setVendors(vendorsData);
+        setLoading(false);
+      }, (error) => {
+        console.error('거래처 데이터 실시간 로드 오류:', error);
+        setSnackbar({ open: true, message: '거래처 데이터를 불러오는데 실패했습니다.', severity: 'error' });
+        setLoading(false);
+      });
+      
+      return unsubscribe;
     } catch (error) {
-      console.error('거래처 데이터 로드 오류:', error);
+      console.error('거래처 데이터 로드 초기화 오류:', error);
       setSnackbar({ open: true, message: '거래처 데이터를 불러오는데 실패했습니다.', severity: 'error' });
-    } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadVendors();
-  }, [sortField, sortDirection]);
+    const unsubscribe = loadVendors();
+    
+    // 컴포넌트 언마운트 시 구독 해제
+    return () => {
+      if (unsubscribe && typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, []);
 
   // 폼 초기화
   const resetForm = () => {
@@ -573,7 +589,6 @@ const VendorManagement = () => {
       }
 
       handleCloseDialog();
-      loadVendors();
     } catch (error) {
       console.error('거래처 저장 오류:', error);
       setSnackbar({ open: true, message: '거래처 저장에 실패했습니다.', severity: 'error' });
@@ -586,7 +601,6 @@ const VendorManagement = () => {
       try {
         await deleteDoc(doc(db, 'vendors', vendor.id));
         setSnackbar({ open: true, message: '거래처가 삭제되었습니다.', severity: 'success' });
-        loadVendors();
       } catch (error) {
         console.error('거래처 삭제 오류:', error);
         setSnackbar({ open: true, message: '거래처 삭제에 실패했습니다.', severity: 'error' });
@@ -651,9 +665,40 @@ const VendorManagement = () => {
     return uniqueVendors;
   };
 
-  // 검색 필터링 및 등록 순서대로 정렬
-  const filteredVendors = removeDuplicates(vendors
-    .filter(vendor =>
+  // 정렬 함수
+  const sortVendors = (vendorsList, field, direction) => {
+    return [...vendorsList].sort((a, b) => {
+      let aValue = a[field];
+      let bValue = b[field];
+
+      // null/undefined 처리
+      if (aValue === null || aValue === undefined) aValue = '';
+      if (bValue === null || bValue === undefined) bValue = '';
+
+      // 날짜 필드 처리
+      if (field === 'createdAt') {
+        aValue = aValue ? (aValue.seconds ? new Date(aValue.seconds * 1000) : new Date(aValue)) : new Date(0);
+        bValue = bValue ? (bValue.seconds ? new Date(bValue.seconds * 1000) : new Date(bValue)) : new Date(0);
+      }
+
+      // 문자열 필드 처리 (한글 정렬을 위해 localeCompare 사용)
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        const comparison = aValue.localeCompare(bValue, 'ko', { numeric: true });
+        return direction === 'desc' ? -comparison : comparison;
+      }
+
+      // 날짜/숫자 비교
+      if (direction === 'desc') {
+        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+      } else {
+        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+      }
+    });
+  };
+
+  // 검색 필터링 및 정렬
+  const filteredVendors = sortVendors(
+    removeDuplicates(vendors.filter(vendor =>
       vendor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -661,13 +706,10 @@ const VendorManagement = () => {
       vendor.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.companyPhone?.includes(searchTerm) ||
       vendor.address?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .sort((a, b) => {
-      // 최신 등록 순서대로 정렬 (createdAt 기준, 내림차순)
-      const dateA = a.createdAt ? new Date(a.createdAt.seconds * 1000) : new Date(0);
-      const dateB = b.createdAt ? new Date(b.createdAt.seconds * 1000) : new Date(0);
-      return dateB - dateA; // 내림차순으로 변경
-    }));
+    )),
+    sortField,
+    sortDirection
+  );
 
   // 페이지네이션 계산
   const totalPages = Math.ceil(filteredVendors.length / itemsPerPage);
@@ -1243,13 +1285,25 @@ const VendorManagement = () => {
             <TableRow sx={{ backgroundColor: '#333' }}>
               <TableCell sx={{ color: '#fff', fontWeight: 600, width: 80 }}>NO.</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('name')}>
-                이름 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+                이름 
+                <SortIcon sx={{ 
+                  fontSize: '1rem', 
+                  ml: 0.5,
+                  transform: sortField === 'name' && sortDirection === 'desc' ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 0.2s'
+                }} />
               </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>직책</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>번호</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>메일</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('companyName')}>
-                회사명 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+                회사명 
+                <SortIcon sx={{ 
+                  fontSize: '1rem', 
+                  ml: 0.5,
+                  transform: sortField === 'companyName' && sortDirection === 'desc' ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 0.2s'
+                }} />
               </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>대표자</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>사업자번호</TableCell>
@@ -1423,6 +1477,9 @@ const VendorManagement = () => {
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
+        disableEnforceFocus
+        disableAutoFocus
+        disableRestoreFocus
         PaperProps={{
           sx: { backgroundColor: '#2a2a2a' }
         }}
@@ -1654,6 +1711,9 @@ const VendorManagement = () => {
         open={uploadProgress.show}
         maxWidth="sm"
         fullWidth
+        disableEnforceFocus
+        disableAutoFocus
+        disableRestoreFocus
         PaperProps={{
           sx: { backgroundColor: '#2a2a2a' }
         }}

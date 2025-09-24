@@ -8,6 +8,8 @@ import { initMobileOptimization, initViewportHeight } from './utils/mobileOptimi
 import { initializeWindow } from './utils/windowManager';
 import { globalCleanupManager, enhancedPerformanceMonitor } from './utils/performanceUtils';
 import { initializeMobileInputOptimization } from './utils/mobileInputOptimization';
+import { fixAriaHiddenIssues } from './utils/materialUploadUtils';
+import { fixNestedScrollContainers } from './utils/dndScrollFix';
 import './utils/migrateUtils';
 import './styles/IME.css';
 import { AuthProvider } from './contexts/AuthContext';
@@ -414,6 +416,44 @@ const App = React.memo(() => {
     } catch (error) {
       console.error('IME/Keyboard initialization error:', error);
       // 오류가 발생해도 앱은 계속 실행
+    }
+  }, []);
+
+  // aria-hidden 접근성 문제 해결
+  useEffect(() => {
+    try {
+      // 앱 시작 시 aria-hidden 문제 해결
+      fixAriaHiddenIssues();
+      
+      // 주기적으로 aria-hidden 문제 해결 (5초마다)
+      const interval = setInterval(() => {
+        fixAriaHiddenIssues();
+      }, 5000);
+      
+      return () => {
+        clearInterval(interval);
+      };
+    } catch (error) {
+      console.error('aria-hidden 문제 해결 초기화 오류:', error);
+    }
+  }, []);
+
+  // react-beautiful-dnd 중첩 스크롤 컨테이너 문제 해결
+  useEffect(() => {
+    try {
+      // 앱 시작 시 중첩 스크롤 컨테이너 문제 해결
+      fixNestedScrollContainers();
+      
+      // 주기적으로 중첩 스크롤 컨테이너 문제 해결 (10초마다)
+      const interval = setInterval(() => {
+        fixNestedScrollContainers();
+      }, 10000);
+      
+      return () => {
+        clearInterval(interval);
+      };
+    } catch (error) {
+      console.error('중첩 스크롤 컨테이너 문제 해결 초기화 오류:', error);
     }
   }, []);
 

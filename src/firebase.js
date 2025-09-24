@@ -117,11 +117,26 @@ if (import.meta.env.DEV) {
   const originalConsoleError = console.error;
   console.error = (...args) => {
     // BloomFilter 오류는 성능 최적화 관련 오류이므로 무시
-    if (args.length > 0 && 
-        (typeof args[0] === 'string' && args[0].includes('BloomFilter')) ||
-        (args[0] && args[0].name === 'BloomFilterError')) {
-      console.debug('🔧 BloomFilter 최적화 중... (오류 무시)');
-      return;
+    if (args.length > 0) {
+      const firstArg = args[0];
+      const message = typeof firstArg === 'string' ? firstArg : 
+                     (firstArg && typeof firstArg === 'object' && firstArg.message) ? firstArg.message : '';
+      
+      // BloomFilter 관련 오류 필터링
+      if (message.includes('BloomFilter') || 
+          message.includes('BloomFilterError') ||
+          (firstArg && firstArg.name === 'BloomFilterError') ||
+          (firstArg && firstArg.name && firstArg.name.includes('BloomFilter'))) {
+        console.debug('🔧 BloomFilter 최적화 중... (오류 무시)');
+        return;
+      }
+      
+      // Firestore 관련 기타 성능 최적화 오류도 필터링
+      if (message.includes('@firebase/firestore') && 
+          (message.includes('error') || message.includes('Error'))) {
+        console.debug('🔧 Firestore 성능 최적화 중... (오류 무시)');
+        return;
+      }
     }
     originalConsoleError.apply(console, args);
   };

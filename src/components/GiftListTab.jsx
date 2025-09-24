@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -48,7 +48,8 @@ import {
   CloudUpload as CloudUploadIcon,
   FileUpload as FileUploadIcon,
   Check as CheckIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Sync as SyncIcon
 } from '@mui/icons-material';
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -58,6 +59,46 @@ import { isMasterUser } from '../utils/masterUtils';
 import { formatNumber } from '../utils/formatUtils';
 import ExcelJS from 'exceljs';
 
+// 전화번호 포맷팅 함수 (전역 함수)
+const formatPhoneNumber = (value) => {
+  // null, undefined, 빈 문자열 처리
+  if (!value || value === null || value === undefined) {
+    return '';
+  }
+  
+  // 문자열로 변환
+  const stringValue = String(value);
+  
+  // 숫자만 추출
+  const numbers = stringValue.replace(/\D/g, '');
+  
+  // 숫자가 없으면 빈 문자열 반환
+  if (numbers.length === 0) {
+    return '';
+  }
+  
+  // 3자리 이하
+  if (numbers.length <= 3) {
+    return numbers;
+  }
+  // 4-7자리 (예: 010-1234)
+  else if (numbers.length <= 7) {
+    return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
+  }
+  // 8-10자리 (예: 010-1234-5678)
+  else if (numbers.length <= 10) {
+    return `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(6)}`;
+  }
+  // 11자리 (예: 010-1234-5678)
+  else if (numbers.length === 11) {
+    return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
+  }
+  // 11자리 초과시 11자리까지만 사용
+  else {
+    return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
+  }
+};
+
 const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSelectedHoliday }) => {
   const { currentUser } = useAuth();
   const isMaster = isMasterUser(currentUser);
@@ -65,6 +106,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   // 상태 관리
   const [giftData, setGiftData] = useState([]);
   const [vendorData, setVendorData] = useState([]);
+  const [filteredVendorCount, setFilteredVendorCount] = useState(0);
   const [filteredGiftData, setFilteredGiftData] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -91,6 +133,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   const [editingCardAddress, setEditingCardAddress] = useState('');
   const [editingCardQuantity, setEditingCardQuantity] = useState(1);
   const [editingCardNote, setEditingCardNote] = useState('');
+  const [editingCardGiftName, setEditingCardGiftName] = useState('');
   
   // 선택 상태 관리
   const [selectedCards, setSelectedCards] = useState(new Set());
@@ -107,24 +150,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   // 섹션별 검색 상태
   const [sectionSearchTerms, setSectionSearchTerms] = useState({});
 
-  // 전화번호 포맷팅 함수
-  const formatPhoneNumber = (value) => {
-    // 숫자만 추출
-    const numbers = value.replace(/\D/g, '');
-    
-    if (numbers.length <= 3) {
-      return numbers;
-    } else if (numbers.length <= 7) {
-      return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
-    } else if (numbers.length === 10) {
-      return `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(6)}`;
-    } else if (numbers.length === 11) {
-      return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
-    } else {
-      // 11자리를 초과하면 11자리까지만 사용
-      return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
-    }
-  };
+
 
   
   // 폼 데이터
@@ -154,15 +180,21 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     note: ''
   });
 
-  // 거래처 데이터 로드
+  // 거래처 데이터 로드 (실시간 업데이트)
   const loadVendorData = async () => {
     try {
-      const vendorSnapshot = await getDocs(collection(db, 'vendors'));
-      const vendors = vendorSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setVendorData(vendors);
+      // 실시간 업데이트를 위한 onSnapshot 사용
+      const unsubscribe = onSnapshot(collection(db, 'vendors'), (snapshot) => {
+        const vendors = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setVendorData(vendors);
+        console.log('거래처 데이터 실시간 업데이트:', vendors.length, '개');
+      });
+      
+      // 컴포넌트 언마운트 시 구독 해제
+      return unsubscribe;
     } catch (error) {
       console.error('거래처 데이터 로드 오류:', error);
     }
@@ -284,13 +316,39 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       
       console.log('로드된 카드 데이터:', cardsData);
       
-      // 섹션별로 카드 그룹화
+      // 섹션별로 카드 그룹화 및 번호 할당
       const cardsBySection = {};
       cardsData.forEach(card => {
         if (!cardsBySection[card.sectionId]) {
           cardsBySection[card.sectionId] = [];
         }
         cardsBySection[card.sectionId].push(card);
+      });
+      
+      // 기존 카드 번호는 그대로 유지 (정렬만 적용)
+      sections.forEach(section => {
+        const sectionCards = cardsBySection[section.id] || [];
+        
+        if (sectionCards.length > 0) {
+          // 섹션 내에서 정렬: 직책이 회사인 카드들을 이름 가나다 순으로 앞쪽에, 나머지를 이름 가나다 순으로 뒤쪽에
+          const sortedCards = sectionCards.sort((a, b) => {
+            // 직책이 "회사"인지 확인
+            const isCompanyA = a.position === '회사';
+            const isCompanyB = b.position === '회사';
+            
+            // 직책이 회사인 카드들을 앞쪽에 배치
+            if (isCompanyA && !isCompanyB) return -1; // 회사 카드를 먼저
+            if (!isCompanyA && isCompanyB) return 1;  // 개인 카드를 나중에
+            
+            // 같은 타입 내에서 이름으로 가나다 순 정렬
+            const nameA = (a.name || '').trim();
+            const nameB = (b.name || '').trim();
+            return nameA.localeCompare(nameB, 'ko');
+          });
+          
+          // 기존 카드 번호는 그대로 유지 (정렬만 적용)
+          // cardNumber는 기존 값 그대로 사용
+        }
       });
       
       console.log('섹션별 카드 그룹화:', cardsBySection);
@@ -310,17 +368,30 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   };
 
   useEffect(() => {
-    loadVendorData();
-    loadGiftData();
-    loadSectionsData();
+    let unsubscribeVendor = null;
+    
+    const initializeData = async () => {
+      unsubscribeVendor = await loadVendorData();
+      loadGiftData();
+      loadSectionsData();
+    };
+    
+    initializeData();
+    
+    // 컴포넌트 언마운트 시 구독 해제
+    return () => {
+      if (unsubscribeVendor && typeof unsubscribeVendor === 'function') {
+        unsubscribeVendor();
+      }
+    };
   }, []);
 
   // 섹션 데이터 로드 후 카드 데이터 로드
   useEffect(() => {
-    if (sections.length > 0) {
+    if (sections && sections.length > 0) {
       loadCardsData();
     }
-  }, [sections.length]);
+  }, [sections?.length]);
 
   // 연도나 명절이 변경될 때 섹션과 카드 데이터 다시 로드
   useEffect(() => {
@@ -496,44 +567,106 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         right: { style: 'medium', color: { argb: 'FF000000' } }
       };
       
-      let currentRow = 3; // 제목 다음 행부터 시작
+      // 총계 계산
+      let totalPeople = 0;
+      let totalAmount = 0;
+      
+      // 선물개수 총합에서 제외할 섹션들
+      const excludeFromCount = ['직원', '팀별', '대마팀', '대마', '현장', '현장별', '중복', '신세계', '상품권'];
+      
+      sections.forEach(section => {
+        const cards = section.cards || [];
+        const sectionPeople = cards.length;
+        const sectionQuantity = cards.reduce((sum, card) => sum + (card.quantity || 1), 0);
+        const sectionAmount = (section.unitPrice || 0) * sectionQuantity;
+
+        // 특정 섹션들은 선물개수 총합에서 제외
+        if (!excludeFromCount.includes(section.title)) {
+          totalPeople += sectionPeople;
+        }
+        
+        // 금액은 모든 섹션에서 합산
+        totalAmount += sectionAmount;
+      });
+      
+      // 총계 행 추가
+      const totalRow = worksheet.addRow([`총계: ${totalPeople.toLocaleString()}명, 총 금액: ${totalAmount.toLocaleString()}원`]);
+      totalRow.height = 25;
+      
+      // 총계 셀 병합 (A2~I2)
+      worksheet.mergeCells('A2:I2');
+      const totalCell = worksheet.getCell('A2');
+      totalCell.font = {
+        name: '맑은 고딕',
+        size: 14,
+        bold: true,
+        color: { argb: 'FF000000' }
+      };
+      totalCell.alignment = {
+        horizontal: 'center',
+        vertical: 'middle'
+      };
+      totalCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
+      };
+      totalCell.border = {
+        top: { style: 'medium', color: { argb: 'FF000000' } },
+        left: { style: 'medium', color: { argb: 'FF000000' } },
+        bottom: { style: 'medium', color: { argb: 'FF000000' } },
+        right: { style: 'medium', color: { argb: 'FF000000' } }
+      };
+      
+      // 빈 행 추가
+      const emptyRow = worksheet.addRow(['']);
+      emptyRow.height = 10;
+      
+      let currentRow = 4; // 총계 다음 행부터 시작
       
       // 각 섹션별로 처리
       sections.forEach((section, sectionIndex) => {
         if (!section.cards || section.cards.length === 0) return;
         
-        // 섹션 헤더 행 추가 (섹션명 + 헤더를 한 행에)
-        const headers = ['번호', '수혜자', '회사명', '직책', '전화번호', '주소', '선물', '개수', '비고'];
-        const sectionHeaderRow = worksheet.addRow([`📋 ${section.title}`, ...headers]);
-        sectionHeaderRow.height = 25;
+        // 섹션 제목 행 추가
+        const sectionTitleRow = worksheet.addRow([`📋 ${section.title}`]);
+        sectionTitleRow.height = 25;
         
-        // 섹션명 셀 (A열) 스타일 적용
-        const sectionCell = worksheet.getCell(currentRow, 1);
-        sectionCell.font = {
+        // 섹션 제목 셀 병합 (A~I열)
+        worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
+        const sectionTitleCell = worksheet.getCell(`A${currentRow}`);
+        sectionTitleCell.font = {
           name: '맑은 고딕',
           size: 14,
           bold: true,
           color: { argb: 'FFFFFFFF' }
         };
-        sectionCell.alignment = {
+        sectionTitleCell.alignment = {
           horizontal: 'center',
           vertical: 'middle'
         };
-        sectionCell.fill = {
+        sectionTitleCell.fill = {
           type: 'pattern',
           pattern: 'solid',
           fgColor: { argb: 'FF4472C4' } // 파란색 배경
         };
-        sectionCell.border = {
+        sectionTitleCell.border = {
           top: { style: 'medium', color: { argb: 'FF000000' } },
           left: { style: 'medium', color: { argb: 'FF000000' } },
           bottom: { style: 'medium', color: { argb: 'FF000000' } },
           right: { style: 'medium', color: { argb: 'FF000000' } }
         };
         
-        // 헤더 셀들 스타일 적용 (B~J열)
+        currentRow++;
+        
+        // 헤더 행 추가
+        const headers = ['번호', '이름', '회사명', '직책', '전화번호', '주소', '선물', '개수', '비고'];
+        const headerRow = worksheet.addRow(headers);
+        headerRow.height = 25;
+        
+        // 헤더 셀들 스타일 적용
         headers.forEach((header, index) => {
-          const cell = worksheet.getCell(currentRow, index + 2);
+          const cell = worksheet.getCell(currentRow, index + 1);
           cell.font = {
             name: '맑은 고딕',
             size: 12,
@@ -559,8 +692,17 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         
         currentRow++;
         
-        // 섹션 내 카드들을 가나다 순으로 정렬
-        const sortedCards = section.cards.sort((a, b) => {
+        // 섹션 내 카드들을 정렬: 직책이 회사인 카드들을 이름 가나다 순으로 앞쪽에, 나머지를 이름 가나다 순으로 뒤쪽에
+        const sortedCards = (section.cards || []).sort((a, b) => {
+          // 직책이 "회사"인지 확인
+          const isCompanyA = a.position === '회사';
+          const isCompanyB = b.position === '회사';
+          
+          // 직책이 회사인 카드들을 앞쪽에 배치
+          if (isCompanyA && !isCompanyB) return -1; // 회사 카드를 먼저
+          if (!isCompanyA && isCompanyB) return 1;  // 개인 카드를 나중에
+          
+          // 같은 타입 내에서 이름으로 가나다 순 정렬
           const nameA = (a.name || '').trim();
           const nameB = (b.name || '').trim();
           return nameA.localeCompare(nameB, 'ko');
@@ -569,21 +711,20 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         // 데이터 행 추가
         sortedCards.forEach((card, cardIndex) => {
           const dataRow = worksheet.addRow([
-            '', // A열은 빈 값 (섹션명 자리)
             cardIndex + 1,
             card.name || '',
             card.company || '',
             card.position || '',
             card.phone || '',
             card.address || '',
-            card.giftType || card.type || '',
+            card.giftName || section.giftName || '', // 카드의 선물종류 또는 섹션의 선물종류
             card.quantity || 1,
             card.note || ''
           ]);
           dataRow.height = 20;
           
           // 데이터 셀 스타일 적용
-          for (let col = 1; col <= 10; col++) {
+          for (let col = 1; col <= 9; col++) {
             const cell = worksheet.getCell(currentRow, col);
             cell.font = {
               name: '맑은 고딕',
@@ -606,8 +747,8 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         });
         
         // 섹션 간 구분을 위한 빈 행 추가 (마지막 섹션이 아닌 경우)
-        if (sectionIndex < sections.length - 1) {
-          const emptyRow = worksheet.addRow(['', '', '', '', '', '', '', '', '', '']);
+        if (sectionIndex < (sections?.length || 0) - 1) {
+          const emptyRow = worksheet.addRow(['', '', '', '', '', '', '', '', '']);
           emptyRow.height = 10;
           currentRow++;
         }
@@ -615,16 +756,15 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       
       // 열 너비 설정
       worksheet.columns = [
-        { width: 15 }, // A열 (섹션명 자리)
-        { width: 8 },  // B열 (번호)
-        { width: 15 }, // C열 (수혜자)
-        { width: 20 }, // D열 (회사명)
-        { width: 15 }, // E열 (직책)
-        { width: 15 }, // F열 (전화번호)
-        { width: 25 }, // G열 (주소)
-        { width: 15 }, // H열 (선물)
-        { width: 8 },  // I열 (개수)
-        { width: 20 }  // J열 (비고)
+        { width: 8 },  // A열 (번호)
+        { width: 15 }, // B열 (이름)
+        { width: 20 }, // C열 (회사명)
+        { width: 15 }, // D열 (직책)
+        { width: 15 }, // E열 (전화번호)
+        { width: 25 }, // F열 (주소)
+        { width: 15 }, // G열 (선물)
+        { width: 8 },  // H열 (개수)
+        { width: 20 }  // I열 (비고)
       ];
       
       // 파일 다운로드
@@ -663,19 +803,25 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
 
   // 거래처 다이얼로그 열기
   const handleOpenVendorDialog = (vendor = null) => {
+    console.log('handleOpenVendorDialog 호출됨:', vendor);
     if (vendor) {
+      console.log('vendor 데이터:', vendor);
+      console.log('vendor.company:', vendor.company);
+      console.log('vendor.companyName:', vendor.companyName);
       setEditingVendor(vendor);
-      setVendorFormData({
+      const formData = {
         name: vendor.name || '',
         position: vendor.position || '',
         phone: formatPhoneNumber(vendor.phone || ''), // 기존 전화번호도 포맷팅
         email: vendor.email || '',
-        company: vendor.company || '',
+        company: vendor.company || vendor.companyName || '', // companyName도 확인
         ceo: vendor.ceo || '',
         businessNumber: vendor.businessNumber || '',
         address: vendor.address || '',
         note: vendor.note || ''
-      });
+      };
+      console.log('설정할 formData:', formData);
+      setVendorFormData(formData);
     } else {
       setEditingVendor(null);
       setVendorFormData({
@@ -747,7 +893,6 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         setSnackbar({ open: true, message: '거래처가 등록되었습니다.', severity: 'success' });
       }
       handleCloseVendorDialog();
-      loadVendorData();
     } catch (error) {
       console.error('거래처 저장 오류:', error);
       setSnackbar({ open: true, message: '저장 중 오류가 발생했습니다.', severity: 'error' });
@@ -767,7 +912,6 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       try {
         await deleteDoc(doc(db, 'vendors', vendorId));
         setSnackbar({ open: true, message: '거래처가 삭제되었습니다.', severity: 'success' });
-        loadVendorData();
       } catch (error) {
         console.error('거래처 삭제 오류:', error);
         setSnackbar({ open: true, message: '삭제 중 오류가 발생했습니다.', severity: 'error' });
@@ -814,13 +958,40 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     
     console.log('드롭 이벤트:', { sectionId, draggedItem, draggedCard });
     
-    if (draggedItem && draggedItem.type === 'vendor') {
-      // 거래처를 섹션에 추가
-      try {
+    try {
+      if (draggedItem && draggedItem.type === 'vendor') {
+        // 거래처를 섹션에 추가
+        const cardName = draggedItem.data.name;
+        const cardCompany = draggedItem.data.company || draggedItem.data.companyName || draggedItem.data.company_name || '회사명 없음';
+        
+        // 중복 체크
+        if (checkCardDuplicate(cardName, cardCompany, sectionId)) {
+          setSnackbar({ 
+            open: true, 
+            message: '중복입니다', 
+            severity: 'warning' 
+          });
+          return;
+        }
+        
+        // 해당 섹션의 최대 카드 번호 찾기
+        const targetSection = sections.find(s => s.id === sectionId);
+        let maxCardNumber = 0;
+        if (targetSection?.cards) {
+          targetSection.cards.forEach(card => {
+            if (card.cardNumber && card.cardNumber > maxCardNumber) {
+              maxCardNumber = card.cardNumber;
+            }
+          });
+        }
+        
+        // 새 카드 번호는 해당 섹션의 최대 번호 + 1
+        const newCardNumber = maxCardNumber + 1;
+        
         const newCardData = {
           type: 'vendor',
-          name: draggedItem.data.name,
-          company: draggedItem.data.company || draggedItem.data.companyName || draggedItem.data.company_name || '회사명 없음',
+          name: cardName,
+          company: cardCompany,
           phone: draggedItem.data.phone || '전화번호 없음',
           position: draggedItem.data.position || '',
           quantity: 1,
@@ -828,6 +999,8 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           sectionId: sectionId,
           year: selectedYear,
           holiday: selectedHoliday,
+          isNewCard: true, // 드래그앤드롭으로 추가된 카드도 마지막에 배치
+          cardNumber: newCardNumber, // 고유한 카드 번호 추가
           createdAt: serverTimestamp(),
           createdBy: currentUser?.email || 'unknown'
         };
@@ -835,11 +1008,14 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         const docRef = await addDoc(collection(db, 'giftCards'), newCardData);
         const newCard = { id: docRef.id, ...newCardData };
         
+        // 거래처 자동 추가
+        await checkAndAddVendor(cardName, cardCompany, draggedItem.data.position || '', draggedItem.data.phone || '', draggedItem.data.address || '');
+        
         setSections(prev => {
           const newSections = prev.map(section => {
             if (section.id === sectionId) {
-              console.log('카드 추가:', { sectionId, newCard });
-              return { ...section, cards: [...section.cards, newCard] };
+              console.log('카드 추가:', { sectionId, newCard, currentCards: section.cards });
+              return { ...section, cards: [...(section.cards || []), newCard] };
             }
             return section;
           });
@@ -848,13 +1024,8 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         });
         
         setSnackbar({ open: true, message: '거래처가 추가되었습니다.', severity: 'success' });
-      } catch (error) {
-        console.error('거래처 추가 오류:', error);
-        setSnackbar({ open: true, message: '거래처 추가 중 오류가 발생했습니다.', severity: 'error' });
-      }
-    } else if (draggedCard) {
-      // 카드를 다른 섹션으로 이동
-      try {
+      } else if (draggedCard) {
+        // 카드를 다른 섹션으로 이동
         await updateDoc(doc(db, 'giftCards', draggedCard.card.id), {
           sectionId: sectionId,
           updatedAt: serverTimestamp()
@@ -864,10 +1035,12 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           const newSections = prev.map(section => {
             if (section.id === draggedCard.sourceSectionId) {
               // 원본 섹션에서 카드 제거
-              return { ...section, cards: section.cards.filter(card => card.id !== draggedCard.card.id) };
+              console.log('원본 섹션에서 카드 제거:', { sectionId: section.id, cardId: draggedCard.card.id, currentCards: section.cards });
+              return { ...section, cards: (section.cards || []).filter(card => card.id !== draggedCard.card.id) };
             } else if (section.id === sectionId) {
               // 대상 섹션에 카드 추가
-              return { ...section, cards: [...section.cards, { ...draggedCard.card, sectionId }] };
+              console.log('대상 섹션에 카드 추가:', { sectionId: section.id, card: draggedCard.card, currentCards: section.cards });
+              return { ...section, cards: [...(section.cards || []), { ...draggedCard.card, sectionId }] };
             }
             return section;
           });
@@ -876,15 +1049,16 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         });
         
         setSnackbar({ open: true, message: '카드가 이동되었습니다.', severity: 'success' });
-      } catch (error) {
-        console.error('카드 이동 오류:', error);
-        setSnackbar({ open: true, message: '카드 이동 중 오류가 발생했습니다.', severity: 'error' });
       }
+    } catch (error) {
+      console.error('드롭 처리 오류:', error);
+      setSnackbar({ open: true, message: '드롭 처리 중 오류가 발생했습니다.', severity: 'error' });
+    } finally {
+      // 드래그 상태 초기화
+      setDraggedItem(null);
+      setDraggedCard(null);
+      setDragOverSection(null);
     }
-    
-    setDraggedItem(null);
-    setDraggedCard(null);
-    setDragOverSection(null);
   };
 
   // 카드 삭제
@@ -894,7 +1068,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       
       setSections(prev => prev.map(section => 
         section.id === sectionId 
-          ? { ...section, cards: section.cards.filter(card => card.id !== cardId) }
+          ? { ...section, cards: (section.cards || []).filter(card => card.id !== cardId) }
           : section
       ));
       
@@ -925,7 +1099,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
 
   // 전체 선택
   const handleSelectAll = () => {
-    const allCardIds = sections.flatMap(section => section.cards.map(card => card.id));
+    const allCardIds = (sections || []).flatMap(section => (section.cards || []).map(card => card.id));
     setSelectedCards(new Set(allCardIds));
   };
 
@@ -940,7 +1114,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     
     setSections(prev => prev.map(section => ({
       ...section,
-      cards: section.cards.filter(card => !selectedCards.has(card.id))
+      cards: (section.cards || []).filter(card => !selectedCards.has(card.id))
     })));
     setSelectedCards(new Set());
     setSelectMode(false);
@@ -965,13 +1139,33 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   
   // 섹션별 필터링된 카드
   const getFilteredCards = (section) => {
+    if (!section) return [];
     const searchTerm = sectionSearchTerms[section.id] || '';
-    if (!searchTerm) return section.cards || [];
+    let cards = section.cards || [];
     
-    return (section.cards || []).filter(card => 
-      card.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      card.company?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // 검색어가 있으면 필터링
+    if (searchTerm) {
+      cards = cards.filter(card => 
+        card.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        card.company?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // 직책이 회사인 카드들을 이름 가나다 순으로 앞쪽에, 나머지를 이름 가나다 순으로 뒤쪽에 정렬
+    return cards.sort((a, b) => {
+      // 직책이 "회사"인지 확인
+      const isCompanyA = a.position === '회사';
+      const isCompanyB = b.position === '회사';
+      
+      // 직책이 회사인 카드들을 앞쪽에 배치
+      if (isCompanyA && !isCompanyB) return -1; // 회사 카드를 먼저
+      if (!isCompanyA && isCompanyB) return 1;  // 개인 카드를 나중에
+      
+      // 같은 타입 내에서 이름으로 가나다 순 정렬
+      const nameA = (a.name || '').trim();
+      const nameB = (b.name || '').trim();
+      return nameA.localeCompare(nameB, 'ko');
+    });
   };
 
   // 섹션 높이 편집 시작
@@ -1081,28 +1275,62 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       setEditingCardName(card.name || '');
       setEditingCardCompany(card.company || '');
       setEditingCardPosition(card.position || '');
-      setEditingCardPhone(card.phone || '');
+      // 전화번호 안전하게 처리
+      try {
+        const formattedPhone = formatPhoneNumber(card.phone || '');
+        setEditingCardPhone(formattedPhone);
+      } catch (error) {
+        console.error('전화번호 초기화 오류:', error);
+        setEditingCardPhone(card.phone || '');
+      }
       setEditingCardAddress(card.address || '');
       setEditingCardQuantity(card.quantity || 1);
       setEditingCardNote(card.note || '');
+      // 카드에 선물종류가 있으면 사용하고, 없으면 섹션의 선물종류 사용
+      setEditingCardGiftName(card.giftName || section.giftName || '');
     }
   };
 
-  // 거래처 중복확인 및 자동 추가 (이름, 회사명, 직책이 모두 있을 때만)
+
+
+
+  // 거래처 중복확인 및 자동 추가 (이름, 회사명이 있으면 거래처 등록)
   const checkAndAddVendor = async (personName, companyName, position = '', phone = '', address = '') => {
-    // 이름, 회사명, 직책이 모두 있어야 거래처 등록
-    if (!personName || !companyName || !position || 
-        personName.trim() === '' || companyName.trim() === '' || position.trim() === '') {
+    console.log('=== 거래처 자동 추가 시작 ===');
+    console.log('입력 데이터:', { personName, companyName, position, phone, address });
+    
+    // 이름, 회사명이 있으면 거래처 등록 (직책은 선택사항)
+    if (!personName || !companyName || 
+        personName.trim() === '' || companyName.trim() === '') {
+      console.log('거래처 자동 추가 조건 불만족:', { personName, companyName });
       return;
     }
     
     try {
-      // 기존 거래처에서 이름, 회사명, 직책으로 중복 확인
-      const existingVendor = vendorData.find(vendor => 
+      // 실시간으로 거래처 데이터 가져오기
+      const vendorsQuery = query(collection(db, 'vendors'), orderBy('name', 'asc'));
+      const querySnapshot = await getDocs(vendorsQuery);
+      const currentVendorData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      console.log('현재 거래처 데이터:', currentVendorData.length, '개');
+      console.log('기존 거래처 목록:', currentVendorData.map(v => `${v.name} (${v.company})`));
+      
+      // 1순위: 이름과 직책으로 거래처 찾기
+      let existingVendor = currentVendorData.find(vendor => 
         vendor.name?.toLowerCase() === personName.toLowerCase() &&
-        vendor.company?.toLowerCase() === companyName.toLowerCase() &&
         vendor.position?.toLowerCase() === position.toLowerCase()
       );
+      
+      // 2순위: 이름과 회사명으로 거래처 찾기 (직책이 없는 경우)
+      if (!existingVendor) {
+        existingVendor = currentVendorData.find(vendor => 
+          vendor.name?.toLowerCase() === personName.toLowerCase() &&
+          vendor.company?.toLowerCase() === companyName.toLowerCase()
+        );
+      }
       
       if (!existingVendor) {
         // 거래처가 없으면 새로 추가
@@ -1120,34 +1348,53 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           createdBy: currentUser?.email || 'unknown'
         };
         
+        console.log('새 거래처 데이터 생성:', newVendorData);
         const docRef = await addDoc(collection(db, 'vendors'), newVendorData);
         const newVendor = { id: docRef.id, ...newVendorData };
         
-        // 거래처 데이터 업데이트
-        setVendorData(prev => [...prev, newVendor]);
-        
-        console.log('새 거래처 추가됨:', newVendor);
+        console.log('✅ 새 거래처 추가 완료:', newVendor);
+        console.log('거래처 ID:', docRef.id);
         setSnackbar({ open: true, message: `새 거래처가 자동으로 등록되었습니다: ${personName} (${companyName})`, severity: 'success' });
       } else {
         console.log('기존 거래처 발견:', existingVendor);
-        // 기존 거래처의 전화번호나 주소가 다르면 업데이트
-        if ((phone && existingVendor.phone !== phone) || (address && existingVendor.address !== address)) {
+        
+        // 기존 거래처의 정보를 업데이트할지 확인
+        const updateData = {};
+        let hasUpdate = false;
+        
+        // 회사명 업데이트
+        if (companyName && existingVendor.company !== companyName) {
+          updateData.company = companyName;
+          hasUpdate = true;
+        }
+        
+        // 직책 업데이트
+        if (position && existingVendor.position !== position) {
+          updateData.position = position;
+          hasUpdate = true;
+        }
+        
+        // 전화번호 업데이트
+        if (phone && existingVendor.phone !== phone) {
+          updateData.phone = phone;
+          hasUpdate = true;
+        }
+        
+        // 주소 업데이트
+        if (address && existingVendor.address !== address) {
+          updateData.address = address;
+          hasUpdate = true;
+        }
+        
+        // 업데이트할 데이터가 있으면 Firebase에 저장
+        if (hasUpdate) {
           try {
-            const updateData = {};
-            if (phone && existingVendor.phone !== phone) updateData.phone = phone;
-            if (address && existingVendor.address !== address) updateData.address = address;
             updateData.updatedAt = serverTimestamp();
-            
+            console.log('기존 거래처 업데이트 데이터:', updateData);
             await updateDoc(doc(db, 'vendors', existingVendor.id), updateData);
             
-            // 로컬 데이터도 업데이트
-            setVendorData(prev => prev.map(vendor => 
-              vendor.id === existingVendor.id 
-                ? { ...vendor, ...updateData }
-                : vendor
-            ));
-            
-            console.log('거래처 정보 업데이트됨:', { name: personName, company: companyName, ...updateData });
+            console.log('✅ 기존 거래처 정보 업데이트 완료:', { name: personName, ...updateData });
+            setSnackbar({ open: true, message: `거래처 정보가 업데이트되었습니다: ${personName}`, severity: 'success' });
           } catch (error) {
             console.error('거래처 정보 업데이트 오류:', error);
           }
@@ -1163,10 +1410,51 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   const handleSaveCardEdit = async () => {
     if (editingCard) {
       try {
-        // 이름, 회사명, 직책이 모두 있으면 거래처 중복확인 및 추가
-        if (editingCardName && editingCardCompany && editingCardPosition &&
-            editingCardName.trim() !== '' && editingCardCompany.trim() !== '' && editingCardPosition.trim() !== '') {
+        // 현재 편집 중인 카드의 섹션 찾기
+        const currentSection = sections.find(section => 
+          section.cards && section.cards.some(card => card.id === editingCard)
+        );
+        
+        if (currentSection) {
+          // 현재 편집 중인 카드를 제외하고 중복 체크
+          const isDuplicate = currentSection.cards.some(card => 
+            card.id !== editingCard &&
+            card.name?.trim().toLowerCase() === editingCardName?.trim().toLowerCase() &&
+            card.company?.trim().toLowerCase() === editingCardCompany?.trim().toLowerCase()
+          );
+          
+          if (isDuplicate) {
+            setSnackbar({ 
+              open: true, 
+              message: '중복입니다', 
+              severity: 'warning' 
+            });
+            return;
+          }
+        }
+        
+        // 이름이 '새 카드'에서 실제 이름으로 변경되었거나, 회사명이 '회사명 없음'에서 실제 회사명으로 변경된 경우 거래처 연동
+        const isNameChanged = editingCardName && editingCardName.trim() !== '' && editingCardName !== '새 카드';
+        const isCompanyChanged = editingCardCompany && editingCardCompany.trim() !== '' && editingCardCompany !== '회사명 없음';
+        
+        if (isNameChanged && isCompanyChanged) {
+          console.log('거래처 자동 추가 시도 (이름/회사명 변경됨):', { 
+            name: editingCardName, 
+            company: editingCardCompany, 
+            position: editingCardPosition,
+            phone: editingCardPhone,
+            address: editingCardAddress
+          });
           await checkAndAddVendor(editingCardName, editingCardCompany, editingCardPosition, editingCardPhone, editingCardAddress);
+        } else {
+          console.log('거래처 자동 추가 조건 불만족:', { 
+            name: editingCardName, 
+            company: editingCardCompany,
+            isNameChanged,
+            isCompanyChanged,
+            isNewCard: editingCardName === '새 카드',
+            isNoCompany: editingCardCompany === '회사명 없음'
+          });
         }
         
         await updateDoc(doc(db, 'giftCards', editingCard), {
@@ -1182,7 +1470,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         
         setSections(prev => prev.map(section => ({
           ...section,
-          cards: section.cards.map(card => 
+          cards: (section.cards || []).map(card => 
             card.id === editingCard 
                 ? { 
                     ...card, 
@@ -1192,7 +1480,8 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
                     phone: editingCardPhone,
                     address: editingCardAddress,
                     quantity: editingCardQuantity, 
-                    note: editingCardNote 
+                    note: editingCardNote,
+                    giftName: editingCardGiftName
                   }
               : card
           )
@@ -1225,11 +1514,50 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     setEditingCardAddress('');
     setEditingCardQuantity(1);
     setEditingCardNote('');
+    setEditingCardGiftName('');
+  };
+
+  // 카드 중복 체크 함수
+  const checkCardDuplicate = (name, company, sectionId) => {
+    const targetSection = sections.find(section => section.id === sectionId);
+    if (!targetSection || !targetSection.cards) return false;
+    
+    return targetSection.cards.some(card => 
+      card.name?.trim().toLowerCase() === name?.trim().toLowerCase() &&
+      card.company?.trim().toLowerCase() === company?.trim().toLowerCase()
+    );
   };
 
   // 섹션에 카드 추가
   const handleAddCardToSection = async (sectionId) => {
+    console.log('=== 새 카드 추가 시작 ===');
+    console.log('섹션 ID:', sectionId);
+    console.log('현재 섹션들:', sections.map(s => ({ id: s.id, title: s.title, cardCount: s.cards?.length || 0 })));
+    
     try {
+      const targetSection = sections.find(s => s.id === sectionId);
+      console.log('대상 섹션:', targetSection);
+      
+      if (!targetSection) {
+        console.error('섹션을 찾을 수 없습니다:', sectionId);
+        setSnackbar({ open: true, message: '섹션을 찾을 수 없습니다.', severity: 'error' });
+        return;
+      }
+      
+      // 해당 섹션의 최대 카드 번호 찾기
+      let maxCardNumber = 0;
+      if (targetSection?.cards) {
+        targetSection.cards.forEach(card => {
+          if (card.cardNumber && card.cardNumber > maxCardNumber) {
+            maxCardNumber = card.cardNumber;
+          }
+        });
+      }
+      
+      // 새 카드 번호는 해당 섹션의 최대 번호 + 1
+      const newCardNumber = maxCardNumber + 1;
+      console.log('섹션 최대 번호:', maxCardNumber, '새 카드 번호:', newCardNumber);
+      
       const newCardData = {
         type: 'manual',
         name: '새 카드',
@@ -1240,12 +1568,20 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         sectionId: sectionId,
         year: selectedYear,
         holiday: selectedHoliday,
+        isNewCard: true, // 새 카드 표시
+        cardNumber: newCardNumber, // 고유한 카드 번호 추가
         createdAt: serverTimestamp(),
         createdBy: currentUser?.email || 'unknown'
       };
       
+      console.log('새 카드 데이터:', newCardData);
+      console.log('Firebase에 카드 추가 시도...');
+      
       const docRef = await addDoc(collection(db, 'giftCards'), newCardData);
       const newCard = { id: docRef.id, ...newCardData };
+      
+      console.log('✅ Firebase에 카드 추가 완료:', newCard);
+      console.log('새 카드 ID:', docRef.id);
       
       setSections(prev => prev.map(section => 
         section.id === sectionId 
@@ -1253,13 +1589,29 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           : section
       ));
       
-      // 새로 추가된 카드를 바로 편집 모드로 설정
+      console.log('로컬 상태 업데이트 완료');
+      
+      // 새로 추가된 카드를 바로 편집 모드로 설정하고 스크롤
       setTimeout(() => {
         handleEditCard(newCard.id, sectionId);
+        
+        // 새 카드로 스크롤
+        const cardElement = document.getElementById(`card-${newCard.id}`);
+        if (cardElement) {
+          cardElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        }
       }, 100);
     } catch (error) {
-      console.error('카드 추가 오류:', error);
-      setSnackbar({ open: true, message: '카드 추가 중 오류가 발생했습니다.', severity: 'error' });
+      console.error('❌ 카드 추가 오류:', error);
+      console.error('오류 상세:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      setSnackbar({ open: true, message: `카드 추가 중 오류가 발생했습니다: ${error.message}`, severity: 'error' });
     }
   };
 
@@ -1275,12 +1627,12 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   const handleAddSection = async () => {
     try {
       const newSectionData = {
-        title: `새 그룹 ${sections.length + 1}`,
+        title: `새 그룹 ${(sections?.length || 0) + 1}`,
         cards: [],
         unitPrice: 0,
         year: selectedYear,
         holiday: selectedHoliday,
-        order: sections.length, // 마지막 순서로 설정
+        order: sections?.length || 0, // 마지막 순서로 설정
         createdAt: serverTimestamp(),
         createdBy: currentUser?.email || 'unknown'
       };
@@ -1447,6 +1799,22 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           }
         });
 
+        // 섹션별 최대 카드 번호 관리용 맵
+        const sectionMaxNumbers = {};
+        sections.forEach(section => {
+          let maxNumber = 0;
+          if (section.cards) {
+            section.cards.forEach(card => {
+              if (card.cardNumber && card.cardNumber > maxNumber) {
+                maxNumber = card.cardNumber;
+              }
+            });
+          }
+          sectionMaxNumbers[section.id] = maxNumber;
+        });
+        
+        console.log('섹션별 최대 번호:', sectionMaxNumbers);
+        
         // 선물종류별로 그룹화 (중복 제거)
         const giftGroups = {};
         giftData.forEach(({ name, giftType }) => {
@@ -1460,8 +1828,8 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         });
 
         // 중복 확인 및 상세 정보 수집
-        const allExistingCards = sections.flatMap(section => 
-          section.cards.map(card => ({
+        const allExistingCards = (sections || []).flatMap(section => 
+          (section.cards || []).map(card => ({
             ...card,
             sectionTitle: section.title
           }))
@@ -1572,7 +1940,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
               unitPrice: 0,
               year: selectedYear,
               holiday: selectedHoliday,
-              order: sections.length + newSections.length, // 적절한 순서 설정
+              order: (sections?.length || 0) + newSections.length, // 적절한 순서 설정
               isUploaded: true,
               uploadDate: new Date().toISOString(),
               createdAt: serverTimestamp(),
@@ -1590,10 +1958,13 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
               return 0;
             });
             
-            const cardPromises = sortedNames.map(async (nameData) => {
+            const cardPromises = sortedNames.map(async (nameData, index) => {
               const name = typeof nameData === 'string' ? nameData : nameData.name;
               const isDuplicate = typeof nameData === 'object' ? nameData.isDuplicate : false;
               const existingInfo = typeof nameData === 'object' ? nameData.existingInfo : null;
+              
+              // 섹션별 순차 번호 할당 (기존 최대 번호 다음부터)
+              const cardNumber = sectionMaxNumbers[docRef.id] + index + 1;
               
               const cardData = {
                 type: 'gift',
@@ -1608,6 +1979,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
                 holiday: selectedHoliday,
                 isDuplicate: isDuplicate,
                 duplicateInfo: existingInfo,
+                cardNumber: cardNumber, // 회사명 가나다순으로 할당된 번호
                 createdAt: serverTimestamp(),
                 createdBy: currentUser?.email || 'unknown'
               };
@@ -1628,10 +2000,13 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
               return 0;
             });
             
-            const cardPromises = sortedNames.map(async (nameData) => {
+            const cardPromises = sortedNames.map(async (nameData, index) => {
               const name = typeof nameData === 'string' ? nameData : nameData.name;
               const isDuplicate = typeof nameData === 'object' ? nameData.isDuplicate : false;
               const existingInfo = typeof nameData === 'object' ? nameData.existingInfo : null;
+              
+              // 섹션별 순차 번호 할당 (기존 최대 번호 다음부터)
+              const cardNumber = sectionMaxNumbers[targetSection.id] + index + 1;
               
               const cardData = {
                 type: 'gift',
@@ -1646,6 +2021,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
                 holiday: selectedHoliday,
                 isDuplicate: isDuplicate,
                 duplicateInfo: existingInfo,
+                cardNumber: cardNumber, // 섹션별 순차 번호
                 createdAt: serverTimestamp(),
                 createdBy: currentUser?.email || 'unknown'
               };
@@ -1763,7 +2139,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
                 gap: 1
               }}>
                 <BusinessIcon />
-                데이터베이스
+                데이터베이스({vendorData.length})
               </Typography>
             </Box>
             <Box sx={{ flex: 1, overflow: 'hidden' }}>
@@ -1782,6 +2158,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
                 onVendorEdit={(vendor) => handleOpenVendorDialog(vendor)}
                 onVendorDelete={(vendorId) => handleDeleteVendor(vendorId)}
                 onDragStart={handleDragStart}
+                onFilteredCountChange={setFilteredVendorCount}
               />
             </Box>
           </Paper>
@@ -1897,6 +2274,9 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
                 setEditingCardPhone={setEditingCardPhone}
                 editingCardAddress={editingCardAddress}
                 setEditingCardAddress={setEditingCardAddress}
+                editingCardGiftName={editingCardGiftName}
+                setEditingCardGiftName={setEditingCardGiftName}
+                setSnackbar={setSnackbar}
               />
             </Box>
           </Paper>
@@ -2073,7 +2453,15 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
                 fullWidth
                 label="전화번호"
                 value={vendorFormData.phone}
-                onChange={(e) => setVendorFormData({ ...vendorFormData, phone: formatPhoneNumber(e.target.value) })}
+                placeholder="010-1234-5678 (11자리) 또는 02-123-4567 (10자리)"
+                onChange={(e) => {
+                  const formattedPhone = formatPhoneNumber(e.target.value);
+                  setVendorFormData({ ...vendorFormData, phone: formattedPhone });
+                }}
+                onInput={(e) => {
+                  const formattedPhone = formatPhoneNumber(e.target.value);
+                  setVendorFormData({ ...vendorFormData, phone: formattedPhone });
+                }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     color: '#fff',
@@ -2227,13 +2615,24 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       {/* 스낵바 */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
+        autoHideDuration={3000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{
+          '& .MuiSnackbarContent-root': {
+            justifyContent: 'center'
+          }
+        }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
-          sx={{ width: '100%' }}
+          sx={{ 
+            width: 'auto',
+            minWidth: '200px',
+            fontSize: '1rem',
+            fontWeight: 'bold'
+          }}
         >
           {snackbar.message}
         </Alert>
@@ -2249,7 +2648,8 @@ const DatabaseTab = ({
   onVendorAdd, 
   onVendorEdit, 
   onVendorDelete,
-  onDragStart
+  onDragStart,
+  onFilteredCountChange
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('company');
@@ -2269,6 +2669,14 @@ const DatabaseTab = ({
     }
     return 0;
   });
+
+
+  // 필터링된 거래처 개수가 변경될 때마다 상위 컴포넌트에 알림
+  useEffect(() => {
+    if (onFilteredCountChange) {
+      onFilteredCountChange(filteredVendors.length);
+    }
+  }, [filteredVendors.length, onFilteredCountChange]);
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
@@ -2333,6 +2741,7 @@ const DatabaseTab = ({
         >
           추가
         </Button>
+        
       </Box>
 
       {/* 거래처 카드 그리드 */}
@@ -2351,6 +2760,7 @@ const DatabaseTab = ({
               <Card 
                 draggable
                 onDragStart={(e) => onDragStart(e, vendor)}
+                onDoubleClick={() => onVendorEdit(vendor)}
                 sx={{ 
                   bgcolor: '#1a1a1a',
                   border: '1px solid #333',
@@ -2465,7 +2875,10 @@ const GiftManagementTab = ({
   editingCardPhone,
   setEditingCardPhone,
   editingCardAddress,
-  setEditingCardAddress
+  setEditingCardAddress,
+  editingCardGiftName,
+  setEditingCardGiftName,
+  setSnackbar
 }) => {
   // 상태별 색상
   const getStatusColor = (status) => {
@@ -2475,6 +2888,104 @@ const GiftManagementTab = ({
       case '예정': return 'default';
       default: return 'default';
     }
+  };
+
+  // 총계 정보 계산
+  const getTotalSummary = useMemo(() => {
+    if (!sections || sections.length === 0) {
+      return {
+        totalPeople: 0,
+        totalAmount: 0,
+        giftDetails: []
+      };
+    }
+
+    let totalPeople = 0;
+    let totalAmount = 0;
+    const giftDetails = [];
+
+    // 선물개수 총합에서 제외할 섹션들
+    const excludeFromCount = ['직원', '팀별', '대마팀', '대마', '현장', '현장별', '중복', '신세계', '상품권'];
+
+    sections.forEach(section => {
+      const cards = getFilteredCards(section) || [];
+      const sectionPeople = cards.length;
+      const sectionQuantity = cards.reduce((sum, card) => sum + (card.quantity || 1), 0);
+      const sectionAmount = (section.unitPrice || 0) * sectionQuantity;
+
+      // 특정 섹션들은 선물개수 총합에서 제외
+      if (!excludeFromCount.includes(section.title)) {
+        totalPeople += sectionPeople;
+      }
+      
+      // 금액은 모든 섹션에서 합산
+      totalAmount += sectionAmount;
+
+      if (sectionPeople > 0) {
+        giftDetails.push({
+          sectionTitle: section.title,
+          giftName: section.giftName || '선물 미지정',
+          people: sectionPeople,
+          quantity: sectionQuantity,
+          unitPrice: section.unitPrice || 0,
+          totalAmount: sectionAmount,
+          isExcludedFromCount: excludeFromCount.includes(section.title)
+        });
+      }
+    });
+
+    return {
+      totalPeople,
+      totalAmount,
+      giftDetails
+    };
+  }, [sections, sectionSearchTerms]);
+
+  // 총계 상세 내역 토글 상태
+  const [showGiftDetails, setShowGiftDetails] = useState(false);
+  
+  // 선물 입력 편집 상태
+  const [editingGiftName, setEditingGiftName] = useState(null);
+  const [editingGiftNameValue, setEditingGiftNameValue] = useState('');
+
+  // 선물 입력 편집 시작
+  const handleEditGiftName = (sectionId) => {
+    const section = sections.find(s => s.id === sectionId);
+    if (section) {
+      setEditingGiftName(sectionId);
+      setEditingGiftNameValue(section.giftName || '');
+    }
+  };
+
+  // 선물 입력 저장
+  const handleSaveGiftName = async () => {
+    if (editingGiftName && editingGiftNameValue.trim()) {
+      try {
+        await updateDoc(doc(db, 'giftSections', editingGiftName), {
+          giftName: editingGiftNameValue.trim(),
+          updatedAt: serverTimestamp()
+        });
+        
+        setSections(prev => prev.map(section => 
+          section.id === editingGiftName 
+            ? { ...section, giftName: editingGiftNameValue.trim() }
+            : section
+        ));
+        
+        setSnackbar({ open: true, message: '선물 입력이 수정되었습니다.', severity: 'success' });
+      } catch (error) {
+        console.error('선물 입력 저장 오류:', error);
+        setSnackbar({ open: true, message: '저장 중 오류가 발생했습니다.', severity: 'error' });
+      }
+    }
+    setEditingGiftName(null);
+    setEditingGiftNameValue('');
+  };
+
+  // 선물 입력 편집 취소
+  const handleCancelGiftNameEdit = () => {
+    setEditingGiftName(null);
+    setEditingGiftNameValue('');
   };
 
   return (
@@ -2654,6 +3165,78 @@ const GiftManagementTab = ({
         </Button>
       </Box>
 
+      {/* 총계 정보 */}
+      <Box sx={{ 
+        mb: 2, 
+        p: 2, 
+        bgcolor: '#1a1a1a', 
+        borderRadius: 2, 
+        border: '1px solid #333' 
+      }}>
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            '&:hover': { bgcolor: '#2a2a2a' },
+            p: 1,
+            borderRadius: 1,
+            transition: 'background-color 0.2s'
+          }}
+          onClick={() => setShowGiftDetails(!showGiftDetails)}
+        >
+          <Typography variant="h5" sx={{ color: '#ff4444', fontWeight: 'bold', fontSize: '1.5rem' }}>
+            총계: {getTotalSummary.totalPeople.toLocaleString()}명,   총 금액: {getTotalSummary.totalAmount.toLocaleString()}원
+          </Typography>
+          <Typography sx={{ color: '#999', fontSize: '1.2rem' }}>
+            {showGiftDetails ? '▲' : '▼'}
+          </Typography>
+        </Box>
+
+        {/* 상세 내역 */}
+        {showGiftDetails && (
+          <Box sx={{ mt: 2, pl: 2 }}>
+            <Typography variant="h6" sx={{ color: '#fff', mb: 2, fontWeight: 'bold' }}>
+              선물 상세 내역
+            </Typography>
+            {getTotalSummary.giftDetails.length === 0 ? (
+              <Typography variant="body2" sx={{ color: '#666', fontStyle: 'italic' }}>
+                등록된 선물이 없습니다.
+              </Typography>
+            ) : (
+              getTotalSummary.giftDetails.map((detail, index) => (
+                <Box key={index} sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
+                  <Typography variant="body2" sx={{ color: '#fff', minWidth: '30px' }}>
+                    {index + 1}.
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#ff4444', minWidth: '120px', mr: 2 }}>
+                    {detail.sectionTitle}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#66bb6a', minWidth: '150px', mr: 2 }}>
+                    {detail.giftName}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#fff', minWidth: '80px' }}>
+                    선물 {detail.quantity}개
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#fff', minWidth: '80px', ml: 2 }}>
+                    단가 {detail.unitPrice.toLocaleString()}원
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#4caf50', minWidth: '100px', ml: 2, fontWeight: 'bold' }}>
+                    총액 {detail.totalAmount.toLocaleString()}원
+                  </Typography>
+                  {detail.isExcludedFromCount && (
+                    <Typography variant="caption" sx={{ color: '#ff9800', ml: 1, fontStyle: 'italic' }}>
+                      (선물개수만 총계리스트에 제외, 금액은 포함)
+                    </Typography>
+                  )}
+                </Box>
+              ))
+            )}
+          </Box>
+        )}
+      </Box>
+
       {/* 동적 섹션들 */}
       <Box sx={{ 
         flex: 1, 
@@ -2663,11 +3246,11 @@ const GiftManagementTab = ({
         overflow: 'auto', // 스크롤 가능
         height: (() => {
           // 모든 섹션의 높이 + gap 계산
-          const totalHeight = sections.reduce((sum, section) => {
+          const totalHeight = (sections || []).reduce((sum, section) => {
             return sum + (section.height || 200) + 16; // 16px는 gap
           }, 0);
           const calculatedHeight = Math.max(400, totalHeight);
-          console.log(`부모 컨테이너 높이 계산: ${calculatedHeight}px (섹션 수: ${sections.length})`);
+          console.log(`부모 컨테이너 높이 계산: ${calculatedHeight}px (섹션 수: ${sections?.length || 0})`);
           return `${calculatedHeight}px`;
         })(),
         '&::-webkit-scrollbar': {
@@ -2676,7 +3259,7 @@ const GiftManagementTab = ({
         scrollbarWidth: 'none',
         msOverflowStyle: 'none'
       }}>
-        {sections.length === 0 ? (
+        {!sections || sections.length === 0 ? (
           <Box sx={{ 
             display: 'flex', 
             justifyContent: 'center', 
@@ -2697,7 +3280,7 @@ const GiftManagementTab = ({
             </Box>
           </Box>
         ) : (
-          sections.map((section, index) => (
+          sections && Array.isArray(sections) ? sections.map((section, index) => (
             <Box 
               key={`section-${section.id}`}
               data-section-id={section.id}
@@ -2819,6 +3402,71 @@ const GiftManagementTab = ({
                       {section.title}
                     </Typography>
                   </Box>
+                  
+                  {/* 선물 입력칸 */}
+                  <Box sx={{ ml: 2, display: 'flex', alignItems: 'center' }}>
+                    {editingGiftName === section.id ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <TextField
+                          size="small"
+                          value={editingGiftNameValue}
+                          onChange={(e) => setEditingGiftNameValue(e.target.value)}
+                          placeholder="선물 입력"
+                          sx={{
+                            width: '150px',
+                            '& .MuiOutlinedInput-root': {
+                              color: '#fff',
+                              '& fieldset': { borderColor: '#666' },
+                              '&:hover fieldset': { borderColor: '#ff4444' },
+                              '&.Mui-focused fieldset': { borderColor: '#ff4444' }
+                            },
+                            '& .MuiInputLabel-root': { color: '#999' },
+                            '& .MuiInputLabel-root.Mui-focused': { color: '#ff4444' }
+                          }}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              handleSaveGiftName();
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <IconButton
+                          size="small"
+                          onClick={handleSaveGiftName}
+                          sx={{ color: '#4caf50' }}
+                        >
+                          <CheckIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={handleCancelGiftNameEdit}
+                          sx={{ color: '#f44336' }}
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    ) : (
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          color: section.giftName ? '#66bb6a' : '#666',
+                          cursor: 'pointer',
+                          fontSize: '1.1rem',
+                          fontWeight: 'bold',
+                          '&:hover': {
+                            color: '#ff4444'
+                          }
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleEditGiftName(section.id);
+                        }}
+                      >
+                        {section.giftName ? `[선물종류: ${section.giftName}]` : '선물 입력'}
+                      </Typography>
+                    )}
+                  </Box>
                   {section.isUploaded && (
                     <Chip
                       label="업로드됨"
@@ -2874,7 +3522,7 @@ const GiftManagementTab = ({
                   onChange={(e) => handleSectionSearch(section.id, e.target.value)}
                   size="small"
                   sx={{ 
-                    minWidth: 120,
+                    width: 150,
                     '& .MuiOutlinedInput-root': {
                       color: '#fff',
                       '& fieldset': { borderColor: '#444' },
@@ -2889,17 +3537,29 @@ const GiftManagementTab = ({
                       <InputAdornment position="start">
                         <SearchIcon sx={{ color: '#ff4444', fontSize: '1rem' }} />
                       </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton 
+                          onClick={() => handleSectionSearch(section.id, '')} 
+                          size="small"
+                          sx={{ color: '#999' }}
+                        >
+                          <ClearIcon sx={{ fontSize: '1rem' }} />
+                        </IconButton>
+                      </InputAdornment>
                     )
                   }}
                 />
                 
                 <TextField
                   size="small"
-                  type="number"
-                  value={section.unitPrice || 0}
+                  type="text"
+                  value={(section.unitPrice || 0).toLocaleString()}
                   onChange={async (e) => {
                     e.stopPropagation();
-                    const unitPrice = parseInt(e.target.value) || 0;
+                    const value = e.target.value.replace(/,/g, '');
+                    const unitPrice = parseInt(value) || 0;
                     console.log('단가 변경:', { sectionId: section.id, unitPrice });
                     
                     try {
@@ -2922,23 +3582,26 @@ const GiftManagementTab = ({
                   }}
                   label="단가"
                   sx={{
-                    width: '80px',
+                    width: '100px',
                     '& .MuiOutlinedInput-root': {
                       color: '#fff',
                       '& fieldset': { borderColor: '#666' },
                       '&:hover fieldset': { borderColor: '#ff4444' },
-                      '&.Mui-focused fieldset': { borderColor: '#ff4444' }
+                      '&.Mui-focused fieldset': { borderColor: '#ff4444' },
+                      '& input': {
+                        textAlign: 'right'
+                      }
                     },
                     '& .MuiInputLabel-root': { color: '#999' },
                     '& .MuiInputLabel-root.Mui-focused': { color: '#ff4444' }
                   }}
                 />
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
-                  <Typography variant="body2" sx={{ color: '#ff4444', fontWeight: 'bold' }}>
-                    총액: {((section.unitPrice || 0) * getFilteredCards(section).reduce((sum, card) => sum + (card.quantity || 1), 0)).toLocaleString()}원
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.2 }}>
+                  <Typography variant="body1" sx={{ color: '#ff4444', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                    총액: {((section.unitPrice || 0) * (getFilteredCards(section) || []).reduce((sum, card) => sum + (card.quantity || 1), 0)).toLocaleString()}원
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#999' }}>
-                    명단: {getFilteredCards(section).length}명 | 수량: {getFilteredCards(section).reduce((sum, card) => sum + (card.quantity || 1), 0)}개 | 높이: {section.height || 200}px
+                    명단: {(getFilteredCards(section) || []).length}명 | 수량: {(getFilteredCards(section) || []).reduce((sum, card) => sum + (card.quantity || 1), 0)}개
                   </Typography>
                 </Box>
                 {editingSectionHeight === section.id ? (
@@ -3056,7 +3719,7 @@ const GiftManagementTab = ({
                 zIndex: 1
               }
             }}>
-              {section.cards.length === 0 ? (
+              {(section.cards || []).length === 0 ? (
                 <Box sx={{ 
                   gridColumn: '1 / -1', 
                   display: 'flex', 
@@ -3076,11 +3739,12 @@ const GiftManagementTab = ({
                   )}
                 </Box>
               ) : (
-                getFilteredCards(section).map((card, index) => {
+                (getFilteredCards(section) || []).map((card, index) => {
                   const isSelected = selectedCards.has(card.id);
                   return (
                     <Card
                       key={`${section.id}-${card.id}`}
+                      id={`card-${card.id}`}
                       draggable={!selectMode && !editingCard}
                       onDragStart={(e) => {
                         if (selectMode || editingCard) {
@@ -3153,7 +3817,7 @@ const GiftManagementTab = ({
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap'
                         }}>
-                          {index + 1}. {card.name} {card.isDuplicate && '🔴'}
+                          {card.cardNumber || (index + 1)}. {card.name}{card.position && card.position !== '회사' && ` ${card.position}`} {card.isDuplicate && '🔴'}
                         </Typography>
                         <Typography variant="caption" sx={{ 
                           color: isSelected ? '#fff' : '#999', 
@@ -3164,7 +3828,9 @@ const GiftManagementTab = ({
                           whiteSpace: 'nowrap',
                           display: 'block'
                         }}>
-                          {card.position && `${card.position} `}({card.company}) | 개수: {card.quantity || 1}개
+                          <span style={{ fontSize: '1.1rem', fontFamily: 'inherit' }}>
+                            {card.company}
+                          </span> | 개수: {card.quantity || 1}개
                           {card.note && ` | ${card.note}`}
                         </Typography>
                       </Box>
@@ -3194,7 +3860,7 @@ const GiftManagementTab = ({
             </Box>
             
           </Box>
-          ))
+          )) : null
         )}
       </Box>
 
@@ -3269,8 +3935,25 @@ const GiftManagementTab = ({
             />
             <TextField
               label="전화번호"
-              value={editingCardPhone}
-              onChange={(e) => setEditingCardPhone(formatPhoneNumber(e.target.value))}
+              value={editingCardPhone || ''}
+              onChange={(e) => {
+                try {
+                  const formattedPhone = formatPhoneNumber(e.target.value);
+                  setEditingCardPhone(formattedPhone);
+                } catch (error) {
+                  console.error('전화번호 포맷팅 오류:', error);
+                  setEditingCardPhone(e.target.value);
+                }
+              }}
+              onInput={(e) => {
+                try {
+                  const formattedPhone = formatPhoneNumber(e.target.value);
+                  setEditingCardPhone(formattedPhone);
+                } catch (error) {
+                  console.error('전화번호 실시간 포맷팅 오류:', error);
+                }
+              }}
+              placeholder="010-1234-5678 (11자리) 또는 02-123-4567 (10자리)"
               size="small"
               sx={{
                 '& .MuiOutlinedInput-root': {
@@ -3306,6 +3989,22 @@ const GiftManagementTab = ({
               type="number"
               value={editingCardQuantity}
               onChange={(e) => setEditingCardQuantity(parseInt(e.target.value) || 1)}
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#fff',
+                  '& fieldset': { borderColor: '#666' },
+                  '&:hover fieldset': { borderColor: '#ff4444' },
+                  '&.Mui-focused fieldset': { borderColor: '#ff4444' }
+                },
+                '& .MuiInputLabel-root': { color: '#999' },
+                '& .MuiInputLabel-root.Mui-focused': { color: '#ff4444' }
+              }}
+            />
+            <TextField
+              label="선물종류"
+              value={editingCardGiftName}
+              onChange={(e) => setEditingCardGiftName(e.target.value)}
               size="small"
               sx={{
                 '& .MuiOutlinedInput-root': {

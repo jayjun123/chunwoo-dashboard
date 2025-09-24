@@ -300,7 +300,7 @@ const Todo = () => {
           }}
           onDragEnd={handleDragEnd}
         >
-          <Droppable droppableId="todos">
+          <Droppable droppableId="todos" isDropDisabled={false}>
             {(provided) => (
               <div
                 {...provided.droppableProps}

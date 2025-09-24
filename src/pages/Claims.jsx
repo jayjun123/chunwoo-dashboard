@@ -58,7 +58,8 @@ import {
   updateClaim, 
   deleteClaim,
   getClaimStats,
-  checkProgressAndUpdateClaim
+  checkProgressAndUpdateClaim,
+  migrateClaimsData
 } from '../api/claims';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
@@ -919,6 +920,28 @@ const Claims = () => {
         message: '기성 등록 상태 확인에 실패했습니다.',
         severity: 'error'
       });
+    }
+  };
+
+  // 데이터 마이그레이션 (claimMonth 필드 추가)
+  const handleMigrateData = async () => {
+    try {
+      setLoading(true);
+      const migratedCount = await migrateClaimsData();
+      setSnackbar({
+        open: true,
+        message: `${migratedCount}개의 데이터에 claimMonth 필드가 추가되었습니다.`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('데이터 마이그레이션 실패:', error);
+      setSnackbar({
+        open: true,
+        message: '데이터 마이그레이션에 실패했습니다.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1817,6 +1840,23 @@ const Claims = () => {
                 }}
               >
                 새 청구예정
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={handleMigrateData}
+                size="small"
+                sx={{ 
+                  height: '40px',
+                  fontSize: '14px',
+                  color: '#ff9800',
+                  borderColor: '#ff9800',
+                  '&:hover': {
+                    borderColor: '#ff9800',
+                    backgroundColor: 'rgba(255, 152, 0, 0.1)'
+                  }
+                }}
+              >
+                데이터 수정
               </Button>
             </Box>
 

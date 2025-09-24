@@ -509,7 +509,7 @@ const ProgressManagement = () => {
               }}
               onDragEnd={onDragEnd}
             >
-              <Droppable droppableId="extraList">
+              <Droppable droppableId="extraList" isDropDisabled={false}>
                 {(provided) => (
                   <Box 
                     ref={provided.innerRef} 

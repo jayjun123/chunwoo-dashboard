@@ -1291,10 +1291,12 @@ const ScheduleManagement = ({
       // 사용할 데이터 결정: 필터링된 데이터가 있으면 사용, 없으면 현재 월 데이터 사용
       const dataToUse = filteredCalendarItems || calendarItems;
       const isCustomPeriod = customPeriod && customPeriod.startDate && customPeriod.endDate;
+      const selectedSite = customPeriod && customPeriod.selectedSite;
       
       console.log('📅 엑셀 다운로드 데이터:', {
         isCustomPeriod,
         customPeriod,
+        selectedSite: selectedSite?.name || '전체',
         dataKeys: Object.keys(dataToUse).length,
         originalKeys: Object.keys(calendarItems).length
       });
@@ -1401,9 +1403,15 @@ const ScheduleManagement = ({
         const startDateStr = customPeriod.startDate.replace(/-/g, '.');
         const endDateStr = customPeriod.endDate.replace(/-/g, '.');
         fileName = `일정관리_${startDateStr}_${endDateStr}`;
+        if (selectedSite) {
+          fileName += `_${selectedSite.name}`;
+        }
       } else {
         const monthStr = `${year}년 ${month + 1}월`;
         fileName = `일정관리_${monthStr}`;
+        if (selectedSite) {
+          fileName += `_${selectedSite.name}`;
+        }
       }
       
       console.log('📄 엑셀 파일명:', fileName);
@@ -1903,7 +1911,7 @@ const ScheduleManagement = ({
                 </Box>
               )}
             </Box>
-            <Droppable droppableId="siteList">
+            <Droppable droppableId="siteList" isDropDisabled={false}>
               {(provided, snapshot) => (
                 <Box ref={provided.innerRef} {...provided.droppableProps} sx={{
                   flex: 1, 

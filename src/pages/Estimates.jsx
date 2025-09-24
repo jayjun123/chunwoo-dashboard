@@ -44,7 +44,8 @@ import {
   NavigateBefore as NavigateBeforeIcon,
   NavigateNext as NavigateNextIcon,
   FirstPage as FirstPageIcon,
-  LastPage as LastPageIcon
+  LastPage as LastPageIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, onSnapshot } from 'firebase/firestore';
 import { db, collections } from '../firebase';
@@ -1131,6 +1132,17 @@ const Estimates = () => {
               <InputAdornment position="start">
                 <SearchIcon sx={{ color: '#666' }} />
               </InputAdornment>
+            ),
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  onClick={() => setSearchTerm('')}
+                  edge="end"
+                  sx={{ color: '#666', '&:hover': { color: '#fff' } }}
+                >
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              </InputAdornment>
             )
           }}
         />
@@ -1615,7 +1627,9 @@ const Estimates = () => {
                     const selectedRequester = requesters.find(requester => {
                       let displayName = requester.name;
                       if (requester.title) displayName += ` ${requester.title}`;
-                      return displayName === newValue;
+                      // newValue가 객체인 경우 label과 비교, 문자열인 경우 직접 비교
+                      const compareValue = typeof newValue === 'string' ? newValue : newValue?.label || '';
+                      return displayName === compareValue;
                     });
                     if (selectedRequester && selectedRequester.company) {
                       console.log('선택된 의뢰자의 회사명:', selectedRequester.company);

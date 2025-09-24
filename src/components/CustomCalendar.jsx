@@ -34,6 +34,25 @@ const CustomCalendar = (props) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [useCustomPeriod, setUseCustomPeriod] = useState(false);
+  
+  // 현장 선택 상태
+  const [selectedSite, setSelectedSite] = useState(null);
+  const [siteSearchTerm, setSiteSearchTerm] = useState('');
+  
+  // 현장별 일정 필터링 함수
+  const filterCalendarItemsBySite = (calendarItems, siteId) => {
+    if (!siteId) return calendarItems;
+
+    const filteredItems = {};
+    Object.keys(calendarItems).forEach(dateStr => {
+      const dayItems = calendarItems[dateStr] || [];
+      const filteredDayItems = dayItems.filter(item => item.siteId === siteId);
+      if (filteredDayItems.length > 0) {
+        filteredItems[dateStr] = filteredDayItems;
+      }
+    });
+    return filteredItems;
+  };
 
   console.log('🔍 CustomCalendar 렌더링:', {
     calendarItems: props.calendarItems,
@@ -685,8 +704,15 @@ const CustomCalendar = (props) => {
                     }
                     
                     if (onExcel && typeof onExcel === 'function') {
+                      // 현장별 필터링 적용
+                      let finalFilteredItems = filteredCalendarItems;
+                      if (selectedSite) {
+                        finalFilteredItems = filterCalendarItemsBySite(filteredCalendarItems, selectedSite.id);
+                        console.log('현장별 필터링 적용:', selectedSite.name, Object.keys(finalFilteredItems).length, '일');
+                      }
+                      
                       // 필터링된 데이터를 전달
-                      onExcel(filteredCalendarItems, useCustomPeriod ? { startDate, endDate } : null);
+                      onExcel(finalFilteredItems, useCustomPeriod ? { startDate, endDate, selectedSite } : null);
                     } else {
                       console.warn('⚠️ onExcel 함수가 정의되지 않았습니다.');
                       alert('엑셀 다운로드 기능을 사용할 수 없습니다.');
@@ -1572,6 +1598,67 @@ const CustomCalendar = (props) => {
                 '& .MuiInputLabel-root': { color: '#ccc' }
               }}
             />
+            
+            {/* 현장 선택 드롭다운 */}
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body2" sx={{ color: '#fff', mb: 1 }}>
+                현장 선택 (선택사항)
+              </Typography>
+              <Autocomplete
+                options={props.sites || []}
+                getOptionLabel={(option) => option.name || ''}
+                value={selectedSite}
+                onChange={(event, newValue) => {
+                  setSelectedSite(newValue);
+                }}
+                inputValue={siteSearchTerm}
+                onInputChange={(event, newInputValue) => {
+                  setSiteSearchTerm(newInputValue);
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={`현장 선택 (검색 가능) - ${(props.sites || []).length}개 현장`}
+                    placeholder="현장명을 입력하세요"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        color: '#fff',
+                        '& fieldset': { borderColor: '#666' },
+                        '&:hover fieldset': { borderColor: '#ff9800' },
+                        '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                      },
+                      '& .MuiInputLabel-root': { color: '#ccc' }
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props}>
+                    <Box>
+                      <Typography variant="body1" sx={{ color: '#fff' }}>
+                        {option.name}
+                      </Typography>
+                      {option.address && (
+                        <Typography variant="body2" sx={{ color: '#ccc' }}>
+                          {option.address}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                )}
+                sx={{
+                  '& .MuiAutocomplete-popupIndicator': { color: '#ff9800' },
+                  '& .MuiAutocomplete-clearIndicator': { color: '#ff9800' }
+                }}
+              />
+              
+              {/* 디버깅용 현장 목록 표시 */}
+              {(props.sites || []).length === 0 && (
+                <Typography variant="body2" sx={{ color: '#ff6666', mt: 1 }}>
+                  현장 데이터가 없습니다. 현장을 먼저 등록해주세요.
+                </Typography>
+              )}
+            </Box>
+            
             <FormControlLabel
               control={
                 <Checkbox

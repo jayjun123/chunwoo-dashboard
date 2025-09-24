@@ -537,12 +537,15 @@ const Confidential = () => {
       }}>
         <Paper sx={{ p: 4, maxWidth: 400, width: '100%' }}>
           <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <LockIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+            <LockIcon sx={{ fontSize: 48, color: '#FFD700', mb: 2 }} />
             <Typography variant="h5" sx={{ mb: 1 }}>
               대외비 접근
             </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              비밀번호를 입력하여 악성미수금 및
+            </Typography>
             <Typography variant="body2" color="text.secondary">
-              비밀번호를 입력하여 악성미수금확인 페이지에 접근하세요
+              명절선물LIST 페이지에 접근하세요.
             </Typography>
           </Box>
           
@@ -572,13 +575,22 @@ const Confidential = () => {
             fullWidth
             variant="contained"
             onClick={handlePasswordSubmit}
-            sx={{ mb: 2 }}
+            sx={{ 
+              mb: 2,
+              bgcolor: '#ff4444',
+              '&:hover': {
+                bgcolor: '#ff6666'
+              }
+            }}
           >
             접근
           </Button>
           
+          <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', display: 'block', mb: 0.5 }}>
+            * 이 페이지는 대외비 자료입니다.
+          </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', display: 'block' }}>
-            * 이 페이지는 대외비 자료입니다. 무단 복사 및 유출을 금지합니다.
+            무단 복사 및 유출을 금지합니다.
           </Typography>
         </Paper>
       </Box>
@@ -757,7 +769,7 @@ const Confidential = () => {
           {/* 카드 그리드 */}
       <Grid container spacing={2}>
         {confidentialData.map((item) => (
-          <Grid item xs={12} sm={6} md={4} key={item.id}>
+          <Grid size={{ xs: 12, sm: 6, md: 2.4 }} key={item.id}>
             <Card sx={{ 
               height: '100%',
               minWidth: 320,
@@ -815,13 +827,22 @@ const Confidential = () => {
                    </Typography>
                    
                    {/* 진행이력 표시 */}
-                   <Box sx={{ mb: 1, maxHeight: '150px', overflowY: 'auto' }}>
+                   <Box sx={{ 
+                     mb: 1, 
+                     maxHeight: '150px', 
+                     overflowY: 'auto',
+                     '&::-webkit-scrollbar': {
+                       display: 'none'
+                     },
+                     '-ms-overflow-style': 'none',
+                     'scrollbar-width': 'none'
+                   }}>
                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5, color: 'primary.main' }}>
                        📋 진행이력
                      </Typography>
                      {item.progressHistory && item.progressHistory.length > 0 ? (
                        <>
-                         {item.progressHistory.slice(-3).map((progress, index) => (
+                         {item.progressHistory.slice(-3).reverse().map((progress, index) => (
                            <Box key={index} sx={{ 
                              mb: 0.5, 
                              p: 1, 
@@ -953,7 +974,7 @@ const Confidential = () => {
                  <DialogContent>
            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ko}>
              <Grid container spacing={2} sx={{ mt: 1 }}>
-               <Grid item xs={12} sm={6}>
+               <Grid size={{ xs: 12, sm: 6 }}>
                  <TextField
                    fullWidth
                    label="회사"
@@ -962,7 +983,7 @@ const Confidential = () => {
                    sx={{ mb: 2 }}
                  />
                </Grid>
-               <Grid item xs={12} sm={6}>
+               <Grid size={{ xs: 12, sm: 6 }}>
                  <TextField
                    fullWidth
                    label="담당자"
@@ -971,7 +992,7 @@ const Confidential = () => {
                    sx={{ mb: 2 }}
                  />
                </Grid>
-               <Grid item xs={12} sm={6}>
+               <Grid size={{ xs: 12, sm: 6 }}>
                  <TextField
                    fullWidth
                    label="현장"
@@ -980,7 +1001,7 @@ const Confidential = () => {
                    sx={{ mb: 2 }}
                  />
                </Grid>
-               <Grid item xs={12} sm={6}>
+               <Grid size={{ xs: 12, sm: 6 }}>
                  <TextField
                    fullWidth
                    label="금액"
@@ -989,7 +1010,7 @@ const Confidential = () => {
                    sx={{ mb: 2 }}
                  />
                </Grid>
-               <Grid item xs={12} sm={6}>
+               <Grid size={{ xs: 12, sm: 6 }}>
                  <DatePicker
                    label="공사완료 일자"
                    value={formData.completionDate}
@@ -997,7 +1018,7 @@ const Confidential = () => {
                    slotProps={{ textField: { fullWidth: true, sx: { mb: 2 } } }}
                  />
                </Grid>
-               <Grid item xs={12} sm={6}>
+               <Grid size={{ xs: 12, sm: 6 }}>
                  <FormControl fullWidth>
                    <InputLabel>고소장 접수여부</InputLabel>
                    <Select
@@ -1012,7 +1033,7 @@ const Confidential = () => {
                  </FormControl>
                </Grid>
                {formData.lawsuitStatus === '진행중' && (
-                 <Grid item xs={12} sm={6}>
+                 <Grid size={{ xs: 12, sm: 6 }}>
                    <TextField
                      fullWidth
                      label="고소장 번호"
@@ -1022,7 +1043,7 @@ const Confidential = () => {
                    />
                  </Grid>
                )}
-               <Grid item xs={12} sm={6}>
+               <Grid size={{ xs: 12, sm: 6 }}>
                  <FormControl fullWidth>
                    <InputLabel>상태</InputLabel>
                    <Select
@@ -1038,13 +1059,13 @@ const Confidential = () => {
                </Grid>
 
                {/* 현황 입력 섹션 */}
-               <Grid item xs={12}>
+               <Grid size={12}>
                  <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2, mb: 2 }}>
                    <Typography variant="h6" sx={{ mb: 2 }}>
                      현황 입력
                    </Typography>
                    <Grid container spacing={2} sx={{ mb: 2 }}>
-                     <Grid item xs={12} sm={4}>
+                     <Grid size={{ xs: 12, sm: 4 }}>
                        <DatePicker
                          label="날짜"
                          value={progressDate}
@@ -1052,7 +1073,7 @@ const Confidential = () => {
                          slotProps={{ textField: { fullWidth: true } }}
                        />
                      </Grid>
-                     <Grid item xs={12} sm={6}>
+                     <Grid size={{ xs: 12, sm: 6 }}>
                        <TextField
                          fullWidth
                          label="내용"
@@ -1061,7 +1082,7 @@ const Confidential = () => {
                          placeholder="현황 내용을 입력하세요"
                        />
                      </Grid>
-                     <Grid item xs={12} sm={2}>
+                     <Grid size={{ xs: 12, sm: 2 }}>
                        <Button
                          fullWidth
                          variant="contained"
@@ -1101,7 +1122,7 @@ const Confidential = () => {
                  </Box>
                </Grid>
 
-               <Grid item xs={12}>
+               <Grid size={12}>
                  <TextField
                    fullWidth
                    label="비고"

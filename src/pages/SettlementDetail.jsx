@@ -4510,6 +4510,7 @@ export default function SettlementDetail() {
     return result;
   }, [site, scheduleData, costData]);
 
+
   // 차트 데이터 생성 (메모이제이션으로 불필요한 재렌더링 방지)
   const chartData = useMemo(() => {
     if (!site) return null;
@@ -4987,6 +4988,7 @@ export default function SettlementDetail() {
       }
     }
   }), [isChartLightMode]);
+
 
   // 정산 페이지 삭제
   const handleDeleteSettlement = async () => {

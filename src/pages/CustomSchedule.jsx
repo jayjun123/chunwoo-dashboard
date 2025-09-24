@@ -977,7 +977,7 @@ const CustomSchedule = () => {
               <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, display: { xs: 'none', md: 'block' } }}>공사현황</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', md: 'block' } }}>이달의 현장</Typography>
             </Box>
-            <Droppable droppableId="siteList">
+            <Droppable droppableId="siteList" isDropDisabled={false}>
               {(provided, snapshot) => (
                 <Box ref={provided.innerRef} {...provided.droppableProps} sx={{
                   flex: 1, 
