@@ -830,6 +830,19 @@ const CustomSchedule = () => {
   const handleKeyDown = (e) => {
     console.log('키보드 이벤트:', e.key, 'Ctrl:', e.ctrlKey);
     
+    // 입력 필드에서 발생한 이벤트는 무시
+    const target = e.target;
+    const isInputField = target.tagName === 'INPUT' || 
+                        target.tagName === 'TEXTAREA' || 
+                        target.contentEditable === 'true' ||
+                        target.closest('[contenteditable="true"]') ||
+                        target.closest('input') ||
+                        target.closest('textarea');
+    
+    if (isInputField) {
+      return; // 입력 필드에서는 일정 복사/붙여넣기 기능 비활성화
+    }
+    
     // Ctrl+C: 복사
     if (e.ctrlKey && e.key === 'c') {
       e.preventDefault();
@@ -854,13 +867,26 @@ const CustomSchedule = () => {
     if (e.ctrlKey && e.key === 'v') {
       e.preventDefault();
       console.log('Ctrl+V 감지됨');
-      if (copiedItem && selectedDate) {
-        console.log('붙여넣기 시도:', selectedDate);
-        handlePasteItem(selectedDate);
+      console.log('현재 선택된 날짜:', selectedDate);
+      console.log('복사된 항목:', copiedItem);
+      
+      if (copiedItem) {
+        // selectedDate가 없거나 오늘 날짜인 경우 사용자에게 날짜 선택 요청
+        if (!selectedDate || selectedDate === new Date().toISOString().slice(0, 10)) {
+          const targetDate = prompt('붙여넣을 날짜를 입력하세요 (YYYY-MM-DD 형식):', selectedDate || new Date().toISOString().slice(0, 10));
+          if (targetDate && targetDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            console.log('사용자 입력 날짜로 붙여넣기 시도:', targetDate);
+            handlePasteItem(targetDate);
+          } else if (targetDate) {
+            alert('올바른 날짜 형식(YYYY-MM-DD)을 입력해주세요.');
+          }
+        } else {
+          console.log('선택된 날짜로 붙여넣기 시도:', selectedDate);
+          handlePasteItem(selectedDate);
+        }
       } else {
-        console.log('복사된 항목이 없거나 선택된 날짜가 없음');
-        if (!copiedItem) alert('복사된 항목이 없습니다. Ctrl+C로 항목을 복사하세요.');
-        if (!selectedDate) alert('붙여넣을 날짜를 선택하세요.');
+        console.log('복사된 항목이 없음');
+        alert('복사된 항목이 없습니다. Ctrl+C로 항목을 복사하세요.');
       }
     }
   };
