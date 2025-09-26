@@ -14,7 +14,9 @@ import {
   useMediaQuery,
   useTheme,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  TextField,
+  Button
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
@@ -47,20 +49,67 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
   const navigate = useNavigate();
   const [gisungRate, setGisungRate] = useState(0);
   const [gisungCount, setGisungCount] = useState(0);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  // 현장명 카드 더블클릭 핸들러 - 현장관리 페이지에서 해당 현장 선택
+  // 현장명 더블클릭 핸들러 - 편집 모드로 전환
   const handleSiteNameDoubleClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (site && site.id) {
-      onClose(); // 팝업 닫기
-      // 현장관리 페이지로 이동하면서 해당 현장 선택
-      navigate('/sites', { 
-        state: { 
-          selectedSiteId: site.id,
-          selectedSiteName: site.name
-        }
+    if (site && site.name) {
+      setIsEditingName(true);
+      setEditedName(site.name);
+    }
+  };
+
+  // 현장명 편집 취소
+  const handleCancelEdit = () => {
+    setIsEditingName(false);
+    setEditedName('');
+  };
+
+  // 현장명 저장
+  const handleSaveName = async () => {
+    if (!editedName.trim() || editedName.trim() === site.name) {
+      handleCancelEdit();
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const siteRef = doc(db, 'sites', site.id);
+      await updateDoc(siteRef, {
+        name: editedName.trim()
       });
+      
+      // 성공 시 편집 모드 종료
+      setIsEditingName(false);
+      setEditedName('');
+      
+      // 부모 컴포넌트에 변경사항 알림 (필요한 경우)
+      if (onClose) {
+        // 잠시 후 팝업 닫기 (저장 완료 표시)
+        setTimeout(() => {
+          onClose();
+        }, 500);
+      }
+    } catch (error) {
+      console.error('현장명 저장 실패:', error);
+      alert('현장명 저장에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Enter 키로 저장, Escape 키로 취소
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveName();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEdit();
     }
   };
 

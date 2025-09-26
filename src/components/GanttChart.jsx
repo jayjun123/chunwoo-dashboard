@@ -177,27 +177,20 @@ const GanttChart = () => {
     return { start, end };
   }, [dateRange]);
 
-  // 날짜 배열 생성 (설정된 기간에 따라)
+  // 날짜 배열 생성 (주단위로 변경)
   const dateArray = useMemo(() => {
     const dates = [];
     const current = new Date(dateRangeObj.start);
     
-    // 1년 모드에서는 주 단위로 표시
-    if (viewMode === 'year') {
-      // 첫 주의 시작일(일요일)로 조정
-      const dayOfWeek = current.getDay();
-      current.setDate(current.getDate() - dayOfWeek);
-      
-      while (current <= dateRangeObj.end) {
-        dates.push(new Date(current));
-        current.setDate(current.getDate() + 7); // 7일씩 증가
-      }
-    } else {
-      // 기존 로직: 1일 단위
-      while (current <= dateRangeObj.end) {
-        dates.push(new Date(current));
-        current.setDate(current.getDate() + 1);
-      }
+    // 모든 모드에서 주 단위로 표시
+    // 첫 주의 시작일(월요일)로 조정
+    const dayOfWeek = current.getDay();
+    const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // 일요일이면 -6, 월요일이면 0
+    current.setDate(current.getDate() + daysToMonday);
+    
+    while (current <= dateRangeObj.end) {
+      dates.push(new Date(current));
+      current.setDate(current.getDate() + 7); // 7일씩 증가
     }
     
     return dates;
@@ -284,31 +277,21 @@ const GanttChart = () => {
     return grouped;
   }, [sites, dateRangeObj, selectedSites]);
 
-  // 현장의 위치와 너비 계산 (기간 경계 고려)
+  // 현장의 위치와 너비 계산 (주단위로 변경)
   const getSitePosition = (schedule) => {
-    let startIndex, endIndex, duration;
-    
-    if (viewMode === 'year') {
-      // 1년 모드: 주 단위로 계산
-      const startWeek = Math.floor((schedule.startDate - dateRangeObj.start) / (1000 * 60 * 60 * 24 * 7));
-      const endWeek = Math.floor((schedule.endDate - dateRangeObj.start) / (1000 * 60 * 60 * 24 * 7));
-      startIndex = startWeek;
-      endIndex = endWeek;
-      duration = Math.max(1, endIndex - startIndex + 1);
-    } else {
-      // 기존 로직: 일 단위로 계산
-      startIndex = Math.floor((schedule.startDate - dateRangeObj.start) / (1000 * 60 * 60 * 24));
-      endIndex = Math.floor((schedule.endDate - dateRangeObj.start) / (1000 * 60 * 60 * 24));
-      duration = Math.max(1, endIndex - startIndex + 1);
-    }
+    // 모든 모드에서 주 단위로 계산
+    const startWeek = Math.floor((schedule.startDate - dateRangeObj.start) / (1000 * 60 * 60 * 24 * 7));
+    const endWeek = Math.floor((schedule.endDate - dateRangeObj.start) / (1000 * 60 * 60 * 24 * 7));
+    const startIndex = startWeek;
+    const endIndex = endWeek;
+    const duration = Math.max(1, endIndex - startIndex + 1);
     
     const adjustedStartIndex = startIndex;
     const adjustedDuration = duration;
     
-    // 1년 모드에서도 컴팩트한 너비 사용
-    const unitWidth = isMobile ? 30 * zoomLevel : 40 * zoomLevel;
+    const unitWidth = isMobile ? 15 * zoomLevel * 7 : 20 * zoomLevel * 7; // 주단위이므로 7배로 늘리고 반으로 줄임
     
-    console.log('🔥 위치 계산:', {
+    console.log('🔥 위치 계산 (주단위):', {
       siteName: schedule.text,
       startDate: schedule.startDate,
       endDate: schedule.endDate,
@@ -1212,13 +1195,14 @@ const GanttChart = () => {
                 {dateArray.map((date, index) => {
                   const today = new Date();
                   const isToday = date.toDateString() === today.toDateString();
+                  const unitWidth = isMobile ? 15 * zoomLevel * 7 : 20 * zoomLevel * 7; // 주단위이므로 7배로 늘리고 반으로 줄임
                   
                   return (
                     <Box
                       key={index}
                       sx={{
-                        flex: 1,
-                        minWidth: isMobile ? 25 : 35,
+                        width: unitWidth,
+                        minWidth: unitWidth,
                         borderRight: 1,
                         borderColor: 'divider',
                         p: isMobile ? 0.25 : 0.5,
@@ -1229,14 +1213,11 @@ const GanttChart = () => {
                         boxShadow: isToday ? '0 0 5px rgba(255, 0, 0, 0.5)' : 'none'
                       }}
                     >
-                      <Typography variant={isMobile ? "caption" : "body2"} display="block" color={date.getDay() === 0 ? 'yellow.300' : 'white'} fontWeight="bold" sx={{ pt: viewMode === 'year' ? (isMobile ? 1 : 1.5) : (isMobile ? 1.5 : 2.5), fontSize: viewMode === 'year' ? (isMobile ? '0.7rem' : '0.8rem') : (isMobile ? '0.6rem' : 'inherit') }}>
-                        {viewMode === 'year' ? `${date.getMonth() + 1}/${date.getDate()}` : date.getDate()}
+                      <Typography variant={isMobile ? "caption" : "body2"} display="block" color={date.getDay() === 0 ? 'yellow.300' : 'white'} fontWeight="bold" sx={{ pt: isMobile ? 1 : 1.5, fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
+                        {date.getMonth() + 1}/{date.getDate()}
                       </Typography>
-                      <Typography variant={isMobile ? "caption" : "body2"} color={date.getDay() === 0 ? 'yellow.300' : 'white'} sx={{ pt: viewMode === 'year' ? 0.25 : (isMobile ? 0.25 : 0.5), fontSize: viewMode === 'year' ? (isMobile ? '0.6rem' : '0.7rem') : (isMobile ? '0.5rem' : 'inherit') }}>
-                        {viewMode === 'year' ? 
-                          `${Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1}주` : 
-                          (isMobile ? `${date.getMonth() + 1}/${date.getDate()}` : date.toLocaleDateString('ko-KR', { weekday: 'short' }))
-                        }
+                      <Typography variant={isMobile ? "caption" : "body2"} color={date.getDay() === 0 ? 'yellow.300' : 'white'} sx={{ pt: 0.25, fontSize: isMobile ? '0.6rem' : '0.7rem' }}>
+                        {Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1}주
                       </Typography>
                       
                       {/* 월 표시 */}
@@ -1340,7 +1321,7 @@ const GanttChart = () => {
                     position: 'sticky',
                     left: 0,
                     backgroundColor: 'white',
-                    zIndex: 10
+                    zIndex: 20
                   }}>
                     <Typography variant="body2" fontWeight="bold" noWrap color="black">
                       {site?.name}
@@ -1353,6 +1334,8 @@ const GanttChart = () => {
                 
                 {/* 공사기간 차트 영역 */}
                 <Grid xs={isMobile ? 12 : 10} sx={{ position: 'relative', minHeight: viewMode === 'year' ? (isMobile ? 30 : 40) : (isMobile ? 40 : 60) }}>
+                  {/* 그리드 제거됨 */}
+                  
                     {schedule && (
                                               <Box
                           sx={{
@@ -1369,6 +1352,7 @@ const GanttChart = () => {
                             justifyContent: 'center',
                             cursor: 'pointer',
                             boxShadow: 1,
+                            zIndex: 10,
                             '&:hover': {
                               boxShadow: 3,
                               transform: 'translateY(-50%) scale(1.02)'

@@ -369,9 +369,58 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
         
                  // 모든 열 데이터 추출 (A,B,C,D,E,G,I,K,L,M)
          const rowNumber = rowIndex + 1; // 실제 행 번호 (5부터 시작)
-         let columnA = String(row[0] || '').trim(); // A열 - 품명
-         let columnB = String(row[1] || '').trim(); // B열 - 규격
-         const columnC = String(row[2] || '').trim(); // C열 - 단위
+         // A열 - 품명 (객체인 경우 적절히 변환)
+         let columnA = row[0];
+         if (columnA && typeof columnA === 'object') {
+           console.log(`🔧 ${rowNumber}행: A열 객체를 문자열로 변환`, { 원본: columnA });
+           if (columnA.value !== undefined) {
+             columnA = String(columnA.value);
+           } else if (columnA.text !== undefined) {
+             columnA = String(columnA.text);
+           } else if (columnA.result !== undefined) {
+             columnA = String(columnA.result);
+           } else {
+             columnA = String(columnA);
+           }
+           console.log(`✅ ${rowNumber}행: A열 변환 완료`, { 변환후: columnA });
+         } else {
+           columnA = String(columnA || '').trim();
+         }
+         // B열 - 규격 (객체인 경우 적절히 변환)
+         let columnB = row[1];
+         if (columnB && typeof columnB === 'object') {
+           console.log(`🔧 ${rowNumber}행: B열 객체를 문자열로 변환`, { 원본: columnB });
+           // 객체의 값들을 추출하여 문자열로 변환
+           if (columnB.value !== undefined) {
+             columnB = String(columnB.value);
+           } else if (columnB.text !== undefined) {
+             columnB = String(columnB.text);
+           } else if (columnB.result !== undefined) {
+             columnB = String(columnB.result);
+           } else {
+             columnB = String(columnB);
+           }
+           console.log(`✅ ${rowNumber}행: B열 변환 완료`, { 변환후: columnB });
+         } else {
+           columnB = String(columnB || '').trim();
+         }
+         // C열 - 단위 (객체인 경우 적절히 변환)
+         let columnC = row[2];
+         if (columnC && typeof columnC === 'object') {
+           console.log(`🔧 ${rowNumber}행: C열 객체를 문자열로 변환`, { 원본: columnC });
+           if (columnC.value !== undefined) {
+             columnC = String(columnC.value);
+           } else if (columnC.text !== undefined) {
+             columnC = String(columnC.text);
+           } else if (columnC.result !== undefined) {
+             columnC = String(columnC.result);
+           } else {
+             columnC = String(columnC);
+           }
+           console.log(`✅ ${rowNumber}행: C열 변환 완료`, { 변환후: columnC });
+         } else {
+           columnC = String(columnC || '').trim();
+         }
          const columnD = parseNumber(row[3]); // D열 - 수량
          const columnE = parseNumber(row[4]); // E열 - 재료비 단가 (JE프라이스)
          const columnG = parseNumber(row[6]); // G열 - 노무비 단가 (NO프라이스)
@@ -460,8 +509,23 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
            });
          }
          
-         // 모든 행에 대해 단수정리 관련 디버깅 (20행 주변 확인)
-         if (rowNumber >= 18 && rowNumber <= 22) {
+        // 모든 행에 대해 단수정리 관련 디버깅 (5행과 20행 주변 확인)
+        if (rowNumber >= 3 && rowNumber <= 7) {
+          console.log(`🔍 ${rowNumber}행 (5행 주변) 디버깅:`, {
+            columnA: columnA,
+            columnB: columnB,
+            columnC: columnC,
+            columnD: columnD,
+            columnE: columnE,
+            columnG: columnG,
+            columnK: columnK,
+            columnL: columnL,
+            isValidItem: isValidItem,
+            isAdjustmentItem: isAdjustmentItem
+          });
+        }
+        
+        if (rowNumber >= 18 && rowNumber <= 22) {
            console.log(`🔍 ${rowNumber}행 디버깅:`, {
              columnA: columnA,
              columnA_trim: columnA && typeof columnA === 'string' ? columnA.trim() : '',
@@ -477,14 +541,32 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
            });
          }
         
-        const isValidItem = columnA && 
-            (typeof columnA === 'string' && columnA.trim() !== '') && 
-            (typeof columnA === 'string' && !columnA.includes('총공사계')) && 
-            (typeof columnA === 'string' && !columnA.includes('부가세')) && 
-            (typeof columnA === 'string' && !columnA.includes('계약금액')) &&
-            (typeof columnA === 'string' && !columnA.includes('[object Object]')) &&
-            (isAdjustmentItem || (columnB && typeof columnB === 'string' && columnB.trim() !== '' && !columnB.includes('[object Object]'))) &&
-            (isAdjustmentItem || (columnD !== undefined || columnE !== undefined || columnG !== undefined || columnK !== undefined || columnL !== undefined));
+        // 유효한 아이템인지 확인 (더 유연한 조건)
+        const hasValidName = columnA && typeof columnA === 'string' && columnA.trim() !== '' && !columnA.includes('[object Object]');
+        const hasValidSpec = columnB && typeof columnB === 'string' && columnB.trim() !== '' && !columnB.includes('[object Object]');
+        const hasNumericData = columnD !== undefined || columnE !== undefined || columnG !== undefined || columnK !== undefined || columnL !== undefined;
+        const isNotSummaryRow = !columnA.includes('총공사계') && !columnA.includes('부가세') && !columnA.includes('계약금액');
+        
+        // 더 유연한 조건: 이름이 있고 요약행이 아니며, 숫자 데이터가 있으면 유효
+        const isValidItem = hasValidName && isNotSummaryRow && hasNumericData;
+            
+        // 유효하지 않은 항목도 로그로 출력 (디버깅용)
+        if (columnA && columnA.trim() !== '' && !isValidItem) {
+          console.log(`❌ 유효하지 않은 항목 (${rowNumber}행):`, {
+            columnA: columnA,
+            columnB: columnB,
+            columnD: columnD,
+            columnE: columnE,
+            columnG: columnG,
+            columnK: columnK,
+            columnL: columnL,
+            hasValidName: hasValidName,
+            hasValidSpec: hasValidSpec,
+            hasNumericData: hasNumericData,
+            isNotSummaryRow: isNotSummaryRow,
+            isAdjustmentItem: isAdjustmentItem
+          });
+        }
             
         // 단수정리 항목 유효성 검사 디버깅
         if ((columnA && columnA.trim() === '단수정리') || (columnB && columnB.trim() === '단수정리')) {
@@ -581,6 +663,17 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
           // 단수정리 항목이 유효성 검사를 통과했는지 확인
           if (isAdjustmentItem) {
             console.log(`✅ 단수정리 항목 유효성 검사 통과 (${rowNumber}행)`);
+          } else {
+            console.log(`✅ 일반 항목 유효성 검사 통과 (${rowNumber}행):`, {
+              name: columnA,
+              spec: columnB,
+              unit: columnC,
+              quantity: columnD,
+              materialPrice: columnE,
+              laborPrice: columnG,
+              totalPrice: columnK,
+              totalAmount: columnL
+            });
           }
           
                    // 단수정리 항목일 때 수량을 1로 고정하고, 단가 정보는 원본 그대로 유지
@@ -690,6 +783,15 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
     }
     
          console.log('✅ 견적서 파싱 완료, 총 항목 수:', items.length);
+         console.log('📋 파싱된 모든 항목:', items.map((item, index) => ({
+           index: index + 1,
+           name: item.name,
+           spec: item.spec,
+           unit: item.unit,
+           quantity: item.quantity,
+           unitPrice: item.unitPrice,
+           amount: item.amount
+         })));
      
      // 단수정리 항목 최종 확인
      const adjustmentItems = items.filter(item => 

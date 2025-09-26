@@ -3,18 +3,18 @@
 // 프로젝트: chunwooo-edf9f
 
 export const templateUrls = {
-  // N 타입 견적서 템플릿
-  "(N)견적서": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates/Ngyunjuk.xlsx?alt=media",
-  // L 타입 견적서 템플릿
-  "(L)견적서": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates/Lgyunjuk.xlsx?alt=media",
-  // N 타입 납품계약서 템플릿
-  "(N)납품계약서": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates/Nnapfoom.xlsx?alt=media",
-  // L 타입 납품계약서 템플릿
-  "(L)납품계약서": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates/Lnapfoom.xlsx?alt=media",
+  // N 타입 견적서 템플릿 (Firebase Storage - 올바른 URL 형식)
+  "(N)견적서": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.appspot.com/o/templates%2FNgyunjuk.xlsx?alt=media&token=public",
+  // L 타입 견적서 템플릿 (Firebase Storage - 올바른 URL 형식)
+  "(L)견적서": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.appspot.com/o/templates%2FLgyunjuk.xlsx?alt=media&token=public",
+  // N 타입 납품계약서 템플릿 (Firebase Storage - 올바른 URL 형식)
+  "(N)납품계약서": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.appspot.com/o/templates%2FNnapfoom.xlsx?alt=media&token=public",
+  // L 타입 납품계약서 템플릿 (Firebase Storage - 올바른 URL 형식)
+  "(L)납품계약서": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.appspot.com/o/templates%2FLnapfoom.xlsx?alt=media&token=public",
   // N 타입 기성금청구서 템플릿 (20개 이하 물량)
-  "(N)기성금청구서": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates/NEW.xlsx?alt=media",
+  "(N)기성금청구서": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.appspot.com/o/templates%2FNEW.xlsx?alt=media&token=public",
   // L 타입 기성금청구서 템플릿 (21개 이상 물량)
-  "(L)기성금청구서": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.firebasestorage.app/o/templates/LONG.xlsx?alt=media"
+  "(L)기성금청구서": "https://firebasestorage.googleapis.com/v0/b/chunwooo-edf9f.appspot.com/o/templates%2FLONG.xlsx?alt=media&token=public"
 };
 
 // 사용 예시:

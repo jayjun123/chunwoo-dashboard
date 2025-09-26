@@ -489,11 +489,14 @@ export default function ImportantSite() {
             ...doc.data()
           }));
           
-          devLog(`Site ${siteId}의 기성 데이터 (${gisungItems.length}개):`, gisungItems);
+          // 주단위로 그룹화
+          const weeklyGrouped = groupGisungByWeek(gisungItems);
+          
+          devLog(`Site ${siteId}의 기성 데이터 (${gisungItems.length}개) -> 주단위 그룹화 (${weeklyGrouped.length}개):`, weeklyGrouped);
           
           setGisungData(prev => ({
             ...prev,
-            [siteId]: gisungItems
+            [siteId]: weeklyGrouped
           }));
         }, (error) => {
           devError(`Error fetching gisung for site ${siteId}:`, error);
@@ -519,6 +522,70 @@ export default function ImportantSite() {
       });
     };
   }, [sites.length]); // sites.length만 의존성으로 사용
+
+  // 기성 데이터를 주단위로 그룹화하는 함수
+  const groupGisungByWeek = (gisungItems) => {
+    const weeklyGroups = {};
+    
+    gisungItems.forEach(item => {
+      let date;
+      
+      // 날짜 필드 처리
+      if (item.gisungDate) {
+        if (item.gisungDate.toDate) {
+          date = item.gisungDate.toDate();
+        } else if (item.gisungDate instanceof Date) {
+          date = item.gisungDate;
+        } else {
+          // 문자열 날짜 처리
+          const dateStr = item.gisungDate.replace(/\./g, '-');
+          date = new Date(dateStr + 'T00:00:00');
+        }
+      } else if (item.date) {
+        if (item.date.toDate) {
+          date = item.date.toDate();
+        } else if (item.date instanceof Date) {
+          date = item.date;
+        } else {
+          const dateStr = item.date.replace(/\./g, '-');
+          date = new Date(dateStr + 'T00:00:00');
+        }
+      } else {
+        return; // 날짜가 없으면 건너뛰기
+      }
+      
+      // 주의 시작일 계산 (월요일)
+      const weekStart = new Date(date);
+      const dayOfWeek = date.getDay();
+      const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // 일요일이면 -6, 월요일이면 0
+      weekStart.setDate(date.getDate() + daysToMonday);
+      weekStart.setHours(0, 0, 0, 0);
+      
+      const weekKey = weekStart.toISOString().split('T')[0];
+      
+      if (!weeklyGroups[weekKey]) {
+        weeklyGroups[weekKey] = {
+          id: `week_${weekKey}_${item.siteId}`,
+          siteId: item.siteId,
+          siteName: item.siteName,
+          weekStart: weekStart,
+          weekEnd: new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000),
+          gisungAmount: 0,
+          gisungDate: weekKey,
+          gisungMonth: weekStart.getMonth() + 1,
+          items: []
+        };
+      }
+      
+      weeklyGroups[weekKey].gisungAmount += Number(item.gisungAmount || 0);
+      weeklyGroups[weekKey].items.push(item);
+    });
+    
+    // 주별 그룹을 배열로 변환하고 날짜순 정렬
+    return Object.values(weeklyGroups).sort((a, b) => 
+      new Date(a.weekStart) - new Date(b.weekStart)
+    );
+  };
 
   // 기존 progress 데이터 구독 (유지)
   useEffect(() => {
@@ -821,11 +888,11 @@ export default function ImportantSite() {
     },
     scales: {
       x: {
-        grid: { color: '#333' },
+        grid: { display: false },
         ticks: { color: '#bbb', font: { weight: 700 } }
       },
       y: {
-        grid: { color: '#222' },
+        grid: { display: false },
         ticks: { color: '#bbb', font: { weight: 700 } }
       }
     }
@@ -1169,7 +1236,7 @@ export default function ImportantSite() {
           // 기성 데이터 계산 완료 (로그 제거됨)
           
           return (
-            <Grid item xs={12} md={6} key={site.id} sx={{ minWidth: isMobile ? 'auto' : '500px' }}>
+            <Grid item xs={12} md={8} key={site.id} sx={{ minWidth: isMobile ? 'auto' : '700px' }}>
               <Paper 
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -1191,13 +1258,15 @@ export default function ImportantSite() {
                   flexDirection: { xs: 'column', md: 'row' }, 
                   alignItems: 'stretch', 
                   height: isMobile ? 'auto' : 400, // 높이를 400으로 통일
-                  minWidth: isMobile ? 'calc(100vw - 20px)' : '500px', 
+                  minWidth: isMobile ? 'calc(100vw - 20px)' : '700px', 
                   width: '100%', 
                   p: 0, 
                   overflow: 'hidden',
                   marginLeft: isMobile ? '2px' : 0,
                   marginRight: isMobile ? '5px' : 0,
                   cursor: 'grab',
+                  position: 'relative',
+                  zIndex: 10,
                   '&:active': {
                     cursor: 'grabbing'
                   },
@@ -1205,14 +1274,15 @@ export default function ImportantSite() {
                   transform: draggedSiteId === site.id ? 'rotate(5deg)' : 'none',
                   transition: 'opacity 0.2s, transform 0.2s',
                   '&:hover': {
-                    boxShadow: 8
+                    boxShadow: 8,
+                    zIndex: 20
                   }
                 }}
               >
               {/* 왼쪽: 정보/버튼 */}
               <Box sx={{ 
                 flex: 2.5, 
-                minWidth: isMobile ? 'calc(100vw - 20px)' : 320, 
+                minWidth: isMobile ? 'calc(100vw - 20px)' : 400, 
                 width: isMobile ? 'calc(100vw - 20px)' : 'auto',
                 p: isMobile ? 1.5 : 3, 
                 display: 'flex', 
@@ -1442,7 +1512,7 @@ export default function ImportantSite() {
               </Box>
               {/* 가운데: 차트 - 모바일에서 숨김 */}
               {!isMobile && (
-                <Box sx={{ flex: 1.7, minWidth: 320, maxWidth: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', bgcolor: '#181f2e', p: 0, height: '360px', borderRight: { md: '2px solid #232b3b' }, mt: 0.5 }}>
+                <Box sx={{ flex: 1.7, minWidth: 400, maxWidth: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', bgcolor: '#181f2e', p: 0, height: '360px', borderRight: { md: '2px solid #232b3b' }, mt: 0.5 }}>
                   {/* 공사진행률 가로 차트 - 상단 고정 */}
                   <Box sx={{ width: '90%', mb: 3 }}>
                     <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: 15, mb: 0.5 }}>공사진행률</Typography>
@@ -1581,11 +1651,11 @@ export default function ImportantSite() {
                         },
                         scales: {
                           x: {
-                            grid: { color: '#333' },
+                            grid: { display: false },
                             ticks: { color: '#bbb', font: { weight: 700, size: 12 } }
                           },
                           y: {
-                            grid: { color: '#222' },
+                            grid: { display: false },
                             ticks: { color: '#bbb', font: { weight: 700, size: 12 } }
                           }
                         },
@@ -1600,7 +1670,7 @@ export default function ImportantSite() {
               {/* 오른쪽: 조감도 이미지 - 모바일에서 숨김 */}
               {!isMobile && (
                 <Box
-                  sx={{ flex: 1.5, minWidth: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#222', cursor: !site.imageUrl && !uploadingSiteId ? 'pointer' : 'default', position: 'relative' }}
+                  sx={{ flex: 1.5, minWidth: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#222', cursor: !site.imageUrl && !uploadingSiteId ? 'pointer' : 'default', position: 'relative' }}
                   onClick={!site.imageUrl && !uploadingSiteId ? () => handleImageClick(site.id) : undefined}
                   onMouseEnter={() => setHoveredSiteId(site.id)}
                   onMouseLeave={() => setHoveredSiteId(null)}

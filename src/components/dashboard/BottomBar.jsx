@@ -628,41 +628,48 @@ const BottomBar = ({
         });
       }
       
-      // stats 업데이트 - estimates의 입찰 데이터와 일정 데이터의 입찰 개수를 합침
+      // 미제출된 견적만 필터링 (제출완료된 것은 제외)
+      const unsubmittedEstimates = estimates.filter(estimate => estimate.submissionStatus !== '제출완료');
+      const unsubmittedBids = bids.filter(bid => bid.submissionStatus !== '제출완료');
+      
+      console.log('🔥 미제출 견적 개수:', unsubmittedEstimates.length, '전체 견적:', estimates.length);
+      console.log('🔥 미제출 입찰 개수:', unsubmittedBids.length, '전체 입찰:', bids.length);
+      
+      // stats 업데이트 - 미제출된 견적/입찰만 카운트
       setStats(prev => {
         const updatedStats = {
           ...prev,
-          estimateCount: estimates.length,
-          bidCount: prev.bidCount + bids.length, // 기존 일정 데이터의 입찰 개수 + 견적 데이터의 입찰 개수
-          progressCount: prev.bidCount + bids.length  // estimates의 입찰 카운트로 progressCount 덮어쓰기
+          estimateCount: unsubmittedEstimates.length, // 미제출 견적만 카운트
+          bidCount: prev.bidCount + unsubmittedBids.length, // 기존 일정 데이터의 입찰 개수 + 견적 데이터의 미제출 입찰 개수
+          progressCount: prev.bidCount + unsubmittedBids.length  // estimates의 미제출 입찰 카운트로 progressCount 덮어쓰기
         };
         
-        console.log('🔥 하단바 stats 업데이트 (estimates 우선):', updatedStats);
-        console.log('🔥 estimates 입찰 개수:', bids.length);
-        console.log('🔥 progressCount 업데이트됨:', bids.length);
+        console.log('🔥 하단바 stats 업데이트 (미제출 견적만):', updatedStats);
+        console.log('🔥 미제출 estimates 입찰 개수:', unsubmittedBids.length);
+        console.log('🔥 progressCount 업데이트됨:', unsubmittedBids.length);
         
         // 견적 알림 보내기
-        sendCountNotificationIfNeeded('estimates', estimates.length);
-        sendCountNotificationIfNeeded('bids', bids.length);
+        sendCountNotificationIfNeeded('estimates', unsubmittedEstimates.length);
+        sendCountNotificationIfNeeded('bids', unsubmittedBids.length);
         
         return updatedStats;
       });
       
-      // 견적만 표시 (최신순)
-      const sortedEstimates = estimates.sort((a, b) => {
+      // 미제출 견적만 표시 (최신순)
+      const sortedEstimates = unsubmittedEstimates.sort((a, b) => {
         const dateA = new Date(a.submissionDeadline);
         const dateB = new Date(b.submissionDeadline);
         return dateB - dateA;
       });
       
-      // 입찰만 표시 (최신순)
-      const sortedBids = bids.sort((a, b) => {
+      // 미제출 입찰만 표시 (최신순)
+      const sortedBids = unsubmittedBids.sort((a, b) => {
         const dateA = new Date(a.submissionDeadline);
         const dateB = new Date(b.submissionDeadline);
         return dateB - dateA;
       });
       
-      setEstimateList(sortedEstimates.slice(-5).reverse());
+      setEstimateList(sortedEstimates.reverse()); // 전체 미제출 견적 표시
       
       // 견적 데이터의 입찰 항목을 bidList에 설정
       const estimateBids = sortedBids.slice(-5).reverse();
@@ -2205,12 +2212,23 @@ const BottomBar = ({
             {(!isMobile || estimateList.length > 0) && (
               <Box sx={{ flex: { xs: 'none', md: 1 }, minWidth: { md: 0 } }}>
                 <Typography variant="h6" sx={{ mb: 1, color: '#FF9800', fontWeight: 600, fontSize: { xs: 14, md: 14 } }}>
-                  🧮 {isMobile ? '견적' : '오늘/미제출 견적'} ({estimateList.length}개)
+                  🧮 {isMobile ? '견적' : '미제출 견적'} ({stats.estimateCount}개)
                 </Typography>
                 {estimateList.length === 0 ? (
                   <Typography sx={{ color: '#ccc', fontSize: { xs: 12, md: 12 } }}>오늘 제출기한이거나 미제출된 날짜 지난 견적이 없습니다.</Typography>
                 ) : (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 0.5, md: 1 } }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: { xs: 0.5, md: 1 },
+                    maxHeight: { xs: '200px', md: '300px' },
+                    overflowY: 'auto',
+                    scrollbarWidth: 'none', // Firefox에서 스크롤바 숨김
+                    msOverflowStyle: 'none', // IE/Edge에서 스크롤바 숨김
+                    '&::-webkit-scrollbar': {
+                      display: 'none' // Chrome/Safari에서 스크롤바 숨김
+                    }
+                  }}>
                     {estimateList.map((item, index) => (
                       <Box key={index} sx={{ 
                         p: { xs: 1, md: 1 }, // 모바일 패딩 줄임

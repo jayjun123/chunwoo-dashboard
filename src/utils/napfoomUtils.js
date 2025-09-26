@@ -41,14 +41,39 @@ export const createNapfoomContract = async (siteData, materialItems = [], fileNa
     console.log(`📋 NAPFOOM 납품계약서 템플릿 선택: ${templateType} 타입 (${templateType === 'L' ? 'LONG' : 'NEW'})`);
     console.log(`🔗 실제 요청할 URL: ${templateUrl}`);
     
-    const response = await fetch(templateUrl);
-    if (!response.ok) {
-      console.error(`❌ L 타입 템플릿 다운로드 실패: HTTP ${response.status} ${response.statusText}`);
-      console.error(`❌ 요청 URL: ${templateUrl}`);
-      throw new Error(`L 타입 템플릿 파일을 찾을 수 없습니다. HTTP error! status: ${response.status}`);
+    // 템플릿 다운로드 (Firebase Storage SDK 사용)
+    let arrayBuffer;
+    try {
+      // Firebase Storage SDK를 사용한 다운로드
+      const { getStorage, ref, getDownloadURL } = await import('firebase/storage');
+      const { storage } = await import('../firebase');
+      
+      const storageRef = ref(storage, `templates/${templateType === 'L' ? 'Lnapfoom' : 'Nnapfoom'}.xlsx`);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      console.log(`🔗 Firebase Storage 다운로드 URL: ${downloadURL}`);
+      
+      const response = await fetch(downloadURL);
+      if (!response.ok) {
+        throw new Error(`템플릿 파일을 찾을 수 없습니다. HTTP error! status: ${response.status}`);
+      }
+      
+      arrayBuffer = await response.arrayBuffer();
+      console.log(`✅ 템플릿 다운로드 완료: ${templateKey} (${arrayBuffer.byteLength} bytes)`);
+      
+    } catch (storageError) {
+      console.warn('⚠️ Firebase Storage 다운로드 실패, 직접 URL 시도:', storageError);
+      
+      // 폴백: 직접 URL 사용
+      const response = await fetch(templateUrl);
+      if (!response.ok) {
+        console.error(`❌ L 타입 템플릿 다운로드 실패: HTTP ${response.status} ${response.statusText}`);
+        console.error(`❌ 요청 URL: ${templateUrl}`);
+        throw new Error(`L 타입 템플릿 파일을 찾을 수 없습니다. HTTP error! status: ${response.status}`);
+      }
+      arrayBuffer = await response.arrayBuffer();
+      console.log(`✅ L 타입 템플릿 다운로드 완료: ${arrayBuffer.byteLength} bytes`);
     }
-    const arrayBuffer = await response.arrayBuffer();
-    console.log(`✅ L 타입 템플릿 다운로드 완료: ${arrayBuffer.byteLength} bytes`);
     
     // 템플릿 로드 (기본 방식)
     const workbook = new ExcelJS.Workbook();

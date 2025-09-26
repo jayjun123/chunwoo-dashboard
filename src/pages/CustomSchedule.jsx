@@ -1334,12 +1334,55 @@ const CustomSchedule = () => {
             <IconButton onClick={e => { e.stopPropagation(); handleCloseListPopup(); }} sx={{ position: 'absolute', top: 8, right: 8, color: 'text.primary' }}>X</IconButton>
             <Typography variant="h6" sx={{ color: 'text.primary', mb: 2 }}>{listPopupDate} 일정 목록</Typography>
             {(calendarItems[listPopupDate] && calendarItems[listPopupDate].length > 0) ? (
-              calendarItems[listPopupDate].map(item => (
-                <Paper key={item.id} sx={{ mb: 1, p: 1, bgcolor: 'background.default' }}>
-                  <Typography sx={{ fontWeight: 600 }}>{item.text}</Typography>
-                  <Typography variant="body2" color="text.secondary">{item.desc}</Typography>
-                </Paper>
-              ))
+              calendarItems[listPopupDate].map(item => {
+                // 타입에 따른 태그 매핑
+                const getTypeTag = (type) => {
+                  if (!type) return '';
+                  const typeStr = type.toString().toLowerCase();
+                  if (typeStr.includes('현장')) return '[현장]';
+                  if (typeStr.includes('실측')) return '[실측]';
+                  if (typeStr.includes('기타')) return '[기타]';
+                  if (typeStr.includes('회의')) return '[회의]';
+                  if (typeStr.includes('현설')) return '[현설]';
+                  if (typeStr.includes('입찰')) return '[입찰]';
+                  if (typeStr.includes('견적')) return '[견적]';
+                  return `[${type}]`;
+                };
+
+                const typeTag = getTypeTag(item.type);
+                
+                return (
+                  <Paper key={item.id} sx={{ mb: 1, p: 1, bgcolor: 'background.default' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      {typeTag && (
+                        <Typography 
+                          sx={{ 
+                            fontWeight: 600, 
+                            color: 'primary.main',
+                            fontSize: '0.75rem',
+                            bgcolor: 'primary.light',
+                            color: 'primary.contrastText',
+                            px: 1,
+                            py: 0.25,
+                            borderRadius: 1,
+                            minWidth: 'fit-content'
+                          }}
+                        >
+                          {typeTag}
+                        </Typography>
+                      )}
+                      <Typography sx={{ fontWeight: 600, flex: 1 }}>
+                        {item.text}
+                      </Typography>
+                    </Box>
+                    {item.desc && (
+                      <Typography variant="body2" color="text.secondary">
+                        {item.desc}
+                      </Typography>
+                    )}
+                  </Paper>
+                );
+              })
             ) : (
               <Typography color="text.secondary">일정이 없습니다.</Typography>
             )}

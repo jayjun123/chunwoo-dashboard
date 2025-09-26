@@ -54,16 +54,16 @@
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   row-gap: 15px;
-  column-gap: 1px;
-  background: #e0e0e0;
-  border: 1px solid #e0e0e0;
+  column-gap: 0;
+  background: transparent;
+  border: none;
   border-radius: 12px;
   overflow: hidden;
 }
 
 .calendar.dark .calendar-grid {
-  background: #404040;
-  border-color: #404040;
+  background: transparent;
+  border: none;
 }
 
 .weekday {

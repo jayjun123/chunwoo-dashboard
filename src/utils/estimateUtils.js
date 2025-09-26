@@ -40,14 +40,38 @@ export const createEstimate = async (siteData, materialItems = [], fileName = '�
     console.log(`📊 물량 개수: ${itemCount}개 → ${templateType} 타입 템플릿 사용`);
     console.log(`🔗 템플릿 URL: ${templateUrl}`);
     
-    // 템플릿 다운로드
-    const response = await fetch(templateUrl);
-    if (!response.ok) {
-      throw new Error(`템플릿 파일을 찾을 수 없습니다. HTTP error! status: ${response.status}`);
+    // 템플릿 다운로드 (Firebase Storage SDK 사용)
+    let arrayBuffer;
+    try {
+      // Firebase Storage SDK를 사용한 다운로드
+      const { getStorage, ref, getDownloadURL } = await import('firebase/storage');
+      const { storage } = await import('../firebase');
+      
+      const storageRef = ref(storage, `templates/${templateType === 'L' ? 'Lgyunjuk' : 'Ngyunjuk'}.xlsx`);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      console.log(`🔗 Firebase Storage 다운로드 URL: ${downloadURL}`);
+      
+      const response = await fetch(downloadURL);
+      if (!response.ok) {
+        throw new Error(`템플릿 파일을 찾을 수 없습니다. HTTP error! status: ${response.status}`);
+      }
+      
+      arrayBuffer = await response.arrayBuffer();
+      console.log(`✅ 템플릿 다운로드 완료: ${templateKey} (${arrayBuffer.byteLength} bytes)`);
+      
+    } catch (storageError) {
+      console.warn('⚠️ Firebase Storage 다운로드 실패, 직접 URL 시도:', storageError);
+      
+      // 폴백: 직접 URL 사용
+      const response = await fetch(templateUrl);
+      if (!response.ok) {
+        throw new Error(`템플릿 파일을 찾을 수 없습니다. HTTP error! status: ${response.status}`);
+      }
+      
+      arrayBuffer = await response.arrayBuffer();
+      console.log(`✅ 템플릿 다운로드 완료 (폴백): ${templateKey} (${arrayBuffer.byteLength} bytes)`);
     }
-    
-    const arrayBuffer = await response.arrayBuffer();
-    console.log(`✅ 템플릿 다운로드 완료: ${templateKey} (${arrayBuffer.byteLength} bytes)`);
     
     // 워크북 로드 (옵션 없이 순수하게 로드)
     const workbook = new ExcelJS.Workbook();

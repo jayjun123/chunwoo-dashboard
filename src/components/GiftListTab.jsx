@@ -347,8 +347,10 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
               
               // 둘 다 새카드이거나 둘 다 기존 카드인 경우
               if (isNewCardA && isNewCardB) {
-                // 새카드끼리는 카드 번호 순으로 정렬
-                return (a.cardNumber || 0) - (b.cardNumber || 0);
+                // 새카드끼리는 생성 시간 순으로 정렬 (최신이 맨 뒤)
+                const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+                const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+                return aTime - bTime;
               }
               
               // 기존 카드들끼리는 기존 정렬 로직 적용
@@ -1154,8 +1156,25 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       );
     }
     
-    // 직책이 회사인 카드들을 이름 가나다 순으로 앞쪽에, 나머지를 이름 가나다 순으로 뒤쪽에 정렬
+    // 검색 결과에서도 원래 번호 순서 유지 (cardNumber 기준 정렬)
     return cards.sort((a, b) => {
+      // 새카드인지 확인 (isNewCard가 true이거나 이름이 '새 카드'인 경우)
+      const isNewCardA = a.isNewCard === true || a.name === '새 카드';
+      const isNewCardB = b.isNewCard === true || b.name === '새 카드';
+      
+      // 새카드는 항상 맨 뒤로
+      if (isNewCardA && !isNewCardB) return 1; // 새카드를 뒤로
+      if (!isNewCardA && isNewCardB) return -1; // 기존 카드를 앞으로
+      
+      // 둘 다 새카드이거나 둘 다 기존 카드인 경우
+      if (isNewCardA && isNewCardB) {
+        // 새카드끼리는 생성 시간 순으로 정렬 (최신이 맨 뒤)
+        const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+        const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+        return aTime - bTime;
+      }
+      
+      // 기존 카드들끼리는 기존 정렬 로직 적용
       // 직책이 "회사"인지 확인
       const isCompanyA = a.position === '회사';
       const isCompanyB = b.position === '회사';

@@ -59,7 +59,22 @@ import {
   Block as BlockIcon,
   EditNote as EditNoteIcon,
   Help as HelpIcon,
+  Map as MapIcon,
 } from '@mui/icons-material';
+
+// 3D 아이소메트릭 한반도 이미지 아이콘
+const KoreaMapIcon = ({ sx, ...props }) => (
+  <img 
+    src="/MAPICON.png" 
+    alt="MAP" 
+    style={{ 
+      width: 24, 
+      height: 24,
+      ...sx 
+    }} 
+    {...props}
+  />
+);
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useTheme as useThemeContext } from '../contexts/ThemeContext';
@@ -74,6 +89,7 @@ const menuItems = [
   { text: '현장일정', icon: <TimelineIcon />, path: '/gantt' },
   { text: '주요현장', icon: <StarIcon />, path: '/importantSite', iconColor: '#FFD700' },
   { text: '현장관리', icon: <BusinessIcon />, path: '/sites', iconColor: '#4CAF50' },
+  { text: 'MAP', icon: <KoreaMapIcon />, path: '/mapping', iconColor: '#00BCD4' },
   { text: '안전관리', icon: <SecurityIcon />, path: '/safety' },
   { text: '견적요청', icon: <DescriptionIcon />, path: '/estimates', iconColor: '#FF9800' },
   { text: '토론의견', icon: <ForumIcon />, path: '/discussions' },

@@ -12,6 +12,7 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import StarIcon from '@mui/icons-material/Star';
 import GroupIcon from '@mui/icons-material/Group';
 import PeopleIcon from '@mui/icons-material/People';
+import MapIcon from '@mui/icons-material/Map';
 
 const Header = () => {
   const { logout, currentUser } = useAuth();
@@ -25,6 +26,7 @@ const Header = () => {
   const menuItems = [
     { path: '/gantt', label: '현장일정', icon: <TimelineIcon /> },
     { path: '/importantsite', label: '주요현장', icon: <StarIcon /> },
+    { path: '/mapping', label: 'MAP', icon: <MapIcon /> },
     { path: '/sites', label: '현장관리', icon: <span role="img" aria-label="site">🏗️</span> },
     { path: '/safety', label: '안전관리', icon: <span role="img" aria-label="safety">⚠️</span> },
     { path: '/discussions', label: '토론의견', icon: <span role="img" aria-label="discuss">💬</span> },

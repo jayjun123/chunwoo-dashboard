@@ -59,6 +59,7 @@ import TemplateUpload from './pages/TemplateUpload';
 import CompanyDistribution from './pages/CompanyDistribution';
 import SettlementManagement from './pages/SettlementManagement';
 import SettlementDetail from './pages/SettlementDetail';
+import Mapping from './pages/Mapping';
 import { URL_ALIASES, expandUrl } from './utils/urlShortener';
 import errorHandler from './utils/errorHandler';
 
@@ -525,7 +526,8 @@ const App = React.memo(() => {
         <Route path="/tu" element={<Navigate to="/template-upload" replace />} />
         <Route path="/pr" element={<Navigate to="/profile" replace />} />
         <Route path="/cl" element={<Navigate to="/claims" replace />} />
-        <Route path="/es" element={<Navigate to="/estimates" replace />} />
+                      <Route path="/es" element={<Navigate to="/estimates" replace />} />
+                      <Route path="/map" element={<Navigate to="/mapping" replace />} />
         <Route path="/set" element={<Navigate to="/settings" replace />} />
                       <Route path="/cd" element={<Navigate to="/company-distribution" replace />} />
                       
@@ -993,6 +995,22 @@ const App = React.memo(() => {
                             ) : (
                               <Layout>
                                 <Estimates />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/mapping"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <Mapping />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <Mapping />
                               </Layout>
                             )}
                           </ProtectedRoute>

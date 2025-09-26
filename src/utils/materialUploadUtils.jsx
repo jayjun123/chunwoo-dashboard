@@ -369,9 +369,59 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
         
                  // 모든 열 데이터 추출 (A,B,C,D,E,G,I,K,L,M)
          const rowNumber = rowIndex + 1; // 실제 행 번호 (5부터 시작)
-         let columnA = String(row[0] || '').trim(); // A열 - 품명
-         let columnB = String(row[1] || '').trim(); // B열 - 규격
-         const columnC = String(row[2] || '').trim(); // C열 - 단위
+         // A열 - 품명 (객체인 경우 적절히 변환)
+         let columnA = row[0];
+         if (columnA && typeof columnA === 'object') {
+           console.log(`🔧 ${rowNumber}행: A열 객체를 문자열로 변환`, { 원본: columnA });
+           if (columnA.value !== undefined) {
+             columnA = String(columnA.value);
+           } else if (columnA.text !== undefined) {
+             columnA = String(columnA.text);
+           } else if (columnA.result !== undefined) {
+             columnA = String(columnA.result);
+           } else {
+             columnA = String(columnA);
+           }
+           console.log(`✅ ${rowNumber}행: A열 변환 완료`, { 변환후: columnA });
+         } else {
+           columnA = String(columnA || '').trim();
+         }
+         
+         // B열 - 규격 (객체인 경우 적절히 변환)
+         let columnB = row[1];
+         if (columnB && typeof columnB === 'object') {
+           console.log(`🔧 ${rowNumber}행: B열 객체를 문자열로 변환`, { 원본: columnB });
+           if (columnB.value !== undefined) {
+             columnB = String(columnB.value);
+           } else if (columnB.text !== undefined) {
+             columnB = String(columnB.text);
+           } else if (columnB.result !== undefined) {
+             columnB = String(columnB.result);
+           } else {
+             columnB = String(columnB);
+           }
+           console.log(`✅ ${rowNumber}행: B열 변환 완료`, { 변환후: columnB });
+         } else {
+           columnB = String(columnB || '').trim();
+         }
+         
+         // C열 - 단위 (객체인 경우 적절히 변환)
+         let columnC = row[2];
+         if (columnC && typeof columnC === 'object') {
+           console.log(`🔧 ${rowNumber}행: C열 객체를 문자열로 변환`, { 원본: columnC });
+           if (columnC.value !== undefined) {
+             columnC = String(columnC.value);
+           } else if (columnC.text !== undefined) {
+             columnC = String(columnC.text);
+           } else if (columnC.result !== undefined) {
+             columnC = String(columnC.result);
+           } else {
+             columnC = String(columnC);
+           }
+           console.log(`✅ ${rowNumber}행: C열 변환 완료`, { 변환후: columnC });
+         } else {
+           columnC = String(columnC || '').trim();
+         }
          const columnD = parseNumber(row[3]); // D열 - 수량
          const columnE = parseNumber(row[4]); // E열 - 재료비 단가 (JE프라이스)
          const columnG = parseNumber(row[6]); // G열 - 노무비 단가 (NO프라이스)

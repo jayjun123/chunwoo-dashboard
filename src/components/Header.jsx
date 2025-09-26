@@ -22,6 +22,8 @@ import ReceiptIcon from '@mui/icons-material/Receipt';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import DescriptionIcon from '@mui/icons-material/Description';
+import MapIcon from '@mui/icons-material/Map';
+import StarIcon from '@mui/icons-material/Star';
 
 const Header = ({ user, onLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -33,6 +35,7 @@ const Header = ({ user, onLogout }) => {
   const menuItems = [
     { path: '/importantsite', label: '주요현장', icon: <StarIcon /> },
     { path: '/sites', label: '현장관리', icon: <DashboardIcon /> },
+    { path: '/mapping', label: 'MAP', icon: <MapIcon /> },
     { path: '/safety', label: '안전관리', icon: <SecurityIcon /> },
     { path: '/claims', label: '청구예정', icon: <AttachMoneyIcon /> },
     { path: '/estimate', label: '견적요청', icon: <DescriptionIcon /> },
