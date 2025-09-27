@@ -100,21 +100,38 @@ const Mapping = () => {
 
   // 거리측정 모드 토글
   const toggleDistanceMode = () => {
-    setDistanceMode(!distanceMode);
+    const newMode = !distanceMode;
+    console.log('🔄 거리측정 모드 토글:', distanceMode, '->', newMode);
+    setDistanceMode(newMode);
     setDistancePoints([]);
     setCalculatedDistance(null);
   };
 
   // 현장 마커 클릭 핸들러 (거리측정 모드)
   const handleSiteMarkerClickForDistance = (site, event) => {
-    if (!distanceMode) return;
+    console.log('🎯 거리측정 마커 클릭됨:', site.name, 'distanceMode:', distanceMode);
+    
+    if (!distanceMode) {
+      console.log('❌ 거리측정 모드가 비활성화됨');
+      return;
+    }
     
     // 주소에서 도시 정보 추출하여 좌표 가져오기
     const city = extractCityFromAddress(site.address);
-    if (!city) return;
+    console.log('📍 추출된 도시:', city, '주소:', site.address);
+    
+    if (!city) {
+      console.log('❌ 도시 정보를 추출할 수 없음');
+      return;
+    }
     
     const coord = cityCoordinates[getCoordinateKey(city)];
-    if (!coord) return;
+    console.log('🗺️ 좌표 정보:', coord, '키:', getCoordinateKey(city));
+    
+    if (!coord) {
+      console.log('❌ 좌표 정보를 찾을 수 없음');
+      return;
+    }
     
     const lat = coord[1];
     const lon = coord[0];
@@ -167,13 +184,19 @@ const Mapping = () => {
       siteId: site.id
     };
     
+    console.log('📍 새로운 거리측정 포인트:', newPoint);
+    
     setDistancePoints(prevPoints => {
+      console.log('📍 기존 포인트들:', prevPoints);
+      
       if (prevPoints.length >= 2) {
         // 이미 2개가 선택되어 있으면 새로 시작
+        console.log('🔄 2개 포인트가 이미 있음, 새로 시작');
         setCalculatedDistance(null);
         return [newPoint];
       } else {
         const updatedPoints = [...prevPoints, newPoint];
+        console.log('📍 업데이트된 포인트들:', updatedPoints);
         
         // 2개가 선택되면 거리 계산
         if (updatedPoints.length === 2) {
@@ -181,6 +204,7 @@ const Mapping = () => {
             updatedPoints[0].lat, updatedPoints[0].lon,
             updatedPoints[1].lat, updatedPoints[1].lon
           );
+          console.log('📏 계산된 거리:', distance, 'km');
           setCalculatedDistance(distance);
         }
         
@@ -1131,14 +1155,6 @@ const Mapping = () => {
       '대구남구': '대구남구', '대구북구': '대구북구', '대구수성구': '대구수성구',
       '대구달서구': '대구달서구', '대구달성군': '대구달성군',
       
-      // 시/군/구 → 그대로 유지 (구체적인 좌표 사용)
-      '포항시': '포항시', '경주시': '경주시', '김천시': '김천시', '안동시': '안동시',
-      '구미시': '구미시', '영주시': '영주시', '영천시': '영천시', '상주시': '상주시',
-      '문경시': '문경시', '경산시': '경산시', '군위군': '군위군', '의성군': '의성군',
-      '청송군': '청송군', '영양군': '영양군', '영덕군': '영덕군', '청도군': '청도군',
-      '고령군': '고령군', '성주군': '성주군', '칠곡군': '칠곡군', '예천군': '예천군',
-      '봉화군': '봉화군', '울진군': '울진군', '울릉군': '울릉군',
-      
       // 경상남도 시/군/구
       '창원시': '창원시', '진주시': '진주시', '통영시': '통영시', '사천시': '사천시',
       '김해시': '김해시', '밀양시': '밀양시', '거제시': '거제시', '양산시': '양산시',
@@ -1383,6 +1399,8 @@ const Mapping = () => {
 
     // 마커 렌더 함수
     const updateSiteMarkers = (transform) => {
+      console.log('🎨 마커 렌더링 시작 - 거리측정 모드:', distanceMode, '표시할 현장 수:', sites.length);
+      
       // 주요현장 + 선택된 현장들만 표시 (거리측정 모드에서도 동일)
       const sitesToShow = sites.filter(s => {
         if (!isSiteInYear(s, currentYear)) return false;
@@ -1539,7 +1557,7 @@ const Mapping = () => {
               .attr("data-lon", coords[0])
               .attr("transform", `translate(${x}, ${y}) scale(0)`)
               .style("pointer-events", "all")
-              .style("cursor", "pointer")
+              .style("cursor", distanceMode ? "crosshair" : "pointer")
               .style("opacity", 1);
 
             // 도형을 붙일 컨테이너
@@ -1556,12 +1574,13 @@ const Mapping = () => {
                 .style("opacity", 1)
                 .style("visibility", "visible");
             } else {
+              console.log('🔵 일반 마커 생성:', site.name, '거리측정 모드:', distanceMode);
               siteMarker.append("circle")
                 .attr("r", isSelected ? radius + 3 : radius)
                 .attr("fill", isSelected ? "#00bcd4" : (statusColors[site.status] || '#9e9e9e'))
-                .attr("stroke", isSelected ? "#ffffff" : "#fff")
-                .attr("stroke-width", isSelected ? 2 : 1)
-                .style("filter", isSelected ? "drop-shadow(0 0 15px #00bcd4)" : `drop-shadow(0 0 4px ${statusColors[site.status] || '#9e9e9e'})`);
+                .attr("stroke", isSelected ? "#ffffff" : (distanceMode ? "#ff6b6b" : "#fff"))
+                .attr("stroke-width", isSelected ? 2 : (distanceMode ? 3 : 1))
+                .style("filter", isSelected ? "drop-shadow(0 0 15px #00bcd4)" : (distanceMode ? "drop-shadow(0 0 8px #ff6b6b)" : `drop-shadow(0 0 4px ${statusColors[site.status] || '#9e9e9e'})`));
             }
 
             // 진행률 링
@@ -1657,9 +1676,15 @@ const Mapping = () => {
             })
             .on("click", (e) => {
               e.stopPropagation();
+              e.preventDefault();
+              
+              console.log('🖱️ 마커 클릭됨:', site.name, 'distanceMode:', distanceMode);
               
               // 거리측정 모드인지 확인
               if (distanceMode) {
+                console.log('📏 거리측정 모드 - 핸들러 호출:', site.name);
+                console.log('📏 이벤트 객체:', e);
+                console.log('📏 사이트 객체:', site);
                 handleSiteMarkerClickForDistance(site, e);
                 return;
               }
@@ -1727,9 +1752,15 @@ const Mapping = () => {
             })
             .on("click", (e) => {
               e.stopPropagation();
+              e.preventDefault();
+              
+              console.log('🖱️ 마커 클릭됨:', site.name, 'distanceMode:', distanceMode);
               
               // 거리측정 모드인지 확인
               if (distanceMode) {
+                console.log('📏 거리측정 모드 - 핸들러 호출:', site.name);
+                console.log('📏 이벤트 객체:', e);
+                console.log('📏 사이트 객체:', site);
                 handleSiteMarkerClickForDistance(site, e);
                 return;
               }
@@ -2212,7 +2243,7 @@ const Mapping = () => {
               .attr("data-lon", coords[0])
               .attr("transform", `translate(${x}, ${y}) scale(0)`)
               .style("pointer-events", "all")
-              .style("cursor", "pointer")
+              .style("cursor", distanceMode ? "crosshair" : "pointer")
               .style("opacity", 1);
 
             const siteMarker = marker.append("g").attr("class", "site-marker-group");
@@ -2228,12 +2259,13 @@ const Mapping = () => {
                 .style("opacity", 1)
                 .style("visibility", "visible");
             } else {
+              console.log('🔵 일반 마커 생성:', site.name, '거리측정 모드:', distanceMode);
               siteMarker.append("circle")
                 .attr("r", isSelected ? radius + 3 : radius)
                 .attr("fill", isSelected ? "#00bcd4" : (statusColors[site.status] || '#9e9e9e'))
-                .attr("stroke", isSelected ? "#ffffff" : "#fff")
-                .attr("stroke-width", isSelected ? 2 : 1)
-                .style("filter", isSelected ? "drop-shadow(0 0 15px #00bcd4)" : `drop-shadow(0 0 4px ${statusColors[site.status] || '#9e9e9e'})`);
+                .attr("stroke", isSelected ? "#ffffff" : (distanceMode ? "#ff6b6b" : "#fff"))
+                .attr("stroke-width", isSelected ? 2 : (distanceMode ? 3 : 1))
+                .style("filter", isSelected ? "drop-shadow(0 0 15px #00bcd4)" : (distanceMode ? "drop-shadow(0 0 8px #ff6b6b)" : `drop-shadow(0 0 4px ${statusColors[site.status] || '#9e9e9e'})`));
             }
 
             // 진행률 링
@@ -2323,9 +2355,15 @@ const Mapping = () => {
             })
             .on("click", (e) => {
               e.stopPropagation();
+              e.preventDefault();
+              
+              console.log('🖱️ 마커 클릭됨:', site.name, 'distanceMode:', distanceMode);
               
               // 거리측정 모드인지 확인
               if (distanceMode) {
+                console.log('📏 거리측정 모드 - 핸들러 호출:', site.name);
+                console.log('📏 이벤트 객체:', e);
+                console.log('📏 사이트 객체:', site);
                 handleSiteMarkerClickForDistance(site, e);
                 return;
               }
@@ -2393,9 +2431,15 @@ const Mapping = () => {
             })
             .on("click", (e) => {
               e.stopPropagation();
+              e.preventDefault();
+              
+              console.log('🖱️ 마커 클릭됨:', site.name, 'distanceMode:', distanceMode);
               
               // 거리측정 모드인지 확인
               if (distanceMode) {
+                console.log('📏 거리측정 모드 - 핸들러 호출:', site.name);
+                console.log('📏 이벤트 객체:', e);
+                console.log('📏 사이트 객체:', site);
                 handleSiteMarkerClickForDistance(site, e);
                 return;
               }
