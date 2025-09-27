@@ -247,6 +247,7 @@ const Confidential = React.lazy(() => import('./pages/Confidential'));
 const UserManual = React.lazy(() => import('./pages/UserManual'));
 const EstimateAnalysis = React.lazy(() => import('./pages/EstimateAnalysis'));
 import { CircularProgress } from '@mui/material';
+const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
@@ -530,8 +531,14 @@ const App = React.memo(() => {
                       <Route path="/map" element={<Navigate to="/mapping" replace />} />
         <Route path="/set" element={<Navigate to="/settings" replace />} />
                       <Route path="/cd" element={<Navigate to="/company-distribution" replace />} />
+                      <Route path="/home" element={<Navigate to="/landing" replace />} />
                       
                       {/* 기존 라우트들 */}
+                      <Route path="/landing" element={
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <LandingPage />
+                        </Suspense>
+                      } />
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />
                       <Route path="/register-success" element={<RegisterSuccess />} />
