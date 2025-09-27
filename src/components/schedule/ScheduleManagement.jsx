@@ -1643,17 +1643,17 @@ const ScheduleManagement = ({
   return (
     <Box sx={{ 
       p: 0, 
-      height: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 4px)', // PC에서 4px로 고정
+      height: isMobile ? 'calc(100vh - 100px)' : 'calc(100vh - 4px)',
       width: '100%',
       mx: 0,
       px: 0,
       margin: 0,
       padding: 0,
       position: 'fixed',
-      top: isMobile ? '60px' : '60px', // PC에서 60px로 변경
+      top: isMobile ? '50px' : '60px',
       left: 0,
       right: 0,
-      bottom: '160px', // 화면 크기 160px 줄임 (100px + 60px)
+      bottom: isMobile ? '50px' : '160px',
       overflow: isMobile ? 'hidden' : 'auto',
       bgcolor: '#23242a',
       zIndex: 1
@@ -1723,11 +1723,11 @@ const ScheduleManagement = ({
             borderRadius: 2, 
             display: 'flex',
             flexDirection: 'column', 
-            height: 'calc(100vh - 120px)',
-            maxHeight: { xs: '290px', md: 'calc(100vh - 120px)' }, // 하단바 고려하여 높이 조정
+            height: isMobile ? 'calc(100vh - 100px)' : 'calc(100vh - 120px)',
+            maxHeight: { xs: 'calc(100vh - 100px)', md: 'calc(100vh - 120px)' },
             position: { xs: 'static', md: 'static' },
             transform: { xs: 'none', md: 'none' },
-            mt: { xs: 0, md: '15px' }, // PC에서만 위쪽 여백 15px 추가
+            mt: { xs: 0, md: '15px' },
             overflow: isMobile ? 'hidden' : 'visible',
             bgcolor: '#23242a'
           }}>
@@ -1951,7 +1951,7 @@ const ScheduleManagement = ({
                   overflowY: isMobile ? 'hidden' : 'auto', // 스크롤은 되지만 스크롤바는 숨김
                   p: isMobile ? 0.5 : 1,
                   bgcolor: snapshot.isDraggingOver ? '#2a2b32' : '#23242a',
-                  maxHeight: isMobile ? '220px' : 'none', // 모바일에서 20px 키움 (200px → 220px)
+                  maxHeight: isMobile ? 'calc(100vh - 200px)' : 'none',
                   position: { xs: 'static', md: 'static' },
                   transform: { xs: 'none', md: 'none' },
                   scrollbarWidth: 'none', // Firefox에서 스크롤바 숨기기

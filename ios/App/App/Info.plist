@@ -74,21 +74,5 @@
 	<string>gregorian</string>
 	<key>NSLocale</key>
 	<string>ko_KR</string>
-	<key>UIWebViewAllowsInlineMediaPlayback</key>
-	<true/>
-	<key>UIWebViewAllowsAirPlayForMediaPlayback</key>
-	<true/>
-	<key>UIWebViewAllowsPictureInPictureMediaPlayback</key>
-	<true/>
-	<key>UIWebViewAllowsBackForwardNavigationGestures</key>
-	<false/>
-	<key>UIWebViewAllowsLinkPreview</key>
-	<false/>
-	<key>UIWebViewDisallowOverscroll</key>
-	<true/>
-	<key>UIWebViewScrollEnabled</key>
-	<true/>
-	<key>UIWebViewBounces</key>
-	<false/>
 </dict>
 </plist>

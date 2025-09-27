@@ -15,7 +15,10 @@ const config: CapacitorConfig = {
     allowMixedContent: true,
     captureInput: true,
     webContentsDebuggingEnabled: false,
-    initialFocus: false
+    initialFocus: false,
+    overrideUserAgent: 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36',
+    appendUserAgent: 'ChunwooApp/1.0.0',
+    useLegacyBridge: false
   },
   ios: {
     backgroundColor: '#181A20',
@@ -34,14 +37,14 @@ const config: CapacitorConfig = {
   plugins: {
     Keyboard: {
       resize: KeyboardResize.Ionic,
-      style: KeyboardStyle.Default,
+      style: KeyboardStyle.Dark,
       resizeOnFullScreen: true
     },
     CapacitorHttp: {
       enabled: true
     },
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchShowDuration: 1500,
       launchAutoHide: true,
       backgroundColor: "#181A20",
       androidSplashResourceName: "splash",
@@ -49,7 +52,7 @@ const config: CapacitorConfig = {
       showSpinner: true,
       androidSpinnerStyle: "large",
       iosSpinnerStyle: "small",
-      spinnerColor: "#999999",
+      spinnerColor: "#4CAF50",
       splashFullScreen: true,
       splashImmersive: true
     },
@@ -60,6 +63,9 @@ const config: CapacitorConfig = {
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"]
+    },
+    SafeArea: {
+      enabled: true
     }
   }
 };

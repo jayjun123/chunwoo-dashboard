@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel } from '@mui/material';
+import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, useMediaQuery } from '@mui/material';
 import CustomCalendar from '../components/CustomCalendar';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, where, getDocs } from 'firebase/firestore';
@@ -38,7 +38,7 @@ function isInMonth(site, year, month) {
 }
 
 const CustomSchedule = () => {
-  const isMobile = false; // 모바일 반응형 사용하지 않음
+  const isMobile = useMediaQuery('(max-width:600px)');
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -948,18 +948,18 @@ const CustomSchedule = () => {
       tabIndex={0}
       sx={{ 
         p: 0, 
-        height: isMobile ? 'calc(90vh - 90px)' : 'calc(90vh - 320px)', // PC에서 200px 더 줄임 (220px + 100px)
+        height: isMobile ? 'calc(100vh - 100px)' : 'calc(90vh - 320px)',
         width: isMobile ? '100vw' : '100%',
         mx: 0,
         px: 0,
         margin: 0,
         padding: 0,
-        position: isMobile ? 'relative' : 'fixed', // PC에서 fixed로 변경
-        top: isMobile ? '-100px' : '60px', // PC에서 60px 아래로 이동
-        left: isMobile ? '-30px' : 0, // PC에서 0으로 설정
-        right: isMobile ? 0 : 0, // PC에서 0으로 설정
-        bottom: isMobile ? 'auto' : '100px', // PC에서 하단 100px 여백
-        outline: 'none' // 포커스 테두리 제거
+        position: isMobile ? 'fixed' : 'fixed',
+        top: isMobile ? '50px' : '60px',
+        left: isMobile ? '0' : 0,
+        right: isMobile ? '0' : 0,
+        bottom: isMobile ? '50px' : '100px',
+        outline: 'none'
       }}>
       
       {/* 일정 설명 필드 정리 버튼 */}

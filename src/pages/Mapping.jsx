@@ -29,7 +29,8 @@ import {
   DialogActions,
   Avatar,
   Stack,
-  Slider
+  Slider,
+  useMediaQuery
 } from '@mui/material';
 import {
   LocationOn,
@@ -57,6 +58,7 @@ import { db } from '../firebase';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 
 const Mapping = () => {
+  const isMobile = useMediaQuery('(max-width:600px)');
   const svgRef = useRef();
   const zoomRef = useRef();
   const isZoomingRef = useRef(false);
@@ -2727,7 +2729,7 @@ const Mapping = () => {
   return (
     <Box sx={{ 
       display: 'flex', 
-      flexDirection: 'column', 
+      flexDirection: isMobile ? 'column' : 'row', 
       height: '100vh',
       backgroundColor: '#1a1a1a'
     }}>
@@ -2735,19 +2737,21 @@ const Mapping = () => {
       <Box sx={{ 
         display: 'flex',
         flex: 1, 
-        overflow: 'hidden' 
+        overflow: 'hidden',
+        flexDirection: isMobile ? 'column' : 'row'
       }}>
         {/* 왼쪽 현장 현황 패널 */}
         <Box sx={{
-          width: 360, 
+          width: isMobile ? '100%' : 360, 
+          height: isMobile ? '40vh' : 'calc(100vh - 160px)',
           backgroundColor: '#2d2d2d',
-          borderRight: '1px solid #444',
+          borderRight: isMobile ? 'none' : '1px solid #444',
+          borderBottom: isMobile ? '1px solid #444' : 'none',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          height: 'calc(100vh - 160px)',
-          marginTop: '65px',
-          borderRadius: '0 8px 8px 0'
+          marginTop: isMobile ? '50px' : '65px',
+          borderRadius: isMobile ? '0' : '0 8px 8px 0'
         }}>
           {/* 공사현황 헤더 */}
           <Box sx={{ p: 2, borderBottom: '1px solid #444' }}>
@@ -3034,7 +3038,9 @@ const Mapping = () => {
         <Box sx={{ 
           flex: 1, 
           position: 'relative',
-          backgroundColor: '#1a1a1a'
+          backgroundColor: '#1a1a1a',
+          height: isMobile ? '60vh' : 'auto',
+          width: isMobile ? '100%' : 'auto'
         }}>
           {/* 년도 네비게이션 */}
           <Box sx={{
@@ -3261,15 +3267,16 @@ const Mapping = () => {
             
         {/* 오른쪽 분포도 패널 */}
         <Box sx={{
-          width: 400, 
+          width: isMobile ? '100%' : 400, 
+          height: isMobile ? '40vh' : 'calc(100vh - 160px)',
           backgroundColor: '#2d2d2d',
-          borderLeft: '1px solid #444',
+          borderLeft: isMobile ? 'none' : '1px solid #444',
+          borderTop: isMobile ? '1px solid #444' : 'none',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          height: 'calc(100vh - 160px)',
-          marginTop: '65px',
-          borderRadius: '8px 0 0 8px'
+          marginTop: isMobile ? '0' : '65px',
+          borderRadius: isMobile ? '0' : '8px 0 0 8px'
         }}>
           {/* 분포도 헤더 */}
           <Box sx={{ p: 2, borderBottom: '1px solid #444' }}>

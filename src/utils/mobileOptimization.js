@@ -258,15 +258,39 @@ export const applyMobileStyles = () => {
       /* 모바일 최적화 스타일 */
       @media (max-width: 768px) {
         /* 터치 최적화 */
-        button, a, [role="button"] {
-          min-height: 44px;
-          min-width: 44px;
-          touch-action: manipulation;
+        button, a, [role="button"], input[type="button"], input[type="submit"] {
+          min-height: 48px !important;
+          min-width: 48px !important;
+          touch-action: manipulation !important;
+          -webkit-tap-highlight-color: transparent !important;
         }
         
         /* 스크롤 최적화 */
         * {
-          -webkit-overflow-scrolling: touch;
+          -webkit-overflow-scrolling: touch !important;
+          overscroll-behavior: none !important;
+        }
+        
+        /* 입력 필드 최적화 */
+        input, textarea, select {
+          font-size: 16px !important;
+          -webkit-appearance: none !important;
+          appearance: none !important;
+          border-radius: 8px !important;
+          padding: 12px 16px !important;
+        }
+        
+        /* Material-UI 컴포넌트 최적화 */
+        .MuiButton-root, .MuiIconButton-root {
+          min-height: 48px !important;
+          min-width: 48px !important;
+          touch-action: manipulation !important;
+        }
+        
+        .MuiTextField-root input,
+        .MuiTextField-root textarea {
+          font-size: 16px !important;
+          padding: 12px 16px !important;
         }
         
         /* 배터리 절약 모드 */
@@ -283,6 +307,18 @@ export const applyMobileStyles = () => {
         /* 뷰포트 높이 최적화 */
         .full-height {
           height: calc(var(--vh, 1vh) * 100);
+        }
+        
+        /* 모바일에서 스크롤바 숨김 */
+        * {
+          -ms-overflow-style: none !important;
+          scrollbar-width: none !important;
+        }
+        
+        *::-webkit-scrollbar {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
         }
       }
     `;
