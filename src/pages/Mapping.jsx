@@ -76,6 +76,116 @@ const Mapping = () => {
   const [addressModalOpen, setAddressModalOpen] = useState(false);
   const [selectedSiteForAddress, setSelectedSiteForAddress] = useState(null);
   const [newAddress, setNewAddress] = useState('');
+  
+  // 거리측정 관련 상태
+  const [distanceMode, setDistanceMode] = useState(false);
+  const [distancePoints, setDistancePoints] = useState([]);
+  const [calculatedDistance, setCalculatedDistance] = useState(null);
+
+  // 거리 계산 함수 (Haversine 공식)
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // 지구 반지름 (km)
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c;
+    return distance;
+  };
+
+  // 거리측정 모드 토글
+  const toggleDistanceMode = () => {
+    setDistanceMode(!distanceMode);
+    setDistancePoints([]);
+    setCalculatedDistance(null);
+  };
+
+  // 현장 마커 클릭 핸들러 (거리측정 모드)
+  const handleSiteMarkerClickForDistance = (site, event) => {
+    if (!distanceMode) return;
+    
+    // 주소에서 도시 정보 추출하여 좌표 가져오기
+    const city = extractCityFromAddress(site.address);
+    if (!city) return;
+    
+    const coord = cityCoordinates[getCoordinateKey(city)];
+    if (!coord) return;
+    
+    const lat = coord[1];
+    const lon = coord[0];
+    
+    // 클릭 피드백 애니메이션
+    d3.select(event.currentTarget).transition()
+      .duration(100)
+      .ease(d3.easeCubicOut)
+      .attr("transform", (d, i, nodes) => {
+        const currentTransform = d3.select(nodes[i]).attr("transform");
+        const translateMatch = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        if (translateMatch) {
+          const x = parseFloat(translateMatch[1]);
+          const y = parseFloat(translateMatch[2]);
+          return `translate(${x}, ${y}) scale(0.8)`;
+        }
+        return currentTransform;
+      })
+      .transition()
+      .duration(100)
+      .ease(d3.easeBackOut.overshoot(1.5))
+      .attr("transform", (d, i, nodes) => {
+        const currentTransform = d3.select(nodes[i]).attr("transform");
+        const translateMatch = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        if (translateMatch) {
+          const x = parseFloat(translateMatch[1]);
+          const y = parseFloat(translateMatch[2]);
+          return `translate(${x}, ${y}) scale(1.2)`;
+        }
+        return currentTransform;
+      })
+      .transition()
+      .duration(150)
+      .ease(d3.easeCubicOut)
+      .attr("transform", (d, i, nodes) => {
+        const currentTransform = d3.select(nodes[i]).attr("transform");
+        const translateMatch = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        if (translateMatch) {
+          const x = parseFloat(translateMatch[1]);
+          const y = parseFloat(translateMatch[2]);
+          return `translate(${x}, ${y}) scale(1)`;
+        }
+        return currentTransform;
+      });
+    
+    const newPoint = {
+      lat: lat,
+      lon: lon,
+      siteName: site.name,
+      siteId: site.id
+    };
+    
+    setDistancePoints(prevPoints => {
+      if (prevPoints.length >= 2) {
+        // 이미 2개가 선택되어 있으면 새로 시작
+        setCalculatedDistance(null);
+        return [newPoint];
+      } else {
+        const updatedPoints = [...prevPoints, newPoint];
+        
+        // 2개가 선택되면 거리 계산
+        if (updatedPoints.length === 2) {
+          const distance = calculateDistance(
+            updatedPoints[0].lat, updatedPoints[0].lon,
+            updatedPoints[1].lat, updatedPoints[1].lon
+          );
+          setCalculatedDistance(distance);
+        }
+        
+        return updatedPoints;
+      }
+    });
+  };
 
   // 대체 지도 데이터 생성 함수
   const createFallbackMapData = () => {
@@ -222,7 +332,7 @@ const Mapping = () => {
     '인천': [126.7052, 37.4563], '인천시': [126.7052, 37.4563], '인천광역시': [126.7052, 37.4563],
     '부산': [129.0756, 35.1796], '부산시': [129.0756, 35.1796], '부산광역시': [129.0756, 35.1796],
     // 부산 구별 좌표
-    '부산강서구': [128.8228, 35.2118], '부산금정구': [129.0924, 35.2430], '부산남구': [129.0844, 35.1366],
+    '부산강서구': [128.8228, 35.2118], '부산금정구': [129.0500, 35.2500], '부산남구': [129.0844, 35.1366],
     '부산동구': [129.0614, 35.1290], '부산동래구': [129.0859, 35.1965], '부산부산진구': [129.0556, 35.1629],
     '부산북구': [129.0322, 35.1972], '부산사상구': [128.9911, 35.1528], '부산사하구': [128.9750, 35.1048],
     '부산서구': [129.0244, 35.0979], '부산수영구': [129.1125, 35.1459], '부산연제구': [129.0844, 35.1764],
@@ -672,6 +782,7 @@ const Mapping = () => {
       { pattern: /경기도\s*수원/, name: '수원시' },
       { pattern: /경기\s*수원/, name: '수원시' },
       { pattern: /수원(?=\s|$)/, name: '수원시' },
+      { pattern: /금사동/, name: '부산금정구' },
       { pattern: /경기도\s*성남/, name: '성남시' },
       { pattern: /경기\s*성남/, name: '성남시' },
       { pattern: /성남(?=\s|$)/, name: '성남시' },
@@ -1151,11 +1262,19 @@ const Mapping = () => {
     return true;
   };
 
-  // 검색어와 년도로 필터링된 현장들
+  // 검색어와 년도로 필터링된 현장들 (선택된 현장을 맨 위로 정렬)
   const filteredSites = sites.filter(site => {
     const matchesTab = activeTab === '미정' ? (!site.status || site.status === '미정') : site.status === activeTab;
     const matchesSearch = site.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesTab && matchesSearch && isSiteInYear(site, currentYear);
+  }).sort((a, b) => {
+    // 선택된 현장을 맨 위로 정렬
+    const aSelected = selectedSites.some(s => s.id === a.id);
+    const bSelected = selectedSites.some(s => s.id === b.id);
+    
+    if (aSelected && !bSelected) return -1;
+    if (!aSelected && bSelected) return 1;
+    return 0;
   });
 
   // 지역별 현장 개수 계산 (년도만 적용, 탭 필터링 제거) - 특별시/도/광역시 단위로만
@@ -1262,7 +1381,7 @@ const Mapping = () => {
 
     // 마커 렌더 함수
     const updateSiteMarkers = (transform) => {
-      // 주요현장 + 선택된 현장들만 표시
+      // 주요현장 + 선택된 현장들만 표시 (거리측정 모드에서도 동일)
       const sitesToShow = sites.filter(s => {
         if (!isSiteInYear(s, currentYear)) return false;
         
@@ -1414,6 +1533,8 @@ const Mapping = () => {
               .attr("class", "site-marker")
               .attr("data-location", location)
               .attr("data-marker-id", markerId)
+              .attr("data-lat", coords[1])
+              .attr("data-lon", coords[0])
               .attr("transform", `translate(${x}, ${y}) scale(0)`)
               .style("pointer-events", "all")
               .style("cursor", "pointer")
@@ -1535,6 +1656,12 @@ const Mapping = () => {
             .on("click", (e) => {
               e.stopPropagation();
               
+              // 거리측정 모드인지 확인
+              if (distanceMode) {
+                handleSiteMarkerClickForDistance(site, e);
+                return;
+              }
+              
               // 클릭 피드백 애니메이션
               d3.select(e.currentTarget).transition()
                 .duration(100)
@@ -1598,6 +1725,12 @@ const Mapping = () => {
             })
             .on("click", (e) => {
               e.stopPropagation();
+              
+              // 거리측정 모드인지 확인
+              if (distanceMode) {
+                handleSiteMarkerClickForDistance(site, e);
+                return;
+              }
               
               // 클릭 피드백 애니메이션
               d3.select(e.currentTarget).transition()
@@ -1918,7 +2051,7 @@ const Mapping = () => {
     
     // 마커 렌더 함수
     const updateSiteMarkers = (transform) => {
-      // 주요현장 + 선택된 현장들만 표시
+      // 주요현장 + 선택된 현장들만 표시 (거리측정 모드에서도 동일)
       const sitesToShow = sites.filter(s => {
         if (!isSiteInYear(s, currentYear)) return false;
         
@@ -2073,6 +2206,8 @@ const Mapping = () => {
               .attr("class", "site-marker")
               .attr("data-marker-id", markerId)
               .attr("data-location", location)
+              .attr("data-lat", coords[1])
+              .attr("data-lon", coords[0])
               .attr("transform", `translate(${x}, ${y}) scale(0)`)
               .style("pointer-events", "all")
               .style("cursor", "pointer")
@@ -2187,6 +2322,12 @@ const Mapping = () => {
             .on("click", (e) => {
               e.stopPropagation();
               
+              // 거리측정 모드인지 확인
+              if (distanceMode) {
+                handleSiteMarkerClickForDistance(site, e);
+                return;
+              }
+              
               // 클릭 피드백 애니메이션
               d3.select(e.currentTarget).transition()
                 .duration(100)
@@ -2251,6 +2392,12 @@ const Mapping = () => {
             .on("click", (e) => {
               e.stopPropagation();
               
+              // 거리측정 모드인지 확인
+              if (distanceMode) {
+                handleSiteMarkerClickForDistance(site, e);
+                return;
+              }
+              
               // 클릭 피드백 애니메이션
               d3.select(e.currentTarget).transition()
                 .duration(100)
@@ -2275,7 +2422,130 @@ const Mapping = () => {
     // 현재 줌 상태를 유지하면서 마커 업데이트
     updateSiteMarkers(currentTransform);
     
-  }, [currentYear, selectedSites, showImportantSites, selectedSite, sites]);
+  }, [currentYear, selectedSites, showImportantSites, selectedSite, sites, distanceMode]);
+
+  // 거리측정 요소들 렌더링 (마커와 분리하여 안정적으로)
+  useEffect(() => {
+    if (!svgRef.current || !mapGroupRef.current) return;
+    
+    const svg = d3.select(svgRef.current);
+    const mapGroup = mapGroupRef.current;
+    
+    // 기존 거리측정 요소들만 제거 (마커는 건드리지 않음)
+    mapGroup.selectAll(".distance-point").remove();
+    mapGroup.selectAll(".distance-curve").remove();
+    mapGroup.selectAll(".distance-arrow").remove();
+    mapGroup.selectAll(".distance-text").remove();
+
+    if (distancePoints.length === 0) return;
+
+    const projection = d3.geoMercator()
+      .center([127.5, 36])
+      .scale(6000)
+      .translate([svgRef.current.clientWidth / 2, svgRef.current.clientHeight / 2]);
+
+    // 현재 줌 변환 적용
+    const currentTransform = d3.zoomTransform(svgRef.current) || d3.zoomIdentity;
+
+    // 점들 그리기
+    distancePoints.forEach((point, index) => {
+      const projected = projection([point.lon, point.lat]);
+      if (projected) {
+        const [x, y] = currentTransform.apply(projected);
+        
+        // 점 그리기
+        mapGroup.append("circle")
+          .attr("class", "distance-point")
+          .attr("cx", x)
+          .attr("cy", y)
+          .attr("r", 6)
+          .attr("fill", "#ff1744")
+          .attr("stroke", "#fff")
+          .attr("stroke-width", 2);
+
+        // 점 번호만 표시
+        mapGroup.append("text")
+          .attr("class", "distance-text")
+          .attr("x", x)
+          .attr("y", y - 15)
+          .attr("text-anchor", "middle")
+          .attr("fill", "#fff")
+          .attr("font-size", "12px")
+          .attr("font-weight", "bold")
+          .text(index + 1);
+      }
+    });
+
+    // 두 점 사이의 곡선 화살표 그리기
+    if (distancePoints.length === 2) {
+      const projected1 = projection([distancePoints[0].lon, distancePoints[0].lat]);
+      const projected2 = projection([distancePoints[1].lon, distancePoints[1].lat]);
+      
+      if (projected1 && projected2) {
+        const [x1, y1] = currentTransform.apply(projected1);
+        const [x2, y2] = currentTransform.apply(projected2);
+        
+        // 곡선 경로 계산 (베지어 곡선)
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // 곡선의 높이 (거리에 비례)
+        const curveHeight = Math.min(distance * 0.3, 100);
+        
+        // 제어점 계산
+        const controlX1 = x1 + dx * 0.3;
+        const controlY1 = y1 - curveHeight;
+        const controlX2 = x1 + dx * 0.7;
+        const controlY2 = y1 - curveHeight;
+        
+        // 곡선 경로 생성
+        const pathData = `M ${x1} ${y1} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${x2} ${y2}`;
+        
+        // 곡선 그리기
+        mapGroup.append("path")
+          .attr("class", "distance-curve")
+          .attr("d", pathData)
+          .attr("fill", "none")
+          .attr("stroke", "#ff1744")
+          .attr("stroke-width", 4)
+          .attr("stroke-dasharray", "8,4");
+
+        // 화살표 머리 그리기
+        const angle = Math.atan2(dy, dx);
+        const arrowLength = 15;
+        const arrowAngle = Math.PI / 6; // 30도
+        
+        const arrowX1 = x2 - arrowLength * Math.cos(angle - arrowAngle);
+        const arrowY1 = y2 - arrowLength * Math.sin(angle - arrowAngle);
+        const arrowX2 = x2 - arrowLength * Math.cos(angle + arrowAngle);
+        const arrowY2 = y2 - arrowLength * Math.sin(angle + arrowAngle);
+        
+        mapGroup.append("path")
+          .attr("class", "distance-arrow")
+          .attr("d", `M ${x2} ${y2} L ${arrowX1} ${arrowY1} M ${x2} ${y2} L ${arrowX2} ${arrowY2}`)
+          .attr("stroke", "#ff1744")
+          .attr("stroke-width", 4)
+          .attr("stroke-linecap", "round");
+
+        // 거리 텍스트 표시 (곡선 중앙 위쪽)
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2 - curveHeight * 0.7;
+        
+        mapGroup.append("text")
+          .attr("class", "distance-text")
+          .attr("x", midX)
+          .attr("y", midY)
+          .attr("text-anchor", "middle")
+          .attr("fill", "#ff1744")
+          .attr("font-size", "18px")
+          .attr("font-weight", "bold")
+          .attr("stroke", "#000")
+          .attr("stroke-width", 1)
+          .text(`${calculatedDistance ? calculatedDistance.toFixed(1) : ''}km`);
+      }
+    }
+  }, [distancePoints, calculatedDistance]);
 
   // 현장 선택/해제 함수
   const toggleSiteSelection = (site) => {
@@ -2846,6 +3116,37 @@ const Mapping = () => {
               >
                 주요현장
               </Button>
+              
+              {/* 거리측정 버튼 */}
+              <Button
+                size="small"
+                variant={distanceMode ? "contained" : "outlined"}
+                onClick={toggleDistanceMode}
+                data-distance-mode={distanceMode}
+                startIcon={<LocationOn sx={{ color: '#ff1744', fontSize: '0.8rem' }} />}
+                sx={{
+                  fontSize: '0.7rem',
+                  px: 1,
+                  py: 0.3,
+                  minWidth: 'auto',
+                  height: 24,
+                  backgroundColor: distanceMode ? 'rgba(255, 23, 68, 0.2)' : 'transparent',
+                  borderColor: '#ff1744',
+                  color: '#ff1744',
+                  '&:hover': {
+                    backgroundColor: distanceMode ? 'rgba(255, 23, 68, 0.3)' : 'rgba(255, 23, 68, 0.1)',
+                    borderColor: '#ff1744',
+                  },
+                  '&.MuiButton-contained': {
+                    backgroundColor: 'rgba(255, 23, 68, 0.2)',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 23, 68, 0.3)',
+                    }
+                  }
+                }}
+              >
+                거리측정
+              </Button>
             </Box>
             
             {/* 하단: 슬라이더 */}
@@ -2907,9 +3208,55 @@ const Mapping = () => {
             style={{ 
               width: '100%',
               height: '100%',
-              cursor: 'grab'
+              cursor: distanceMode ? 'crosshair' : 'grab'
             }}
           />
+          
+          {/* 거리측정 모드 정보 박스 */}
+          {distanceMode && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 'calc(50% + 300px)', // 더 아래로
+                left: 'calc(100% - 330px)', // 왼쪽으로 10px 이동
+                backgroundColor: 'rgba(45, 45, 45, 0.95)', // 다크 배경
+                border: '2px solid #ff1744',
+                borderRadius: 2,
+                p: 2,
+                minWidth: 300,
+                textAlign: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                zIndex: 1000
+              }}
+            >
+              <Typography variant="h6" sx={{ color: '#ff1744', fontWeight: 'bold', mb: 1 }}>
+                거리 측정 모드
+              </Typography>
+              {distancePoints.length === 0 && (
+                <Typography variant="body2" sx={{ color: '#ccc' }}>
+                  측정할 두 현장을 클릭하세요
+                </Typography>
+              )}
+              {distancePoints.length === 1 && (
+                <Typography variant="body2" sx={{ color: '#ccc' }}>
+                  두 번째 현장을 클릭하세요
+                </Typography>
+              )}
+              {distancePoints.length === 2 && calculatedDistance && (
+                <Box>
+                  <Typography variant="h5" sx={{ color: '#ff1744', fontWeight: 'bold', mb: 1 }}>
+                    거리: {calculatedDistance.toFixed(1)}km
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#ccc' }}>
+                    {distancePoints[0].siteName} ↔ {distancePoints[1].siteName}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#999', mt: 1, display: 'block' }}>
+                    다시 클릭하면 새로운 측정을 시작합니다
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
         </Box>
             
         {/* 오른쪽 분포도 패널 */}
