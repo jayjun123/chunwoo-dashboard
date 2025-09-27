@@ -547,17 +547,9 @@ const App = React.memo(() => {
                       <Route
                         path="/"
                         element={
-                          <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <CustomScheduleMobile />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
-                              </Layout>
-                            )}
-                          </ProtectedRoute>
+                          <Suspense fallback={<LoadingSpinner />}>
+                            <LandingPage />
+                          </Suspense>
                         }
                       />
                       <Route

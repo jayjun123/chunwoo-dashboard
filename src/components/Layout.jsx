@@ -534,6 +534,12 @@ const Layout = React.memo(({ children }) => {
         <MenuItem onClick={handleManualOpen}>
           사용설명서
         </MenuItem>
+        <MenuItem onClick={() => {
+          navigate('/');
+          handleMenuClose();
+        }}>
+          메인화면
+        </MenuItem>
         <Divider />
         <MenuItem onClick={handleLogout}>
           로그아웃
