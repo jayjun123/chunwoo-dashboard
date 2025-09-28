@@ -1233,7 +1233,12 @@ export default function ImportantSite() {
           const siteGisungData = gisungData[site.id] || [];
           const totalGisung = siteGisungData.reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
           
-          // 기성 데이터 계산 완료 (로그 제거됨)
+          // 기성 데이터 디버깅
+          console.log(`Site ${site.id} (${site.name}):`, {
+            siteGisungData: siteGisungData,
+            totalGisung: totalGisung,
+            gisungDataKeys: Object.keys(gisungData)
+          });
           
           return (
             <Grid item xs={12} md={8} key={site.id} sx={{ minWidth: isMobile ? 'auto' : '700px' }}>
