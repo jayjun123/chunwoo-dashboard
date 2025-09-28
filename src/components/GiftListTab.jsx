@@ -1160,12 +1160,15 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     const searchTerm = sectionSearchTerms[section.id] || '';
     let cards = section.cards || [];
     
-    // 검색어가 있으면 필터링
+    // 디버깅: 검색어와 카드 수 확인
     if (searchTerm) {
-      cards = cards.filter(card => 
+      console.log(`섹션 ${section.title} 검색어: "${searchTerm}", 전체 카드 수: ${cards.length}`);
+      const filteredCards = cards.filter(card => 
         card.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         card.company?.toLowerCase().includes(searchTerm.toLowerCase())
       );
+      console.log(`필터링 후 카드 수: ${filteredCards.length}`);
+      cards = filteredCards;
     }
     
     // 검색 결과에서도 원래 번호 순서 유지 (cardNumber 기준 정렬)
@@ -1178,27 +1181,18 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       if (isNewCardA && !isNewCardB) return 1; // 새카드를 뒤로
       if (!isNewCardA && isNewCardB) return -1; // 기존 카드를 앞으로
       
-      // 둘 다 새카드이거나 둘 다 기존 카드인 경우
-      if (isNewCardA && isNewCardB) {
-        // 새카드끼리는 생성 시간 순으로 정렬 (최신이 맨 뒤)
-        const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
-        const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
-        return aTime - bTime;
+      // 둘 다 새카드이거나 둘 다 기존 카드인 경우: cardNumber 순으로 정렬
+      const cardNumberA = a.cardNumber || 999;
+      const cardNumberB = b.cardNumber || 999;
+      
+      if (cardNumberA !== cardNumberB) {
+        return cardNumberA - cardNumberB;
       }
       
-      // 기존 카드들끼리는 기존 정렬 로직 적용
-      // 직책이 "회사"인지 확인
-      const isCompanyA = a.position === '회사';
-      const isCompanyB = b.position === '회사';
-      
-      // 직책이 회사인 카드들을 앞쪽에 배치
-      if (isCompanyA && !isCompanyB) return -1; // 회사 카드를 먼저
-      if (!isCompanyA && isCompanyB) return 1;  // 개인 카드를 나중에
-      
-      // 같은 타입 내에서 이름으로 가나다 순 정렬
-      const nameA = (a.name || '').trim();
-      const nameB = (b.name || '').trim();
-      return nameA.localeCompare(nameB, 'ko');
+      // cardNumber가 같은 경우 (없는 경우) 생성 시간 순으로 정렬
+      const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+      const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+      return aTime - bTime;
     });
   };
 
