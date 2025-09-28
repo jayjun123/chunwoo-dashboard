@@ -340,23 +340,34 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           cardsBySection[card.sectionId].push(card);
         });
         
-        // 섹션 내에서 정렬: cardNumber 기준으로 정렬 (고정된 번호 유지)
+        // 섹션 내에서 정렬: 기존 카드는 번호 순, 새 카드는 추가 번호 순으로 제일 뒤에
         Object.keys(cardsBySection).forEach(sectionId => {
           const sectionCards = cardsBySection[sectionId];
           if (sectionCards.length > 0) {
             const sortedCards = sectionCards.sort((a, b) => {
-              // cardNumber가 있는 경우 번호 순으로 정렬
-              const cardNumberA = a.cardNumber || 999;
-              const cardNumberB = b.cardNumber || 999;
+              // 새카드인지 확인 (isNewCard가 true이거나 이름이 '새 카드'인 경우)
+              const isNewCardA = a.isNewCard === true || a.name === '새 카드';
+              const isNewCardB = b.isNewCard === true || b.name === '새 카드';
               
-              if (cardNumberA !== cardNumberB) {
+              // 기존 카드와 새 카드 분리
+              if (!isNewCardA && isNewCardB) return -1; // 기존 카드를 앞으로
+              if (isNewCardA && !isNewCardB) return 1;  // 새 카드를 뒤로
+              
+              // 둘 다 기존 카드인 경우: cardNumber 순으로 정렬
+              if (!isNewCardA && !isNewCardB) {
+                const cardNumberA = a.cardNumber || 999;
+                const cardNumberB = b.cardNumber || 999;
                 return cardNumberA - cardNumberB;
               }
               
-              // cardNumber가 같은 경우 (없는 경우) 생성 시간 순으로 정렬
-              const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
-              const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
-              return aTime - bTime;
+              // 둘 다 새 카드인 경우: 추가 번호 순으로 정렬 (cardNumber 기준)
+              if (isNewCardA && isNewCardB) {
+                const cardNumberA = a.cardNumber || 999;
+                const cardNumberB = b.cardNumber || 999;
+                return cardNumberA - cardNumberB;
+              }
+              
+              return 0;
             });
             
             cardsBySection[sectionId] = sortedCards;
