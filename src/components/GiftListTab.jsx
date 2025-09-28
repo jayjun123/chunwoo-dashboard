@@ -200,11 +200,19 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     }
   };
 
-  // 명절선물 데이터 로드
+  // 명절선물 데이터 로드 (선택된 년도/명절에 맞는 데이터만)
   const loadGiftData = async () => {
     try {
       setLoading(true);
-      const giftSnapshot = await getDocs(collection(db, 'gifts'));
+      
+      // 선택된 년도와 명절에 맞는 데이터만 쿼리
+      const giftQuery = query(
+        collection(db, 'gifts'),
+        where('year', '==', selectedYear),
+        where('holiday', '==', selectedHoliday)
+      );
+      
+      const giftSnapshot = await getDocs(giftQuery);
       const gifts = giftSnapshot.docs.map(doc => {
         const docData = doc.data();
         let giftDate = docData.giftDate;
@@ -221,8 +229,8 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       });
       setGiftData(gifts);
       
-      // 마지막에 저장된 명절로 기본값 설정
-      if (gifts.length > 0) {
+      // 초기 로드 시에만 마지막에 저장된 명절로 기본값 설정
+      if (gifts.length > 0 && !selectedYear && !selectedHoliday) {
         // 최신 데이터부터 정렬 (createdAt 기준)
         const sortedGifts = gifts.sort((a, b) => {
           const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
@@ -332,40 +340,23 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           cardsBySection[card.sectionId].push(card);
         });
         
-        // 섹션 내에서 정렬: 새카드는 맨 뒤로, 기존 카드는 직책별로 정렬
+        // 섹션 내에서 정렬: cardNumber 기준으로 정렬 (고정된 번호 유지)
         Object.keys(cardsBySection).forEach(sectionId => {
           const sectionCards = cardsBySection[sectionId];
           if (sectionCards.length > 0) {
             const sortedCards = sectionCards.sort((a, b) => {
-              // 새카드인지 확인 (isNewCard가 true이거나 이름이 '새 카드'인 경우)
-              const isNewCardA = a.isNewCard === true || a.name === '새 카드';
-              const isNewCardB = b.isNewCard === true || b.name === '새 카드';
+              // cardNumber가 있는 경우 번호 순으로 정렬
+              const cardNumberA = a.cardNumber || 999;
+              const cardNumberB = b.cardNumber || 999;
               
-              // 새카드는 항상 맨 뒤로
-              if (isNewCardA && !isNewCardB) return 1; // 새카드를 뒤로
-              if (!isNewCardA && isNewCardB) return -1; // 기존 카드를 앞으로
-              
-              // 둘 다 새카드이거나 둘 다 기존 카드인 경우
-              if (isNewCardA && isNewCardB) {
-                // 새카드끼리는 생성 시간 순으로 정렬 (최신이 맨 뒤)
-                const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
-                const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
-                return aTime - bTime;
+              if (cardNumberA !== cardNumberB) {
+                return cardNumberA - cardNumberB;
               }
               
-              // 기존 카드들끼리는 기존 정렬 로직 적용
-              // 직책이 "회사"인지 확인
-              const isCompanyA = a.position === '회사';
-              const isCompanyB = b.position === '회사';
-              
-              // 직책이 회사인 카드들을 앞쪽에 배치
-              if (isCompanyA && !isCompanyB) return -1; // 회사 카드를 먼저
-              if (!isCompanyA && isCompanyB) return 1;  // 개인 카드를 나중에
-              
-              // 같은 타입 내에서 이름으로 가나다 순 정렬
-              const nameA = (a.name || '').trim();
-              const nameB = (b.name || '').trim();
-              return nameA.localeCompare(nameB, 'ko');
+              // cardNumber가 같은 경우 (없는 경우) 생성 시간 순으로 정렬
+              const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+              const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+              return aTime - bTime;
             });
             
             cardsBySection[sectionId] = sortedCards;
@@ -1489,6 +1480,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           note: editingCardNote,
           isNewCard: false, // 편집된 카드는 새카드가 아님
           updatedAt: serverTimestamp()
+          // cardNumber는 변경하지 않음 - 고정된 번호 유지
         });
         
         // Firebase 실시간 리스너가 자동으로 UI를 업데이트하므로 로컬 상태 업데이트 제거
