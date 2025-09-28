@@ -51,7 +51,7 @@ import {
   Close as CloseIcon,
   Sync as SyncIcon
 } from '@mui/icons-material';
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, orderBy, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, orderBy, limit, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -201,15 +201,22 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   };
 
   // 명절선물 데이터 로드 (선택된 년도/명절에 맞는 데이터만)
-  const loadGiftData = async () => {
+  const loadGiftData = async (year = selectedYear, holiday = selectedHoliday) => {
     try {
       setLoading(true);
+      
+      // 년도와 명절이 없으면 전체 데이터를 로드하지 않음
+      if (!year || !holiday) {
+        setGiftData([]);
+        setLoading(false);
+        return;
+      }
       
       // 선택된 년도와 명절에 맞는 데이터만 쿼리
       const giftQuery = query(
         collection(db, 'gifts'),
-        where('year', '==', selectedYear),
-        where('holiday', '==', selectedHoliday)
+        where('year', '==', year),
+        where('holiday', '==', holiday)
       );
       
       const giftSnapshot = await getDocs(giftQuery);
@@ -228,24 +235,6 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         };
       });
       setGiftData(gifts);
-      
-      // 초기 로드 시에만 마지막에 저장된 명절로 기본값 설정
-      if (gifts.length > 0 && !selectedYear && !selectedHoliday) {
-        // 최신 데이터부터 정렬 (createdAt 기준)
-        const sortedGifts = gifts.sort((a, b) => {
-          const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
-          const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
-          return bTime - aTime;
-        });
-        
-        const latestGift = sortedGifts[0];
-        if (latestGift.holiday) {
-          setSelectedHoliday(latestGift.holiday);
-        }
-        if (latestGift.year) {
-          setSelectedYear(latestGift.year);
-        }
-      }
     } catch (error) {
       console.error('명절선물 데이터 로드 오류:', error);
       setSnackbar({ open: true, message: '데이터 로드 중 오류가 발생했습니다.', severity: 'error' });
@@ -394,6 +383,27 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     
     return unsubscribe;
   };
+
+  // 초기 기본값 설정 (한 번만 실행)
+  useEffect(() => {
+    const setInitialValues = async () => {
+      if (!selectedYear || !selectedHoliday) {
+        // 전체 데이터에서 최신 명절 찾기
+        const allGiftsQuery = query(collection(db, 'gifts'), orderBy('createdAt', 'desc'), limit(1));
+        const snapshot = await getDocs(allGiftsQuery);
+        
+        if (!snapshot.empty) {
+          const latestGift = snapshot.docs[0].data();
+          if (latestGift.holiday && latestGift.year) {
+            setSelectedHoliday(latestGift.holiday);
+            setSelectedYear(latestGift.year);
+          }
+        }
+      }
+    };
+    
+    setInitialValues();
+  }, []); // 컴포넌트 마운트 시 한 번만 실행
 
   useEffect(() => {
     let unsubscribeVendor = null;
@@ -999,19 +1009,19 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           return;
         }
         
-        // 전체 섹션의 최대 카드 번호 찾기 (1-100번 저장, 새카드는 101번부터)
+        // 해당 섹션의 최대 카드 번호 찾기 (섹션별 고유번호)
+        const targetSection = sections.find(section => section.id === sectionId);
         let maxCardNumber = 0;
-        sections.forEach(section => {
-          if (section?.cards) {
-            section.cards.forEach(card => {
-              if (card.cardNumber && card.cardNumber > maxCardNumber) {
-                maxCardNumber = card.cardNumber;
-              }
-            });
-          }
-        });
         
-        // 새 카드 번호는 전체 최대 번호 + 1 (101번부터 시작)
+        if (targetSection?.cards) {
+          targetSection.cards.forEach(card => {
+            if (card.cardNumber && card.cardNumber > maxCardNumber) {
+              maxCardNumber = card.cardNumber;
+            }
+          });
+        }
+        
+        // 새 카드 번호는 해당 섹션의 최대 번호 + 1
         const newCardNumber = maxCardNumber + 1;
         
         const newCardData = {
@@ -1561,21 +1571,20 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         return;
       }
       
-      // 전체 섹션의 최대 카드 번호 찾기 (1-100번 저장, 새카드는 101번부터)
+      // 해당 섹션의 최대 카드 번호 찾기 (섹션별 고유번호)
       let maxCardNumber = 0;
-      sections.forEach(section => {
-        if (section?.cards) {
-          section.cards.forEach(card => {
-            if (card.cardNumber && card.cardNumber > maxCardNumber) {
-              maxCardNumber = card.cardNumber;
-            }
-          });
-        }
-      });
       
-      // 새 카드 번호는 전체 최대 번호 + 1 (101번부터 시작)
+      if (targetSection?.cards) {
+        targetSection.cards.forEach(card => {
+          if (card.cardNumber && card.cardNumber > maxCardNumber) {
+            maxCardNumber = card.cardNumber;
+          }
+        });
+      }
+      
+      // 새 카드 번호는 해당 섹션의 최대 번호 + 1
       const newCardNumber = maxCardNumber + 1;
-      console.log('전체 최대 번호:', maxCardNumber, '새 카드 번호:', newCardNumber);
+      console.log('섹션 최대 번호:', maxCardNumber, '새 카드 번호:', newCardNumber);
       
       const newCardData = {
         type: 'manual',
