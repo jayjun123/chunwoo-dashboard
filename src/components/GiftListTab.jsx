@@ -1470,6 +1470,14 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           });
         }
         
+        // 편집 전 카드 정보 확인 (cardNumber 유지 확인용)
+        const currentCard = sections.find(section => 
+          section.cards && section.cards.some(card => card.id === editingCard)
+        )?.cards?.find(card => card.id === editingCard);
+        
+        console.log('편집 전 카드 정보:', currentCard);
+        console.log('유지할 cardNumber:', currentCard?.cardNumber);
+        
         await updateDoc(doc(db, 'giftCards', editingCard), {
           name: editingCardName,
           company: editingCardCompany,
@@ -1479,8 +1487,8 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           quantity: editingCardQuantity,
           note: editingCardNote,
           isNewCard: false, // 편집된 카드는 새카드가 아님
+          cardNumber: currentCard?.cardNumber, // 기존 cardNumber 명시적으로 유지
           updatedAt: serverTimestamp()
-          // cardNumber는 변경하지 않음 - 고정된 번호 유지
         });
         
         // Firebase 실시간 리스너가 자동으로 UI를 업데이트하므로 로컬 상태 업데이트 제거
