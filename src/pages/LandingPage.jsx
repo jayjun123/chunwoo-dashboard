@@ -63,6 +63,7 @@ const LandingPage = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [todaySchedules, setTodaySchedules] = useState([]);
+  const [todayTodos, setTodayTodos] = useState([]);
   const heroRef = useRef(null);
 
   // 자동 슬라이드 기능
@@ -189,6 +190,76 @@ const LandingPage = () => {
     };
 
     fetchTodaySchedules();
+  }, []);
+
+  // 오늘의 할일 데이터 가져오기 (오늘 + 어제 미완료)
+  useEffect(() => {
+    const fetchTodayTodos = async () => {
+      try {
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD 형식
+        const yesterdayStr = yesterday.toISOString().split('T')[0]; // YYYY-MM-DD 형식
+        
+        // Firebase에서 투두리스트 데이터 가져오기
+        const { db } = await import('../firebase');
+        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        
+        // 투두리스트 컬렉션에서 데이터 가져오기
+        const todosRef = collection(db, 'todos');
+        const q = query(todosRef);
+        const querySnapshot = await getDocs(q);
+        
+        const todos = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          
+          // 날짜 처리 (다양한 형식 지원)
+          let todoDate = null;
+          if (data.date) {
+            if (data.date.toDate) {
+              // Firestore Timestamp인 경우
+              todoDate = data.date.toDate().toISOString().split('T')[0];
+            } else if (data.date instanceof Date) {
+              // JavaScript Date인 경우
+              todoDate = data.date.toISOString().split('T')[0];
+            } else if (typeof data.date === 'string') {
+              // 문자열인 경우
+              todoDate = data.date;
+            }
+          }
+          
+          // 오늘 또는 어제 날짜와 일치하고 완료되지 않은 할일만 추가
+          if ((todoDate === todayStr || todoDate === yesterdayStr) && !data.completed) {
+            todos.push({
+              id: doc.id,
+              title: data.title || data.text || data.task || '할일',
+              completed: data.completed || false,
+              priority: data.priority || 'medium',
+              date: todoDate,
+              isOverdue: todoDate === yesterdayStr // 어제 할일인지 표시
+            });
+          }
+        });
+        
+        // 날짜순으로 정렬 (어제 할일을 먼저 표시)
+        todos.sort((a, b) => {
+          if (a.isOverdue && !b.isOverdue) return -1;
+          if (!a.isOverdue && b.isOverdue) return 1;
+          return 0;
+        });
+        
+        console.log('오늘의 할일 데이터 (오늘 + 어제 미완료):', todos);
+        setTodayTodos(todos);
+      } catch (error) {
+        console.error('할일 데이터 로드 실패:', error);
+        setTodayTodos([]);
+      }
+    };
+
+    fetchTodayTodos();
   }, []);
 
   // 스크롤 애니메이션
@@ -335,6 +406,48 @@ const LandingPage = () => {
       description: '협력업체 정보 관리',
       path: '/vendors',
       preview: '거래처 정보, 계약 관리'
+    },
+    {
+      icon: <Description sx={{ fontSize: 40, color: '#10b981' }} />,
+      title: '견적 관리',
+      description: '견적서 작성 및 분석',
+      path: '/estimates',
+      preview: '견적서 작성, 분석, 승인 관리'
+    },
+    {
+      icon: <Business sx={{ fontSize: 40, color: '#f97316' }} />,
+      title: '현장 관리',
+      description: '현장 정보 및 관리',
+      path: '/sites',
+      preview: '현장 정보, 현황 관리'
+    },
+    {
+      icon: <Engineering sx={{ fontSize: 40, color: '#6366f1' }} />,
+      title: '공사 관리',
+      description: '공사 진행 및 관리',
+      path: '/construction',
+      preview: '공사 진행률, 단계별 관리'
+    },
+    {
+      icon: <Visibility sx={{ fontSize: 40, color: '#ec4899' }} />,
+      title: '실측 관리',
+      description: '실측 데이터 관리',
+      path: '/survey',
+      preview: '실측 데이터, 측량 관리'
+    },
+    {
+      icon: <Event sx={{ fontSize: 40, color: '#84cc16' }} />,
+      title: '일정 관리',
+      description: '프로젝트 일정 관리',
+      path: '/calendar',
+      preview: '일정 계획, 추적, 관리'
+    },
+    {
+      icon: <Warning sx={{ fontSize: 40, color: '#dc2626' }} />,
+      title: '사고 관리',
+      description: '사고 보고 및 관리',
+      path: '/incidents',
+      preview: '사고 보고, 분석, 대응'
     }
   ];
 
@@ -432,12 +545,13 @@ const LandingPage = () => {
         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
         flexShrink: 0
       }}>
-        <Container maxWidth="lg">
+        <Container maxWidth={false} sx={{ maxWidth: '1352px' }}>
           <Box sx={{ 
             display: 'flex', 
             justifyContent: 'space-between', 
             alignItems: 'center',
-            py: 2
+            py: 2,
+            gap: '200px'
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Avatar sx={{ 
@@ -477,10 +591,10 @@ const LandingPage = () => {
 
       {/* 메인 콘텐츠 */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Container maxWidth="lg" sx={{ flex: 1, display: 'flex', flexDirection: 'column', py: 2 }}>
-          <Grid container spacing={3} sx={{ flex: 1, alignItems: 'stretch' }}>
+        <Container maxWidth={false} sx={{ maxWidth: '1352px', flex: 1, display: 'flex', flexDirection: 'column', py: 2 }}>
+          <Grid container spacing={2} sx={{ flex: 1, alignItems: 'stretch' }}>
             {/* 왼쪽: 제목과 설명 */}
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={1}>
               <Fade in timeout={1000}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                   <Typography variant="h3" sx={{ 
@@ -623,9 +737,9 @@ const LandingPage = () => {
             </Grid>
 
             {/* 중앙: 현재 시간 & 통계 */}
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={2}>
               <Slide direction="up" in timeout={1200}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', marginLeft: '150px' }}>
                   {/* 현재 날짜/시간 - 사이버펑크 스타일 */}
                   <Paper sx={{ 
                     p: 2, 
@@ -800,7 +914,7 @@ const LandingPage = () => {
                         fontWeight: 'bold', 
                         color: '#43e97b',
                         textShadow: '0 0 10px rgba(67, 233, 123, 0.3)',
-                        fontSize: '1.1rem'
+                        fontSize: '1.4rem'
                       }}>
                         오늘의 일정
                       </Typography>
@@ -825,31 +939,35 @@ const LandingPage = () => {
                           const categoryColor = getCategoryColor(schedule.category);
                           
                           return (
-                            <Typography 
-                              key={schedule.id || index}
-                              variant="body1" 
-                              sx={{ 
-                                color: '#e5e7eb',
-                                mb: 0.5,
-                                fontSize: '1.1rem',
-                                textShadow: '0 0 5px rgba(67, 233, 123, 0.2)',
-                                '&:before': {
-                                  content: '"• "',
-                                  color: categoryColor,
-                                  fontWeight: 'bold'
-                                }
-                              }}
-                            >
-                              <Box component="span" sx={{ 
+                          <Typography 
+                            key={schedule.id || index}
+                            variant="body1" 
+                            sx={{ 
+                              color: '#e5e7eb',
+                              mb: 0.5,
+                              fontSize: '1.1rem',
+                              textShadow: '0 0 5px rgba(67, 233, 123, 0.2)',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              maxWidth: '100%',
+                              '&:before': {
+                                content: '"• "',
                                 color: categoryColor,
-                                fontWeight: 'bold',
-                                mr: 1,
-                                textShadow: `0 0 8px ${categoryColor}40`
-                              }}>
-                                {schedule.category || '[현장]'}
-                              </Box>
-                              {schedule.title}
-                            </Typography>
+                                fontWeight: 'bold'
+                              }
+                            }}
+                          >
+                            <Box component="span" sx={{ 
+                              color: categoryColor,
+                              fontWeight: 'bold',
+                              mr: 1,
+                              textShadow: `0 0 8px ${categoryColor}40`
+                            }}>
+                              {schedule.category || '[현장]'}
+                            </Box>
+                            {schedule.title}
+                          </Typography>
                           );
                         })
                       ) : (
@@ -867,83 +985,199 @@ const LandingPage = () => {
               </Slide>
             </Grid>
 
-            {/* 오른쪽: 주요 기능 */}
-            <Grid item xs={12} md={4}>
+            {/* 주요 기능 + 오늘의 할일 통합 */}
+            <Grid item xs={12} md={8}>
               <Slide direction="right" in timeout={1400}>
-                <Paper sx={{ 
+                <Box sx={{ 
                   height: '100%',
-                  background: 'rgba(0, 0, 0, 0.7)',
-                  backdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(67, 233, 123, 0.1)',
-                  borderRadius: 3,
-                  overflow: 'hidden',
-                  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
                   display: 'flex',
-                  flexDirection: 'column'
+                  gap: 2
                 }}>
+                  {/* 주요 기능 */}
+                  <Paper sx={{ 
+                    flex: 1,
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(67, 233, 123, 0.1)',
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    <Box sx={{ 
+                      p: 2, 
+                      borderBottom: '1px solid rgba(67, 233, 123, 0.2)',
+                      background: 'linear-gradient(135deg, rgba(67, 233, 123, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%)'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Dashboard sx={{ color: '#43e97b', fontSize: 24 }} />
+                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                          주요 기능
+                        </Typography>
+                      </Box>
+                    </Box>
+                    
+                    <Grid container spacing={0.5} sx={{ p: 1, flex: 1, overflow: 'auto' }}>
+                      {quickAccess.map((item, index) => (
+                        <Grid item xs={4} key={index}>
+                          <Paper sx={{ 
+                            p: 1,
+                            height: '60px',
+                            background: 'rgba(0, 0, 0, 0.4)',
+                            border: '1px solid rgba(67, 233, 123, 0.1)',
+                            borderRadius: 2,
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            boxShadow: '0 5px 15px rgba(0, 0, 0, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            boxSizing: 'border-box',
+                            '&:hover': {
+                              transform: 'translateY(-2px)',
+                              boxShadow: '0 15px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(67, 233, 123, 0.2)',
+                              border: '1px solid rgba(67, 233, 123, 0.3)',
+                              background: 'rgba(67, 233, 123, 0.1)'
+                            }
+                          }} onClick={() => navigate(item.path)}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ 
+                                p: 0.5,
+                                borderRadius: 1,
+                                background: 'rgba(0, 0, 0, 0.3)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '1px solid rgba(67, 233, 123, 0.1)'
+                              }}>
+                                {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
+                              </Box>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="caption" sx={{ 
+                                  fontWeight: 'bold', 
+                                  color: 'white',
+                                  display: 'block'
+                                }}>
+                                  {item.title}
+                                </Typography>
+                              </Box>
+                              <Launch sx={{ 
+                                fontSize: 12, 
+                                color: '#43e97b',
+                                opacity: 0.6
+                              }} />
+                            </Box>
+                          </Paper>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Paper>
+
+                  {/* 오늘의 할일 */}
+                  <Paper sx={{ 
+                    flex: 0.3,
+                    height: '100%',
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(67, 233, 123, 0.1)',
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
                   <Box sx={{ 
                     p: 2, 
                     borderBottom: '1px solid rgba(67, 233, 123, 0.2)',
                     background: 'linear-gradient(135deg, rgba(67, 233, 123, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%)'
                   }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Dashboard sx={{ color: '#43e97b', fontSize: 24 }} />
+                      <Assignment sx={{ color: '#43e97b', fontSize: 24 }} />
                       <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                        주요 기능
+                        오늘의 할일
                       </Typography>
                     </Box>
                   </Box>
                   
-                  <Grid container spacing={1} sx={{ p: 2 }}>
-                    {quickAccess.slice(0, 6).map((item, index) => (
-                      <Grid item xs={6} key={index}>
-                        <Paper sx={{ 
-                          p: 1.5,
-                          background: 'rgba(0, 0, 0, 0.4)',
-                          border: '1px solid rgba(67, 233, 123, 0.1)',
-                          borderRadius: 2,
-                          cursor: 'pointer',
-                          transition: 'all 0.3s ease',
-                          boxShadow: '0 5px 15px rgba(0, 0, 0, 0.3)',
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: '0 15px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(67, 233, 123, 0.2)',
-                            border: '1px solid rgba(67, 233, 123, 0.3)',
-                            background: 'rgba(67, 233, 123, 0.1)'
-                          }
-                        }} onClick={() => navigate(item.path)}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{ 
-                              p: 0.5,
-                              borderRadius: 1,
-                              background: 'rgba(0, 0, 0, 0.3)',
+                    <Box sx={{ p: 2, flex: 1, overflow: 'auto' }}>
+                      {todayTodos.length > 0 ? (
+                        todayTodos.map((todo, index) => (
+                          <Box
+                            key={todo.id || index}
+                            sx={{
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center',
-                              border: '1px solid rgba(67, 233, 123, 0.1)'
-                            }}>
-                              {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
-                            </Box>
+                              gap: 1,
+                              mb: 1.5,
+                              p: 1,
+                              borderRadius: 1,
+                              background: todo.isOverdue ? 'rgba(239, 68, 68, 0.1)' : 'rgba(0, 0, 0, 0.3)',
+                              border: todo.isOverdue ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(67, 233, 123, 0.1)',
+                              transition: 'all 0.3s ease',
+                              '&:hover': {
+                                background: todo.isOverdue ? 'rgba(239, 68, 68, 0.2)' : 'rgba(67, 233, 123, 0.1)',
+                                border: todo.isOverdue ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(67, 233, 123, 0.3)'
+                              }
+                            }}
+                          >
+                            <Box sx={{
+                              width: 12,
+                              height: 12,
+                              borderRadius: '50%',
+                              border: todo.isOverdue ? '2px solid #ef4444' : '2px solid #43e97b',
+                              backgroundColor: todo.completed ? (todo.isOverdue ? '#ef4444' : '#43e97b') : 'transparent',
+                              flexShrink: 0
+                            }} />
                             <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="caption" sx={{ 
-                                fontWeight: 'bold', 
-                                color: 'white',
-                                display: 'block'
-                              }}>
-                                {item.title}
+                              {todo.isOverdue && (
+                                <Typography variant="caption" sx={{ 
+                                  color: '#ef4444',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 'bold',
+                                  display: 'block',
+                                  mb: 0.5
+                                }}>
+                                  [어제 미완료]
+                                </Typography>
+                              )}
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  color: todo.isOverdue ? '#ef4444' : '#e5e7eb',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  textDecoration: todo.completed ? 'line-through' : 'none',
+                                  opacity: todo.completed ? 0.6 : 1,
+                                  fontWeight: todo.isOverdue ? 'bold' : 'normal'
+                                }}
+                              >
+                                {todo.title}
                               </Typography>
                             </Box>
-                            <Launch sx={{ 
-                              fontSize: 12, 
-                              color: '#43e97b',
-                              opacity: 0.6
+                            <Box sx={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              backgroundColor: todo.priority === 'high' ? '#ef4444' : 
+                                             todo.priority === 'medium' ? '#f59e0b' : '#43e97b',
+                              flexShrink: 0
                             }} />
                           </Box>
-                        </Paper>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Paper>
+                        ))
+                      ) : (
+                        <Typography variant="body2" sx={{ 
+                          color: '#9ca3af',
+                          fontStyle: 'italic',
+                          textAlign: 'center',
+                          mt: 2
+                        }}>
+                          오늘 할 일이 없습니다.
+                        </Typography>
+                      )}
+                    </Box>
+                  </Paper>
+                </Box>
               </Slide>
             </Grid>
           </Grid>
@@ -958,7 +1192,7 @@ const LandingPage = () => {
         background: 'rgba(0, 0, 0, 0.8)',
         flexShrink: 0
       }}>
-        <Container maxWidth="lg">
+        <Container maxWidth={false} sx={{ maxWidth: '1352px' }}>
           <Box sx={{ 
             display: 'flex', 
             justifyContent: 'center', 
