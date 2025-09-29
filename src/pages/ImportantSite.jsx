@@ -489,14 +489,12 @@ export default function ImportantSite() {
             ...doc.data()
           }));
           
-          // 주단위로 그룹화
-          const weeklyGrouped = groupGisungByWeek(gisungItems);
-          
-          devLog(`Site ${siteId}의 기성 데이터 (${gisungItems.length}개) -> 주단위 그룹화 (${weeklyGrouped.length}개):`, weeklyGrouped);
+          // 주단위 그룹화 제거 - 기성 데이터를 그대로 사용
+          devLog(`Site ${siteId}의 기성 데이터 (${gisungItems.length}개):`, gisungItems);
           
           setGisungData(prev => ({
             ...prev,
-            [siteId]: weeklyGrouped
+            [siteId]: gisungItems
           }));
         }, (error) => {
           devError(`Error fetching gisung for site ${siteId}:`, error);
@@ -523,69 +521,6 @@ export default function ImportantSite() {
     };
   }, [sites.length]); // sites.length만 의존성으로 사용
 
-  // 기성 데이터를 주단위로 그룹화하는 함수
-  const groupGisungByWeek = (gisungItems) => {
-    const weeklyGroups = {};
-    
-    gisungItems.forEach(item => {
-      let date;
-      
-      // 날짜 필드 처리
-      if (item.gisungDate) {
-        if (item.gisungDate.toDate) {
-          date = item.gisungDate.toDate();
-        } else if (item.gisungDate instanceof Date) {
-          date = item.gisungDate;
-        } else {
-          // 문자열 날짜 처리
-          const dateStr = item.gisungDate.replace(/\./g, '-');
-          date = new Date(dateStr + 'T00:00:00');
-        }
-      } else if (item.date) {
-        if (item.date.toDate) {
-          date = item.date.toDate();
-        } else if (item.date instanceof Date) {
-          date = item.date;
-        } else {
-          const dateStr = item.date.replace(/\./g, '-');
-          date = new Date(dateStr + 'T00:00:00');
-        }
-      } else {
-        return; // 날짜가 없으면 건너뛰기
-      }
-      
-      // 주의 시작일 계산 (월요일)
-      const weekStart = new Date(date);
-      const dayOfWeek = date.getDay();
-      const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // 일요일이면 -6, 월요일이면 0
-      weekStart.setDate(date.getDate() + daysToMonday);
-      weekStart.setHours(0, 0, 0, 0);
-      
-      const weekKey = weekStart.toISOString().split('T')[0];
-      
-      if (!weeklyGroups[weekKey]) {
-        weeklyGroups[weekKey] = {
-          id: `week_${weekKey}_${item.siteId}`,
-          siteId: item.siteId,
-          siteName: item.siteName,
-          weekStart: weekStart,
-          weekEnd: new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000),
-          gisungAmount: 0,
-          gisungDate: weekKey,
-          gisungMonth: weekStart.getMonth() + 1,
-          items: []
-        };
-      }
-      
-      weeklyGroups[weekKey].gisungAmount += Number(item.gisungAmount || 0);
-      weeklyGroups[weekKey].items.push(item);
-    });
-    
-    // 주별 그룹을 배열로 변환하고 날짜순 정렬
-    return Object.values(weeklyGroups).sort((a, b) => 
-      new Date(a.weekStart) - new Date(b.weekStart)
-    );
-  };
 
   // 기존 progress 데이터 구독 (유지)
   useEffect(() => {

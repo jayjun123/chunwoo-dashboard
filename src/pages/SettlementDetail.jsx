@@ -1060,10 +1060,20 @@ export default function SettlementDetail() {
     console.log('종료 날짜 (오늘):', today);
     console.log('총 공수:', workersUpToToday);
 
+    // 총 일수 계산
+    let totalDays = 0;
+    if (firstDate && today) {
+      const startDate = new Date(firstDate);
+      const endDate = new Date(today);
+      const timeDiff = endDate.getTime() - startDate.getTime();
+      totalDays = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // 시작일 포함
+    }
+
     return {
       startDate: firstDate,
       endDate: today,
-      totalWorkers: workersUpToToday // workersUpToToday 사용
+      totalWorkers: workersUpToToday, // workersUpToToday 사용
+      totalDays: totalDays
     };
   }, [scheduleData, workersUpToToday]);
 
@@ -6360,10 +6370,10 @@ export default function SettlementDetail() {
           }}>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 1, color: '#43e97b', display: 'flex', alignItems: 'center', gap: 1 }}>
-                <TrendingUpIcon /> 분석
+                <TrendingUpIcon /> 분석 <span style={{ color: '#fff' }}>({projectPeriod.startDate ? projectPeriod.startDate.replace(/-/g, '.') : '데이터 로딩중...'}~{projectPeriod.endDate ? projectPeriod.endDate.replace(/-/g, '.') : '데이터 로딩중...'})</span>
               </Typography>
               
-              {/* 첫 투입 날짜부터 오늘까지 기간 및 총 공수 */}
+              {/* 총 일수 및 총 공수 */}
               <Box sx={{ 
                 bgcolor: '#1a1d21', 
                 p: 1.2, 
@@ -6378,7 +6388,7 @@ export default function SettlementDetail() {
                   textAlign: 'center',
                   lineHeight: 1.2
                 }}>
-                  {projectPeriod.startDate ? projectPeriod.startDate.replace(/-/g, '.') : '데이터 로딩중...'}~{projectPeriod.endDate ? projectPeriod.endDate.replace(/-/g, '.') : '데이터 로딩중...'} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 총 <span style={{ color: '#ff4444' }}>({projectPeriod.totalWorkers || 0})</span>공수
+                  총 <span style={{ color: '#ff4444' }}>{projectPeriod.totalDays || 0}</span>일&nbsp;&nbsp;&nbsp;<span style={{ color: '#ff4444' }}>({projectPeriod.totalWorkers || 0})</span>공수
                 </Typography>
               </Box>
               

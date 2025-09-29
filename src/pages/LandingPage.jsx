@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTodo } from '../contexts/TodoContext';
 import {
   Box,
   Typography,
@@ -58,6 +59,7 @@ const LandingPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { currentUser } = useAuth();
+  const { todos, loading: todoLoading } = useTodo();
   const [userRole, setUserRole] = useState(null);
   const [currentFeature, setCurrentFeature] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
@@ -89,8 +91,12 @@ const LandingPage = () => {
         try {
           const { getIdTokenResult } = await import('firebase/auth');
           const { auth } = await import('../firebase');
-          const tokenResult = await getIdTokenResult(auth.currentUser);
-          setUserRole(tokenResult.claims.role || 'user');
+          if (auth.currentUser) {
+            const tokenResult = await getIdTokenResult(auth.currentUser);
+            setUserRole(tokenResult.claims.role || 'user');
+          } else {
+            setUserRole('user');
+          }
         } catch (error) {
           console.error('사용자 권한 확인 실패:', error);
           setUserRole('user');
@@ -105,8 +111,20 @@ const LandingPage = () => {
   useEffect(() => {
     const fetchTodaySchedules = async () => {
       try {
+        // 한국 시간 기준으로 오늘 날짜 계산
         const today = new Date();
-        const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD 형식
+    const todayStr = today.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      timeZone: 'Asia/Seoul'
+    }).replace(/\./g, '-').replace(/\s/g, '').replace(/-$/, ''); // YYYY-MM-DD 형식 (끝의 - 제거)
+        
+        console.log('📅 랜딩페이지 오늘 날짜 계산:', {
+          현재시간: today.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }),
+          오늘날짜: todayStr,
+          UTC시간: today.toISOString()
+        });
         
         // Firebase에서 실제 일정 데이터 가져오기
         const { db } = await import('../firebase');
@@ -121,15 +139,26 @@ const LandingPage = () => {
         querySnapshot.forEach((doc) => {
           const data = doc.data();
           
-          // 날짜 처리 (다양한 형식 지원)
+          // 날짜 처리 (다양한 형식 지원) - 한국 시간 기준
           let scheduleDate = null;
           if (data.date) {
             if (data.date.toDate) {
-              // Firestore Timestamp인 경우
-              scheduleDate = data.date.toDate().toISOString().split('T')[0];
+              // Firestore Timestamp인 경우 - 한국 시간으로 변환
+              const date = data.date.toDate();
+              scheduleDate = date.toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                timeZone: 'Asia/Seoul'
+              }).replace(/\./g, '-').replace(/\s/g, '').replace(/-$/, '');
             } else if (data.date instanceof Date) {
-              // JavaScript Date인 경우
-              scheduleDate = data.date.toISOString().split('T')[0];
+              // JavaScript Date인 경우 - 한국 시간으로 변환
+              scheduleDate = data.date.toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                timeZone: 'Asia/Seoul'
+              }).replace(/\./g, '-').replace(/\s/g, '').replace(/-$/, '');
             } else if (typeof data.date === 'string') {
               // 문자열인 경우
               scheduleDate = data.date;
@@ -137,6 +166,7 @@ const LandingPage = () => {
           }
           
           // 오늘 날짜와 일치하는 일정만 추가
+          console.log(`📅 일정 날짜 비교: ${data.title || '제목없음'} - DB날짜: ${scheduleDate}, 오늘날짜: ${todayStr}, 일치: ${scheduleDate === todayStr}`);
           if (scheduleDate === todayStr) {
             // 실제 현장명 찾기
             let actualTitle = data.title || data.name || data.description || data.task || data.content || data.scheduleName || data.projectName || data.siteName || '일정';
@@ -177,9 +207,12 @@ const LandingPage = () => {
         console.log('오늘 일정 필터링 결과:', schedules);
         
         // 디버깅을 위한 로그
-        console.log('오늘 날짜:', todayStr);
-        console.log('가져온 일정 수:', schedules.length);
-        console.log('일정 데이터:', schedules);
+        console.log('📅 랜딩페이지 일정 데이터 로드:', {
+          오늘날짜: todayStr,
+          전체일정개수: querySnapshot.size,
+          필터링된일정개수: schedules.length,
+          일정목록: schedules
+        });
         
         setTodaySchedules(schedules);
       } catch (error) {
@@ -192,75 +225,112 @@ const LandingPage = () => {
     fetchTodaySchedules();
   }, []);
 
-  // 오늘의 할일 데이터 가져오기 (오늘 + 어제 미완료)
+  // 오늘의 할일 데이터 가져오기 (TodoContext에서)
   useEffect(() => {
-    const fetchTodayTodos = async () => {
-      try {
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        
-        const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD 형식
-        const yesterdayStr = yesterday.toISOString().split('T')[0]; // YYYY-MM-DD 형식
-        
-        // Firebase에서 투두리스트 데이터 가져오기
-        const { db } = await import('../firebase');
-        const { collection, query, where, getDocs } = await import('firebase/firestore');
-        
-        // 투두리스트 컬렉션에서 데이터 가져오기
-        const todosRef = collection(db, 'todos');
-        const q = query(todosRef);
-        const querySnapshot = await getDocs(q);
-        
-        const todos = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          
-          // 날짜 처리 (다양한 형식 지원)
-          let todoDate = null;
-          if (data.date) {
-            if (data.date.toDate) {
-              // Firestore Timestamp인 경우
-              todoDate = data.date.toDate().toISOString().split('T')[0];
-            } else if (data.date instanceof Date) {
-              // JavaScript Date인 경우
-              todoDate = data.date.toISOString().split('T')[0];
-            } else if (typeof data.date === 'string') {
-              // 문자열인 경우
-              todoDate = data.date;
+    if (todoLoading || !todos) return;
+    
+    console.log('🚀 TodoContext에서 할일 데이터 처리 시작');
+    
+    try {
+      // 한국 시간 기준으로 오늘/어제 날짜 계산
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      const todayStr = today.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: 'Asia/Seoul'
+      }).replace(/\./g, '-').replace(/\s/g, '').replace(/-$/, ''); // YYYY-MM-DD 형식
+      
+      const yesterdayStr = yesterday.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: 'Asia/Seoul'
+      }).replace(/\./g, '-').replace(/\s/g, '').replace(/-$/, ''); // YYYY-MM-DD 형식
+      
+      console.log('📅 날짜 계산 완료:', {
+        오늘날짜: todayStr,
+        어제날짜: yesterdayStr,
+        전체할일개수: todos.length
+      });
+      
+      const filteredTodos = [];
+      
+      todos.forEach((todo) => {
+        // 날짜 처리 - 간단하게 문자열로 변환
+        let todoDate = null;
+        if (todo.date) {
+          if (todo.date.toDate) {
+            // Firestore Timestamp인 경우
+            const date = todo.date.toDate();
+            todoDate = date.toISOString().split('T')[0]; // YYYY-MM-DD 형식
+          } else if (todo.date instanceof Date) {
+            // JavaScript Date인 경우
+            todoDate = todo.date.toISOString().split('T')[0]; // YYYY-MM-DD 형식
+          } else if (typeof todo.date === 'string') {
+            // 문자열인 경우 - "09월 29일" 형식 처리
+            const dateStr = todo.date;
+            
+            // "09월 29일" 형식인지 확인
+            const monthDayMatch = dateStr.match(/(\d{1,2})월\s*(\d{1,2})일/);
+            if (monthDayMatch) {
+              const month = monthDayMatch[1].padStart(2, '0');
+              const day = monthDayMatch[2].padStart(2, '0');
+              const currentYear = new Date().getFullYear();
+              todoDate = `${currentYear}-${month}-${day}`;
+            } else {
+              // 다른 형식인 경우 그대로 사용
+              todoDate = dateStr;
             }
           }
-          
-          // 오늘 또는 어제 날짜와 일치하고 완료되지 않은 할일만 추가
-          if ((todoDate === todayStr || todoDate === yesterdayStr) && !data.completed) {
-            todos.push({
-              id: doc.id,
-              title: data.title || data.text || data.task || '할일',
-              completed: data.completed || false,
-              priority: data.priority || 'medium',
-              date: todoDate,
-              isOverdue: todoDate === yesterdayStr // 어제 할일인지 표시
-            });
-          }
+        }
+        
+        // 오늘 또는 어제 날짜와 일치하고 완료되지 않은 할일만 추가
+        const isTodayOrYesterday = (todoDate === todayStr || todoDate === yesterdayStr);
+        const isNotCompleted = !todo.completed;
+        
+        console.log(`📋 할일 체크: ${todo.title || todo.text || '제목없음'}`, {
+          DB날짜: todoDate,
+          오늘날짜: todayStr,
+          어제날짜: yesterdayStr,
+          완료상태: todo.completed,
+          포함여부: isTodayOrYesterday && isNotCompleted
         });
         
-        // 날짜순으로 정렬 (어제 할일을 먼저 표시)
-        todos.sort((a, b) => {
-          if (a.isOverdue && !b.isOverdue) return -1;
-          if (!a.isOverdue && b.isOverdue) return 1;
-          return 0;
-        });
-        
-        console.log('오늘의 할일 데이터 (오늘 + 어제 미완료):', todos);
-        setTodayTodos(todos);
-      } catch (error) {
-        console.error('할일 데이터 로드 실패:', error);
-        setTodayTodos([]);
-      }
-    };
-
-    fetchTodayTodos();
-  }, []);
+        if (isTodayOrYesterday && isNotCompleted) {
+          filteredTodos.push({
+            id: todo.id,
+            title: todo.title || todo.text || '할일',
+            completed: todo.completed || false,
+            priority: todo.priority || 'medium',
+            date: todoDate,
+            isOverdue: todoDate === yesterdayStr // 어제 할일이면 지연으로 표시
+          });
+        }
+      });
+      
+      // 지연된 할일을 먼저 정렬
+      filteredTodos.sort((a, b) => {
+        if (a.isOverdue && !b.isOverdue) return -1;
+        if (!a.isOverdue && b.isOverdue) return 1;
+        return 0;
+      });
+      
+      console.log('📋 최종 할일 결과:', {
+        전체할일개수: todos.length,
+        필터링된할일개수: filteredTodos.length,
+        할일목록: filteredTodos
+      });
+      
+      setTodayTodos(filteredTodos);
+    } catch (error) {
+      console.error('❌ 할일 데이터 처리 실패:', error);
+      setTodayTodos([]);
+    }
+  }, [todos, todoLoading]); // todos나 todoLoading이 변경될 때마다 실행
 
   // 스크롤 애니메이션
   useEffect(() => {
@@ -408,13 +478,6 @@ const LandingPage = () => {
       preview: '거래처 정보, 계약 관리'
     },
     {
-      icon: <Description sx={{ fontSize: 40, color: '#10b981' }} />,
-      title: '견적 관리',
-      description: '견적서 작성 및 분석',
-      path: '/estimates',
-      preview: '견적서 작성, 분석, 승인 관리'
-    },
-    {
       icon: <Business sx={{ fontSize: 40, color: '#f97316' }} />,
       title: '현장 관리',
       description: '현장 정보 및 관리',
@@ -424,30 +487,37 @@ const LandingPage = () => {
     {
       icon: <Engineering sx={{ fontSize: 40, color: '#6366f1' }} />,
       title: '공사 관리',
-      description: '공사 진행 및 관리',
-      path: '/construction',
-      preview: '공사 진행률, 단계별 관리'
+      description: '현장 관리 페이지',
+      path: '/sites',
+      preview: '현장 정보, 현황 관리'
     },
     {
       icon: <Visibility sx={{ fontSize: 40, color: '#ec4899' }} />,
-      title: '실측 관리',
-      description: '실측 데이터 관리',
-      path: '/survey',
-      preview: '실측 데이터, 측량 관리'
+      title: '직원 관리',
+      description: '시공팀 페이지',
+      path: '/daema-team',
+      preview: '직원 정보, 시공팀 관리'
     },
     {
       icon: <Event sx={{ fontSize: 40, color: '#84cc16' }} />,
-      title: '일정 관리',
-      description: '프로젝트 일정 관리',
-      path: '/calendar',
+      title: '전체 일정',
+      description: '일정 관리 페이지',
+      path: '/gantt',
       preview: '일정 계획, 추적, 관리'
     },
     {
       icon: <Warning sx={{ fontSize: 40, color: '#dc2626' }} />,
-      title: '사고 관리',
-      description: '사고 보고 및 관리',
-      path: '/incidents',
-      preview: '사고 보고, 분석, 대응'
+      title: '청구 관리',
+      description: '청구 페이지',
+      path: '/billing',
+      preview: '청구서 작성, 관리'
+    },
+    {
+      icon: <Description sx={{ fontSize: 40, color: '#10b981' }} />,
+      title: '견적 관리',
+      description: '견적서 작성 및 분석',
+      path: '/estimates',
+      preview: '견적서 작성, 분석, 승인 관리'
     }
   ];
 
@@ -986,12 +1056,15 @@ const LandingPage = () => {
             </Grid>
 
             {/* 주요 기능 + 오늘의 할일 통합 */}
-            <Grid item xs={12} md={8}>
+            <Grid item xs={12} md={8} sx={{ maxWidth: '1580px', width: '100%' }}>
               <Slide direction="right" in timeout={1400}>
                 <Box sx={{ 
                   height: '100%',
                   display: 'flex',
-                  gap: 2
+                  gap: 2,
+                  marginTop: '-40px',
+                  maxWidth: '1600px',
+                  width: '100%'
                 }}>
                   {/* 주요 기능 */}
                   <Paper sx={{ 
@@ -1018,12 +1091,78 @@ const LandingPage = () => {
                       </Box>
                     </Box>
                     
-                    <Grid container spacing={0.5} sx={{ p: 1, flex: 1, overflow: 'auto' }}>
-                      {quickAccess.map((item, index) => (
-                        <Grid item xs={4} key={index}>
+                    <Box sx={{ 
+                      p: 0.2, 
+                      flex: 1, 
+                      overflow: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '3px'
+                    }}>
+                      {/* 첫 번째 줄 */}
+                      <Box sx={{ display: 'flex', gap: '2px', mb: '3px' }}>
+                        {quickAccess.slice(0, 6).map((item, index) => (
+                          <Box key={index} sx={{ flex: 1 }}>
                           <Paper sx={{ 
-                            p: 1,
-                            height: '60px',
+                            p: 0.2,
+                            height: '65px',
+                            background: 'rgba(0, 0, 0, 0.4)',
+                            border: '1px solid rgba(67, 233, 123, 0.1)',
+                            borderRadius: 2,
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            boxShadow: '0 5px 15px rgba(0, 0, 0, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            boxSizing: 'border-box',
+                            marginBottom: index >= 6 ? '2px' : '0px',
+                            '&:hover': {
+                              transform: 'translateY(-2px)',
+                              boxShadow: '0 15px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(67, 233, 123, 0.2)',
+                              border: '1px solid rgba(67, 233, 123, 0.3)',
+                              background: 'rgba(67, 233, 123, 0.1)'
+                            }
+                          }} onClick={() => navigate(item.path)}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ 
+                                p: 0.5,
+                                borderRadius: 1,
+                                background: 'rgba(0, 0, 0, 0.3)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '1px solid rgba(67, 233, 123, 0.1)'
+                              }}>
+                                {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
+                              </Box>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="body2" sx={{ 
+                                  fontWeight: 'bold', 
+                                  color: 'white',
+                                  display: 'block',
+                                  fontSize: '0.9rem'
+                                }}>
+                                  {item.title}
+                                </Typography>
+                              </Box>
+                              <Launch sx={{ 
+                                fontSize: 12, 
+                                color: '#43e97b',
+                                opacity: 0.6
+                              }} />
+                            </Box>
+                          </Paper>
+                          </Box>
+                        ))}
+                      </Box>
+                      
+                      {/* 두 번째 줄 */}
+                      <Box sx={{ display: 'flex', gap: '2px' }}>
+                        {quickAccess.slice(6, 12).map((item, index) => (
+                          <Box key={index + 6} sx={{ flex: 1 }}>
+                          <Paper sx={{ 
+                            p: 0.2,
+                            height: '65px',
                             background: 'rgba(0, 0, 0, 0.4)',
                             border: '1px solid rgba(67, 233, 123, 0.1)',
                             borderRadius: 2,
@@ -1053,10 +1192,11 @@ const LandingPage = () => {
                                 {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
                               </Box>
                               <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Typography variant="caption" sx={{ 
+                                <Typography variant="body2" sx={{ 
                                   fontWeight: 'bold', 
                                   color: 'white',
-                                  display: 'block'
+                                  display: 'block',
+                                  fontSize: '0.9rem'
                                 }}>
                                   {item.title}
                                 </Typography>
@@ -1068,15 +1208,17 @@ const LandingPage = () => {
                               }} />
                             </Box>
                           </Paper>
-                        </Grid>
-                      ))}
-                    </Grid>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Box>
                   </Paper>
 
                   {/* 오늘의 할일 */}
                   <Paper sx={{ 
-                    flex: 0.3,
+                    flex: 0.5,
                     height: '100%',
+                    minWidth: '400px',
                     background: 'rgba(0, 0, 0, 0.7)',
                     backdropFilter: 'blur(20px)',
                     border: '1px solid rgba(67, 233, 123, 0.1)',
@@ -1099,7 +1241,7 @@ const LandingPage = () => {
                     </Box>
                   </Box>
                   
-                    <Box sx={{ p: 2, flex: 1, overflow: 'auto' }}>
+                    <Box sx={{ p: 1, flex: 1, overflow: 'auto' }}>
                       {todayTodos.length > 0 ? (
                         todayTodos.map((todo, index) => (
                           <Box
@@ -1107,16 +1249,16 @@ const LandingPage = () => {
                             sx={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 1,
-                              mb: 1.5,
-                              p: 1,
+                              gap: 0.8,
+                              mb: 1,
+                              p: 0.7,
                               borderRadius: 1,
-                              background: todo.isOverdue ? 'rgba(239, 68, 68, 0.1)' : 'rgba(0, 0, 0, 0.3)',
-                              border: todo.isOverdue ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(67, 233, 123, 0.1)',
+                              background: 'rgba(0, 0, 0, 0.3)',
+                              border: '1px solid rgba(67, 233, 123, 0.1)',
                               transition: 'all 0.3s ease',
                               '&:hover': {
-                                background: todo.isOverdue ? 'rgba(239, 68, 68, 0.2)' : 'rgba(67, 233, 123, 0.1)',
-                                border: todo.isOverdue ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(67, 233, 123, 0.3)'
+                                background: 'rgba(67, 233, 123, 0.1)',
+                                border: '1px solid rgba(67, 233, 123, 0.3)'
                               }
                             }}
                           >
@@ -1124,22 +1266,11 @@ const LandingPage = () => {
                               width: 12,
                               height: 12,
                               borderRadius: '50%',
-                              border: todo.isOverdue ? '2px solid #ef4444' : '2px solid #43e97b',
-                              backgroundColor: todo.completed ? (todo.isOverdue ? '#ef4444' : '#43e97b') : 'transparent',
+                              border: '2px solid #43e97b',
+                              backgroundColor: todo.completed ? '#43e97b' : 'transparent',
                               flexShrink: 0
                             }} />
                             <Box sx={{ flex: 1, minWidth: 0 }}>
-                              {todo.isOverdue && (
-                                <Typography variant="caption" sx={{ 
-                                  color: '#ef4444',
-                                  fontSize: '0.7rem',
-                                  fontWeight: 'bold',
-                                  display: 'block',
-                                  mb: 0.5
-                                }}>
-                                  [어제 미완료]
-                                </Typography>
-                              )}
                               <Typography 
                                 variant="body2" 
                                 sx={{ 
@@ -1152,7 +1283,7 @@ const LandingPage = () => {
                                   fontWeight: todo.isOverdue ? 'bold' : 'normal'
                                 }}
                               >
-                                {todo.title}
+                                {todo.isOverdue ? '[미완료] ' : ''}{todo.title}
                               </Typography>
                             </Box>
                             <Box sx={{
