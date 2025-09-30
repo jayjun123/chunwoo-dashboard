@@ -114,7 +114,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedYear, setSelectedYear] = useState(propSelectedYear || new Date().getFullYear());
-  const [selectedHoliday, setSelectedHoliday] = useState(propSelectedHoliday || '설날');
+  const [selectedHoliday, setSelectedHoliday] = useState(propSelectedHoliday || '추석');
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState(null);
   
@@ -164,7 +164,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     status: '예정',
     note: '',
     year: new Date().getFullYear(),
-    holiday: '설날'
+    holiday: '추석'
   });
 
   // 거래처 폼 데이터
@@ -333,7 +333,46 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         Object.keys(cardsBySection).forEach(sectionId => {
           const sectionCards = cardsBySection[sectionId];
           if (sectionCards.length > 0) {
-            const sortedCards = sectionCards.sort((a, b) => {
+            // 카드들을 기존 카드와 새 카드로 분리하여 번호 할당
+            const existingCards = sectionCards.filter(card => !(card.isNewCard === true || card.name === '새 카드'));
+            const newCards = sectionCards.filter(card => card.isNewCard === true || card.name === '새 카드');
+            
+            // 기존 카드들에 1, 2, 3... 번호 할당
+            const existingCardsWithNumbers = existingCards.map((card, index) => {
+              if (!card.cardNumber) {
+                const newCardNumber = index + 1;
+                // Firebase에 cardNumber 업데이트
+                updateDoc(doc(db, 'giftCards', card.id), {
+                  cardNumber: newCardNumber,
+                  updatedAt: serverTimestamp()
+                }).catch(error => {
+                  console.error('카드 번호 업데이트 오류:', error);
+                });
+                return { ...card, cardNumber: newCardNumber };
+              }
+              return card;
+            });
+            
+            // 새 카드들에 추1, 추2, 추3... 번호 할당
+            const newCardsWithNumbers = newCards.map((card, index) => {
+              if (!card.cardNumber) {
+                const newCardNumber = index + 1;
+                // Firebase에 cardNumber 업데이트
+                updateDoc(doc(db, 'giftCards', card.id), {
+                  cardNumber: newCardNumber,
+                  updatedAt: serverTimestamp()
+                }).catch(error => {
+                  console.error('카드 번호 업데이트 오류:', error);
+                });
+                return { ...card, cardNumber: newCardNumber };
+              }
+              return card;
+            });
+            
+            // 기존 카드와 새 카드를 합치기
+            const cardsWithNumbers = [...existingCardsWithNumbers, ...newCardsWithNumbers];
+            
+            const sortedCards = cardsWithNumbers.sort((a, b) => {
               // 새카드인지 확인 (isNewCard가 true이거나 이름이 '새 카드'인 경우)
               const isNewCardA = a.isNewCard === true || a.name === '새 카드';
               const isNewCardB = b.isNewCard === true || b.name === '새 카드';
@@ -387,17 +426,54 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
   // 초기 기본값 설정 (한 번만 실행)
   useEffect(() => {
     const setInitialValues = async () => {
-      if (!selectedYear || !selectedHoliday) {
-        // 전체 데이터에서 최신 명절 찾기
-        const allGiftsQuery = query(collection(db, 'gifts'), orderBy('createdAt', 'desc'), limit(1));
-        const snapshot = await getDocs(allGiftsQuery);
-        
-        if (!snapshot.empty) {
-          const latestGift = snapshot.docs[0].data();
-          if (latestGift.holiday && latestGift.year) {
-            setSelectedHoliday(latestGift.holiday);
-            setSelectedYear(latestGift.year);
+      if (!propSelectedYear && !propSelectedHoliday) {
+        try {
+          // giftCards에서 최근 수정된 데이터 찾기
+          const cardsQuery = query(
+            collection(db, 'giftCards'), 
+            orderBy('updatedAt', 'desc'), 
+            limit(10)
+          );
+          const cardsSnapshot = await getDocs(cardsQuery);
+          
+          if (!cardsSnapshot.empty) {
+            // 최근 수정된 카드에서 년도/명절 정보 추출
+            const latestCard = cardsSnapshot.docs[0].data();
+            if (latestCard.holiday && latestCard.year) {
+              console.log('최근 수정된 명절 감지:', latestCard.year, latestCard.holiday);
+              setSelectedHoliday(latestCard.holiday);
+              setSelectedYear(latestCard.year);
+              return;
+            }
           }
+          
+          // giftCards에서 데이터가 없으면 giftSections에서 찾기
+          const sectionsQuery = query(
+            collection(db, 'giftSections'), 
+            orderBy('updatedAt', 'desc'), 
+            limit(10)
+          );
+          const sectionsSnapshot = await getDocs(sectionsQuery);
+          
+          if (!sectionsSnapshot.empty) {
+            const latestSection = sectionsSnapshot.docs[0].data();
+            if (latestSection.holiday && latestSection.year) {
+              console.log('최근 수정된 섹션에서 명절 감지:', latestSection.year, latestSection.holiday);
+              setSelectedHoliday(latestSection.holiday);
+              setSelectedYear(latestSection.year);
+              return;
+            }
+          }
+          
+          // 기본값으로 2025년 추석 설정
+          console.log('기본값 설정: 2025년 추석');
+          setSelectedHoliday('추석');
+          setSelectedYear(2025);
+        } catch (error) {
+          console.error('초기값 설정 오류:', error);
+          // 오류 시 기본값으로 2025년 추석 설정
+          setSelectedHoliday('추석');
+          setSelectedYear(2025);
         }
       }
     };
@@ -1009,20 +1085,21 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           return;
         }
         
-        // 해당 섹션의 최대 카드 번호 찾기 (섹션별 고유번호)
+        // 해당 섹션의 "추" 카드 개수 세기 (새로 추가된 카드들만)
         const targetSection = sections.find(section => section.id === sectionId);
-        let maxCardNumber = 0;
+        let newCardCount = 0;
         
         if (targetSection?.cards) {
           targetSection.cards.forEach(card => {
-            if (card.cardNumber && card.cardNumber > maxCardNumber) {
-              maxCardNumber = card.cardNumber;
+            // isNewCard가 true인 카드들 개수 세기
+            if (card.isNewCard === true || card.name === '새 카드') {
+              newCardCount++;
             }
           });
         }
         
-        // 새 카드 번호는 해당 섹션의 최대 번호 + 1
-        const newCardNumber = maxCardNumber + 1;
+        // 새 카드 번호는 해당 섹션의 "추" 카드 개수 + 1 (1번부터 시작)
+        const newCardNumber = newCardCount + 1;
         
         const newCardData = {
           type: 'vendor',
@@ -1171,8 +1248,31 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       cards = filteredCards;
     }
     
+    // 카드들을 기존 카드와 새 카드로 분리하여 번호 할당
+    const existingCards = cards.filter(card => !(card.isNewCard === true || card.name === '새 카드'));
+    const newCards = cards.filter(card => card.isNewCard === true || card.name === '새 카드');
+    
+    // 기존 카드들에 1, 2, 3... 번호 할당
+    const existingCardsWithNumbers = existingCards.map((card, index) => {
+      if (!card.cardNumber) {
+        return { ...card, cardNumber: index + 1 };
+      }
+      return card;
+    });
+    
+    // 새 카드들에 추1, 추2, 추3... 번호 할당
+    const newCardsWithNumbers = newCards.map((card, index) => {
+      if (!card.cardNumber) {
+        return { ...card, cardNumber: index + 1 };
+      }
+      return card;
+    });
+    
+    // 기존 카드와 새 카드를 합치기
+    const cardsWithNumbers = [...existingCardsWithNumbers, ...newCardsWithNumbers];
+    
     // 검색 결과에서도 원래 번호 순서 유지 (cardNumber 기준 정렬)
-    return cards.sort((a, b) => {
+    return cardsWithNumbers.sort((a, b) => {
       // 새카드인지 확인 (isNewCard가 true이거나 이름이 '새 카드'인 경우)
       const isNewCardA = a.isNewCard === true || a.name === '새 카드';
       const isNewCardB = b.isNewCard === true || b.name === '새 카드';
@@ -1565,20 +1665,21 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         return;
       }
       
-      // 해당 섹션의 최대 카드 번호 찾기 (섹션별 고유번호)
-      let maxCardNumber = 0;
+      // 해당 섹션의 "추" 카드 개수 세기 (새로 추가된 카드들만)
+      let newCardCount = 0;
       
       if (targetSection?.cards) {
         targetSection.cards.forEach(card => {
-          if (card.cardNumber && card.cardNumber > maxCardNumber) {
-            maxCardNumber = card.cardNumber;
+          // isNewCard가 true인 카드들 개수 세기
+          if (card.isNewCard === true || card.name === '새 카드') {
+            newCardCount++;
           }
         });
       }
       
-      // 새 카드 번호는 해당 섹션의 최대 번호 + 1
-      const newCardNumber = maxCardNumber + 1;
-      console.log('섹션 최대 번호:', maxCardNumber, '새 카드 번호:', newCardNumber);
+      // 새 카드 번호는 해당 섹션의 "추" 카드 개수 + 1 (1번부터 시작)
+      const newCardNumber = newCardCount + 1;
+      console.log('섹션 "추" 카드 개수:', newCardCount, '새 카드 번호:', newCardNumber);
       
       const newCardData = {
         type: 'manual',
@@ -1705,6 +1806,57 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     setDraggedSection(section);
     e.dataTransfer.effectAllowed = 'move';
     console.log('섹션 드래그 시작:', section.title);
+  };
+
+  // 섹션별 번호 새로 매기기
+  const handleRenumberSection = async (sectionId) => {
+    try {
+      const section = sections.find(s => s.id === sectionId);
+      if (!section || !section.cards || section.cards.length === 0) {
+        setSnackbar({ open: true, message: '번호를 매길 카드가 없습니다.', severity: 'warning' });
+        return;
+      }
+
+      const cards = section.cards;
+      
+      // 카드들을 기존 카드와 새 카드로 분리
+      const existingCards = cards.filter(card => !(card.isNewCard === true || card.name === '새 카드'));
+      const newCards = cards.filter(card => card.isNewCard === true || card.name === '새 카드');
+      
+      // 기존 카드들에 1, 2, 3... 번호 할당
+      const existingCardsWithNumbers = existingCards.map((card, index) => ({
+        ...card,
+        cardNumber: index + 1
+      }));
+      
+      // 새 카드들에 추1, 추2, 추3... 번호 할당
+      const newCardsWithNumbers = newCards.map((card, index) => ({
+        ...card,
+        cardNumber: index + 1
+      }));
+      
+      // 모든 카드 합치기
+      const allCardsWithNumbers = [...existingCardsWithNumbers, ...newCardsWithNumbers];
+      
+      // Firebase에 업데이트
+      const batch = writeBatch(db);
+      
+      allCardsWithNumbers.forEach(card => {
+        const cardRef = doc(db, 'gifts', card.id);
+        batch.update(cardRef, {
+          cardNumber: card.cardNumber,
+          updatedAt: serverTimestamp()
+        });
+      });
+      
+      await batch.commit();
+      
+      setSnackbar({ open: true, message: `${section.title} 섹션의 번호를 새로 매겼습니다.`, severity: 'success' });
+      
+    } catch (error) {
+      console.error('번호 새로 매기기 오류:', error);
+      setSnackbar({ open: true, message: '번호 새로 매기기 중 오류가 발생했습니다.', severity: 'error' });
+    }
   };
 
   // 섹션 드래그 오버
@@ -3830,7 +3982,10 @@ const GiftManagementTab = ({
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap'
                         }}>
-                          {card.cardNumber || (index + 1)}. {card.name}{card.position && card.position !== '회사' && ` ${card.position}`} {card.isDuplicate && '🔴'}
+                          {(card.isNewCard === true || card.name === '새 카드') ? 
+                            `추${card.cardNumber || (index + 1)}.` : 
+                            `${card.cardNumber || (index + 1)}.`
+                          } {card.name}{card.position && card.position !== '회사' && ` ${card.position}`} {card.isDuplicate && '🔴'}
                         </Typography>
                         <Typography variant="caption" sx={{ 
                           color: isSelected ? '#fff' : '#999', 

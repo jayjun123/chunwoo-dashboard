@@ -50,7 +50,8 @@ import {
   Star as StarIcon,
   TrendingUp as TrendingUpIcon,
   Engineering as EngineeringIcon,
-  CloudDownload as CloudDownloadIcon
+  CloudDownload as CloudDownloadIcon,
+  AttachMoney as AttachMoney
 } from '@mui/icons-material';
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -697,22 +698,44 @@ const ConstructionTeam = () => {
       msOverflowStyle: 'none'
     }}>
       {/* 헤더 */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" sx={{ 
-          fontWeight: 'bold', 
-          color: '#f59e42',
-          mb: 1
-        }}>
-          시공팀 관리 <span style={{ fontSize: '0.7em', color: '#10b981' }}>(실시간 반영)</span>
-        </Typography>
-        <Typography variant="body1" sx={{ color: '#bbb' }}>
-          시공팀 정보와 현장 배정을 관리하세요
-        </Typography>
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography variant="h4" sx={{ 
+            fontWeight: 'bold', 
+            color: '#f59e42',
+            mb: 1
+          }}>
+            시공팀 관리 <span style={{ fontSize: '0.7em', color: '#10b981' }}>(실시간 반영)</span>
+          </Typography>
+          <Typography variant="body1" sx={{ color: '#bbb' }}>
+            시공팀 정보와 현장 배정을 관리하세요
+          </Typography>
+        </Box>
+        <Button
+          variant="outlined"
+          onClick={() => navigate('/team-settlement')}
+          sx={{
+            color: '#fff',
+            borderColor: '#4caf50',
+            px: 3,
+            py: 1.5,
+            fontSize: '1.2rem',
+            fontWeight: 'bold',
+            borderRadius: 2,
+            '&:hover': {
+              backgroundColor: 'rgba(76, 175, 80, 0.1)',
+              borderColor: '#4caf50'
+            },
+            transition: 'all 0.3s ease'
+          }}
+        >
+          월별 시공팀 정산
+        </Button>
       </Box>
 
       {/* 통계 카드 */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card sx={{ bgcolor: '#1a1d21', border: '1px solid #333' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -729,7 +752,7 @@ const ConstructionTeam = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card sx={{ bgcolor: '#1a1d21', border: '1px solid #333' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -746,7 +769,7 @@ const ConstructionTeam = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card sx={{ bgcolor: '#1a1d21', border: '1px solid #333' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -771,7 +794,7 @@ const ConstructionTeam = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card sx={{ bgcolor: '#1a1d21', border: '1px solid #333' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -1320,7 +1343,7 @@ const ConstructionTeam = () => {
         <DialogContent sx={{ bgcolor: '#1a1d21', color: '#fff' }}>
           <Box sx={{ mt: 2 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="시공팀명"
@@ -1329,7 +1352,7 @@ const ConstructionTeam = () => {
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="소장님 이름"
@@ -1338,7 +1361,7 @@ const ConstructionTeam = () => {
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="시공팀 인원"
@@ -1348,7 +1371,7 @@ const ConstructionTeam = () => {
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth sx={{ mb: 2 }}>
                   <InputLabel sx={{ color: '#bbb' }}>상태</InputLabel>
                   <Select
@@ -1362,16 +1385,37 @@ const ConstructionTeam = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="연락처"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, ''); // 숫자만 허용
+                    let formattedValue = value;
+                    
+                    // 11자리 (000-0000-0000) 또는 10자리 (000-000-0000) 포맷팅
+                    if (value.length <= 3) {
+                      formattedValue = value;
+                    } else if (value.length <= 7) {
+                      formattedValue = `${value.slice(0, 3)}-${value.slice(3)}`;
+                    } else if (value.length <= 11) {
+                      if (value.length <= 10) {
+                        // 10자리: 000-000-0000
+                        formattedValue = `${value.slice(0, 3)}-${value.slice(3, 6)}-${value.slice(6)}`;
+                      } else {
+                        // 11자리: 000-0000-0000
+                        formattedValue = `${value.slice(0, 3)}-${value.slice(3, 7)}-${value.slice(7)}`;
+                      }
+                    }
+                    
+                    setFormData({ ...formData, phone: formattedValue });
+                  }}
+                  placeholder="010-1234-5678 또는 02-123-4567"
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="이메일"
@@ -1403,7 +1447,7 @@ const ConstructionTeam = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="타업체 현장"
@@ -1412,7 +1456,7 @@ const ConstructionTeam = () => {
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="자기 현장"

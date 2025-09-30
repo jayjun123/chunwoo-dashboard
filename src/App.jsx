@@ -210,6 +210,7 @@ const SafetyTraining = React.lazy(() => import('./components/safety/SafetyTraini
 const SafetyReports = React.lazy(() => import('./components/safety/SafetyReports'));
 // 성능 최적화: 페이지 컴포넌트들을 lazy loading으로 변경
 const ConstructionTeam = React.lazy(() => import('./pages/DaemaTeam'));
+const TeamSettlement = React.lazy(() => import('./pages/TeamSettlement'));
 const Discussions = React.lazy(() => import('./pages/Discussions'));
 const Vendors = React.lazy(() => import('./pages/Vendors'));
 const VendorManagement = React.lazy(() => import('./pages/VendorManagement'));
@@ -775,6 +776,23 @@ const App = React.memo(() => {
                             ) : (
                               <Layout>
                                 <ConstructionTeam />
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+
+                      <Route
+                        path="/team-settlement"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileLayout>
+                                <TeamSettlement />
+                              </MobileLayout>
+                            ) : (
+                              <Layout>
+                                <TeamSettlement />
                               </Layout>
                             )}
                           </ProtectedRoute>

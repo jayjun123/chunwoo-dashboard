@@ -204,7 +204,7 @@ export const exportScheduleToExcel = async (scheduleData, fileName = 'schedule.x
     // 3행: 헤더
     const headerRow = worksheet.getRow(3);
     headerRow.height = 25;
-    const headers = ['일자', '분류', '현장명', '설명', 'E열', '체크박스유무'];
+    const headers = ['일자', '분류', '현장명', '설명', '시공팀', '체크박스유무'];
     headers.forEach((header, index) => {
       const cell = headerRow.getCell(index + 1);
       cell.value = header;

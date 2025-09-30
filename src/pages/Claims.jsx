@@ -294,6 +294,7 @@ const Claims = () => {
     manager: '',
     sequence: '',
     progressRate: '',
+    totalGisungAmount: '',
     claimAmount: '',
     claimStatus: 'X',
     notes: ''
@@ -648,17 +649,23 @@ const Claims = () => {
         return sum + amount;
       }, 0);
     
+    // 현재 청구예정인 금액도 포함 (청구리스트에서)
+    const currentClaimAmount = claimsList
+      .filter(claim => claim.siteName === siteName && claim.claimStatus === 'X')
+      .reduce((sum, claim) => sum + (Number(claim.claimAmount) || 0), 0);
+    
     const advanceAmount = Number(siteData.advance || 0); // 선급금
     const contractAmount = Number(siteData.contractAmount);
     
-    // 계약금액 - (총 기성금액 + 선급금)
-    const remainingAmount = contractAmount - (totalGisungAmount + advanceAmount);
+    // 계약금액 - (총 기성금액 + 선급금 + 현재 청구예정 금액)
+    const remainingAmount = contractAmount - (totalGisungAmount + advanceAmount + currentClaimAmount);
     
     // 디버깅을 위한 로그 추가
-    console.log(`🔍 잔액 계산 - ${siteName}:`, {
+    console.log(`🔍 잔액 계산 (청구예정 포함) - ${siteName}:`, {
       contractAmount,
       totalGisungAmount,
       advanceAmount,
+      currentClaimAmount,
       calculatedBalance: remainingAmount
     });
     
@@ -674,16 +681,49 @@ const Claims = () => {
     const contractAmount = Number(siteData.contractAmount);
     const claimAmountNum = Number(claimAmount || 0);
     
-    // 계약금액 - 청구금액
-    const balance = contractAmount - claimAmountNum;
+    // 청구완료된 기성금 총합 계산
+    const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
+    const totalGisungAmount = siteGisungData
+      .filter(gisung => gisung.claimStatus === '청구완료')
+      .reduce((sum, gisung) => {
+        const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
+        return sum + amount;
+      }, 0);
+    
+    const advanceAmount = Number(siteData.advance || 0);
+    
+    // 계약금액 - (청구완료 기성금 + 선급금 + 현재 청구금액)
+    const balance = contractAmount - (totalGisungAmount + advanceAmount + claimAmountNum);
     
     console.log(`💰 청구금액 기준 잔액 계산 - ${siteName}:`, {
       contractAmount,
+      totalGisungAmount,
+      advanceAmount,
       claimAmount: claimAmountNum,
       calculatedBalance: balance
     });
     
     return Math.max(0, balance); // 음수 방지
+  };
+
+  // 누계기성금액 계산 함수
+  const calculateTotalGisungAmount = (siteName) => {
+    const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
+    
+    // 청구완료된 기성금의 총합 계산
+    const totalGisungAmount = siteGisungData
+      .filter(gisung => gisung.claimStatus === '청구완료')
+      .reduce((sum, gisung) => {
+        const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
+        return sum + amount;
+      }, 0);
+    
+    console.log(`📊 누계기성금액 계산 - ${siteName}:`, {
+      totalGisungAmount,
+      청구완료기성개수: siteGisungData.filter(gisung => gisung.claimStatus === '청구완료').length
+    });
+    
+    return totalGisungAmount;
   };
 
   // 현장 선택 시 자동 기입 함수
@@ -695,12 +735,14 @@ const Claims = () => {
       // 현장 객체를 선택한 경우에만 자동으로 정보 기입
       const progressRate = calculateProgressRate(selectedSite.name);
       const sequence = calculateSequence(selectedSite.name);
+      const totalGisungAmount = calculateTotalGisungAmount(selectedSite.name);
       setFormData(prev => ({
         ...prev,
         siteName: selectedSite.name || '',
         manager: selectedSite.manager || '',
         sequence: sequence,
-        progressRate: progressRate.toString()
+        progressRate: progressRate.toString(),
+        totalGisungAmount: totalGisungAmount.toString()
       }));
     } else if (typeof selectedSite === 'string') {
       console.log('문자열 입력됨:', selectedSite);
@@ -712,12 +754,14 @@ const Claims = () => {
         // 목록에 있는 현장인 경우 자동으로 정보 기입
         const progressRate = calculateProgressRate(foundSite.name);
         const sequence = calculateSequence(foundSite.name);
+        const totalGisungAmount = calculateTotalGisungAmount(foundSite.name);
         setFormData(prev => ({
           ...prev,
           siteName: foundSite.name || '',
           manager: foundSite.manager || '',
           sequence: sequence,
-          progressRate: progressRate.toString()
+          progressRate: progressRate.toString(),
+          totalGisungAmount: totalGisungAmount.toString()
         }));
       } else {
         console.log('목록에 없는 현장, 직접 입력으로 처리:', selectedSite);
@@ -727,7 +771,8 @@ const Claims = () => {
           siteName: selectedSite,
           manager: prev.manager, // 기존 값 유지
           sequence: prev.sequence, // 기존 값 유지
-          progressRate: prev.progressRate // 기존 값 유지
+          progressRate: prev.progressRate, // 기존 값 유지
+          totalGisungAmount: prev.totalGisungAmount // 기존 값 유지
         }));
       }
     } else {
@@ -742,6 +787,7 @@ const Claims = () => {
       manager: '',
       sequence: '',
       progressRate: '',
+      totalGisungAmount: '',
       claimAmount: '',
       claimStatus: 'X',
       notes: ''
@@ -2397,39 +2443,77 @@ const Claims = () => {
                 }}
               />
               
-              <TextField
-                fullWidth
-                label="청구 전 기성율(%)"
-                type="number"
-                value={formData.progressRate}
-                onChange={(e) => setFormData(prev => ({ ...prev, progressRate: e.target.value }))}
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                }}
-                size="small"
-                sx={{ 
-                  '& .MuiInputBase-root': { backgroundColor: '#444' },
-                  '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: 'white' }
-                }}
-              />
-              
-              <TextField
-                fullWidth
-                label="청구금액"
-                type="number"
-                value={formData.claimAmount}
-                onChange={(e) => setFormData(prev => ({ ...prev, claimAmount: e.target.value }))}
-                InputProps={{
-                  endAdornment: <InputAdornment position="end">원</InputAdornment>,
-                }}
-                size="small"
-                sx={{ 
-                  '& .MuiInputBase-root': { backgroundColor: '#444' },
-                  '& .MuiInputLabel-root': { color: '#ccc' },
-                  '& .MuiInputBase-input': { color: 'white' }
-                }}
-              />
+              <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+                <TextField
+                  label="기성율(%)"
+                  type="number"
+                  value={formData.progressRate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, progressRate: e.target.value }))}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                  }}
+                  size="small"
+                  sx={{ 
+                    flex: 1,
+                    '& .MuiInputBase-root': { backgroundColor: '#444' },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: 'white' }
+                  }}
+                />
+                
+                <TextField
+                  label="누계기성금액"
+                  value={formData.totalGisungAmount ? Number(formData.totalGisungAmount).toLocaleString() : ''}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">원</InputAdornment>,
+                    readOnly: true,
+                  }}
+                  size="small"
+                  sx={{ 
+                    flex: 2,
+                    '& .MuiInputBase-root': { backgroundColor: '#333' },
+                    '& .MuiInputLabel-root': { color: '#999' },
+                    '& .MuiInputBase-input': { color: '#ccc' }
+                  }}
+                />
+                
+                <TextField
+                  label="잔액"
+                  value={formData.siteName ? calculateRemainingAmount(formData.siteName).toLocaleString() : ''}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">원</InputAdornment>,
+                    readOnly: true,
+                  }}
+                  size="small"
+                  sx={{ 
+                    flex: 2,
+                    '& .MuiInputBase-root': { backgroundColor: '#333' },
+                    '& .MuiInputLabel-root': { color: '#999' },
+                    '& .MuiInputBase-input': { color: '#ccc' }
+                  }}
+                />
+                
+                <TextField
+                  label="청구금액"
+                  value={formData.claimAmount ? Number(formData.claimAmount).toLocaleString() : ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/,/g, '');
+                    if (!isNaN(value) || value === '') {
+                      setFormData(prev => ({ ...prev, claimAmount: value }));
+                    }
+                  }}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">원</InputAdornment>,
+                  }}
+                  size="small"
+                  sx={{ 
+                    flex: 2,
+                    '& .MuiInputBase-root': { backgroundColor: '#444' },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: 'white' }
+                  }}
+                />
+              </Box>
               
               <TextField
                 fullWidth
@@ -2508,39 +2592,74 @@ const Claims = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="청구 전 기성율(%)"
-                  type="number"
-                  value={formData.progressRate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, progressRate: e.target.value }))}
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                  }}
-                  sx={{ 
-                    '& .MuiInputBase-root': { backgroundColor: '#444' },
-                    '& .MuiInputLabel-root': { color: '#ccc' },
-                    '& .MuiInputBase-input': { color: 'white' }
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="청구금액"
-                  type="number"
-                  value={formData.claimAmount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, claimAmount: e.target.value }))}
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">원</InputAdornment>,
-                  }}
-                  sx={{ 
-                    '& .MuiInputBase-root': { backgroundColor: '#444' },
-                    '& .MuiInputLabel-root': { color: '#ccc' },
-                    '& .MuiInputBase-input': { color: 'white' }
-                  }}
-                />
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', gap: 2, width: '100%' }}>
+                  <TextField
+                    label="기성율(%)"
+                    type="number"
+                    value={formData.progressRate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, progressRate: e.target.value }))}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                    }}
+                    sx={{ 
+                      flex: 1,
+                      '& .MuiInputBase-root': { backgroundColor: '#444' },
+                      '& .MuiInputLabel-root': { color: '#ccc' },
+                      '& .MuiInputBase-input': { color: 'white' }
+                    }}
+                  />
+                  
+                  <TextField
+                    label="누계기성금액"
+                    value={formData.totalGisungAmount ? Number(formData.totalGisungAmount).toLocaleString() : ''}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">원</InputAdornment>,
+                      readOnly: true,
+                    }}
+                    sx={{ 
+                      flex: 2,
+                      '& .MuiInputBase-root': { backgroundColor: '#333' },
+                      '& .MuiInputLabel-root': { color: '#999' },
+                      '& .MuiInputBase-input': { color: '#ccc' }
+                    }}
+                  />
+                  
+                  <TextField
+                    label="잔액"
+                    value={formData.siteName ? calculateRemainingAmount(formData.siteName).toLocaleString() : ''}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">원</InputAdornment>,
+                      readOnly: true,
+                    }}
+                    sx={{ 
+                      flex: 2,
+                      '& .MuiInputBase-root': { backgroundColor: '#333' },
+                      '& .MuiInputLabel-root': { color: '#999' },
+                      '& .MuiInputBase-input': { color: '#ccc' }
+                    }}
+                  />
+                  
+                  <TextField
+                    label="청구금액"
+                    value={formData.claimAmount ? Number(formData.claimAmount).toLocaleString() : ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/,/g, '');
+                      if (!isNaN(value) || value === '') {
+                        setFormData(prev => ({ ...prev, claimAmount: value }));
+                      }
+                    }}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">원</InputAdornment>,
+                    }}
+                    sx={{ 
+                      flex: 2,
+                      '& .MuiInputBase-root': { backgroundColor: '#444' },
+                      '& .MuiInputLabel-root': { color: '#ccc' },
+                      '& .MuiInputBase-input': { color: 'white' }
+                    }}
+                  />
+                </Box>
               </Grid>
               <Grid item xs={12}>
                 <TextField

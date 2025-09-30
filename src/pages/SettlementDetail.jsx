@@ -420,6 +420,12 @@ export default function SettlementDetail() {
              return dateA - dateB;
            });
            console.log('지출 쿼리 성공:', costItems);
+           console.log('지출 데이터 상세:', costItems.map(item => ({
+             itemType: item.itemType,
+             totalValue: item.totalValue,
+             workers: item.workers,
+             date: item.date
+           })));
            setCostData(costItems);
          } catch (costError) {
            console.error('지출 데이터 로드 오류:', costError);
@@ -443,6 +449,12 @@ export default function SettlementDetail() {
            });
            
            console.log('자재비 쿼리 성공:', materialItems);
+           console.log('자재비 데이터 상세:', materialItems.map(item => ({
+             item: item.item,
+             amount: item.amount,
+             company: item.company,
+             month: item.month
+           })));
            setMaterialData(materialItems);
            
            // 회사명 목록 추출
@@ -575,6 +587,12 @@ export default function SettlementDetail() {
       }));
       setMaterialData(materialItems);
       console.log('자재비 데이터 실시간 업데이트:', materialItems.length, '개');
+      console.log('자재비 실시간 데이터 상세:', materialItems.map(item => ({
+        item: item.item,
+        amount: item.amount,
+        company: item.company,
+        month: item.month
+      })));
     }, (error) => {
       console.error('자재비 실시간 리스너 오류:', error);
       // 오류 발생 시 빈 배열로 설정하지 않고 기존 데이터 유지
@@ -728,6 +746,12 @@ export default function SettlementDetail() {
       
       setCostData(costItems);
       console.log('지출 데이터 실시간 업데이트:', costItems.length, '개');
+      console.log('지출 실시간 데이터 상세:', costItems.map(item => ({
+        itemType: item.itemType,
+        totalValue: item.totalValue,
+        workers: item.workers,
+        date: item.date
+      })));
     }, (error) => {
       console.error('지출 실시간 리스너 오류:', error);
     });
@@ -812,6 +836,12 @@ export default function SettlementDetail() {
 
   // 지출 항목별 계산
   const costBreakdown = useMemo(() => {
+    console.log('=== costBreakdown 계산 시작 ===');
+    console.log('costData 개수:', costData.length);
+    console.log('materialData 개수:', materialData.length);
+    console.log('costData 샘플:', costData.slice(0, 3));
+    console.log('materialData 샘플:', materialData.slice(0, 3));
+    
     const breakdown = {
       labor: 0,      // 노무비
       material: 0,   // 자재비 (별도 입력)
@@ -829,10 +859,11 @@ export default function SettlementDetail() {
       const amount = Number(item.totalValue) || 0;
       const itemType = item.itemType;
       
-      console.log('지출 항목 처리:', { itemType, amount, item });
+      console.log('지출 항목 처리:', { itemType, amount, totalValue: item.totalValue, item });
 
       if (itemType === '노무비') {
         breakdown.labor += amount;
+        console.log('노무비 추가:', amount, '총 노무비:', breakdown.labor);
       } else if (itemType === '자재비') {
         breakdown.subMaterial += amount; // 기성관리의 자재비는 부자재비로 분류
       } else if (itemType === '부자재') {
@@ -859,10 +890,13 @@ export default function SettlementDetail() {
     materialData.forEach(item => {
       const amount = Number(item.amount) || 0;
       breakdown.material += amount;
-      console.log('자재비 항목 처리:', { item: item.item, amount });
+      console.log('자재비 항목 처리:', { item: item.item, amount, originalAmount: item.amount, company: item.company });
     });
 
-    console.log('지출 항목별 분류:', breakdown);
+    console.log('=== costBreakdown 계산 완료 ===');
+    console.log('최종 breakdown:', breakdown);
+    console.log('노무비 총합:', breakdown.labor);
+    console.log('자재비 총합:', breakdown.material);
     return breakdown;
   }, [costData, materialData]);
 

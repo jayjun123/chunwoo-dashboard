@@ -2,8 +2,7 @@
 import ExcelJS from 'exceljs';
 import { templateUrls } from './templateUrls';
 import { getSafePrice, setCellValueSafely, filterMaterialItems, logMaterialItem, cleanSheetData, fillContractStyleData, cleanEmptyRows } from './excelCommonUtils';
-import { ref, getDownloadURL } from 'firebase/storage';
-import { storage } from '../firebase';
+import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 
 /**
  * 견적서 템플릿을 사용하여 견적서 생성 (ExcelJS)
@@ -30,27 +29,27 @@ export const createEstimate = async (siteData, materialItems = [], fileName = '�
       console.log(`📋 수동 설정: ${templateType} 타입 사용`);
     }
     
-    const templateKey = `(${templateType})견적서`;
-    const templateUrl = templateUrls[templateKey];
+    const templateKey = `${templateType}gyunjuk.xlsx`;
+    const templateUrl = templateUrls[`(${templateType})견적서`];
     
     if (!templateUrl) {
-      throw new Error(`템플릿 URL을 찾을 수 없습니다: ${templateKey}`);
+      throw new Error(`템플릿 URL을 찾을 수 없습니다: (${templateType})견적서`);
     }
     
     console.log(`📊 물량 개수: ${itemCount}개 → ${templateType} 타입 템플릿 사용`);
     console.log(`🔗 템플릿 URL: ${templateUrl}`);
     
-    // 템플릿 다운로드 (Firebase Storage SDK 사용)
+    // 템플릿 다운로드 (Firebase Storage SDK - 인증된 사용자)
     let arrayBuffer;
     try {
-      // Firebase Storage SDK를 사용한 다운로드
-      const { getStorage, ref, getDownloadURL } = await import('firebase/storage');
-      const { storage } = await import('../firebase');
+      console.log(`🔗 Firebase Storage SDK로 다운로드: ${templateKey}`);
       
-      const storageRef = ref(storage, `templates/${templateType === 'L' ? 'Lgyunjuk' : 'Ngyunjuk'}.xlsx`);
-      const downloadURL = await getDownloadURL(storageRef);
+      // Firebase Storage SDK를 사용해서 인증된 사용자로 다운로드
+      const storage = getStorage();
+      const templateRef = ref(storage, `templates/${templateKey}`);
       
-      console.log(`🔗 Firebase Storage 다운로드 URL: ${downloadURL}`);
+      const downloadURL = await getDownloadURL(templateRef);
+      console.log(`✅ 다운로드 URL 획득: ${downloadURL}`);
       
       const response = await fetch(downloadURL);
       if (!response.ok) {
@@ -60,17 +59,9 @@ export const createEstimate = async (siteData, materialItems = [], fileName = '�
       arrayBuffer = await response.arrayBuffer();
       console.log(`✅ 템플릿 다운로드 완료: ${templateKey} (${arrayBuffer.byteLength} bytes)`);
       
-    } catch (storageError) {
-      console.warn('⚠️ Firebase Storage 다운로드 실패, 직접 URL 시도:', storageError);
-      
-      // 폴백: 직접 URL 사용
-      const response = await fetch(templateUrl);
-      if (!response.ok) {
-        throw new Error(`템플릿 파일을 찾을 수 없습니다. HTTP error! status: ${response.status}`);
-      }
-      
-      arrayBuffer = await response.arrayBuffer();
-      console.log(`✅ 템플릿 다운로드 완료 (폴백): ${templateKey} (${arrayBuffer.byteLength} bytes)`);
+    } catch (error) {
+      console.error('❌ 템플릿 다운로드 실패:', error);
+      throw new Error(`템플릿 파일 다운로드에 실패했습니다: ${error.message}`);
     }
     
     // 워크북 로드 (옵션 없이 순수하게 로드)

@@ -90,7 +90,7 @@ const Confidential = () => {
   // 탭 상태
   const [activeTab, setActiveTab] = useState(0);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedHoliday, setSelectedHoliday] = useState('설날');
+  const [selectedHoliday, setSelectedHoliday] = useState('추석');
   
   // 데이터 상태
   const [confidentialData, setConfidentialData] = useState([]);

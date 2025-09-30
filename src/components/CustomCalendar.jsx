@@ -18,6 +18,7 @@ import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
 import { addSchedule, updateSchedule } from '../api/schedules';
 import AddIcon from '@mui/icons-material/Add';
+import { getKoreanHolidays, getHolidayInfo } from '../utils/koreanHolidays';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -773,6 +774,11 @@ const CustomCalendar = (props) => {
           renderDates[0].map((cell, index) => {
             const dayOfWeek = cell.date ? ['일', '월', '화', '수', '목', '금', '토'][cell.date.getDay()] : '';
             const dateString = cell.date ? `${cell.date.getMonth() + 1}/${cell.date.getDate()}` : '';
+            const dateStr = cell.date ? `${cell.date.getFullYear()}-${String(cell.date.getMonth() + 1).padStart(2, '0')}-${String(cell.date.getDate()).padStart(2, '0')}` : null;
+            const holidayInfo = dateStr ? getHolidayInfo(dateStr, year) : null;
+            const isHoliday = holidayInfo?.isHoliday || false;
+            const holidayName = holidayInfo?.name || '';
+            
             return (
               <Box
                 key={index}
@@ -781,7 +787,8 @@ const CustomCalendar = (props) => {
                   py: 0,
                   minHeight: '18px',
                   color: cell.date && cell.date.getDay() === 0 ? '#ef4444' : 
-                         cell.date && cell.date.getDay() === 6 ? '#3b82f6' : '#fff',
+                         cell.date && cell.date.getDay() === 6 ? '#3b82f6' : 
+                         isHoliday ? '#ef4444' : '#fff',
                   fontWeight: 600,
                   fontSize: '20px',
                   margin: 0,
@@ -789,6 +796,11 @@ const CustomCalendar = (props) => {
                   boxSizing: 'border-box'
                 }}
               >
+                {holidayName && (
+                  <span style={{ fontSize: '16px', color: isHoliday ? '#ef4444' : '#ffa726', fontWeight: 500, marginRight: '4px' }}>
+                    {holidayName}
+                  </span>
+                )}
                 {dateString} {dayOfWeek}
               </Box>
             );
@@ -849,6 +861,11 @@ const CustomCalendar = (props) => {
             const isSunday = dayIndex === 0;
             const isSaturday = dayIndex === 6;
             const isTodayCell = isToday(cell.date);
+            
+            // 한국 기념일 정보 가져오기
+            const holidayInfo = dateStr ? getHolidayInfo(dateStr, year) : null;
+            const isHoliday = holidayInfo?.isHoliday || false;
+            const holidayName = holidayInfo?.name || '';
             
             return (
               <Droppable
@@ -964,28 +981,46 @@ const CustomCalendar = (props) => {
                           {/* 모바일: 날짜를 왼쪽으로, 추가 버튼을 오른쪽으로 */}
                           {isMobile ? (
                             <>
-                              {/* 날짜(숫자) - 왼쪽 정렬 */}
-                              <Typography
-                                sx={{
-                                  fontSize: '0.8rem',
-                                  color: cell.isCurrentMonth 
-                                    ? (isTodayCell ? '#fff' : isSunday ? '#ef4444' : isSaturday ? '#3b82f6' : '#fff')
-                                    : '#bbb',
-                                  fontWeight: isTodayCell ? 'bold' : 600,
-                                  margin: 0,
-                                  padding: 0,
-                                  opacity: cell.isCurrentMonth ? 1 : 0.6
-                                }}
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  if (onDateNumberClick) {
-                                    onDateNumberClick(dateStr);
-                                  }
-                                }}
-                                style={{ cursor: 'pointer' }}
-                              >
-                                {cell.date ? cell.date.getDate() : ''}
-                              </Typography>
+                              {/* 기념일과 날짜(숫자) - 같은 라인 */}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                {/* 기념일 이름 표시 */}
+                                {holidayName && (
+                                  <Typography
+                                    sx={{
+                                      fontSize: '0.8rem',
+                                      color: isHoliday ? '#ef4444' : '#ffa726',
+                                      fontWeight: 500,
+                                      margin: 0,
+                                      padding: 0,
+                                      opacity: cell.isCurrentMonth ? 1 : 0.6,
+                                      lineHeight: 1
+                                    }}
+                                  >
+                                    {holidayName}
+                                  </Typography>
+                                )}
+                                <Typography
+                                  sx={{
+                                    fontSize: '0.8rem',
+                                    color: cell.isCurrentMonth 
+                                      ? (isTodayCell ? '#fff' : isHoliday ? '#ef4444' : isSunday ? '#ef4444' : isSaturday ? '#3b82f6' : '#fff')
+                                      : '#bbb',
+                                    fontWeight: isTodayCell ? 'bold' : 600,
+                                    margin: 0,
+                                    padding: 0,
+                                    opacity: cell.isCurrentMonth ? 1 : 0.6
+                                  }}
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    if (onDateNumberClick) {
+                                      onDateNumberClick(dateStr);
+                                    }
+                                  }}
+                                  style={{ cursor: 'pointer' }}
+                                >
+                                  {cell.date ? cell.date.getDate() : ''}
+                                </Typography>
+                              </Box>
                               {/* 추가 버튼 - 오른쪽 끝 */}
                               <IconButton
                                 onClick={e => {
@@ -1026,29 +1061,47 @@ const CustomCalendar = (props) => {
                               >
                                 [{items.length}]
                               </Typography>
-                              {/* 날짜(숫자) */}
-                              <Typography
-                                sx={{
-                                  fontSize: '0.8rem',
-                                  color: cell.isCurrentMonth 
-                                    ? (isTodayCell ? '#fff' : isSunday ? '#ef4444' : isSaturday ? '#3b82f6' : '#fff')
-                                    : '#bbb',
-                                  fontWeight: isTodayCell ? 'bold' : 600,
-                                  margin: 0,
-                                  padding: 0,
-                                  opacity: cell.isCurrentMonth ? 1 : 0.6
-                                }}
-                                onClick={e => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  if (onDateNumberClick) {
-                                    onDateNumberClick(dateStr);
-                                  }
-                                }}
-                                style={{ cursor: 'pointer' }}
-                              >
-                                {cell.date ? cell.date.getDate() : ''}
-                              </Typography>
+                              {/* 기념일과 날짜(숫자) - 같은 라인 */}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                {/* 기념일 이름 표시 */}
+                                {holidayName && (
+                                  <Typography
+                                    sx={{
+                                      fontSize: '0.7rem',
+                                      color: isHoliday ? '#ef4444' : '#ffa726',
+                                      fontWeight: 500,
+                                      margin: 0,
+                                      padding: 0,
+                                      opacity: cell.isCurrentMonth ? 1 : 0.6,
+                                      lineHeight: 1
+                                    }}
+                                  >
+                                    {holidayName}
+                                  </Typography>
+                                )}
+                                <Typography
+                                  sx={{
+                                    fontSize: '0.8rem',
+                                    color: cell.isCurrentMonth 
+                                      ? (isTodayCell ? '#fff' : isHoliday ? '#ef4444' : isSunday ? '#ef4444' : isSaturday ? '#3b82f6' : '#fff')
+                                      : '#bbb',
+                                    fontWeight: isTodayCell ? 'bold' : 600,
+                                    margin: 0,
+                                    padding: 0,
+                                    opacity: cell.isCurrentMonth ? 1 : 0.6
+                                  }}
+                                  onClick={e => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (onDateNumberClick) {
+                                      onDateNumberClick(dateStr);
+                                    }
+                                  }}
+                                  style={{ cursor: 'pointer' }}
+                                >
+                                  {cell.date ? cell.date.getDate() : ''}
+                                </Typography>
+                              </Box>
                             </>
                           )}
                         </Box>

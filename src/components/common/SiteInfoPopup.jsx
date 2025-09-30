@@ -44,6 +44,7 @@ const formatNumberWithCommas = (text) => {
 };
 
 const SiteInfoPopup = ({ open, onClose, site }) => {
+  console.log('🎭 SiteInfoPopup 렌더링:', { open, site: site?.name });
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
@@ -53,13 +54,35 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
   const [editedName, setEditedName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // 현장명 더블클릭 핸들러 - 편집 모드로 전환
+  // 현장명 더블클릭 핸들러 - 편집 모드로 전환 (원래 기능 복원)
   const handleSiteNameDoubleClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (site && site.name) {
       setIsEditingName(true);
       setEditedName(site.name);
+    }
+  };
+
+  // 현장명 클릭 핸들러 - 현장관리 페이지로 이동
+  const handleSiteNameClick = (e) => {
+    console.log('🚀 클릭 이벤트 발생!', e);
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('🔍 현장명 클릭됨:', site?.name, site?.id);
+    if (site && site.id) {
+      console.log('✅ 현장관리 페이지로 이동:', site.name);
+      onClose(); // 팝업 닫기
+      // 현장관리 페이지로 이동하면서 해당 현장 선택
+      navigate('/sites', { 
+        state: { 
+          selectedSiteId: site.id,
+          selectedSiteName: site.name,
+          autoSelectSite: true
+        }
+      });
+    } else {
+      console.log('❌ site 정보가 없음:', site);
     }
   };
 
@@ -224,10 +247,10 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
     return `${progress}%`;
   };
 
-  // 모바일에서는 팝업을 표시하지 않음
-  if (isMobile) {
-    return null;
-  }
+  // 모바일에서는 팝업을 표시하지 않음 (주석 처리하여 모바일에서도 작동하도록 함)
+  // if (isMobile) {
+  //   return null;
+  // }
 
   return (
     <Dialog
@@ -306,7 +329,6 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
               sx={{ 
                 bgcolor: '#232b3b', 
                 border: '1px solid #333',
-                cursor: 'pointer',
                 transition: 'all 0.2s ease-in-out',
                 '&:hover': {
                   bgcolor: '#2c3446',
@@ -314,26 +336,96 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                   boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
                 }
               }}
-              onDoubleClick={handleSiteNameDoubleClick}
             >
               <CardContent sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-                  <Typography variant="h5" sx={{ 
-                    color: '#90caf9', 
-                    fontWeight: 700,
-                    fontSize: '1.8rem'
-                  }}>
-                    {site.name}
-                  </Typography>
+                  {isEditingName ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TextField
+                        value={editedName}
+                        onChange={(e) => setEditedName(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        autoFocus
+                        size="small"
+                        sx={{
+                          '& .MuiInputBase-input': {
+                            color: '#90caf9',
+                            fontWeight: 700,
+                            fontSize: '1.8rem',
+                            padding: '8px 12px'
+                          },
+                          '& .MuiOutlinedInput-root': {
+                            '& fieldset': {
+                              borderColor: '#90caf9'
+                            },
+                            '&:hover fieldset': {
+                              borderColor: '#90caf9'
+                            },
+                            '&.Mui-focused fieldset': {
+                              borderColor: '#90caf9'
+                            }
+                          }
+                        }}
+                      />
+                      <Button
+                        onClick={handleSaveName}
+                        disabled={isSaving}
+                        size="small"
+                        sx={{ 
+                          color: '#22c55e',
+                          minWidth: 'auto',
+                          px: 1
+                        }}
+                      >
+                        {isSaving ? '저장중...' : '저장'}
+                      </Button>
+                      <Button
+                        onClick={handleCancelEdit}
+                        size="small"
+                        sx={{ 
+                          color: '#ef4444',
+                          minWidth: 'auto',
+                          px: 1
+                        }}
+                      >
+                        취소
+                      </Button>
+                    </Box>
+                  ) : (
+                    <Typography 
+                      variant="h5" 
+                      sx={{ 
+                        color: '#90caf9', 
+                        fontWeight: 700,
+                        fontSize: '1.8rem',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          textDecoration: 'underline',
+                          color: '#64b5f6'
+                        }
+                      }}
+                      onClick={handleSiteNameClick}
+                      onDoubleClick={handleSiteNameDoubleClick}
+                      title="클릭: 현장관리로 이동, 더블클릭: 현장명 편집"
+                    >
+                      {site.name}
+                    </Typography>
+                  )}
                   <Chip
                     label={site.status || '미정'}
                     sx={{
                       bgcolor: getStatusColor(site.status),
                       color: '#fff',
                       fontWeight: 600,
-                      fontSize: '0.9rem'
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        opacity: 0.8,
+                        transform: 'scale(1.05)'
+                      }
                     }}
-                    onClick={() => {}} // 명시적으로 빈 함수 추가
+                    onClick={handleSiteNameClick}
+                    title="클릭하여 현장관리로 이동"
                   />
                   <Chip
                     label={site.contractType || '미정'}
@@ -341,9 +433,15 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                       bgcolor: getContractTypeColor(site.contractType),
                       color: '#fff',
                       fontWeight: 600,
-                      fontSize: '0.9rem'
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        opacity: 0.8,
+                        transform: 'scale(1.05)'
+                      }
                     }}
-                    onClick={() => {}} // 명시적으로 빈 함수 추가
+                    onClick={handleSiteNameClick}
+                    title="클릭하여 현장관리로 이동"
                   />
                 </Box>
 
@@ -354,7 +452,19 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                       <PersonIcon sx={{ color: '#90caf9', fontSize: '1.2rem' }} />
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>소장</Typography>
                     </Box>
-                    <Typography sx={{ color: '#fff', fontWeight: 600 }}>
+                    <Typography 
+                      sx={{ 
+                        color: '#fff', 
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        '&:hover': {
+                          textDecoration: 'underline',
+                          color: '#64b5f6'
+                        }
+                      }}
+                      onClick={handleSiteNameClick}
+                      title="클릭하여 현장관리로 이동"
+                    >
                       {site.manager || '-'}
                     </Typography>
                   </Grid>
@@ -365,7 +475,19 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                       <PhoneIcon sx={{ color: '#90caf9', fontSize: '1.2rem' }} />
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>연락처</Typography>
                     </Box>
-                    <Typography sx={{ color: '#fff', fontWeight: 600 }}>
+                    <Typography 
+                      sx={{ 
+                        color: '#fff', 
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        '&:hover': {
+                          textDecoration: 'underline',
+                          color: '#64b5f6'
+                        }
+                      }}
+                      onClick={handleSiteNameClick}
+                      title="클릭하여 현장관리로 이동"
+                    >
                       {site.phone || '-'}
                     </Typography>
                   </Grid>
@@ -376,7 +498,19 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
                       <LocationIcon sx={{ color: '#90caf9', fontSize: '1.2rem' }} />
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>주소</Typography>
                     </Box>
-                    <Typography sx={{ color: '#fff', fontWeight: 600 }}>
+                    <Typography 
+                      sx={{ 
+                        color: '#fff', 
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        '&:hover': {
+                          textDecoration: 'underline',
+                          color: '#64b5f6'
+                        }
+                      }}
+                      onClick={handleSiteNameClick}
+                      title="클릭하여 현장관리로 이동"
+                    >
                       {site.address || '-'}
                     </Typography>
                   </Grid>

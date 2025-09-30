@@ -1611,7 +1611,9 @@ const ScheduleManagement = ({
   
   // 현장 더블클릭 핸들러
   const handleSiteDoubleClick = (site) => {
+    console.log('🚀 handleSiteDoubleClick 호출됨:', site);
     setSiteInfoPopup({ open: true, site });
+    console.log('✅ SiteInfoPopup 상태 업데이트:', { open: true, site });
   };
   
   // 현장 정보 팝업 닫기
