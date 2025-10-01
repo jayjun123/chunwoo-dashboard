@@ -53,7 +53,7 @@ import {
   ChevronRight
 } from '@mui/icons-material';
 import * as d3 from 'd3';
-import { collection, onSnapshot, query, orderBy, setDoc, getDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, setDoc, getDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 
@@ -1330,293 +1330,6 @@ const Mapping = () => {
 
   const regionSiteCounts = getRegionSiteCounts();
 
-  // 마커 렌더 함수 (useCallback으로 최적화)
-  const updateSiteMarkers = useCallback((transform) => {
-    if (!svgRef.current) return;
-    const svg = d3.select(svgRef.current);
-    
-    // projection 생성
-    const width = svgRef.current.clientWidth || 800;
-    const height = svgRef.current.clientHeight || 600;
-    const projection = d3.geoMercator()
-      .center([127.5, 36])
-      .scale(6000)
-      .translate([width / 2, height / 2]);
-    
-    console.log('🎨 마커 렌더링 시작 - 거리측정 모드:', distanceMode, '표시할 현장 수:', sites.length);
-    
-    // 주요현장 + 선택된 현장들만 표시 (거리측정 모드에서도 동일)
-    const sitesToShow = sites.filter(s => {
-      if (!isSiteInYear(s, currentYear)) return false;
-      
-      // 주요현장은 항상 표시
-      const isImportant = s.isFavorite || s.isStarred || s.isImportant;
-      if (isImportant && showImportantSites) return true;
-      
-      // 선택된 현장들도 표시
-      const isSelected = selectedSites.some(selected => selected.id === s.id);
-      if (isSelected) return true;
-      
-      return false;
-    });
-    
-
-    // 지역별 그룹 (대구는 구별로 세분화)
-    const byLoc = {};
-    for (const s of sitesToShow) {
-      const city = extractCityFromAddress(s.address);
-      if (!city) continue;
-      const norm = normalizeRegionName(city);
-      if (!norm) continue;
-      
-      // 대구의 경우 구별로 세분화
-      let locationKey = norm;
-      if (norm === '대구광역시' || norm === '대구') {
-        // 대구 주소에서 구 정보 추출 (다양한 패턴 지원)
-        const address = s.address;
-        
-        // 패턴 1: 대구광역시 중구, 대구 중구
-        let guMatch = address.match(/대구(?:광역시)?\s*(\w+구)/);
-        if (guMatch) {
-          locationKey = `대구${guMatch[1]}`;
-        } else {
-          // 패턴 2: 대구시 중구
-          guMatch = address.match(/대구시\s*(\w+구)/);
-          if (guMatch) {
-            locationKey = `대구${guMatch[1]}`;
-          } else {
-            // 패턴 3: 달성군 (군 단위)
-            const gunMatch = address.match(/대구(?:광역시|시)?\s*달성군/);
-            if (gunMatch) {
-              locationKey = '대구달성군';
-            } else {
-              // 패턴 4: 주소 중간에 구 정보가 있는 경우
-              const middleMatch = address.match(/(\w+구)/);
-              if (middleMatch && ['중구', '동구', '서구', '남구', '북구', '수성구', '달서구'].includes(middleMatch[1])) {
-                locationKey = `대구${middleMatch[1]}`;
-              } else {
-                // 구 정보가 없으면 기본 대구로
-                locationKey = '대구';
-              }
-            }
-          }
-        }
-        
-        console.log(`🏙️ 대구 주소 파싱: "${address}" → ${locationKey}`);
-      }
-      
-      if (!byLoc[locationKey]) byLoc[locationKey] = [];
-      byLoc[locationKey].push(s);
-    }
-
-    const statusColors = {
-      '완료': '#00ff88',
-      '진행중': '#00bcd4',
-      '예정': '#ff9800',
-      '미정': '#9e9e9e'
-    };
-
-    // 기존 마커들과 새 마커들 비교하여 애니메이션 처리
-    const existingMarkers = svg.selectAll(".site-marker");
-    const newMarkerIds = [];
-    
-    // 새로 생성될 마커 ID들 수집
-    Object.entries(byLoc).forEach(([location, arr]) => {
-      arr.forEach(site => {
-        newMarkerIds.push(`${location}-${site.id}`);
-      });
-    });
-
-    // 사라져야 할 마커들 (줌 중이 아닐 때만 제거)
-    if (!isZoomingRef.current) {
-      existingMarkers
-        .filter(function() {
-          const markerId = d3.select(this).attr("data-marker-id");
-          return !newMarkerIds.includes(markerId);
-        })
-        .remove();
-    }
-
-    // 각 위치마다 마커 생성 (같은 위치의 현장들은 다른 선 위치에 표시)
-    Object.entries(byLoc).forEach(([location, arr], index) => {
-      let coords = cityCoordinates[location];
-      if (!coords) {
-        const coordinateKey = getCoordinateKey(location);
-        coords = cityCoordinates[coordinateKey];
-      }
-      if (!coords) {
-        // 추가 매칭 시도
-        for (const [key, value] of Object.entries(cityCoordinates)) {
-          if (location.includes(key) || key.includes(location)) {
-            coords = value;
-            break;
-          }
-        }
-      }
-      if (!coords) {
-        console.warn('❌ 좌표를 찾을 수 없음:', location);
-        return;
-      }
-
-      const projected = projection(coords);
-      if (!projected) {
-        console.warn('❌ 투영 실패:', location, coords);
-        return;
-      }
-
-      const t = transform || d3.zoomIdentity;
-      const [x, y] = t.apply(projected);
-      if (!isFinite(x) || !isFinite(y)) {
-        console.warn('❌ 좌표 계산 실패:', location, { coords, projected, x, y });
-        return;
-      }
-      
-      console.log('✅ 마커 위치 계산 성공:', location, { coords, x, y });
-
-      const radius = 2;
-      
-      // 같은 위치의 현장들을 각각 다른 선 위치에 표시
-      arr.forEach((site, siteIndex) => {
-        const isImportant = site.isFavorite || site.isStarred || site.isImportant;
-        const isSelected = selectedSites.some(s => s.id === site.id);
-        const displayName = site.name;
-        
-        // 선 위치를 다르게 설정 (ㄱ자/ㄴ자 꺾은선 배치)
-        const lineOffset = 60 + (siteIndex * 40); // 기본 60px + 인덱스별 40px 추가 (더 멀리)
-        
-        // ㄱ자/ㄴ자 형태 결정 (인덱스에 따라 번갈아가며)
-        const isLShape = siteIndex % 2 === 0; // 짝수는 ㄱ자, 홀수는 ㄴ자
-        
-        let linePath, labelX, labelY;
-        
-        if (isLShape) {
-          // ㄱ자: 아래로 → 오른쪽으로
-          linePath = `M 0,0 L 0,${lineOffset} L ${lineOffset},${lineOffset}`;
-          labelX = lineOffset;
-          labelY = lineOffset;
-        } else {
-          // ㄴ자: 오른쪽으로 → 아래로
-          linePath = `M 0,0 L ${lineOffset},0 L ${lineOffset},${lineOffset}`;
-          labelX = lineOffset;
-          labelY = lineOffset;
-        }
-
-        // 각 현장마다 개별 마커 생성
-        const markerId = `${location}-${site.id}`;
-        const existingMarker = svg.selectAll(`.site-marker[data-marker-id="${markerId}"]`);
-
-        if (existingMarker.empty()) {
-          // 새 마커 생성 (페이드인 + 스케일 애니메이션)
-          const marker = svg.append("g")
-            .attr("class", "site-marker")
-            .attr("data-location", location)
-            .attr("data-marker-id", markerId)
-            .attr("data-lat", coords[1])
-            .attr("data-lon", coords[0])
-            .attr("transform", `translate(${x}, ${y}) scale(0)`)
-            .style("pointer-events", "all")
-            .style("cursor", distanceMode ? "crosshair" : "pointer")
-            .style("opacity", 1);
-
-          // 도형을 붙일 컨테이너
-          const siteMarker = marker.append("g").attr("class", "site-marker-group");
-
-          if (isImportant) {
-            const starPoints = "0,-8 2.5,-2.5 8,-2.5 3.5,1 5,6 0,3.5 -5,6 -3.5,1 -8,-2.5 -2.5,-2.5";
-            siteMarker.append("polygon")
-              .attr("points", starPoints)
-              .attr("fill", "#FFD700")
-              .attr("stroke", "#FFA500")
-              .attr("stroke-width", 1)
-              .style("filter", "drop-shadow(0 0 4px #FFD700)")
-              .style("opacity", 1)
-              .style("visibility", "visible");
-          } else {
-            console.log('🔵 일반 마커 생성:', site.name, '거리측정 모드:', distanceMode);
-            siteMarker.append("circle")
-              .attr("r", isSelected ? radius + 3 : radius)
-              .attr("fill", isSelected ? "#00bcd4" : (statusColors[site.status] || '#9e9e9e'))
-              .attr("stroke", isSelected ? "#ffffff" : (distanceMode ? "#ff6b6b" : "#fff"))
-              .attr("stroke-width", isSelected ? 2 : (distanceMode ? 3 : 1))
-              .style("filter", isSelected ? "drop-shadow(0 0 15px #00bcd4)" : (distanceMode ? "drop-shadow(0 0 8px #ff6b6b)" : `drop-shadow(0 0 4px ${statusColors[site.status] || '#9e9e9e'})`));
-          }
-
-          // 진행률 링
-          if (site.progress && site.progress > 0 && !isImportant) {
-            const pr = radius + 2;
-            const C = 2 * Math.PI * pr;
-            const L = (site.progress / 100) * C;
-            siteMarker.append("circle").attr("r", pr).attr("fill", "none").attr("stroke", "#fff").attr("stroke-width", 1).attr("opacity", 0.3);
-            siteMarker.append("circle")
-              .attr("r", pr)
-              .attr("fill", "none")
-              .attr("stroke", "#fff")
-              .attr("stroke-width", 2)
-              .attr("stroke-dasharray", `${L} ${C}`)
-              .attr("stroke-dashoffset", C / 4)
-              .attr("opacity", 0.8);
-          }
-
-          // 현장명 라벨 (ㄱ자/ㄴ자 끝점에 배치)
-          const label = marker.append("text")
-            .attr("class", "site-label")
-            .attr("x", labelX + 5) // 꺾은선 끝에서 5px 떨어진 위치
-            .attr("y", labelY + 5)
-            .attr("text-anchor", "start")
-            .attr("font-size", "14px")
-            .attr("font-weight", "bold")
-            .attr("fill", isSelected ? "#00bcd4" : (distanceMode ? "#ff6b6b" : "#fff"))
-            .attr("stroke", "#000")
-            .attr("stroke-width", "1px")
-            .attr("paint-order", "stroke")
-            .text(displayName)
-            .style("pointer-events", "none")
-            .style("opacity", 0);
-
-          // 연결선 (ㄱ자/ㄴ자 꺾은선)
-          const line = marker.append("path")
-            .attr("class", "site-line")
-            .attr("d", linePath)
-            .attr("fill", "none")
-            .attr("stroke", isSelected ? "#00bcd4" : (distanceMode ? "#ff6b6b" : "#fff"))
-            .attr("stroke-width", isSelected ? 2 : 1)
-            .attr("opacity", 0.7)
-            .style("pointer-events", "none");
-
-          // 애니메이션: 스케일 + 페이드인
-          marker.transition()
-            .duration(600)
-            .ease(d3.easeBackOut)
-            .attr("transform", `translate(${x}, ${y}) scale(1)`);
-
-          // 라벨 페이드인 (약간의 지연)
-          label.transition()
-            .delay(300)
-            .duration(400)
-            .style("opacity", 1);
-
-          // 클릭 이벤트
-          if (distanceMode) {
-            marker.on("click", (event) => {
-              event.stopPropagation();
-              handleSiteMarkerClickForDistance(site, event);
-            });
-          } else {
-            marker.on("click", (event) => {
-              event.stopPropagation();
-              setSelectedSite(site);
-            });
-          }
-        } else {
-          // 기존 마커 위치 업데이트 (부드러운 애니메이션)
-          existingMarker.transition()
-            .duration(300)
-            .ease(d3.easeCubicOut)
-            .attr("transform", `translate(${x}, ${y}) scale(1)`);
-        }
-      });
-    });
-  }, [sites, currentYear, selectedSites, showImportantSites, distanceMode, selectedSite, isZoomingRef]);
 
   // D3.js로 실제 한국 지도 렌더링
   useEffect(() => {
@@ -2369,6 +2082,388 @@ const Mapping = () => {
     const svg = d3.select(svgRef.current);
     const currentTransform = svg.property('__zoom') || d3.zoomIdentity;
     
+    // 마커 렌더 함수
+    const updateSiteMarkers = (transform) => {
+      // 주요현장 + 선택된 현장들만 표시 (거리측정 모드에서도 동일)
+      const sitesToShow = sites.filter(s => {
+        if (!isSiteInYear(s, currentYear)) return false;
+        
+        // 주요현장은 항상 표시
+        const isImportant = s.isFavorite || s.isStarred || s.isImportant;
+        if (isImportant && showImportantSites) return true;
+        
+        // 선택된 현장들도 표시
+        const isSelected = selectedSites.some(selected => selected.id === s.id);
+        if (isSelected) return true;
+        
+        return false;
+      });
+      
+
+      // 지역별 그룹 (대구는 구별로 세분화)
+      const byLoc = {};
+      for (const s of sitesToShow) {
+        const city = extractCityFromAddress(s.address);
+        if (!city) continue;
+        const norm = normalizeRegionName(city);
+        if (!norm) continue;
+        
+        // 대구의 경우 구별로 세분화
+        let locationKey = norm;
+        if (norm === '대구광역시' || norm === '대구') {
+          // 대구 주소에서 구 정보 추출 (다양한 패턴 지원)
+          const address = s.address;
+          
+          // 패턴 1: 대구광역시 중구, 대구 중구
+          let guMatch = address.match(/대구(?:광역시)?\s*(\w+구)/);
+          if (guMatch) {
+            locationKey = `대구${guMatch[1]}`;
+          } else {
+            // 패턴 2: 대구시 중구
+            guMatch = address.match(/대구시\s*(\w+구)/);
+            if (guMatch) {
+              locationKey = `대구${guMatch[1]}`;
+            } else {
+              // 패턴 3: 달성군 (군 단위)
+              const gunMatch = address.match(/대구(?:광역시|시)?\s*달성군/);
+              if (gunMatch) {
+                locationKey = '대구달성군';
+              } else {
+                // 패턴 4: 주소 중간에 구 정보가 있는 경우
+                const middleMatch = address.match(/(\w+구)/);
+                if (middleMatch && ['중구', '동구', '서구', '남구', '북구', '수성구', '달서구'].includes(middleMatch[1])) {
+                  locationKey = `대구${middleMatch[1]}`;
+                } else {
+                  // 구 정보가 없으면 기본 대구로
+                  locationKey = '대구';
+                }
+              }
+            }
+          }
+          
+          console.log(`🏙️ 대구 주소 파싱: "${address}" → ${locationKey}`);
+        }
+        
+        if (!byLoc[locationKey]) byLoc[locationKey] = [];
+        byLoc[locationKey].push(s);
+      }
+
+      const statusColors = {
+        '완료': '#00ff88',
+        '진행중': '#00bcd4',
+        '예정': '#ff9800',
+        '미정': '#9e9e9e'
+      };
+
+      // 기존 마커들과 새 마커들 비교하여 애니메이션 처리
+      const existingMarkers = svg.selectAll(".site-marker");
+      const newMarkerIds = [];
+      
+      // 새로 생성될 마커 ID들 수집
+      Object.entries(byLoc).forEach(([location, arr]) => {
+        arr.forEach(site => {
+          newMarkerIds.push(`${location}-${site.id}`);
+        });
+      });
+
+      // 사라져야 할 마커들 (줌 중이 아닐 때만 제거)
+      if (!isZoomingRef.current) {
+        existingMarkers
+          .filter(function() {
+            const markerId = d3.select(this).attr("data-marker-id");
+            return !newMarkerIds.includes(markerId);
+          })
+          .remove();
+      }
+
+      // 각 위치마다 마커 생성 (같은 위치의 현장들은 다른 선 위치에 표시)
+      Object.entries(byLoc).forEach(([location, arr], index) => {
+        let coords = cityCoordinates[location];
+        if (!coords) {
+          const coordinateKey = getCoordinateKey(location);
+          coords = cityCoordinates[coordinateKey];
+        }
+        if (!coords) {
+          // 추가 매칭 시도
+          for (const [key, value] of Object.entries(cityCoordinates)) {
+            if (location.includes(key) || key.includes(location)) {
+              coords = value;
+              break;
+            }
+          }
+        }
+        if (!coords) {
+          console.warn('❌ 좌표를 찾을 수 없음:', location);
+          return;
+        }
+
+        // 기존 projection 사용 (지도 리셋 방지)
+        const projection = d3.geoMercator()
+          .center([127.5, 36])
+          .scale(6000)
+          .translate([svgRef.current.clientWidth / 2, svgRef.current.clientHeight / 2]);
+
+        const projected = projection(coords);
+        if (!projected) {
+          console.warn('❌ 투영 실패:', location, coords);
+          return;
+        }
+
+        const t = transform || d3.zoomIdentity;
+        const [x, y] = t.apply(projected);
+        if (!isFinite(x) || !isFinite(y)) {
+          console.warn('❌ 좌표 계산 실패:', location, { coords, projected, x, y });
+          return;
+        }
+        
+        console.log('✅ 마커 위치 계산 성공:', location, { coords, x, y });
+
+        const radius = 2;
+        
+        // 같은 위치의 현장들을 각각 다른 선 위치에 표시
+        arr.forEach((site, siteIndex) => {
+          const isImportant = site.isFavorite || site.isStarred || site.isImportant;
+          const isSelected = selectedSites.some(s => s.id === site.id);
+          const displayName = site.name;
+          const lineOffset = 20 + (siteIndex * 20); // 세로 오프셋
+          const lineX = 0; // 세로선
+          const lineY = -lineOffset; // 위쪽으로
+          const textOffset = 100; // 가로선 길이
+
+          const markerId = `${location}-${site.id}`;
+          const existingMarker = svg.selectAll(`.site-marker[data-marker-id="${markerId}"]`);
+
+          if (existingMarker.empty()) {
+            // 새 마커 생성
+            const marker = svg.append("g")
+              .attr("class", "site-marker")
+              .attr("data-marker-id", markerId)
+              .attr("data-location", location)
+              .attr("data-lat", coords[1])
+              .attr("data-lon", coords[0])
+              .attr("transform", `translate(${x}, ${y}) scale(0)`)
+              .style("pointer-events", "all")
+              .style("cursor", distanceMode ? "crosshair" : "pointer")
+              .style("opacity", 1);
+
+            const siteMarker = marker.append("g").attr("class", "site-marker-group");
+
+            if (isImportant) {
+              const starPoints = "0,-8 2.5,-2.5 8,-2.5 3.5,1 5,6 0,3.5 -5,6 -3.5,1 -8,-2.5 -2.5,-2.5";
+              siteMarker.append("polygon")
+                .attr("points", starPoints)
+                .attr("fill", "#FFD700")
+                .attr("stroke", "#FFA500")
+                .attr("stroke-width", 1)
+                .style("filter", "drop-shadow(0 0 4px #FFD700)")
+                .style("opacity", 1)
+                .style("visibility", "visible");
+            } else {
+              console.log('🔵 일반 마커 생성:', site.name, '거리측정 모드:', distanceMode);
+              siteMarker.append("circle")
+                .attr("r", isSelected ? radius + 3 : radius)
+                .attr("fill", isSelected ? "#00bcd4" : (statusColors[site.status] || '#9e9e9e'))
+                .attr("stroke", isSelected ? "#ffffff" : (distanceMode ? "#ff6b6b" : "#fff"))
+                .attr("stroke-width", isSelected ? 2 : (distanceMode ? 3 : 1))
+                .style("filter", isSelected ? "drop-shadow(0 0 15px #00bcd4)" : (distanceMode ? "drop-shadow(0 0 8px #ff6b6b)" : `drop-shadow(0 0 4px ${statusColors[site.status] || '#9e9e9e'})`));
+            }
+
+            // 진행률 링
+            if (site.progress && site.progress > 0 && !isImportant) {
+              const pr = radius + 2;
+              const C = 2 * Math.PI * pr;
+              const L = (site.progress / 100) * C;
+              siteMarker.append("circle").attr("r", pr).attr("fill", "none").attr("stroke", "#fff").attr("stroke-width", 1).attr("opacity", 0.3);
+              siteMarker.append("circle")
+                .attr("r", pr)
+                .attr("fill", "none")
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", `${L} ${C}`)
+                .attr("stroke-dashoffset", C / 4)
+                .attr("opacity", 0.8);
+            }
+
+            // 꺾은선 그리기 - 지도 중앙 기준으로 방향 결정
+            // 지도 중앙 좌표 (지도 중심 기준)
+            const mapCenterX = 127.5; // 지도 중심 경도
+            const mapCenterY = 36; // 지도 중심 위도
+            
+            // 현재 마커가 지도 중앙 기준으로 왼쪽인지 오른쪽인지 판단
+            const isLeftOfCenter = coords[0] < mapCenterX; // 경도가 작으면 왼쪽
+            const isAboveCenter = coords[1] > mapCenterY; // 위도가 크면 위쪽 (북쪽)
+            
+            const horizontalDirection = isLeftOfCenter ? -textOffset : textOffset;
+            const verticalDirection = isAboveCenter ? -lineOffset : lineOffset; // 위쪽이면 위로, 아래쪽이면 아래로
+            const textAnchor = isLeftOfCenter ? "end" : "start";
+            const textX = isLeftOfCenter ? horizontalDirection - 3 : horizontalDirection + 3;
+
+            siteMarker.append("line")
+              .attr("x1", 0)
+              .attr("y1", 0)
+              .attr("x2", 0)
+              .attr("y2", verticalDirection)
+              .attr("stroke", "#fff")
+              .attr("stroke-width", 0.8)
+              .attr("opacity", 0.6);
+
+            siteMarker.append("line")
+              .attr("x1", 0)
+              .attr("y1", verticalDirection)
+              .attr("x2", horizontalDirection)
+              .attr("y2", verticalDirection)
+              .attr("stroke", "#fff")
+              .attr("stroke-width", 0.8)
+              .attr("opacity", 0.6);
+
+            siteMarker.append("text")
+              .attr("x", textX)
+              .attr("y", verticalDirection + 3)
+              .attr("text-anchor", textAnchor)
+              .attr("fill", isImportant ? "#FFD700" : "#fff")
+              .attr("font-size", "1.1rem")
+              .attr("font-weight", "bold")
+              .style("text-shadow", isImportant ? "2px 2px 4px rgba(0,0,0,0.9)" : "1px 1px 2px rgba(0,0,0,0.8)")
+              .text(displayName);
+
+            // 호버 효과
+            marker.on("mouseenter", function() {
+              if (isZoomingRef.current) return; // 줌 중에는 호버 효과 비활성화
+              const currentTransform = d3.select(this).attr("transform");
+              const translateMatch = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+              if (translateMatch) {
+                const currentX = parseFloat(translateMatch[1]);
+                const currentY = parseFloat(translateMatch[2]);
+                d3.select(this).transition()
+                  .duration(100)
+                  .ease(d3.easeCubicOut)
+                  .attr("transform", `translate(${currentX}, ${currentY}) scale(1.2)`);
+              }
+            })
+            .on("mouseleave", function() {
+              if (isZoomingRef.current) return; // 줌 중에는 호버 효과 비활성화
+              const currentTransform = d3.select(this).attr("transform");
+              const translateMatch = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+              if (translateMatch) {
+                const currentX = parseFloat(translateMatch[1]);
+                const currentY = parseFloat(translateMatch[2]);
+                d3.select(this).transition()
+                  .duration(100)
+                  .ease(d3.easeCubicOut)
+                  .attr("transform", `translate(${currentX}, ${currentY}) scale(1)`);
+              }
+            })
+            .on("click", (e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              
+              console.log('🖱️ 마커 클릭됨:', site.name, 'distanceMode:', distanceMode);
+              
+              // 거리측정 모드인지 확인
+              if (distanceMode) {
+                console.log('📏 거리측정 모드 - 핸들러 호출:', site.name);
+                console.log('📏 이벤트 객체:', e);
+                console.log('📏 사이트 객체:', site);
+                handleSiteMarkerClickForDistance(site, e);
+                return;
+              }
+              
+              // 클릭 피드백 애니메이션
+              d3.select(e.currentTarget).transition()
+                .duration(100)
+                .ease(d3.easeCubicOut)
+                .attr("transform", `translate(${x}, ${y}) scale(0.8)`)
+                .transition()
+                .duration(100)
+                .ease(d3.easeBackOut.overshoot(1.5))
+                .attr("transform", `translate(${x}, ${y}) scale(1.1)`)
+                .transition()
+                .duration(150)
+                .ease(d3.easeCubicOut)
+                .attr("transform", `translate(${x}, ${y}) scale(1)`);
+              
+              setSelectedSite(site);
+            });
+
+            // 즉시 표시 (애니메이션 제거)
+            marker
+              .style("opacity", 1)
+              .attr("transform", `translate(${x}, ${y}) scale(1)`);
+
+          } else {
+            // 기존 마커 위치 업데이트 (즉시 이동) - scale 값 유지
+            const currentTransform = existingMarker.attr("transform") || "translate(0,0) scale(1)";
+            const scaleMatch = currentTransform.match(/scale\(([^)]+)\)/);
+            const scale = scaleMatch ? scaleMatch[1] : "1";
+            
+            existingMarker
+              .attr("transform", `translate(${x}, ${y}) scale(${scale})`)
+              .style("opacity", 1)
+              .style("visibility", "visible")
+              .attr("display", "block");
+            
+            // 기존 마커에도 호버 효과 재설정
+            existingMarker.on("mouseenter", function() {
+              if (isZoomingRef.current) return; // 줌 중에는 호버 효과 비활성화
+              const currentTransform = d3.select(this).attr("transform");
+              const translateMatch = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+              if (translateMatch) {
+                const currentX = parseFloat(translateMatch[1]);
+                const currentY = parseFloat(translateMatch[2]);
+                d3.select(this).transition()
+                  .duration(100)
+                  .ease(d3.easeCubicOut)
+                  .attr("transform", `translate(${currentX}, ${currentY}) scale(1.2)`);
+              }
+            })
+            .on("mouseleave", function() {
+              if (isZoomingRef.current) return; // 줌 중에는 호버 효과 비활성화
+              const currentTransform = d3.select(this).attr("transform");
+              const translateMatch = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+              if (translateMatch) {
+                const currentX = parseFloat(translateMatch[1]);
+                const currentY = parseFloat(translateMatch[2]);
+                d3.select(this).transition()
+                  .duration(100)
+                  .ease(d3.easeCubicOut)
+                  .attr("transform", `translate(${currentX}, ${currentY}) scale(1)`);
+              }
+            })
+            .on("click", (e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              
+              console.log('🖱️ 마커 클릭됨:', site.name, 'distanceMode:', distanceMode);
+              
+              // 거리측정 모드인지 확인
+              if (distanceMode) {
+                console.log('📏 거리측정 모드 - 핸들러 호출:', site.name);
+                console.log('📏 이벤트 객체:', e);
+                console.log('📏 사이트 객체:', site);
+                handleSiteMarkerClickForDistance(site, e);
+                return;
+              }
+              
+              // 클릭 피드백 애니메이션
+              d3.select(e.currentTarget).transition()
+                .duration(100)
+                .ease(d3.easeCubicOut)
+                .attr("transform", `translate(${x}, ${y}) scale(0.8)`)
+                .transition()
+                .duration(100)
+                .ease(d3.easeBackOut.overshoot(1.5))
+                .attr("transform", `translate(${x}, ${y}) scale(1.1)`)
+                .transition()
+                .duration(150)
+                .ease(d3.easeCubicOut)
+                .attr("transform", `translate(${x}, ${y}) scale(1)`);
+              
+              setSelectedSite(site);
+            });
+          }
+        });
+      });
+    };
 
     // 현재 줌 상태를 유지하면서 마커 업데이트
     updateSiteMarkers(currentTransform);
@@ -3451,39 +3546,12 @@ const Mapping = () => {
             취소
           </Button>
           <Button
-            onClick={async () => {
-              if (!selectedSiteForAddress || !newAddress.trim()) {
-                alert('주소를 입력해주세요.');
-                return;
-              }
-
-              try {
-                // Firebase에 주소 업데이트
-                const siteRef = doc(db, 'sites', selectedSiteForAddress.id);
-                await updateDoc(siteRef, {
-                  address: newAddress.trim(),
-                  updatedAt: serverTimestamp()
-                });
-
-                // 로컬 상태 업데이트
-                setSites(prevSites => 
-                  prevSites.map(site => 
-                    site.id === selectedSiteForAddress.id 
-                      ? { ...site, address: newAddress.trim() }
-                      : site
-                  )
-                );
-
-                console.log('주소 업데이트 완료:', selectedSiteForAddress.id, newAddress);
-                alert('주소가 성공적으로 등록되었습니다.');
-                
-                setAddressModalOpen(false);
-                setNewAddress('');
-                setSelectedSiteForAddress(null);
-              } catch (error) {
-                console.error('주소 업데이트 실패:', error);
-                alert('주소 등록에 실패했습니다. 다시 시도해주세요.');
-              }
+            onClick={() => {
+              // TODO: Firebase에 주소 업데이트
+              console.log('주소 업데이트:', selectedSiteForAddress?.id, newAddress);
+              setAddressModalOpen(false);
+              setNewAddress('');
+              setSelectedSiteForAddress(null);
             }}
             variant="contained"
             sx={{

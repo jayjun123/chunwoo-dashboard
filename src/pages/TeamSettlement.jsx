@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ExcelJS from 'exceljs';
 import {
   Box,
   Typography,
@@ -107,6 +108,7 @@ const TeamSettlement = () => {
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [sites, setSites] = useState([]);
+  const [statusUpdating, setStatusUpdating] = useState({}); // 상태 업데이트 중인 팀들
 
   // 시공팀 데이터 로드
   useEffect(() => {
@@ -143,23 +145,17 @@ const TeamSettlement = () => {
     return () => unsubscribe();
   }, []);
 
-  // 저장된 탭 설정 로드 (Firebase 실시간)
+  // 초기 로드 시 현재 월의 데이터가 있는 팀들만 표시
   useEffect(() => {
-    const userSettingsRef = doc(db, 'userSettings', 'teamSettlementTabs');
-    const unsubscribe = onSnapshot(userSettingsRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.selectedTeams && Array.isArray(data.selectedTeams)) {
-          console.log('저장된 탭 설정 로드됨:', data.selectedTeams);
-          setSelectedTeamsForTabs(data.selectedTeams);
-        }
+    const loadInitialData = async () => {
+      if (teams.length > 0 && selectedMonth) {
+        console.log('초기 로드: 현재 월의 데이터가 있는 팀들만 표시');
+        await loadMonthlyStatusData(selectedMonth);
       }
-    }, (error) => {
-      console.error('탭 설정 로드 오류:', error);
-    });
-
-    return () => unsubscribe();
-  }, []);
+    };
+    
+    loadInitialData();
+  }, [teams, selectedMonth]);
 
   // 해당 팀의 현장 목록 가져오기 (현장관리페이지 스케줄 데이터 기반)
   const getTeamSites = (teamId) => {
@@ -1126,28 +1122,138 @@ const TeamSettlement = () => {
     return settlement ? settlement.totalAmount : 0;
   };
 
-  // 전체 탭의 총계 계산
-  const getTotalAmounts = () => {
-    let totalSettlement = 0;
-    let totalPaid = 0;
-    let totalUnpaid = 0;
+  // 팀을 활성팀과 협력팀으로 분류 (전체 팀에서, 비활성팀 제외)
+  const classifyAllTeams = (allTeams) => {
+    // 비활성팀 제외 (isActive가 false인 팀들 제외)
+    const activeOnlyTeams = allTeams.filter(team => 
+      team.isActive !== false && 
+      team.status !== 'inactive' &&
+      !team.teamName.includes('[비활성]') &&
+      !team.teamName.includes('[중단]')
+    );
+    
+    const activeTeams = activeOnlyTeams.filter(team => 
+      !team.teamName.includes('[협력]') && (
+        team.teamType === 'active' || 
+        !team.teamType || 
+        team.teamType === 'main' ||
+        team.teamName.includes('오태훈') || 
+        team.teamName.includes('전해곤') ||
+        team.teamName.includes('김민수') ||
+        team.teamName.includes('이준호') ||
+        team.teamName.includes('박성민')
+      )
+    );
+    
+    const cooperationTeams = activeOnlyTeams.filter(team => 
+      team.teamName.includes('[협력]') ||
+      team.teamType === 'cooperation' || 
+      team.teamType === 'sub'
+    );
+    
+    return { activeTeams, cooperationTeams };
+  };
 
-    selectedTeamsForTabs.forEach(team => {
+  // 팀을 활성팀과 협력팀으로 분류 (정산 데이터가 있는 팀에서, 비활성팀 제외)
+  const classifyTeams = (teams) => {
+    // 비활성팀 제외
+    const activeOnlyTeams = teams.filter(team => 
+      team.isActive !== false && 
+      team.status !== 'inactive' &&
+      !team.teamName.includes('[비활성]') &&
+      !team.teamName.includes('[중단]')
+    );
+    
+    const activeTeams = activeOnlyTeams.filter(team => 
+      !team.teamName.includes('[협력]') && (
+        team.teamType === 'active' || 
+        !team.teamType || 
+        team.teamType === 'main' ||
+        team.teamName.includes('오태훈') || 
+        team.teamName.includes('전해곤') ||
+        team.teamName.includes('김민수') ||
+        team.teamName.includes('이준호') ||
+        team.teamName.includes('박성민')
+      )
+    );
+    
+    const cooperationTeams = activeOnlyTeams.filter(team => 
+      team.teamName.includes('[협력]') ||
+      team.teamType === 'cooperation' || 
+      team.teamType === 'sub'
+    );
+    
+    return { activeTeams, cooperationTeams };
+  };
+
+  // 월별 통계 계산 (활성팀과 협력팀 분리)
+  const getMonthlyStats = () => {
+    const { activeTeams, cooperationTeams } = classifyTeams(selectedTeamsForTabs);
+    
+    let activeSettlement = 0;
+    let activePaid = 0;
+    let activeUnpaid = 0;
+    let activeCount = 0;
+    
+    let cooperationSettlement = 0;
+    let cooperationPaid = 0;
+    let cooperationUnpaid = 0;
+    let cooperationCount = 0;
+
+    // 활성팀 통계
+    activeTeams.forEach(team => {
       const teamAmount = getTeamAmount(team.id);
       const settlementAmount = getSettlementAmount(team.id);
       const displayAmount = settlementAmount > 0 ? settlementAmount : teamAmount;
-      const currentStatus = teamStatuses[team.id] || 'unpaid';
+      const currentStatus = teamStatuses[selectedMonth]?.[team.id] || 'unpaid';
       const isPaid = currentStatus === 'paid';
 
-      totalSettlement += displayAmount;
+      activeSettlement += displayAmount;
+      activeCount++;
       if (isPaid) {
-        totalPaid += displayAmount;
+        activePaid += displayAmount;
       } else {
-        totalUnpaid += displayAmount;
+        activeUnpaid += displayAmount;
       }
     });
 
-    return { totalSettlement, totalPaid, totalUnpaid };
+    // 협력팀 통계
+    cooperationTeams.forEach(team => {
+      const teamAmount = getTeamAmount(team.id);
+      const settlementAmount = getSettlementAmount(team.id);
+      const displayAmount = settlementAmount > 0 ? settlementAmount : teamAmount;
+      const currentStatus = teamStatuses[selectedMonth]?.[team.id] || 'unpaid';
+      const isPaid = currentStatus === 'paid';
+
+      cooperationSettlement += displayAmount;
+      cooperationCount++;
+      if (isPaid) {
+        cooperationPaid += displayAmount;
+      } else {
+        cooperationUnpaid += displayAmount;
+      }
+    });
+
+    const totalSettlement = activeSettlement + cooperationSettlement;
+    const totalPaid = activePaid + cooperationPaid;
+    const totalUnpaid = activeUnpaid + cooperationUnpaid;
+    const totalCount = activeCount + cooperationCount;
+
+    return {
+      active: { settlement: activeSettlement, paid: activePaid, unpaid: activeUnpaid, count: activeCount },
+      cooperation: { settlement: cooperationSettlement, paid: cooperationPaid, unpaid: cooperationUnpaid, count: cooperationCount },
+      total: { settlement: totalSettlement, paid: totalPaid, unpaid: totalUnpaid, count: totalCount }
+    };
+  };
+
+  // 전체 탭의 총계 계산 (기존 호환성 유지)
+  const getTotalAmounts = () => {
+    const stats = getMonthlyStats();
+    return { 
+      totalSettlement: stats.total.settlement, 
+      totalPaid: stats.total.paid, 
+      totalUnpaid: stats.total.unpaid 
+    };
   };
 
   // 전체 탭에서 모든 팀의 데이터 로드
@@ -1177,21 +1283,953 @@ const TeamSettlement = () => {
   };
 
   // 예쁜 엑셀 다운로드 함수
-  const handleExcelDownload = () => {
+  const handleExcelDownload = async () => {
     if (activeTab === 0) {
       // 전체 탭 - 모든 팀 데이터 다운로드
-      downloadAllTeamsExcel();
+      await downloadAllTeamsExcel();
     } else {
       // 팀별 탭 - 해당 팀 데이터만 다운로드
       const currentTeam = selectedTeamsForTabs[activeTab - 1];
       if (currentTeam) {
-        downloadTeamExcel(currentTeam);
+        await downloadTeamExcelNew(currentTeam);
       }
     }
   };
 
-  // 팀별 엑셀 다운로드
-  const downloadTeamExcel = (team) => {
+  // 팀별 엑셀 다운로드 (ExcelJS - 깔끔한 스타일)
+  const downloadTeamExcelNew = async (team) => {
+    const teamId = team.id;
+    const teamName = team.teamName;
+    const allRows = teamTableData[teamId] || [];
+    
+    console.log('팀별 엑셀 다운로드 (ExcelJS):', { teamName, teamId, rowsCount: allRows.length });
+    
+    if (allRows.length === 0) {
+      setSnackbar({ 
+        open: true, 
+        message: '다운로드할 데이터가 없습니다.', 
+        severity: 'warning' 
+      });
+      return;
+    }
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('정산내역');
+
+      // 현장별로 그룹화
+      const siteGroups = {};
+      const independentRows = [];
+      
+      allRows.forEach(row => {
+        if (row.siteName && (!row.item || row.item === '') && !row.isItemRow) {
+          if (!siteGroups[row.siteName]) {
+            siteGroups[row.siteName] = {
+              siteRow: row,
+              itemRows: []
+            };
+          }
+        } else if (row.siteName && row.item) {
+          if (!siteGroups[row.siteName]) {
+            siteGroups[row.siteName] = {
+              siteRow: {
+                id: `temp-${row.siteName}`,
+                siteName: row.siteName,
+                checked: false,
+                isSiteHeader: true
+              },
+              itemRows: []
+            };
+          }
+          siteGroups[row.siteName].itemRows.push(row);
+        } else if (row.isItemRow) {
+          const siteName = row.siteName;
+          if (siteGroups[siteName]) {
+            siteGroups[siteName].itemRows.push(row);
+          } else {
+            if (!siteGroups[siteName]) {
+              siteGroups[siteName] = {
+                siteRow: {
+                  id: `temp-${siteName}`,
+                  siteName: siteName,
+                  checked: false,
+                  isSiteHeader: true
+                },
+                itemRows: []
+              };
+            }
+            siteGroups[siteName].itemRows.push(row);
+          }
+        } else {
+          if (row.siteName && row.siteName !== '') {
+            if (!siteGroups[row.siteName]) {
+              siteGroups[row.siteName] = {
+                siteRow: {
+                  id: `temp-${row.siteName}`,
+                  siteName: row.siteName,
+                  checked: false,
+                  isSiteHeader: true
+                },
+                itemRows: []
+              };
+            }
+            siteGroups[row.siteName].itemRows.push(row);
+          } else {
+            independentRows.push(row);
+          }
+        }
+      });
+
+      // 컬럼 너비 설정
+      worksheet.columns = [
+        { header: '현장명', key: 'siteName', width: 35 },
+        { header: '소계(원)', key: 'subtotal', width: 15 },
+        { header: '항목', key: 'item', width: 20 },
+        { header: '물량 (자평)', key: 'quantity', width: 12 },
+        { header: '단가(원)', key: 'unitPrice', width: 12 },
+        { header: '금액(원)', key: 'amount', width: 15 },
+        { header: '비고', key: 'note', width: 20 }
+      ];
+
+      let currentRow = 1;
+
+      // 메인 제목 (1행)
+      const titleRow = worksheet.getRow(currentRow);
+      titleRow.getCell(1).value = `${teamName} ${selectedMonth} 정산내역`;
+      titleRow.getCell(1).font = { 
+        name: '맑은 고딕', 
+        size: 16, 
+        bold: true, 
+        color: { argb: 'FF1F4E79' }
+      };
+      titleRow.getCell(1).alignment = { horizontal: 'center' };
+      titleRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE6F3FF' }
+      };
+      worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
+      currentRow += 2;
+
+      // 테이블 헤더 (3행)
+      const headerRow = worksheet.getRow(currentRow);
+      const headers = ['현장명', '소계(원)', '항목', '물량 (자평)', '단가(원)', '금액(원)', '비고'];
+      headers.forEach((header, index) => {
+        const cell = headerRow.getCell(index + 1);
+        cell.value = header;
+        cell.font = { name: '맑은 고딕', size: 11, bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFB8D4E3' }
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF808080' } },
+          left: { style: 'thin', color: { argb: 'FF808080' } },
+          bottom: { style: 'thin', color: { argb: 'FF808080' } },
+          right: { style: 'thin', color: { argb: 'FF808080' } }
+        };
+      });
+      currentRow++;
+
+      // 현장별 데이터
+      Object.values(siteGroups).forEach((group, groupIndex) => {
+        const siteTotal = group.itemRows.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+        const siteRow = worksheet.getRow(currentRow);
+        
+        siteRow.getCell(1).value = group.siteRow.siteName;
+        siteRow.getCell(1).font = { name: '맑은 고딕', size: 11, bold: true };
+        siteRow.getCell(1).alignment = { horizontal: 'left' };
+        
+        siteRow.getCell(2).value = siteTotal;
+        siteRow.getCell(2).numFmt = '#,##0';
+        siteRow.getCell(2).font = { name: '맑은 고딕', size: 11, bold: true };
+        siteRow.getCell(2).alignment = { horizontal: 'right' };
+        siteRow.getCell(2).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF0F8E8' }
+        };
+        
+        for (let i = 3; i <= 7; i++) {
+          siteRow.getCell(i).value = '';
+        }
+        
+        for (let i = 1; i <= 7; i++) {
+          siteRow.getCell(i).border = {
+            top: { style: 'thin', color: { argb: 'FF808080' } },
+            left: { style: 'thin', color: { argb: 'FF808080' } },
+            bottom: { style: 'thin', color: { argb: 'FF808080' } },
+            right: { style: 'thin', color: { argb: 'FF808080' } }
+          };
+        }
+        
+        currentRow++;
+        
+        group.itemRows.forEach((itemRow, itemIndex) => {
+          const itemDataRow = worksheet.getRow(currentRow);
+          
+          itemDataRow.getCell(1).value = `L ${itemIndex + 1}.`;
+          itemDataRow.getCell(1).font = { name: '맑은 고딕', size: 10 };
+          itemDataRow.getCell(1).alignment = { horizontal: 'left' };
+          
+          itemDataRow.getCell(2).value = '';
+          
+          itemDataRow.getCell(3).value = itemRow.item || '';
+          itemDataRow.getCell(3).font = { name: '맑은 고딕', size: 10 };
+          itemDataRow.getCell(3).alignment = { horizontal: 'left' };
+          
+          itemDataRow.getCell(4).value = itemRow.quantity || 0;
+          itemDataRow.getCell(4).numFmt = '#,##0';
+          itemDataRow.getCell(4).font = { name: '맑은 고딕', size: 10 };
+          itemDataRow.getCell(4).alignment = { horizontal: 'right' };
+          
+          itemDataRow.getCell(5).value = itemRow.unitPrice || 0;
+          itemDataRow.getCell(5).numFmt = '#,##0';
+          itemDataRow.getCell(5).font = { name: '맑은 고딕', size: 10 };
+          itemDataRow.getCell(5).alignment = { horizontal: 'right' };
+          
+          itemDataRow.getCell(6).value = itemRow.totalPrice || 0;
+          itemDataRow.getCell(6).numFmt = '#,##0';
+          itemDataRow.getCell(6).font = { name: '맑은 고딕', size: 10 };
+          itemDataRow.getCell(6).alignment = { horizontal: 'right' };
+          
+          itemDataRow.getCell(7).value = itemRow.note || '';
+          itemDataRow.getCell(7).font = { name: '맑은 고딕', size: 10 };
+          itemDataRow.getCell(7).alignment = { horizontal: 'left' };
+          
+          for (let i = 1; i <= 7; i++) {
+            itemDataRow.getCell(i).border = {
+              top: { style: 'thin', color: { argb: 'FF808080' } },
+              left: { style: 'thin', color: { argb: 'FF808080' } },
+              bottom: { style: 'thin', color: { argb: 'FF808080' } },
+              right: { style: 'thin', color: { argb: 'FF808080' } }
+            };
+          }
+          
+          currentRow++;
+        });
+      });
+
+      // 독립적인 행들
+      if (independentRows.length > 0) {
+        independentRows.forEach((row, index) => {
+          const independentRow = worksheet.getRow(currentRow);
+          
+          independentRow.getCell(1).value = row.siteName || '';
+          independentRow.getCell(1).font = { name: '맑은 고딕', size: 11, bold: true };
+          independentRow.getCell(1).alignment = { horizontal: 'left' };
+          
+          const totalPrice = row.totalPrice || 0;
+          independentRow.getCell(2).value = totalPrice;
+          independentRow.getCell(2).numFmt = '#,##0';
+          independentRow.getCell(2).font = { name: '맑은 고딕', size: 11, bold: true };
+          independentRow.getCell(2).alignment = { horizontal: 'right' };
+          independentRow.getCell(2).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF0F8E8' }
+          };
+          
+          independentRow.getCell(3).value = row.item || '';
+          independentRow.getCell(3).font = { name: '맑은 고딕', size: 10 };
+          independentRow.getCell(3).alignment = { horizontal: 'left' };
+          
+          independentRow.getCell(4).value = row.quantity || 0;
+          independentRow.getCell(4).numFmt = '#,##0';
+          independentRow.getCell(4).font = { name: '맑은 고딕', size: 10 };
+          independentRow.getCell(4).alignment = { horizontal: 'right' };
+          
+          independentRow.getCell(5).value = row.unitPrice || 0;
+          independentRow.getCell(5).numFmt = '#,##0';
+          independentRow.getCell(5).font = { name: '맑은 고딕', size: 10 };
+          independentRow.getCell(5).alignment = { horizontal: 'right' };
+          
+          independentRow.getCell(6).value = totalPrice;
+          independentRow.getCell(6).numFmt = '#,##0';
+          independentRow.getCell(6).font = { name: '맑은 고딕', size: 10 };
+          independentRow.getCell(6).alignment = { horizontal: 'right' };
+          
+          independentRow.getCell(7).value = row.note || '';
+          independentRow.getCell(7).font = { name: '맑은 고딕', size: 10 };
+          independentRow.getCell(7).alignment = { horizontal: 'left' };
+          
+          for (let i = 1; i <= 7; i++) {
+            independentRow.getCell(i).border = {
+              top: { style: 'thin', color: { argb: 'FF808080' } },
+              left: { style: 'thin', color: { argb: 'FF808080' } },
+              bottom: { style: 'thin', color: { argb: 'FF808080' } },
+              right: { style: 'thin', color: { argb: 'FF808080' } }
+            };
+          }
+          
+          currentRow++;
+        });
+      }
+
+      // 총계 행
+      const totalAmount = allRows.reduce((sum, row) => sum + (row.totalPrice || 0), 0);
+      const totalRow = worksheet.getRow(currentRow);
+      
+      totalRow.getCell(1).value = '총계';
+      totalRow.getCell(1).font = { name: '맑은 고딕', size: 11, bold: true };
+      totalRow.getCell(1).alignment = { horizontal: 'left' };
+      
+      totalRow.getCell(2).value = '';
+      totalRow.getCell(3).value = '';
+      totalRow.getCell(4).value = '';
+      totalRow.getCell(5).value = '';
+      
+      totalRow.getCell(6).value = totalAmount;
+      totalRow.getCell(6).numFmt = '#,##0';
+      totalRow.getCell(6).font = { name: '맑은 고딕', size: 11, bold: true };
+      totalRow.getCell(6).alignment = { horizontal: 'right' };
+      
+      totalRow.getCell(7).value = '';
+      
+      for (let i = 1; i <= 7; i++) {
+        totalRow.getCell(i).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE6F7E6' }
+        };
+        totalRow.getCell(i).border = {
+          top: { style: 'thin', color: { argb: 'FF808080' } },
+          left: { style: 'thin', color: { argb: 'FF808080' } },
+          bottom: { style: 'thin', color: { argb: 'FF808080' } },
+          right: { style: 'thin', color: { argb: 'FF808080' } }
+        };
+      }
+      
+      currentRow += 2;
+
+      // 정산 요약 섹션
+      const totalSites = Object.keys(siteGroups).length;
+      const totalItems = allRows.filter(row => row.item && row.item.trim() !== '').length;
+      
+      const summaryHeaderRow = worksheet.getRow(currentRow);
+      summaryHeaderRow.getCell(1).value = '정산 요약';
+      summaryHeaderRow.getCell(1).font = { name: '맑은 고딕', size: 11, bold: true };
+      summaryHeaderRow.getCell(1).alignment = { horizontal: 'left' };
+      summaryHeaderRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE6F7E6' }
+      };
+      summaryHeaderRow.getCell(1).border = {
+        top: { style: 'thin', color: { argb: 'FF808080' } },
+        left: { style: 'thin', color: { argb: 'FF808080' } },
+        bottom: { style: 'thin', color: { argb: 'FF808080' } },
+        right: { style: 'thin', color: { argb: 'FF808080' } }
+      };
+      for (let i = 2; i <= 7; i++) {
+        summaryHeaderRow.getCell(i).value = '';
+        summaryHeaderRow.getCell(i).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE6F7E6' }
+        };
+        summaryHeaderRow.getCell(i).border = {
+          top: { style: 'thin', color: { argb: 'FF808080' } },
+          left: { style: 'thin', color: { argb: 'FF808080' } },
+          bottom: { style: 'thin', color: { argb: 'FF808080' } },
+          right: { style: 'thin', color: { argb: 'FF808080' } }
+        };
+      }
+      currentRow++;
+
+      const sitesRow = worksheet.getRow(currentRow);
+      sitesRow.getCell(1).value = `총 현장 수: ${totalSites}개`;
+      sitesRow.getCell(1).font = { name: '맑은 고딕', size: 10 };
+      sitesRow.getCell(1).alignment = { horizontal: 'left' };
+      sitesRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF0F8E8' }
+      };
+      sitesRow.getCell(1).border = {
+        top: { style: 'thin', color: { argb: 'FF808080' } },
+        left: { style: 'thin', color: { argb: 'FF808080' } },
+        bottom: { style: 'thin', color: { argb: 'FF808080' } },
+        right: { style: 'thin', color: { argb: 'FF808080' } }
+      };
+      for (let i = 2; i <= 7; i++) {
+        sitesRow.getCell(i).value = '';
+        sitesRow.getCell(i).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF0F8E8' }
+        };
+        sitesRow.getCell(i).border = {
+          top: { style: 'thin', color: { argb: 'FF808080' } },
+          left: { style: 'thin', color: { argb: 'FF808080' } },
+          bottom: { style: 'thin', color: { argb: 'FF808080' } },
+          right: { style: 'thin', color: { argb: 'FF808080' } }
+        };
+      }
+      currentRow++;
+
+      const itemsRow = worksheet.getRow(currentRow);
+      itemsRow.getCell(1).value = `총 항목 수: ${totalItems}개`;
+      itemsRow.getCell(1).font = { name: '맑은 고딕', size: 10 };
+      itemsRow.getCell(1).alignment = { horizontal: 'left' };
+      itemsRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF0F8E8' }
+      };
+      itemsRow.getCell(1).border = {
+        top: { style: 'thin', color: { argb: 'FF808080' } },
+        left: { style: 'thin', color: { argb: 'FF808080' } },
+        bottom: { style: 'thin', color: { argb: 'FF808080' } },
+        right: { style: 'thin', color: { argb: 'FF808080' } }
+      };
+      for (let i = 2; i <= 7; i++) {
+        itemsRow.getCell(i).value = '';
+        itemsRow.getCell(i).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF0F8E8' }
+        };
+        itemsRow.getCell(i).border = {
+          top: { style: 'thin', color: { argb: 'FF808080' } },
+          left: { style: 'thin', color: { argb: 'FF808080' } },
+          bottom: { style: 'thin', color: { argb: 'FF808080' } },
+          right: { style: 'thin', color: { argb: 'FF808080' } }
+        };
+      }
+      currentRow++;
+
+      const amountRow = worksheet.getRow(currentRow);
+      amountRow.getCell(1).value = `총 정산 금액: ${totalAmount.toLocaleString()}`;
+      amountRow.getCell(1).font = { name: '맑은 고딕', size: 10 };
+      amountRow.getCell(1).alignment = { horizontal: 'left' };
+      amountRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF0F8E8' }
+      };
+      amountRow.getCell(1).border = {
+        top: { style: 'thin', color: { argb: 'FF808080' } },
+        left: { style: 'thin', color: { argb: 'FF808080' } },
+        bottom: { style: 'thin', color: { argb: 'FF808080' } },
+        right: { style: 'thin', color: { argb: 'FF808080' } }
+      };
+      for (let i = 2; i <= 7; i++) {
+        amountRow.getCell(i).value = '';
+        amountRow.getCell(i).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF0F8E8' }
+        };
+        amountRow.getCell(i).border = {
+          top: { style: 'thin', color: { argb: 'FF808080' } },
+          left: { style: 'thin', color: { argb: 'FF808080' } },
+          bottom: { style: 'thin', color: { argb: 'FF808080' } },
+          right: { style: 'thin', color: { argb: 'FF808080' } }
+        };
+      }
+
+      // 파일 다운로드
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${teamName}_${selectedMonth}_정산내역.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      setSnackbar({ 
+        open: true, 
+        message: `${teamName} 정산내역이 다운로드되었습니다.`, 
+        severity: 'success' 
+      });
+      
+    } catch (error) {
+      console.error('엑셀 다운로드 실패:', error);
+      setSnackbar({ 
+        open: true, 
+        message: '엑셀 다운로드 중 오류가 발생했습니다.', 
+        severity: 'error' 
+      });
+    }
+  };
+
+  // 팀별 엑셀 다운로드 (기존 XLSX 방식)
+  const downloadTeamExcelOld = async (team) => {
+    const teamId = team.id;
+    const teamName = team.teamName;
+    const allRows = teamTableData[teamId] || [];
+    
+    console.log('팀별 엑셀 다운로드:', { teamName, teamId, rowsCount: allRows.length });
+    
+    if (allRows.length === 0) {
+      setSnackbar({ 
+        open: true, 
+        message: '다운로드할 데이터가 없습니다.', 
+        severity: 'warning' 
+      });
+      return;
+    }
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('정산내역');
+
+      // 현장별로 그룹화
+      const siteGroups = {};
+      const independentRows = [];
+      
+      allRows.forEach(row => {
+        if (row.siteName && (!row.item || row.item === '') && !row.isItemRow) {
+          if (!siteGroups[row.siteName]) {
+            siteGroups[row.siteName] = {
+              siteRow: row,
+              itemRows: []
+            };
+          }
+        } else if (row.siteName && row.item) {
+          if (!siteGroups[row.siteName]) {
+            siteGroups[row.siteName] = {
+              siteRow: {
+                id: `temp-${row.siteName}`,
+                siteName: row.siteName,
+                checked: false,
+                isSiteHeader: true
+              },
+              itemRows: []
+            };
+          }
+          siteGroups[row.siteName].itemRows.push(row);
+        } else if (row.isItemRow) {
+          const siteName = row.siteName;
+          if (siteGroups[siteName]) {
+            siteGroups[siteName].itemRows.push(row);
+          } else {
+            if (!siteGroups[siteName]) {
+              siteGroups[siteName] = {
+                siteRow: {
+                  id: `temp-${siteName}`,
+                  siteName: siteName,
+                  checked: false,
+                  isSiteHeader: true
+                },
+                itemRows: []
+              };
+            }
+            siteGroups[siteName].itemRows.push(row);
+          }
+        } else {
+          if (row.siteName && row.siteName !== '') {
+            if (!siteGroups[row.siteName]) {
+              siteGroups[row.siteName] = {
+                siteRow: {
+                  id: `temp-${row.siteName}`,
+                  siteName: row.siteName,
+                  checked: false,
+                  isSiteHeader: true
+                },
+                itemRows: []
+              };
+            }
+            siteGroups[row.siteName].itemRows.push(row);
+          } else {
+            independentRows.push(row);
+          }
+        }
+      });
+
+      // 컬럼 너비 설정
+      worksheet.columns = [
+        { header: '현장명', key: 'siteName', width: 35 },
+        { header: '소계(원)', key: 'subtotal', width: 15 },
+        { header: '항목', key: 'item', width: 20 },
+        { header: '물량 (자평)', key: 'quantity', width: 12 },
+        { header: '단가(원)', key: 'unitPrice', width: 12 },
+        { header: '금액(원)', key: 'amount', width: 15 },
+        { header: '비고', key: 'note', width: 20 }
+      ];
+
+      let currentRow = 1;
+
+      // 메인 제목 (1행)
+      const titleRow = worksheet.getRow(currentRow);
+      titleRow.getCell(1).value = `${teamName} ${selectedMonth} 정산내역`;
+      titleRow.getCell(1).font = { 
+        name: '맑은 고딕', 
+        size: 16, 
+        bold: true, 
+        color: { argb: 'FF1F4E79' }
+      };
+      titleRow.getCell(1).alignment = { horizontal: 'center' };
+      titleRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE6F3FF' }
+      };
+      worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
+      currentRow += 2;
+
+      // 테이블 헤더 (3행)
+      const headerRow = worksheet.getRow(currentRow);
+      const headers = ['현장명', '소계(원)', '항목', '물량 (자평)', '단가(원)', '금액(원)', '비고'];
+      headers.forEach((header, index) => {
+        const cell = headerRow.getCell(index + 1);
+        cell.value = header;
+        cell.font = { name: '맑은 고딕', size: 11, bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFB8D4E3' }
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF808080' } },
+          left: { style: 'thin', color: { argb: 'FF808080' } },
+          bottom: { style: 'thin', color: { argb: 'FF808080' } },
+          right: { style: 'thin', color: { argb: 'FF808080' } }
+        };
+      });
+      currentRow++;
+
+      // 현장별 데이터
+      Object.values(siteGroups).forEach((group, groupIndex) => {
+        const siteTotal = group.itemRows.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+        const siteRow = worksheet.getRow(currentRow);
+        
+        siteRow.getCell(1).value = group.siteRow.siteName;
+        siteRow.getCell(1).font = { name: '맑은 고딕', size: 11, bold: true };
+        siteRow.getCell(1).alignment = { horizontal: 'left' };
+        
+        siteRow.getCell(2).value = siteTotal;
+        siteRow.getCell(2).numFmt = '#,##0';
+        siteRow.getCell(2).font = { name: '맑은 고딕', size: 11, bold: true };
+        siteRow.getCell(2).alignment = { horizontal: 'right' };
+        siteRow.getCell(2).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF0F8E8' }
+        };
+        
+        for (let i = 3; i <= 7; i++) {
+          siteRow.getCell(i).value = '';
+        }
+        
+        for (let i = 1; i <= 7; i++) {
+          siteRow.getCell(i).border = {
+            top: { style: 'thin', color: { argb: 'FF808080' } },
+            left: { style: 'thin', color: { argb: 'FF808080' } },
+            bottom: { style: 'thin', color: { argb: 'FF808080' } },
+            right: { style: 'thin', color: { argb: 'FF808080' } }
+          };
+        }
+        
+        currentRow++;
+        
+        group.itemRows.forEach((itemRow, itemIndex) => {
+          const itemDataRow = worksheet.getRow(currentRow);
+          
+          itemDataRow.getCell(1).value = `L ${itemIndex + 1}.`;
+          itemDataRow.getCell(1).font = { name: '맑은 고딕', size: 10 };
+          itemDataRow.getCell(1).alignment = { horizontal: 'left' };
+          
+          itemDataRow.getCell(2).value = '';
+          
+          itemDataRow.getCell(3).value = itemRow.item || '';
+          itemDataRow.getCell(3).font = { name: '맑은 고딕', size: 10 };
+          itemDataRow.getCell(3).alignment = { horizontal: 'left' };
+          
+          itemDataRow.getCell(4).value = itemRow.quantity || 0;
+          itemDataRow.getCell(4).numFmt = '#,##0';
+          itemDataRow.getCell(4).font = { name: '맑은 고딕', size: 10 };
+          itemDataRow.getCell(4).alignment = { horizontal: 'right' };
+          
+          itemDataRow.getCell(5).value = itemRow.unitPrice || 0;
+          itemDataRow.getCell(5).numFmt = '#,##0';
+          itemDataRow.getCell(5).font = { name: '맑은 고딕', size: 10 };
+          itemDataRow.getCell(5).alignment = { horizontal: 'right' };
+          
+          itemDataRow.getCell(6).value = itemRow.totalPrice || 0;
+          itemDataRow.getCell(6).numFmt = '#,##0';
+          itemDataRow.getCell(6).font = { name: '맑은 고딕', size: 10 };
+          itemDataRow.getCell(6).alignment = { horizontal: 'right' };
+          
+          itemDataRow.getCell(7).value = itemRow.note || '';
+          itemDataRow.getCell(7).font = { name: '맑은 고딕', size: 10 };
+          itemDataRow.getCell(7).alignment = { horizontal: 'left' };
+          
+          for (let i = 1; i <= 7; i++) {
+            itemDataRow.getCell(i).border = {
+              top: { style: 'thin', color: { argb: 'FF808080' } },
+              left: { style: 'thin', color: { argb: 'FF808080' } },
+              bottom: { style: 'thin', color: { argb: 'FF808080' } },
+              right: { style: 'thin', color: { argb: 'FF808080' } }
+            };
+          }
+          
+          currentRow++;
+        });
+      });
+
+      // 독립적인 행들
+      if (independentRows.length > 0) {
+        independentRows.forEach((row, index) => {
+          const independentRow = worksheet.getRow(currentRow);
+          
+          independentRow.getCell(1).value = row.siteName || '';
+          independentRow.getCell(1).font = { name: '맑은 고딕', size: 11, bold: true };
+          independentRow.getCell(1).alignment = { horizontal: 'left' };
+          
+          const totalPrice = row.totalPrice || 0;
+          independentRow.getCell(2).value = totalPrice;
+          independentRow.getCell(2).numFmt = '#,##0';
+          independentRow.getCell(2).font = { name: '맑은 고딕', size: 11, bold: true };
+          independentRow.getCell(2).alignment = { horizontal: 'right' };
+          independentRow.getCell(2).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF0F8E8' }
+          };
+          
+          independentRow.getCell(3).value = row.item || '';
+          independentRow.getCell(3).font = { name: '맑은 고딕', size: 10 };
+          independentRow.getCell(3).alignment = { horizontal: 'left' };
+          
+          independentRow.getCell(4).value = row.quantity || 0;
+          independentRow.getCell(4).numFmt = '#,##0';
+          independentRow.getCell(4).font = { name: '맑은 고딕', size: 10 };
+          independentRow.getCell(4).alignment = { horizontal: 'right' };
+          
+          independentRow.getCell(5).value = row.unitPrice || 0;
+          independentRow.getCell(5).numFmt = '#,##0';
+          independentRow.getCell(5).font = { name: '맑은 고딕', size: 10 };
+          independentRow.getCell(5).alignment = { horizontal: 'right' };
+          
+          independentRow.getCell(6).value = totalPrice;
+          independentRow.getCell(6).numFmt = '#,##0';
+          independentRow.getCell(6).font = { name: '맑은 고딕', size: 10 };
+          independentRow.getCell(6).alignment = { horizontal: 'right' };
+          
+          independentRow.getCell(7).value = row.note || '';
+          independentRow.getCell(7).font = { name: '맑은 고딕', size: 10 };
+          independentRow.getCell(7).alignment = { horizontal: 'left' };
+          
+          for (let i = 1; i <= 7; i++) {
+            independentRow.getCell(i).border = {
+              top: { style: 'thin', color: { argb: 'FF808080' } },
+              left: { style: 'thin', color: { argb: 'FF808080' } },
+              bottom: { style: 'thin', color: { argb: 'FF808080' } },
+              right: { style: 'thin', color: { argb: 'FF808080' } }
+            };
+          }
+          
+          currentRow++;
+        });
+      }
+
+      // 총계 행
+      const totalAmount = allRows.reduce((sum, row) => sum + (row.totalPrice || 0), 0);
+      const totalRow = worksheet.getRow(currentRow);
+      
+      totalRow.getCell(1).value = '총계';
+      totalRow.getCell(1).font = { name: '맑은 고딕', size: 11, bold: true };
+      totalRow.getCell(1).alignment = { horizontal: 'left' };
+      
+      totalRow.getCell(2).value = '';
+      totalRow.getCell(3).value = '';
+      totalRow.getCell(4).value = '';
+      totalRow.getCell(5).value = '';
+      
+      totalRow.getCell(6).value = totalAmount;
+      totalRow.getCell(6).numFmt = '#,##0';
+      totalRow.getCell(6).font = { name: '맑은 고딕', size: 11, bold: true };
+      totalRow.getCell(6).alignment = { horizontal: 'right' };
+      
+      totalRow.getCell(7).value = '';
+      
+      for (let i = 1; i <= 7; i++) {
+        totalRow.getCell(i).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE6F7E6' }
+        };
+        totalRow.getCell(i).border = {
+          top: { style: 'thin', color: { argb: 'FF808080' } },
+          left: { style: 'thin', color: { argb: 'FF808080' } },
+          bottom: { style: 'thin', color: { argb: 'FF808080' } },
+          right: { style: 'thin', color: { argb: 'FF808080' } }
+        };
+      }
+      
+      currentRow += 2;
+
+      // 정산 요약 섹션
+      const totalSites = Object.keys(siteGroups).length;
+      const totalItems = allRows.filter(row => row.item && row.item.trim() !== '').length;
+      
+      const summaryHeaderRow = worksheet.getRow(currentRow);
+      summaryHeaderRow.getCell(1).value = '정산 요약';
+      summaryHeaderRow.getCell(1).font = { name: '맑은 고딕', size: 11, bold: true };
+      summaryHeaderRow.getCell(1).alignment = { horizontal: 'left' };
+      summaryHeaderRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE6F7E6' }
+      };
+      summaryHeaderRow.getCell(1).border = {
+        top: { style: 'thin', color: { argb: 'FF808080' } },
+        left: { style: 'thin', color: { argb: 'FF808080' } },
+        bottom: { style: 'thin', color: { argb: 'FF808080' } },
+        right: { style: 'thin', color: { argb: 'FF808080' } }
+      };
+      for (let i = 2; i <= 7; i++) {
+        summaryHeaderRow.getCell(i).value = '';
+        summaryHeaderRow.getCell(i).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE6F7E6' }
+        };
+        summaryHeaderRow.getCell(i).border = {
+          top: { style: 'thin', color: { argb: 'FF808080' } },
+          left: { style: 'thin', color: { argb: 'FF808080' } },
+          bottom: { style: 'thin', color: { argb: 'FF808080' } },
+          right: { style: 'thin', color: { argb: 'FF808080' } }
+        };
+      }
+      currentRow++;
+
+      const sitesRow = worksheet.getRow(currentRow);
+      sitesRow.getCell(1).value = `총 현장 수: ${totalSites}개`;
+      sitesRow.getCell(1).font = { name: '맑은 고딕', size: 10 };
+      sitesRow.getCell(1).alignment = { horizontal: 'left' };
+      sitesRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF0F8E8' }
+      };
+      sitesRow.getCell(1).border = {
+        top: { style: 'thin', color: { argb: 'FF808080' } },
+        left: { style: 'thin', color: { argb: 'FF808080' } },
+        bottom: { style: 'thin', color: { argb: 'FF808080' } },
+        right: { style: 'thin', color: { argb: 'FF808080' } }
+      };
+      for (let i = 2; i <= 7; i++) {
+        sitesRow.getCell(i).value = '';
+        sitesRow.getCell(i).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF0F8E8' }
+        };
+        sitesRow.getCell(i).border = {
+          top: { style: 'thin', color: { argb: 'FF808080' } },
+          left: { style: 'thin', color: { argb: 'FF808080' } },
+          bottom: { style: 'thin', color: { argb: 'FF808080' } },
+          right: { style: 'thin', color: { argb: 'FF808080' } }
+        };
+      }
+      currentRow++;
+
+      const itemsRow = worksheet.getRow(currentRow);
+      itemsRow.getCell(1).value = `총 항목 수: ${totalItems}개`;
+      itemsRow.getCell(1).font = { name: '맑은 고딕', size: 10 };
+      itemsRow.getCell(1).alignment = { horizontal: 'left' };
+      itemsRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF0F8E8' }
+      };
+      itemsRow.getCell(1).border = {
+        top: { style: 'thin', color: { argb: 'FF808080' } },
+        left: { style: 'thin', color: { argb: 'FF808080' } },
+        bottom: { style: 'thin', color: { argb: 'FF808080' } },
+        right: { style: 'thin', color: { argb: 'FF808080' } }
+      };
+      for (let i = 2; i <= 7; i++) {
+        itemsRow.getCell(i).value = '';
+        itemsRow.getCell(i).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF0F8E8' }
+        };
+        itemsRow.getCell(i).border = {
+          top: { style: 'thin', color: { argb: 'FF808080' } },
+          left: { style: 'thin', color: { argb: 'FF808080' } },
+          bottom: { style: 'thin', color: { argb: 'FF808080' } },
+          right: { style: 'thin', color: { argb: 'FF808080' } }
+        };
+      }
+      currentRow++;
+
+      const amountRow = worksheet.getRow(currentRow);
+      amountRow.getCell(1).value = `총 정산 금액: ${totalAmount.toLocaleString()}`;
+      amountRow.getCell(1).font = { name: '맑은 고딕', size: 10 };
+      amountRow.getCell(1).alignment = { horizontal: 'left' };
+      amountRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF0F8E8' }
+      };
+      amountRow.getCell(1).border = {
+        top: { style: 'thin', color: { argb: 'FF808080' } },
+        left: { style: 'thin', color: { argb: 'FF808080' } },
+        bottom: { style: 'thin', color: { argb: 'FF808080' } },
+        right: { style: 'thin', color: { argb: 'FF808080' } }
+      };
+      for (let i = 2; i <= 7; i++) {
+        amountRow.getCell(i).value = '';
+        amountRow.getCell(i).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF0F8E8' }
+        };
+        amountRow.getCell(i).border = {
+          top: { style: 'thin', color: { argb: 'FF808080' } },
+          left: { style: 'thin', color: { argb: 'FF808080' } },
+          bottom: { style: 'thin', color: { argb: 'FF808080' } },
+          right: { style: 'thin', color: { argb: 'FF808080' } }
+        };
+      }
+
+      // 파일 다운로드
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${teamName}_${selectedMonth}_정산내역.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      setSnackbar({ 
+        open: true, 
+        message: `${teamName} 정산내역이 다운로드되었습니다.`, 
+        severity: 'success' 
+      });
+      
+    } catch (error) {
+      console.error('엑셀 다운로드 실패:', error);
+      setSnackbar({ 
+        open: true, 
+        message: '엑셀 다운로드 중 오류가 발생했습니다.', 
+        severity: 'error' 
+      });
+    }
+  };
+
+  // 팀별 엑셀 다운로드 (기존 XLSX 방식) - 중복 제거용
+  const downloadTeamExcelOldDuplicate = (team) => {
     const teamId = team.id;
     const teamName = team.teamName;
     const allRows = teamTableData[teamId] || [];
@@ -1277,38 +2315,30 @@ const TeamSettlement = () => {
     // 엑셀 데이터 생성
     const excelData = [];
     
-    // 빈 행들 (여백)
+    // 상단 여백
     excelData.push([]);
     excelData.push([]);
     
-    // 회사 로고/제목 영역
+    // 제목 영역
     excelData.push(['', '', '', '', '', '', '', '']);
     excelData.push(['', '', '', '', '', '', '', '']);
     excelData.push(['', '', '', '', '', '', '', '']);
     
-    // 메인 제목
-    excelData.push(['', '', '시공팀 월별 정산 관리', '', '', '', '', '']);
-    excelData.push([]);
-    
-    // 정보 섹션
-    excelData.push(['', '', `팀명: ${teamName}`, '', '', '', '', '']);
-    excelData.push(['', '', `정산월: ${selectedMonth}`, '', '', '', '', '']);
-    excelData.push(['', '', `생성일: ${new Date().toLocaleDateString('ko-KR')}`, '', '', '', '', '']);
-    excelData.push(['', '', `생성자: 시스템 관리자`, '', '', '', '', '']);
+    // 메인 제목 (팀명 + 월)
+    excelData.push(['', '', `${teamName} ${selectedMonth} 정산내역`, '', '', '', '', '']);
     excelData.push([]);
     excelData.push([]);
     
-    // 테이블 헤더
-    excelData.push(['선택', '현장명', '소계 (원)', '항목', '물량 (자평)', '단가 (원)', '금액 (원)', '비고']);
+    // 테이블 헤더 (간단하게)
+    excelData.push(['현장명', '소계(원)', '항목', '물량(자평)', '단가(원)', '금액(원)', '비고']);
     
     // 현장별 데이터
     Object.values(siteGroups).forEach((group, index) => {
-      // 현장 헤더 행
+      // 현장 헤더 행 (현장명 + 소계)
       const siteTotal = group.itemRows.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
       excelData.push([
-        group.siteRow.checked ? '✓' : '',
-        `📍 ${group.siteRow.siteName}`,
-        `₩${siteTotal.toLocaleString()}`,
+        group.siteRow.siteName,
+        siteTotal.toLocaleString(),
         '',
         '',
         '',
@@ -1316,22 +2346,18 @@ const TeamSettlement = () => {
         ''
       ]);
       
-      // 현장의 항목들
+      // 현장의 항목들 (L 1., L 2. 형태로)
       group.itemRows.forEach((itemRow, itemIndex) => {
         excelData.push([
-          itemRow.checked ? '✓' : '',
-          `  └ ${itemIndex + 1}.`,
-          '',
-          itemRow.item || '',
-          itemRow.quantity || 0,
-          `₩${(itemRow.unitPrice || 0).toLocaleString()}`,
-          `₩${(itemRow.totalPrice || 0).toLocaleString()}`,
-          itemRow.note || ''
+        `L ${itemIndex + 1}.`,
+        '',
+        itemRow.item || '',
+        itemRow.quantity || 0,
+        (itemRow.unitPrice || 0).toLocaleString(),
+        (itemRow.totalPrice || 0).toLocaleString(),
+        itemRow.note || ''
         ]);
       });
-      
-      // 현장 구분선
-      excelData.push(['', '', '', '', '', '', '', '']);
     });
     
     // 독립적인 행들
@@ -1551,122 +2577,242 @@ const TeamSettlement = () => {
   };
 
   // 전체 팀 엑셀 다운로드
-  const downloadAllTeamsExcel = () => {
-    console.log('전체 팀 엑셀 다운로드');
+  const downloadAllTeamsExcel = async () => {
+    console.log('전체 정산 현황 엑셀 다운로드');
     
-    const wb = XLSX.utils.book_new();
+    try {
+      const wb = XLSX.utils.book_new();
+      
+      // 전체 정산 현황 표 데이터 생성
+      const summaryData = generateAllTeamsSummaryData();
+      const ws = XLSX.utils.aoa_to_sheet(summaryData);
+      
+      // 컬럼 너비 설정
+      ws['!cols'] = [
+        { wch: 15 },  // 팀명
+        { wch: 12 },  // 팀구분
+        { wch: 12 },  // 현장수
+        { wch: 18 },  // 정산금액
+        { wch: 18 },  // 지급금액
+        { wch: 18 },  // 미지급금액
+        { wch: 12 },  // 상태
+        { wch: 15 },  // 정산일
+        { wch: 30 }   // 비고
+      ];
+      
+      // 병합 설정
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 8 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: 8 } }
+      ];
+      
+      // 스타일 적용
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let row = range.s.r; row <= range.e.r; row++) {
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+          if (!ws[cellAddress]) continue;
+          
+          ws[cellAddress].s = {
+            font: { name: "맑은 고딕", size: 11 },
+            border: {
+              top: { style: "thin", color: { rgb: "CCCCCC" } },
+              bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+              left: { style: "thin", color: { rgb: "CCCCCC" } },
+              right: { style: "thin", color: { rgb: "CCCCCC" } }
+            },
+            alignment: { vertical: "center" }
+          };
+          
+          // 제목 행
+          if (row === 0) {
+            ws[cellAddress].s = {
+              ...ws[cellAddress].s,
+              font: { name: "맑은 고딕", size: 18, bold: true, color: { rgb: "FFFFFF" } },
+              fill: { fgColor: { rgb: "2E7D32" } },
+              alignment: { horizontal: "center", vertical: "center" }
+            };
+          }
+          
+          // 정보 행들
+          if (row >= 1 && row <= 3) {
+            ws[cellAddress].s = {
+              ...ws[cellAddress].s,
+              font: { name: "맑은 고딕", size: 12, bold: true, color: { rgb: "333333" } },
+              fill: { fgColor: { rgb: "E8F5E8" } },
+              alignment: { horizontal: "center", vertical: "center" }
+            };
+          }
+          
+          // 헤더 행
+          if (row === 5) {
+            ws[cellAddress].s = {
+              ...ws[cellAddress].s,
+              font: { name: "맑은 고딕", size: 12, bold: true, color: { rgb: "FFFFFF" } },
+              fill: { fgColor: { rgb: "4CAF50" } },
+              alignment: { horizontal: "center", vertical: "center" }
+            };
+          }
+          
+          // 금액 컬럼들 (정산금액, 지급금액, 미지급금액)
+          if ((col === 3 || col === 4 || col === 5) && row > 5) {
+            ws[cellAddress].s = {
+              ...ws[cellAddress].s,
+              font: { name: "맑은 고딕", size: 11, bold: true, color: { rgb: "1976D2" } },
+              alignment: { horizontal: "right", vertical: "center" }
+            };
+          }
+          
+          // 팀구분 컬럼
+          if (col === 1 && row > 5) {
+            ws[cellAddress].s = {
+              ...ws[cellAddress].s,
+              font: { name: "맑은 고딕", size: 11, bold: true },
+              alignment: { horizontal: "center", vertical: "center" }
+            };
+          }
+          
+          // 상태 컬럼
+          if (col === 6 && row > 5) {
+            ws[cellAddress].s = {
+              ...ws[cellAddress].s,
+              font: { name: "맑은 고딕", size: 11, bold: true },
+              alignment: { horizontal: "center", vertical: "center" }
+            };
+          }
+        }
+      }
+      
+      // 행 높이 설정
+      ws['!rows'] = [
+        { hpt: 30 }, { hpt: 25 }, { hpt: 25 }, { hpt: 25 }, { hpt: 15 }, { hpt: 30 }
+      ];
+      
+      XLSX.utils.book_append_sheet(wb, ws, '전체정산현황');
+      
+      // 파일 다운로드
+      const fileName = `전체정산현황_${selectedMonth}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      setSnackbar({ 
+        open: true, 
+        message: `전체 정산 현황이 다운로드되었습니다.`, 
+        severity: 'success' 
+      });
+      
+    } catch (error) {
+      console.error('전체 정산 현황 엑셀 다운로드 실패:', error);
+      setSnackbar({ 
+        open: true, 
+        message: '엑셀 다운로드 중 오류가 발생했습니다.', 
+        severity: 'error' 
+      });
+    }
+  };
+
+  // 전체 정산 현황 표 데이터 생성
+  const generateAllTeamsSummaryData = () => {
+    const excelData = [];
     
-    selectedTeamsForTabs.forEach(team => {
+    // 헤더 정보
+    excelData.push(['시공팀 월별 정산 현황']);
+    excelData.push([`정산월: ${selectedMonth}`]);
+    excelData.push([`생성일: ${new Date().toLocaleDateString('ko-KR')}`]);
+    excelData.push([`총 팀수: ${selectedTeamsForTabs.length}팀`]);
+    excelData.push([]);
+    
+    // 테이블 헤더
+    excelData.push(['팀명', '팀구분', '현장수', '정산금액', '지급금액', '미지급금액', '상태', '정산일', '비고']);
+    
+    // 팀별 데이터 추가
+    const { activeTeams, cooperationTeams } = classifyTeams(selectedTeamsForTabs);
+    
+    // 활성팀 데이터
+    activeTeams.forEach(team => {
       const teamId = team.id;
       const teamName = team.teamName;
       const allRows = teamTableData[teamId] || [];
+      const teamAmount = getTeamAmount(teamId);
+      const settlementAmount = getSettlementAmount(teamId);
+      const displayAmount = settlementAmount > 0 ? settlementAmount : teamAmount;
+      const currentStatus = teamStatuses[selectedMonth]?.[teamId] || 'unpaid';
+      const settlementDate = teamSettlementDates[selectedMonth]?.[teamId] || '';
+      const notes = teamNotes[selectedMonth]?.[teamId] || '';
+      const siteCount = getTeamSiteCount(teamId);
       
-      if (allRows.length > 0) {
-        // 각 팀별로 시트 생성
-        const teamData = generateTeamExcelData(team, allRows);
-        const ws = XLSX.utils.aoa_to_sheet(teamData);
-        
-        // 컬럼 너비 설정
-        ws['!cols'] = [
-          { wch: 8 },   // 선택
-          { wch: 30 },  // 현장명
-          { wch: 18 },  // 소계
-          { wch: 25 },  // 항목
-          { wch: 15 },  // 물량
-          { wch: 15 },  // 단가
-          { wch: 18 },  // 금액
-          { wch: 25 }   // 비고
-        ];
-        
-        // 병합 설정
-        ws['!merges'] = [
-          { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
-          { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
-          { s: { r: 2, c: 0 }, e: { r: 2, c: 7 } },
-          { s: { r: 3, c: 0 }, e: { r: 3, c: 7 } }
-        ];
-        
-        // 스타일 적용
-        const range = XLSX.utils.decode_range(ws['!ref']);
-        for (let row = range.s.r; row <= range.e.r; row++) {
-          for (let col = range.s.c; col <= range.e.c; col++) {
-            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-            if (!ws[cellAddress]) continue;
-            
-            ws[cellAddress].s = {
-              font: { name: "맑은 고딕", size: 11 },
-              border: {
-                top: { style: "thin", color: { rgb: "CCCCCC" } },
-                bottom: { style: "thin", color: { rgb: "CCCCCC" } },
-                left: { style: "thin", color: { rgb: "CCCCCC" } },
-                right: { style: "thin", color: { rgb: "CCCCCC" } }
-              },
-              alignment: { vertical: "center" }
-            };
-            
-            if (row === 0) {
-              ws[cellAddress].s = {
-                ...ws[cellAddress].s,
-                font: { name: "맑은 고딕", size: 18, bold: true, color: { rgb: "FFFFFF" } },
-                fill: { fgColor: { rgb: "2E7D32" } },
-                alignment: { horizontal: "center", vertical: "center" }
-              };
-            }
-            
-            if (row >= 1 && row <= 3) {
-              ws[cellAddress].s = {
-                ...ws[cellAddress].s,
-                font: { name: "맑은 고딕", size: 12, bold: true, color: { rgb: "333333" } },
-                fill: { fgColor: { rgb: "E8F5E8" } },
-                alignment: { horizontal: "center", vertical: "center" }
-              };
-            }
-            
-            if (row === 5) {
-              ws[cellAddress].s = {
-                ...ws[cellAddress].s,
-                font: { name: "맑은 고딕", size: 12, bold: true, color: { rgb: "FFFFFF" } },
-                fill: { fgColor: { rgb: "4CAF50" } },
-                alignment: { horizontal: "center", vertical: "center" }
-              };
-            }
-            
-            if (col === 6 && row > 5) {
-              ws[cellAddress].s = {
-                ...ws[cellAddress].s,
-                font: { name: "맑은 고딕", size: 11, bold: true, color: { rgb: "1976D2" } },
-                alignment: { horizontal: "right", vertical: "center" }
-              };
-            }
-            
-            if (col === 2 && row > 5) {
-              ws[cellAddress].s = {
-                ...ws[cellAddress].s,
-                font: { name: "맑은 고딕", size: 11, bold: true, color: { rgb: "FF5722" } },
-                alignment: { horizontal: "right", vertical: "center" }
-              };
-            }
-          }
-        }
-        
-        // 행 높이 설정
-        ws['!rows'] = [
-          { hpt: 30 }, { hpt: 25 }, { hpt: 25 }, { hpt: 25 }, { hpt: 15 }, { hpt: 30 }
-        ];
-        
-        XLSX.utils.book_append_sheet(wb, ws, teamName);
-      }
+      const isPaid = currentStatus === 'paid';
+      const paidAmount = isPaid ? displayAmount : 0;
+      const unpaidAmount = isPaid ? 0 : displayAmount;
+      
+      const statusText = currentStatus === 'paid' ? '지급' : 
+                        currentStatus === 'pending' ? '보류' : '미지급';
+      
+      excelData.push([
+        teamName,
+        '활성팀',
+        siteCount,
+        formatAmount(displayAmount),
+        formatAmount(paidAmount),
+        formatAmount(unpaidAmount),
+        statusText,
+        settlementDate || '-',
+        notes || '-'
+      ]);
     });
     
-    // 파일 다운로드
-    const fileName = `전체팀_${selectedMonth}_정산.xlsx`;
-    XLSX.writeFile(wb, fileName);
-    
-    setSnackbar({ 
-      open: true, 
-      message: `전체 팀 정산 데이터가 다운로드되었습니다.`, 
-      severity: 'success' 
+    // 협력팀 데이터
+    cooperationTeams.forEach(team => {
+      const teamId = team.id;
+      const teamName = team.teamName;
+      const allRows = teamTableData[teamId] || [];
+      const teamAmount = getTeamAmount(teamId);
+      const settlementAmount = getSettlementAmount(teamId);
+      const displayAmount = settlementAmount > 0 ? settlementAmount : teamAmount;
+      const currentStatus = teamStatuses[selectedMonth]?.[teamId] || 'unpaid';
+      const settlementDate = teamSettlementDates[selectedMonth]?.[teamId] || '';
+      const notes = teamNotes[selectedMonth]?.[teamId] || '';
+      const siteCount = getTeamSiteCount(teamId);
+      
+      const isPaid = currentStatus === 'paid';
+      const paidAmount = isPaid ? displayAmount : 0;
+      const unpaidAmount = isPaid ? 0 : displayAmount;
+      
+      const statusText = currentStatus === 'paid' ? '지급' : 
+                        currentStatus === 'pending' ? '보류' : '미지급';
+      
+      excelData.push([
+        teamName,
+        '협력팀',
+        siteCount,
+        formatAmount(displayAmount),
+        formatAmount(paidAmount),
+        formatAmount(unpaidAmount),
+        statusText,
+        settlementDate || '-',
+        notes || '-'
+      ]);
     });
+    
+    // 빈 행
+    excelData.push([]);
+    
+    // 합계 행
+    const stats = getMonthlyStats();
+    excelData.push([
+      '합계',
+      `${activeTeams.length + cooperationTeams.length}팀`,
+      '-',
+      formatAmount(stats.total.settlement),
+      formatAmount(stats.total.paid),
+      formatAmount(stats.total.unpaid),
+      '-',
+      '-',
+      '-'
+    ]);
+    
+    return excelData;
   };
 
   // 팀 데이터를 엑셀 형식으로 변환
@@ -1729,10 +2875,10 @@ const TeamSettlement = () => {
     return excelData;
   };
 
-  // 탭별 팀 상태 관리
-  const [teamStatuses, setTeamStatuses] = useState({}); // {teamId: 'unpaid' | 'paid' | 'pending'}
-  const [teamSettlementDates, setTeamSettlementDates] = useState({}); // {teamId: 'YYYY-MM-DD'}
-  const [teamNotes, setTeamNotes] = useState({}); // {teamId: '비고 내용'}
+  // 탭별 팀 상태 관리 (월별)
+  const [teamStatuses, setTeamStatuses] = useState({}); // {month: {teamId: 'unpaid' | 'paid' | 'pending'}}
+  const [teamSettlementDates, setTeamSettlementDates] = useState({}); // {month: {teamId: 'YYYY-MM-DD'}}
+  const [teamNotes, setTeamNotes] = useState({}); // {month: {teamId: '비고 내용'}}
   const [editingTeam, setEditingTeam] = useState(null);
   
   // 데이터 마이그레이션 관련 상태
@@ -1743,24 +2889,82 @@ const TeamSettlement = () => {
     teamId: ''
   }); // 편집 중인 팀 ID
 
-  // 팀 상태 업데이트
+  // 팀 상태 업데이트 (자동 저장) - 월별 관리
   const updateTeamStatus = async (teamId, status) => {
-    const newStatuses = { ...teamStatuses, [teamId]: status };
-    setTeamStatuses(newStatuses);
+    console.log('팀 상태 업데이트 시작:', { teamId, status, selectedMonth });
     
-    // Firebase에 저장 (선택사항)
+    // 로딩 상태 설정
+    setStatusUpdating(prev => ({ ...prev, [teamId]: true }));
+    
+    // 로컬 상태 먼저 업데이트 (월별 구조)
+    setTeamStatuses(prev => ({
+      ...prev,
+      [selectedMonth]: {
+        ...prev[selectedMonth],
+        [teamId]: status
+      }
+    }));
+    
+    // Firebase에 즉시 저장
     try {
       const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${selectedMonth}`);
-      await updateDoc(teamSettlementRef, {
-        status: status,
-        updatedAt: serverTimestamp()
+      
+      // 문서 존재 여부 확인
+      const docSnap = await getDoc(teamSettlementRef);
+      
+      if (docSnap.exists()) {
+        // 문서가 존재하면 상태만 업데이트
+        await updateDoc(teamSettlementRef, {
+          status: status,
+          updatedAt: serverTimestamp()
+        });
+        console.log('✅ 팀 상태 업데이트 완료:', { teamId, status, month: selectedMonth });
+      } else {
+        // 문서가 존재하지 않으면 새로 생성 (기본 데이터와 함께)
+        const teamData = teamTableData[teamId] || [];
+        await setDoc(teamSettlementRef, {
+          teamId: teamId,
+          month: selectedMonth,
+          status: status,
+          tableData: teamData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        console.log('✅ 팀 상태 새 문서 생성 완료:', { teamId, status, month: selectedMonth });
+      }
+      
+      // 성공 알림
+      setSnackbar({ 
+        open: true, 
+        message: `상태가 ${status === 'paid' ? '지급' : status === 'pending' ? '보류' : '미지급'}으로 저장되었습니다.`, 
+        severity: 'success' 
       });
+      
     } catch (error) {
-      console.error('팀 상태 업데이트 오류:', error);
+      console.error('❌ 팀 상태 업데이트 오류:', error);
+      
+      // 오류 발생 시 로컬 상태 롤백
+      setTeamStatuses(prev => ({
+        ...prev,
+        [selectedMonth]: {
+          ...prev[selectedMonth],
+          [teamId]: prev[selectedMonth]?.[teamId] || 'unpaid'
+        }
+      }));
+      
+      // 오류 알림
+      setSnackbar({ 
+        open: true, 
+        message: '상태 저장 중 오류가 발생했습니다. 다시 시도해주세요.', 
+        severity: 'error' 
+      });
+    } finally {
+      // 로딩 상태 해제
+      setStatusUpdating(prev => ({ ...prev, [teamId]: false }));
     }
   };
 
-  // 팀 정보 업데이트 (날짜, 비고)
+  // 팀 정보 업데이트 (날짜, 비고) - 월별 관리
   const updateTeamInfo = async (teamId, field, value) => {
     try {
       const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${selectedMonth}`);
@@ -1770,44 +2974,151 @@ const TeamSettlement = () => {
       });
       
       if (field === 'settlementDate') {
-        setTeamSettlementDates(prev => ({ ...prev, [teamId]: value }));
+        setTeamSettlementDates(prev => ({
+          ...prev,
+          [selectedMonth]: {
+            ...prev[selectedMonth],
+            [teamId]: value
+          }
+        }));
       } else if (field === 'notes') {
-        setTeamNotes(prev => ({ ...prev, [teamId]: value }));
+        setTeamNotes(prev => ({
+          ...prev,
+          [selectedMonth]: {
+            ...prev[selectedMonth],
+            [teamId]: value
+          }
+        }));
       }
     } catch (error) {
       console.error('팀 정보 업데이트 오류:', error);
     }
   };
 
+  // 월별로 실제 데이터가 있는 팀들 필터링
+  const getTeamsWithDataForMonth = async (month) => {
+    try {
+      console.log(`월별 데이터가 있는 팀들 필터링 시작: ${month}`);
+      
+      // 모든 팀에 대해 해당 월의 데이터 존재 여부 확인
+      const promises = teams.map(async (team) => {
+        const teamSettlementRef = doc(db, 'teamSettlements', `${team.id}_${month}`);
+        const docSnap = await getDoc(teamSettlementRef);
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const hasTableData = data.tableData && data.tableData.length > 0;
+          const hasStatus = data.status && data.status !== 'unpaid';
+          const hasSettlementDate = data.settlementDate && data.settlementDate !== '';
+          const hasNotes = data.notes && data.notes !== '';
+          
+          // 테이블 데이터가 있거나, 상태/날짜/비고 중 하나라도 있으면 해당 월에 데이터가 있는 것으로 간주
+          const hasData = hasTableData || hasStatus || hasSettlementDate || hasNotes;
+          
+          return {
+            team,
+            hasData,
+            status: data.status || 'unpaid',
+            settlementDate: data.settlementDate || '',
+            notes: data.notes || ''
+          };
+        }
+        
+        return {
+          team,
+          hasData: false,
+          status: 'unpaid',
+          settlementDate: '',
+          notes: ''
+        };
+      });
+      
+      const teamDataResults = await Promise.all(promises);
+      
+      // 데이터가 있는 팀들만 필터링
+      const teamsWithData = teamDataResults
+        .filter(result => result.hasData)
+        .map(result => result.team);
+      
+      console.log(`월별 데이터가 있는 팀들: ${month}`, teamsWithData.map(t => t.teamName));
+      
+      return {
+        teamsWithData,
+        allTeamData: teamDataResults
+      };
+    } catch (error) {
+      console.error('월별 팀 필터링 오류:', error);
+      return { teamsWithData: [], allTeamData: [] };
+    }
+  };
+
+  // 월별 상태 데이터 로드
+  const loadMonthlyStatusData = async (month) => {
+    try {
+      console.log(`월별 상태 데이터 로드 시작: ${month}`);
+      
+      // 월별로 데이터가 있는 팀들만 가져오기
+      const { teamsWithData, allTeamData } = await getTeamsWithDataForMonth(month);
+      
+      // 탭에 표시할 팀들을 월별 데이터가 있는 팀들로 업데이트
+      setSelectedTeamsForTabs(teamsWithData);
+      
+      // 상태 데이터를 월별 구조로 업데이트
+      const newStatuses = {};
+      const newSettlementDates = {};
+      const newNotes = {};
+      
+      allTeamData.forEach(({ team, status, settlementDate, notes }) => {
+        newStatuses[team.id] = status;
+        newSettlementDates[team.id] = settlementDate;
+        newNotes[team.id] = notes;
+      });
+      
+      setTeamStatuses(prev => ({
+        ...prev,
+        [month]: newStatuses
+      }));
+      
+      setTeamSettlementDates(prev => ({
+        ...prev,
+        [month]: newSettlementDates
+      }));
+      
+      setTeamNotes(prev => ({
+        ...prev,
+        [month]: newNotes
+      }));
+      
+      console.log(`✅ 월별 상태 데이터 로드 완료: ${month}`, { 
+        teamsWithData: teamsWithData.map(t => t.teamName),
+        newStatuses, 
+        newSettlementDates, 
+        newNotes 
+      });
+    } catch (error) {
+      console.error('월별 상태 데이터 로드 오류:', error);
+    }
+  };
+
   // 월 변경 시 해당 월에 데이터가 있는 팀들 자동 로드
   const loadTeamsForMonth = async (month) => {
     try {
-      const teamsWithData = [];
+      console.log(`월 변경: ${month} - 월별 데이터가 있는 팀들만 로드`);
       
-      // 모든 팀에 대해 해당 월의 데이터가 있는지 확인
-      for (const team of teams) {
-        const teamSettlementRef = doc(db, 'teamSettlements', `${team.id}_${month}`);
-        const teamDoc = await getDoc(teamSettlementRef);
-        
-        if (teamDoc.exists()) {
-          teamsWithData.push(team);
-        }
+      // 월별 상태 데이터 로드 (이 함수에서 selectedTeamsForTabs도 업데이트됨)
+      await loadMonthlyStatusData(month);
+      
+      // 업데이트된 팀들의 테이블 데이터 로드
+      const updatedTeams = selectedTeamsForTabs;
+      if (updatedTeams.length > 0) {
+        const promises = updatedTeams.map(team => loadTeamTableData(team.id));
+        await Promise.all(promises);
       }
       
-      // 해당 월에 데이터가 있는 팀들로 탭 목록 업데이트
-      setSelectedTeamsForTabs(teamsWithData);
-      
-      // Firebase에 업데이트된 탭 목록 저장
-      if (teamsWithData.length > 0) {
-        const userSettingsRef = doc(db, 'userSettings', 'teamSettlementTabs');
-        await updateDoc(userSettingsRef, {
-          selectedTeams: teamsWithData,
-          updatedAt: serverTimestamp()
-        });
-        
-        // 모든 팀의 데이터 로드
-        const promises = teamsWithData.map(team => loadTeamTableData(team.id));
-        await Promise.all(promises);
+      // activeTab이 유효하지 않으면 전체 탭으로 리셋
+      if (activeTab > selectedTeamsForTabs.length) {
+        console.log('월 변경으로 인한 activeTab 리셋:', activeTab, '-> 0');
+        setActiveTab(0);
       }
       
     } catch (error) {
@@ -2033,21 +3344,37 @@ const TeamSettlement = () => {
             
             {/* 오른쪽: 통계 카드들 */}
             <Box sx={{ display: 'flex', gap: 1, minWidth: 'fit-content' }}>
-              <Card sx={{ bgcolor: '#1a1d21', border: '1px solid #333', minWidth: 220, height: 70 }}>
+              {/* 시공팀 통합 카드 */}
+              <Card sx={{ bgcolor: '#1a1d21', border: '1px solid #4caf50', minWidth: 220, height: 70 }}>
                 <CardContent sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <GroupIcon sx={{ color: '#2196f3', fontSize: 28 }} />
-                    <Typography variant="body1" sx={{ color: '#bbb', fontSize: '1.2rem', fontWeight: 'medium' }}>
+                    <GroupIcon sx={{ color: '#4caf50', fontSize: 28 }} />
+                    <Typography variant="body1" sx={{ color: '#4caf50', fontSize: '1.2rem', fontWeight: 'bold' }}>
                       시공팀
                     </Typography>
                   </Box>
-                  <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold', fontSize: '2rem' }}>
-                    {teams.length}개
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography variant="h4" sx={{ color: '#4caf50', fontWeight: 'bold', fontSize: '2rem' }}>
+                      {(() => {
+                        const { activeTeams } = classifyAllTeams(teams);
+                        return `${activeTeams.length}`;
+                      })()}
+                    </Typography>
+                    <Typography variant="h4" sx={{ color: '#ff9800', fontWeight: 'bold', fontSize: '1.8rem' }}>
+                      {(() => {
+                        const { cooperationTeams } = classifyAllTeams(teams);
+                        return `+${cooperationTeams.length}`;
+                      })()}
+                    </Typography>
+                    <Typography variant="h4" sx={{ color: '#4caf50', fontWeight: 'bold', fontSize: '2rem' }}>
+                      팀
+                    </Typography>
+                  </Box>
                 </CardContent>
               </Card>
               
-              <Card sx={{ bgcolor: '#1a1d21', border: '1px solid #333', minWidth: 220, height: 70 }}>
+              {/* 정산금액 카드 */}
+              <Card sx={{ bgcolor: '#1a1d21', border: '1px solid #333', minWidth: 280, height: 70 }}>
                 <CardContent sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <MoneyIcon sx={{ color: '#4caf50', fontSize: 28 }} />
@@ -2055,12 +3382,16 @@ const TeamSettlement = () => {
                       정산금액
                     </Typography>
                   </Box>
-                  <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold', fontSize: '2rem' }}>
-                    {formatAmount(filteredSettlements.reduce((sum, s) => sum + (s.totalAmount || 0), 0))}
+                  <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold', fontSize: '2rem', ml: 2 }}>
+                    {(() => {
+                      const stats = getMonthlyStats();
+                      return formatAmount(stats.total.settlement);
+                    })()}
                   </Typography>
                 </CardContent>
               </Card>
               
+              {/* 정산건수 카드 */}
               <Card sx={{ bgcolor: '#1a1d21', border: '1px solid #333', minWidth: 220, height: 70 }}>
                 <CardContent sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -2070,7 +3401,10 @@ const TeamSettlement = () => {
                     </Typography>
                   </Box>
                   <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold', fontSize: '2rem' }}>
-                    {filteredSettlements.length}건
+                    {(() => {
+                      const stats = getMonthlyStats();
+                      return `${stats.total.count}건`;
+                    })()}
                   </Typography>
                 </CardContent>
               </Card>
@@ -2214,11 +3548,11 @@ const TeamSettlement = () => {
                     const teamAmount = getTeamAmount(team.id);
                     const settlementAmount = getSettlementAmount(team.id);
                     const displayAmount = settlementAmount > 0 ? settlementAmount : teamAmount; // 정산 데이터가 있으면 정산 데이터, 없으면 탭 금액
-                    const currentStatus = teamStatuses[team.id] || 'unpaid'; // 기본값: 미지급
+                    const currentStatus = teamStatuses[selectedMonth]?.[team.id] || 'unpaid'; // 기본값: 미지급 (월별)
                     const isPaid = currentStatus === 'paid';
                     const isEditing = editingTeam === team.id;
-                    const settlementDate = teamSettlementDates[team.id] || '';
-                    const teamNote = teamNotes[team.id] || '';
+                    const settlementDate = teamSettlementDates[selectedMonth]?.[team.id] || '';
+                    const teamNote = teamNotes[selectedMonth]?.[team.id] || '';
                     
                     return (
                       <TableRow key={team.id} hover sx={{ '& .MuiTableCell-root': { py: 0.5 } }}>
@@ -2253,15 +3587,23 @@ const TeamSettlement = () => {
                         </TableCell>
                         <TableCell>
                           <Chip
-                            label={currentStatus === 'paid' ? '지급' : currentStatus === 'pending' ? '보류' : '미지급'}
+                            label={
+                              statusUpdating[team.id] 
+                                ? '저장중...' 
+                                : currentStatus === 'paid' ? '지급' : currentStatus === 'pending' ? '보류' : '미지급'
+                            }
                             size="small"
-                            clickable
+                            clickable={!statusUpdating[team.id]}
+                            disabled={statusUpdating[team.id]}
                             color={
+                              statusUpdating[team.id] ? 'default' :
                               currentStatus === 'paid' ? 'success' : 
                               currentStatus === 'pending' ? 'info' : 
                               'warning'
                             }
                             onClick={() => {
+                              if (statusUpdating[team.id]) return; // 저장 중이면 클릭 무시
+                              
                               // 상태 순환: 미지급 -> 지급 -> 보류 -> 미지급
                               const nextStatus = currentStatus === 'unpaid' ? 'paid' : 
                                                currentStatus === 'paid' ? 'pending' : 'unpaid';
@@ -2271,7 +3613,10 @@ const TeamSettlement = () => {
                               fontSize: '0.9rem',
                               height: '28px',
                               '&:hover': {
-                                opacity: 0.8
+                                opacity: statusUpdating[team.id] ? 1 : 0.8
+                              },
+                              '&.Mui-disabled': {
+                                opacity: 0.7
                               }
                             }}
                           />

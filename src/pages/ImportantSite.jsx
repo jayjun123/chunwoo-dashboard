@@ -239,83 +239,25 @@ export default function ImportantSite() {
         console.log(`   - isStarred: ${site.isStarred} (타입: ${typeof site.isStarred})`);
       });
       
-      // 공사기간이 끝나지 않은 현장만 필터링
+      // 모든 현장을 포함하되, 무효한 날짜만 제외 (공사기간 종료 여부와 관계없이)
       const activeSitesData = allSitesData.filter(site => {
-        // 공사기간이 끝났는지 확인
+        // 무효한 날짜 형식만 체크하여 제외
         if (site.endDate) {
-          const today = new Date();
-          console.log(`🔍 주요현장 - 현재 날짜: ${today.toISOString()}, ${today.toLocaleDateString()}`);
-          let endDate;
+          const endDateStr = String(site.endDate);
           
-          // endDate 형식 처리 - 모든 형식을 동일하게 처리
-          if (typeof site.endDate === 'string') {
-            const endDateStr = String(site.endDate);
-            
-            // 무효한 날짜 형식 체크 (0000.00.00, 0000/00/00, 0000-00-00, 0000.0.00 등)
-            if (endDateStr.match(/^0{4}[.\/-]0{1,2}[.\/-]0{1,2}$/) ||
-                endDateStr === '0000.00.00' || 
-                endDateStr === '0000/00/00' || 
-                endDateStr === '0000-00-00' ||
-                endDateStr === '0000.0.00') {
-              console.log(`🔍 주요현장 - ${site.name}: 무효한 날짜 형식 (${site.endDate}) -> 제외`);
-              return false; // 무효한 날짜는 제외
-            }
-            
-            if (site.endDate.includes('-')) {
-              endDate = new Date(site.endDate + 'T00:00:00');
-            } else if (site.endDate.includes('/')) {
-              endDate = new Date(site.endDate + 'T00:00:00');
-            } else if (site.endDate.includes('.')) {
-              // "8.15" 또는 "2025.08.15" 형식 처리
-              const parts = site.endDate.split('.');
-              if (parts.length === 2) {
-                // "8.15" 형식
-                const month = parseInt(parts[0]) - 1; // 월은 0부터 시작
-                const day = parseInt(parts[1]);
-                const currentYear = new Date().getFullYear();
-                endDate = new Date(currentYear, month, day);
-                console.log(`🔍 주요현장 - ${site.name}: "8.15" 형식 파싱 - 월:${parts[0]}, 일:${parts[1]}, 연도:${currentYear}, 결과:${endDate}`);
-              } else if (parts.length === 3) {
-                // "2025.08.15" 형식
-                const year = parseInt(parts[0]);
-                const month = parseInt(parts[1]) - 1; // 월은 0부터 시작
-                const day = parseInt(parts[2]);
-                endDate = new Date(year, month, day);
-                console.log(`🔍 주요현장 - ${site.name}: "2025.08.15" 형식 파싱 - 연도:${year}, 월:${parts[1]}, 일:${day}, 결과:${endDate}`);
-              } else {
-                endDate = new Date(site.endDate + 'T00:00:00');
-              }
-            } else if (site.endDate.length === 8) {
-              const year = site.endDate.substring(0, 4);
-              const month = site.endDate.substring(4, 6);
-              const day = site.endDate.substring(6, 8);
-              endDate = new Date(`${year}-${month}-${day}T00:00:00`);
-            } else {
-              endDate = new Date(site.endDate + 'T00:00:00');
-            }
-          } else if (site.endDate instanceof Date) {
-            endDate = site.endDate;
-          } else {
-            endDate = site.endDate.toDate ? site.endDate.toDate() : new Date(site.endDate);
-          }
-          
-          // 날짜 비교를 위해 시간을 제거하고 날짜만 비교
-          const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-          const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-          
-          console.log(`🔍 주요현장 - ${site.name}: 원본 endDate=${site.endDate}, 파싱된 endDate=${endDate}, todayDate=${todayDate}, endDateOnly=${endDateOnly}`);
-          console.log(`🔍 주요현장 - ${site.name}: todayDate.getTime()=${todayDate.getTime()}, endDateOnly.getTime()=${endDateOnly.getTime()}`);
-          
-          // 공사기간이 끝난 현장은 제외
-          if (todayDate.getTime() > endDateOnly.getTime()) {
-            console.log(`🔍 주요현장 - ${site.name}: 공사기간 종료 (${site.endDate}) -> 제외`);
-            return false;
-          } else {
-            console.log(`🔍 주요현장 - ${site.name}: 공사기간 진행중 (${site.endDate}) -> 포함`);
+          // 무효한 날짜 형식 체크 (0000.00.00, 0000/00/00, 0000-00-00, 0000.0.00 등)
+          if (endDateStr.match(/^0{4}[.\/-]0{1,2}[.\/-]0{1,2}$/) ||
+              endDateStr === '0000.00.00' || 
+              endDateStr === '0000/00/00' || 
+              endDateStr === '0000-00-00' ||
+              endDateStr === '0000.0.00') {
+            console.log(`🔍 주요현장 - ${site.name}: 무효한 날짜 형식 (${site.endDate}) -> 제외`);
+            return false; // 무효한 날짜는 제외
           }
         }
         
-        return true; // endDate가 없으면 포함
+        console.log(`🔍 주요현장 - ${site.name}: 유효한 현장 -> 포함 (공사기간 종료 여부와 관계없이)`);
+        return true; // 모든 유효한 현장 포함
       });
       
       // isFavorite 또는 isStarred가 true인 현장 필터링 (더 관대한 조건)
@@ -677,12 +619,17 @@ export default function ImportantSite() {
             const daysSinceCompletion = Math.floor((todayDate.getTime() - endDateOnly.getTime()) / (1000 * 60 * 60 * 24));
             
             if (daysSinceCompletion > 60) {
-              // 현장의 상태 정보 확인 (미입금 또는 미청구)
+              // 현장의 상태 정보 확인 (미입금, 미청구, 또는 기성금 입금완료 처리가 안된 경우)
               const hasUnpaid = site.status === '미입금' || site.paymentStatus === '미입금';
               const hasUnclaimed = site.status === '미청구' || site.claimStatus === '미청구';
+              const hasUnpaidProgress = site.status === '미지급' || site.paymentStatus === '미지급';
+              const hasUnpaidFinal = site.status === '미지급완료' || site.paymentStatus === '미지급완료';
+              const hasUnpaidRetention = site.status === '미지급보류' || site.paymentStatus === '미지급보류';
               
-              if (hasUnpaid || hasUnclaimed) {
+              // 기성금 입금완료 처리가 안된 모든 경우를 긴급 현장으로 분류
+              if (hasUnpaid || hasUnclaimed || hasUnpaidProgress || hasUnpaidFinal || hasUnpaidRetention) {
                 isUrgent = true;
+                console.log(`🚨 긴급 현장: ${site.name} - 준공일 ${daysSinceCompletion}일 경과, 미입금/미청구 상태`);
               }
             }
           }
