@@ -662,9 +662,9 @@ const LandingPage = () => {
       {/* 메인 콘텐츠 */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <Container maxWidth={false} sx={{ maxWidth: '1352px', flex: 1, display: 'flex', flexDirection: 'column', py: 2 }}>
-          <Grid container spacing={2} sx={{ flex: 1, alignItems: 'stretch' }}>
+          <Grid container spacing={0} sx={{ flex: 1, alignItems: 'stretch' }}>
             {/* 왼쪽: 제목과 설명 */}
-            <Grid item xs={12} md={1}>
+            <Grid item xs={12} md={4} sx={{ maxWidth: '800px', width: '100%' }}>
               <Fade in timeout={1000}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                   <Typography variant="h3" sx={{ 
@@ -790,7 +790,7 @@ const LandingPage = () => {
                             color: '#43e97b',
                             textShadow: '0 0 10px rgba(67, 233, 123, 0.3)'
                           }}>
-                            {stat.number}
+                            {currentUser ? stat.number : 0}
                           </Typography>
                           <Typography variant="body1" sx={{ 
                             color: '#e5e7eb',
@@ -807,9 +807,9 @@ const LandingPage = () => {
             </Grid>
 
             {/* 중앙: 현재 시간 & 통계 */}
-            <Grid item xs={12} md={2}>
+            <Grid item xs={12} md={2} sx={{ maxWidth: '500px', width: '100%' }}>
               <Slide direction="up" in timeout={1200}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', marginLeft: '150px' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                   {/* 현재 날짜/시간 - 사이버펑크 스타일 */}
                   <Paper sx={{ 
                     p: 2, 
@@ -1056,7 +1056,7 @@ const LandingPage = () => {
             </Grid>
 
             {/* 주요 기능 + 오늘의 할일 통합 */}
-            <Grid item xs={12} md={8} sx={{ maxWidth: '1580px', width: '100%' }}>
+            <Grid item xs={12} md={6} sx={{ maxWidth: '1580px', width: '100%' }}>
               <Slide direction="right" in timeout={1400}>
                 <Box sx={{ 
                   height: '100%',

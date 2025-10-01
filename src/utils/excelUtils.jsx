@@ -233,7 +233,7 @@ export const exportScheduleToExcel = async (scheduleData, fileName = 'schedule.x
         row.분류 || '',
         row.현장명 || '',
         row.설명 || '',
-        row.E열 || '',
+        (row.E열 || '').replace(/팀$/, ''), // 시공팀에서 "팀" 글자 제거
         row.체크박스유무 || ''
       ];
       

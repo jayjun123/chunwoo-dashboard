@@ -53,7 +53,7 @@ import {
   ChevronRight
 } from '@mui/icons-material';
 import * as d3 from 'd3';
-import { collection, onSnapshot, query, orderBy, setDoc, getDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, setDoc, getDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 
@@ -3451,12 +3451,39 @@ const Mapping = () => {
             취소
           </Button>
           <Button
-            onClick={() => {
-              // TODO: Firebase에 주소 업데이트
-              console.log('주소 업데이트:', selectedSiteForAddress?.id, newAddress);
-              setAddressModalOpen(false);
-              setNewAddress('');
-              setSelectedSiteForAddress(null);
+            onClick={async () => {
+              if (!selectedSiteForAddress || !newAddress.trim()) {
+                alert('주소를 입력해주세요.');
+                return;
+              }
+
+              try {
+                // Firebase에 주소 업데이트
+                const siteRef = doc(db, 'sites', selectedSiteForAddress.id);
+                await updateDoc(siteRef, {
+                  address: newAddress.trim(),
+                  updatedAt: serverTimestamp()
+                });
+
+                // 로컬 상태 업데이트
+                setSites(prevSites => 
+                  prevSites.map(site => 
+                    site.id === selectedSiteForAddress.id 
+                      ? { ...site, address: newAddress.trim() }
+                      : site
+                  )
+                );
+
+                console.log('주소 업데이트 완료:', selectedSiteForAddress.id, newAddress);
+                alert('주소가 성공적으로 등록되었습니다.');
+                
+                setAddressModalOpen(false);
+                setNewAddress('');
+                setSelectedSiteForAddress(null);
+              } catch (error) {
+                console.error('주소 업데이트 실패:', error);
+                alert('주소 등록에 실패했습니다. 다시 시도해주세요.');
+              }
             }}
             variant="contained"
             sx={{

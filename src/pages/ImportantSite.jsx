@@ -611,11 +611,13 @@ export default function ImportantSite() {
     const today = new Date();
     const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
+    const urgentSites = []; // 준공일 60일 지났지만 미입금/미청구인 현장들
     const activeSites = [];
     const completedSites = [];
     
     filtered.forEach(site => {
       let isCompleted = false;
+      let isUrgent = false;
       
       // 공사기간이 끝났는지 확인
       if (site.endDate) {
@@ -669,18 +671,35 @@ export default function ImportantSite() {
         if (endDate) {
           const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
           isCompleted = todayDate.getTime() > endDateOnly.getTime();
+          
+          // 준공일 60일 지난 현장 중 미입금이나 미청구 상태인지 확인
+          if (isCompleted) {
+            const daysSinceCompletion = Math.floor((todayDate.getTime() - endDateOnly.getTime()) / (1000 * 60 * 60 * 24));
+            
+            if (daysSinceCompletion > 60) {
+              // 현장의 상태 정보 확인 (미입금 또는 미청구)
+              const hasUnpaid = site.status === '미입금' || site.paymentStatus === '미입금';
+              const hasUnclaimed = site.status === '미청구' || site.claimStatus === '미청구';
+              
+              if (hasUnpaid || hasUnclaimed) {
+                isUrgent = true;
+              }
+            }
+          }
         }
       }
       
-      if (isCompleted) {
+      if (isUrgent) {
+        urgentSites.push(site);
+      } else if (isCompleted) {
         completedSites.push(site);
       } else {
         activeSites.push(site);
       }
     });
     
-    // 진행중인 현장을 먼저, 완료된 현장을 나중에 배치
-    return [...activeSites, ...completedSites];
+    // 긴급 현장(준공일 60일 지났지만 미입금/미청구)을 맨 위에, 진행중인 현장을 그 다음에, 완료된 현장을 맨 아래에 배치
+    return [...urgentSites, ...activeSites, ...completedSites];
   }, [sortedSites, selectedSiteId, search]);
 
   const handleRemarkChange = (id, value) => {

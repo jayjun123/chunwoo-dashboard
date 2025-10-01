@@ -21,6 +21,7 @@ import {
   Select,
   MenuItem,
   FormControl,
+  FormControlLabel,
   InputLabel,
   InputAdornment,
   Card,
@@ -165,6 +166,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     claimMethod: '', // 청구방법 추가
     templateType: 'N', // 템플릿 타입 추가 (N: 뉴기성, L: 롱기성)
     note: '',
+    isException: false, // 예외 항목 여부
+    exceptionAmount: '', // 예외 금액
   });
 
   // monthText 계산 - currentMonth 변경 시 즉시 업데이트
@@ -667,10 +670,29 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       .filter(gisung => gisung.paymentStatus === '입금완료')
       .reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
     
+    // 예외 금액 합계 계산
+    const totalExceptionAmount = filteredAndSortedGisung
+      .filter(gisung => gisung.isException)
+      .reduce((sum, gisung) => sum + (Number(gisung.exceptionAmount) || 0), 0);
+    
+    // 입금완료된 예외 금액만 계산
+    const totalPaidExceptionAmount = filteredAndSortedGisung
+      .filter(gisung => gisung.isException && gisung.paymentStatus === '입금완료')
+      .reduce((sum, gisung) => sum + (Number(gisung.exceptionAmount) || 0), 0);
+    
     // 잔액 = 계약금액 - 선급금 - 기성금액
     const totalBalance = totalContractAmount - totalAdvance - totalGisungAmount;
     
-    return { totalContractAmount, totalAdvance, totalPrevGisung, totalGisungAmount, totalPaidAmount, totalBalance };
+    return { 
+      totalContractAmount, 
+      totalAdvance, 
+      totalPrevGisung, 
+      totalGisungAmount, 
+      totalPaidAmount, 
+      totalBalance,
+      totalExceptionAmount,
+      totalPaidExceptionAmount 
+    };
   }, [filteredAndSortedGisung, sites, viewType, selectedSites]);
 
   // 기성현황 엑셀 다운로드 함수 (원래 기능)
@@ -1297,6 +1319,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         currentGisung: item.gisungAmount || '',
         claimMethod: item.claimMethod || '',
         note: item.note || '',
+        isException: item.isException || false,
+        exceptionAmount: item.exceptionAmount || '',
       });
     } else {
       setSelected(null);
@@ -1350,6 +1374,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         currentGisung: '',
         claimMethod: '',
         note: '',
+        isException: false,
+        exceptionAmount: '',
       });
     }
     setOpen(true);
@@ -1416,8 +1442,10 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         sequence: `${sequence}차`, // 현장별 차수 설정
         gisungAmount: Number(formData.currentGisung) || 0, // 금회기성을 기성금액으로 저장 (숫자로 변환)
         currentGisung: Number(formData.currentGisung) || 0, // 호환성을 위해 currentGisung도 저장
-        prevGisung: Number(formData.prevGisung) || 0, // 누계기성 명시적으로 저장 (숫자로 변환)
+        prevGisung: formData.isException ? 0 : (Number(formData.prevGisung) || 0), // 예외일 때는 누계기성 0
         claimMethod: formData.claimMethod || '', // 청구방법 저장
+        isException: formData.isException || false, // 예외 항목 여부 저장
+        exceptionAmount: formData.isException ? (Number(formData.currentGisung) || 0) : 0, // 예외 금액 저장
       };
       
       // console.log('💾 저장할 데이터:', dataToSave);
@@ -1435,10 +1463,12 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           currentGisung: Number(formData.currentGisung) || 0, // 호환성을 위해 currentGisung도 업데이트
           gisungMonth: formData.gisungMonth,
           claimMethod: formData.claimMethod || '', // 청구방법 업데이트
+          isException: formData.isException || false, // 예외 항목 여부 업데이트
+          exceptionAmount: formData.isException ? (Number(formData.currentGisung) || 0) : 0, // 예외 금액 업데이트
+          prevGisung: formData.isException ? 0 : (Number(formData.prevGisung) || 0), // 예외일 때는 누계기성 0
           note: formData.note,
           contractAmount: formData.contractAmount, // 계약금액 업데이트
           advance: formData.advance, // 선급금 업데이트
-          prevGisung: Number(formData.prevGisung) || 0, // 누계기성 업데이트
           updatedAt: serverTimestamp()
         };
         
@@ -2160,7 +2190,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     );
   };
 
-  const StatCard = ({ title, value, color }) => (
+  const StatCard = ({ title, value, color, exceptionAmount = 0 }) => (
     <Grid size={{ xs: 2.4, sm: 6, md: 2.4 }}>
       <Card sx={{ 
           p: isMobile ? 2 : 2, 
@@ -2181,17 +2211,32 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         >
           {title}
         </Typography>
-        <Typography 
-          variant={isMobile ? "body2" : "h6"} 
-          color={color || '#43e97b'} 
-          sx={{ 
-            fontWeight: 'bold',
-            fontSize: isMobile ? '0.9rem' : 'inherit',
-            lineHeight: isMobile ? 1.1 : 'inherit'
-          }}
-        >
-                          {formatNumber(value, true)}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Typography 
+            variant={isMobile ? "body2" : "h6"} 
+            color={color || '#43e97b'} 
+            sx={{ 
+              fontWeight: 'bold',
+              fontSize: isMobile ? '0.9rem' : 'inherit',
+              lineHeight: isMobile ? 1.1 : 'inherit'
+            }}
+          >
+            {formatNumber(value, true)}
+          </Typography>
+          {exceptionAmount > 0 && (
+            <Typography 
+              variant={isMobile ? "body2" : "h6"} 
+              sx={{ 
+                color: '#ff6b6b', 
+                fontWeight: 700,
+                fontSize: isMobile ? '0.9rem' : 'inherit',
+                lineHeight: isMobile ? 1.1 : 'inherit'
+              }}
+            >
+              +{formatNumber(exceptionAmount, true)}
+            </Typography>
+          )}
+        </Box>
       </Card>
     </Grid>
   );
@@ -2259,10 +2304,10 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
 
              {/* 통계 카드 */}
        <Grid container spacing={isMobile ? 0.7 : 2} sx={{ mb: 3 }}>
-         <StatCard title={isMobile ? "계약금액" : "총 계약금액"} value={stats.totalContractAmount} color="#43e97b" />
+         <StatCard title={isMobile ? "계약금액" : "총 계약금액"} value={stats.totalContractAmount} color="#43e97b" exceptionAmount={stats.totalExceptionAmount} />
          <StatCard title={isMobile ? "선급금" : "총 선급금"} value={stats.totalAdvance} color="#ffd600" />
-         <StatCard title={isMobile ? "기성금액" : "총 기성금액"} value={stats.totalGisungAmount} color="#ef5350" />
-         <StatCard title={isMobile ? "입금완료금액" : "입금완료금액"} value={stats.totalPaidAmount} color="#4caf50" />
+         <StatCard title={isMobile ? "기성금액" : "총 기성금액"} value={stats.totalGisungAmount} color="#ef5350" exceptionAmount={stats.totalExceptionAmount} />
+         <StatCard title={isMobile ? "입금완료금액" : "입금완료금액"} value={stats.totalPaidAmount} color="#4caf50" exceptionAmount={stats.totalPaidExceptionAmount} />
          {viewType !== 'month' && (
            <StatCard title="잔액" value={stats.totalBalance} color="#a084e8" />
          )}
@@ -2569,13 +2614,18 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                         {formatNumber(row.advance, true)}
                       </TableCell>
                       <TableCell sx={{ color: '#a084e8', fontWeight: 700 }}>
-                        {formatNumber(row.prevGisung, true)}
+                        {row.isException ? formatNumber(0, true) : formatNumber(row.prevGisung, true)}
                       </TableCell>
                       <TableCell sx={{ color: '#ef5350', fontWeight: 700 }}>
                         {formatNumber(row.gisungAmount, true)}
                       </TableCell>
                                              <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
                          {(() => {
+                           // 예외 항목인 경우 잔액을 0으로 표시
+                           if (row.isException) {
+                             return formatNumber(0, true);
+                           }
+                           
                            // 현재 기성의 차수 추출
                            const currentSeq = parseInt(row.sequence?.replace('차', '') || '0');
                            
@@ -2912,17 +2962,17 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
             <TextField
               label="누계기성"
-                value={Math.round(Number(formData.prevGisung || 0)).toLocaleString()}
+                value={formData.isException ? '0' : Math.round(Number(formData.prevGisung || 0)).toLocaleString()}
                 size="medium"
               sx={{
                   minWidth: 180,
                 '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#333' },
-                    '&:hover fieldset': { borderColor: '#555' },
-                    '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                    '& fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#333' },
+                    '&:hover fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#555' },
+                    '&.Mui-focused fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#90caf9' }
                   },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                  '& .MuiInputLabel-root': { color: formData.isException ? '#ff6b6b' : '#bbb', fontSize: '1rem' },
+                  '& .MuiInputBase-input': { color: formData.isException ? '#ff6b6b' : '#fff', fontSize: '1rem', py: 1.5 }
                 }}
                 InputProps={{ readOnly: true }}
               />
@@ -2934,12 +2984,12 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
               sx={{
                   minWidth: 180,
                 '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#333' },
-                    '&:hover fieldset': { borderColor: '#555' },
-                    '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                    '& fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#333' },
+                    '&:hover fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#555' },
+                    '&.Mui-focused fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#90caf9' }
                   },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                  '& .MuiInputLabel-root': { color: formData.isException ? '#ff6b6b' : '#bbb', fontSize: '1rem' },
+                  '& .MuiInputBase-input': { color: formData.isException ? '#ff6b6b' : '#fff', fontSize: '1rem', py: 1.5 }
                 }}
               />
             </Box>
@@ -2987,7 +3037,45 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 clearOnBlur
               />
             </Box>
-            {/* 5줄: 비고 */}
+            {/* 5줄: 예외 체크박스 */}
+            <Box display="flex" width="100%" justifyContent="center" alignItems="center" gap={2}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.isException}
+                    onChange={(e) => {
+                      const isException = e.target.checked;
+                      setFormData({ 
+                        ...formData, 
+                        isException,
+                        // 예외 체크 시 누계기성을 0으로 설정, 계약금액은 자유입력 가능
+                        prevGisung: isException ? '0' : formData.prevGisung,
+                        // 예외 체크 해제 시 기존 값으로 복원
+                        contractAmount: isException ? formData.contractAmount : formData.contractAmount
+                      });
+                    }}
+                    sx={{
+                      color: '#ff6b6b',
+                      '&.Mui-checked': {
+                        color: '#ff6b6b',
+                      },
+                    }}
+                  />
+                }
+                label={
+                  <Typography sx={{ color: '#ff6b6b', fontWeight: 'bold', fontSize: '1rem' }}>
+                    ⚠️ 예외 항목 (계약금액과 분리 관리)
+                  </Typography>
+                }
+                sx={{ 
+                  '& .MuiFormControlLabel-label': { 
+                    color: '#ff6b6b',
+                    fontWeight: 'bold'
+                  }
+                }}
+              />
+            </Box>
+            {/* 6줄: 비고 */}
             <Box display="flex" width="100%" justifyContent="center">
             <TextField
               label="비고"
