@@ -147,6 +147,27 @@ const Mapping = () => {
   const toggleDistanceMode = () => {
     const newMode = !distanceMode;
     console.log('🔄 거리측정 모드 토글:', distanceMode, '->', newMode);
+    
+    // 거리측정 모드를 활성화할 때 지도를 초기 상태로 리셋
+    if (newMode && svgRef.current && zoomRef.current) {
+      console.log('🗺️ 거리측정 모드 활성화 - 지도 초기 상태로 리셋');
+      
+      const svg = d3.select(svgRef.current);
+      const initialTransform = d3.zoomIdentity; // 초기 변환 (줌 1.0, 이동 없음)
+      
+      // 지도를 초기 상태로 부드럽게 전환
+      svg.transition()
+        .duration(800)
+        .ease(d3.easeCubicInOut)
+        .call(
+          zoomRef.current.transform,
+          initialTransform
+        );
+      
+      // 줌 레벨도 초기화
+      setZoomLevel(100);
+    }
+    
     setDistanceMode(newMode);
     setDistancePoints([]);
     setCalculatedDistance(null);

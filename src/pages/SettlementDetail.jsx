@@ -324,234 +324,194 @@ export default function SettlementDetail() {
             message: '현장 정보를 찾을 수 없습니다.',
             severity: 'error'
           });
-          setLoading(false); // 로딩 해제
+          setLoading(false);
           return;
         }
         
         setSite(currentSite);
         
         // 기성금 데이터 가져오기
-         try {
-           // 먼저 siteId로 쿼리 시도
-           let gisungQuery = query(
-             collection(db, 'gisung'),
-             where('siteId', '==', siteId)
-           );
-           let gisungSnapshot = await getDocs(gisungQuery);
-           let gisungItems = gisungSnapshot.docs.map(doc => ({
-             id: doc.id,
-             ...doc.data()
-           }));
-           
-           console.log('siteId로 기성금 쿼리 결과:', gisungItems.length, '개');
-           
-           // siteId로 찾지 못했으면 현장명으로 쿼리 시도
-           if (gisungItems.length === 0 && currentSite?.name) {
-             console.log('siteId로 기성금을 찾지 못해서 현장명으로 재시도:', currentSite.name);
-             gisungQuery = query(
-               collection(db, 'gisung'),
-               where('name', '==', currentSite.name)
-             );
-             gisungSnapshot = await getDocs(gisungQuery);
-             gisungItems = gisungSnapshot.docs.map(doc => ({
-               id: doc.id,
-               ...doc.data()
-             }));
-             console.log('현장명으로 기성금 쿼리 결과:', gisungItems.length, '개');
-           }
-           
-           // 날짜순 정렬
-           gisungItems.sort((a, b) => {
-             const dateA = parseDate(a.gisungDate);
-             const dateB = parseDate(b.gisungDate);
-             return dateA - dateB;
-           });
-           
-           console.log('최종 기성금 데이터:', gisungItems);
-           console.log('기성금 데이터 상세:', gisungItems.map(item => ({
-             id: item.id,
-             name: item.name,
-             gisungAmount: item.gisungAmount,
-             claimStatus: item.claimStatus,
-             paymentStatus: item.paymentStatus
-           })));
-           
-           setGisungData(gisungItems);
-         } catch (gisungError) {
-           console.error('기성금 데이터 로드 오류:', gisungError);
-           setGisungData([]);
-         }
+        try {
+          // 먼저 siteId로 쿼리 시도
+          let gisungQuery = query(
+            collection(db, 'gisung'),
+            where('siteId', '==', siteId)
+          );
+          let gisungSnapshot = await getDocs(gisungQuery);
+          let gisungItems = gisungSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          console.log('siteId로 기성금 쿼리 결과:', gisungItems.length, '개');
+          
+          // siteId로 찾지 못했으면 현장명으로 쿼리 시도
+          if (gisungItems.length === 0 && currentSite?.name) {
+            console.log('siteId로 기성금을 찾지 못해서 현장명으로 재시도:', currentSite.name);
+            gisungQuery = query(
+              collection(db, 'gisung'),
+              where('name', '==', currentSite.name)
+            );
+            gisungSnapshot = await getDocs(gisungQuery);
+            gisungItems = gisungSnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            console.log('현장명으로 기성금 쿼리 결과:', gisungItems.length, '개');
+          }
+          
+          // 날짜순 정렬
+          gisungItems.sort((a, b) => {
+            const dateA = parseDate(a.gisungDate);
+            const dateB = parseDate(b.gisungDate);
+            return dateA - dateB;
+          });
+          
+          console.log('최종 기성금 데이터:', gisungItems);
+          setGisungData(gisungItems);
+        } catch (gisungError) {
+          console.error('기성금 데이터 로드 오류:', gisungError);
+          setGisungData([]);
+        }
         
         // 지출 데이터 가져오기
-         try {
-           // siteId로 먼저 시도
-           let costQuery = query(
-             collection(db, 'costs'),
-             where('siteId', '==', siteId)
-           );
-           let costSnapshot = await getDocs(costQuery);
-           let costItems = costSnapshot.docs.map(doc => ({
-             id: doc.id,
-             siteId: siteId, // siteId 추가
-             ...doc.data()
-           }));
+        try {
+          // siteId로 먼저 시도
+          let costQuery = query(
+            collection(db, 'costs'),
+            where('siteId', '==', siteId)
+          );
+          let costSnapshot = await getDocs(costQuery);
+          let costItems = costSnapshot.docs.map(doc => ({
+            id: doc.id,
+            siteId: siteId,
+            ...doc.data()
+          }));
 
-           // siteId로 찾지 못했다면 site 필드로 시도
-           if (costItems.length === 0) {
-             console.log('siteId로 찾지 못함, site 필드로 시도...');
-             const siteName = currentSite?.name;
-             if (siteName) {
-               costQuery = query(
-                 collection(db, 'costs'),
-                 where('site', '==', siteName)
-               );
-               costSnapshot = await getDocs(costQuery);
-               costItems = costSnapshot.docs.map(doc => ({
-                 id: doc.id,
-                 siteId: siteId, // siteId 추가
-                 ...doc.data()
-               }));
-             }
-           }
+          // siteId로 찾지 못했다면 site 필드로 시도
+          if (costItems.length === 0) {
+            console.log('siteId로 찾지 못함, site 필드로 시도...');
+            const siteName = currentSite?.name;
+            if (siteName) {
+              costQuery = query(
+                collection(db, 'costs'),
+                where('site', '==', siteName)
+              );
+              costSnapshot = await getDocs(costQuery);
+              costItems = costSnapshot.docs.map(doc => ({
+                id: doc.id,
+                siteId: siteId,
+                ...doc.data()
+              }));
+            }
+          }
 
-           costItems = costItems.sort((a, b) => {
-             const dateA = parseDate(a.date);
-             const dateB = parseDate(b.date);
-             return dateA - dateB;
-           });
-           console.log('지출 쿼리 성공:', costItems);
-           console.log('지출 데이터 상세:', costItems.map(item => ({
-             itemType: item.itemType,
-             totalValue: item.totalValue,
-             workers: item.workers,
-             date: item.date
-           })));
-           setCostData(costItems);
-         } catch (costError) {
-           console.error('지출 데이터 로드 오류:', costError);
-           setCostData([]);
-         }
-         
-         // 자재비 데이터 가져오기
-         try {
-           const materialQuery = query(
-             collection(db, 'material_costs'),
-             where('siteId', '==', siteId)
-           );
-           const materialSnapshot = await getDocs(materialQuery);
-           const materialItems = materialSnapshot.docs.map(doc => ({
-             firebaseId: doc.id,
-             ...doc.data()
-           })).sort((a, b) => {
-             const dateA = parseDate(a.createdAt || 0);
-             const dateB = parseDate(b.createdAt || 0);
-             return dateA - dateB;
-           });
-           
-           console.log('자재비 쿼리 성공:', materialItems);
-           console.log('자재비 데이터 상세:', materialItems.map(item => ({
-             item: item.item,
-             amount: item.amount,
-             company: item.company,
-             month: item.month
-           })));
-           setMaterialData(materialItems);
-           
-           // 회사명 목록 추출
-           const companies = [...new Set(materialItems.map(item => item.company))];
-           setSavedCompanies(companies);
-         } catch (materialError) {
-           console.error('자재비 데이터 로드 오류:', materialError);
-           setMaterialData([]);
-         }
-         
-         // 안전관리비 데이터 가져오기
-         try {
-           let safetyItems = [];
-           const siteName = currentSite?.name;
-           
-           console.log('안전관리비 데이터 검색 시작...');
-           console.log('현장 ID:', siteId);
-           console.log('현장명:', siteName);
-           
-           // safety_costs 컬렉션에서 siteName으로 검색
-           if (siteName) {
-             const safetyQuery = query(
-               collection(db, 'safety_costs'),
-               where('siteName', '==', siteName)
-             );
-             const safetySnapshot = await getDocs(safetyQuery);
-             safetyItems = safetySnapshot.docs.map(doc => ({
-               id: doc.id,
-               ...doc.data()
-             }));
-             
-             console.log('안전관리비 쿼리 결과:', safetyItems);
-             
-             // siteName으로 찾지 못했다면 siteId로도 시도
-             if (safetyItems.length === 0) {
-               console.log('siteName으로 찾지 못함, siteId로 시도...');
-               const safetyQueryById = query(
-                 collection(db, 'safety_costs'),
-                 where('siteId', '==', siteId)
-               );
-               const safetySnapshotById = await getDocs(safetyQueryById);
-               safetyItems = safetySnapshotById.docs.map(doc => ({
-                 id: doc.id,
-                 ...doc.data()
-               }));
-               console.log('siteId로 검색한 안전관리비 결과:', safetyItems);
-             }
-           }
-           
-           // 여전히 찾지 못했다면 전체 안전관리비 데이터 확인 (디버깅용)
-           if (safetyItems.length === 0) {
-             console.log('안전관리비 데이터를 찾지 못함, 전체 데이터 확인...');
-             const allSafetyQuery = query(collection(db, 'safety_costs'));
-             const allSafetySnapshot = await getDocs(allSafetyQuery);
-             const allSafetyItems = allSafetySnapshot.docs.map(doc => ({
-               id: doc.id,
-               ...doc.data()
-             }));
-             console.log('전체 안전관리비 데이터:', allSafetyItems);
-             
-             // 금사동 관련 데이터만 필터링해서 확인
-             const geumsaItems = allSafetyItems.filter(item => 
-               item.siteName && item.siteName.includes('금사동')
-             );
-             console.log('금사동 관련 안전관리비 데이터:', geumsaItems);
-           }
-           
-           console.log('안전관리비 최종 결과:', safetyItems);
-           setSafetyData(safetyItems);
-         } catch (safetyError) {
-           console.error('안전관리비 데이터 로드 오류:', safetyError);
-           setSafetyData([]);
-         }
-         
-         // 일정 데이터 가져오기 (공수 계산용)
-         try {
-           const scheduleQuery = query(
-             collection(db, 'schedules'),
-             where('siteId', '==', siteId)
-           );
-           const scheduleSnapshot = await getDocs(scheduleQuery);
-           const scheduleItems = scheduleSnapshot.docs.map(doc => ({
-             id: doc.id,
-             ...doc.data()
-           }));
-           
-           console.log('일정 데이터 로드 완료:', scheduleItems);
-           setScheduleData(scheduleItems);
-         } catch (scheduleError) {
-           console.error('일정 데이터 로드 오류:', scheduleError);
-           setScheduleData([]);
-         }
+          costItems = costItems.sort((a, b) => {
+            const dateA = parseDate(a.date);
+            const dateB = parseDate(b.date);
+            return dateA - dateB;
+          });
+          console.log('지출 쿼리 성공:', costItems);
+          setCostData(costItems);
+        } catch (costError) {
+          console.error('지출 데이터 로드 오류:', costError);
+          setCostData([]);
+        }
+        
+        // 자재비 데이터 가져오기
+        try {
+          const materialQuery = query(
+            collection(db, 'material_costs'),
+            where('siteId', '==', siteId)
+          );
+          const materialSnapshot = await getDocs(materialQuery);
+          const materialItems = materialSnapshot.docs.map(doc => ({
+            firebaseId: doc.id,
+            ...doc.data()
+          })).sort((a, b) => {
+            const dateA = parseDate(a.createdAt || 0);
+            const dateB = parseDate(b.createdAt || 0);
+            return dateA - dateB;
+          });
+          
+          console.log('자재비 쿼리 성공:', materialItems);
+          setMaterialData(materialItems);
+          
+          // 회사명 목록 추출
+          const companies = [...new Set(materialItems.map(item => item.company))];
+          setSavedCompanies(companies);
+        } catch (materialError) {
+          console.error('자재비 데이터 로드 오류:', materialError);
+          setMaterialData([]);
+        }
+        
+        // 안전관리비 데이터 가져오기
+        try {
+          let safetyItems = [];
+          const siteName = currentSite?.name;
+          
+          console.log('안전관리비 데이터 검색 시작...');
+          console.log('현장 ID:', siteId);
+          console.log('현장명:', siteName);
+          
+          // safety_costs 컬렉션에서 siteName으로 검색
+          if (siteName) {
+            const safetyQuery = query(
+              collection(db, 'safety_costs'),
+              where('siteName', '==', siteName)
+            );
+            const safetySnapshot = await getDocs(safetyQuery);
+            safetyItems = safetySnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            
+            console.log('안전관리비 쿼리 결과:', safetyItems);
+            
+            // siteName으로 찾지 못했다면 siteId로도 시도
+            if (safetyItems.length === 0) {
+              console.log('siteName으로 찾지 못함, siteId로 시도...');
+              const safetyQueryById = query(
+                collection(db, 'safety_costs'),
+                where('siteId', '==', siteId)
+              );
+              const safetySnapshotById = await getDocs(safetyQueryById);
+              safetyItems = safetySnapshotById.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              }));
+              console.log('siteId로 검색한 안전관리비 결과:', safetyItems);
+            }
+          }
+          
+          console.log('안전관리비 최종 결과:', safetyItems);
+          setSafetyData(safetyItems);
+        } catch (safetyError) {
+          console.error('안전관리비 데이터 로드 오류:', safetyError);
+          setSafetyData([]);
+        }
+        
+        // 일정 데이터 가져오기 (공수 계산용)
+        try {
+          const scheduleQuery = query(
+            collection(db, 'schedules'),
+            where('siteId', '==', siteId)
+          );
+          const scheduleSnapshot = await getDocs(scheduleQuery);
+          const scheduleItems = scheduleSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          console.log('일정 데이터 로드 완료:', scheduleItems);
+          setScheduleData(scheduleItems);
+        } catch (scheduleError) {
+          console.error('일정 데이터 로드 오류:', scheduleError);
+          setScheduleData([]);
+        }
         
       } catch (error) {
         console.error('데이터 로드 오류:', error);
-        console.error('오류 상세:', error.message);
-        console.error('오류 코드:', error.code);
         setSnackbar({
           open: true,
           message: `데이터 로드에 실패했습니다: ${error.message}`,
@@ -733,7 +693,7 @@ export default function SettlementDetail() {
     const unsubscribeCost = onSnapshot(costQuery, (snapshot) => {
       const costItems = snapshot.docs.map(doc => ({
         id: doc.id,
-        siteId: siteId, // siteId 추가
+        siteId: siteId,
         ...doc.data()
       }));
       
@@ -746,12 +706,6 @@ export default function SettlementDetail() {
       
       setCostData(costItems);
       console.log('지출 데이터 실시간 업데이트:', costItems.length, '개');
-      console.log('지출 실시간 데이터 상세:', costItems.map(item => ({
-        itemType: item.itemType,
-        totalValue: item.totalValue,
-        workers: item.workers,
-        date: item.date
-      })));
     }, (error) => {
       console.error('지출 실시간 리스너 오류:', error);
     });
@@ -777,6 +731,40 @@ export default function SettlementDetail() {
       console.error('기성금 실시간 리스너 오류:', error);
     });
     unsubscribers.push(unsubscribeGisung);
+
+    // 안전관리비 실시간 리스너
+    const safetyQuery = query(
+      collection(db, 'safety_costs'),
+      where('siteId', '==', siteId)
+    );
+    const unsubscribeSafety = onSnapshot(safetyQuery, (snapshot) => {
+      const safetyItems = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setSafetyData(safetyItems);
+      console.log('안전관리비 데이터 실시간 업데이트:', safetyItems.length, '개');
+    }, (error) => {
+      console.error('안전관리비 실시간 리스너 오류:', error);
+    });
+    unsubscribers.push(unsubscribeSafety);
+
+    // 일정 데이터 실시간 리스너
+    const scheduleQuery = query(
+      collection(db, 'schedules'),
+      where('siteId', '==', siteId)
+    );
+    const unsubscribeSchedule = onSnapshot(scheduleQuery, (snapshot) => {
+      const scheduleItems = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setScheduleData(scheduleItems);
+      console.log('일정 데이터 실시간 업데이트:', scheduleItems.length, '개');
+    }, (error) => {
+      console.error('일정 데이터 실시간 리스너 오류:', error);
+    });
+    unsubscribers.push(unsubscribeSchedule);
 
     // 정리 함수
     return () => {
@@ -4477,7 +4465,7 @@ export default function SettlementDetail() {
             return false;
         }
       }).map(item => ({
-        name: `${item.itemName || '-'}${item.차수 ? ` (${item.차수}차)` : ''}`,
+        name: `${item.itemName || '필름'}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
         date: formatDate(item.date),
         originalDate: item.date, // 원본 날짜도 저장
@@ -4724,9 +4712,10 @@ export default function SettlementDetail() {
     const otherValues = labels.map(label => otherByMonth[label] || 0);
     const workersValues = labels.map(label => workersByMonth[label] || 0);
     
-    // 부자재비와 장비비 데이터가 있는지 확인
+    // 부자재비, 장비비, 기타 데이터가 있는지 확인
     const hasSubMaterialData = subMaterialValues.some(value => value > 0);
     const hasEquipmentData = equipmentValues.some(value => value > 0);
+    const hasOtherData = otherValues.some(value => value > 0);
     
     console.log('월별 공수 값들:', workersValues);
     console.log('부자재비 값들:', subMaterialValues);
@@ -4787,13 +4776,15 @@ export default function SettlementDetail() {
       경비: expenseValues[index] || 0,
       ...(hasSubMaterialData && { 부자재비: subMaterialValues[index] || 0 }),
       ...(hasEquipmentData && { 장비비: equipmentValues[index] || 0 }),
+      ...(hasOtherData && { 기타: otherValues[index] || 0 }),
       공수: workersValues[index] || 0
     }));
 
     return {
       data: chartDataArray,
       hasSubMaterialData,
-      hasEquipmentData
+      hasEquipmentData,
+      hasOtherData
     };
   }, [site, gisungData, costData, materialData, scheduleData, chartLabels]);
 
@@ -6070,7 +6061,16 @@ export default function SettlementDetail() {
 
 
         {/* 차트분석과 노무능률 */}
-        <Box sx={{ display: 'flex', gap: 2, width: '100%', pr: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 2, 
+          width: '100%', 
+          pr: 2,
+          // 테블릿에서 간격 줄임
+          '@media (min-width: 768px) and (max-width: 1024px)': {
+            gap: 1
+          }
+        }}>
           {/* 차트분석 (75%) */}
           <Card sx={{ 
             bgcolor: isChartLightMode ? '#ffffff' : '#232b3b', 
@@ -6079,7 +6079,16 @@ export default function SettlementDetail() {
             minWidth: { xs: '400px', sm: '400px', md: 'auto' }
           }}>
             <CardContent sx={{ width: '100%' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                mb: 3,
+                // 테블릿에서 마진 줄임
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  mb: 1.5
+                }
+              }}>
                 <Typography variant="h6" sx={{ color: isChartLightMode ? '#000' : '#43e97b' }}>
                   월별 기성금 및 지출 추이 분석
                 </Typography>
@@ -6119,6 +6128,10 @@ export default function SettlementDetail() {
                   willChange: 'transform',
                   // 아이패드에서 차트가 더 잘 보이도록 추가 스타일
                   position: 'relative',
+                  // 테블릿에서 높이 줄임
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    height: '380px'
+                  },
                   overflow: 'visible',
                   // 아이패드에서 그래프선이 더 선명하게 보이도록
                   '& canvas': {
@@ -6130,64 +6143,204 @@ export default function SettlementDetail() {
                   {/* 범례를 차트 위에 별도로 표시 */}
                   <Box sx={{ 
                     display: 'flex', 
-                    flexWrap: 'wrap', 
+                    flexWrap: 'nowrap', 
                     gap: 4, 
                     mb: 4, 
                     justifyContent: 'center',
-                    color: isChartLightMode ? '#000' : '#fff'
+                    color: isChartLightMode ? '#000' : '#fff',
+                    overflowX: 'auto',
+                    // 테블릿에서 범례 크기와 간격 줄임
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      gap: 2,
+                      mb: 2,
+                      flexWrap: 'nowrap',
+                      overflowX: 'auto',
+                      paddingBottom: 1
+                    }
                   }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Box sx={{ width: 40, height: 5, bgcolor: '#43e97b' }} />
-                      <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600 }}>기성금</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Box sx={{ width: 40, height: 5, bgcolor: '#f44336' }} />
-                      <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600 }}>지출총합계</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 2,
+                      flexShrink: 0,
+                      // 테블릿에서 간격 줄임
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        gap: 1
+                      }
+                    }}>
                       <Box sx={{ 
                         width: 40, 
                         height: 5, 
-                        background: 'repeating-linear-gradient(to right, #00bcd4 0px, #00bcd4 8px, transparent 8px, transparent 12px)'
+                        bgcolor: '#43e97b',
+                        flexShrink: 0,
+                        // 테블릿에서 크기 줄임
+                        '@media (min-width: 768px) and (max-width: 1024px)': {
+                          width: 25,
+                          height: 3
+                        }
                       }} />
-                      <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600, color: '#fff' }}>노무비</Typography>
+                      <Typography variant="h6" sx={{ 
+                        fontSize: '18px', 
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        // 테블릿에서 폰트 크기 줄임
+                        '@media (min-width: 768px) and (max-width: 1024px)': {
+                          fontSize: '12px'
+                        }
+                      }}>기성금</Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 2,
+                      flexShrink: 0,
+                      '@media (min-width: 768px) and (max-width: 1024px)': { gap: 1 }
+                    }}>
                       <Box sx={{ 
                         width: 40, 
                         height: 5, 
-                        background: 'repeating-linear-gradient(to right, #9c27b0 0px, #9c27b0 8px, transparent 8px, transparent 12px)'
+                        bgcolor: '#f44336',
+                        flexShrink: 0,
+                        '@media (min-width: 768px) and (max-width: 1024px)': { width: 25, height: 3 }
                       }} />
-                      <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600 }}>자재비</Typography>
+                      <Typography variant="h6" sx={{ 
+                        fontSize: '18px', 
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '12px' }
+                      }}>지출총합계</Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 2,
+                      flexShrink: 0,
+                      '@media (min-width: 768px) and (max-width: 1024px)': { gap: 1 }
+                    }}>
                       <Box sx={{ 
                         width: 40, 
                         height: 5, 
-                        background: 'repeating-linear-gradient(to right, #ff5722 0px, #ff5722 8px, transparent 8px, transparent 12px)'
+                        background: 'repeating-linear-gradient(to right, #00bcd4 0px, #00bcd4 8px, transparent 8px, transparent 12px)',
+                        flexShrink: 0,
+                        '@media (min-width: 768px) and (max-width: 1024px)': { width: 25, height: 3 }
                       }} />
-                      <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600 }}>경비</Typography>
+                      <Typography variant="h6" sx={{ 
+                        fontSize: '18px', 
+                        fontWeight: 600, 
+                        color: '#fff',
+                        whiteSpace: 'nowrap',
+                        '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '12px' }
+                      }}>노무비</Typography>
+                    </Box>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 2,
+                      flexShrink: 0,
+                      '@media (min-width: 768px) and (max-width: 1024px)': { gap: 1 }
+                    }}>
+                      <Box sx={{ 
+                        width: 40, 
+                        height: 5, 
+                        background: 'repeating-linear-gradient(to right, #9c27b0 0px, #9c27b0 8px, transparent 8px, transparent 12px)',
+                        flexShrink: 0,
+                        '@media (min-width: 768px) and (max-width: 1024px)': { width: 25, height: 3 }
+                      }} />
+                      <Typography variant="h6" sx={{ 
+                        fontSize: '18px', 
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '12px' }
+                      }}>자재비</Typography>
+                    </Box>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 2,
+                      flexShrink: 0,
+                      '@media (min-width: 768px) and (max-width: 1024px)': { gap: 1 }
+                    }}>
+                      <Box sx={{ 
+                        width: 40, 
+                        height: 5, 
+                        background: 'repeating-linear-gradient(to right, #ff5722 0px, #ff5722 8px, transparent 8px, transparent 12px)',
+                        flexShrink: 0,
+                        '@media (min-width: 768px) and (max-width: 1024px)': { width: 25, height: 3 }
+                      }} />
+                      <Typography variant="h6" sx={{ 
+                        fontSize: '18px', 
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '12px' }
+                      }}>경비</Typography>
                     </Box>
                     {chartData.hasSubMaterialData && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 2,
+                        flexShrink: 0,
+                        '@media (min-width: 768px) and (max-width: 1024px)': { gap: 1 }
+                      }}>
                         <Box sx={{ 
                           width: 40, 
                           height: 5, 
-                          background: 'repeating-linear-gradient(to right, #ff9800 0px, #ff9800 8px, transparent 8px, transparent 12px)'
+                          background: 'repeating-linear-gradient(to right, #ff9800 0px, #ff9800 8px, transparent 8px, transparent 12px)',
+                          flexShrink: 0,
+                          '@media (min-width: 768px) and (max-width: 1024px)': { width: 25, height: 3 }
                         }} />
-                        <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600 }}>부자재비</Typography>
+                        <Typography variant="h6" sx={{ 
+                          fontSize: '18px', 
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                          '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '12px' }
+                        }}>부자재비</Typography>
                       </Box>
                     )}
                     {chartData.hasEquipmentData && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 2,
+                        flexShrink: 0,
+                        '@media (min-width: 768px) and (max-width: 1024px)': { gap: 1 }
+                      }}>
                         <Box sx={{ 
                           width: 40, 
                           height: 5, 
-                          background: 'repeating-linear-gradient(to right, #ffeb3b 0px, #ffeb3b 8px, transparent 8px, transparent 12px)'
+                          background: 'repeating-linear-gradient(to right, #ffeb3b 0px, #ffeb3b 8px, transparent 8px, transparent 12px)',
+                          flexShrink: 0,
+                          '@media (min-width: 768px) and (max-width: 1024px)': { width: 25, height: 3 }
                         }} />
-                        <Typography variant="h6" sx={{ fontSize: '18px', fontWeight: 600 }}>장비비</Typography>
+                        <Typography variant="h6" sx={{ 
+                          fontSize: '18px', 
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                          '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '12px' }
+                        }}>장비비</Typography>
                       </Box>
                     )}
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 2,
+                      flexShrink: 0,
+                      '@media (min-width: 768px) and (max-width: 1024px)': { gap: 1 }
+                    }}>
+                      <Box sx={{ 
+                        width: 40, 
+                        height: 5, 
+                        background: 'repeating-linear-gradient(to right, #607d8b 0px, #607d8b 8px, transparent 8px, transparent 12px)',
+                        flexShrink: 0,
+                        '@media (min-width: 768px) and (max-width: 1024px)': { width: 25, height: 3 }
+                      }} />
+                      <Typography variant="h6" sx={{ 
+                        fontSize: '18px', 
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '12px' }
+                      }}>기타</Typography>
+                    </Box>
                   </Box>
                   
                   <ResponsiveContainer width="100%" height="100%">
@@ -6372,6 +6525,17 @@ export default function SettlementDetail() {
                           activeDot={{ r: 6 }}
                         />
                       )}
+                      {chartData.hasOtherData && (
+                        <Line 
+                          yAxisId="left"
+                          dataKey="기타" 
+                          stroke="#607d8b" 
+                          strokeWidth={2}
+                          strokeDasharray="5 3"
+                          dot={{ r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      )}
                     </ComposedChart>
                   </ResponsiveContainer>
                 </Box>
@@ -6402,9 +6566,25 @@ export default function SettlementDetail() {
             color: '#fff', 
             flex: { xs: '0 0 100%', sm: '0 0 100%', md: '0 0 25%' }
           }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ mb: 1, color: '#43e97b', display: 'flex', alignItems: 'center', gap: 1 }}>
-                <TrendingUpIcon /> 분석 <span style={{ color: '#fff' }}>({projectPeriod.startDate ? projectPeriod.startDate.replace(/-/g, '.') : '데이터 로딩중...'}~{projectPeriod.endDate ? projectPeriod.endDate.replace(/-/g, '.') : '데이터 로딩중...'})</span>
+            <CardContent sx={{
+              // 테블릿에서 패딩 줄임
+              '@media (min-width: 768px) and (max-width: 1024px)': {
+                p: 1.5
+              }
+            }}>
+              <Typography variant="h6" sx={{ 
+                mb: 1, 
+                color: '#43e97b', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1
+              }}>
+                <TrendingUpIcon sx={{
+                  // 테블릿에서 아이콘만 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }} /> 분석 <span style={{ color: '#fff' }}>({projectPeriod.startDate ? projectPeriod.startDate.replace(/-/g, '.').substring(2) : '데이터 로딩중...'}~{projectPeriod.endDate ? projectPeriod.endDate.replace(/-/g, '.').substring(2) : '데이터 로딩중...'})</span>
               </Typography>
               
               {/* 총 일수 및 총 공수 */}
@@ -6413,20 +6593,37 @@ export default function SettlementDetail() {
                 p: 1.2, 
                 borderRadius: 1, 
                 mb: 0.8,
-                border: '1px solid #333'
+                border: '1px solid #333',
+                // 테블릿에서 패딩과 마진 줄임
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  p: 1,
+                  mb: 0.5
+                }
               }}>
                 <Typography sx={{ 
                   color: '#fff', 
                   fontSize: '1.3rem', 
                   fontWeight: 'bold',
                   textAlign: 'center',
-                  lineHeight: 1.2
+                  lineHeight: 1.2,
+                  // 테블릿에서 폰트 크기 줄임
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    fontSize: '1.1rem'
+                  }
                 }}>
                   총 <span style={{ color: '#ff4444' }}>{projectPeriod.totalDays || 0}</span>일&nbsp;&nbsp;&nbsp;<span style={{ color: '#ff4444' }}>({projectPeriod.totalWorkers || 0})</span>공수
                 </Typography>
               </Box>
               
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: 1.5,
+                // 테블릿에서 간격 줄임
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  gap: 1
+                }
+              }}>
                 
                 {/* 노무자 1명 기준 평균 물량 */}
                 <Box sx={{ mt: 0.5 }}>

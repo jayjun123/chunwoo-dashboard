@@ -1562,9 +1562,9 @@ const SettlementManagement = () => {
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
-                  // 아이패드에서 표시
+                  // 아이패드에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
-                    width: '12%'
+                    display: 'none'
                   }
                 }}
                 onClick={() => handleSort('gisungAmount')}
@@ -1733,9 +1733,9 @@ const SettlementManagement = () => {
                     textAlign: 'center', 
                     py: 4, 
                     color: '#bbb',
-                    // 아이패드에서는 7개 컬럼만 표시
+                    // 아이패드에서는 6개 컬럼만 표시
                     '@media (min-width: 768px) and (max-width: 1024px)': {
-                      colSpan: 7
+                      colSpan: 6
                     }
                   }}
                 >
@@ -1834,7 +1834,16 @@ const SettlementManagement = () => {
                   <TableCell sx={{ color: '#43e97b', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
                     {formatNumber(settlement.contractAmount || 0)}원
                       </TableCell>
-                  <TableCell sx={{ color: '#43e97b', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
+                  <TableCell sx={{ 
+                    color: '#43e97b', 
+                    fontWeight: 'bold', 
+                    textAlign: 'right', 
+                    fontSize: '1.1rem',
+                    // 아이패드에서 숨김
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      display: 'none'
+                    }
+                  }}>
                     {formatNumber(settlement.gisungAmount || 0)}원
                       </TableCell>
                   <TableCell sx={{ 

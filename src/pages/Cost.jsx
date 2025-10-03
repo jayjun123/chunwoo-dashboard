@@ -2155,9 +2155,12 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
               />
               <TextField
                 label="금액"
-                type="number"
-                value={form.totalValue ?? ''}
-                onChange={e => setForm({ ...form, totalValue: e.target.value })}
+                value={form.totalValue ? Number(form.totalValue).toLocaleString() : ''}
+                onChange={e => {
+                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  setForm({ ...form, totalValue: value });
+                }}
+                placeholder="금액을 입력하세요"
                 size="medium"
                 sx={{
                   flex: 1,
