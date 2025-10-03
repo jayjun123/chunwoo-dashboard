@@ -64,18 +64,35 @@ export const TodoProvider = ({ children }) => {
       try {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
-        console.log('=== TodoContext 실시간 업데이트 ===');
+        console.log('=== TodoContext 실시간 업데이트 (개선된 버전) ===');
         console.log('가져온 문서 개수:', snapshot.docs.length);
         console.log('원본 데이터:', data);
         
-        // 클라이언트에서 정렬
-        const sortedData = data.sort((a, b) => {
-          const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
-          const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
-          return dateB - dateA; // 내림차순
+        // 완료 상태별 통계
+        const completedCount = data.filter(todo => todo.completed).length;
+        const incompleteCount = data.filter(todo => !todo.completed).length;
+        
+        console.log('📊 할일 통계:', {
+          전체: data.length,
+          완료: completedCount,
+          미완료: incompleteCount,
+          완료율: data.length > 0 ? Math.round((completedCount / data.length) * 100) : 0
         });
         
-        console.log('정렬된 데이터:', sortedData);
+        // 클라이언트에서 정렬 (업데이트 시간 우선)
+        const sortedData = data.sort((a, b) => {
+          const dateA = a.updatedAt?.toDate?.() || a.createdAt?.toDate?.() || new Date(a.createdAt);
+          const dateB = b.updatedAt?.toDate?.() || b.createdAt?.toDate?.() || new Date(b.createdAt);
+          return dateB - dateA; // 내림차순 (최신순)
+        });
+        
+        console.log('정렬된 데이터:', sortedData.map(t => ({ 
+          id: t.id, 
+          text: t.text, 
+          completed: t.completed, 
+          date: t.date,
+          updatedAt: t.updatedAt 
+        })));
         console.log('설정할 todos 개수:', sortedData.length);
         
         setTodos(sortedData);
@@ -157,17 +174,34 @@ export const TodoProvider = ({ children }) => {
     }
   };
 
-  // 투두 토글 (완료/미완료)
+  // 투두 토글 (완료/미완료) - 개선된 버전
   const toggleTodo = async (id, completed) => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.uid) {
+      console.warn('⚠️ 사용자 ID가 없어 투두 토글을 수행할 수 없습니다.');
+      return;
+    }
 
     try {
+      console.log('🔄 투두 토글 시작:', { 
+        id, 
+        현재상태: completed, 
+        변경될상태: !completed,
+        사용자ID: currentUser.uid 
+      });
+      
       await updateDoc(doc(db, 'todos', id), {
         completed: !completed,
         updatedAt: new Date()
       });
+      
+      console.log('✅ 투두 토글 완료:', { 
+        id, 
+        이전상태: completed, 
+        새상태: !completed,
+        업데이트시간: new Date().toISOString()
+      });
     } catch (error) {
-      console.error('투두 토글 오류:', error);
+      console.error('❌ 투두 토글 오류:', error);
       throw error;
     }
   };

@@ -63,6 +63,19 @@ const Mapping = () => {
   const zoomRef = useRef();
   const isZoomingRef = useRef(false);
   const mapGroupRef = useRef();
+  
+  // 환경별 디버깅 모드
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const isNetlify = window.location.hostname.includes('netlify');
+  const debugMode = isDevelopment || isNetlify;
+  
+  console.log('🔧 매핑 페이지 환경 정보:', {
+    isDevelopment,
+    isNetlify,
+    debugMode,
+    hostname: window.location.hostname,
+    userAgent: navigator.userAgent
+  });
   const [mapData, setMapData] = useState(null);
   const [sites, setSites] = useState([]);
   const [selectedSites, setSelectedSites] = useState([]);
@@ -84,18 +97,50 @@ const Mapping = () => {
   const [distancePoints, setDistancePoints] = useState([]);
   const [calculatedDistance, setCalculatedDistance] = useState(null);
 
-  // 거리 계산 함수 (Haversine 공식)
+  // 거리 계산 함수 (Haversine 공식) - 개선된 버전
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // 지구 반지름 (km)
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distance = R * c;
-    return distance;
+    // 입력값 검증
+    if (typeof lat1 !== 'number' || typeof lon1 !== 'number' || 
+        typeof lat2 !== 'number' || typeof lon2 !== 'number') {
+      console.error('❌ 거리 계산 오류: 좌표가 숫자가 아님', { lat1, lon1, lat2, lon2 });
+      return 0;
+    }
+    
+    // 좌표 범위 검증
+    if (lat1 < -90 || lat1 > 90 || lat2 < -90 || lat2 > 90 ||
+        lon1 < -180 || lon1 > 180 || lon2 < -180 || lon2 > 180) {
+      console.error('❌ 거리 계산 오류: 좌표 범위 초과', { lat1, lon1, lat2, lon2 });
+      return 0;
+    }
+    
+    try {
+      const R = 6371; // 지구 반지름 (km)
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = R * c;
+      
+      // 결과 검증
+      if (isNaN(distance) || !isFinite(distance)) {
+        console.error('❌ 거리 계산 결과가 유효하지 않음:', distance);
+        return 0;
+      }
+      
+      console.log('📏 거리 계산 성공:', { 
+        좌표1: [lat1, lon1], 
+        좌표2: [lat2, lon2], 
+        거리: distance.toFixed(2) + 'km' 
+      });
+      
+      return Math.round(distance * 100) / 100; // 소수점 2자리로 반올림
+    } catch (error) {
+      console.error('❌ 거리 계산 중 오류 발생:', error);
+      return 0;
+    }
   };
 
   // 거리측정 모드 토글
@@ -107,6 +152,186 @@ const Mapping = () => {
     setCalculatedDistance(null);
   };
 
+  // 좌표 검증 및 정규화 함수
+  const validateAndNormalizeCoordinates = (lat, lon) => {
+    // 좌표 유효성 검사
+    if (typeof lat !== 'number' || typeof lon !== 'number') {
+      console.warn('⚠️ 좌표가 숫자가 아님:', { lat, lon });
+      return null;
+    }
+    
+    // 한국 좌표 범위 검사 (대략적인 범위)
+    if (lat < 33 || lat > 39 || lon < 124 || lon > 132) {
+      console.warn('⚠️ 좌표가 한국 범위를 벗어남:', { lat, lon });
+      return null;
+    }
+    
+    // 좌표 정규화 (소수점 6자리로 반올림)
+    return {
+      lat: Math.round(lat * 1000000) / 1000000,
+      lon: Math.round(lon * 1000000) / 1000000
+    };
+  };
+
+  // 현장의 좌표를 가져오는 함수
+  const getSiteCoordinates = (site) => {
+    if (!site) return null;
+    
+    // 실제 현장 좌표가 있으면 사용
+    if (site.latitude && site.longitude) {
+      const lat = parseFloat(site.latitude);
+      const lon = parseFloat(site.longitude);
+      const normalized = validateAndNormalizeCoordinates(lat, lon);
+      if (normalized) {
+        return normalized;
+      }
+    }
+    
+    // 실제 좌표가 없으면 도시 좌표 사용
+    const city = extractCityFromAddress(site.address);
+    if (!city) return null;
+    
+    const coord = cityCoordinates[getCoordinateKey(city)];
+    if (!coord || !Array.isArray(coord) || coord.length !== 2) {
+      return null;
+    }
+    
+    const lat = coord[1];
+    const lon = coord[0];
+    return validateAndNormalizeCoordinates(lat, lon);
+  };
+
+  // 마커에 거리 정보를 업데이트하는 함수
+  const updateMarkerDistance = (marker, site) => {
+    if (!marker || !site) return;
+    
+    const siteMarkerGroup = marker.select(".site-marker-group");
+    if (!siteMarkerGroup) return;
+    
+    // 기존 거리 텍스트 제거
+    siteMarkerGroup.selectAll(".distance-text").remove();
+    
+    // 선택된 현장이 있고, 현재 마커가 선택된 현장이 아닌 경우에만 거리 표시
+    if (selectedSite && selectedSite.id !== site.id) {
+      const selectedSiteCoords = getSiteCoordinates(selectedSite);
+      const currentSiteCoords = getSiteCoordinates(site);
+      
+      if (selectedSiteCoords && currentSiteCoords) {
+        const distance = calculateDistance(
+          selectedSiteCoords.lat, selectedSiteCoords.lon,
+          currentSiteCoords.lat, currentSiteCoords.lon
+        );
+        
+        if (distance > 0) {
+          siteMarkerGroup.append("text")
+            .attr("class", "distance-text")
+            .attr("x", 0)
+            .attr("y", -25)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#fff")
+            .attr("font-size", "10px")
+            .attr("font-weight", "bold")
+            .attr("stroke", "#000")
+            .attr("stroke-width", 1)
+            .style("pointer-events", "none")
+            .text(`${distance.toFixed(1)}km`);
+        }
+      }
+    }
+  };
+
+  // 거리측정 점들 위치 업데이트 함수 (현장 마커 위치 사용)
+  const updateDistancePoints = useCallback((transform) => {
+    if (!svgRef.current || !mapGroupRef.current || distancePoints.length === 0) return;
+    
+    const svg = d3.select(svgRef.current);
+    const mapGroup = mapGroupRef.current;
+
+    // 현장 마커 번호 위치 업데이트
+    distancePoints.forEach((point, index) => {
+      // 해당 현장의 마커를 찾아서 위치 가져오기
+      const marker = svg.select(`[data-marker-id*="${point.siteId}"]`);
+      if (!marker.empty()) {
+        const markerTransform = marker.attr("transform");
+        const translateMatch = markerTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        if (translateMatch) {
+          const x = parseFloat(translateMatch[1]);
+          const y = parseFloat(translateMatch[2]);
+          
+          // 마커 위 번호 텍스트 위치 업데이트
+          const textElement = mapGroup.select(`.distance-text:nth-child(${index + 1})`);
+          if (!textElement.empty()) {
+            textElement.attr("x", x).attr("y", y - 15);
+          }
+        }
+      }
+    });
+
+    // 두 점 사이의 곡선과 화살표 업데이트
+    if (distancePoints.length === 2) {
+      const marker1 = svg.select(`[data-marker-id*="${distancePoints[0].siteId}"]`);
+      const marker2 = svg.select(`[data-marker-id*="${distancePoints[1].siteId}"]`);
+      
+      if (!marker1.empty() && !marker2.empty()) {
+        const transform1 = marker1.attr("transform");
+        const transform2 = marker2.attr("transform");
+        
+        const match1 = transform1.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        const match2 = transform2.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        
+        if (match1 && match2) {
+          const x1 = parseFloat(match1[1]);
+          const y1 = parseFloat(match1[2]);
+          const x2 = parseFloat(match2[1]);
+          const y2 = parseFloat(match2[2]);
+          
+          // 곡선 경로 계산
+          const dx = x2 - x1;
+          const dy = y2 - y1;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const curveHeight = Math.min(distance * 0.3, 100);
+          
+          const controlX1 = x1 + dx * 0.3;
+          const controlY1 = y1 - curveHeight;
+          const controlX2 = x1 + dx * 0.7;
+          const controlY2 = y1 - curveHeight;
+          
+          const pathData = `M ${x1} ${y1} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${x2} ${y2}`;
+          
+          // 곡선 업데이트
+          const curveElement = mapGroup.select(".distance-curve");
+          if (!curveElement.empty()) {
+            curveElement.attr("d", pathData);
+          }
+          
+          // 화살표 업데이트
+          const angle = Math.atan2(dy, dx);
+          const arrowLength = 15;
+          const arrowAngle = Math.PI / 6;
+          
+          const arrowX1 = x2 - arrowLength * Math.cos(angle - arrowAngle);
+          const arrowY1 = y2 - arrowLength * Math.sin(angle - arrowAngle);
+          const arrowX2 = x2 - arrowLength * Math.cos(angle + arrowAngle);
+          const arrowY2 = y2 - arrowLength * Math.sin(angle + arrowAngle);
+          
+          const arrowElement = mapGroup.select(".distance-arrow");
+          if (!arrowElement.empty()) {
+            arrowElement.attr("d", `M ${x2} ${y2} L ${arrowX1} ${arrowY1} M ${x2} ${y2} L ${arrowX2} ${arrowY2}`);
+          }
+          
+          // 거리 텍스트 위치 업데이트
+          const midX = (x1 + x2) / 2;
+          const midY = (y1 + y2) / 2 - curveHeight * 0.7;
+          
+          const distanceTextElement = mapGroup.select(".distance-text:last-child");
+          if (!distanceTextElement.empty()) {
+            distanceTextElement.attr("x", midX).attr("y", midY);
+          }
+        }
+      }
+    }
+  }, [distancePoints]);
+
   // 현장 마커 클릭 핸들러 (거리측정 모드)
   const handleSiteMarkerClickForDistance = (site, event) => {
     console.log('🎯 거리측정 마커 클릭됨:', site.name, 'distanceMode:', distanceMode);
@@ -116,25 +341,96 @@ const Mapping = () => {
       return;
     }
     
-    // 주소에서 도시 정보 추출하여 좌표 가져오기
+    // 마커의 실제 화면 좌표를 사용하여 지리 좌표로 변환
+    const markerElement = event.currentTarget;
+    const transform = d3.select(markerElement).attr("transform");
+    const translateMatch = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+    
+    if (!translateMatch) {
+      console.warn('❌ 마커 transform을 파싱할 수 없음:', transform);
+      return;
+    }
+    
+    const screenX = parseFloat(translateMatch[1]);
+    const screenY = parseFloat(translateMatch[2]);
+    
+    console.log('📍 마커 화면 좌표:', { screenX, screenY, siteName: site.name });
+    
+    // 현재 줌 변환 적용
+    const svg = d3.select(svgRef.current);
+    const currentTransform = d3.zoomTransform(svgRef.current) || d3.zoomIdentity;
+    
+    // 화면 좌표를 지리 좌표로 역변환
+    const projection = d3.geoMercator()
+      .center([127.5, 36])
+      .scale(6000)
+      .translate([svgRef.current.clientWidth / 2, svgRef.current.clientHeight / 2]);
+    
+    // 마커의 실제 지리 좌표를 직접 사용 (화면 좌표 변환 대신)
+    let lon, lat;
+    
+    try {
+      // 마커 요소에서 data 속성으로 저장된 좌표 사용
+      const markerLat = parseFloat(markerElement.getAttribute('data-lat'));
+      const markerLon = parseFloat(markerElement.getAttribute('data-lon'));
+      
+      if (!isNaN(markerLat) && !isNaN(markerLon)) {
+        lat = markerLat;
+        lon = markerLon;
+        console.log('📍 마커 data 속성에서 좌표 사용:', { lat, lon, siteName: site.name });
+      } else {
+        // data 속성이 없으면 기존 방식으로 fallback
+        console.log('📍 data 속성 없음, 기존 방식 사용');
+        
+        // 실제 현장 좌표 사용 (우선순위: latitude/longitude > 도시 좌표)
+        if (site.latitude && site.longitude) {
+          lat = parseFloat(site.latitude);
+          lon = parseFloat(site.longitude);
+          console.log('📍 실제 현장 좌표 사용:', { lat, lon, siteName: site.name });
+        } else {
+          // 도시 좌표 사용
+          const city = extractCityFromAddress(site.address);
+          if (!city) {
+            console.warn('❌ 도시 정보를 추출할 수 없음');
+            return;
+          }
+          
+          const coord = cityCoordinates[getCoordinateKey(city)];
+          if (!coord || !Array.isArray(coord) || coord.length !== 2) {
+            console.warn('❌ 좌표 정보를 찾을 수 없음:', coord);
+            return;
+          }
+          
+          lat = coord[1];
+          lon = coord[0];
+          console.log('📍 도시 좌표 사용:', { lat, lon, city });
+        }
+      }
+      
+      // 좌표 유효성 검사
+      if (typeof lon !== 'number' || typeof lat !== 'number' || isNaN(lon) || isNaN(lat)) {
+        console.warn('❌ 유효하지 않은 좌표:', { lon, lat });
+        return;
+      }
+      
+    } catch (error) {
+      console.error('❌ 좌표 처리 중 오류:', error);
+      return;
+    }
+    console.log('📍 변환된 지리 좌표:', { lat, lon, siteName: site.name });
+    
+    // 좌표 검증
+    const normalizedCoord = validateAndNormalizeCoordinates(lat, lon);
+    if (!normalizedCoord) {
+      console.warn('❌ 좌표 검증 실패:', { lat, lon, siteName: site.name });
+      return;
+    }
+    
+    const finalLat = normalizedCoord.lat;
+    const finalLon = normalizedCoord.lon;
+    const coordinateSource = '마커 화면 좌표 변환';
     const city = extractCityFromAddress(site.address);
-    console.log('📍 추출된 도시:', city, '주소:', site.address);
-    
-    if (!city) {
-      console.log('❌ 도시 정보를 추출할 수 없음');
-      return;
-    }
-    
-    const coord = cityCoordinates[getCoordinateKey(city)];
-    console.log('🗺️ 좌표 정보:', coord, '키:', getCoordinateKey(city));
-    
-    if (!coord) {
-      console.log('❌ 좌표 정보를 찾을 수 없음');
-      return;
-    }
-    
-    const lat = coord[1];
-    const lon = coord[0];
+    const coord = [finalLon, finalLat];
     
     // 클릭 피드백 애니메이션
     d3.select(event.currentTarget).transition()
@@ -178,13 +474,24 @@ const Mapping = () => {
       });
     
     const newPoint = {
-      lat: lat,
-      lon: lon,
+      lat: finalLat,
+      lon: finalLon,
       siteName: site.name,
-      siteId: site.id
+      siteId: site.id,
+      address: site.address,
+      coordinateSource,
+      extractedCity: city || null,
+      coordinateKey: city ? getCoordinateKey(city) : null,
+      originalCoord: coord
     };
     
     console.log('📍 새로운 거리측정 포인트:', newPoint);
+    console.log('📍 좌표 검증 결과:', {
+      원본좌표: site.latitude && site.longitude ? [site.longitude, site.latitude] : coord,
+      정규화좌표: normalizedCoord,
+      검증통과: !!normalizedCoord,
+      좌표소스: coordinateSource
+    });
     
     setDistancePoints(prevPoints => {
       console.log('📍 기존 포인트들:', prevPoints);
@@ -381,7 +688,7 @@ const Mapping = () => {
     '청송군': [129.0572, 36.4357], '영양군': [129.1124, 36.6665], '영덕군': [129.3653, 36.4150],
     '청도군': [128.7409, 35.6473], '고령군': [128.2628, 35.7260], '성주군': [128.2829, 35.9189],
     '칠곡군': [128.4019, 35.9952], '예천군': [128.4544, 36.6577], '봉화군': [128.7345, 36.8931],
-    '울진군': [129.4004, 36.9938], '울릉군': [130.9038, 37.4844],
+    '울진군': [129.4004, 36.9938], '울릉군': [130.9038, 37.4844], '달성군': [128.4311, 35.7747],
     
     // 경상남도 주요 시/군/구 좌표
     '창원시': [128.6811, 35.2281], '진주시': [128.1074, 35.1806], '통영시': [128.4339, 34.8544],
@@ -607,9 +914,14 @@ const Mapping = () => {
 
   // 주소에서 도시명 추출 함수 (GitHub GeoJSON 데이터와 매칭)
   const extractCityFromAddress = (address) => {
-    if (!address || address === '주소 미입력') return null;
+    if (!address || address === '주소 미입력') {
+      console.log('📍 주소가 없거나 미입력:', address);
+      return null;
+    }
     
-    console.log('📍 주소 분석:', address);
+    // 주소 정규화 (공백 제거, 특수문자 정리)
+    const normalizedAddress = address.trim().replace(/\s+/g, ' ');
+    console.log('📍 주소 분석:', { 원본: address, 정규화: normalizedAddress });
     
     // GitHub GeoJSON 데이터의 지역명과 매칭되는 패턴 (우선순위 순으로 정렬)
     const regionPatterns = [
@@ -778,6 +1090,49 @@ const Mapping = () => {
       { pattern: /경북\s*경산/, name: '경산시' },
       { pattern: /경산(?=\s|$)/, name: '경산시' },
       
+      // 경상북도 군 단위 (면 단위 포함)
+      { pattern: /경상북도\s*달성군/, name: '달성군' },
+      { pattern: /경북\s*달성군/, name: '달성군' },
+      { pattern: /달성군(?=\s|$)/, name: '달성군' },
+      { pattern: /경상북도\s*군위군/, name: '군위군' },
+      { pattern: /경북\s*군위군/, name: '군위군' },
+      { pattern: /군위군(?=\s|$)/, name: '군위군' },
+      { pattern: /경상북도\s*의성군/, name: '의성군' },
+      { pattern: /경북\s*의성군/, name: '의성군' },
+      { pattern: /의성군(?=\s|$)/, name: '의성군' },
+      { pattern: /경상북도\s*청송군/, name: '청송군' },
+      { pattern: /경북\s*청송군/, name: '청송군' },
+      { pattern: /청송군(?=\s|$)/, name: '청송군' },
+      { pattern: /경상북도\s*영양군/, name: '영양군' },
+      { pattern: /경북\s*영양군/, name: '영양군' },
+      { pattern: /영양군(?=\s|$)/, name: '영양군' },
+      { pattern: /경상북도\s*영덕군/, name: '영덕군' },
+      { pattern: /경북\s*영덕군/, name: '영덕군' },
+      { pattern: /영덕군(?=\s|$)/, name: '영덕군' },
+      { pattern: /경상북도\s*청도군/, name: '청도군' },
+      { pattern: /경북\s*청도군/, name: '청도군' },
+      { pattern: /청도군(?=\s|$)/, name: '청도군' },
+      { pattern: /경상북도\s*고령군/, name: '고령군' },
+      { pattern: /경북\s*고령군/, name: '고령군' },
+      { pattern: /고령군(?=\s|$)/, name: '고령군' },
+      { pattern: /경상북도\s*성주군/, name: '성주군' },
+      { pattern: /경북\s*성주군/, name: '성주군' },
+      { pattern: /성주군(?=\s|$)/, name: '성주군' },
+      { pattern: /경상북도\s*칠곡군/, name: '칠곡군' },
+      { pattern: /경북\s*칠곡군/, name: '칠곡군' },
+      { pattern: /칠곡군(?=\s|$)/, name: '칠곡군' },
+      { pattern: /경상북도\s*봉화군/, name: '봉화군' },
+      { pattern: /경북\s*봉화군/, name: '봉화군' },
+      { pattern: /봉화군(?=\s|$)/, name: '봉화군' },
+      { pattern: /경상북도\s*울릉군/, name: '울릉군' },
+      { pattern: /경북\s*울릉군/, name: '울릉군' },
+      { pattern: /울릉군(?=\s|$)/, name: '울릉군' },
+      
+      // 면 단위 직접 매칭 (경상북도 내)
+      { pattern: /약목면/, name: '달성군' }, // 약목면은 달성군 소속
+      { pattern: /영해면/, name: '영덕군' }, // 영해면은 영덕군 소속
+      { pattern: /주산체육관/, name: '영덕군' }, // 주산체육관은 영덕군 소속
+      
       // 경상남도
       { pattern: /경상남도\s*창원/, name: '창원시' },
       { pattern: /경남\s*창원/, name: '창원시' },
@@ -873,28 +1228,28 @@ const Mapping = () => {
       { pattern: /경기\s*동두천/, name: '동두천시' },
       { pattern: /동두천(?=\s|$)/, name: '동두천시' },
       
-      // 도 + 시/군/구 조합 (예: 경상북도 경주시, 경상남도 창원시)
-      { pattern: /경상북도\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /경상남도\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /경기도\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /강원도\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /강원특별자치도\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /충청북도\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /충청남도\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /전라북도\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /전라남도\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /제주특별자치도\s*(\w+시|\w+군|\w+구)/, name: null },
+      // 도 + 시/군/구 조합 (예: 경상북도 경주시, 경상남도 창원시) - 구체적인 시/군/구 추출
+      { pattern: /경상북도\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /경상남도\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /경기도\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /강원도\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /강원특별자치도\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /충청북도\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /충청남도\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /전라북도\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /전라남도\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /제주특별자치도\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
       
-      // 약칭 + 시/군/구 조합 (예: 경북 경주시, 경남 창원시)
-      { pattern: /경북\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /경남\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /경기\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /강원\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /충북\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /충남\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /전북\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /전남\s*(\w+시|\w+군|\w+구)/, name: null },
-      { pattern: /제주\s*(\w+시|\w+군|\w+구)/, name: null },
+      // 약칭 + 시/군/구 조합 (예: 경북 경주시, 경남 창원시) - 구체적인 시/군/구 추출
+      { pattern: /경북\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /경남\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /경기\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /강원\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /충북\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /충남\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /전북\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /전남\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
+      { pattern: /제주\s*(\w+시|\w+군|\w+구)/, name: (match) => match[1] },
       
       // 시 단위 (구체적인 시명 우선)
       { pattern: /(\w+시)(?=\s|$)/, name: null }, // 시로 끝나는 패턴
@@ -937,13 +1292,27 @@ const Mapping = () => {
     for (const { pattern, name } of regionPatterns) {
       const match = address.match(pattern);
       if (match) {
-        const extractedName = name || match[1];
+        const extractedName = typeof name === 'function' ? name(match) : (name || match[1]);
         console.log('✅ 추출된 지역:', extractedName);
         return extractedName;
       }
     }
     
-    console.log('❌ 지역 추출 실패');
+    console.log('❌ 지역 추출 실패:', { 
+      원본주소: address, 
+      정규화주소: normalizedAddress,
+      패턴개수: regionPatterns.length 
+    });
+    
+    // 마지막 시도: 간단한 키워드 매칭
+    const simpleKeywords = ['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종'];
+    for (const keyword of simpleKeywords) {
+      if (normalizedAddress.includes(keyword)) {
+        console.log('🔍 간단한 키워드 매칭 성공:', keyword);
+        return keyword;
+      }
+    }
+    
     return null;
   };
 
@@ -1228,7 +1597,7 @@ const Mapping = () => {
       '문경시': '경상북도', '경산시': '경상북도', '군위군': '경상북도', '의성군': '경상북도',
       '청송군': '경상북도', '영양군': '경상북도', '영덕군': '경상북도', '청도군': '경상북도',
       '고령군': '경상북도', '성주군': '경상북도', '칠곡군': '경상북도', '예천군': '경상북도',
-      '봉화군': '경상북도', '울진군': '경상북도', '울릉군': '경상북도',
+      '봉화군': '경상북도', '울진군': '경상북도', '울릉군': '경상북도', '달성군': '경상북도',
       
       // 경상남도
       '창원시': '경상남도', '진주시': '경상남도', '통영시': '경상남도', '사천시': '경상남도',
@@ -1583,6 +1952,9 @@ const Mapping = () => {
                 .style("filter", isSelected ? "drop-shadow(0 0 15px #00bcd4)" : (distanceMode ? "drop-shadow(0 0 8px #ff6b6b)" : `drop-shadow(0 0 4px ${statusColors[site.status] || '#9e9e9e'})`));
             }
 
+            // 거리 정보 표시 (마커 위에)
+            updateMarkerDistance(marker, site);
+
             // 진행률 링
             if (site.progress && site.progress > 0 && !isImportant) {
               const pr = radius + 2;
@@ -1799,6 +2171,8 @@ const Mapping = () => {
       })
       .on("start", (event) => {
         // 줌 시작 시 즉시 반응하도록 설정
+        // 거리측정 점들도 함께 업데이트
+        updateDistancePoints(event.transform);
         isZoomingRef.current = true;
         if (mapGroupRef.current) {
           mapGroupRef.current.attr("transform", event.transform);
@@ -1821,6 +2195,9 @@ const Mapping = () => {
         if (mapGroupRef.current) {
           mapGroupRef.current.attr("transform", event.transform);
         }
+        
+        // 거리측정 점들도 함께 업데이트
+        updateDistancePoints(event.transform);
         
         // 모든 마커 트랜지션 중단 및 가시성 보장 (드래그/줌 중)
         const existingMarkers = svg.selectAll(".site-marker");
@@ -1919,6 +2296,9 @@ const Mapping = () => {
             .ease(d3.easeCubicInOut)
             .attr("transform", event.transform);
         }
+        
+        // 거리측정 점들도 최종 위치로 업데이트
+        updateDistancePoints(event.transform);
         
         // 마커 위치는 zoom 이벤트에서 직접 업데이트됨
         
@@ -2478,7 +2858,6 @@ const Mapping = () => {
     const mapGroup = mapGroupRef.current;
     
     // 기존 거리측정 요소들만 제거 (마커는 건드리지 않음)
-    mapGroup.selectAll(".distance-point").remove();
     mapGroup.selectAll(".distance-curve").remove();
     mapGroup.selectAll(".distance-arrow").remove();
     mapGroup.selectAll(".distance-text").remove();
@@ -2493,45 +2872,53 @@ const Mapping = () => {
     // 현재 줌 변환 적용
     const currentTransform = d3.zoomTransform(svgRef.current) || d3.zoomIdentity;
 
-    // 점들 그리기
+    // 현장 마커에 번호 표시
     distancePoints.forEach((point, index) => {
-      const projected = projection([point.lon, point.lat]);
-      if (projected) {
-        const [x, y] = currentTransform.apply(projected);
-        
-        // 점 그리기
-        mapGroup.append("circle")
-          .attr("class", "distance-point")
-          .attr("cx", x)
-          .attr("cy", y)
-          .attr("r", 6)
-          .attr("fill", "#ff1744")
-          .attr("stroke", "#fff")
-          .attr("stroke-width", 2);
-
-        // 점 번호만 표시
-        mapGroup.append("text")
-          .attr("class", "distance-text")
-          .attr("x", x)
-          .attr("y", y - 15)
-          .attr("text-anchor", "middle")
-          .attr("fill", "#fff")
-          .attr("font-size", "12px")
-          .attr("font-weight", "bold")
-          .text(index + 1);
+      // 해당 현장의 마커를 찾아서 번호 표시
+      const marker = svg.select(`[data-marker-id*="${point.siteId}"]`);
+      if (!marker.empty()) {
+        const markerTransform = marker.attr("transform");
+        const translateMatch = markerTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        if (translateMatch) {
+          const x = parseFloat(translateMatch[1]);
+          const y = parseFloat(translateMatch[2]);
+          
+          // 마커 위에 번호 표시
+          mapGroup.append("text")
+            .attr("class", "distance-text")
+            .attr("x", x)
+            .attr("y", y - 15)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#ff1744")
+            .attr("font-size", "14px")
+            .attr("font-weight", "bold")
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 2)
+            .style("text-shadow", "1px 1px 2px rgba(0,0,0,0.8)")
+            .text(index + 1);
+        }
       }
     });
 
-    // 두 점 사이의 곡선 화살표 그리기
+    // 두 점 사이의 곡선 화살표 그리기 (현장 마커 위치 사용)
     if (distancePoints.length === 2) {
-      const projected1 = projection([distancePoints[0].lon, distancePoints[0].lat]);
-      const projected2 = projection([distancePoints[1].lon, distancePoints[1].lat]);
+      const marker1 = svg.select(`[data-marker-id*="${distancePoints[0].siteId}"]`);
+      const marker2 = svg.select(`[data-marker-id*="${distancePoints[1].siteId}"]`);
       
-      if (projected1 && projected2) {
-        const [x1, y1] = currentTransform.apply(projected1);
-        const [x2, y2] = currentTransform.apply(projected2);
+      if (!marker1.empty() && !marker2.empty()) {
+        const transform1 = marker1.attr("transform");
+        const transform2 = marker2.attr("transform");
         
-        // 곡선 경로 계산 (베지어 곡선)
+        const match1 = transform1.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        const match2 = transform2.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        
+        if (match1 && match2) {
+          const x1 = parseFloat(match1[1]);
+          const y1 = parseFloat(match1[2]);
+          const x2 = parseFloat(match2[1]);
+          const y2 = parseFloat(match2[2]);
+          
+          // 곡선 경로 계산 (베지어 곡선)
         const dx = x2 - x1;
         const dy = y2 - y1;
         const distance = Math.sqrt(dx * dx + dy * dy);
@@ -2589,6 +2976,7 @@ const Mapping = () => {
           .attr("stroke", "#000")
           .attr("stroke-width", 1)
           .text(`${calculatedDistance ? calculatedDistance.toFixed(1) : ''}km`);
+        }
       }
     }
   }, [distancePoints, calculatedDistance]);
@@ -3300,6 +3688,9 @@ const Mapping = () => {
                   <Typography variant="body2" sx={{ color: '#ccc' }}>
                     {distancePoints[0].siteName} ↔ {distancePoints[1].siteName}
                   </Typography>
+                  <Typography variant="caption" sx={{ color: '#888', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                    좌표: {distancePoints[0].coordinateSource} ↔ {distancePoints[1].coordinateSource}
+                  </Typography>
                   <Typography variant="caption" sx={{ color: '#999', mt: 1, display: 'block' }}>
                     다시 클릭하면 새로운 측정을 시작합니다
                   </Typography>
@@ -3342,6 +3733,9 @@ const Mapping = () => {
           }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#fff', fontSize: '1.5rem' }}>
               지역별 현장 현황
+              <Typography component="span" sx={{ color: '#4caf50', fontSize: '1.2rem', ml: 1 }}>
+                총 {Object.values(regionSiteCounts).reduce((sum, count) => sum + count, 0)}개 현장
+              </Typography>
             </Typography>
             <List sx={{ p: 0 }}>
               {Object.entries(regionSiteCounts)

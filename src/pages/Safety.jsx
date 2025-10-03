@@ -578,7 +578,7 @@ const SafetyPage = () => {
     
     if (tab === 0) {
       return (
-        <Grid xs={12} md={4} lg={3}>
+        <Grid size={{ xs: 12, md: 4, lg: 3 }}>
           <SafetyOverviewCards />
         </Grid>
       );
@@ -879,7 +879,7 @@ const SafetyPage = () => {
     };
     
     return (
-      <Grid xs={12} sx={{
+      <Grid size={12} sx={{
         width: '100%',
         maxWidth: '100%',
         minWidth: 0
@@ -1304,7 +1304,7 @@ const SafetyPage = () => {
             })
           }}>
             <Grid container spacing={2}>
-              <Grid xs={12}>
+              <Grid size={12}>
                 <Autocomplete
                   options={siteOptions.filter(option => option && option.trim() !== '')}
                   value={form.siteName}
@@ -1337,7 +1337,7 @@ const SafetyPage = () => {
               </Grid>
               {tab === 4 && (
                 <>
-                  <Grid xs={6}>
+                  <Grid size={6}>
                     <TextField 
                       margin="dense" 
                       label="이름" 
@@ -1353,7 +1353,7 @@ const SafetyPage = () => {
                       }}
                     />
                   </Grid>
-                  <Grid xs={6}>
+                  <Grid size={6}>
                     <TextField 
                       margin="dense" 
                       label="안전장비" 
@@ -1369,7 +1369,7 @@ const SafetyPage = () => {
                       }}
                     />
                   </Grid>
-                  <Grid xs={6}>
+                  <Grid size={6}>
                     <FormControl 
                       fullWidth 
                       margin="dense"
@@ -1393,7 +1393,7 @@ const SafetyPage = () => {
                       </Select>
                     </FormControl>
                   </Grid>
-                  <Grid xs={6}>
+                  <Grid size={6}>
                     <TextField 
                       margin="dense" 
                       label="금액" 
@@ -1409,7 +1409,7 @@ const SafetyPage = () => {
                       }}
                     />
                   </Grid>
-                  <Grid xs={12}>
+                  <Grid size={12}>
                     <TextField 
                       margin="dense" 
                       label="비고" 
@@ -1427,7 +1427,7 @@ const SafetyPage = () => {
                       }}
                     />
                   </Grid>
-                  <Grid xs={12}>
+                  <Grid size={12}>
                     <Box sx={{ mt: 1, mb: 1 }}>
                       <Button 
                         variant="outlined" 
@@ -1454,7 +1454,7 @@ const SafetyPage = () => {
                       )}
                     </Box>
                   </Grid>
-                  <Grid xs={12}>
+                  <Grid size={12}>
                     <TextField 
                       margin="dense" 
                       label="미리보기 URL" 
@@ -1473,7 +1473,7 @@ const SafetyPage = () => {
                   </Grid>
                 </>
               )}
-              <Grid xs={12}>
+              <Grid size={12}>
                 <TextField 
                   margin="dense" 
                   label="제목" 
@@ -1489,7 +1489,7 @@ const SafetyPage = () => {
                   }}
                 />
               </Grid>
-              <Grid xs={6}>
+              <Grid size={6}>
                 <TextField 
                   margin="dense" 
                   type="date" 
@@ -1506,7 +1506,7 @@ const SafetyPage = () => {
                   }}
                 />
               </Grid>
-              <Grid xs={12}>
+              <Grid size={12}>
                 <TextField 
                   margin="dense" 
                   label="비고" 

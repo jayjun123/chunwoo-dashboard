@@ -319,7 +319,14 @@ const SettlementManagement = () => {
         순이익: Math.round(((settlement.gisungAmount || 0) - 
                 ((settlement.materialCost || 0) + (settlement.laborCost || 0) + 
                  (settlement.subMaterialCost || 0) + (settlement.equipmentCost || 0) + 
-                 (settlement.expenseCost || 0) + (settlement.safetyCost || 0))) / 1000000)
+                 (settlement.expenseCost || 0) + (settlement.safetyCost || 0))) / 1000000),
+        // 개별 지출 항목들 (툴팁용)
+        materialCost: Math.round((settlement.materialCost || 0) / 1000000),
+        laborCost: Math.round((settlement.laborCost || 0) / 1000000),
+        subMaterialCost: Math.round((settlement.subMaterialCost || 0) / 1000000),
+        equipmentCost: Math.round((settlement.equipmentCost || 0) / 1000000),
+        expenseCost: Math.round((settlement.expenseCost || 0) / 1000000),
+        safetyCost: Math.round((settlement.safetyCost || 0) / 1000000)
       };
     });
   };
@@ -1009,9 +1016,117 @@ const SettlementManagement = () => {
                   contentStyle={{ 
                     backgroundColor: isChartLightMode ? '#ffffff' : '#2a2a2a', 
                     border: isChartLightMode ? '1px solid #e0e0e0' : '1px solid #333',
-                    color: isChartLightMode ? '#333' : '#fff'
+                    color: isChartLightMode ? '#333' : '#fff',
+                    borderRadius: '8px',
+                    padding: '12px'
                   }}
-                  formatter={(value, name) => [formatMillionToEok(value), name]}
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <Box sx={{ 
+                          p: 2, 
+                          bgcolor: isChartLightMode ? '#ffffff' : '#2a2a2a',
+                          border: isChartLightMode ? '1px solid #e0e0e0' : '1px solid #333',
+                          borderRadius: '8px',
+                          minWidth: '200px'
+                        }}>
+                          <Typography variant="subtitle2" sx={{ 
+                            fontWeight: 'bold', 
+                            mb: 1,
+                            color: isChartLightMode ? '#333' : '#fff'
+                          }}>
+                            {label}
+                          </Typography>
+                          
+                          {/* 기성금 섹션 */}
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant="caption" sx={{ 
+                              color: '#43e97b', 
+                              fontWeight: 'bold',
+                              display: 'block',
+                              mb: 0.5
+                            }}>
+                              [기성금]
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              기성금액: {formatMillionToEok(data.기성금액)}
+                            </Typography>
+                          </Box>
+
+                          {/* 수입 섹션 */}
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant="caption" sx={{ 
+                              color: '#2196f3', 
+                              fontWeight: 'bold',
+                              display: 'block',
+                              mb: 0.5
+                            }}>
+                              -수입-
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              입금완료: {formatMillionToEok(data.기성금액)}
+                            </Typography>
+                          </Box>
+
+                          {/* 지출 섹션 */}
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant="caption" sx={{ 
+                              color: '#ef5350', 
+                              fontWeight: 'bold',
+                              display: 'block',
+                              mb: 0.5
+                            }}>
+                              -지출-
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              노무비: {formatMillionToEok(data.laborCost || 0)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              부자재비: {formatMillionToEok(data.subMaterialCost || 0)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              장비비: {formatMillionToEok(data.equipmentCost || 0)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              경비: {formatMillionToEok(data.expenseCost || 0)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              안전관리비: {formatMillionToEok(data.safetyCost || 0)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              기타: {formatMillionToEok(data.materialCost || 0)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      );
+                    }
+                    return null;
+                  }}
                 />
                 <RechartsLegend />
                 <ReferenceLine y={0} stroke="#ff0000" strokeDasharray="5 5" strokeWidth={2} />
@@ -1087,13 +1202,108 @@ const SettlementManagement = () => {
                   contentStyle={{ 
                     backgroundColor: isChartLightMode ? '#ffffff' : '#2a2a2a', 
                     border: isChartLightMode ? '1px solid #e0e0e0' : '1px solid #333',
-                    color: isChartLightMode ? '#333' : '#fff'
+                    color: isChartLightMode ? '#333' : '#fff',
+                    borderRadius: '8px',
+                    padding: '12px'
                   }}
-                  formatter={(value, name) => {
-                    if (name === '기성률') {
-                      return [`${value}%`, name];
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <Box sx={{ 
+                          p: 2, 
+                          bgcolor: isChartLightMode ? '#ffffff' : '#2a2a2a',
+                          border: isChartLightMode ? '1px solid #e0e0e0' : '1px solid #333',
+                          borderRadius: '8px',
+                          minWidth: '200px'
+                        }}>
+                          <Typography variant="subtitle2" sx={{ 
+                            fontWeight: 'bold', 
+                            mb: 1,
+                            color: isChartLightMode ? '#333' : '#fff'
+                          }}>
+                            {label}
+                          </Typography>
+                          
+                          {/* 기성금 섹션 */}
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant="caption" sx={{ 
+                              color: '#43e97b', 
+                              fontWeight: 'bold',
+                              display: 'block',
+                              mb: 0.5
+                            }}>
+                              [기성금]
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              기성금액: {formatMillionToEok(data.기성금액)}
+                            </Typography>
+                          </Box>
+
+                          {/* 수입 섹션 */}
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant="caption" sx={{ 
+                              color: '#2196f3', 
+                              fontWeight: 'bold',
+                              display: 'block',
+                              mb: 0.5
+                            }}>
+                              -수입-
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              입금완료: {formatMillionToEok(data.기성금액)}
+                            </Typography>
+                          </Box>
+
+                          {/* 지출 섹션 */}
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant="caption" sx={{ 
+                              color: '#ef5350', 
+                              fontWeight: 'bold',
+                              display: 'block',
+                              mb: 0.5
+                            }}>
+                              -지출-
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              노무비: {formatMillionToEok(data.laborCost || 0)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              경비: {formatMillionToEok(data.expenseCost || 0)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              기타: {formatMillionToEok((data.materialCost || 0) + (data.subMaterialCost || 0) + (data.equipmentCost || 0) + (data.safetyCost || 0))}
+                            </Typography>
+                          </Box>
+
+                          {/* 기성률 정보 */}
+                          <Box sx={{ mt: 1, pt: 1, borderTop: `1px solid ${isChartLightMode ? '#e0e0e0' : '#333'}` }}>
+                            <Typography variant="body2" sx={{ 
+                              color: '#ff9800',
+                              fontWeight: 'bold'
+                            }}>
+                              기성률: {data.기성률}%
+                            </Typography>
+                          </Box>
+                        </Box>
+                      );
                     }
-                    return [formatMillionToEok(value), name];
+                    return null;
                   }}
                 />
                 <RechartsLegend />
@@ -1261,16 +1471,10 @@ const SettlementManagement = () => {
                             {formatNumber(siteSettlement?.equipmentCost || 0)}원
                           </TableCell>
                         </TableRow>
-                        <TableRow key="expense-cost">
-                          <TableCell sx={{ color: '#fff' }}>경비</TableCell>
+                        <TableRow key="expense-safety-cost">
+                          <TableCell sx={{ color: '#fff' }}>경비 / 안전관리비</TableCell>
                           <TableCell sx={{ color: '#ef5350', fontWeight: 'bold', textAlign: 'right' }}>
-                            {formatNumber(siteSettlement?.expenseCost || 0)}원
-                          </TableCell>
-                        </TableRow>
-                        <TableRow key="safety-cost">
-                          <TableCell sx={{ color: '#fff' }}>안전관리비</TableCell>
-                          <TableCell sx={{ color: '#ff9800', fontWeight: 'bold', textAlign: 'right' }}>
-                            {formatNumber(siteSettlement?.safetyCost || 0)}원
+                            {formatNumber(siteSettlement?.expenseCost || 0)}원 / {formatNumber(siteSettlement?.safetyCost || 0)}원
                           </TableCell>
                         </TableRow>
                       </TableBody>
@@ -1285,10 +1489,10 @@ const SettlementManagement = () => {
         <Box>
         {/* 전체 정산 목록 (기존 테이블) */}
           <TableContainer component={Paper} sx={{ backgroundColor: '#2a2a2a' }}>
-            <Table>
+            <Table sx={{ width: '100%', tableLayout: 'fixed' }}>
               <TableHead>
             <TableRow sx={{ backgroundColor: '#333' }}>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '5%', textAlign: 'center', fontSize: '1.1rem' }}>
+              <TableCell sx={{ color: '#fff', fontWeight: 600, width: '4%', textAlign: 'center', fontSize: '1.1rem' }}>
                 <Checkbox
                   checked={isAllSelected}
                   onChange={handleSelectAll}
@@ -1317,14 +1521,14 @@ const SettlementManagement = () => {
                 sx={{ 
                   color: '#fff', 
                   fontWeight: 600, 
-                  width: '8%', 
+                  width: '6%', 
                   textAlign: 'center', 
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
                   // 아이패드에서 표시
                   '@media (min-width: 768px) and (max-width: 1024px)': {
-                    width: '12%'
+                    width: '8%'
                   }
                 }}
                 onClick={() => handleSort('gisungRate')}
@@ -1353,14 +1557,14 @@ const SettlementManagement = () => {
                 sx={{ 
                   color: '#fff', 
                   fontWeight: 600, 
-                  width: '10%', 
+                  width: '8%', 
                   textAlign: 'center', 
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
                   // 아이패드에서 표시
                   '@media (min-width: 768px) and (max-width: 1024px)': {
-                    width: '15%'
+                    width: '12%'
                   }
                 }}
                 onClick={() => handleSort('gisungAmount')}
@@ -1389,7 +1593,7 @@ const SettlementManagement = () => {
                 sx={{ 
                   color: '#fff', 
                   fontWeight: 600, 
-                  width: '8%', 
+                  width: '10%', 
                   textAlign: 'center', 
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
@@ -1407,7 +1611,7 @@ const SettlementManagement = () => {
                 sx={{ 
                   color: '#fff', 
                   fontWeight: 600, 
-                  width: '8%', 
+                  width: '10%', 
                   textAlign: 'center', 
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
@@ -1425,7 +1629,7 @@ const SettlementManagement = () => {
                 sx={{ 
                   color: '#fff', 
                   fontWeight: 600, 
-                  width: '8%', 
+                  width: '10%', 
                   textAlign: 'center', 
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
@@ -1443,7 +1647,7 @@ const SettlementManagement = () => {
                 sx={{ 
                   color: '#fff', 
                   fontWeight: 600, 
-                  width: '8%', 
+                  width: '10%', 
                   textAlign: 'center', 
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
@@ -1457,33 +1661,34 @@ const SettlementManagement = () => {
               >
                 장비비 {sortField === 'equipmentCost' && (sortDirection === 'asc' ? '↑' : '↓')}
               </TableCell>
+            <TableCell 
+              sx={{ 
+                color: '#fff', 
+                fontWeight: 600, 
+                width: '10%', 
+                textAlign: 'center', 
+                fontSize: '1.1rem', 
+                cursor: 'pointer', 
+                '&:hover': { backgroundColor: '#444' },
+                // 아이패드에서 숨김
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  display: 'none'
+                }
+              }}
+              onClick={() => handleSort('expenseCost')}
+            >
+              경비 {sortField === 'expenseCost' && (sortDirection === 'asc' ? '↑' : '↓')}
+            </TableCell>
               <TableCell 
                 sx={{ 
                   color: '#fff', 
                   fontWeight: 600, 
                   width: '8%', 
                   textAlign: 'center', 
-                  fontSize: '1.1rem', 
+                  fontSize: '0.9rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
-                  }
-                }}
-                onClick={() => handleSort('expenseCost')}
-              >
-                경비 {sortField === 'expenseCost' && (sortDirection === 'asc' ? '↑' : '↓')}
-              </TableCell>
-              <TableCell 
-                sx={{ 
-                  color: '#fff', 
-                  fontWeight: 600, 
-                  width: '8%', 
-                  textAlign: 'center', 
-                  fontSize: '1.1rem', 
-                  cursor: 'pointer', 
-                  '&:hover': { backgroundColor: '#444' },
+                  whiteSpace: 'nowrap',
                   // 아이패드에서 표시
                   '@media (min-width: 768px) and (max-width: 1024px)': {
                     width: '12%'
@@ -1501,10 +1706,7 @@ const SettlementManagement = () => {
                   textAlign: 'center', 
                   fontSize: '1.1rem',
                   minWidth: '150px',
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
-                  }
+                  display: 'none'
                 }}
               >
                 비고
@@ -1554,8 +1756,10 @@ const SettlementManagement = () => {
                     color: '#fff', 
                     fontWeight: 500, 
                     fontSize: '1.1rem',
+                    width: '22%',
                     // 아이패드에서만 6글자로 제한
                     '@media (min-width: 768px) and (max-width: 1024px)': {
+                      width: '24%',
                       '&::after': {
                         content: '""',
                         display: 'block',
@@ -1649,7 +1853,11 @@ const SettlementManagement = () => {
                     color: '#ef5350', 
                     fontWeight: 'bold', 
                     textAlign: 'right', 
-                    fontSize: '0.9rem',
+                    fontSize: '1.1rem',
+                    width: '10%',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                     // 아이패드에서 숨김
                     '@media (min-width: 768px) and (max-width: 1024px)': {
                       display: 'none'
@@ -1661,7 +1869,11 @@ const SettlementManagement = () => {
                     color: '#ef5350', 
                     fontWeight: 'bold', 
                     textAlign: 'right', 
-                    fontSize: '0.9rem',
+                    fontSize: '1.1rem',
+                    width: '10%',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                     // 아이패드에서 숨김
                     '@media (min-width: 768px) and (max-width: 1024px)': {
                       display: 'none'
@@ -1673,7 +1885,11 @@ const SettlementManagement = () => {
                     color: '#ef5350', 
                     fontWeight: 'bold', 
                     textAlign: 'right', 
-                    fontSize: '0.9rem',
+                    fontSize: '1.1rem',
+                    width: '10%',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                     // 아이패드에서 숨김
                     '@media (min-width: 768px) and (max-width: 1024px)': {
                       display: 'none'
@@ -1685,7 +1901,11 @@ const SettlementManagement = () => {
                     color: '#ef5350', 
                     fontWeight: 'bold', 
                     textAlign: 'right', 
-                    fontSize: '0.9rem',
+                    fontSize: '1.1rem',
+                    width: '10%',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                     // 아이패드에서 숨김
                     '@media (min-width: 768px) and (max-width: 1024px)': {
                       display: 'none'
@@ -1693,23 +1913,30 @@ const SettlementManagement = () => {
                   }}>
                     {formatNumber(settlement.equipmentCost || 0)}원
                       </TableCell>
-                  <TableCell sx={{ 
-                    color: '#ef5350', 
-                    fontWeight: 'bold', 
-                    textAlign: 'right', 
-                    fontSize: '0.9rem',
-                    // 아이패드에서 숨김
-                    '@media (min-width: 768px) and (max-width: 1024px)': {
-                      display: 'none'
-                    }
-                  }}>
-                    {formatNumber(settlement.expenseCost || 0)}원
-                      </TableCell>
+            <TableCell sx={{ 
+              color: '#ef5350', 
+              fontWeight: 'bold', 
+              textAlign: 'right', 
+              fontSize: '1.1rem',
+              width: '10%',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              // 아이패드에서 숨김
+              '@media (min-width: 768px) and (max-width: 1024px)': {
+                display: 'none'
+              }
+            }}>
+              {formatNumber(settlement.expenseCost || 0)}원
+            </TableCell>
                   <TableCell sx={{ 
                     color: '#ff9800', 
                     fontWeight: 'bold', 
                     textAlign: 'right', 
-                    fontSize: '0.9rem',
+                    fontSize: '0.8rem',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                     // 아이패드에서 표시
                     '@media (min-width: 768px) and (max-width: 1024px)': {
                       display: 'table-cell'
@@ -1724,10 +1951,7 @@ const SettlementManagement = () => {
                       width: '20%',
                       minWidth: '150px',
                       wordBreak: 'break-word',
-                      // 아이패드에서 숨김
-                      '@media (min-width: 768px) and (max-width: 1024px)': {
-                        display: 'none'
-                      }
+                      display: 'none'
                     }}
                   >
                     {settlement.notes || '-'}

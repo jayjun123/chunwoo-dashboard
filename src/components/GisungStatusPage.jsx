@@ -2863,14 +2863,17 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                     label="현장명 (직접 입력 또는 선택)"
                     size="medium"
                     sx={{
-                      minWidth: 220,
+                      width: 225.3,
+                      height: 46.98,
                       '& .MuiOutlinedInput-root': {
+                        height: 46.98,
+                        padding: '12px 14px',
                         '& fieldset': { borderColor: '#333' },
                         '&:hover fieldset': { borderColor: '#555' },
                         '&.Mui-focused fieldset': { borderColor: '#90caf9' }
                       },
                       '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                      '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 },
+                      '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', padding: '12px 14px' },
                       '& .MuiAutocomplete-popupIndicator': { color: '#fff' },
                       '& .MuiAutocomplete-clearIndicator': { color: '#fff' }
                     }}
@@ -2898,16 +2901,26 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 value={formData.gisungMonth}
                 onChange={e => setFormData({ ...formData, gisungMonth: e.target.value })}
                 size="medium"
-                InputLabelProps={{ shrink: true }}
+                InputLabelProps={{ shrink: false }}
                 sx={{
-                  minWidth: 140,
+                  width: 225.3,
+                  height: 46.98,
                   '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: '#333' },
-                    '&:hover fieldset': { borderColor: '#555' },
-                    '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                    height: 46.98,
+                    padding: '12px 14px',
+                    '& fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#333' },
+                    '&:hover fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#555' },
+                    '&.Mui-focused fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#90caf9' }
                   },
-                  '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 },
+                  '& .MuiInputLabel-root': { 
+                    color: formData.isException ? '#ff6b6b' : '#bbb', 
+                    fontSize: '1rem',
+                    transform: 'translate(14px, -9px) scale(0.75)',
+                    '&.MuiInputLabel-shrink': {
+                      transform: 'translate(14px, -9px) scale(0.75)'
+                    }
+                  },
+                  '& .MuiInputBase-input': { color: formData.isException ? '#ff6b6b' : '#fff', fontSize: '1rem', padding: '12px 14px' },
                   '& input[type="month"]::-webkit-calendar-picker-indicator': {
                     filter: 'invert(1)',
                     cursor: 'pointer'
@@ -2919,7 +2932,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
             <TextField
               label="계약금액 (직접 입력)"
-                value={formData.contractAmount}
+                value={formData.contractAmount ? Number(formData.contractAmount).toLocaleString() : ''}
                 onChange={(e) => {
                   const value = e.target.value.replace(/[^0-9]/g, '');
                   setFormData({ ...formData, contractAmount: value });
@@ -2927,19 +2940,22 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 placeholder="계약금액을 입력하세요"
                 size="medium"
               sx={{
-                  minWidth: 180,
+                  width: 225.3,
+                  height: 46.98,
                 '& .MuiOutlinedInput-root': {
+                    height: 46.98,
+                    padding: '12px 14px',
                     '& fieldset': { borderColor: '#333' },
                     '&:hover fieldset': { borderColor: '#555' },
                     '&.Mui-focused fieldset': { borderColor: '#90caf9' }
                   },
                   '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', padding: '12px 14px' }
                 }}
             />
             <TextField
               label="선급금"
-                value={formData.advance}
+                value={formData.advance ? Number(formData.advance).toLocaleString() : ''}
                 onChange={(e) => {
                   const value = e.target.value.replace(/[^0-9]/g, '');
                   setFormData({ ...formData, advance: value });
@@ -2947,54 +2963,71 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 placeholder="선급금을 입력하세요"
                 size="medium"
               sx={{
-                  minWidth: 180,
+                  width: 225.3,
+                  height: 46.98,
                 '& .MuiOutlinedInput-root': {
+                    height: 46.98,
+                    padding: '12px 14px',
                     '& fieldset': { borderColor: '#333' },
                     '&:hover fieldset': { borderColor: '#555' },
                     '&.Mui-focused fieldset': { borderColor: '#90caf9' }
                   },
                   '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                  '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', padding: '12px 14px' }
                 }}
               />
             </Box>
-                        {/* 3줄: 누계기성 + 금회기성 */}
+                        {/* 3줄: 누계기성 + 잔액 */}
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
             <TextField
               label="누계기성"
                 value={formData.isException ? '0' : Math.round(Number(formData.prevGisung || 0)).toLocaleString()}
                 size="medium"
               sx={{
-                  minWidth: 180,
+                  width: 225.3,
+                  height: 46.98,
                 '& .MuiOutlinedInput-root': {
+                    height: 46.98,
+                    padding: '12px 14px',
                     '& fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#333' },
                     '&:hover fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#555' },
                     '&.Mui-focused fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#90caf9' }
                   },
                   '& .MuiInputLabel-root': { color: formData.isException ? '#ff6b6b' : '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: formData.isException ? '#ff6b6b' : '#fff', fontSize: '1rem', py: 1.5 }
+                  '& .MuiInputBase-input': { color: formData.isException ? '#ff6b6b' : '#fff', fontSize: '1rem', padding: '12px 14px' }
                 }}
                 InputProps={{ readOnly: true }}
               />
             <TextField
-              label="금회기성"
-              value={formData.currentGisung}
-                onChange={e => setFormData({ ...formData, currentGisung: e.target.value })}
-                size="medium"
+              label="잔액"
+              value={(() => {
+                if (formData.isException) return '0';
+                const contractAmount = Number(formData.contractAmount || 0);
+                const advance = Number(formData.advance || 0);
+                const prevGisung = Number(formData.prevGisung || 0);
+                const currentGisung = Number(formData.currentGisung || 0);
+                const balance = contractAmount - (advance + prevGisung + currentGisung);
+                return Math.max(0, balance).toLocaleString();
+              })()}
+              size="medium"
               sx={{
-                  minWidth: 180,
+                  width: 225.3,
+                  height: 46.98,
                 '& .MuiOutlinedInput-root': {
+                    height: 46.98,
+                    padding: '12px 14px',
                     '& fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#333' },
                     '&:hover fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#555' },
                     '&.Mui-focused fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#90caf9' }
                   },
                   '& .MuiInputLabel-root': { color: formData.isException ? '#ff6b6b' : '#bbb', fontSize: '1rem' },
-                  '& .MuiInputBase-input': { color: formData.isException ? '#ff6b6b' : '#fff', fontSize: '1rem', py: 1.5 }
+                  '& .MuiInputBase-input': { color: formData.isException ? '#ff6b6b' : '#fff', fontSize: '1rem', padding: '12px 14px' }
                 }}
+                InputProps={{ readOnly: true }}
               />
             </Box>
-            {/* 4줄: 청구방법 */}
-            <Box display="flex" width="100%" justifyContent="center">
+            {/* 4줄: 청구방법 + 금회기성 */}
+            <Box display="flex" width="100%" justifyContent="center" gap={2}>
               <Autocomplete
                 value={formData.claimMethod}
                 onChange={(event, newValue) => setFormData({ ...formData, claimMethod: newValue || '' })}
@@ -3006,14 +3039,17 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                     placeholder="선택하거나 직접 입력"
                     size="medium"
                     sx={{
-                      minWidth: 220,
+                      width: 225.3,
+                      height: 46.98,
                       '& .MuiOutlinedInput-root': {
+                        height: 46.98,
+                        padding: '12px 14px',
                         '& fieldset': { borderColor: '#333' },
                         '&:hover fieldset': { borderColor: '#555' },
                         '&.Mui-focused fieldset': { borderColor: '#90caf9' }
                       },
                       '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
-                      '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 },
+                      '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', padding: '12px 14px' },
                       '& .MuiAutocomplete-popupIndicator': { color: '#fff' },
                       '& .MuiAutocomplete-clearIndicator': { color: '#fff' }
                     }}
@@ -3035,6 +3071,28 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 }}
                 freeSolo
                 clearOnBlur
+              />
+              <TextField
+                label="금회기성"
+                value={formData.currentGisung ? Number(formData.currentGisung).toLocaleString() : ''}
+                onChange={e => {
+                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  setFormData({ ...formData, currentGisung: value });
+                }}
+                size="medium"
+                sx={{
+                  width: 225.3,
+                  height: 46.98,
+                  '& .MuiOutlinedInput-root': {
+                    height: 46.98,
+                    padding: '12px 14px',
+                    '& fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#333' },
+                    '&:hover fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#555' },
+                    '&.Mui-focused fieldset': { borderColor: formData.isException ? '#ff6b6b' : '#90caf9' }
+                  },
+                  '& .MuiInputLabel-root': { color: formData.isException ? '#ff6b6b' : '#bbb', fontSize: '1rem' },
+                  '& .MuiInputBase-input': { color: formData.isException ? '#ff6b6b' : '#fff', fontSize: '1rem', padding: '12px 14px' }
+                }}
               />
             </Box>
             {/* 5줄: 예외 체크박스 */}

@@ -204,7 +204,7 @@ export const exportScheduleToExcel = async (scheduleData, fileName = 'schedule.x
     // 3행: 헤더
     const headerRow = worksheet.getRow(3);
     headerRow.height = 25;
-    const headers = ['일자', '분류', '현장명', '설명', '시공팀', '체크박스유무'];
+    const headers = ['일자', '분류', '현장명', '설명', '시공팀', '날씨', '체크박스유무'];
     headers.forEach((header, index) => {
       const cell = headerRow.getCell(index + 1);
       cell.value = header;
@@ -234,6 +234,7 @@ export const exportScheduleToExcel = async (scheduleData, fileName = 'schedule.x
         row.현장명 || '',
         row.설명 || '',
         (row.E열 || '').replace(/팀$/, ''), // 시공팀에서 "팀" 글자 제거
+        row.날씨 || '',
         row.체크박스유무 || ''
       ];
       
@@ -261,6 +262,7 @@ export const exportScheduleToExcel = async (scheduleData, fileName = 'schedule.x
       { width: 25 }, // 현장명
       { width: 30 }, // 설명
       { width: 20 }, // E열
+      { width: 10 }, // 날씨
       { width: 15 }  // 체크박스유무
     ];
     

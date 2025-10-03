@@ -44,8 +44,9 @@ import {
   Clear as ClearIcon
 } from '@mui/icons-material';
 import { db } from '../firebase';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, orderBy, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore';
 import { exportToExcel } from '../utils/excelUtils.jsx';
+import ExcelJS from 'exceljs';
 import { useAuth } from '../contexts/AuthContext';
 import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
 import { syncCostToSite } from '../utils/integrationUtils';
@@ -302,12 +303,53 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     
     // 현장별 탭에서 현장이 선택되지 않은 경우 0으로 표시
     if (viewType === 'site' && (!selectedSites || selectedSites.length === 0)) {
-      return { totalValue: 0 };
+      return { 
+        totalValue: 0,
+        totalCount: 0,
+        siteCount: 0,
+        itemTypeBreakdown: {}
+      };
     }
     
     const totalValue = filtered.reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+    const totalCount = filtered.length;
     
-    return { totalValue };
+    // 관련 현장 수 계산
+    const uniqueSites = new Set(filtered.map(cost => cost.site).filter(Boolean));
+    const siteCount = uniqueSites.size;
+    
+    // 항목별 분류 계산
+    const itemTypeBreakdown = {};
+    const detailedBreakdown = {
+      '노무비': 0,
+      '부자재비': 0,
+      '장비비': 0,
+      '경비': 0,
+      '기타': 0
+    };
+    
+    filtered.forEach(cost => {
+      const itemType = cost.itemType || '기타';
+      if (!itemTypeBreakdown[itemType]) {
+        itemTypeBreakdown[itemType] = 0;
+      }
+      itemTypeBreakdown[itemType]++;
+      
+      // 상세 분류
+      if (itemType === '노무비') detailedBreakdown['노무비']++;
+      else if (itemType === '부자재비') detailedBreakdown['부자재비']++;
+      else if (itemType === '장비비') detailedBreakdown['장비비']++;
+      else if (itemType === '경비') detailedBreakdown['경비']++;
+      else detailedBreakdown['기타']++;
+    });
+    
+    return { 
+      totalValue, 
+      totalCount, 
+      siteCount, 
+      itemTypeBreakdown,
+      detailedBreakdown
+    };
   }, [filteredData, filteredAndSortedCosts, selectedSites, viewType]);
 
   // 체크박스 관련 함수들
@@ -358,34 +400,195 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     }
   };
 
-  const handleExcelDownload = () => {
+  const handleExcelDownload = async () => {
     try {
-      const data = filteredAndSortedCosts.map(cost => ({
-        '현장명': cost.site || '-',
-        '항목': cost.itemType || '-',
-        '사용날짜': cost.date || '-',
-        '금액': Number(cost.totalValue || 0).toLocaleString(),
-        '결제': cost.paymentType || '-',
-        '비고': cost.description || '-',
-      }));
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('지출현황');
 
-      // 컬럼 너비 설정 (한글 텍스트 고려)
-      const columnWidths = [
-        { wch: 20 }, // 현장명
-        { wch: 12 }, // 항목
-        { wch: 15 }, // 사용날짜
-        { wch: 15 }, // 금액
-        { wch: 12 }, // 결제
-        { wch: 25 }, // 비고
+      // 선택된 월 기준으로 제목 생성
+      let reportTitle;
+      if (currentMonth && typeof currentMonth === 'string' && currentMonth.includes('-')) {
+        // currentMonth가 "2025-09" 형식일 때 "2025년 09월" 형식으로 변환
+        const [year, month] = currentMonth.split('-');
+        reportTitle = `${year}년 ${month}월 지출현황 보고서`;
+      } else {
+        reportTitle = `지출현황 보고서 (${new Date().toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })})`;
+      }
+
+      // 제목 행
+      worksheet.mergeCells('A1:H1');
+      const titleCell = worksheet.getCell('A1');
+      titleCell.value = reportTitle;
+      titleCell.font = { name: '맑은 고딕', size: 16, bold: true };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE3F2FD' }
+      };
+
+      // 헤더 행
+      const headers = ['순번', '현장명', '항목', '차수', '사용날짜', '금액', '결제방식', '비고'];
+      const headerRow = worksheet.addRow(headers);
+      
+      // 헤더 스타일링
+      headerRow.eachCell((cell, colNumber) => {
+        cell.font = { name: '맑은 고딕', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF1976D2' }
+        };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+      });
+
+      // 데이터 행 추가 (사용날짜순으로 정렬)
+      let totalAmount = 0;
+      const siteCount = new Set();
+      const itemTypeCount = {};
+
+      // 사용날짜순으로 정렬
+      const sortedCosts = [...filteredAndSortedCosts].sort((a, b) => {
+        const dateA = new Date(a.date || '1900-01-01');
+        const dateB = new Date(b.date || '1900-01-01');
+        return dateA - dateB;
+      });
+
+      sortedCosts.forEach((cost, index) => {
+        const row = worksheet.addRow([
+          index + 1, // 순번
+          cost.site || '-', // 현장명
+          cost.itemType || '-', // 항목
+          cost.sequence || '-', // 차수
+          cost.date || '-', // 사용날짜
+          Number(cost.totalValue || 0), // 금액 (숫자로 저장)
+          cost.paymentType || '-', // 결제방식
+          cost.description || '-' // 비고
+        ]);
+
+        // 데이터 행 스타일링
+        row.eachCell((cell, colNumber) => {
+          cell.font = { name: '맑은 고딕', size: 10 };
+          cell.alignment = { 
+            horizontal: colNumber === 1 || colNumber === 3 || colNumber === 6 ? 'center' : 'left',
+            vertical: 'middle'
+          };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+            left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+            bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+            right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+          };
+
+          // 금액 컬럼은 숫자 형식으로
+          if (colNumber === 6) {
+            cell.numFmt = '#,##0';
+            totalAmount += Number(cost.totalValue || 0);
+          }
+
+          // 시공팀 정산 데이터는 다른 색상으로 표시
+          if (cost.source === 'teamSettlement') {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFFFF3E0' }
+            };
+          }
+        });
+
+        // 통계 데이터 수집
+        if (cost.site) siteCount.add(cost.site);
+        if (cost.itemType) {
+          itemTypeCount[cost.itemType] = (itemTypeCount[cost.itemType] || 0) + 1;
+        }
+      });
+
+      // 컬럼 너비 설정
+      worksheet.columns = [
+        { width: 8 },  // 순번
+        { width: 25 }, // 현장명
+        { width: 12 }, // 항목
+        { width: 10 }, // 차수
+        { width: 15 }, // 사용날짜
+        { width: 15 }, // 금액
+        { width: 12 }, // 결제방식
+        { width: 30 }  // 비고
       ];
 
-      const result = exportToExcel(data, '지출현황', '지출현황', { columnWidths });
+      // 요약 섹션 추가
+      const summaryStartRow = sortedCosts.length + 4;
       
-      if (result.success) {
-        setSnackbar({ open: true, message: '엑셀 파일이 다운로드되었습니다.', severity: 'success' });
-      } else {
-        setSnackbar({ open: true, message: '엑셀 다운로드에 실패했습니다.', severity: 'error' });
-      }
+      // 요약 제목
+      worksheet.mergeCells(`A${summaryStartRow}:H${summaryStartRow}`);
+      const summaryTitleCell = worksheet.getCell(`A${summaryStartRow}`);
+      summaryTitleCell.value = '■ 요약 정보';
+      summaryTitleCell.font = { name: '맑은 고딕', size: 14, bold: true };
+      summaryTitleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF3E5F5' }
+      };
+      summaryTitleCell.alignment = { horizontal: 'left', vertical: 'middle' };
+
+      // 요약 데이터
+      const summaryData = [
+        ['총 지출 건수', `${sortedCosts.length}건`],
+        ['총 지출 금액', `${totalAmount.toLocaleString()}원`],
+        ['관련 현장 수', `${siteCount.size}개 현장`],
+        ['', ''],
+        ['항목별 현황', ''],
+        ...Object.entries(itemTypeCount).map(([item, count]) => [`  - ${item}`, `${count}건`])
+      ];
+
+      summaryData.forEach(([label, value], index) => {
+        const row = worksheet.addRow([label, value, '', '', '', '', '', '']);
+        const rowNum = summaryStartRow + 1 + index;
+        
+        if (label.startsWith('  -')) {
+          // 항목별 현황은 들여쓰기
+          row.getCell(1).font = { name: '맑은 고딕', size: 10 };
+          row.getCell(2).font = { name: '맑은 고딕', size: 10 };
+        } else if (label === '항목별 현황') {
+          // 항목별 현황 제목
+          row.getCell(1).font = { name: '맑은 고딕', size: 11, bold: true };
+          row.getCell(1).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE8F5E8' }
+          };
+        } else if (label !== '') {
+          // 주요 요약 정보
+          row.getCell(1).font = { name: '맑은 고딕', size: 11, bold: true };
+          row.getCell(2).font = { name: '맑은 고딕', size: 11, bold: true };
+          row.getCell(2).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE3F2FD' }
+          };
+        }
+      });
+
+      // 파일 다운로드
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `지출현황_${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      setSnackbar({ open: true, message: '엑셀 파일이 다운로드되었습니다.', severity: 'success' });
     } catch (error) {
       console.error('엑셀 다운로드 실패:', error);
       setSnackbar({ open: true, message: '엑셀 다운로드에 실패했습니다.', severity: 'error' });
@@ -547,6 +750,176 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         // 실패 시 원래 상태로 복원
         setCosts(prev => [...prev]);
         setSnackbar({ open: true, message: '삭제에 실패했습니다.', severity: 'error' });
+      }
+    }
+  };
+
+  // 차수 수정 함수
+  const handleFixSequence = async () => {
+    try {
+      // 시공팀 정산으로 전송된 모든 노무비 데이터 조회
+      const existingCostsQuery = query(
+        collection(db, 'costs'),
+        where('source', '==', 'teamSettlement'),
+        where('itemType', '==', '노무비')
+      );
+      const existingCostsSnapshot = await getDocs(existingCostsQuery);
+      
+      if (existingCostsSnapshot.empty) {
+        setSnackbar({
+          open: true,
+          message: '수정할 데이터가 없습니다.',
+          severity: 'info'
+        });
+        return;
+      }
+
+      const existingCosts = existingCostsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('기존 전송된 데이터:', existingCosts);
+      console.log('총 데이터 개수:', existingCosts.length);
+
+      // 현장별로 그룹화
+      const siteGroups = {};
+      existingCosts.forEach(cost => {
+        if (cost.site && cost.site.trim() !== '') {
+          if (!siteGroups[cost.site]) {
+            siteGroups[cost.site] = [];
+          }
+          siteGroups[cost.site].push(cost);
+        }
+      });
+
+      console.log('현장별 그룹화 결과:', siteGroups);
+      console.log('현장 개수:', Object.keys(siteGroups).length);
+
+      if (Object.keys(siteGroups).length === 0) {
+        setSnackbar({
+          open: true,
+          message: '유효한 현장 데이터가 없습니다.',
+          severity: 'warning'
+        });
+        return;
+      }
+
+      const batch = writeBatch(db);
+      let updateCount = 0;
+
+      // 각 현장별로 차수 수정
+      for (const [siteName, costs] of Object.entries(siteGroups)) {
+        console.log(`\n=== 현장 처리 시작: ${siteName} ===`);
+        console.log(`현장 데이터 개수: ${costs.length}`);
+        
+        try {
+          // 해당 현장의 모든 노무비 데이터 조회 (시공팀 정산 제외)
+          const allCostsQuery = query(
+            collection(db, 'costs'),
+            where('site', '==', siteName),
+            where('itemType', '==', '노무비')
+          );
+          const allCostsSnapshot = await getDocs(allCostsQuery);
+          const allCosts = allCostsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+          console.log(`현장 ${siteName}의 모든 노무비 데이터:`, allCosts.length);
+
+          // 시공팀 정산 데이터를 제외한 기존 차수들 확인
+          const nonTeamSettlementCosts = allCosts.filter(cost => cost.source !== 'teamSettlement');
+          console.log(`시공팀 정산 제외한 데이터:`, nonTeamSettlementCosts.length);
+          
+          const existingSequences = nonTeamSettlementCosts
+            .map(cost => cost.sequence)
+            .filter(seq => seq && typeof seq === 'string' && seq.includes('차'))
+            .map(seq => {
+              const match = seq.match(/(\d+)차/);
+              return match ? parseInt(match[1]) : 0;
+            })
+            .filter(num => num > 0);
+
+          console.log(`기존 차수들:`, existingSequences);
+          const maxSequence = existingSequences.length > 0 ? Math.max(...existingSequences) : 0;
+          let currentSequence = maxSequence;
+
+          // 시공팀 정산 데이터들을 올바른 차수로 업데이트
+          console.log(`현장 ${siteName} 처리 시작 - 최대 차수: ${maxSequence}, 데이터 개수: ${costs.length}`);
+          
+          for (let index = 0; index < costs.length; index++) {
+            const cost = costs[index];
+            currentSequence++;
+            const newSequence = `${currentSequence}차`;
+            
+            console.log(`데이터 ${index + 1}: 기존 차수="${cost.sequence}", 새 차수="${newSequence}"`);
+            
+            // 시공팀 정산 데이터는 항상 차수를 다시 정리 (강제 업데이트)
+            const costRef = doc(db, 'costs', cost.id);
+            batch.update(costRef, { sequence: newSequence });
+            updateCount++;
+            console.log(`✅ 업데이트: 현장 ${siteName}: ${cost.sequence || '없음'} → ${newSequence}`);
+          }
+        } catch (siteError) {
+          console.error(`현장 ${siteName} 처리 중 오류:`, siteError);
+          console.error(`오류 상세:`, siteError.message);
+          console.error(`오류 스택:`, siteError.stack);
+          // 개별 현장 오류는 무시하고 계속 진행
+        }
+        
+        console.log(`=== 현장 처리 완료: ${siteName} ===\n`);
+      }
+
+      console.log(`\n=== 차수 수정 완료 ===`);
+      console.log(`총 업데이트 개수: ${updateCount}`);
+      
+      if (updateCount > 0) {
+        console.log('Firebase batch commit 시작...');
+        await batch.commit();
+        console.log('Firebase batch commit 완료!');
+        setSnackbar({
+          open: true,
+          message: `${updateCount}개 데이터의 차수가 수정되었습니다.`,
+          severity: 'success'
+        });
+      } else {
+        console.log('업데이트할 데이터가 없습니다.');
+        setSnackbar({
+          open: true,
+          message: '수정할 차수가 없습니다.',
+          severity: 'info'
+        });
+      }
+
+    } catch (error) {
+      console.error('차수 수정 오류:', error);
+      setSnackbar({
+        open: true,
+        message: `차수 수정 중 오류가 발생했습니다: ${error.message}`,
+        severity: 'error'
+      });
+    }
+  };
+
+  // 전체 삭제 함수
+  const handleDeleteAll = async () => {
+    if (currentData.length === 0) {
+      setSnackbar({ open: true, message: '삭제할 데이터가 없습니다.', severity: 'warning' });
+      return;
+    }
+
+    const confirmMessage = `정말로 모든 지출 데이터(${currentData.length}개)를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`;
+    if (window.confirm(confirmMessage)) {
+      try {
+        // 로컬 상태 즉시 업데이트 (낙관적 업데이트)
+        const allIds = currentData.map(cost => cost.id);
+        setCosts(prev => prev.filter(cost => !allIds.includes(cost.id)));
+        setSelectedItems([]);
+        
+        // Firebase에서 일괄 삭제
+        const deletePromises = allIds.map(id => deleteDoc(doc(db, 'costs', id)));
+        await Promise.all(deletePromises);
+        
+        setSnackbar({ open: true, message: `모든 지출 데이터(${allIds.length}개)가 삭제되었습니다.`, severity: 'success' });
+      } catch (error) {
+        console.error('전체 삭제 실패:', error);
+        // 실패 시 원래 상태로 복원
+        setCosts(prev => [...prev]);
+        setSnackbar({ open: true, message: '전체 삭제에 실패했습니다.', severity: 'error' });
       }
     }
   };
@@ -862,6 +1235,127 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     </Grid>
   );
 
+  // 요약 정보 컴포넌트
+  const SummaryInfo = () => (
+    <Card sx={{ 
+      bgcolor: '#181f2e', 
+      border: '1px solid #2a3441',
+      borderRadius: 2,
+      p: 3,
+      mb: 3
+    }}>
+      <Typography variant="h6" sx={{ 
+        color: '#fff', 
+        fontWeight: 'bold', 
+        mb: 2,
+        fontSize: '1.1rem'
+      }}>
+        요약 정보
+      </Typography>
+      
+      <Grid container spacing={2}>
+        {/* 총 지출 건수 */}
+        <Grid item xs={12} md={4}>
+          <Box sx={{ 
+            p: 2, 
+            bgcolor: '#1e2a3a', 
+            borderRadius: 1,
+            border: '1px solid #2a3441'
+          }}>
+            <Typography variant="body2" sx={{ color: '#b0b0b0', mb: 1 }}>
+              총 지출 건수
+            </Typography>
+            <Typography variant="h5" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
+              {stats.totalCount}건
+            </Typography>
+            {/* 세부 분류 */}
+            <Box sx={{ mt: 1 }}>
+              {Object.entries(stats.detailedBreakdown || {})
+                .filter(([, count]) => count > 0)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 2)
+                .map(([item, count]) => (
+                  <Typography key={item} variant="caption" sx={{ 
+                    color: '#888', 
+                    display: 'block',
+                    fontSize: '0.75rem'
+                  }}>
+                    {item}: {count}건
+                  </Typography>
+                ))}
+            </Box>
+          </Box>
+        </Grid>
+
+        {/* 총 지출 금액 */}
+        <Grid item xs={12} md={4}>
+          <Box sx={{ 
+            p: 2, 
+            bgcolor: '#1e2a3a', 
+            borderRadius: 1,
+            border: '1px solid #2a3441'
+          }}>
+            <Typography variant="body2" sx={{ color: '#b0b0b0', mb: 1 }}>
+              총 지출 금액
+            </Typography>
+            <Typography variant="h5" sx={{ color: '#ef5350', fontWeight: 'bold' }}>
+              {Number(stats.totalValue || 0).toLocaleString()}원
+            </Typography>
+            {/* 세부 분류 */}
+            <Box sx={{ mt: 1 }}>
+              {Object.entries(stats.detailedBreakdown || {})
+                .filter(([, count]) => count > 0)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 2)
+                .map(([item, count]) => (
+                  <Typography key={item} variant="caption" sx={{ 
+                    color: '#888', 
+                    display: 'block',
+                    fontSize: '0.75rem'
+                  }}>
+                    {item}: {count}건
+                  </Typography>
+                ))}
+            </Box>
+          </Box>
+        </Grid>
+
+        {/* 관련 현장 수 */}
+        <Grid item xs={12} md={4}>
+          <Box sx={{ 
+            p: 2, 
+            bgcolor: '#1e2a3a', 
+            borderRadius: 1,
+            border: '1px solid #2a3441'
+          }}>
+            <Typography variant="body2" sx={{ color: '#b0b0b0', mb: 1 }}>
+              관련 현장 수
+            </Typography>
+            <Typography variant="h5" sx={{ color: '#a084e8', fontWeight: 'bold' }}>
+              {stats.siteCount}개 현장
+            </Typography>
+            {/* 세부 분류 */}
+            <Box sx={{ mt: 1 }}>
+              {Object.entries(stats.detailedBreakdown || {})
+                .filter(([, count]) => count > 0)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 2)
+                .map(([item, count]) => (
+                  <Typography key={item} variant="caption" sx={{ 
+                    color: '#888', 
+                    display: 'block',
+                    fontSize: '0.75rem'
+                  }}>
+                    {item}: {count}건
+                  </Typography>
+                ))}
+            </Box>
+          </Box>
+        </Grid>
+      </Grid>
+    </Card>
+  );
+
   // 필터 적용 (상위 컴포넌트에서 전달받은 filteredData 사용)
   const filtered = filteredData ? filteredAndSortedCosts : filteredAndSortedCosts;
 
@@ -889,34 +1383,12 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       mx: isMobile ? 0 : '10px',
       p: 0,
       overflow: 'hidden',
-      mt: isMobile ? '0px' : '90px'
+      mt: isMobile ? '0px' : '60px'
     }}>
 
       
-      {/* 통계 카드 + 새지출 버튼 한 줄 배치 (모바일만) */}
-      {isMobile ? (
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, position: 'relative' }}>
-          <Grid container spacing={2} sx={{ flex: 1 }}>
-            <StatCard title="총 지출액" value={stats.totalValue} color="#ef5350" />
-            <StatCard title="건수" value={!selectedSites || selectedSites.length === 0 ? 0 : filtered.length} color="#a084e8" />
-          </Grid>
-          <Button 
-            variant="contained" 
-            color="success" 
-            startIcon={<AddIcon />} 
-            sx={{ ml: 2, height: 40, position: 'absolute', right: 4, top: 15 }} 
-            onClick={() => openDialog()}>
-            새 지출
-          </Button>
-        </Box>
-      ) : (
-        <Box sx={{ mb: 3 }}>
-          <Grid container spacing={2}>
-            <StatCard title="총 지출액" value={stats.totalValue} color="#ef5350" />
-            <StatCard title="건수" value={!selectedSites || selectedSites.length === 0 ? 0 : filtered.length} color="#a084e8" />
-          </Grid>
-        </Box>
-      )}
+      {/* 요약 정보 */}
+      <SummaryInfo />
       
       <Paper sx={{ 
         width: '100%',
@@ -992,6 +1464,42 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             alignItems: 'center', 
             gap: 1
           }}>
+            <Button 
+              variant="outlined" 
+              color="warning" 
+              startIcon={<EditIcon />} 
+              sx={{ 
+                display: isMobile ? 'none' : 'flex',
+                borderColor: '#ff9800',
+                color: '#ff9800',
+                '&:hover': {
+                  borderColor: '#f57c00',
+                  backgroundColor: 'rgba(255, 152, 0, 0.1)'
+                }
+              }} 
+              onClick={handleFixSequence}
+            >
+              차수 수정
+            </Button>
+            {currentData.length > 0 && (
+              <Button 
+                variant="outlined" 
+                color="error" 
+                startIcon={<DeleteIcon />} 
+                sx={{ 
+                  display: isMobile ? 'none' : 'flex',
+                  borderColor: '#ef5350',
+                  color: '#ef5350',
+                  '&:hover': {
+                    borderColor: '#d32f2f',
+                    backgroundColor: 'rgba(239, 83, 80, 0.1)'
+                  }
+                }} 
+                onClick={handleDeleteAll}
+              >
+                전체삭제
+              </Button>
+            )}
             <Button variant="contained" color="success" startIcon={<AddIcon />} sx={{ 
               display: isMobile ? 'none' : 'flex',
             }} onClick={() => openDialog()}>새 지출</Button>
@@ -1125,9 +1633,9 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   color: '#fff', 
                   fontWeight: 700, 
                   display: isMobile ? 'none' : 'table-cell',
-                  width: '350px',
-                  minWidth: '300px',
-                  maxWidth: '400px',
+                  width: '200px',
+                  minWidth: '150px',
+                  maxWidth: '250px',
                   py: 0.5
                 }}>비고</TableCell>
 
@@ -1283,9 +1791,9 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                     <TableCell sx={{ 
                       color: '#bbb', 
                       display: isMobile ? 'none' : 'table-cell',
-                      width: '150px',
+                      width: '200px',
                       minWidth: '150px',
-                      maxWidth: '200px',
+                      maxWidth: '250px',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -1715,6 +2223,13 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         open={snackbar.open}
         autoHideDuration={3000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{ 
+          top: '50px !important',
+          '& .MuiSnackbar-root': {
+            top: '50px !important'
+          }
+        }}
       >
         <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
           {snackbar.message}

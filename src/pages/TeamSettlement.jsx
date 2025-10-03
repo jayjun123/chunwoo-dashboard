@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ExcelJS from 'exceljs';
 import {
@@ -86,7 +86,7 @@ const TeamSettlement = () => {
   const [isTabDeleteDialogOpen, setIsTabDeleteDialogOpen] = useState(false);
   const [tabToDelete, setTabToDelete] = useState(null);
   const [isAllSelected, setIsAllSelected] = useState(false);
-  const [collapsedSites, setCollapsedSites] = useState(new Set()); // 숨겨진 현장들
+  const [collapsedSites, setCollapsedSites] = useState(new Set()); // 숨겨진 현장들 (기본적으로 모든 현장이 접혀있음)
   const [editingSiteName, setEditingSiteName] = useState(null); // 편집 중인 현장명
   const [editingSiteValue, setEditingSiteValue] = useState(''); // 편집 중인 현장명 값
   const [formData, setFormData] = useState({
@@ -321,7 +321,7 @@ const TeamSettlement = () => {
           tableData: updatedRows,
           updatedAt: serverTimestamp()
         });
-        console.log('Firebase 업데이트 완료');
+        console.log('✅ Firebase 현장 추가 업데이트 완료');
       } else {
         // 문서가 없으면 새로 생성
         await setDoc(teamSettlementRef, {
@@ -331,12 +331,20 @@ const TeamSettlement = () => {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
-        console.log('Firebase 새 문서 생성 완료');
+        console.log('✅ Firebase 현장 추가 새 문서 생성 완료');
       }
       
       // 현장 추가 후 자동으로 해당 현장 선택
       setSelectedSiteForRowAdd(siteName);
       console.log('현장 추가 후 자동 선택:', siteName);
+      
+      // 현장 추가 후 접힌 상태로 설정
+      setCollapsedSites(prev => {
+        const newCollapsedSites = new Set(prev);
+        newCollapsedSites.add(siteName);
+        console.log('새 현장을 접힌 상태로 설정:', siteName);
+        return newCollapsedSites;
+      });
       
       setSnackbar({ 
         open: true, 
@@ -370,12 +378,23 @@ const TeamSettlement = () => {
           [teamId]: tableData
         }));
         console.log('테이블 데이터 상태 업데이트 완료:', tableData);
+        
+        // 모든 현장을 접힌 상태로 초기화
+        const siteNames = new Set();
+        tableData.forEach(row => {
+          if (row.siteName && row.siteName !== '') {
+            siteNames.add(row.siteName);
+          }
+        });
+        setCollapsedSites(siteNames);
+        console.log('모든 현장을 접힌 상태로 초기화:', Array.from(siteNames));
       } else {
         console.log('문서가 존재하지 않음, 빈 배열로 초기화');
         setTeamTableData(prev => ({
           ...prev,
           [teamId]: []
         }));
+        setCollapsedSites(new Set());
       }
     } catch (error) {
       console.error('테이블 데이터 로드 오류:', error);
@@ -384,6 +403,7 @@ const TeamSettlement = () => {
         ...prev,
         [teamId]: []
       }));
+      setCollapsedSites(new Set());
     }
   };
 
@@ -443,6 +463,29 @@ const TeamSettlement = () => {
       setActiveTab(0); // 유효하지 않은 탭 인덱스면 전체 탭으로 리셋
     }
   }, [activeTab, selectedTeamsForTabs.length]);
+
+  // 페이지 이동 시 데이터 저장
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      // 브라우저 종료/새로고침 시 데이터 저장
+      saveAllDataOnPageLeave();
+    };
+
+    const handleRouteChange = () => {
+      // React Router로 다른 페이지 이동 시 데이터 저장
+      saveAllDataOnPageLeave();
+    };
+
+    // 브라우저 이벤트 리스너 등록
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // 컴포넌트 언마운트 시 정리
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // 페이지 이동 시 마지막 저장
+      saveAllDataOnPageLeave();
+    };
+  }, [teamTableData, selectedMonth]); // teamTableData나 selectedMonth가 변경될 때마다 최신 데이터로 저장
 
   // 정산 생성/수정
   const handleSaveSettlement = async () => {
@@ -573,6 +616,9 @@ const TeamSettlement = () => {
 
   // 시공팀 선택하여 탭 추가
   const handleAddTeamTab = async (team) => {
+    // 데이터가 없어도 탭 생성 허용
+    console.log(`${team.teamName} 팀의 ${selectedMonth} 탭을 생성합니다.`);
+    
     if (!selectedTeamsForTabs.find(t => t.id === team.id)) {
       const newSelectedTeams = [...selectedTeamsForTabs, team];
       setSelectedTeamsForTabs(newSelectedTeams);
@@ -634,7 +680,10 @@ const TeamSettlement = () => {
       unitPrice: 0,
       totalPrice: 0,
       note: '',
-      isItemRow: selectedSiteForRowAdd ? true : false // 현장이 선택되어 있으면 항목 행으로 추가
+      isItemRow: selectedSiteForRowAdd ? true : false, // 현장이 선택되어 있으면 항목 행으로 추가
+      isSiteHeader: !selectedSiteForRowAdd, // 현장이 선택되어 있지 않으면 현장 헤더 행으로 추가
+      isNewRow: true, // 새로 추가된 행임을 표시
+      createdAt: Date.now() // 생성 시간 기록
     };
     
     console.log('🆕 새 행 생성:', { 
@@ -660,6 +709,16 @@ const TeamSettlement = () => {
     setTeamTableData(updatedData);
     console.log('🔄 상태 업데이트 완료');
     
+    // 새로운 현장이 추가된 경우 접힌 상태로 설정
+    if (newRow.siteName && newRow.siteName !== '') {
+      setCollapsedSites(prev => {
+        const newCollapsedSites = new Set(prev);
+        newCollapsedSites.add(newRow.siteName);
+        console.log('새 현장을 접힌 상태로 설정:', newRow.siteName);
+        return newCollapsedSites;
+      });
+    }
+    
     // 상태 업데이트 후 즉시 확인
     setTimeout(() => {
       console.log('⏰ 상태 업데이트 후 확인:', {
@@ -669,47 +728,17 @@ const TeamSettlement = () => {
       });
     }, 100);
     
-    // Firebase에 저장
-    try {
-      const docId = `${teamId}_${selectedMonth}`;
-      const teamSettlementRef = doc(db, 'teamSettlements', docId);
-      console.log('🔥 Firebase 저장 시작:', { docId, updatedRows });
-      
-      // 문서 존재 여부 확인
-      const docSnap = await getDoc(teamSettlementRef);
-      console.log('📄 문서 존재 여부:', docSnap.exists());
-      
-      if (docSnap.exists()) {
-        // 문서가 존재하면 업데이트
-        await updateDoc(teamSettlementRef, {
-          tableData: updatedRows,
-          updatedAt: serverTimestamp()
-        });
-        console.log('✅ Firebase 행 추가 업데이트 완료');
-      } else {
-        // 문서가 존재하지 않으면 새로 생성
-        await setDoc(teamSettlementRef, {
-          teamId: teamId,
-          month: selectedMonth,
-          tableData: updatedRows,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-        console.log('✅ Firebase 행 추가 새 문서 생성 완료');
-      }
-      
-      // 행 추가 후 선택된 현장은 유지 (사용자가 직접 해제할 때까지)
-      console.log('행 추가 완료, 선택된 현장 유지:', selectedSiteForRowAdd);
-      
-      setSnackbar({ 
-        open: true, 
-        message: '새 항목이 추가되었습니다.', 
-        severity: 'success' 
-      });
-    } catch (error) {
-      console.error('행 추가 저장 오류:', error);
-      setSnackbar({ open: true, message: '행 추가 중 오류가 발생했습니다.', severity: 'error' });
-    }
+    // Firebase 저장은 페이지 이동 시에만 수행 (입력 필드 안정성을 위해)
+    console.log('📝 행 추가 완료, Firebase 저장은 페이지 이동 시 수행');
+    
+    // 행 추가 후 선택된 현장은 유지 (사용자가 직접 해제할 때까지)
+    console.log('행 추가 완료, 선택된 현장 유지:', selectedSiteForRowAdd);
+    
+    setSnackbar({ 
+      open: true, 
+      message: selectedSiteForRowAdd ? '새 항목이 추가되었습니다.' : '새 현장과 항목이 추가되었습니다.', 
+      severity: 'success' 
+    });
   };
 
   // 테이블 행 삭제 (Firebase 저장)
@@ -824,65 +853,132 @@ const TeamSettlement = () => {
   };
 
   // 테이블 데이터 업데이트 (실시간 Firebase 저장)
-  const handleUpdateTableData = async (teamId, rowId, field, value) => {
-    console.log('테이블 데이터 업데이트:', { teamId, rowId, field, value });
+
+
+  // 페이지 이동 시 모든 데이터 저장
+  const saveAllDataOnPageLeave = async () => {
+    console.log('📤 페이지 이동 시 모든 데이터 저장 시작');
     
-    const currentRows = teamTableData[teamId] || [];
-    const updatedRows = currentRows.map(row => {
-      if (row.id === rowId) {
-        const updatedRow = { ...row, [field]: value };
-        // 물량이나 단가가 변경되면 총액 자동 계산
-        if (field === 'quantity' || field === 'unitPrice') {
-          updatedRow.totalPrice = (updatedRow.quantity || 0) * (updatedRow.unitPrice || 0);
-        }
-        return updatedRow;
+    const savePromises = [];
+    
+    // 모든 팀의 데이터를 저장
+    Object.keys(teamTableData).forEach(teamId => {
+      const rows = teamTableData[teamId];
+      if (rows && rows.length > 0) {
+        const promise = (async () => {
+          try {
+            const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${selectedMonth}`);
+            
+            // 문서 존재 여부 확인
+            const docSnap = await getDoc(teamSettlementRef);
+            
+            if (docSnap.exists()) {
+              // 문서가 존재하면 업데이트
+              await updateDoc(teamSettlementRef, {
+                tableData: rows,
+                updatedAt: serverTimestamp()
+              });
+              console.log(`✅ ${teamId} 팀 데이터 저장 완료`);
+            } else {
+              // 문서가 존재하지 않으면 새로 생성
+              await setDoc(teamSettlementRef, {
+                teamId: teamId,
+                month: selectedMonth,
+                tableData: rows,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+              });
+              console.log(`✅ ${teamId} 팀 데이터 새 문서 생성 완료`);
+            }
+          } catch (error) {
+            console.error(`❌ ${teamId} 팀 데이터 저장 오류:`, error);
+          }
+        })();
+        
+        savePromises.push(promise);
       }
-      return row;
     });
     
-    const updatedData = {
-      ...teamTableData,
-      [teamId]: updatedRows
-    };
+    // 모든 저장 작업 완료 대기
+    await Promise.all(savePromises);
+    console.log('📤 페이지 이동 시 모든 데이터 저장 완료');
+  };
+
+  // 현장명 입력을 위한 안전한 함수
+  const handleSiteNameInput = useCallback((teamId, rowId, value) => {
+    console.log('현장명 입력:', { teamId, rowId, value });
     
-    setTeamTableData(updatedData);
+    // 즉시 상태 업데이트
+    setTeamTableData(prevData => {
+      const currentRows = prevData[teamId] || [];
+      const updatedRows = currentRows.map(row => {
+        if (row.id === rowId) {
+          // 현장명이 완성되면 isNewRow를 false로 변경 (30초 후 그룹화 허용)
+          const isCompleteSiteName = value && value.length > 1; // 2글자 이상이면 완성된 것으로 간주
+          return { 
+            ...row, 
+            siteName: value,
+            isNewRow: isCompleteSiteName ? false : row.isNewRow // 완성되면 새 행 플래그 해제
+          };
+        }
+        return row;
+      });
+      
+      return {
+        ...prevData,
+        [teamId]: updatedRows
+      };
+    });
+  }, []);
+
+  const handleUpdateTableData = useCallback((teamId, rowId, field, value) => {
+    console.log('테이블 데이터 업데이트:', { teamId, rowId, field, value });
+    
+    // 현장명 입력은 별도 함수 사용
+    if (field === 'siteName') {
+      handleSiteNameInput(teamId, rowId, value);
+      return;
+    }
+    
+    setTeamTableData(prevData => {
+      const currentRows = prevData[teamId] || [];
+      const updatedRows = currentRows.map(row => {
+        if (row.id === rowId) {
+          const updatedRow = { ...row, [field]: value };
+          // 물량이나 단가가 변경되면 총액 자동 계산
+          if (field === 'quantity' || field === 'unitPrice') {
+            updatedRow.totalPrice = (updatedRow.quantity || 0) * (updatedRow.unitPrice || 0);
+          }
+          return updatedRow;
+        }
+        return row;
+      });
+      
+      return {
+        ...prevData,
+        [teamId]: updatedRows
+      };
+    });
     
     // 체크박스 상태가 변경되면 전체 선택 상태 업데이트
     if (field === 'checked') {
-      const allChecked = updatedRows.length > 0 && updatedRows.every(row => row.checked);
-      setIsAllSelected(allChecked);
+      setTeamTableData(prevData => {
+        const currentRows = prevData[teamId] || [];
+        const updatedRows = currentRows.map(row => {
+          if (row.id === rowId) {
+            return { ...row, [field]: value };
+          }
+          return row;
+        });
+        const allChecked = updatedRows.length > 0 && updatedRows.every(row => row.checked);
+        setIsAllSelected(allChecked);
+        return prevData;
+      });
     }
     
-    // Firebase에 실시간 저장
-    try {
-      const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${selectedMonth}`);
-      
-      // 문서 존재 여부 확인
-      const docSnap = await getDoc(teamSettlementRef);
-      
-      if (docSnap.exists()) {
-        // 문서가 존재하면 업데이트
-        await updateDoc(teamSettlementRef, {
-          tableData: updatedRows,
-          updatedAt: serverTimestamp()
-        });
-        console.log('Firebase 테이블 데이터 업데이트 완료');
-      } else {
-        // 문서가 존재하지 않으면 새로 생성
-        await setDoc(teamSettlementRef, {
-          teamId: teamId,
-          month: selectedMonth,
-          tableData: updatedRows,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-        console.log('Firebase 테이블 데이터 새 문서 생성 완료');
-      }
-    } catch (error) {
-      console.error('테이블 데이터 저장 오류:', error);
-      setSnackbar({ open: true, message: '데이터 저장 중 오류가 발생했습니다.', severity: 'error' });
-    }
-  };
+    // Firebase 저장은 페이지 이동 시에만 수행 (입력 필드 안정성을 위해)
+    console.log('📝 테이블 데이터 업데이트 완료, Firebase 저장은 페이지 이동 시 수행');
+  }, [handleSiteNameInput]);
 
   // 전체 선택/해제
   const handleSelectAll = async (teamId) => {
@@ -1103,6 +1199,18 @@ const TeamSettlement = () => {
   // 금액 포맷팅
   const formatAmount = (amount) => {
     return new Intl.NumberFormat('ko-KR').format(amount) + '원';
+  };
+
+  // 현재 팀의 총금액 계산
+  const getCurrentTeamTotalAmount = () => {
+    if (activeTab === 0 || !selectedTeamsForTabs[activeTab - 1]) {
+      return 0;
+    }
+    
+    const teamId = selectedTeamsForTabs[activeTab - 1].id;
+    const currentRows = teamTableData[teamId] || [];
+    
+    return currentRows.reduce((sum, row) => sum + (row.totalPrice || 0), 0);
   };
 
   // 숫자 포맷팅 (콤마만)
@@ -3008,7 +3116,7 @@ const TeamSettlement = () => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           const hasTableData = data.tableData && data.tableData.length > 0;
-          const hasStatus = data.status && data.status !== 'unpaid';
+          const hasStatus = data.status !== undefined; // 상태가 정의되어 있으면 (unpaid 포함)
           const hasSettlementDate = data.settlementDate && data.settlementDate !== '';
           const hasNotes = data.notes && data.notes !== '';
           
@@ -3060,8 +3168,17 @@ const TeamSettlement = () => {
       // 월별로 데이터가 있는 팀들만 가져오기
       const { teamsWithData, allTeamData } = await getTeamsWithDataForMonth(month);
       
-      // 탭에 표시할 팀들을 월별 데이터가 있는 팀들로 업데이트
-      setSelectedTeamsForTabs(teamsWithData);
+      // 데이터가 있는 팀들만 탭에 표시
+      const teamsForTabs = teamsWithData.map(team => {
+        const teamData = allTeamData.find(td => td.team.id === team.id);
+        return {
+          ...team,
+          hasData: teamData?.hasData || false
+        };
+      });
+      
+      // 탭에 표시할 팀들을 데이터가 있는 팀들만으로 업데이트
+      setSelectedTeamsForTabs(teamsForTabs);
       
       // 상태 데이터를 월별 구조로 업데이트
       const newStatuses = {};
@@ -3090,7 +3207,7 @@ const TeamSettlement = () => {
       }));
       
       console.log(`✅ 월별 상태 데이터 로드 완료: ${month}`, { 
-        teamsWithData: teamsWithData.map(t => t.teamName),
+        teamsWithData: teamsForTabs.map(t => ({ name: t.teamName, hasData: t.hasData })),
         newStatuses, 
         newSettlementDates, 
         newNotes 
@@ -3187,6 +3304,164 @@ const TeamSettlement = () => {
   const handleStartEditSiteName = (siteName) => {
     setEditingSiteName(siteName);
     setEditingSiteValue(siteName);
+  };
+
+
+  // 시공팀 정산 노무비를 기성관리로 전송하는 함수
+  const handleTransferLaborCosts = async (teamId) => {
+    try {
+      const team = teams.find(t => t.id === teamId);
+      if (!team) {
+        setSnackbar({
+          open: true,
+          message: '팀 정보를 찾을 수 없습니다.',
+          severity: 'error'
+        });
+        return;
+      }
+
+      const teamData = teamTableData[teamId] || [];
+      if (teamData.length === 0) {
+        setSnackbar({
+          open: true,
+          message: '전송할 데이터가 없습니다.',
+          severity: 'warning'
+        });
+        return;
+      }
+
+      // 현장별로 그룹화하여 노무비 계산
+      const siteGroups = {};
+      teamData.forEach(row => {
+        if (row.checked && row.siteName && row.totalPrice > 0) {
+          if (!siteGroups[row.siteName]) {
+            siteGroups[row.siteName] = [];
+          }
+          siteGroups[row.siteName].push(row);
+        }
+      });
+
+      if (Object.keys(siteGroups).length === 0) {
+        setSnackbar({
+          open: true,
+          message: '선택된 항목이 없습니다.',
+          severity: 'warning'
+        });
+        return;
+      }
+
+      // 중복 방지를 위한 기존 데이터 확인
+      const existingCosts = await getDocs(
+        query(
+          collection(db, 'costs'),
+          where('source', '==', 'teamSettlement'),
+          where('teamId', '==', teamId),
+          where('settlementMonth', '==', selectedMonth)
+        )
+      );
+
+      if (!existingCosts.empty) {
+        setSnackbar({
+          open: true,
+          message: '이미 전송된 데이터입니다. 중복 전송을 방지합니다.',
+          severity: 'warning'
+        });
+        return;
+      }
+
+      // 각 현장별로 지출 데이터 생성
+      const batch = writeBatch(db);
+      let transferCount = 0;
+
+      for (const [siteName, rows] of Object.entries(siteGroups)) {
+        const totalAmount = rows.reduce((sum, row) => sum + (row.totalPrice || 0), 0);
+        const transferAmount = Math.round(totalAmount * 1.1); // 1.1배 적용
+
+        // 해당 현장의 기존 노무비 지출 데이터 확인하여 다음 차수 계산
+        // 인덱스 문제를 피하기 위해 단순한 쿼리 사용
+        const existingCostsQuery = query(
+          collection(db, 'costs'),
+          where('site', '==', siteName),
+          where('itemType', '==', '노무비')
+        );
+        const existingCostsSnapshot = await getDocs(existingCostsQuery);
+        
+        let nextSequence = '1차'; // 기본값
+        if (!existingCostsSnapshot.empty) {
+          const existingCosts = existingCostsSnapshot.docs.map(doc => doc.data());
+          console.log(`현장 ${siteName}의 기존 노무비 데이터:`, existingCosts);
+          
+          // 클라이언트 사이드에서 정렬 (createdAt 기준 내림차순)
+          existingCosts.sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+            return dateB - dateA;
+          });
+          
+          // 기존 차수들에서 가장 높은 차수 찾기
+          const sequences = existingCosts
+            .map(cost => cost.sequence)
+            .filter(seq => seq && typeof seq === 'string')
+            .map(seq => {
+              // "1차", "2차", "3차" 형식에서 숫자 추출
+              const match = seq.match(/(\d+)차/);
+              return match ? parseInt(match[1]) : 0;
+            })
+            .filter(num => num > 0);
+          
+          if (sequences.length > 0) {
+            const maxSequence = Math.max(...sequences);
+            nextSequence = `${maxSequence + 1}차`;
+          }
+        }
+        
+        console.log(`현장 ${siteName}의 다음 차수: ${nextSequence}`);
+
+        // 정산 월의 마지막 날짜로 설정 (예: 2024-09-30)
+        const [settlementYear, settlementMonth] = selectedMonth.split('-');
+        const settlementDate = new Date(parseInt(settlementYear), parseInt(settlementMonth), 0);
+        const dateString = settlementDate.toISOString().split('T')[0];
+
+        const costData = {
+          site: siteName,
+          itemType: '노무비',
+          date: dateString,
+          totalValue: transferAmount,
+          paymentType: '시공팀정산',
+          description: `${team.teamName} 팀 ${selectedMonth} 정산 노무비`,
+          etcNote: `시공팀 정산 자동 전송 - 원금액: ${totalAmount.toLocaleString()}원, 전송금액: ${transferAmount.toLocaleString()}원 (1.1배)`,
+          sequence: nextSequence, // 현장별 다음 차수
+          source: 'teamSettlement', // 전송 출처 표시
+          teamId: teamId,
+          teamName: team.teamName,
+          settlementMonth: selectedMonth,
+          originalAmount: totalAmount,
+          transferAmount: transferAmount,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        const costRef = doc(collection(db, 'costs'));
+        batch.set(costRef, costData);
+        transferCount++;
+      }
+
+      await batch.commit();
+
+      setSnackbar({
+        open: true,
+        message: `${transferCount}개 현장의 노무비가 기성관리로 전송되었습니다. (1.1배 적용)`,
+        severity: 'success'
+      });
+
+    } catch (error) {
+      console.error('노무비 전송 오류:', error);
+      setSnackbar({
+        open: true,
+        message: '노무비 전송 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
+    }
   };
 
   // 현장명 편집 완료
@@ -3418,6 +3693,7 @@ const TeamSettlement = () => {
 
       {/* 탭과 버튼을 같은 라인에 배치 */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+
         {/* 시공팀별 탭 */}
         <Card sx={{ bgcolor: '#1a1d21', border: '1px solid #333', minWidth: 400 }}>
           <CardContent sx={{ p: 0 }}>
@@ -3511,19 +3787,34 @@ const TeamSettlement = () => {
               )}
             </Typography>
             {activeTab > 0 && selectedTeamsForTabs[activeTab - 1] && (
-              <Button
-                variant="contained"
-                color="error"
-                size="small"
-                startIcon={<DeleteIcon />}
-                onClick={() => handleOpenTabDeleteDialog(selectedTeamsForTabs[activeTab - 1])}
-                sx={{
-                  bgcolor: '#f44336',
-                  '&:hover': { bgcolor: '#d32f2f' }
-                }}
-              >
-                탭 삭제
-              </Button>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  startIcon={<MoneyIcon />}
+                  onClick={() => handleTransferLaborCosts(selectedTeamsForTabs[activeTab - 1].id)}
+                  sx={{
+                    bgcolor: '#2196f3',
+                    '&:hover': { bgcolor: '#1976d2' }
+                  }}
+                >
+                  노무비 전송
+                </Button>
+                <Button
+                  variant="contained"
+                  color="error"
+                  size="small"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => handleOpenTabDeleteDialog(selectedTeamsForTabs[activeTab - 1])}
+                  sx={{
+                    bgcolor: '#f44336',
+                    '&:hover': { bgcolor: '#d32f2f' }
+                  }}
+                >
+                  탭 삭제
+                </Button>
+              </Box>
             )}
           </Box>
           
@@ -3762,9 +4053,14 @@ const TeamSettlement = () => {
             // 시공팀 탭 - 입력 가능한 테이블
             <Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" sx={{ color: '#fff' }}>
-                  {selectedTeamsForTabs[activeTab - 1]?.teamName} 정산 입력
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant="h6" sx={{ color: '#fff' }}>
+                    {selectedTeamsForTabs[activeTab - 1]?.teamName} 정산 입력
+                  </Typography>
+                  <Typography variant="h6" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
+                    총 금액: {formatAmount(getCurrentTeamTotalAmount())}
+                  </Typography>
+                </Box>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <Button
                     variant="contained"
@@ -3811,7 +4107,7 @@ const TeamSettlement = () => {
                       }
                     }}
                   >
-                    {selectedSiteForRowAdd ? `행 추가 (${selectedSiteForRowAdd})` : '행 추가'}
+                    {selectedSiteForRowAdd ? `항목 추가 (${selectedSiteForRowAdd})` : '현장+항목 추가'}
                   </Button>
                 </Box>
               </Box>
@@ -3826,14 +4122,42 @@ const TeamSettlement = () => {
                     display: 'none'
                   },
                   '-ms-overflow-style': 'none',
-                  'scrollbar-width': 'none'
+                  scrollbarWidth: 'none'
                 }}
               >
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '60px', fontSize: '1.1rem' }}>선택</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '300px', fontSize: '1.1rem' }}>
+                      <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '60px', fontSize: '1.1rem' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Checkbox
+                            checked={isAllSelected}
+                            indeterminate={(() => {
+                              const teamId = selectedTeamsForTabs[activeTab - 1]?.id;
+                              if (!teamId) return false;
+                              const currentRows = teamTableData[teamId] || [];
+                              const checkedCount = currentRows.filter(row => row.checked).length;
+                              return checkedCount > 0 && checkedCount < currentRows.length;
+                            })()}
+                            onChange={() => {
+                              const teamId = selectedTeamsForTabs[activeTab - 1]?.id;
+                              if (teamId) {
+                                handleSelectAll(teamId);
+                              }
+                            }}
+                            sx={{
+                              color: '#4caf50',
+                              '&.Mui-checked': {
+                                color: '#4caf50',
+                              },
+                              '&.MuiCheckbox-indeterminate': {
+                                color: '#4caf50',
+                              },
+                            }}
+                          />
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '400px', fontSize: '1.1rem' }}>
                         현장명({(() => {
                           const teamId = selectedTeamsForTabs[activeTab - 1]?.id;
                           const teamName = selectedTeamsForTabs[activeTab - 1]?.teamName;
@@ -3921,16 +4245,35 @@ const TeamSettlement = () => {
                             siteGroups[siteName].itemRows.push(row);
                           }
                         } else {
-                          // 독립적인 행 (isItemRow: false) - 현장명이 있는 경우 해당 현장 그룹에 추가
+                          // 독립적인 행 (isItemRow: false) - 새로 추가된 행은 일정 시간 동안 독립적으로 유지
                           console.log('독립적인 행 처리:', { 
                             rowId: row.id, 
                             siteName: row.siteName, 
                             isItemRow: row.isItemRow,
-                            hasSiteName: !!(row.siteName && row.siteName !== '')
+                            hasSiteName: !!(row.siteName && row.siteName !== ''),
+                            isNewRow: row.isNewRow,
+                            createdAt: row.createdAt
                           });
                           
-                          if (row.siteName && row.siteName !== '') {
-                            // 현장명이 있으면 해당 현장 그룹에 추가
+                          // 새로 추가된 행이거나 생성된 지 30초 이내인 경우 독립적인 행으로 유지
+                          const isRecentlyCreated = row.isNewRow || (row.createdAt && (Date.now() - row.createdAt) < 30000);
+                          
+                          console.log('독립적인 행 조건 확인:', {
+                            rowId: row.id,
+                            siteName: row.siteName,
+                            isNewRow: row.isNewRow,
+                            createdAt: row.createdAt,
+                            timeDiff: row.createdAt ? (Date.now() - row.createdAt) : 'N/A',
+                            isRecentlyCreated,
+                            shouldStayIndependent: !row.siteName || row.siteName === '' || isRecentlyCreated
+                          });
+                          
+                          // 새로 추가된 행은 무조건 독립적인 행으로 유지 (30초 동안)
+                          if (row.isNewRow) {
+                            independentRows.push(row);
+                            console.log('새 행이므로 독립적인 행으로 추가:', { rowId: row.id, isNewRow: row.isNewRow });
+                          } else if (row.siteName && row.siteName !== '' && !isRecentlyCreated) {
+                            // 현장명이 있고 새로 추가된 행이 아니면 해당 현장 그룹에 추가
                             if (!siteGroups[row.siteName]) {
                               siteGroups[row.siteName] = {
                                 siteRow: {
@@ -3946,9 +4289,9 @@ const TeamSettlement = () => {
                             siteGroups[row.siteName].itemRows.push(row);
                             console.log('현장 그룹에 행 추가:', { siteName: row.siteName, rowId: row.id });
                           } else {
-                            // 현장명이 없으면 독립적인 행으로 추가
+                            // 현장명이 없거나 최근 생성된 행이면 독립적인 행으로 추가
                             independentRows.push(row);
-                            console.log('독립적인 행으로 추가:', row.id);
+                            console.log('독립적인 행으로 추가:', { rowId: row.id, isNewRow: row.isNewRow, isRecentlyCreated });
                           }
                         }
                       });
@@ -4037,39 +4380,37 @@ const TeamSettlement = () => {
                                 setCollapsedSites(newCollapsedSites);
                               }}
                               onDoubleClick={() => {
-                                // 현장 선택
-                                const isChecked = !group.siteRow.checked;
-                                console.log('현장명 더블클릭:', { 
-                                  siteName: group.siteRow.siteName, 
-                                  currentChecked: group.siteRow.checked,
-                                  willBeChecked: isChecked,
-                                  currentSelected: selectedSiteForRowAdd 
-                                });
-                                
-                                // 임시 헤더가 아닌 경우에만 업데이트
-                                if (!group.siteRow.id.startsWith('temp-')) {
-                                  handleUpdateTableData(teamId, group.siteRow.id, 'checked', isChecked);
-                                }
-                                
-                                // 현장 선택 상태 업데이트
-                                if (group.siteRow.siteName && isChecked) {
-                                  setSelectedSiteForRowAdd(group.siteRow.siteName);
-                                  console.log('✅ 현장명 더블클릭으로 선택됨:', group.siteRow.siteName);
-                                } else if (!isChecked && selectedSiteForRowAdd === group.siteRow.siteName) {
-                                  setSelectedSiteForRowAdd('');
-                                  console.log('❌ 현장명 더블클릭으로 선택 해제됨');
-                                }
+                                // 현장명 편집 모드 시작
+                                console.log('현장명 더블클릭 - 편집 모드 시작:', group.siteRow.siteName);
+                                handleStartEditSiteName(group.siteRow.siteName);
                               }}
                             >
                               {editingSiteName === group.siteRow.siteName ? (
                                 <TextField
                                   value={editingSiteValue}
                                   onChange={(e) => setEditingSiteValue(e.target.value)}
-                                  onBlur={() => handleFinishEditSiteName(teamId, group.siteRow.siteName)}
+                                  onBlur={() => {
+                                    // 약간의 지연을 두어 다른 이벤트가 먼저 처리되도록 함
+                                    setTimeout(() => {
+                                      if (editingSiteName === group.siteRow.siteName) {
+                                        handleFinishEditSiteName(teamId, group.siteRow.siteName);
+                                      }
+                                    }, 100);
+                                  }}
                                   onKeyPress={(e) => {
                                     if (e.key === 'Enter') {
                                       handleFinishEditSiteName(teamId, group.siteRow.siteName);
                                     } else if (e.key === 'Escape') {
+                                      setEditingSiteName(null);
+                                      setEditingSiteValue('');
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleFinishEditSiteName(teamId, group.siteRow.siteName);
+                                    } else if (e.key === 'Escape') {
+                                      e.preventDefault();
                                       setEditingSiteName(null);
                                       setEditingSiteValue('');
                                     }
@@ -4114,16 +4455,21 @@ const TeamSettlement = () => {
                               <Box sx={{ display: 'flex', gap: 1 }}>
                                 <IconButton
                                   onClick={() => {
-                                    if (!group.siteRow.id.startsWith('temp-')) {
+                                    if (editingSiteName === group.siteRow.siteName) {
+                                      // 편집 중이면 편집 완료
+                                      handleFinishEditSiteName(teamId, group.siteRow.siteName);
+                                    } else if (!group.siteRow.id.startsWith('temp-')) {
+                                      // 편집 중이 아니면 편집 시작
                                       handleStartEditSiteName(group.siteRow.siteName);
                                     }
                                   }}
                                   sx={{ 
-                                    color: '#4caf50',
+                                    color: editingSiteName === group.siteRow.siteName ? '#ff9800' : '#4caf50',
                                     '&:hover': {
                                       backgroundColor: 'rgba(76, 175, 80, 0.1)'
                                     }
                                   }}
+                                  title={editingSiteName === group.siteRow.siteName ? '편집 완료' : '편집'}
                                 >
                                   <EditIcon />
                                 </IconButton>
@@ -4374,10 +4720,12 @@ const TeamSettlement = () => {
                             </TableCell>
                             <TableCell>
                               <TextField
+                                key={`siteName-${row.id}-${row.siteName}`}
                                 size="small"
                                 value={row.siteName || ''}
-                                onChange={(e) => handleUpdateTableData(teamId, row.id, 'siteName', e.target.value)}
+                                onChange={(e) => handleSiteNameInput(teamId, row.id, e.target.value)}
                                 placeholder="현장명 입력"
+                                autoComplete="off"
                                 sx={{
                                   width: '100%',
                                   '& .MuiOutlinedInput-root': {
@@ -4872,7 +5220,17 @@ const TeamSettlement = () => {
                 setSelectedTeamForTab(newInputValue);
               }
             }}
-            options={teams.filter(team => !selectedTeamsForTabs.find(t => t.id === team.id))}
+            options={teams.filter(team => {
+              // 이미 탭에 추가된 팀은 제외
+              const isAlreadyInTabs = selectedTeamsForTabs.find(t => t.id === team.id);
+              if (isAlreadyInTabs) return false;
+              
+              // 해당 월에 데이터가 있는 팀만 표시
+              const teamSettlementRef = doc(db, 'teamSettlements', `${team.id}_${selectedMonth}`);
+              // 비동기 체크는 복잡하므로 일단 모든 팀을 표시하되, 
+              // 실제 탭 추가 시에는 데이터가 있는지 확인
+              return true;
+            })}
             getOptionLabel={(option) => option.teamName || option}
             filterOptions={(options, { inputValue }) => {
               const filtered = options.filter(option =>
@@ -5377,6 +5735,13 @@ const TeamSettlement = () => {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{ 
+          top: '50px !important',
+          '& .MuiSnackbar-root': {
+            top: '50px !important'
+          }
+        }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}

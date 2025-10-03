@@ -519,6 +519,7 @@ const Progress = () => {
       const costsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAllCostData(costsData);
       console.log('지출 데이터 로드 완료:', costsData.length);
+      
     } catch (e) {
       console.error('지출 데이터 조회 실패:', e);
       setAllCostData([]);
@@ -692,18 +693,30 @@ const Progress = () => {
         
         // 지출 데이터에서 해당 현장의 데이터 필터링
         const siteCostData = allCostData.filter(cost => cost.site === siteName);
+        
+        // 자재비: 자재비, 부자재, 운반비
+        const totalMaterial = siteCostData
+          .filter(cost => ['자재비', '부자재', '운반비'].includes(cost.itemType))
+          .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+        
+        // 노무비: 노무비만
         const totalLabor = siteCostData
           .filter(cost => cost.itemType === '노무비')
           .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
         
-        // 경비: 노무비와 기타를 제외한 모든 지출 항목들
-        const totalExpense = siteCostData
-          .filter(cost => !['노무비', '기타'].includes(cost.itemType))
+        // 장비비: 스카이, 장비, 지게차, 곤도라
+        const totalEquipment = siteCostData
+          .filter(cost => ['스카이', '장비', '지게차', '곤도라'].includes(cost.itemType))
           .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
         
-        // 기타: 기타 항목만
+        // 경비: 유류비, 임대료, 식대, 월세
+        const totalExpense = siteCostData
+          .filter(cost => ['유류비', '임대료', '식대', '월세'].includes(cost.itemType))
+          .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+        
+        // 기타: RnD, 기타
         const totalEtc = siteCostData
-          .filter(cost => cost.itemType === '기타')
+          .filter(cost => ['RnD', '기타'].includes(cost.itemType))
           .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
         
         // 입금완료 금액 계산 (기성 데이터에서 paymentStatus가 '입금완료'인 항목들)
@@ -716,7 +729,9 @@ const Progress = () => {
           '계약금': totalContract,
           '기성금': totalWithAdvance, // 선급금 포함
           '입금완료': totalPaidGisung,
-          '노무': totalLabor,
+          '자재비': totalMaterial,
+          '노무비': totalLabor,
+          '장비비': totalEquipment,
           '경비': totalExpense,
           '기타': totalEtc,
         };
@@ -748,18 +763,30 @@ const Progress = () => {
       
       // 지출 데이터에서 해당 현장의 데이터 필터링
       const siteCostData = allCostData.filter(cost => cost.site === siteName);
+      
+      // 자재비: 자재비, 부자재, 운반비
+      const totalMaterial = siteCostData
+        .filter(cost => ['자재비', '부자재', '운반비'].includes(cost.itemType))
+        .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+      
+      // 노무비: 노무비만
       const totalLabor = siteCostData
         .filter(cost => cost.itemType === '노무비')
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
-      // 경비: 노무비와 기타를 제외한 모든 지출 항목들
-      const totalExpense = siteCostData
-        .filter(cost => !['노무비', '기타'].includes(cost.itemType))
+      // 장비비: 스카이, 장비, 지게차, 곤도라
+      const totalEquipment = siteCostData
+        .filter(cost => ['스카이', '장비', '지게차', '곤도라'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
-      // 기타: 기타 항목만
+      // 경비: 유류비, 임대료, 식대, 월세
+      const totalExpense = siteCostData
+        .filter(cost => ['유류비', '임대료', '식대', '월세'].includes(cost.itemType))
+        .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+      
+      // 기타: RnD, 기타
       const totalEtc = siteCostData
-        .filter(cost => cost.itemType === '기타')
+        .filter(cost => ['RnD', '기타'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
       // 입금완료 금액 계산 (기성 데이터에서 paymentStatus가 '입금완료'인 항목들)
@@ -772,7 +799,9 @@ const Progress = () => {
         '계약금': totalContract,
         '기성금': totalWithAdvance, // 선급금 포함
         '입금완료': totalPaidGisung,
-        '노무': totalLabor,
+        '자재비': totalMaterial,
+        '노무비': totalLabor,
+        '장비비': totalEquipment,
         '경비': totalExpense,
         '기타': totalEtc,
       };
@@ -849,25 +878,38 @@ const Progress = () => {
         return false;
       });
       
+      // 자재비: 자재비, 부자재, 운반비
+      const totalMaterial = monthCostData
+        .filter(cost => ['자재비', '부자재', '운반비'].includes(cost.itemType))
+        .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+      
+      // 노무비: 노무비만
       const totalLabor = monthCostData
         .filter(cost => cost.itemType === '노무비')
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
-      // 경비: 노무비와 기타를 제외한 모든 지출 항목들
-      const totalExpense = monthCostData
-        .filter(cost => !['노무비', '기타'].includes(cost.itemType))
+      // 장비비: 스카이, 장비, 지게차, 곤도라
+      const totalEquipment = monthCostData
+        .filter(cost => ['스카이', '장비', '지게차', '곤도라'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
-      // 기타: 기타 항목만
+      // 경비: 유류비, 임대료, 식대, 월세
+      const totalExpense = monthCostData
+        .filter(cost => ['유류비', '임대료', '식대', '월세'].includes(cost.itemType))
+        .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+      
+      // 기타: RnD, 기타
       const totalEtc = monthCostData
-        .filter(cost => cost.itemType === '기타')
+        .filter(cost => ['RnD', '기타'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
       monthData.push({
         name: `${month}월`,
         '기성금': totalGisung,
         '입금완료': totalPaidGisung,
-        '노무': totalLabor,
+        '자재비': totalMaterial,
+        '노무비': totalLabor,
+        '장비비': totalEquipment,
         '경비': totalExpense,
         '기타': totalEtc,
       });
@@ -1722,8 +1764,115 @@ const Progress = () => {
                     tick={{ fontSize: isMobile ? 14 : 16 }}
                   />
                   <Tooltip 
-                    contentStyle={{ fontSize: isMobile ? 14 : 16 }} 
-                    formatter={(value, name) => [value ? value.toLocaleString() + '원' : '0원', name]}
+                    contentStyle={{ 
+                      fontSize: isMobile ? 18 : 22,
+                      backgroundColor: '#2a2a2a',
+                      border: '1px solid #333',
+                      color: '#fff',
+                      borderRadius: '8px',
+                      padding: '12px'
+                    }}
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <Box sx={{ 
+                            p: 2, 
+                            bgcolor: '#2a2a2a',
+                            border: '1px solid #333',
+                            borderRadius: '8px',
+                            minWidth: '200px'
+                          }}>
+                            <Typography variant="subtitle2" sx={{ 
+                              fontWeight: 'bold', 
+                              mb: 1,
+                              color: '#fff'
+                            }}>
+                              {label}
+                            </Typography>
+                            
+                            {/* 기성금 섹션 */}
+                            <Box sx={{ mb: 1 }}>
+                              <Typography variant="caption" sx={{ 
+                                color: '#43e97b', 
+                                fontWeight: 'bold',
+                                display: 'block',
+                                mb: 0.5
+                              }}>
+                                [기성금]
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                기성금액: {data.기성금 ? data.기성금.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                            </Box>
+
+                            {/* 수입 섹션 */}
+                            <Box sx={{ mb: 1 }}>
+                              <Typography variant="caption" sx={{ 
+                                color: '#2196f3', 
+                                fontWeight: 'bold',
+                                display: 'block',
+                                mb: 0.5
+                              }}>
+                                -수입-
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                입금완료: {data.입금완료 ? data.입금완료.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                            </Box>
+
+                            {/* 지출 섹션 */}
+                            <Box sx={{ mb: 1 }}>
+                              <Typography variant="caption" sx={{ 
+                                color: '#ef5350', 
+                                fontWeight: 'bold',
+                                display: 'block',
+                                mb: 0.5
+                              }}>
+                                -지출-
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                자재비: {data.자재비 ? data.자재비.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                노무비: {data.노무비 ? data.노무비.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                장비비: {data.장비비 ? data.장비비.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                경비: {data.경비 ? data.경비.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                기타: {data.기타 ? data.기타.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        );
+                      }
+                      return null;
+                    }}
                   />
                   <Legend wrapperStyle={{ fontSize: isMobile ? 14 : 16 }} />
                   <Bar dataKey="기성금" fill="#82ca9d">
@@ -1732,14 +1881,20 @@ const Progress = () => {
                   <Bar dataKey="입금완료" fill="#00bcd4">
                     <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={30} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="노무" fill="#ffc658">
-                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={60} fill="#fff" />
+                  <Bar dataKey="자재비" fill="#ff6b6b">
+                    <LabelList dataKey="자재비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={10} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="경비" fill="#ff6b6b">
-                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={10} fill="#fff" />
+                  <Bar dataKey="노무비" fill="#ffc658">
+                    <LabelList dataKey="노무비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={30} fill="#fff" />
+                  </Bar>
+                  <Bar dataKey="장비비" fill="#ff9f43">
+                    <LabelList dataKey="장비비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={50} fill="#fff" />
+                  </Bar>
+                  <Bar dataKey="경비" fill="#4ecdc4">
+                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={70} fill="#fff" />
                   </Bar>
                   <Bar dataKey="기타" fill="#a084e8">
-                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={120} fill="#fff" />
+                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={90} fill="#fff" />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -1777,8 +1932,115 @@ const Progress = () => {
                     tick={{ fontSize: isMobile ? 14 : 16 }}
                   />
                   <Tooltip 
-                    contentStyle={{ fontSize: isMobile ? 14 : 16 }} 
-                    formatter={(value, name) => [value ? value.toLocaleString() + '원' : '0원', name]}
+                    contentStyle={{ 
+                      fontSize: isMobile ? 18 : 22,
+                      backgroundColor: '#2a2a2a',
+                      border: '1px solid #333',
+                      color: '#fff',
+                      borderRadius: '8px',
+                      padding: '12px'
+                    }}
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <Box sx={{ 
+                            p: 2, 
+                            bgcolor: '#2a2a2a',
+                            border: '1px solid #333',
+                            borderRadius: '8px',
+                            minWidth: '200px'
+                          }}>
+                            <Typography variant="subtitle2" sx={{ 
+                              fontWeight: 'bold', 
+                              mb: 1,
+                              color: '#fff'
+                            }}>
+                              {label}
+                            </Typography>
+                            
+                            {/* 기성금 섹션 */}
+                            <Box sx={{ mb: 1 }}>
+                              <Typography variant="caption" sx={{ 
+                                color: '#43e97b', 
+                                fontWeight: 'bold',
+                                display: 'block',
+                                mb: 0.5
+                              }}>
+                                [기성금]
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                기성금액: {data.기성금 ? data.기성금.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                            </Box>
+
+                            {/* 수입 섹션 */}
+                            <Box sx={{ mb: 1 }}>
+                              <Typography variant="caption" sx={{ 
+                                color: '#2196f3', 
+                                fontWeight: 'bold',
+                                display: 'block',
+                                mb: 0.5
+                              }}>
+                                -수입-
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                입금완료: {data.입금완료 ? data.입금완료.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                            </Box>
+
+                            {/* 지출 섹션 */}
+                            <Box sx={{ mb: 1 }}>
+                              <Typography variant="caption" sx={{ 
+                                color: '#ef5350', 
+                                fontWeight: 'bold',
+                                display: 'block',
+                                mb: 0.5
+                              }}>
+                                -지출-
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                자재비: {data.자재비 ? data.자재비.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                노무비: {data.노무비 ? data.노무비.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                장비비: {data.장비비 ? data.장비비.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                경비: {data.경비 ? data.경비.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#fff',
+                                ml: 1
+                              }}>
+                                기타: {data.기타 ? data.기타.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        );
+                      }
+                      return null;
+                    }}
                   />
                   <Legend wrapperStyle={{ fontSize: isMobile ? 14 : 16 }} />
                   <Bar dataKey="기성금" fill="#82ca9d">
@@ -1787,14 +2049,20 @@ const Progress = () => {
                   <Bar dataKey="입금완료" fill="#00bcd4">
                     <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={30} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="노무" fill="#ffc658">
-                    <LabelList dataKey="노무" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={60} fill="#fff" />
+                  <Bar dataKey="자재비" fill="#ff6b6b">
+                    <LabelList dataKey="자재비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={10} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="경비" fill="#ff6b6b">
-                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={10} fill="#fff" />
+                  <Bar dataKey="노무비" fill="#ffc658">
+                    <LabelList dataKey="노무비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={30} fill="#fff" />
+                  </Bar>
+                  <Bar dataKey="장비비" fill="#ff9f43">
+                    <LabelList dataKey="장비비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={50} fill="#fff" />
+                  </Bar>
+                  <Bar dataKey="경비" fill="#4ecdc4">
+                    <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={70} fill="#fff" />
                   </Bar>
                   <Bar dataKey="기타" fill="#a084e8">
-                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={120} fill="#fff" />
+                    <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={90} fill="#fff" />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -1837,7 +2105,7 @@ const Progress = () => {
         <DialogContent>
           <TextField
             label="계약금액"
-            value={formData.contractAmount}
+            value={formData.contractAmount ? Number(formData.contractAmount).toLocaleString() : ''}
             onChange={e => setFormData({ ...formData, contractAmount: e.target.value.replace(/[^0-9]/g, '') })}
             fullWidth
             sx={{ mb: 2 }}
@@ -1848,7 +2116,7 @@ const Progress = () => {
             <Box key={idx} sx={{ display: 'flex', gap: 1, mb: 1 }}>
               <TextField
                 label={p.label}
-                value={p.amount}
+                value={p.amount ? Number(p.amount).toLocaleString() : ''}
                 onChange={e => handleChangePayment(idx, 'amount', e.target.value.replace(/[^0-9]/g, ''))}
                 fullWidth
                 onFocus={() => {

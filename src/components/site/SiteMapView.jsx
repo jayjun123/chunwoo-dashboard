@@ -25,7 +25,8 @@ import {
   Divider,
   Tooltip,
   Alert,
-  Snackbar
+  Snackbar,
+  InputAdornment
 } from '@mui/material';
 import {
   Map as MapIcon,
@@ -37,7 +38,7 @@ import {
   Directions as DirectionsIcon,
   Photo as PhotoIcon,
   Business as BusinessIcon,
-
+  LocationSearching as LocationSearchingIcon,
   AttachMoney as MoneyIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
@@ -224,6 +225,34 @@ const SiteMapView = ({ sites, onSiteUpdate, onSiteAdd }) => {
       }
     };
 
+    // 주소 기반 좌표 검색 함수
+    const handleGeocodeAddress = async () => {
+      if (!formData.address || !window.google) {
+        setSnackbar({ open: true, message: '주소를 입력해주세요.', severity: 'warning' });
+        return;
+      }
+
+      try {
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ address: formData.address }, (results, status) => {
+          if (status === 'OK' && results[0]) {
+            const location = results[0].geometry.location;
+            setFormData({
+              ...formData,
+              latitude: location.lat(),
+              longitude: location.lng()
+            });
+            setSnackbar({ open: true, message: '좌표를 찾았습니다.', severity: 'success' });
+          } else {
+            setSnackbar({ open: true, message: '주소를 찾을 수 없습니다. 정확한 주소를 입력해주세요.', severity: 'error' });
+          }
+        });
+      } catch (error) {
+        console.error('좌표 검색 실패:', error);
+        setSnackbar({ open: true, message: '좌표 검색 중 오류가 발생했습니다.', severity: 'error' });
+      }
+    };
+
     return (
       <Dialog open={showAddDialog} onClose={() => setShowAddDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>새 현장 추가</DialogTitle>
@@ -244,6 +273,20 @@ const SiteMapView = ({ sites, onSiteUpdate, onSiteAdd }) => {
                 label="주소"
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={handleGeocodeAddress}
+                        edge="end"
+                        disabled={!formData.address}
+                        title="주소로 좌표 검색"
+                      >
+                        <LocationSearchingIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
               />
             </Grid>
             <Grid item xs={6}>

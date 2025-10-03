@@ -96,11 +96,12 @@ const CustomCalendar = (props) => {
     onOpenPopup,
     onAddSchedule,
     onSiteNameDoubleClick,
-    copiedItem: propCopiedItem
+    copiedItem: propCopiedItem,
   } = props;
   
 
   const colorChoices = ['transparent', '#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
+
 
   // 현장명 중복 제거
   const uniqueSiteNames = [...new Set(sites.map(site => site?.name).filter(Boolean))];
@@ -292,6 +293,19 @@ const CustomCalendar = (props) => {
 
   // 현장명 더블클릭 핸들러 (수정 팝업 열기)
   const handleItemDoubleClick = (date, item) => {
+    // 견적 일정인 경우 견적 페이지로 이동하여 해당 견적 띄우기
+    if (item && (item.isEstimate || item.id.startsWith('estimate_'))) {
+      const estimateId = item.id.replace('estimate_', '');
+      console.log('견적 더블클릭 - 견적 ID:', estimateId);
+      navigate('/estimates', { 
+        state: { 
+          selectedEstimateId: estimateId,
+          fromSchedule: true 
+        } 
+      });
+      return;
+    }
+    
     // 기존 데이터를 새로운 형식에 맞게 설정
     const editItem = {
       ...item,
@@ -415,6 +429,7 @@ const CustomCalendar = (props) => {
         siteName: editPopup.item.siteName || '',
         type: editPopup.item.type || '현장',
         color: editPopup.item.color || colorChoices[0],
+        weather: editPopup.item.weather || '☀️',
         updatedAt: new Date()
       };
       
@@ -1423,9 +1438,24 @@ const CustomCalendar = (props) => {
                                         marginLeft: 'auto',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        justifyContent: 'center'
+                                        justifyContent: 'center',
+                                        gap: '4px'
                                       }}
                                     >
+                                      {/* 날씨 아이콘 - 현장, 현설, 실측, 기타만 표시 */}
+                                      {item.weather && item.weather !== '없음' && (item.type === '현장' || item.type === '현설' || item.type === '실측' || item.type === '기타') && (
+                                        <Box
+                                          sx={{
+                                            fontSize: { xs: '0.8rem', md: '0.9rem' },
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                          }}
+                                        >
+                                          {item.weather}
+                                        </Box>
+                                      )}
+                                      
                                       <Checkbox
                                         size="small"
                                         checked={isChecked}
@@ -1556,8 +1586,11 @@ const CustomCalendar = (props) => {
               />
             </Box>
           </Box>
-          {/* 색상 선택 */}
-          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+          {/* 색상 선택과 날씨 선택 */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 2 }}>
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>색상 선택</Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
             {colorChoices.map(color => (
               <Box
                 key={color}
@@ -1585,6 +1618,41 @@ const CustomCalendar = (props) => {
                 }}
               />
             ))}
+              </Box>
+            </Box>
+            
+            {/* 날씨 선택 - 현장, 현설, 실측, 기타만 표시 */}
+            {(() => {
+              const currentType = editPopup.item?.type;
+              const showWeather = currentType === '현장' || currentType === '현설' || currentType === '실측' || currentType === '기타';
+              
+              if (!showWeather) return null;
+              
+              return (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>날씨 선택</Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    {['☀️', '☔', '⛄', '🌀', '없음'].map((weather, index) => (
+                      <Box
+                        key={index}
+                        onClick={() => setEditPopup(p => ({ ...p, item: { ...p.item, weather } }))}
+                        sx={{
+                          width: 32, height: 32, borderRadius: '50%',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: 'pointer',
+                          border: (editPopup.item?.weather || '☀️') === weather ? '2px solid #1976d2' : '2px solid #ccc',
+                          backgroundColor: weather === '없음' ? '#666' : ((editPopup.item?.weather || '☀️') === weather ? 'rgba(25, 118, 210, 0.1)' : 'transparent'),
+                          transition: 'all 0.15s',
+                          fontSize: '1.2rem'
+                        }}
+                      >
+                        {weather === '없음' ? '' : weather}
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              );
+            })()}
           </Box>
           {/* 설명(일정) 입력란을 맨 아래로 이동 */}
           <TextField

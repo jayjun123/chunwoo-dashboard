@@ -4,7 +4,7 @@ import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, EditNote as Edi
 import CustomCalendar from '../CustomCalendar';
 import ScheduleHeatmap from './ScheduleHeatmap';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, where, getDocs } from 'firebase/firestore';
+import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, where, getDocs, setDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import * as XLSX from 'xlsx';
@@ -144,8 +144,6 @@ const ScheduleManagement = ({
   const [month, setMonth] = useState(today.getMonth());
   const [viewMode, setViewMode] = useState(propViewMode);
   const [calendarItems, setCalendarItems] = useState({});
-  const [popupOpen, setPopupOpen] = useState(false);
-  const [popupDate, setPopupDate] = useState('');
   const [popupTitle, setPopupTitle] = useState('');
   const [popupDesc, setPopupDesc] = useState('');
   const [popupType, setPopupType] = useState('');
@@ -157,6 +155,8 @@ const ScheduleManagement = ({
   const [checkedItems, setCheckedItems] = useState({});
   const colorChoices = ['transparent', '#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
   const [selectedColor, setSelectedColor] = useState(colorChoices[0]);
+  const [selectedWeather, setSelectedWeather] = useState('☀️');
+  
   
   // 탭 상태 (location.state에서 initialTab 가져오기)
   const [activeTab, setActiveTab] = useState(location.state?.initialTab ?? initialTab);
@@ -532,6 +532,7 @@ const ScheduleManagement = ({
 
     console.log('🔍 일정 데이터 구독 시작 - 사용자:', user.uid);
 
+
     const schedulesQuery = query(collection(db, 'schedules'));
     let unsubscribe = null;
     let checksUnsubscribe = null;
@@ -841,15 +842,23 @@ const ScheduleManagement = ({
       // 모바일에서는 CustomCalendar의 팝업을 사용
       return;
     }
-    setPopupOpen(true);
-    setPopupDate(dateStr);
+    // 통일된 모달 사용
+    setShowListPopup(true);
+    setListPopupDate(dateStr);
+    setEditPopup({ open: true, item: null, date: dateStr });
+    // 새 일정 추가를 위한 상태 초기화
     setPopupTitle('');
     setPopupType('');
     setPopupDesc('');
+    setPopupSiteName('');
+    setSelectedTypes([]);
   };
 
   const handleClosePopup = () => {
-    setPopupOpen(false);
+    // 통일된 모달 닫기
+    setShowListPopup(false);
+    setListPopupDate('');
+    setEditPopup({ open: false, item: null, date: null });
     setPopupTitle('');
     setPopupDesc('');
     setPopupSiteName('');
@@ -865,7 +874,7 @@ const ScheduleManagement = ({
     }
     
     // 한국 시간대로 날짜 생성 (시간대 문제 해결)
-    const koreanDate = new Date(popupDate + 'T12:00:00'); // 정오로 설정하여 시간대 차이 방지
+    const koreanDate = new Date(listPopupDate + 'T12:00:00'); // 정오로 설정하여 시간대 차이 방지
     
     const scheduleData = {
       text: popupTitle || popupSiteName,
@@ -874,6 +883,7 @@ const ScheduleManagement = ({
       date: koreanDate,
       userId: user.uid,
       color: selectedColor,
+      weather: selectedWeather,
       siteName: popupSiteName,
       createdAt: new Date()
     };
@@ -886,14 +896,17 @@ const ScheduleManagement = ({
         // 기존 로직 사용
         await addDoc(collection(db, 'schedules'), scheduleData);
       }
-      setPopupOpen(false);
+      // 모달 닫기 및 입력 필드 초기화
+      setEditPopup({ open: false, item: null, date: null });
       setPopupTitle('');
       setPopupDesc('');
       setPopupSiteName('');
       setSelectedTypes([]);
+      setSelectedColor(colorChoices[0]);
+      setSelectedWeather('☀️');
       
       // 모바일에서 일정 추가 후 선택된 날짜의 일정 목록 새로고침
-      if (isMobile && selectedDate && selectedDate === popupDate && onDateClick) {
+      if (isMobile && selectedDate && selectedDate === listPopupDate && onDateClick) {
         onDateClick(selectedDate);
       }
     } catch (error) {
@@ -923,14 +936,28 @@ const ScheduleManagement = ({
   };
 
   const handleItemDoubleClick = (date, item) => {
-    // 견적 일정인 경우 견적 페이지로 이동
-    if (item && item.isEstimate) {
-      navigate('/estimates');
+    console.log('더블클릭된 항목:', item);
+    console.log('항목 ID:', item?.id);
+    console.log('isEstimate:', item?.isEstimate);
+    console.log('ID가 estimate_로 시작하는가:', item?.id?.startsWith('estimate_'));
+    
+    // 견적 일정인 경우 견적 페이지로 이동하여 해당 견적 띄우기
+    if (item && (item.isEstimate || item.id.startsWith('estimate_'))) {
+      const estimateId = item.id.replace('estimate_', '');
+      console.log('견적 더블클릭 - 견적 ID:', estimateId);
+      navigate('/estimates', { 
+        state: { 
+          selectedEstimateId: estimateId,
+          fromSchedule: true 
+        } 
+      });
       return;
     }
     
-    // 견적 일정이 아닌 경우 편집 팝업 열기
-    setEditPopup({ open: true, item, date });
+    // 견적 일정이 아닌 경우 날짜셀 더블클릭 모달 열기 (통일된 모달)
+    setShowListPopup(true);
+    setListPopupDate(date);
+    setEditPopup({ open: true, item, date }); // 편집할 항목 정보도 저장
   };
 
   let touchTimer;
@@ -1258,6 +1285,8 @@ const ScheduleManagement = ({
         text: editPopup.item.text,
         type: editPopup.item.type,
         desc: editPopup.item.desc,
+        color: editPopup.item.color,
+        weather: editPopup.item.weather,
         updatedAt: new Date()
       };
       
@@ -1289,6 +1318,7 @@ const ScheduleManagement = ({
       item: { ...prev.item, type }
     }));
   };
+
 
   const handleExcel = async (filteredCalendarItems = null, customPeriod = null) => {
     // PC에서만 엑셀 다운로드 가능
@@ -1424,6 +1454,7 @@ const ScheduleManagement = ({
             현장명: item.text || '',
             설명: item.desc || '',
             E열: eColumnInfo,
+            날씨: item.weather || '☀️',
             체크박스유무: checkedItems[`${dateStr}-${item.id}`] ? '체크' : '미체크'
           });
         });
@@ -1602,12 +1633,35 @@ const ScheduleManagement = ({
 
 
 
-  // 날짜셀 더블클릭 시 팝업 열기
+  // 날짜 숫자(일) 더블클릭 시 일정 추가 모달 열기
   const handleDateCellDoubleClick = (dateStr) => {
     setShowListPopup(true);
     setListPopupDate(dateStr);
+    // 편집 모드로 시작 (새 일정 추가 모드)
+    setEditPopup({ open: true, item: null, date: dateStr });
   };
-  const handleCloseListPopup = () => { setShowListPopup(false); setListPopupDate(''); };
+  const handleCloseListPopup = () => { 
+    setShowListPopup(false); 
+    setListPopupDate(''); 
+    setEditPopup({ open: false, item: null, date: null }); // 편집 상태도 초기화
+  };
+
+  // ESC 키로 카운트 모달 닫기
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && showListPopup) {
+        handleCloseListPopup();
+      }
+    };
+
+    if (showListPopup) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showListPopup]);
   
   // 현장 더블클릭 핸들러
   const handleSiteDoubleClick = (site) => {
@@ -2082,9 +2136,9 @@ const ScheduleManagement = ({
               onItemTouchEnd={handleItemTouchEnd}
               onDateClick={handleDateClick}
               onOpenPopup={handleOpenPopup}
-              onDateNumberClick={handleOpenPopup}
+              onDateNumberClick={handleDateCellDoubleClick}
               onCountClick={handleShowListPopup}
-              onCellDoubleClick={handleDateCellDoubleClick}
+              onCellDoubleClick={() => {}} // 셀 더블클릭 시 아무것도 하지 않음
               onCheckItem={handleCheckItem}
               checkedItems={checkedItems}
               selectedItems={selectedItems}
@@ -2132,162 +2186,242 @@ const ScheduleManagement = ({
         site={siteInfoPopup.site}
       />
       
-      {/* 일정 추가 팝업 */}
-      {popupOpen && (
-        <Box
-          onClick={e => { e.stopPropagation(); handleClosePopup(); }}
-          sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', bgcolor: 'rgba(0,0,0,0.4)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Box onClick={e => e.stopPropagation()} sx={{ minWidth: 340, bgcolor: 'background.paper', borderRadius: 3, p: 3, boxShadow: 5, position: 'relative', zIndex: 3100 }}>
-            <IconButton onClick={e => { e.stopPropagation(); handleClosePopup(); }} sx={{ position: 'absolute', top: 8, right: 8, color: 'text.primary' }}>X</IconButton>
-            <Typography variant="h6" sx={{ color: 'text.primary', mb: 2 }}>{popupDate} 일정</Typography>
-            <TextField label="제목" value={popupTitle} onChange={e => setPopupTitle(e.target.value)} fullWidth sx={{ mb: 2 }} autoFocus />
-            {/* 현장명 검색 선택 */}
-            <Autocomplete
-              options={sites.map(site => site.name).filter(Boolean)}
-              value={popupSiteName || ''}
-              onInputChange={(_, v) => setPopupSiteName(v)}
-              renderInput={(params) => <TextField {...params} label="현장명 검색" />}
-              freeSolo
-              sx={{ mb: 2 }}
-            />
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>분류 선택</Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
-                <FormControlLabel
-                  control={<Checkbox checked={selectedTypes.includes('현장')} onChange={() => handleTypeChange('현장')} />}
-                  label="현장"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={selectedTypes.includes('회의')} onChange={() => handleTypeChange('회의')} />}
-                  label="회의"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={selectedTypes.includes('전자입찰')} onChange={() => handleTypeChange('전자입찰')} />}
-                  label="전자입찰"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={selectedTypes.includes('현설')} onChange={() => handleTypeChange('현설')} />}
-                  label="현설"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={selectedTypes.includes('실측')} onChange={() => handleTypeChange('실측')} />}
-                  label="실측"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={selectedTypes.includes('기타')} onChange={() => handleTypeChange('기타')} />}
-                  label="기타"
-                />
-              </Box>
-            </Box>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>색상 선택</Typography>
-            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-              {colorChoices.map(color => (
-                <Box
-                  key={color}
-                  onClick={() => setSelectedColor(color)}
-                  sx={{
-                    width: 24, height: 24, borderRadius: '50%',
-                    bgcolor: color === 'transparent' ? 'transparent' : color,
-                    cursor: 'pointer',
-                    border: selectedColor === color ? '3px solid #fff' : '2px solid #888',
-                    boxShadow: selectedColor === color ? '0 0 0 2px #1976d2' : 'none',
-                    transition: 'all 0.15s',
-                    position: 'relative',
-                    ...(color === 'transparent' && {
-                      '&::after': {
-                        content: '"없음"',
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        fontSize: '0.6rem',
-                        color: '#666',
-                        fontWeight: 'bold'
-                      }
-                    })
-                  }}
-                />
-              ))}
-            </Box>
-            <TextField 
-              label="설명" 
-              value={popupDesc} 
-              onChange={e => setPopupDesc(e.target.value)} 
-              fullWidth 
-              multiline 
-              rows={3} 
-              sx={{ mb: 2 }} 
-            />
-            <Button variant="contained" color="primary" onClick={handleAddSchedule} fullWidth disabled={(!popupTitle.trim() && !popupSiteName.trim()) || selectedTypes.length === 0}>추가</Button>
-          </Box>
-        </Box>
-      )}
       
-      {/* 일정 수정 팝업 */}
-      {editPopup.open && (
-        <Box
-          onClick={e => { e.stopPropagation(); setEditPopup({ ...editPopup, open: false }); }}
-          sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', bgcolor: 'rgba(0,0,0,0.4)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Box onClick={e => e.stopPropagation()} sx={{ minWidth: 340, bgcolor: 'background.paper', borderRadius: 3, p: 3, boxShadow: 5, position: 'relative', zIndex: 3100 }}>
-            <IconButton onClick={e => { e.stopPropagation(); setEditPopup({ ...editPopup, open: false }); }} sx={{ position: 'absolute', top: 8, right: 8, color: 'text.primary' }}>X</IconButton>
-            <Typography variant="h6" sx={{ color: 'text.primary', mb: 2 }}>일정 수정</Typography>
-            <TextField label="제목" value={editPopup.item?.text} onChange={(e) => setEditPopup({ ...editPopup, item: { ...editPopup.item, text: e.target.value } })} fullWidth sx={{ mb: 2 }} autoFocus />
-            
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>분류 선택</Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
-                <FormControlLabel
-                  control={<Checkbox checked={editPopup.item?.type === '현장'} onChange={() => handleEditTypeChange('현장')} />}
-                  label="현장"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={editPopup.item?.type === '회의'} onChange={() => handleEditTypeChange('회의')} />}
-                  label="회의"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={editPopup.item?.type === '전자입찰'} onChange={() => handleEditTypeChange('전자입찰')} />}
-                  label="전자입찰"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={editPopup.item?.type === '현설'} onChange={() => handleEditTypeChange('현설')} />}
-                  label="현설"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={editPopup.item?.type === '실측'} onChange={() => handleEditTypeChange('실측')} />}
-                  label="실측"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={editPopup.item?.type === '기타'} onChange={() => handleEditTypeChange('기타')} />}
-                  label="기타"
-                />
-              </Box>
-            </Box>
-            <TextField 
-              label="설명" 
-              value={editPopup.item?.desc || ''} 
-              onChange={(e) => setEditPopup({ ...editPopup, item: { ...editPopup.item, desc: e.target.value } })} 
-              fullWidth 
-              multiline 
-              rows={3} 
-              sx={{ mb: 2 }} 
-            />
-            <Button variant="contained" color="primary" onClick={handleEditSave} fullWidth disabled={(!editPopup.item?.text?.trim() && !editPopup.item?.siteName?.trim())}>수정</Button>
-          </Box>
-        </Box>
-      )}
       
       {/* 일정 목록 팝업 */}
       {showListPopup && (
         <Box
           onClick={e => { e.stopPropagation(); handleCloseListPopup(); }}
-          sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', bgcolor: 'rgba(0,0,0,0.4)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              handleCloseListPopup();
+            }
+          }}
+          tabIndex={0}
+          sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', bgcolor: 'rgba(0,0,0,0.7)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          <Box onClick={e => e.stopPropagation()} sx={{ minWidth: 340, bgcolor: 'background.paper', borderRadius: 3, p: 3, boxShadow: 5, position: 'relative', zIndex: 3100 }}>
+          <Box onClick={e => e.stopPropagation()} sx={{ width: 600, height: 'auto', bgcolor: '#2d2d2d', borderRadius: 2, p: 3, boxShadow: 8, position: 'relative', zIndex: 3100 }}>
             <IconButton onClick={e => { e.stopPropagation(); handleCloseListPopup(); }} sx={{ position: 'absolute', top: 8, right: 8, color: 'text.primary' }}>X</IconButton>
-            <Typography variant="h6" sx={{ color: 'text.primary', mb: 2 }}>{listPopupDate} 일정 목록</Typography>
-            {(calendarItems[listPopupDate] && calendarItems[listPopupDate].length > 0) ? (
+            <Typography variant="h5" sx={{ color: 'text.primary', mb: 3, fontWeight: 'bold' }}>
+              {editPopup.open && editPopup.item ? '일정 수정' : 
+               editPopup.open && !editPopup.item ? `${listPopupDate} 일정 추가` : 
+               `${listPopupDate} 일정 목록`}
+            </Typography>
+            
+            {/* 편집 모드일 때 편집 폼 표시 */}
+            {editPopup.open ? (
+              <>
+                <TextField 
+                  label="제목" 
+                  value={editPopup.item ? (editPopup.item.text || '') : popupTitle} 
+                  onChange={(e) => {
+                    if (editPopup.item) {
+                      setEditPopup({ ...editPopup, item: { ...editPopup.item, text: e.target.value } });
+                    } else {
+                      setPopupTitle(e.target.value);
+                    }
+                  }} 
+                  fullWidth 
+                  sx={{ mb: 3 }} 
+                  autoFocus 
+                  variant="outlined"
+                  size="medium"
+                />
+                
+                {/* 새 일정 추가 모드일 때만 현장명 검색 표시 */}
+                {!editPopup.item && (
+                  <Autocomplete
+                    options={sites.map(site => site.name).filter(Boolean)}
+                    value={popupSiteName || ''}
+                    onInputChange={(_, v) => setPopupSiteName(v)}
+                    renderInput={(params) => <TextField {...params} label="현장명 검색" />}
+                    freeSolo
+                    sx={{ mb: 2 }}
+                  />
+                )}
+                
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'medium' }}>분류 선택</Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
+                    <FormControlLabel
+                      control={<Checkbox 
+                        checked={editPopup.item ? editPopup.item.type === '현장' : selectedTypes.includes('현장')} 
+                        onChange={() => editPopup.item ? handleEditTypeChange('현장') : handleTypeChange('현장')} 
+                      />}
+                      label="현장"
+                    />
+                    <FormControlLabel
+                      control={<Checkbox 
+                        checked={editPopup.item ? editPopup.item.type === '회의' : selectedTypes.includes('회의')} 
+                        onChange={() => editPopup.item ? handleEditTypeChange('회의') : handleTypeChange('회의')} 
+                      />}
+                      label="회의"
+                    />
+                    <FormControlLabel
+                      control={<Checkbox 
+                        checked={editPopup.item ? editPopup.item.type === '전자입찰' : selectedTypes.includes('전자입찰')} 
+                        onChange={() => editPopup.item ? handleEditTypeChange('전자입찰') : handleTypeChange('전자입찰')} 
+                      />}
+                      label="전자입찰"
+                    />
+                    <FormControlLabel
+                      control={<Checkbox 
+                        checked={editPopup.item ? editPopup.item.type === '현설' : selectedTypes.includes('현설')} 
+                        onChange={() => editPopup.item ? handleEditTypeChange('현설') : handleTypeChange('현설')} 
+                      />}
+                      label="현설"
+                    />
+                    <FormControlLabel
+                      control={<Checkbox 
+                        checked={editPopup.item ? editPopup.item.type === '실측' : selectedTypes.includes('실측')} 
+                        onChange={() => editPopup.item ? handleEditTypeChange('실측') : handleTypeChange('실측')} 
+                      />}
+                      label="실측"
+                    />
+                    <FormControlLabel
+                      control={<Checkbox 
+                        checked={editPopup.item ? editPopup.item.type === '기타' : selectedTypes.includes('기타')} 
+                        onChange={() => editPopup.item ? handleEditTypeChange('기타') : handleTypeChange('기타')} 
+                      />}
+                      label="기타"
+                    />
+                  </Box>
+                </Box>
+                
+                {/* 색상 선택과 날씨 선택 */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 2 }}>
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>색상 선택</Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                  {colorChoices.map(color => (
+                    <Box
+                      key={color}
+                      onClick={() => {
+                        if (editPopup.item) {
+                          setEditPopup({ ...editPopup, item: { ...editPopup.item, color } });
+                        } else {
+                          setSelectedColor(color);
+                        }
+                      }}
+                      sx={{
+                        width: 24, height: 24, borderRadius: '50%',
+                        bgcolor: color === 'transparent' ? 'transparent' : color,
+                        cursor: 'pointer',
+                        border: (editPopup.item ? editPopup.item.color === color : selectedColor === color) ? '3px solid #fff' : '2px solid #888',
+                        boxShadow: (editPopup.item ? editPopup.item.color === color : selectedColor === color) ? '0 0 0 2px #1976d2' : 'none',
+                        transition: 'all 0.15s',
+                        position: 'relative',
+                        ...(color === 'transparent' && {
+                          '&::after': {
+                            content: '"없음"',
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            fontSize: '0.6rem',
+                            color: '#666',
+                            fontWeight: 'bold'
+                          }
+                        })
+                      }}
+                    />
+                  ))}
+                    </Box>
+                  </Box>
+                  
+                  {/* 날씨 선택 - 현장, 현설, 실측, 기타만 표시 */}
+                  {(() => {
+                    const currentType = editPopup.item ? editPopup.item.type : selectedTypes[0];
+                    // 일정 추가 모달에서는 분류 선택 없이도 날씨 표시, 편집 모달에서는 특정 분류만
+                    const showWeather = editPopup.item ? 
+                      (currentType === '현장' || currentType === '현설' || currentType === '실측' || currentType === '기타') :
+                      true; // 일정 추가 모달에서는 항상 표시
+                    
+                    if (!showWeather) return null;
+                    
+                    return (
+                      <Box>
+                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>날씨 선택</Typography>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          {['☀️', '☔', '⛄', '🌀', '없음'].map((weather, index) => (
+                            <Box
+                              key={index}
+                              onClick={() => {
+                                if (editPopup.item) {
+                                  setEditPopup({ ...editPopup, item: { ...editPopup.item, weather } });
+                                } else {
+                                  setSelectedWeather(weather);
+                                }
+                              }}
+                              sx={{
+                                width: 32, height: 32, borderRadius: '50%',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'pointer',
+                                border: (editPopup.item ? (editPopup.item.weather || '☀️') === weather : selectedWeather === weather) ? '2px solid #1976d2' : '2px solid #ccc',
+                                backgroundColor: weather === '없음' ? '#666' : ((editPopup.item ? (editPopup.item.weather || '☀️') === weather : selectedWeather === weather) ? 'rgba(25, 118, 210, 0.1)' : 'transparent'),
+                                transition: 'all 0.15s',
+                                fontSize: '1.2rem'
+                              }}
+                            >
+                              {weather === '없음' ? '' : weather}
+                            </Box>
+                          ))}
+                        </Box>
+                      </Box>
+                    );
+                  })()}
+                </Box>
+                
+                
+                <TextField 
+                  label="설명" 
+                  value={editPopup.item ? (editPopup.item.desc || '') : popupDesc} 
+                  onChange={(e) => {
+                    if (editPopup.item) {
+                      setEditPopup({ ...editPopup, item: { ...editPopup.item, desc: e.target.value } });
+                    } else {
+                      setPopupDesc(e.target.value);
+                    }
+                  }} 
+                  fullWidth 
+                  multiline 
+                  rows={4} 
+                  sx={{ mb: 3 }} 
+                  variant="outlined"
+                  size="medium"
+                />
+                
+                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 3 }}>
+                  <Button 
+                    variant="outlined" 
+                    onClick={() => setEditPopup({ open: false, item: null, date: null })} 
+                    sx={{ minWidth: 80 }}
+                  >
+                    취소
+                  </Button>
+                  <Button 
+                    variant="contained" 
+                    color="primary" 
+                    onClick={editPopup.item ? handleEditSave : handleAddSchedule} 
+                    sx={{ minWidth: 80 }}
+                    disabled={editPopup.item ? 
+                      (!editPopup.item?.text?.trim() && !editPopup.item?.siteName?.trim()) :
+                      ((!popupTitle.trim() && !popupSiteName.trim()) || selectedTypes.length === 0)
+                    }
+                  >
+                    {editPopup.item ? '저장' : '추가'}
+                  </Button>
+                </Box>
+              </>
+            ) : (
+              <>
+              </>
+            )}
+            
+            {/* 편집 모드가 아닐 때만 일정 목록 표시 */}
+            {!editPopup.open && (
+              <>
+                {(calendarItems[listPopupDate] && calendarItems[listPopupDate].length > 0) ? (
               calendarItems[listPopupDate].map(item => {
                 // 타입에 따른 태그 매핑
                 const getTypeTag = (type) => {
@@ -2306,7 +2440,23 @@ const ScheduleManagement = ({
                 const typeTag = getTypeTag(item.type);
                 
                 return (
-                  <Paper key={item.id} sx={{ mb: 1, p: 1, bgcolor: 'background.default' }}>
+                  <Paper 
+                    key={item.id} 
+                    sx={{ 
+                      mb: 1, 
+                      p: 1, 
+                      bgcolor: 'background.default',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        bgcolor: 'background.paper',
+                        boxShadow: 2
+                      }
+                    }}
+                    onClick={() => {
+                      // 편집할 항목 설정
+                      setEditPopup({ open: true, item, date: listPopupDate });
+                    }}
+                  >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                       {typeTag && (
                         <Typography 
@@ -2337,8 +2487,10 @@ const ScheduleManagement = ({
                   </Paper>
                 );
               })
-            ) : (
-              <Typography color="text.secondary">일정이 없습니다.</Typography>
+                ) : (
+                  <Typography color="text.secondary">일정이 없습니다.</Typography>
+                )}
+              </>
             )}
           </Box>
         </Box>

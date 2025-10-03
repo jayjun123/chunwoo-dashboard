@@ -453,13 +453,38 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
         return { x: 0, y: 0 };
       }
 
-      // 아이패드에서 스크롤 오프셋 보정
-      const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
-      const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+      // 아이패드/터치 디바이스 감지
+      const isIPad = /iPad/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-      // 좌표 계산 (스크롤 오프셋 포함)
-      const x = (clientX - rect.left + scrollX) * (canvas.width / rect.width);
-      const y = (clientY - rect.top + scrollY) * (canvas.height / rect.height);
+      // 아이패드에서 좌표 보정 (더 정확한 계산)
+      let x, y;
+      
+      if (isIPad || isTouchDevice) {
+        // 아이패드/터치 디바이스에서 더 정확한 좌표 계산
+        // 캔버스의 실제 크기와 표시 크기 비율
+        const canvasScaleX = canvas.width / rect.width;
+        const canvasScaleY = canvas.height / rect.height;
+        
+        // 좌표 계산 (스크롤 오프셋 제외, 아이패드에서는 불필요)
+        x = (clientX - rect.left) * canvasScaleX;
+        y = (clientY - rect.top) * canvasScaleY;
+        
+        console.log('아이패드 좌표 보정:', { 
+          clientX, clientY, 
+          rectLeft: rect.left, rectTop: rect.top,
+          canvasScaleX, canvasScaleY,
+          finalX: x, finalY: y 
+        });
+      } else {
+        // 데스크톱에서 기존 방식 사용
+        const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+        const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+        
+        x = (clientX - rect.left + scrollX) * (canvas.width / rect.width);
+        y = (clientY - rect.top + scrollY) * (canvas.height / rect.height);
+      }
 
       // 좌표 유효성 검사 (캔버스 범위 내)
       const validX = Math.max(0, Math.min(canvas.width, x));
@@ -1473,8 +1498,8 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
               
               // 터치 이벤트 최적화
               canvas.style.touchAction = 'none';
-              canvas.style.webkitTouchCallout = 'none';
-              canvas.style.webkitUserSelect = 'none';
+              canvas.style.WebkitTouchCallout = 'none';
+              canvas.style.WebkitUserSelect = 'none';
               canvas.style.userSelect = 'none';
               
               // 아이패드에서 좌표 정확도 개선
@@ -1485,12 +1510,25 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
               canvas.style.transform = 'translateZ(0)';
               canvas.style.willChange = 'transform';
               
+              // 아이패드에서 좌표 정확도를 위한 추가 설정
+              canvas.style.pointerEvents = 'auto';
+              canvas.style.WebkitTapHighlightColor = 'transparent';
+              
+              // 뷰포트 메타태그 확인 및 조정
+              const viewport = document.querySelector('meta[name="viewport"]');
+              if (viewport) {
+                const content = viewport.getAttribute('content');
+                if (!content.includes('user-scalable=no')) {
+                  console.log('뷰포트 설정 확인:', content);
+                }
+              }
+              
               console.log('아이패드 최적화 설정 적용 완료');
             }
             
             // 일반 터치 디바이스 설정
             canvas.style.touchAction = 'none';
-            canvas.style.webkitUserSelect = 'none';
+            canvas.style.WebkitUserSelect = 'none';
             canvas.style.userSelect = 'none';
             
             console.log('터치 디바이스 최적화 설정 적용 완료');

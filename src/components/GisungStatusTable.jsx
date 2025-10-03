@@ -75,38 +75,53 @@ const GisungStatusTable = ({ onNewGisung }) => {
               <TableCell>전회기성</TableCell>
               <TableCell>기성월</TableCell>
               <TableCell>기성금액</TableCell>
+              <TableCell>누계기성</TableCell>
+              <TableCell>잔액</TableCell>
               <TableCell>결제방법</TableCell>
+              <TableCell>금회기성</TableCell>
               <TableCell>비고</TableCell>
               <TableCell>청구완료</TableCell>
               <TableCell>관리</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {gisungList.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map((row) => (
-              <TableRow key={row.id}>
-                <TableCell padding="checkbox"><Checkbox /></TableCell>
-                <TableCell>{row.name}</TableCell>
-                <TableCell>{Number(row.contractAmount || 0).toLocaleString()}원</TableCell>
-                <TableCell>{Number(row.advance || 0).toLocaleString()}원</TableCell>
-                <TableCell>{Number(row.prevGisung || 0).toLocaleString()}원</TableCell>
-                <TableCell>{row.gisungMonth || '-'}</TableCell>
-                <TableCell>{Number(row.gisungAmount || 0).toLocaleString()}원</TableCell>
-                <TableCell>{row.paymentMethod || '-'}</TableCell>
-                <TableCell>{row.note || '-'}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={row.claimStatus || '미청구'}
-                    color={row.claimStatus === '청구완료' ? 'success' : 'default'}
-                    onClick={() => toggleClaimStatus(row.id, row.claimStatus)}
-                    sx={{ cursor: 'pointer' }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Button size="small" variant="contained" color="primary" sx={{ mr: 1 }}>수정</Button>
-                  <Button size="small" variant="contained" color="error">삭제</Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {gisungList.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map((row) => {
+              const contractAmount = Number(row.contractAmount || 0);
+              const advance = Number(row.advance || 0);
+              const prevGisung = Number(row.prevGisung || 0);
+              const gisungAmount = Number(row.gisungAmount || 0);
+              const totalGisung = advance + prevGisung + gisungAmount;
+              const balance = contractAmount - totalGisung;
+              
+              return (
+                <TableRow key={row.id}>
+                  <TableCell padding="checkbox"><Checkbox /></TableCell>
+                  <TableCell>{row.name}</TableCell>
+                  <TableCell>{contractAmount.toLocaleString()}원</TableCell>
+                  <TableCell>{advance.toLocaleString()}원</TableCell>
+                  <TableCell>{prevGisung.toLocaleString()}원</TableCell>
+                  <TableCell>{row.gisungMonth || '-'}</TableCell>
+                  <TableCell>{gisungAmount.toLocaleString()}원</TableCell>
+                  <TableCell>{totalGisung.toLocaleString()}원</TableCell>
+                  <TableCell>{balance.toLocaleString()}원</TableCell>
+                  <TableCell>{row.paymentMethod || '-'}</TableCell>
+                  <TableCell>{row.currentGisung || '-'}</TableCell>
+                  <TableCell>{row.note || '-'}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={row.claimStatus || '미청구'}
+                      color={row.claimStatus === '청구완료' ? 'success' : 'default'}
+                      onClick={() => toggleClaimStatus(row.id, row.claimStatus)}
+                      sx={{ cursor: 'pointer' }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button size="small" variant="contained" color="primary" sx={{ mr: 1 }}>수정</Button>
+                    <Button size="small" variant="contained" color="error">삭제</Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </TableContainer>

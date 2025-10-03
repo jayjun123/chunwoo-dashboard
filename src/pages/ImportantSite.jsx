@@ -239,9 +239,9 @@ export default function ImportantSite() {
         console.log(`   - isStarred: ${site.isStarred} (타입: ${typeof site.isStarred})`);
       });
       
-      // 모든 현장을 포함하되, 무효한 날짜만 제외 (공사기간 종료 여부와 관계없이)
+      // 완료된 현장과 무효한 날짜 형식 제외
       const activeSitesData = allSitesData.filter(site => {
-        // 무효한 날짜 형식만 체크하여 제외
+        // 무효한 날짜 형식 체크
         if (site.endDate) {
           const endDateStr = String(site.endDate);
           
@@ -254,10 +254,24 @@ export default function ImportantSite() {
             console.log(`🔍 주요현장 - ${site.name}: 무효한 날짜 형식 (${site.endDate}) -> 제외`);
             return false; // 무효한 날짜는 제외
           }
+          
+          // 완료된 현장 체크 (공사 종료일이 현재 날짜보다 이전인 경우)
+          try {
+            const today = new Date();
+            const endDate = new Date(endDateStr.replace(/[.\/-]/g, '-'));
+            
+            if (endDate < today) {
+              console.log(`🔍 주요현장 - ${site.name}: 공사 완료된 현장 (${site.endDate}) -> 제외`);
+              return false; // 완료된 현장은 제외
+            }
+          } catch (error) {
+            console.log(`🔍 주요현장 - ${site.name}: 날짜 파싱 오류 (${site.endDate}) -> 포함`);
+            // 날짜 파싱 오류 시에는 포함
+          }
         }
         
-        console.log(`🔍 주요현장 - ${site.name}: 유효한 현장 -> 포함 (공사기간 종료 여부와 관계없이)`);
-        return true; // 모든 유효한 현장 포함
+        console.log(`🔍 주요현장 - ${site.name}: 진행중인 현장 -> 포함`);
+        return true; // 진행중인 현장만 포함
       });
       
       // isFavorite 또는 isStarred가 true인 현장 필터링 (더 관대한 조건)
@@ -1123,7 +1137,7 @@ export default function ImportantSite() {
           padding: isMobile ? '10px 0 0 6px' : '10px 10px 0 10px',
         }}>
           {filteredSites.length === 0 && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography sx={{ color: '#bbb', mt: 4 }}>
                 {search.trim() !== '' ? '검색 결과가 없습니다.' : '주요현장으로 지정된 현장이 없습니다. 현장관리에서 별표를 체크하여 주요현장을 추가해주세요.'}
               </Typography>
@@ -1142,7 +1156,7 @@ export default function ImportantSite() {
           });
           
           return (
-            <Grid item xs={12} md={8} key={site.id} sx={{ minWidth: isMobile ? 'auto' : '700px' }}>
+            <Grid size={{ xs: 12, md: 8 }} key={site.id} sx={{ minWidth: isMobile ? 'auto' : '700px' }}>
               <Paper 
                 onDragOver={(e) => {
                   e.preventDefault();

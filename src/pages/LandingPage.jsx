@@ -59,7 +59,7 @@ const LandingPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { currentUser } = useAuth();
-  const { todos, loading: todoLoading } = useTodo();
+  const { todos, loading: todoLoading, toggleTodo } = useTodo();
   const [userRole, setUserRole] = useState(null);
   const [currentFeature, setCurrentFeature] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
@@ -225,11 +225,16 @@ const LandingPage = () => {
     fetchTodaySchedules();
   }, []);
 
-  // 오늘의 할일 데이터 가져오기 (TodoContext에서)
+  // 오늘의 할일 데이터 가져오기 (TodoContext에서) - 개선된 버전
   useEffect(() => {
     if (todoLoading || !todos) return;
     
-    console.log('🚀 TodoContext에서 할일 데이터 처리 시작');
+    console.log('🚀 TodoContext에서 할일 데이터 처리 시작 (개선된 버전)');
+    console.log('📊 현재 todos 상태:', {
+      개수: todos.length,
+      로딩상태: todoLoading,
+      할일목록: todos.map(t => ({ id: t.id, text: t.text, completed: t.completed, date: t.date }))
+    });
     
     try {
       // 한국 시간 기준으로 오늘/어제 날짜 계산
@@ -258,6 +263,9 @@ const LandingPage = () => {
       });
       
       const filteredTodos = [];
+      let completedCount = 0;
+      let todayCount = 0;
+      let yesterdayCount = 0;
       
       todos.forEach((todo) => {
         // 날짜 처리 - 간단하게 문자열로 변환
@@ -292,12 +300,18 @@ const LandingPage = () => {
         const isTodayOrYesterday = (todoDate === todayStr || todoDate === yesterdayStr);
         const isNotCompleted = !todo.completed;
         
+        // 통계 카운트
+        if (todo.completed) completedCount++;
+        if (todoDate === todayStr) todayCount++;
+        if (todoDate === yesterdayStr) yesterdayCount++;
+        
         console.log(`📋 할일 체크: ${todo.title || todo.text || '제목없음'}`, {
           DB날짜: todoDate,
           오늘날짜: todayStr,
           어제날짜: yesterdayStr,
           완료상태: todo.completed,
-          포함여부: isTodayOrYesterday && isNotCompleted
+          포함여부: isTodayOrYesterday && isNotCompleted,
+          업데이트시간: todo.updatedAt ? (todo.updatedAt.toDate ? todo.updatedAt.toDate() : new Date(todo.updatedAt)) : null
         });
         
         if (isTodayOrYesterday && isNotCompleted) {
@@ -307,22 +321,37 @@ const LandingPage = () => {
             completed: todo.completed || false,
             priority: todo.priority || 'medium',
             date: todoDate,
-            isOverdue: todoDate === yesterdayStr // 어제 할일이면 지연으로 표시
+            isOverdue: todoDate === yesterdayStr, // 어제 할일이면 지연으로 표시
+            updatedAt: todo.updatedAt,
+            createdAt: todo.createdAt
           });
         }
       });
       
-      // 지연된 할일을 먼저 정렬
+      // 지연된 할일을 먼저 정렬 (업데이트 시간도 고려)
       filteredTodos.sort((a, b) => {
         if (a.isOverdue && !b.isOverdue) return -1;
         if (!a.isOverdue && b.isOverdue) return 1;
-        return 0;
+        
+        // 같은 우선순위면 업데이트 시간으로 정렬 (최신순)
+        const aTime = a.updatedAt ? (a.updatedAt.toDate ? a.updatedAt.toDate() : new Date(a.updatedAt)) : new Date(0);
+        const bTime = b.updatedAt ? (b.updatedAt.toDate ? b.updatedAt.toDate() : new Date(b.updatedAt)) : new Date(0);
+        return bTime - aTime;
       });
       
-      console.log('📋 최종 할일 결과:', {
+      console.log('📋 최종 할일 결과 (개선된 버전):', {
         전체할일개수: todos.length,
         필터링된할일개수: filteredTodos.length,
-        할일목록: filteredTodos
+        완료된할일개수: completedCount,
+        오늘할일개수: todayCount,
+        어제할일개수: yesterdayCount,
+        할일목록: filteredTodos.map(t => ({ 
+          id: t.id, 
+          title: t.title, 
+          completed: t.completed, 
+          isOverdue: t.isOverdue,
+          date: t.date 
+        }))
       });
       
       setTodayTodos(filteredTodos);
@@ -331,6 +360,17 @@ const LandingPage = () => {
       setTodayTodos([]);
     }
   }, [todos, todoLoading]); // todos나 todoLoading이 변경될 때마다 실행
+
+  // 메인페이지에서 할일 완료 상태 토글
+  const handleTodoToggle = async (todoId, currentCompleted) => {
+    try {
+      console.log('🔄 메인페이지에서 할일 상태 토글:', { todoId, currentCompleted });
+      await toggleTodo(todoId, currentCompleted);
+      console.log('✅ 할일 상태 토글 완료');
+    } catch (error) {
+      console.error('❌ 할일 상태 토글 실패:', error);
+    }
+  };
 
   // 스크롤 애니메이션
   useEffect(() => {
@@ -1246,6 +1286,7 @@ const LandingPage = () => {
                         todayTodos.map((todo, index) => (
                           <Box
                             key={todo.id || index}
+                            onClick={() => handleTodoToggle(todo.id, todo.completed)}
                             sx={{
                               display: 'flex',
                               alignItems: 'center',
@@ -1256,9 +1297,14 @@ const LandingPage = () => {
                               background: 'rgba(0, 0, 0, 0.3)',
                               border: '1px solid rgba(67, 233, 123, 0.1)',
                               transition: 'all 0.3s ease',
+                              cursor: 'pointer',
                               '&:hover': {
                                 background: 'rgba(67, 233, 123, 0.1)',
-                                border: '1px solid rgba(67, 233, 123, 0.3)'
+                                border: '1px solid rgba(67, 233, 123, 0.3)',
+                                transform: 'translateY(-1px)'
+                              },
+                              '&:active': {
+                                transform: 'translateY(0px)'
                               }
                             }}
                           >
@@ -1268,7 +1314,11 @@ const LandingPage = () => {
                               borderRadius: '50%',
                               border: '2px solid #43e97b',
                               backgroundColor: todo.completed ? '#43e97b' : 'transparent',
-                              flexShrink: 0
+                              flexShrink: 0,
+                              transition: 'all 0.2s ease',
+                              '&:hover': {
+                                transform: 'scale(1.1)'
+                              }
                             }} />
                             <Box sx={{ flex: 1, minWidth: 0 }}>
                               <Typography 
@@ -1280,7 +1330,8 @@ const LandingPage = () => {
                                   whiteSpace: 'nowrap',
                                   textDecoration: todo.completed ? 'line-through' : 'none',
                                   opacity: todo.completed ? 0.6 : 1,
-                                  fontWeight: todo.isOverdue ? 'bold' : 'normal'
+                                  fontWeight: todo.isOverdue ? 'bold' : 'normal',
+                                  transition: 'all 0.2s ease'
                                 }}
                               >
                                 {todo.isOverdue ? '[미완료] ' : ''}{todo.title}

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, startTransition } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -59,6 +60,7 @@ const Estimates = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // 상태 관리
   const [estimates, setEstimates] = useState([]);
@@ -201,6 +203,20 @@ const Estimates = () => {
       unsubscribe();
     };
   }, [currentUser, sortField, sortDirection]);
+
+  // 일정에서 견적 더블클릭으로 들어온 경우 해당 견적 검색
+  useEffect(() => {
+    if (location.state?.selectedEstimateId && estimates.length > 0) {
+      const targetEstimate = estimates.find(estimate => estimate.id === location.state.selectedEstimateId);
+      if (targetEstimate) {
+        console.log('일정에서 선택된 견적 찾음:', targetEstimate);
+        // 해당 견적의 현장명으로 검색어 설정
+        setSearchTerm(targetEstimate.siteName || '');
+        // location.state 초기화 (뒤로가기 시 중복 실행 방지)
+        navigate(location.pathname, { replace: true });
+      }
+    }
+  }, [estimates, location.state?.selectedEstimateId, navigate, location.pathname]);
 
   // 모바일 스와이프 뒤로가기 비활성화 (안전한 방법)
   useEffect(() => {
