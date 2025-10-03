@@ -4969,7 +4969,7 @@ export default function SettlementDetail() {
         bgcolor: '#232b3b', 
         height: '60px', // 높이 줄임
         p: { xs: 0.5, md: 1 }, // 패딩 더 줄임
-        mb: { xs: 2, md: 3 }, // 아이패드에서 마진 줄임
+        mb: { xs: 1, md: 1.5 }, // 아이패드에서 마진 줄임
         borderBottom: '2px solid #333',
         display: 'flex',
         alignItems: 'center'
@@ -4987,18 +4987,20 @@ export default function SettlementDetail() {
               뒤로가기
             </Button>
             {/* 데스크톱용 전체 제목 */}
-            <Typography variant="h4" sx={{ 
+            <Typography variant="h5" sx={{ 
               fontWeight: 'bold', 
               color: '#fff',
-              display: { xs: 'none', md: 'block' }
+              display: { xs: 'none', md: 'block' },
+              mb: 1
             }}>
               {site.name}_{todayString} 기준 정산내역
             </Typography>
             {/* 아이패드용 짧은 제목 */}
-            <Typography variant="h4" sx={{ 
+            <Typography variant="h6" sx={{ 
               fontWeight: 'bold', 
               color: '#fff',
-              display: { xs: 'block', md: 'none' }
+              display: { xs: 'block', md: 'none' },
+              mb: 1
             }}>
               {site.name}_{todayString} 기준
             </Typography>
@@ -5079,7 +5081,14 @@ export default function SettlementDetail() {
                     📋 물량내역 {showQuantityExpanded ? '접기' : '펼치기'}
                   </Button>
                 </Box>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: 1.5,
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    gap: 0.8
+                  }
+                }}>
                   <Box sx={{ 
                     display: 'flex', 
                     flexDirection: { xs: 'column', md: 'row' }, // 아이패드에서 세로 배치
@@ -5352,7 +5361,14 @@ export default function SettlementDetail() {
                 <Typography variant="h6" sx={{ mb: 2, color: '#ff9800', display: 'flex', alignItems: 'center', gap: 1 }}>
                   <AttachMoneyIcon /> 정산내역
                 </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: 1.5,
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    gap: 0.8
+                  }
+                }}>
                   <Box sx={{ 
                     display: 'flex', 
                     flexDirection: { xs: 'column', md: 'row' }, // 아이패드에서 세로 배치
@@ -5457,7 +5473,14 @@ export default function SettlementDetail() {
                     <Typography variant="h6" sx={{ mb: 2, color: '#f44336', display: 'flex', alignItems: 'center', gap: 1 }}>
                       <TrendingDownIcon /> 지출정보
                     </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      gap: 0.5,
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        gap: 0.3
+                      }
+                    }}>
                       <Box 
                         sx={{ 
                           display: 'flex', 
@@ -6119,6 +6142,9 @@ export default function SettlementDetail() {
                   // 차트와 라벨을 10px 올림
                   marginTop: '-10px',
                   // 아이패드 최적화
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    height: '300px'
+                  },
                   touchAction: 'manipulation',
                   WebkitTouchCallout: 'none',
                   WebkitUserSelect: 'none',
@@ -6148,14 +6174,14 @@ export default function SettlementDetail() {
                     mb: 4, 
                     justifyContent: 'center',
                     color: isChartLightMode ? '#000' : '#fff',
-                    overflowX: 'auto',
+                    overflowX: 'hidden',
                     // 테블릿에서 범례 크기와 간격 줄임
                     '@media (min-width: 768px) and (max-width: 1024px)': {
-                      gap: 2,
-                      mb: 2,
+                      gap: 1,
+                      mb: 1,
                       flexWrap: 'nowrap',
-                      overflowX: 'auto',
-                      paddingBottom: 1
+                      overflowX: 'hidden',
+                      paddingBottom: 0
                     }
                   }}>
                     <Box sx={{ 
@@ -6175,8 +6201,8 @@ export default function SettlementDetail() {
                         flexShrink: 0,
                         // 테블릿에서 크기 줄임
                         '@media (min-width: 768px) and (max-width: 1024px)': {
-                          width: 25,
-                          height: 3
+                          width: 20,
+                          height: 2
                         }
                       }} />
                       <Typography variant="h6" sx={{ 
@@ -6185,7 +6211,7 @@ export default function SettlementDetail() {
                         whiteSpace: 'nowrap',
                         // 테블릿에서 폰트 크기 줄임
                         '@media (min-width: 768px) and (max-width: 1024px)': {
-                          fontSize: '12px'
+                          fontSize: '10px'
                         }
                       }}>기성금</Typography>
                     </Box>
@@ -6201,13 +6227,13 @@ export default function SettlementDetail() {
                         height: 5, 
                         bgcolor: '#f44336',
                         flexShrink: 0,
-                        '@media (min-width: 768px) and (max-width: 1024px)': { width: 25, height: 3 }
+                        '@media (min-width: 768px) and (max-width: 1024px)': { width: 20, height: 2 }
                       }} />
                       <Typography variant="h6" sx={{ 
                         fontSize: '18px', 
                         fontWeight: 600,
                         whiteSpace: 'nowrap',
-                        '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '12px' }
+                        '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '10px' }
                       }}>지출총합계</Typography>
                     </Box>
                     <Box sx={{ 
@@ -6222,14 +6248,14 @@ export default function SettlementDetail() {
                         height: 5, 
                         background: 'repeating-linear-gradient(to right, #00bcd4 0px, #00bcd4 8px, transparent 8px, transparent 12px)',
                         flexShrink: 0,
-                        '@media (min-width: 768px) and (max-width: 1024px)': { width: 25, height: 3 }
+                        '@media (min-width: 768px) and (max-width: 1024px)': { width: 20, height: 2 }
                       }} />
                       <Typography variant="h6" sx={{ 
                         fontSize: '18px', 
                         fontWeight: 600, 
                         color: '#fff',
                         whiteSpace: 'nowrap',
-                        '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '12px' }
+                        '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '10px' }
                       }}>노무비</Typography>
                     </Box>
                     <Box sx={{ 
@@ -6244,13 +6270,13 @@ export default function SettlementDetail() {
                         height: 5, 
                         background: 'repeating-linear-gradient(to right, #9c27b0 0px, #9c27b0 8px, transparent 8px, transparent 12px)',
                         flexShrink: 0,
-                        '@media (min-width: 768px) and (max-width: 1024px)': { width: 25, height: 3 }
+                        '@media (min-width: 768px) and (max-width: 1024px)': { width: 20, height: 2 }
                       }} />
                       <Typography variant="h6" sx={{ 
                         fontSize: '18px', 
                         fontWeight: 600,
                         whiteSpace: 'nowrap',
-                        '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '12px' }
+                        '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '10px' }
                       }}>자재비</Typography>
                     </Box>
                     <Box sx={{ 
@@ -6265,13 +6291,13 @@ export default function SettlementDetail() {
                         height: 5, 
                         background: 'repeating-linear-gradient(to right, #ff5722 0px, #ff5722 8px, transparent 8px, transparent 12px)',
                         flexShrink: 0,
-                        '@media (min-width: 768px) and (max-width: 1024px)': { width: 25, height: 3 }
+                        '@media (min-width: 768px) and (max-width: 1024px)': { width: 20, height: 2 }
                       }} />
                       <Typography variant="h6" sx={{ 
                         fontSize: '18px', 
                         fontWeight: 600,
                         whiteSpace: 'nowrap',
-                        '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '12px' }
+                        '@media (min-width: 768px) and (max-width: 1024px)': { fontSize: '10px' }
                       }}>경비</Typography>
                     </Box>
                     {chartData.hasSubMaterialData && (
@@ -6547,6 +6573,9 @@ export default function SettlementDetail() {
                   alignItems: 'center', 
                   justifyContent: 'center',
                   bgcolor: isChartLightMode ? '#f5f5f5' : '#333',
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    height: '300px'
+                  },
                   borderRadius: 2
                 }}>
                   <Typography sx={{ color: isChartLightMode ? '#666' : '#bbb' }}>
