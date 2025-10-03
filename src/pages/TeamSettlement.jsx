@@ -3540,7 +3540,12 @@ const TeamSettlement = () => {
               >
                 <ArrowBackIcon />
               </IconButton>
-              <Box>
+              <Box sx={{ 
+                // 테블릿에서 제목 영역 숨기기
+                '@media (min-width: 768px) and (max-width: 1024px)': {
+                  display: 'none'
+                }
+              }}>
                 <Typography variant="h3" sx={{ 
                   color: '#fff', 
                   fontWeight: '700',

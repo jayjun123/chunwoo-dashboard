@@ -808,7 +808,7 @@ const SettlementManagement = () => {
 
       {/* 통계 카드들 */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <Card sx={{ 
             p: 2, 
             height: '100%', 
@@ -841,7 +841,7 @@ const SettlementManagement = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <Card sx={{ 
             p: 2, 
             height: '100%', 
@@ -874,7 +874,7 @@ const SettlementManagement = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <Card sx={{ 
             p: 2, 
             height: '100%', 
@@ -936,16 +936,6 @@ const SettlementManagement = () => {
                 }}
               >
                 {formatNumber(getStats().totalProfit)}원
-              </Typography>
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  color: getStats().totalProfit >= 0 ? '#43e97b' : '#f44336',
-                  fontSize: '0.8rem',
-                  mt: 0.5
-                }}
-              >
-                수익률: {getStats().profitRate}%
               </Typography>
             </CardContent>
           </Card>
@@ -1438,7 +1428,16 @@ const SettlementManagement = () => {
                   <Typography variant="h6" sx={{ color: '#fff', mb: 2, fontWeight: 'bold' }}>
                     비용 상세 내역
                   </Typography>
-                  <TableContainer>
+                  <TableContainer sx={{
+                    // 테블릿에서 스크롤바 숨기기
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      '&::-webkit-scrollbar': {
+                        display: 'none'
+                      },
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none'
+                    }
+                  }}>
                     <Table>
                       <TableHead>
                         <TableRow sx={{ backgroundColor: '#333' }}>
@@ -1488,7 +1487,17 @@ const SettlementManagement = () => {
       ) : (
         <Box>
         {/* 전체 정산 목록 (기존 테이블) */}
-          <TableContainer component={Paper} sx={{ backgroundColor: '#2a2a2a' }}>
+          <TableContainer component={Paper} sx={{ 
+            backgroundColor: '#2a2a2a',
+            // 테블릿에서 스크롤바 숨기기
+            '@media (min-width: 768px) and (max-width: 1024px)': {
+              '&::-webkit-scrollbar': {
+                display: 'none'
+              },
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none'
+            }
+          }}>
             <Table sx={{ width: '100%', tableLayout: 'fixed' }}>
               <TableHead>
             <TableRow sx={{ backgroundColor: '#333' }}>
@@ -1703,7 +1712,7 @@ const SettlementManagement = () => {
                   color: '#fff', 
                   fontWeight: 600, 
                   width: '20%', 
-                  textAlign: 'center', 
+                  textAlign: '0', 
                   fontSize: '1.1rem',
                   minWidth: '150px',
                   display: 'none'

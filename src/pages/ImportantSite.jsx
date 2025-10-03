@@ -1135,6 +1135,11 @@ export default function ImportantSite() {
       }}>
         <Grid container spacing={2} sx={{ 
           padding: isMobile ? '10px 0 0 6px' : '10px 10px 0 10px',
+          // 테블릿에서 그리드 간격 줄이기
+          '@media (min-width: 768px) and (max-width: 1024px)': {
+            gap: 1,
+            padding: '10px 5px 0 5px'
+          }
         }}>
           {filteredSites.length === 0 && (
             <Grid size={12}>
@@ -1156,7 +1161,7 @@ export default function ImportantSite() {
           });
           
           return (
-            <Grid size={{ xs: 12, md: 8 }} key={site.id} sx={{ minWidth: isMobile ? 'auto' : '700px' }}>
+            <Grid size={{ xs: 12, sm: 12, md: 12 }} key={site.id} sx={{ minWidth: isMobile ? 'auto' : '700px' }}>
               <Paper 
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -1169,7 +1174,7 @@ export default function ImportantSite() {
                   handleDrop(e, site.id);
                 }}
                 sx={{ 
-                  mb: isMobile ? 0.625 : 2.5, // 모바일에서 5px (0.625 * 8px = 5px), PC에서 20px
+                  mb: isMobile ? 0.625 : 0.2, // 카드 간 간격 확 줄임
                   borderRadius: 4, 
                   boxShadow: 6, 
                   bgcolor: '#181f2e', 
@@ -1177,13 +1182,23 @@ export default function ImportantSite() {
                   display: 'flex', 
                   flexDirection: { xs: 'column', md: 'row' }, 
                   alignItems: 'stretch', 
-                  height: isMobile ? 'auto' : 400, // 높이를 400으로 통일
-                  minWidth: isMobile ? 'calc(100vw - 20px)' : '700px', 
+                  height: isMobile ? 'auto' : 400, // 원래 높이로 복원
+                  minWidth: isMobile ? 'calc(100vw - 20px)' : '700px',
+                  // 테블릿에서 카드 너비 조정
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    minWidth: 'calc(100vw - 40px)',
+                    width: '100%'
+                  }, 
                   width: '100%', 
                   p: 0, 
                   overflow: 'hidden',
                   marginLeft: isMobile ? '2px' : 0,
                   marginRight: isMobile ? '5px' : 0,
+                  // 테블릿에서 카드 높이 조정
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    height: 350,
+                    minWidth: '600px'
+                  },
                   cursor: 'grab',
                   position: 'relative',
                   zIndex: 10,
@@ -1201,7 +1216,7 @@ export default function ImportantSite() {
               >
               {/* 왼쪽: 정보/버튼 */}
               <Box sx={{ 
-                flex: 2.5, 
+                flex: 2, 
                 minWidth: isMobile ? 'calc(100vw - 20px)' : 400, 
                 width: isMobile ? 'calc(100vw - 20px)' : 'auto',
                 p: isMobile ? 1.5 : 3, 
@@ -1223,7 +1238,14 @@ export default function ImportantSite() {
                     color: '#90caf9', 
                     textAlign: 'left', 
                     flex: 1,
-                    fontSize: isMobile ? '1rem' : '1.5rem'
+                    fontSize: isMobile ? '1rem' : '1.5rem',
+                    // 테블릿에서 현장명을 1줄로 표시
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      fontSize: '1.2rem',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }
                   }}>{site.name}</Typography>
                   <Box 
                     draggable
@@ -1587,10 +1609,25 @@ export default function ImportantSite() {
                   </Box>
                 </Box>
               )}
-              {/* 오른쪽: 조감도 이미지 - 모바일에서 숨김 */}
+              {/* 오른쪽: 조감도 이미지 - 모바일에서만 숨김 */}
               {!isMobile && (
                 <Box
-                  sx={{ flex: 1.5, minWidth: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#222', cursor: !site.imageUrl && !uploadingSiteId ? 'pointer' : 'default', position: 'relative' }}
+                  sx={{ 
+                    flex: 1.5, 
+                    minWidth: 240, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    bgcolor: '#222', 
+                    cursor: !site.imageUrl && !uploadingSiteId ? 'pointer' : 'default', 
+                    position: 'relative',
+                    py: 2, // 위아래 패딩 추가
+                    // 테블릿에서 조감도 영역 크기 조정
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      minWidth: 200,
+                      flex: 1.3
+                    }
+                  }}
                   onClick={!site.imageUrl && !uploadingSiteId ? () => handleImageClick(site.id) : undefined}
                   onMouseEnter={() => setHoveredSiteId(site.id)}
                   onMouseLeave={() => setHoveredSiteId(null)}
@@ -1604,8 +1641,9 @@ export default function ImportantSite() {
                         alt="조감도" 
                         lazy={true}
                         style={{ 
-                          maxWidth: '100%', 
-                          maxHeight: 220, 
+                          width: 'auto',
+                          height: '100%', 
+                          maxHeight: '100%',
                           borderRadius: 8, 
                           filter: hoveredSiteId === site.id ? 'brightness(0.7)' : 'none' 
                         }} 

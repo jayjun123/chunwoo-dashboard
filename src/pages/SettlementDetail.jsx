@@ -4991,7 +4991,11 @@ export default function SettlementDetail() {
               fontWeight: 'bold', 
               color: '#fff',
               display: { xs: 'none', md: 'block' },
-              mb: 1
+              mb: 1,
+              // 아이패드에서 제목을 10px 아래로 내림
+              '@media (min-width: 768px) and (max-width: 1024px)': {
+                marginTop: '10px'
+              }
             }}>
               {site.name}_{todayString} 기준 정산내역
             </Typography>
@@ -5000,7 +5004,11 @@ export default function SettlementDetail() {
               fontWeight: 'bold', 
               color: '#fff',
               display: { xs: 'block', md: 'none' },
-              mb: 1
+              mb: 1,
+              // 아이패드에서 제목을 10px 아래로 내림
+              '@media (min-width: 768px) and (max-width: 1024px)': {
+                marginTop: '10px'
+              }
             }}>
               {site.name}_{todayString} 기준
             </Typography>
@@ -5047,7 +5055,13 @@ export default function SettlementDetail() {
       </Box>
 
       {/* 모든 내용을 한 페이지에 배치 */}
-      <Box sx={{ px: 3 }}>
+      <Box sx={{ 
+        px: 3,
+        // 아이패드에서 전체 화면을 10px 위로 올림
+        '@media (min-width: 768px) and (max-width: 1024px)': {
+          marginTop: '-10px'
+        }
+      }}>
         {/* 현장정보, 물량내역, 정산내역, 지출정보를 한 줄에 배치 */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
           {/* 현장정보 */}
