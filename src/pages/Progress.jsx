@@ -714,9 +714,9 @@ const Progress = () => {
           .filter(cost => ['유류비', '임대료', '식대', '월세'].includes(cost.itemType))
           .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
         
-        // 기타: RnD, 기타
+        // 기타: RnD, 기타, 필름
         const totalEtc = siteCostData
-          .filter(cost => ['RnD', '기타'].includes(cost.itemType))
+          .filter(cost => ['RnD', '기타', '필름'].includes(cost.itemType))
           .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
         
         // 입금완료 금액 계산 (기성 데이터에서 paymentStatus가 '입금완료'인 항목들)
@@ -784,9 +784,9 @@ const Progress = () => {
         .filter(cost => ['유류비', '임대료', '식대', '월세'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
-      // 기타: RnD, 기타
+      // 기타: RnD, 기타, 필름
       const totalEtc = siteCostData
-        .filter(cost => ['RnD', '기타'].includes(cost.itemType))
+        .filter(cost => ['RnD', '기타', '필름'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
       // 입금완료 금액 계산 (기성 데이터에서 paymentStatus가 '입금완료'인 항목들)
@@ -898,9 +898,9 @@ const Progress = () => {
         .filter(cost => ['유류비', '임대료', '식대', '월세'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
-      // 기타: RnD, 기타
+      // 기타: RnD, 기타, 필름
       const totalEtc = monthCostData
-        .filter(cost => ['RnD', '기타'].includes(cost.itemType))
+        .filter(cost => ['RnD', '기타', '필름'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
       monthData.push({
@@ -1830,8 +1830,9 @@ const Progress = () => {
                                 -수입-
                               </Typography>
                               <Typography variant="body2" sx={{ 
-                                color: '#fff',
-                                ml: 1
+                                color: '#2196f3',
+                                ml: 1,
+                                fontWeight: 'bold'
                               }}>
                                 입금완료: {data.입금완료 ? data.입금완료.toLocaleString() + '원' : '0원'}
                               </Typography>
@@ -1851,7 +1852,7 @@ const Progress = () => {
                                 color: '#fff',
                                 ml: 1
                               }}>
-                                자재비: {data.자재비 ? data.자재비.toLocaleString() + '원' : '0원'}
+                                부자재비: {data.자재비 ? data.자재비.toLocaleString() + '원' : '0원'}
                               </Typography>
                               <Typography variant="body2" sx={{ 
                                 color: '#fff',
@@ -1875,7 +1876,17 @@ const Progress = () => {
                                 color: '#fff',
                                 ml: 1
                               }}>
-                                기타: {data.기타 ? data.기타.toLocaleString() + '원' : '0원'}
+                                기타: {((data.기타 || 0) + (data.직접입력 || 0)).toLocaleString()}원
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#f44336',
+                                ml: 1,
+                                fontWeight: 'bold',
+                                mt: 1,
+                                pt: 1,
+                                borderTop: '1px solid #333'
+                              }}>
+                                총지출금액: {((data.자재비 || 0) + (data.노무비 || 0) + (data.장비비 || 0) + (data.경비 || 0) + (data.기타 || 0) + (data.직접입력 || 0)).toLocaleString()}원
                               </Typography>
                             </Box>
                           </Box>
@@ -1891,7 +1902,7 @@ const Progress = () => {
                   <Bar dataKey="입금완료" fill="#00bcd4">
                     <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={30} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="자재비" fill="#ff6b6b">
+                  <Bar dataKey="자재비" fill="#ff6b6b" name="부자재비">
                     <LabelList dataKey="자재비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={10} fill="#fff" />
                   </Bar>
                   <Bar dataKey="노무비" fill="#ffc658">
@@ -1918,7 +1929,7 @@ const Progress = () => {
           {/* 차트 전체 화면 */}
           <Grid sx={{ width: '100vw', maxWidth: '100vw' }}>
             <ZoomableChart 
-              title="현장별 기성/지출 현황" 
+              title="현장별 기성/지출 현황(유리자재 별도)" 
               isMobile={isMobile}
             >
               <ResponsiveContainer width="100%" minWidth="100vw" height={isMobile ? 300 : 600} minHeight={isMobile ? 200 : 500} style={{ margin: 'flex', justifyContent: 'center', width: '100%', maxWidth: 'none' }}>
@@ -1998,8 +2009,9 @@ const Progress = () => {
                                 -수입-
                               </Typography>
                               <Typography variant="body2" sx={{ 
-                                color: '#fff',
-                                ml: 1
+                                color: '#2196f3',
+                                ml: 1,
+                                fontWeight: 'bold'
                               }}>
                                 입금완료: {data.입금완료 ? data.입금완료.toLocaleString() + '원' : '0원'}
                               </Typography>
@@ -2019,7 +2031,7 @@ const Progress = () => {
                                 color: '#fff',
                                 ml: 1
                               }}>
-                                자재비: {data.자재비 ? data.자재비.toLocaleString() + '원' : '0원'}
+                                부자재비: {data.자재비 ? data.자재비.toLocaleString() + '원' : '0원'}
                               </Typography>
                               <Typography variant="body2" sx={{ 
                                 color: '#fff',
@@ -2043,7 +2055,17 @@ const Progress = () => {
                                 color: '#fff',
                                 ml: 1
                               }}>
-                                기타: {data.기타 ? data.기타.toLocaleString() + '원' : '0원'}
+                                기타: {((data.기타 || 0) + (data.직접입력 || 0)).toLocaleString()}원
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
+                                color: '#f44336',
+                                ml: 1,
+                                fontWeight: 'bold',
+                                mt: 1,
+                                pt: 1,
+                                borderTop: '1px solid #333'
+                              }}>
+                                총지출금액: {((data.자재비 || 0) + (data.노무비 || 0) + (data.장비비 || 0) + (data.경비 || 0) + (data.기타 || 0) + (data.직접입력 || 0)).toLocaleString()}원
                               </Typography>
                             </Box>
                           </Box>
@@ -2059,7 +2081,7 @@ const Progress = () => {
                   <Bar dataKey="입금완료" fill="#00bcd4">
                     <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={30} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="자재비" fill="#ff6b6b">
+                  <Bar dataKey="자재비" fill="#ff6b6b" name="부자재비">
                     <LabelList dataKey="자재비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={10} fill="#fff" />
                   </Bar>
                   <Bar dataKey="노무비" fill="#ffc658">

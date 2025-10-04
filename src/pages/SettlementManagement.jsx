@@ -24,7 +24,6 @@ import {
   Chip,
   Alert,
   Snackbar,
-  Grid,
   Card,
   CardContent,
   useMediaQuery,
@@ -38,6 +37,7 @@ import {
   Tab,
   Checkbox
 } from '@mui/material';
+import Grid from '@mui/material/Grid';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -513,7 +513,8 @@ const SettlementManagement = () => {
                   siteSummary[siteId].subMaterialCost += amount;
                   break;
                 case '노무비':
-                  // 지출관리페이지의 노무비
+                case '필름':
+                  // 지출관리페이지의 노무비 (필름 포함)
                   siteSummary[siteId].laborCost += amount;
                   break;
                 case '부자재':
@@ -808,7 +809,7 @@ const SettlementManagement = () => {
 
       {/* 통계 카드들 */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid xs={12} sm={6} md={4}>
           <Card sx={{ 
             p: 2, 
             height: '100%', 
@@ -841,7 +842,7 @@ const SettlementManagement = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid xs={12} sm={6} md={4}>
           <Card sx={{ 
             p: 2, 
             height: '100%', 
@@ -874,7 +875,7 @@ const SettlementManagement = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid xs={12} sm={6} md={4}>
           <Card sx={{ 
             p: 2, 
             height: '100%', 
@@ -962,7 +963,7 @@ const SettlementManagement = () => {
                 color: isChartLightMode ? '#333' : '#fff', 
                 fontWeight: 'bold' 
               }}>
-                현장별 수익/비용 비교
+                현장별 기성/지출 현황(유리자재 별도)
               </Typography>
               <Tooltip title={isChartLightMode ? "다크모드로 변경" : "화이트모드로 변경"}>
                 <Button
@@ -1058,8 +1059,9 @@ const SettlementManagement = () => {
                               -수입-
                             </Typography>
                             <Typography variant="body2" sx={{ 
-                              color: isChartLightMode ? '#333' : '#fff',
-                              ml: 1
+                              color: '#2196f3',
+                              ml: 1,
+                              fontWeight: 'bold'
                             }}>
                               입금완료: {formatMillionToEok(data.기성금액)}
                             </Typography>
@@ -1110,6 +1112,16 @@ const SettlementManagement = () => {
                               ml: 1
                             }}>
                               기타: {formatMillionToEok(data.materialCost || 0)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: '#f44336',
+                              ml: 1,
+                              fontWeight: 'bold',
+                              mt: 1,
+                              pt: 1,
+                              borderTop: `1px solid ${isChartLightMode ? '#e0e0e0' : '#333'}`
+                            }}>
+                              총지출금액: {formatMillionToEok((data.laborCost || 0) + (data.subMaterialCost || 0) + (data.equipmentCost || 0) + (data.expenseCost || 0) + (data.safetyCost || 0) + (data.materialCost || 0))}
                             </Typography>
                           </Box>
                         </Box>
@@ -1244,8 +1256,9 @@ const SettlementManagement = () => {
                               -수입-
                             </Typography>
                             <Typography variant="body2" sx={{ 
-                              color: isChartLightMode ? '#333' : '#fff',
-                              ml: 1
+                              color: '#2196f3',
+                              ml: 1,
+                              fontWeight: 'bold'
                             }}>
                               입금완료: {formatMillionToEok(data.기성금액)}
                             </Typography>
@@ -1265,7 +1278,19 @@ const SettlementManagement = () => {
                               color: isChartLightMode ? '#333' : '#fff',
                               ml: 1
                             }}>
+                              부자재비: {formatMillionToEok(data.subMaterialCost || 0)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
                               노무비: {formatMillionToEok(data.laborCost || 0)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              장비비: {formatMillionToEok(data.equipmentCost || 0)}
                             </Typography>
                             <Typography variant="body2" sx={{ 
                               color: isChartLightMode ? '#333' : '#fff',
@@ -1277,7 +1302,23 @@ const SettlementManagement = () => {
                               color: isChartLightMode ? '#333' : '#fff',
                               ml: 1
                             }}>
-                              기타: {formatMillionToEok((data.materialCost || 0) + (data.subMaterialCost || 0) + (data.equipmentCost || 0) + (data.safetyCost || 0))}
+                              안전관리비: {formatMillionToEok(data.safetyCost || 0)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: isChartLightMode ? '#333' : '#fff',
+                              ml: 1
+                            }}>
+                              기타: {formatMillionToEok(data.materialCost || 0)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              color: '#f44336',
+                              ml: 1,
+                              fontWeight: 'bold',
+                              mt: 1,
+                              pt: 1,
+                              borderTop: `1px solid ${isChartLightMode ? '#e0e0e0' : '#333'}`
+                            }}>
+                              총지출금액: {formatMillionToEok((data.laborCost || 0) + (data.subMaterialCost || 0) + (data.equipmentCost || 0) + (data.expenseCost || 0) + (data.safetyCost || 0) + (data.materialCost || 0))}
                             </Typography>
                           </Box>
 
@@ -1297,10 +1338,10 @@ const SettlementManagement = () => {
                   }}
                 />
                 <RechartsLegend />
-                <Bar yAxisId="left" dataKey="계약금액" fill="#1976d2" name="계약금액" />
-                <Bar yAxisId="left" dataKey="기성금액" fill="#43e97b" name="기성금액" />
-                <Bar yAxisId="left" dataKey="잔액" fill="#f44336" name="잔액" />
-                <Line yAxisId="right" type="monotone" dataKey="기성률" stroke="#ff9800" strokeWidth={3} name="기성률" dot={{ fill: '#ff9800', strokeWidth: 2, r: 4 }} />
+                <Bar key="contract" yAxisId="left" dataKey="계약금액" fill="#1976d2" name="계약금액" />
+                <Bar key="gisung" yAxisId="left" dataKey="기성금액" fill="#43e97b" name="기성금액" />
+                <Bar key="balance" yAxisId="left" dataKey="잔액" fill="#f44336" name="잔액" />
+                <Line key="rate" yAxisId="right" type="monotone" dataKey="기성률" stroke="#ff9800" strokeWidth={3} name="기성률" dot={{ fill: '#ff9800', strokeWidth: 2, r: 4 }} />
               </ComposedChart>
             </ResponsiveContainer>
           </Paper>

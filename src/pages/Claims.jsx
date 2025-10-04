@@ -650,7 +650,7 @@ const Claims = () => {
       }, 0);
     
     // 현재 청구예정인 금액도 포함 (청구리스트에서)
-    const currentClaimAmount = claimsList
+    const currentClaimAmount = claims
       .filter(claim => claim.siteName === siteName && claim.claimStatus === 'X')
       .reduce((sum, claim) => sum + (Number(claim.claimAmount) || 0), 0);
     

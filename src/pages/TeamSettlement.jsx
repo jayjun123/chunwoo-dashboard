@@ -4609,12 +4609,18 @@ const TeamSettlement = () => {
                               <TableCell>
                                 <TextField
                                   size="small"
-                                  value={itemRow.quantity ? formatNumber(itemRow.quantity) : ''}
+                                  type="number"
+                                  value={itemRow.quantity !== undefined ? itemRow.quantity : ''}
                                   onChange={(e) => {
-                                    const value = e.target.value.replace(/,/g, '');
-                                    handleUpdateTableData(teamId, itemRow.id, 'quantity', parseFloat(value) || 0);
+                                    const value = e.target.value;
+                                    const numValue = value === '' ? 0 : parseFloat(value);
+                                    handleUpdateTableData(teamId, itemRow.id, 'quantity', isNaN(numValue) ? 0 : numValue);
                                   }}
                                   placeholder="예: 1.5"
+                                  inputProps={{
+                                    step: "0.01",
+                                    min: 0
+                                  }}
                                   sx={{
                                     width: '100%',
                                     '& .MuiOutlinedInput-root': {
@@ -4779,7 +4785,7 @@ const TeamSettlement = () => {
                                 }}
                                 placeholder="예: 1.5 또는 -0.5"
                                 inputProps={{
-                                  step: "0.1",
+                                  step: "0.01",
                                   min: undefined // 음수 허용
                                 }}
                                 sx={{
@@ -5107,7 +5113,7 @@ const TeamSettlement = () => {
                                   handleQuantityChange(siteIndex, quantityIndex, 'quantity', isNaN(numValue) ? 0 : numValue);
                                 }}
                                 inputProps={{
-                                  step: "0.1",
+                                  step: "0.01",
                                   min: undefined // 음수 허용
                                 }}
                                 size="small"

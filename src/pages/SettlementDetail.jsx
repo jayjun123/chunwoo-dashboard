@@ -533,18 +533,22 @@ export default function SettlementDetail() {
 
     const unsubscribers = [];
 
-    // 자재비 실시간 리스너
+    // 자재비 실시간 리스너 (인덱스 오류 방지를 위해 orderBy 제거)
     const materialQuery = query(
       collection(db, 'material_costs'),
-      where('siteId', '==', siteId),
-      orderBy('createdAt', 'desc')
+      where('siteId', '==', siteId)
     );
     const unsubscribeMaterial = onSnapshot(materialQuery, (snapshot) => {
       const materialItems = snapshot.docs.map(doc => ({
         id: doc.data().id || doc.id,
         firebaseId: doc.id,
         ...doc.data()
-      }));
+      })).sort((a, b) => {
+        // 클라이언트에서 정렬
+        const dateA = parseDate(a.createdAt || 0);
+        const dateB = parseDate(b.createdAt || 0);
+        return dateB - dateA; // 내림차순
+      });
       setMaterialData(materialItems);
       console.log('자재비 데이터 실시간 업데이트:', materialItems.length, '개');
       console.log('자재비 실시간 데이터 상세:', materialItems.map(item => ({
@@ -4465,7 +4469,7 @@ export default function SettlementDetail() {
             return false;
         }
       }).map(item => ({
-        name: `${item.itemName || '필름'}${item.차수 ? ` (${item.차수}차)` : ''}`,
+        name: `${item.itemName || (item.itemType === '노무비' ? '노무비' : '필름')}${item.차수 ? ` (${item.차수}차)` : ''}`,
         amount: Number(item.totalValue) || 0,
         date: formatDate(item.date),
         originalDate: item.date, // 원본 날짜도 저장

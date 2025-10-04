@@ -18,6 +18,7 @@ import {
   FormControlLabel,
   Autocomplete,
   Dialog,
+  IconButton,
   DialogTitle,
   DialogContent,
   DialogActions
@@ -28,7 +29,8 @@ import {
   CalendarToday as CalendarIcon,
   ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
-  Download as DownloadIcon
+  Download as DownloadIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -51,6 +53,7 @@ const ScheduleHeatmap = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [viewMode, setViewMode] = useState('sites'); // 'sites' or 'teams'
   const [selectedTeam, setSelectedTeam] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
   
   // 기간 설정 상태
   const [startDate, setStartDate] = useState('');
@@ -305,6 +308,13 @@ const ScheduleHeatmap = ({
       // workDays > 0인 현장들만 표시 (기본 필터링)
       filteredSites = filteredSites.filter(site => site.workDays > 0);
       
+      // 검색어 필터링
+      if (searchTerm.trim()) {
+        filteredSites = filteredSites.filter(site => 
+          site.siteName.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+      
       return filteredSites.sort((a, b) => b.workDays - a.workDays);
     } else {
       const filteredTeams = selectedTeam === 'all' 
@@ -314,13 +324,27 @@ const ScheduleHeatmap = ({
         .filter(team => team.totalWorkDays > 0) // 0일 팀 제외
         .sort((a, b) => b.totalWorkDays - a.totalWorkDays);
     }
-  }, [viewMode, siteWorkDays, teamWorkDays, selectedTeam]);
+  }, [viewMode, siteWorkDays, teamWorkDays, selectedTeam, searchTerm]);
 
   // 색상 계산 함수
-  const getHeatmapColor = (value, maxValue) => {
+  const getHeatmapColor = (value, maxValue, itemType = '') => {
     if (value === 0) return '#2a2a2a';
+    
+    // 실측, 회의, 기타 항목은 다른 색상 사용
+    if (itemType === '실측') {
+      const intensity = Math.min(value / maxValue, 1);
+      return `hsl(240, 70%, ${30 + intensity * 40}%)`; // 파란색 계열
+    } else if (itemType === '회의') {
+      const intensity = Math.min(value / maxValue, 1);
+      return `hsl(30, 70%, ${30 + intensity * 40}%)`; // 주황색 계열
+    } else if (itemType === '기타') {
+      const intensity = Math.min(value / maxValue, 1);
+      return `hsl(300, 70%, ${30 + intensity * 40}%)`; // 보라색 계열
+    }
+    
+    // 기본 투입 현황은 초록색에서 빨간색으로
     const intensity = Math.min(value / maxValue, 1);
-    const hue = 120 - (intensity * 120); // 초록색에서 빨간색으로
+    const hue = 120 - (intensity * 120);
     return `hsl(${hue}, 70%, 50%)`;
   };
 
@@ -767,6 +791,48 @@ const ScheduleHeatmap = ({
                 전체해제
               </Button>
             </Box>
+            
+            {/* 검색창 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2 }}>
+              <TextField
+                size="small"
+                placeholder="현장명 검색..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: '#fff',
+                    '& fieldset': {
+                      borderColor: '#666',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#888',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#4caf50',
+                    },
+                  },
+                  '& .MuiInputBase-input': {
+                    color: '#fff',
+                    '&::placeholder': {
+                      color: '#999',
+                      opacity: 1,
+                    },
+                  },
+                }}
+                InputProps={{
+                  endAdornment: searchTerm && (
+                    <IconButton
+                      size="small"
+                      onClick={() => setSearchTerm('')}
+                      sx={{ color: '#999' }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  ),
+                }}
+              />
+            </Box>
           </Box>
           
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -984,6 +1050,34 @@ const ScheduleHeatmap = ({
                     const displayHasWork = isFuture ? false : hasWork;
                     const displayManpower = isFuture ? 0 : manpower;
                     
+                    // 해당 날짜의 일정 항목 타입 확인
+                    const getWorkType = () => {
+                      if (isFuture || !displayHasWork) return null;
+                      
+                      const siteId = item.siteId;
+                      const dayItems = calendarItems[dayStr] || [];
+                      const siteItems = dayItems.filter(calItem => calItem.siteId === siteId);
+                      
+                      if (siteItems.length > 0) {
+                        const item = siteItems[0]; // 첫 번째 항목의 타입 사용
+                        if (item.type === '실측') return '실측';
+                        if (item.type === '회의') return '회의';
+                        if (item.type === '기타') {
+                          // 기타 항목에서 대괄호 내용 추출
+                          if (item.description && item.description.includes('[') && item.description.includes(']')) {
+                            const match = item.description.match(/\[([^\]]+)\]/);
+                            if (match && match[1]) {
+                              return match[1]; // 대괄호 안의 내용 반환 (예: 발주)
+                            }
+                          }
+                          return '기타';
+                        }
+                      }
+                      return '투입'; // 기본값
+                    };
+                    
+                    const workType = getWorkType();
+                    
                     return (
                       <Tooltip
                         key={dayStr}
@@ -993,7 +1087,7 @@ const ScheduleHeatmap = ({
                               {format(day, 'M월 d일')}
                             </Typography>
                             <Typography variant="body2">
-                              {isFuture ? '미래' : (displayHasWork ? '투입' : '미투입')}
+                              {isFuture ? '미래' : (displayHasWork ? (workType || '투입') : '미투입')}
                             </Typography>
                             {displayHasWork && displayManpower > 0 && (
                               <Typography variant="body2" sx={{ color: '#ff9800' }}>
@@ -1008,12 +1102,28 @@ const ScheduleHeatmap = ({
                           sx={{
                             width: 16,
                             height: 20,
-                            bgcolor: isFuture ? '#444' : (displayHasWork ? '#4caf50' : '#2a2a2a'),
+                            bgcolor: isFuture ? '#444' : (displayHasWork ? 
+                              (workType === '실측' ? '#2196f3' : 
+                               workType === '회의' ? '#ff9800' : 
+                               workType === '기타' ? '#9c27b0' :
+                               workType === '발주' ? '#ff5722' :
+                               workType === '현설' ? '#795548' :
+                               workType === '견적' ? '#607d8b' :
+                               workType === '실측/기타' ? '#673ab7' :
+                               workType && workType !== '투입' ? '#ff9800' : '#4caf50') : '#2a2a2a'),
                             borderRadius: 1,
                             cursor: 'pointer',
                             transition: 'all 0.2s',
                             '&:hover': {
-                              bgcolor: isFuture ? '#555' : (displayHasWork ? '#66bb6a' : '#444'),
+                              bgcolor: isFuture ? '#555' : (displayHasWork ? 
+                                (workType === '실측' ? '#42a5f5' : 
+                                 workType === '회의' ? '#ffb74d' : 
+                                 workType === '기타' ? '#ba68c8' :
+                                 workType === '발주' ? '#ff7043' :
+                                 workType === '현설' ? '#8d6e63' :
+                                 workType === '견적' ? '#78909c' :
+                                 workType === '실측/기타' ? '#9575cd' :
+                                 workType && workType !== '투입' ? '#ffb74d' : '#66bb6a') : '#444'),
                               transform: 'scaleY(1.2)'
                             }
                           }}
@@ -1049,6 +1159,34 @@ const ScheduleHeatmap = ({
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <Box sx={{ width: 8, height: 20, bgcolor: '#4caf50', borderRadius: 1 }} />
             <Typography variant="caption" sx={{ color: '#ccc' }}>투입</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ width: 8, height: 20, bgcolor: '#2196f3', borderRadius: 1 }} />
+            <Typography variant="caption" sx={{ color: '#ccc' }}>실측</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ width: 8, height: 20, bgcolor: '#ff9800', borderRadius: 1 }} />
+            <Typography variant="caption" sx={{ color: '#ccc' }}>회의</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ width: 8, height: 20, bgcolor: '#9c27b0', borderRadius: 1 }} />
+            <Typography variant="caption" sx={{ color: '#ccc' }}>기타</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ width: 8, height: 20, bgcolor: '#ff5722', borderRadius: 1 }} />
+            <Typography variant="caption" sx={{ color: '#ccc' }}>발주</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ width: 8, height: 20, bgcolor: '#795548', borderRadius: 1 }} />
+            <Typography variant="caption" sx={{ color: '#ccc' }}>현설</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ width: 8, height: 20, bgcolor: '#607d8b', borderRadius: 1 }} />
+            <Typography variant="caption" sx={{ color: '#ccc' }}>견적</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{ width: 8, height: 20, bgcolor: '#673ab7', borderRadius: 1 }} />
+            <Typography variant="caption" sx={{ color: '#ccc' }}>실측/기타</Typography>
           </Box>
           <Typography variant="caption" sx={{ color: '#999', ml: 2 }}>
             * 마우스를 올리면 해당 날짜의 상세 정보를 확인할 수 있습니다

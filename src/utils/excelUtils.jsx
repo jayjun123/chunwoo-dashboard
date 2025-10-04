@@ -194,8 +194,8 @@ export const exportScheduleToExcel = async (scheduleData, fileName = 'schedule.x
     titleCell.font = { size: 22, bold: true };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     
-    // A1~F1 병합
-    worksheet.mergeCells('A1:F1');
+    // A1~G1 병합
+    worksheet.mergeCells('A1:G1');
     
     // 2행: 빈 행 (여백)
     const emptyRow = worksheet.getRow(2);
@@ -228,12 +228,35 @@ export const exportScheduleToExcel = async (scheduleData, fileName = 'schedule.x
       const dataRow = worksheet.getRow(index + 4);
       dataRow.height = 20;
       
+      // 견적, 입찰일 경우 시공팀에 견적내용을 적지 않음
+      let teamValue = '';
+      if (row.분류 === '견적' || row.분류 === '입찰') {
+        teamValue = ''; // 견적, 입찰일 경우 시공팀은 비워둠
+      } else {
+        // 시공팀 데이터를 올바른 필드에서 가져오기
+        // E열이 현장명과 같은 경우를 방지하기 위해 추가 검증
+        const eColumnData = row.E열 || '';
+        const siteName = row.현장명 || '';
+        
+        // E열 데이터가 현장명과 같으면 빈 값으로 설정
+        if (eColumnData === siteName) {
+          teamValue = '';
+        } else {
+          // "본팀"은 "팀" 글자 제거에서 예외 처리
+          if (eColumnData === '본팀') {
+            teamValue = '본팀';
+          } else {
+            teamValue = eColumnData.replace(/팀$/, ''); // 시공팀에서 "팀" 글자 제거
+          }
+        }
+      }
+      
       const rowData = [
         row.일자 || '',
         row.분류 || '',
         row.현장명 || '',
         row.설명 || '',
-        (row.E열 || '').replace(/팀$/, ''), // 시공팀에서 "팀" 글자 제거
+        teamValue,
         row.날씨 || '',
         row.체크박스유무 || ''
       ];

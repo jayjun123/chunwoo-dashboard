@@ -1423,9 +1423,21 @@ const ScheduleManagement = ({
             if (item.siteId && sitesMap[item.siteId]) {
               const site = sitesMap[item.siteId];
               eColumnInfo = site.team || site.constructionTeam || site.constructionManager || '';
+              
+              // 디버깅: 명성내부인테리어 현장 확인
+              if (site.name && site.name.includes('명성')) {
+                console.log('명성내부인테리어 현장 시공팀 정보:', {
+                  siteName: site.name,
+                  siteId: site.id,
+                  team: site.team,
+                  constructionTeam: site.constructionTeam,
+                  constructionManager: site.constructionManager,
+                  eColumnInfo: eColumnInfo
+                });
+              }
             } else {
-              // siteId가 없는 경우 기존 방식 사용
-              eColumnInfo = item.team || item.constructionTeam || item.siteName || '';
+              // siteId가 없는 경우 기존 방식 사용 (현장명은 제외)
+              eColumnInfo = item.team || item.constructionTeam || '';
             }
           } else if (itemType === '견적' || itemType === '입찰') {
             // 견적/입찰인 경우: 의뢰자 정보
