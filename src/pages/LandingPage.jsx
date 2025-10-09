@@ -107,6 +107,51 @@ const LandingPage = () => {
     checkUserRole();
   }, [currentUser]);
 
+  // 전역 이벤트 디버깅
+  useEffect(() => {
+    const handleGlobalClick = (e) => {
+      console.log('🌍 전역 클릭 이벤트:', e.target, e.currentTarget);
+    };
+
+    const handleGlobalTouch = (e) => {
+      console.log('🌍 전역 터치 이벤트:', e.target, e.currentTarget);
+    };
+
+    document.addEventListener('click', handleGlobalClick, true);
+    document.addEventListener('touchstart', handleGlobalTouch, true);
+    document.addEventListener('touchend', handleGlobalTouch, true);
+
+    // 버튼들에 직접 이벤트 리스너 추가
+    setTimeout(() => {
+      const buttons = document.querySelectorAll('button');
+      buttons.forEach((button, index) => {
+        console.log(`🔘 버튼 ${index} 발견:`, button);
+        
+        const directClickHandler = (e) => {
+          console.log(`🔘 버튼 ${index} 직접 클릭됨:`, button.textContent);
+          e.preventDefault();
+          e.stopPropagation();
+        };
+
+        const directTouchHandler = (e) => {
+          console.log(`🔘 버튼 ${index} 직접 터치됨:`, button.textContent);
+          e.preventDefault();
+          e.stopPropagation();
+        };
+
+        button.addEventListener('click', directClickHandler, true);
+        button.addEventListener('touchstart', directTouchHandler, true);
+        button.addEventListener('touchend', directTouchHandler, true);
+      });
+    }, 1000);
+
+    return () => {
+      document.removeEventListener('click', handleGlobalClick, true);
+      document.removeEventListener('touchstart', handleGlobalTouch, true);
+      document.removeEventListener('touchend', handleGlobalTouch, true);
+    };
+  }, []);
+
   // 오늘의 일정 데이터 가져오기
   useEffect(() => {
     const fetchTodaySchedules = async () => {
@@ -166,7 +211,7 @@ const LandingPage = () => {
           }
           
           // 오늘 날짜와 일치하는 일정만 추가
-          console.log(`📅 일정 날짜 비교: ${data.title || '제목없음'} - DB날짜: ${scheduleDate}, 오늘날짜: ${todayStr}, 일치: ${scheduleDate === todayStr}`);
+          console.log(`📅 일정 날짜 비교: ${data.title || '제목없음'} - DB날짜: ${scheduleDate}, 오늘날짜: ${todayStr}, 일치: ${scheduleDate === todayStr}, 타입: ${data.type || '없음'}`);
           if (scheduleDate === todayStr) {
             // 실제 현장명 찾기
             let actualTitle = data.title || data.name || data.description || data.task || data.content || data.scheduleName || data.projectName || data.siteName || '일정';
@@ -176,21 +221,81 @@ const LandingPage = () => {
               actualTitle = data.text || data.label || data.value || data.subject || data.work || data.job || '일정';
             }
             
-            // 분류 태그 결정
-            let category = '[현장]'; // 기본값을 현장으로 변경
-            if (actualTitle.includes('현장') || actualTitle.includes('공사') || actualTitle.includes('건설') || actualTitle.includes('시설')) {
-              category = '[현장]';
-            } else if (actualTitle.includes('실측') || actualTitle.includes('측량') || actualTitle.includes('측정')) {
-              category = '[실측]';
-            } else if (actualTitle.includes('안전') || actualTitle.includes('점검') || actualTitle.includes('교육')) {
-              category = '[안전]';
-            } else if (actualTitle.includes('회의') || actualTitle.includes('미팅') || actualTitle.includes('검토')) {
-              category = '[회의]';
-            } else if (actualTitle.includes('기성') || actualTitle.includes('진행') || actualTitle.includes('완료')) {
-              category = '[기성]';
-            } else if (actualTitle.includes('견적') || actualTitle.includes('계약') || actualTitle.includes('거래처')) {
-              category = '[관리]';
+            // 분류 태그 결정 - data.type을 우선으로 하고, 없으면 제목으로 판단
+            let category = '[기타]'; // 기본값을 기타로 변경
+            
+            // data.type이 있으면 우선 사용
+            if (data.type) {
+              switch (data.type) {
+                case '현장':
+                case 'site':
+                  category = '[현장]';
+                  break;
+                case '실측':
+                case 'survey':
+                  category = '[실측]';
+                  break;
+                case '안전':
+                case 'safety':
+                  category = '[안전]';
+                  break;
+                case '회의':
+                case 'meeting':
+                  category = '[회의]';
+                  break;
+                case '기성':
+                case 'progress':
+                  category = '[기성]';
+                  break;
+                case '견적':
+                case 'estimate':
+                  category = '[견적]';
+                  break;
+                case '입찰':
+                case 'bid':
+                  category = '[입찰]';
+                  break;
+                case '전자입찰':
+                case 'electronic_bid':
+                  category = '[전자입찰]';
+                  break;
+                case '현설':
+                case 'site_setup':
+                  category = '[현설]';
+                  break;
+                case '기타':
+                case 'other':
+                  category = '[기타]';
+                  break;
+                default:
+                  category = `[${data.type}]`; // 기타 타입은 그대로 표시
+              }
+            } else {
+              // data.type이 없으면 제목으로 판단
+              if (actualTitle.includes('현장') || actualTitle.includes('공사') || actualTitle.includes('건설') || actualTitle.includes('시설')) {
+                category = '[현장]';
+              } else if (actualTitle.includes('실측') || actualTitle.includes('측량') || actualTitle.includes('측정')) {
+                category = '[실측]';
+              } else if (actualTitle.includes('안전') || actualTitle.includes('점검') || actualTitle.includes('교육')) {
+                category = '[안전]';
+              } else if (actualTitle.includes('회의') || actualTitle.includes('미팅') || actualTitle.includes('검토')) {
+                category = '[회의]';
+              } else if (actualTitle.includes('기성') || actualTitle.includes('진행') || actualTitle.includes('완료')) {
+                category = '[기성]';
+              } else if (actualTitle.includes('견적') || actualTitle.includes('계약') || actualTitle.includes('거래처')) {
+                category = '[견적]';
+              } else if (actualTitle.includes('입찰') || actualTitle.includes('공고')) {
+                category = '[입찰]';
+              } else if (actualTitle.includes('전자입찰')) {
+                category = '[전자입찰]';
+              } else if (actualTitle.includes('현설') || actualTitle.includes('현장설치')) {
+                category = '[현설]';
+              } else {
+                category = '[기타]';
+              }
             }
+            
+            console.log(`📅 일정 분류 결정: ${actualTitle} - 원본타입: ${data.type || '없음'}, 결정된분류: ${category}`);
             
             schedules.push({
               id: doc.id,
@@ -562,16 +667,28 @@ const LandingPage = () => {
   ];
 
   const handleGetStarted = () => {
-    if (currentUser) {
-      navigate('/dashboard');
-    } else {
-      navigate('/auth');
+    console.log('🚀 handleGetStarted 클릭됨', { currentUser });
+    try {
+      if (currentUser) {
+        console.log('✅ 로그인된 사용자, 대시보드로 이동');
+        navigate('/dashboard');
+      } else {
+        console.log('🔐 로그인되지 않은 사용자, 로그인 페이지로 이동');
+        navigate('/auth');
+      }
+    } catch (error) {
+      console.error('❌ handleGetStarted 오류:', error);
     }
   };
 
   const handleLogin = () => {
-    // 로그인 페이지로 이동
-    navigate('/auth');
+    console.log('🔑 handleLogin 클릭됨');
+    try {
+      // 로그인 페이지로 이동
+      navigate('/auth');
+    } catch (error) {
+      console.error('❌ handleLogin 오류:', error);
+    }
   };
 
   return (
@@ -679,7 +796,30 @@ const LandingPage = () => {
             </Box>
             <Button 
               variant="contained" 
-              onClick={handleGetStarted}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔘 헤더 버튼 클릭됨 - onClick');
+                handleGetStarted();
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔘 헤더 버튼 마우스다운');
+                handleGetStarted();
+              }}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔘 헤더 버튼 터치시작');
+                handleGetStarted();
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔘 헤더 버튼 터치끝');
+                handleGetStarted();
+              }}
               sx={{ 
                 bgcolor: 'transparent',
                 border: '2px solid #43e97b',
@@ -690,7 +830,16 @@ const LandingPage = () => {
                   boxShadow: '0 0 20px rgba(67, 233, 123, 0.3)'
                 },
                 px: 3,
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                cursor: 'pointer !important',
+                zIndex: 9999,
+                position: 'relative',
+                pointerEvents: 'auto',
+                touchAction: 'manipulation',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                MozUserSelect: 'none',
+                msUserSelect: 'none'
               }}
             >
               {currentUser ? '시스템 시작' : '로그인'}
@@ -740,7 +889,30 @@ const LandingPage = () => {
                     <Button 
                       variant="contained" 
                       size="medium"
-                      onClick={handleGetStarted}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔘 시작하기 버튼 클릭됨 - onClick');
+                        handleGetStarted();
+                      }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔘 시작하기 버튼 마우스다운');
+                        handleGetStarted();
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔘 시작하기 버튼 터치시작');
+                        handleGetStarted();
+                      }}
+                      onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔘 시작하기 버튼 터치끝');
+                        handleGetStarted();
+                      }}
                       endIcon={<ArrowForward />}
                       sx={{ 
                         bgcolor: 'transparent',
@@ -753,7 +925,16 @@ const LandingPage = () => {
                         },
                         px: 3,
                         py: 1,
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
+                        cursor: 'pointer !important',
+                        zIndex: 9999,
+                        position: 'relative',
+                        pointerEvents: 'auto',
+                        touchAction: 'manipulation',
+                        userSelect: 'none',
+                        WebkitUserSelect: 'none',
+                        MozUserSelect: 'none',
+                        msUserSelect: 'none'
                       }}
                     >
                       시작하기
@@ -762,7 +943,30 @@ const LandingPage = () => {
                       variant="outlined" 
                       size="medium"
                       startIcon={<Security />}
-                      onClick={handleLogin}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔘 로그인 버튼 클릭됨 - onClick');
+                        handleLogin();
+                      }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔘 로그인 버튼 마우스다운');
+                        handleLogin();
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔘 로그인 버튼 터치시작');
+                        handleLogin();
+                      }}
+                      onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔘 로그인 버튼 터치끝');
+                        handleLogin();
+                      }}
                       sx={{ 
                         borderColor: currentUser ? '#ef4444' : '#3b82f6',
                         color: currentUser ? '#ef4444' : '#3b82f6',
@@ -774,6 +978,15 @@ const LandingPage = () => {
                         px: 3,
                         py: 1,
                         fontWeight: 'bold',
+                        cursor: 'pointer !important',
+                        zIndex: 9999,
+                        position: 'relative',
+                        pointerEvents: 'auto',
+                        touchAction: 'manipulation',
+                        userSelect: 'none',
+                        WebkitUserSelect: 'none',
+                        MozUserSelect: 'none',
+                        msUserSelect: 'none',
                         ...(currentUser && {
                           border: '2px solid #ef4444',
                           boxShadow: '0 0 20px rgba(239, 68, 68, 0.4)',
@@ -1041,7 +1254,11 @@ const LandingPage = () => {
                               case '[안전]': return '#ef4444'; // 빨간색
                               case '[회의]': return '#f59e0b'; // 주황색
                               case '[기성]': return '#8b5cf6'; // 보라색
-                              case '[관리]': return '#06b6d4'; // 청록색
+                              case '[견적]': return '#06b6d4'; // 청록색
+                              case '[입찰]': return '#f97316'; // 주황빨강
+                              case '[전자입찰]': return '#ec4899'; // 핑크
+                              case '[현설]': return '#10b981'; // 에메랄드
+                              case '[기타]': return '#6b7280'; // 회색
                               default: return '#43e97b'; // 기본값
                             }
                           };
@@ -1068,15 +1285,28 @@ const LandingPage = () => {
                               }
                             }}
                           >
-                            <Box component="span" sx={{ 
-                              color: categoryColor,
-                              fontWeight: 'bold',
-                              mr: 1,
-                              textShadow: `0 0 8px ${categoryColor}40`
-                            }}>
-                              {schedule.category || '[현장]'}
-                            </Box>
-                            {schedule.title}
+                            {/* [기타] 분류일 때는 분류 태그를 표시하지 않고 직접 입력한 내용만 표시 */}
+                            {schedule.category === '[기타]' ? (
+                              <Box component="span" sx={{ 
+                                color: categoryColor,
+                                fontWeight: 'bold',
+                                textShadow: `0 0 8px ${categoryColor}40`
+                              }}>
+                                {schedule.title}
+                              </Box>
+                            ) : (
+                              <>
+                                <Box component="span" sx={{ 
+                                  color: categoryColor,
+                                  fontWeight: 'bold',
+                                  mr: 1,
+                                  textShadow: `0 0 8px ${categoryColor}40`
+                                }}>
+                                  {schedule.category || '[현장]'}
+                                </Box>
+                                {schedule.title}
+                              </>
+                            )}
                           </Typography>
                           );
                         })
@@ -1149,9 +1379,17 @@ const LandingPage = () => {
                             background: 'rgba(0, 0, 0, 0.4)',
                             border: '1px solid rgba(67, 233, 123, 0.1)',
                             borderRadius: 2,
-                            cursor: 'pointer',
+                            cursor: 'pointer !important',
                             transition: 'all 0.3s ease',
                             boxShadow: '0 5px 15px rgba(0, 0, 0, 0.3)',
+                            pointerEvents: 'auto',
+                            touchAction: 'manipulation',
+                            userSelect: 'none',
+                            WebkitUserSelect: 'none',
+                            MozUserSelect: 'none',
+                            msUserSelect: 'none',
+                            zIndex: 9999,
+                            position: 'relative',
                             display: 'flex',
                             alignItems: 'center',
                             boxSizing: 'border-box',
@@ -1162,7 +1400,46 @@ const LandingPage = () => {
                               border: '1px solid rgba(67, 233, 123, 0.3)',
                               background: 'rgba(67, 233, 123, 0.1)'
                             }
-                          }} onClick={() => navigate(item.path)}>
+                          }} onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🔘 기능 카드 클릭됨 - onClick:', item.title, item.path);
+                            try {
+                              navigate(item.path);
+                            } catch (error) {
+                              console.error('❌ 기능 카드 네비게이션 오류:', error);
+                            }
+                          }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🔘 기능 카드 마우스다운:', item.title, item.path);
+                            try {
+                              navigate(item.path);
+                            } catch (error) {
+                              console.error('❌ 기능 카드 네비게이션 오류:', error);
+                            }
+                          }}
+                          onTouchStart={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🔘 기능 카드 터치시작:', item.title, item.path);
+                            try {
+                              navigate(item.path);
+                            } catch (error) {
+                              console.error('❌ 기능 카드 네비게이션 오류:', error);
+                            }
+                          }}
+                          onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🔘 기능 카드 터치끝:', item.title, item.path);
+                            try {
+                              navigate(item.path);
+                            } catch (error) {
+                              console.error('❌ 기능 카드 네비게이션 오류:', error);
+                            }
+                          }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Box sx={{ 
                                 p: 0.5,
@@ -1206,9 +1483,17 @@ const LandingPage = () => {
                             background: 'rgba(0, 0, 0, 0.4)',
                             border: '1px solid rgba(67, 233, 123, 0.1)',
                             borderRadius: 2,
-                            cursor: 'pointer',
+                            cursor: 'pointer !important',
                             transition: 'all 0.3s ease',
                             boxShadow: '0 5px 15px rgba(0, 0, 0, 0.3)',
+                            pointerEvents: 'auto',
+                            touchAction: 'manipulation',
+                            userSelect: 'none',
+                            WebkitUserSelect: 'none',
+                            MozUserSelect: 'none',
+                            msUserSelect: 'none',
+                            zIndex: 9999,
+                            position: 'relative',
                             display: 'flex',
                             alignItems: 'center',
                             boxSizing: 'border-box',
@@ -1218,7 +1503,46 @@ const LandingPage = () => {
                               border: '1px solid rgba(67, 233, 123, 0.3)',
                               background: 'rgba(67, 233, 123, 0.1)'
                             }
-                          }} onClick={() => navigate(item.path)}>
+                          }} onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🔘 기능 카드 클릭됨 - onClick:', item.title, item.path);
+                            try {
+                              navigate(item.path);
+                            } catch (error) {
+                              console.error('❌ 기능 카드 네비게이션 오류:', error);
+                            }
+                          }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🔘 기능 카드 마우스다운:', item.title, item.path);
+                            try {
+                              navigate(item.path);
+                            } catch (error) {
+                              console.error('❌ 기능 카드 네비게이션 오류:', error);
+                            }
+                          }}
+                          onTouchStart={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🔘 기능 카드 터치시작:', item.title, item.path);
+                            try {
+                              navigate(item.path);
+                            } catch (error) {
+                              console.error('❌ 기능 카드 네비게이션 오류:', error);
+                            }
+                          }}
+                          onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🔘 기능 카드 터치끝:', item.title, item.path);
+                            try {
+                              navigate(item.path);
+                            } catch (error) {
+                              console.error('❌ 기능 카드 네비게이션 오류:', error);
+                            }
+                          }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Box sx={{ 
                                 p: 0.5,
@@ -1297,7 +1621,15 @@ const LandingPage = () => {
                               background: 'rgba(0, 0, 0, 0.3)',
                               border: '1px solid rgba(67, 233, 123, 0.1)',
                               transition: 'all 0.3s ease',
-                              cursor: 'pointer',
+                              cursor: 'pointer !important',
+                              pointerEvents: 'auto',
+                              touchAction: 'manipulation',
+                              userSelect: 'none',
+                              WebkitUserSelect: 'none',
+                              MozUserSelect: 'none',
+                              msUserSelect: 'none',
+                              zIndex: 9999,
+                              position: 'relative',
                               '&:hover': {
                                 background: 'rgba(67, 233, 123, 0.1)',
                                 border: '1px solid rgba(67, 233, 123, 0.3)',

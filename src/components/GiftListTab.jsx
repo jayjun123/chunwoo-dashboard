@@ -49,7 +49,6 @@ import {
   FileUpload as FileUploadIcon,
   Check as CheckIcon,
   Close as CloseIcon,
-  Sync as SyncIcon
 } from '@mui/icons-material';
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, orderBy, limit, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -158,6 +157,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     recipient: '',
     company: '',
     position: '',
+    phone: '',
     giftType: '',
     amount: '',
     giftDate: null,
@@ -536,6 +536,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         recipient: item.recipient || '',
         company: item.company || '',
         position: item.position || '',
+        phone: item.phone || '',
         giftType: item.giftType || '',
         amount: item.amount || '',
         giftDate: giftDate,
@@ -550,6 +551,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         recipient: '',
         company: '',
         position: '',
+        phone: '',
         giftType: '',
         amount: '',
         giftDate: null,
@@ -570,6 +572,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       recipient: '',
       company: '',
       position: '',
+      phone: '',
       giftType: '',
       amount: '',
       giftDate: null,
@@ -1422,14 +1425,14 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
 
 
 
+
   // 거래처 중복확인 및 자동 추가 (이름, 회사명이 있으면 거래처 등록)
   const checkAndAddVendor = async (personName, companyName, position = '', phone = '', address = '') => {
     console.log('=== 거래처 자동 추가 시작 ===');
     console.log('입력 데이터:', { personName, companyName, position, phone, address });
     
-    // 이름, 회사명이 있으면 거래처 등록 (직책은 선택사항)
-    if (!personName || !companyName || 
-        personName.trim() === '' || companyName.trim() === '') {
+    // 이름이 있으면 거래처 등록 (회사명은 선택사항, 직책은 선택사항)
+    if (!personName || personName.trim() === '') {
       console.log('거래처 자동 추가 조건 불만족:', { personName, companyName });
       return;
     }
@@ -1453,10 +1456,17 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       );
       
       // 2순위: 이름과 회사명으로 거래처 찾기 (직책이 없는 경우)
-      if (!existingVendor) {
+      if (!existingVendor && companyName && companyName.trim() !== '') {
         existingVendor = currentVendorData.find(vendor => 
           vendor.name?.toLowerCase() === personName.toLowerCase() &&
           vendor.company?.toLowerCase() === companyName.toLowerCase()
+        );
+      }
+      
+      // 3순위: 이름만으로 거래처 찾기 (직책과 회사명이 없는 경우)
+      if (!existingVendor) {
+        existingVendor = currentVendorData.find(vendor => 
+          vendor.name?.toLowerCase() === personName.toLowerCase()
         );
       }
       
@@ -1464,7 +1474,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         // 거래처가 없으면 새로 추가
         const newVendorData = {
           name: personName,
-          company: companyName,
+          company: companyName || '회사명 없음',
           position: position,
           phone: phone || '',
           address: address || '',
@@ -1490,8 +1500,8 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         const updateData = {};
         let hasUpdate = false;
         
-        // 회사명 업데이트
-        if (companyName && existingVendor.company !== companyName) {
+        // 회사명 업데이트 (회사명이 있거나 '회사명 없음'인 경우)
+        if (companyName && companyName.trim() !== '' && existingVendor.company !== companyName) {
           updateData.company = companyName;
           hasUpdate = true;
         }
@@ -1502,14 +1512,14 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           hasUpdate = true;
         }
         
-        // 전화번호 업데이트
-        if (phone && existingVendor.phone !== phone) {
+        // 전화번호 업데이트 (전화번호가 있으면 업데이트)
+        if (phone && phone.trim() !== '' && existingVendor.phone !== phone) {
           updateData.phone = phone;
           hasUpdate = true;
         }
         
-        // 주소 업데이트
-        if (address && existingVendor.address !== address) {
+        // 주소 업데이트 (주소가 있으면 업데이트)
+        if (address && address.trim() !== '' && existingVendor.address !== address) {
           updateData.address = address;
           hasUpdate = true;
         }
@@ -1521,7 +1531,17 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
             console.log('기존 거래처 업데이트 데이터:', updateData);
             await updateDoc(doc(db, 'vendors', existingVendor.id), updateData);
             
-            console.log('✅ 기존 거래처 정보 업데이트 완료:', { name: personName, ...updateData });
+            console.log('✅ 기존 거래처 정보 업데이트 완료:', { 
+              name: personName, 
+              vendorId: existingVendor.id,
+              updateData: updateData,
+              beforeUpdate: {
+                phone: existingVendor.phone,
+                company: existingVendor.company,
+                position: existingVendor.position,
+                address: existingVendor.address
+              }
+            });
             setSnackbar({ open: true, message: `거래처 정보가 업데이트되었습니다: ${personName}`, severity: 'success' });
           } catch (error) {
             console.error('거래처 정보 업데이트 오류:', error);
@@ -1565,8 +1585,9 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         const isNameChanged = editingCardName && editingCardName.trim() !== '' && editingCardName !== '새 카드';
         const isCompanyChanged = editingCardCompany && editingCardCompany.trim() !== '' && editingCardCompany !== '회사명 없음';
         
-        if (isNameChanged && isCompanyChanged) {
-          console.log('거래처 자동 추가 시도 (이름/회사명 변경됨):', { 
+        // 이름이 있으면 거래처 정보 업데이트 (회사명이 없어도 전화번호 등 다른 정보는 업데이트)
+        if (isNameChanged) {
+          console.log('거래처 자동 추가/업데이트 시도 (이름 변경됨):', { 
             name: editingCardName, 
             company: editingCardCompany, 
             position: editingCardPosition,
@@ -2319,7 +2340,6 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
                   }));
                   handleOpenDialog();
                 }}
-                onVendorAdd={() => handleOpenVendorDialog()}
                 onVendorEdit={(vendor) => handleOpenVendorDialog(vendor)}
                 onVendorDelete={(vendorId) => handleDeleteVendor(vendorId)}
                 onDragStart={handleDragStart}
@@ -2480,6 +2500,22 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
                   label="직책"
                   value={formData.position}
                   onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="전화번호"
+                  value={formData.phone}
+                  placeholder="010-1234-5678 (11자리) 또는 02-123-4567 (10자리)"
+                  onChange={(e) => {
+                    const formattedPhone = formatPhoneNumber(e.target.value);
+                    setFormData({ ...formData, phone: formattedPhone });
+                  }}
+                  onInput={(e) => {
+                    const formattedPhone = formatPhoneNumber(e.target.value);
+                    setFormData({ ...formData, phone: formattedPhone });
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -2810,7 +2846,6 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
 const DatabaseTab = ({ 
   vendorData, 
   onVendorSelect, 
-  onVendorAdd, 
   onVendorEdit, 
   onVendorDelete,
   onDragStart,
@@ -2895,21 +2930,6 @@ const DatabaseTab = ({
           </Select>
         </FormControl>
         
-        <Button
-          variant="contained"
-          onClick={onVendorAdd}
-          startIcon={<AddIcon />}
-          sx={{
-            bgcolor: '#ff4444',
-            '&:hover': { bgcolor: '#ff6666' },
-            // 아이패드에서 숨김
-            '@media (min-width: 768px) and (max-width: 1024px)': {
-              display: 'none'
-            }
-          }}
-        >
-          추가
-        </Button>
         
       </Box>
 
@@ -4003,6 +4023,7 @@ const GiftManagementTab = ({
                           <span style={{ fontSize: '1.1rem', fontFamily: 'inherit' }}>
                             {card.company}
                           </span> | 개수: {card.quantity || 1}개
+                          {card.phone && ` | ${card.phone}`}
                           {card.note && ` | ${card.note}`}
                         </Typography>
                       </Box>

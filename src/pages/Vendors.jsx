@@ -1234,7 +1234,7 @@ const Vendors = () => {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox">
+              <TableCell padding="checkbox" sx={{ py: 0.5 }}>
                 <Checkbox
                   checked={selectAll}
                   onChange={handleSelectAll}
@@ -1243,7 +1243,7 @@ const Vendors = () => {
               </TableCell>
               <TableCell 
                 onClick={() => handleSort('companyType')}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   구분
@@ -1254,7 +1254,7 @@ const Vendors = () => {
               </TableCell>
               <TableCell 
                 onClick={() => handleSort('companyName')}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   업체명
@@ -1268,6 +1268,7 @@ const Vendors = () => {
                 sx={{ 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                  py: 1,
                   // 테블릿에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
                     display: 'none'
@@ -1283,7 +1284,7 @@ const Vendors = () => {
               </TableCell>
               <TableCell 
                 onClick={() => handleSort('siteName')}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   현장명
@@ -1297,6 +1298,7 @@ const Vendors = () => {
                 sx={{ 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                  py: 1,
                   // 테블릿에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
                     display: 'none'
@@ -1312,7 +1314,7 @@ const Vendors = () => {
               </TableCell>
               <TableCell 
                 onClick={() => handleSort('amount')}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   금액
@@ -1326,6 +1328,7 @@ const Vendors = () => {
                 sx={{ 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                  py: 1,
                   // 아이패드에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
                     display: 'none'
@@ -1344,6 +1347,7 @@ const Vendors = () => {
                 sx={{ 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                  py: 1,
                   // 아이패드에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
                     display: 'none'
@@ -1357,12 +1361,13 @@ const Vendors = () => {
                   )}
                 </Box>
               </TableCell>
-              <TableCell>비고</TableCell>
+              <TableCell sx={{ py: 1 }}>비고</TableCell>
               <TableCell 
                 onClick={() => handleSort('contractStatus')}
                 sx={{ 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                  py: 1,
                   // 테블릿에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
                     display: 'none'
@@ -1376,7 +1381,7 @@ const Vendors = () => {
                   )}
                 </Box>
               </TableCell>
-              <TableCell>관리</TableCell>
+              <TableCell sx={{ py: 1 }}>관리</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

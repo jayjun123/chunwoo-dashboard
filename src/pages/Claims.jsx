@@ -2034,45 +2034,46 @@ const Claims = () => {
           maxHeight: isMobile ? 'calc(100vh - 300px)' : 'calc(100vh - 400px)',
           overflowX: isMobile ? 'auto' : 'hidden'
         }}>
-          <Table sx={{ minWidth: isMobile ? 900 : 'auto' }}>
+          <Table size="small" sx={{ minWidth: isMobile ? 900 : 'auto' }}>
             <TableHead>
               <TableRow sx={{ backgroundColor: '#444' }}>
                 {isMobile ? (
                   <>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60 }}>No.</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>현장명</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>청구금액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구여부</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60, py: 1 }}>No.</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 1 }}>현장명</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 1 }}>청구금액</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 1 }}>청구여부</TableCell>
                   </>
                 ) : (
                   <>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60 }}>No.</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구월</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>현장명</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80 }}>소장/회사명</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80 }}>차수</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>계약금액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>잔액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구 전 기성율(%)</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120 }}>청구금액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>청구여부</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60, py: 1 }}>No.</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 1 }}>청구월</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 320, py: 1 }}>현장명</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60, py: 1 }}>소장/회사명</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80, py: 1 }}>차수</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 1 }}>계약금액</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 1 }}>잔액</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80, py: 1 }}>청구 전 기성율(%)</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 1 }}>청구금액</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 1 }}>청구여부</TableCell>
                     <TableCell sx={{ 
                       color: 'white', 
                       fontWeight: 'bold', 
                       minWidth: 100,
+                      py: 1,
                       // 아이패드에서 숨김
                       '@media (min-width: 768px) and (max-width: 1024px)': {
                         display: 'none'
                       }
                     }}>비고</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100 }}>관리</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 1 }}>관리</TableCell>
                   </>
                 )}
               </TableRow>
             </TableHead>
             <TableBody>
               {currentClaims.map((claim, index) => (
-                  <TableRow key={claim.id} sx={{ '&:hover': { backgroundColor: '#444' } }}>
+                  <TableRow key={claim.id} sx={{ '&:hover': { backgroundColor: '#444' }, '& td': { py: 1 } }}>
                     <TableCell sx={{ color: 'white' }}>{filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id)}</TableCell>
                     {isMobile ? (
                       <>
@@ -2125,8 +2126,8 @@ const Claims = () => {
                               maxWidth: '80px'
                             }
                           }}>
-                            {claim.siteName && claim.siteName.length > 6 ? 
-                              `${claim.siteName.substring(0, 6)}...` : 
+                            {claim.siteName && claim.siteName.length > 16 ? 
+                              `${claim.siteName.substring(0, 16)}...` : 
                               claim.siteName
                             }
                           </span>
