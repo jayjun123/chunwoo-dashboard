@@ -1024,14 +1024,14 @@ const SettlementManagement = () => {
           <Button
             variant="outlined"
             startIcon={<DownloadIcon />}
-            onClick={handleHeatmapExcelDownload}
+            onClick={() => navigate('/whole-list')}
             sx={{
               borderColor: '#666',
               color: '#fff',
               '&:hover': { borderColor: '#ff9800' }
             }}
           >
-            히트맵 엑셀 다운로드
+            전체현장 엑셀 다운로드
           </Button>
           {!siteId && (
             <Button

@@ -8,7 +8,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
   IconButton,
   Button,
   Typography,
@@ -42,6 +41,7 @@ import {
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { useNavigate } from 'react-router-dom';
 import { exportToExcel } from '../utils/excelUtils';
 
@@ -119,7 +119,30 @@ const WholeList = () => {
   const [sortBy, setSortBy] = useState('createdAt');
   const [order, setOrder] = useState('desc');
   const [vendors, setVendors] = useState([]); // 거래처 데이터 상태 추가
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear()); // 현재 년도로 초기화
   const navigate = useNavigate();
+
+  // 년도 변경 시 페이지 리셋
+  const handleYearChange = (year) => {
+    setSelectedYear(year);
+    setPage(0); // 년도 변경 시 첫 페이지로 이동
+  };
+
+  // 공사기간이 1년을 넘어가는지 확인하는 함수
+  const isLongTermProject = (site) => {
+    const startDate = site.startDate ? 
+      (site.startDate.toDate ? site.startDate.toDate() : new Date(site.startDate)) : null;
+    const endDate = site.endDate ? 
+      (site.endDate.toDate ? site.endDate.toDate() : new Date(site.endDate)) : null;
+    
+    if (!startDate || !endDate) return false;
+    
+    const startYear = startDate.getFullYear();
+    const endYear = endDate.getFullYear();
+    
+    // 시작년도와 종료년도가 다르면 장기 프로젝트
+    return startYear !== endYear;
+  };
 
   // 거래처 데이터 로드
   const loadVendors = async () => {
@@ -171,8 +194,32 @@ const WholeList = () => {
     setPage(0); // 정렬 변경 시 첫 페이지로 이동
   };
 
+  // 년도별 필터링 함수
+  const getSitesByYear = (year) => {
+    return sites.filter(site => {
+      // 시작일(착공일), 계약일, 생성일, 종료일이 해당 년도에 포함되는지 확인
+      const startDate = site.startDate ? 
+        (site.startDate.toDate ? site.startDate.toDate() : new Date(site.startDate)) : null;
+      const contractDate = site.contractDate ? 
+        (site.contractDate.toDate ? site.contractDate.toDate() : new Date(site.contractDate)) : null;
+      const createdAt = site.createdAt ? 
+        (site.createdAt.toDate ? site.createdAt.toDate() : new Date(site.createdAt)) : null;
+      const endDate = site.endDate ? 
+        (site.endDate.toDate ? site.endDate.toDate() : new Date(site.endDate)) : null;
+      
+      // 시작일, 계약일, 생성일, 종료일 중 하나라도 해당 년도에 포함되면 포함
+      return (startDate && startDate.getFullYear() === year) ||
+             (contractDate && contractDate.getFullYear() === year) ||
+             (createdAt && createdAt.getFullYear() === year) ||
+             (endDate && endDate.getFullYear() === year);
+    });
+  };
+
+  // 선택된 년도의 현장들
+  const filteredSites = getSitesByYear(selectedYear);
+  
   // 정렬된 데이터 (사용자 선택에 따라)
-  const sortedSites = sortData([...sites], sortBy, order);
+  const sortedSites = sortData([...filteredSites], sortBy, order);
 
   // 페이지 변경
   const handleChangePage = (event, newPage) => {
@@ -235,79 +282,183 @@ const WholeList = () => {
   };
 
   // 엑셀 다운로드
-  const handleExportExcel = () => {
-    console.log('엑셀 내보내기 시작');
-    console.log('sites 데이터:', sites);
-    console.log('sites 길이:', sites.length);
-    
-    // 데이터가 비어있는지 확인
-    if (!sites || sites.length === 0) {
-      alert('내보낼 데이터가 없습니다. 데이터를 먼저 로드해주세요.');
-      return;
-    }
+  // 전체현장 엑셀 다운로드 함수 (ExcelJS - 예쁜 스타일)
+  const handleExportExcel = async () => {
+    try {
+      console.log('📊 전체현장 엑셀 다운로드 시작');
+      
+      if (!sites || sites.length === 0) {
+        alert('다운로드할 현장 데이터가 없습니다.');
+        return;
+      }
 
-    // 헤더 행 추가
-    const headers = [
-      '현장명', '진행상황', '계약구분', '계약금액', '선급금', '누계기성', 
-      '주소', '착공일', '준공예정일', '회사명', '소장', '연락처', 
-      '시공팀', '기타사항', '차수', '하도급지킴이', '주요현장'
-    ];
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('전체현장목록');
 
-    const exportData = sites.map(site => {
-      console.log('처리 중인 site:', site);
-      return {
-        현장명: site.name || '',
-        진행상황: site.status || '',
-        계약구분: site.contractType || '',
-        계약금액: site.contractAmount || '',
-        선급금: site.advance || '',
-        누계기성: site.totalProgress || '',
-        주소: site.address || '',
-        착공일: site.startDate || '',
-        준공예정일: site.endDate || '',
-        회사명: site.companyName || '',
-        소장: site.manager || '',
-        연락처: site.phone || '',
-        시공팀: site.team || '',
-        기타사항: site.desc || '',
-        차수: site.installment || '',
-        하도급지킴이: site.subcontractGuardian ? 'Y' : 'N',
-        주요현장: site.isFavorite ? 'Y' : 'N'
+      // 제목 행 추가 (년도 포함)
+      const titleRow = worksheet.addRow([`천우건업(주) 전체현장 현황 - ${selectedYear}년`]);
+      titleRow.font = { size: 16, bold: true, color: { argb: 'FF2E7D32' } };
+      titleRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      worksheet.mergeCells('A1:K1');
+      
+      // 빈 행 추가
+      worksheet.addRow([]);
+      
+      // 날짜 행 추가
+      const dateRow = worksheet.addRow([`작성일: ${new Date().toLocaleDateString('ko-KR')}`]);
+      dateRow.font = { size: 12, color: { argb: 'FF666666' } };
+      dateRow.alignment = { horizontal: 'right' };
+      worksheet.mergeCells('A3:K3');
+      
+      // 빈 행 추가
+      worksheet.addRow([]);
+
+      // 헤더 행 추가
+      const headers = [
+        '번호', '현장명', '계약구분', '진행상황', '계약금액', 
+        '시작일', '종료일', '담당자', '연락처', '회사명', '비고'
+      ];
+      
+      const headerRow = worksheet.addRow(headers);
+      headerRow.font = { size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF2E7D32' }
       };
-    });
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      headerRow.border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
 
-    console.log('변환된 exportData:', exportData);
-    console.log('exportData 길이:', exportData.length);
+      // 데이터 행 추가 (필터링된 현장들만)
+      filteredSites.forEach((site, index) => {
+        const contractAmount = Number(site.contractAmount) || 0;
+        const formattedAmount = contractAmount > 0 ? contractAmount.toLocaleString() : '';
+        
+        const startDate = site.startDate ? 
+          (site.startDate.toDate ? site.startDate.toDate() : new Date(site.startDate)) : null;
+        const endDate = site.endDate ? 
+          (site.endDate.toDate ? site.endDate.toDate() : new Date(site.endDate)) : null;
+        
+        const startDateStr = startDate ? startDate.toLocaleDateString('ko-KR') : '';
+        const endDateStr = endDate ? endDate.toLocaleDateString('ko-KR') : '';
 
-    // 컬럼 너비 자동 조정 (한글 텍스트 고려)
-    const columnWidths = [
-      { wch: 20 }, // 현장명
-      { wch: 10 }, // 진행상황
-      { wch: 12 }, // 계약구분
-      { wch: 15 }, // 계약금액
-      { wch: 12 }, // 선급금
-      { wch: 12 }, // 누계기성
-      { wch: 30 }, // 주소
-      { wch: 12 }, // 착공일
-      { wch: 12 }, // 준공예정일
-      { wch: 20 }, // 회사명
-      { wch: 10 }, // 소장
-      { wch: 15 }, // 연락처
-      { wch: 15 }, // 시공팀
-      { wch: 20 }, // 기타사항
-      { wch: 8 },  // 차수
-      { wch: 12 }, // 하도급지킴이
-      { wch: 10 }  // 주요현장
-    ];
+        const dataRow = worksheet.addRow([
+          index + 1, // 번호
+          site.name || '', // 현장명
+          site.contractType || '', // 계약구분
+          site.status || '', // 진행상황
+          formattedAmount, // 계약금액
+          startDateStr, // 시작일
+          endDateStr, // 종료일
+          site.manager || '', // 담당자
+          site.phone || '', // 연락처
+          site.companyName || '', // 회사명
+          site.note || '' // 비고
+        ]);
 
-    const result = exportToExcel(exportData, '현장목록', '현장목록', { columnWidths });
-    
-    console.log('exportToExcel 결과:', result);
-    
-    if (result.success) {
-      alert('엑셀 파일이 다운로드되었습니다.');
-    } else {
-      alert('엑셀 다운로드에 실패했습니다: ' + (result.error || '알 수 없는 오류'));
+        // 행 스타일 적용
+        dataRow.font = { size: 11 };
+        dataRow.alignment = { 
+          horizontal: 'center', 
+          vertical: 'middle' 
+        };
+        dataRow.border = {
+          top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+        };
+
+        // 번호, 현장명, 계약구분, 진행상황은 왼쪽 정렬
+        dataRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+        dataRow.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };
+        dataRow.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
+        dataRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+        dataRow.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' }; // 계약금액은 오른쪽 정렬
+        dataRow.getCell(8).alignment = { horizontal: 'left', vertical: 'middle' }; // 담당자는 왼쪽 정렬
+        dataRow.getCell(10).alignment = { horizontal: 'left', vertical: 'middle' }; // 회사명은 왼쪽 정렬
+        dataRow.getCell(11).alignment = { horizontal: 'left', vertical: 'middle' }; // 비고는 왼쪽 정렬
+
+        // 진행상황에 따른 색상 적용
+        const statusCell = dataRow.getCell(4);
+        switch (site.status) {
+          case '예정':
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE3F2FD' }
+            };
+            break;
+          case '진행':
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF3E5F5' }
+            };
+            break;
+          case '완료':
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE8F5E8' }
+            };
+            break;
+          case '미정':
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFFFF3E0' }
+            };
+            break;
+        }
+      });
+
+      // 컬럼 너비 설정
+      worksheet.columns = [
+        { width: 8 },  // 번호
+        { width: 25 }, // 현장명
+        { width: 12 }, // 계약구분
+        { width: 10 }, // 진행상황
+        { width: 15 }, // 계약금액
+        { width: 12 }, // 시작일
+        { width: 12 }, // 종료일
+        { width: 12 }, // 담당자
+        { width: 15 }, // 연락처
+        { width: 20 }, // 회사명
+        { width: 30 }  // 비고
+      ];
+
+      // 파일명 생성 (년도 포함)
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+      const fileName = `천우건업(주)_전체현장현황_${selectedYear}년_${dateStr}.xlsx`;
+
+      // 파일 다운로드
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log('✅ 전체현장 엑셀 다운로드 완료');
+      alert('전체현장 엑셀 파일이 다운로드되었습니다.');
+      
+    } catch (error) {
+      console.error('❌ 전체현장 엑셀 다운로드 실패:', error);
+      alert('엑셀 다운로드에 실패했습니다.');
     }
   };
 
@@ -442,6 +593,34 @@ const WholeList = () => {
           <Typography variant="h4" component="h1">
             전체 현장 목록
           </Typography>
+          {/* 년도 네비게이션 */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: '400px' }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleYearChange(selectedYear - 1)}
+              sx={{ minWidth: '50px', fontSize: '0.8rem' }}
+            >
+              {selectedYear - 1}
+            </Button>
+            <Typography variant="h4" sx={{ 
+              fontWeight: 'bold', 
+              color: '#2E7D32',
+              minWidth: '120px',
+              textAlign: 'center',
+              fontSize: '2rem'
+            }}>
+              {selectedYear}년
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleYearChange(selectedYear + 1)}
+              sx={{ minWidth: '50px', fontSize: '0.8rem' }}
+            >
+              {selectedYear + 1}
+            </Button>
+          </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
@@ -471,10 +650,10 @@ const WholeList = () => {
       {/* 데이터 테이블 */}
       <Paper sx={{ width: '100%', overflow: 'hidden' }}>
         <TableContainer sx={{ maxHeight: 900 }}>
-          <Table stickyHeader>
+          <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, width: '60px' }}>
+                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, width: '60px', py: 1 }}>
                   번호
                 </TableCell>
                 <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
@@ -672,8 +851,8 @@ const WholeList = () => {
                 .map((site, index) => {
                   return (
                     <TableRow key={site.id} hover>
-                      <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center' }}>
-                        {sortedSites.length - (page * rowsPerPage + index)}
+                      <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center', py: 1 }}>
+                        {page * rowsPerPage + index + 1}
                       </TableCell>
                     <TableCell>
                       <IconButton size="small" onClick={() => handleToggleFavorite(site)}>
@@ -684,7 +863,12 @@ const WholeList = () => {
                         )}
                       </IconButton>
                     </TableCell>
-                    <TableCell>{site.name}</TableCell>
+                    <TableCell sx={{ 
+                      color: isLongTermProject(site) ? '#ffeb3b' : 'inherit',
+                      fontWeight: isLongTermProject(site) ? 'bold' : 'normal'
+                    }}>
+                      {site.name}
+                    </TableCell>
                     <TableCell>
                       <Chip
                         label={site.status}
@@ -765,17 +949,53 @@ const WholeList = () => {
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
-          rowsPerPageOptions={[10, 25, 50, 100]}
-          component="div"
-          count={sortedSites.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          labelRowsPerPage="페이지당 행 수:"
-          labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count}`}
-        />
+        {/* 페이지 번호 네비게이션 */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          py: 2,
+          gap: 1,
+          flexWrap: 'wrap'
+        }}>
+          <Button
+            variant="outlined"
+            disabled={page === 0}
+            onClick={() => handleChangePage(null, page - 1)}
+            sx={{ minWidth: '40px', py: 0.5 }}
+          >
+            이전
+          </Button>
+          
+          {/* 페이지 번호들 */}
+          {Array.from({ length: Math.ceil(sortedSites.length / rowsPerPage) }, (_, i) => (
+            <Button
+              key={i}
+              variant={page === i ? "contained" : "outlined"}
+              onClick={() => handleChangePage(null, i)}
+              sx={{ 
+                minWidth: '40px',
+                py: 0.5,
+                bgcolor: page === i ? '#2E7D32' : 'transparent',
+                color: page === i ? 'white' : 'inherit',
+                '&:hover': {
+                  bgcolor: page === i ? '#1B5E20' : 'rgba(46, 125, 50, 0.1)'
+                }
+              }}
+            >
+              {i + 1}
+            </Button>
+          ))}
+          
+          <Button
+            variant="outlined"
+            disabled={page >= Math.ceil(sortedSites.length / rowsPerPage) - 1}
+            onClick={() => handleChangePage(null, page + 1)}
+            sx={{ minWidth: '40px', py: 0.5 }}
+          >
+            다음
+          </Button>
+        </Box>
       </Paper>
 
       {/* 편집 다이얼로그 */}
