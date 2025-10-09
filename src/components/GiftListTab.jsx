@@ -2901,7 +2901,11 @@ const DatabaseTab = ({
           startIcon={<AddIcon />}
           sx={{
             bgcolor: '#ff4444',
-            '&:hover': { bgcolor: '#ff6666' }
+            '&:hover': { bgcolor: '#ff6666' },
+            // 아이패드에서 숨김
+            '@media (min-width: 768px) and (max-width: 1024px)': {
+              display: 'none'
+            }
           }}
         >
           추가

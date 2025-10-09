@@ -1323,7 +1323,14 @@ const Vendors = () => {
               </TableCell>
               <TableCell 
                 onClick={() => handleSort('item')}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                sx={{ 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   품목
@@ -1334,7 +1341,14 @@ const Vendors = () => {
               </TableCell>
               <TableCell 
                 onClick={() => handleSort('quantity')}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                sx={{ 
+                  cursor: 'pointer', 
+                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   물량
@@ -1403,8 +1417,18 @@ const Vendors = () => {
                   }
                 }}>{vendor.winningCompany || '-'}</TableCell>
                 <TableCell>{formatAmount(vendor.amount)}</TableCell>
-                <TableCell>{vendor.item}</TableCell>
-                <TableCell>{vendor.quantity}</TableCell>
+                <TableCell sx={{
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>{vendor.item}</TableCell>
+                <TableCell sx={{
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>{vendor.quantity}</TableCell>
                 <TableCell>{vendor.note}</TableCell>
                 <TableCell>
                   <Chip

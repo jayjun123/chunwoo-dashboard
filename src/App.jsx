@@ -11,6 +11,7 @@ import { globalCleanupManager, enhancedPerformanceMonitor } from './utils/perfor
 import { initializeMobileInputOptimization } from './utils/mobileInputOptimization';
 import { fixAriaHiddenIssues } from './utils/materialUploadUtils';
 import { fixNestedScrollContainers } from './utils/dndScrollFix';
+import { applyIPadTouchOptimization } from './utils/touchOptimization';
 import './utils/migrateUtils';
 import './styles/IME.css';
 import { AuthProvider } from './contexts/AuthContext';
@@ -344,6 +345,18 @@ const App = React.memo(() => {
       return cleanupMobileInput;
     } catch (error) {
       console.error('Mobile optimization error:', error);
+      // 오류가 발생해도 앱은 계속 실행
+    }
+  }, []);
+
+  // 아이패드 터치 최적화 초기화
+  useEffect(() => {
+    try {
+      // 아이패드 터치 최적화 적용
+      applyIPadTouchOptimization();
+      console.log('iPad touch optimization initialized');
+    } catch (error) {
+      console.error('iPad touch optimization error:', error);
       // 오류가 발생해도 앱은 계속 실행
     }
   }, []);

@@ -3676,7 +3676,7 @@ const Mapping = () => {
             <Box
               sx={{
                 position: 'absolute',
-                top: 'calc(50% + 300px)', // 더 아래로
+                top: 'calc(50% + 285px)', // 아이패드에서 15px 위로
                 left: 'calc(100% - 330px)', // 왼쪽으로 10px 이동
                 backgroundColor: 'rgba(45, 45, 45, 0.95)', // 다크 배경
                 border: '2px solid #ff1744',

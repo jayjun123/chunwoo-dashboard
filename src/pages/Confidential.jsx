@@ -773,7 +773,7 @@ const Confidential = () => {
             xs: 12, 
             sm: 6, 
             md: 2.4,
-            // 테블릿에서 1줄에 4개 카드 (25%씩)
+            // 아이패드에서 1줄에 4개 카드 (25%씩)
             '@media (min-width: 768px) and (max-width: 1024px)': {
               xs: 3
             }

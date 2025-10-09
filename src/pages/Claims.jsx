@@ -2115,7 +2115,21 @@ const Claims = () => {
                       <>
                         <TableCell sx={{ color: 'white' }}>{claim.claimMonth}</TableCell>
                         <TableCell sx={{ color: 'white' }}>
-                          {claim.siteName}
+                          <span style={{
+                            // 아이패드에서 현장명 앞 6글자만 표시
+                            '@media (min-width: 768px) and (max-width: 1024px)': {
+                              display: 'block',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              maxWidth: '80px'
+                            }
+                          }}>
+                            {claim.siteName && claim.siteName.length > 6 ? 
+                              `${claim.siteName.substring(0, 6)}...` : 
+                              claim.siteName
+                            }
+                          </span>
                           {claim.isCarryover && (
                             <Typography
                               component="span"

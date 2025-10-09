@@ -1131,6 +1131,13 @@ export default function ImportantSite() {
         scrollbarWidth: 'none',   // Firefox
         '&::-webkit-scrollbar': {
           display: 'none'         // Chrome, Safari, Opera
+        },
+        // 아이패드에서 스크롤 개선
+        '@media (min-width: 768px) and (max-width: 1024px)': {
+          height: 'calc(100vh - 180px)', // 아이패드에서 높이 20px 줄임
+          paddingBottom: '40px',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch'
         }
       }}>
         <Grid container spacing={2} sx={{ 
@@ -1454,7 +1461,24 @@ export default function ImportantSite() {
               </Box>
               {/* 가운데: 차트 - 모바일에서 숨김 */}
               {!isMobile && (
-                <Box sx={{ flex: 1.7, minWidth: 400, maxWidth: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', bgcolor: '#181f2e', p: 0, height: '360px', borderRight: { md: '2px solid #232b3b' }, mt: 0.5 }}>
+                <Box sx={{ 
+                  flex: 1.7, 
+                  minWidth: 400, 
+                  maxWidth: 600, 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  justifyContent: 'flex-start', 
+                  bgcolor: '#181f2e', 
+                  p: 0, 
+                  height: '360px', 
+                  borderRight: { md: '2px solid #232b3b' }, 
+                  mt: 0.5,
+                  // 아이패드에서 차트높이 10px 줄임
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    height: '350px'
+                  }
+                }}>
                   {/* 공사진행률 가로 차트 - 상단 고정 */}
                   <Box sx={{ width: '90%', mb: 3 }}>
                     <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: 15, mb: 0.5 }}>공사진행률</Typography>
@@ -1581,7 +1605,20 @@ export default function ImportantSite() {
                     );
                   })()}
                   {/* 차트 - 하단 배치 */}
-                  <Box sx={{ width: '100%', height: '290px', flex: 1, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', p: 0, m: 0 }}>
+                  <Box sx={{ 
+                    width: '100%', 
+                    height: '290px', 
+                    flex: 1, 
+                    display: 'flex', 
+                    alignItems: 'stretch', 
+                    justifyContent: 'flex-end', 
+                    p: 0, 
+                    m: 0,
+                    // 아이패드에서 차트높이 10px 줄임
+                    '@media (min-width: 768px) and (max-width: 1024px)': {
+                      height: '280px'
+                    }
+                  }}>
                     <Bar
                       data={getChartData(site, totalGisung)}
                       options={{

@@ -1300,6 +1300,11 @@ const Progress = () => {
               setForceUpdate(prev => prev + 1);
             }}
             variant={tab === 'chart' ? 'contained' : 'outlined'}
+            sx={{
+              minHeight: '44px', // 아이패드 터치 최적화
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent'
+            }}
           >
             기성관리
           </Button>
@@ -1314,6 +1319,11 @@ const Progress = () => {
               setForceUpdate(prev => prev + 1);
             }}
             variant={tab === 'gisung' ? 'contained' : 'outlined'}
+            sx={{
+              minHeight: '44px', // 아이패드 터치 최적화
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent'
+            }}
           >
             기성현황
           </Button>
@@ -1328,6 +1338,11 @@ const Progress = () => {
               setForceUpdate(prev => prev + 1);
             }}
             variant={tab === 'cost' ? 'contained' : 'outlined'}
+            sx={{
+              minHeight: '44px', // 아이패드 터치 최적화
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent'
+            }}
           >
             지출
           </Button>
@@ -1365,7 +1380,10 @@ const Progress = () => {
             sx={{ 
               px: isMobile ? 0.5 : 1, 
               fontSize: isMobile ? '0.7rem' : 'inherit',
-              flex: isMobile ? 1 : 'auto'
+              flex: isMobile ? 1 : 'auto',
+              minHeight: '44px', // 아이패드 터치 최적화
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent'
             }}
           >
             월별
@@ -1384,7 +1402,10 @@ const Progress = () => {
             sx={{ 
               px: isMobile ? 0.5 : 0.5, 
               fontSize: isMobile ? '0.7rem' : 'inherit',
-              flex: isMobile ? 1 : 'auto'
+              flex: isMobile ? 1 : 'auto',
+              minHeight: '44px', // 아이패드 터치 최적화
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent'
             }}
           >
             현장별

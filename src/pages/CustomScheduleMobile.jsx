@@ -1492,7 +1492,7 @@ const CustomScheduleMobile = () => {
                   const dayOfWeek = colIdx;
                   // 날짜셀 세로를 줄임 - 달력 크기 축소
                   const totalRows = monthMatrix.length;
-                  const cellHeight = totalRows === 6 ? 57 : 67; // 높이 2px씩 증가
+                  const cellHeight = totalRows === 6 ? 54 : 64; // 아이패드에서 3px씩 줄임
                   return (
                     <Box
                       key={`${rowIdx}-${colIdx}`}

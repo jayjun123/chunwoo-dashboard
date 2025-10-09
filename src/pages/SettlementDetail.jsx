@@ -4966,7 +4966,15 @@ export default function SettlementDetail() {
       color: '#fff',
       pb: 2,
       pt: 8,  // 64px 아래로 이동
-      overflow: 'hidden' // 스크롤 방지
+      overflow: 'auto', // 아이패드에서 스크롤 허용
+      // 아이패드에서 스크롤바 숨기기
+      '@media (min-width: 768px) and (max-width: 1024px)': {
+        '&::-webkit-scrollbar': {
+          display: 'none'
+        },
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none'
+      }
     }}>
       {/* 헤더 */}
       <Box sx={{ 

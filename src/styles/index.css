@@ -339,4 +339,71 @@ html, body, #root {
     overscroll-behavior: none !important;
     -webkit-overscroll-behavior: none !important;
   }
+}
+
+/* 아이패드 터치 이벤트 개선 */
+@media (min-width: 768px) and (max-width: 1024px) {
+  /* 터치 지연 시간 제거 */
+  * {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -khtml-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    touch-action: manipulation !important;
+  }
+  
+  /* 입력 필드는 텍스트 선택 허용 */
+  input, textarea, [contenteditable] {
+    -webkit-user-select: text !important;
+    -khtml-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+  }
+  
+  /* 버튼 터치 영역 최적화 */
+  button, .MuiButton-root, .MuiIconButton-root, .MuiTab-root {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+  }
+  
+  /* 테이블 셀 터치 최적화 */
+  .MuiTableCell-root {
+    min-height: 44px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  
+  /* 카드 및 클릭 가능한 요소 터치 최적화 */
+  .MuiCard-root, .MuiPaper-root, .MuiChip-root {
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-touch-callout: none !important;
+  }
+  
+  /* 스크롤 영역과 터치 이벤트 분리 */
+  .MuiBox-root, .MuiContainer-root, .MuiGrid-root {
+    touch-action: pan-y !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* 링크 터치 지연 제거 */
+  a, .MuiLink-root {
+    -webkit-tap-highlight-color: transparent !important;
+    touch-action: manipulation !important;
+  }
+  
+  /* 드롭다운 및 메뉴 터치 최적화 */
+  .MuiSelect-root, .MuiMenuItem-root, .MuiList-root {
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
 } 

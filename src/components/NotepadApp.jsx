@@ -467,13 +467,19 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
         const canvasScaleX = canvas.width / rect.width;
         const canvasScaleY = canvas.height / rect.height;
         
-        // 좌표 계산 (스크롤 오프셋 제외, 아이패드에서는 불필요)
-        x = (clientX - rect.left) * canvasScaleX;
-        y = (clientY - rect.top) * canvasScaleY;
+        // 아이패드에서 애플펜슬 위치 보정 (더 정확한 계산)
+        // 뷰포트 오프셋과 스크롤 오프셋을 모두 고려
+        const viewportOffsetX = window.pageXOffset || document.documentElement.scrollLeft || 0;
+        const viewportOffsetY = window.pageYOffset || document.documentElement.scrollTop || 0;
         
-        console.log('아이패드 좌표 보정:', { 
+        // 좌표 계산 (아이패드에서 정확한 위치 계산)
+        x = (clientX - rect.left + viewportOffsetX) * canvasScaleX;
+        y = (clientY - rect.top + viewportOffsetY) * canvasScaleY;
+        
+        console.log('아이패드 애플펜슬 좌표 보정:', { 
           clientX, clientY, 
           rectLeft: rect.left, rectTop: rect.top,
+          viewportOffsetX, viewportOffsetY,
           canvasScaleX, canvasScaleY,
           finalX: x, finalY: y 
         });

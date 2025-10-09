@@ -954,8 +954,12 @@ const Estimates = () => {
             borderRadius: 2,
             minWidth: 400,
             flex: 1,
-            // 테블릿에서 숨김
+            // 아이패드에서 숨김
             '@media (min-width: 768px) and (max-width: 1024px)': {
+              display: 'none'
+            },
+            // 아이패드 Pro에서도 숨김
+            '@media (min-width: 1024px) and (max-width: 1366px)': {
               display: 'none'
             }
           }}>

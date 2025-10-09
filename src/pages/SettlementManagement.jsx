@@ -59,6 +59,7 @@ import {
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { formatNumber } from '../utils/formatUtils';
 import {
   Chart as ChartJS,
@@ -617,6 +618,245 @@ const SettlementManagement = () => {
     navigate(-1);
   };
 
+  // 히트맵 엑셀 다운로드 함수 (ExcelJS - 견적 기타 구분 포함)
+  const handleHeatmapExcelDownload = async () => {
+    try {
+      console.log('📊 히트맵 엑셀 다운로드 시작');
+      
+      if (!settlements || settlements.length === 0) {
+        alert('다운로드할 정산 데이터가 없습니다.');
+        return;
+      }
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('정산내역 히트맵');
+
+      // 제목 행 추가
+      const titleRow = worksheet.addRow(['천우건업(주) 정산내역 히트맵']);
+      titleRow.font = { size: 16, bold: true, color: { argb: 'FF2E7D32' } };
+      titleRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      worksheet.mergeCells('A1:L1');
+      
+      // 빈 행 추가
+      worksheet.addRow([]);
+      
+      // 날짜 행 추가
+      const dateRow = worksheet.addRow([`작성일: ${new Date().toLocaleDateString('ko-KR')}`]);
+      dateRow.font = { size: 12, color: { argb: 'FF666666' } };
+      dateRow.alignment = { horizontal: 'right' };
+      worksheet.mergeCells('A3:L3');
+      
+      // 빈 행 추가
+      worksheet.addRow([]);
+
+      // 헤더 행 추가
+      const headers = [
+        '번호', '현장명', '기성률', '계약금액', '누계기성', '지급금액', 
+        '미지급금액', '안전관리비', '견적상태', '계약구분', '정산일', '비고'
+      ];
+      
+      const headerRow = worksheet.addRow(headers);
+      headerRow.font = { size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF2E7D32' }
+      };
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      headerRow.border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+
+      // 데이터 행 추가
+      settlements.forEach((settlement, index) => {
+        const contractAmount = Number(settlement.contractAmount) || 0;
+        const totalGisung = Number(settlement.totalGisung) || 0;
+        const paidAmount = Number(settlement.paidAmount) || 0;
+        const unpaidAmount = Number(settlement.unpaidAmount) || 0;
+        const safetyCost = Number(settlement.safetyCost) || 0;
+        
+        // 기성률 계산
+        const gisungRate = contractAmount > 0 ? ((totalGisung / contractAmount) * 100).toFixed(1) : '0.0';
+        
+        // 견적상태 구분 (기성률에 따른)
+        let estimateStatus = '';
+        if (parseFloat(gisungRate) >= 100) {
+          estimateStatus = '완료';
+        } else if (parseFloat(gisungRate) >= 80) {
+          estimateStatus = '진행중';
+        } else if (parseFloat(gisungRate) >= 20) {
+          estimateStatus = '견적';
+        } else {
+          estimateStatus = '기타';
+        }
+
+        const dataRow = worksheet.addRow([
+          index + 1, // 번호
+          settlement.siteName || '', // 현장명
+          `${gisungRate}%`, // 기성률
+          contractAmount.toLocaleString(), // 계약금액
+          totalGisung.toLocaleString(), // 누계기성
+          paidAmount.toLocaleString(), // 지급금액
+          unpaidAmount.toLocaleString(), // 미지급금액
+          safetyCost.toLocaleString(), // 안전관리비
+          estimateStatus, // 견적상태
+          settlement.contractType || '', // 계약구분
+          settlement.settlementDate || '', // 정산일
+          settlement.notes || '' // 비고
+        ]);
+
+        // 행 스타일 적용
+        dataRow.font = { size: 11 };
+        dataRow.alignment = { 
+          horizontal: 'center', 
+          vertical: 'middle' 
+        };
+        dataRow.border = {
+          top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+        };
+
+        // 현장명은 왼쪽 정렬
+        dataRow.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };
+        
+        // 금액 컬럼들은 오른쪽 정렬
+        dataRow.getCell(4).alignment = { horizontal: 'right', vertical: 'middle' }; // 계약금액
+        dataRow.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' }; // 누계기성
+        dataRow.getCell(6).alignment = { horizontal: 'right', vertical: 'middle' }; // 지급금액
+        dataRow.getCell(7).alignment = { horizontal: 'right', vertical: 'middle' }; // 미지급금액
+        dataRow.getCell(8).alignment = { horizontal: 'right', vertical: 'middle' }; // 안전관리비
+        
+        // 비고는 왼쪽 정렬
+        dataRow.getCell(12).alignment = { horizontal: 'left', vertical: 'middle' };
+
+        // 견적상태에 따른 색상 적용
+        const statusCell = dataRow.getCell(9);
+        switch (estimateStatus) {
+          case '완료':
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE8F5E8' }
+            };
+            statusCell.font = { color: { argb: 'FF2E7D32' }, bold: true };
+            break;
+          case '진행중':
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF3E5F5' }
+            };
+            statusCell.font = { color: { argb: 'FF7B1FA2' }, bold: true };
+            break;
+          case '견적':
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE3F2FD' }
+            };
+            statusCell.font = { color: { argb: 'FF1976D2' }, bold: true };
+            break;
+          case '기타':
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFFFF3E0' }
+            };
+            statusCell.font = { color: { argb: 'FFF57C00' }, bold: true };
+            break;
+        }
+
+        // 기성률에 따른 색상 적용 (히트맵 효과)
+        const rateCell = dataRow.getCell(3);
+        const rate = parseFloat(gisungRate);
+        if (rate >= 100) {
+          rateCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF4CAF50' }
+          };
+          rateCell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+        } else if (rate >= 80) {
+          rateCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF8BC34A' }
+          };
+          rateCell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+        } else if (rate >= 60) {
+          rateCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFFEB3B' }
+          };
+          rateCell.font = { color: { argb: 'FF000000' }, bold: true };
+        } else if (rate >= 40) {
+          rateCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFF9800' }
+          };
+          rateCell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+        } else {
+          rateCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF44336' }
+          };
+          rateCell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+        }
+      });
+
+      // 컬럼 너비 설정
+      worksheet.columns = [
+        { width: 8 },  // 번호
+        { width: 25 }, // 현장명
+        { width: 10 }, // 기성률
+        { width: 15 }, // 계약금액
+        { width: 15 }, // 누계기성
+        { width: 15 }, // 지급금액
+        { width: 15 }, // 미지급금액
+        { width: 15 }, // 안전관리비
+        { width: 10 }, // 견적상태
+        { width: 12 }, // 계약구분
+        { width: 12 }, // 정산일
+        { width: 30 }  // 비고
+      ];
+
+      // 파일명 생성
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+      const fileName = `천우건업(주)_정산내역_히트맵_${dateStr}.xlsx`;
+
+      // 파일 다운로드
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log('✅ 히트맵 엑셀 다운로드 완료');
+      alert('정산내역 히트맵 엑셀 파일이 다운로드되었습니다.');
+      
+    } catch (error) {
+      console.error('❌ 히트맵 엑셀 다운로드 실패:', error);
+      alert('엑셀 다운로드에 실패했습니다.');
+    }
+  };
+
   // 지출 데이터 로드
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -784,13 +1024,14 @@ const SettlementManagement = () => {
           <Button
             variant="outlined"
             startIcon={<DownloadIcon />}
+            onClick={handleHeatmapExcelDownload}
             sx={{
               borderColor: '#666',
               color: '#fff',
               '&:hover': { borderColor: '#ff9800' }
             }}
           >
-            엑셀 다운로드
+            히트맵 엑셀 다운로드
           </Button>
           {!siteId && (
             <Button

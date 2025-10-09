@@ -540,7 +540,14 @@ const WholeList = () => {
                     누계기성
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>
                   <TableSortLabel
                     active={sortBy === 'address'}
                     direction={sortBy === 'address' ? order : 'asc'}
@@ -549,7 +556,14 @@ const WholeList = () => {
                     주소
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>
                   <TableSortLabel
                     active={sortBy === 'startDate'}
                     direction={sortBy === 'startDate' ? order : 'asc'}
@@ -558,7 +572,14 @@ const WholeList = () => {
                     착공일
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>
                   <TableSortLabel
                     active={sortBy === 'endDate'}
                     direction={sortBy === 'endDate' ? order : 'asc'}
@@ -585,7 +606,14 @@ const WholeList = () => {
                     소장
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>
                   <TableSortLabel
                     active={sortBy === 'phone'}
                     direction={sortBy === 'phone' ? order : 'asc'}
@@ -603,7 +631,14 @@ const WholeList = () => {
                     시공팀
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>
                   <TableSortLabel
                     active={sortBy === 'installment'}
                     direction={sortBy === 'installment' ? order : 'asc'}
@@ -612,7 +647,14 @@ const WholeList = () => {
                     차수
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 아이패드에서 숨김
+                  '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  }
+                }}>
                   <TableSortLabel
                     active={sortBy === 'subcontractGuardian'}
                     direction={sortBy === 'subcontractGuardian' ? order : 'asc'}
@@ -658,15 +700,45 @@ const WholeList = () => {
                     <TableCell>{Number(site.contractAmount || 0).toLocaleString()}</TableCell>
                     <TableCell>{Number(site.advance || 0).toLocaleString()}</TableCell>
                     <TableCell>{Number(site.totalProgress || 0).toLocaleString()}</TableCell>
-                    <TableCell>{site.address}</TableCell>
-                    <TableCell>{site.startDate}</TableCell>
-                    <TableCell>{site.endDate}</TableCell>
+                    <TableCell sx={{
+                      // 아이패드에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}>{site.address}</TableCell>
+                    <TableCell sx={{
+                      // 아이패드에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}>{site.startDate}</TableCell>
+                    <TableCell sx={{
+                      // 아이패드에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}>{site.endDate}</TableCell>
                     <TableCell>{site.companyName}</TableCell>
                     <TableCell>{site.manager}</TableCell>
-                    <TableCell>{site.phone}</TableCell>
+                    <TableCell sx={{
+                      // 아이패드에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}>{site.phone}</TableCell>
                     <TableCell>{site.team}</TableCell>
-                    <TableCell>{site.installment}</TableCell>
-                    <TableCell>
+                    <TableCell sx={{
+                      // 아이패드에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}>{site.installment}</TableCell>
+                    <TableCell sx={{
+                      // 아이패드에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}>
                       {site.subcontractGuardian ? (
                                             <Chip label="Y" color="primary" size="small" onClick={() => {}} />
                   ) : (

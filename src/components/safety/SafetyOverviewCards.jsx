@@ -383,7 +383,6 @@ function SafetyOverviewCards() {
         />
                  <Button
            variant="contained"
-           startIcon={<CloudDownloadIcon />}
            onClick={handleDownloadPDF}
            sx={{
              bgcolor: '#4ade80',

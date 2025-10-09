@@ -108,6 +108,7 @@ const formatDateRange = (startDate, endDate) => {
 };
 import { getSiteIntegratedStatus } from '../utils/integrationUtils';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { uploadMaterialData, generateDocumentExcel, getMaterialDataFromFirebase } from '../utils/materialUploadUtils.jsx';
 import { downloadNapfoomContract } from '../utils/napfoomUtils';
 import { safeUpdateDoc, debouncedUpdate } from '../utils/databaseUtils';
@@ -115,13 +116,13 @@ import { safeUpdateDoc, debouncedUpdate } from '../utils/databaseUtils';
 // 회사명은 사용자 입력값 그대로 저장합니다. 더 이상 표준화하지 않습니다.
 const normalizeCompanyName = (value) => (value ?? '').toString();
 
-const STATUS_OPTIONS = ['예정', '진행중', '완료', '미정'];
+const STATUS_OPTIONS = ['예정', '진행', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급', '관급'];
 const ESTIMATE_STATUS_OPTIONS = ['제출대기', '제출완료', '수주', '미수주', '기타'];
 
 const initialFormState = {
   name: '',
-  status: '진행중',
+  status: '진행',
   contractType: '계약없음',
   subcontractGuardian: false,
   installment: '',
@@ -149,7 +150,7 @@ const NewSites = () => {
   const [sites, setSites] = useState([]);
   const [selectedSite, setSelectedSite] = useState(null);
   const [form, setForm] = useState(initialFormState);
-  const [statusTab, setStatusTab] = useState('진행중');
+  const [statusTab, setStatusTab] = useState('진행');
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [vendors, setVendors] = useState([]); // 거래처 데이터 상태 추가
@@ -188,7 +189,7 @@ const NewSites = () => {
   const statusCounts = useMemo(() => {
     const counts = {
       '예정': 0,
-      '진행중': 0,
+      '진행': 0,
       '완료': 0,
       '미정': 0
     };
@@ -544,7 +545,7 @@ const NewSites = () => {
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const sitesData = snapshot.docs.map(doc => {
         const data = { id: doc.id, ...doc.data() };
-        if (data.status === '진행') data.status = '진행중';
+        if (data.status === '진행중') data.status = '진행';
         else if (data.status === '진행상황') data.status = '예정';
         // 회사명 필드 호환: company → companyName 통합
         if (!data.companyName && data.company) {
@@ -950,7 +951,7 @@ const NewSites = () => {
       }
     });
     
-    // 진행중인 현장을 먼저, 정산완료된 현장을 나중에 배치
+    // 진행인 현장을 먼저, 정산완료된 현장을 나중에 배치
     return [...activeSites, ...completedSites];
   }, [sites, statusTab, searchTerm, showHiddenCompleted, paymentStatusMap]);
 
@@ -1783,7 +1784,7 @@ const NewSites = () => {
       manager: '',
       startDate: '',
       endDate: '',
-      status: '진행중',
+      status: '진행',
       isFavorite: false,
       items: defaultItems
     });
@@ -2004,7 +2005,7 @@ const NewSites = () => {
           sites: [],
           totalContractAmount: 0,
           siteCount: 0,
-          statusCounts: { '예정': 0, '진행중': 0, '완료': 0, '미정': 0 }
+          statusCounts: { '예정': 0, '진행': 0, '완료': 0, '미정': 0 }
         });
       }
       
@@ -2090,6 +2091,186 @@ const NewSites = () => {
 
   // 중복 단수정리 항목 정리 함수
   // 엑셀 다운로드 함수 (NEWgisung.xlsx 템플릿 사용)
+
+  // 전체현장 엑셀 다운로드 함수 (ExcelJS - 예쁜 스타일)
+  const handleAllSitesExcelDownload = async () => {
+    try {
+      console.log('📊 전체현장 엑셀 다운로드 시작');
+      
+      if (!sites || sites.length === 0) {
+        alert('다운로드할 현장 데이터가 없습니다.');
+        return;
+      }
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('전체현장목록');
+
+      // 제목 행 추가
+      const titleRow = worksheet.addRow(['천우건업(주) 전체현장 현황']);
+      titleRow.font = { size: 16, bold: true, color: { argb: 'FF2E7D32' } };
+      titleRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      worksheet.mergeCells('A1:K1');
+      
+      // 빈 행 추가
+      worksheet.addRow([]);
+      
+      // 날짜 행 추가
+      const dateRow = worksheet.addRow([`작성일: ${new Date().toLocaleDateString('ko-KR')}`]);
+      dateRow.font = { size: 12, color: { argb: 'FF666666' } };
+      dateRow.alignment = { horizontal: 'right' };
+      worksheet.mergeCells('A3:K3');
+      
+      // 빈 행 추가
+      worksheet.addRow([]);
+
+      // 헤더 행 추가
+      const headers = [
+        '번호', '현장명', '계약구분', '진행상황', '계약금액', 
+        '시작일', '종료일', '담당자', '연락처', '회사명', '비고'
+      ];
+      
+      const headerRow = worksheet.addRow(headers);
+      headerRow.font = { size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF2E7D32' }
+      };
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      headerRow.border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+
+      // 데이터 행 추가
+      sites.forEach((site, index) => {
+        const contractAmount = Number(site.contractAmount) || 0;
+        const formattedAmount = contractAmount > 0 ? contractAmount.toLocaleString() : '';
+        
+        const startDate = site.startDate ? 
+          (site.startDate.toDate ? site.startDate.toDate() : new Date(site.startDate)) : null;
+        const endDate = site.endDate ? 
+          (site.endDate.toDate ? site.endDate.toDate() : new Date(site.endDate)) : null;
+        
+        const startDateStr = startDate ? startDate.toLocaleDateString('ko-KR') : '';
+        const endDateStr = endDate ? endDate.toLocaleDateString('ko-KR') : '';
+
+        const dataRow = worksheet.addRow([
+          index + 1, // 번호
+          site.name || '', // 현장명
+          site.contractType || '', // 계약구분
+          site.status || '', // 진행상황
+          formattedAmount, // 계약금액
+          startDateStr, // 시작일
+          endDateStr, // 종료일
+          site.manager || '', // 담당자
+          site.phone || '', // 연락처
+          site.companyName || '', // 회사명
+          site.note || '' // 비고
+        ]);
+
+        // 행 스타일 적용
+        dataRow.font = { size: 11 };
+        dataRow.alignment = { 
+          horizontal: 'center', 
+          vertical: 'middle' 
+        };
+        dataRow.border = {
+          top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+        };
+
+        // 번호, 현장명, 계약구분, 진행상황은 왼쪽 정렬
+        dataRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+        dataRow.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };
+        dataRow.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
+        dataRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+        dataRow.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' }; // 계약금액은 오른쪽 정렬
+        dataRow.getCell(8).alignment = { horizontal: 'left', vertical: 'middle' }; // 담당자는 왼쪽 정렬
+        dataRow.getCell(10).alignment = { horizontal: 'left', vertical: 'middle' }; // 회사명은 왼쪽 정렬
+        dataRow.getCell(11).alignment = { horizontal: 'left', vertical: 'middle' }; // 비고는 왼쪽 정렬
+
+        // 진행상황에 따른 색상 적용
+        const statusCell = dataRow.getCell(4);
+        switch (site.status) {
+          case '예정':
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE3F2FD' }
+            };
+            break;
+          case '진행':
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF3E5F5' }
+            };
+            break;
+          case '완료':
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE8F5E8' }
+            };
+            break;
+          case '미정':
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFFFF3E0' }
+            };
+            break;
+        }
+      });
+
+      // 컬럼 너비 설정
+      worksheet.columns = [
+        { width: 8 },  // 번호
+        { width: 25 }, // 현장명
+        { width: 12 }, // 계약구분
+        { width: 10 }, // 진행상황
+        { width: 15 }, // 계약금액
+        { width: 12 }, // 시작일
+        { width: 12 }, // 종료일
+        { width: 12 }, // 담당자
+        { width: 15 }, // 연락처
+        { width: 20 }, // 회사명
+        { width: 30 }  // 비고
+      ];
+
+      // 파일명 생성
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+      const fileName = `천우건업(주)_전체현장현황_${dateStr}.xlsx`;
+
+      // 파일 다운로드
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log('✅ 전체현장 엑셀 다운로드 완료');
+      alert('전체현장 엑셀 파일이 다운로드되었습니다.');
+      
+    } catch (error) {
+      console.error('❌ 전체현장 엑셀 다운로드 실패:', error);
+      alert('엑셀 다운로드에 실패했습니다.');
+    }
+  };
 
 
   const handleCleanupDuplicateAdjustments = async () => {
@@ -2521,6 +2702,28 @@ const NewSites = () => {
           </Box>
         )}
         
+        {/* 엑셀 다운로드 버튼 */}
+        <Button 
+          variant="outlined" 
+          onClick={handleAllSitesExcelDownload}
+          size="small" 
+          fullWidth
+          startIcon={<span style={{ fontSize: '1rem' }}>📊</span>}
+          sx={{ 
+            mb: 1,
+            color: '#2E7D32',
+            borderColor: '#2E7D32',
+            fontSize: isMobile ? '0.7rem' : '0.8rem',
+            fontWeight: 'bold',
+            '&:hover': {
+              bgcolor: 'rgba(46, 125, 50, 0.1)',
+              borderColor: '#1B5E20'
+            }
+          }}
+        >
+          전체현장 엑셀 다운로드
+        </Button>
+
         {/* 모바일에서만 현장 추가 버튼 표시 */}
         {isMobile && (
           <Button 
@@ -2539,6 +2742,9 @@ const NewSites = () => {
               color: '#fff',
               fontSize: '0.8rem',
               fontWeight: 'bold',
+              minHeight: '44px', // 아이패드 터치 최적화
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
               '&:hover': {
                 bgcolor: '#388e3c'
               }
@@ -2796,6 +3002,9 @@ const NewSites = () => {
                    sx={{ 
                      fontSize: isMobile ? '0.7rem' : 'inherit',
                      bgcolor: '#4caf50',
+                     minHeight: '44px', // 아이패드 터치 최적화
+                     touchAction: 'manipulation',
+                     WebkitTapHighlightColor: 'transparent',
                      '&:hover': {
                        bgcolor: '#388e3c'
                      }
@@ -2920,7 +3129,7 @@ const NewSites = () => {
              background: '#666'
            }
          }}>
-           <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
+           <Box sx={{ display: 'flex', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
              <Box sx={{ flex: isMobile ? 'none' : 8 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  현장명
@@ -2946,7 +3155,7 @@ const NewSites = () => {
                    onFocus={scrollFocus(inputRef1)} 
                  />
                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1.5 }}>
-                   <Typography variant="body1" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>주요현장</Typography>
+                   <Typography variant="body2" sx={{ fontSize: isMobile ? '0.6rem' : '0.75rem' }}>주요현장</Typography>
                    <IconButton 
                      onClick={() => handleChange({ target: { name: 'isFavorite', value: !(form.isFavorite ?? false) } })} 
                      size="small" 
@@ -2984,7 +3193,7 @@ const NewSites = () => {
              </Box>
            </Box>
            
-           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end', flexDirection: 'row' }}>
+           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end', flexDirection: 'row' }}>
              <Box sx={{ flex: isMobile ? 1 : 3 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  계약구분
@@ -3014,13 +3223,13 @@ const NewSites = () => {
                <FormControl fullWidth size="small">
                  <Select 
                    name="status" 
-                   value={form.status ?? '진행중'} 
+                   value={form.status ?? '진행'} 
                    onChange={handleChange} 
                    disabled={false}
                    sx={{
                      '& .MuiSelect-select': {
                        backgroundColor: form.status === '예정' ? '#ff9800' : 
-                                      form.status === '진행중' ? '#1976d2' : 
+                                      form.status === '진행' ? '#1976d2' : 
                                       form.status === '완료' ? '#43a047' : 
                                       form.status === '미정' ? '#757575' : '#757575',
                        color: 'white',
@@ -3031,13 +3240,13 @@ const NewSites = () => {
                    {STATUS_OPTIONS.map(opt => (
                      <MenuItem key={opt} value={opt} sx={{ 
                        backgroundColor: opt === '예정' ? '#ff9800' : 
-                                     opt === '진행중' ? '#1976d2' : 
+                                     opt === '진행' ? '#1976d2' : 
                                      opt === '완료' ? '#43a047' : 
                                      opt === '미정' ? '#757575' : '#757575',
                        color: 'white',
                        '&:hover': {
                          backgroundColor: opt === '예정' ? '#f57c00' : 
-                                        opt === '진행중' ? '#1565c0' : 
+                                        opt === '진행' ? '#1565c0' : 
                                         opt === '완료' ? '#388e3c' : 
                                         opt === '미정' ? '#616161' : '#616161'
                        }
@@ -3050,7 +3259,7 @@ const NewSites = () => {
              </Box>
            </Box>
            
-           <Box sx={{ display: 'flex', gap: 2, mt: isMobile ? 0.5 : 1, flexDirection: isMobile ? 'column' : 'row' }}>
+           <Box sx={{ display: 'flex', gap: 1, mt: isMobile ? 0.3 : 0.5, flexDirection: isMobile ? 'column' : 'row' }}>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  계약금액
@@ -3095,7 +3304,7 @@ const NewSites = () => {
              </Box>
            </Box>
            
-           <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
+           <Box sx={{ display: 'flex', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  착공일
@@ -3132,10 +3341,10 @@ const NewSites = () => {
              </Box>
            </Box>
            
-           <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
+           <Box sx={{ display: 'flex', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
-                 회사명 (거래처 선택 또는 입력)
+                 회사명 (선택 또는 입력)
                </Typography>
                 <Autocomplete
                   options={[...new Set(vendors.map(v => (v.companyName ?? '').toString()))].filter(Boolean)}
@@ -3197,7 +3406,7 @@ const NewSites = () => {
              </Box>
            </Box>
            
-           <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
+           <Box sx={{ display: 'flex', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  시공팀
@@ -3256,7 +3465,7 @@ const NewSites = () => {
              </Box>
            </Box>
            
-           <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
+           <Box sx={{ display: 'flex', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
              <Box sx={{ flex: 1 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  기타사항
@@ -3302,16 +3511,33 @@ const NewSites = () => {
                }} 
                disabled={isSaving}
                size={isMobile ? 'small' : 'medium'} 
-               sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+               sx={{ 
+                 fontSize: isMobile ? '0.7rem' : 'inherit',
+                 minHeight: '44px', // 아이패드 터치 최적화
+                 touchAction: 'manipulation',
+                 WebkitTapHighlightColor: 'transparent'
+               }}
              >
                {isSaving ? '저장 중...' : (selectedSite ? '저장하기' : '등록하기')}
              </Button>
            ) : (
-             <Button variant="contained" color="primary" onClick={(e) => {
-               e.preventDefault();
-               e.stopPropagation();
-               handleEditClick();
-             }} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+             <Button 
+               variant="contained" 
+               color="primary" 
+               onClick={(e) => {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 handleEditClick();
+               }} 
+               disabled={!selectedSite} 
+               size={isMobile ? 'small' : 'medium'} 
+               sx={{ 
+                 fontSize: isMobile ? '0.7rem' : 'inherit',
+                 minHeight: '44px', // 아이패드 터치 최적화
+                 touchAction: 'manipulation',
+                 WebkitTapHighlightColor: 'transparent'
+               }}
+             >
                수정하기
              </Button>
            )}
@@ -3480,10 +3706,10 @@ const NewSites = () => {
           borderColor: 'divider', 
           pb: 1 
         }}>
-          <Typography sx={{ width: '35%', fontWeight: 'bold', fontSize: isMobile ? '0.7rem' : 'inherit' }}>항목</Typography>
-          <Typography sx={{ width: '15%', fontWeight: 'bold', fontSize: isMobile ? '0.7rem' : 'inherit' }}>물량</Typography>
-          <Typography sx={{ width: '20%', fontWeight: 'bold', fontSize: isMobile ? '0.7rem' : 'inherit' }}>단가</Typography>
-          <Typography sx={{ width: '20%', fontWeight: 'bold', fontSize: isMobile ? '0.7rem' : 'inherit' }}>금액</Typography>
+          <Typography sx={{ width: '35%', fontWeight: 'bold', fontSize: isMobile ? '0.6rem' : '0.75rem' }}>항목</Typography>
+          <Typography sx={{ width: '15%', fontWeight: 'bold', fontSize: isMobile ? '0.6rem' : '0.75rem' }}>물량</Typography>
+          <Typography sx={{ width: '20%', fontWeight: 'bold', fontSize: isMobile ? '0.6rem' : '0.75rem' }}>단가</Typography>
+          <Typography sx={{ width: '20%', fontWeight: 'bold', fontSize: isMobile ? '0.6rem' : '0.75rem' }}>금액</Typography>
         </Box>
         <Box
           sx={{
@@ -3518,7 +3744,7 @@ const NewSites = () => {
                     flex: '1 1 120px',
                     fontWeight: 'bold',
                     color: 'primary.main',
-                    fontSize: isMobile ? '0.9rem' : '1.1rem',
+                    fontSize: isMobile ? '0.7rem' : '0.9rem',
                     whiteSpace: 'nowrap', // 한 줄로 표시
                   }}
                 >
@@ -3543,7 +3769,7 @@ const NewSites = () => {
                     flex: '1 1 120px',
                     fontWeight: 'bold',
                     color: 'primary.main',
-                    fontSize: isMobile ? '0.9rem' : '1.1rem',
+                    fontSize: isMobile ? '0.7rem' : '0.9rem',
                     whiteSpace: 'nowrap', // 한 줄로 표시
                   }}
                 >
@@ -3557,7 +3783,7 @@ const NewSites = () => {
                   sx={{ flex: '1 1 120px' }} 
                   placeholder="단수정리" 
                   disabled={isReadOnly}
-                  inputProps={{ style: { fontSize: isMobile ? '0.7rem' : 'inherit' } }}
+                  inputProps={{ style: { fontSize: isMobile ? '0.6rem' : '0.7rem' } }}
                 />
               ) : (
                 <TextField 
@@ -3574,7 +3800,7 @@ const NewSites = () => {
                     },
                     '& .MuiInputBase-input': { 
                       color: '#fff',
-                      fontSize: isMobile ? '0.7rem' : '0.8rem',
+                      fontSize: isMobile ? '0.6rem' : '0.7rem',
                       fontWeight: '500'
                     }
                   }} 
@@ -3602,7 +3828,7 @@ const NewSites = () => {
                     flex: '1 1 60px',
                     minWidth: isMobile ? '50px' : '60px',
                     '& .MuiInputBase-input': { 
-                      fontSize: isMobile ? '0.7rem' : '0.8rem',
+                      fontSize: isMobile ? '0.6rem' : '0.7rem',
                       textAlign: 'right'
                     }
                   }} 
@@ -3628,7 +3854,7 @@ const NewSites = () => {
                     flex: '1 1 70px',
                     minWidth: isMobile ? '60px' : '70px',
                     '& .MuiInputBase-input': { 
-                      fontSize: isMobile ? '0.7rem' : '0.8rem',
+                      fontSize: isMobile ? '0.6rem' : '0.7rem',
                       textAlign: 'right'
                     }
                   }} 
@@ -3646,7 +3872,7 @@ const NewSites = () => {
                     textAlign: 'right',
                     fontWeight: (item.isTotal || item.isVat || item.isTotalWithVat) ? 'bold' : 'normal',
                     color: (item.isTotal || item.isVat || item.isTotalWithVat) ? 'primary.main' : 'text.primary',
-                    fontSize: (item.isTotal || item.isVat || item.isTotalWithVat) ? (isMobile ? '0.9rem' : '1.1rem') : 'inherit'
+                    fontSize: (item.isTotal || item.isVat || item.isTotalWithVat) ? (isMobile ? '0.7rem' : '0.9rem') : (isMobile ? '0.6rem' : '0.7rem')
                   }}
                 >
                   {(item.isTotal || item.isVat || item.isTotalWithVat) ? formatAmount(item.amount) : ''}
@@ -3660,7 +3886,7 @@ const NewSites = () => {
                     flex: '1 1 70px',
                     minWidth: isMobile ? '60px' : '70px',
                     '& .MuiInputBase-input': { 
-                      fontSize: isMobile ? '0.7rem' : '0.8rem',
+                      fontSize: isMobile ? '0.6rem' : '0.7rem',
                       textAlign: 'right'
                     }
                   }} 
