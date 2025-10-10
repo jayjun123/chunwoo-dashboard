@@ -58,8 +58,7 @@ import {
   updateClaim, 
   deleteClaim,
   getClaimStats,
-  checkProgressAndUpdateClaim,
-  migrateClaimsData
+  checkProgressAndUpdateClaim
 } from '../api/claims';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
@@ -193,6 +192,7 @@ const Claims = () => {
   // 현장 데이터
   const [sites, setSites] = useState([]);
   const [gisungData, setGisungData] = useState([]);
+  const [paymentStatusMap, setPaymentStatusMap] = useState({});
 
   // 임시저장 관련 상태
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -449,6 +449,68 @@ const Claims = () => {
     fetchGisungData();
   }, []);
 
+  // 정산완료 현장 데이터 로드
+  useEffect(() => {
+    const loadPaymentStatus = async () => {
+      try {
+        // 현장별 입금 상태 맵 생성
+        const paymentMap = {};
+        
+        sites.forEach(site => {
+          // 현장명 매칭 (정확한 매칭과 부분 매칭 모두 시도)
+          const siteGisungData = gisungData.filter(g => {
+            const exactMatch = g.name === site.name;
+            const partialMatch = g.name && site.name && g.name.includes(site.name);
+            return exactMatch || partialMatch;
+          });
+          
+          if (siteGisungData.length === 0) {
+            paymentMap[site.name] = { isFullyPaid: false, totalGisung: 0, paidGisung: 0, paymentRate: 0 };
+            return;
+          }
+          
+          // 해당 현장의 모든 기성 데이터 확인
+          const totalGisung = siteGisungData.reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+          const paidGisung = siteGisungData
+            .filter(g => g.paymentStatus === '입금완료')
+            .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+          
+          // 선급금도 고려
+          const advanceAmount = Number(site.advance) || 0;
+          const totalWithAdvance = totalGisung + advanceAmount;
+          
+          // 잔액 계산 (계약금액 - 선급금 - 입금완료된 기성)
+          const contractAmount = Number(site.contractAmount) || 0;
+          const balance = contractAmount - advanceAmount - paidGisung;
+          
+          // 정산완료 조건: 잔액이 0이고 입금완료 칩이 있는 경우
+          const hasPaidGisung = siteGisungData.some(g => g.paymentStatus === '입금완료');
+          const isFullyPaid = balance <= 0 && hasPaidGisung;
+          
+          // 입금률 계산 (참고용)
+          const paymentRate = totalWithAdvance > 0 ? ((paidGisung + advanceAmount) / totalWithAdvance) * 100 : 0;
+          
+          paymentMap[site.name] = {
+            isFullyPaid,
+            totalGisung: totalWithAdvance,
+            paidGisung: paidGisung + advanceAmount,
+            paymentRate: Math.round(paymentRate),
+            balance: balance,
+            contractAmount: contractAmount
+          };
+        });
+        
+        setPaymentStatusMap(paymentMap);
+      } catch (error) {
+        console.error('입금 상태 확인 실패:', error);
+      }
+    };
+
+    if (sites.length > 0 && gisungData.length > 0) {
+      loadPaymentStatus();
+    }
+  }, [sites, gisungData]);
+
   // 통계 데이터 로드
   useEffect(() => {
     const loadStats = async () => {
@@ -466,13 +528,26 @@ const Claims = () => {
   useEffect(() => {
     let filtered = claims;
 
-    // 검색어 필터링
+    // 검색어 필터링 (현장명, 소장명, 회사명으로 검색)
     if (searchTerm) {
-      filtered = filtered.filter(claim =>
-        claim.siteName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        claim.manager?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        claim.sequence?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      filtered = filtered.filter(claim => {
+        const searchLower = searchTerm.toLowerCase();
+        
+        // 현장명 검색
+        const siteNameMatch = claim.siteName?.toLowerCase().includes(searchLower);
+        
+        // 소장명 검색
+        const managerMatch = claim.manager?.toLowerCase().includes(searchLower);
+        
+        // 회사명 검색 (현장관리에서 가져온 회사명도 포함)
+        const siteInfo = getSiteInfo(claim.siteName);
+        const companyMatch = siteInfo.company?.toLowerCase().includes(searchLower);
+        
+        // 차수 검색
+        const sequenceMatch = claim.sequence?.toLowerCase().includes(searchLower);
+        
+        return siteNameMatch || managerMatch || companyMatch || sequenceMatch;
+      });
     }
 
     // 상태 필터링
@@ -736,14 +811,14 @@ const Claims = () => {
       const progressRate = calculateProgressRate(selectedSite.name);
       const sequence = calculateSequence(selectedSite.name);
       const totalGisungAmount = calculateTotalGisungAmount(selectedSite.name);
-      setFormData(prev => ({
-        ...prev,
-        siteName: selectedSite.name || '',
-        manager: selectedSite.manager || '',
-        sequence: sequence,
-        progressRate: progressRate.toString(),
-        totalGisungAmount: totalGisungAmount.toString()
-      }));
+        setFormData(prev => ({
+          ...prev,
+          siteName: selectedSite.name || '',
+          manager: selectedSite.manager || '',
+          sequence: sequence,
+          progressRate: progressRate.toString(),
+          totalGisungAmount: Math.ceil(totalGisungAmount).toString()
+        }));
     } else if (typeof selectedSite === 'string') {
       console.log('문자열 입력됨:', selectedSite);
       // 문자열인 경우 (직접 입력 또는 선택)
@@ -761,7 +836,7 @@ const Claims = () => {
           manager: foundSite.manager || '',
           sequence: sequence,
           progressRate: progressRate.toString(),
-          totalGisungAmount: totalGisungAmount.toString()
+          totalGisungAmount: Math.ceil(totalGisungAmount).toString()
         }));
       } else {
         console.log('목록에 없는 현장, 직접 입력으로 처리:', selectedSite);
@@ -819,6 +894,9 @@ const Claims = () => {
           console.log(`청구금액이 없어서 계약금액을 사용: ${claimAmount}`);
         }
       }
+      
+      // 청구금액을 올림 처리
+      claimAmount = Math.ceil(claimAmount);
 
       // 저장할 데이터 준비 (사용자 입력 내용 확실히 반영)
       const claimData = {
@@ -969,27 +1047,6 @@ const Claims = () => {
     }
   };
 
-  // 데이터 마이그레이션 (claimMonth 필드 추가)
-  const handleMigrateData = async () => {
-    try {
-      setLoading(true);
-      const migratedCount = await migrateClaimsData();
-      setSnackbar({
-        open: true,
-        message: `${migratedCount}개의 데이터에 claimMonth 필드가 추가되었습니다.`,
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error('데이터 마이그레이션 실패:', error);
-      setSnackbar({
-        open: true,
-        message: '데이터 마이그레이션에 실패했습니다.',
-        severity: 'error'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // 엑셀 다운로드 (개선된 버전 - 이미지 형태)
   const handleExportExcel = () => {
@@ -1706,7 +1763,7 @@ const Claims = () => {
           // 모바일: 검색창과 새청구 버튼을 한 줄에 배치
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <TextField
-              placeholder="검색..."
+              placeholder="현장명, 소장명, 회사명, 차수로 검색..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               size="small"
@@ -1762,7 +1819,7 @@ const Claims = () => {
             {/* 왼쪽: 검색과 필터 */}
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
               <TextField
-                placeholder="검색..."
+                placeholder="현장명, 소장명, 회사명, 차수로 검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 size="small"
@@ -1790,7 +1847,7 @@ const Claims = () => {
                     }
                   }
                 }}
-                sx={{ width: '200px' }}
+                sx={{ width: '250px' }}
               />
               <FormControl size="small" sx={{ width: '150px' }}>
                 <InputLabel sx={{ color: '#ccc' }}>청구여부</InputLabel>
@@ -1886,23 +1943,6 @@ const Claims = () => {
                 }}
               >
                 새 청구예정
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={handleMigrateData}
-                size="small"
-                sx={{ 
-                  height: '40px',
-                  fontSize: '14px',
-                  color: '#ff9800',
-                  borderColor: '#ff9800',
-                  '&:hover': {
-                    borderColor: '#ff9800',
-                    backgroundColor: 'rgba(255, 152, 0, 0.1)'
-                  }
-                }}
-              >
-                데이터 수정
               </Button>
             </Box>
 
@@ -2423,6 +2463,8 @@ const Claims = () => {
                 placeholder="현장명을 검색하세요"
                 size="small"
                 isMobile={isMobile}
+                excludeFullyPaidSites={true}
+                paymentStatusMap={paymentStatusMap}
                 sx={{ 
                   width: '250px', // 현장명 입력칸 너비를 250px로 설정
                   '& .MuiOutlinedInput-root': { backgroundColor: '#444' },
@@ -2478,7 +2520,7 @@ const Claims = () => {
                 
                 <TextField
                   label="누계기성금액"
-                  value={formData.totalGisungAmount ? Number(formData.totalGisungAmount).toLocaleString() : ''}
+                  value={formData.totalGisungAmount ? Math.ceil(Number(formData.totalGisungAmount)).toLocaleString() : ''}
                   InputProps={{
                     endAdornment: <InputAdornment position="end">원</InputAdornment>,
                     readOnly: true,
@@ -2494,7 +2536,7 @@ const Claims = () => {
                 
                 <TextField
                   label="잔액"
-                  value={formData.siteName ? calculateRemainingAmount(formData.siteName).toLocaleString() : ''}
+                  value={formData.siteName ? Math.ceil(calculateRemainingAmount(formData.siteName)).toLocaleString() : ''}
                   InputProps={{
                     endAdornment: <InputAdornment position="end">원</InputAdornment>,
                     readOnly: true,
@@ -2510,7 +2552,7 @@ const Claims = () => {
                 
                 <TextField
                   label="청구금액"
-                  value={formData.claimAmount ? Number(formData.claimAmount).toLocaleString() : ''}
+                  value={formData.claimAmount ? Math.ceil(Number(formData.claimAmount)).toLocaleString() : ''}
                   onChange={(e) => {
                     const value = e.target.value.replace(/,/g, '');
                     if (!isNaN(value) || value === '') {
@@ -2572,6 +2614,8 @@ const Claims = () => {
                   placeholder="현장명을 검색하세요"
                   size="medium"
                   isMobile={isMobile}
+                  excludeFullyPaidSites={true}
+                  paymentStatusMap={paymentStatusMap}
                   sx={{ 
                     width: '250px', // 현장명 입력칸 너비를 250px로 설정
                     '& .MuiOutlinedInput-root': { backgroundColor: '#444' },
@@ -2627,7 +2671,7 @@ const Claims = () => {
                   
                   <TextField
                     label="누계기성금액"
-                    value={formData.totalGisungAmount ? Number(formData.totalGisungAmount).toLocaleString() : ''}
+                    value={formData.totalGisungAmount ? Math.ceil(Number(formData.totalGisungAmount)).toLocaleString() : ''}
                     InputProps={{
                       endAdornment: <InputAdornment position="end">원</InputAdornment>,
                       readOnly: true,
@@ -2642,7 +2686,7 @@ const Claims = () => {
                   
                   <TextField
                     label="잔액"
-                    value={formData.siteName ? calculateRemainingAmount(formData.siteName).toLocaleString() : ''}
+                    value={formData.siteName ? Math.ceil(calculateRemainingAmount(formData.siteName)).toLocaleString() : ''}
                     InputProps={{
                       endAdornment: <InputAdornment position="end">원</InputAdornment>,
                       readOnly: true,
@@ -2657,7 +2701,7 @@ const Claims = () => {
                   
                   <TextField
                     label="청구금액"
-                    value={formData.claimAmount ? Number(formData.claimAmount).toLocaleString() : ''}
+                    value={formData.claimAmount ? Math.ceil(Number(formData.claimAmount)).toLocaleString() : ''}
                     onChange={(e) => {
                       const value = e.target.value.replace(/,/g, '');
                       if (!isNaN(value) || value === '') {

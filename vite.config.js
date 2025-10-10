@@ -21,6 +21,91 @@ export default defineConfig(({ command, mode }) => {
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'logo192.png', 'logo512.png', 'icon-72x72.png', 'icon-96x96.png', 'icon-128x128.png', 'icon-144x144.png', 'icon-152x152.png', 'icon-384x384.png'],
+      manifest: {
+        name: '천우 건설현장관리시스템',
+        short_name: '천우현장관리',
+        description: '천우 건설현장관리시스템 - 현장, 일정, 안전관리, 기성관리 통합 시스템',
+        theme_color: '#181A20',
+        background_color: '#181A20',
+        display: 'standalone',
+        orientation: 'portrait-primary',
+        start_url: '/',
+        scope: '/',
+        lang: 'ko-KR',
+        dir: 'ltr',
+        prefer_related_applications: false,
+        categories: ['business', 'productivity'],
+        icons: [
+          {
+            src: 'favicon.ico',
+            sizes: '64x64 32x32 24x24 16x16',
+            type: 'image/x-icon'
+          },
+          {
+            src: 'logo192.png',
+            type: 'image/png',
+            sizes: '192x192',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'logo512.png',
+            type: 'image/png',
+            sizes: '512x512',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'icon-72x72.png',
+            type: 'image/png',
+            sizes: '72x72',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'icon-96x96.png',
+            type: 'image/png',
+            sizes: '96x96',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'icon-128x128.png',
+            type: 'image/png',
+            sizes: '128x128',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'icon-144x144.png',
+            type: 'image/png',
+            sizes: '144x144',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'icon-152x152.png',
+            type: 'image/png',
+            sizes: '152x152',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'icon-384x384.png',
+            type: 'image/png',
+            sizes: '384x384',
+            purpose: 'any maskable'
+          }
+        ],
+        screenshots: [
+          {
+            src: 'screenshot-wide.png',
+            sizes: '1280x720',
+            type: 'image/png',
+            form_factor: 'wide'
+          },
+          {
+            src: 'screenshot-narrow.png',
+            sizes: '750x1334',
+            type: 'image/png',
+            form_factor: 'narrow'
+          }
+        ]
+      },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB로 증가

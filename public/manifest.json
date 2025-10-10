@@ -60,8 +60,8 @@
   "display": "standalone",
   "theme_color": "#181A20",
   "background_color": "#181A20",
+  "orientation": "portrait-primary",
   "splash_pages": null,
-  "orientation": "portrait",
   "window": {
     "width": 1200,
     "height": 800,

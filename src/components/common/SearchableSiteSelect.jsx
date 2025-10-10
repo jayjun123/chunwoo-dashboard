@@ -22,7 +22,9 @@ const SearchableSiteSelect = ({
   isMobile = false,
   openOnFocus = true,
   clearOnBlur = false,
-  selectOnFocus = false
+  selectOnFocus = false,
+  excludeFullyPaidSites = false,
+  paymentStatusMap = {}
 }) => {
   const [inputValue, setInputValue] = useState('');
 
@@ -115,13 +117,28 @@ const SearchableSiteSelect = ({
   };
 
   const filterOptions = (options, { inputValue }) => {
+    // 정산완료 현장 제외 옵션이 활성화된 경우 필터링
+    let filteredOptions = options;
+    if (excludeFullyPaidSites && Object.keys(paymentStatusMap).length > 0) {
+      filteredOptions = options.filter(option => {
+        let siteName = '';
+        if (typeof option === 'string') {
+          siteName = option;
+        } else if (option && typeof option === 'object') {
+          siteName = option.name || '';
+        }
+        // 정산완료된 현장은 제외
+        return !paymentStatusMap[siteName]?.isFullyPaid;
+      });
+    }
+    
     if (!inputValue) {
       // 전체선택 옵션을 맨 위에 추가
       const allSitesOption = { name: '전체선택', id: 'all', isAllOption: true };
-      return [allSitesOption, ...options];
+      return [allSitesOption, ...filteredOptions];
     }
     
-    const filtered = options.filter(option => {
+    const filtered = filteredOptions.filter(option => {
       let siteName = '';
       if (typeof option === 'string') {
         siteName = option;
@@ -317,8 +334,18 @@ const SearchableSiteSelect = ({
           bgcolor: '#232b3b',
           maxHeight: isMobile ? 200 : 300,
           overflow: 'auto',
+          // 스크롤바 숨기기
+          '&::-webkit-scrollbar': {
+            width: '0px',
+            background: 'transparent'
+          },
           '& .MuiAutocomplete-listbox': {
             maxHeight: 'none',
+            // 스크롤바 숨기기
+            '&::-webkit-scrollbar': {
+              width: '0px',
+              background: 'transparent'
+            },
             '& .MuiAutocomplete-option': {
               color: '#fff',
               fontSize: isMobile ? '0.9rem' : '1rem',
@@ -337,7 +364,13 @@ const SearchableSiteSelect = ({
       }}
       ListboxProps={{
         style: {
-          maxHeight: isMobile ? 200 : 300
+          maxHeight: isMobile ? 200 : 300,
+          // 스크롤바 숨기기
+          scrollbarWidth: 'none', // Firefox
+          msOverflowStyle: 'none', // IE/Edge
+          '&::-webkit-scrollbar': {
+            display: 'none' // Chrome/Safari
+          }
         },
         onScroll: (event) => {
           const { target } = event;
@@ -350,7 +383,13 @@ const SearchableSiteSelect = ({
         paper: {
           style: {
             maxHeight: isMobile ? 200 : 300,
-            overflow: 'auto'
+            overflow: 'auto',
+            // 스크롤바 숨기기
+            scrollbarWidth: 'none', // Firefox
+            msOverflowStyle: 'none', // IE/Edge
+            '&::-webkit-scrollbar': {
+              display: 'none' // Chrome/Safari
+            }
           }
         }
       }}

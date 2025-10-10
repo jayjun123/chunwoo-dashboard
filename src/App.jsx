@@ -214,7 +214,7 @@ const ConstructionTeam = React.lazy(() => import('./pages/DaemaTeam'));
 const TeamSettlement = React.lazy(() => import('./pages/TeamSettlement'));
 const Discussions = React.lazy(() => import('./pages/Discussions'));
 const Vendors = React.lazy(() => import('./pages/Vendors'));
-const VendorManagement = React.lazy(() => import('./pages/VendorManagement'));
+import VendorManagement from './pages/VendorManagement';
 const Progress = React.lazy(() => import('./pages/Progress'));
 const Members = React.lazy(() => import('./pages/Members'));
 const Permissions = React.lazy(() => import('./pages/Permissions'));
