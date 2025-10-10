@@ -33,7 +33,9 @@ import {
   InputAdornment,
   Tooltip,
   Tabs,
-  Tab
+  Tab,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -297,7 +299,9 @@ const Claims = () => {
     totalGisungAmount: '',
     claimAmount: '',
     claimStatus: 'X',
-    notes: ''
+    notes: '',
+    isException: false, // 예외 항목 여부
+    exceptionAmount: '' // 예외 금액
   });
 
   // 월별 네비게이션 함수
@@ -865,7 +869,9 @@ const Claims = () => {
       totalGisungAmount: '',
       claimAmount: '',
       claimStatus: 'X',
-      notes: ''
+      notes: '',
+      isException: false, // 예외 항목 여부 초기화
+      exceptionAmount: '' // 예외 금액 초기화
     });
   };
 
@@ -908,6 +914,8 @@ const Claims = () => {
         claimAmount: claimAmount,
         claimStatus: formData.claimStatus || 'X',
         notes: formData.notes || '',
+        isException: formData.isException || false, // 예외 항목 여부 저장
+        exceptionAmount: formData.isException ? claimAmount : 0, // 예외 금액 저장
         createdAt: editingClaim ? editingClaim.createdAt : new Date(),
         updatedAt: new Date()
       };
@@ -1006,7 +1014,9 @@ const Claims = () => {
       progressRate: claim.progressRate || '',
       claimAmount: claim.claimAmount || '',
       claimStatus: claim.claimStatus || 'X',
-      notes: claim.notes || ''
+      notes: claim.notes || '',
+      isException: claim.isException || false, // 예외 항목 여부 로드
+      exceptionAmount: claim.exceptionAmount || '' // 예외 금액 로드
     });
     setDialogOpen(true);
   };
@@ -2536,7 +2546,7 @@ const Claims = () => {
                 
                 <TextField
                   label="잔액"
-                  value={formData.siteName ? Math.ceil(calculateRemainingAmount(formData.siteName)).toLocaleString() : ''}
+                  value={formData.siteName ? (formData.isException ? '0' : Math.ceil(calculateRemainingAmount(formData.siteName)).toLocaleString()) : ''}
                   InputProps={{
                     endAdornment: <InputAdornment position="end">원</InputAdornment>,
                     readOnly: true,
@@ -2584,6 +2594,31 @@ const Claims = () => {
                   '& .MuiInputBase-root': { backgroundColor: '#444' },
                   '& .MuiInputLabel-root': { color: '#ccc' },
                   '& .MuiInputBase-input': { color: 'white' }
+                }}
+              />
+              
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.isException}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      isException: e.target.checked,
+                      exceptionAmount: e.target.checked ? formData.claimAmount : ''
+                    }))}
+                    sx={{ color: '#ff6b6b' }}
+                  />
+                }
+                label={
+                  <Typography sx={{ color: '#ff6b6b', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                    ⚠️ 예외 항목 (계약금액과 분리 관리)
+                  </Typography>
+                }
+                sx={{ 
+                  '& .MuiFormControlLabel-label': { 
+                    color: '#ff6b6b',
+                    fontWeight: 'bold'
+                  }
                 }}
               />
             </Box>
@@ -2686,7 +2721,7 @@ const Claims = () => {
                   
                   <TextField
                     label="잔액"
-                    value={formData.siteName ? Math.ceil(calculateRemainingAmount(formData.siteName)).toLocaleString() : ''}
+                    value={formData.siteName ? (formData.isException ? '0' : Math.ceil(calculateRemainingAmount(formData.siteName)).toLocaleString()) : ''}
                     InputProps={{
                       endAdornment: <InputAdornment position="end">원</InputAdornment>,
                       readOnly: true,
@@ -2732,6 +2767,32 @@ const Claims = () => {
                     '& .MuiInputBase-root': { backgroundColor: '#444' },
                     '& .MuiInputLabel-root': { color: '#ccc' },
                     '& .MuiInputBase-input': { color: 'white' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.isException}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        isException: e.target.checked,
+                        exceptionAmount: e.target.checked ? formData.claimAmount : ''
+                      }))}
+                      sx={{ color: '#ff6b6b' }}
+                    />
+                  }
+                  label={
+                    <Typography sx={{ color: '#ff6b6b', fontWeight: 'bold', fontSize: '1rem' }}>
+                      ⚠️ 예외 항목 (계약금액과 분리 관리)
+                    </Typography>
+                  }
+                  sx={{ 
+                    '& .MuiFormControlLabel-label': { 
+                      color: '#ff6b6b',
+                      fontWeight: 'bold'
+                    }
                   }}
                 />
               </Grid>
