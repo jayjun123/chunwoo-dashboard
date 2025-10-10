@@ -1414,7 +1414,7 @@ const Progress = () => {
       </Box>
 
       {/* 월별탭에서만 월 네비게이션 버튼 노출 (기성현황, 지출 모두) - 모바일에서도 보이게 복구 */}
-      {statusView === 'month' && (
+      {statusView === 'month' && (tab === 'chart' || tab === 'gisung' || tab === 'cost') && (
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'flex-end', 

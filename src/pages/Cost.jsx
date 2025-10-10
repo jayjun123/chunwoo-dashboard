@@ -109,28 +109,25 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     sequence: '',
     subMaterialDetail: '기타', // 부자재 세부내용 (기타를 기본값으로)
     quantity: '', // 부자재 물량 (현장별 정산페이지용)
+    taxDetail: '기타', // 세금 세부내용 (기타를 기본값으로)
+    healthInsurance: [], // 건강보험 관련 데이터 [{name: '', amount: ''}]
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const isMobile = useMediaQuery('(max-width:900px)');
 
   // 실시간 지출 데이터 리스너
   useEffect(() => {
-    if (filteredData) {
-      // 상위 컴포넌트에서 필터링된 데이터가 전달되면 사용
-      setCosts(filteredData);
-    } else {
-      // 실시간 리스너 설정
-      const unsubscribe = onSnapshot(collection(db, 'costs'), (snapshot) => {
-        const costsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log('실시간 데이터 업데이트:', costsData.length, '개');
-        setCosts(costsData);
-      }, (error) => {
-        console.error('지출 데이터 실시간 리스너 오류:', error);
-      });
+    // 실시간 리스너 설정 (항상 설정)
+    const unsubscribe = onSnapshot(collection(db, 'costs'), (snapshot) => {
+      const costsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('실시간 데이터 업데이트:', costsData.length, '개');
+      setCosts(costsData);
+    }, (error) => {
+      console.error('지출 데이터 실시간 리스너 오류:', error);
+    });
 
-      return () => unsubscribe();
-    }
-  }, [filteredData]);
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const fetchSites = async () => {
@@ -159,10 +156,20 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       cost.description?.toLowerCase().includes(search.toLowerCase())
     );
 
-    // 월별 뷰에서는 모든 데이터 표시
+    // 월별 뷰에서는 선택된 월의 데이터만 표시
     if (viewType === 'month') {
-      console.log('월별 뷰 - 모든 지출 데이터 표시');
-      // 월별 뷰에서는 모든 데이터 표시 (기본 검색 필터만 적용)
+      console.log('월별 뷰 - 선택된 월 필터링:', currentMonth);
+      // 월별 필터링 적용
+      if (currentMonth && typeof currentMonth === 'string' && currentMonth.includes('-')) {
+        const [year, month] = currentMonth.split('-');
+        filtered = filtered.filter(cost => {
+          if (!cost.date) return false;
+          const costDate = new Date(cost.date);
+          return costDate.getFullYear() === parseInt(year) && 
+                 (costDate.getMonth() + 1) === parseInt(month);
+        });
+        console.log('월별 필터링 결과:', filtered.length, '개');
+      }
     } else if (viewType === 'site') {
       console.log('지출 현장별 필터링 적용:', selectedSites);
       
@@ -295,7 +302,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     console.log('정렬 완료:', filtered.slice(0, 3).map(item => ({ itemType: item.itemType, sequence: item.sequence })));
 
     return filtered;
-  }, [costs, search, sortField, sortDirection, viewType, selectedSites]);
+  }, [costs, search, sortField, sortDirection, viewType, selectedSites, currentMonth]);
 
   // 통계 데이터
   const stats = useMemo(() => {
@@ -311,7 +318,12 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       };
     }
     
-    const totalValue = filtered.reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
+    const totalValue = filtered.reduce((sum, cost) => {
+      const baseAmount = Number(cost.totalValue || 0);
+      const healthInsuranceTotal = cost.healthInsurance ? 
+        cost.healthInsurance.reduce((total, item) => total + (Number(item.amount) || 0), 0) : 0;
+      return sum + baseAmount + healthInsuranceTotal;
+    }, 0);
     const totalCount = filtered.length;
     
     // 관련 현장 수 계산
@@ -350,7 +362,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       itemTypeBreakdown,
       detailedBreakdown
     };
-  }, [filteredData, filteredAndSortedCosts, selectedSites, viewType]);
+  }, [filteredData, filteredAndSortedCosts, selectedSites, viewType, costs]);
 
   // 체크박스 관련 함수들
   const handleSelectAll = (event) => {
@@ -382,8 +394,6 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
 
     if (window.confirm(`선택된 ${selectedItems.length}개 항목을 삭제하시겠습니까?`)) {
       try {
-        // 로컬 상태 즉시 업데이트 (낙관적 업데이트)
-        setCosts(prev => prev.filter(cost => !selectedItems.includes(cost.id)));
         const selectedItemsCopy = [...selectedItems];
         setSelectedItems([]);
         
@@ -393,8 +403,6 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         setSnackbar({ open: true, message: `${selectedItemsCopy.length}개 항목이 삭제되었습니다.`, severity: 'success' });
       } catch (error) {
         console.error('일괄 삭제 실패:', error);
-        // 실패 시 원래 상태로 복원
-        setCosts(prev => [...prev]);
         setSnackbar({ open: true, message: '삭제에 실패했습니다.', severity: 'error' });
       }
     }
@@ -420,7 +428,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       }
 
       // 제목 행
-      worksheet.mergeCells('A1:H1');
+      worksheet.mergeCells('A1:J1');
       const titleCell = worksheet.getCell('A1');
       titleCell.value = reportTitle;
       titleCell.font = { name: '맑은 고딕', size: 16, bold: true };
@@ -432,7 +440,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       };
 
       // 헤더 행
-      const headers = ['순번', '현장명', '항목', '차수', '사용날짜', '금액', '결제방식', '비고'];
+      const headers = ['순번', '현장명', '항목', '차수', '사용날짜', '금액', '결제방식', '비고', '건강보험명단', '건강보험금액'];
       const headerRow = worksheet.addRow(headers);
       
       // 헤더 스타일링
@@ -465,15 +473,29 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       });
 
       sortedCosts.forEach((cost, index) => {
+        // 건강보험 관련 데이터 처리
+        const healthInsuranceNames = cost.healthInsurance ? 
+          cost.healthInsurance.map(item => item.name).filter(name => name).join(', ') : '';
+        const healthInsuranceAmounts = cost.healthInsurance ? 
+          cost.healthInsurance.map(item => item.amount).filter(amount => amount).join(', ') : '';
+
+        // 총 금액 계산 (기본 금액 + 건강보험 금액)
+        const baseAmount = Number(cost.totalValue || 0);
+        const healthInsuranceTotal = cost.healthInsurance ? 
+          cost.healthInsurance.reduce((total, item) => total + (Number(item.amount) || 0), 0) : 0;
+        const totalAmount = baseAmount + healthInsuranceTotal;
+
         const row = worksheet.addRow([
           index + 1, // 순번
           cost.site || '-', // 현장명
           cost.itemType || '-', // 항목
           cost.sequence || '-', // 차수
           cost.date || '-', // 사용날짜
-          Number(cost.totalValue || 0), // 금액 (숫자로 저장)
+          totalAmount, // 총 금액 (기본 금액 + 건강보험 금액)
           cost.paymentType || '-', // 결제방식
-          cost.description || '-' // 비고
+          cost.description || '-', // 비고
+          healthInsuranceNames, // 건강보험명단
+          healthInsuranceAmounts // 건강보험금액
         ]);
 
         // 데이터 행 스타일링
@@ -493,7 +515,10 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
           // 금액 컬럼은 숫자 형식으로
           if (colNumber === 6) {
             cell.numFmt = '#,##0';
-            totalAmount += Number(cost.totalValue || 0);
+            const baseAmount = Number(cost.totalValue || 0);
+            const healthInsuranceTotal = cost.healthInsurance ? 
+              cost.healthInsurance.reduce((total, item) => total + (Number(item.amount) || 0), 0) : 0;
+            totalAmount += baseAmount + healthInsuranceTotal;
           }
 
           // 시공팀 정산 데이터는 다른 색상으로 표시
@@ -608,6 +633,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         sequence: cost.sequence || '',
         subMaterialDetail: cost.subMaterialDetail || '기타', // 부자재 세부내용 로드
         quantity: cost.quantity || '', // 부자재 물량 로드
+        taxDetail: cost.taxDetail || '기타', // 세금 세부내용 로드
+        healthInsurance: cost.healthInsurance || [], // 건강보험 관련 데이터 로드
       });
     } else {
       setEditId(null);
@@ -633,6 +660,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         sequence: '',
         subMaterialDetail: '기타', // 부자재 세부내용 초기화
         quantity: '', // 부자재 물량 초기화
+        taxDetail: '기타', // 세금 세부내용 초기화
+        healthInsurance: [], // 건강보험 관련 데이터 초기화
       });
     }
     setDialogOpen(true);
@@ -666,8 +695,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       if (!editId) {
         // 차수가 비어있거나 1차인 경우에만 다시 계산
         if (!form.sequence || form.sequence === '1차') {
-          console.log('저장 시 차수 계산:', { site: form.site, itemType: form.itemType, date: form.date, subMaterialDetail: form.subMaterialDetail });
-          finalForm.sequence = calculateNextSequence(form.site, form.itemType, form.date, form.subMaterialDetail);
+          console.log('저장 시 차수 계산:', { site: form.site, itemType: form.itemType, date: form.date, subMaterialDetail: form.subMaterialDetail, taxDetail: form.taxDetail });
+          finalForm.sequence = calculateNextSequence(form.site, form.itemType, form.date, form.subMaterialDetail, form.taxDetail);
           console.log('저장 시 설정된 차수:', finalForm.sequence);
         } else {
           console.log('저장 시 기존 차수 유지:', form.sequence);
@@ -729,6 +758,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         sequence: '',
         subMaterialDetail: '기타', // 부자재 세부내용 초기화
         quantity: '', // 부자재 물량 초기화
+        taxDetail: '기타', // 세금 세부내용 초기화
+        healthInsurance: [], // 건강보험 관련 데이터 초기화
       });
     } catch (error) {
       console.error('지출 항목 저장 실패:', error);
@@ -739,16 +770,10 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   const handleDelete = async (id) => {
     if (window.confirm('정말로 삭제하시겠습니까?')) {
       try {
-        // 로컬 상태 즉시 업데이트 (낙관적 업데이트)
-        setCosts(prev => prev.filter(cost => cost.id !== id));
-        
         await deleteDoc(doc(db, 'costs', id));
-        
         setSnackbar({ open: true, message: '삭제되었습니다.', severity: 'success' });
       } catch (error) {
         console.error('지출 항목 삭제 실패:', error);
-        // 실패 시 원래 상태로 복원
-        setCosts(prev => [...prev]);
         setSnackbar({ open: true, message: '삭제에 실패했습니다.', severity: 'error' });
       }
     }
@@ -905,9 +930,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     const confirmMessage = `정말로 모든 지출 데이터(${currentData.length}개)를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`;
     if (window.confirm(confirmMessage)) {
       try {
-        // 로컬 상태 즉시 업데이트 (낙관적 업데이트)
         const allIds = currentData.map(cost => cost.id);
-        setCosts(prev => prev.filter(cost => !allIds.includes(cost.id)));
         setSelectedItems([]);
         
         // Firebase에서 일괄 삭제
@@ -917,23 +940,67 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         setSnackbar({ open: true, message: `모든 지출 데이터(${allIds.length}개)가 삭제되었습니다.`, severity: 'success' });
       } catch (error) {
         console.error('전체 삭제 실패:', error);
-        // 실패 시 원래 상태로 복원
-        setCosts(prev => [...prev]);
         setSnackbar({ open: true, message: '전체 삭제에 실패했습니다.', severity: 'error' });
       }
     }
   };
 
+  // 건강보험 데이터 추가 함수
+  const addHealthInsuranceItem = () => {
+    setForm(prev => ({
+      ...prev,
+      healthInsurance: [...prev.healthInsurance, { name: '', amount: '' }]
+    }));
+  };
+
+  // 건강보험 데이터 삭제 함수
+  const removeHealthInsuranceItem = (index) => {
+    setForm(prev => ({
+      ...prev,
+      healthInsurance: prev.healthInsurance.filter((_, i) => i !== index)
+    }));
+  };
+
+  // 건강보험 데이터 업데이트 함수
+  const updateHealthInsuranceItem = (index, field, value) => {
+    setForm(prev => ({
+      ...prev,
+      healthInsurance: prev.healthInsurance.map((item, i) => 
+        i === index ? { ...item, [field]: value } : item
+      )
+    }));
+  };
+
+  // 건강보험 금액 합산 함수
+  const calculateHealthInsuranceTotal = () => {
+    if (!form.healthInsurance || form.healthInsurance.length === 0) return 0;
+    return form.healthInsurance.reduce((total, item) => {
+      return total + (Number(item.amount) || 0);
+    }, 0);
+  };
+
   // 차수 계산 함수 (새 지출 등록용)
-  const calculateNextSequence = (siteName, itemType, selectedDate = null, subMaterialDetail = null) => {
+  const calculateNextSequence = (siteName, itemType, selectedDate = null, subMaterialDetail = null, taxDetail = null) => {
     if (!siteName || !itemType) return '';
     
-    console.log('🔍 차수 계산 시작:', { siteName, itemType, selectedDate, subMaterialDetail });
+    console.log('🔍 차수 계산 시작:', { siteName, itemType, selectedDate, subMaterialDetail, taxDetail });
     
-    // 해당 현장과 항목의 기존 지출 데이터 필터링
-    const existingCosts = costs.filter(cost => 
-      cost.site === siteName && cost.itemType === itemType
-    );
+    // 해당 현장과 항목의 기존 지출 데이터 필터링 (부자재와 세금은 세부항목도 고려)
+    const existingCosts = costs.filter(cost => {
+      if (cost.site !== siteName || cost.itemType !== itemType) return false;
+      
+      // 부자재인 경우 세부항목도 일치해야 함
+      if (itemType === '부자재' && subMaterialDetail) {
+        return cost.subMaterialDetail === subMaterialDetail;
+      }
+      
+      // 세금인 경우 세부항목도 일치해야 함
+      if (itemType === '세금' && taxDetail) {
+        return cost.taxDetail === taxDetail;
+      }
+      
+      return true;
+    });
     
     console.log('📊 기존 지출 데이터 개수:', existingCosts.length);
     console.log('📊 기존 지출 데이터:', existingCosts.map(c => ({ 
@@ -1241,48 +1308,50 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       bgcolor: '#181f2e', 
       border: '1px solid #2a3441',
       borderRadius: 2,
-      p: 3,
-      mb: 3
+      p: 2,
+      mb: 2
     }}>
       <Typography variant="h6" sx={{ 
         color: '#fff', 
         fontWeight: 'bold', 
-        mb: 2,
-        fontSize: '1.1rem'
+        mb: 1.5,
+        fontSize: '1rem'
       }}>
         요약 정보
       </Typography>
       
-      <Grid container spacing={2}>
+      <Grid container spacing={1.5}>
         {/* 총 지출 건수 */}
         <Grid item xs={12} md={4}>
           <Box sx={{ 
-            p: 2, 
+            p: 1.5, 
             bgcolor: '#1e2a3a', 
             borderRadius: 1,
             border: '1px solid #2a3441'
           }}>
-            <Typography variant="body2" sx={{ color: '#b0b0b0', mb: 1 }}>
+            <Typography variant="body2" sx={{ color: '#b0b0b0', mb: 0.5, fontSize: '0.85rem' }}>
               총 지출 건수
             </Typography>
-            <Typography variant="h5" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
-              {stats.totalCount}건
-            </Typography>
-            {/* 세부 분류 */}
-            <Box sx={{ mt: 1 }}>
-              {Object.entries(stats.detailedBreakdown || {})
-                .filter(([, count]) => count > 0)
-                .sort(([,a], [,b]) => b - a)
-                .slice(0, 2)
-                .map(([item, count]) => (
-                  <Typography key={item} variant="caption" sx={{ 
-                    color: '#888', 
-                    display: 'block',
-                    fontSize: '0.75rem'
-                  }}>
-                    {item}: {count}건
-                  </Typography>
-                ))}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h5" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
+                {stats.totalCount}건
+              </Typography>
+              {/* 세부 분류 */}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {Object.entries(stats.detailedBreakdown || {})
+                  .filter(([, count]) => count > 0)
+                  .sort(([,a], [,b]) => b - a)
+                  .slice(0, 2)
+                  .map(([item, count]) => (
+                    <Typography key={item} variant="caption" sx={{ 
+                      color: '#888', 
+                      fontSize: '0.75rem',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {item}: {count}건
+                    </Typography>
+                  ))}
+              </Box>
             </Box>
           </Box>
         </Grid>
@@ -1290,32 +1359,34 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         {/* 총 지출 금액 */}
         <Grid item xs={12} md={4}>
           <Box sx={{ 
-            p: 2, 
+            p: 1.5, 
             bgcolor: '#1e2a3a', 
             borderRadius: 1,
             border: '1px solid #2a3441'
           }}>
-            <Typography variant="body2" sx={{ color: '#b0b0b0', mb: 1 }}>
+            <Typography variant="body2" sx={{ color: '#b0b0b0', mb: 0.5, fontSize: '0.85rem' }}>
               총 지출 금액
             </Typography>
-            <Typography variant="h5" sx={{ color: '#ef5350', fontWeight: 'bold' }}>
-              {Number(stats.totalValue || 0).toLocaleString()}원
-            </Typography>
-            {/* 세부 분류 */}
-            <Box sx={{ mt: 1 }}>
-              {Object.entries(stats.detailedBreakdown || {})
-                .filter(([, count]) => count > 0)
-                .sort(([,a], [,b]) => b - a)
-                .slice(0, 2)
-                .map(([item, count]) => (
-                  <Typography key={item} variant="caption" sx={{ 
-                    color: '#888', 
-                    display: 'block',
-                    fontSize: '0.75rem'
-                  }}>
-                    {item}: {count}건
-                  </Typography>
-                ))}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h5" sx={{ color: '#ef5350', fontWeight: 'bold' }}>
+                {Number(stats.totalValue || 0).toLocaleString()}원
+              </Typography>
+              {/* 세부 분류 */}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {Object.entries(stats.detailedBreakdown || {})
+                  .filter(([, count]) => count > 0)
+                  .sort(([,a], [,b]) => b - a)
+                  .slice(0, 2)
+                  .map(([item, count]) => (
+                    <Typography key={item} variant="caption" sx={{ 
+                      color: '#888', 
+                      fontSize: '0.75rem',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {item}: {count}건
+                    </Typography>
+                  ))}
+              </Box>
             </Box>
           </Box>
         </Grid>
@@ -1323,32 +1394,34 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         {/* 관련 현장 수 */}
         <Grid item xs={12} md={4}>
           <Box sx={{ 
-            p: 2, 
+            p: 1.5, 
             bgcolor: '#1e2a3a', 
             borderRadius: 1,
             border: '1px solid #2a3441'
           }}>
-            <Typography variant="body2" sx={{ color: '#b0b0b0', mb: 1 }}>
+            <Typography variant="body2" sx={{ color: '#b0b0b0', mb: 0.5, fontSize: '0.85rem' }}>
               관련 현장 수
             </Typography>
-            <Typography variant="h5" sx={{ color: '#a084e8', fontWeight: 'bold' }}>
-              {stats.siteCount}개 현장
-            </Typography>
-            {/* 세부 분류 */}
-            <Box sx={{ mt: 1 }}>
-              {Object.entries(stats.detailedBreakdown || {})
-                .filter(([, count]) => count > 0)
-                .sort(([,a], [,b]) => b - a)
-                .slice(0, 2)
-                .map(([item, count]) => (
-                  <Typography key={item} variant="caption" sx={{ 
-                    color: '#888', 
-                    display: 'block',
-                    fontSize: '0.75rem'
-                  }}>
-                    {item}: {count}건
-                  </Typography>
-                ))}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h5" sx={{ color: '#a084e8', fontWeight: 'bold' }}>
+                {stats.siteCount}개 현장
+              </Typography>
+              {/* 세부 분류 */}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {Object.entries(stats.detailedBreakdown || {})
+                  .filter(([, count]) => count > 0)
+                  .sort(([,a], [,b]) => b - a)
+                  .slice(0, 2)
+                  .map(([item, count]) => (
+                    <Typography key={item} variant="caption" sx={{ 
+                      color: '#888', 
+                      fontSize: '0.75rem',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {item}: {count}건
+                    </Typography>
+                  ))}
+              </Box>
             </Box>
           </Box>
         </Grid>
@@ -1357,7 +1430,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   );
 
   // 필터 적용 (상위 컴포넌트에서 전달받은 filteredData 사용)
-  const filtered = filteredData ? filteredAndSortedCosts : filteredAndSortedCosts;
+  const filtered = filteredData || filteredAndSortedCosts;
 
   // 페이지네이션 계산
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -1383,7 +1456,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       mx: isMobile ? 0 : '10px',
       p: 0,
       overflow: 'hidden',
-      mt: isMobile ? '0px' : '60px'
+      mt: isMobile ? '0px' : '40px'
     }}>
 
       
@@ -1464,23 +1537,6 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             alignItems: 'center', 
             gap: 1
           }}>
-            <Button 
-              variant="outlined" 
-              color="warning" 
-              startIcon={<EditIcon />} 
-              sx={{ 
-                display: isMobile ? 'none' : 'flex',
-                borderColor: '#ff9800',
-                color: '#ff9800',
-                '&:hover': {
-                  borderColor: '#f57c00',
-                  backgroundColor: 'rgba(255, 152, 0, 0.1)'
-                }
-              }} 
-              onClick={handleFixSequence}
-            >
-              차수 수정
-            </Button>
             {currentData.length > 0 && (
               <Button 
                 variant="outlined" 
@@ -1490,6 +1546,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   display: isMobile ? 'none' : 'flex',
                   borderColor: '#ef5350',
                   color: '#ef5350',
+                  minHeight: '44px',
+                  height: '44px',
                   '&:hover': {
                     borderColor: '#d32f2f',
                     backgroundColor: 'rgba(239, 83, 80, 0.1)'
@@ -1502,12 +1560,18 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             )}
             <Button variant="contained" color="success" startIcon={<AddIcon />} sx={{ 
               display: isMobile ? 'none' : 'flex',
+              minHeight: '44px',
+              height: '44px'
             }} onClick={() => openDialog()}>새 지출</Button>
             <Button variant="contained" color="primary" startIcon={<CloudDownloadIcon />} sx={{ 
               display: isMobile ? 'none' : 'flex',
+              minHeight: '44px',
+              height: '44px'
             }} onClick={handleExcelDownload}>엑셀 다운로드</Button>
             <Button variant="contained" color="primary" startIcon={<CloudUploadIcon />} sx={{ 
               display: isMobile ? 'none' : 'flex',
+              minHeight: '44px',
+              height: '44px'
             }}>엑셀 업로드</Button>
           </Box>
 
@@ -1719,7 +1783,12 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       py: 0.5
                     }}>
                       <Chip 
-                        label={cost.itemType || '-'} 
+                        label={(() => {
+                          if (cost.itemType === '세금' && cost.taxDetail && ['건강', '연금', '고용', '산재'].includes(cost.taxDetail)) {
+                            return `${cost.itemType}(${cost.taxDetail})`;
+                          }
+                          return cost.itemType || '-';
+                        })()} 
                         size="small" 
                         sx={{ 
                           bgcolor: cost.itemType === '노무비' ? '#ffd600' : 
@@ -1729,7 +1798,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                                   cost.itemType === '부자재' ? '#9c27b0' :
                                   cost.itemType === '지게차' ? '#ff9800' : 
                                   cost.itemType === '곤도라' ? '#ff9800' :
-                                  cost.itemType === '월세' ? '#ffffff' : '#a084e8',
+                                  cost.itemType === '월세' ? '#ffffff' :
+                                  cost.itemType === '세금' ? '#ff5722' : '#a084e8',
                           color: cost.itemType === '월세' || cost.itemType === '지게차' || cost.itemType === '곤도라' ? '#000' : '#000',
                           fontWeight: 700
                         }} 
@@ -1769,7 +1839,13 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                       maxWidth: '100%',
                       py: 0.5
                     }}>
-                      {Number(cost.totalValue || 0).toLocaleString()}원
+                      {(() => {
+                        const baseAmount = Number(cost.totalValue || 0);
+                        const healthInsuranceTotal = cost.healthInsurance ? 
+                          cost.healthInsurance.reduce((total, item) => total + (Number(item.amount) || 0), 0) : 0;
+                        const totalAmount = baseAmount + healthInsuranceTotal;
+                        return totalAmount.toLocaleString();
+                      })()}원
                     </TableCell>
                     <TableCell sx={{ 
                       display: isMobile ? 'none' : 'table-cell',
@@ -1924,8 +2000,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                     setForm({ ...form, site: newValue });
                     // 현장명이 변경되면 차수 자동 업데이트
                     if (newValue && form.itemType && !editId) {
-                      console.log('차수 계산 호출:', { site: newValue, itemType: form.itemType, date: form.date, subMaterialDetail: form.subMaterialDetail });
-                      const nextSequence = calculateNextSequence(newValue, form.itemType, form.date, form.subMaterialDetail);
+                      console.log('차수 계산 호출:', { site: newValue, itemType: form.itemType, date: form.date, subMaterialDetail: form.subMaterialDetail, taxDetail: form.taxDetail });
+                      const nextSequence = calculateNextSequence(newValue, form.itemType, form.date, form.subMaterialDetail, form.taxDetail);
                       console.log('계산된 차수:', nextSequence);
                       setForm(prev => ({ ...prev, sequence: nextSequence }));
                     }
@@ -1938,15 +2014,15 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                 />
               </Box>
               <Autocomplete
-                options={['노무비', '경비', 'RnD', '스카이', '장비', '자재비', '부자재', '운반비', '임대료', '유류비', '식대', '지게차', '곤도라', '월세', '기타']}
+                options={['자재비', '부자재', '노무비', '경비', '스카이', '크레인', '곤도라', '지게차', '운임비', '월세', '카드', '세금', '기타']}
                 value={form.itemType ?? ''}
                 onChange={(event, newValue) => {
                   console.log('항목 변경:', newValue);
                   setForm({ ...form, itemType: newValue || '' });
                   // 항목이 변경되면 차수 자동 업데이트
                   if (newValue && form.site && !editId) {
-                    console.log('차수 계산 호출:', { site: form.site, itemType: newValue, date: form.date, subMaterialDetail: form.subMaterialDetail });
-                    const nextSequence = calculateNextSequence(form.site, newValue, form.date, form.subMaterialDetail);
+                    console.log('차수 계산 호출:', { site: form.site, itemType: newValue, date: form.date, subMaterialDetail: form.subMaterialDetail, taxDetail: form.taxDetail });
+                    const nextSequence = calculateNextSequence(form.site, newValue, form.date, form.subMaterialDetail, form.taxDetail);
                     console.log('계산된 차수:', nextSequence);
                     setForm(prev => ({ ...prev, sequence: nextSequence }));
                   }
@@ -2008,8 +2084,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                     setForm({ ...form, subMaterialDetail: newValue || '기타' });
                     // 부자재 세부내용이 변경되면 차수 자동 업데이트
                     if (form.site && form.itemType === '부자재' && form.date && !editId) {
-                      console.log('차수 계산 호출 (세부내용 변경):', { site: form.site, itemType: form.itemType, date: form.date, subMaterialDetail: newValue });
-                      const nextSequence = calculateNextSequence(form.site, form.itemType, form.date, newValue);
+                      console.log('차수 계산 호출 (세부내용 변경):', { site: form.site, itemType: form.itemType, date: form.date, subMaterialDetail: newValue, taxDetail: form.taxDetail });
+                      const nextSequence = calculateNextSequence(form.site, form.itemType, form.date, newValue, form.taxDetail);
                       console.log('계산된 차수:', nextSequence);
                       setForm(prev => ({ ...prev, sequence: nextSequence }));
                     }
@@ -2068,6 +2144,136 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
               </Box>
             )}
             
+            {/* 세금 세부내용 드롭다운 (세금 선택 시에만 표시) */}
+            {form.itemType === '세금' && (
+              <Box display="flex" width="100%" justifyContent="center" gap={2}>
+                <Autocomplete
+                  options={['국세', '지방세', '건강', '연금', '고용', '산재', '법인세', '기타']}
+                  value={form.taxDetail || '기타'}
+                  onChange={(event, newValue) => {
+                    setForm({ ...form, taxDetail: newValue || '기타' });
+                    // 세금 세부내용이 변경되면 차수 자동 업데이트
+                    if (form.site && form.itemType === '세금' && form.date && !editId) {
+                      console.log('차수 계산 호출 (세부내용 변경):', { site: form.site, itemType: form.itemType, date: form.date, subMaterialDetail: form.subMaterialDetail, taxDetail: newValue });
+                      const nextSequence = calculateNextSequence(form.site, form.itemType, form.date, form.subMaterialDetail, newValue);
+                      console.log('계산된 차수:', nextSequence);
+                      setForm(prev => ({ ...prev, sequence: nextSequence }));
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="세금 세부내용"
+                      placeholder="세금 세부내용을 선택하세요"
+                      size="medium"
+                      sx={{
+                        flex: 1,
+                        minWidth: 140,
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': { borderColor: '#333' },
+                          '&:hover fieldset': { borderColor: '#555' },
+                          '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                        },
+                        '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
+                        '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                      }}
+                    />
+                  )}
+                  ListboxProps={{
+                    style: {
+                      maxHeight: '200px',
+                      '&::-webkit-scrollbar': {
+                        display: 'none'
+                      },
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none'
+                    }
+                  }}
+                />
+              </Box>
+            )}
+            
+            {/* 건강보험 관련 입력칸 (건강, 연금, 고용, 산재 선택 시에만 표시) */}
+            {form.itemType === '세금' && ['건강', '연금', '고용', '산재'].includes(form.taxDetail) && (
+              <Box display="flex" flexDirection="column" width="100%" gap={2}>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Typography sx={{ color: '#bbb', fontSize: '1rem', fontWeight: 'bold' }}>
+                    {form.taxDetail} 관련 데이터
+                  </Typography>
+                  <Button
+                    onClick={addHealthInsuranceItem}
+                    variant="outlined"
+                    size="small"
+                    sx={{
+                      color: '#90caf9',
+                      borderColor: '#90caf9',
+                      '&:hover': {
+                        borderColor: '#90caf9',
+                        backgroundColor: 'rgba(144, 202, 249, 0.1)'
+                      }
+                    }}
+                  >
+                    + 추가
+                  </Button>
+                </Box>
+                
+                {form.healthInsurance.map((item, index) => (
+                  <Box key={index} display="flex" width="100%" justifyContent="center" gap={2} alignItems="center">
+                    <TextField
+                      label="이름"
+                      value={item.name}
+                      onChange={(e) => updateHealthInsuranceItem(index, 'name', e.target.value)}
+                      placeholder="이름을 입력하세요"
+                      size="medium"
+                      sx={{
+                        flex: 1,
+                        minWidth: 140,
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': { borderColor: '#333' },
+                          '&:hover fieldset': { borderColor: '#555' },
+                          '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                        },
+                        '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
+                        '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                      }}
+                    />
+                    <TextField
+                      label="금액"
+                      value={item.amount ? Math.ceil(Number(item.amount)).toLocaleString() : ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '');
+                        updateHealthInsuranceItem(index, 'amount', value);
+                      }}
+                      placeholder="금액을 입력하세요"
+                      size="medium"
+                      sx={{
+                        flex: 1,
+                        minWidth: 140,
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': { borderColor: '#333' },
+                          '&:hover fieldset': { borderColor: '#555' },
+                          '&.Mui-focused fieldset': { borderColor: '#90caf9' }
+                        },
+                        '& .MuiInputLabel-root': { color: '#bbb', fontSize: '1rem' },
+                        '& .MuiInputBase-input': { color: '#fff', fontSize: '1rem', py: 1.5 }
+                      }}
+                    />
+                    <IconButton
+                      onClick={() => removeHealthInsuranceItem(index)}
+                      sx={{
+                        color: '#ff6b6b',
+                        '&:hover': {
+                          backgroundColor: 'rgba(255, 107, 107, 0.1)'
+                        }
+                      }}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                ))}
+              </Box>
+            )}
+            
             {/* 2줄: 차수 + 사용날짜 */}
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
               <TextField
@@ -2097,8 +2303,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   setForm({ ...form, date: e.target.value });
                   // 날짜가 변경되면 차수 자동 업데이트
                   if (e.target.value && form.site && form.itemType && !editId) {
-                    console.log('차수 계산 호출:', { site: form.site, itemType: form.itemType, date: e.target.value, subMaterialDetail: form.subMaterialDetail });
-                    const nextSequence = calculateNextSequence(form.site, form.itemType, e.target.value, form.subMaterialDetail);
+                    console.log('차수 계산 호출:', { site: form.site, itemType: form.itemType, date: e.target.value, subMaterialDetail: form.subMaterialDetail, taxDetail: form.taxDetail });
+                    const nextSequence = calculateNextSequence(form.site, form.itemType, e.target.value, form.subMaterialDetail, form.taxDetail);
                     console.log('계산된 차수:', nextSequence);
                     setForm(prev => ({ ...prev, sequence: nextSequence }));
                   }
@@ -2121,7 +2327,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             {/* 3줄: 결제방법 + 금액 */}
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
               <Autocomplete
-                options={['카드', '세금계산서', '영수증', '노무자료', '기타']}
+                options={['카드', '세금계산서', '세금', '영수증', '노무자료', '기타']}
                 value={form.paymentType ?? ''}
                 onChange={(event, newValue) => setForm({ ...form, paymentType: newValue || '' })}
                 onInputChange={(event, newInputValue) => setForm({ ...form, paymentType: newInputValue })}
@@ -2155,7 +2361,12 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
               />
               <TextField
                 label="금액"
-                value={form.totalValue ? Number(form.totalValue).toLocaleString() : ''}
+                value={(() => {
+                  const baseAmount = Number(form.totalValue) || 0;
+                  const healthInsuranceTotal = calculateHealthInsuranceTotal();
+                  const totalAmount = baseAmount + healthInsuranceTotal;
+                  return totalAmount > 0 ? totalAmount.toLocaleString() : '';
+                })()}
                 onChange={e => {
                   const value = e.target.value.replace(/[^0-9]/g, '');
                   setForm({ ...form, totalValue: value });
