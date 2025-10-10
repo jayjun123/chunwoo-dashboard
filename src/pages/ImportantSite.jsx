@@ -997,7 +997,7 @@ export default function ImportantSite() {
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
-        mb: 3,
+        mb: 1, // 8px (MUI에서 1 = 8px)
         px: isMobile ? 1 : 0
       }}>
         {!isMobile && (
@@ -1007,24 +1007,25 @@ export default function ImportantSite() {
               color: '#fff', 
               fontWeight: 600,
               fontSize: '2rem',
-              transform: 'translate(30px, 10px)'
+              transform: 'translate(30px, 5px)'
             }}
           >
             주요현장
           </Typography>
         )}
         
-        {/* 상단 검색창과 현장 선택 - 모바일에서 간소화 */}
+        {/* 상단 검색창과 현장 선택 - 컴팩트하게 */}
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'flex-end',
-          gap: 2,
+          gap: 1.5,
           alignItems: 'center',
           marginRight: '10px',
-          marginTop: '15px'
+          marginTop: '8px',
+          marginBottom: '8px'
         }}>
           {/* 현장 선택 드롭다운 */}
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="medium" sx={{ minWidth: 180 }}>
             <Select
               value={selectedSiteId || ''}
               onChange={(e) => setSelectedSiteId(e.target.value || null)}
@@ -1032,6 +1033,8 @@ export default function ImportantSite() {
               sx={{
                 color: '#fff',
                 bgcolor: '#232b3b',
+                height: '40px',
+                fontSize: '1rem',
                 '& .MuiOutlinedInput-notchedOutline': {
                   borderColor: '#444'
                 },
@@ -1055,7 +1058,7 @@ export default function ImportantSite() {
           </FormControl>
           
           <TextField
-            size="small"
+            size="medium"
             placeholder={isMobile ? "현장명, 소장으로 검색" : "현장명, 소장, 주소 검색"}
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -1063,23 +1066,27 @@ export default function ImportantSite() {
               endAdornment: (
                 <InputAdornment position="end">
                   <IconButton 
-                    size="small" 
+                    size="medium" 
                     onClick={() => setSearch('')}
-                    sx={{ mr: 0.5 }}
+                    sx={{ mr: 0.5, minWidth: '40px', minHeight: '40px' }}
                   >
-                    <ClearIcon fontSize="small" />
+                    <ClearIcon />
                   </IconButton>
-                  <IconButton>
+                  <IconButton sx={{ minWidth: '40px', minHeight: '40px' }}>
                     <SearchIcon />
                   </IconButton>
                 </InputAdornment>
               )
             }}
             sx={{ 
-              width: isMobile ? '100%' : 320, 
+              width: isMobile ? '100%' : 350, 
               bgcolor: '#232b3b', 
               borderRadius: 2, 
-              input: { color: '#fff' } 
+              input: { color: '#fff' },
+              '& .MuiInputBase-root': {
+                height: '40px',
+                fontSize: '1rem'
+              }
             }}
             inputRef={scrollFocus(null)}
           />
@@ -1087,7 +1094,7 @@ export default function ImportantSite() {
           {/* 정산확인 버튼 */}
           <Button
             variant="outlined"
-            size="small"
+            size="medium"
             startIcon={<AttachMoneyIcon />}
             onClick={() => {
               // 정산페이지로 이동
@@ -1098,7 +1105,7 @@ export default function ImportantSite() {
               color: '#f44336',
               borderColor: '#fff',
               fontWeight: 'bold',
-              fontSize: '0.875rem',
+              fontSize: '0.9rem',
               px: 1.5,
               borderRadius: 2,
               height: '40px',
@@ -1141,11 +1148,11 @@ export default function ImportantSite() {
         }
       }}>
         <Grid container spacing={2} sx={{ 
-          padding: isMobile ? '10px 0 0 6px' : '10px 10px 0 10px',
+          padding: isMobile ? '5px 0 0 6px' : '5px 10px 0 10px',
           // 테블릿에서 그리드 간격 줄이기
           '@media (min-width: 768px) and (max-width: 1024px)': {
             gap: 1,
-            padding: '10px 5px 0 5px'
+            padding: '5px 5px 0 5px'
           }
         }}>
           {filteredSites.length === 0 && (
@@ -1471,7 +1478,7 @@ export default function ImportantSite() {
                   justifyContent: 'flex-start', 
                   bgcolor: '#181f2e', 
                   p: 0, 
-                  height: '360px', 
+                  height: '370px', 
                   borderRight: { md: '2px solid #232b3b' }, 
                   mt: 0.5,
                   // 아이패드에서 차트높이 10px 줄임

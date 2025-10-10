@@ -1132,7 +1132,20 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth
+      sx={{
+        '@media (min-width: 768px) and (max-width: 1024px)': {
+          '& .MuiDialog-paper': {
+            height: 'calc(100% - 30px)',
+            maxHeight: 'calc(100% - 30px)'
+          }
+        }
+      }}
+    >
       <DialogTitle>{site ? '현장 정보 수정' : '새 현장 추가'}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>

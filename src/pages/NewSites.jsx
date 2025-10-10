@@ -2415,7 +2415,8 @@ const NewSites = () => {
         top: isMobile ? '0px' : 'auto',
         left: isMobile ? '0px' : 'auto',
         overflow: 'visible', // 모바일에서 스크롤 허용
-        flexShrink: 0
+        flexShrink: 0,
+        mb: '30px' // 아래쪽 마진 30px 추가
       }}>
         <Tabs 
           value={statusTab} 
@@ -2760,7 +2761,8 @@ const NewSites = () => {
         position: isMobile ? 'relative' : 'static',
         top: isMobile ? '0px' : 'auto',
         left: isMobile ? '0px' : 'auto',
-        overflow: 'visible' // 모바일에서는 스크롤 허용
+        overflow: 'visible', // 모바일에서는 스크롤 허용
+        mb: '30px' // 아래쪽 마진 30px 추가
       }}>
          <Box sx={{ display: 'flex', alignItems: 'center', mb: isMobile ? 1 : 2 }}>
            <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>
@@ -3283,7 +3285,7 @@ const NewSites = () => {
              </Box>
            </Box>
          </Box>
-          <Box sx={{ mt: 'auto', pt: isMobile ? 1 : 2, display: 'flex', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ mt: 'auto', pt: isMobile ? 0.5 : 1, display: 'flex', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
            {/* 실물량파악 버튼 */}
            <Button 
              variant="outlined" 
@@ -3392,7 +3394,8 @@ const NewSites = () => {
         position: isMobile ? 'relative' : 'static',
         top: isMobile ? '0px' : 'auto',
         left: isMobile ? '1%' : 'auto', // 모바일에서 중앙 정렬
-        overflow: 'auto' // 모바일에서 스크롤 허용
+        overflow: 'auto', // 모바일에서 스크롤 허용
+        mb: '30px' // 아래쪽 마진 30px 추가
       }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
