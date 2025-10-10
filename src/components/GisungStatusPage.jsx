@@ -2500,10 +2500,15 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           overflow: 'hidden'
         }}>
           <TableContainer>
-            <Table>
+            <Table size="small" sx={{
+              '& .MuiTableCell-root': {
+                py: 0.5,
+                px: 1
+              }
+            }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: '#232b3b' }}>
-                  <TableCell padding="checkbox">
+                  <TableCell padding="checkbox" sx={{ py: 0.5 }}>
                     <Checkbox
                       indeterminate={selectedItems.length > 0 && selectedItems.length < filteredAndSortedGisung.length}
                       checked={filteredAndSortedGisung.length > 0 && selectedItems.length === filteredAndSortedGisung.length}
@@ -2516,6 +2521,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                       color: '#fff', 
                       fontWeight: 700, 
                       cursor: 'pointer',
+                      py: 0.5,
                       '&:hover': { bgcolor: '#2c3e50' }
                     }}
                     onClick={() => handleSort('sequence')}
@@ -2527,33 +2533,35 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                       color: '#fff', 
                       fontWeight: 700, 
                       cursor: 'pointer',
+                      py: 0.5,
                       '&:hover': { bgcolor: '#2c3e50' }
                     }}
                     onClick={() => handleSort('gisungMonth')}
                   >
                     기성월 {sortField === 'gisungMonth' && (sortDirection === 'asc' ? '↑' : '↓')}
                   </TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>현장명</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>계약금액</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>선급금</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>전회기성</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>현장명</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>계약금액</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>선급금</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>전회기성</TableCell>
                   <TableCell 
                     sx={{ 
                       color: '#fff', 
                       fontWeight: 700,
                       cursor: 'pointer',
+                      py: 0.5,
                       '&:hover': { bgcolor: '#2c3e50' }
                     }}
                     onClick={() => handleSort('gisungAmount')}
                   >
                     금회기성 {sortField === 'gisungAmount' && (sortDirection === 'asc' ? '↑' : '↓')}
                   </TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>잔액</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>청구상태</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>청구방법</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>입금확인</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>비고</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700 }}>관리</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>잔액</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>청구상태</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>청구방법</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>입금확인</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>비고</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>관리</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -2572,14 +2580,14 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                         borderBottom: '1px solid #333'
                       }}
                     >
-                      <TableCell padding="checkbox">
+                      <TableCell padding="checkbox" sx={{ py: 0.5 }}>
                         <Checkbox
                           checked={selectedItems.includes(row.id)}
                           onChange={() => handleSelectItem(row.id)}
                           sx={{ color: '#90caf9' }}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
                         <Chip
                           label={row.sequence || '1차'} 
                           size="small"

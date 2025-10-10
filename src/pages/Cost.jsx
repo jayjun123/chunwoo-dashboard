@@ -94,8 +94,9 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState('');
-  const [sortField, setSortField] = useState('itemType');
+  const [sortField, setSortField] = useState('date');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [isNewlyAdded, setIsNewlyAdded] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -121,6 +122,13 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     const unsubscribe = onSnapshot(collection(db, 'costs'), (snapshot) => {
       const costsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       console.log('실시간 데이터 업데이트:', costsData.length, '개');
+      console.log('업데이트된 데이터 샘플:', costsData.slice(0, 2).map(cost => ({
+        id: cost.id,
+        site: cost.site,
+        itemType: cost.itemType,
+        paymentType: cost.paymentType,
+        totalValue: cost.totalValue
+      })));
       setCosts(costsData);
     }, (error) => {
       console.error('지출 데이터 실시간 리스너 오류:', error);
@@ -224,6 +232,18 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     // 클라이언트 사이드 정렬
     console.log('정렬 실행:', { sortField, sortDirection, filteredLength: filtered.length });
     filtered.sort((a, b) => {
+      // 새로 추가된 항목이 있을 때만 createdAt으로 최신순 정렬
+      if (isNewlyAdded) {
+        const aCreatedAt = a.createdAt ? (a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt)) : new Date(0);
+        const bCreatedAt = b.createdAt ? (b.createdAt.toDate ? b.createdAt.toDate() : new Date(b.createdAt)) : new Date(0);
+        
+        // createdAt이 있으면 최신순으로 정렬 (내림차순)
+        if (aCreatedAt.getTime() !== bCreatedAt.getTime()) {
+          return bCreatedAt.getTime() - aCreatedAt.getTime();
+        }
+      }
+      
+      // 기존 정렬 로직 적용
       let aValue, bValue;
       
       if (sortField === 'totalValue') {
@@ -300,9 +320,10 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       }
     });
     console.log('정렬 완료:', filtered.slice(0, 3).map(item => ({ itemType: item.itemType, sequence: item.sequence })));
+    console.log('필터링된 데이터 개수:', filtered.length);
 
     return filtered;
-  }, [costs, search, sortField, sortDirection, viewType, selectedSites, currentMonth]);
+  }, [costs, search, sortField, sortDirection, viewType, selectedSites, currentMonth, isNewlyAdded]);
 
   // 통계 데이터
   const stats = useMemo(() => {
@@ -711,28 +732,13 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
 
       if (editId) {
         await updateDoc(doc(db, 'costs', editId), costData);
-        
-        // 로컬 상태 즉시 업데이트
-        setCosts(prev => prev.map(cost => 
-          cost.id === editId ? { ...cost, ...costData, id: cost.id } : cost
-        ));
-        
         setSnackbar({ open: true, message: '지출 항목이 수정되었습니다.', severity: 'success' });
       } else {
-        const docRef = await addDoc(collection(db, 'costs'), {
+        await addDoc(collection(db, 'costs'), {
           ...costData,
           createdAt: serverTimestamp(),
           createdBy: currentUser.uid
         });
-        
-        // 로컬 상태 즉시 업데이트
-        const newCost = { 
-          id: docRef.id, 
-          ...costData,
-          createdAt: new Date(),
-          createdBy: currentUser.uid
-        };
-        setCosts(prev => [newCost, ...prev]);
         
         setSnackbar({ open: true, message: '지출 항목이 추가되었습니다.', severity: 'success' });
       }
@@ -744,6 +750,14 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         console.error('현장관리 연동 실패:', syncError);
         // 연동 실패해도 지출 저장은 성공으로 처리
       }
+      
+      // 새로 추가/수정된 항목이 맨 위에 표시되도록 설정
+      setIsNewlyAdded(true);
+      
+      // 5초 후에 다시 날짜별 정렬로 되돌림
+      setTimeout(() => {
+        setIsNewlyAdded(false);
+      }, 5000);
       
       // 다이얼로그 즉시 닫기
       setDialogOpen(false);
@@ -1437,6 +1451,14 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentData = filtered.slice(startIndex, endIndex);
+  
+  console.log('현재 페이지 데이터:', currentData.length, '개');
+  console.log('현재 페이지 데이터 샘플:', currentData.slice(0, 1).map(cost => ({
+    id: cost.id,
+    site: cost.site,
+    itemType: cost.itemType,
+    paymentType: cost.paymentType
+  })));
 
   // 페이지 변경 함수
   const handlePageChange = (event, newPage) => {

@@ -714,6 +714,16 @@ const Progress = () => {
           .filter(cost => ['유류비', '임대료', '식대', '월세'].includes(cost.itemType))
           .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
         
+        // 세금: 세금
+        const totalTax = siteCostData
+          .filter(cost => cost.itemType === '세금')
+          .reduce((sum, cost) => {
+            const baseAmount = Number(cost.totalValue) || 0;
+            const healthInsuranceTotal = cost.healthInsurance ? 
+              cost.healthInsurance.reduce((total, item) => total + (Number(item.amount) || 0), 0) : 0;
+            return sum + baseAmount + healthInsuranceTotal;
+          }, 0);
+        
         // 기타: RnD, 기타, 필름
         const totalEtc = siteCostData
           .filter(cost => ['RnD', '기타', '필름'].includes(cost.itemType))
@@ -734,6 +744,7 @@ const Progress = () => {
           '장비비': totalEquipment,
           '경비': totalExpense,
           '기타': totalEtc,
+          '세금': totalTax,
         };
         
         return result;
@@ -784,6 +795,16 @@ const Progress = () => {
         .filter(cost => ['유류비', '임대료', '식대', '월세'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
+      // 세금: 세금
+      const totalTax = siteCostData
+        .filter(cost => cost.itemType === '세금')
+        .reduce((sum, cost) => {
+          const baseAmount = Number(cost.totalValue) || 0;
+          const healthInsuranceTotal = cost.healthInsurance ? 
+            cost.healthInsurance.reduce((total, item) => total + (Number(item.amount) || 0), 0) : 0;
+          return sum + baseAmount + healthInsuranceTotal;
+        }, 0);
+      
       // 기타: RnD, 기타, 필름
       const totalEtc = siteCostData
         .filter(cost => ['RnD', '기타', '필름'].includes(cost.itemType))
@@ -804,6 +825,7 @@ const Progress = () => {
         '장비비': totalEquipment,
         '경비': totalExpense,
         '기타': totalEtc,
+        '세금': totalTax,
       };
       
       return result;
@@ -898,6 +920,16 @@ const Progress = () => {
         .filter(cost => ['유류비', '임대료', '식대', '월세'].includes(cost.itemType))
         .reduce((sum, cost) => sum + (Number(cost.totalValue) || 0), 0);
       
+      // 세금: 세금
+      const totalTax = monthCostData
+        .filter(cost => cost.itemType === '세금')
+        .reduce((sum, cost) => {
+          const baseAmount = Number(cost.totalValue) || 0;
+          const healthInsuranceTotal = cost.healthInsurance ? 
+            cost.healthInsurance.reduce((total, item) => total + (Number(item.amount) || 0), 0) : 0;
+          return sum + baseAmount + healthInsuranceTotal;
+        }, 0);
+      
       // 기타: RnD, 기타, 필름
       const totalEtc = monthCostData
         .filter(cost => ['RnD', '기타', '필름'].includes(cost.itemType))
@@ -912,6 +944,7 @@ const Progress = () => {
         '장비비': totalEquipment,
         '경비': totalExpense,
         '기타': totalEtc,
+        '세금': totalTax,
       });
     }
     
@@ -1778,8 +1811,8 @@ const Progress = () => {
                 <BarChart
                   data={getMonthChartData}
                   margin={{ top: 80, right: 20, left: isMobile ? 10 : 20, bottom: 20 }}
-                  barCategoryGap="100%"
-                  barSize={60}
+                  barCategoryGap="20%"
+                  barSize={30}
                 >
                   <XAxis dataKey="name" tick={{ fontSize: isMobile ? 14 : 16 }} />
                   <YAxis 
@@ -1900,6 +1933,12 @@ const Progress = () => {
                                 기타: {((data.기타 || 0) + (data.직접입력 || 0)).toLocaleString()}원
                               </Typography>
                               <Typography variant="body2" sx={{ 
+                                color: '#ff5722',
+                                ml: 1
+                              }}>
+                                세금: {data.세금 ? data.세금.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
                                 color: '#f44336',
                                 ml: 1,
                                 fontWeight: 'bold',
@@ -1907,7 +1946,7 @@ const Progress = () => {
                                 pt: 1,
                                 borderTop: '1px solid #333'
                               }}>
-                                총지출금액: {((data.자재비 || 0) + (data.노무비 || 0) + (data.장비비 || 0) + (data.경비 || 0) + (data.기타 || 0) + (data.직접입력 || 0)).toLocaleString()}원
+                                총지출금액: {((data.자재비 || 0) + (data.노무비 || 0) + (data.장비비 || 0) + (data.경비 || 0) + (data.기타 || 0) + (data.직접입력 || 0) + (data.세금 || 0)).toLocaleString()}원
                               </Typography>
                             </Box>
                           </Box>
@@ -1937,6 +1976,9 @@ const Progress = () => {
                   </Bar>
                   <Bar dataKey="기타" fill="#a084e8">
                     <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={90} fill="#fff" />
+                  </Bar>
+                  <Bar dataKey="세금" fill="#ff5722">
+                    <LabelList dataKey="세금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={110} fill="#fff" />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -1957,8 +1999,8 @@ const Progress = () => {
                 <BarChart
                   data={getSiteChartData}
                   margin={{ top: 80, right: 20, left: 20, bottom: 20 }}
-                  barCategoryGap="100%"
-                  barSize={60}
+                  barCategoryGap="20%"
+                  barSize={30}
                 >
                   <XAxis dataKey="name" tick={{ fontSize: isMobile ? 14 : 16 }} />
                   <YAxis 
@@ -2079,6 +2121,12 @@ const Progress = () => {
                                 기타: {((data.기타 || 0) + (data.직접입력 || 0)).toLocaleString()}원
                               </Typography>
                               <Typography variant="body2" sx={{ 
+                                color: '#ff5722',
+                                ml: 1
+                              }}>
+                                세금: {data.세금 ? data.세금.toLocaleString() + '원' : '0원'}
+                              </Typography>
+                              <Typography variant="body2" sx={{ 
                                 color: '#f44336',
                                 ml: 1,
                                 fontWeight: 'bold',
@@ -2086,7 +2134,7 @@ const Progress = () => {
                                 pt: 1,
                                 borderTop: '1px solid #333'
                               }}>
-                                총지출금액: {((data.자재비 || 0) + (data.노무비 || 0) + (data.장비비 || 0) + (data.경비 || 0) + (data.기타 || 0) + (data.직접입력 || 0)).toLocaleString()}원
+                                총지출금액: {((data.자재비 || 0) + (data.노무비 || 0) + (data.장비비 || 0) + (data.경비 || 0) + (data.기타 || 0) + (data.직접입력 || 0) + (data.세금 || 0)).toLocaleString()}원
                               </Typography>
                             </Box>
                           </Box>
@@ -2116,6 +2164,9 @@ const Progress = () => {
                   </Bar>
                   <Bar dataKey="기타" fill="#a084e8">
                     <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={90} fill="#fff" />
+                  </Bar>
+                  <Bar dataKey="세금" fill="#ff5722">
+                    <LabelList dataKey="세금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={110} fill="#fff" />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
