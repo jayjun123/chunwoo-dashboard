@@ -235,9 +235,11 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   // 팝업이 열려있을 때 allGisungData가 변경되면 누계기성 자동 업데이트
   useEffect(() => {
     if (open && formData?.name && allGisungData.length > 0) {
-      // 해당 현장의 청구완료된 기성 데이터 찾기
+      // 해당 현장의 청구완료된 기성 데이터 찾기 (예외항목 제외)
       const siteGisungData = allGisungData.filter(
-        g => (g?.name || '').trim().toLowerCase() === formData?.name.trim().toLowerCase() && g.claimStatus === '청구완료'
+        g => (g?.name || '').trim().toLowerCase() === formData?.name.trim().toLowerCase() && 
+             g.claimStatus === '청구완료' && 
+             !g.isException
       );
       
       // 누계기성 계산 (청구완료된 것만)
@@ -665,9 +667,9 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       .filter(gisung => gisung.claimStatus === '청구완료')
       .reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
     
-    // 입금완료된 기성만 입금완료금액에 포함
+    // 입금완료된 기성만 입금완료금액에 포함 (예외항목 제외)
     const totalPaidAmount = filteredAndSortedGisung
-      .filter(gisung => gisung.paymentStatus === '입금완료')
+      .filter(gisung => gisung.paymentStatus === '입금완료' && !gisung.isException)
       .reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
     
     // 예외 금액 합계 계산
@@ -680,8 +682,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       .filter(gisung => gisung.isException && gisung.paymentStatus === '입금완료')
       .reduce((sum, gisung) => sum + (Number(gisung.exceptionAmount) || 0), 0);
     
-    // 잔액 = 계약금액 - 선급금 - 기성금액
-    const totalBalance = totalContractAmount - totalAdvance - totalGisungAmount;
+    // 잔액 = 계약금액 - 선급금 - 입금완료금액 (예외항목 제외)
+    const totalBalance = totalContractAmount - totalAdvance - totalPaidAmount;
     
     return { 
       totalContractAmount, 
@@ -1199,13 +1201,14 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     try {
       // 월별 뷰에서는 테이블 내용을 다운로드
       const data = filteredAndSortedGisung.map((row, index) => {
-           // 잔액 계산
+           // 잔액 계산 (예외항목 제외)
            const currentSeq = parseInt(row.sequence?.replace('차', '') || '0');
            const totalGisungForSite = allGisungData
              .filter(g => {
                const gSeq = parseInt(g.sequence?.replace('차', '') || '0');
                return g.name === row.name && 
                       g.claimStatus === '청구완료' && 
+                      !g.isException &&
                       gSeq <= currentSeq;
              })
              .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
@@ -1344,12 +1347,14 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       // 현장별 뷰에서 선택된 현장이 있으면 누계기성 계산
       let defaultPrevGisung = '';
       if (viewType === 'site' && selectedSites && selectedSites.length > 0 && defaultSiteName) {
-        // 해당 현장의 청구완료된 기성 데이터 찾기 (이전 기성들만)
+        // 해당 현장의 청구완료된 기성 데이터 찾기 (이전 기성들만, 예외항목 제외)
         const siteGisungData = allGisungData.filter(
-          g => (g.name || '').trim().toLowerCase() === defaultSiteName.trim().toLowerCase() && g.claimStatus === '청구완료'
+          g => (g.name || '').trim().toLowerCase() === defaultSiteName.trim().toLowerCase() && 
+               g.claimStatus === '청구완료' && 
+               !g.isException
         );
         
-        // 누계기성 계산 (이전 기성들만, 현재 기성은 제외)
+        // 누계기성 계산 (이전 기성들만, 현재 기성은 제외, 예외항목 제외)
         const prevSum = siteGisungData.reduce((sum, g) => {
           const amount = Number(g.gisungAmount) || Number(g.currentGisung) || 0;
           return sum + amount;
@@ -1567,9 +1572,11 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     
     console.log(`📊 차수 계산: ${siteName} - 기존 ${existingGisungCount}개 → ${nextSequence}차`);
     
-    // name 매칭을 trim, 대소문자 구분 없이 엄격하게, 청구완료된 것만
+    // name 매칭을 trim, 대소문자 구분 없이 엄격하게, 청구완료된 것만, 예외항목 제외
     const completedSiteGisungData = allGisungData.filter(
-      g => (g.name || '').trim().toLowerCase() === siteName.trim().toLowerCase() && g.claimStatus === '청구완료'
+      g => (g.name || '').trim().toLowerCase() === siteName.trim().toLowerCase() && 
+           g.claimStatus === '청구완료' && 
+           !g.isException
     );
     
     // 여러 필드에서 기성금액 찾기 (청구완료된 것만)
@@ -2087,12 +2094,13 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                  // 현재 기성의 차수 추출
                  const currentSeq = parseInt(gisung.sequence?.replace('차', '') || '0');
                  
-                 // 해당 현장의 현재 차수 이하의 청구완료된 기성 합계 계산
+                 // 해당 현장의 현재 차수 이하의 청구완료된 기성 합계 계산 (예외항목 제외)
                  const totalGisungForSite = allGisungData
                    .filter(g => {
                      const gSeq = parseInt(g.sequence?.replace('차', '') || '0');
                      return g.name === gisung.name && 
                             g.claimStatus === '청구완료' && 
+                            !g.isException &&
                             gSeq <= currentSeq;
                    })
                    .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
@@ -2309,7 +2317,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
          <StatCard title={isMobile ? "기성금액" : "총 기성금액"} value={stats.totalGisungAmount} color="#ef5350" exceptionAmount={stats.totalExceptionAmount} />
          <StatCard title={isMobile ? "입금완료금액" : "입금완료금액"} value={stats.totalPaidAmount} color="#4caf50" exceptionAmount={stats.totalPaidExceptionAmount} />
          {viewType !== 'month' && (
-           <StatCard title="잔액" value={stats.totalBalance} color="#a084e8" />
+           <StatCard title="잔액" value={stats.totalBalance} color="#a084e8" exceptionAmount={stats.totalExceptionAmount - stats.totalPaidExceptionAmount} />
          )}
        </Grid>
 
@@ -2629,12 +2637,13 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                            // 현재 기성의 차수 추출
                            const currentSeq = parseInt(row.sequence?.replace('차', '') || '0');
                            
-                           // 해당 현장의 현재 차수 이하의 청구완료된 기성 합계 계산
+                           // 해당 현장의 현재 차수 이하의 청구완료된 기성 합계 계산 (예외항목 제외)
                            const totalGisungForSite = allGisungData
                              .filter(g => {
                                const gSeq = parseInt(g.sequence?.replace('차', '') || '0');
                                return g.name === row.name && 
                                       g.claimStatus === '청구완료' && 
+                                      !g.isException &&
                                       gSeq <= currentSeq;
                              })
                              .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);

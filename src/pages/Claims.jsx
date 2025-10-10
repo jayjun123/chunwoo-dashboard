@@ -689,11 +689,13 @@ const Claims = () => {
     
     if (!siteData || !siteData.contractAmount) return 0;
     
-    // 기성 데이터에서 gisungAmount 또는 currentGisung 필드 사용
-    const totalGisungAmount = siteGisungData.reduce((sum, gisung) => {
-      const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
-      return sum + amount;
-    }, 0);
+    // 기성 데이터에서 gisungAmount 또는 currentGisung 필드 사용 (예외 항목 제외)
+    const totalGisungAmount = siteGisungData
+      .filter(gisung => !gisung.isException)
+      .reduce((sum, gisung) => {
+        const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
+        return sum + amount;
+      }, 0);
     
     const advanceAmount = Number(siteData.advance || 0); // 선급금
     const contractAmount = Number(siteData.contractAmount);
@@ -720,24 +722,30 @@ const Claims = () => {
     
     if (!siteData || !siteData.contractAmount) return 0;
     
-    // 총 기성금액 계산 (청구완료된 것만)
+    // 총 기성금액 계산 (청구완료된 것만, 예외 항목 제외)
     const totalGisungAmount = siteGisungData
-      .filter(gisung => gisung.claimStatus === '청구완료')
+      .filter(gisung => gisung.claimStatus === '청구완료' && !gisung.isException)
       .reduce((sum, gisung) => {
         const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
         return sum + amount;
       }, 0);
     
-    // 현재 청구예정인 금액도 포함 (청구리스트에서)
+    // 현재 청구예정인 금액도 포함 (청구리스트에서) - 예외 항목 제외
     const currentClaimAmount = claims
-      .filter(claim => claim.siteName === siteName && claim.claimStatus === 'X')
+      .filter(claim => claim.siteName === siteName && claim.claimStatus === 'X' && !claim.isException)
       .reduce((sum, claim) => sum + (Number(claim.claimAmount) || 0), 0);
+    
+    // 현재 편집 중인 청구예정이 예외 항목이면 해당 금액을 0으로 처리
+    let currentEditingClaimAmount = 0;
+    if (formData.siteName === siteName && formData.claimAmount && !formData.isException) {
+      currentEditingClaimAmount = Number(formData.claimAmount) || 0;
+    }
     
     const advanceAmount = Number(siteData.advance || 0); // 선급금
     const contractAmount = Number(siteData.contractAmount);
     
-    // 계약금액 - (총 기성금액 + 선급금 + 현재 청구예정 금액)
-    const remainingAmount = contractAmount - (totalGisungAmount + advanceAmount + currentClaimAmount);
+    // 계약금액 - (총 기성금액 + 선급금 + 현재 청구예정 금액 + 현재 편집 중인 청구예정 금액)
+    const remainingAmount = contractAmount - (totalGisungAmount + advanceAmount + currentClaimAmount + currentEditingClaimAmount);
     
     // 디버깅을 위한 로그 추가
     console.log(`🔍 잔액 계산 (청구예정 포함) - ${siteName}:`, {
@@ -745,6 +753,8 @@ const Claims = () => {
       totalGisungAmount,
       advanceAmount,
       currentClaimAmount,
+      currentEditingClaimAmount,
+      isException: formData.isException,
       calculatedBalance: remainingAmount
     });
     
@@ -752,7 +762,7 @@ const Claims = () => {
   };
 
   // 청구금액 기준 잔액 계산 함수 (더 정확한 계산)
-  const calculateBalanceByClaimAmount = (siteName, claimAmount) => {
+  const calculateBalanceByClaimAmount = (siteName, claimAmount, isException = false) => {
     const siteData = sites.find(site => site.name === siteName);
     
     if (!siteData || !siteData.contractAmount) return 0;
@@ -760,10 +770,10 @@ const Claims = () => {
     const contractAmount = Number(siteData.contractAmount);
     const claimAmountNum = Number(claimAmount || 0);
     
-    // 청구완료된 기성금 총합 계산
+    // 청구완료된 기성금 총합 계산 (예외 항목 제외)
     const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
     const totalGisungAmount = siteGisungData
-      .filter(gisung => gisung.claimStatus === '청구완료')
+      .filter(gisung => gisung.claimStatus === '청구완료' && !gisung.isException)
       .reduce((sum, gisung) => {
         const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
         return sum + amount;
@@ -771,14 +781,19 @@ const Claims = () => {
     
     const advanceAmount = Number(siteData.advance || 0);
     
+    // 예외처리된 청구금액은 잔액 계산에서 제외
+    const effectiveClaimAmount = isException ? 0 : claimAmountNum;
+    
     // 계약금액 - (청구완료 기성금 + 선급금 + 현재 청구금액)
-    const balance = contractAmount - (totalGisungAmount + advanceAmount + claimAmountNum);
+    const balance = contractAmount - (totalGisungAmount + advanceAmount + effectiveClaimAmount);
     
     console.log(`💰 청구금액 기준 잔액 계산 - ${siteName}:`, {
       contractAmount,
       totalGisungAmount,
       advanceAmount,
       claimAmount: claimAmountNum,
+      isException,
+      effectiveClaimAmount,
       calculatedBalance: balance
     });
     
@@ -789,9 +804,9 @@ const Claims = () => {
   const calculateTotalGisungAmount = (siteName) => {
     const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
     
-    // 청구완료된 기성금의 총합 계산
+    // 청구완료된 기성금의 총합 계산 (예외 항목 제외)
     const totalGisungAmount = siteGisungData
-      .filter(gisung => gisung.claimStatus === '청구완료')
+      .filter(gisung => gisung.claimStatus === '청구완료' && !gisung.isException)
       .reduce((sum, gisung) => {
         const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
         return sum + amount;
@@ -1006,6 +1021,10 @@ const Claims = () => {
   // 수정 다이얼로그 열기
   const handleEdit = (claim) => {
     setEditingClaim(claim);
+    
+    // 누계기성금액 계산
+    const totalGisungAmount = calculateTotalGisungAmount(claim.siteName);
+    
     setFormData({
       claimMonth: claim.claimMonth || currentMonth,
       siteName: claim.siteName || '',
@@ -1016,7 +1035,8 @@ const Claims = () => {
       claimStatus: claim.claimStatus || 'X',
       notes: claim.notes || '',
       isException: claim.isException || false, // 예외 항목 여부 로드
-      exceptionAmount: claim.exceptionAmount || '' // 예외 금액 로드
+      exceptionAmount: claim.exceptionAmount || '', // 예외 금액 로드
+      totalGisungAmount: Math.ceil(totalGisungAmount).toString() // 누계기성금액 계산하여 설정
     });
     setDialogOpen(true);
   };
@@ -1074,7 +1094,7 @@ const Claims = () => {
       // 데이터 행들 - 천단위 쉼표가 포함된 문자열로 포맷팅
       const dataRows = filteredClaims.map((claim, index) => {
         const contractAmount = getContractAmount(claim.siteName) ? Number(getContractAmount(claim.siteName)) : 0;
-        const remainingAmount = calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount) ? Number(calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount)) : 0;
+        const remainingAmount = calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount, claim.isException) ? Number(calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount, claim.isException)) : 0;
         const progressRate = claim.progressRate ? Number(claim.progressRate) : 0;
         const claimAmount = claim.claimAmount ? Number(claim.claimAmount) : 0;
         
@@ -2220,7 +2240,7 @@ const Claims = () => {
                         <TableCell sx={{ color: 'white' }}>{claim.sequence}</TableCell>
                         <TableCell sx={{ color: 'white' }}>{formatAmount(getContractAmount(claim.siteName))}</TableCell>
                         <TableCell sx={{ color: '#4caf50', fontWeight: 'bold' }}>
-                          {formatAmount(calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount))}
+                          {formatAmount(calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount, claim.isException))}
                         </TableCell>
                         <TableCell sx={{ color: 'white' }}>{claim.progressRate}%</TableCell>
                         <TableCell sx={{ color: '#ff6b6b', fontWeight: 'bold' }}>{formatAmount(claim.claimAmount)}</TableCell>
@@ -2546,7 +2566,7 @@ const Claims = () => {
                 
                 <TextField
                   label="잔액"
-                  value={formData.siteName ? (formData.isException ? '0' : Math.ceil(calculateRemainingAmount(formData.siteName)).toLocaleString()) : ''}
+                  value={formData.siteName ? Math.ceil(calculateRemainingAmount(formData.siteName)).toLocaleString() : ''}
                   InputProps={{
                     endAdornment: <InputAdornment position="end">원</InputAdornment>,
                     readOnly: true,
@@ -2721,7 +2741,7 @@ const Claims = () => {
                   
                   <TextField
                     label="잔액"
-                    value={formData.siteName ? (formData.isException ? '0' : Math.ceil(calculateRemainingAmount(formData.siteName)).toLocaleString()) : ''}
+                    value={formData.siteName ? Math.ceil(calculateRemainingAmount(formData.siteName)).toLocaleString() : ''}
                     InputProps={{
                       endAdornment: <InputAdornment position="end">원</InputAdornment>,
                       readOnly: true,
