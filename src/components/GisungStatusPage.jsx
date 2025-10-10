@@ -2941,7 +2941,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
             <TextField
               label="계약금액 (직접 입력)"
-                value={formData.contractAmount ? Number(formData.contractAmount).toLocaleString() : ''}
+                value={formData.contractAmount ? Math.ceil(Number(formData.contractAmount)).toLocaleString() : ''}
                 onChange={(e) => {
                   const value = e.target.value.replace(/[^0-9]/g, '');
                   setFormData({ ...formData, contractAmount: value });
@@ -2964,7 +2964,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             />
             <TextField
               label="선급금"
-                value={formData.advance ? Number(formData.advance).toLocaleString() : ''}
+                value={formData.advance ? Math.ceil(Number(formData.advance)).toLocaleString() : ''}
                 onChange={(e) => {
                   const value = e.target.value.replace(/[^0-9]/g, '');
                   setFormData({ ...formData, advance: value });
@@ -2990,7 +2990,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             <Box display="flex" width="100%" justifyContent="center" gap={2}>
             <TextField
               label="누계기성"
-                value={formData.isException ? '0' : Math.round(Number(formData.prevGisung || 0)).toLocaleString()}
+                value={formData.isException ? '0' : Math.ceil(Number(formData.prevGisung || 0)).toLocaleString()}
                 size="medium"
               sx={{
                   width: 225.3,
@@ -3016,7 +3016,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                 const prevGisung = Number(formData.prevGisung || 0);
                 const currentGisung = Number(formData.currentGisung || 0);
                 const balance = contractAmount - (advance + prevGisung + currentGisung);
-                return Math.max(0, balance).toLocaleString();
+                return Math.max(0, Math.ceil(balance)).toLocaleString();
               })()}
               size="medium"
               sx={{
