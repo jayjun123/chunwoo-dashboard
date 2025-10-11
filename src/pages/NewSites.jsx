@@ -176,6 +176,10 @@ const NewSites = () => {
   // 마이그레이션 로딩 상태
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
+  
+  // 기성관리 데이터 상태
+  const [gisungData, setGisungData] = useState([]);
+  const [paymentStatusMap, setPaymentStatusMap] = useState({});
 
   // 실물량파악 관련 상태
   const [showQuantityDialog, setShowQuantityDialog] = useState(false);
@@ -183,7 +187,6 @@ const NewSites = () => {
   const [quantityPasswordError, setQuantityPasswordError] = useState('');
   const [showHiddenCompleted, setShowHiddenCompleted] = useState(false);
   const [showDistributionView, setShowDistributionView] = useState(false);
-  const [paymentStatusMap, setPaymentStatusMap] = useState({}); // 현장별 입금 상태
 
   // 상태별 카운트 계산
   const statusCounts = useMemo(() => {
@@ -239,6 +242,83 @@ const NewSites = () => {
     }
   }, [location.search, sites]);
 
+  // 기성관리 데이터 로드
+  useEffect(() => {
+    const fetchGisungData = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'gisung'));
+        const gisungData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setGisungData(gisungData);
+        console.log('🏗️ 기성관리 데이터 로드 완료:', gisungData.length, '개');
+      } catch (error) {
+        console.error('기성관리 데이터 로드 실패:', error);
+      }
+    };
+    fetchGisungData();
+  }, []);
+
+  // 현장별 입금 상태 계산
+  useEffect(() => {
+    const loadPaymentStatus = async () => {
+      try {
+        const paymentMap = {};
+        
+        sites.forEach(site => {
+          // 현장명 매칭 (정확한 매칭과 부분 매칭 모두 시도)
+          const siteGisungData = gisungData.filter(g => {
+            const exactMatch = g.name === site.name;
+            const partialMatch = g.name && site.name && g.name.includes(site.name);
+            return exactMatch || partialMatch;
+          });
+          
+          if (siteGisungData.length === 0) {
+            paymentMap[site.name] = { isFullyPaid: false, totalGisung: 0, paidGisung: 0, paymentRate: 0 };
+            return;
+          }
+          
+          // 해당 현장의 모든 기성 데이터 확인
+          const totalGisung = siteGisungData.reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+          const paidGisung = siteGisungData
+            .filter(g => g.paymentStatus === '입금완료')
+            .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+          
+          // 선급금도 고려
+          const advanceAmount = Number(site.advance) || 0;
+          const totalWithAdvance = totalGisung + advanceAmount;
+          
+          // 잔액 계산 (계약금액 - 선급금 - 입금완료된 기성)
+          const contractAmount = Number(site.contractAmount) || 0;
+          const balance = contractAmount - advanceAmount - paidGisung;
+          
+          // 정산완료 조건: 잔액이 0이고 입금완료 칩이 있는 경우
+          const hasPaidGisung = siteGisungData.some(g => g.paymentStatus === '입금완료');
+          const isFullyPaid = balance <= 0 && hasPaidGisung;
+          
+          // 입금률 계산 (참고용)
+          const paymentRate = totalWithAdvance > 0 ? ((paidGisung + advanceAmount) / totalWithAdvance) * 100 : 0;
+          
+          paymentMap[site.name] = {
+            isFullyPaid,
+            totalGisung,
+            paidGisung,
+            paymentRate,
+            balance,
+            hasPaidGisung
+          };
+        });
+        
+        setPaymentStatusMap(paymentMap);
+        console.log('💰 입금 상태 맵 업데이트 완료:', Object.keys(paymentMap).length, '개 현장');
+      } catch (error) {
+        console.error('입금 상태 계산 실패:', error);
+      }
+    };
+    
+    if (sites.length > 0 && gisungData.length > 0) {
+      loadPaymentStatus();
+    }
+  }, [sites, gisungData]);
+
   // location state에서 전달받은 현장 정보 처리
   useEffect(() => {
     if (location.state && sites.length > 0) {
@@ -272,7 +352,6 @@ const NewSites = () => {
 
 
   // 현장 데이터가 변경될 때마다 전체 통합현황 재계산 (캐싱 적용)
-  const [gisungData, setGisungData] = useState([]);
   const [costData, setCostData] = useState([]);
   
   // 기성 데이터 로드 및 입금 상태 확인
@@ -346,9 +425,9 @@ const NewSites = () => {
         const contractAmount = Number(site.contractAmount) || 0;
         const balance = contractAmount - advanceAmount - paidGisung;
         
-        // 정산완료 조건: 잔액이 0이고 입금완료 칩이 있는 경우
+        // 정산완료 조건: 기성 데이터가 없거나, 잔액이 0이고 입금완료 칩이 있는 경우
         const hasPaidGisung = siteGisungData.some(g => g.paymentStatus === '입금완료');
-        const isFullyPaid = balance <= 0 && hasPaidGisung;
+        const isFullyPaid = siteGisungData.length === 0 || (balance <= 0 && hasPaidGisung);
         
         // 입금률 계산 (참고용)
         const paymentRate = totalWithAdvance > 0 ? ((paidGisung + advanceAmount) / totalWithAdvance) * 100 : 0;
@@ -889,7 +968,7 @@ const NewSites = () => {
     }
   }, [selectedSite]);
 
-  // 숨겨진 완료 현장 수 계산
+  // 숨겨진 완료 현장 수 계산 (입금처리 안된 현장은 제외)
   const hiddenCompletedSites = useMemo(() => {
     if (statusTab !== '완료') return 0;
     
@@ -901,7 +980,12 @@ const NewSites = () => {
         try {
           const endDate = new Date(site.endDate);
           if (!isNaN(endDate.getTime()) && endDate < sixtyDaysAgo) {
-            return true; // 60일 이상 지난 완료 현장은 숨겨짐
+            // 60일 이상 지난 완료 현장이지만 입금처리가 안된 현장은 숨기지 않음
+            const paymentStatus = paymentStatusMap[site.name];
+            if (paymentStatus && !paymentStatus.isFullyPaid) {
+              return false; // 입금처리 안된 현장은 숨기지 않음
+            }
+            return true; // 입금처리 완료된 현장은 숨김
           }
         } catch (error) {
           console.warn('현장 준공일 파싱 오류:', site?.name, site.endDate, error);
@@ -909,7 +993,7 @@ const NewSites = () => {
       }
       return false;
     }).length;
-  }, [sites, statusTab]);
+  }, [sites, statusTab, paymentStatusMap]);
 
   const filteredSites = useMemo(() => {
     const today = new Date();
@@ -923,7 +1007,12 @@ const NewSites = () => {
           try {
             const endDate = new Date(site.endDate);
             if (!isNaN(endDate.getTime()) && endDate < sixtyDaysAgo) {
-              return showHiddenCompleted; // 숨겨진 목록 보기 모드일 때만 포함
+              // 60일 이상 지난 완료 현장이지만 입금처리가 안된 현장은 항상 표시
+              const paymentStatus = paymentStatusMap[site.name];
+              if (paymentStatus && !paymentStatus.isFullyPaid) {
+                return true; // 입금처리 안된 현장은 항상 표시
+              }
+              return showHiddenCompleted; // 입금처리 완료된 현장은 숨겨진 목록 보기 모드일 때만 포함
             }
           } catch (error) {
             console.warn('현장 준공일 파싱 오류:', site?.name, site.endDate, error);
@@ -2592,6 +2681,20 @@ const NewSites = () => {
               }
             })();
             
+            // 입금처리가 안된 현장인지 확인 (완료 현장 중 60일 지난 현장만)
+            const paymentStatus = paymentStatusMap[site.name];
+            const isUnpaid = site.status === '완료' && site.endDate && (() => {
+              try {
+                const today = new Date();
+                const sixtyDaysAgo = new Date(today.getTime() - (60 * 24 * 60 * 60 * 1000));
+                const endDate = new Date(site.endDate);
+                const isOver60Days = !isNaN(endDate.getTime()) && endDate < sixtyDaysAgo;
+                return isOver60Days && paymentStatus && !paymentStatus.isFullyPaid;
+              } catch (error) {
+                return false;
+              }
+            })();
+            
             return (
               <ListItem 
                 key={site.id} 
@@ -2603,11 +2706,14 @@ const NewSites = () => {
                   py: isMobile ? 0.25 : 0.5,
                   border: '1px solid',
                   borderColor: selectedSite?.id === site.id ? '#90caf9' : 
+                              isUnpaid ? '#f44336' : // 입금처리 안된 현장은 빨간색
                               isHiddenCompleted ? '#ff9800' : '#333',
                   bgcolor: selectedSite?.id === site.id ? '#1e3a5f' : 
+                          isUnpaid ? 'rgba(244, 67, 54, 0.1)' : // 입금처리 안된 현장은 빨간색 배경
                           isHiddenCompleted ? 'rgba(255, 152, 0, 0.1)' : 'transparent',
                   '&:hover': {
                     bgcolor: selectedSite?.id === site.id ? '#1e3a5f' : 
+                            isUnpaid ? 'rgba(244, 67, 54, 0.2)' : // 입금처리 안된 현장은 빨간색 호버
                             isHiddenCompleted ? 'rgba(255, 152, 0, 0.2)' : '#2a2d35',
                     borderColor: '#90caf9'
                   }
@@ -2620,7 +2726,9 @@ const NewSites = () => {
                         sx={{ 
                           fontSize: isMobile ? '0.8rem' : 'inherit',
                           fontWeight: selectedSite?.id === site.id ? 'bold' : 'normal',
-                          color: selectedSite?.id === site.id ? '#90caf9' : '#fff',
+                          color: selectedSite?.id === site.id ? '#90caf9' : 
+                                 isUnpaid ? '#f44336' : // 입금처리 안된 현장은 빨간색 텍스트
+                                 '#fff',
                           flex: 1,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -2629,6 +2737,19 @@ const NewSites = () => {
                       >
                         {site.name}
                       </Typography>
+                      {isUnpaid && (
+                        <Box
+                          sx={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            bgcolor: '#f44336',
+                            flexShrink: 0,
+                            mr: 0.5
+                          }}
+                          title="입금처리 미완료 현장"
+                        />
+                      )}
                       {isHiddenCompleted && (
                         <Box
                           sx={{

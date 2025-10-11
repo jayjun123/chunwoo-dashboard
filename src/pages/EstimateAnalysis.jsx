@@ -784,7 +784,7 @@ const EstimateAnalysis = () => {
         </Box>
         
         {/* 탭 메뉴 */}
-        <Paper sx={{ bgcolor: '#232734', border: '1px solid #333', mb: 2 }}>
+        <Paper sx={{ bgcolor: '#232734', border: '1px solid #333', mb: 1 }}>
           <Tabs
             value={activeTab}
             onChange={(e, newValue) => setActiveTab(newValue)}
@@ -1295,7 +1295,7 @@ const EstimateAnalysis = () => {
 
       {activeTab === 0 && (
         /* 트렌드 분석 차트 */
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: -2.5 }}>
           {/* 년도 네비게이션 */}
           <Paper sx={{ p: 2, bgcolor: '#232734', border: '1px solid #333' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>

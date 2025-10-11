@@ -52,7 +52,8 @@ import {
   NavigateBefore as NavigateBeforeIcon,
   NavigateNext as NavigateNextIcon,
   FirstPage as FirstPageIcon,
-  LastPage as LastPageIcon
+  LastPage as LastPageIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { 
   subscribeToClaims, 
@@ -86,7 +87,8 @@ const Claims = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
-    claimStatus: ''
+    claimStatus: '',
+    searchAll: false // 전체 검색 여부
   });
   const [sortBy, setSortBy] = useState('siteName');
   const [sortOrder, setSortOrder] = useState('asc');
@@ -621,13 +623,15 @@ const Claims = () => {
 
   // 필터링 및 검색 (claims 데이터 변경 시에도 실시간 업데이트)
   useEffect(() => {
+    // 검색은 전체 월에서 하되, 결과는 현재 월 데이터에서 필터링
     let filtered = claims;
 
-    // 검색어 필터링 (현장명, 소장명, 회사명으로 검색)
+    // 검색어 필터링 (전체 월에서 검색하여 해당 월로 이동)
     if (searchTerm) {
-      filtered = filtered.filter(claim => {
-        const searchLower = searchTerm.toLowerCase();
-        
+      const searchLower = searchTerm.toLowerCase();
+      
+      // 전체 월에서 검색어에 맞는 모든 청구 데이터를 찾기
+      const allMatchingClaims = allClaims.filter(claim => {
         // 현장명 검색
         const siteNameMatch = claim.siteName?.toLowerCase().includes(searchLower);
         
@@ -643,6 +647,25 @@ const Claims = () => {
         
         return siteNameMatch || managerMatch || companyMatch || sequenceMatch;
       });
+      
+      // 검색 결과가 있으면 해당 월로 이동
+      if (allMatchingClaims.length > 0) {
+        // 가장 최근 월의 데이터를 찾아서 해당 월로 이동
+        const latestMonth = allMatchingClaims
+          .map(claim => claim.claimMonth)
+          .sort()
+          .pop(); // 가장 최근 월
+        
+        if (latestMonth && latestMonth !== currentMonth) {
+          setCurrentMonth(latestMonth);
+        }
+        
+        // 해당 월의 검색 결과만 표시
+        filtered = allMatchingClaims.filter(claim => claim.claimMonth === latestMonth);
+      } else {
+        // 검색 결과가 없으면 빈 배열
+        filtered = [];
+      }
     }
 
     // 상태 필터링
@@ -700,7 +723,7 @@ const Claims = () => {
       setCurrentPage(savedPage);
       setSkipPageReset(false); // 플래그 리셋
     }
-  }, [claims, searchTerm, filters, sortBy, sortOrder]);
+  }, [claims, allClaims, currentMonth, searchTerm, filters, sortBy, sortOrder]);
 
 
   // 폼 데이터 초기화
@@ -2063,12 +2086,21 @@ const Claims = () => {
           // 모바일: 검색창과 새청구 버튼을 한 줄에 배치
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <TextField
-              placeholder="현장명, 소장명, 회사명, 차수로 검색..."
+              placeholder={filters.searchAll ? "전체 월에서 검색..." : "현재 월에서 검색..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               size="small"
               InputProps={{
                 startAdornment: <SearchIcon sx={{ color: '#666', mr: 1 }} />,
+                endAdornment: (
+                  <IconButton
+                    size="small"
+                    onClick={() => setSearchTerm('')}
+                    sx={{ color: '#666', mr: 0.5 }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                ),
                 sx: { 
                   backgroundColor: '#444',
                   height: '40px',
@@ -2119,12 +2151,21 @@ const Claims = () => {
             {/* 왼쪽: 검색과 필터 */}
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
               <TextField
-                placeholder="현장명, 소장명, 회사명, 차수로 검색..."
+                placeholder={filters.searchAll ? "전체 월에서 검색..." : "현재 월에서 검색..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 size="small"
                 InputProps={{
                   startAdornment: <SearchIcon sx={{ color: '#666', mr: 1 }} />,
+                  endAdornment: (
+                    <IconButton
+                      size="small"
+                      onClick={() => setSearchTerm('')}
+                      sx={{ color: '#666', mr: 0.5 }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  ),
                   sx: { 
                     backgroundColor: '#444',
                     height: '40px',
@@ -2185,6 +2226,26 @@ const Claims = () => {
                   <MenuItem value="이월">이월</MenuItem>
                 </Select>
               </FormControl>
+              
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={filters.searchAll}
+                    onChange={(e) => setFilters(prev => ({ ...prev, searchAll: e.target.checked }))}
+                    sx={{
+                      color: '#90caf9',
+                      '&.Mui-checked': {
+                        color: '#90caf9',
+                      },
+                    }}
+                  />
+                }
+                label={
+                  <Typography sx={{ color: '#ccc', fontSize: '14px' }}>
+                    전체 검색
+                  </Typography>
+                }
+              />
             </Box>
 
             {/* 중앙: 액션 버튼들 */}
@@ -2330,6 +2391,27 @@ const Claims = () => {
               </Select>
             </FormControl>
             
+            {/* 전체 검색 체크박스 */}
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={filters.searchAll}
+                  onChange={(e) => setFilters(prev => ({ ...prev, searchAll: e.target.checked }))}
+                  sx={{
+                    color: '#90caf9',
+                    '&.Mui-checked': {
+                      color: '#90caf9',
+                    },
+                  }}
+                />
+              }
+              label={
+                <Typography sx={{ color: '#ccc', fontSize: '12px' }}>
+                  전체 검색
+                </Typography>
+              }
+            />
+            
             {/* 월 네비게이션 */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center' }}>
               <Button
@@ -2379,41 +2461,41 @@ const Claims = () => {
               <TableRow sx={{ backgroundColor: '#444' }}>
                 {isMobile ? (
                   <>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60, py: 1 }}>No.</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 1 }}>현장명</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 1 }}>청구금액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 1 }}>청구여부</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60, py: 0.5 }}>No.</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>현장명</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>청구금액</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>청구여부</TableCell>
                   </>
                 ) : (
                   <>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60, py: 1 }}>No.</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 1 }}>청구월</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 320, py: 1 }}>현장명</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60, py: 1 }}>소장/회사명</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80, py: 1 }}>차수</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 1 }}>계약금액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 1 }}>잔액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80, py: 1 }}>청구 전 기성율(%)</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 1 }}>청구금액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 1 }}>청구여부</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60, py: 0.5 }}>No.</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>청구월</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 320, py: 0.5 }}>현장명</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60, py: 0.5 }}>소장/회사명</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80, py: 0.5 }}>차수</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>계약금액</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>잔액</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80, py: 0.5 }}>청구 전 기성율(%)</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>청구금액</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>청구여부</TableCell>
                     <TableCell sx={{ 
                       color: 'white', 
                       fontWeight: 'bold', 
                       minWidth: 100,
-                      py: 1,
+                      py: 0.5,
                       // 아이패드에서 숨김
                       '@media (min-width: 768px) and (max-width: 1024px)': {
                         display: 'none'
                       }
                     }}>비고</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 1 }}>관리</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>관리</TableCell>
                   </>
                 )}
               </TableRow>
             </TableHead>
             <TableBody>
               {currentClaims.map((claim, index) => (
-                  <TableRow key={claim.id} sx={{ '&:hover': { backgroundColor: '#444' }, '& td': { py: 1 } }}>
+                  <TableRow key={claim.id} sx={{ '&:hover': { backgroundColor: '#444' }, '& td': { py: 0.5 } }}>
                     <TableCell sx={{ color: 'white' }}>{filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id)}</TableCell>
                     {isMobile ? (
                       <>
@@ -2935,6 +3017,39 @@ const Claims = () => {
                 />
               </Box>
               
+              <FormControl size="small" sx={{ width: '150px' }}>
+                <InputLabel sx={{ color: '#ccc' }}>청구여부</InputLabel>
+                <Select
+                  value={formData.claimStatus || 'X'}
+                  onChange={(e) => setFormData(prev => ({ ...prev, claimStatus: e.target.value }))}
+                  sx={{ 
+                    backgroundColor: '#444',
+                    '& .MuiSelect-select': { 
+                      color: 'white',
+                      padding: '8px 16px',
+                      fontSize: '14px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    },
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': {
+                        borderColor: '#666'
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#888'
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#90caf9'
+                      }
+                    }
+                  }}
+                >
+                  <MenuItem value="X">청구대기</MenuItem>
+                  <MenuItem value="O">청구완료</MenuItem>
+                  <MenuItem value="이월">이월</MenuItem>
+                </Select>
+              </FormControl>
+              
               <TextField
                 fullWidth
                 label="비고"
@@ -3141,6 +3256,40 @@ const Claims = () => {
                     }}
                   />
                 </Box>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: '#ccc' }}>청구여부</InputLabel>
+                  <Select
+                    value={formData.claimStatus || 'X'}
+                    onChange={(e) => setFormData(prev => ({ ...prev, claimStatus: e.target.value }))}
+                    sx={{ 
+                      backgroundColor: '#444',
+                      '& .MuiSelect-select': { 
+                        color: 'white',
+                        padding: '8px 16px',
+                        fontSize: '14px',
+                        display: 'flex',
+                        alignItems: 'center'
+                      },
+                      '& .MuiOutlinedInput-root': {
+                        '& fieldset': {
+                          borderColor: '#666'
+                        },
+                        '&:hover fieldset': {
+                          borderColor: '#888'
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#90caf9'
+                        }
+                      }
+                    }}
+                  >
+                    <MenuItem value="X">청구대기</MenuItem>
+                    <MenuItem value="O">청구완료</MenuItem>
+                    <MenuItem value="이월">이월</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <TextField

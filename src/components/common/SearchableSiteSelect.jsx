@@ -4,9 +4,10 @@ import {
   TextField, 
   Box, 
   Typography,
-  Chip
+  Chip,
+  IconButton
 } from '@mui/material';
-import { Search as SearchIcon } from '@mui/icons-material';
+import { Search as SearchIcon, Close as CloseIcon } from '@mui/icons-material';
 
 const SearchableSiteSelect = ({
   sites = [],
@@ -140,12 +141,16 @@ const SearchableSiteSelect = ({
     
     const filtered = filteredOptions.filter(option => {
       let siteName = '';
+      let manager = '';
       if (typeof option === 'string') {
         siteName = option;
       } else if (option && typeof option === 'object') {
         siteName = option.name || '';
+        manager = option.manager || '';
       }
-      return siteName.toLowerCase().includes(inputValue.toLowerCase());
+      const searchLower = inputValue.toLowerCase();
+      return siteName.toLowerCase().includes(searchLower) || 
+             manager.toLowerCase().includes(searchLower);
     });
     
     // 검색 결과가 없을 때 안내 메시지
@@ -159,6 +164,7 @@ const SearchableSiteSelect = ({
   const renderOption = (props, option) => {
     let siteName = '';
     let siteStatus = '';
+    let manager = '';
     let isDisabled = false;
     let isAllOption = false;
     
@@ -167,6 +173,7 @@ const SearchableSiteSelect = ({
     } else if (option && typeof option === 'object') {
       siteName = option.name || '';
       siteStatus = option.status || '';
+      manager = option.manager || '';
       isDisabled = option.disabled || false;
       isAllOption = option.isAllOption || false;
     }
@@ -190,6 +197,17 @@ const SearchableSiteSelect = ({
           }}>
             {isAllOption ? '📋 ' : ''}{siteName}
           </Typography>
+          {manager && !isDisabled && !isAllOption && (
+            <Typography 
+              sx={{ 
+                fontSize: isMobile ? '0.7rem' : '0.8rem', 
+                color: '#4caf50',
+                mt: 0.5
+              }}
+            >
+              소장: {manager}
+            </Typography>
+          )}
           {siteStatus && !isDisabled && !isAllOption && (
             <Typography 
               sx={{ 
@@ -251,6 +269,20 @@ const SearchableSiteSelect = ({
         startAdornment: (
           <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
             <SearchIcon sx={{ color: '#bbb', fontSize: isMobile ? '1.2rem' : '1.5rem' }} />
+          </Box>
+        ),
+        endAdornment: (
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {value && (
+              <IconButton
+                size="small"
+                onClick={() => onChange('')}
+                sx={{ color: '#bbb', mr: 0.5 }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            )}
+            {params.InputProps.endAdornment}
           </Box>
         )
       }}

@@ -118,6 +118,9 @@ const Estimates = () => {
 
   // 의뢰자 데이터 상태
   const [requesters, setRequesters] = useState([]);
+  
+  // 미제출 현장 목록 확장 상태
+  const [showAllPendingSites, setShowAllPendingSites] = useState(false);
 
   // 폼 데이터
   const [formData, setFormData] = useState({
@@ -963,14 +966,45 @@ const Estimates = () => {
               display: 'none'
             }
           }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <AssignmentIcon sx={{ color: '#ef5350', fontSize: '1.2rem' }} />
-              <Typography variant="body2" sx={{ color: '#bbb', fontSize: '0.9rem' }}>
-                미제출 현장/의뢰자 목록
-              </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <AssignmentIcon sx={{ color: '#ef5350', fontSize: '1.2rem' }} />
+                <Typography variant="body2" sx={{ color: '#bbb', fontSize: '0.9rem' }}>
+                  미제출 현장/의뢰자 목록 
+                  <Typography component="span" sx={{ color: '#ef5350', fontWeight: 'bold' }}>
+                    ({smartCardStats.pendingSiteNames.length}개)
+                  </Typography>
+                </Typography>
+              </Box>
+              
+              {/* 더보기 버튼 */}
+              {smartCardStats.pendingSiteNames.length > 2 && (
+                <Box
+                  onClick={() => setShowAllPendingSites(!showAllPendingSites)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: 1,
+                    cursor: 'pointer',
+                    backgroundColor: 'rgba(239, 83, 80, 0.1)',
+                    border: '1px solid rgba(239, 83, 80, 0.3)',
+                    '&:hover': {
+                      backgroundColor: 'rgba(239, 83, 80, 0.2)',
+                    }
+                  }}
+                  title={showAllPendingSites ? "목록 축소" : "목록 확장"}
+                >
+                  <Typography variant="body2" sx={{ color: '#ef5350', fontWeight: 'bold', fontSize: '0.8rem' }}>
+                    {showAllPendingSites ? '▲ 접기' : '▼ 더보기'}
+                  </Typography>
+                </Box>
+              )}
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5 }}>
-              {smartCardStats.pendingSiteNames.map((siteName, index) => (
+              {(showAllPendingSites ? smartCardStats.pendingSiteNames : smartCardStats.pendingSiteNames.slice(0, 2)).map((siteName, index) => (
                 <Box
                   key={index}
                   onClick={() => {
@@ -1011,6 +1045,7 @@ const Estimates = () => {
                   </Typography>
                 </Box>
               ))}
+              
             </Box>
           </Paper>
         )}
