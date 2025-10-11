@@ -101,12 +101,12 @@ const Estimates = () => {
       estimate.submissionStatus === '보류'
     );
     
-    // 미제출 현장명과 의뢰자 목록 (중복 제거)
-    const pendingSiteRequesterPairs = [...new Set(
-      pendingEstimates
-        .filter(estimate => estimate.siteName && estimate.requester)
-        .map(estimate => `${estimate.siteName} / ${estimate.requester}`)
-    )];
+    // 미제출 현장명과 의뢰자 목록 (접수일 오래된 순으로 정렬)
+    const pendingSiteRequesterPairs = pendingEstimates
+      .filter(estimate => estimate.siteName && estimate.requester)
+      .sort((a, b) => new Date(a.receptionDate) - new Date(b.receptionDate)) // 접수일 오래된 순
+      .map(estimate => `${estimate.siteName} / ${estimate.requester}`)
+      .filter((value, index, self) => self.indexOf(value) === index); // 중복 제거
     
     return {
       recentCount: recentEstimates.length,
@@ -855,9 +855,9 @@ const Estimates = () => {
 
 
     return (
-    <Box sx={{ p: 2, backgroundColor: '#1a1a1a', color: '#fff', marginTop: '64px' }}>
+    <Box sx={{ p: 1, backgroundColor: '#1a1a1a', color: '#fff', marginTop: '64px' }}>
       {/* 스마트 카드 */}
-      <Box sx={{ display: 'flex', gap: 1.5, mb: 2, width: '100%' }}>
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, width: '100%' }}>
         <Paper sx={{ 
           p: 1.5,
           bgcolor: '#232734', 
@@ -969,42 +969,47 @@ const Estimates = () => {
                 미제출 현장/의뢰자 목록
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5 }}>
               {smartCardStats.pendingSiteNames.map((siteName, index) => (
-                <Chip
+                <Box
                   key={index}
-                  label={siteName}
-                  size="medium"
                   onClick={() => {
                     // 클릭 시 해당 현장의 미제출 견적만 필터링
                     const siteNameOnly = siteName.split(' / ')[0];
                     setSearchTerm(siteNameOnly);
                     setSubmissionStatusFilter('제출대기');
-                    console.log('현장칩 클릭으로 필터링:', siteNameOnly);
+                    console.log('현장 클릭으로 필터링:', siteNameOnly);
                   }}
                   onDoubleClick={() => {
                     // 더블클릭 시 현장명으로 검색
                     const siteNameOnly = siteName.split(' / ')[0];
                     setSearchTerm(siteNameOnly);
-                    console.log('현장칩 더블클릭으로 검색어 설정:', siteNameOnly);
+                    console.log('현장 더블클릭으로 검색어 설정:', siteNameOnly);
                   }}
                   sx={{
-                    backgroundColor: submissionStatusFilter === '제출대기' ? '#d32f2f' : '#ef5350',
-                    color: '#fff',
-                    fontSize: '1.2rem',
-                    height: '36px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    p: 0.8,
+                    borderRadius: 1,
                     cursor: 'pointer',
-                    border: submissionStatusFilter === '제출대기' ? '2px solid #fff' : 'none',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
                     '&:hover': {
-                      backgroundColor: '#d32f2f'
-                    },
-                    '& .MuiChip-label': {
-                      fontSize: '1.2rem',
-                      fontWeight: 600
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
                     }
                   }}
                   title="클릭: 미제출 필터, 더블클릭: 현장명 검색"
-                />
+                >
+                  <Typography variant="body2" sx={{ color: '#ef5350', fontWeight: 'bold', minWidth: '15px', fontSize: '0.9rem' }}>
+                    {index + 1}.
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#ef5350', fontWeight: 500, fontSize: '0.9rem' }}>
+                    {siteName.split(' / ')[0]}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#fff', fontWeight: 500, fontSize: '0.9rem' }}>
+                    / {siteName.split(' / ')[1]}
+                  </Typography>
+                </Box>
               ))}
             </Box>
           </Paper>
@@ -1012,7 +1017,7 @@ const Estimates = () => {
       </Box>
 
       {/* 헤더 */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
         <Box sx={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -1137,7 +1142,7 @@ const Estimates = () => {
       </Box>
 
       {/* 검색 및 정렬 */}
-      <Box sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
         <TextField
           placeholder="견적 검색..."
           value={searchTerm}
@@ -1266,10 +1271,18 @@ const Estimates = () => {
       </Box>
 
       {/* 견적 테이블 */}
-      <TableContainer component={Paper} sx={{ backgroundColor: '#2a2a2a', maxHeight: '60vh' }}>
-        <Table>
+      <TableContainer component={Paper} sx={{ 
+        backgroundColor: '#2a2a2a', 
+        maxHeight: '60vh',
+        '&::-webkit-scrollbar': {
+          display: 'none'
+        },
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none'
+      }}>
+        <Table size="small">
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#333', '& .MuiTableCell-root': { py: 1.5 } }}>
+            <TableRow sx={{ backgroundColor: '#333', '& .MuiTableCell-root': { py: 0.8 } }}>
               <TableCell sx={{ color: '#fff', fontWeight: 600, width: 80 }}>NO.</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('receptionDate')}>
                 접수일 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
@@ -1303,7 +1316,7 @@ const Estimates = () => {
           </TableHead>
           <TableBody>
             {currentEstimates.map((estimate, index) => (
-              <TableRow key={estimate.id} sx={{ '&:hover': { backgroundColor: '#333' }, '& .MuiTableCell-root': { py: 1.5 } }}>
+              <TableRow key={estimate.id} sx={{ '&:hover': { backgroundColor: '#333' }, '& .MuiTableCell-root': { py: 0.8 } }}>
                 <TableCell sx={{ color: '#fff' }}>{filteredEstimates.length - filteredEstimates.findIndex(e => e.id === estimate.id)}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{estimate.receptionDate}</TableCell>
                 <TableCell>

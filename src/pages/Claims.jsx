@@ -76,6 +76,7 @@ const Claims = () => {
   
   // 상태 관리
   const [claims, setClaims] = useState([]);
+  const [allClaims, setAllClaims] = useState([]); // 모든 월의 데이터
   const [filteredClaims, setFilteredClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -316,31 +317,56 @@ const Claims = () => {
     return `${year}년 ${String(parseInt(month)).padStart(2, '0')}월`;
   };
 
-  // 월별 청구대기 개수 계산 (실시간 업데이트)
+  // 월별 청구대기 개수 계산 (실시간 업데이트) - 모든 월 표시
   const monthlyPendingCounts = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const monthlyCounts = {};
     
-    // 1월부터 12월까지 초기화
+    // 1월부터 12월까지 모두 초기화 (0으로 시작)
     for (let i = 1; i <= 12; i++) {
       const monthStr = `${currentYear}-${String(i).padStart(2, '0')}`;
       monthlyCounts[monthStr] = 0;
     }
     
-    // 청구대기 상태인 항목들만 카운트
-    claims.forEach(claim => {
-      if (claim.claimStatus === 'X' && claim.claimMonth) {
-        if (monthlyCounts.hasOwnProperty(claim.claimMonth)) {
-          monthlyCounts[claim.claimMonth]++;
+    // 모든 월의 데이터에서 청구대기 상태인 항목들만 카운트 (청구완료와 이월 제외)
+    allClaims.forEach(claim => {
+      if (claim.claimMonth) {
+        // 청구완료와 이월이 아닌 모든 항목을 청구대기로 카운트
+        if (claim.claimStatus !== 'O' && claim.claimStatus !== '청구완료' && claim.claimStatus !== '이월') {
+          if (monthlyCounts.hasOwnProperty(claim.claimMonth)) {
+            monthlyCounts[claim.claimMonth]++;
+          }
         }
       }
     });
     
-    console.log('월별 청구대기 개수:', monthlyPendingCounts);
-    console.log('전체 claims 데이터:', claims);
+    console.log('월별 청구대기 개수:', monthlyCounts);
+    console.log('전체 allClaims 데이터 샘플:', allClaims.slice(0, 3).map(c => ({
+      siteName: c.siteName,
+      claimMonth: c.claimMonth,
+      claimStatus: c.claimStatus
+    })));
+    console.log('청구대기 상태별 개수:', {
+      'X': allClaims.filter(c => c.claimStatus === 'X').length,
+      '청구대기': allClaims.filter(c => c.claimStatus === '청구대기').length,
+      'O': allClaims.filter(c => c.claimStatus === 'O').length,
+      '청구완료': allClaims.filter(c => c.claimStatus === '청구완료').length,
+      '이월': allClaims.filter(c => c.claimStatus === '이월').length
+    });
     
     return monthlyCounts;
-  }, [claims]);
+  }, [allClaims]);
+
+  // 월 변경 시 현재 월 데이터 필터링
+  useEffect(() => {
+    if (currentMonth && allClaims.length > 0) {
+      console.log('월 변경됨:', currentMonth);
+      const currentMonthClaims = allClaims.filter(claim => claim.claimMonth === currentMonth);
+      console.log(`📊 현재 월 (${currentMonth}) 데이터:`, currentMonthClaims.length, '개');
+      setClaims(currentMonthClaims);
+      setFilteredClaims(currentMonthClaims);
+    }
+  }, [currentMonth, allClaims]);
 
   const getPreviousMonth = (monthStr) => {
     const [year, month] = monthStr.split('-');
@@ -422,9 +448,9 @@ const Claims = () => {
     
     try {
       console.log('subscribeToClaims 함수 호출 시작');
-      const unsubscribe = subscribeToClaims((claims) => {
-        console.log(`📊 Claims 데이터 수신 (${currentMonth}):`, claims.length, '개');
-        console.log('📋 수신된 데이터:', claims.map(c => ({
+      const unsubscribe = subscribeToClaims((allClaims) => {
+        console.log(`📊 모든 Claims 데이터 수신:`, allClaims.length, '개');
+        console.log('📋 수신된 데이터:', allClaims.map(c => ({
           id: c.id,
           siteName: c.siteName,
           claimMonth: c.claimMonth,
@@ -433,10 +459,18 @@ const Claims = () => {
           isCarryover: c.isCarryover,
           carryoverFrom: c.carryoverFrom
         })));
-        setClaims(claims);
-        setFilteredClaims(claims);
+        
+        // 모든 데이터 저장
+        setAllClaims(allClaims);
+        
+        // 현재 월의 데이터만 필터링
+        const currentMonthClaims = allClaims.filter(claim => claim.claimMonth === currentMonth);
+        console.log(`📊 현재 월 (${currentMonth}) 데이터:`, currentMonthClaims.length, '개');
+        
+        setClaims(currentMonthClaims);
+        setFilteredClaims(currentMonthClaims);
         setLoading(false);
-      }, currentMonth);
+      }, null); // null을 전달하여 모든 데이터 가져오기
 
       console.log('subscribeToClaims 함수 호출 완료, unsubscribe 함수 반환됨');
 
@@ -1847,42 +1881,42 @@ const Claims = () => {
               
               {/* 오른쪽: 스마트 카드 */}
               <Box sx={{ display: 'flex', gap: 1 }}>
-                <Card sx={{ backgroundColor: '#444', color: 'white', minWidth: '80px' }}>
-                  <CardContent sx={{ textAlign: 'center', p: 1 }}>
-                    <Typography variant="h6" sx={{ color: '#90caf9' }}>{stats.total}</Typography>
-                    <Typography variant="caption">전체</Typography>
+                <Card sx={{ backgroundColor: '#444', color: 'white', minWidth: '120px' }}>
+                  <CardContent sx={{ textAlign: 'center', p: 0 }}>
+                    <Typography variant="h5" sx={{ color: '#90caf9', fontWeight: 'bold', mb: 0.5, pt: '10px' }}>{stats.total}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>전체</Typography>
                   </CardContent>
                 </Card>
-                <Card sx={{ backgroundColor: '#444', color: 'white', minWidth: '80px' }}>
-                  <CardContent sx={{ textAlign: 'center', p: 1 }}>
-                    <Typography variant="h6" sx={{ color: '#4caf50' }}>{stats.claimed}</Typography>
-                    <Typography variant="caption">완료</Typography>
+                <Card sx={{ backgroundColor: '#444', color: 'white', minWidth: '120px' }}>
+                  <CardContent sx={{ textAlign: 'center', p: 0 }}>
+                    <Typography variant="h5" sx={{ color: '#4caf50', fontWeight: 'bold', mb: 0.5, pt: '10px' }}>{stats.claimed}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>완료</Typography>
                   </CardContent>
                 </Card>
-                <Card sx={{ backgroundColor: '#444', color: 'white', minWidth: '80px' }}>
-                  <CardContent sx={{ textAlign: 'center', p: 1 }}>
-                    <Typography variant="h6" sx={{ color: '#f44336' }}>{stats.notClaimed}</Typography>
-                    <Typography variant="caption">이월</Typography>
+                <Card sx={{ backgroundColor: '#444', color: 'white', minWidth: '120px' }}>
+                  <CardContent sx={{ textAlign: 'center', p: 0 }}>
+                    <Typography variant="h5" sx={{ color: '#f44336', fontWeight: 'bold', mb: 0.5, pt: '10px' }}>{stats.notClaimed}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>이월</Typography>
                   </CardContent>
                 </Card>
-                <Card sx={{ backgroundColor: '#444', color: 'white', minWidth: '100px' }}>
-                  <CardContent sx={{ textAlign: 'center', p: 1 }}>
-                    <Typography variant="h6" sx={{ color: '#ff9800' }}>
+                <Card sx={{ backgroundColor: '#444', color: 'white', minWidth: '180px' }}>
+                  <CardContent sx={{ textAlign: 'center', p: 0 }}>
+                    <Typography variant="h5" sx={{ color: '#ff9800', fontWeight: 'bold', mb: 0.5, pt: '10px' }}>
                       {formatAmount(stats.totalAmount)}
                     </Typography>
-                    <Typography variant="caption">총액</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>총액</Typography>
                   </CardContent>
                 </Card>
               </Box>
             </Box>
             
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
               <Typography variant="body1" sx={{ color: '#ccc' }}>
                 월별 청구예정을 관리하고 기성 등록과 연동하는 공간입니다.
               </Typography>
               
               {/* 월별 청구대기 개수 표시 (설명 텍스트와 같은 라인, 오른쪽 정렬) */}
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                 {(() => {
                   // 월별로 정렬하여 일관된 순서 유지
                   return Object.entries(monthlyPendingCounts)
@@ -1900,22 +1934,18 @@ const Claims = () => {
                             gap: 0.8,
                             px: 1.5,
                             py: 0.8,
-                            borderRadius: 1,
+                            borderRadius: 1.5,
                             backgroundColor: isCurrentMonth ? 'rgba(144, 202, 249, 0.2)' : 'rgba(255, 255, 255, 0.1)',
                             border: isCurrentMonth ? '1px solid #90caf9' : '1px solid transparent',
                             transition: 'all 0.3s ease',
                             cursor: 'pointer',
                             '&:hover': {
                               backgroundColor: isCurrentMonth ? 'rgba(144, 202, 249, 0.3)' : 'rgba(255, 255, 255, 0.2)',
-                              transform: 'scale(1.05)'
                             }
                           }}
                         >
-                          <Typography variant="body2" sx={{ color: '#fff', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                            {parseInt(month)}월
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: count > 0 ? '#ff9800' : '#90caf9', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                            {count}
+                          <Typography variant="body1" sx={{ color: isCurrentMonth ? '#90caf9' : '#ccc', fontWeight: 'bold' }}>
+                            {parseInt(month)}월 {count > 0 && <span style={{ color: '#ff4444' }}>{count}</span>}
                           </Typography>
                         </Box>
                       );
@@ -1928,7 +1958,7 @@ const Claims = () => {
       </Box>
 
             {/* 검색 및 필터 - 모바일에서는 한 줄에 배치 */}
-      <Paper sx={{ backgroundColor: '#2d3748', p: 2, mb: 3 }}>
+      <Paper sx={{ backgroundColor: '#2d3748', p: 2, mb: 2 }}>
         {isMobile ? (
           // 모바일: 검색창과 새청구 버튼을 한 줄에 배치
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -2134,7 +2164,7 @@ const Claims = () => {
               이전
             </Button>
             
-            <Typography variant="body2" sx={{ color: '#fff', fontWeight: 'bold', minWidth: '80px', textAlign: 'center' }}>
+            <Typography variant="body1" sx={{ color: '#fff', fontWeight: 'bold', minWidth: '80px', textAlign: 'center', fontSize: '1.1rem' }}>
               {getNavigationMonthLabel(currentMonth)}
             </Typography>
             
@@ -2216,7 +2246,7 @@ const Claims = () => {
               >
                 이전
               </Button>
-              <Typography variant="body2" sx={{ color: 'white', px: 2, fontWeight: 'bold' }}>
+              <Typography variant="body1" sx={{ color: 'white', px: 2, fontWeight: 'bold', fontSize: '1.1rem' }}>
                 {getNavigationMonthLabel(currentMonth)}
               </Typography>
               <Button
