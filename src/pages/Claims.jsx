@@ -310,6 +310,12 @@ const Claims = () => {
     return `${year}년 ${String(parseInt(month)).padStart(2, '0')}월 청구예정LIST`;
   };
 
+  // 네비게이션용 간단한 월 표시
+  const getNavigationMonthLabel = (monthStr) => {
+    const [year, month] = monthStr.split('-');
+    return `${year}년 ${String(parseInt(month)).padStart(2, '0')}월`;
+  };
+
   // 월별 청구대기 개수 계산
   const getMonthlyPendingCounts = () => {
     const currentYear = new Date().getFullYear();
@@ -1754,38 +1760,6 @@ const Claims = () => {
                 📋 {getMonthLabel(currentMonth).replace('LIST', '')}
               </Typography>
             </Box>
-            {/* 월별 청구대기 개수 표시 (모바일) */}
-            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {(() => {
-                const monthlyCounts = getMonthlyPendingCounts();
-                return Object.entries(monthlyCounts).map(([monthStr, count]) => {
-                  const [year, month] = monthStr.split('-');
-                  const isCurrentMonth = monthStr === currentMonth;
-                  return (
-                    <Box
-                      key={monthStr}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        px: 1.2,
-                        py: 0.6,
-                        borderRadius: 0.8,
-                        backgroundColor: isCurrentMonth ? 'rgba(144, 202, 249, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-                        border: isCurrentMonth ? '1px solid #90caf9' : '1px solid transparent'
-                      }}
-                    >
-                      <Typography variant="body2" sx={{ color: '#fff', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                        {parseInt(month)}월
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: count > 0 ? '#ff9800' : '#90caf9', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                        {count}
-                      </Typography>
-                    </Box>
-                  );
-                });
-              })()}
-            </Box>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button
                 variant="outlined"
@@ -1800,20 +1774,20 @@ const Claims = () => {
                 돌아가기
               </Button>
             </Box>
-          </Box>
-        ) : (
-          // PC 버전: 제목과 스마트카드 같은 줄
-          <>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography variant="h4" sx={{ color: '#90caf9', fontWeight: 'bold' }}>
-                  📋 {getMonthLabel(currentMonth)}
-                </Typography>
-                {/* 월별 청구대기 개수 표시 */}
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  {(() => {
-                    const monthlyCounts = getMonthlyPendingCounts();
-                    return Object.entries(monthlyCounts).map(([monthStr, count]) => {
+            
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 3 }}>
+              <Typography variant="body1" sx={{ color: '#ccc', textAlign: 'center' }}>
+                월별 청구예정을 관리하고 기성 등록과 연동하는 공간입니다.
+              </Typography>
+              
+              {/* 월별 청구대기 개수 표시 (모바일) */}
+              <Box sx={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+                {(() => {
+                  const monthlyCounts = getMonthlyPendingCounts();
+                  // 월별로 정렬하여 일관된 순서 유지
+                  return Object.entries(monthlyCounts)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([monthStr, count]) => {
                       const [year, month] = monthStr.split('-');
                       const isCurrentMonth = monthStr === currentMonth;
                       return (
@@ -1822,26 +1796,35 @@ const Claims = () => {
                           sx={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 0.8,
-                            px: 1.5,
-                            py: 0.8,
-                            borderRadius: 1,
+                            gap: 0.5,
+                            px: 1.2,
+                            py: 0.6,
+                            borderRadius: 0.8,
                             backgroundColor: isCurrentMonth ? 'rgba(144, 202, 249, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-                            border: isCurrentMonth ? '1px solid #90caf9' : '1px solid transparent'
+                            border: isCurrentMonth ? '1px solid #90caf9' : '1px solid transparent',
+                            transition: 'all 0.3s ease'
                           }}
                         >
-                          <Typography variant="body2" sx={{ color: '#fff', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                          <Typography variant="body2" sx={{ color: '#fff', fontSize: '0.8rem', fontWeight: 'bold' }}>
                             {parseInt(month)}월
                           </Typography>
-                          <Typography variant="body2" sx={{ color: count > 0 ? '#ff9800' : '#90caf9', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                          <Typography variant="body2" sx={{ color: count > 0 ? '#ff9800' : '#90caf9', fontSize: '0.8rem', fontWeight: 'bold' }}>
                             {count}
                           </Typography>
                         </Box>
                       );
                     });
-                  })()}
-                </Box>
+                })()}
               </Box>
+            </Box>
+          </Box>
+        ) : (
+          // PC 버전: 제목과 스마트카드 같은 줄
+          <>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="h4" sx={{ color: '#90caf9', fontWeight: 'bold' }}>
+                📋 {getMonthLabel(currentMonth)}
+              </Typography>
               
               {/* 오른쪽: 스마트 카드 */}
               <Box sx={{ display: 'flex', gap: 1 }}>
@@ -1873,9 +1856,49 @@ const Claims = () => {
                 </Card>
               </Box>
             </Box>
-            <Typography variant="body1" sx={{ color: '#ccc', mb: 3 }}>
-              월별 청구예정을 관리하고 기성 등록과 연동하는 공간입니다.
-            </Typography>
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+              <Typography variant="body1" sx={{ color: '#ccc' }}>
+                월별 청구예정을 관리하고 기성 등록과 연동하는 공간입니다.
+              </Typography>
+              
+              {/* 월별 청구대기 개수 표시 (설명 텍스트와 같은 라인, 오른쪽 정렬) */}
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {(() => {
+                  const monthlyCounts = getMonthlyPendingCounts();
+                  // 월별로 정렬하여 일관된 순서 유지
+                  return Object.entries(monthlyCounts)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([monthStr, count]) => {
+                      const [year, month] = monthStr.split('-');
+                      const isCurrentMonth = monthStr === currentMonth;
+                      return (
+                        <Box
+                          key={monthStr}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.8,
+                            px: 1.5,
+                            py: 0.8,
+                            borderRadius: 1,
+                            backgroundColor: isCurrentMonth ? 'rgba(144, 202, 249, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                            border: isCurrentMonth ? '1px solid #90caf9' : '1px solid transparent',
+                            transition: 'all 0.3s ease'
+                          }}
+                        >
+                          <Typography variant="body2" sx={{ color: '#fff', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                            {parseInt(month)}월
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: count > 0 ? '#ff9800' : '#90caf9', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                            {count}
+                          </Typography>
+                        </Box>
+                      );
+                    });
+                })()}
+              </Box>
+            </Box>
           </>
         )}
       </Box>
@@ -2088,7 +2111,7 @@ const Claims = () => {
             </Button>
             
             <Typography variant="body2" sx={{ color: '#fff', fontWeight: 'bold', minWidth: '80px', textAlign: 'center' }}>
-              {getMonthLabel(currentMonth)}
+              {getNavigationMonthLabel(currentMonth)}
             </Typography>
             
             <Button
@@ -2170,7 +2193,7 @@ const Claims = () => {
                 이전
               </Button>
               <Typography variant="body2" sx={{ color: 'white', px: 2, fontWeight: 'bold' }}>
-                {getMonthLabel(currentMonth).replace('LIST', '')}
+                {getNavigationMonthLabel(currentMonth)}
               </Typography>
               <Button
                 variant="outlined"
