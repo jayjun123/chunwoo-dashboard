@@ -62,6 +62,7 @@ import CompanyDistribution from './pages/CompanyDistribution';
 import SettlementManagement from './pages/SettlementManagement';
 import SettlementDetail from './pages/SettlementDetail';
 import Mapping from './pages/Mapping';
+import MobileRender from './pages/MobileRender';
 import { URL_ALIASES, expandUrl } from './utils/urlShortener';
 import errorHandler from './utils/errorHandler';
 
@@ -546,6 +547,7 @@ const App = React.memo(() => {
         <Route path="/set" element={<Navigate to="/settings" replace />} />
                       <Route path="/cd" element={<Navigate to="/company-distribution" replace />} />
                       <Route path="/home" element={<Navigate to="/landing" replace />} />
+                      <Route path="/mobile" element={<Navigate to="/mobile-render" replace />} />
                       
                       {/* 기존 라우트들 */}
                       <Route path="/landing" element={
@@ -1203,6 +1205,14 @@ const App = React.memo(() => {
                                 <EstimateAnalysis />
                               </Layout>
                             )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/mobile-render"
+                        element={
+                          <ProtectedRoute>
+                            <MobileRender />
                           </ProtectedRoute>
                         }
                       />
