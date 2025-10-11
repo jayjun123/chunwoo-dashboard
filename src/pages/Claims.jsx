@@ -336,6 +336,9 @@ const Claims = () => {
       }
     });
     
+    console.log('월별 청구대기 개수:', monthlyPendingCounts);
+    console.log('전체 claims 데이터:', claims);
+    
     return monthlyCounts;
   }, [claims]);
 
