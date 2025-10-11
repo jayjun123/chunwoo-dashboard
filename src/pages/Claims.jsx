@@ -2271,19 +2271,17 @@ const Claims = () => {
                           <Box sx={{ display: 'flex', gap: 0.5 }}>
                             <Tooltip title="기성등록">
                               <Button
-                                variant="outlined"
+                                variant="text"
                                 size="small"
                                 onClick={() => handleProgressRegistration(claim)}
                                 sx={{ 
                                   color: '#4caf50',
-                                  borderColor: '#4caf50',
                                   fontSize: '1.2rem',
                                   fontWeight: 'bold',
                                   minWidth: '32px',
                                   width: '32px',
                                   height: '32px',
                                   '&:hover': {
-                                    borderColor: '#45a049',
                                     backgroundColor: 'rgba(76, 175, 80, 0.1)'
                                   }
                                 }}
