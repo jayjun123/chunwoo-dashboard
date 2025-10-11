@@ -588,9 +588,20 @@ const Claims = () => {
       filtered = filtered.filter(claim => claim.claimStatus === filters.claimStatus);
     }
 
-    // 정렬 (createdAt 기준으로 최신 입력순 정렬 추가)
+    // 정렬 (청구대기 항목을 맨 위로, 그 다음 createdAt 기준으로 최신 입력순 정렬)
     filtered.sort((a, b) => {
-      // 먼저 createdAt 기준으로 최신 입력순 정렬
+      // 먼저 청구대기 상태('X')인 항목을 맨 위로
+      const aIsPending = a.claimStatus === 'X';
+      const bIsPending = b.claimStatus === 'X';
+      
+      if (aIsPending && !bIsPending) {
+        return -1; // a가 청구대기면 a를 위로
+      }
+      if (!aIsPending && bIsPending) {
+        return 1; // b가 청구대기면 b를 위로
+      }
+      
+      // 둘 다 청구대기이거나 둘 다 청구대기가 아니면 createdAt 기준으로 정렬
       const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
       const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
       const dateComparison = dateB - dateA;
@@ -1793,6 +1804,7 @@ const Claims = () => {
                       return (
                         <Box
                           key={monthStr}
+                          onClick={() => setCurrentMonth(monthStr)}
                           sx={{
                             display: 'flex',
                             alignItems: 'center',
@@ -1802,7 +1814,12 @@ const Claims = () => {
                             borderRadius: 0.8,
                             backgroundColor: isCurrentMonth ? 'rgba(144, 202, 249, 0.2)' : 'rgba(255, 255, 255, 0.1)',
                             border: isCurrentMonth ? '1px solid #90caf9' : '1px solid transparent',
-                            transition: 'all 0.3s ease'
+                            transition: 'all 0.3s ease',
+                            cursor: 'pointer',
+                            '&:hover': {
+                              backgroundColor: isCurrentMonth ? 'rgba(144, 202, 249, 0.3)' : 'rgba(255, 255, 255, 0.2)',
+                              transform: 'scale(1.05)'
+                            }
                           }}
                         >
                           <Typography variant="body2" sx={{ color: '#fff', fontSize: '0.8rem', fontWeight: 'bold' }}>
@@ -1875,6 +1892,7 @@ const Claims = () => {
                       return (
                         <Box
                           key={monthStr}
+                          onClick={() => setCurrentMonth(monthStr)}
                           sx={{
                             display: 'flex',
                             alignItems: 'center',
@@ -1884,7 +1902,12 @@ const Claims = () => {
                             borderRadius: 1,
                             backgroundColor: isCurrentMonth ? 'rgba(144, 202, 249, 0.2)' : 'rgba(255, 255, 255, 0.1)',
                             border: isCurrentMonth ? '1px solid #90caf9' : '1px solid transparent',
-                            transition: 'all 0.3s ease'
+                            transition: 'all 0.3s ease',
+                            cursor: 'pointer',
+                            '&:hover': {
+                              backgroundColor: isCurrentMonth ? 'rgba(144, 202, 249, 0.3)' : 'rgba(255, 255, 255, 0.2)',
+                              transform: 'scale(1.05)'
+                            }
                           }}
                         >
                           <Typography variant="body2" sx={{ color: '#fff', fontSize: '0.9rem', fontWeight: 'bold' }}>
