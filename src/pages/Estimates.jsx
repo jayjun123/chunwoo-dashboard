@@ -743,61 +743,165 @@ const Estimates = () => {
     return pages;
   };
 
-  // 엑셀 다운로드
-  const handleDownload = () => {
-    // 데이터가 없어도 기본 헤더를 포함한 데이터 생성
-    const data = filteredEstimates.length > 0 ? filteredEstimates.map((estimate, index) => ({
-      'NO.': filteredEstimates.length - filteredEstimates.findIndex(e => e.id === estimate.id),
-      '접수일': estimate.receptionDate || '',
-      '의뢰자': estimate.requester || '',
-      '제출방법': estimate.submissionMethod || '',
-      '회사명': estimate.company || '',
-      '현장명': estimate.siteName || '',
-      '요청내용': estimate.requestContent || '',
-      '제출기한': estimate.submissionDeadline || '',
-      '제출여부': estimate.submissionStatus || '',
-      '비고': estimate.notes || '',
-      '수주여부': estimate.contractStatus || ''
-    })) : [
-      {
-        'NO.': '',
-        '접수일': '',
-        '의뢰자': '',
-        '제출방법': '',
-        '회사명': '',
-        '현장명': '',
-        '요청내용': '',
-        '제출기한': '',
-        '제출여부': '',
-        '비고': '',
-        '수주여부': ''
-      }
-    ];
-
-    const ws = XLSX.utils.json_to_sheet(data);
-    
-    // 테두리 스타일 설정
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    for (let R = range.s.r; R <= range.e.r; ++R) {
-      for (let C = range.s.c; C <= range.e.c; ++C) {
-        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
-        if (!ws[cell_address]) {
-          ws[cell_address] = { v: '', t: 's' };
-        }
-        ws[cell_address].s = {
-          border: {
-            top: { style: 'thin', color: { rgb: '000000' } },
-            bottom: { style: 'thin', color: { rgb: '000000' } },
-            left: { style: 'thin', color: { rgb: '000000' } },
-            right: { style: 'thin', color: { rgb: '000000' } }
-          }
+  // 엑셀 다운로드 (ExcelJS 사용)
+  const handleDownload = async () => {
+    try {
+      // ExcelJS 동적 import
+      const ExcelJS = await import('exceljs');
+      
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('견적목록');
+      
+      // 제목 행 추가 (A1:K1 병합)
+      worksheet.mergeCells('A1:K1');
+      const titleCell = worksheet.getCell('A1');
+      titleCell.value = `천우건업(주) 견적목록 [${new Date().toLocaleDateString('ko-KR')}]`;
+      titleCell.font = { size: 18, bold: true };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
+      };
+      titleCell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+      
+      // 빈 행 추가
+      const emptyRow = worksheet.getRow(2);
+      emptyRow.height = 10;
+      
+      // 헤더 설정 (3행)
+      const headerRow = worksheet.getRow(3);
+      headerRow.height = 25;
+      const headers = ['NO.', '접수일', '의뢰자', '제출방법', '회사명', '현장명', '요청내용', '제출기한', '제출여부', '비고', '수주여부'];
+      headers.forEach((header, index) => {
+        const cell = headerRow.getCell(index + 1);
+        cell.value = header;
+        cell.font = { size: 12, bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF4472C4' }
         };
-      }
+        cell.font = { size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+      
+      // 데이터 행 추가
+      const data = filteredEstimates.length > 0 ? filteredEstimates.map((estimate, index) => ({
+        'NO.': filteredEstimates.length - filteredEstimates.findIndex(e => e.id === estimate.id),
+        '접수일': estimate.receptionDate || '',
+        '의뢰자': estimate.requester || '',
+        '제출방법': estimate.submissionMethod || '',
+        '회사명': estimate.company || '',
+        '현장명': estimate.siteName || '',
+        '요청내용': estimate.requestContent || '',
+        '제출기한': estimate.submissionDeadline || '',
+        '제출여부': estimate.submissionStatus || '',
+        '비고': estimate.notes || '',
+        '수주여부': estimate.contractStatus || ''
+      })) : [];
+      
+      data.forEach((row, index) => {
+        const dataRow = worksheet.getRow(index + 4);
+        dataRow.height = 20;
+        
+        const rowData = [
+          row['NO.'] || '',
+          row['접수일'] || '',
+          row['의뢰자'] || '',
+          row['제출방법'] || '',
+          row['회사명'] || '',
+          row['현장명'] || '',
+          row['요청내용'] || '',
+          row['제출기한'] || '',
+          row['제출여부'] || '',
+          row['비고'] || '',
+          row['수주여부'] || ''
+        ];
+        
+        rowData.forEach((value, colIndex) => {
+          const cell = dataRow.getCell(colIndex + 1);
+          cell.value = value;
+          cell.font = { size: 10 };
+          cell.alignment = { 
+            horizontal: colIndex === 0 ? 'center' : 'left', 
+            vertical: 'middle' 
+          };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+          
+          // 제출여부 컬럼 - 특별 스타일링
+          if (colIndex === 8) {
+            if (value === '제출완료') {
+              cell.font = { size: 10, color: { argb: 'FF008000' }, bold: true };
+            } else if (value === '제출대기') {
+              cell.font = { size: 10, color: { argb: 'FFFF0000' } };
+            }
+          }
+          
+          // 수주여부 컬럼 - 특별 스타일링
+          if (colIndex === 10) {
+            if (value === '수주') {
+              cell.font = { size: 10, color: { argb: 'FF008000' }, bold: true };
+            } else if (value === '미수주') {
+              cell.font = { size: 10, color: { argb: 'FFFF0000' } };
+            }
+          }
+        });
+      });
+      
+      // 컬럼 너비 설정
+      worksheet.columns = [
+        { width: 8 },   // NO.
+        { width: 12 },  // 접수일
+        { width: 15 },  // 의뢰자
+        { width: 12 },  // 제출방법
+        { width: 20 },  // 회사명
+        { width: 25 },  // 현장명
+        { width: 30 },  // 요청내용
+        { width: 12 },  // 제출기한
+        { width: 12 },  // 제출여부
+        { width: 20 },  // 비고
+        { width: 12 }   // 수주여부
+      ];
+      
+      // 파일 다운로드
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      const fileName = `견적목록_${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // 메모리 정리
+      URL.revokeObjectURL(url);
+      
+      setSnackbar({ open: true, message: '견적목록이 엑셀로 다운로드되었습니다.', severity: 'success' });
+    } catch (error) {
+      console.error('엑셀 다운로드 오류:', error);
+      setSnackbar({ open: true, message: '엑셀 다운로드에 실패했습니다.', severity: 'error' });
     }
-    
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '견적목록');
-    XLSX.writeFile(wb, `견적목록_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   // 엑셀 업로드

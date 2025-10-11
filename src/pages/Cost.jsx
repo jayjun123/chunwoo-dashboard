@@ -431,6 +431,9 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
 
   const handleExcelDownload = async () => {
     try {
+      // ExcelJS 동적 import
+      const ExcelJS = await import('exceljs');
+      
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('지출현황');
 
@@ -504,7 +507,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         const baseAmount = Number(cost.totalValue || 0);
         const healthInsuranceTotal = cost.healthInsurance ? 
           cost.healthInsurance.reduce((total, item) => total + (Number(item.amount) || 0), 0) : 0;
-        const totalAmount = baseAmount + healthInsuranceTotal;
+        const rowTotalAmount = baseAmount + healthInsuranceTotal;
 
         const row = worksheet.addRow([
           index + 1, // 순번
@@ -512,7 +515,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
           cost.itemType || '-', // 항목
           cost.sequence || '-', // 차수
           cost.date || '-', // 사용날짜
-          totalAmount, // 총 금액 (기본 금액 + 건강보험 금액)
+          rowTotalAmount, // 총 금액 (기본 금액 + 건강보험 금액)
           cost.paymentType || '-', // 결제방식
           cost.description || '-', // 비고
           healthInsuranceNames, // 건강보험명단
@@ -1559,27 +1562,6 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             alignItems: 'center', 
             gap: 1
           }}>
-            {currentData.length > 0 && (
-              <Button 
-                variant="outlined" 
-                color="error" 
-                startIcon={<DeleteIcon />} 
-                sx={{ 
-                  display: isMobile ? 'none' : 'flex',
-                  borderColor: '#ef5350',
-                  color: '#ef5350',
-                  minHeight: '44px',
-                  height: '44px',
-                  '&:hover': {
-                    borderColor: '#d32f2f',
-                    backgroundColor: 'rgba(239, 83, 80, 0.1)'
-                  }
-                }} 
-                onClick={handleDeleteAll}
-              >
-                전체삭제
-              </Button>
-            )}
             <Button variant="contained" color="success" startIcon={<AddIcon />} sx={{ 
               display: isMobile ? 'none' : 'flex',
               minHeight: '44px',

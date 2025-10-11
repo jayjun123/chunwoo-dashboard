@@ -1268,21 +1268,54 @@ const Claims = () => {
   };
 
 
-  // 엑셀 다운로드 (개선된 버전 - 이미지 형태)
-  const handleExportExcel = () => {
+  // 엑셀 다운로드 (ExcelJS 버전)
+  const handleExportExcel = async () => {
     try {
+      // ExcelJS 동적 import
+      const ExcelJS = await import('exceljs');
+      
       // 현재 월 정보 추출
       const [year, month] = currentMonth.split('-');
       const monthText = `${year}년 ${month}월`;
       
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('청구예정목록');
+
       // 제목 행 추가 (A1:J1 병합)
-      const titleRow = [`${monthText} 청구예정목록`, '', '', '', '', '', '', '', '', ''];
-      
+      worksheet.mergeCells('A1:J1');
+      const titleCell = worksheet.getCell('A1');
+      titleCell.value = `${monthText} 청구예정목록`;
+      titleCell.font = { name: '맑은 고딕', size: 16, bold: true };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE3F2FD' }
+      };
+
       // 헤더 행
-      const headerRow = ['NO.', '현장명', '소장/회사명', '차수', '계약금액', '잔액', '청구 전 기성율(%)', '청구금액', '청구여부', '비고'];
+      const headers = ['NO.', '현장명', '소장/회사명', '차수', '계약금액', '잔액', '청구 전 기성율(%)', '청구금액', '청구여부', '비고'];
+      const headerRow = worksheet.addRow(headers);
       
-      // 데이터 행들 - 천단위 쉼표가 포함된 문자열로 포맷팅
-      const dataRows = filteredClaims.map((claim, index) => {
+      // 헤더 스타일링
+      headerRow.eachCell((cell, colNumber) => {
+        cell.font = { name: '맑은 고딕', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF1976D2' }
+        };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+      });
+
+      // 데이터 행들 추가
+      filteredClaims.forEach((claim, index) => {
         const contractAmount = getContractAmount(claim.siteName) ? Number(getContractAmount(claim.siteName)) : 0;
         const remainingAmount = calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount, claim.isException) ? Number(calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount, claim.isException)) : 0;
         const progressRate = claim.progressRate ? Number(claim.progressRate) : 0;
@@ -1293,7 +1326,7 @@ const Claims = () => {
           return num.toLocaleString('ko-KR');
         };
         
-        return [
+        const row = worksheet.addRow([
           filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id), // NO.
           claim.siteName || '', // 현장명
           claim.manager || '', // 소장/회사명
@@ -1304,154 +1337,55 @@ const Claims = () => {
           formatNumber(claimAmount), // 청구금액 (천단위 쉼표 포함)
           getStatusLabel(claim.claimStatus), // 청구여부
           claim.notes || '' // 비고
-        ];
+        ]);
+        
+        // 데이터 행 스타일링
+        row.eachCell((cell, colNumber) => {
+          cell.font = { name: '맑은 고딕', size: 10 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        });
       });
       
-      // 전체 데이터 배열 생성
-      const allData = [titleRow, [], headerRow, ...dataRows];
-      
-      // 워크북 생성
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet(allData);
-      
-      // A1:J1 병합 설정
-      if (!ws['!merges']) ws['!merges'] = [];
-      ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } });
-      
-
-      
       // 컬럼 너비 설정
-      ws['!cols'] = [
-        { wch: 8 },   // NO.
-        { wch: 35 },  // 현장명
-        { wch: 15 },  // 소장/회사명
-        { wch: 8 },   // 차수
-        { wch: 15 },  // 계약금액
-        { wch: 15 },  // 잔액
-        { wch: 15 },  // 청구 전 기성율(%)
-        { wch: 15 },  // 청구금액
-        { wch: 12 },  // 청구여부
-        { wch: 20 }   // 비고
+      worksheet.columns = [
+        { width: 8 },   // NO.
+        { width: 35 },  // 현장명
+        { width: 15 },  // 소장/회사명
+        { width: 8 },   // 차수
+        { width: 15 },  // 계약금액
+        { width: 15 },  // 잔액
+        { width: 15 },  // 청구 전 기성율(%)
+        { width: 15 },  // 청구금액
+        { width: 12 },  // 청구여부
+        { width: 20 }   // 비고
       ];
       
-      // 스타일링 적용
-      const range = XLSX.utils.decode_range(ws['!ref']);
-      
-      // 제목 행 스타일링 (A1:J1 병합)
-      const titleCell = XLSX.utils.encode_cell({ r: 0, c: 0 });
-      if (ws[titleCell]) {
-        ws[titleCell].s = {
-          font: {
-            name: '맑은 고딕',
-            sz: 16,
-            bold: true,
-            color: { rgb: '000000' }
-          },
-          fill: {
-            fgColor: { rgb: 'E6E6E6' }
-          },
-          alignment: {
-            horizontal: 'center',
-            vertical: 'center'
-          },
-          border: {
-            top: { style: 'thin', color: { rgb: '000000' } },
-            bottom: { style: 'thin', color: { rgb: '000000' } },
-            left: { style: 'thin', color: { rgb: '000000' } },
-            right: { style: 'thin', color: { rgb: '000000' } }
-          }
-        };
-      }
-      
-      // 헤더 행 스타일링 (3행)
-      for (let col = 0; col <= 9; col++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: 2, c: col });
-        if (ws[cellAddress]) {
-          ws[cellAddress].s = {
-            font: {
-              name: '맑은 고딕',
-              sz: 11,
-              bold: true,
-              color: { rgb: 'FFFFFF' }
-            },
-            fill: {
-              fgColor: { rgb: '4472C4' }
-            },
-            alignment: {
-              horizontal: 'center',
-              vertical: 'center'
-            },
-            border: {
-              top: { style: 'thin', color: { rgb: '000000' } },
-              bottom: { style: 'thin', color: { rgb: '000000' } },
-              left: { style: 'thin', color: { rgb: '000000' } },
-              right: { style: 'thin', color: { rgb: '000000' } }
-            }
-          };
-        }
-      }
-      
-      // 데이터 행 스타일링 (4행부터)
-      for (let row = 3; row <= range.e.r; row++) {
-        for (let col = 0; col <= 9; col++) {
-          const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-          if (ws[cellAddress]) {
-            ws[cellAddress].s = {
-              font: {
-                name: '맑은 고딕',
-                sz: 10,
-                color: { rgb: '000000' }
-              },
-              alignment: {
-                horizontal: 'center',
-                vertical: 'center'
-              },
-              border: {
-                top: { style: 'thin', color: { rgb: '000000' } },
-                bottom: { style: 'thin', color: { rgb: '000000' } },
-                left: { style: 'thin', color: { rgb: '000000' } },
-                right: { style: 'thin', color: { rgb: '000000' } }
-              }
-            };
-            
-            // 숫자 컬럼들 (계약금액, 잔액, 청구금액) - 오른쪽 정렬
-            if (col === 4 || col === 5 || col === 7) {
-              ws[cellAddress].s.alignment.horizontal = 'right';
-            }
-            
-            // 현장명과 비고 컬럼 - 왼쪽 정렬
-            if (col === 1 || col === 9) {
-              ws[cellAddress].s.alignment.horizontal = 'left';
-            }
-            
-            // 청구여부 컬럼 - 특별 스타일링
-            if (col === 8) {
-              if (ws[cellAddress].v === '청구완료') {
-                ws[cellAddress].s.font.color = { rgb: '008000' }; // 녹색
-                ws[cellAddress].s.font.bold = true;
-              } else if (ws[cellAddress].v === '청구대기') {
-                ws[cellAddress].s.font.color = { rgb: 'FF0000' }; // 빨간색
-              }
-            }
-          }
-        }
-      }
-      
       // 행 높이 설정
-      ws['!rows'] = [];
-      ws['!rows'][0] = { hpt: 30 }; // 제목 행 높이
-      ws['!rows'][1] = { hpt: 15 }; // 빈 행 높이
-      ws['!rows'][2] = { hpt: 25 }; // 헤더 행 높이
-      for (let i = 3; i <= range.e.r; i++) {
-        ws['!rows'][i] = { hpt: 20 }; // 데이터 행 높이
-      }
-      
-      // 워크시트를 워크북에 추가
-      XLSX.utils.book_append_sheet(wb, ws, '청구예정목록');
+      worksheet.getRow(1).height = 30; // 제목 행 높이
+      worksheet.getRow(2).height = 25; // 헤더 행 높이
       
       // 파일 다운로드
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
       const fileName = `${monthText}_청구예정목록_${new Date().toISOString().slice(0, 10)}.xlsx`;
-      XLSX.writeFile(wb, fileName);
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // 메모리 정리
+      URL.revokeObjectURL(url);
       
       setSnackbar({ open: true, message: '청구예정목록이 엑셀로 다운로드되었습니다.', severity: 'success' });
     } catch (error) {

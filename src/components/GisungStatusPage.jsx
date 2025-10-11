@@ -697,8 +697,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     };
   }, [filteredAndSortedGisung, sites, viewType, selectedSites]);
 
-  // 기성현황 엑셀 다운로드 함수 (원래 기능)
-  const handleExcelDownload = () => {
+  // 기성현황 엑셀 다운로드 함수 (ExcelJS 사용)
+  const handleExcelDownload = async () => {
     try {
       console.log('📊 기성현황 엑셀 다운로드 시작');
       
@@ -709,6 +709,58 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         return;
       }
 
+      // ExcelJS 동적 import
+      const ExcelJS = await import('exceljs');
+      
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('기성현황');
+      
+      // 제목 행 추가 (A1:G1 병합)
+      worksheet.mergeCells('A1:G1');
+      const titleCell = worksheet.getCell('A1');
+      titleCell.value = `천우건업(주) 기성현황 [${new Date().toLocaleDateString('ko-KR')}]`;
+      titleCell.font = { size: 18, bold: true };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
+      };
+      titleCell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+      
+      // 빈 행 추가
+      const emptyRow = worksheet.getRow(2);
+      emptyRow.height = 10;
+      
+      // 헤더 설정 (3행)
+      const headerRow = worksheet.getRow(3);
+      headerRow.height = 25;
+      const headers = ['현장명', '계약금액', '선급금', '전회기성', '기성월', '기성금액', '비고'];
+      headers.forEach((header, index) => {
+        const cell = headerRow.getCell(index + 1);
+        cell.value = header;
+        cell.font = { size: 12, bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF4472C4' }
+        };
+        cell.font = { size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+      
+      // 데이터 행 추가
       const data = filteredAndSortedGisung.map(row => {
         // 각 행의 데이터 유효성 검사
         if (!row || typeof row !== 'object') {
@@ -736,13 +788,65 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       });
 
       console.log('📊 엑셀 데이터 준비 완료:', data.length, '행');
-
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(data);
-      XLSX.utils.book_append_sheet(wb, ws, '기성현황');
       
+      data.forEach((row, index) => {
+        const dataRow = worksheet.getRow(index + 4);
+        dataRow.height = 20;
+        
+        const rowData = [
+          row['현장명'] || '',
+          row['계약금액'] || '',
+          row['선급금'] || '',
+          row['전회기성'] || '',
+          row['기성월'] || '',
+          row['기성금액'] || '',
+          row['비고'] || ''
+        ];
+        
+        rowData.forEach((value, colIndex) => {
+          const cell = dataRow.getCell(colIndex + 1);
+          cell.value = value;
+          cell.font = { size: 10 };
+          cell.alignment = { 
+            horizontal: colIndex === 0 || colIndex === 4 || colIndex === 6 ? 'left' : 'right', 
+            vertical: 'middle' 
+          };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        });
+      });
+      
+      // 컬럼 너비 설정
+      worksheet.columns = [
+        { width: 30 },  // 현장명
+        { width: 15 },  // 계약금액
+        { width: 15 },  // 선급금
+        { width: 15 },  // 전회기성
+        { width: 12 },  // 기성월
+        { width: 15 },  // 기성금액
+        { width: 20 }   // 비고
+      ];
+      
+      // 파일 다운로드
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
       const fileName = `기성현황_${new Date().toISOString().split('T')[0]}.xlsx`;
-      XLSX.writeFile(wb, fileName);
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // 메모리 정리
+      URL.revokeObjectURL(url);
       
       console.log('✅ 기성현황 엑셀 다운로드 완료:', fileName);
     } catch (error) {
