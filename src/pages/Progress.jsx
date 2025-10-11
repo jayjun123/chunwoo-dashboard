@@ -243,16 +243,20 @@ const Progress = () => {
   const [hiddenBars, setHiddenBars] = useState(new Set());
   
   // 범례 클릭 핸들러
-  const handleLegendClick = (dataKey) => {
-    setHiddenBars(prev => {
-      const newHidden = new Set(prev);
-      if (newHidden.has(dataKey)) {
-        newHidden.delete(dataKey);
-      } else {
-        newHidden.add(dataKey);
-      }
-      return newHidden;
-    });
+  const handleLegendClick = (data) => {
+    console.log('범례 클릭:', data);
+    if (data && data.dataKey) {
+      setHiddenBars(prev => {
+        const newHidden = new Set(prev);
+        if (newHidden.has(data.dataKey)) {
+          newHidden.delete(data.dataKey);
+        } else {
+          newHidden.add(data.dataKey);
+        }
+        console.log('숨김 상태 업데이트:', newHidden);
+        return newHidden;
+      });
+    }
   };
   // 강제 리렌더링을 위한 상태
   const [forceUpdate, setForceUpdate] = useState(0);
@@ -1971,10 +1975,54 @@ const Progress = () => {
                       return null;
                     }}
                   />
-                  <Legend 
-                    wrapperStyle={{ fontSize: isMobile ? 14 : 16 }} 
-                    onClick={handleLegendClick}
-                  />
+                  {/* 커스텀 범례 */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    justifyContent: 'center', 
+                    gap: 1, 
+                    mb: 2,
+                    px: 2
+                  }}>
+                    {[
+                      { key: '기성금', color: '#82ca9d', name: '기성금' },
+                      { key: '입금완료', color: '#00bcd4', name: '입금완료' },
+                      { key: '자재비', color: '#ff6b6b', name: '부자재비' },
+                      { key: '노무비', color: '#ffc658', name: '노무비' },
+                      { key: '장비비', color: '#ff9f43', name: '장비비' },
+                      { key: '경비', color: '#4ecdc4', name: '경비' },
+                      { key: '기타', color: '#a084e8', name: '기타' },
+                      { key: '세금', color: '#ff5722', name: '세금' }
+                    ].map(item => (
+                      <Box
+                        key={item.key}
+                        onClick={() => handleLegendClick({ dataKey: item.key })}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          cursor: 'pointer',
+                          opacity: hiddenBars.has(item.key) ? 0.3 : 1,
+                          transition: 'opacity 0.2s',
+                          fontSize: isMobile ? '12px' : '14px',
+                          color: '#fff',
+                          '&:hover': {
+                            opacity: 0.7
+                          }
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 12,
+                            height: 12,
+                            backgroundColor: item.color,
+                            borderRadius: '2px'
+                          }}
+                        />
+                        <span>{item.name}</span>
+                      </Box>
+                    ))}
+                  </Box>
                   <Bar dataKey="기성금" fill="#82ca9d" hide={hiddenBars.has('기성금')}>
                     <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} fill="#fff" />
                   </Bar>
@@ -2162,10 +2210,54 @@ const Progress = () => {
                       return null;
                     }}
                   />
-                  <Legend 
-                    wrapperStyle={{ fontSize: isMobile ? 14 : 16 }} 
-                    onClick={handleLegendClick}
-                  />
+                  {/* 커스텀 범례 */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    justifyContent: 'center', 
+                    gap: 1, 
+                    mb: 2,
+                    px: 2
+                  }}>
+                    {[
+                      { key: '기성금', color: '#82ca9d', name: '기성금' },
+                      { key: '입금완료', color: '#00bcd4', name: '입금완료' },
+                      { key: '자재비', color: '#ff6b6b', name: '부자재비' },
+                      { key: '노무비', color: '#ffc658', name: '노무비' },
+                      { key: '장비비', color: '#ff9f43', name: '장비비' },
+                      { key: '경비', color: '#4ecdc4', name: '경비' },
+                      { key: '기타', color: '#a084e8', name: '기타' },
+                      { key: '세금', color: '#ff5722', name: '세금' }
+                    ].map(item => (
+                      <Box
+                        key={item.key}
+                        onClick={() => handleLegendClick({ dataKey: item.key })}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          cursor: 'pointer',
+                          opacity: hiddenBars.has(item.key) ? 0.3 : 1,
+                          transition: 'opacity 0.2s',
+                          fontSize: isMobile ? '12px' : '14px',
+                          color: '#fff',
+                          '&:hover': {
+                            opacity: 0.7
+                          }
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 12,
+                            height: 12,
+                            backgroundColor: item.color,
+                            borderRadius: '2px'
+                          }}
+                        />
+                        <span>{item.name}</span>
+                      </Box>
+                    ))}
+                  </Box>
                   <Bar dataKey="기성금" fill="#82ca9d" hide={hiddenBars.has('기성금')}>
                     <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} fill="#fff" />
                   </Bar>
