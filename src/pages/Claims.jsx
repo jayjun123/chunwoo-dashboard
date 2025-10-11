@@ -455,6 +455,7 @@ const Claims = () => {
           siteName: c.siteName,
           claimMonth: c.claimMonth,
           sequence: c.sequence,
+          claimAmount: c.claimAmount,
           claimStatus: c.claimStatus,
           isCarryover: c.isCarryover,
           carryoverFrom: c.carryoverFrom
@@ -466,9 +467,33 @@ const Claims = () => {
         // 현재 월의 데이터만 필터링
         const currentMonthClaims = allClaims.filter(claim => claim.claimMonth === currentMonth);
         console.log(`📊 현재 월 (${currentMonth}) 데이터:`, currentMonthClaims.length, '개');
+        console.log('📊 현재 월 청구금액들:', currentMonthClaims.map(c => ({
+          siteName: c.siteName,
+          sequence: c.sequence,
+          claimAmount: c.claimAmount
+        })));
         
-        setClaims(currentMonthClaims);
-        setFilteredClaims(currentMonthClaims);
+        // 부드러운 업데이트를 위해 상태 업데이트를 배치로 처리
+        setClaims(prevClaims => {
+          // 데이터가 실제로 변경되었는지 확인
+          const hasChanges = JSON.stringify(prevClaims) !== JSON.stringify(currentMonthClaims);
+          if (!hasChanges) {
+            console.log('📊 데이터 변경 없음 - 상태 업데이트 스킵');
+            return prevClaims;
+          }
+          console.log('📊 데이터 변경 감지 - 상태 업데이트');
+          return currentMonthClaims;
+        });
+        
+        setFilteredClaims(prevFiltered => {
+          // 데이터가 실제로 변경되었는지 확인
+          const hasChanges = JSON.stringify(prevFiltered) !== JSON.stringify(currentMonthClaims);
+          if (!hasChanges) {
+            return prevFiltered;
+          }
+          return currentMonthClaims;
+        });
+        
         setLoading(false);
       }, null); // null을 전달하여 모든 데이터 가져오기
 
@@ -783,6 +808,14 @@ const Claims = () => {
     const totalProgressAmount = totalGisungAmount + advanceAmount;
     const progressRate = (totalProgressAmount / contractAmount) * 100;
     
+    console.log(`📊 기성율 계산 - ${siteName}:`, {
+      totalGisungAmount,
+      advanceAmount,
+      contractAmount,
+      totalProgressAmount,
+      progressRate: Math.round(progressRate)
+    });
+    
     return Math.round(progressRate);
   };
 
@@ -856,17 +889,26 @@ const Claims = () => {
         return sum + amount;
       }, 0);
     
+    // 청구예정인 기성금 총합 계산 (예외 항목 제외) - 새로 추가
+    const pendingGisungAmount = siteGisungData
+      .filter(gisung => gisung.claimStatus !== '청구완료' && !gisung.isException)
+      .reduce((sum, gisung) => {
+        const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
+        return sum + amount;
+      }, 0);
+    
     const advanceAmount = Number(siteData.advance || 0);
     
     // 예외처리된 청구금액은 잔액 계산에서 제외
     const effectiveClaimAmount = isException ? 0 : claimAmountNum;
     
-    // 계약금액 - (청구완료 기성금 + 선급금 + 현재 청구금액)
-    const balance = contractAmount - (totalGisungAmount + advanceAmount + effectiveClaimAmount);
+    // 계약금액 - (청구완료 기성금 + 청구예정 기성금 + 선급금 + 현재 청구금액)
+    const balance = contractAmount - (totalGisungAmount + pendingGisungAmount + advanceAmount + effectiveClaimAmount);
     
-    console.log(`💰 청구금액 기준 잔액 계산 - ${siteName}:`, {
+    console.log(`💰 청구금액 기준 잔액 계산 (수정됨) - ${siteName}:`, {
       contractAmount,
       totalGisungAmount,
+      pendingGisungAmount,
       advanceAmount,
       claimAmount: claimAmountNum,
       isException,
@@ -877,9 +919,10 @@ const Claims = () => {
     return Math.max(0, balance); // 음수 방지
   };
 
-  // 누계기성금액 계산 함수
+  // 누계기성금액 계산 함수 (선급금 포함)
   const calculateTotalGisungAmount = (siteName) => {
     const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
+    const siteData = sites.find(site => site.name === siteName);
     
     // 청구완료된 기성금의 총합 계산 (예외 항목 제외)
     const totalGisungAmount = siteGisungData
@@ -889,12 +932,36 @@ const Claims = () => {
         return sum + amount;
       }, 0);
     
-    console.log(`📊 누계기성금액 계산 - ${siteName}:`, {
+    // 선급금 추가
+    const advanceAmount = Number(siteData?.advance || 0);
+    const totalWithAdvance = totalGisungAmount + advanceAmount;
+    
+    console.log(`📊 누계기성금액 계산 (선급금 포함) - ${siteName}:`, {
       totalGisungAmount,
+      advanceAmount,
+      totalWithAdvance,
       청구완료기성개수: siteGisungData.filter(gisung => gisung.claimStatus === '청구완료').length
     });
     
-    return totalGisungAmount;
+    return totalWithAdvance;
+  };
+
+  // 특정 차수의 기성금액 계산 함수
+  const calculateGisungAmountBySequence = (siteName, sequence) => {
+    const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
+    const matchingGisung = siteGisungData.find(gisung => gisung.sequence === sequence);
+    
+    if (matchingGisung) {
+      const amount = Number(matchingGisung.gisungAmount || matchingGisung.currentGisung || 0);
+      console.log(`📊 차수별 기성금액 계산 - ${siteName} ${sequence}:`, {
+        gisungAmount: matchingGisung.gisungAmount,
+        currentGisung: matchingGisung.currentGisung,
+        calculatedAmount: amount
+      });
+      return amount;
+    }
+    
+    return 0;
   };
 
   // 현장 선택 시 자동 기입 함수
@@ -983,18 +1050,25 @@ const Claims = () => {
         return;
       }
 
-      // 청구금액이 없으면 현장의 계약금액을 기본값으로 사용
+      // 청구금액 처리 (0이어도 허용)
       let claimAmount = Number(formData.claimAmount) || 0;
-      if (claimAmount === 0) {
-        const siteData = sites.find(s => s.name === formData.siteName);
-        if (siteData && siteData.contractAmount) {
-          claimAmount = Number(siteData.contractAmount);
-          console.log(`청구금액이 없어서 계약금액을 사용: ${claimAmount}`);
-        }
-      }
       
       // 청구금액을 올림 처리
       claimAmount = Math.ceil(claimAmount);
+
+      // 잔액 실시간 계산 (청구여부에 따라 다르게 계산)
+      const contractAmount = Math.ceil(Number(getContractAmount(formData.siteName)) || 0);
+      const totalGisungAmount = Math.ceil(Number(formData.totalGisungAmount) || 0);
+      const claimStatus = formData.claimStatus || 'X';
+      
+      let calculatedBalance;
+      if (claimStatus === 'O') {
+        // 청구완료: 계약금액 - 누계기성금액 - 금회청구금액
+        calculatedBalance = Math.max(0, Math.ceil(contractAmount - totalGisungAmount - claimAmount));
+      } else {
+        // 청구대기: 계약금액 - 누계기성금액
+        calculatedBalance = Math.max(0, Math.ceil(contractAmount - totalGisungAmount));
+      }
 
       // 저장할 데이터 준비 (사용자 입력 내용 확실히 반영)
       const claimData = {
@@ -1004,6 +1078,7 @@ const Claims = () => {
         sequence: formData.sequence || '',
         progressRate: formData.progressRate || 0,
         claimAmount: claimAmount,
+        balance: calculatedBalance, // 실시간 계산된 잔액 저장
         claimStatus: formData.claimStatus || 'X',
         notes: formData.notes || '',
         isException: formData.isException || false, // 예외 항목 여부 저장
@@ -1012,6 +1087,10 @@ const Claims = () => {
         updatedAt: new Date()
       };
       
+      console.log('=== 청구금액 수정 디버깅 ===');
+      console.log('원본 formData.claimAmount:', formData.claimAmount);
+      console.log('계산된 claimAmount:', claimAmount);
+      console.log('editingClaim?.claimAmount:', editingClaim?.claimAmount);
       console.log('저장할 claimData:', claimData);
 
       // 오프라인 상태 체크
@@ -1032,7 +1111,13 @@ const Claims = () => {
 
       // 온라인 상태 - 정상 저장
       if (editingClaim) {
+        console.log('=== 청구예정 수정 시작 ===');
+        console.log('수정할 ID:', editingClaim.id);
+        console.log('수정할 데이터:', claimData);
+        
         await updateClaim(editingClaim.id, claimData);
+        console.log('청구예정 수정 완료 - 실시간 업데이트 대기 중');
+        
         // 청구 → 기성 연동
         await syncClaimToProgress(claimData.claimMonth, claimData.siteName, claimData.claimAmount);
         setSnackbar({
@@ -1041,7 +1126,12 @@ const Claims = () => {
           severity: 'success'
         });
       } else {
+        console.log('=== 청구예정 생성 시작 ===');
+        console.log('생성할 데이터:', claimData);
+        
         await createClaim(claimData);
+        console.log('청구예정 생성 완료 - 실시간 업데이트 대기 중');
+        
         // 청구 → 기성 연동
         await syncClaimToProgress(claimData.claimMonth, claimData.siteName, claimData.claimAmount);
         setSnackbar({
@@ -1452,11 +1542,12 @@ const Claims = () => {
       setSkipPageReset(true);
       console.log(`📄 현재 페이지 저장: ${currentPage}`);
 
-      // 낙관적 업데이트: UI를 먼저 업데이트
+      // 낙관적 업데이트: UI를 먼저 업데이트 (즉시 반영)
       const updatedClaim = {
         ...claim,
         claimStatus: newStatus,
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        isUpdating: true // 업데이트 중 플래그 추가
       };
 
       // 로컬 상태 즉시 업데이트 (위치 유지, 페이지네이션 유지)
@@ -1471,7 +1562,16 @@ const Claims = () => {
       console.log(`📄 현재 페이지 유지: ${currentPage}`);
 
       // 백그라운드에서 Firebase 업데이트
-      updateClaim(claim.id, updatedClaim).catch(error => {
+      updateClaim(claim.id, updatedClaim).then(() => {
+        // 성공 시 isUpdating 플래그 제거
+        setClaims(prevClaims => 
+          prevClaims.map(c => c.id === claim.id ? { ...c, isUpdating: false } : c)
+        );
+        setFilteredClaims(prevFiltered => 
+          prevFiltered.map(c => c.id === claim.id ? { ...c, isUpdating: false } : c)
+        );
+        console.log(`✅ Firebase 업데이트 성공: ${claim.siteName}`);
+      }).catch(error => {
         console.error('Firebase 업데이트 실패:', error);
         // 실패 시 원래 상태로 롤백
         setClaims(prevClaims => 
@@ -2337,17 +2437,25 @@ const Claims = () => {
                         <TableCell sx={{ color: '#ff6b6b', fontWeight: 'bold' }}>{formatAmount(claim.claimAmount)}</TableCell>
                         <TableCell>
                           <Chip
-                            label={getStatusLabel(claim.claimStatus)}
-                            color={getStatusColor(claim.claimStatus)}
+                            label={claim.isUpdating ? '업데이트 중...' : getStatusLabel(claim.claimStatus)}
+                            color={claim.isUpdating ? 'default' : getStatusColor(claim.claimStatus)}
                             size="small"
-                            onClick={() => handleClaimStatusChange(claim)}
+                            onClick={() => !claim.isUpdating && handleClaimStatusChange(claim)}
+                            disabled={claim.isUpdating}
                             sx={{
-                              cursor: 'pointer',
+                              cursor: claim.isUpdating ? 'not-allowed' : 'pointer',
+                              opacity: claim.isUpdating ? 0.7 : 1,
                               '&:hover': {
-                                opacity: 0.8,
-                                transform: 'scale(1.05)'
+                                opacity: claim.isUpdating ? 0.7 : 0.8,
+                                transform: claim.isUpdating ? 'none' : 'scale(1.05)'
                               },
-                              transition: 'all 0.2s ease'
+                              transition: 'all 0.2s ease',
+                              animation: claim.isUpdating ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                              '@keyframes pulse': {
+                                '0%': { opacity: 0.7 },
+                                '50%': { opacity: 1 },
+                                '100%': { opacity: 0.7 }
+                              }
                             }}
                           />
                         </TableCell>
@@ -2410,23 +2518,47 @@ const Claims = () => {
                         <TableCell sx={{ color: 'white' }}>{claim.sequence}</TableCell>
                         <TableCell sx={{ color: 'white' }}>{formatAmount(getContractAmount(claim.siteName))}</TableCell>
                         <TableCell sx={{ color: '#4caf50', fontWeight: 'bold' }}>
-                          {formatAmount(calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount, claim.isException))}
+                          {(() => {
+                            // 청구여부에 따른 잔액 계산
+                            const contractAmount = getContractAmount(claim.siteName);
+                            const totalGisungAmount = calculateTotalGisungAmount(claim.siteName);
+                            const claimAmount = Number(claim.claimAmount) || 0;
+                            
+                            let balance;
+                            if (claim.claimStatus === 'O') {
+                              // 청구완료: 계약금액 - 누계기성금액 - 금회청구금액
+                              balance = contractAmount - totalGisungAmount - claimAmount;
+                            } else {
+                              // 청구대기: 계약금액 - 누계기성금액
+                              balance = contractAmount - totalGisungAmount;
+                            }
+                            
+                            return formatAmount(Math.max(0, Math.ceil(balance)));
+                          })()}
                         </TableCell>
-                        <TableCell sx={{ color: 'white' }}>{claim.progressRate}%</TableCell>
+                        <TableCell sx={{ color: 'white' }}>{calculateProgressRate(claim.siteName)}%</TableCell>
                         <TableCell sx={{ color: '#ff6b6b', fontWeight: 'bold' }}>{formatAmount(claim.claimAmount)}</TableCell>
                         <TableCell>
                           <Chip
-                            label={getStatusLabel(claim.claimStatus)}
-                            color={getStatusColor(claim.claimStatus)}
+                            label={claim.isUpdating ? '업데이트 중...' : getStatusLabel(claim.claimStatus)}
+                            color={claim.isUpdating ? 'default' : getStatusColor(claim.claimStatus)}
                             size="small"
-                            onClick={() => handleClaimStatusChange(claim)}
+                            onClick={() => !claim.isUpdating && handleClaimStatusChange(claim)}
+                            disabled={claim.isUpdating}
                             sx={{
-                              cursor: 'pointer',
+                              cursor: claim.isUpdating ? 'not-allowed' : 'pointer',
+                              opacity: claim.isUpdating ? 0.7 : 1,
                               '&:hover': {
-                                opacity: 0.8,
-                                transform: 'scale(1.05)'
+                                opacity: claim.isUpdating ? 0.7 : 0.8,
+                                transform: claim.isUpdating ? 'none' : 'scale(1.05)'
                               },
-                              transition: 'all 0.2s ease'
+                              transition: 'all 0.2s ease',
+                              animation: claim.isUpdating ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                              '@keyframes pulse': {
+                                '0%': { opacity: 0.7 },
+                                '50%': { opacity: 1 },
+                                '100%': { opacity: 0.7 }
+                              }
                             }}
                           />
                         </TableCell>
@@ -2697,6 +2829,22 @@ const Claims = () => {
                 }}
               />
               
+              <TextField
+                fullWidth
+                label="계약금액"
+                value={formData.siteName ? Math.ceil(Number(getContractAmount(formData.siteName))).toLocaleString() : ''}
+                InputProps={{
+                  endAdornment: <InputAdornment position="end">원</InputAdornment>,
+                  readOnly: true,
+                }}
+                size="small"
+                sx={{ 
+                  '& .MuiInputBase-root': { backgroundColor: '#333' },
+                  '& .MuiInputLabel-root': { color: '#999' },
+                  '& .MuiInputBase-input': { color: '#ccc' }
+                }}
+              />
+              
               <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
                 <TextField
                   label="기성율(%)"
@@ -2733,7 +2881,25 @@ const Claims = () => {
                 
                 <TextField
                   label="잔액"
-                  value={formData.siteName ? Math.ceil(calculateRemainingAmount(formData.siteName)).toLocaleString() : ''}
+                  value={(() => {
+                    if (!formData.siteName) return '';
+                    const contractAmount = Number(getContractAmount(formData.siteName)) || 0;
+                    const totalGisungAmount = Number(formData.totalGisungAmount) || 0;
+                    const claimAmount = Number(formData.claimAmount) || 0;
+                    const claimStatus = formData.claimStatus || 'X';
+                    
+                    // 청구여부에 따른 잔액 계산
+                    let balance;
+                    if (claimStatus === 'O') {
+                      // 청구완료: 계약금액 - 누계기성금액 - 금회청구금액
+                      balance = contractAmount - totalGisungAmount - claimAmount;
+                    } else {
+                      // 청구대기: 계약금액 - 누계기성금액
+                      balance = contractAmount - totalGisungAmount;
+                    }
+                    
+                    return Math.max(0, Math.ceil(balance)).toLocaleString();
+                  })()}
                   InputProps={{
                     endAdornment: <InputAdornment position="end">원</InputAdornment>,
                     readOnly: true,
@@ -2874,6 +3040,22 @@ const Claims = () => {
                 />
               </Grid>
               <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="계약금액"
+                  value={formData.siteName ? Math.ceil(Number(getContractAmount(formData.siteName))).toLocaleString() : ''}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">원</InputAdornment>,
+                    readOnly: true,
+                  }}
+                  sx={{ 
+                    '& .MuiInputBase-root': { backgroundColor: '#333' },
+                    '& .MuiInputLabel-root': { color: '#999' },
+                    '& .MuiInputBase-input': { color: '#ccc' }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
                 <Box sx={{ display: 'flex', gap: 2, width: '100%' }}>
                   <TextField
                     label="기성율(%)"
@@ -2908,7 +3090,25 @@ const Claims = () => {
                   
                   <TextField
                     label="잔액"
-                    value={formData.siteName ? Math.ceil(calculateRemainingAmount(formData.siteName)).toLocaleString() : ''}
+                    value={(() => {
+                      if (!formData.siteName) return '';
+                      const contractAmount = Number(getContractAmount(formData.siteName)) || 0;
+                      const totalGisungAmount = Number(formData.totalGisungAmount) || 0;
+                      const claimAmount = Number(formData.claimAmount) || 0;
+                      const claimStatus = formData.claimStatus || 'X';
+                      
+                      // 청구여부에 따른 잔액 계산
+                      let balance;
+                      if (claimStatus === 'O') {
+                        // 청구완료: 계약금액 - 누계기성금액 - 금회청구금액
+                        balance = contractAmount - totalGisungAmount - claimAmount;
+                      } else {
+                        // 청구대기: 계약금액 - 누계기성금액
+                        balance = contractAmount - totalGisungAmount;
+                      }
+                      
+                      return Math.max(0, Math.ceil(balance)).toLocaleString();
+                    })()}
                     InputProps={{
                       endAdornment: <InputAdornment position="end">원</InputAdornment>,
                       readOnly: true,

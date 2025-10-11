@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -21,7 +22,8 @@ import {
   Chip,
   Avatar,
   Badge,
-  LinearProgress
+  LinearProgress,
+  Button
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -41,34 +43,73 @@ import {
   AttachMoney as AttachMoneyIcon
 } from '@mui/icons-material';
 
+// API imports
+import { subscribeToClaims } from '../api/claims';
+import { subscribeToEstimates } from '../api/estimates';
+import { subscribeToSites } from '../api/sites';
+
 const MobileRender = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
   
   // 상태 관리
   const [currentTab, setCurrentTab] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [notifications, setNotifications] = useState(3);
   
-  // 샘플 데이터
-  const sampleData = {
-    stats: {
-      totalProjects: 24,
-      completedProjects: 18,
-      pendingProjects: 6,
-      totalAmount: 1250000000
-    },
-    recentActivities: [
-      { id: 1, type: '견적', site: '대구 테크노폴리스', status: '완료', time: '2시간 전' },
-      { id: 2, type: '기성', site: '부산 LH 7권역', status: '진행중', time: '4시간 전' },
-      { id: 3, type: '청구', site: '옥송상록공원', status: '대기', time: '6시간 전' },
-      { id: 4, type: '계약', site: '경북대 노후교체', status: '완료', time: '1일 전' }
-    ],
-    urgentItems: [
-      { id: 1, type: '견적 제출', site: '안동 컬쳐팜팩토리', deadline: '오늘' },
-      { id: 2, type: '기성 등록', site: '원호 골프클럽', deadline: '내일' },
-      { id: 3, type: '청구 처리', site: '멕시카나 지하', deadline: '3일 후' }
-    ]
+  // 실제 데이터 상태
+  const [claims, setClaims] = useState([]);
+  const [estimates, setEstimates] = useState([]);
+  const [sites, setSites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  // 데이터 가져오기
+  useEffect(() => {
+    console.log('📱 모바일 렌더링 페이지 데이터 로딩 시작');
+    
+    // 청구 데이터 구독
+    const unsubscribeClaims = subscribeToClaims((claimsData) => {
+      console.log('📱 청구 데이터 수신:', claimsData.length, '개');
+      setClaims(claimsData);
+    });
+    
+    // 견적 데이터 구독
+    const unsubscribeEstimates = subscribeToEstimates((estimatesData) => {
+      console.log('📱 견적 데이터 수신:', estimatesData.length, '개');
+      setEstimates(estimatesData);
+    });
+    
+    // 현장 데이터 구독
+    const unsubscribeSites = subscribeToSites((sitesData) => {
+      console.log('📱 현장 데이터 수신:', sitesData.length, '개');
+      setSites(sitesData);
+      setLoading(false);
+    });
+    
+    return () => {
+      unsubscribeClaims();
+      unsubscribeEstimates();
+      unsubscribeSites();
+    };
+  }, []);
+  
+  // 실제 데이터 기반 통계 계산
+  const calculateStats = () => {
+    const totalClaims = claims.length;
+    const completedClaims = claims.filter(claim => claim.claimStatus === 'O' || claim.claimStatus === '청구완료').length;
+    const pendingClaims = claims.filter(claim => claim.claimStatus !== 'O' && claim.claimStatus !== '청구완료' && claim.claimStatus !== '이월').length;
+    
+    const totalAmount = claims.reduce((sum, claim) => {
+      return sum + (claim.claimAmount || 0);
+    }, 0);
+    
+    return {
+      totalProjects: sites.length,
+      completedProjects: completedClaims,
+      pendingProjects: pendingClaims,
+      totalAmount: totalAmount
+    };
   };
 
   const formatAmount = (amount) => {
@@ -93,157 +134,161 @@ const MobileRender = () => {
     }
   };
 
-  const renderHomeTab = () => (
-    <Box sx={{ p: 2, pb: 10 }}>
-      {/* 헤더 */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography variant="h5" sx={{ color: '#fff', fontWeight: 'bold' }}>
-            천우 건설
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#bbb' }}>
-            현장관리 시스템
-          </Typography>
+  const renderHomeTab = () => {
+    const stats = calculateStats();
+    
+    return (
+      <Box sx={{ p: 2, pb: 10 }}>
+        {/* 헤더 */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box>
+            <Typography variant="h5" sx={{ color: '#fff', fontWeight: 'bold' }}>
+              천우 건설
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#bbb' }}>
+              현장관리 시스템
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <IconButton sx={{ color: '#fff' }}>
+              <Badge badgeContent={notifications} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+            <IconButton sx={{ color: '#fff' }} onClick={() => setDrawerOpen(true)}>
+              <MenuIcon />
+            </IconButton>
+          </Box>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <IconButton sx={{ color: '#fff' }}>
-            <Badge badgeContent={notifications} color="error">
-              <NotificationsIcon />
-            </Badge>
-          </IconButton>
-          <IconButton sx={{ color: '#fff' }} onClick={() => setDrawerOpen(true)}>
-            <MenuIcon />
-          </IconButton>
-        </Box>
+
+        {/* 통계 카드 */}
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={6}>
+            <Card sx={{ backgroundColor: '#2a2a2a', border: '1px solid #444' }}>
+              <CardContent sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="h4" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
+                  {stats.completedProjects}
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#bbb' }}>
+                  완료 청구
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={6}>
+            <Card sx={{ backgroundColor: '#2a2a2a', border: '1px solid #444' }}>
+              <CardContent sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="h4" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
+                  {stats.pendingProjects}
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#bbb' }}>
+                  대기 청구
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12}>
+            <Card sx={{ backgroundColor: '#2a2a2a', border: '1px solid #444' }}>
+              <CardContent sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="h5" sx={{ color: '#2196f3', fontWeight: 'bold' }}>
+                  {formatAmount(stats.totalAmount)}
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#bbb' }}>
+                  총 청구금액
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* 긴급 항목 - 대기 청구 */}
+        <Paper sx={{ backgroundColor: '#2a2a2a', p: 2, mb: 3, border: '1px solid #444' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <WarningIcon sx={{ color: '#f44336' }} />
+            <Typography variant="h6" sx={{ color: '#fff', fontWeight: 'bold' }}>
+              대기 청구 ({stats.pendingProjects}개)
+            </Typography>
+          </Box>
+          {claims.filter(claim => claim.claimStatus !== 'O' && claim.claimStatus !== '청구완료' && claim.claimStatus !== '이월').slice(0, 3).map((claim) => (
+            <Box key={claim.id} sx={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              p: 1.5,
+              mb: 1,
+              backgroundColor: 'rgba(244, 67, 54, 0.1)',
+              borderRadius: 1,
+              border: '1px solid rgba(244, 67, 54, 0.3)'
+            }}>
+              <Box>
+                <Typography variant="body2" sx={{ color: '#f44336', fontWeight: 'bold' }}>
+                  청구 대기
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#fff' }}>
+                  {claim.siteName}
+                </Typography>
+              </Box>
+              <Chip 
+                label={claim.claimStatus} 
+                size="small" 
+                sx={{ backgroundColor: '#f44336', color: '#fff' }}
+              />
+            </Box>
+          ))}
+        </Paper>
+
+        {/* 최근 청구 활동 */}
+        <Paper sx={{ backgroundColor: '#2a2a2a', p: 2, border: '1px solid #444' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <TrendingUpIcon sx={{ color: '#4caf50' }} />
+            <Typography variant="h6" sx={{ color: '#fff', fontWeight: 'bold' }}>
+              최근 청구 활동
+            </Typography>
+          </Box>
+          {claims.slice(0, 4).map((claim) => (
+            <Box key={claim.id} sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 2,
+              p: 1.5,
+              mb: 1,
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: 1
+            }}>
+              {getStatusIcon(claim.claimStatus === 'O' || claim.claimStatus === '청구완료' ? '완료' : '대기')}
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" sx={{ color: '#fff', fontWeight: 'bold' }}>
+                  {claim.siteName}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#bbb' }}>
+                  {claim.claimMonth}월 • {formatAmount(claim.claimAmount || 0)}
+                </Typography>
+              </Box>
+              <Chip 
+                label={claim.claimStatus} 
+                size="small" 
+                sx={{ 
+                  backgroundColor: getStatusColor(claim.claimStatus === 'O' || claim.claimStatus === '청구완료' ? '완료' : '대기'), 
+                  color: '#fff',
+                  fontSize: '0.7rem'
+                }}
+              />
+            </Box>
+          ))}
+        </Paper>
       </Box>
-
-      {/* 통계 카드 */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6}>
-          <Card sx={{ backgroundColor: '#2a2a2a', border: '1px solid #444' }}>
-            <CardContent sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h4" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
-                {sampleData.stats.completedProjects}
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#bbb' }}>
-                완료 프로젝트
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6}>
-          <Card sx={{ backgroundColor: '#2a2a2a', border: '1px solid #444' }}>
-            <CardContent sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h4" sx={{ color: '#ff9800', fontWeight: 'bold' }}>
-                {sampleData.stats.pendingProjects}
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#bbb' }}>
-                진행중 프로젝트
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12}>
-          <Card sx={{ backgroundColor: '#2a2a2a', border: '1px solid #444' }}>
-            <CardContent sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h5" sx={{ color: '#2196f3', fontWeight: 'bold' }}>
-                {formatAmount(sampleData.stats.totalAmount)}
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#bbb' }}>
-                총 계약금액
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* 긴급 항목 */}
-      <Paper sx={{ backgroundColor: '#2a2a2a', p: 2, mb: 3, border: '1px solid #444' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <WarningIcon sx={{ color: '#f44336' }} />
-          <Typography variant="h6" sx={{ color: '#fff', fontWeight: 'bold' }}>
-            긴급 처리 항목
-          </Typography>
-        </Box>
-        {sampleData.urgentItems.map((item) => (
-          <Box key={item.id} sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            p: 1.5,
-            mb: 1,
-            backgroundColor: 'rgba(244, 67, 54, 0.1)',
-            borderRadius: 1,
-            border: '1px solid rgba(244, 67, 54, 0.3)'
-          }}>
-            <Box>
-              <Typography variant="body2" sx={{ color: '#f44336', fontWeight: 'bold' }}>
-                {item.type}
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#fff' }}>
-                {item.site}
-              </Typography>
-            </Box>
-            <Chip 
-              label={item.deadline} 
-              size="small" 
-              sx={{ backgroundColor: '#f44336', color: '#fff' }}
-            />
-          </Box>
-        ))}
-      </Paper>
-
-      {/* 최근 활동 */}
-      <Paper sx={{ backgroundColor: '#2a2a2a', p: 2, border: '1px solid #444' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <TrendingUpIcon sx={{ color: '#4caf50' }} />
-          <Typography variant="h6" sx={{ color: '#fff', fontWeight: 'bold' }}>
-            최근 활동
-          </Typography>
-        </Box>
-        {sampleData.recentActivities.map((activity) => (
-          <Box key={activity.id} sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 2,
-            p: 1.5,
-            mb: 1,
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: 1
-          }}>
-            {getStatusIcon(activity.status)}
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="body2" sx={{ color: '#fff', fontWeight: 'bold' }}>
-                {activity.type} - {activity.site}
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#bbb' }}>
-                {activity.time}
-              </Typography>
-            </Box>
-            <Chip 
-              label={activity.status} 
-              size="small" 
-              sx={{ 
-                backgroundColor: getStatusColor(activity.status), 
-                color: '#fff',
-                fontSize: '0.7rem'
-              }}
-            />
-          </Box>
-        ))}
-      </Paper>
-    </Box>
-  );
+    );
+  };
 
   const renderProjectsTab = () => (
     <Box sx={{ p: 2, pb: 10 }}>
       <Typography variant="h5" sx={{ color: '#fff', fontWeight: 'bold', mb: 3 }}>
-        프로젝트 현황
+        청구 현황
       </Typography>
       
-      {/* 프로젝트 목록 */}
-      {sampleData.recentActivities.map((project) => (
-        <Card key={project.id} sx={{ 
+      {/* 청구 목록 */}
+      {claims.map((claim) => (
+        <Card key={claim.id} sx={{ 
           backgroundColor: '#2a2a2a', 
           mb: 2, 
           border: '1px solid #444',
@@ -252,22 +297,22 @@ const MobileRender = () => {
           <CardContent sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
               <Typography variant="h6" sx={{ color: '#fff', fontWeight: 'bold' }}>
-                {project.site}
+                {claim.siteName}
               </Typography>
-              {getStatusIcon(project.status)}
+              {getStatusIcon(claim.claimStatus === 'O' || claim.claimStatus === '청구완료' ? '완료' : '대기')}
             </Box>
             <Typography variant="body2" sx={{ color: '#bbb', mb: 2 }}>
-              {project.type} • {project.time}
+              {claim.claimMonth}월 • {formatAmount(claim.claimAmount || 0)}
             </Typography>
             <LinearProgress 
               variant="determinate" 
-              value={project.status === '완료' ? 100 : project.status === '진행중' ? 65 : 30}
+              value={claim.claimStatus === 'O' || claim.claimStatus === '청구완료' ? 100 : 30}
               sx={{ 
                 height: 6, 
                 borderRadius: 3,
                 backgroundColor: 'rgba(255, 255, 255, 0.1)',
                 '& .MuiLinearProgress-bar': {
-                  backgroundColor: getStatusColor(project.status)
+                  backgroundColor: getStatusColor(claim.claimStatus === 'O' || claim.claimStatus === '청구완료' ? '완료' : '대기')
                 }
               }}
             />
@@ -280,46 +325,82 @@ const MobileRender = () => {
   const renderReportsTab = () => (
     <Box sx={{ p: 2, pb: 10 }}>
       <Typography variant="h5" sx={{ color: '#fff', fontWeight: 'bold', mb: 3 }}>
-        보고서 및 분석
+        주요 기능
       </Typography>
       
       <Grid container spacing={2}>
         <Grid item xs={6}>
-          <Card sx={{ backgroundColor: '#2a2a2a', border: '1px solid #444', height: 120 }}>
+          <Card 
+            sx={{ 
+              backgroundColor: '#2a2a2a', 
+              border: '1px solid #444', 
+              height: 120,
+              cursor: 'pointer',
+              '&:hover': { backgroundColor: '#333' }
+            }}
+            onClick={() => navigate('/claims')}
+          >
             <CardContent sx={{ p: 2, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <AssessmentIcon sx={{ color: '#4caf50', fontSize: 40, mb: 1 }} />
               <Typography variant="body2" sx={{ color: '#fff', fontWeight: 'bold' }}>
-                월간 보고서
+                청구 관리
               </Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6}>
-          <Card sx={{ backgroundColor: '#2a2a2a', border: '1px solid #444', height: 120 }}>
+          <Card 
+            sx={{ 
+              backgroundColor: '#2a2a2a', 
+              border: '1px solid #444', 
+              height: 120,
+              cursor: 'pointer',
+              '&:hover': { backgroundColor: '#333' }
+            }}
+            onClick={() => navigate('/estimates')}
+          >
             <CardContent sx={{ p: 2, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <TrendingUpIcon sx={{ color: '#2196f3', fontSize: 40, mb: 1 }} />
               <Typography variant="body2" sx={{ color: '#fff', fontWeight: 'bold' }}>
-                성과 분석
+                견적 관리
               </Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6}>
-          <Card sx={{ backgroundColor: '#2a2a2a', border: '1px solid #444', height: 120 }}>
+          <Card 
+            sx={{ 
+              backgroundColor: '#2a2a2a', 
+              border: '1px solid #444', 
+              height: 120,
+              cursor: 'pointer',
+              '&:hover': { backgroundColor: '#333' }
+            }}
+            onClick={() => navigate('/sites')}
+          >
             <CardContent sx={{ p: 2, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <AttachMoneyIcon sx={{ color: '#ff9800', fontSize: 40, mb: 1 }} />
               <Typography variant="body2" sx={{ color: '#fff', fontWeight: 'bold' }}>
-                수익 분석
+                현장 관리
               </Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6}>
-          <Card sx={{ backgroundColor: '#2a2a2a', border: '1px solid #444', height: 120 }}>
+          <Card 
+            sx={{ 
+              backgroundColor: '#2a2a2a', 
+              border: '1px solid #444', 
+              height: 120,
+              cursor: 'pointer',
+              '&:hover': { backgroundColor: '#333' }
+            }}
+            onClick={() => navigate('/whole-list')}
+          >
             <CardContent sx={{ p: 2, textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <BusinessIcon sx={{ color: '#9c27b0', fontSize: 40, mb: 1 }} />
               <Typography variant="body2" sx={{ color: '#fff', fontWeight: 'bold' }}>
-                현장 현황
+                전체 현황
               </Typography>
             </CardContent>
           </Card>
@@ -384,6 +465,23 @@ const MobileRender = () => {
       default: return renderHomeTab();
     }
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ 
+        backgroundColor: '#1a1a1a', 
+        minHeight: '100vh',
+        color: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <Typography variant="h6" sx={{ color: '#fff' }}>
+          데이터 로딩 중...
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ 
@@ -453,21 +551,36 @@ const MobileRender = () => {
             메뉴
           </Typography>
           <List>
-            <ListItem>
+            <ListItem button onClick={() => navigate('/claims')}>
               <ListItemIcon>
-                <SearchIcon sx={{ color: '#fff' }} />
+                <AssessmentIcon sx={{ color: '#fff' }} />
               </ListItemIcon>
-              <ListItemText primary="검색" primaryTypographyProps={{ color: '#fff' }} />
+              <ListItemText primary="청구 관리" primaryTypographyProps={{ color: '#fff' }} />
             </ListItem>
-            <ListItem>
+            <ListItem button onClick={() => navigate('/estimates')}>
               <ListItemIcon>
-                <NotificationsIcon sx={{ color: '#fff' }} />
+                <TrendingUpIcon sx={{ color: '#fff' }} />
               </ListItemIcon>
-              <ListItemText primary="알림" primaryTypographyProps={{ color: '#fff' }} />
+              <ListItemText primary="견적 관리" primaryTypographyProps={{ color: '#fff' }} />
+            </ListItem>
+            <ListItem button onClick={() => navigate('/sites')}>
+              <ListItemIcon>
+                <BusinessIcon sx={{ color: '#fff' }} />
+              </ListItemIcon>
+              <ListItemText primary="현장 관리" primaryTypographyProps={{ color: '#fff' }} />
+            </ListItem>
+            <ListItem button onClick={() => navigate('/whole-list')}>
+              <ListItemIcon>
+                <AssignmentIcon sx={{ color: '#fff' }} />
+              </ListItemIcon>
+              <ListItemText primary="전체 현황" primaryTypographyProps={{ color: '#fff' }} />
             </ListItem>
             <Divider sx={{ backgroundColor: '#444', my: 1 }} />
-            <ListItem>
-              <ListItemText primary="로그아웃" primaryTypographyProps={{ color: '#f44336' }} />
+            <ListItem button onClick={() => navigate('/profile')}>
+              <ListItemIcon>
+                <PersonIcon sx={{ color: '#fff' }} />
+              </ListItemIcon>
+              <ListItemText primary="프로필" primaryTypographyProps={{ color: '#fff' }} />
             </ListItem>
           </List>
         </Box>

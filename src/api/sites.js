@@ -1,8 +1,34 @@
-import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, limit, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, limit, writeBatch, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const COLLECTION_NAME = 'sites';
 const PAGE_SIZE = 20;
+
+// 현장 컬렉션 참조
+const sitesCollection = collection(db, COLLECTION_NAME);
+
+// 실시간 현장 목록 구독
+export const subscribeToSites = (callback) => {
+  const q = query(
+    sitesCollection,
+    orderBy('updatedAt', 'desc')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const sites = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      sites.push({
+        id: doc.id,
+        ...data
+      });
+    });
+    callback(sites);
+  }, (error) => {
+    console.error('현장 데이터 구독 에러:', error);
+    callback([]);
+  });
+};
 
 // 현장 리스트 조회 (페이지네이션 적용)
 export async function getSites({ name = '', company = '', manager = '', page = 1 } = {}) {
