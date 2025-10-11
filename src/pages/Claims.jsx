@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import '../styles/Claims.css';
 import {
   Box,
@@ -316,8 +316,8 @@ const Claims = () => {
     return `${year}년 ${String(parseInt(month)).padStart(2, '0')}월`;
   };
 
-  // 월별 청구대기 개수 계산
-  const getMonthlyPendingCounts = () => {
+  // 월별 청구대기 개수 계산 (실시간 업데이트)
+  const monthlyPendingCounts = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const monthlyCounts = {};
     
@@ -337,7 +337,7 @@ const Claims = () => {
     });
     
     return monthlyCounts;
-  };
+  }, [claims]);
 
   const getPreviousMonth = (monthStr) => {
     const [year, month] = monthStr.split('-');
@@ -1794,9 +1794,8 @@ const Claims = () => {
               {/* 월별 청구대기 개수 표시 (모바일) */}
               <Box sx={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 0.5 }}>
                 {(() => {
-                  const monthlyCounts = getMonthlyPendingCounts();
                   // 월별로 정렬하여 일관된 순서 유지
-                  return Object.entries(monthlyCounts)
+                  return Object.entries(monthlyPendingCounts)
                     .sort(([a], [b]) => a.localeCompare(b))
                     .map(([monthStr, count]) => {
                       const [year, month] = monthStr.split('-');
@@ -1882,9 +1881,8 @@ const Claims = () => {
               {/* 월별 청구대기 개수 표시 (설명 텍스트와 같은 라인, 오른쪽 정렬) */}
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 {(() => {
-                  const monthlyCounts = getMonthlyPendingCounts();
                   // 월별로 정렬하여 일관된 순서 유지
-                  return Object.entries(monthlyCounts)
+                  return Object.entries(monthlyPendingCounts)
                     .sort(([a], [b]) => a.localeCompare(b))
                     .map(([monthStr, count]) => {
                       const [year, month] = monthStr.split('-');
