@@ -2282,7 +2282,6 @@ const Claims = () => {
                                   minWidth: '32px',
                                   width: '32px',
                                   height: '32px',
-                                  borderRadius: '50%',
                                   '&:hover': {
                                     borderColor: '#45a049',
                                     backgroundColor: 'rgba(76, 175, 80, 0.1)'
