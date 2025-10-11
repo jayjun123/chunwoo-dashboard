@@ -2851,7 +2851,7 @@ const NewSites = () => {
                         </Box>
                         <Typography 
                           sx={{ 
-                            fontSize: isMobile ? '0.6rem' : '0.7rem',
+                            fontSize: isMobile ? '0.7rem' : '0.8rem',
                             color: selectedSite?.id === site.id ? '#90caf9' : '#888',
                             minWidth: '25px'
                           }}
