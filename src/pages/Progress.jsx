@@ -238,6 +238,22 @@ const Progress = () => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  
+  // 차트 범례 숨김 상태 관리
+  const [hiddenBars, setHiddenBars] = useState(new Set());
+  
+  // 범례 클릭 핸들러
+  const handleLegendClick = (dataKey) => {
+    setHiddenBars(prev => {
+      const newHidden = new Set(prev);
+      if (newHidden.has(dataKey)) {
+        newHidden.delete(dataKey);
+      } else {
+        newHidden.add(dataKey);
+      }
+      return newHidden;
+    });
+  };
   // 강제 리렌더링을 위한 상태
   const [forceUpdate, setForceUpdate] = useState(0);
   // 월 이동 함수
@@ -1955,29 +1971,32 @@ const Progress = () => {
                       return null;
                     }}
                   />
-                  <Legend wrapperStyle={{ fontSize: isMobile ? 14 : 16 }} />
-                  <Bar dataKey="기성금" fill="#82ca9d">
+                  <Legend 
+                    wrapperStyle={{ fontSize: isMobile ? 14 : 16 }} 
+                    onClick={handleLegendClick}
+                  />
+                  <Bar dataKey="기성금" fill="#82ca9d" hide={hiddenBars.has('기성금')}>
                     <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="입금완료" fill="#00bcd4">
+                  <Bar dataKey="입금완료" fill="#00bcd4" hide={hiddenBars.has('입금완료')}>
                     <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={30} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="자재비" fill="#ff6b6b" name="부자재비">
+                  <Bar dataKey="자재비" fill="#ff6b6b" name="부자재비" hide={hiddenBars.has('자재비')}>
                     <LabelList dataKey="자재비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={10} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="노무비" fill="#ffc658">
+                  <Bar dataKey="노무비" fill="#ffc658" hide={hiddenBars.has('노무비')}>
                     <LabelList dataKey="노무비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={30} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="장비비" fill="#ff9f43">
+                  <Bar dataKey="장비비" fill="#ff9f43" hide={hiddenBars.has('장비비')}>
                     <LabelList dataKey="장비비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={50} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="경비" fill="#4ecdc4">
+                  <Bar dataKey="경비" fill="#4ecdc4" hide={hiddenBars.has('경비')}>
                     <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={70} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="기타" fill="#a084e8">
+                  <Bar dataKey="기타" fill="#a084e8" hide={hiddenBars.has('기타')}>
                     <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={90} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="세금" fill="#ff5722">
+                  <Bar dataKey="세금" fill="#ff5722" hide={hiddenBars.has('세금')}>
                     <LabelList dataKey="세금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={110} fill="#fff" />
                   </Bar>
                 </BarChart>
@@ -2143,29 +2162,32 @@ const Progress = () => {
                       return null;
                     }}
                   />
-                  <Legend wrapperStyle={{ fontSize: isMobile ? 14 : 16 }} />
-                  <Bar dataKey="기성금" fill="#82ca9d">
+                  <Legend 
+                    wrapperStyle={{ fontSize: isMobile ? 14 : 16 }} 
+                    onClick={handleLegendClick}
+                  />
+                  <Bar dataKey="기성금" fill="#82ca9d" hide={hiddenBars.has('기성금')}>
                     <LabelList dataKey="기성금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="입금완료" fill="#00bcd4">
+                  <Bar dataKey="입금완료" fill="#00bcd4" hide={hiddenBars.has('입금완료')}>
                     <LabelList dataKey="입금완료" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={30} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="자재비" fill="#ff6b6b" name="부자재비">
+                  <Bar dataKey="자재비" fill="#ff6b6b" name="부자재비" hide={hiddenBars.has('자재비')}>
                     <LabelList dataKey="자재비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={10} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="노무비" fill="#ffc658">
+                  <Bar dataKey="노무비" fill="#ffc658" hide={hiddenBars.has('노무비')}>
                     <LabelList dataKey="노무비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={30} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="장비비" fill="#ff9f43">
+                  <Bar dataKey="장비비" fill="#ff9f43" hide={hiddenBars.has('장비비')}>
                     <LabelList dataKey="장비비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={50} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="경비" fill="#4ecdc4">
+                  <Bar dataKey="경비" fill="#4ecdc4" hide={hiddenBars.has('경비')}>
                     <LabelList dataKey="경비" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={70} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="기타" fill="#a084e8">
+                  <Bar dataKey="기타" fill="#a084e8" hide={hiddenBars.has('기타')}>
                     <LabelList dataKey="기타" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={90} fill="#fff" />
                   </Bar>
-                  <Bar dataKey="세금" fill="#ff5722">
+                  <Bar dataKey="세금" fill="#ff5722" hide={hiddenBars.has('세금')}>
                     <LabelList dataKey="세금" position="top" formatter={v => v ? v.toLocaleString() + '원' : ''} fontSize={isMobile ? 16 : 18} offset={110} fill="#fff" />
                   </Bar>
                 </BarChart>
