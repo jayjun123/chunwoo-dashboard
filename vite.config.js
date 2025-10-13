@@ -186,6 +186,7 @@ export default defineConfig(({ command, mode }) => {
             './src/contexts/PopupContext.jsx'
           ],
           'utils-excel': ['./src/utils/excelUtils.jsx'],
+          'utils-estimate': ['./src/utils/estimateUtils.js', './src/utils/excelCommonUtils.js', './src/utils/templateUrls.js'],
           'utils-pdf': ['./src/utils/pdfUtils.js'],
           'utils-performance': ['./src/utils/performanceUtils.js'],
           'utils-format': ['./src/utils/formatUtils.js'],

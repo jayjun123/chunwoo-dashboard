@@ -1198,20 +1198,16 @@ export default function ImportantSite() {
                   alignItems: 'stretch', 
                   height: isMobile ? 'auto' : 400, // 원래 높이로 복원
                   minWidth: isMobile ? 'calc(100vw - 20px)' : '700px',
-                  // 테블릿에서 카드 너비 조정
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    minWidth: 'calc(100vw - 40px)',
-                    width: '100%'
-                  }, 
                   width: '100%', 
                   p: 0, 
                   overflow: 'hidden',
                   marginLeft: isMobile ? '2px' : 0,
                   marginRight: isMobile ? '5px' : 0,
-                  // 테블릿에서 카드 높이 조정
+                  // 테블릿에서 카드 조정
                   '@media (min-width: 768px) and (max-width: 1024px)': {
-                    height: 350,
-                    minWidth: '600px'
+                    minWidth: 'calc(100vw - 40px)',
+                    width: '100%',
+                    height: 350
                   },
                   cursor: 'grab',
                   position: 'relative',

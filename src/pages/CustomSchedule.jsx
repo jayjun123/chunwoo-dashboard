@@ -1008,6 +1008,15 @@ const CustomSchedule = () => {
           color="warning"
           size="small"
           onClick={cleanupScheduleDescriptions}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            cleanupScheduleDescriptions();
+          }}
           sx={{ 
             fontSize: '0.8rem',
             px: 2,
@@ -1447,10 +1456,9 @@ const CustomSchedule = () => {
                         <Typography 
                           sx={{ 
                             fontWeight: 600, 
-                            color: 'primary.main',
+                            color: 'primary.contrastText',
                             fontSize: '0.75rem',
                             bgcolor: 'primary.light',
-                            color: 'primary.contrastText',
                             px: 1,
                             py: 0.25,
                             borderRadius: 1,

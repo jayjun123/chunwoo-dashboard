@@ -6167,10 +6167,6 @@ export default function SettlementDetail() {
                   minWidth: { xs: '300px', sm: '300px', md: 'auto' },
                   // 차트와 라벨을 10px 올림
                   marginTop: '-10px',
-                  // 아이패드 최적화
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    height: '300px'
-                  },
                   touchAction: 'manipulation',
                   WebkitTouchCallout: 'none',
                   WebkitUserSelect: 'none',
@@ -6180,7 +6176,7 @@ export default function SettlementDetail() {
                   willChange: 'transform',
                   // 아이패드에서 차트가 더 잘 보이도록 추가 스타일
                   position: 'relative',
-                  // 테블릿에서 높이 줄임
+                  // 테블릿에서 높이 조정
                   '@media (min-width: 768px) and (max-width: 1024px)': {
                     height: '380px'
                   },

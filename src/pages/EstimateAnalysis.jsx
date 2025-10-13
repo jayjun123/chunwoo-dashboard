@@ -763,10 +763,64 @@ const EstimateAnalysis = () => {
       p: 3, 
       bgcolor: '#1a1a1a', 
       minHeight: 'calc(100vh - 50px)', 
-      color: '#fff' 
+      color: '#fff',
+      // 스마트폰에서만 적용
+      '@media (max-width: 767px)': {
+        bgcolor: '#f5f5f5',
+        color: '#333',
+        p: 2
+      }
     }}>
+      {/* 스마트폰 전용 안내 메시지 */}
+      <Box sx={{
+        display: 'none',
+        // 스마트폰에서만 표시
+        '@media (max-width: 767px)': {
+          display: 'block',
+          bgcolor: 'white',
+          borderRadius: '12px',
+          p: 3,
+          mb: 3,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          border: '2px solid #ff9800'
+        }
+      }}>
+        <Typography variant="h6" sx={{ 
+          color: '#ff9800', 
+          fontWeight: 'bold', 
+          mb: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          📊 복잡한 분석 기능
+        </Typography>
+        <Typography variant="body2" sx={{ color: '#666', mb: 2 }}>
+          이 페이지는 복잡한 차트와 분석 기능을 포함하고 있어 스마트폰에서 사용하기 어렵습니다.
+        </Typography>
+        <Typography variant="body2" sx={{ color: '#666', mb: 2 }}>
+          더 나은 사용 경험을 위해 웹 브라우저나 태블릿에서 이용해 주세요.
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => navigate('/estimates')}
+          sx={{
+            bgcolor: '#2E7D32',
+            '&:hover': { bgcolor: '#1B5E20' }
+          }}
+        >
+          견적 관리로 돌아가기
+        </Button>
+      </Box>
+
       {/* 헤더 */}
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ 
+        mb: 4,
+        // 스마트폰에서 숨김
+        '@media (max-width: 767px)': {
+          display: 'none'
+        }
+      }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <IconButton
             onClick={() => navigate('/estimates')}

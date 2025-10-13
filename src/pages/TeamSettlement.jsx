@@ -3519,15 +3519,68 @@ const TeamSettlement = () => {
   };
 
   return (
-    <Box sx={{ p: 3, pt: 11, bgcolor: '#0a0a0a', minHeight: '100vh', color: '#fff' }}>
-      {/* 헤더 */}
-      <Box sx={{ mb: 4 }}>
+    <Box sx={{ 
+      p: 3, 
+      pt: 11, 
+      bgcolor: '#0a0a0a', 
+      minHeight: '100vh', 
+      color: '#fff',
+      // 스마트폰에서만 적용
+      '@media (max-width: 767px)': {
+        p: 1,
+        pt: 2,
+        bgcolor: '#f5f5f5',
+        color: '#333'
+      }
+    }}>
+      {/* 스마트폰 전용 헤더 */}
+      <Box sx={{ 
+        mb: 4,
+        // 스마트폰에서만 적용
+        '@media (max-width: 767px)': {
+          mb: 2,
+          bgcolor: 'white',
+          borderRadius: '12px',
+          p: 2,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        }
+      }}>
         {/* 제목과 설명 */}
         <Box sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            mb: 1,
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              gap: 2,
+              mb: 2
+            }
+          }}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 2,
+              // 스마트폰에서만 적용
+              '@media (max-width: 767px)': {
+                justifyContent: 'space-between',
+                width: '100%'
+              }
+            }}>
               <IconButton
                 onClick={() => navigate('/daema-team')}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate('/daema-team');
+                }}
                 sx={{
                   color: '#4caf50',
                   bgcolor: 'rgba(76, 175, 80, 0.1)',
@@ -3535,7 +3588,15 @@ const TeamSettlement = () => {
                     bgcolor: 'rgba(76, 175, 80, 0.2)',
                     transform: 'scale(1.05)'
                   },
-                  transition: 'all 0.3s ease'
+                  transition: 'all 0.3s ease',
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    color: '#2E7D32',
+                    bgcolor: 'rgba(46, 125, 50, 0.1)',
+                    '&:hover': {
+                      bgcolor: 'rgba(46, 125, 50, 0.2)'
+                    }
+                  }
                 }}
               >
                 <ArrowBackIcon />
@@ -3544,6 +3605,11 @@ const TeamSettlement = () => {
                 // 테블릿에서 제목 영역 숨기기
                 '@media (min-width: 768px) and (max-width: 1024px)': {
                   display: 'none'
+                },
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  flex: 1,
+                  textAlign: 'center'
                 }
               }}>
                 <Typography variant="h3" sx={{ 
@@ -3553,11 +3619,26 @@ const TeamSettlement = () => {
                   backgroundClip: 'text',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
-                  mb: 0.5
+                  mb: 0.5,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '1.5rem',
+                    color: '#2E7D32',
+                    background: 'none',
+                    WebkitTextFillColor: 'unset'
+                  }
                 }}>
                   시공팀 월별 정산 관리
                 </Typography>
-                <Typography variant="body1" sx={{ color: '#bbb', fontSize: '1.1rem' }}>
+                <Typography variant="body1" sx={{ 
+                  color: '#bbb', 
+                  fontSize: '1.1rem',
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    color: '#666',
+                    fontSize: '0.9rem'
+                  }
+                }}>
                   팀별 정산 현황을 관리하고 월별 데이터를 확인하세요
                 </Typography>
               </Box>
@@ -3567,6 +3648,15 @@ const TeamSettlement = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <IconButton
                 onClick={handlePreviousMonth}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handlePreviousMonth();
+                }}
                 sx={{
                   color: '#4caf50',
                   bgcolor: 'rgba(76, 175, 80, 0.1)',
@@ -3577,7 +3667,13 @@ const TeamSettlement = () => {
                   transition: 'all 0.3s ease'
                 }}
               >
-                <ChevronLeftIcon sx={{ fontSize: '2rem' }} />
+                <ChevronLeftIcon sx={{ 
+                  fontSize: '2rem',
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '1.5rem'
+                  }
+                }} />
               </IconButton>
               
               <Box sx={{
@@ -3588,12 +3684,26 @@ const TeamSettlement = () => {
                 bgcolor: 'rgba(76, 175, 80, 0.15)',
                 borderRadius: '16px',
                 border: '2px solid rgba(76, 175, 80, 0.3)',
-                boxShadow: '0 4px 16px rgba(76, 175, 80, 0.2)'
+                boxShadow: '0 4px 16px rgba(76, 175, 80, 0.2)',
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  minWidth: '120px',
+                  px: 2,
+                  py: 1,
+                  bgcolor: 'rgba(46, 125, 50, 0.1)',
+                  border: '1px solid rgba(46, 125, 50, 0.3)',
+                  boxShadow: '0 2px 8px rgba(46, 125, 50, 0.2)'
+                }
               }}>
                 <Typography variant="h5" sx={{ 
                   color: '#fff', 
                   fontWeight: '700',
-                  fontSize: '1.4rem'
+                  fontSize: '1.4rem',
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    color: '#2E7D32',
+                    fontSize: '1.1rem'
+                  }
                 }}>
                   {formatMonthDisplay(selectedMonth)}
                 </Typography>
@@ -3608,6 +3718,15 @@ const TeamSettlement = () => {
               
               <IconButton
                 onClick={handleNextMonth}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleNextMonth();
+                }}
                 sx={{
                   color: '#4caf50',
                   bgcolor: 'rgba(76, 175, 80, 0.1)',
@@ -3618,7 +3737,13 @@ const TeamSettlement = () => {
                   transition: 'all 0.3s ease'
                 }}
               >
-                <ChevronRightIcon sx={{ fontSize: '2rem' }} />
+                <ChevronRightIcon sx={{ 
+                  fontSize: '2rem',
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '1.5rem'
+                  }
+                }} />
               </IconButton>
             </Box>
             

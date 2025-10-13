@@ -65,6 +65,16 @@ const Login = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+              }}
+              style={{
+                touchAction: 'manipulation',
+                fontSize: '16px' // iOS 줌 방지
+              }}
               required
             />
           </div>
@@ -74,10 +84,37 @@ const Login = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+              }}
+              style={{
+                touchAction: 'manipulation',
+                fontSize: '16px' // iOS 줌 방지
+              }}
               required
             />
           </div>
-          <button type="submit" disabled={loading}>
+          <button 
+            type="submit" 
+            disabled={loading}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!loading) {
+                handleSubmit(e);
+              }
+            }}
+            style={{
+              touchAction: 'none'
+            }}
+          >
             {loading ? '로그인 중...' : '로그인'}
           </button>
         </form>

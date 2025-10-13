@@ -238,6 +238,12 @@ const RegisterSuccess = React.lazy(() => import('./components/RegisterSuccess'))
 const ForgotPassword = React.lazy(() => import('./components/ForgotPassword'));
 const CustomSchedule = React.lazy(() => import('./pages/CustomSchedule'));
 const CustomScheduleMobile = React.lazy(() => import('./pages/CustomScheduleMobile'));
+const MobileSchedule = React.lazy(() => import('./pages/MobileScheduleFixed'));
+const MobileSites = React.lazy(() => import('./pages/MobileSites'));
+const MobileSafety = React.lazy(() => import('./pages/MobileSafety'));
+const MobileMaterials = React.lazy(() => import('./pages/MobileMaterials'));
+const MobileSettlement = React.lazy(() => import('./pages/MobileSettlement'));
+const MobileEstimates = React.lazy(() => import('./pages/MobileEstimates'));
 const QuantityCheck = React.lazy(() => import('./pages/QuantityCheck'));
 const ScheduleManagement = React.lazy(() => import('./components/schedule/ScheduleManagement'));
 const NotepadApp = React.lazy(() => import('./components/NotepadApp'));
@@ -573,9 +579,7 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             {isMobile ? (
-                              <MobileLayout>
-                                <CustomScheduleMobile />
-                              </MobileLayout>
+                              <MobileSchedule />
                             ) : (
                               <Layout>
                                 <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
@@ -589,9 +593,7 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             {isMobile ? (
-                              <MobileLayout>
-                                <NewSites />
-                              </MobileLayout>
+                              <MobileSites />
                             ) : (
                               <Layout>
                                 <NewSites />
@@ -653,15 +655,27 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             {isMobile ? (
-                              <MobileLayout>
-                                <Suspense fallback={<LoadingSpinner />}>
-                                  <Safety />
-                                </Suspense>
-                              </MobileLayout>
+                              <MobileSafety />
                             ) : (
                               <Layout>
                                 <Suspense fallback={<LoadingSpinner />}>
                                   <Safety />
+                                </Suspense>
+                              </Layout>
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/materials"
+                        element={
+                          <ProtectedRoute>
+                            {isMobile ? (
+                              <MobileMaterials />
+                            ) : (
+                              <Layout>
+                                <Suspense fallback={<LoadingSpinner />}>
+                                  <div>자재관리 페이지 (데스크톱용)</div>
                                 </Suspense>
                               </Layout>
                             )}
@@ -737,9 +751,7 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             {isMobile ? (
-                              <MobileLayout>
-                                <CustomScheduleMobile />
-                              </MobileLayout>
+                              <MobileSchedule />
                             ) : (
                               <Layout>
                                 <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
@@ -1021,9 +1033,7 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             {isMobile ? (
-                              <MobileLayout>
-                                <EstimatesMobile />
-                              </MobileLayout>
+                              <MobileEstimates />
                             ) : (
                               <Layout>
                                 <Estimates />
@@ -1069,9 +1079,7 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             {isMobile ? (
-                              <MobileLayout>
-                                <SettlementManagement />
-                              </MobileLayout>
+                              <MobileSettlement />
                             ) : (
                               <Layout>
                                 <SettlementManagement />

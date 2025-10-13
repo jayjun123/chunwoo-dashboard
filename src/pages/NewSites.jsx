@@ -2487,10 +2487,21 @@ const NewSites = () => {
         right: isMobile ? '0px' : 'auto',
         pb: isMobile ? '20px' : 0,
         WebkitOverflowScrolling: 'touch', // 터치 스크롤 활성화
-        touchAction: 'pan-y' // 세로 스크롤만 허용
+        touchAction: 'pan-y', // 세로 스크롤만 허용
+        // 스마트폰에서만 적용
+        '@media (max-width: 767px)': {
+          bgcolor: '#f5f5f5',
+          mt: 2,
+          ml: 1,
+          mr: 1,
+          width: 'calc(100% - 16px)',
+          maxWidth: 'calc(100% - 16px)',
+          gap: 1,
+          pb: 2
+        }
       }}
     >
-      {/* Left Panel - 현장 목록 */}
+      {/* 스마트폰 전용 Left Panel - 현장 목록 */}
       <Paper elevation={3} sx={{ 
         width: { xs: '100%', md: '20%' }, 
         minWidth: { md: '200px' }, 
@@ -2505,7 +2516,15 @@ const NewSites = () => {
         left: isMobile ? '0px' : 'auto',
         overflow: 'visible', // 모바일에서 스크롤 허용
         flexShrink: 0,
-        mb: '30px' // 아래쪽 마진 30px 추가
+        mb: '30px', // 아래쪽 마진 30px 추가
+        // 스마트폰에서만 적용
+        '@media (max-width: 767px)': {
+          bgcolor: 'white',
+          borderRadius: '12px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          p: 2,
+          mb: 2
+        }
       }}>
         <Tabs 
           value={statusTab} 
@@ -2527,8 +2546,25 @@ const NewSites = () => {
               py: isMobile ? 0.3 : 0.5, 
               fontSize: isMobile ? '0.65rem' : '0.75rem', 
               fontWeight: 'bold',
-              minHeight: isMobile ? '32px' : 'auto'
-            } 
+              minHeight: isMobile ? '32px' : 'auto',
+              // 스마트폰에서만 적용
+              '@media (max-width: 767px)': {
+                px: 0.5,
+                py: 0.5,
+                fontSize: '0.8rem',
+                minHeight: '40px',
+                color: '#666'
+              }
+            },
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              '& .Mui-selected': {
+                color: '#2E7D32 !important'
+              },
+              '& .MuiTabs-indicator': {
+                backgroundColor: '#2E7D32'
+              }
+            }
           }}
         >
           {STATUS_OPTIONS.map(opt => (
@@ -2699,7 +2735,16 @@ const NewSites = () => {
               <ListItem 
                 key={site.id} 
                 selected={selectedSite?.id === site.id} 
-                onClick={() => handleSelectSite(site)} 
+                onClick={() => handleSelectSite(site)}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSelectSite(site);
+                }} 
                 sx={{ 
                   mb: isMobile ? 0.25 : 0.5, 
                   borderRadius: 1,

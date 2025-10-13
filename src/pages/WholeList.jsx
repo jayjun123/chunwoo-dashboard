@@ -576,154 +576,486 @@ const WholeList = () => {
         padding: 0,
         boxSizing: 'border-box',
         mt: { xs: '0px', md: '90px' },
-        bgcolor: '#181a20' // 모바일 배경색과 동일하게 설정
+        bgcolor: '#181a20',
+        // 스마트폰 전용 스타일
+        '@media (max-width: 767px)': {
+          bgcolor: '#f5f5f5',
+          minHeight: '100vh'
+        }
       }}
     >
-      {/* 헤더 */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      {/* 스마트폰 전용 헤더 */}
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', md: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'stretch', md: 'center' }, 
+        mb: { xs: 2, md: 3 },
+        p: { xs: 2, md: 0 },
+        gap: { xs: 2, md: 0 },
+        // 스마트폰에서만 적용
+        '@media (max-width: 767px)': {
+          bgcolor: 'white',
+          borderRadius: '12px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          mx: 1
+        }
+      }}>
+        {/* 상단: 뒤로가기 + 제목 + 년도 */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 1
+        }}>
           <Button
             variant="outlined"
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate('/sites')}
-            sx={{ fontWeight: 600 }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              navigate('/sites');
+            }}
+            sx={{ 
+              fontWeight: 600,
+              // 스마트폰에서만 적용
+              '@media (max-width: 767px)': {
+                minWidth: 'auto',
+                px: 2,
+                py: 1,
+                fontSize: '0.9rem'
+              }
+            }}
           >
-            돌아가기
+            <Box sx={{ 
+              display: { xs: 'none', sm: 'inline' },
+              '@media (max-width: 767px)': { display: 'inline' }
+            }}>
+              돌아가기
+            </Box>
           </Button>
-          <Typography variant="h4" component="h1">
+          
+          <Typography 
+            variant="h4" 
+            component="h1"
+            sx={{
+              // 스마트폰에서만 적용
+              '@media (max-width: 767px)': {
+                fontSize: '1.5rem',
+                fontWeight: 'bold',
+                color: '#2E7D32',
+                flex: 1,
+                textAlign: 'center'
+              }
+            }}
+          >
             전체 현장 목록
           </Typography>
-          {/* 년도 네비게이션 */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: '400px' }}>
+          
+          {/* 년도 네비게이션 - 스마트폰에서 간소화 */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              gap: 0.5
+            }
+          }}>
             <Button
               variant="outlined"
               size="small"
               onClick={() => handleYearChange(selectedYear - 1)}
-              sx={{ minWidth: '50px', fontSize: '0.8rem' }}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleYearChange(selectedYear - 1);
+              }}
+              sx={{ 
+                minWidth: '50px', 
+                fontSize: '0.8rem',
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  minWidth: '40px',
+                  fontSize: '0.7rem',
+                  px: 1
+                }
+              }}
             >
               {selectedYear - 1}
             </Button>
-            <Typography variant="h4" sx={{ 
-              fontWeight: 'bold', 
-              color: '#2E7D32',
-              minWidth: '120px',
-              textAlign: 'center',
-              fontSize: '2rem'
-            }}>
+            <Typography 
+              variant="h4" 
+              sx={{ 
+                fontWeight: 'bold', 
+                color: '#2E7D32',
+                minWidth: '120px',
+                textAlign: 'center',
+                fontSize: '2rem',
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  fontSize: '1.2rem',
+                  minWidth: '60px'
+                }
+              }}
+            >
               {selectedYear}년
             </Typography>
             <Button
               variant="outlined"
               size="small"
               onClick={() => handleYearChange(selectedYear + 1)}
-              sx={{ minWidth: '50px', fontSize: '0.8rem' }}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleYearChange(selectedYear + 1);
+              }}
+              sx={{ 
+                minWidth: '50px', 
+                fontSize: '0.8rem',
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  minWidth: '40px',
+                  fontSize: '0.7rem',
+                  px: 1
+                }
+              }}
             >
               {selectedYear + 1}
             </Button>
           </Box>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        
+        {/* 하단: 액션 버튼들 - 스마트폰에서 세로 배치 */}
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 1,
+          flexDirection: { xs: 'column', md: 'row' },
+          // 스마트폰에서만 적용
+          '@media (max-width: 767px)': {
+            gap: 1,
+            '& .MuiButton-root': {
+              fontSize: '0.8rem',
+              py: 1.5,
+              borderRadius: '8px'
+            }
+          }
+        }}>
           <Button
             variant="outlined"
             startIcon={<UploadIcon />}
             onClick={() => setUploadDialog(true)}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setUploadDialog(true);
+            }}
+            sx={{
+              // 스마트폰에서만 적용
+              '@media (max-width: 767px)': {
+                order: 1
+              }
+            }}
           >
-            엑셀 업로드
+            <Box sx={{ 
+              display: { xs: 'none', sm: 'inline' },
+              '@media (max-width: 767px)': { display: 'inline' }
+            }}>
+              엑셀 업로드
+            </Box>
           </Button>
           <Button
             variant="outlined"
             startIcon={<DownloadIcon />}
             onClick={handleExportExcel}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleExportExcel();
+            }}
+            sx={{
+              // 스마트폰에서만 적용
+              '@media (max-width: 767px)': {
+                order: 2
+              }
+            }}
           >
-            엑셀 다운로드
+            <Box sx={{ 
+              display: { xs: 'none', sm: 'inline' },
+              '@media (max-width: 767px)': { display: 'inline' }
+            }}>
+              엑셀 다운로드
+            </Box>
           </Button>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setEditDialog(true)}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setEditDialog(true);
+            }}
+            sx={{
+              // 스마트폰에서만 적용
+              '@media (max-width: 767px)': {
+                order: 3,
+                bgcolor: '#2E7D32',
+                '&:hover': {
+                  bgcolor: '#1B5E20'
+                }
+              }
+            }}
           >
-            새 현장 추가
+            <Box sx={{ 
+              display: { xs: 'none', sm: 'inline' },
+              '@media (max-width: 767px)': { display: 'inline' }
+            }}>
+              새 현장 추가
+            </Box>
           </Button>
         </Box>
       </Box>
 
-      {/* 데이터 테이블 */}
-      <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-        <TableContainer sx={{ maxHeight: 900 }}>
+      {/* 스마트폰 전용 데이터 테이블 */}
+      <Paper sx={{ 
+        width: '100%', 
+        overflow: 'hidden',
+        // 스마트폰에서만 적용
+        '@media (max-width: 767px)': {
+          mx: 1,
+          borderRadius: '12px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        }
+      }}>
+        <TableContainer sx={{ 
+          maxHeight: 900,
+          // 스마트폰에서만 적용
+          '@media (max-width: 767px)': {
+            maxHeight: '70vh'
+          }
+        }}>
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, width: '60px', py: 1 }}>
+                {/* 스마트폰에서는 핵심 컬럼만 표시 */}
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600, 
+                  width: '60px', 
+                  py: 1,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '0.7rem',
+                    width: '40px',
+                    px: 0.5
+                  }
+                }}>
                   번호
                 </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '0.7rem',
+                    width: '40px',
+                    px: 0.5
+                  }
+                }}>
                   <TableSortLabel
                     active={sortBy === 'isFavorite'}
                     direction={sortBy === 'isFavorite' ? order : 'asc'}
                     onClick={() => handleRequestSort('isFavorite')}
+                    sx={{
+                      // 스마트폰에서만 적용
+                      '@media (max-width: 767px)': {
+                        fontSize: '0.7rem'
+                      }
+                    }}
                   >
                     주요
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                  <TableSortLabel
-                    active={sortBy === 'name'}
-                    direction={sortBy === 'name' ? order : 'asc'}
-                    onClick={() => handleRequestSort('name')}
-                  >
-                    현장명
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                  <TableSortLabel
-                    active={sortBy === 'status'}
-                    direction={sortBy === 'status' ? order : 'asc'}
-                    onClick={() => handleRequestSort('status')}
-                                      >
-                      진행상황
-                    </TableSortLabel>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                  <TableSortLabel
-                    active={sortBy === 'contractType'}
-                    direction={sortBy === 'contractType' ? order : 'asc'}
-                    onClick={() => handleRequestSort('contractType')}
-                  >
-                    계약구분
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                  <TableSortLabel
-                    active={sortBy === 'contractAmount'}
-                    direction={sortBy === 'contractAmount' ? order : 'asc'}
-                    onClick={() => handleRequestSort('contractAmount')}
-                  >
-                    계약금액
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                  <TableSortLabel
-                    active={sortBy === 'advance'}
-                    direction={sortBy === 'advance' ? order : 'asc'}
-                    onClick={() => handleRequestSort('advance')}
-                  >
-                    선급금
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                  <TableSortLabel
-                    active={sortBy === 'totalProgress'}
-                    direction={sortBy === 'totalProgress' ? order : 'asc'}
-                    onClick={() => handleRequestSort('totalProgress')}
-                  >
-                    누계기성
                   </TableSortLabel>
                 </TableCell>
                 <TableCell sx={{ 
                   fontSize: '0.8rem', 
                   fontWeight: 600,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '0.7rem',
+                    minWidth: '120px'
+                  }
+                }}>
+                  <TableSortLabel
+                    active={sortBy === 'name'}
+                    direction={sortBy === 'name' ? order : 'asc'}
+                    onClick={() => handleRequestSort('name')}
+                    sx={{
+                      // 스마트폰에서만 적용
+                      '@media (max-width: 767px)': {
+                        fontSize: '0.7rem'
+                      }
+                    }}
+                  >
+                    현장명
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '0.7rem',
+                    width: '60px',
+                    px: 0.5
+                  }
+                }}>
+                  <TableSortLabel
+                    active={sortBy === 'status'}
+                    direction={sortBy === 'status' ? order : 'asc'}
+                    onClick={() => handleRequestSort('status')}
+                    sx={{
+                      // 스마트폰에서만 적용
+                      '@media (max-width: 767px)': {
+                        fontSize: '0.7rem'
+                      }
+                    }}
+                  >
+                    진행상황
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '0.7rem',
+                    width: '80px',
+                    px: 0.5
+                  }
+                }}>
+                  <TableSortLabel
+                    active={sortBy === 'contractType'}
+                    direction={sortBy === 'contractType' ? order : 'asc'}
+                    onClick={() => handleRequestSort('contractType')}
+                    sx={{
+                      // 스마트폰에서만 적용
+                      '@media (max-width: 767px)': {
+                        fontSize: '0.7rem'
+                      }
+                    }}
+                  >
+                    계약구분
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '0.7rem',
+                    width: '80px',
+                    px: 0.5
+                  }
+                }}>
+                  <TableSortLabel
+                    active={sortBy === 'contractAmount'}
+                    direction={sortBy === 'contractAmount' ? order : 'asc'}
+                    onClick={() => handleRequestSort('contractAmount')}
+                    sx={{
+                      // 스마트폰에서만 적용
+                      '@media (max-width: 767px)': {
+                        fontSize: '0.7rem'
+                      }
+                    }}
+                  >
+                    계약금액
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '0.7rem',
+                    width: '60px',
+                    px: 0.5
+                  }
+                }}>
+                  <TableSortLabel
+                    active={sortBy === 'advance'}
+                    direction={sortBy === 'advance' ? order : 'asc'}
+                    onClick={() => handleRequestSort('advance')}
+                    sx={{
+                      // 스마트폰에서만 적용
+                      '@media (max-width: 767px)': {
+                        fontSize: '0.7rem'
+                      }
+                    }}
+                  >
+                    선급금
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '0.7rem',
+                    width: '60px',
+                    px: 0.5
+                  }
+                }}>
+                  <TableSortLabel
+                    active={sortBy === 'totalProgress'}
+                    direction={sortBy === 'totalProgress' ? order : 'asc'}
+                    onClick={() => handleRequestSort('totalProgress')}
+                    sx={{
+                      // 스마트폰에서만 적용
+                      '@media (max-width: 767px)': {
+                        fontSize: '0.7rem'
+                      }
+                    }}
+                  >
+                    누계기성
+                  </TableSortLabel>
+                </TableCell>
+                {/* 스마트폰에서는 숨김 */}
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
                   // 아이패드에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  },
+                  // 스마트폰에서도 숨김
+                  '@media (max-width: 767px)': {
                     display: 'none'
                   }
                 }}>
@@ -741,6 +1073,10 @@ const WholeList = () => {
                   // 아이패드에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
                     display: 'none'
+                  },
+                  // 스마트폰에서도 숨김
+                  '@media (max-width: 767px)': {
+                    display: 'none'
                   }
                 }}>
                   <TableSortLabel
@@ -757,6 +1093,10 @@ const WholeList = () => {
                   // 아이패드에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
                     display: 'none'
+                  },
+                  // 스마트폰에서도 숨김
+                  '@media (max-width: 767px)': {
+                    display: 'none'
                   }
                 }}>
                   <TableSortLabel
@@ -767,29 +1107,64 @@ const WholeList = () => {
                     준공예정일
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '0.7rem',
+                    width: '80px',
+                    px: 0.5
+                  }
+                }}>
                   <TableSortLabel
                     active={sortBy === 'companyName'}
                     direction={sortBy === 'companyName' ? order : 'asc'}
                     onClick={() => handleRequestSort('companyName')}
+                    sx={{
+                      // 스마트폰에서만 적용
+                      '@media (max-width: 767px)': {
+                        fontSize: '0.7rem'
+                      }
+                    }}
                   >
                     회사명
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                  <TableSortLabel
-                    active={sortBy === 'manager'}
-                    direction={sortBy === 'manager' ? order : 'asc'}
-                    onClick={() => handleRequestSort('manager')}
-                  >
-                    소장
                   </TableSortLabel>
                 </TableCell>
                 <TableCell sx={{ 
                   fontSize: '0.8rem', 
                   fontWeight: 600,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '0.7rem',
+                    width: '60px',
+                    px: 0.5
+                  }
+                }}>
+                  <TableSortLabel
+                    active={sortBy === 'manager'}
+                    direction={sortBy === 'manager' ? order : 'asc'}
+                    onClick={() => handleRequestSort('manager')}
+                    sx={{
+                      // 스마트폰에서만 적용
+                      '@media (max-width: 767px)': {
+                        fontSize: '0.7rem'
+                      }
+                    }}
+                  >
+                    소장
+                  </TableSortLabel>
+                </TableCell>
+                {/* 스마트폰에서는 숨김 */}
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
                   // 아이패드에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  },
+                  // 스마트폰에서도 숨김
+                  '@media (max-width: 767px)': {
                     display: 'none'
                   }
                 }}>
@@ -801,20 +1176,40 @@ const WholeList = () => {
                     연락처
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '0.7rem',
+                    width: '60px',
+                    px: 0.5
+                  }
+                }}>
                   <TableSortLabel
                     active={sortBy === 'team'}
                     direction={sortBy === 'team' ? order : 'asc'}
                     onClick={() => handleRequestSort('team')}
+                    sx={{
+                      // 스마트폰에서만 적용
+                      '@media (max-width: 767px)': {
+                        fontSize: '0.7rem'
+                      }
+                    }}
                   >
                     시공팀
                   </TableSortLabel>
                 </TableCell>
+                {/* 스마트폰에서는 숨김 */}
                 <TableCell sx={{ 
                   fontSize: '0.8rem', 
                   fontWeight: 600,
                   // 아이패드에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  },
+                  // 스마트폰에서도 숨김
+                  '@media (max-width: 767px)': {
                     display: 'none'
                   }
                 }}>
@@ -826,11 +1221,16 @@ const WholeList = () => {
                     차수
                   </TableSortLabel>
                 </TableCell>
+                {/* 스마트폰에서는 숨김 */}
                 <TableCell sx={{ 
                   fontSize: '0.8rem', 
                   fontWeight: 600,
                   // 아이패드에서 숨김
                   '@media (min-width: 768px) and (max-width: 1024px)': {
+                    display: 'none'
+                  },
+                  // 스마트폰에서도 숨김
+                  '@media (max-width: 767px)': {
                     display: 'none'
                   }
                 }}>
@@ -842,7 +1242,18 @@ const WholeList = () => {
                     하도급지킴이
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>작업</TableCell>
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '0.7rem',
+                    width: '60px',
+                    px: 0.5
+                  }
+                }}>
+                  작업
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -851,147 +1262,385 @@ const WholeList = () => {
                 .map((site, index) => {
                   return (
                     <TableRow key={site.id} hover>
-                      <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center', py: 1 }}>
+                      <TableCell sx={{ 
+                        fontSize: '0.8rem', 
+                        textAlign: 'center', 
+                        py: 1,
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          fontSize: '0.7rem',
+                          py: 0.5,
+                          px: 0.5
+                        }
+                      }}>
                         {page * rowsPerPage + index + 1}
                       </TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => handleToggleFavorite(site)}>
-                        {site.isFavorite ? (
-                          <StarIcon sx={{ color: 'gold' }} />
-                        ) : (
-                          <StarBorderIcon />
-                        )}
-                      </IconButton>
-                    </TableCell>
-                    <TableCell sx={{ 
-                      color: isLongTermProject(site) ? '#ffeb3b' : 'inherit',
-                      fontWeight: isLongTermProject(site) ? 'bold' : 'normal'
-                    }}>
-                      {site.name}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={site.status}
-                        color={
-                          site.status === '완료' ? 'success' :
-                          site.status === '진행중' ? 'primary' :
-                          site.status === '중단' ? 'error' : 'default'
+                      <TableCell sx={{
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          px: 0.5
                         }
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{site.contractType}</TableCell>
-                    <TableCell>{Number(site.contractAmount || 0).toLocaleString()}</TableCell>
-                    <TableCell>{Number(site.advance || 0).toLocaleString()}</TableCell>
-                    <TableCell>{Number(site.totalProgress || 0).toLocaleString()}</TableCell>
-                    <TableCell sx={{
-                      // 아이패드에서 숨김
-                      '@media (min-width: 768px) and (max-width: 1024px)': {
-                        display: 'none'
-                      }
-                    }}>{site.address}</TableCell>
-                    <TableCell sx={{
-                      // 아이패드에서 숨김
-                      '@media (min-width: 768px) and (max-width: 1024px)': {
-                        display: 'none'
-                      }
-                    }}>{site.startDate}</TableCell>
-                    <TableCell sx={{
-                      // 아이패드에서 숨김
-                      '@media (min-width: 768px) and (max-width: 1024px)': {
-                        display: 'none'
-                      }
-                    }}>{site.endDate}</TableCell>
-                    <TableCell>{site.companyName}</TableCell>
-                    <TableCell>{site.manager}</TableCell>
-                    <TableCell sx={{
-                      // 아이패드에서 숨김
-                      '@media (min-width: 768px) and (max-width: 1024px)': {
-                        display: 'none'
-                      }
-                    }}>{site.phone}</TableCell>
-                    <TableCell>{site.team}</TableCell>
-                    <TableCell sx={{
-                      // 아이패드에서 숨김
-                      '@media (min-width: 768px) and (max-width: 1024px)': {
-                        display: 'none'
-                      }
-                    }}>{site.installment}</TableCell>
-                    <TableCell sx={{
-                      // 아이패드에서 숨김
-                      '@media (min-width: 768px) and (max-width: 1024px)': {
-                        display: 'none'
-                      }
-                    }}>
-                      {site.subcontractGuardian ? (
-                                            <Chip label="Y" color="primary" size="small" onClick={() => {}} />
-                  ) : (
-                    <Chip label="N" color="default" size="small" onClick={() => {}} />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Tooltip title="수정">
-                          <IconButton size="small" onClick={() => handleEdit(site)}>
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="삭제">
-                          <IconButton size="small" onClick={() => handleDelete(site.id)}>
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                );
+                      }}>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleToggleFavorite(site)}
+                          sx={{
+                            // 스마트폰에서만 적용
+                            '@media (max-width: 767px)': {
+                              padding: '4px'
+                            }
+                          }}
+                        >
+                          {site.isFavorite ? (
+                            <StarIcon sx={{ 
+                              color: 'gold',
+                              // 스마트폰에서만 적용
+                              '@media (max-width: 767px)': {
+                                fontSize: '1rem'
+                              }
+                            }} />
+                          ) : (
+                            <StarBorderIcon sx={{
+                              // 스마트폰에서만 적용
+                              '@media (max-width: 767px)': {
+                                fontSize: '1rem'
+                              }
+                            }} />
+                          )}
+                        </IconButton>
+                      </TableCell>
+                      <TableCell sx={{ 
+                        color: isLongTermProject(site) ? '#ffeb3b' : 'inherit',
+                        fontWeight: isLongTermProject(site) ? 'bold' : 'normal',
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          fontSize: '0.7rem',
+                          px: 0.5,
+                          maxWidth: '120px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }
+                      }}>
+                        {site.name}
+                      </TableCell>
+                      <TableCell sx={{
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          px: 0.5
+                        }
+                      }}>
+                        <Chip
+                          label={site.status}
+                          color={
+                            site.status === '완료' ? 'success' :
+                            site.status === '진행중' ? 'primary' :
+                            site.status === '중단' ? 'error' : 'default'
+                          }
+                          size="small"
+                          sx={{
+                            // 스마트폰에서만 적용
+                            '@media (max-width: 767px)': {
+                              fontSize: '0.6rem',
+                              height: '20px'
+                            }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          fontSize: '0.7rem',
+                          px: 0.5,
+                          maxWidth: '80px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }
+                      }}>
+                        {site.contractType}
+                      </TableCell>
+                      <TableCell sx={{
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          fontSize: '0.7rem',
+                          px: 0.5,
+                          textAlign: 'right'
+                        }
+                      }}>
+                        {Number(site.contractAmount || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell sx={{
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          fontSize: '0.7rem',
+                          px: 0.5,
+                          textAlign: 'right'
+                        }
+                      }}>
+                        {Number(site.advance || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell sx={{
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          fontSize: '0.7rem',
+                          px: 0.5,
+                          textAlign: 'right'
+                        }
+                      }}>
+                        {Number(site.totalProgress || 0).toLocaleString()}
+                      </TableCell>
+                      {/* 스마트폰에서는 숨김 */}
+                      <TableCell sx={{
+                        // 아이패드에서 숨김
+                        '@media (min-width: 768px) and (max-width: 1024px)': {
+                          display: 'none'
+                        },
+                        // 스마트폰에서도 숨김
+                        '@media (max-width: 767px)': {
+                          display: 'none'
+                        }
+                      }}>{site.address}</TableCell>
+                      <TableCell sx={{
+                        // 아이패드에서 숨김
+                        '@media (min-width: 768px) and (max-width: 1024px)': {
+                          display: 'none'
+                        },
+                        // 스마트폰에서도 숨김
+                        '@media (max-width: 767px)': {
+                          display: 'none'
+                        }
+                      }}>{site.startDate}</TableCell>
+                      <TableCell sx={{
+                        // 아이패드에서 숨김
+                        '@media (min-width: 768px) and (max-width: 1024px)': {
+                          display: 'none'
+                        },
+                        // 스마트폰에서도 숨김
+                        '@media (max-width: 767px)': {
+                          display: 'none'
+                        }
+                      }}>{site.endDate}</TableCell>
+                      <TableCell sx={{
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          fontSize: '0.7rem',
+                          px: 0.5,
+                          maxWidth: '80px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }
+                      }}>
+                        {site.companyName}
+                      </TableCell>
+                      <TableCell sx={{
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          fontSize: '0.7rem',
+                          px: 0.5,
+                          maxWidth: '60px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }
+                      }}>
+                        {site.manager}
+                      </TableCell>
+                      {/* 스마트폰에서는 숨김 */}
+                      <TableCell sx={{
+                        // 아이패드에서 숨김
+                        '@media (min-width: 768px) and (max-width: 1024px)': {
+                          display: 'none'
+                        },
+                        // 스마트폰에서도 숨김
+                        '@media (max-width: 767px)': {
+                          display: 'none'
+                        }
+                      }}>{site.phone}</TableCell>
+                      <TableCell sx={{
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          fontSize: '0.7rem',
+                          px: 0.5,
+                          maxWidth: '60px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }
+                      }}>
+                        {site.team}
+                      </TableCell>
+                      {/* 스마트폰에서는 숨김 */}
+                      <TableCell sx={{
+                        // 아이패드에서 숨김
+                        '@media (min-width: 768px) and (max-width: 1024px)': {
+                          display: 'none'
+                        },
+                        // 스마트폰에서도 숨김
+                        '@media (max-width: 767px)': {
+                          display: 'none'
+                        }
+                      }}>{site.installment}</TableCell>
+                      {/* 스마트폰에서는 숨김 */}
+                      <TableCell sx={{
+                        // 아이패드에서 숨김
+                        '@media (min-width: 768px) and (max-width: 1024px)': {
+                          display: 'none'
+                        },
+                        // 스마트폰에서도 숨김
+                        '@media (max-width: 767px)': {
+                          display: 'none'
+                        }
+                      }}>
+                        {site.subcontractGuardian ? (
+                          <Chip label="Y" color="primary" size="small" onClick={() => {}} />
+                        ) : (
+                          <Chip label="N" color="default" size="small" onClick={() => {}} />
+                        )}
+                      </TableCell>
+                      <TableCell sx={{
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          px: 0.5
+                        }
+                      }}>
+                        <Box sx={{ 
+                          display: 'flex', 
+                          gap: 0.5,
+                          // 스마트폰에서만 적용
+                          '@media (max-width: 767px)': {
+                            gap: 0.25
+                          }
+                        }}>
+                          <Tooltip title="수정">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleEdit(site)}
+                              sx={{
+                                // 스마트폰에서만 적용
+                                '@media (max-width: 767px)': {
+                                  padding: '4px'
+                                }
+                              }}
+                            >
+                              <EditIcon sx={{
+                                // 스마트폰에서만 적용
+                                '@media (max-width: 767px)': {
+                                  fontSize: '1rem'
+                                }
+                              }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="삭제">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleDelete(site.id)}
+                              sx={{
+                                // 스마트폰에서만 적용
+                                '@media (max-width: 767px)': {
+                                  padding: '4px'
+                                }
+                              }}
+                            >
+                              <DeleteIcon sx={{
+                                // 스마트폰에서만 적용
+                                '@media (max-width: 767px)': {
+                                  fontSize: '1rem'
+                                }
+                              }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
                 })}
             </TableBody>
           </Table>
         </TableContainer>
-        {/* 페이지 번호 네비게이션 */}
+        {/* 스마트폰 전용 페이지 번호 네비게이션 */}
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'center', 
           alignItems: 'center', 
           py: 2,
           gap: 1,
-          flexWrap: 'wrap'
+          flexWrap: 'wrap',
+          // 스마트폰에서만 적용
+          '@media (max-width: 767px)': {
+            py: 1,
+            gap: 0.5,
+            px: 1
+          }
         }}>
           <Button
             variant="outlined"
             disabled={page === 0}
             onClick={() => handleChangePage(null, page - 1)}
-            sx={{ minWidth: '40px', py: 0.5 }}
+            sx={{ 
+              minWidth: '40px', 
+              py: 0.5,
+              // 스마트폰에서만 적용
+              '@media (max-width: 767px)': {
+                minWidth: '35px',
+                py: 0.25,
+                fontSize: '0.8rem'
+              }
+            }}
           >
             이전
           </Button>
           
-          {/* 페이지 번호들 */}
-          {Array.from({ length: Math.ceil(sortedSites.length / rowsPerPage) }, (_, i) => (
-            <Button
-              key={i}
-              variant={page === i ? "contained" : "outlined"}
-              onClick={() => handleChangePage(null, i)}
-              sx={{ 
-                minWidth: '40px',
-                py: 0.5,
-                bgcolor: page === i ? '#2E7D32' : 'transparent',
-                color: page === i ? 'white' : 'inherit',
-                '&:hover': {
-                  bgcolor: page === i ? '#1B5E20' : 'rgba(46, 125, 50, 0.1)'
-                }
-              }}
-            >
-              {i + 1}
-            </Button>
-          ))}
+          {/* 페이지 번호들 - 스마트폰에서는 최대 5개만 표시 */}
+          {Array.from({ length: Math.ceil(sortedSites.length / rowsPerPage) }, (_, i) => {
+            // 스마트폰에서는 현재 페이지 주변 5개만 표시
+            const totalPages = Math.ceil(sortedSites.length / rowsPerPage);
+            const showPage = totalPages <= 5 || 
+              (i >= Math.max(0, page - 2) && i <= Math.min(totalPages - 1, page + 2));
+            
+            if (!showPage) return null;
+            
+            return (
+              <Button
+                key={i}
+                variant={page === i ? "contained" : "outlined"}
+                onClick={() => handleChangePage(null, i)}
+                sx={{ 
+                  minWidth: '40px',
+                  py: 0.5,
+                  bgcolor: page === i ? '#2E7D32' : 'transparent',
+                  color: page === i ? 'white' : 'inherit',
+                  '&:hover': {
+                    bgcolor: page === i ? '#1B5E20' : 'rgba(46, 125, 50, 0.1)'
+                  },
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    minWidth: '30px',
+                    py: 0.25,
+                    fontSize: '0.8rem'
+                  }
+                }}
+              >
+                {i + 1}
+              </Button>
+            );
+          })}
           
           <Button
             variant="outlined"
             disabled={page >= Math.ceil(sortedSites.length / rowsPerPage) - 1}
             onClick={() => handleChangePage(null, page + 1)}
-            sx={{ minWidth: '40px', py: 0.5 }}
+            sx={{ 
+              minWidth: '40px', 
+              py: 0.5,
+              // 스마트폰에서만 적용
+              '@media (max-width: 767px)': {
+                minWidth: '35px',
+                py: 0.25,
+                fontSize: '0.8rem'
+              }
+            }}
           >
             다음
           </Button>
@@ -1143,13 +1792,56 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
             height: 'calc(100% - 30px)',
             maxHeight: 'calc(100% - 30px)'
           }
+        },
+        // 스마트폰에서만 적용
+        '@media (max-width: 767px)': {
+          '& .MuiDialog-paper': {
+            margin: '16px',
+            maxHeight: 'calc(100% - 32px)',
+            height: 'calc(100% - 32px)',
+            borderRadius: '12px'
+          }
         }
       }}
     >
-      <DialogTitle>{site ? '현장 정보 수정' : '새 현장 추가'}</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-          <Box sx={{ display: 'flex', gap: 2 }}>
+      <DialogTitle sx={{
+        // 스마트폰에서만 적용
+        '@media (max-width: 767px)': {
+          fontSize: '1.2rem',
+          fontWeight: 'bold',
+          pb: 1
+        }
+      }}>
+        {site ? '현장 정보 수정' : '새 현장 추가'}
+      </DialogTitle>
+      <DialogContent sx={{
+        // 스마트폰에서만 적용
+        '@media (max-width: 767px)': {
+          px: 2,
+          py: 1
+        }
+      }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: 2, 
+          mt: 2,
+          // 스마트폰에서만 적용
+          '@media (max-width: 767px)': {
+            gap: 1.5,
+            mt: 1
+          }
+        }}>
+          {/* 스마트폰에서는 세로 배치 */}
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2,
+            flexDirection: { xs: 'column', md: 'row' },
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              gap: 1.5
+            }
+          }}>
             <TextField
               name="name"
               label="현장명"
@@ -1159,9 +1851,29 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
               required
               inputRef={inputRef1}
               onFocus={scrollFocus(inputRef1)}
+              sx={{
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
             />
             <FormControl fullWidth>
-              <Select name="status" value={form.status} onChange={handleChange}>
+              <Select 
+                name="status" 
+                value={form.status} 
+                onChange={handleChange}
+                sx={{
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    '& .MuiSelect-select': {
+                      fontSize: '0.9rem'
+                    }
+                  }
+                }}
+              >
                 {STATUS_OPTIONS.map(opt => (
                   <MenuItem key={opt} value={opt}>{opt}</MenuItem>
                 ))}
@@ -1169,9 +1881,29 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
             </FormControl>
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2,
+            flexDirection: { xs: 'column', md: 'row' },
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              gap: 1.5
+            }
+          }}>
             <FormControl fullWidth>
-              <Select name="contractType" value={form.contractType} onChange={handleChange}>
+              <Select 
+                name="contractType" 
+                value={form.contractType} 
+                onChange={handleChange}
+                sx={{
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    '& .MuiSelect-select': {
+                      fontSize: '0.9rem'
+                    }
+                  }
+                }}
+              >
                 {CONTRACT_TYPE_OPTIONS.map(opt => (
                   <MenuItem key={opt} value={opt}>{opt}</MenuItem>
                 ))}
@@ -1185,10 +1917,27 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
               fullWidth
               inputRef={inputRef2}
               onFocus={scrollFocus(inputRef2)}
+              sx={{
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
             />
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          {/* 스마트폰에서는 세로 배치 */}
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2,
+            flexDirection: { xs: 'column', md: 'row' },
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              gap: 1.5
+            }
+          }}>
             <TextField
               name="contractAmount"
               label="계약금액"
@@ -1197,6 +1946,14 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
               fullWidth
               inputRef={inputRef3}
               onFocus={scrollFocus(inputRef3)}
+              sx={{
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
             />
             <TextField
               name="advance"
@@ -1206,6 +1963,14 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
               fullWidth
               inputRef={inputRef4}
               onFocus={scrollFocus(inputRef4)}
+              sx={{
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
             />
             <TextField
               name="totalProgress"
@@ -1215,6 +1980,14 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
               fullWidth
               inputRef={inputRef5}
               onFocus={scrollFocus(inputRef5)}
+              sx={{
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
             />
           </Box>
 
@@ -1226,9 +1999,25 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
             fullWidth
             inputRef={inputRef6}
             onFocus={scrollFocus(inputRef6)}
+            sx={{
+              // 스마트폰에서만 적용
+              '@media (max-width: 767px)': {
+                '& .MuiInputBase-input': {
+                  fontSize: '0.9rem'
+                }
+              }
+            }}
           />
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2,
+            flexDirection: { xs: 'column', md: 'row' },
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              gap: 1.5
+            }
+          }}>
             <TextField
               name="startDate"
               label="착공일"
@@ -1239,6 +2028,14 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
               InputLabelProps={{ shrink: true }}
               inputRef={inputRef7}
               onFocus={scrollFocus(inputRef7)}
+              sx={{
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
             />
             <TextField
               name="endDate"
@@ -1250,10 +2047,27 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
               InputLabelProps={{ shrink: true }}
               inputRef={inputRef8}
               onFocus={scrollFocus(inputRef8)}
+              sx={{
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
             />
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          {/* 스마트폰에서는 세로 배치 */}
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2,
+            flexDirection: { xs: 'column', md: 'row' },
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              gap: 1.5
+            }
+          }}>
             <Autocomplete
               options={vendors.map(vendor => vendor.companyName)}
               value={form.companyName}
@@ -1268,6 +2082,14 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
                   label="회사명 (거래처 선택 또는 입력)"
                   inputRef={inputRef9}
                   onFocus={scrollFocus(inputRef9)}
+                  sx={{
+                    // 스마트폰에서만 적용
+                    '@media (max-width: 767px)': {
+                      '& .MuiInputBase-input': {
+                        fontSize: '0.9rem'
+                      }
+                    }
+                  }}
                 />
               )}
             />
@@ -1279,6 +2101,14 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
               fullWidth
               inputRef={inputRef10}
               onFocus={scrollFocus(inputRef10)}
+              sx={{
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
             />
             <TextField
               name="phone"
@@ -1288,10 +2118,26 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
               fullWidth
               inputRef={inputRef11}
               onFocus={scrollFocus(inputRef11)}
+              sx={{
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
             />
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2,
+            flexDirection: { xs: 'column', md: 'row' },
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              gap: 1.5
+            }
+          }}>
             <TextField
               name="team"
               label="시공팀"
@@ -1300,6 +2146,14 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
               fullWidth
               inputRef={inputRef12}
               onFocus={scrollFocus(inputRef12)}
+              sx={{
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
             />
             <TextField
               name="desc"
@@ -1311,10 +2165,26 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
               rows={2}
               inputRef={inputRef13}
               onFocus={scrollFocus(inputRef13)}
+              sx={{
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
             />
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2,
+            flexDirection: { xs: 'column', md: 'row' },
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              gap: 1.5
+            }
+          }}>
             <FormControlLabel
               control={
                 <Checkbox
@@ -1324,6 +2194,14 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
                 />
               }
               label="하도급지킴이"
+              sx={{
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  '& .MuiFormControlLabel-label': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
             />
             <FormControlLabel
               control={
@@ -1334,13 +2212,53 @@ const EditDialog = ({ open, site, onClose, onSave, vendors }) => {
                 />
               }
               label="주요현장"
+              sx={{
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  '& .MuiFormControlLabel-label': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
             />
           </Box>
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>취소</Button>
-        <Button onClick={handleSubmit} variant="contained">
+      <DialogActions sx={{
+        // 스마트폰에서만 적용
+        '@media (max-width: 767px)': {
+          px: 2,
+          py: 1,
+          gap: 1
+        }
+      }}>
+        <Button 
+          onClick={onClose}
+          sx={{
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              fontSize: '0.9rem',
+              py: 1
+            }
+          }}
+        >
+          취소
+        </Button>
+        <Button 
+          onClick={handleSubmit} 
+          variant="contained"
+          sx={{
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              fontSize: '0.9rem',
+              py: 1,
+              bgcolor: '#2E7D32',
+              '&:hover': {
+                bgcolor: '#1B5E20'
+              }
+            }
+          }}
+        >
           저장
         </Button>
       </DialogActions>

@@ -107,48 +107,18 @@ const LandingPage = () => {
     checkUserRole();
   }, [currentUser]);
 
-  // 전역 이벤트 디버깅
+  // 터치 이벤트 최적화
   useEffect(() => {
-    const handleGlobalClick = (e) => {
-      console.log('🌍 전역 클릭 이벤트:', e.target, e.currentTarget);
+    // 스마트폰에서 터치 이벤트 최적화 - 기본 동작 허용
+    const handleTouchMove = (e) => {
+      // 스크롤을 위한 터치 이동 허용
     };
 
-    const handleGlobalTouch = (e) => {
-      console.log('🌍 전역 터치 이벤트:', e.target, e.currentTarget);
-    };
-
-    document.addEventListener('click', handleGlobalClick, true);
-    document.addEventListener('touchstart', handleGlobalTouch, true);
-    document.addEventListener('touchend', handleGlobalTouch, true);
-
-    // 버튼들에 직접 이벤트 리스너 추가
-    setTimeout(() => {
-      const buttons = document.querySelectorAll('button');
-      buttons.forEach((button, index) => {
-        console.log(`🔘 버튼 ${index} 발견:`, button);
-        
-        const directClickHandler = (e) => {
-          console.log(`🔘 버튼 ${index} 직접 클릭됨:`, button.textContent);
-          e.preventDefault();
-          e.stopPropagation();
-        };
-
-        const directTouchHandler = (e) => {
-          console.log(`🔘 버튼 ${index} 직접 터치됨:`, button.textContent);
-          e.preventDefault();
-          e.stopPropagation();
-        };
-
-        button.addEventListener('click', directClickHandler, true);
-        button.addEventListener('touchstart', directTouchHandler, true);
-        button.addEventListener('touchend', directTouchHandler, true);
-      });
-    }, 1000);
+    // 터치 이벤트 리스너 추가 (passive: true로 성능 최적화)
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
 
     return () => {
-      document.removeEventListener('click', handleGlobalClick, true);
-      document.removeEventListener('touchstart', handleGlobalTouch, true);
-      document.removeEventListener('touchend', handleGlobalTouch, true);
+      document.removeEventListener('touchmove', handleTouchMove);
     };
   }, []);
 
@@ -693,13 +663,19 @@ const LandingPage = () => {
 
   return (
     <Box sx={{ 
-      height: '100vh',
-      overflow: 'hidden',
+      minHeight: '100vh',
+      overflow: 'auto',
       background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%)',
       color: 'white',
       position: 'relative',
       display: 'flex',
       flexDirection: 'column',
+      // 스마트폰에서만 적용
+      '@media (max-width: 767px)': {
+        height: 'auto',
+        overflow: 'auto',
+        WebkitOverflowScrolling: 'touch'
+      },
       '&::before': {
         content: '""',
         position: 'absolute',
@@ -770,7 +746,11 @@ const LandingPage = () => {
         backdropFilter: 'blur(20px)',
         borderBottom: '1px solid rgba(67, 233, 123, 0.1)',
         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
-        flexShrink: 0
+        flexShrink: 0,
+        // 스마트폰에서만 적용
+        '@media (max-width: 767px)': {
+          py: 1
+        }
       }}>
         <Container maxWidth={false} sx={{ maxWidth: '1352px' }}>
           <Box sx={{ 
@@ -778,46 +758,64 @@ const LandingPage = () => {
             justifyContent: 'space-between', 
             alignItems: 'center',
             py: 2,
-            gap: '200px'
+            gap: '200px',
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              justifyContent: 'center',
+              gap: 1,
+              py: 1
+            }
           }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 2,
+              // 스마트폰에서만 적용
+              '@media (max-width: 767px)': {
+                gap: 1
+              }
+            }}>
               <Avatar sx={{ 
                 bgcolor: 'transparent', 
                 width: 40, 
                 height: 40,
                 border: '2px solid #43e97b',
-                boxShadow: '0 0 20px rgba(67, 233, 123, 0.3)'
+                boxShadow: '0 0 20px rgba(67, 233, 123, 0.3)',
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  width: 32,
+                  height: 32
+                }
               }}>
-                <Construction sx={{ color: '#43e97b' }} />
+                <Construction sx={{ 
+                  color: '#43e97b',
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: 20
+                  }
+                }} />
               </Avatar>
-              <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#43e97b' }}>
+              <Typography variant="h5" sx={{ 
+                fontWeight: 'bold', 
+                color: '#43e97b',
+                // 스마트폰에서만 적용
+                '@media (max-width: 767px)': {
+                  fontSize: '1.2rem'
+                }
+              }}>
                 천우건업(주)
               </Typography>
             </Box>
             <Button 
               variant="contained" 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('🔘 헤더 버튼 클릭됨 - onClick');
-                handleGetStarted();
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('🔘 헤더 버튼 마우스다운');
-                handleGetStarted();
-              }}
+              onClick={handleGetStarted}
               onTouchStart={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('🔘 헤더 버튼 터치시작');
-                handleGetStarted();
               }}
               onTouchEnd={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('🔘 헤더 버튼 터치끝');
                 handleGetStarted();
               }}
               sx={{ 
@@ -839,7 +837,11 @@ const LandingPage = () => {
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
                 MozUserSelect: 'none',
-                msUserSelect: 'none'
+                msUserSelect: 'none',
+                // 스마트폰에서만 적용 - 버튼 숨기기
+                '@media (max-width: 767px)': {
+                  display: 'none'
+                }
               }}
             >
               {currentUser ? '시스템 시작' : '로그인'}
@@ -849,9 +851,37 @@ const LandingPage = () => {
       </Box>
 
       {/* 메인 콘텐츠 */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Container maxWidth={false} sx={{ maxWidth: '1352px', flex: 1, display: 'flex', flexDirection: 'column', py: 2 }}>
-          <Grid container spacing={0} sx={{ flex: 1, alignItems: 'stretch' }}>
+      <Box sx={{ 
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        overflow: 'auto',
+        // 스마트폰에서만 적용
+        '@media (max-width: 767px)': {
+          overflow: 'auto',
+          WebkitOverflowScrolling: 'touch'
+        }
+      }}>
+        <Container maxWidth={false} sx={{ 
+          maxWidth: '1352px', 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          py: 2,
+          // 스마트폰에서만 적용
+          '@media (max-width: 767px)': {
+            py: 1,
+            px: 1
+          }
+        }}>
+          <Grid container spacing={0} sx={{ 
+            flex: 1, 
+            alignItems: 'stretch',
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
+              flexDirection: 'column'
+            }
+          }}>
             {/* 왼쪽: 제목과 설명 */}
             <Grid item xs={12} md={4} sx={{ maxWidth: '800px', width: '100%' }}>
               <Fade in timeout={1000}>
@@ -864,9 +894,13 @@ const LandingPage = () => {
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     textShadow: '0 0 30px rgba(67, 233, 123, 0.3)',
-                    filter: 'drop-shadow(0 0 10px rgba(67, 233, 123, 0.2))'
+                    filter: 'drop-shadow(0 0 10px rgba(67, 233, 123, 0.2))',
+                    // 스마트폰에서만 적용
+                    '@media (max-width: 767px)': {
+                      fontSize: '1.8rem'
+                    }
                   }}>
-                    건설현장관리시스템
+                    현장관리시스템
                   </Typography>
                   <Typography variant="h6" sx={{ 
                     mb: 2, 
@@ -889,28 +923,14 @@ const LandingPage = () => {
                     <Button 
                       variant="contained" 
                       size="medium"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('🔘 시작하기 버튼 클릭됨 - onClick');
-                        handleGetStarted();
-                      }}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('🔘 시작하기 버튼 마우스다운');
-                        handleGetStarted();
-                      }}
+                      onClick={handleGetStarted}
                       onTouchStart={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('🔘 시작하기 버튼 터치시작');
-                        handleGetStarted();
                       }}
                       onTouchEnd={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('🔘 시작하기 버튼 터치끝');
                         handleGetStarted();
                       }}
                       endIcon={<ArrowForward />}
@@ -926,15 +946,14 @@ const LandingPage = () => {
                         px: 3,
                         py: 1,
                         fontWeight: 'bold',
-                        cursor: 'pointer !important',
-                        zIndex: 9999,
-                        position: 'relative',
-                        pointerEvents: 'auto',
-                        touchAction: 'manipulation',
-                        userSelect: 'none',
-                        WebkitUserSelect: 'none',
-                        MozUserSelect: 'none',
-                        msUserSelect: 'none'
+                        cursor: 'pointer',
+                        touchAction: 'none',
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          px: 2,
+                          py: 0.8,
+                          fontSize: '0.9rem'
+                        }
                       }}
                     >
                       시작하기
@@ -943,28 +962,14 @@ const LandingPage = () => {
                       variant="outlined" 
                       size="medium"
                       startIcon={<Security />}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('🔘 로그인 버튼 클릭됨 - onClick');
-                        handleLogin();
-                      }}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('🔘 로그인 버튼 마우스다운');
-                        handleLogin();
-                      }}
+                      onClick={handleLogin}
                       onTouchStart={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('🔘 로그인 버튼 터치시작');
-                        handleLogin();
                       }}
                       onTouchEnd={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('🔘 로그인 버튼 터치끝');
                         handleLogin();
                       }}
                       sx={{ 
@@ -978,20 +983,19 @@ const LandingPage = () => {
                         px: 3,
                         py: 1,
                         fontWeight: 'bold',
-                        cursor: 'pointer !important',
-                        zIndex: 9999,
-                        position: 'relative',
-                        pointerEvents: 'auto',
-                        touchAction: 'manipulation',
-                        userSelect: 'none',
-                        WebkitUserSelect: 'none',
-                        MozUserSelect: 'none',
-                        msUserSelect: 'none',
+                        cursor: 'pointer',
+                        touchAction: 'none',
                         ...(currentUser && {
                           border: '2px solid #ef4444',
                           boxShadow: '0 0 20px rgba(239, 68, 68, 0.4)',
                           textShadow: '0 0 10px rgba(239, 68, 68, 0.5)'
-                        })
+                        }),
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          px: 2,
+                          py: 0.8,
+                          fontSize: '0.9rem'
+                        }
                       }}
                     >
                       {currentUser ? '로그인 완료' : '로그인하기'}
@@ -1012,9 +1016,21 @@ const LandingPage = () => {
                   </Box>
                   
                   {/* 통계 카드들 */}
-                  <Grid container spacing={2} sx={{ flex: 1 }}>
+                  <Grid container spacing={1} sx={{ 
+                    flex: 1,
+                    // 스마트폰에서만 적용
+                    '@media (max-width: 767px)': {
+                      spacing: 0.5
+                    }
+                  }}>
                     {stats.map((stat, index) => (
-                      <Grid item xs={6} key={index}>
+                      <Grid item xs={3} key={index} sx={{
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          xs: 3,
+                          minWidth: 0
+                        }
+                      }}>
                         <Paper sx={{ 
                           p: 1.5, 
                           textAlign: 'center',
@@ -1032,22 +1048,44 @@ const LandingPage = () => {
                             transform: 'translateY(-5px)',
                             boxShadow: '0 20px 40px rgba(0, 0, 0, 0.7), 0 0 20px rgba(67, 233, 123, 0.2)',
                             border: '1px solid rgba(67, 233, 123, 0.3)'
+                          },
+                          // 스마트폰에서만 적용
+                          '@media (max-width: 767px)': {
+                            p: 1,
+                            minHeight: '80px',
+                            borderRadius: 1
                           }
                         }}>
-                          <Box sx={{ color: '#43e97b', mb: 1 }}>
+                          <Box sx={{ 
+                            color: '#43e97b', 
+                            mb: 1,
+                            // 스마트폰에서만 적용
+                            '@media (max-width: 767px)': {
+                              mb: 0.5
+                            }
+                          }}>
                             {stat.icon}
                           </Box>
                           <Typography variant="h4" sx={{ 
                             fontWeight: 'bold', 
                             mb: 0.5,
                             color: '#43e97b',
-                            textShadow: '0 0 10px rgba(67, 233, 123, 0.3)'
+                            textShadow: '0 0 10px rgba(67, 233, 123, 0.3)',
+                            // 스마트폰에서만 적용
+                            '@media (max-width: 767px)': {
+                              fontSize: '1.2rem',
+                              mb: 0.25
+                            }
                           }}>
                             {currentUser ? stat.number : 0}
                           </Typography>
                           <Typography variant="body1" sx={{ 
                             color: '#e5e7eb',
-                            fontWeight: '500'
+                            fontWeight: '500',
+                            // 스마트폰에서만 적용
+                            '@media (max-width: 767px)': {
+                              fontSize: '0.7rem'
+                            }
                           }}>
                             {stat.label}
                           </Typography>
@@ -1379,17 +1417,9 @@ const LandingPage = () => {
                             background: 'rgba(0, 0, 0, 0.4)',
                             border: '1px solid rgba(67, 233, 123, 0.1)',
                             borderRadius: 2,
-                            cursor: 'pointer !important',
+                            cursor: 'pointer',
                             transition: 'all 0.3s ease',
                             boxShadow: '0 5px 15px rgba(0, 0, 0, 0.3)',
-                            pointerEvents: 'auto',
-                            touchAction: 'manipulation',
-                            userSelect: 'none',
-                            WebkitUserSelect: 'none',
-                            MozUserSelect: 'none',
-                            msUserSelect: 'none',
-                            zIndex: 9999,
-                            position: 'relative',
                             display: 'flex',
                             alignItems: 'center',
                             boxSizing: 'border-box',
@@ -1400,20 +1430,8 @@ const LandingPage = () => {
                               border: '1px solid rgba(67, 233, 123, 0.3)',
                               background: 'rgba(67, 233, 123, 0.1)'
                             }
-                          }} onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            console.log('🔘 기능 카드 클릭됨 - onClick:', item.title, item.path);
-                            try {
-                              navigate(item.path);
-                            } catch (error) {
-                              console.error('❌ 기능 카드 네비게이션 오류:', error);
-                            }
-                          }}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            console.log('🔘 기능 카드 마우스다운:', item.title, item.path);
+                          }} 
+                          onClick={() => {
                             try {
                               navigate(item.path);
                             } catch (error) {
@@ -1423,21 +1441,14 @@ const LandingPage = () => {
                           onTouchStart={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            console.log('🔘 기능 카드 터치시작:', item.title, item.path);
-                            try {
-                              navigate(item.path);
-                            } catch (error) {
-                              console.error('❌ 기능 카드 네비게이션 오류:', error);
-                            }
                           }}
                           onTouchEnd={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            console.log('🔘 기능 카드 터치끝:', item.title, item.path);
                             try {
                               navigate(item.path);
                             } catch (error) {
-                              console.error('❌ 기능 카드 네비게이션 오류:', error);
+                              console.error('❌ 기능 카드 터치 네비게이션 오류:', error);
                             }
                           }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1483,17 +1494,9 @@ const LandingPage = () => {
                             background: 'rgba(0, 0, 0, 0.4)',
                             border: '1px solid rgba(67, 233, 123, 0.1)',
                             borderRadius: 2,
-                            cursor: 'pointer !important',
+                            cursor: 'pointer',
                             transition: 'all 0.3s ease',
                             boxShadow: '0 5px 15px rgba(0, 0, 0, 0.3)',
-                            pointerEvents: 'auto',
-                            touchAction: 'manipulation',
-                            userSelect: 'none',
-                            WebkitUserSelect: 'none',
-                            MozUserSelect: 'none',
-                            msUserSelect: 'none',
-                            zIndex: 9999,
-                            position: 'relative',
                             display: 'flex',
                             alignItems: 'center',
                             boxSizing: 'border-box',
@@ -1503,20 +1506,8 @@ const LandingPage = () => {
                               border: '1px solid rgba(67, 233, 123, 0.3)',
                               background: 'rgba(67, 233, 123, 0.1)'
                             }
-                          }} onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            console.log('🔘 기능 카드 클릭됨 - onClick:', item.title, item.path);
-                            try {
-                              navigate(item.path);
-                            } catch (error) {
-                              console.error('❌ 기능 카드 네비게이션 오류:', error);
-                            }
-                          }}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            console.log('🔘 기능 카드 마우스다운:', item.title, item.path);
+                          }} 
+                          onClick={() => {
                             try {
                               navigate(item.path);
                             } catch (error) {
@@ -1526,21 +1517,14 @@ const LandingPage = () => {
                           onTouchStart={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            console.log('🔘 기능 카드 터치시작:', item.title, item.path);
-                            try {
-                              navigate(item.path);
-                            } catch (error) {
-                              console.error('❌ 기능 카드 네비게이션 오류:', error);
-                            }
                           }}
                           onTouchEnd={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            console.log('🔘 기능 카드 터치끝:', item.title, item.path);
                             try {
                               navigate(item.path);
                             } catch (error) {
-                              console.error('❌ 기능 카드 네비게이션 오류:', error);
+                              console.error('❌ 기능 카드 터치 네비게이션 오류:', error);
                             }
                           }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1611,6 +1595,15 @@ const LandingPage = () => {
                           <Box
                             key={todo.id || index}
                             onClick={() => handleTodoToggle(todo.id, todo.completed)}
+                            onTouchStart={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                            onTouchEnd={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleTodoToggle(todo.id, todo.completed);
+                            }}
                             sx={{
                               display: 'flex',
                               alignItems: 'center',
@@ -1621,9 +1614,8 @@ const LandingPage = () => {
                               background: 'rgba(0, 0, 0, 0.3)',
                               border: '1px solid rgba(67, 233, 123, 0.1)',
                               transition: 'all 0.3s ease',
-                              cursor: 'pointer !important',
-                              pointerEvents: 'auto',
-                              touchAction: 'manipulation',
+                              cursor: 'pointer',
+                              touchAction: 'none',
                               userSelect: 'none',
                               WebkitUserSelect: 'none',
                               MozUserSelect: 'none',

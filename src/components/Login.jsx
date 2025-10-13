@@ -246,7 +246,23 @@ const Login = () => {
             required
             autoComplete="email"
             error={!!error}
-            sx={{ mb: 2 }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+            }}
+            onTouchEnd={(e) => {
+              e.stopPropagation();
+            }}
+            sx={{ 
+              mb: 2,
+              touchAction: 'manipulation',
+              // 스마트폰에서만 적용
+              '@media (max-width: 767px)': {
+                '& .MuiInputBase-input': {
+                  fontSize: '16px', // iOS 줌 방지
+                  padding: '16px 14px'
+                }
+              }
+            }}
           />
           <TextField
             fullWidth
@@ -258,7 +274,23 @@ const Login = () => {
             required
             autoComplete="current-password"
             error={!!error}
-            sx={{ mb: 2 }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+            }}
+            onTouchEnd={(e) => {
+              e.stopPropagation();
+            }}
+            sx={{ 
+              mb: 2,
+              touchAction: 'manipulation',
+              // 스마트폰에서만 적용
+              '@media (max-width: 767px)': {
+                '& .MuiInputBase-input': {
+                  fontSize: '16px', // iOS 줌 방지
+                  padding: '16px 14px'
+                }
+              }
+            }}
           />
           
           <FormControlLabel
@@ -267,6 +299,18 @@ const Login = () => {
                 checked={rememberEmail}
                 onChange={(e) => setRememberEmail(e.target.checked)}
                 color="primary"
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setRememberEmail(!rememberEmail);
+                }}
+                sx={{
+                  touchAction: 'none'
+                }}
               />
             }
             label="아이디 저장"
@@ -285,11 +329,23 @@ const Login = () => {
             color="primary"
             size="large"
             disabled={loading}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!loading) {
+                handleSubmit(e);
+              }
+            }}
             sx={{ 
               height: 48,
               fontSize: '1.1rem',
               fontWeight: 'bold',
-              mb: 2
+              mb: 2,
+              touchAction: 'none'
             }}
           >
             {loading ? <CircularProgress size={24} color="inherit" /> : '로그인'}

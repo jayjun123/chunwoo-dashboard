@@ -2474,10 +2474,9 @@ const ScheduleManagement = ({
                         <Typography 
                           sx={{ 
                             fontWeight: 600, 
-                            color: 'primary.main',
+                            color: 'primary.contrastText',
                             fontSize: '0.75rem',
                             bgcolor: 'primary.light',
-                            color: 'primary.contrastText',
                             px: 1,
                             py: 0.25,
                             borderRadius: 1,
