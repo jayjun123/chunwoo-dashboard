@@ -848,16 +848,16 @@ const Claims = () => {
     return Number(siteData?.contractAmount || 0);
   };
 
-  // 계약금액 잔액 계산 함수
+  // 계약금액 잔액 계산 함수 (기성현황 페이지와 동일한 로직)
   const calculateRemainingAmount = (siteName) => {
     const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
     const siteData = sites.find(site => site.name === siteName);
     
     if (!siteData || !siteData.contractAmount) return 0;
     
-    // 총 기성금액 계산 (청구완료된 것만, 예외 항목 제외)
-    const totalGisungAmount = siteGisungData
-      .filter(gisung => gisung.claimStatus === '청구완료' && !gisung.isException)
+    // 입금완료된 기성금액만 계산 (예외 항목 제외) - 기성현황 페이지와 동일
+    const totalPaidAmount = siteGisungData
+      .filter(gisung => gisung.paymentStatus === '입금완료' && !gisung.isException)
       .reduce((sum, gisung) => {
         const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
         return sum + amount;
@@ -877,14 +877,14 @@ const Claims = () => {
     const advanceAmount = Number(siteData.advance || 0); // 선급금
     const contractAmount = Number(siteData.contractAmount);
     
-    // 계약금액 - (총 기성금액 + 선급금 + 현재 청구예정 금액 + 현재 편집 중인 청구예정 금액)
-    const remainingAmount = contractAmount - (totalGisungAmount + advanceAmount + currentClaimAmount + currentEditingClaimAmount);
+    // 계약금액 - 선급금 - 입금완료금액 - 현재 청구예정 금액 - 현재 편집 중인 청구예정 금액
+    const remainingAmount = contractAmount - advanceAmount - totalPaidAmount - currentClaimAmount - currentEditingClaimAmount;
     
     // 디버깅을 위한 로그 추가
-    console.log(`🔍 잔액 계산 (청구예정 포함) - ${siteName}:`, {
+    console.log(`🔍 잔액 계산 (입금완료 기준) - ${siteName}:`, {
       contractAmount,
-      totalGisungAmount,
       advanceAmount,
+      totalPaidAmount,
       currentClaimAmount,
       currentEditingClaimAmount,
       isException: formData.isException,
@@ -894,7 +894,7 @@ const Claims = () => {
     return Math.max(0, remainingAmount); // 음수 방지
   };
 
-  // 청구금액 기준 잔액 계산 함수 (더 정확한 계산)
+  // 청구금액 기준 잔액 계산 함수 (기성현황 페이지와 동일한 로직)
   const calculateBalanceByClaimAmount = (siteName, claimAmount, isException = false) => {
     const siteData = sites.find(site => site.name === siteName);
     
@@ -903,16 +903,16 @@ const Claims = () => {
     const contractAmount = Number(siteData.contractAmount);
     const claimAmountNum = Number(claimAmount || 0);
     
-    // 청구완료된 기성금 총합 계산 (예외 항목 제외)
+    // 입금완료된 기성금 총합 계산 (예외 항목 제외) - 기성현황 페이지와 동일
     const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
-    const totalGisungAmount = siteGisungData
-      .filter(gisung => gisung.claimStatus === '청구완료' && !gisung.isException)
+    const totalPaidAmount = siteGisungData
+      .filter(gisung => gisung.paymentStatus === '입금완료' && !gisung.isException)
       .reduce((sum, gisung) => {
         const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
         return sum + amount;
       }, 0);
     
-    // 청구예정인 기성금 총합 계산 (예외 항목 제외) - 새로 추가
+    // 청구예정인 기성금 총합 계산 (예외 항목 제외)
     const pendingGisungAmount = siteGisungData
       .filter(gisung => gisung.claimStatus !== '청구완료' && !gisung.isException)
       .reduce((sum, gisung) => {
@@ -925,14 +925,14 @@ const Claims = () => {
     // 예외처리된 청구금액은 잔액 계산에서 제외
     const effectiveClaimAmount = isException ? 0 : claimAmountNum;
     
-    // 계약금액 - (청구완료 기성금 + 청구예정 기성금 + 선급금 + 현재 청구금액)
-    const balance = contractAmount - (totalGisungAmount + pendingGisungAmount + advanceAmount + effectiveClaimAmount);
+    // 계약금액 - 선급금 - 입금완료금액 - 청구예정 기성금 - 현재 청구금액
+    const balance = contractAmount - advanceAmount - totalPaidAmount - pendingGisungAmount - effectiveClaimAmount;
     
-    console.log(`💰 청구금액 기준 잔액 계산 (수정됨) - ${siteName}:`, {
+    console.log(`💰 청구금액 기준 잔액 계산 (입금완료 기준) - ${siteName}:`, {
       contractAmount,
-      totalGisungAmount,
-      pendingGisungAmount,
       advanceAmount,
+      totalPaidAmount,
+      pendingGisungAmount,
       claimAmount: claimAmountNum,
       isException,
       effectiveClaimAmount,
@@ -942,14 +942,14 @@ const Claims = () => {
     return Math.max(0, balance); // 음수 방지
   };
 
-  // 누계기성금액 계산 함수 (선급금 포함)
+  // 누계기성금액 계산 함수 (입금완료 기준, 선급금 포함)
   const calculateTotalGisungAmount = (siteName) => {
     const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
     const siteData = sites.find(site => site.name === siteName);
     
-    // 청구완료된 기성금의 총합 계산 (예외 항목 제외)
-    const totalGisungAmount = siteGisungData
-      .filter(gisung => gisung.claimStatus === '청구완료' && !gisung.isException)
+    // 입금완료된 기성금의 총합 계산 (예외 항목 제외) - 기성현황 페이지와 동일
+    const totalPaidAmount = siteGisungData
+      .filter(gisung => gisung.paymentStatus === '입금완료' && !gisung.isException)
       .reduce((sum, gisung) => {
         const amount = Number(gisung.gisungAmount || gisung.currentGisung || 0);
         return sum + amount;
@@ -957,13 +957,13 @@ const Claims = () => {
     
     // 선급금 추가
     const advanceAmount = Number(siteData?.advance || 0);
-    const totalWithAdvance = totalGisungAmount + advanceAmount;
+    const totalWithAdvance = totalPaidAmount + advanceAmount;
     
-    console.log(`📊 누계기성금액 계산 (선급금 포함) - ${siteName}:`, {
-      totalGisungAmount,
+    console.log(`📊 누계기성금액 계산 (입금완료 기준, 선급금 포함) - ${siteName}:`, {
+      totalPaidAmount,
       advanceAmount,
       totalWithAdvance,
-      청구완료기성개수: siteGisungData.filter(gisung => gisung.claimStatus === '청구완료').length
+      입금완료기성개수: siteGisungData.filter(gisung => gisung.paymentStatus === '입금완료').length
     });
     
     return totalWithAdvance;
@@ -1079,17 +1079,17 @@ const Claims = () => {
       // 청구금액을 올림 처리
       claimAmount = Math.ceil(claimAmount);
 
-      // 잔액 실시간 계산 (청구여부에 따라 다르게 계산)
+      // 잔액 실시간 계산 (입금완료 기준으로 계산)
       const contractAmount = Math.ceil(Number(getContractAmount(formData.siteName)) || 0);
       const totalGisungAmount = Math.ceil(Number(formData.totalGisungAmount) || 0);
       const claimStatus = formData.claimStatus || 'X';
       
       let calculatedBalance;
       if (claimStatus === 'O') {
-        // 청구완료: 계약금액 - 누계기성금액 - 금회청구금액
+        // 청구완료: 계약금액 - 누계기성금액(입금완료 기준) - 금회청구금액
         calculatedBalance = Math.max(0, Math.ceil(contractAmount - totalGisungAmount - claimAmount));
       } else {
-        // 청구대기: 계약금액 - 누계기성금액
+        // 청구대기: 계약금액 - 누계기성금액(입금완료 기준)
         calculatedBalance = Math.max(0, Math.ceil(contractAmount - totalGisungAmount));
       }
 
@@ -1853,10 +1853,65 @@ const Claims = () => {
       minHeight: '100vh',
       color: 'white',
       p: { xs: 1, md: 3 },
-      pt: { xs: '49px', md: '74px' } // 모바일에서 위로 10px 이동 (59px → 49px)
+      pt: { xs: '49px', md: '74px' }, // 모바일에서 위로 10px 이동 (59px → 49px)
+      // 스마트폰에서만 적용
+      '@media (max-width: 767px)': {
+        bgcolor: '#f5f5f5',
+        color: '#333',
+        p: 2,
+        pt: 2
+      }
     }}>
+      {/* 스마트폰 전용 안내 메시지 */}
+      <Box sx={{
+        display: 'none',
+        // 스마트폰에서만 표시
+        '@media (max-width: 767px)': {
+          display: 'block',
+          bgcolor: 'white',
+          borderRadius: '12px',
+          p: 3,
+          mb: 3,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          border: '2px solid #ff9800'
+        }
+      }}>
+        <Typography variant="h6" sx={{ 
+          color: '#ff9800', 
+          fontWeight: 'bold', 
+          mb: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          📋 복잡한 청구 관리 기능
+        </Typography>
+        <Typography variant="body2" sx={{ color: '#666', mb: 2 }}>
+          이 페이지는 복잡한 청구 관리와 데이터 분석 기능을 포함하고 있어 스마트폰에서 사용하기 어렵습니다.
+        </Typography>
+        <Typography variant="body2" sx={{ color: '#666', mb: 2 }}>
+          더 나은 사용 경험을 위해 웹 브라우저나 태블릿에서 이용해 주세요.
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => navigate('/schedule')}
+          sx={{
+            bgcolor: '#2E7D32',
+            '&:hover': { bgcolor: '#1B5E20' }
+          }}
+        >
+          일정 관리로 돌아가기
+        </Button>
+      </Box>
+
       {/* 헤더와 스마트카드 */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ 
+        mb: 3,
+        // 스마트폰에서 숨김
+        '@media (max-width: 767px)': {
+          display: 'none'
+        }
+      }}>
         {isMobile ? (
           // 모바일 버전: 제목과 돌아가기 버튼을 한 줄에 배치
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
