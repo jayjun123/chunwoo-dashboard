@@ -1520,6 +1520,7 @@ const Claims = () => {
 
       // 백그라운드에서 Firebase 업데이트
       updateClaim(claim.id, updatedClaim).then(() => {
+        console.log(`✅ Firebase 업데이트 성공: ${claim.siteName}`);
         // 성공 시 isUpdating 플래그 제거
         setClaims(prevClaims => 
           prevClaims.map(c => c.id === claim.id ? { ...c, isUpdating: false } : c)
@@ -1527,21 +1528,22 @@ const Claims = () => {
         setFilteredClaims(prevFiltered => 
           prevFiltered.map(c => c.id === claim.id ? { ...c, isUpdating: false } : c)
         );
-        console.log(`✅ Firebase 업데이트 성공: ${claim.siteName}`);
+        console.log(`🔄 isUpdating 플래그 제거 완료: ${claim.siteName}`);
       }).catch(error => {
         console.error('Firebase 업데이트 실패:', error);
-        // 실패 시 원래 상태로 롤백
+        // 실패 시 원래 상태로 롤백하고 isUpdating 플래그도 제거
         setClaims(prevClaims => 
-          prevClaims.map(c => c.id === claim.id ? claim : c)
+          prevClaims.map(c => c.id === claim.id ? { ...claim, isUpdating: false } : c)
         );
         setFilteredClaims(prevFiltered => 
-          prevFiltered.map(c => c.id === claim.id ? claim : c)
+          prevFiltered.map(c => c.id === claim.id ? { ...claim, isUpdating: false } : c)
         );
         setSnackbar({
           open: true,
           message: '청구여부 변경에 실패했습니다.',
           severity: 'error'
         });
+        console.log(`🔄 실패 시 isUpdating 플래그 제거 완료: ${claim.siteName}`);
       });
 
       // 이월로 변경된 경우 다음달 청구예정에 이월 항목 추가
