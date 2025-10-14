@@ -438,12 +438,19 @@ const LandingPage = () => {
 
   // 메인페이지에서 할일 완료 상태 토글
   const handleTodoToggle = async (todoId, currentCompleted) => {
+    console.log('🔄 메인페이지에서 할일 상태 토글:', { 
+      todoId, 
+      currentCompleted,
+      timestamp: new Date().toISOString()
+    });
+    
     try {
-      console.log('🔄 메인페이지에서 할일 상태 토글:', { todoId, currentCompleted });
       await toggleTodo(todoId, currentCompleted);
       console.log('✅ 할일 상태 토글 완료');
     } catch (error) {
       console.error('❌ 할일 상태 토글 실패:', error);
+      // 사용자에게 피드백 제공
+      alert('할일 상태 변경에 실패했습니다. 다시 시도해주세요.');
     }
   };
 
@@ -637,7 +644,11 @@ const LandingPage = () => {
   ];
 
   const handleGetStarted = () => {
-    console.log('🚀 handleGetStarted 클릭됨', { currentUser });
+    console.log('🚀 handleGetStarted 클릭됨', { 
+      currentUser: currentUser ? '로그인됨' : '로그인 안됨',
+      timestamp: new Date().toISOString()
+    });
+    
     try {
       if (currentUser) {
         console.log('✅ 로그인된 사용자, 대시보드로 이동');
@@ -648,16 +659,35 @@ const LandingPage = () => {
       }
     } catch (error) {
       console.error('❌ handleGetStarted 오류:', error);
+      // 오류 발생 시에도 기본 동작 수행
+      try {
+        navigate('/auth');
+      } catch (fallbackError) {
+        console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
+        // 최후의 수단으로 페이지 새로고침
+        window.location.href = '/auth';
+      }
     }
   };
 
   const handleLogin = () => {
-    console.log('🔑 handleLogin 클릭됨');
+    console.log('🔑 handleLogin 클릭됨', { 
+      timestamp: new Date().toISOString()
+    });
+    
     try {
       // 로그인 페이지로 이동
       navigate('/auth');
     } catch (error) {
       console.error('❌ handleLogin 오류:', error);
+      // 오류 발생 시 폴백 동작
+      try {
+        window.location.href = '/auth';
+      } catch (fallbackError) {
+        console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
+        // 최후의 수단으로 페이지 새로고침
+        window.location.reload();
+      }
     }
   };
 
@@ -808,14 +838,14 @@ const LandingPage = () => {
             </Box>
             <Button 
               variant="contained" 
-              onClick={handleGetStarted}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
+              onClick={(e) => {
+                console.log('🔘 헤더 버튼 클릭 이벤트:', {
+                  type: e.type,
+                  target: e.target.tagName,
+                  currentTarget: e.currentTarget.tagName,
+                  timestamp: new Date().toISOString(),
+                  userAgent: navigator.userAgent
+                });
                 handleGetStarted();
               }}
               sx={{ 
@@ -829,7 +859,7 @@ const LandingPage = () => {
                 },
                 px: 3,
                 fontWeight: 'bold',
-                cursor: 'pointer !important',
+                cursor: 'pointer',
                 zIndex: 9999,
                 position: 'relative',
                 pointerEvents: 'auto',
@@ -923,14 +953,14 @@ const LandingPage = () => {
                     <Button 
                       variant="contained" 
                       size="medium"
-                      onClick={handleGetStarted}
-                      onTouchStart={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      onTouchEnd={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
+                      onClick={(e) => {
+                        console.log('🔘 시작하기 버튼 클릭 이벤트:', {
+                          type: e.type,
+                          target: e.target.tagName,
+                          currentTarget: e.currentTarget.tagName,
+                          timestamp: new Date().toISOString(),
+                          userAgent: navigator.userAgent
+                        });
                         handleGetStarted();
                       }}
                       endIcon={<ArrowForward />}
@@ -947,7 +977,7 @@ const LandingPage = () => {
                         py: 1,
                         fontWeight: 'bold',
                         cursor: 'pointer',
-                        touchAction: 'none',
+                        touchAction: 'manipulation',
                         // 스마트폰에서만 적용
                         '@media (max-width: 767px)': {
                           px: 2,
@@ -962,14 +992,14 @@ const LandingPage = () => {
                       variant="outlined" 
                       size="medium"
                       startIcon={<Security />}
-                      onClick={handleLogin}
-                      onTouchStart={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      onTouchEnd={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
+                      onClick={(e) => {
+                        console.log('🔘 로그인 버튼 클릭 이벤트:', {
+                          type: e.type,
+                          target: e.target.tagName,
+                          currentTarget: e.currentTarget.tagName,
+                          timestamp: new Date().toISOString(),
+                          userAgent: navigator.userAgent
+                        });
                         handleLogin();
                       }}
                       sx={{ 
@@ -984,7 +1014,7 @@ const LandingPage = () => {
                         py: 1,
                         fontWeight: 'bold',
                         cursor: 'pointer',
-                        touchAction: 'none',
+                        touchAction: 'manipulation',
                         ...(currentUser && {
                           border: '2px solid #ef4444',
                           boxShadow: '0 0 20px rgba(239, 68, 68, 0.4)',
@@ -1432,25 +1462,25 @@ const LandingPage = () => {
                             }
                           }} 
                           onClick={() => {
+                            console.log('🎯 기능 카드 클릭:', { 
+                              title: item.title, 
+                              path: item.path,
+                              timestamp: new Date().toISOString()
+                            });
+                            
                             try {
                               navigate(item.path);
                             } catch (error) {
                               console.error('❌ 기능 카드 네비게이션 오류:', error);
+                              // 폴백 동작
+                              try {
+                                window.location.href = item.path;
+                              } catch (fallbackError) {
+                                console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
+                              }
                             }
                           }}
-                          onTouchStart={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
-                          onTouchEnd={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            try {
-                              navigate(item.path);
-                            } catch (error) {
-                              console.error('❌ 기능 카드 터치 네비게이션 오류:', error);
-                            }
-                          }}>
+>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Box sx={{ 
                                 p: 0.5,
@@ -1508,25 +1538,25 @@ const LandingPage = () => {
                             }
                           }} 
                           onClick={() => {
+                            console.log('🎯 기능 카드 클릭:', { 
+                              title: item.title, 
+                              path: item.path,
+                              timestamp: new Date().toISOString()
+                            });
+                            
                             try {
                               navigate(item.path);
                             } catch (error) {
                               console.error('❌ 기능 카드 네비게이션 오류:', error);
+                              // 폴백 동작
+                              try {
+                                window.location.href = item.path;
+                              } catch (fallbackError) {
+                                console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
+                              }
                             }
                           }}
-                          onTouchStart={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
-                          onTouchEnd={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            try {
-                              navigate(item.path);
-                            } catch (error) {
-                              console.error('❌ 기능 카드 터치 네비게이션 오류:', error);
-                            }
-                          }}>
+>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Box sx={{ 
                                 p: 0.5,
@@ -1595,15 +1625,6 @@ const LandingPage = () => {
                           <Box
                             key={todo.id || index}
                             onClick={() => handleTodoToggle(todo.id, todo.completed)}
-                            onTouchStart={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }}
-                            onTouchEnd={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleTodoToggle(todo.id, todo.completed);
-                            }}
                             sx={{
                               display: 'flex',
                               alignItems: 'center',
@@ -1615,7 +1636,7 @@ const LandingPage = () => {
                               border: '1px solid rgba(67, 233, 123, 0.1)',
                               transition: 'all 0.3s ease',
                               cursor: 'pointer',
-                              touchAction: 'none',
+                              touchAction: 'manipulation',
                               userSelect: 'none',
                               WebkitUserSelect: 'none',
                               MozUserSelect: 'none',
