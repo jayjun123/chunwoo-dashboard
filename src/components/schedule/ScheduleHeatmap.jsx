@@ -901,8 +901,24 @@ const ScheduleHeatmap = ({
 
 
 
-        {/* 현장 목록을 카드 형태로 표시 */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {/* 현장 목록을 카드 형태로 표시 - 10개까지만 보이고 나머지는 스크롤 */}
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: 1,
+          maxHeight: '600px', // 최대 높이 설정
+          overflowY: 'auto', // 세로 스크롤
+          '&::-webkit-scrollbar': {
+            width: '0px', // 스크롤바 숨기기
+            background: 'transparent'
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: 'transparent'
+          },
+          // Firefox용 스크롤바 숨기기
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none'
+        }}>
           {heatmapData.map((item, index) => {
             const isSelected = viewMode === 'sites' 
               ? selectedSites.includes(item.siteId)
