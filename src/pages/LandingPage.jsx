@@ -114,11 +114,23 @@ const LandingPage = () => {
       // 스크롤을 위한 터치 이동 허용
     };
 
+    const handleTouchStart = (e) => {
+      // 터치 시작 시 기본 동작 허용
+    };
+
+    const handleTouchEnd = (e) => {
+      // 터치 종료 시 기본 동작 허용
+    };
+
     // 터치 이벤트 리스너 추가 (passive: true로 성능 최적화)
     document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     return () => {
       document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchend', handleTouchEnd);
     };
   }, []);
 
@@ -643,52 +655,72 @@ const LandingPage = () => {
     }
   ];
 
-  const handleGetStarted = () => {
+  const handleGetStarted = (e) => {
+    // 이벤트 전파 방지
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     console.log('🚀 handleGetStarted 클릭됨', { 
       currentUser: currentUser ? '로그인됨' : '로그인 안됨',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      event: e ? e.type : 'no-event'
     });
     
-    try {
-      if (currentUser) {
-        console.log('✅ 로그인된 사용자, 대시보드로 이동');
-        navigate('/dashboard');
-      } else {
-        console.log('🔐 로그인되지 않은 사용자, 로그인 페이지로 이동');
-        navigate('/auth');
-      }
-    } catch (error) {
-      console.error('❌ handleGetStarted 오류:', error);
-      // 오류 발생 시에도 기본 동작 수행
+    // 약간의 지연을 두어 UI 반응성 개선
+    setTimeout(() => {
       try {
-        navigate('/auth');
-      } catch (fallbackError) {
-        console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
-        // 최후의 수단으로 페이지 새로고침
-        window.location.href = '/auth';
+        if (currentUser) {
+          console.log('✅ 로그인된 사용자, 대시보드로 이동');
+          navigate('/dashboard');
+        } else {
+          console.log('🔐 로그인되지 않은 사용자, 로그인 페이지로 이동');
+          navigate('/auth');
+        }
+      } catch (error) {
+        console.error('❌ handleGetStarted 오류:', error);
+        // 오류 발생 시에도 기본 동작 수행
+        try {
+          navigate('/auth');
+        } catch (fallbackError) {
+          console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
+          // 최후의 수단으로 페이지 새로고침
+          window.location.href = '/auth';
+        }
       }
-    }
+    }, 100);
   };
 
-  const handleLogin = () => {
+  const handleLogin = (e) => {
+    // 이벤트 전파 방지
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     console.log('🔑 handleLogin 클릭됨', { 
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      event: e ? e.type : 'no-event'
     });
     
-    try {
-      // 로그인 페이지로 이동
-      navigate('/auth');
-    } catch (error) {
-      console.error('❌ handleLogin 오류:', error);
-      // 오류 발생 시 폴백 동작
+    // 약간의 지연을 두어 UI 반응성 개선
+    setTimeout(() => {
       try {
-        window.location.href = '/auth';
-      } catch (fallbackError) {
-        console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
-        // 최후의 수단으로 페이지 새로고침
-        window.location.reload();
+        // 로그인 페이지로 이동
+        navigate('/auth');
+      } catch (error) {
+        console.error('❌ handleLogin 오류:', error);
+        // 오류 발생 시 폴백 동작
+        try {
+          window.location.href = '/auth';
+        } catch (fallbackError) {
+          console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
+          // 최후의 수단으로 페이지 새로고침
+          window.location.reload();
+        }
       }
-    }
+    }, 100);
   };
 
   return (
@@ -844,9 +876,39 @@ const LandingPage = () => {
                   target: e.target.tagName,
                   currentTarget: e.currentTarget.tagName,
                   timestamp: new Date().toISOString(),
-                  userAgent: navigator.userAgent
+                  userAgent: navigator.userAgent,
+                  button: e.button,
+                  detail: e.detail
                 });
-                handleGetStarted();
+                
+                // 즉시 실행하여 지연 없이 테스트
+                console.log('🔍 헤더 버튼 네비게이션 시도 전 상태:', {
+                  currentUser: currentUser,
+                  navigate: typeof navigate,
+                  windowLocation: window.location.href
+                });
+                
+                try {
+                  if (currentUser) {
+                    console.log('✅ 로그인된 사용자, 대시보드로 이동');
+                    navigate('/dashboard');
+                    console.log('📤 헤더 navigate("/dashboard") 호출 완료');
+                  } else {
+                    console.log('🔐 로그인되지 않은 사용자, 로그인 페이지로 이동');
+                    navigate('/auth');
+                    console.log('📤 헤더 navigate("/auth") 호출 완료');
+                  }
+                } catch (error) {
+                  console.error('❌ 헤더 즉시 네비게이션 오류:', error);
+                  // 폴백 동작
+                  try {
+                    const targetUrl = currentUser ? '/dashboard' : '/auth';
+                    console.log('🔄 헤더 폴백 네비게이션 시도:', targetUrl);
+                    window.location.href = targetUrl;
+                  } catch (fallbackError) {
+                    console.error('❌ 헤더 폴백 네비게이션도 실패:', fallbackError);
+                  }
+                }
               }}
               sx={{ 
                 bgcolor: 'transparent',
@@ -868,6 +930,9 @@ const LandingPage = () => {
                 WebkitUserSelect: 'none',
                 MozUserSelect: 'none',
                 msUserSelect: 'none',
+                WebkitTapHighlightColor: 'transparent',
+                WebkitTouchCallout: 'none',
+                WebkitUserDrag: 'none',
                 // 스마트폰에서만 적용 - 버튼 숨기기
                 '@media (max-width: 767px)': {
                   display: 'none'
@@ -959,9 +1024,52 @@ const LandingPage = () => {
                           target: e.target.tagName,
                           currentTarget: e.currentTarget.tagName,
                           timestamp: new Date().toISOString(),
-                          userAgent: navigator.userAgent
+                          userAgent: navigator.userAgent,
+                          button: e.button,
+                          detail: e.detail
                         });
-                        handleGetStarted();
+                        
+                        // 즉시 실행하여 지연 없이 테스트
+                        console.log('🔍 네비게이션 시도 전 상태:', {
+                          currentUser: currentUser,
+                          navigate: typeof navigate,
+                          windowLocation: window.location.href
+                        });
+                        
+                        try {
+                          if (currentUser) {
+                            console.log('✅ 로그인된 사용자, 대시보드로 이동');
+                            navigate('/dashboard');
+                            console.log('📤 navigate("/dashboard") 호출 완료');
+                          } else {
+                            console.log('🔐 로그인되지 않은 사용자, 로그인 페이지로 이동');
+                            navigate('/auth');
+                            console.log('📤 navigate("/auth") 호출 완료');
+                          }
+                        } catch (error) {
+                          console.error('❌ 즉시 네비게이션 오류:', error);
+                          // 폴백 동작
+                          try {
+                            const targetUrl = currentUser ? '/dashboard' : '/auth';
+                            console.log('🔄 폴백 네비게이션 시도:', targetUrl);
+                            window.location.href = targetUrl;
+                          } catch (fallbackError) {
+                            console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
+                          }
+                        }
+                      }}
+                      onMouseDown={(e) => {
+                        console.log('🖱️ 시작하기 버튼 마우스 다운:', e.type);
+                      }}
+                      onTouchStart={(e) => {
+                        console.log('👆 시작하기 버튼 터치 시작:', e.type);
+                      }}
+                      onDoubleClick={(e) => {
+                        console.log('🖱️ 시작하기 버튼 더블클릭:', e.type);
+                        // 더블클릭으로 강제 네비게이션
+                        const targetUrl = currentUser ? '/dashboard' : '/auth';
+                        console.log('🚀 더블클릭 강제 네비게이션:', targetUrl);
+                        window.location.href = targetUrl;
                       }}
                       endIcon={<ArrowForward />}
                       sx={{ 
@@ -978,6 +1086,9 @@ const LandingPage = () => {
                         fontWeight: 'bold',
                         cursor: 'pointer',
                         touchAction: 'manipulation',
+                        WebkitTapHighlightColor: 'transparent',
+                        WebkitTouchCallout: 'none',
+                        WebkitUserDrag: 'none',
                         // 스마트폰에서만 적용
                         '@media (max-width: 767px)': {
                           px: 2,
@@ -1000,7 +1111,7 @@ const LandingPage = () => {
                           timestamp: new Date().toISOString(),
                           userAgent: navigator.userAgent
                         });
-                        handleLogin();
+                        handleLogin(e);
                       }}
                       sx={{ 
                         borderColor: currentUser ? '#ef4444' : '#3b82f6',
@@ -1015,6 +1126,9 @@ const LandingPage = () => {
                         fontWeight: 'bold',
                         cursor: 'pointer',
                         touchAction: 'manipulation',
+                        WebkitTapHighlightColor: 'transparent',
+                        WebkitTouchCallout: 'none',
+                        WebkitUserDrag: 'none',
                         ...(currentUser && {
                           border: '2px solid #ef4444',
                           boxShadow: '0 0 20px rgba(239, 68, 68, 0.4)',
@@ -1453,6 +1567,10 @@ const LandingPage = () => {
                             display: 'flex',
                             alignItems: 'center',
                             boxSizing: 'border-box',
+                            touchAction: 'manipulation',
+                            WebkitTapHighlightColor: 'transparent',
+                            WebkitTouchCallout: 'none',
+                            WebkitUserDrag: 'none',
                             marginBottom: index >= 6 ? '2px' : '0px',
                             '&:hover': {
                               transform: 'translateY(-2px)',
@@ -1461,24 +1579,34 @@ const LandingPage = () => {
                               background: 'rgba(67, 233, 123, 0.1)'
                             }
                           }} 
-                          onClick={() => {
+                          onClick={(e) => {
+                            // 이벤트 전파 방지
+                            if (e) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }
+                            
                             console.log('🎯 기능 카드 클릭:', { 
                               title: item.title, 
                               path: item.path,
-                              timestamp: new Date().toISOString()
+                              timestamp: new Date().toISOString(),
+                              event: e ? e.type : 'no-event'
                             });
                             
-                            try {
-                              navigate(item.path);
-                            } catch (error) {
-                              console.error('❌ 기능 카드 네비게이션 오류:', error);
-                              // 폴백 동작
+                            // 약간의 지연을 두어 UI 반응성 개선
+                            setTimeout(() => {
                               try {
-                                window.location.href = item.path;
-                              } catch (fallbackError) {
-                                console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
+                                navigate(item.path);
+                              } catch (error) {
+                                console.error('❌ 기능 카드 네비게이션 오류:', error);
+                                // 폴백 동작
+                                try {
+                                  window.location.href = item.path;
+                                } catch (fallbackError) {
+                                  console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
+                                }
                               }
-                            }
+                            }, 100);
                           }}
 >
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1530,6 +1658,10 @@ const LandingPage = () => {
                             display: 'flex',
                             alignItems: 'center',
                             boxSizing: 'border-box',
+                            touchAction: 'manipulation',
+                            WebkitTapHighlightColor: 'transparent',
+                            WebkitTouchCallout: 'none',
+                            WebkitUserDrag: 'none',
                             '&:hover': {
                               transform: 'translateY(-2px)',
                               boxShadow: '0 15px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(67, 233, 123, 0.2)',
@@ -1537,24 +1669,34 @@ const LandingPage = () => {
                               background: 'rgba(67, 233, 123, 0.1)'
                             }
                           }} 
-                          onClick={() => {
+                          onClick={(e) => {
+                            // 이벤트 전파 방지
+                            if (e) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }
+                            
                             console.log('🎯 기능 카드 클릭:', { 
                               title: item.title, 
                               path: item.path,
-                              timestamp: new Date().toISOString()
+                              timestamp: new Date().toISOString(),
+                              event: e ? e.type : 'no-event'
                             });
                             
-                            try {
-                              navigate(item.path);
-                            } catch (error) {
-                              console.error('❌ 기능 카드 네비게이션 오류:', error);
-                              // 폴백 동작
+                            // 약간의 지연을 두어 UI 반응성 개선
+                            setTimeout(() => {
                               try {
-                                window.location.href = item.path;
-                              } catch (fallbackError) {
-                                console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
+                                navigate(item.path);
+                              } catch (error) {
+                                console.error('❌ 기능 카드 네비게이션 오류:', error);
+                                // 폴백 동작
+                                try {
+                                  window.location.href = item.path;
+                                } catch (fallbackError) {
+                                  console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
+                                }
                               }
-                            }
+                            }, 100);
                           }}
 >
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1643,6 +1785,9 @@ const LandingPage = () => {
                               msUserSelect: 'none',
                               zIndex: 9999,
                               position: 'relative',
+                              WebkitTapHighlightColor: 'transparent',
+                              WebkitTouchCallout: 'none',
+                              WebkitUserDrag: 'none',
                               '&:hover': {
                                 background: 'rgba(67, 233, 123, 0.1)',
                                 border: '1px solid rgba(67, 233, 123, 0.3)',
