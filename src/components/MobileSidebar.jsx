@@ -30,9 +30,11 @@ import {
   MonetizationOn,
   BarChart,
   Star,
-  Settings,
   Logout,
-  Person
+  Person,
+  Event,
+  Business,
+  Lock
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { isMasterUser, isAdminUser } from '../utils/masterUtils';
@@ -54,12 +56,28 @@ const MobileSidebar = () => {
     { path: '/discussions', label: '토론의견', icon: <Forum /> },
     { path: '/vendors', label: '거래처현황', icon: <People /> },
     { path: '/cost', label: '기성관리', icon: <MonetizationOn /> },
-    { path: '/daema-team', label: '시공팀', icon: <BarChart /> }
+    { path: '/daema-team', label: '시공팀', icon: <BarChart /> },
+    { path: '/calendar', label: '일정관리', icon: <Event /> },
+    { path: '/vendor-management', label: '거래처관리', icon: <Business /> },
+    { path: '/confidential', label: '대외비', icon: <Lock /> }
   ];
 
   const handleDrawerToggle = () => {
     setIsOpen(!isOpen);
   };
+
+  // 웹에서 헤더의 막대기 클릭 이벤트 리스너
+  useEffect(() => {
+    const handleToggleSidebar = () => {
+      console.log('사이드바 토글 이벤트 수신됨');
+      setIsOpen(prev => !prev);
+    };
+
+    window.addEventListener('toggleSidebar', handleToggleSidebar);
+    return () => {
+      window.removeEventListener('toggleSidebar', handleToggleSidebar);
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -164,7 +182,10 @@ const MobileSidebar = () => {
                   '& .MuiListItemIcon-root': {
                     color: 'primary.contrastText'
                   }
-                }
+                },
+                touchAction: 'manipulation',
+                minHeight: 48,
+                WebkitTapHighlightColor: 'transparent'
               }}
             >
               <ListItemIcon sx={{ minWidth: 40 }}>
@@ -186,20 +207,16 @@ const MobileSidebar = () => {
 
       {/* 하단 메뉴 */}
       <List>
-        <ListItem disablePadding>
-          <ListItemButton>
-            <ListItemIcon sx={{ minWidth: 40 }}>
-              <Settings />
-            </ListItemIcon>
-            <ListItemText 
-              primary="설정"
-              primaryTypographyProps={{ fontSize: '0.95rem' }}
-            />
-          </ListItemButton>
-        </ListItem>
         {currentUser && (
           <ListItem disablePadding>
-            <ListItemButton onClick={handleLogout}>
+            <ListItemButton 
+              onClick={handleLogout}
+              sx={{ 
+                touchAction: 'manipulation', 
+                minHeight: 48,
+                WebkitTapHighlightColor: 'transparent'
+              }}
+            >
               <ListItemIcon sx={{ minWidth: 40 }}>
                 <Logout />
               </ListItemIcon>
@@ -216,24 +233,31 @@ const MobileSidebar = () => {
 
   return (
     <>
-      {/* 햄버거 메뉴 버튼 */}
-      <IconButton
-        onClick={handleDrawerToggle}
-        sx={{
-          position: 'fixed',
-          top: 16,
-          left: 16,
-          zIndex: 1300,
-          bgcolor: 'primary.main',
-          color: 'primary.contrastText',
-          '&:hover': {
-            bgcolor: 'primary.dark'
-          },
-          boxShadow: 2
-        }}
-      >
-        <MenuIcon />
-      </IconButton>
+      {/* 모바일에서만 햄버거 메뉴 버튼 표시 */}
+      {isMobile && (
+        <IconButton
+          onClick={handleDrawerToggle}
+          sx={{
+            position: 'fixed',
+            top: 16,
+            left: 16,
+            zIndex: 1300,
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText',
+            '&:hover': {
+              bgcolor: 'primary.dark'
+            },
+            boxShadow: 2,
+            touchAction: 'manipulation',
+            minWidth: 48,
+            minHeight: 48,
+            WebkitTapHighlightColor: 'transparent'
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
+      )}
+
 
       {/* 사이드바 드로어 */}
       <Drawer
@@ -242,12 +266,24 @@ const MobileSidebar = () => {
         onClose={handleDrawerToggle}
         ModalProps={{
           keepMounted: true, // 모바일 성능 향상
+          disableAutoFocus: true,
+          disableEnforceFocus: true,
+          disableRestoreFocus: true,
         }}
         sx={{
           '& .MuiDrawer-paper': {
             boxSizing: 'border-box',
             width: 280,
           },
+          '& .MuiModal-root': {
+            '&[aria-hidden="true"]': {
+              '& .MuiDrawer-paper': {
+                '&:focus': {
+                  outline: 'none',
+                }
+              }
+            }
+          }
         }}
       >
         {drawerContent}

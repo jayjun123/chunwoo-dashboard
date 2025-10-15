@@ -1874,7 +1874,8 @@ const Claims = () => {
 
   const handleItemsPerPageChange = (event) => {
     setItemsPerPage(Number(event.target.value));
-    setCurrentPage(1);
+    // 페이지당 항목 수 변경 시에는 첫 페이지로 이동 (필요한 경우)
+    // setCurrentPage(1);
   };
 
   // 정렬 핸들러
@@ -1887,7 +1888,8 @@ const Claims = () => {
       setSortBy(column);
       setSortOrder('asc');
     }
-    setCurrentPage(1); // 정렬 변경 시 첫 페이지로 이동
+    // 정렬 변경 시에도 현재 페이지 유지
+    // setCurrentPage(1);
   };
 
   // 정렬 아이콘 표시 함수
