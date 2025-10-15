@@ -99,6 +99,7 @@ const Claims = () => {
   const [skipSorting, setSkipSorting] = useState(false);
   const savedPageRef = useRef(1);
   const recentlyUpdatedRef = useRef(new Set());
+  const [fixedNumbers, setFixedNumbers] = useState(new Map()); // 고정 번호 저장
   const [stats, setStats] = useState({
     total: 0,
     claimed: 0,
@@ -720,6 +721,29 @@ const Claims = () => {
 
     setFilteredClaims(filtered);
     
+    // 고정 번호 설정 (새로운 항목에만 번호 할당)
+    setFixedNumbers(prevFixedNumbers => {
+      const newFixedNumbers = new Map(prevFixedNumbers);
+      let nextNumber = 1;
+      
+      // 기존 번호가 있는 항목들의 최대 번호 찾기
+      for (const [_, number] of newFixedNumbers) {
+        if (number >= nextNumber) {
+          nextNumber = number + 1;
+        }
+      }
+      
+      // 새로운 항목들에 번호 할당
+      filtered.forEach(claim => {
+        if (!newFixedNumbers.has(claim.id)) {
+          newFixedNumbers.set(claim.id, nextNumber++);
+          console.log(`🔢 새 항목에 번호 할당: ${claim.siteName} → ${nextNumber - 1}번`);
+        }
+      });
+      
+      return newFixedNumbers;
+    });
+    
     // 칩 클릭이 아닌 경우에만 페이지 리셋
     if (!skipPageReset) {
       setCurrentPage(1);
@@ -1199,6 +1223,15 @@ const Claims = () => {
   const handleDelete = async () => {
     try {
       await deleteClaim(claimToDelete.id);
+      
+      // 삭제된 항목의 고정 번호 제거
+      setFixedNumbers(prevFixedNumbers => {
+        const newFixedNumbers = new Map(prevFixedNumbers);
+        newFixedNumbers.delete(claimToDelete.id);
+        console.log(`🗑️ 삭제된 항목의 고정 번호 제거: ${claimToDelete.siteName}`);
+        return newFixedNumbers;
+      });
+      
       setSnackbar({
         open: true,
         message: '청구예정이 삭제되었습니다.',
@@ -1334,7 +1367,7 @@ const Claims = () => {
         };
         
         const row = worksheet.addRow([
-          filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id), // NO.
+          fixedNumbers.get(claim.id) || 'N/A', // NO. (고정 번호)
           claim.siteName || '', // 현장명
           claim.manager || '', // 소장/회사명
           claim.sequence || '', // 차수
@@ -2529,7 +2562,7 @@ const Claims = () => {
                       })
                     }}
                   >
-                    <TableCell sx={{ color: 'white' }}>{filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id)}</TableCell>
+                    <TableCell sx={{ color: 'white' }}>{fixedNumbers.get(claim.id) || 'N/A'}</TableCell>
                     {isMobile ? (
                       <>
                         <TableCell sx={{ color: 'white' }}>
