@@ -2666,8 +2666,11 @@ const Claims = () => {
                       minWidth: 60, 
                       py: 0.5,
                       // 아이패드에서 숨김
-                      '@media (min-width: 768px) and (max-width: 1024px)': {
-                        display: 'none'
+                      '@media (min-width: 768px) and (max-width: 1366px)': {
+                        display: 'none !important'
+                      },
+                      '@media (min-width: 1024px) and (max-width: 1366px)': {
+                        display: 'none !important'
                       }
                     }}>소장/회사명</TableCell>
                     <TableCell 
@@ -2824,8 +2827,11 @@ const Claims = () => {
                         <TableCell sx={{ 
                           color: 'white',
                           // 아이패드에서 숨김
-                          '@media (min-width: 768px) and (max-width: 1024px)': {
-                            display: 'none'
+                          '@media (min-width: 768px) and (max-width: 1366px)': {
+                            display: 'none !important'
+                          },
+                          '@media (min-width: 1024px) and (max-width: 1366px)': {
+                            display: 'none !important'
                           }
                         }}>
                           {(() => {
@@ -2890,8 +2896,11 @@ const Claims = () => {
                         <TableCell sx={{ 
                           color: 'white',
                           // 아이패드에서 숨김
-                          '@media (min-width: 768px) and (max-width: 1024px)': {
-                            display: 'none'
+                          '@media (min-width: 768px) and (max-width: 1366px)': {
+                            display: 'none !important'
+                          },
+                          '@media (min-width: 1024px) and (max-width: 1366px)': {
+                            display: 'none !important'
                           }
                         }}>{claim.notes}</TableCell>
                         <TableCell>
