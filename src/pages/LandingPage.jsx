@@ -871,6 +871,10 @@ const LandingPage = () => {
             <Button 
               variant="contained" 
               onClick={(e) => {
+                // 이벤트 전파 방지
+                e.preventDefault();
+                e.stopPropagation();
+
                 console.log('🔘 헤더 버튼 클릭 이벤트:', {
                   type: e.type,
                   target: e.target.tagName,
@@ -878,37 +882,67 @@ const LandingPage = () => {
                   timestamp: new Date().toISOString(),
                   userAgent: navigator.userAgent,
                   button: e.button,
-                  detail: e.detail
+                  detail: e.detail,
+                  isTrusted: e.isTrusted
                 });
-                
-                // 즉시 실행하여 지연 없이 테스트
-                console.log('🔍 헤더 버튼 네비게이션 시도 전 상태:', {
-                  currentUser: currentUser,
-                  navigate: typeof navigate,
-                  windowLocation: window.location.href
-                });
-                
-                try {
-                  if (currentUser) {
-                    console.log('✅ 로그인된 사용자, 대시보드로 이동');
-                    navigate('/dashboard');
-                    console.log('📤 헤더 navigate("/dashboard") 호출 완료');
-                  } else {
-                    console.log('🔐 로그인되지 않은 사용자, 로그인 페이지로 이동');
-                    navigate('/auth');
-                    console.log('📤 헤더 navigate("/auth") 호출 완료');
-                  }
-                } catch (error) {
-                  console.error('❌ 헤더 즉시 네비게이션 오류:', error);
-                  // 폴백 동작
+
+                // 프로덕션 환경에서 더 안정적인 네비게이션
+                const handleNavigation = () => {
+                  console.log('🔍 헤더 네비게이션 시도 전 상태:', {
+                    currentUser: currentUser,
+                    navigate: typeof navigate,
+                    windowLocation: window.location.href,
+                    isProduction: process.env.NODE_ENV === 'production'
+                  });
+
+                  const targetUrl = currentUser ? '/dashboard' : '/auth';
+
+                  // 1차 시도: React Router navigate
                   try {
-                    const targetUrl = currentUser ? '/dashboard' : '/auth';
-                    console.log('🔄 헤더 폴백 네비게이션 시도:', targetUrl);
-                    window.location.href = targetUrl;
-                  } catch (fallbackError) {
-                    console.error('❌ 헤더 폴백 네비게이션도 실패:', fallbackError);
+                    if (navigate && typeof navigate === 'function') {
+                      console.log('✅ 헤더 React Router navigate 시도:', targetUrl);
+                      navigate(targetUrl);
+                      console.log('📤 헤더 navigate() 호출 완료');
+                      return;
+                    }
+                  } catch (error) {
+                    console.error('❌ 헤더 React Router navigate 오류:', error);
                   }
-                }
+
+                  // 2차 시도: window.location.href
+                  try {
+                    console.log('🔄 헤더 window.location.href 시도:', targetUrl);
+                    window.location.href = targetUrl;
+                    return;
+                  } catch (error) {
+                    console.error('❌ 헤더 window.location.href 오류:', error);
+                  }
+
+                  // 3차 시도: window.location.assign
+                  try {
+                    console.log('🔄 헤더 window.location.assign 시도:', targetUrl);
+                    window.location.assign(targetUrl);
+                    return;
+                  } catch (error) {
+                    console.error('❌ 헤더 window.location.assign 오류:', error);
+                  }
+
+                  // 4차 시도: window.open
+                  try {
+                    console.log('🔄 헤더 window.open 시도:', targetUrl);
+                    window.open(targetUrl, '_self');
+                    return;
+                  } catch (error) {
+                    console.error('❌ 헤더 window.open 오류:', error);
+                  }
+
+                  // 최후의 수단: 페이지 새로고침 후 이동
+                  console.log('🔄 헤더 최후의 수단: 페이지 새로고침');
+                  window.location.reload();
+                };
+
+                // 약간의 지연을 두어 이벤트 처리 완료 후 실행
+                setTimeout(handleNavigation, 50);
               }}
               sx={{ 
                 bgcolor: 'transparent',
@@ -1019,6 +1053,10 @@ const LandingPage = () => {
                       variant="contained" 
                       size="medium"
                       onClick={(e) => {
+                        // 이벤트 전파 방지
+                        e.preventDefault();
+                        e.stopPropagation();
+
                         console.log('🔘 시작하기 버튼 클릭 이벤트:', {
                           type: e.type,
                           target: e.target.tagName,
@@ -1026,37 +1064,67 @@ const LandingPage = () => {
                           timestamp: new Date().toISOString(),
                           userAgent: navigator.userAgent,
                           button: e.button,
-                          detail: e.detail
+                          detail: e.detail,
+                          isTrusted: e.isTrusted
                         });
-                        
-                        // 즉시 실행하여 지연 없이 테스트
-                        console.log('🔍 네비게이션 시도 전 상태:', {
-                          currentUser: currentUser,
-                          navigate: typeof navigate,
-                          windowLocation: window.location.href
-                        });
-                        
-                        try {
-                          if (currentUser) {
-                            console.log('✅ 로그인된 사용자, 대시보드로 이동');
-                            navigate('/dashboard');
-                            console.log('📤 navigate("/dashboard") 호출 완료');
-                          } else {
-                            console.log('🔐 로그인되지 않은 사용자, 로그인 페이지로 이동');
-                            navigate('/auth');
-                            console.log('📤 navigate("/auth") 호출 완료');
-                          }
-                        } catch (error) {
-                          console.error('❌ 즉시 네비게이션 오류:', error);
-                          // 폴백 동작
+
+                        // 프로덕션 환경에서 더 안정적인 네비게이션
+                        const handleNavigation = () => {
+                          console.log('🔍 시작하기 네비게이션 시도 전 상태:', {
+                            currentUser: currentUser,
+                            navigate: typeof navigate,
+                            windowLocation: window.location.href,
+                            isProduction: process.env.NODE_ENV === 'production'
+                          });
+
+                          const targetUrl = currentUser ? '/dashboard' : '/auth';
+
+                          // 1차 시도: React Router navigate
                           try {
-                            const targetUrl = currentUser ? '/dashboard' : '/auth';
-                            console.log('🔄 폴백 네비게이션 시도:', targetUrl);
-                            window.location.href = targetUrl;
-                          } catch (fallbackError) {
-                            console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
+                            if (navigate && typeof navigate === 'function') {
+                              console.log('✅ 시작하기 React Router navigate 시도:', targetUrl);
+                              navigate(targetUrl);
+                              console.log('📤 시작하기 navigate() 호출 완료');
+                              return;
+                            }
+                          } catch (error) {
+                            console.error('❌ 시작하기 React Router navigate 오류:', error);
                           }
-                        }
+
+                          // 2차 시도: window.location.href
+                          try {
+                            console.log('🔄 시작하기 window.location.href 시도:', targetUrl);
+                            window.location.href = targetUrl;
+                            return;
+                          } catch (error) {
+                            console.error('❌ 시작하기 window.location.href 오류:', error);
+                          }
+
+                          // 3차 시도: window.location.assign
+                          try {
+                            console.log('🔄 시작하기 window.location.assign 시도:', targetUrl);
+                            window.location.assign(targetUrl);
+                            return;
+                          } catch (error) {
+                            console.error('❌ 시작하기 window.location.assign 오류:', error);
+                          }
+
+                          // 4차 시도: window.open
+                          try {
+                            console.log('🔄 시작하기 window.open 시도:', targetUrl);
+                            window.open(targetUrl, '_self');
+                            return;
+                          } catch (error) {
+                            console.error('❌ 시작하기 window.open 오류:', error);
+                          }
+
+                          // 최후의 수단: 페이지 새로고침 후 이동
+                          console.log('🔄 시작하기 최후의 수단: 페이지 새로고침');
+                          window.location.reload();
+                        };
+
+                        // 약간의 지연을 두어 이벤트 처리 완료 후 실행
+                        setTimeout(handleNavigation, 50);
                       }}
                       onMouseDown={(e) => {
                         console.log('🖱️ 시작하기 버튼 마우스 다운:', e.type);
