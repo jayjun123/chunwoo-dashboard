@@ -2510,25 +2510,17 @@ const Claims = () => {
                         <TableCell sx={{ color: '#ff6b6b', fontWeight: 'bold' }}>{formatAmount(claim.claimAmount)}</TableCell>
                         <TableCell>
                           <Chip
-                            label={claim.isUpdating ? '업데이트 중...' : getStatusLabel(claim.claimStatus)}
-                            color={claim.isUpdating ? 'default' : getStatusColor(claim.claimStatus)}
+                            label={getStatusLabel(claim.claimStatus)}
+                            color={getStatusColor(claim.claimStatus)}
                             size="small"
-                            onClick={() => !claim.isUpdating && handleClaimStatusChange(claim)}
-                            disabled={claim.isUpdating}
+                            onClick={() => handleClaimStatusChange(claim)}
                             sx={{
-                              cursor: claim.isUpdating ? 'not-allowed' : 'pointer',
-                              opacity: claim.isUpdating ? 0.7 : 1,
+                              cursor: 'pointer',
                               '&:hover': {
-                                opacity: claim.isUpdating ? 0.7 : 0.8,
-                                transform: claim.isUpdating ? 'none' : 'scale(1.05)'
+                                opacity: 0.8,
+                                transform: 'scale(1.05)'
                               },
-                              transition: 'all 0.2s ease',
-                              animation: claim.isUpdating ? 'pulse 1.5s ease-in-out infinite' : 'none',
-                              '@keyframes pulse': {
-                                '0%': { opacity: 0.7 },
-                                '50%': { opacity: 1 },
-                                '100%': { opacity: 0.7 }
-                              }
+                              transition: 'all 0.2s ease'
                             }}
                           />
                         </TableCell>
@@ -2613,25 +2605,17 @@ const Claims = () => {
                         <TableCell sx={{ color: '#ff6b6b', fontWeight: 'bold' }}>{formatAmount(claim.claimAmount)}</TableCell>
                         <TableCell>
                           <Chip
-                            label={claim.isUpdating ? '업데이트 중...' : getStatusLabel(claim.claimStatus)}
-                            color={claim.isUpdating ? 'default' : getStatusColor(claim.claimStatus)}
+                            label={getStatusLabel(claim.claimStatus)}
+                            color={getStatusColor(claim.claimStatus)}
                             size="small"
-                            onClick={() => !claim.isUpdating && handleClaimStatusChange(claim)}
-                            disabled={claim.isUpdating}
+                            onClick={() => handleClaimStatusChange(claim)}
                             sx={{
-                              cursor: claim.isUpdating ? 'not-allowed' : 'pointer',
-                              opacity: claim.isUpdating ? 0.7 : 1,
+                              cursor: 'pointer',
                               '&:hover': {
-                                opacity: claim.isUpdating ? 0.7 : 0.8,
-                                transform: claim.isUpdating ? 'none' : 'scale(1.05)'
+                                opacity: 0.8,
+                                transform: 'scale(1.05)'
                               },
-                              transition: 'all 0.2s ease',
-                              animation: claim.isUpdating ? 'pulse 1.5s ease-in-out infinite' : 'none',
-                              '@keyframes pulse': {
-                                '0%': { opacity: 0.7 },
-                                '50%': { opacity: 1 },
-                                '100%': { opacity: 0.7 }
-                              }
+                              transition: 'all 0.2s ease'
                             }}
                           />
                         </TableCell>
