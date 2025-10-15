@@ -2660,7 +2660,16 @@ const Claims = () => {
                     >
                       현장명 {getSortIcon('siteName')}
                     </TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60, py: 0.5 }}>소장/회사명</TableCell>
+                    <TableCell sx={{ 
+                      color: 'white', 
+                      fontWeight: 'bold', 
+                      minWidth: 60, 
+                      py: 0.5,
+                      // 아이패드에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}>소장/회사명</TableCell>
                     <TableCell 
                       sx={{ 
                         color: 'white', 
@@ -2676,7 +2685,7 @@ const Claims = () => {
                     </TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>계약금액</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>잔액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80, py: 0.5 }}>청구 전 기성율(%)</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80, py: 0.5 }}>기성율(%)</TableCell>
                     <TableCell 
                       sx={{ 
                         color: 'white', 
@@ -2812,7 +2821,13 @@ const Claims = () => {
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell sx={{ color: 'white' }}>
+                        <TableCell sx={{ 
+                          color: 'white',
+                          // 아이패드에서 숨김
+                          '@media (min-width: 768px) and (max-width: 1024px)': {
+                            display: 'none'
+                          }
+                        }}>
                           {(() => {
                             if (claim.manager) {
                               // claim.manager에 회사명이 포함되어 있는지 확인 (슬래시가 있으면)
