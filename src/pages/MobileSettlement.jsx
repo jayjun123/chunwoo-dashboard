@@ -360,7 +360,7 @@ const MobileSettlement = () => {
                   primary={item.text}
                   sx={{ 
                     '& .MuiListItemText-primary': {
-                      fontSize: '0.95rem',
+                      fontSize: '1.1rem',
                       fontWeight: 'normal'
                     }
                   }}

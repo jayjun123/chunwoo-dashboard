@@ -92,7 +92,11 @@ const Vendors = () => {
   const [selectedCompanyType, setSelectedCompanyType] = useState('');
   
   // 업종별 필터링 상태
-  const [filteredByCompanyType, setFilteredByCompanyType] = useState('종합건설'); // 입찰현황 페이지 - 종합건설 기본값
+  const [filteredByCompanyType, setFilteredByCompanyType] = useState('천우건업(주)'); // 입찰현황 페이지 - 천우건업(주) 기본값
+  
+  // 인라인 편집 상태
+  const [editingField, setEditingField] = useState(null);
+  const [editingValue, setEditingValue] = useState('');
   
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
@@ -110,6 +114,8 @@ const Vendors = () => {
         return 'secondary';
       case '종합건설':
         return 'success';
+      case '천우건업(주)':
+        return 'secondary';
       default:
         return 'default';
     }
@@ -118,9 +124,10 @@ const Vendors = () => {
   // 업종별 통계 계산
   const getCompanyTypeStats = () => {
     const stats = {
+      '천우건업(주)': 0,
+      '종합건설': 0,
       'AL창호': 0,
-      'PL창호': 0,
-      '종합건설': 0
+      'PL창호': 0
     };
 
     registeredCompanies.forEach(company => {
@@ -420,7 +427,13 @@ const Vendors = () => {
         quantity: '',
         note: '',
         contractStatus: '미수주',
-        companyTypes: ['AL창호']
+        companyTypes: filteredByCompanyType === '천우건업(주)' ? ['천우건업(주)'] : ['AL창호'],
+        // 천우건업(주) 전용 필드들
+        bidRate: '',
+        bidAmount: '',
+        resultRank: '',
+        winningAmount: '',
+        winningRate: ''
       });
     }
     setOpen(true);
@@ -440,7 +453,13 @@ const Vendors = () => {
       quantity: '',
       note: '',
       contractStatus: '미수주',
-      companyTypes: ['AL창호']
+      companyTypes: ['AL창호'],
+      // 천우건업(주) 전용 필드들
+      bidRate: '',
+      bidAmount: '',
+      resultRank: '',
+      winningAmount: '',
+      winningRate: ''
     });
   };
 
@@ -448,19 +467,19 @@ const Vendors = () => {
     e.preventDefault();
     
     // 필수 필드 검증
-    if (!formData.companyName.trim()) {
+    if (filteredByCompanyType !== '천우건업(주)' && !formData.companyName.trim()) {
       alert('업체명을 입력해주세요.');
       return;
     }
     if (!formData.bidDate) {
-      alert('낙찰일을 입력해주세요.');
+      alert(filteredByCompanyType === '천우건업(주)' ? '투찰일자를 입력해주세요.' : '낙찰일을 입력해주세요.');
       return;
     }
     if (!formData.siteName.trim()) {
       alert('현장명을 입력해주세요.');
       return;
     }
-    if (formData.companyTypes.length === 0) {
+    if (filteredByCompanyType !== '천우건업(주)' && formData.companyTypes.length === 0) {
       alert('최소 하나의 업종을 선택해주세요.');
       return;
     }
@@ -501,6 +520,29 @@ const Vendors = () => {
     }
   };
 
+  const handleEdit = (vendor) => {
+    setEditingVendor(vendor);
+    const companyTypes = vendor.companyTypes || [vendor.companyType] || [];
+    setFormData({
+      companyName: vendor.companyName || '',
+      bidDate: vendor.bidDate || '',
+      siteName: vendor.siteName || '',
+      winningCompany: vendor.winningCompany || '',
+      amount: vendor.amount || '',
+      quantity: vendor.quantity || '',
+      note: vendor.note || '',
+      contractStatus: vendor.contractStatus || '미수주',
+      companyTypes: companyTypes,
+      // 천우건업(주) 전용 필드들
+      bidRate: vendor.bidRate || '',
+      bidAmount: vendor.bidAmount || '',
+      resultRank: vendor.resultRank || '',
+      winningAmount: vendor.winningAmount || '',
+      winningRate: vendor.winningRate || ''
+    });
+    setOpen(true);
+  };
+
   const handleDelete = async (vendorId) => {
     if (window.confirm('정말 삭제하시겠습니까?')) {
       try {
@@ -530,6 +572,31 @@ const Vendors = () => {
       console.error('수주여부 변경 오류:', error);
       alert('수주여부 변경 중 오류가 발생했습니다.');
     }
+  };
+
+  // 인라인 편집 시작
+  const handleInlineEditStart = (vendorId, field, currentValue) => {
+    setEditingField(`${vendorId}-${field}`);
+    setEditingValue(currentValue || '');
+  };
+
+  // 인라인 편집 저장
+  const handleInlineEditSave = async (vendorId, field) => {
+    try {
+      const updateData = { [field]: editingValue };
+      await updateDoc(doc(db, 'bids', vendorId), updateData);
+      setEditingField(null);
+      setEditingValue('');
+      fetchVendors();
+    } catch (error) {
+      console.error('Error updating field:', error);
+    }
+  };
+
+  // 인라인 편집 취소
+  const handleInlineEditCancel = () => {
+    setEditingField(null);
+    setEditingValue('');
   };
 
   const handleCompanySubmit = async (e) => {
@@ -1111,13 +1178,21 @@ const Vendors = () => {
             }}
             onClick={handleTitleClick}
           >
-            거래처 입찰현황
+            전자입찰현황
             {filteredByCompanyType && (
               <Chip 
                 label={`${filteredByCompanyType} 필터링됨`} 
                 size="small" 
-                color="primary" 
-                sx={{ ml: 1, fontSize: '0.7rem' }}
+                sx={{ 
+                  ml: 1, 
+                  fontSize: '0.7rem',
+                  backgroundColor: filteredByCompanyType === '천우건업(주)' ? '#9c27b0' : undefined,
+                  color: filteredByCompanyType === '천우건업(주)' ? 'white' : undefined,
+                  '&:hover': filteredByCompanyType === '천우건업(주)' ? {
+                    backgroundColor: '#7b1fa2'
+                  } : undefined
+                }}
+                color={filteredByCompanyType === '천우건업(주)' ? undefined : "primary"}
               />
             )}
           </Typography>
@@ -1213,8 +1288,32 @@ const Vendors = () => {
           </Typography>
         </Box>
         <Grid container spacing={1} sx={{ mb: 2 }}>
-          {Object.entries(getCompanyTypeStats()).map(([type, count]) => (
-            <Grid item xs={12} key={type}>
+        {Object.entries(getCompanyTypeStats()).map(([type, count]) => (
+          <Grid item xs={12} key={type}>
+            {type === '천우건업(주)' ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                <Chip 
+                  label={type}
+                  onClick={() => handleCompanyTypeCardClick(type)}
+                  sx={{ 
+                    fontWeight: 'bold', 
+                    fontSize: '1rem', 
+                    px: 2, 
+                    py: 1,
+                    borderRadius: '8px', // 네모 형태로 각을 살짝 둥글게
+                    backgroundColor: '#9c27b0', // 보라색 배경
+                    color: 'white', // 흰색 텍스트
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: '#7b1fa2' // 호버 시 더 진한 보라색
+                    },
+                    '& .MuiChip-label': {
+                      borderRadius: '6px'
+                    }
+                  }}
+                />
+              </Box>
+            ) : (
               <Card 
                 sx={{ 
                   bgcolor: 'background.paper', 
@@ -1256,15 +1355,25 @@ const Vendors = () => {
                   </Typography>
                 </CardContent>
               </Card>
-            </Grid>
-          ))}
+            )}
+          </Grid>
+        ))}
         </Grid>
       </Box>
 
 
 
       <TableContainer component={Paper}>
-        <Table size="small">
+        <Table size="small" sx={{ 
+          '& .MuiTableCell-root': {
+            fontSize: '1rem',
+            fontWeight: 'normal'
+          },
+          '& .MuiTableCell-head': {
+            fontSize: '1rem',
+            fontWeight: 'bold'
+          }
+        }}>
           <TableHead>
             <TableRow>
               <TableCell padding="checkbox" sx={{ py: 0.5 }}>
@@ -1274,147 +1383,140 @@ const Vendors = () => {
                   indeterminate={selectedItems.length > 0 && selectedItems.length < getPaginatedVendors().length}
                 />
               </TableCell>
-              <TableCell 
-                onClick={() => handleSort('companyType')}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  구분
-                  {sortField === 'companyType' && (
-                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                  )}
-                </Box>
-              </TableCell>
-              <TableCell 
-                onClick={() => handleSort('companyName')}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  업체명
-                  {sortField === 'companyName' && (
-                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                  )}
-                </Box>
-              </TableCell>
-              <TableCell 
-                onClick={() => handleSort('bidDate')}
-                sx={{ 
-                  cursor: 'pointer', 
-                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
-                  py: 1,
-                  // 테블릿에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
-                  }
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  낙찰일
-                  {sortField === 'bidDate' && (
-                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                  )}
-                </Box>
-              </TableCell>
-              <TableCell 
-                onClick={() => handleSort('siteName')}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  현장명
-                  {sortField === 'siteName' && (
-                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                  )}
-                </Box>
-              </TableCell>
-              <TableCell 
-                onClick={() => handleSort('winningCompany')}
-                sx={{ 
-                  cursor: 'pointer', 
-                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
-                  py: 1,
-                  // 테블릿에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
-                  }
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  낙찰회사
-                  {sortField === 'winningCompany' && (
-                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                  )}
-                </Box>
-              </TableCell>
-              <TableCell 
-                onClick={() => handleSort('amount')}
-                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  금액
-                  {sortField === 'amount' && (
-                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                  )}
-                </Box>
-              </TableCell>
-              <TableCell 
-                onClick={() => handleSort('item')}
-                sx={{ 
-                  cursor: 'pointer', 
-                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
-                  py: 1,
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
-                  }
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  품목
-                  {sortField === 'item' && (
-                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                  )}
-                </Box>
-              </TableCell>
-              <TableCell 
-                onClick={() => handleSort('quantity')}
-                sx={{ 
-                  cursor: 'pointer', 
-                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
-                  py: 1,
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
-                  }
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  물량
-                  {sortField === 'quantity' && (
-                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                  )}
-                </Box>
-              </TableCell>
+              {filteredByCompanyType === '천우건업(주)' ? (
+                <>
+                  <TableCell
+                    onClick={() => handleSort('siteName')}
+                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      현장명
+                      {sortField === 'siteName' && (
+                        sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell 
+                    onClick={() => handleSort('winningCompany')}
+                    sx={{ 
+                      cursor: 'pointer', 
+                      '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                      py: 1,
+                      // 테블릿에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      발주자
+                      {sortField === 'winningCompany' && (
+                        sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell 
+                    onClick={() => handleSort('amount')}
+                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      기초금액
+                      {sortField === 'amount' && (
+                        sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                      )}
+                    </Box>
+                  </TableCell>
+                </>
+              ) : (
+                <>
+                  <TableCell
+                    onClick={() => handleSort('companyName')}
+                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      업체명
+                      {sortField === 'companyName' && (
+                        sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell 
+                    onClick={() => handleSort('bidDate')}
+                    sx={{ 
+                      cursor: 'pointer', 
+                      '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                      py: 1,
+                      // 테블릿에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      납품기한일자
+                      {sortField === 'bidDate' && (
+                        sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell
+                    onClick={() => handleSort('siteName')}
+                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      계약건명
+                      {sortField === 'siteName' && (
+                        sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell 
+                    onClick={() => handleSort('amount')}
+                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      금액
+                      {sortField === 'amount' && (
+                        sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                      )}
+                    </Box>
+                  </TableCell>
+                </>
+              )}
+              {filteredByCompanyType === '천우건업(주)' ? (
+                <>
+                  <TableCell sx={{ py: 1 }}>투찰율</TableCell>
+                  <TableCell sx={{ py: 1 }}>투찰금액</TableCell>
+                  <TableCell 
+                    onClick={() => handleSort('bidDate')}
+                    sx={{ 
+                      cursor: 'pointer', 
+                      '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                      py: 1,
+                      // 테블릿에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      투찰일자
+                      {sortField === 'bidDate' && (
+                        sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ py: 1 }}>결과순위</TableCell>
+                  <TableCell sx={{ py: 1 }}>낙찰금액</TableCell>
+                  <TableCell sx={{ py: 1 }}>낙찰율</TableCell>
+                  <TableCell sx={{ py: 1 }}>관리</TableCell>
+                </>
+              ) : (
+                <>
+                  <TableCell sx={{ py: 1 }}>관리</TableCell>
+                </>
+              )}
               <TableCell sx={{ py: 1 }}>비고</TableCell>
-              <TableCell 
-                onClick={() => handleSort('contractStatus')}
-                sx={{ 
-                  cursor: 'pointer', 
-                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
-                  py: 1,
-                  // 테블릿에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
-                  }
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  수주여부
-                  {sortField === 'contractStatus' && (
-                    sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                  )}
-                </Box>
-              </TableCell>
-              <TableCell sx={{ py: 1 }}>관리</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -1426,64 +1528,178 @@ const Vendors = () => {
                     onChange={() => handleSelectItem(vendor.id)}
                   />
                 </TableCell>
-                <TableCell sx={{ py: 1 }}>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.25 }}>
-                    {getCompanyType(vendor.companyName).split(', ').map((type, index) => (
-                      <Chip 
-                        key={index}
-                        label={type} 
-                        size="small" 
-                        color={getCompanyTypeColor(type)}
-                        variant="outlined"
-                        sx={{ height: '24px', fontSize: '0.7rem' }}
-                      />
-                    ))}
-                  </Box>
-                </TableCell>
-                <TableCell>{vendor.companyName}</TableCell>
-                <TableCell sx={{
-                  // 테블릿에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
-                  }
-                }}>{formatDate(vendor.bidDate)}</TableCell>
-                <TableCell>{vendor.siteName}</TableCell>
-                <TableCell sx={{
-                  // 테블릿에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
-                  }
-                }}>{vendor.winningCompany || '-'}</TableCell>
-                <TableCell>{formatAmount(vendor.amount)}</TableCell>
-                <TableCell sx={{
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
-                  }
-                }}>{vendor.item}</TableCell>
-                <TableCell sx={{
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
-                  }
-                }}>{vendor.quantity}</TableCell>
-                <TableCell>{vendor.note}</TableCell>
+                {filteredByCompanyType === '천우건업(주)' ? (
+                  <>
+                    <TableCell>{vendor.siteName}</TableCell>
+                    <TableCell sx={{
+                      // 테블릿에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}>{vendor.winningCompany || '-'}</TableCell>
+                    <TableCell>{formatAmount(vendor.amount)}</TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell>{vendor.companyName || '-'}</TableCell>
+                    <TableCell sx={{
+                      // 테블릿에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}>{formatDate(vendor.bidDate)}</TableCell>
+                    <TableCell>{vendor.siteName || '-'}</TableCell>
+                    <TableCell>{formatAmount(vendor.amount)}</TableCell>
+                  </>
+                )}
+                {filteredByCompanyType === '천우건업(주)' ? (
+                  <>
+                    <TableCell>{vendor.bidRate || '-'}</TableCell>
+                    <TableCell>{vendor.bidAmount ? formatAmount(vendor.bidAmount) : '-'}</TableCell>
+                    <TableCell sx={{
+                      // 테블릿에서 숨김
+                      '@media (min-width: 768px) and (max-width: 1024px)': {
+                        display: 'none'
+                      }
+                    }}>{formatDate(vendor.bidDate)}</TableCell>
+                    <TableCell 
+                      onClick={() => handleInlineEditStart(vendor.id, 'resultRank', vendor.resultRank)}
+                      sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                    >
+                      {editingField === `${vendor.id}-resultRank` ? (
+                        <TextField
+                          value={editingValue}
+                          onChange={(e) => setEditingValue(e.target.value)}
+                          onBlur={() => handleInlineEditSave(vendor.id, 'resultRank')}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleInlineEditSave(vendor.id, 'resultRank');
+                            } else if (e.key === 'Escape') {
+                              handleInlineEditCancel();
+                            }
+                          }}
+                          autoFocus
+                          size="small"
+                          variant="outlined"
+                          sx={{ 
+                            '& .MuiOutlinedInput-root': { 
+                              height: '32px',
+                              fontSize: '0.875rem'
+                            }
+                          }}
+                        />
+                      ) : (
+                        vendor.resultRank || '-'
+                      )}
+                    </TableCell>
+                    <TableCell 
+                      onClick={() => handleInlineEditStart(vendor.id, 'winningAmount', vendor.winningAmount)}
+                      sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                    >
+                      {editingField === `${vendor.id}-winningAmount` ? (
+                        <TextField
+                          value={editingValue}
+                          onChange={(e) => setEditingValue(e.target.value)}
+                          onBlur={() => handleInlineEditSave(vendor.id, 'winningAmount')}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleInlineEditSave(vendor.id, 'winningAmount');
+                            } else if (e.key === 'Escape') {
+                              handleInlineEditCancel();
+                            }
+                          }}
+                          autoFocus
+                          size="small"
+                          variant="outlined"
+                          type="number"
+                          sx={{ 
+                            '& .MuiOutlinedInput-root': { 
+                              height: '32px',
+                              fontSize: '0.875rem'
+                            }
+                          }}
+                        />
+                      ) : (
+                        vendor.winningAmount ? formatAmount(vendor.winningAmount) : '-'
+                      )}
+                    </TableCell>
+                    <TableCell 
+                      onClick={() => handleInlineEditStart(vendor.id, 'winningRate', vendor.winningRate)}
+                      sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                    >
+                      {editingField === `${vendor.id}-winningRate` ? (
+                        <TextField
+                          value={editingValue}
+                          onChange={(e) => setEditingValue(e.target.value)}
+                          onBlur={() => handleInlineEditSave(vendor.id, 'winningRate')}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleInlineEditSave(vendor.id, 'winningRate');
+                            } else if (e.key === 'Escape') {
+                              handleInlineEditCancel();
+                            }
+                          }}
+                          autoFocus
+                          size="small"
+                          variant="outlined"
+                          sx={{ 
+                            '& .MuiOutlinedInput-root': { 
+                              height: '32px',
+                              fontSize: '0.875rem'
+                            }
+                          }}
+                        />
+                      ) : (
+                        vendor.winningRate || '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEdit(vendor)}
+                        sx={{ color: 'primary.main' }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDelete(vendor.id)}
+                        sx={{ color: 'error.main' }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEdit(vendor)}
+                        sx={{ color: 'primary.main' }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDelete(vendor.id)}
+                        sx={{ color: 'error.main' }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </>
+                )}
                 <TableCell>
-                  <Chip
-                    label={vendor.contractStatus || '미수주'}
-                    color={vendor.contractStatus === '수주' ? 'success' : 'default'}
-                    onClick={() => handleContractStatusToggle(vendor.id, vendor.contractStatus || '미수주')}
-                    sx={{ cursor: 'pointer', height: '28px', fontSize: '0.75rem' }}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  <IconButton size="small" onClick={() => handleOpen(vendor)}>
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => handleDelete(vendor.id)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
+                  {filteredByCompanyType === '천우건업(주)' ? (
+                    <Typography variant="body2">
+                      {vendor.note}
+                    </Typography>
+                  ) : (
+                    <Typography variant="body2">
+                      {vendor.note}
+                    </Typography>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -1572,7 +1788,13 @@ const Vendors = () => {
             color: '#fff',
             borderRadius: 4,
             minHeight: '480px',
-            width: '100%'
+            width: '100%',
+            // 스크롤바 숨기기
+            '&::-webkit-scrollbar': {
+              display: 'none'
+            },
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
           }
         }}
       >
@@ -1586,28 +1808,41 @@ const Vendors = () => {
         }}>
           {editingVendor ? '거래처 수정' : '거래처 등록'}
         </DialogTitle>
-        <DialogContent sx={{ pt: 4, pb: 2, mt: 6 }}>
+        <DialogContent sx={{ 
+          pt: 4, 
+          pb: 2, 
+          mt: 6,
+          // 스크롤바 숨기기
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          },
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none'
+        }}>
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            {filteredByCompanyType !== '천우건업(주)' && (
+              <TextField
+                fullWidth
+                label="업체명"
+                value={formData.companyName}
+                onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                margin="normal"
+                required
+                placeholder="업체명을 입력하세요"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#444' },
+                    '&:hover fieldset': { borderColor: '#666' },
+                    '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                  },
+                  '& .MuiInputLabel-root': { color: '#ccc' },
+                  '& .MuiInputBase-input': { color: '#fff' }
+                }}
+              />
+            )}
             <TextField
               fullWidth
-              label="업체명"
-              value={formData.companyName}
-              onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-              margin="normal"
-              required
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': { borderColor: '#444' },
-                  '&:hover fieldset': { borderColor: '#666' },
-                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
-                },
-                '& .MuiInputLabel-root': { color: '#ccc' },
-                '& .MuiInputBase-input': { color: '#fff' }
-              }}
-            />
-            <TextField
-              fullWidth
-              label="낙찰일"
+              label={filteredByCompanyType === '천우건업(주)' ? "투찰일자" : "낙찰일"}
               type="date"
               value={formData.bidDate}
               onChange={(e) => setFormData({ ...formData, bidDate: e.target.value })}
@@ -1631,6 +1866,7 @@ const Vendors = () => {
               onChange={(e) => setFormData({ ...formData, siteName: e.target.value })}
               margin="normal"
               required
+              placeholder="현장명을 입력하세요"
               sx={{
                 '& .MuiOutlinedInput-root': {
                   '& fieldset': { borderColor: '#444' },
@@ -1643,11 +1879,11 @@ const Vendors = () => {
             />
             <TextField
               fullWidth
-              label="낙찰회사"
+              label={filteredByCompanyType === '천우건업(주)' ? "발주자" : "낙찰회사"}
               value={formData.winningCompany}
               onChange={(e) => setFormData({ ...formData, winningCompany: e.target.value })}
               margin="normal"
-              placeholder="낙찰받은 회사명을 입력하세요"
+              placeholder={filteredByCompanyType === '천우건업(주)' ? "발주자명을 입력하세요" : "낙찰받은 회사명을 입력하세요"}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   '& fieldset': { borderColor: '#444' },
@@ -1660,11 +1896,11 @@ const Vendors = () => {
             />
             <TextField
               fullWidth
-              label="금액"
+              label={filteredByCompanyType === '천우건업(주)' ? "기초금액" : "금액"}
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
               margin="normal"
-              placeholder="금액을 입력하세요 (선택사항)"
+              placeholder={filteredByCompanyType === '천우건업(주)' ? "기초금액을 입력하세요" : "금액을 입력하세요 (선택사항)"}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   '& fieldset': { borderColor: '#444' },
@@ -1675,40 +1911,134 @@ const Vendors = () => {
                 '& .MuiInputBase-input': { color: '#fff' }
               }}
             />
-            <TextField
-              fullWidth
-              label="품목"
-              value={formData.item}
-              onChange={(e) => setFormData({ ...formData, item: e.target.value })}
-              margin="normal"
-              placeholder="품목을 입력하세요 (선택사항)"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': { borderColor: '#444' },
-                  '&:hover fieldset': { borderColor: '#666' },
-                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
-                },
-                '& .MuiInputLabel-root': { color: '#ccc' },
-                '& .MuiInputBase-input': { color: '#fff' }
-              }}
-            />
-            <TextField
-              fullWidth
-              label="물량"
-              value={formData.quantity}
-              onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-              margin="normal"
-              placeholder="물량을 입력하세요 (선택사항)"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': { borderColor: '#444' },
-                  '&:hover fieldset': { borderColor: '#666' },
-                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
-                },
-                '& .MuiInputLabel-root': { color: '#ccc' },
-                '& .MuiInputBase-input': { color: '#fff' }
-              }}
-            />
+            {filteredByCompanyType === '천우건업(주)' ? (
+              <>
+                <TextField
+                  fullWidth
+                  label="투찰율"
+                  value={formData.bidRate || ''}
+                  onChange={(e) => setFormData({ ...formData, bidRate: e.target.value })}
+                  margin="normal"
+                  placeholder="투찰율을 입력하세요 (예: 95.5%)"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#fff' }
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="투찰금액"
+                  value={formData.bidAmount || ''}
+                  onChange={(e) => setFormData({ ...formData, bidAmount: e.target.value })}
+                  margin="normal"
+                  type="number"
+                  placeholder="투찰금액을 입력하세요"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#fff' }
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="결과순위"
+                  value={formData.resultRank || ''}
+                  onChange={(e) => setFormData({ ...formData, resultRank: e.target.value })}
+                  margin="normal"
+                  placeholder="결과순위를 입력하세요 (예: 1위, 2위)"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#fff' }
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="낙찰금액"
+                  value={formData.winningAmount || ''}
+                  onChange={(e) => setFormData({ ...formData, winningAmount: e.target.value })}
+                  margin="normal"
+                  type="number"
+                  placeholder="낙찰금액을 입력하세요"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#fff' }
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="낙찰율"
+                  value={formData.winningRate || ''}
+                  onChange={(e) => setFormData({ ...formData, winningRate: e.target.value })}
+                  margin="normal"
+                  placeholder="낙찰율을 입력하세요 (예: 95.5%)"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#fff' }
+                  }}
+                />
+              </>
+            ) : (
+              <>
+                <TextField
+                  fullWidth
+                  label="품목"
+                  value={formData.item || ''}
+                  onChange={(e) => setFormData({ ...formData, item: e.target.value })}
+                  margin="normal"
+                  placeholder="품목을 입력하세요 (선택사항)"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#fff' }
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="물량"
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                  margin="normal"
+                  placeholder="물량을 입력하세요 (선택사항)"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#444' },
+                      '&:hover fieldset': { borderColor: '#666' },
+                      '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' },
+                    '& .MuiInputBase-input': { color: '#fff' }
+                  }}
+                />
+              </>
+            )}
             <TextField
               fullWidth
               label="비고"
@@ -1747,34 +2077,63 @@ const Vendors = () => {
               </Select>
             </FormControl>
             
-            {/* 업종 선택 */}
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body2" sx={{ mb: 1, color: '#ccc', fontWeight: 'bold' }}>
-                업종 선택 (복수 선택 가능)
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {['AL창호', 'PL창호', '종합건설'].map((type) => (
-                  <Chip
-                    key={type}
-                    label={type}
-                    color={formData.companyTypes.includes(type) ? getCompanyTypeColor(type) : 'default'}
-                    onClick={() => handleVendorCompanyTypeToggle(type)}
-                    variant={formData.companyTypes.includes(type) ? 'filled' : 'outlined'}
-                    sx={{ 
-                      cursor: 'pointer',
-                      '&:hover': {
-                        backgroundColor: formData.companyTypes.includes(type) ? undefined : 'rgba(255,255,255,0.08)'
-                      }
-                    }}
-                  />
-                ))}
-              </Box>
-              {formData.companyTypes.length === 0 && (
-                <Typography variant="body2" sx={{ color: 'error.main', mt: 1, fontSize: '0.8rem' }}>
-                  최소 하나의 업종을 선택해주세요.
+            {/* 업종 선택 - 천우건업(주) 필터링 시 숨김 */}
+            {filteredByCompanyType !== '천우건업(주)' && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2" sx={{ mb: 1, color: '#ccc', fontWeight: 'bold' }}>
+                  업종 선택
                 </Typography>
-              )}
-            </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {['AL창호', 'PL창호', '종합건설', '천우건업(주)'].map((type) => {
+                    const isSelected = formData.companyTypes.includes(type);
+                    const isMultiSelect = ['AL창호', 'PL창호'].includes(type);
+                    
+                    return (
+                      <Chip
+                        key={type}
+                        label={type}
+                        color={isSelected ? getCompanyTypeColor(type) : 'default'}
+                        onClick={() => {
+                          if (isMultiSelect) {
+                            // AL창호, PL창호는 중복 선택 가능
+                            handleVendorCompanyTypeToggle(type);
+                          } else {
+                            // 천우건업(주), 종합건설은 단일 선택
+                            if (isSelected) {
+                              // 이미 선택된 경우 선택 해제
+                              setFormData({
+                                ...formData,
+                                companyTypes: formData.companyTypes.filter(t => t !== type)
+                              });
+                            } else {
+                              // 다른 단일 선택 항목들 제거 후 선택
+                              const otherSingleSelect = ['천우건업(주)', '종합건설'].filter(t => t !== type);
+                              const filteredTypes = formData.companyTypes.filter(t => !otherSingleSelect.includes(t));
+                              setFormData({
+                                ...formData,
+                                companyTypes: [...filteredTypes, type]
+                              });
+                            }
+                          }
+                        }}
+                        variant={isSelected ? 'filled' : 'outlined'}
+                        sx={{ 
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: isSelected ? undefined : 'rgba(255,255,255,0.08)'
+                          }
+                        }}
+                      />
+                    );
+                  })}
+                </Box>
+                {formData.companyTypes.length === 0 && (
+                  <Typography variant="body2" sx={{ color: 'error.main', mt: 1, fontSize: '0.8rem' }}>
+                    최소 하나의 업종을 선택해주세요.
+                  </Typography>
+                )}
+              </Box>
+            )}
           </Box>
         </DialogContent>
         <DialogActions sx={{ 
@@ -1854,9 +2213,31 @@ const Vendors = () => {
       </Dialog>
 
       {/* 업체 등록 다이얼로그 */}
-      <Dialog open={companyDialogOpen} onClose={handleCompanyDialogClose} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={companyDialogOpen} 
+        onClose={handleCompanyDialogClose} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            // 스크롤바 숨기기
+            '&::-webkit-scrollbar': {
+              display: 'none'
+            },
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }
+        }}
+      >
         <DialogTitle>{editingCompany ? '업체 수정' : '업체 등록'}</DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{
+          // 스크롤바 숨기기
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          },
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none'
+        }}>
           <Box component="form" onSubmit={handleCompanySubmit} sx={{ mt: 2 }}>
             <TextField
               fullWidth
@@ -1867,19 +2248,46 @@ const Vendors = () => {
               required
             />
             <Typography variant="body2" sx={{ mt: 2, mb: 1, color: 'text.secondary' }}>
-              업체 유형 (복수 선택 가능)
+              업체 유형
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {['AL창호', 'PL창호', '종합건설'].map((type) => (
-                <Chip
-                  key={type}
-                  label={type}
-                  color={companyFormData.companyTypes.includes(type) ? getCompanyTypeColor(type) : 'default'}
-                  onClick={() => handleCompanyTypeToggle(type)}
-                  variant={companyFormData.companyTypes.includes(type) ? 'filled' : 'outlined'}
-                  sx={{ cursor: 'pointer' }}
-                />
-              ))}
+              {['AL창호', 'PL창호', '종합건설', '천우건업(주)'].map((type) => {
+                const isSelected = companyFormData.companyTypes.includes(type);
+                const isMultiSelect = ['AL창호', 'PL창호'].includes(type);
+                
+                return (
+                  <Chip
+                    key={type}
+                    label={type}
+                    color={isSelected ? getCompanyTypeColor(type) : 'default'}
+                    onClick={() => {
+                      if (isMultiSelect) {
+                        // AL창호, PL창호는 중복 선택 가능
+                        handleCompanyTypeToggle(type);
+                      } else {
+                        // 천우건업(주), 종합건설은 단일 선택
+                        if (isSelected) {
+                          // 이미 선택된 경우 선택 해제
+                          setCompanyFormData({
+                            ...companyFormData,
+                            companyTypes: companyFormData.companyTypes.filter(t => t !== type)
+                          });
+                        } else {
+                          // 다른 단일 선택 항목들 제거 후 선택
+                          const otherSingleSelect = ['천우건업(주)', '종합건설'].filter(t => t !== type);
+                          const filteredTypes = companyFormData.companyTypes.filter(t => !otherSingleSelect.includes(t));
+                          setCompanyFormData({
+                            ...companyFormData,
+                            companyTypes: [...filteredTypes, type]
+                          });
+                        }
+                      }
+                    }}
+                    variant={isSelected ? 'filled' : 'outlined'}
+                    sx={{ cursor: 'pointer' }}
+                  />
+                );
+              })}
             </Box>
             {companyFormData.companyTypes.length === 0 && (
               <Typography variant="body2" sx={{ color: 'error.main', mt: 1 }}>
@@ -1906,6 +2314,16 @@ const Vendors = () => {
         onClose={() => setCompanyListDialogOpen(false)} 
         maxWidth="md" 
         fullWidth
+        PaperProps={{
+          sx: {
+            // 스크롤바 숨기기
+            '&::-webkit-scrollbar': {
+              display: 'none'
+            },
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }
+        }}
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1919,7 +2337,14 @@ const Vendors = () => {
             </Typography>
           </Box>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{
+          // 스크롤바 숨기기
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          },
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none'
+        }}>
           {getCompaniesByType(selectedCompanyType).length > 0 ? (
             <Grid container spacing={2} sx={{ mt: 1 }}>
               {getCompaniesByType(selectedCompanyType).map((company) => (

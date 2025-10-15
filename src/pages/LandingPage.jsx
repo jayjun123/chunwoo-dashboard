@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useTodo } from '../contexts/TodoContext';
 import {
   Box,
@@ -655,72 +655,30 @@ const LandingPage = () => {
     }
   ];
 
-  const handleGetStarted = (e) => {
-    // 이벤트 전파 방지
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    
+  const handleGetStarted = () => {
     console.log('🚀 handleGetStarted 클릭됨', { 
       currentUser: currentUser ? '로그인됨' : '로그인 안됨',
-      timestamp: new Date().toISOString(),
-      event: e ? e.type : 'no-event'
+      timestamp: new Date().toISOString()
     });
     
-    // 약간의 지연을 두어 UI 반응성 개선
-    setTimeout(() => {
-      try {
-        if (currentUser) {
-          console.log('✅ 로그인된 사용자, 대시보드로 이동');
-          navigate('/dashboard');
-        } else {
-          console.log('🔐 로그인되지 않은 사용자, 로그인 페이지로 이동');
-          navigate('/auth');
-        }
-      } catch (error) {
-        console.error('❌ handleGetStarted 오류:', error);
-        // 오류 발생 시에도 기본 동작 수행
-        try {
-          navigate('/auth');
-        } catch (fallbackError) {
-          console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
-          // 최후의 수단으로 페이지 새로고침
-          window.location.href = '/auth';
-        }
-      }
-    }, 100);
+    // 항상 대시보드로 이동 - ProtectedRoute가 로그인 상태를 확인하고 적절히 리다이렉트함
+    console.log('✅ 대시보드로 이동 시도');
+    navigate('/dashboard');
   };
 
-  const handleLogin = (e) => {
-    // 이벤트 전파 방지
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    
+  const handleLogin = () => {
     console.log('🔑 handleLogin 클릭됨', { 
-      timestamp: new Date().toISOString(),
-      event: e ? e.type : 'no-event'
+      timestamp: new Date().toISOString()
     });
     
-    // 약간의 지연을 두어 UI 반응성 개선
-    setTimeout(() => {
-      try {
-        // 로그인 페이지로 이동
-        navigate('/auth');
-      } catch (error) {
-        console.error('❌ handleLogin 오류:', error);
-        // 오류 발생 시 폴백 동작
-        try {
-          window.location.href = '/auth';
-        } catch (fallbackError) {
-          console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
-          // 최후의 수단으로 페이지 새로고침
-          window.location.reload();
-        }
-      }
-    }, 100);
+    try {
+      // 로그인 페이지로 이동
+      navigate('/auth');
+    } catch (error) {
+      console.error('❌ handleLogin 오류:', error);
+      // 오류 발생 시 폴백 동작
+      window.location.href = '/auth';
+    }
   };
 
   return (
@@ -868,113 +826,44 @@ const LandingPage = () => {
                 천우건업(주)
               </Typography>
             </Box>
-            <Button 
-              variant="contained" 
-              onClick={(e) => {
-                // 이벤트 전파 방지
-                e.preventDefault();
-                e.stopPropagation();
-
-                console.log('🔘 헤더 버튼 클릭 이벤트:', {
-                  type: e.type,
-                  target: e.target.tagName,
-                  currentTarget: e.currentTarget.tagName,
-                  timestamp: new Date().toISOString(),
-                  userAgent: navigator.userAgent,
-                  button: e.button,
-                  detail: e.detail,
-                  isTrusted: e.isTrusted
-                });
-
-                // 프로덕션 환경에서 더 안정적인 네비게이션
-                const handleNavigation = () => {
-                  console.log('🔍 헤더 네비게이션 시도 전 상태:', {
-                    currentUser: currentUser,
-                    navigate: typeof navigate,
-                    windowLocation: window.location.href,
-                    isProduction: process.env.NODE_ENV === 'production'
-                  });
-
-                  const targetUrl = currentUser ? '/dashboard' : '/auth';
-
-                  // 1차 시도: React Router navigate
-                  try {
-                    if (navigate && typeof navigate === 'function') {
-                      console.log('✅ 헤더 React Router navigate 시도:', targetUrl);
-                      navigate(targetUrl);
-                      console.log('📤 헤더 navigate() 호출 완료');
-                      return;
-                    }
-                  } catch (error) {
-                    console.error('❌ 헤더 React Router navigate 오류:', error);
+            <Link to="/dashboard" style={{ textDecoration: 'none' }}>
+              <Button 
+                variant="contained" 
+                onClick={handleGetStarted}
+                onMouseDown={handleGetStarted}
+                onTouchEnd={handleGetStarted}
+                sx={{ 
+                  bgcolor: 'transparent',
+                  border: '2px solid #43e97b',
+                  color: '#43e97b',
+                  '&:hover': { 
+                    bgcolor: 'rgba(67, 233, 123, 0.1)',
+                    border: '2px solid #38d975',
+                    boxShadow: '0 0 20px rgba(67, 233, 123, 0.3)'
+                  },
+                  px: 3,
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  zIndex: 9999,
+                  position: 'relative',
+                  pointerEvents: 'auto',
+                  touchAction: 'manipulation',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  MozUserSelect: 'none',
+                  msUserSelect: 'none',
+                  WebkitTapHighlightColor: 'transparent',
+                  WebkitTouchCallout: 'none',
+                  WebkitUserDrag: 'none',
+                  // 스마트폰에서만 적용 - 버튼 숨기기
+                  '@media (max-width: 767px)': {
+                    display: 'none'
                   }
-
-                  // 2차 시도: window.location.href
-                  try {
-                    console.log('🔄 헤더 window.location.href 시도:', targetUrl);
-                    window.location.href = targetUrl;
-                    return;
-                  } catch (error) {
-                    console.error('❌ 헤더 window.location.href 오류:', error);
-                  }
-
-                  // 3차 시도: window.location.assign
-                  try {
-                    console.log('🔄 헤더 window.location.assign 시도:', targetUrl);
-                    window.location.assign(targetUrl);
-                    return;
-                  } catch (error) {
-                    console.error('❌ 헤더 window.location.assign 오류:', error);
-                  }
-
-                  // 4차 시도: window.open
-                  try {
-                    console.log('🔄 헤더 window.open 시도:', targetUrl);
-                    window.open(targetUrl, '_self');
-                    return;
-                  } catch (error) {
-                    console.error('❌ 헤더 window.open 오류:', error);
-                  }
-
-                  // 최후의 수단: 페이지 새로고침 후 이동
-                  console.log('🔄 헤더 최후의 수단: 페이지 새로고침');
-                  window.location.reload();
-                };
-
-                // 약간의 지연을 두어 이벤트 처리 완료 후 실행
-                setTimeout(handleNavigation, 50);
-              }}
-              sx={{ 
-                bgcolor: 'transparent',
-                border: '2px solid #43e97b',
-                color: '#43e97b',
-                '&:hover': { 
-                  bgcolor: 'rgba(67, 233, 123, 0.1)',
-                  border: '2px solid #38d975',
-                  boxShadow: '0 0 20px rgba(67, 233, 123, 0.3)'
-                },
-                px: 3,
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                zIndex: 9999,
-                position: 'relative',
-                pointerEvents: 'auto',
-                touchAction: 'manipulation',
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                MozUserSelect: 'none',
-                msUserSelect: 'none',
-                WebkitTapHighlightColor: 'transparent',
-                WebkitTouchCallout: 'none',
-                WebkitUserDrag: 'none',
-                // 스마트폰에서만 적용 - 버튼 숨기기
-                '@media (max-width: 767px)': {
-                  display: 'none'
-                }
-              }}
-            >
-              {currentUser ? '시스템 시작' : '로그인'}
-            </Button>
+                }}
+              >
+                {currentUser ? '시스템 시작' : '로그인'}
+              </Button>
+            </Link>
           </Box>
         </Container>
       </Box>
@@ -1049,138 +938,47 @@ const LandingPage = () => {
                     안전을 강화하며, 프로젝트 성공을 보장하세요.
                   </Typography>
                   <Stack direction="row" spacing={2} sx={{ mb: 4 }}>
-                    <Button 
-                      variant="contained" 
-                      size="medium"
-                      onClick={(e) => {
-                        // 이벤트 전파 방지
-                        e.preventDefault();
-                        e.stopPropagation();
-
-                        console.log('🔘 시작하기 버튼 클릭 이벤트:', {
-                          type: e.type,
-                          target: e.target.tagName,
-                          currentTarget: e.currentTarget.tagName,
-                          timestamp: new Date().toISOString(),
-                          userAgent: navigator.userAgent,
-                          button: e.button,
-                          detail: e.detail,
-                          isTrusted: e.isTrusted
-                        });
-
-                        // 프로덕션 환경에서 더 안정적인 네비게이션
-                        const handleNavigation = () => {
-                          console.log('🔍 시작하기 네비게이션 시도 전 상태:', {
-                            currentUser: currentUser,
-                            navigate: typeof navigate,
-                            windowLocation: window.location.href,
-                            isProduction: process.env.NODE_ENV === 'production'
-                          });
-
-                          const targetUrl = currentUser ? '/dashboard' : '/auth';
-
-                          // 1차 시도: React Router navigate
-                          try {
-                            if (navigate && typeof navigate === 'function') {
-                              console.log('✅ 시작하기 React Router navigate 시도:', targetUrl);
-                              navigate(targetUrl);
-                              console.log('📤 시작하기 navigate() 호출 완료');
-                              return;
-                            }
-                          } catch (error) {
-                            console.error('❌ 시작하기 React Router navigate 오류:', error);
+                    <Link to="/dashboard" style={{ textDecoration: 'none' }}>
+                      <Button 
+                        variant="contained" 
+                        size="medium"
+                        onClick={handleGetStarted}
+                        onMouseDown={handleGetStarted}
+                        onTouchEnd={handleGetStarted}
+                        endIcon={<ArrowForward />}
+                        sx={{ 
+                          bgcolor: 'transparent',
+                          border: '2px solid #43e97b',
+                          color: '#43e97b',
+                          '&:hover': { 
+                            bgcolor: 'rgba(67, 233, 123, 0.1)',
+                            border: '2px solid #38d975',
+                            boxShadow: '0 0 30px rgba(67, 233, 123, 0.4)'
+                          },
+                          px: 3,
+                          py: 1,
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          touchAction: 'manipulation',
+                          WebkitTapHighlightColor: 'transparent',
+                          WebkitTouchCallout: 'none',
+                          WebkitUserDrag: 'none',
+                          // 스마트폰에서만 적용
+                          '@media (max-width: 767px)': {
+                            px: 2,
+                            py: 0.8,
+                            fontSize: '0.9rem'
                           }
-
-                          // 2차 시도: window.location.href
-                          try {
-                            console.log('🔄 시작하기 window.location.href 시도:', targetUrl);
-                            window.location.href = targetUrl;
-                            return;
-                          } catch (error) {
-                            console.error('❌ 시작하기 window.location.href 오류:', error);
-                          }
-
-                          // 3차 시도: window.location.assign
-                          try {
-                            console.log('🔄 시작하기 window.location.assign 시도:', targetUrl);
-                            window.location.assign(targetUrl);
-                            return;
-                          } catch (error) {
-                            console.error('❌ 시작하기 window.location.assign 오류:', error);
-                          }
-
-                          // 4차 시도: window.open
-                          try {
-                            console.log('🔄 시작하기 window.open 시도:', targetUrl);
-                            window.open(targetUrl, '_self');
-                            return;
-                          } catch (error) {
-                            console.error('❌ 시작하기 window.open 오류:', error);
-                          }
-
-                          // 최후의 수단: 페이지 새로고침 후 이동
-                          console.log('🔄 시작하기 최후의 수단: 페이지 새로고침');
-                          window.location.reload();
-                        };
-
-                        // 약간의 지연을 두어 이벤트 처리 완료 후 실행
-                        setTimeout(handleNavigation, 50);
-                      }}
-                      onMouseDown={(e) => {
-                        console.log('🖱️ 시작하기 버튼 마우스 다운:', e.type);
-                      }}
-                      onTouchStart={(e) => {
-                        console.log('👆 시작하기 버튼 터치 시작:', e.type);
-                      }}
-                      onDoubleClick={(e) => {
-                        console.log('🖱️ 시작하기 버튼 더블클릭:', e.type);
-                        // 더블클릭으로 강제 네비게이션
-                        const targetUrl = currentUser ? '/dashboard' : '/auth';
-                        console.log('🚀 더블클릭 강제 네비게이션:', targetUrl);
-                        window.location.href = targetUrl;
-                      }}
-                      endIcon={<ArrowForward />}
-                      sx={{ 
-                        bgcolor: 'transparent',
-                        border: '2px solid #43e97b',
-                        color: '#43e97b',
-                        '&:hover': { 
-                          bgcolor: 'rgba(67, 233, 123, 0.1)',
-                          border: '2px solid #38d975',
-                          boxShadow: '0 0 30px rgba(67, 233, 123, 0.4)'
-                        },
-                        px: 3,
-                        py: 1,
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        touchAction: 'manipulation',
-                        WebkitTapHighlightColor: 'transparent',
-                        WebkitTouchCallout: 'none',
-                        WebkitUserDrag: 'none',
-                        // 스마트폰에서만 적용
-                        '@media (max-width: 767px)': {
-                          px: 2,
-                          py: 0.8,
-                          fontSize: '0.9rem'
-                        }
-                      }}
-                    >
-                      시작하기
-                    </Button>
+                        }}
+                      >
+                        시작하기
+                      </Button>
+                    </Link>
                     <Button 
                       variant="outlined" 
                       size="medium"
                       startIcon={<Security />}
-                      onClick={(e) => {
-                        console.log('🔘 로그인 버튼 클릭 이벤트:', {
-                          type: e.type,
-                          target: e.target.tagName,
-                          currentTarget: e.currentTarget.tagName,
-                          timestamp: new Date().toISOString(),
-                          userAgent: navigator.userAgent
-                        });
-                        handleLogin(e);
-                      }}
+                      onClick={handleLogin}
                       sx={{ 
                         borderColor: currentUser ? '#ef4444' : '#3b82f6',
                         color: currentUser ? '#ef4444' : '#3b82f6',
@@ -1647,34 +1445,20 @@ const LandingPage = () => {
                               background: 'rgba(67, 233, 123, 0.1)'
                             }
                           }} 
-                          onClick={(e) => {
-                            // 이벤트 전파 방지
-                            if (e) {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }
-                            
+                          onClick={() => {
                             console.log('🎯 기능 카드 클릭:', { 
                               title: item.title, 
                               path: item.path,
-                              timestamp: new Date().toISOString(),
-                              event: e ? e.type : 'no-event'
+                              timestamp: new Date().toISOString()
                             });
                             
-                            // 약간의 지연을 두어 UI 반응성 개선
-                            setTimeout(() => {
-                              try {
-                                navigate(item.path);
-                              } catch (error) {
-                                console.error('❌ 기능 카드 네비게이션 오류:', error);
-                                // 폴백 동작
-                                try {
-                                  window.location.href = item.path;
-                                } catch (fallbackError) {
-                                  console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
-                                }
-                              }
-                            }, 100);
+                            try {
+                              navigate(item.path);
+                            } catch (error) {
+                              console.error('❌ 기능 카드 네비게이션 오류:', error);
+                              // 폴백 동작
+                              window.location.href = item.path;
+                            }
                           }}
 >
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1737,34 +1521,20 @@ const LandingPage = () => {
                               background: 'rgba(67, 233, 123, 0.1)'
                             }
                           }} 
-                          onClick={(e) => {
-                            // 이벤트 전파 방지
-                            if (e) {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }
-                            
+                          onClick={() => {
                             console.log('🎯 기능 카드 클릭:', { 
                               title: item.title, 
                               path: item.path,
-                              timestamp: new Date().toISOString(),
-                              event: e ? e.type : 'no-event'
+                              timestamp: new Date().toISOString()
                             });
                             
-                            // 약간의 지연을 두어 UI 반응성 개선
-                            setTimeout(() => {
-                              try {
-                                navigate(item.path);
-                              } catch (error) {
-                                console.error('❌ 기능 카드 네비게이션 오류:', error);
-                                // 폴백 동작
-                                try {
-                                  window.location.href = item.path;
-                                } catch (fallbackError) {
-                                  console.error('❌ 폴백 네비게이션도 실패:', fallbackError);
-                                }
-                              }
-                            }, 100);
+                            try {
+                              navigate(item.path);
+                            } catch (error) {
+                              console.error('❌ 기능 카드 네비게이션 오류:', error);
+                              // 폴백 동작
+                              window.location.href = item.path;
+                            }
                           }}
 >
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

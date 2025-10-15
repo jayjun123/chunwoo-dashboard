@@ -231,10 +231,13 @@ const MobileSidebar = () => {
     </Box>
   );
 
+  // 웹에서 햄버거 메뉴를 숨길 페이지들 (일정관리, 토론의견 제외)
+  const hideHamburgerOnWeb = !isMobile && !['/calendar', '/discussions'].includes(location.pathname);
+
   return (
     <>
-      {/* 모바일에서만 햄버거 메뉴 버튼 표시 */}
-      {isMobile && (
+      {/* 모바일에서만 햄버거 메뉴 버튼 표시, 웹에서는 일정관리/토론의견 페이지에서만 표시 */}
+      {isMobile && !hideHamburgerOnWeb && (
         <IconButton
           onClick={handleDrawerToggle}
           sx={{
