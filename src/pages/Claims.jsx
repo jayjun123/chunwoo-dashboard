@@ -96,7 +96,9 @@ const Claims = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [skipPageReset, setSkipPageReset] = useState(false);
+  const [skipSorting, setSkipSorting] = useState(false);
   const savedPageRef = useRef(1);
+  const recentlyUpdatedRef = useRef(new Set());
   const [stats, setStats] = useState({
     total: 0,
     claimed: 0,
@@ -673,43 +675,48 @@ const Claims = () => {
       filtered = filtered.filter(claim => claim.claimStatus === filters.claimStatus);
     }
 
-    // 정렬 (청구대기 항목을 맨 위로, 그 다음 createdAt 기준으로 최신 입력순 정렬)
-    filtered.sort((a, b) => {
-      // 먼저 청구대기 상태('X')인 항목을 맨 위로
-      const aIsPending = a.claimStatus === 'X';
-      const bIsPending = b.claimStatus === 'X';
-      
-      if (aIsPending && !bIsPending) {
-        return -1; // a가 청구대기면 a를 위로
-      }
-      if (!aIsPending && bIsPending) {
-        return 1; // b가 청구대기면 b를 위로
-      }
-      
-      // 둘 다 청구대기이거나 둘 다 청구대기가 아니면 createdAt 기준으로 정렬
-      const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
-      const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
-      const dateComparison = dateB - dateA;
-      
-      if (dateComparison !== 0) {
-        return dateComparison;
-      }
-      
-      // createdAt이 같으면 기존 정렬 기준 사용
-      let aValue = a[sortBy];
-      let bValue = b[sortBy];
-      
-      if (sortBy === 'claimAmount') {
-        aValue = parseFloat(aValue) || 0;
-        bValue = parseFloat(bValue) || 0;
-      }
-      
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
+    // 정렬 (청구여부 변경 시에는 정렬하지 않고 원래 위치 유지)
+    if (!skipSorting) {
+      filtered.sort((a, b) => {
+        // 먼저 청구대기 상태('X')인 항목을 맨 위로
+        const aIsPending = a.claimStatus === 'X';
+        const bIsPending = b.claimStatus === 'X';
+        
+        if (aIsPending && !bIsPending) {
+          return -1; // a가 청구대기면 a를 위로
+        }
+        if (!aIsPending && bIsPending) {
+          return 1; // b가 청구대기면 b를 위로
+        }
+        
+        // 둘 다 청구대기이거나 둘 다 청구대기가 아니면 createdAt 기준으로 정렬
+        const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+        const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+        const dateComparison = dateB - dateA;
+        
+        if (dateComparison !== 0) {
+          return dateComparison;
+        }
+        
+        // createdAt이 같으면 기존 정렬 기준 사용
+        let aValue = a[sortBy];
+        let bValue = b[sortBy];
+        
+        if (sortBy === 'claimAmount') {
+          aValue = parseFloat(aValue) || 0;
+          bValue = parseFloat(bValue) || 0;
+        }
+        
+        if (sortOrder === 'asc') {
+          return aValue > bValue ? 1 : -1;
+        } else {
+          return aValue < bValue ? 1 : -1;
+        }
+      });
+    } else {
+      console.log('🔄 정렬 건너뛰기 - 원래 위치 유지');
+      setSkipSorting(false); // 플래그 리셋
+    }
 
     setFilteredClaims(filtered);
     
@@ -1515,13 +1522,20 @@ const Claims = () => {
         prevFiltered.map(c => c.id === claim.id ? updatedClaim : c)
       );
       
+      // 정렬 건너뛰기 플래그 설정 (원래 위치 유지)
+      setSkipSorting(true);
+      
+      // 최근 업데이트된 현장 ID 저장 (시각적 피드백용)
+      recentlyUpdatedRef.current.add(claim.id);
+      
       // 페이지네이션 상태 유지 (현재 페이지 그대로 유지)
       console.log(`📄 현재 페이지 유지: ${currentPage}`);
 
       // 백그라운드에서 Firebase 업데이트
       updateClaim(claim.id, updatedClaim).then(() => {
         console.log(`✅ Firebase 업데이트 성공: ${claim.siteName}`);
-        // 성공 시 isUpdating 플래그 제거
+        // 성공 시 isUpdating 플래그 제거 (정렬은 건너뛰기)
+        setSkipSorting(true);
         setClaims(prevClaims => 
           prevClaims.map(c => c.id === claim.id ? { ...c, isUpdating: false } : c)
         );
@@ -1529,9 +1543,15 @@ const Claims = () => {
           prevFiltered.map(c => c.id === claim.id ? { ...c, isUpdating: false } : c)
         );
         console.log(`🔄 isUpdating 플래그 제거 완료: ${claim.siteName}`);
+        
+        // 3초 후 시각적 피드백 제거
+        setTimeout(() => {
+          recentlyUpdatedRef.current.delete(claim.id);
+        }, 3000);
       }).catch(error => {
         console.error('Firebase 업데이트 실패:', error);
-        // 실패 시 원래 상태로 롤백하고 isUpdating 플래그도 제거
+        // 실패 시 원래 상태로 롤백하고 isUpdating 플래그도 제거 (정렬은 건너뛰기)
+        setSkipSorting(true);
         setClaims(prevClaims => 
           prevClaims.map(c => c.id === claim.id ? { ...claim, isUpdating: false } : c)
         );
@@ -1544,6 +1564,9 @@ const Claims = () => {
           severity: 'error'
         });
         console.log(`🔄 실패 시 isUpdating 플래그 제거 완료: ${claim.siteName}`);
+        
+        // 실패 시에도 시각적 피드백 제거
+        recentlyUpdatedRef.current.delete(claim.id);
       });
 
       // 이월로 변경된 경우 다음달 청구예정에 이월 항목 추가
@@ -2485,8 +2508,27 @@ const Claims = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {currentClaims.map((claim, index) => (
-                  <TableRow key={claim.id} sx={{ '&:hover': { backgroundColor: '#444' }, '& td': { py: 0.5 } }}>
+              {currentClaims.map((claim, index) => {
+                const isRecentlyUpdated = recentlyUpdatedRef.current.has(claim.id);
+                return (
+                  <TableRow 
+                    key={claim.id} 
+                    sx={{ 
+                      '&:hover': { backgroundColor: '#444' }, 
+                      '& td': { py: 0.5 },
+                      // 최근 업데이트된 현장 하이라이트
+                      ...(isRecentlyUpdated && {
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        borderLeft: '4px solid #4caf50',
+                        animation: 'pulse 2s ease-in-out',
+                        '@keyframes pulse': {
+                          '0%': { backgroundColor: 'rgba(76, 175, 80, 0.2)' },
+                          '50%': { backgroundColor: 'rgba(76, 175, 80, 0.1)' },
+                          '100%': { backgroundColor: 'rgba(76, 175, 80, 0.1)' }
+                        }
+                      })
+                    }}
+                  >
                     <TableCell sx={{ color: 'white' }}>{filteredClaims.length - filteredClaims.findIndex(c => c.id === claim.id)}</TableCell>
                     {isMobile ? (
                       <>
@@ -2671,7 +2713,8 @@ const Claims = () => {
                       </>
                     )}
                   </TableRow>
-                ))}
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
