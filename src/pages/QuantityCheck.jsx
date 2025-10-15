@@ -22,8 +22,10 @@ import {
   Chip,
   Grid,
   Card,
-  CardContent
+  CardContent,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
@@ -542,12 +544,34 @@ const QuantityCheck = () => {
 
   return (
     <Box sx={{ 
-      minHeight: 'calc(100vh - 64px)', 
-      bgcolor: '#181c23', 
-      color: '#fff',
-      p: { xs: 2, md: 4 },
-      mt: '64px',
-      pb: 64,
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          minHeight: 'calc(100vh - 64px)', 
+          bgcolor: '#181c23', 
+          color: '#fff',
+          p: { xs: 2, md: 4 },
+          borderRadius: 2,
+          boxShadow: 3,
+          mt: '64px',
+          pb: 64,
       '&::-webkit-scrollbar': {
         width: '8px',
       },
@@ -1467,9 +1491,10 @@ const QuantityCheck = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-     </Box>
-   );
+        </Box>
+      </Container>
+    </Box>
+  );
  };
 
 export default QuantityCheck;

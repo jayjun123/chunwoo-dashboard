@@ -23,8 +23,10 @@ import {
   Divider,
   FormControl,
   Select,
-  MenuItem
+  MenuItem,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import Image from '../components/common/Image';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -978,20 +980,35 @@ export default function ImportantSite() {
 
   return (
     <Box sx={{ 
-      height: '100vh', 
-      overflow: 'hidden', 
-      pb: 4, 
-      mt: isMobile ? '50px' : 8,
-      display: 'flex',
-      flexDirection: 'column',
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 1000,
-      bgcolor: '#1a1d21'
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
     }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: isMobile ? 2 : 3,
+          pb: 3,
+          px: isMobile ? 1 : 3,
+          ml: isMobile ? 0 : 'auto',
+          mr: isMobile ? 0 : 'auto',
+          maxWidth: isMobile ? '100%' : '1400px'
+        }}
+      >
+        <Box sx={{ 
+          height: '100vh', 
+          overflow: 'hidden', 
+          pb: 4, 
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: 2,
+          boxShadow: 3,
+          bgcolor: '#1a1d21'
+        }}>
       {/* 페이지 제목 */}
       <Box sx={{ 
         display: 'flex', 
@@ -1773,6 +1790,8 @@ export default function ImportantSite() {
           </Button>
         </DialogActions>
       </Dialog>
+        </Box>
+      </Container>
     </Box>
   );
 } 

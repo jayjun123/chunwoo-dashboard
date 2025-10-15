@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, startTransition } from 'react';
-import { Grid, Paper, Tabs, Tab, TextField, List, ListItem, ListItemText, Button, IconButton, Typography, Box, FormControl, Select, MenuItem, Checkbox, FormControlLabel, InputLabel, Autocomplete, Chip, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, InputAdornment } from '@mui/material';
+import { Grid, Paper, Tabs, Tab, TextField, List, ListItem, ListItemText, Button, IconButton, Typography, Box, FormControl, Select, MenuItem, Checkbox, FormControlLabel, InputLabel, Autocomplete, Chip, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, InputAdornment, Container } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -2471,25 +2472,41 @@ const NewSites = () => {
     <Box 
       ref={containerRef}
       sx={{ 
-        display: 'flex', 
-        flexDirection: { xs: 'column', md: 'row' }, 
-        height: { xs: 'auto', md: 'calc(100vh - 120px)' }, // 모바일에서는 자동 높이
-        bgcolor: '#1a1d21', 
-        p: 0, 
-        gap: 2, 
-        overflow: { xs: 'auto', md: 'hidden' }, // 모바일에서는 스크롤 허용
-        width: isMobile ? 'calc(100% - 5px)' : '100%',
-        maxWidth: isMobile ? 'calc(100% - 5px)' : '100%',
-        mt: isMobile ? '34px' : 8,
-        ml: isMobile ? '2px' : 0,
-        mr: isMobile ? '5px' : 0,
-        position: 'relative',
-        right: isMobile ? '0px' : 'auto',
-        pb: isMobile ? '20px' : 0,
-        WebkitOverflowScrolling: 'touch', // 터치 스크롤 활성화
-        touchAction: 'pan-y', // 세로 스크롤만 허용
-        // 스마트폰에서만 적용
-        '@media (max-width: 767px)': {
+        minHeight: '100vh',
+        bgcolor: 'background.default',
+        position: 'relative'
+      }}
+    >
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: isMobile ? 2 : 3,
+          pb: 3,
+          px: isMobile ? 1 : 3,
+          ml: isMobile ? 0 : 'auto',
+          mr: isMobile ? 0 : 'auto',
+          maxWidth: isMobile ? '100%' : '1400px'
+        }}
+      >
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', md: 'row' }, 
+            height: { xs: 'auto', md: 'calc(100vh - 120px)' },
+            bgcolor: '#1a1d21', 
+            p: 0, 
+            gap: 2, 
+            overflow: { xs: 'auto', md: 'hidden' },
+            borderRadius: 2,
+            boxShadow: 3,
+            WebkitOverflowScrolling: 'touch', // 터치 스크롤 활성화
+            touchAction: 'pan-y', // 세로 스크롤만 허용
+            // 스마트폰에서만 적용
+            '@media (max-width: 767px)': {
           bgcolor: '#f5f5f5',
           mt: 2,
           ml: 1,
@@ -4218,6 +4235,8 @@ const NewSites = () => {
           </Typography>
         </Box>
       </Dialog>
+        </Box>
+      </Container>
     </Box>
   );
 };

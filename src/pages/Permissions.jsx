@@ -30,7 +30,9 @@ import {
   Select,
   Checkbox,
   Alert,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   Security as SecurityIcon,
   Add as AddIcon,
@@ -279,7 +281,32 @@ const Permissions = () => {
   }
 
   return (
-    <Box sx={{ p: isMobile ? 2 : 3, pt: isMobile ? 10 : 11 }}>
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          p: isMobile ? 2 : 3,
+          borderRadius: 2,
+          boxShadow: 3,
+          bgcolor: 'background.paper'
+        }}>
       <Typography variant="h4" gutterBottom>
         권한 관리
 
@@ -547,6 +574,8 @@ const Permissions = () => {
           저장
         </Button>
       </Box>
+        </Box>
+      </Container>
     </Box>
   );
 };

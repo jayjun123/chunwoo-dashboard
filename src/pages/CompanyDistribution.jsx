@@ -15,8 +15,10 @@ import {
   Select,
   MenuItem,
   InputLabel,
-  TextField
+  TextField,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   ArrowBack as ArrowBackIcon,
   Business as BusinessIcon,
@@ -253,10 +255,31 @@ const CompanyDistribution = () => {
 
   return (
     <Box sx={{ 
-      minHeight: '100vh', 
-      bgcolor: '#1a1d21', 
-      p: isMobile ? 2 : 3,
-      pt: isMobile ? 8 : 10
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          minHeight: '100vh', 
+          bgcolor: '#1a1d21', 
+          p: isMobile ? 2 : 3,
+          borderRadius: 2,
+          boxShadow: 3
     }}>
       {/* 헤더 */}
       <Box sx={{ 
@@ -618,6 +641,8 @@ const CompanyDistribution = () => {
         onClose={() => setSiteInfoPopup({ open: false, site: null })}
         site={siteInfoPopup.site}
       />
+        </Box>
+      </Container>
     </Box>
   );
 };

@@ -16,6 +16,7 @@ import {
   Divider,
   TextField
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import { 
   Upload as UploadIcon, 
   Download as DownloadIcon, 
@@ -116,7 +117,27 @@ const GisungDataTest = () => {
   }, []);
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth="lg" 
+        sx={{ 
+          py: 4,
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
       <Typography variant="h4" gutterBottom>
         기성금회기성 데이터 테스트
       </Typography>
@@ -323,7 +344,8 @@ const GisungDataTest = () => {
           💡 기성금회기성 데이터는 페이지에 기록을 남기지 않고 파이어베이스에만 저장되어 데이터로만 사용됩니다.
         </Typography>
       </Paper>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 

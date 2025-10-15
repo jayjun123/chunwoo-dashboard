@@ -359,17 +359,6 @@ const MobileMaterials = () => {
                   '&:hover': {
                     bgcolor: 'rgba(255, 255, 255, 0.1)'
                   }
-                }}
-              
-        sx={{ 
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-          bgcolor: '#1e1e1e',
-          touchAction: 'none',
-          '&:hover': {
-            bgcolor: '#ff9800'
-          }
         }}>
                 <ListItemIcon sx={{ color: item.active ? '#ffb74d' : 'white', minWidth: 40 }}>
                   {item.icon}
@@ -597,18 +586,6 @@ const MobileMaterials = () => {
           e.preventDefault();
           e.stopPropagation();
           handleAddMaterial();
-        }}
-        
-      
-        sx={{ 
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-          bgcolor: '#1e1e1e',
-          touchAction: 'none',
-          '&:hover': {
-            bgcolor: '#ff9800'
-          }
         }}>
         <Add />
       </Fab>

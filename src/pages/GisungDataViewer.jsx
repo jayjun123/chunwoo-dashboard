@@ -19,6 +19,7 @@ import {
   CardContent,
   Grid
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import { Search as SearchIcon, Download as DownloadIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import { getGisungItems, getGisungStatistics, exportGisungData } from '../api/gisung';
 
@@ -91,7 +92,27 @@ const GisungDataViewer = () => {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth="xl" 
+        sx={{ 
+          py: 4,
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
       <Typography variant="h4" gutterBottom>
         기성금회기성 데이터 조회
       </Typography>
@@ -322,7 +343,8 @@ const GisungDataViewer = () => {
           </Typography>
         </Box>
       )}
-    </Container>
+      </Container>
+    </Box>
   );
 };
 

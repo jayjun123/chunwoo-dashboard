@@ -21,8 +21,10 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   Bookmark as BookmarkIcon,
   BookmarkBorder as BookmarkBorderIcon,
@@ -167,10 +169,31 @@ const NewsFavorites = () => {
 
   return (
     <Box sx={{ 
-      p: 3, 
-      pt: { xs: 1, md: 3 },
-              mt: isMobile ? '0px' : '90px',
-      minHeight: '100vh', 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          p: isMobile ? 2 : 3,
+          borderRadius: 2,
+          boxShadow: 3,
+          bgcolor: 'background.paper',
+          minHeight: '100vh', 
       color: { xs: '#fff', md: '#333' }
     }}>
       {/* 헤더 */}
@@ -533,6 +556,8 @@ const NewsFavorites = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+        </Box>
+      </Container>
     </Box>
   );
 };

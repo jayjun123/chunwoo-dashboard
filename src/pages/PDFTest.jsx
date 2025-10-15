@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Box, Button, Typography, Paper, Grid, Alert } from '@mui/material';
+import { Box, Button, Typography, Paper, Grid, Alert, Container } from '@mui/material';
 import { PictureAsPdf as PdfIcon, Description as ExcelIcon, Download as DownloadIcon } from '@mui/icons-material';
 import { exportToPDF, exportFullGuidePDF, exportUserGuidePDF } from '../utils/pdfUtils';
 import { exportToExcel } from '../utils/excelUtils.jsx';
-import MobileLayout from '../components/common/MobileLayout';
+import MobileSidebar from '../components/MobileSidebar';
 
 const PDFTest = () => {
   const [message, setMessage] = useState('');
@@ -75,8 +75,28 @@ const PDFTest = () => {
   };
 
   return (
-    <MobileLayout>
-      <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth="lg" 
+        sx={{ 
+          py: 4,
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
         <Typography variant="h4" gutterBottom sx={{ textAlign: 'center', mb: 4 }}>
           📄 PDF/엑셀 내보내기 테스트
         </Typography>
@@ -211,8 +231,9 @@ const PDFTest = () => {
             * 모든 파일은 다운로드 폴더에 저장됩니다.
           </Typography>
         </Paper>
-      </Box>
-    </MobileLayout>
+        </Box>
+      </Container>
+    </Box>
   );
 };
 

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, useMediaQuery } from '@mui/material';
+import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, useMediaQuery, Container } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import CustomCalendar from '../components/CustomCalendar';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, where, getDocs } from 'firebase/firestore';
@@ -973,24 +974,42 @@ const CustomSchedule = () => {
   };
 
   return (
-    <Box 
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-      sx={{ 
-        p: 0, 
-        height: isMobile ? 'calc(100vh - 100px)' : 'calc(90vh - 320px)',
-        width: isMobile ? '100vw' : '100%',
-        mx: 0,
-        px: 0,
-        margin: 0,
-        padding: 0,
-        position: isMobile ? 'fixed' : 'fixed',
-        top: isMobile ? '50px' : '60px',
-        left: isMobile ? '0' : 0,
-        right: isMobile ? '0' : 0,
-        bottom: isMobile ? '50px' : '100px',
-        outline: 'none'
-      }}>
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: isMobile ? 2 : 3,
+          pb: 3,
+          px: isMobile ? 1 : 3,
+          ml: isMobile ? 0 : 'auto',
+          mr: isMobile ? 0 : 'auto',
+          maxWidth: isMobile ? '100%' : '1400px'
+        }}
+      >
+        <Box 
+          onKeyDown={handleKeyDown}
+          tabIndex={0}
+          sx={{ 
+            p: 0, 
+            height: isMobile ? 'calc(100vh - 100px)' : 'calc(90vh - 320px)',
+            width: '100%',
+            mx: 0,
+            px: 0,
+            margin: 0,
+            padding: 0,
+            outline: 'none',
+            borderRadius: 2,
+            boxShadow: 3,
+            bgcolor: 'background.paper'
+          }}>
       
       {/* 일정 설명 필드 정리 버튼 */}
       <Box sx={{ 
@@ -1486,6 +1505,8 @@ const CustomSchedule = () => {
           </Box>
         </Box>
       )}
+        </Box>
+      </Container>
     </Box>
   );
 };

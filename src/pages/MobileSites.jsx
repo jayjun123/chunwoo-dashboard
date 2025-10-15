@@ -31,8 +31,10 @@ import {
   useTheme,
   Tabs,
   Tab,
-  InputAdornment
+  InputAdornment,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   Menu as MenuIcon,
   Add,
@@ -247,34 +249,56 @@ const MobileSites = () => {
 
   return (
     <Box sx={{ 
-      display: 'flex', 
-      flexDirection: 'column',
-      height: '100vh',
-      bgcolor: '#121212'
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
     }}>
-      {/* 상단 앱바 */}
-      <AppBar 
-        position="fixed" 
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
         sx={{ 
-          bgcolor: '#1e1e1e',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          zIndex: theme.zIndex.drawer + 1
+          pt: isMobile ? 2 : 3,
+          pb: 3,
+          px: isMobile ? 1 : 3,
+          ml: isMobile ? 0 : 'auto',
+          mr: isMobile ? 0 : 'auto',
+          maxWidth: isMobile ? '100%' : '1400px'
         }}
       >
-        <Toolbar sx={{ minHeight: '56px !important' }}>
-          <IconButton
-            edge="start"
-            color="inherit"
-            onClick={toggleDrawer}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          height: '100vh',
+          bgcolor: '#121212',
+          borderRadius: 2,
+          boxShadow: 3
+        }}>
+          {/* 상단 앱바 */}
+          <AppBar 
+            position="relative" 
+            sx={{ 
+              bgcolor: '#1e1e1e',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              borderRadius: '8px 8px 0 0'
             }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              toggleDrawer();
-            }}
+          >
+            <Toolbar sx={{ minHeight: '56px !important' }}>
+              <IconButton
+                edge="start"
+                color="inherit"
+                onClick={toggleDrawer}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleDrawer();
+                }}
             sx={{ mr: 2, touchAction: 'none' }}
           >
             <MenuIcon />
@@ -565,16 +589,6 @@ const MobileSites = () => {
           e.preventDefault();
           e.stopPropagation();
           handleAddSite();
-        }}
-        sx={{ 
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-          bgcolor: '#1e1e1e',
-          touchAction: 'none',
-          '&:hover': {
-            bgcolor: '#1565c0'
-          }
         }}>
         <Add />
       </Fab>
@@ -688,6 +702,8 @@ const MobileSites = () => {
         sx={{ ...sx, touchAction: 'none' }}>저장</Button>
         </DialogActions>
       </Dialog>
+        </Box>
+      </Container>
     </Box>
   );
 };

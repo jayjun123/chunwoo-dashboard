@@ -27,8 +27,10 @@ import {
   CircularProgress,
   Pagination,
   Checkbox,
-  Box as MuiBox
+  Box as MuiBox,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -1064,7 +1066,33 @@ const Vendors = () => {
   }
 
   return (
-    <Box sx={{ p: 3, marginTop: '64px', pb: '60px' }}>
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          p: 3, 
+          pb: '60px',
+          borderRadius: 2,
+          boxShadow: 3,
+          bgcolor: 'background.paper'
+        }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography 
@@ -1944,6 +1972,8 @@ const Vendors = () => {
           <Button onClick={() => setCompanyListDialogOpen(false)}>닫기</Button>
         </DialogActions>
       </Dialog>
+        </Box>
+      </Container>
     </Box>
   );
 };

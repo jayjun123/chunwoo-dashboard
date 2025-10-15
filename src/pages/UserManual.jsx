@@ -1,15 +1,30 @@
 import React from 'react';
 import { Box, Typography, Container, Paper } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 
 const UserManual = () => {
   return (
     <Box sx={{ 
       minHeight: '100vh',
       bgcolor: 'background.default',
-      py: 4,
-      pt: 8  // 상단 패딩을 64px (8 * 8px) 추가
+      position: 'relative'
     }}>
-      <Container maxWidth="lg">
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth="lg" 
+        sx={{ 
+          py: 4,
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
         <Paper 
           elevation={3}
           sx={{ 

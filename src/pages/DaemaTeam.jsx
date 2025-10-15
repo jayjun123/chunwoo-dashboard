@@ -33,8 +33,10 @@ import {
   MenuItem,
   Badge,
   Tooltip,
-  LinearProgress
+  LinearProgress,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -679,24 +681,45 @@ const ConstructionTeam = () => {
 
   return (
     <Box sx={{ 
-      p: isMobile ? 2 : 3, 
-      pt: isMobile ? 10 : 11,
-      pb: isMobile ? 4 : 6, // 하단 여백 추가
-      bgcolor: '#0f1419', 
       minHeight: '100vh',
-      color: '#fff',
-      overflowY: 'auto',
-      WebkitOverflowScrolling: 'touch',
-      overscrollBehavior: 'contain',
-      height: '100%',
-      touchAction: 'pan-y', // 세로 스크롤만 허용
-      // 스크롤바 숨기기
-      '&::-webkit-scrollbar': {
-        display: 'none'
-      },
-      scrollbarWidth: 'none',
-      msOverflowStyle: 'none'
+      bgcolor: 'background.default',
+      position: 'relative'
     }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: isMobile ? 2 : 3,
+          pb: 3,
+          px: isMobile ? 1 : 3,
+          ml: isMobile ? 0 : 'auto',
+          mr: isMobile ? 0 : 'auto',
+          maxWidth: isMobile ? '100%' : '1400px'
+        }}
+      >
+        <Box sx={{ 
+          p: isMobile ? 2 : 3, 
+          pb: isMobile ? 4 : 6,
+          bgcolor: '#0f1419', 
+          minHeight: '100vh',
+          color: '#fff',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain',
+          height: '100%',
+          touchAction: 'pan-y',
+          borderRadius: 2,
+          boxShadow: 3,
+          // 스크롤바 숨기기
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          },
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none'
+        }}>
       {/* 헤더 */}
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box>
@@ -1689,6 +1712,8 @@ const ConstructionTeam = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+        </Box>
+      </Container>
     </Box>
   );
 };

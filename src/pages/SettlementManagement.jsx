@@ -35,8 +35,10 @@ import {
   Tooltip,
   Tabs,
   Tab,
-  Checkbox
+  Checkbox,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import Grid from '@mui/material/Grid';
 import {
   Add as AddIcon,
@@ -990,11 +992,33 @@ const SettlementManagement = () => {
 
   return (
     <Box sx={{ 
-      backgroundColor: '#1a1a1a', 
       minHeight: '100vh',
-      color: 'white',
-      p: { xs: 1, md: 3 },
-      pt: { xs: '49px', md: '74px' }
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          backgroundColor: '#1a1a1a', 
+          minHeight: '100vh',
+          color: 'white',
+          p: { xs: 1, md: 3 },
+          borderRadius: 2,
+          boxShadow: 3,
+          pt: { xs: '49px', md: '74px' }
     }}>
       {/* 헤더 */}
       <Box sx={{ 
@@ -2321,6 +2345,8 @@ const SettlementManagement = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+        </Box>
+      </Container>
     </Box>
   );
 };

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import KoreanInputExample from '../components/common/KoreanInputExample';
 import AdvancedKoreanInput from '../components/common/AdvancedKoreanInput';
+import MobileSidebar from '../components/MobileSidebar';
+import { Box, Container } from '@mui/material';
 
 /**
  * IME Composition 처리 데모 페이지
@@ -29,12 +31,33 @@ const IMEDemo = () => {
   ];
 
   return (
-    <div style={{ 
-      padding: '20px', 
-      maxWidth: '800px', 
-      margin: '0 auto',
-      fontFamily: 'Arial, sans-serif'
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
     }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth="lg" 
+        sx={{ 
+          py: 4,
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <div style={{ 
+          padding: '20px', 
+          maxWidth: '800px', 
+          margin: '0 auto',
+          fontFamily: 'Arial, sans-serif'
+        }}>
       <h1 style={{ 
         textAlign: 'center', 
         color: '#333',
@@ -327,7 +350,9 @@ IMEUtils.adjustViewport();`}
           실제로 확인할 수 있도록 만들어졌습니다.
         </p>
       </div>
-    </div>
+        </div>
+      </Container>
+    </Box>
   );
 };
 

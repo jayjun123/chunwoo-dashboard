@@ -696,16 +696,6 @@ const MobileSafety = () => {
           e.preventDefault();
           e.stopPropagation();
           handleAddIncident();
-        }}
-        sx={{ 
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-          bgcolor: '#1e1e1e',
-          touchAction: 'none',
-          '&:hover': {
-            bgcolor: '#e64a19'
-          }
         }}>
         <Add />
       </Fab>

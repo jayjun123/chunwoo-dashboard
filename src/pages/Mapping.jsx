@@ -30,8 +30,10 @@ import {
   Avatar,
   Stack,
   Slider,
-  useMediaQuery
+  useMediaQuery,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   LocationOn,
   CheckCircle,
@@ -3167,11 +3169,34 @@ const Mapping = () => {
 
   return (
     <Box sx={{ 
-      display: 'flex', 
-      flexDirection: isMobile ? 'column' : 'row', 
-      height: '100vh',
-      backgroundColor: '#1a1a1a'
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
     }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: isMobile ? 2 : 3,
+          pb: 3,
+          px: isMobile ? 1 : 3,
+          ml: isMobile ? 0 : 'auto',
+          mr: isMobile ? 0 : 'auto',
+          maxWidth: isMobile ? '100%' : '1400px'
+        }}
+      >
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: isMobile ? 'column' : 'row', 
+          height: '100vh',
+          backgroundColor: '#1a1a1a',
+          borderRadius: 2,
+          boxShadow: 3,
+          overflow: 'hidden'
+        }}>
       {/* 메인 컨텐츠 영역 */}
       <Box sx={{ 
         display: 'flex',
@@ -3966,6 +3991,8 @@ const Mapping = () => {
           </Button>
         </DialogActions>
       </Dialog>
+        </Box>
+      </Container>
     </Box>
   );
 };

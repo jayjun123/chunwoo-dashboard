@@ -31,8 +31,10 @@ import {
   Checkbox,
   Autocomplete,
   Pagination,
-  Stack
+  Stack,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import { 
   Add as AddIcon, 
   Edit as EditIcon, 
@@ -1476,13 +1478,34 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
 
   return (
     <Box sx={{ 
-      width: isMobile ? '100%' : 'calc(100% - 20px)', 
-      maxWidth: isMobile ? '100%' : 'calc(100% - 20px)', 
-      mx: isMobile ? 0 : '10px',
-      p: 0,
-      overflow: 'hidden',
-      mt: isMobile ? '0px' : '40px'
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
     }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: isMobile ? 2 : 3,
+          pb: 3,
+          px: isMobile ? 1 : 3,
+          ml: isMobile ? 0 : 'auto',
+          mr: isMobile ? 0 : 'auto',
+          maxWidth: isMobile ? '100%' : '1400px'
+        }}
+      >
+        <Box sx={{ 
+          width: '100%',
+          maxWidth: '100%',
+          p: 0,
+          overflow: 'hidden',
+          borderRadius: 2,
+          boxShadow: 3,
+          bgcolor: 'background.paper'
+        }}>
 
       
       {/* 요약 정보 */}
@@ -2453,6 +2476,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
           {snackbar.message}
         </Alert>
       </Snackbar>
+        </Box>
+      </Container>
     </Box>
   );
 };

@@ -35,8 +35,10 @@ import {
   Tabs,
   Tab,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -1952,19 +1954,39 @@ const Claims = () => {
 
   return (
     <Box sx={{ 
-      backgroundColor: '#181a20', 
       minHeight: '100vh',
-      color: 'white',
-      p: { xs: 1, md: 3 },
-      pt: { xs: '49px', md: '74px' }, // 모바일에서 위로 10px 이동 (59px → 49px)
-      // 스마트폰에서만 적용
-      '@media (max-width: 767px)': {
-        bgcolor: '#f5f5f5',
-        color: '#333',
-        p: 2,
-        pt: 2
-      }
+      bgcolor: 'background.default',
+      position: 'relative'
     }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: isMobile ? 2 : 3,
+          pb: 3,
+          px: isMobile ? 1 : 3,
+          ml: isMobile ? 0 : 'auto',
+          mr: isMobile ? 0 : 'auto',
+          maxWidth: isMobile ? '100%' : '1400px'
+        }}
+      >
+        <Box sx={{ 
+          backgroundColor: '#181a20', 
+          minHeight: '100vh',
+          color: 'white',
+          p: { xs: 1, md: 3 },
+          borderRadius: 2,
+          boxShadow: 3,
+          // 스마트폰에서만 적용
+          '@media (max-width: 767px)': {
+            bgcolor: '#f5f5f5',
+            color: '#333',
+            p: 2
+          }
+        }}>
       {/* 스마트폰 전용 안내 메시지 */}
       <Box sx={{
         display: 'none',
@@ -3589,6 +3611,8 @@ const Claims = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+        </Box>
+      </Container>
     </Box>
   );
 };

@@ -38,8 +38,10 @@ import {
   Tabs,
   Tab,
   Autocomplete,
-  Checkbox
+  Checkbox,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -3520,14 +3522,36 @@ const TeamSettlement = () => {
 
   return (
     <Box sx={{ 
-      p: 3, 
-      pt: 11, 
-      bgcolor: '#0a0a0a', 
-      minHeight: '100vh', 
-      color: '#fff',
-      // 스마트폰에서만 적용
-      '@media (max-width: 767px)': {
-        p: 1,
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          p: 3, 
+          pt: 11, 
+          bgcolor: '#0a0a0a', 
+          minHeight: '100vh',
+          borderRadius: 2,
+          boxShadow: 3,
+          color: '#fff',
+          // 스마트폰에서만 적용
+          '@media (max-width: 767px)': {
+            p: 1,
         pt: 2,
         bgcolor: '#f5f5f5',
         color: '#333'
@@ -5887,6 +5911,8 @@ const TeamSettlement = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+        </Box>
+      </Container>
     </Box>
   );
 };

@@ -12,6 +12,7 @@ import {
   CardActions,
   LinearProgress
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import { Upload as UploadIcon, Download as DownloadIcon, CloudUpload as CloudUploadIcon } from '@mui/icons-material';
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
 import { storage } from '../firebase';
@@ -323,7 +324,27 @@ export const templateDescriptions = {`;
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth="md" 
+        sx={{ 
+          py: 4,
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography variant="h4" gutterBottom>
           Firebase Storage 템플릿 업로드
@@ -723,7 +744,8 @@ export const templateDescriptions = {`;
           </Typography>
         </Box>
       </Paper>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 

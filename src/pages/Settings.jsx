@@ -5,8 +5,10 @@ import {
   Box, Grid, Paper, Typography, Switch, FormControlLabel, TextField,
   Button, Divider, List, ListItem, ListItemText, ListItemIcon,
   IconButton, Avatar, Card, CardContent, Select, MenuItem,
-  InputLabel, FormControl, Alert, Snackbar, CircularProgress
+  InputLabel, FormControl, Alert, Snackbar, CircularProgress,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   Notifications as NotificationsIcon,
   Palette as PaletteIcon,
@@ -237,9 +239,32 @@ const Settings = () => {
   }
 
   return (
-    <MobileLayout>
-      <Layout>
-        <Box sx={{ p: { xs: 0, md: 3 } }}>
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          p: { xs: 0, md: 3 },
+          borderRadius: 2,
+          boxShadow: 3,
+          bgcolor: 'background.paper'
+        }}>
           <Typography variant="h4" gutterBottom>설정</Typography>
           <Grid container spacing={3}>
             {/* 프로필 */}
@@ -667,8 +692,8 @@ const Settings = () => {
             </Alert>
           </Snackbar>
         </Box>
-      </Layout>
-    </MobileLayout>
+      </Container>
+    </Box>
   );
 };
 

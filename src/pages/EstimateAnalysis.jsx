@@ -33,8 +33,10 @@ import {
   List,
   ListItem,
   ListItemText,
-  Divider
+  Divider,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   Business as BusinessIcon,
   Search as SearchIcon,
@@ -759,16 +761,37 @@ const EstimateAnalysis = () => {
 
   return (
     <Box sx={{ 
-      paddingTop: '64px !important', 
-      p: 3, 
-      bgcolor: '#1a1a1a', 
-      minHeight: 'calc(100vh - 50px)', 
-      color: '#fff',
-      // 스마트폰에서만 적용
-      '@media (max-width: 767px)': {
-        bgcolor: '#f5f5f5',
-        color: '#333',
-        p: 2
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          p: isMobile ? 2 : 3,
+          bgcolor: '#1a1a1a', 
+          minHeight: 'calc(100vh - 50px)',
+          borderRadius: 2,
+          boxShadow: 3,
+          color: '#fff',
+          // 스마트폰에서만 적용
+          '@media (max-width: 767px)': {
+            bgcolor: '#f5f5f5',
+            color: '#333',
+            p: 2
       }
     }}>
       {/* 스마트폰 전용 안내 메시지 */}
@@ -1557,7 +1580,8 @@ const EstimateAnalysis = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
+        </Box>
+      </Container>
     </Box>
   );
 };

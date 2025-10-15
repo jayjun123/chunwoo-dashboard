@@ -27,8 +27,10 @@ import {
   Tooltip,
   useTheme,
   useMediaQuery,
-  LinearProgress
+  LinearProgress,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -1150,7 +1152,33 @@ const VendorManagement = () => {
   }
 
   return (
-    <Box sx={{ p: 3, backgroundColor: '#1a1a1a', color: '#fff', marginTop: '64px' }}>
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          p: 3, 
+          backgroundColor: '#1a1a1a', 
+          color: '#fff',
+          borderRadius: 2,
+          boxShadow: 3
+        }}>
       {/* 헤더 */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -1924,6 +1952,8 @@ const VendorManagement = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+        </Box>
+      </Container>
     </Box>
   );
 };

@@ -4,8 +4,10 @@ import {
   DialogTitle, DialogContent, DialogActions, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, IconButton,
   Chip, FormControl, InputLabel, Select, MenuItem, Switch,
-  FormControlLabel, Alert, Snackbar, Tooltip, Avatar
+  FormControlLabel, Alert, Snackbar, Tooltip, Avatar,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -265,7 +267,32 @@ const Users = () => {
   }
 
   return (
-    <Box sx={{ p: 3, mt: '90px' }}>
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          p: 3,
+          borderRadius: 2,
+          boxShadow: 3,
+          bgcolor: 'background.paper'
+        }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5">회원/권한 관리</Typography>
         <Button
@@ -506,6 +533,8 @@ const Users = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+        </Box>
+      </Container>
     </Box>
   );
 };

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Grid, Paper, Typography, CircularProgress, Card, CardContent,
   List, ListItem, ListItemText, Divider, Chip, Tabs, Tab, Button,
-  Alert, IconButton, Tooltip
+  Alert, IconButton, Tooltip, Container
 } from '@mui/material';
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -11,6 +11,7 @@ import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import WeatherWidget from '../components/weather/WeatherWidget';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   ProgressTrendChart,
   SiteProgressChart,
@@ -226,29 +227,55 @@ const Dashboard = () => {
 
   return (
     <Box sx={{ 
-      p: 3, 
-      height: '100vh', 
-      overflow: 'auto',
-      position: isMobile ? 'relative' : 'static',
-      left: isMobile ? '-30px' : 'auto',
-      width: isMobile ? '100vw' : '100%',
-      mt: isMobile ? '0px' : '90px'
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
     }}>
-      <Grid container spacing={3}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: isMobile ? 2 : 3,
+          pb: 3,
+          px: isMobile ? 1 : 3,
+          ml: isMobile ? 0 : 'auto',
+          mr: isMobile ? 0 : 'auto',
+          maxWidth: isMobile ? '100%' : '1400px'
+        }}
+      >
+        <Grid container spacing={isMobile ? 1 : 3}>
         {/* 데이터 동기화 및 일관성 검사 */}
         <Grid size={{ xs: 12 }}>
-          <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: isMobile ? 1 : 2, 
+            mb: isMobile ? 1 : 2, 
+            alignItems: 'center',
+            flexDirection: isMobile ? 'column' : 'row'
+          }}>
             <Button
               variant="contained"
               startIcon={<RefreshIcon />}
               onClick={handleAutoSync}
               disabled={syncing}
-              sx={{ minWidth: 120 }}
+              sx={{ 
+                minWidth: isMobile ? 100 : 120,
+                fontSize: isMobile ? '0.8rem' : '0.875rem'
+              }}
             >
               {syncing ? '동기화 중...' : '데이터 동기화'}
             </Button>
             {dataIssues.length > 0 && (
-              <Alert severity="warning" sx={{ flex: 1 }}>
+              <Alert 
+                severity="warning" 
+                sx={{ 
+                  flex: 1,
+                  fontSize: isMobile ? '0.8rem' : '0.875rem'
+                }}
+              >
                 {dataIssues.length}개의 데이터 일관성 문제가 발견되었습니다.
               </Alert>
             )}
@@ -256,35 +283,79 @@ const Dashboard = () => {
         </Grid>
 
         {/* 상단 통계 카드 */}
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>전체 현장</Typography>
-              <Typography variant="h4">{stats.totalSites}</Typography>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <Card sx={{ height: isMobile ? 'auto' : '100%' }}>
+            <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+              <Typography 
+                variant={isMobile ? "body2" : "h6"} 
+                gutterBottom
+                sx={{ fontSize: isMobile ? '0.8rem' : '1.25rem' }}
+              >
+                전체 현장
+              </Typography>
+              <Typography 
+                variant={isMobile ? "h5" : "h4"}
+                sx={{ fontSize: isMobile ? '1.5rem' : '2.125rem' }}
+              >
+                {stats.totalSites}
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>진행중 현장</Typography>
-              <Typography variant="h4">{stats.activeSites}</Typography>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <Card sx={{ height: isMobile ? 'auto' : '100%' }}>
+            <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+              <Typography 
+                variant={isMobile ? "body2" : "h6"} 
+                gutterBottom
+                sx={{ fontSize: isMobile ? '0.8rem' : '1.25rem' }}
+              >
+                진행중 현장
+              </Typography>
+              <Typography 
+                variant={isMobile ? "h5" : "h4"}
+                sx={{ fontSize: isMobile ? '1.5rem' : '2.125rem' }}
+              >
+                {stats.activeSites}
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>완료 현장</Typography>
-              <Typography variant="h4">{stats.completedSites}</Typography>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <Card sx={{ height: isMobile ? 'auto' : '100%' }}>
+            <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+              <Typography 
+                variant={isMobile ? "body2" : "h6"} 
+                gutterBottom
+                sx={{ fontSize: isMobile ? '0.8rem' : '1.25rem' }}
+              >
+                완료 현장
+              </Typography>
+              <Typography 
+                variant={isMobile ? "h5" : "h4"}
+                sx={{ fontSize: isMobile ? '1.5rem' : '2.125rem' }}
+              >
+                {stats.completedSites}
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>평균 진행률</Typography>
-              <Typography variant="h4">{stats.totalProgress.toFixed(1)}%</Typography>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <Card sx={{ height: isMobile ? 'auto' : '100%' }}>
+            <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+              <Typography 
+                variant={isMobile ? "body2" : "h6"} 
+                gutterBottom
+                sx={{ fontSize: isMobile ? '0.8rem' : '1.25rem' }}
+              >
+                평균 진행률
+              </Typography>
+              <Typography 
+                variant={isMobile ? "h5" : "h4"}
+                sx={{ fontSize: isMobile ? '1.5rem' : '2.125rem' }}
+              >
+                {stats.totalProgress.toFixed(1)}%
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -436,7 +507,8 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Grid>
-      </Grid>
+        </Grid>
+      </Container>
     </Box>
   );
 };

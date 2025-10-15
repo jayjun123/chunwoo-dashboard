@@ -3,7 +3,43 @@ import ExcelJS from 'exceljs';
 import { templateUrls } from './templateUrls';
 import { getSafePrice, setCellValueSafely, filterMaterialItems, logMaterialItem, cleanSheetData, fillContractStyleData, cleanEmptyRows } from './excelCommonUtils';
 import { ref, getDownloadURL } from 'firebase/storage';
-import { storage } from '../firebase';
+import { storage, db } from '../firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+
+/**
+ * 거래처관리에서 회사 정보 가져오기
+ * @param {string} companyName - 회사명
+ * @returns {Promise<Object|null>} - 거래처 정보
+ */
+const getVendorInfoByCompany = async (companyName) => {
+  if (!companyName) return null;
+  
+  try {
+    console.log('🔍 거래처관리에서 회사 정보 조회:', companyName);
+    
+    // vendors 컬렉션에서 해당 회사명으로 검색
+    const vendorsRef = collection(db, 'vendors');
+    const q = query(vendorsRef, where('companyName', '==', companyName));
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const vendorData = querySnapshot.docs[0].data();
+      console.log('✅ 거래처관리에서 회사 정보 찾음:', vendorData);
+      return {
+        businessNumber: vendorData.businessNumber || '',
+        address: vendorData.address || '',
+        phone: vendorData.phone || vendorData.companyPhone || '',
+        ceo: vendorData.ceo || vendorData.representative || ''
+      };
+    } else {
+      console.log('⚠️ 거래처관리에서 회사 정보를 찾을 수 없음:', companyName);
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ 거래처관리 조회 실패:', error);
+    return null;
+  }
+};
 
 /**
  * NAPFOOM 템플릿을 사용하여 납품계약서 생성 (ExcelJS)
@@ -200,6 +236,21 @@ const fillContractSheet = async (sheet, siteData) => {
   try {
     console.log('📋 납품계약서 시트 데이터 입력');
     
+    // 거래처관리에서 회사 정보 가져오기
+    const companyName = siteData.companyName || siteData.company || '';
+    let vendorInfo = null;
+    
+    if (companyName) {
+      console.log('🔍 거래처관리에서 회사 정보 조회 중...', companyName);
+      vendorInfo = await getVendorInfoByCompany(companyName);
+      
+      if (vendorInfo) {
+        console.log('✅ 거래처관리에서 회사 정보 찾음:', vendorInfo);
+      } else {
+        console.log('⚠️ 거래처관리에서 회사 정보를 찾을 수 없음');
+      }
+    }
+    
     // 기본 정보 입력 (계약서 시트 기준 셀 매핑)
     const dataMapping = {
       // 현장명
@@ -220,14 +271,14 @@ const fillContractSheet = async (sheet, siteData) => {
       // 착공일 (B20)
       'B20': siteData.startDate || '',
       
-      // 회사명
-      'E24': siteData.companyName || siteData.company || '',
+      // 회사명 (E24)
+      'E24': companyName,
       
-      // 거래처관리페이지에서 가져올 데이터
-      'J24': siteData.businessNumber || '', // 사업자번호
-      'E25': siteData.companyAddress || '', // 회사주소
-      'J25': siteData.phone || '', // 전화번호
-      'E26': siteData.ceoName || '', // 대표자명
+      // 거래처관리에서 가져온 데이터 자동 입력
+      'J24': vendorInfo?.businessNumber || siteData.businessNumber || '', // 사업자번호
+      'E25': vendorInfo?.address || siteData.companyAddress || '', // 회사주소
+      'J25': vendorInfo?.phone || siteData.phone || '', // 전화번호
+      'E26': vendorInfo?.ceo || siteData.ceoName || '', // 대표자명
     };
     
     // 데이터 입력

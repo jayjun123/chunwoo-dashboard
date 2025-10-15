@@ -34,7 +34,9 @@ import {
   Select,
   ButtonGroup,
   InputAdornment,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   Timeline as TimelineIcon,
   Add as AddIcon,
@@ -1291,22 +1293,43 @@ const Progress = () => {
 
   return (
     <Box sx={{ 
-      p: isMobile ? 0 : 3, 
-      width: isMobile ? '100%' : 'calc(100% - 20px)', 
-      maxWidth: isMobile ? '100%' : 'calc(100% - 20px)', 
-      mx: isMobile ? 0 : '10px',
-      mt: isMobile ? '30px' : '50px',
-      // 테블릿에서 모든 List의 스크롤바 숨기기
-      '@media (min-width: 768px) and (max-width: 1024px)': {
-        '& .MuiList-root': {
-          '&::-webkit-scrollbar': {
-            display: 'none'
-          },
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none'
-        }
-      }
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
     }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: isMobile ? 2 : 3,
+          pb: 3,
+          px: isMobile ? 1 : 3,
+          ml: isMobile ? 0 : 'auto',
+          mr: isMobile ? 0 : 'auto',
+          maxWidth: isMobile ? '100%' : '1400px'
+        }}
+      >
+        <Box sx={{ 
+          p: isMobile ? 0 : 3, 
+          width: '100%',
+          maxWidth: '100%',
+          borderRadius: 2,
+          boxShadow: 3,
+          bgcolor: 'background.paper',
+          // 테블릿에서 모든 List의 스크롤바 숨기기
+          '@media (min-width: 768px) and (max-width: 1024px)': {
+            '& .MuiList-root': {
+              '&::-webkit-scrollbar': {
+                display: 'none'
+              },
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none'
+            }
+          }
+        }}>
       {/* 기성관리, 기성현황, 지출 탭 버튼들 - 모바일에서도 보이게 복구 */}
       <Box sx={{ 
         display: 'flex', 
@@ -2364,6 +2387,8 @@ const Progress = () => {
           <Button onClick={handleSubmit} variant="contained">저장</Button>
         </DialogActions>
       </Dialog>
+        </Box>
+      </Container>
     </Box>
   );
 };

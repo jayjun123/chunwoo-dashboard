@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Box, Grid, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Snackbar, Alert, useMediaQuery, Tabs, Tab, Autocomplete, Select, MenuItem, FormControl, InputLabel
+  Box, Grid, Paper, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Snackbar, Alert, useMediaQuery, Tabs, Tab, Autocomplete, Select, MenuItem, FormControl, InputLabel, Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, CloudDownload as CloudDownloadIcon } from '@mui/icons-material';
 import { db, storage, auth } from '../firebase';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, where, getDocs } from 'firebase/firestore';
@@ -1155,21 +1156,31 @@ const SafetyPage = () => {
 
   return (
     <Box sx={{ 
-      p: isMobile ? 0 : 3,
-      mt: isMobile ? '30px' : 8,
-      position: 'fixed',
-      top: isMobile ? '60px' : '4px',
-      left: 0,
-      right: 0,
-      bottom: 0,
-      width: '100%',
-      height: isMobile ? 'calc(100vh - 60px)' : 'calc(100vh - 4px)',
-      overflow: 'hidden',
-      overflowX: 'hidden',
-      zIndex: 1,
-      padding: isMobile ? '0px' : '16px',
-      bgcolor: '#1a1d21'
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
     }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: isMobile ? 2 : 3,
+          pb: 3,
+          px: isMobile ? 1 : 3,
+          ml: isMobile ? 0 : 'auto',
+          mr: isMobile ? 0 : 'auto',
+          maxWidth: isMobile ? '100%' : '1400px'
+        }}
+      >
+        <Box sx={{ 
+          bgcolor: '#1a1d21',
+          borderRadius: 2,
+          boxShadow: 3,
+          overflow: 'hidden'
+        }}>
         <Paper sx={{ 
           mb: 2,
           marginBottom: '16px',
@@ -1694,7 +1705,9 @@ const SafetyPage = () => {
             )}
           </Alert>
         )}
-      </Box>
+        </Box>
+      </Container>
+    </Box>
   );
 };
 

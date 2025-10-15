@@ -35,8 +35,10 @@ import {
   LinearProgress,
   FormControlLabel,
   Checkbox,
-  Popover
+  Popover,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -599,13 +601,33 @@ const Confidential = () => {
 
   return (
     <Box sx={{ 
-      p: 3, 
-      marginTop: '64px', 
-      pb: '60px', 
-      position: 'relative',
-      bgcolor: '#1a1a1a',
-      minHeight: 'calc(100vh - 64px)',
-      color: '#fff'
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          p: isMobile ? 2 : 3,
+          borderRadius: 2,
+          boxShadow: 3,
+          bgcolor: '#1a1a1a',
+          position: 'relative',
+          minHeight: 'calc(100vh - 64px)',
+          color: '#fff'
     }}>
       {/* 워터마크 */}
       <Box sx={{
@@ -1188,6 +1210,8 @@ const Confidential = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+        </Box>
+      </Container>
     </Box>
   );
 };

@@ -33,8 +33,10 @@ import {
   Select,
   MenuItem,
   Autocomplete,
-  Tooltip
+  Tooltip,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   ArrowBack as ArrowBackIcon,
   AttachMoney as AttachMoneyIcon,
@@ -5833,14 +5835,36 @@ export default function SettlementDetail() {
 
   return (
     <Box sx={{ 
-      height: 'calc(100vh - 64px)', // 헤더 아래부터 하단바 위까지
-      bgcolor: '#1a1d21', 
-      color: '#fff',
-      pb: 2,
-      pt: 8,  // 64px 아래로 이동
-      overflow: 'auto', // 아이패드에서 스크롤 허용
-      // 아이패드에서 스크롤바 숨기기
-      '@media (min-width: 768px) and (max-width: 1024px)': {
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          height: 'calc(100vh - 64px)', // 헤더 아래부터 하단바 위까지
+          bgcolor: '#1a1d21', 
+          color: '#fff',
+          pb: 2,
+          borderRadius: 2,
+          boxShadow: 3,
+          pt: 8,  // 64px 아래로 이동
+          overflow: 'auto', // 아이패드에서 스크롤 허용
+          // 아이패드에서 스크롤바 숨기기
+          '@media (min-width: 768px) and (max-width: 1024px)': {
         '&::-webkit-scrollbar': {
           display: 'none'
         },
@@ -8774,8 +8798,8 @@ export default function SettlementDetail() {
           </Button>
         </DialogActions>
       </Dialog>
-
-
+        </Box>
+      </Container>
     </Box>
   );
 }

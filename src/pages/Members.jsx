@@ -35,8 +35,10 @@ import {
   FormControlLabel,
   Tooltip,
   Badge,
-  Autocomplete
+  Autocomplete,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   Person as PersonIcon,
   Add as AddIcon,
@@ -395,7 +397,32 @@ const Members = () => {
   }
 
   return (
-    <Box sx={{ p: isMobile ? 2 : 3, pt: isMobile ? 10 : 11 }}>
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          p: isMobile ? 2 : 3,
+          borderRadius: 2,
+          boxShadow: 3,
+          bgcolor: 'background.paper'
+        }}>
       <Typography variant="h4" gutterBottom sx={{ mb: 3 }}>
         회원/권한 관리
       </Typography>
@@ -1028,9 +1055,11 @@ const Members = () => {
              닫기
            </Button>
          </DialogActions>
-       </Dialog>
-     </Box>
-   );
+      </Dialog>
+        </Box>
+      </Container>
+    </Box>
+  );
  };
  
  export default Members; 

@@ -373,17 +373,6 @@ const MobileEstimates = () => {
                   '&:hover': {
                     bgcolor: 'rgba(255, 255, 255, 0.1)'
                   }
-                }}
-              
-        sx={{ 
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-          bgcolor: '#1e1e1e',
-          touchAction: 'none',
-          '&:hover': {
-            bgcolor: '#ff9800'
-          }
         }}>
                 <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>
                   {item.icon}
@@ -629,18 +618,6 @@ const MobileEstimates = () => {
           e.preventDefault();
           e.stopPropagation();
           handleAddEstimate();
-        }}
-        
-      
-        sx={{ 
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-          bgcolor: '#1e1e1e',
-          touchAction: 'none',
-          '&:hover': {
-            bgcolor: '#ff9800'
-          }
         }}>
         <Add />
       </Fab>

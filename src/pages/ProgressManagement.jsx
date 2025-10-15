@@ -43,7 +43,9 @@ import {
   Chip,
   LinearProgress,
   InputAdornment,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import { OptimizedTextField, useIMEHandler, usePWAKeyboardOptimization } from '../utils/imeHandler.jsx';
 import { useKeyboardManager } from '../utils/pwaKeyboardUtils';
 import '../styles/IME.css';
@@ -574,11 +576,31 @@ const ProgressManagement = () => {
   }
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <Box sx={{
-        width: '100%',
-        maxWidth: '100%',
-        margin: 0,
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <DragDropContext onDragEnd={onDragEnd}>
+          <Box sx={{
+            width: '100%',
+            maxWidth: '100%',
+            margin: 0,
         padding: 0,
         boxSizing: 'border-box',
         minHeight: '100vh',
@@ -1106,8 +1128,9 @@ const ProgressManagement = () => {
             {snackbar.message}
           </Alert>
         </Snackbar>
-      </Box>
-    </DragDropContext>
+        </DragDropContext>
+      </Container>
+    </Box>
   );
 };
 

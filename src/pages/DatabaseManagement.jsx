@@ -17,8 +17,10 @@ import {
   AccordionDetails,
   Alert,
   CircularProgress,
-  Divider
+  Divider,
+  Container
 } from '@mui/material';
+import MobileSidebar from '../components/MobileSidebar';
 import {
   CheckCircle,
   Error,
@@ -112,7 +114,32 @@ const DatabaseManagement = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.default',
+      position: 'relative'
+    }}>
+      {/* 모바일 사이드바 */}
+      <MobileSidebar />
+      
+      {/* 메인 콘텐츠 */}
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          pt: 2,
+          pb: 3,
+          px: 1,
+          ml: 0,
+          mr: 0,
+          maxWidth: '100%'
+        }}
+      >
+        <Box sx={{ 
+          p: 3,
+          borderRadius: 2,
+          boxShadow: 3,
+          bgcolor: 'background.paper'
+        }}>
       <Typography variant="h4" gutterBottom>
         데이터베이스 연동 관리
       </Typography>
@@ -316,6 +343,8 @@ const DatabaseManagement = () => {
           ))}
         </Grid>
       </Paper>
+        </Box>
+      </Container>
     </Box>
   );
 };
