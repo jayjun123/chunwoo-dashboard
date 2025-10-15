@@ -90,7 +90,7 @@ const Claims = () => {
     claimStatus: '',
     searchAll: false // 전체 검색 여부
   });
-  const [sortBy, setSortBy] = useState('siteName');
+  const [sortBy, setSortBy] = useState('number');
   const [sortOrder, setSortOrder] = useState('asc');
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
@@ -699,15 +699,55 @@ const Claims = () => {
           return dateComparison;
         }
         
-        // createdAt이 같으면 기존 정렬 기준 사용
-        let aValue = a[sortBy];
-        let bValue = b[sortBy];
+        // 정렬 기준에 따른 값 비교
+        let aValue, bValue;
         
-        if (sortBy === 'claimAmount') {
-          aValue = parseFloat(aValue) || 0;
-          bValue = parseFloat(bValue) || 0;
+        switch (sortBy) {
+          case 'number':
+            // 고정 번호로 정렬
+            aValue = fixedNumbers.get(a.id) || 999999;
+            bValue = fixedNumbers.get(b.id) || 999999;
+            break;
+          case 'siteName':
+            aValue = a.siteName || '';
+            bValue = b.siteName || '';
+            break;
+          case 'sequence':
+            aValue = a.sequence || '';
+            bValue = b.sequence || '';
+            break;
+          case 'claimAmount':
+            aValue = parseFloat(a.claimAmount) || 0;
+            bValue = parseFloat(b.claimAmount) || 0;
+            break;
+          case 'claimStatus':
+            // 청구여부 정렬: 청구대기(X) > 청구완료(O) > 이월
+            const statusOrder = { 'X': 1, 'O': 2, '이월': 3 };
+            aValue = statusOrder[a.claimStatus] || 4;
+            bValue = statusOrder[b.claimStatus] || 4;
+            break;
+          default:
+            // 기본값은 createdAt
+            aValue = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+            bValue = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
         }
         
+        // 숫자 비교
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+        
+        // 문자열 비교
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+        }
+        
+        // 날짜 비교
+        if (aValue instanceof Date && bValue instanceof Date) {
+          return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+        
+        // 기본 비교
         if (sortOrder === 'asc') {
           return aValue > bValue ? 1 : -1;
         } else {
@@ -1849,6 +1889,25 @@ const Claims = () => {
     setCurrentPage(1);
   };
 
+  // 정렬 핸들러
+  const handleSort = (column) => {
+    if (sortBy === column) {
+      // 같은 컬럼 클릭 시 오름차순/내림차순 토글
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // 다른 컬럼 클릭 시 해당 컬럼으로 정렬 (기본 오름차순)
+      setSortBy(column);
+      setSortOrder('asc');
+    }
+    setCurrentPage(1); // 정렬 변경 시 첫 페이지로 이동
+  };
+
+  // 정렬 아이콘 표시 함수
+  const getSortIcon = (column) => {
+    if (sortBy !== column) return '↕️';
+    return sortOrder === 'asc' ? '↑' : '↓';
+  };
+
   const getPageNumbers = () => {
     const pages = [];
     const maxVisiblePages = 5;
@@ -2508,23 +2567,131 @@ const Claims = () => {
               <TableRow sx={{ backgroundColor: '#444' }}>
                 {isMobile ? (
                   <>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60, py: 0.5 }}>No.</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>현장명</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>청구금액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>청구여부</TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold', 
+                        minWidth: 60, 
+                        py: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#555' }
+                      }}
+                      onClick={() => handleSort('number')}
+                    >
+                      No. {getSortIcon('number')}
+                    </TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold', 
+                        minWidth: 120, 
+                        py: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#555' }
+                      }}
+                      onClick={() => handleSort('siteName')}
+                    >
+                      현장명 {getSortIcon('siteName')}
+                    </TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold', 
+                        minWidth: 120, 
+                        py: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#555' }
+                      }}
+                      onClick={() => handleSort('claimAmount')}
+                    >
+                      청구금액 {getSortIcon('claimAmount')}
+                    </TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold', 
+                        minWidth: 100, 
+                        py: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#555' }
+                      }}
+                      onClick={() => handleSort('claimStatus')}
+                    >
+                      청구여부 {getSortIcon('claimStatus')}
+                    </TableCell>
                   </>
                 ) : (
                   <>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60, py: 0.5 }}>No.</TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold', 
+                        minWidth: 60, 
+                        py: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#555' }
+                      }}
+                      onClick={() => handleSort('number')}
+                    >
+                      No. {getSortIcon('number')}
+                    </TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>청구월</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 320, py: 0.5 }}>현장명</TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold', 
+                        minWidth: 320, 
+                        py: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#555' }
+                      }}
+                      onClick={() => handleSort('siteName')}
+                    >
+                      현장명 {getSortIcon('siteName')}
+                    </TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 60, py: 0.5 }}>소장/회사명</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80, py: 0.5 }}>차수</TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold', 
+                        minWidth: 80, 
+                        py: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#555' }
+                      }}
+                      onClick={() => handleSort('sequence')}
+                    >
+                      차수 {getSortIcon('sequence')}
+                    </TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>계약금액</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>잔액</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80, py: 0.5 }}>청구 전 기성율(%)</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>청구금액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>청구여부</TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold', 
+                        minWidth: 120, 
+                        py: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#555' }
+                      }}
+                      onClick={() => handleSort('claimAmount')}
+                    >
+                      청구금액 {getSortIcon('claimAmount')}
+                    </TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold', 
+                        minWidth: 100, 
+                        py: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#555' }
+                      }}
+                      onClick={() => handleSort('claimStatus')}
+                    >
+                      청구여부 {getSortIcon('claimStatus')}
+                    </TableCell>
                     <TableCell sx={{ 
                       color: 'white', 
                       fontWeight: 'bold', 
