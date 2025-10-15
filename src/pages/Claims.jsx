@@ -676,29 +676,9 @@ const Claims = () => {
       filtered = filtered.filter(claim => claim.claimStatus === filters.claimStatus);
     }
 
-    // 정렬 (청구여부 변경 시에는 정렬하지 않고 원래 위치 유지)
+    // 정렬 (청구여부 변경 시에도 번호순 정렬 유지)
     if (!skipSorting) {
       filtered.sort((a, b) => {
-        // 먼저 청구대기 상태('X')인 항목을 맨 위로
-        const aIsPending = a.claimStatus === 'X';
-        const bIsPending = b.claimStatus === 'X';
-        
-        if (aIsPending && !bIsPending) {
-          return -1; // a가 청구대기면 a를 위로
-        }
-        if (!aIsPending && bIsPending) {
-          return 1; // b가 청구대기면 b를 위로
-        }
-        
-        // 둘 다 청구대기이거나 둘 다 청구대기가 아니면 createdAt 기준으로 정렬
-        const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
-        const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
-        const dateComparison = dateB - dateA;
-        
-        if (dateComparison !== 0) {
-          return dateComparison;
-        }
-        
         // 정렬 기준에 따른 값 비교
         let aValue, bValue;
         
@@ -727,9 +707,9 @@ const Claims = () => {
             bValue = statusOrder[b.claimStatus] || 4;
             break;
           default:
-            // 기본값은 createdAt
-            aValue = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
-            bValue = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+            // 기본값은 고정 번호 (번호순)
+            aValue = fixedNumbers.get(a.id) || 999999;
+            bValue = fixedNumbers.get(b.id) || 999999;
         }
         
         // 숫자 비교
@@ -755,7 +735,13 @@ const Claims = () => {
         }
       });
     } else {
-      console.log('🔄 정렬 건너뛰기 - 원래 위치 유지');
+      // 청구여부 변경 시에도 번호순 정렬은 유지
+      console.log('🔄 청구여부 변경 - 번호순 정렬 유지');
+      filtered.sort((a, b) => {
+        const aValue = fixedNumbers.get(a.id) || 999999;
+        const bValue = fixedNumbers.get(b.id) || 999999;
+        return aValue - bValue; // 항상 오름차순 (번호순)
+      });
       setSkipSorting(false); // 플래그 리셋
     }
 
