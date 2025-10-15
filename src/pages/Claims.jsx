@@ -1956,7 +1956,8 @@ const Claims = () => {
     <Box sx={{ 
       minHeight: '100vh',
       bgcolor: 'background.default',
-      position: 'relative'
+      position: 'relative',
+      pt: isMobile ? 4.25 : 4.25
     }}>
       {/* 모바일 사이드바 */}
       <MobileSidebar />
@@ -1970,7 +1971,7 @@ const Claims = () => {
           px: isMobile ? 1 : 3,
           ml: isMobile ? 0 : 'auto',
           mr: isMobile ? 0 : 'auto',
-          maxWidth: isMobile ? '100%' : '1400px'
+          maxWidth: isMobile ? '100%' : 'none'
         }}
       >
         <Box sx={{ 

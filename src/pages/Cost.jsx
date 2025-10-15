@@ -1494,7 +1494,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
           px: isMobile ? 1 : 3,
           ml: isMobile ? 0 : 'auto',
           mr: isMobile ? 0 : 'auto',
-          maxWidth: isMobile ? '100%' : '1400px'
+          maxWidth: isMobile ? '100%' : 'none'
         }}
       >
         <Box sx={{ 

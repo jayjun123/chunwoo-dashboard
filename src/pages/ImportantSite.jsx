@@ -979,11 +979,12 @@ export default function ImportantSite() {
   };
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh',
-      bgcolor: 'background.default',
-      position: 'relative'
-    }}>
+        <Box sx={{ 
+          minHeight: '100vh',
+          bgcolor: 'background.default',
+          position: 'relative',
+          pt: isMobile ? 4 : 4
+        }}>
       {/* 모바일 사이드바 */}
       <MobileSidebar />
       
@@ -991,12 +992,12 @@ export default function ImportantSite() {
       <Container 
         maxWidth={false} 
         sx={{ 
-          pt: isMobile ? 2 : 3,
+          pt: isMobile ? 10 : 3,
           pb: 3,
           px: isMobile ? 1 : 3,
           ml: isMobile ? 0 : 'auto',
           mr: isMobile ? 0 : 'auto',
-          maxWidth: isMobile ? '100%' : '1400px'
+          maxWidth: isMobile ? '100%' : 'none'
         }}
       >
         <Box sx={{ 
@@ -1382,12 +1383,41 @@ export default function ImportantSite() {
                     textAlign: 'left', 
                     minWidth: isMobile ? '60px' : '120px' 
                   }}>계약금: {formatContractAmount(site.contractAmount)}</Typography>
-                  <Typography sx={{ 
-                    fontSize: isMobile ? '0.7rem' : 15, 
-                    textAlign: 'left', 
-                    color: '#43e97b', 
-                    fontWeight: 'bold' 
-                  }}>기성: {formatGisungAmount(totalGisung)}</Typography>
+                  {(() => {
+                    // 기성금 데이터에서 입금완료와 미입금 계산
+                    const siteGisungData = gisungData[site.id] || [];
+                    const paidAmount = siteGisungData
+                      .filter(item => item.paymentStatus === '입금완료' || item.paymentStatus === '완료')
+                      .reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
+                    const unpaidAmount = siteGisungData
+                      .filter(item => item.paymentStatus === '미입금' || item.paymentStatus === '미지급' || !item.paymentStatus)
+                      .reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
+                    
+                    return (
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 0.5,
+                        minWidth: isMobile ? '60px' : '120px',
+                        flex: 1
+                      }}>
+                        <Typography sx={{ 
+                          fontSize: isMobile ? '0.7rem' : 15, 
+                          textAlign: 'left', 
+                          color: '#43e97b', 
+                          fontWeight: 'bold' 
+                        }}>기성: {formatGisungAmount(paidAmount)}</Typography>
+                        {unpaidAmount > 0 && (
+                          <Typography sx={{ 
+                            fontSize: isMobile ? '0.7rem' : 15, 
+                            textAlign: 'left', 
+                            color: '#f44336', 
+                            fontWeight: 'bold' 
+                          }}>+미입금 {formatGisungAmount(unpaidAmount)}</Typography>
+                        )}
+                      </Box>
+                    );
+                  })()}
                   <Typography sx={{ 
                     fontSize: isMobile ? '0.7rem' : 15, 
                     textAlign: 'left', 

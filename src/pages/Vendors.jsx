@@ -18,6 +18,8 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  useTheme,
+  useMediaQuery,
   TableRow,
   Paper,
   Chip,
@@ -49,6 +51,8 @@ import { db } from '../firebase';
 import * as XLSX from 'xlsx';
 
 const Vendors = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [vendors, setVendors] = useState([]);
   const [registeredCompanies, setRegisteredCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1069,7 +1073,8 @@ const Vendors = () => {
     <Box sx={{ 
       minHeight: '100vh',
       bgcolor: 'background.default',
-      position: 'relative'
+      position: 'relative',
+      pt: isMobile ? 5.5 : 5.5
     }}>
       {/* 모바일 사이드바 */}
       <MobileSidebar />

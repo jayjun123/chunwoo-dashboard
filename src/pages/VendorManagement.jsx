@@ -1155,7 +1155,8 @@ const VendorManagement = () => {
     <Box sx={{ 
       minHeight: '100vh',
       bgcolor: 'background.default',
-      position: 'relative'
+      position: 'relative',
+      pt: isMobile ? 5.5 : 5.5
     }}>
       {/* 모바일 사이드바 */}
       <MobileSidebar />

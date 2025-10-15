@@ -266,7 +266,7 @@ const CompanyDistribution = () => {
       <Container 
         maxWidth={false} 
         sx={{ 
-          pt: 2,
+          pt: 5.5,
           pb: 3,
           px: 1,
           ml: 0,

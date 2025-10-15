@@ -3180,12 +3180,12 @@ const Mapping = () => {
       <Container 
         maxWidth={false} 
         sx={{ 
-          pt: isMobile ? 2 : 3,
+          pt: isMobile ? 1.875 : 1.875,
           pb: 3,
           px: isMobile ? 1 : 3,
           ml: isMobile ? 0 : 'auto',
           mr: isMobile ? 0 : 'auto',
-          maxWidth: isMobile ? '100%' : '1400px'
+          maxWidth: isMobile ? '100%' : 'none'
         }}
       >
         <Box sx={{ 

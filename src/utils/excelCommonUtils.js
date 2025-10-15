@@ -320,9 +320,9 @@ export const fillEstimateStyleData = (sheet, materialItems, startRow = 5, sheetN
         // 🛡️ 단가 데이터 완벽 매칭 및 안전 처리
         logMaterialItem(item, row, sheetName);
         
-        // A열: 규격, B열: 품명, C열: 단위, D열: 수량
-        sheet.getCell(`A${row}`).value = item.specification || item.spec || '';
-        sheet.getCell(`B${row}`).value = item?.name || item?.itemName || '';
+        // A열: 품명, B열: 규격, C열: 단위, D열: 수량
+        sheet.getCell(`A${row}`).value = item?.name || item?.itemName || '';
+        sheet.getCell(`B${row}`).value = item.specification || item.spec || '';
         sheet.getCell(`C${row}`).value = item.unit || '';
         
         // D열: 수량 (소수점 2째자리, 오른쪽 정렬)
@@ -438,9 +438,9 @@ export const fillContractStyleData = (sheet, materialItems, startRow = 5, sheetN
         // 🛡️ 단가 데이터 완벽 매칭 및 안전 처리
         logMaterialItem(item, row, sheetName);
         
-        // A열: 이름, B열: 규격, C열: 단위, D열: 수량
-        sheet.getCell(`A${row}`).value = item?.name || item?.itemName || '';
-        sheet.getCell(`B${row}`).value = item.specification || item.spec || '';
+        // A열: 규격, B열: 이름, C열: 단위, D열: 수량
+        sheet.getCell(`A${row}`).value = item.specification || item.spec || '';
+        sheet.getCell(`B${row}`).value = item?.name || item?.itemName || '';
         sheet.getCell(`C${row}`).value = item.unit || '';
         
         // D열: 수량 (소수점 2째자리, 오른쪽 정렬)
