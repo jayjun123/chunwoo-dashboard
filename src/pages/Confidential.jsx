@@ -81,6 +81,7 @@ import GiftListTab from '../components/GiftListTab';
 const Confidential = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isSmallScreen = useMediaQuery('(max-width: 1499px)');
   const { currentUser } = useAuth();
   
   // 인증 상태
@@ -795,11 +796,7 @@ const Confidential = () => {
           <Grid size={{ 
             xs: 12, 
             sm: 6, 
-            md: 2.4,
-            // 아이패드에서 1줄에 4개 카드 (25%씩)
-            '@media (min-width: 768px) and (max-width: 1024px)': {
-              xs: 3
-            }
+            md: isSmallScreen ? 3 : 2.4
           }} key={item.id}>
             <Card sx={{ 
               height: '100%',

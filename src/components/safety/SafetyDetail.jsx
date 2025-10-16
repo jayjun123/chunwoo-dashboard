@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaEdit, FaTrash, FaExclamationTriangle, FaCheck, FaTimes } from 'react-icons/fa';
+import { useMediaQuery } from '@mui/material';
 import '../../styles/SafetyDetail.css';
 
 const SafetyDetail = () => {
@@ -8,6 +9,7 @@ const SafetyDetail = () => {
   const navigate = useNavigate();
   const [inspection, setInspection] = useState(null);
   const [loading, setLoading] = useState(true);
+  const isSmallScreen = useMediaQuery('(max-width:1499px)');
 
   useEffect(() => {
     // 임시 데이터
@@ -166,7 +168,7 @@ const SafetyDetail = () => {
                 <span className="file-info">
                   {file.type.toUpperCase()} • {file.size}
                 </span>
-                <button className="download-button">다운로드</button>
+                <button className="download-button">{isSmallScreen ? '다운' : '다운로드'}</button>
               </div>
             ))}
           </div>

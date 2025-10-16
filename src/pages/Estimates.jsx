@@ -1452,31 +1452,53 @@ const Estimates = () => {
           <TableHead>
             <TableRow sx={{ backgroundColor: '#333', '& .MuiTableCell-root': { py: 0.8 } }}>
               <TableCell sx={{ color: '#fff', fontWeight: 600, width: 80 }}>NO.</TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('receptionDate')}>
-                접수일 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+              <TableCell 
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600, 
+                  cursor: 'pointer',
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
+                  }
+                }} 
+                onClick={() => handleSort('receptionDate')}
+              >
+                접수일
               </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('type')}>
-                타입 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+                타입
               </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('requester')}>
-                의뢰자 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+                의뢰자
               </TableCell>
-              <TableCell sx={{ color: '#fff', fontWeight: 600 }}>제출방법</TableCell>
+              <TableCell 
+                sx={{ 
+                  color: '#fff', 
+                  fontWeight: 600,
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
+                  }
+                }}
+              >
+                제출방법
+              </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('company')}>
-                회사명 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+                회사명
               </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('siteName')}>
-                현장명 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+                현장명
               </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>요청내용</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('submissionDeadline')}>
-                제출기한 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+                제출기한
               </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('submissionStatus')}>
-                제출상태 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+                제출상태
               </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, cursor: 'pointer' }} onClick={() => handleSort('contractStatus')}>
-                수주상태 <SortIcon sx={{ fontSize: '1rem', ml: 0.5 }} />
+                수주상태
               </TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600 }}>비고</TableCell>
               <TableCell sx={{ color: '#fff', fontWeight: 600, width: 120 }}>관리</TableCell>
@@ -1486,7 +1508,17 @@ const Estimates = () => {
             {currentEstimates.map((estimate, index) => (
               <TableRow key={estimate.id} sx={{ '&:hover': { backgroundColor: '#333' }, '& .MuiTableCell-root': { py: 0.8 } }}>
                 <TableCell sx={{ color: '#fff' }}>{filteredEstimates.length - filteredEstimates.findIndex(e => e.id === estimate.id)}</TableCell>
-                <TableCell sx={{ color: '#fff' }}>{estimate.receptionDate}</TableCell>
+                <TableCell 
+                  sx={{ 
+                    color: '#fff',
+                    // 1500px 미만에서 숨김
+                    '@media (max-width: 1499px)': {
+                      display: 'none !important'
+                    }
+                  }}
+                >
+                  {estimate.receptionDate}
+                </TableCell>
                 <TableCell>
                   <Chip
                     label={estimate.type || '견적'}
@@ -1496,9 +1528,30 @@ const Estimates = () => {
                   />
                 </TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{estimate.requester}</TableCell>
-                <TableCell sx={{ color: '#fff' }}>{estimate.submissionMethod}</TableCell>
+                <TableCell 
+                  sx={{ 
+                    color: '#fff',
+                    // 1500px 미만에서 숨김
+                    '@media (max-width: 1499px)': {
+                      display: 'none !important'
+                    }
+                  }}
+                >
+                  {estimate.submissionMethod}
+                </TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{estimate.company}</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{estimate.siteName}</TableCell>
+                <TableCell sx={{ 
+                  color: '#fff', 
+                  fontWeight: 500,
+                  maxWidth: '200px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {estimate.siteName && estimate.siteName.length > 15 
+                    ? `${estimate.siteName.substring(0, 15)}...` 
+                    : estimate.siteName}
+                </TableCell>
                 <TableCell sx={{ color: '#fff' }}>{estimate.requestContent}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{estimate.submissionDeadline}</TableCell>
                 <TableCell>

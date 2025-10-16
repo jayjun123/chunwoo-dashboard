@@ -2646,8 +2646,32 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                   </TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>현장명</TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>계약금액</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>선급금</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>전회기성</TableCell>
+                  <TableCell 
+                    sx={{ 
+                      color: '#fff', 
+                      fontWeight: 700, 
+                      py: 0.5,
+                      // 1500px 미만에서 숨김
+                      '@media (max-width: 1499px)': {
+                        display: 'none !important'
+                      }
+                    }}
+                  >
+                    선급금
+                  </TableCell>
+                  <TableCell 
+                    sx={{ 
+                      color: '#fff', 
+                      fontWeight: 700, 
+                      py: 0.5,
+                      // 1500px 미만에서 숨김
+                      '@media (max-width: 1499px)': {
+                        display: 'none !important'
+                      }
+                    }}
+                  >
+                    전회기성
+                  </TableCell>
                   <TableCell 
                     sx={{ 
                       color: '#fff', 
@@ -2662,9 +2686,33 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                   </TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>잔액</TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>청구상태</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>청구방법</TableCell>
+                  <TableCell 
+                    sx={{ 
+                      color: '#fff', 
+                      fontWeight: 700, 
+                      py: 0.5,
+                      // 1500px 미만에서 숨김
+                      '@media (max-width: 1499px)': {
+                        display: 'none !important'
+                      }
+                    }}
+                  >
+                    청구방법
+                  </TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>입금확인</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>비고</TableCell>
+                  <TableCell 
+                    sx={{ 
+                      color: '#fff', 
+                      fontWeight: 700, 
+                      py: 0.5,
+                      // 1500px 미만에서 숨김
+                      '@media (max-width: 1499px)': {
+                        display: 'none !important'
+                      }
+                    }}
+                  >
+                    비고
+                  </TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 700, py: 0.5 }}>관리</TableCell>
                 </TableRow>
               </TableHead>
@@ -2725,15 +2773,35 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                         onDoubleClick={() => handleSiteNameDoubleClick(row.name)}
                         title="더블클릭하여 현장 정보 보기"
                       >
-                        {row.name}
+                        {row.name && row.name.length > 12 ? 
+                          `${row.name.substring(0, 12)}...` : 
+                          row.name}
                       </TableCell>
                       <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
                         {formatNumber(row.contractAmount, true)}
                       </TableCell>
-                      <TableCell sx={{ color: '#ffd600', fontWeight: 700 }}>
+                      <TableCell 
+                        sx={{ 
+                          color: '#ffd600', 
+                          fontWeight: 700,
+                          // 1500px 미만에서 숨김
+                          '@media (max-width: 1499px)': {
+                            display: 'none !important'
+                          }
+                        }}
+                      >
                         {formatNumber(row.advance, true)}
                       </TableCell>
-                      <TableCell sx={{ color: '#a084e8', fontWeight: 700 }}>
+                      <TableCell 
+                        sx={{ 
+                          color: '#a084e8', 
+                          fontWeight: 700,
+                          // 1500px 미만에서 숨김
+                          '@media (max-width: 1499px)': {
+                            display: 'none !important'
+                          }
+                        }}
+                      >
                         {row.isException ? formatNumber(0, true) : formatNumber(row.prevGisung, true)}
                       </TableCell>
                       <TableCell sx={{ color: '#ef5350', fontWeight: 700 }}>
@@ -2781,7 +2849,15 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                           }}
                         />
                       </TableCell>
-                      <TableCell sx={{ color: '#fff' }}>
+                      <TableCell 
+                        sx={{ 
+                          color: '#fff',
+                          // 1500px 미만에서 숨김
+                          '@media (max-width: 1499px)': {
+                            display: 'none !important'
+                          }
+                        }}
+                      >
                         {row.claimMethod || '-'}
                       </TableCell>
                       <TableCell>
@@ -2807,7 +2883,17 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                           }}
                         />
                       </TableCell>
-                      <TableCell sx={{ color: '#bbb' }}>{row.note || '-'}</TableCell>
+                      <TableCell 
+                        sx={{ 
+                          color: '#bbb',
+                          // 1500px 미만에서 숨김
+                          '@media (max-width: 1499px)': {
+                            display: 'none !important'
+                          }
+                        }}
+                      >
+                        {row.note || '-'}
+                      </TableCell>
                       <TableCell>
                         <IconButton
                           size="small"

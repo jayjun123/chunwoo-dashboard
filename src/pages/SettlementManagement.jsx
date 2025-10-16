@@ -1877,9 +1877,9 @@ const SettlementManagement = () => {
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
                   }
                 }}
                 onClick={() => handleSort('gisungAmount')}
@@ -1913,9 +1913,9 @@ const SettlementManagement = () => {
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
                   }
                 }}
                 onClick={() => handleSort('materialCost')}
@@ -1931,9 +1931,9 @@ const SettlementManagement = () => {
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
                   }
                 }}
                 onClick={() => handleSort('laborCost')}
@@ -1949,9 +1949,9 @@ const SettlementManagement = () => {
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
                   }
                 }}
                 onClick={() => handleSort('subMaterialCost')}
@@ -1967,9 +1967,9 @@ const SettlementManagement = () => {
                   fontSize: '1.1rem', 
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
                   }
                 }}
                 onClick={() => handleSort('equipmentCost')}
@@ -1985,9 +1985,9 @@ const SettlementManagement = () => {
                 fontSize: '1.1rem', 
                 cursor: 'pointer', 
                 '&:hover': { backgroundColor: '#444' },
-                // 아이패드에서 숨김
-                '@media (min-width: 768px) and (max-width: 1024px)': {
-                  display: 'none'
+                // 1500px 미만에서 숨김
+                '@media (max-width: 1499px)': {
+                  display: 'none !important'
                 }
               }}
               onClick={() => handleSort('expenseCost')}
@@ -2004,9 +2004,9 @@ const SettlementManagement = () => {
                   cursor: 'pointer', 
                   '&:hover': { backgroundColor: '#444' },
                   whiteSpace: 'nowrap',
-                  // 아이패드에서 표시
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    width: '12%'
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
                   }
                 }}
                 onClick={() => handleSort('safetyCost')}
@@ -2154,9 +2154,9 @@ const SettlementManagement = () => {
                     fontWeight: 'bold', 
                     textAlign: 'right', 
                     fontSize: '1.1rem',
-                    // 아이패드에서 숨김
-                    '@media (min-width: 768px) and (max-width: 1024px)': {
-                      display: 'none'
+                    // 1500px 미만에서 숨김
+                    '@media (max-width: 1499px)': {
+                      display: 'none !important'
                     }
                   }}>
                     {formatNumber(settlement.gisungAmount || 0)}원
@@ -2182,9 +2182,9 @@ const SettlementManagement = () => {
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    // 아이패드에서 숨김
-                    '@media (min-width: 768px) and (max-width: 1024px)': {
-                      display: 'none'
+                    // 1500px 미만에서 숨김
+                    '@media (max-width: 1499px)': {
+                      display: 'none !important'
                     }
                   }}>
                     {formatNumber(settlement.materialCost || 0)}원
@@ -2198,9 +2198,9 @@ const SettlementManagement = () => {
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    // 아이패드에서 숨김
-                    '@media (min-width: 768px) and (max-width: 1024px)': {
-                      display: 'none'
+                    // 1500px 미만에서 숨김
+                    '@media (max-width: 1499px)': {
+                      display: 'none !important'
                     }
                   }}>
                     {formatNumber(settlement.laborCost || 0)}원
@@ -2214,9 +2214,9 @@ const SettlementManagement = () => {
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    // 아이패드에서 숨김
-                    '@media (min-width: 768px) and (max-width: 1024px)': {
-                      display: 'none'
+                    // 1500px 미만에서 숨김
+                    '@media (max-width: 1499px)': {
+                      display: 'none !important'
                     }
                   }}>
                     {formatNumber(settlement.subMaterialCost || 0)}원
@@ -2230,9 +2230,9 @@ const SettlementManagement = () => {
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    // 아이패드에서 숨김
-                    '@media (min-width: 768px) and (max-width: 1024px)': {
-                      display: 'none'
+                    // 1500px 미만에서 숨김
+                    '@media (max-width: 1499px)': {
+                      display: 'none !important'
                     }
                   }}>
                     {formatNumber(settlement.equipmentCost || 0)}원
@@ -2246,9 +2246,9 @@ const SettlementManagement = () => {
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              // 아이패드에서 숨김
-              '@media (min-width: 768px) and (max-width: 1024px)': {
-                display: 'none'
+              // 1500px 미만에서 숨김
+              '@media (max-width: 1499px)': {
+                display: 'none !important'
               }
             }}>
               {formatNumber(settlement.expenseCost || 0)}원
@@ -2261,9 +2261,9 @@ const SettlementManagement = () => {
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    // 아이패드에서 표시
-                    '@media (min-width: 768px) and (max-width: 1024px)': {
-                      display: 'table-cell'
+                    // 1500px 미만에서 숨김
+                    '@media (max-width: 1499px)': {
+                      display: 'none !important'
                     }
                   }}>
                     {formatNumber(settlement.safetyCost || 0)}원

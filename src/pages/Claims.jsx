@@ -2589,7 +2589,7 @@ const Claims = () => {
                       }}
                       onClick={() => handleSort('number')}
                     >
-                      No. {getSortIcon('number')}
+                      No.
                     </TableCell>
                     <TableCell 
                       sx={{ 
@@ -2602,7 +2602,7 @@ const Claims = () => {
                       }}
                       onClick={() => handleSort('siteName')}
                     >
-                      현장명 {getSortIcon('siteName')}
+                      현장명
                     </TableCell>
                     <TableCell 
                       sx={{ 
@@ -2615,7 +2615,7 @@ const Claims = () => {
                       }}
                       onClick={() => handleSort('claimAmount')}
                     >
-                      청구금액 {getSortIcon('claimAmount')}
+                      청구금액
                     </TableCell>
                     <TableCell 
                       sx={{ 
@@ -2628,7 +2628,7 @@ const Claims = () => {
                       }}
                       onClick={() => handleSort('claimStatus')}
                     >
-                      청구여부 {getSortIcon('claimStatus')}
+                      청구여부
                     </TableCell>
                   </>
                 ) : (
@@ -2644,32 +2644,31 @@ const Claims = () => {
                       }}
                       onClick={() => handleSort('number')}
                     >
-                      No. {getSortIcon('number')}
+                      No.
                     </TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>청구월</TableCell>
                     <TableCell 
                       sx={{ 
                         color: 'white', 
                         fontWeight: 'bold', 
-                        minWidth: 320, 
+                        minWidth: 200, 
+                        maxWidth: 200,
+                        width: 200,
                         py: 0.5,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
                       onClick={() => handleSort('siteName')}
                     >
-                      현장명 {getSortIcon('siteName')}
+                      현장명
                     </TableCell>
                     <TableCell sx={{ 
                       color: 'white', 
                       fontWeight: 'bold', 
                       minWidth: 60, 
                       py: 0.5,
-                      // 아이패드에서 숨김
-                      '@media (min-width: 768px) and (max-width: 1366px)': {
-                        display: 'none !important'
-                      },
-                      '@media (min-width: 1024px) and (max-width: 1366px)': {
+                      // 1500px 미만에서 숨김
+                      '@media (max-width: 1499px)': {
                         display: 'none !important'
                       }
                     }}>소장/회사명</TableCell>
@@ -2684,11 +2683,11 @@ const Claims = () => {
                       }}
                       onClick={() => handleSort('sequence')}
                     >
-                      차수 {getSortIcon('sequence')}
+                      차수
                     </TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>계약금액</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>잔액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80, py: 0.5 }}>기성율(%)</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80, py: 0.5 }}>기성율</TableCell>
                     <TableCell 
                       sx={{ 
                         color: 'white', 
@@ -2700,7 +2699,7 @@ const Claims = () => {
                       }}
                       onClick={() => handleSort('claimAmount')}
                     >
-                      청구금액 {getSortIcon('claimAmount')}
+                      청구금액
                     </TableCell>
                     <TableCell 
                       sx={{ 
@@ -2713,12 +2712,14 @@ const Claims = () => {
                       }}
                       onClick={() => handleSort('claimStatus')}
                     >
-                      청구여부 {getSortIcon('claimStatus')}
+                      청구여부
                     </TableCell>
                     <TableCell sx={{ 
                       color: 'white', 
                       fontWeight: 'bold', 
-                      minWidth: 100,
+                      minWidth: 60,
+                      maxWidth: 60,
+                      width: 60,
                       py: 0.5,
                       // 아이패드에서 숨김
                       '@media (min-width: 768px) and (max-width: 1024px)': {
@@ -2755,8 +2756,16 @@ const Claims = () => {
                     <TableCell sx={{ color: 'white' }}>{fixedNumbers.get(claim.id) || 'N/A'}</TableCell>
                     {isMobile ? (
                       <>
-                        <TableCell sx={{ color: 'white' }}>
-                          {claim.siteName}
+                        <TableCell sx={{ 
+                          color: 'white',
+                          maxWidth: '150px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {claim.siteName && claim.siteName.length > 10 ? 
+                            `${claim.siteName.substring(0, 10)}...` : 
+                            claim.siteName}
                           {claim.isCarryover && (
                             <Typography
                               component="span"
@@ -2793,44 +2802,83 @@ const Claims = () => {
                     ) : (
                       <>
                         <TableCell sx={{ color: 'white' }}>{claim.claimMonth}</TableCell>
-                        <TableCell sx={{ color: 'white' }}>
-                          <span style={{
-                            // 아이패드에서 현장명 앞 6글자만 표시
-                            '@media (min-width: 768px) and (max-width: 1024px)': {
-                              display: 'block',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              maxWidth: '80px'
+                        <TableCell sx={{ 
+                          color: 'white',
+                          // 1500px 미만에서만 줄임 처리
+                          '@media (max-width: 1499px)': {
+                            maxWidth: '200px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }
+                        }}>
+                          {/* 1500px 이상에서는 전체 현장명 표시 */}
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 0.5,
+                            // 1500px 미만에서 숨김
+                            '@media (max-width: 1499px)': {
+                              display: 'none'
                             }
                           }}>
-                            {claim.siteName && claim.siteName.length > 16 ? 
-                              `${claim.siteName.substring(0, 16)}...` : 
-                              claim.siteName
-                            }
-                          </span>
-                          {claim.isCarryover && (
-                            <Typography
-                              component="span"
-                              sx={{
-                                ml: 1,
-                                color: '#ff9800',
-                                fontSize: '0.7rem',
-                                fontWeight: 'bold'
-                              }}
-                              title={`${claim.carryoverFrom}에서 이월됨`}
-                            >
-                              (이월됨)
+                            <Typography>
+                              {claim.siteName}
                             </Typography>
-                          )}
+                            {claim.isCarryover && (
+                              <Typography
+                                component="span"
+                                sx={{
+                                  color: '#ff9800',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 'bold',
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title={`${claim.carryoverFrom}에서 이월됨`}
+                              >
+                                (이월됨)
+                              </Typography>
+                            )}
+                          </Box>
+                          {/* 1500px 미만에서는 12글자로 줄임 */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography 
+                              sx={{ 
+                                // 1500px 이상에서 숨김
+                                '@media (min-width: 1500px)': {
+                                  display: 'none'
+                                },
+                                maxWidth: '200px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {claim.siteName && claim.siteName.length > 12 ? 
+                                `${claim.siteName.substring(0, 12)}...` : 
+                                claim.siteName
+                              }
+                            </Typography>
+                            {claim.isCarryover && (
+                              <Typography
+                                component="span"
+                                sx={{
+                                  color: '#ff9800',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 'bold',
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title={`${claim.carryoverFrom}에서 이월됨`}
+                              >
+                                (이월됨)
+                              </Typography>
+                            )}
+                          </Box>
                         </TableCell>
                         <TableCell sx={{ 
                           color: 'white',
-                          // 아이패드에서 숨김
-                          '@media (min-width: 768px) and (max-width: 1366px)': {
-                            display: 'none !important'
-                          },
-                          '@media (min-width: 1024px) and (max-width: 1366px)': {
+                          // 1500px 미만에서 숨김
+                          '@media (max-width: 1499px)': {
                             display: 'none !important'
                           }
                         }}>
@@ -2895,14 +2943,53 @@ const Claims = () => {
                         </TableCell>
                         <TableCell sx={{ 
                           color: 'white',
-                          // 아이패드에서 숨김
-                          '@media (min-width: 768px) and (max-width: 1366px)': {
-                            display: 'none !important'
+                          // 1500px 미만에서 간격 줄이기
+                          '@media (max-width: 1499px)': {
+                            padding: '8px 4px',
+                            width: '60px',
+                            minWidth: '60px',
+                            maxWidth: '60px'
                           },
-                          '@media (min-width: 1024px) and (max-width: 1366px)': {
-                            display: 'none !important'
+                          // 아이패드에서 숨김
+                          '@media (min-width: 768px) and (max-width: 1024px)': {
+                            display: 'none'
                           }
-                        }}>{claim.notes}</TableCell>
+                        }}>
+                          {claim.notes && claim.notes.length > 0 ? (
+                            <>
+                              {/* 1500px 이상에서는 전체 내용 표시 */}
+                              <Typography 
+                                sx={{ 
+                                  fontSize: '0.875rem',
+                                  // 1500px 미만에서 숨김
+                                  '@media (max-width: 1499px)': {
+                                    display: 'none'
+                                  }
+                                }}
+                              >
+                                {claim.notes}
+                              </Typography>
+                              {/* 1500px 미만에서는 ... 표시 */}
+                              <Tooltip title={claim.notes} arrow>
+                                <Typography 
+                                  sx={{ 
+                                    cursor: 'pointer',
+                                    fontSize: '0.875rem',
+                                    // 1500px 이상에서 숨김
+                                    '@media (min-width: 1500px)': {
+                                      display: 'none'
+                                    },
+                                    '&:hover': { color: '#4caf50' }
+                                  }}
+                                >
+                                  ...
+                                </Typography>
+                              </Tooltip>
+                            </>
+                          ) : (
+                            ''
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', gap: 0.5 }}>
                             <Tooltip title="기성등록">

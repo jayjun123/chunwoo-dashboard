@@ -28,6 +28,7 @@ const statusColor = {
 function SafetyOverviewCards() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isSmallScreen = useMediaQuery('(max-width:1499px)');
   const [search, setSearch] = useState('');
   const [siteData, setSiteData] = useState([]);
   const [inputs, setInputs] = useState({});
@@ -393,10 +394,11 @@ function SafetyOverviewCards() {
              fontSize: isMobile ? '0.8rem' : 'inherit',
              px: isMobile ? 2 : 3,
              py: isMobile ? 1 : 1.5,
-             height: '40px' // TextField와 동일한 높이로 설정
+             height: '40px', // TextField와 동일한 높이로 설정
+             whiteSpace: 'nowrap' // 텍스트가 세로로 줄바꿈되지 않도록
            }}
          >
-           다운로드
+           {isSmallScreen ? '다운' : '다운로드'}
          </Button>
       </Box>
 

@@ -1364,12 +1364,12 @@ const VendorManagement = () => {
               }}>번호</TableCell>
               <TableCell sx={{ 
                 color: '#fff', 
-                fontWeight: 600,
+                fontWeight: 600, 
                 py: 1,
                 fontSize: '0.9rem',
-                // 아이패드에서 표시
-                '@media (min-width: 768px) and (max-width: 1024px)': {
-                  width: '18%'
+                // 1500px 미만에서 숨김
+                '@media (max-width: 1499px)': {
+                  display: 'none !important'
                 }
               }}>메일</TableCell>
               <TableCell sx={{ 
@@ -1396,9 +1396,9 @@ const VendorManagement = () => {
                 fontWeight: 600,
                 py: 1,
                 fontSize: '0.9rem',
-                // 아이패드에서 숨김
-                '@media (min-width: 768px) and (max-width: 1024px)': {
-                  display: 'none'
+                // 1500px 미만에서 숨김
+                '@media (max-width: 1499px)': {
+                  display: 'none !important'
                 }
               }}>대표자</TableCell>
               <TableCell sx={{ 
@@ -1416,9 +1416,9 @@ const VendorManagement = () => {
                 fontWeight: 600,
                 py: 1,
                 fontSize: '0.9rem',
-                // 아이패드에서 숨김
-                '@media (min-width: 768px) and (max-width: 1024px)': {
-                  display: 'none'
+                // 1500px 미만에서 숨김
+                '@media (max-width: 1499px)': {
+                  display: 'none !important'
                 }
               }}>주소</TableCell>
               <TableCell sx={{ 
@@ -1426,9 +1426,9 @@ const VendorManagement = () => {
                 fontWeight: 600,
                 py: 1,
                 fontSize: '0.9rem',
-                // 아이패드에서 숨김
-                '@media (min-width: 768px) and (max-width: 1024px)': {
-                  display: 'none'
+                // 1500px 미만에서 숨김
+                '@media (max-width: 1499px)': {
+                  display: 'none !important'
                 }
               }}>비고</TableCell>
               <TableCell sx={{ 
@@ -1481,9 +1481,9 @@ const VendorManagement = () => {
                 }}>{vendor.phone}</TableCell>
                 <TableCell sx={{ 
                   color: '#fff',
-                  // 아이패드에서 표시
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'table-cell'
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
                   }
                 }}>{vendor.email}</TableCell>
                 <TableCell sx={{ 
@@ -1496,9 +1496,9 @@ const VendorManagement = () => {
                 }}>{vendor.companyName}</TableCell>
                 <TableCell sx={{ 
                   color: '#fff',
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
                   }
                 }}>{vendor.ceo}</TableCell>
                 <TableCell sx={{ 
@@ -1510,16 +1510,16 @@ const VendorManagement = () => {
                 }}>{vendor.businessNumber}</TableCell>
                 <TableCell sx={{ 
                   color: '#fff',
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
                   }
                 }}>{vendor.address}</TableCell>
                 <TableCell sx={{ 
                   color: '#fff',
-                  // 아이패드에서 숨김
-                  '@media (min-width: 768px) and (max-width: 1024px)': {
-                    display: 'none'
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
                   }
                 }}>{vendor.note}</TableCell>
                 <TableCell sx={{

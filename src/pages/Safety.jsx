@@ -45,6 +45,7 @@ const SafetyPage = () => {
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const isMobile = useMediaQuery('(max-width:900px)');
+  const isSmallScreen = useMediaQuery('(max-width:1499px)');
   
   // 사용자 인증 상태 확인
   useEffect(() => {
@@ -640,9 +641,12 @@ const SafetyPage = () => {
                       href={row.preview} 
                       target="_blank" 
                       download={row.attachment || ''}
-                      sx={{ fontSize: isMobile ? '0.6rem' : 'inherit' }}
+                      sx={{ 
+                        fontSize: isMobile ? '0.6rem' : 'inherit',
+                        whiteSpace: 'nowrap'
+                      }}
                     >
-                      {row.attachment || '다운로드'}
+                      {row.attachment || (isSmallScreen ? '다운' : '다운로드')}
                     </Button>
                   ) : '-'}
                 </TableCell>
@@ -930,7 +934,7 @@ const SafetyPage = () => {
                     })
                   }}
                 >
-                  {isMobile ? '엑셀' : '엑셀 다운로드'}
+                  {isSmallScreen ? '다운' : '엑셀 다운로드'}
                 </Button>
               )}
             </Box>

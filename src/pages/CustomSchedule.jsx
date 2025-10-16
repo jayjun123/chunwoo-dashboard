@@ -184,12 +184,12 @@ const CustomSchedule = () => {
       return;
     }
 
-    // 웹(PC)에서만 날짜셀 간 드래그앤드롭 허용
-    const isWeb = window.innerWidth >= 768; // 태블릿/데스크톱 크기
+    // 1500px 이상에서만 날짜셀 간 드래그앤드롭 허용
+    const isLargeScreen = window.innerWidth >= 1500;
     const isDateToDate = source.droppableId.startsWith('20') && destination.droppableId.startsWith('20');
     
-    if (!isWeb && isDateToDate) {
-      // 모바일에서는 날짜셀 간 드래그앤드롭 불가
+    if (!isLargeScreen && isDateToDate) {
+      // 1500px 미만에서는 날짜셀 간 드래그앤드롭 불가
       return;
     }
 

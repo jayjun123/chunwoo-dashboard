@@ -1339,7 +1339,7 @@ const Vendors = () => {
                   px: 2,
                   '&:last-child': { pb: 1 }
                 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Chip 
                       label={type}
                       color={getCompanyTypeColor(type)}
@@ -1348,11 +1348,10 @@ const Vendors = () => {
                     <Typography variant="body1" sx={{ color: 'text.secondary' }}>
                       업체
                     </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'text.primary', ml: 1 }}>
+                      {count}개
+                    </Typography>
                   </Box>
-                  <Box sx={{ flex: 1, minWidth: '200px' }} />
-                  <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
-                    {count}개
-                  </Typography>
                 </CardContent>
               </Card>
             )}
@@ -1402,9 +1401,9 @@ const Vendors = () => {
                       cursor: 'pointer', 
                       '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
                       py: 1,
-                      // 테블릿에서 숨김
-                      '@media (min-width: 768px) and (max-width: 1024px)': {
-                        display: 'none'
+                      // 1500px 미만에서 숨김
+                      '@media (max-width: 1499px)': {
+                        display: 'none !important'
                       }
                     }}
                   >
@@ -1417,7 +1416,15 @@ const Vendors = () => {
                   </TableCell>
                   <TableCell 
                     onClick={() => handleSort('amount')}
-                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
+                    sx={{ 
+                      cursor: 'pointer', 
+                      '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, 
+                      py: 0.5,
+                      // 1500px 미만에서 숨김
+                      '@media (max-width: 1499px)': {
+                        display: 'none !important'
+                      }
+                    }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       기초금액
@@ -1508,7 +1515,17 @@ const Vendors = () => {
                   </TableCell>
                   <TableCell sx={{ py: 1 }}>결과순위</TableCell>
                   <TableCell sx={{ py: 1 }}>낙찰금액</TableCell>
-                  <TableCell sx={{ py: 1 }}>낙찰율</TableCell>
+                  <TableCell 
+                    sx={{ 
+                      py: 1,
+                      // 1500px 미만에서 숨김
+                      '@media (max-width: 1499px)': {
+                        display: 'none !important'
+                      }
+                    }}
+                  >
+                    낙찰율
+                  </TableCell>
                   <TableCell sx={{ py: 1 }}>관리</TableCell>
                 </>
               ) : (
@@ -1516,7 +1533,17 @@ const Vendors = () => {
                   <TableCell sx={{ py: 1 }}>관리</TableCell>
                 </>
               )}
-              <TableCell sx={{ py: 1 }}>비고</TableCell>
+              <TableCell 
+                sx={{ 
+                  py: 1,
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
+                  }
+                }}
+              >
+                비고
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -1530,14 +1557,28 @@ const Vendors = () => {
                 </TableCell>
                 {filteredByCompanyType === '천우건업(주)' ? (
                   <>
-                    <TableCell>{vendor.siteName}</TableCell>
                     <TableCell sx={{
-                      // 테블릿에서 숨김
-                      '@media (min-width: 768px) and (max-width: 1024px)': {
-                        display: 'none'
+                      maxWidth: '200px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {vendor.siteName && vendor.siteName.length > 15 
+                        ? `${vendor.siteName.substring(0, 15)}...` 
+                        : vendor.siteName}
+                    </TableCell>
+                    <TableCell sx={{
+                      // 1500px 미만에서 숨김
+                      '@media (max-width: 1499px)': {
+                        display: 'none !important'
                       }
                     }}>{vendor.winningCompany || '-'}</TableCell>
-                    <TableCell>{formatAmount(vendor.amount)}</TableCell>
+                    <TableCell sx={{
+                      // 1500px 미만에서 숨김
+                      '@media (max-width: 1499px)': {
+                        display: 'none !important'
+                      }
+                    }}>{formatAmount(vendor.amount)}</TableCell>
                   </>
                 ) : (
                   <>
@@ -1548,7 +1589,16 @@ const Vendors = () => {
                         display: 'none'
                       }
                     }}>{formatDate(vendor.bidDate)}</TableCell>
-                    <TableCell>{vendor.siteName || '-'}</TableCell>
+                    <TableCell sx={{
+                      maxWidth: '200px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {vendor.siteName && vendor.siteName.length > 15 
+                        ? `${vendor.siteName.substring(0, 15)}...` 
+                        : vendor.siteName || '-'}
+                    </TableCell>
                     <TableCell>{formatAmount(vendor.amount)}</TableCell>
                   </>
                 )}
@@ -1625,7 +1675,14 @@ const Vendors = () => {
                     </TableCell>
                     <TableCell 
                       onClick={() => handleInlineEditStart(vendor.id, 'winningRate', vendor.winningRate)}
-                      sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                      sx={{ 
+                        cursor: 'pointer', 
+                        '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                        // 1500px 미만에서 숨김
+                        '@media (max-width: 1499px)': {
+                          display: 'none !important'
+                        }
+                      }}
                     >
                       {editingField === `${vendor.id}-winningRate` ? (
                         <TextField
@@ -1690,7 +1747,12 @@ const Vendors = () => {
                     </TableCell>
                   </>
                 )}
-                <TableCell>
+                <TableCell sx={{
+                  // 1500px 미만에서 숨김
+                  '@media (max-width: 1499px)': {
+                    display: 'none !important'
+                  }
+                }}>
                   {filteredByCompanyType === '천우건업(주)' ? (
                     <Typography variant="body2">
                       {vendor.note}
