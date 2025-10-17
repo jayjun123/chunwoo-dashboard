@@ -2651,9 +2651,7 @@ const Claims = () => {
                       sx={{ 
                         color: 'white', 
                         fontWeight: 'bold', 
-                        minWidth: 200, 
-                        maxWidth: 200,
-                        width: 200,
+                        minWidth: 150, 
                         py: 0.5,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
@@ -2665,7 +2663,7 @@ const Claims = () => {
                     <TableCell sx={{ 
                       color: 'white', 
                       fontWeight: 'bold', 
-                      minWidth: 60, 
+                      minWidth: 120, 
                       py: 0.5,
                       // 1500px 미만에서 숨김
                       '@media (max-width: 1499px)': {
@@ -2685,9 +2683,9 @@ const Claims = () => {
                     >
                       차수
                     </TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>계약금액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 120, py: 0.5 }}>잔액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 80, py: 0.5 }}>기성율</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>계약금액</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>잔액</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 70, py: 0.5 }}>기성율</TableCell>
                     <TableCell 
                       sx={{ 
                         color: 'white', 
@@ -2721,6 +2719,7 @@ const Claims = () => {
                       maxWidth: 60,
                       width: 60,
                       py: 0.5,
+                      textAlign: 'center',
                       // 아이패드에서 숨김
                       '@media (min-width: 768px) and (max-width: 1024px)': {
                         display: 'none'
@@ -2763,23 +2762,33 @@ const Claims = () => {
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap'
                         }}>
-                          {claim.siteName && claim.siteName.length > 10 ? 
-                            `${claim.siteName.substring(0, 10)}...` : 
-                            claim.siteName}
-                          {claim.isCarryover && (
-                            <Typography
-                              component="span"
-                              sx={{
-                                ml: 1,
-                                color: '#ff9800',
-                                fontSize: '0.7rem',
-                                fontWeight: 'bold'
-                              }}
-                              title={`${claim.carryoverFrom}에서 이월됨`}
-                            >
-                              (이월됨)
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography sx={{ 
+                              maxWidth: '120px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {claim.siteName && claim.siteName.length > 10 ? 
+                                `${claim.siteName.substring(0, 10)}...` : 
+                                claim.siteName}
                             </Typography>
-                          )}
+                            {claim.isCarryover && (
+                              <Typography
+                                component="span"
+                                sx={{
+                                  color: '#ff9800',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 'bold',
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0
+                                }}
+                                title={`${claim.carryoverFrom}에서 이월됨`}
+                              >
+                                (이월됨)
+                              </Typography>
+                            )}
+                          </Box>
                         </TableCell>
                         <TableCell sx={{ color: '#ff6b6b', fontWeight: 'bold' }}>{formatAmount(claim.claimAmount)}</TableCell>
                         <TableCell>
@@ -2812,17 +2821,18 @@ const Claims = () => {
                             whiteSpace: 'nowrap'
                           }
                         }}>
-                          {/* 1500px 이상에서는 전체 현장명 표시 */}
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: 0.5,
-                            // 1500px 미만에서 숨김
-                            '@media (max-width: 1499px)': {
-                              display: 'none'
-                            }
-                          }}>
-                            <Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography 
+                              sx={{ 
+                                // 1500px 미만에서는 12글자로 줄임
+                                '@media (max-width: 1499px)': {
+                                  maxWidth: '150px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }
+                              }}
+                            >
                               {claim.siteName}
                             </Typography>
                             {claim.isCarryover && (
@@ -2832,41 +2842,8 @@ const Claims = () => {
                                   color: '#ff9800',
                                   fontSize: '0.7rem',
                                   fontWeight: 'bold',
-                                  whiteSpace: 'nowrap'
-                                }}
-                                title={`${claim.carryoverFrom}에서 이월됨`}
-                              >
-                                (이월됨)
-                              </Typography>
-                            )}
-                          </Box>
-                          {/* 1500px 미만에서는 12글자로 줄임 */}
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Typography 
-                              sx={{ 
-                                // 1500px 이상에서 숨김
-                                '@media (min-width: 1500px)': {
-                                  display: 'none'
-                                },
-                                maxWidth: '200px',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              {claim.siteName && claim.siteName.length > 12 ? 
-                                `${claim.siteName.substring(0, 12)}...` : 
-                                claim.siteName
-                              }
-                            </Typography>
-                            {claim.isCarryover && (
-                              <Typography
-                                component="span"
-                                sx={{
-                                  color: '#ff9800',
-                                  fontSize: '0.7rem',
-                                  fontWeight: 'bold',
-                                  whiteSpace: 'nowrap'
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0
                                 }}
                                 title={`${claim.carryoverFrom}에서 이월됨`}
                               >
@@ -2943,51 +2920,36 @@ const Claims = () => {
                         </TableCell>
                         <TableCell sx={{ 
                           color: 'white',
-                          // 1500px 미만에서 간격 줄이기
-                          '@media (max-width: 1499px)': {
-                            padding: '8px 4px',
-                            width: '60px',
-                            minWidth: '60px',
-                            maxWidth: '60px'
-                          },
+                          padding: '8px 4px',
+                          width: '60px',
+                          minWidth: '60px',
+                          maxWidth: '60px',
+                          textAlign: 'center',
                           // 아이패드에서 숨김
                           '@media (min-width: 768px) and (max-width: 1024px)': {
                             display: 'none'
                           }
                         }}>
                           {claim.notes && claim.notes.length > 0 ? (
-                            <>
-                              {/* 1500px 이상에서는 전체 내용 표시 */}
+                            <Tooltip title={claim.notes} arrow placement="top">
                               <Typography 
                                 sx={{ 
-                                  fontSize: '0.875rem',
-                                  // 1500px 미만에서 숨김
-                                  '@media (max-width: 1499px)': {
-                                    display: 'none'
-                                  }
+                                  cursor: 'pointer',
+                                  fontSize: '1.2rem',
+                                  fontWeight: 'bold',
+                                  color: '#90caf9',
+                                  '&:hover': { 
+                                    color: '#4caf50',
+                                    transform: 'scale(1.2)'
+                                  },
+                                  transition: 'all 0.2s ease'
                                 }}
                               >
-                                {claim.notes}
+                                ...
                               </Typography>
-                              {/* 1500px 미만에서는 ... 표시 */}
-                              <Tooltip title={claim.notes} arrow>
-                                <Typography 
-                                  sx={{ 
-                                    cursor: 'pointer',
-                                    fontSize: '0.875rem',
-                                    // 1500px 이상에서 숨김
-                                    '@media (min-width: 1500px)': {
-                                      display: 'none'
-                                    },
-                                    '&:hover': { color: '#4caf50' }
-                                  }}
-                                >
-                                  ...
-                                </Typography>
-                              </Tooltip>
-                            </>
+                            </Tooltip>
                           ) : (
-                            ''
+                            <Typography sx={{ color: '#666', fontSize: '1.2rem' }}>-</Typography>
                           )}
                         </TableCell>
                         <TableCell>
