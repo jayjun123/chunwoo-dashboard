@@ -72,7 +72,7 @@ const Estimates = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [companyFilter, setCompanyFilter] = useState('전체'); // 회사별 필터링 - 전체 기본값 (견적관리 페이지)
   const [submissionStatusFilter, setSubmissionStatusFilter] = useState('전체'); // 제출상태 필터링
-  const [sortField, setSortField] = useState('createdAt'); // 등록 순서대로 정렬
+  const [sortField, setSortField] = useState('receptionDate'); // 접수일 순서대로 정렬
   const [sortDirection, setSortDirection] = useState('asc'); // 저장 순서대로 (오래된 순)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
