@@ -35,6 +35,7 @@ import {
   Alert,
   LinearProgress
 } from '@mui/material';
+import { handleTouchClick } from '../utils/touchUtils';
 import {
   Menu as MenuIcon,
   Add,
@@ -281,17 +282,9 @@ const MobileSettlement = () => {
             color="inherit"
             
         onClick={toggleDrawer}
-        onTouchStart={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onTouchEnd={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          toggleDrawer;
-        }}
+        {...handleTouchClick(toggleDrawer)}
         
-            sx={{ mr: 2, touchAction: 'none' }}>
+            sx={{ mr: 2, touchAction: 'manipulation' }}>
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontSize: '1.1rem' }}>
@@ -335,15 +328,7 @@ const MobileSettlement = () => {
               <ListItemButton
         
         onClick={() => handleMenuClick(item.path)}
-        onTouchStart={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onTouchEnd={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleMenuClick(item.path);
-        }}
+        {...handleTouchClick(() => handleMenuClick(item.path))}
         
                 sx={{
                   mx: 1,
@@ -581,15 +566,7 @@ const MobileSettlement = () => {
         }}
         
         onClick={handleAddSettlement}
-        onTouchStart={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onTouchEnd={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleAddSettlement();
-        }}>
+        {...handleTouchClick(handleAddSettlement)}>
         <Add />
       </Fab>
 
@@ -649,22 +626,14 @@ const MobileSettlement = () => {
           <Button
         
         onClick={() => setAddDialogOpen(false)}
-        onTouchStart={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onTouchEnd={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          () => setAddDialogOpen(false);
-        }}
+        {...handleTouchClick(() => setAddDialogOpen(false))}
         
         sx={{ 
           position: 'fixed',
           bottom: 16,
           right: 16,
           bgcolor: '#1e1e1e',
-          touchAction: 'none',
+          touchAction: 'manipulation',
           '&:hover': {
             bgcolor: '#ff9800'
           }
@@ -672,22 +641,14 @@ const MobileSettlement = () => {
           <Button
         
         onClick={handleSaveSettlement}
-        onTouchStart={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onTouchEnd={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleSaveSettlement;
-        }}
+        {...handleTouchClick(handleSaveSettlement)}
          variant="contained"
         sx={{ 
           position: 'fixed',
           bottom: 16,
           right: 16,
           bgcolor: '#1e1e1e',
-          touchAction: 'none',
+          touchAction: 'manipulation',
           '&:hover': {
             bgcolor: '#ff9800'
           }

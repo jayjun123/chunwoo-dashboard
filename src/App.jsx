@@ -12,6 +12,7 @@ import { initializeMobileInputOptimization } from './utils/mobileInputOptimizati
 import { fixAriaHiddenIssues } from './utils/materialUploadUtils';
 import { fixNestedScrollContainers } from './utils/dndScrollFix';
 import { applyIPadTouchOptimization } from './utils/touchOptimization';
+import { initTouchOptimization } from './utils/touchUtils';
 import './utils/migrateUtils';
 import './styles/IME.css';
 import { AuthProvider } from './contexts/AuthContext';
@@ -365,6 +366,16 @@ const App = React.memo(() => {
     } catch (error) {
       console.error('iPad touch optimization error:', error);
       // 오류가 발생해도 앱은 계속 실행
+    }
+  }, []);
+
+  // 터치 이벤트 최적화 초기화
+  useEffect(() => {
+    try {
+      initTouchOptimization();
+      console.log('Touch optimization initialized');
+    } catch (error) {
+      console.error('Touch optimization error:', error);
     }
   }, []);
 

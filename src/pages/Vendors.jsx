@@ -1604,8 +1604,69 @@ const Vendors = () => {
                 )}
                 {filteredByCompanyType === '천우건업(주)' ? (
                   <>
-                    <TableCell>{vendor.bidRate || '-'}</TableCell>
-                    <TableCell>{vendor.bidAmount ? formatAmount(vendor.bidAmount) : '-'}</TableCell>
+                    <TableCell 
+                      onClick={() => handleInlineEditStart(vendor.id, 'bidRate', vendor.bidRate)}
+                      sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                    >
+                      {editingField === `${vendor.id}-bidRate` ? (
+                        <TextField
+                          value={editingValue}
+                          onChange={(e) => setEditingValue(e.target.value)}
+                          onBlur={() => handleInlineEditSave(vendor.id, 'bidRate')}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleInlineEditSave(vendor.id, 'bidRate');
+                            } else if (e.key === 'Escape') {
+                              handleInlineEditCancel();
+                            }
+                          }}
+                          autoFocus
+                          size="small"
+                          variant="outlined"
+                          placeholder="예: 95.5%"
+                          sx={{ 
+                            '& .MuiOutlinedInput-root': { 
+                              height: '32px',
+                              fontSize: '0.875rem'
+                            }
+                          }}
+                        />
+                      ) : (
+                        vendor.bidRate || '-'
+                      )}
+                    </TableCell>
+                    <TableCell 
+                      onClick={() => handleInlineEditStart(vendor.id, 'bidAmount', vendor.bidAmount)}
+                      sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' } }}
+                    >
+                      {editingField === `${vendor.id}-bidAmount` ? (
+                        <TextField
+                          value={editingValue}
+                          onChange={(e) => setEditingValue(e.target.value)}
+                          onBlur={() => handleInlineEditSave(vendor.id, 'bidAmount')}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleInlineEditSave(vendor.id, 'bidAmount');
+                            } else if (e.key === 'Escape') {
+                              handleInlineEditCancel();
+                            }
+                          }}
+                          autoFocus
+                          size="small"
+                          variant="outlined"
+                          type="number"
+                          placeholder="투찰금액 입력"
+                          sx={{ 
+                            '& .MuiOutlinedInput-root': { 
+                              height: '32px',
+                              fontSize: '0.875rem'
+                            }
+                          }}
+                        />
+                      ) : (
+                        vendor.bidAmount ? formatAmount(vendor.bidAmount) : '-'
+                      )}
+                    </TableCell>
                     <TableCell sx={{
                       // 테블릿에서 숨김
                       '@media (min-width: 768px) and (max-width: 1024px)': {
