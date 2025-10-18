@@ -635,6 +635,7 @@ const CustomSchedule = () => {
             유형: '',
             설명: '',
             현장: '',
+            날씨: '',
             체크여부: ''
           });
         } else {
@@ -646,6 +647,7 @@ const CustomSchedule = () => {
               유형: item.type,
               설명: item.desc || '',
               현장: item.siteId || '',
+              날씨: item.weather && item.weather !== '없음' ? item.weather : '',
               체크여부: checkedItems[`${dateStr}-${item.id}`] ? '체크' : '미체크'
             });
           });
