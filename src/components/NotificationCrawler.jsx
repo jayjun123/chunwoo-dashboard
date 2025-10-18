@@ -160,7 +160,7 @@ const NotificationCrawler = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, mt: 8 }}>
       <Typography variant="h4" gutterBottom>
         알림 크롤링 관리
       </Typography>
