@@ -50,7 +50,8 @@ import {
   Event,
   Assignment,
   Warning,
-  CheckCircleOutline
+  CheckCircleOutline,
+  Notifications
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
