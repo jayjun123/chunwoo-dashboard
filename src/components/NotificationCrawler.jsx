@@ -138,8 +138,25 @@ const NotificationCrawler = () => {
       case 'whatsapp': return '📱';
       case 'email': return '📧';
       case 'system': return '⚙️';
+      case 'bank': return '🏦';
       default: return '📢';
     }
+  };
+
+  // 거래 타입별 색상
+  const getTransactionColor = (bankData) => {
+    if (!bankData) return 'default';
+    if (bankData.isIncome) return 'success';
+    if (bankData.isExpense) return 'error';
+    return 'default';
+  };
+
+  // 거래 타입별 아이콘
+  const getTransactionIcon = (bankData) => {
+    if (!bankData) return '';
+    if (bankData.isIncome) return '💰';
+    if (bankData.isExpense) return '💸';
+    return '💳';
   };
 
   return (
@@ -243,6 +260,49 @@ const NotificationCrawler = () => {
         </CardContent>
       </Card>
 
+      {/* 대구은행 거래 요약 */}
+      {notifications.some(n => n.type === 'bank') && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              🏦 대구은행 거래 요약
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              {(() => {
+                const bankNotifications = notifications.filter(n => n.type === 'bank' && n.bankData);
+                const totalIncome = bankNotifications
+                  .filter(n => n.bankData.isIncome)
+                  .reduce((sum, n) => sum + n.bankData.amount, 0);
+                const totalExpense = bankNotifications
+                  .filter(n => n.bankData.isExpense)
+                  .reduce((sum, n) => sum + n.bankData.amount, 0);
+                const balance = totalIncome - totalExpense;
+                
+                return (
+                  <>
+                    <Chip 
+                      label={`💰 총 입금: ${totalIncome.toLocaleString()}원`}
+                      color="success"
+                      variant="outlined"
+                    />
+                    <Chip 
+                      label={`💸 총 출금: ${totalExpense.toLocaleString()}원`}
+                      color="error"
+                      variant="outlined"
+                    />
+                    <Chip 
+                      label={`📊 잔액: ${balance.toLocaleString()}원`}
+                      color={balance >= 0 ? "success" : "error"}
+                      variant="filled"
+                    />
+                  </>
+                );
+              })()}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 알림 목록 */}
       <Card>
         <CardContent>
@@ -265,6 +325,7 @@ const NotificationCrawler = () => {
                   <MenuItem value="kakao">카카오</MenuItem>
                   <MenuItem value="email">이메일</MenuItem>
                   <MenuItem value="whatsapp">왓츠앱</MenuItem>
+                  <MenuItem value="bank">대구은행</MenuItem>
                 </Select>
               </FormControl>
               <IconButton onClick={() => window.location.reload()}>
@@ -291,6 +352,13 @@ const NotificationCrawler = () => {
                           color={getPriorityColor(notification.priority)}
                           size="small"
                         />
+                        {notification.bankData && (
+                          <Chip 
+                            label={`${getTransactionIcon(notification.bankData)} ${notification.bankData.amount.toLocaleString()}원`}
+                            color={getTransactionColor(notification.bankData)}
+                            size="small"
+                          />
+                        )}
                       </Box>
                     }
                     secondary={
@@ -298,6 +366,15 @@ const NotificationCrawler = () => {
                         <Typography variant="body2" color="text.secondary">
                           {notification.content}
                         </Typography>
+                        {notification.bankData && (
+                          <Typography variant="body2" color="primary" sx={{ mt: 0.5 }}>
+                            {notification.bankData.transactionType === 'deposit' && '💰 입금'}
+                            {notification.bankData.transactionType === 'withdrawal' && '💸 출금'}
+                            {notification.bankData.transactionType === 'transfer' && '🔄 이체'}
+                            {notification.bankData.transactionType === 'payment' && '💳 결제'}
+                            {notification.bankData.description && ` - ${notification.bankData.description}`}
+                          </Typography>
+                        )}
                         <Typography variant="caption" color="text.secondary">
                           {notification.sender} • {new Date(notification.timestamp?.toDate?.() || notification.timestamp).toLocaleString()}
                         </Typography>

@@ -8,7 +8,8 @@ export const notificationTypes = {
   WHATSAPP: 'whatsapp',
   TELEGRAM: 'telegram',
   EMAIL: 'email',
-  SYSTEM: 'system'
+  SYSTEM: 'system',
+  BANK: 'bank'
 };
 
 // 알림 크롤링 설정
@@ -27,6 +28,12 @@ export const crawlerConfig = {
     enabled: true,
     keywords: ['견적', '계약', '청구'],
     priority: 'high'
+  },
+  bank: {
+    enabled: true,
+    keywords: ['입금', '출금', '이체', '결제', '수수료', '대구은행'],
+    priority: 'high',
+    bankName: '대구은행'
   }
 };
 
@@ -88,6 +95,47 @@ export const setupWebNotificationCrawler = () => {
   }
 };
 
+// 대구은행 거래 내역 파싱
+export const parseBankTransaction = (notification) => {
+  const content = notification.body || notification.content;
+  const title = notification.title;
+  
+  // 대구은행 알림 패턴 분석
+  const patterns = {
+    // 입금: "입금 1,000,000원 (급여)"
+    deposit: /입금\s*([0-9,]+)원\s*(?:\(([^)]+)\))?/,
+    // 출금: "출금 50,000원 (ATM)"
+    withdrawal: /출금\s*([0-9,]+)원\s*(?:\(([^)]+)\))?/,
+    // 이체: "이체 100,000원 → 홍길동"
+    transfer: /이체\s*([0-9,]+)원\s*→\s*([^)]+)/,
+    // 결제: "결제 25,000원 (스타벅스)"
+    payment: /결제\s*([0-9,]+)원\s*(?:\(([^)]+)\))?/
+  };
+  
+  let transactionType = 'unknown';
+  let amount = 0;
+  let description = '';
+  
+  for (const [type, pattern] of Object.entries(patterns)) {
+    const match = content.match(pattern);
+    if (match) {
+      transactionType = type;
+      amount = parseInt(match[1].replace(/,/g, ''));
+      description = match[2] || '';
+      break;
+    }
+  }
+  
+  return {
+    transactionType,
+    amount,
+    description,
+    originalContent: content,
+    isIncome: transactionType === 'deposit',
+    isExpense: ['withdrawal', 'transfer', 'payment'].includes(transactionType)
+  };
+};
+
 // 수신된 알림 처리
 export const handleIncomingNotification = async (notification) => {
   const processedNotification = {
@@ -105,6 +153,13 @@ export const handleIncomingNotification = async (notification) => {
     source: 'web'
   };
   
+  // 대구은행 거래 내역인 경우 추가 파싱
+  if (processedNotification.type === 'bank' && processedNotification.sender.includes('대구은행')) {
+    const bankData = parseBankTransaction(notification);
+    processedNotification.bankData = bankData;
+    processedNotification.category = bankData.isIncome ? 'income' : 'expense';
+  }
+  
   // 키워드 필터링
   const config = crawlerConfig[processedNotification.type];
   if (config && config.enabled) {
@@ -115,9 +170,57 @@ export const handleIncomingNotification = async (notification) => {
   }
 };
 
+// 대구은행 알림 크롤링 시뮬레이션
+export const simulateBankNotificationCrawling = async () => {
+  const bankNotifications = [
+    {
+      type: 'bank',
+      title: '대구은행',
+      content: '입금 2,500,000원 (급여)',
+      sender: '대구은행',
+      timestamp: new Date()
+    },
+    {
+      type: 'bank',
+      title: '대구은행',
+      content: '출금 150,000원 (ATM)',
+      sender: '대구은행',
+      timestamp: new Date(Date.now() - 3600000) // 1시간 전
+    },
+    {
+      type: 'bank',
+      title: '대구은행',
+      content: '결제 45,000원 (현장자재구매)',
+      sender: '대구은행',
+      timestamp: new Date(Date.now() - 7200000) // 2시간 전
+    },
+    {
+      type: 'bank',
+      title: '대구은행',
+      content: '이체 500,000원 → 협력업체',
+      sender: '대구은행',
+      timestamp: new Date(Date.now() - 10800000) // 3시간 전
+    },
+    {
+      type: 'bank',
+      title: '대구은행',
+      content: '입금 800,000원 (기성금)',
+      sender: '대구은행',
+      timestamp: new Date(Date.now() - 14400000) // 4시간 전
+    }
+  ];
+  
+  for (const notification of bankNotifications) {
+    await handleIncomingNotification(notification);
+  }
+};
+
 // 서버 사이드 크롤링 시뮬레이션
 export const simulateNotificationCrawling = async () => {
-  const mockNotifications = [
+  // 대구은행 알림 우선 크롤링
+  await simulateBankNotificationCrawling();
+  
+  const otherNotifications = [
     {
       type: 'kakao',
       title: '현장 일정 변경',
@@ -131,17 +234,10 @@ export const simulateNotificationCrawling = async () => {
       content: '새로운 건물 공사 견적서 승인이 필요합니다.',
       sender: '관리팀',
       timestamp: new Date()
-    },
-    {
-      type: 'whatsapp',
-      title: '안전 점검 완료',
-      content: '오늘 안전 점검을 완료했습니다.',
-      sender: '안전팀',
-      timestamp: new Date()
     }
   ];
   
-  for (const notification of mockNotifications) {
+  for (const notification of otherNotifications) {
     await handleIncomingNotification(notification);
   }
 };
