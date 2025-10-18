@@ -37,7 +37,8 @@ import {
   Refresh,
   Warning,
   Info,
-  CheckCircle
+  CheckCircle,
+  Download
 } from '@mui/icons-material';
 import { 
   startNotificationCrawling, 
@@ -110,6 +111,56 @@ const NotificationCrawler = () => {
         keywords: prev[type].keywords.filter(k => k !== keyword)
       }
     }));
+  };
+
+  // 엑셀 다운로드 함수
+  const handleExcelDownload = () => {
+    // 엑셀 데이터 준비
+    const excelData = filteredNotifications.map(notification => ({
+      '알림 ID': notification.id,
+      '타입': notification.type,
+      '제목': notification.title,
+      '내용': notification.content,
+      '발신자': notification.sender,
+      '우선순위': notification.priority,
+      '수집일시': new Date(notification.timestamp?.toDate?.() || notification.timestamp).toLocaleString(),
+      '거래타입': notification.bankData?.transactionType || '',
+      '거래금액': notification.bankData?.amount || '',
+      '거래설명': notification.bankData?.description || '',
+      '수입/지출': notification.bankData?.isIncome ? '수입' : notification.bankData?.isExpense ? '지출' : '',
+      '카테고리': notification.category || ''
+    }));
+
+    // CSV 형태로 변환
+    const headers = Object.keys(excelData[0] || {});
+    const csvContent = [
+      headers.join(','),
+      ...excelData.map(row => 
+        headers.map(header => {
+          const value = row[header];
+          // 쉼표나 따옴표가 포함된 경우 따옴표로 감싸기
+          if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+            return `"${value.replace(/"/g, '""')}"`;
+          }
+          return value;
+        }).join(',')
+      )
+    ].join('\n');
+
+    // BOM 추가 (한글 깨짐 방지)
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    // 다운로드 링크 생성
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `알림크롤링_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // 필터링된 알림
@@ -328,6 +379,15 @@ const NotificationCrawler = () => {
                   <MenuItem value="bank">대구은행</MenuItem>
                 </Select>
               </FormControl>
+              <Button
+                variant="outlined"
+                startIcon={<Download />}
+                onClick={handleExcelDownload}
+                sx={{ mr: 2 }}
+                disabled={filteredNotifications.length === 0}
+              >
+                엑셀 다운로드
+              </Button>
               <IconButton onClick={() => window.location.reload()}>
                 <Refresh />
               </IconButton>
