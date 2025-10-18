@@ -241,8 +241,6 @@ const NotepadApp = React.lazy(() => import('./components/NotepadApp'));
 const GanttChartPage = React.lazy(() => import('./pages/GanttChart'));
 const Estimates = React.lazy(() => import('./pages/Estimates'));
 const Claims = React.lazy(() => import('./pages/Claims'));
-const EstimatesMobile = React.lazy(() => import('./pages/EstimatesMobile'));
-const ClaimsMobile = React.lazy(() => import('./pages/ClaimsMobile'));
 const Confidential = React.lazy(() => import('./pages/Confidential'));
 const UserManual = React.lazy(() => import('./pages/UserManual'));
 const EstimateAnalysis = React.lazy(() => import('./pages/EstimateAnalysis'));
@@ -986,14 +984,6 @@ const App = React.memo(() => {
                             <Layout>
                                 <EstimateAnalysis />
                               </Layout>
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/mobile-render"
-                        element={
-                          <ProtectedRoute>
-                            <MobileRender />
                           </ProtectedRoute>
                         }
                       />
