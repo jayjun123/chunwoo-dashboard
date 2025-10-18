@@ -5,13 +5,12 @@ import { CssBaseline } from '@mui/material';
 import { configureIME } from './utils/imeHandler.jsx';
 import { initKeyboardManager } from './utils/pwaKeyboardUtils';
 import { initMobileOptimization, initViewportHeight } from './utils/mobileOptimization';
-import { useMediaQuery } from '@mui/material';
 import { initializeWindow } from './utils/windowManager';
 import { globalCleanupManager, enhancedPerformanceMonitor } from './utils/performanceUtils';
 import { initializeMobileInputOptimization } from './utils/mobileInputOptimization';
 import { fixAriaHiddenIssues } from './utils/materialUploadUtils';
 import { fixNestedScrollContainers } from './utils/dndScrollFix';
-import { applyIPadTouchOptimization } from './utils/touchOptimization';
+import { applyIPadTouchOptimization, enhanceApplePencilTouch } from './utils/touchOptimization';
 import { initTouchOptimization } from './utils/touchUtils';
 import './utils/migrateUtils';
 import './styles/IME.css';
@@ -21,7 +20,6 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { Provider } from 'react-redux';
 import { store } from './store/index';
 import Layout from './components/Layout';
-import MobileLayout from './components/common/MobileLayout';
 import SwipeableContainer from './components/common/SwipeableContainer';
 import Login from './components/Login';
 import Dashboard from './components/dashboard/Dashboard';
@@ -63,7 +61,6 @@ import CompanyDistribution from './pages/CompanyDistribution';
 import SettlementManagement from './pages/SettlementManagement';
 import SettlementDetail from './pages/SettlementDetail';
 import Mapping from './pages/Mapping';
-import MobileRender from './pages/MobileRender';
 import { URL_ALIASES, expandUrl } from './utils/urlShortener';
 import errorHandler from './utils/errorHandler';
 
@@ -238,13 +235,6 @@ const Register = React.lazy(() => import('./components/Register'));
 const RegisterSuccess = React.lazy(() => import('./components/RegisterSuccess'));
 const ForgotPassword = React.lazy(() => import('./components/ForgotPassword'));
 const CustomSchedule = React.lazy(() => import('./pages/CustomSchedule'));
-const CustomScheduleMobile = React.lazy(() => import('./pages/CustomScheduleMobile'));
-const MobileSchedule = React.lazy(() => import('./pages/MobileScheduleFixed'));
-const MobileSites = React.lazy(() => import('./pages/MobileSites'));
-const MobileSafety = React.lazy(() => import('./pages/MobileSafety'));
-const MobileMaterials = React.lazy(() => import('./pages/MobileMaterials'));
-const MobileSettlement = React.lazy(() => import('./pages/MobileSettlement'));
-const MobileEstimates = React.lazy(() => import('./pages/MobileEstimates'));
 const QuantityCheck = React.lazy(() => import('./pages/QuantityCheck'));
 const ScheduleManagement = React.lazy(() => import('./components/schedule/ScheduleManagement'));
 const NotepadApp = React.lazy(() => import('./components/NotepadApp'));
@@ -288,8 +278,6 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const App = React.memo(() => {
-  const isMobile = useMediaQuery('(max-width:600px)');
-  
   // 아이디어패드 상태
   const [ideaPadOpen, setIdeaPadOpen] = useState(false);
   const [ideaPadSiteId, setIdeaPadSiteId] = useState(null);
@@ -589,13 +577,9 @@ const App = React.memo(() => {
                         path="/dashboard"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileSchedule />
-                            ) : (
-                              <Layout>
-                                <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -603,13 +587,9 @@ const App = React.memo(() => {
                         path="/sites"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileSites />
-                            ) : (
-                              <Layout>
-                                <NewSites />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <NewSites />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -617,15 +597,9 @@ const App = React.memo(() => {
                         path="/company-distribution"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <CompanyDistribution />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
-                                <CompanyDistribution />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <CompanyDistribution />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -633,15 +607,9 @@ const App = React.memo(() => {
                         path="/quantity-check"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <QuantityCheck />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <QuantityCheck />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -649,15 +617,9 @@ const App = React.memo(() => {
                         path="/sites/:siteName"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <SiteDetail />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <SiteDetail />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -665,15 +627,11 @@ const App = React.memo(() => {
                         path="/safety"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileSafety />
-                            ) : (
-                              <Layout>
-                                <Suspense fallback={<LoadingSpinner />}>
-                                  <Safety />
-                                </Suspense>
-                              </Layout>
-                            )}
+                            <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <Safety />
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -681,15 +639,11 @@ const App = React.memo(() => {
                         path="/materials"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileMaterials />
-                            ) : (
-                              <Layout>
-                                <Suspense fallback={<LoadingSpinner />}>
-                                  <div>자재관리 페이지 (데스크톱용)</div>
-                                </Suspense>
-                              </Layout>
-                            )}
+                            <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <div>자재관리 페이지 (데스크톱용)</div>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -697,15 +651,9 @@ const App = React.memo(() => {
                         path="/safety-inspections"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <SafetyInspections />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <SafetyInspections />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -713,15 +661,9 @@ const App = React.memo(() => {
                         path="/safety-accidents"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <SafetyIncidents />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <SafetyIncidents />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -729,15 +671,9 @@ const App = React.memo(() => {
                         path="/safety-education"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <SafetyTraining />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <SafetyTraining />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -745,15 +681,9 @@ const App = React.memo(() => {
                         path="/safety-costs"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <SafetyReports />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <SafetyReports />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -761,13 +691,9 @@ const App = React.memo(() => {
                         path="/schedule"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileSchedule />
-                            ) : (
-                              <Layout>
-                                <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -775,15 +701,9 @@ const App = React.memo(() => {
                         path="/gantt"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <GanttChartPage />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <GanttChartPage />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -791,15 +711,9 @@ const App = React.memo(() => {
                         path="/confidential"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Confidential />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <Confidential />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -807,15 +721,9 @@ const App = React.memo(() => {
                         path="/daema-team"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <ConstructionTeam />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <ConstructionTeam />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -824,15 +732,9 @@ const App = React.memo(() => {
                         path="/team-settlement"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <TeamSettlement />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <TeamSettlement />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -841,15 +743,9 @@ const App = React.memo(() => {
                         path="/discussions"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Discussions />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <Discussions />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -857,15 +753,9 @@ const App = React.memo(() => {
                         path="/vendors"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Vendors />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <Vendors />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -883,15 +773,9 @@ const App = React.memo(() => {
                         path="/progress"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Progress />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <Progress />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -899,15 +783,9 @@ const App = React.memo(() => {
                         path="/members"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Members />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <Members />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -915,15 +793,9 @@ const App = React.memo(() => {
                         path="/permissions"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Permissions />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <Permissions />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -931,15 +803,9 @@ const App = React.memo(() => {
                         path="/todo-list"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <TodoList />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <TodoList />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -947,15 +813,9 @@ const App = React.memo(() => {
                         path="/todo/all"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <TodoList />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <TodoList />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -963,15 +823,9 @@ const App = React.memo(() => {
                         path="/settings" 
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Settings />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <Settings />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         } 
                       />
@@ -979,15 +833,9 @@ const App = React.memo(() => {
                         path="/importantsite"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <ImportantSite />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <ImportantSite />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -995,15 +843,9 @@ const App = React.memo(() => {
                         path="/gisung"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <GisungStatusPage onOpenIdeaPad={handleOpenIdeaPad} />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <GisungStatusPage onOpenIdeaPad={handleOpenIdeaPad} />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -1011,15 +853,9 @@ const App = React.memo(() => {
                         path="/whole-list"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <WholeList />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <WholeList />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -1027,15 +863,9 @@ const App = React.memo(() => {
                         path="/cost"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Cost />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <Cost />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -1043,13 +873,9 @@ const App = React.memo(() => {
                         path="/estimates"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileEstimates />
-                            ) : (
-                              <Layout>
-                                <Estimates />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <Estimates />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -1057,15 +883,9 @@ const App = React.memo(() => {
                         path="/mapping"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Mapping />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <Mapping />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -1073,15 +893,9 @@ const App = React.memo(() => {
                         path="/claims"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <ClaimsMobile onOpenIdeaPad={handleOpenIdeaPad} />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <Claims onOpenIdeaPad={handleOpenIdeaPad} />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -1089,13 +903,9 @@ const App = React.memo(() => {
                         path="/settlement"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileSettlement />
-                            ) : (
-                              <Layout>
-                                <SettlementManagement />
-                              </Layout>
-                            )}
+                            <Layout>
+                              <SettlementManagement />
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -1103,15 +913,9 @@ const App = React.memo(() => {
                         path="/settlement/:siteId"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <SettlementDetail />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <SettlementDetail />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -1119,15 +923,9 @@ const App = React.memo(() => {
                         path="/users"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Users />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <Users />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -1135,15 +933,9 @@ const App = React.memo(() => {
                         path="/profile"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <Profile />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <Profile />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -1151,15 +943,9 @@ const App = React.memo(() => {
                         path="/news-favorites"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <NewsFavorites />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <NewsFavorites />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -1167,15 +953,9 @@ const App = React.memo(() => {
                         path="/pdf-test"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <PDFTest />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <PDFTest />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -1183,15 +963,9 @@ const App = React.memo(() => {
                         path="/template-upload"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <TemplateUpload />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <TemplateUpload />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -1199,15 +973,9 @@ const App = React.memo(() => {
                         path="/manual"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <UserManual />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <UserManual />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -1215,15 +983,9 @@ const App = React.memo(() => {
                         path="/estimate-analysis"
                         element={
                           <ProtectedRoute>
-                            {isMobile ? (
-                              <MobileLayout>
-                                <EstimateAnalysis />
-                              </MobileLayout>
-                            ) : (
-                              <Layout>
+                            <Layout>
                                 <EstimateAnalysis />
                               </Layout>
-                            )}
                           </ProtectedRoute>
                         }
                       />
