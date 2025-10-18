@@ -246,6 +246,7 @@ const UserManual = React.lazy(() => import('./pages/UserManual'));
 const EstimateAnalysis = React.lazy(() => import('./pages/EstimateAnalysis'));
 import { CircularProgress } from '@mui/material';
 const LandingPage = React.lazy(() => import('./pages/LandingPage'));
+const NotificationCrawler = React.lazy(() => import('./components/NotificationCrawler'));
 
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
@@ -984,6 +985,18 @@ const App = React.memo(() => {
                             <Layout>
                                 <EstimateAnalysis />
                               </Layout>
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/notification-crawler"
+                        element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <NotificationCrawler />
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />

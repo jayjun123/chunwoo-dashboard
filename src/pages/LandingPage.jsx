@@ -652,6 +652,13 @@ const LandingPage = () => {
       description: '견적서 작성 및 분석',
       path: '/estimates',
       preview: '견적서 작성, 분석, 승인 관리'
+    },
+    {
+      icon: <Notifications sx={{ fontSize: 40, color: '#8b5cf6' }} />,
+      title: '알림 크롤링',
+      description: '스마트폰 알림 수집 및 관리',
+      path: '/notification-crawler',
+      preview: '앱 알림 자동 수집, 키워드 필터링'
     }
   ];
 
