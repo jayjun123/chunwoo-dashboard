@@ -73,7 +73,7 @@ const Estimates = () => {
   const [companyFilter, setCompanyFilter] = useState('전체'); // 회사별 필터링 - 전체 기본값 (견적관리 페이지)
   const [submissionStatusFilter, setSubmissionStatusFilter] = useState('전체'); // 제출상태 필터링
   const [sortField, setSortField] = useState('receptionDate'); // 접수일 순서대로 정렬
-  const [sortDirection, setSortDirection] = useState('asc'); // 저장 순서대로 (오래된 순)
+  const [sortDirection, setSortDirection] = useState('desc'); // 접수일 내림차순 (최신 접수순)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -654,13 +654,15 @@ const Estimates = () => {
     
     switch (sortField) {
       case 'receptionDate':
-        aValue = a.receptionDate || '';
-        bValue = b.receptionDate || '';
-        break;
+        // 접수일을 날짜로 변환하여 비교
+        aValue = a.receptionDate ? new Date(a.receptionDate) : new Date(0);
+        bValue = b.receptionDate ? new Date(b.receptionDate) : new Date(0);
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
       case 'submissionDeadline':
-        aValue = a.submissionDeadline || '';
-        bValue = b.submissionDeadline || '';
-        break;
+        // 제출기한을 날짜로 변환하여 비교
+        aValue = a.submissionDeadline ? new Date(a.submissionDeadline) : new Date(0);
+        bValue = b.submissionDeadline ? new Date(b.submissionDeadline) : new Date(0);
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
       case 'submissionStatus':
         aValue = a.submissionStatus || '';
         bValue = b.submissionStatus || '';
@@ -682,10 +684,10 @@ const Estimates = () => {
         bValue = b.type || '';
         break;
       default:
-        // 기본값: createdAt 기준으로 내림차순 정렬 (최신 입력순)
-        const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
-        const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
-        return dateB - dateA;
+        // 기본값: 접수일 기준으로 내림차순 정렬 (최신 접수순)
+        const receptionDateA = a.receptionDate ? new Date(a.receptionDate) : new Date(0);
+        const receptionDateB = b.receptionDate ? new Date(b.receptionDate) : new Date(0);
+        return receptionDateB - receptionDateA;
     }
     
     // 문자열 비교
@@ -699,10 +701,10 @@ const Estimates = () => {
       return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
     }
     
-    // 기본값: createdAt 기준으로 내림차순 정렬
-    const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
-    const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
-    return dateB - dateA;
+    // 기본값: 접수일 기준으로 내림차순 정렬
+    const receptionDateA = a.receptionDate ? new Date(a.receptionDate) : new Date(0);
+    const receptionDateB = b.receptionDate ? new Date(b.receptionDate) : new Date(0);
+    return receptionDateB - receptionDateA;
   });
 
   // 페이지네이션 계산
