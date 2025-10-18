@@ -57,6 +57,10 @@ const NotificationCrawler = () => {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newKeyword, setNewKeyword] = useState('');
   const [selectedType, setSelectedType] = useState('kakao');
+  const [addAppDialogOpen, setAddAppDialogOpen] = useState(false);
+  const [newAppName, setNewAppName] = useState('');
+  const [newAppKeywords, setNewAppKeywords] = useState('');
+  const [newAppPriority, setNewAppPriority] = useState('medium');
 
   // 알림 데이터 로드
   useEffect(() => {
@@ -111,6 +115,44 @@ const NotificationCrawler = () => {
         keywords: prev[type].keywords.filter(k => k !== keyword)
       }
     }));
+  };
+
+  // 새 앱 추가 함수
+  const handleAddApp = () => {
+    if (newAppName.trim() && newAppKeywords.trim()) {
+      const appKey = newAppName.toLowerCase().replace(/\s+/g, '_');
+      const keywords = newAppKeywords.split(',').map(k => k.trim()).filter(k => k);
+      
+      setConfig(prev => ({
+        ...prev,
+        [appKey]: {
+          enabled: true,
+          keywords: keywords,
+          priority: newAppPriority,
+          appName: newAppName
+        }
+      }));
+      
+      // 폼 초기화
+      setNewAppName('');
+      setNewAppKeywords('');
+      setNewAppPriority('medium');
+      setAddAppDialogOpen(false);
+    }
+  };
+
+  // 앱 삭제 함수
+  const handleDeleteApp = (appKey) => {
+    if (['kakao', 'email', 'bank'].includes(appKey)) {
+      alert('기본 앱은 삭제할 수 없습니다.');
+      return;
+    }
+    
+    setConfig(prev => {
+      const newConfig = { ...prev };
+      delete newConfig[appKey];
+      return newConfig;
+    });
   };
 
   // 엑셀 다운로드 함수
@@ -186,11 +228,18 @@ const NotificationCrawler = () => {
   const getTypeIcon = (type) => {
     switch (type) {
       case 'kakao': return '💬';
-      case 'whatsapp': return '📱';
       case 'email': return '📧';
       case 'system': return '⚙️';
       case 'bank': return '🏦';
-      default: return '📢';
+      case 'telegram': return '✈️';
+      case 'slack': return '💼';
+      case 'discord': return '🎮';
+      case 'teams': return '👥';
+      case 'line': return '📱';
+      case 'instagram': return '📸';
+      case 'facebook': return '👤';
+      case 'twitter': return '🐦';
+      default: return '📱';
     }
   };
 
@@ -253,15 +302,25 @@ const NotificationCrawler = () => {
       {/* 설정 카드 */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="h6" gutterBottom>
-            크롤링 설정
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Typography variant="h6">
+              크롤링 설정
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => setAddAppDialogOpen(true)}
+              size="small"
+            >
+              새 앱 추가
+            </Button>
+          </Box>
           
           {Object.entries(config).map(([type, settings]) => (
             <Box key={type} sx={{ mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <Typography variant="subtitle1" sx={{ mr: 2, minWidth: 100 }}>
-                  {getTypeIcon(type)} {type.toUpperCase()}
+                  {getTypeIcon(type)} {settings.appName || type.toUpperCase()}
                 </Typography>
                 <FormControlLabel
                   control={
@@ -284,6 +343,16 @@ const NotificationCrawler = () => {
                   size="small"
                   sx={{ ml: 2 }}
                 />
+                {!['kakao', 'email', 'bank'].includes(type) && (
+                  <IconButton
+                    size="small"
+                    onClick={() => handleDeleteApp(type)}
+                    sx={{ ml: 1 }}
+                    color="error"
+                  >
+                    <Delete />
+                  </IconButton>
+                )}
               </Box>
               
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -375,8 +444,14 @@ const NotificationCrawler = () => {
                   <MenuItem value="low">낮음</MenuItem>
                   <MenuItem value="kakao">카카오</MenuItem>
                   <MenuItem value="email">이메일</MenuItem>
-                  <MenuItem value="whatsapp">왓츠앱</MenuItem>
                   <MenuItem value="bank">대구은행</MenuItem>
+                  {Object.entries(config).map(([type, settings]) => 
+                    !['kakao', 'email', 'bank'].includes(type) && (
+                      <MenuItem key={type} value={type}>
+                        {settings.appName || type}
+                      </MenuItem>
+                    )
+                  )}
                 </Select>
               </FormControl>
               <Button
@@ -475,6 +550,50 @@ const NotificationCrawler = () => {
         <DialogActions>
           <Button onClick={() => setAddDialogOpen(false)}>취소</Button>
           <Button onClick={handleAddKeyword} variant="contained">추가</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 새 앱 추가 다이얼로그 */}
+      <Dialog open={addAppDialogOpen} onClose={() => setAddAppDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>새 앱 추가</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="앱 이름"
+            fullWidth
+            variant="outlined"
+            value={newAppName}
+            onChange={(e) => setNewAppName(e.target.value)}
+            placeholder="예: 슬랙, 디스코드, 텔레그램"
+            sx={{ mt: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="키워드 (쉼표로 구분)"
+            fullWidth
+            variant="outlined"
+            value={newAppKeywords}
+            onChange={(e) => setNewAppKeywords(e.target.value)}
+            placeholder="예: 공사, 현장, 일정, 안전"
+            sx={{ mt: 2 }}
+          />
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>우선순위</InputLabel>
+            <Select
+              value={newAppPriority}
+              onChange={(e) => setNewAppPriority(e.target.value)}
+              label="우선순위"
+            >
+              <MenuItem value="high">높음</MenuItem>
+              <MenuItem value="medium">보통</MenuItem>
+              <MenuItem value="low">낮음</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddAppDialogOpen(false)}>취소</Button>
+          <Button onClick={handleAddApp} variant="contained">추가</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -5,7 +5,6 @@ import { db } from '../firebase';
 // 알림 데이터 구조
 export const notificationTypes = {
   KAKAO: 'kakao',
-  WHATSAPP: 'whatsapp',
   TELEGRAM: 'telegram',
   EMAIL: 'email',
   SYSTEM: 'system',
@@ -18,11 +17,6 @@ export const crawlerConfig = {
     enabled: true,
     keywords: ['공사', '현장', '일정', '안전', '자재'],
     priority: 'high'
-  },
-  whatsapp: {
-    enabled: true,
-    keywords: ['work', 'construction', 'site'],
-    priority: 'medium'
   },
   email: {
     enabled: true,
