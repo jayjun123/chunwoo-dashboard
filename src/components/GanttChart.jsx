@@ -1135,8 +1135,8 @@ const GanttChart = () => {
         p: isMobile ? 1 : 3, 
         overflow: 'auto', 
         mt: isMobile ? 1 : 2.5, 
-        maxHeight: isFullscreen ? 'calc(100vh - 230px)' : isMobile ? 'calc(60vh - 100px)' : 'calc(70vh - 100px)',
-        height: isFullscreen ? 'calc(100vh - 230px)' : 'auto',
+        maxHeight: isFullscreen ? 'calc(100vh - 180px)' : isMobile ? 'calc(60vh - 50px)' : 'calc(70vh - 50px)',
+        height: isFullscreen ? 'calc(100vh - 180px)' : 'auto',
         // 모바일 터치 개선
         touchAction: isMobile ? 'pan-x pan-y' : 'auto',
         WebkitOverflowScrolling: 'touch',
@@ -1169,7 +1169,7 @@ const GanttChart = () => {
       onMouseDown={handleMouseDown}>
         <Box sx={{ 
           position: 'relative', 
-          minHeight: isMobile ? 250 : 450,
+          minHeight: isMobile ? 300 : 500,
           width: '100%',
           maxWidth: '100%',
           border: 1,
