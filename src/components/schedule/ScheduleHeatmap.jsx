@@ -1066,7 +1066,7 @@ const ScheduleHeatmap = ({
                     const displayHasWork = isFuture ? false : hasWork;
                     const displayManpower = isFuture ? 0 : manpower;
                     
-                    // 해당 날짜의 일정 항목 타입 확인
+                    // 해당 날짜의 일정 항목 타입 확인 (색상용)
                     const getWorkType = () => {
                       if (isFuture || !displayHasWork) return null;
                       
@@ -1078,21 +1078,40 @@ const ScheduleHeatmap = ({
                         const item = siteItems[0]; // 첫 번째 항목의 타입 사용
                         if (item.type === '실측') return '실측';
                         if (item.type === '회의') return '회의';
+                        if (item.type === '기타') return '기타'; // 색상용으로는 '기타' 유지
+                      }
+                      return '투입'; // 기본값
+                    };
+
+                    // 툴팁용 텍스트 가져오기
+                    const getTooltipText = () => {
+                      if (isFuture || !displayHasWork) return null;
+                      
+                      const siteId = item.siteId;
+                      const dayItems = calendarItems[dayStr] || [];
+                      const siteItems = dayItems.filter(calItem => calItem.siteId === siteId);
+                      
+                      if (siteItems.length > 0) {
+                        const item = siteItems[0];
+                        if (item.type === '실측') return '실측';
+                        if (item.type === '회의') return '회의';
                         if (item.type === '기타') {
                           // 기타 항목에서 대괄호 내용 추출
-                          if (item.description && item.description.includes('[') && item.description.includes(']')) {
-                            const match = item.description.match(/\[([^\]]+)\]/);
+                          const textToCheck = item.text || item.description || '';
+                          if (textToCheck.includes('[') && textToCheck.includes(']')) {
+                            const match = textToCheck.match(/\[([^\]]+)\]/);
                             if (match && match[1]) {
-                              return match[1]; // 대괄호 안의 내용 반환 (예: 발주)
+                              return match[1]; // 대괄호 안의 내용 반환 (예: 마무리)
                             }
                           }
                           return '기타';
                         }
                       }
-                      return '투입'; // 기본값
+                      return '투입';
                     };
                     
                     const workType = getWorkType();
+                    const tooltipText = getTooltipText();
                     
                     return (
                       <Tooltip
@@ -1103,7 +1122,7 @@ const ScheduleHeatmap = ({
                               {format(day, 'M월 d일')}
                             </Typography>
                             <Typography variant="body2">
-                              {isFuture ? '미래' : (displayHasWork ? (workType || '투입') : '미투입')}
+                              {isFuture ? '미래' : (displayHasWork ? (tooltipText || '투입') : '미투입')}
                             </Typography>
                             {displayHasWork && displayManpower > 0 && (
                               <Typography variant="body2" sx={{ color: '#ff9800' }}>
