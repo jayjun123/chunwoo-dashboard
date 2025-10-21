@@ -1136,6 +1136,10 @@ const CustomCalendar = (props) => {
                             boxSizing: 'border-box',
                             scrollbarWidth: 'none', // Firefox에서 스크롤바 완전히 숨기기
                             msOverflowStyle: 'none', // IE/Edge에서 스크롤바 숨기기
+                            // 아이패드 PWA 환경에서 스크롤 영역 두꺼워짐 방지
+                            touchAction: 'auto', // 기본 터치 동작 허용
+                            WebkitOverflowScrolling: 'touch', // iOS 부드러운 스크롤
+                            overscrollBehavior: 'contain', // 스크롤 바운스 제한
                             '&::-webkit-scrollbar': {
                               display: 'none', // Webkit 브라우저에서 스크롤바 완전히 숨기기
                             },
@@ -1144,6 +1148,12 @@ const CustomCalendar = (props) => {
                             },
                             '&::-webkit-scrollbar-thumb': {
                               display: 'none',
+                            },
+                            // 아이패드에서 스크롤 영역 최적화
+                            '@media (min-width: 768px) and (max-width: 1024px)': {
+                              touchAction: 'pan-y', // 아이패드에서 세로 스크롤만 허용
+                              WebkitOverflowScrolling: 'touch',
+                              overscrollBehavior: 'contain',
                             },
                           }}
                         >

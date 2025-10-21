@@ -341,6 +341,30 @@ html, body, #root {
   }
 }
 
+/* 아이패드 PWA 환경에서 달력 셀 스크롤 영역 최적화 */
+.calendar-events,
+.MuiBox-root[data-scrollable="true"] {
+  touch-action: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  -webkit-overscroll-behavior: contain !important;
+}
+
+/* 아이패드에서 스크롤 영역 두꺼워짐 방지 */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .calendar-events,
+  .MuiBox-root[data-scrollable="true"] {
+    touch-action: pan-y !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    -webkit-overscroll-behavior: contain !important;
+    /* 스크롤 영역 두꺼워짐 방지를 위한 추가 설정 */
+    -webkit-transform: translateZ(0) !important;
+    transform: translateZ(0) !important;
+    will-change: scroll-position !important;
+  }
+}
+
 /* 아이패드 터치 이벤트 개선 */
 @media (min-width: 768px) and (max-width: 1024px) {
   /* 터치 지연 시간 제거 */
