@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { FaHome, FaBuilding, FaList, FaComments, FaBell, FaUsers, FaCalendarAlt, FaHardHat, FaBox, FaFileAlt, FaChartBar } from 'react-icons/fa';
+import { useAuth } from '../contexts/AuthContext';
+import { getAccessibleMenus } from '../utils/menuPermissions';
 import './Sidebar.css';
 
 const Sidebar = () => {
   const [isMobile, setIsMobile] = useState(false);
+  const { currentUser } = useAuth();
 
   useEffect(() => {
     const checkMobile = () => {
@@ -17,18 +20,43 @@ const Sidebar = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
   
-  const menuItems = [
-    { path: '/', icon: <FaHome />, label: '대시보드' },
-    { path: '/sites', icon: <FaBuilding />, label: '현장 관리' },
-    { path: '/whole-list', icon: <FaList />, label: '전체 현장 목록' },
-    { path: '/discussions', icon: <FaComments />, label: '토론' },
-    { path: '/gantt', icon: <FaChartBar />, label: '공정표' },
-    { path: '/notifications', icon: <FaBell />, label: '알림' },
-    { path: '/user-management', icon: <FaUsers />, label: '사용자 관리' },
-    { path: '/safety', icon: <FaHardHat />, label: '안전 관리' },
-    { path: '/materials', icon: <FaBox />, label: '자재 관리' },
-    { path: '/daema-team', icon: <FaUsers />, label: '시공팀', hideOnMobile: true }
-  ];
+  // 아이콘 매핑
+  const iconMap = {
+    Dashboard: <FaHome />,
+    Star: <FaBuilding />,
+    Construction: <FaBuilding />,
+    Map: <FaBuilding />,
+    Security: <FaHardHat />,
+    AttachMoney: <FaFileAlt />,
+    Description: <FaFileAlt />,
+    Forum: <FaComments />,
+    People: <FaUsers />,
+    MonetizationOn: <FaFileAlt />,
+    BarChart: <FaChartBar />,
+    Event: <FaCalendarAlt />,
+    Business: <FaUsers />,
+    Lock: <FaBell />,
+    List: <FaList />,
+    Timeline: <FaChartBar />,
+    Notifications: <FaBell />,
+    AdminPanelSettings: <FaUsers />,
+    Inventory: <FaBox />
+  };
+
+  // 권한 기반 메뉴 아이템 가져오기
+  const getMenuItems = () => {
+    if (!currentUser) return [];
+    
+    const accessibleMenus = getAccessibleMenus(currentUser);
+    return accessibleMenus.map(menu => ({
+      path: menu.path,
+      icon: iconMap[menu.icon] || <FaFileAlt />,
+      label: menu.label,
+      hideOnMobile: menu.key === 'daemaTeam'
+    }));
+  };
+
+  const menuItems = getMenuItems();
 
   return (
     <div className="sidebar">

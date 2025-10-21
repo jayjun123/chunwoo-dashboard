@@ -80,6 +80,7 @@ import { auth } from '../firebase';
 import { useTheme as useThemeContext } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { isMasterUser, isAdminUser } from '../utils/masterUtils';
+import { getAccessibleMenus, hasMenuAccess } from '../utils/menuPermissions';
 import BottomBar from './dashboard/BottomBar';
 import IdeaPad from './NotepadApp';
 
@@ -129,15 +130,31 @@ const Layout = React.memo(({ children }) => {
 
   // 권한에 따른 메뉴 필터링
   const getFilteredMenuItems = () => {
-    if (isMaster) {
-      // 마스터는 모든 메뉴 접근 가능
-      return menuItems;
-    } else {
-      // 마스터 외 사용자는 제한된 메뉴만 접근 가능
-      return menuItems.filter(item => 
-        ['현장일정', '주요현장', '청구예정', '견적요청', '토론의견'].includes(item.text)
-      );
-    }
+    if (!currentUser) return [];
+    
+    // 메뉴 텍스트와 메뉴 키 매핑
+    const menuTextToKey = {
+      '건설뉴스': 'news',
+      '일정관리': 'calendar',
+      '현장일정': 'gantt',
+      '주요현장': 'importantSite',
+      '현장관리': 'sites',
+      'MAP': 'mapping',
+      '안전관리': 'safety',
+      '견적요청': 'estimates',
+      '토론의견': 'discussions',
+      '입찰현황': 'vendors',
+      '거래처관리': 'vendorManagement',
+      '청구예정': 'claims',
+      '기성관리': 'cost',
+      '시공팀': 'daemaTeam',
+      '대외비': 'confidential'
+    };
+    
+    return menuItems.filter(item => {
+      const menuKey = menuTextToKey[item.text];
+      return menuKey ? hasMenuAccess(currentUser, menuKey) : false;
+    });
   };
 
   const filteredMenuItems = getFilteredMenuItems();

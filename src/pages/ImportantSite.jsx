@@ -28,6 +28,8 @@ import {
 } from '@mui/material';
 import MobileSidebar from '../components/MobileSidebar';
 import Image from '../components/common/Image';
+import PermissionGuard from '../components/common/PermissionGuard';
+import { hasMenuAccess } from '../utils/menuPermissions';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import CommentIcon from '@mui/icons-material/Comment';
@@ -62,6 +64,26 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 export default function ImportantSite() {
   const isMobile = useMediaQuery('(max-width:600px)');
+  const { currentUser } = useAuth();
+  
+  // 권한 체크
+  const hasAccess = hasMenuAccess(currentUser, 'importantSite');
+  
+  if (!hasAccess) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">
+          <Typography variant="h6" gutterBottom>
+            접근 권한이 없습니다
+          </Typography>
+          <Typography variant="body2">
+            주요현장 페이지에 접근하려면 관리자로부터 권한을 부여받아야 합니다.
+          </Typography>
+        </Alert>
+      </Box>
+    );
+  }
+  
   const [sites, setSites] = useState([]);
   const [progressData, setProgressData] = useState({}); // { siteId: [progressItems] }
   const [gisungData, setGisungData] = useState({}); // { siteId: [gisungItems] }

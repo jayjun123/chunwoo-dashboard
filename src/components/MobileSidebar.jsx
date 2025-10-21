@@ -38,6 +38,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { isMasterUser, isAdminUser } from '../utils/masterUtils';
+import { getAccessibleMenus, getMenusByCategory } from '../utils/menuPermissions';
 
 const MobileSidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -46,21 +47,42 @@ const MobileSidebar = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { currentUser, logout } = useAuth();
 
-  const menuItems = [
-    { path: '/importantsite', label: '주요현장', icon: <Star /> },
-    { path: '/sites', label: '현장관리', icon: <Construction /> },
-    { path: '/mapping', label: 'MAP', icon: <Map /> },
-    { path: '/safety', label: '안전관리', icon: <Security /> },
-    { path: '/claims', label: '청구예정', icon: <AttachMoney /> },
-    { path: '/estimate', label: '견적요청', icon: <Description /> },
-    { path: '/discussions', label: '토론의견', icon: <Forum /> },
-    { path: '/vendors', label: '거래처현황', icon: <People /> },
-    { path: '/cost', label: '기성관리', icon: <MonetizationOn /> },
-    { path: '/daema-team', label: '시공팀', icon: <BarChart /> },
-    { path: '/calendar', label: '일정관리', icon: <Event /> },
-    { path: '/vendor-management', label: '거래처관리', icon: <Business /> },
-    { path: '/confidential', label: '대외비', icon: <Lock /> }
-  ];
+  // 아이콘 매핑
+  const iconMap = {
+    Dashboard: <Dashboard />,
+    Star: <Star />,
+    Construction: <Construction />,
+    Map: <Map />,
+    Security: <Security />,
+    AttachMoney: <AttachMoney />,
+    Description: <Description />,
+    Forum: <Forum />,
+    People: <People />,
+    MonetizationOn: <MonetizationOn />,
+    BarChart: <BarChart />,
+    Event: <Event />,
+    Business: <Business />,
+    Lock: <Lock />,
+    List: <Description />,
+    Timeline: <Event />,
+    Notifications: <Security />,
+    AdminPanelSettings: <Security />,
+    Inventory: <Description />
+  };
+
+  // 권한 기반 메뉴 아이템 가져오기
+  const getMenuItems = () => {
+    if (!currentUser) return [];
+    
+    const accessibleMenus = getAccessibleMenus(currentUser);
+    return accessibleMenus.map(menu => ({
+      path: menu.path,
+      label: menu.label,
+      icon: iconMap[menu.icon] || <Description />
+    }));
+  };
+
+  const menuItems = getMenuItems();
 
   const handleDrawerToggle = () => {
     setIsOpen(!isOpen);
