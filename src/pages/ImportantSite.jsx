@@ -97,7 +97,6 @@ export default function ImportantSite() {
   const [newCommentInputs, setNewCommentInputs] = useState({}); // { siteId: inputValue }
   const [editingComment, setEditingComment] = useState({ id: null, content: '' });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const { currentUser } = useAuth();
   const fileInputRefs = useRef({});
   const [uploadingSiteId, setUploadingSiteId] = useState(null);
   const [hoveredSiteId, setHoveredSiteId] = useState(null);
