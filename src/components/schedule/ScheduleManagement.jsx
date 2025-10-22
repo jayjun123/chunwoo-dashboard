@@ -60,8 +60,8 @@ function formatKoreanDate(dateStr) {
 function convertEstimateToSchedule(estimate) {
   if (!estimate.submissionDeadline) return null;
   
-  // 제출완료 상태인 견적은 일정에서 제외
-  if (estimate.submissionStatus === '제출완료') {
+  // 제출완료 상태인 견적은 일정에서 제외 (단, 입찰 타입은 제외하지 않음)
+  if (estimate.submissionStatus === '제출완료' && estimate.type !== '입찰') {
     console.log('🔍 제출완료 견적 제외:', estimate.siteName || estimate.company);
     return null;
   }
@@ -80,7 +80,7 @@ function convertEstimateToSchedule(estimate) {
   }
   
   return {
-    id: `estimate_${estimate.id}`,
+    id: estimate.type === '입찰' ? `bid_${estimate.id}` : `estimate_${estimate.id}`,
     title: title,
     text: title, // CustomCalendar에서 사용하는 text 필드 추가
     description: `${estimate.requester} - ${estimate.requestContent || (estimate.type === '입찰' ? '입찰요청' : '견적요청')}`,
@@ -1541,13 +1541,24 @@ const ScheduleManagement = ({
         const bidId = id.replace('bid_', '');
         console.log('입찰 항목 체크 - 입찰 ID:', bidId, '체크 상태:', checked);
         
-        // 입찰 상태 업데이트
-        const scheduleRef = doc(db, 'schedules', bidId);
-        await updateDoc(scheduleRef, {
-          bidStatus: checked ? '입찰완료' : '입찰대기',
-          updatedAt: new Date()
-        });
-        console.log('입찰 상태 업데이트 완료:', bidId, checked ? '입찰완료' : '입찰대기');
+        // 견적 데이터에서 온 입찰인지 확인 (estimates 컬렉션)
+        const estimateRef = doc(db, 'estimates', bidId);
+        try {
+          await updateDoc(estimateRef, {
+            submissionStatus: checked ? '제출완료' : '제출대기',
+            updatedAt: new Date()
+          });
+          console.log('견적 데이터 입찰 상태 업데이트 완료:', bidId, checked ? '제출완료' : '제출대기');
+        } catch (error) {
+          // estimates 컬렉션에 없으면 schedules 컬렉션에서 업데이트
+          console.log('견적 데이터에 없음, 일정 데이터에서 업데이트 시도:', bidId);
+          const scheduleRef = doc(db, 'schedules', bidId);
+          await updateDoc(scheduleRef, {
+            bidStatus: checked ? '입찰완료' : '입찰대기',
+            updatedAt: new Date()
+          });
+          console.log('일정 데이터 입찰 상태 업데이트 완료:', bidId, checked ? '입찰완료' : '입찰대기');
+        }
       }
 
       // 일반 일정 항목인지 확인하고 completed 상태 업데이트

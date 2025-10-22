@@ -106,6 +106,7 @@ const BottomBar = ({
   const [setupList, setSetupList] = useState([]); // 금일현설용 별도 상태
   const [estimateList, setEstimateList] = useState([]); // 금일견적용 별도 상태
   const [bidList, setBidList] = useState([]); // 금일입찰용 별도 상태 (estimates에서)
+  const [scheduleBidCount, setScheduleBidCount] = useState(0); // 일정 데이터의 입찰 개수
   const [etcList, setEtcList] = useState([]); // 금일기타용 별도 상태
   const [sitesList, setSitesList] = useState([]); // 현장 목록
   const [notificationSettings, setNotificationSettings] = useState({});
@@ -348,6 +349,9 @@ const BottomBar = ({
         return false;
       });
       console.log('🔥 금일입찰:', todayBids.length, '개', todayBids);
+      
+      // 일정 데이터의 입찰 개수 저장
+      setScheduleBidCount(todayBids.length);
       
       // 금일회의 (type에 '회의' 포함)
       const todayMeetings = todaySchedules.filter(item => {
@@ -635,13 +639,13 @@ const BottomBar = ({
       console.log('🔥 미제출 견적 개수:', unsubmittedEstimates.length, '전체 견적:', estimates.length);
       console.log('🔥 미제출 입찰 개수:', unsubmittedBids.length, '전체 입찰:', bids.length);
       
-      // stats 업데이트 - 미제출된 견적/입찰만 카운트
+      // stats 업데이트 - 견적은 미제출만, 입찰은 전체 카운트
       setStats(prev => {
         const updatedStats = {
           ...prev,
           estimateCount: unsubmittedEstimates.length, // 미제출 견적만 카운트
-          bidCount: prev.bidCount + unsubmittedBids.length, // 기존 일정 데이터의 입찰 개수 + 견적 데이터의 미제출 입찰 개수
-          progressCount: prev.bidCount + unsubmittedBids.length  // estimates의 미제출 입찰 카운트로 progressCount 덮어쓰기
+          bidCount: scheduleBidCount + bids.length, // 일정 데이터의 입찰 개수 + 견적 데이터의 전체 입찰 개수
+          progressCount: scheduleBidCount + bids.length  // 전체 입찰 카운트로 progressCount 설정
         };
         
         console.log('🔥 하단바 stats 업데이트 (미제출 견적만):', updatedStats);
@@ -671,8 +675,13 @@ const BottomBar = ({
       
       setEstimateList(sortedEstimates.reverse()); // 전체 미제출 견적 표시
       
-      // 견적 데이터의 입찰 항목을 bidList에 설정
-      const estimateBids = sortedBids.slice(-5).reverse();
+      // 견적 데이터의 입찰 항목을 bidList에 설정 (전체 입찰 표시)
+      const allBids = bids.sort((a, b) => {
+        const dateA = new Date(a.submissionDeadline);
+        const dateB = new Date(b.submissionDeadline);
+        return dateB - dateA;
+      });
+      const estimateBids = allBids.slice(-5).reverse();
       
       // 기존 bidList와 견적 데이터의 입찰 항목을 합침
       setBidList(prevBidList => {
@@ -2093,7 +2102,7 @@ const BottomBar = ({
                               fontSize: { xs: 10, md: 11 }, 
                               fontWeight: 600
                             }}>
-                              ✓ 제출완료
+                              ✓ {item.type === '입찰' ? '입찰완료' : '제출완료'}
                             </Typography>
                           </Box>
                         )}

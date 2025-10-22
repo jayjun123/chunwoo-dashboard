@@ -50,7 +50,7 @@ import {
   LastPage as LastPageIcon,
   Clear as ClearIcon
 } from '@mui/icons-material';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, onSnapshot, getDocs as getDocsQuery } from 'firebase/firestore';
 import { db, collections } from '../firebase';
 import * as XLSX from 'xlsx';
 import { getKoreanDate, normalizeDate } from '../utils/dateUtils';
@@ -63,6 +63,70 @@ const Estimates = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // 일정관리 체크 상태 업데이트 함수
+  const updateScheduleCheckStatus = async (estimateId, estimateType, newStatus) => {
+    try {
+      const user = currentUser;
+      if (!user) return;
+
+      // 견적/입찰 ID 생성 (일정관리에서 사용하는 형식)
+      const scheduleId = estimateType === '입찰' ? `bid_${estimateId}` : `estimate_${estimateId}`;
+      
+      // 해당 견적/입찰의 제출마감일 찾기
+      const estimate = estimates.find(e => e.id === estimateId);
+      if (!estimate || !estimate.submissionDeadline) return;
+
+      const submissionDate = estimate.submissionDeadline;
+      const checkKey = `${submissionDate}-${scheduleId}`;
+      
+      // 체크 상태 결정 (제출완료면 true, 아니면 false)
+      const checked = newStatus === '제출완료';
+      
+      console.log('일정관리 체크 상태 업데이트:', {
+        estimateId,
+        estimateType,
+        newStatus,
+        scheduleId,
+        submissionDate,
+        checkKey,
+        checked
+      });
+
+      // 기존 체크 데이터가 있는지 확인
+      const existingCheckQuery = query(
+        collection(db, 'scheduleChecks'),
+        where('scheduleId', '==', scheduleId),
+        where('date', '==', submissionDate),
+        where('userId', '==', user.uid)
+      );
+      
+      const existingCheckSnapshot = await getDocsQuery(existingCheckQuery);
+      
+      if (existingCheckSnapshot.docs.length > 0) {
+        // 기존 데이터 업데이트
+        const existingDoc = existingCheckSnapshot.docs[0];
+        await updateDoc(doc(db, 'scheduleChecks', existingDoc.id), {
+          checked: checked,
+          updatedAt: new Date()
+        });
+        console.log('일정관리 체크 상태 업데이트 완료:', checkKey, checked);
+      } else if (checked) {
+        // 새 데이터 추가 (체크된 경우만)
+        const checkData = {
+          scheduleId: scheduleId,
+          date: submissionDate,
+          checked: checked,
+          userId: user.uid,
+          updatedAt: new Date()
+        };
+        await addDoc(collection(db, 'scheduleChecks'), checkData);
+        console.log('일정관리 체크 상태 추가 완료:', checkKey, checked);
+      }
+    } catch (error) {
+      console.error('일정관리 체크 상태 업데이트 실패:', error);
+    }
+  };
 
   // 상태 관리
   const [estimates, setEstimates] = useState([]);
@@ -1579,6 +1643,9 @@ const Estimates = () => {
                           updatedAt: new Date()
                         });
                         
+                        // 일정관리 체크 상태도 함께 업데이트
+                        await updateScheduleCheckStatus(estimate.id, estimate.type, newStatus);
+                        
                         // 로컬 상태 업데이트
                         setEstimates(prev => 
                           prev.map(e => 
@@ -1863,9 +1930,14 @@ const Estimates = () => {
                   // 이름과 직위만 표시 (회사명 제외)
                   let displayName = requester.name;
                   if (requester.title) displayName += ` ${requester.title}`;
-                  return { label: displayName, value: displayName, id: requester.id || `requester-${index}` };
+                  return { 
+                    label: displayName, 
+                    value: displayName, 
+                    id: requester.id || `requester-${index}`
+                  };
                 }).filter(option => option.label)}
                 getOptionLabel={(option) => typeof option === 'string' ? option : option.label}
+                getOptionKey={(option) => option.id || option.value}
                 isOptionEqualToValue={(option, value) => {
                   if (typeof option === 'string' && typeof value === 'string') {
                     return option === value;
