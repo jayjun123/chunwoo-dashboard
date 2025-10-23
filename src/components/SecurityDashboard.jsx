@@ -264,7 +264,7 @@ const SecurityDashboard = () => {
   return (
     <Box sx={{ 
       p: isMobile ? 2 : 3,
-      height: 'calc(100vh - 200px)',
+      height: '800px',
       overflow: 'hidden'
     }}>
 
@@ -366,7 +366,7 @@ const SecurityDashboard = () => {
           </Grid>
           
           <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth size="small">
+            <FormControl size="small" sx={{ width: '200px' }}>
               <InputLabel>로그 타입</InputLabel>
               <Select
                 value={filters.type}
@@ -385,7 +385,7 @@ const SecurityDashboard = () => {
           </Grid>
           
           <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth size="small">
+            <FormControl size="small" sx={{ width: '100px' }}>
               <InputLabel>심각도</InputLabel>
               <Select
                 value={filters.level}
