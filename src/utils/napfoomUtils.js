@@ -133,6 +133,11 @@ export const createNapfoomContract = async (siteData, materialItems = [], fileNa
     convertSharedFormulasToIndividual(workbook);
     console.log('✅ 공유수식을 개별수식으로 변환 완료');
     
+    // 추가 안전장치: 모든 수식을 값으로 변환
+    console.log('🔧 수식을 값으로 변환 시작...');
+    convertFormulasToValues(workbook);
+    console.log('✅ 수식을 값으로 변환 완료');
+    
     // 데이터 입력
     console.log('📝 데이터 입력 시작');
     await fillNapfoomData(workbook, siteData, materialItems);
@@ -726,6 +731,79 @@ const convertSharedFormulasToIndividual = (workbook) => {
     console.log('✅ 모든 공유수식 개별수식 변환 완료');
   } catch (error) {
     console.error('❌ 공유수식 변환 실패:', error);
+    // 에러가 발생해도 계속 진행
+  }
+};
+
+/**
+ * 모든 수식을 값으로 변환 (공유수식 문제 완전 해결)
+ * @param {ExcelJS.Workbook} workbook - 워크북
+ */
+const convertFormulasToValues = (workbook) => {
+  try {
+    console.log('🔄 모든 수식을 값으로 변환 중...');
+    
+    workbook.worksheets.forEach((worksheet, sheetIndex) => {
+      console.log(`🔄 시트 ${sheetIndex + 1}: ${worksheet.name} 수식 변환 중...`);
+      
+      worksheet.eachRow((row, rowNumber) => {
+        row.eachCell((cell, colNumber) => {
+          try {
+            if (cell.formula) {
+              const cellAddress = `${String.fromCharCode(64 + colNumber)}${rowNumber}`;
+              
+              // 수식이 있는 경우 계산된 결과값을 사용
+              let calculatedValue = null;
+              
+              // 1. result 값이 있으면 사용 (가장 안전)
+              if (cell.result !== null && cell.result !== undefined && cell.result !== '') {
+                calculatedValue = cell.result;
+              }
+              // 2. value 값이 있으면 사용
+              else if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
+                calculatedValue = cell.value;
+              }
+              // 3. 둘 다 없으면 0으로 설정
+              else {
+                calculatedValue = 0;
+              }
+              
+              console.log(`🔄 ${cellAddress} 수식을 값으로 변환: ${cell.formula} → ${calculatedValue}`);
+              
+              // 수식 제거하고 값으로 설정
+              delete cell.formula;
+              delete cell.sharedFormula;
+              delete cell.si;
+              delete cell.ref;
+              delete cell.sharedFormulaMaster;
+              delete cell.sharedFormulaRef;
+              
+              cell.value = calculatedValue;
+            }
+          } catch (cellError) {
+            console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 수식 변환 실패:`, cellError.message);
+            // 오류 발생 시 수식 제거하고 빈 값으로 설정
+            try {
+              delete cell.formula;
+              delete cell.sharedFormula;
+              delete cell.si;
+              delete cell.ref;
+              delete cell.sharedFormulaMaster;
+              delete cell.sharedFormulaRef;
+              cell.value = '';
+            } catch (cleanupError) {
+              console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 정리 실패:`, cleanupError.message);
+            }
+          }
+        });
+      });
+      
+      console.log(`✅ 시트 ${sheetIndex + 1}: ${worksheet.name} 수식 변환 완료`);
+    });
+    
+    console.log('✅ 모든 수식 값 변환 완료');
+  } catch (error) {
+    console.error('❌ 수식 값 변환 실패:', error);
     // 에러가 발생해도 계속 진행
   }
 };
