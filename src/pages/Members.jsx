@@ -59,6 +59,7 @@ import { ko } from 'date-fns/locale';
 import { collection, getDocs, doc, updateDoc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { cleanPermissionsData } from '../utils/firebaseUtils';
 import SecurityDashboard from '../components/SecurityDashboard';
 import SecurityAlert from '../components/SecurityAlert';
 
@@ -439,9 +440,13 @@ const Members = () => {
   const savePermissions = async () => {
     try {
       const { member } = permissionDialog;
+      
+      const cleanedPermissions = cleanPermissionsData(permissionSettings);
+      console.log('🧹 정리된 권한 데이터:', cleanedPermissions);
+      
       const memberRef = doc(db, 'members', member.id);
       await updateDoc(memberRef, {
-        permissions: permissionSettings,
+        permissions: cleanedPermissions,
         updatedAt: new Date()
       });
       setPermissionDialog({ open: false, member: null });

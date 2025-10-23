@@ -111,18 +111,30 @@ export const createNapfoomContract = async (siteData, materialItems = [], fileNa
       console.log(`✅ L 타입 템플릿 다운로드 완료: ${arrayBuffer.byteLength} bytes`);
     }
     
-    // 템플릿 로드 (기본 방식)
+    // 템플릿 로드 (공유수식 문제 해결을 위한 안전한 방식)
     const workbook = new ExcelJS.Workbook();
     try {
       console.log(`📥 NAPFOOM ${templateType} 타입 템플릿 로드 시작...`);
       
-      // 간단하게 템플릿 로드
-      await workbook.xlsx.load(arrayBuffer);
+      // 공유수식 문제를 방지하기 위한 옵션 설정
+      await workbook.xlsx.load(arrayBuffer, {
+        ignoreNodes: ['sharedFormulas', 'sharedFormulaRefs'],
+        ignoreAttributes: ['si', 'ref', 'sharedFormula', 'sharedFormulaMaster', 'sharedFormulaRef']
+      });
       
       console.log(`✅ ${templateType} 타입 NAPFOOM 템플릿 로드 성공`);
     } catch (loadError) {
       console.error(`❌ ${templateType} 타입 NAPFOOM 템플릿 로드 실패:`, loadError.message);
-      throw new Error(`${templateType} 타입 NAPFOOM 템플릿 로드 실패: ${loadError.message}`);
+      
+      // 첫 번째 시도 실패 시 기본 방식으로 재시도
+      try {
+        console.log('🔄 기본 방식으로 템플릿 로드 재시도...');
+        await workbook.xlsx.load(arrayBuffer);
+        console.log(`✅ ${templateType} 타입 NAPFOOM 템플릿 로드 재시도 성공`);
+      } catch (retryError) {
+        console.error(`❌ ${templateType} 타입 NAPFOOM 템플릿 로드 재시도 실패:`, retryError.message);
+        throw new Error(`${templateType} 타입 NAPFOOM 템플릿 로드 실패: ${retryError.message}`);
+      }
     }
     
     // 템플릿은 그대로 두고 데이터만 입력
@@ -133,10 +145,35 @@ export const createNapfoomContract = async (siteData, materialItems = [], fileNa
     convertSharedFormulasToIndividual(workbook);
     console.log('✅ 공유수식을 개별수식으로 변환 완료');
     
-    // 추가 안전장치: 모든 수식을 값으로 변환
-    console.log('🔧 수식을 값으로 변환 시작...');
-    convertFormulasToValues(workbook);
-    console.log('✅ 수식을 값으로 변환 완료');
+    // 추가 안전장치: H6 셀 특별 처리
+    console.log('🔧 H6 셀 공유수식 특별 처리 시작...');
+    try {
+      workbook.worksheets.forEach((worksheet, sheetIndex) => {
+        // H6 셀 특별 처리
+        const h6Cell = worksheet.getCell('H6');
+        if (h6Cell && (h6Cell.sharedFormula || h6Cell.si !== undefined)) {
+          console.log('🔧 H6 셀 공유수식 속성 제거 중...');
+          delete h6Cell.sharedFormula;
+          delete h6Cell.si;
+          delete h6Cell.ref;
+          delete h6Cell.sharedFormulaMaster;
+          delete h6Cell.sharedFormulaRef;
+          
+          if (h6Cell.formula) {
+            const formula = h6Cell.formula.toString();
+            console.log('🔧 H6 셀 수식 유지:', formula);
+            delete h6Cell.formula;
+            h6Cell.formula = formula;
+          }
+        }
+      });
+      console.log('✅ H6 셀 공유수식 특별 처리 완료');
+    } catch (h6Error) {
+      console.warn('⚠️ H6 셀 특별 처리 실패:', h6Error.message);
+    }
+    
+    // 수식은 템플릿 그대로 유지 (인덱스2 함수 보존)
+    console.log('🔧 수식 보존 모드: 템플릿 수식 유지');
     
     // 데이터 입력
     console.log('📝 데이터 입력 시작');
@@ -144,6 +181,31 @@ export const createNapfoomContract = async (siteData, materialItems = [], fileNa
     console.log('✅ 데이터 입력 완료');
     
     // 수식은 템플릿 그대로 유지
+    
+    // 파일 생성 전 최종 안전장치
+    console.log('🛡️ 파일 생성 전 최종 안전장치 실행...');
+    try {
+      workbook.worksheets.forEach((worksheet, sheetIndex) => {
+        // 모든 셀의 공유수식 속성 최종 정리
+        worksheet.eachRow((row, rowNumber) => {
+          row.eachCell((cell, colNumber) => {
+            try {
+              // 공유수식 관련 속성 최종 제거
+              if (cell.sharedFormula !== undefined) delete cell.sharedFormula;
+              if (cell.si !== undefined) delete cell.si;
+              if (cell.ref !== undefined) delete cell.ref;
+              if (cell.sharedFormulaMaster !== undefined) delete cell.sharedFormulaMaster;
+              if (cell.sharedFormulaRef !== undefined) delete cell.sharedFormulaRef;
+            } catch (finalCleanupError) {
+              // 최종 정리 실패는 무시
+            }
+          });
+        });
+      });
+      console.log('✅ 최종 안전장치 완료');
+    } catch (finalError) {
+      console.warn('⚠️ 최종 안전장치 실패:', finalError.message);
+    }
     
     // 파일 생성 및 다운로드
     console.log('💾 파일 생성 중...');
@@ -347,6 +409,33 @@ const fillSummarySheet = async (sheet, siteData, materialItems) => {
   try {
     console.log('📋 내역갑지 시트 데이터 입력');
     
+    // 갑지 시트: 회사명과 현장명 입력
+    const companyName = siteData.companyName || siteData.company || '';
+    const siteName = siteData.name || siteData.siteName || '';
+    
+    // 갑지 시트에 회사명과 현장명 입력 (일반적인 갑지 위치)
+    const dataMapping = {
+      // 현장명 (일반적으로 B2 또는 B3 위치)
+      'B2': siteName,
+      'B3': siteName,
+      
+      // 회사명 (일반적으로 B4 또는 B5 위치)
+      'B4': companyName,
+      'B5': companyName,
+    };
+    
+    // 데이터 입력
+    Object.entries(dataMapping).forEach(([cellAddress, value]) => {
+      try {
+        if (value) {
+          sheet.getCell(cellAddress).value = value;
+          console.log(`✅ 갑지 ${cellAddress}: ${value}`);
+        }
+      } catch (e) {
+        console.log(`⚠️ 갑지 ${cellAddress} 입력 실패:`, e.message);
+      }
+    });
+    
     // 갑지 시트: 요약 정보만 표시 (개별 물량은 내역서에만)
     console.log('📋 갑지 시트는 요약용 - 개별 물량 데이터 입력하지 않음');
     
@@ -466,9 +555,9 @@ const fillDetailSheet = (sheet, materialItems) => {
             return isNaN(num) ? 0 : num;
           };
           
-          // A열과 B열 순서 변경 (A=이름, B=규격)
-          sheet.getCell(`A${row}`).value = safeString(item?.name || item?.itemName);
-          sheet.getCell(`B${row}`).value = safeString(item?.specification || item?.spec);
+          // A열과 B열 순서 변경 (A=규격, B=이름)
+          sheet.getCell(`A${row}`).value = safeString(item?.specification || item?.spec);
+          sheet.getCell(`B${row}`).value = safeString(item?.name || item?.itemName);
           sheet.getCell(`C${row}`).value = safeString(item?.unit);
           sheet.getCell(`D${row}`).value = safeNumber(item?.quantity || item?.qty);
           
@@ -536,7 +625,7 @@ const fillDetailSheet = (sheet, materialItems) => {
                try {
                  const cell = sheet.getCell(row, col);
                  
-                 // A,B열은 그대로 놔두기 (품명, 규격 보존)
+                 // A,B열은 그대로 놔두기 (규격, 품명 보존)
                  if (col === 1 || col === 2) {
                    console.log(`🛡️ NAPFOOM 납품계약서 ${row}행 ${String.fromCharCode(64 + col)}열 A,B열 보존: ${cell.value || ''}`);
                    continue; // A,B열은 건드리지 않음
@@ -615,122 +704,86 @@ export const downloadNapfoomContract = async (site, materialItems = []) => {
 };
 
 /**
- * 공유수식을 개별 수식으로 안전하게 변환
+ * 공유수식을 완전히 제거하고 안전하게 처리
  * @param {ExcelJS.Workbook} workbook - 워크북
  */
 const convertSharedFormulasToIndividual = (workbook) => {
   try {
-    console.log('🔄 공유수식을 개별수식으로 변환 중...');
+    console.log('🔄 공유수식 완전 제거 중...');
     
     workbook.worksheets.forEach((worksheet, sheetIndex) => {
       console.log(`🔄 시트 ${sheetIndex + 1}: ${worksheet.name} 처리 중...`);
       
-      // 공유수식 마스터를 먼저 찾아서 개별 수식으로 변환
-      const sharedFormulaMasters = new Map();
-      
-      // 1단계: 공유수식 마스터들을 찾아서 개별 수식으로 변환
+      // 모든 셀을 순회하면서 공유수식 관련 속성 완전 제거
       worksheet.eachRow((row, rowNumber) => {
         row.eachCell((cell, colNumber) => {
           try {
-            if (cell.formula && (cell.sharedFormula || cell.si !== undefined)) {
-              const cellAddress = `${String.fromCharCode(64 + colNumber)}${rowNumber}`;
-              const originalFormula = cell.formula.toString();
+            const cellAddress = `${String.fromCharCode(64 + colNumber)}${rowNumber}`;
+            
+            // 공유수식 관련 속성들이 있는지 확인
+            const hasSharedFormula = cell.sharedFormula !== undefined || 
+                                   cell.si !== undefined || 
+                                   cell.ref !== undefined ||
+                                   cell.sharedFormulaMaster !== undefined ||
+                                   cell.sharedFormulaRef !== undefined;
+            
+            if (hasSharedFormula) {
+              console.log(`🔄 ${cellAddress} 공유수식 속성 제거 중...`);
               
-              console.log(`🔄 ${cellAddress} 공유수식 마스터 발견: ${originalFormula}`);
-              
-              // 공유수식 속성들 제거
+              // 공유수식 관련 모든 속성 제거
               delete cell.sharedFormula;
               delete cell.si;
               delete cell.ref;
               delete cell.sharedFormulaMaster;
               delete cell.sharedFormulaRef;
               
-              // 수식을 개별 수식으로 재설정
-              delete cell.formula;
-              cell.formula = originalFormula;
-              
-              // 마스터 정보 저장
-              sharedFormulaMasters.set(cellAddress, originalFormula);
-            }
-          } catch (cellError) {
-            console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 공유수식 마스터 변환 실패:`, cellError.message);
-          }
-        });
-      });
-      
-      // 2단계: 공유수식 클론들을 개별 수식으로 변환
-      worksheet.eachRow((row, rowNumber) => {
-        row.eachCell((cell, colNumber) => {
-          try {
-            if (cell.formula && (cell.sharedFormula || cell.si !== undefined)) {
-              const cellAddress = `${String.fromCharCode(64 + colNumber)}${rowNumber}`;
-              
-              // 이미 마스터로 처리된 경우 스킵
-              if (sharedFormulaMasters.has(cellAddress)) {
-                return;
+              // 수식이 있다면 개별 수식으로 유지
+              if (cell.formula) {
+                const formula = cell.formula.toString();
+                console.log(`🔄 ${cellAddress} 수식 유지: ${formula}`);
+                // 수식을 다시 설정하여 공유수식 참조 완전 제거
+                delete cell.formula;
+                cell.formula = formula;
               }
-              
-              console.log(`🔄 ${cellAddress} 공유수식 클론을 개별수식으로 변환`);
-              
-              // 공유수식 속성들 제거
+            }
+          } catch (cellError) {
+            console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 공유수식 처리 실패:`, cellError.message);
+            // 오류 발생 시 공유수식 속성만이라도 제거
+            try {
               delete cell.sharedFormula;
               delete cell.si;
               delete cell.ref;
               delete cell.sharedFormulaMaster;
               delete cell.sharedFormulaRef;
-              
-              // 수식을 개별 수식으로 재설정 (마스터와 동일한 수식 사용)
-              const masterFormula = cell.formula.toString();
-              delete cell.formula;
-              cell.formula = masterFormula;
+            } catch (cleanupError) {
+              console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 정리 실패:`, cleanupError.message);
             }
-          } catch (cellError) {
-            console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 공유수식 클론 변환 실패:`, cellError.message);
           }
         });
       });
       
-      // 3단계: 워크시트 레벨의 공유수식 정보 정리
-      if (worksheet.sharedFormulas) {
-        console.log('🔄 워크시트 공유수식 정보 제거');
-        delete worksheet.sharedFormulas;
-      }
-      if (worksheet._sharedFormulas) {
-        delete worksheet._sharedFormulas;
+      // 워크시트 레벨의 공유수식 정보 완전 제거
+      try {
+        if (worksheet.sharedFormulas) {
+          console.log('🔄 워크시트 공유수식 정보 제거');
+          delete worksheet.sharedFormulas;
+        }
+        if (worksheet._sharedFormulas) {
+          delete worksheet._sharedFormulas;
+        }
+        if (worksheet.model && worksheet.model.sharedFormulas) {
+          delete worksheet.model.sharedFormulas;
+        }
+      } catch (worksheetError) {
+        console.warn('⚠️ 워크시트 공유수식 정보 제거 실패:', worksheetError.message);
       }
       
-      // 4단계: 남은 공유수식 관련 속성들 정리
-      worksheet.eachRow((row, rowNumber) => {
-        row.eachCell((cell, colNumber) => {
-          try {
-            // 공유수식 관련 속성들이 남아있으면 제거
-            if (cell.sharedFormula !== undefined) {
-              delete cell.sharedFormula;
-            }
-            if (cell.si !== undefined) {
-              delete cell.si;
-            }
-            if (cell.ref !== undefined) {
-              delete cell.ref;
-            }
-            if (cell.sharedFormulaMaster !== undefined) {
-              delete cell.sharedFormulaMaster;
-            }
-            if (cell.sharedFormulaRef !== undefined) {
-              delete cell.sharedFormulaRef;
-            }
-          } catch (cellError) {
-            console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 속성 정리 실패:`, cellError.message);
-          }
-        });
-      });
-      
-      console.log(`✅ 시트 ${sheetIndex + 1}: ${worksheet.name} 공유수식 변환 완료`);
+      console.log(`✅ 시트 ${sheetIndex + 1}: ${worksheet.name} 공유수식 제거 완료`);
     });
     
-    console.log('✅ 모든 공유수식 개별수식 변환 완료');
+    console.log('✅ 모든 공유수식 제거 완료');
   } catch (error) {
-    console.error('❌ 공유수식 변환 실패:', error);
+    console.error('❌ 공유수식 제거 실패:', error);
     // 에러가 발생해도 계속 진행
   }
 };

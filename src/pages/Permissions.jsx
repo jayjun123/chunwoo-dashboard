@@ -44,6 +44,7 @@ import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { MENU_CONFIG, getMenusByCategory } from '../utils/menuPermissions';
+import { cleanPermissionsData } from '../utils/firebaseUtils';
 
 const Permissions = () => {
   const theme = useTheme();
@@ -169,7 +170,7 @@ const Permissions = () => {
         ...prev[memberId],
         [menuKey]: {
           ...((prev[memberId] && prev[memberId][menuKey]) || {}),
-          [permKey]: checked
+          [permKey]: checked === undefined ? false : checked
         }
       }
     }));
@@ -203,7 +204,8 @@ const Permissions = () => {
         if (!newPermissions[memberId][menuKey]) {
           newPermissions[memberId][menuKey] = {};
         }
-        newPermissions[memberId][menuKey][permKey] = checked;
+        // undefined 값 방지
+        newPermissions[memberId][menuKey][permKey] = checked === undefined ? false : checked;
       });
       return newPermissions;
     });
@@ -237,9 +239,12 @@ const Permissions = () => {
         
         console.log(`💾 권한 저장 중: ${member?.name || memberId}`, perms);
         
+        const cleanedPermissions = cleanPermissionsData(perms);
+        console.log(`🧹 정리된 권한 데이터:`, cleanedPermissions);
+        
         const memberRef = doc(db, 'members', memberId);
         await updateDoc(memberRef, {
-          permissions: perms,
+          permissions: cleanedPermissions,
           updatedAt: new Date().toISOString()
         });
         
