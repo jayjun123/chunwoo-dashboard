@@ -262,10 +262,11 @@ const SecurityDashboard = () => {
   }
 
   return (
-    <Box sx={{ p: isMobile ? 2 : 3 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 3 }}>
-        보안 모니터링 대시보드
-      </Typography>
+    <Box sx={{ 
+      p: isMobile ? 2 : 3,
+      height: 'calc(100vh - 200px)',
+      overflow: 'hidden'
+    }}>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
@@ -447,7 +448,6 @@ const SecurityDashboard = () => {
       <Paper>
         <TableContainer 
           sx={{ 
-            maxHeight: 400,
             '&::-webkit-scrollbar': {
               display: 'none'
             },
@@ -458,23 +458,23 @@ const SecurityDashboard = () => {
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>시간</TableCell>
-                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>타입</TableCell>
-                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>사용자</TableCell>
-                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>IP 주소</TableCell>
-                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>브라우저</TableCell>
-                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>심각도</TableCell>
-                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>상세내용</TableCell>
-                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>작업</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.9rem', fontWeight: 'bold' }}>시간</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.9rem', fontWeight: 'bold' }}>타입</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.9rem', fontWeight: 'bold' }}>사용자</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.9rem', fontWeight: 'bold' }}>IP 주소</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.9rem', fontWeight: 'bold' }}>브라우저</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.9rem', fontWeight: 'bold' }}>심각도</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.9rem', fontWeight: 'bold' }}>상세내용</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.9rem', fontWeight: 'bold' }}>작업</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {securityLogs
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((log) => (
-                <TableRow key={log.id} hover sx={{ '& .MuiTableCell-root': { py: 0.5 } }}>
+                <TableRow key={log.id} hover sx={{ '& .MuiTableCell-root': { py: 0.8 } }}>
                   <TableCell>
-                    <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
                       {log.timestamp?.toDate ? 
                         format(log.timestamp.toDate(), 'MM-dd HH:mm:ss') : 
                         format(new Date(log.createdAt), 'MM-dd HH:mm:ss')
@@ -486,16 +486,16 @@ const SecurityDashboard = () => {
                       label={getLogTypeLabel(log.type)}
                       color={getLogTypeColor(log.type)}
                       size="small"
-                      sx={{ height: 20, fontSize: '0.65rem' }}
+                      sx={{ height: 24, fontSize: '0.8rem' }}
                     />
                   </TableCell>
                   <TableCell>
                     <Box>
-                      <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.7rem' }}>
+                      <Typography variant="body2" fontWeight="bold" sx={{ fontSize: '0.85rem' }}>
                         {log.email || '알 수 없음'}
                       </Typography>
                       {log.userId && (
-                        <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.6rem' }}>
+                        <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.75rem' }}>
                           {log.userId.substring(0, 8)}...
                         </Typography>
                       )}
@@ -503,14 +503,14 @@ const SecurityDashboard = () => {
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <LocationIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary', fontSize: '0.7rem' }} />
-                      <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                      <LocationIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary', fontSize: '0.85rem' }} />
+                      <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
                         {log.ipAddress || '알 수 없음'}
                       </Typography>
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
                       {log.browser || '알 수 없음'}
                     </Typography>
                   </TableCell>
@@ -520,11 +520,11 @@ const SecurityDashboard = () => {
                       color={getLevelColor(log.level)}
                       size="small"
                       variant={log.level === SECURITY_LEVELS.CRITICAL ? 'filled' : 'outlined'}
-                      sx={{ height: 20, fontSize: '0.65rem' }}
+                      sx={{ height: 24, fontSize: '0.8rem' }}
                     />
                   </TableCell>
                   <TableCell>
-                    <Typography variant="caption" noWrap sx={{ maxWidth: 150, fontSize: '0.7rem' }}>
+                    <Typography variant="body2" noWrap sx={{ maxWidth: 150, fontSize: '0.85rem' }}>
                       {log.details?.message || '-'}
                     </Typography>
                   </TableCell>
@@ -535,7 +535,7 @@ const SecurityDashboard = () => {
                         onClick={() => handleLogDetail(log)}
                         sx={{ p: 0.5 }}
                       >
-                        <VisibilityIcon sx={{ fontSize: '0.8rem' }} />
+                        <VisibilityIcon sx={{ fontSize: '1rem' }} />
                       </IconButton>
                     </Tooltip>
                   </TableCell>
@@ -559,10 +559,10 @@ const SecurityDashboard = () => {
           sx={{
             '& .MuiTablePagination-toolbar': {
               minHeight: 40,
-              fontSize: '0.75rem'
+              fontSize: '0.9rem'
             },
             '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-              fontSize: '0.75rem'
+              fontSize: '0.9rem'
             }
           }}
         />
