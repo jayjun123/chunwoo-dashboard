@@ -1779,13 +1779,44 @@ const Mapping = () => {
     const updateSiteMarkers = (transform) => {
       console.log('🎨 마커 렌더링 시작 - 거리측정 모드:', distanceMode, '표시할 현장 수:', sites.length);
       
+      // 현장 상태 판단 함수
+      const getSiteStatus = (site) => {
+        // status 필드가 있으면 그것을 사용
+        if (site.status) {
+          if (site.status === '진행중') return 'ongoing';
+          if (site.status === '예정') return 'scheduled';
+          if (site.status === '완료') return 'completed';
+          if (site.status === '미정') return 'undefined';
+        }
+        
+        // status 필드가 없으면 날짜로 판단
+        if (!site.startDate || !site.endDate) return 'scheduled'; // 예정현장
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const startDate = new Date(site.startDate);
+        const endDate = new Date(site.endDate);
+        
+        if (startDate > today) return 'scheduled'; // 예정현장
+        if (endDate < today) return 'completed'; // 완료현장
+        return 'ongoing'; // 진행중인 현장
+      };
+
       // 주요현장 + 선택된 현장들만 표시 (거리측정 모드에서도 동일)
       const sitesToShow = sites.filter(s => {
         if (!isSiteInYear(s, currentYear)) return false;
         
-        // 주요현장은 항상 표시
+        // 주요현장은 진행중/예정만 표시 (완료/미정은 숨김)
         const isImportant = s.isFavorite || s.isStarred || s.isImportant;
-        if (isImportant && showImportantSites) return true;
+        if (isImportant && showImportantSites) {
+          const siteStatus = getSiteStatus(s);
+          // 진행중 또는 예정 상태의 주요현장만 표시
+          if (siteStatus === 'ongoing' || siteStatus === 'scheduled') {
+            return true;
+          }
+          // 완료 또는 미정 상태의 주요현장은 숨김
+          return false;
+        }
         
         // 선택된 현장들도 표시
         const isSelected = selectedSites.some(selected => selected.id === s.id);
@@ -2473,13 +2504,44 @@ const Mapping = () => {
     
     // 마커 렌더 함수
     const updateSiteMarkers = (transform) => {
+      // 현장 상태 판단 함수
+      const getSiteStatus = (site) => {
+        // status 필드가 있으면 그것을 사용
+        if (site.status) {
+          if (site.status === '진행중') return 'ongoing';
+          if (site.status === '예정') return 'scheduled';
+          if (site.status === '완료') return 'completed';
+          if (site.status === '미정') return 'undefined';
+        }
+        
+        // status 필드가 없으면 날짜로 판단
+        if (!site.startDate || !site.endDate) return 'scheduled'; // 예정현장
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const startDate = new Date(site.startDate);
+        const endDate = new Date(site.endDate);
+        
+        if (startDate > today) return 'scheduled'; // 예정현장
+        if (endDate < today) return 'completed'; // 완료현장
+        return 'ongoing'; // 진행중인 현장
+      };
+
       // 주요현장 + 선택된 현장들만 표시 (거리측정 모드에서도 동일)
       const sitesToShow = sites.filter(s => {
         if (!isSiteInYear(s, currentYear)) return false;
         
-        // 주요현장은 항상 표시
+        // 주요현장은 진행중/예정만 표시 (완료/미정은 숨김)
         const isImportant = s.isFavorite || s.isStarred || s.isImportant;
-        if (isImportant && showImportantSites) return true;
+        if (isImportant && showImportantSites) {
+          const siteStatus = getSiteStatus(s);
+          // 진행중 또는 예정 상태의 주요현장만 표시
+          if (siteStatus === 'ongoing' || siteStatus === 'scheduled') {
+            return true;
+          }
+          // 완료 또는 미정 상태의 주요현장은 숨김
+          return false;
+        }
         
         // 선택된 현장들도 표시
         const isSelected = selectedSites.some(selected => selected.id === s.id);
