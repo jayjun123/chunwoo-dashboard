@@ -8,7 +8,11 @@ export const MENU_CONFIG = {
     label: '대시보드', 
     path: '/', 
     icon: 'Dashboard',
-    defaultPermissions: { master: true, admin: true, user: true },
+    defaultPermissions: { 
+      master: { view: true, create: true, edit: true, delete: true, manage: true },
+      admin: { view: true, create: true, edit: true, delete: false, manage: false },
+      user: { view: true, create: false, edit: false, delete: false, manage: false }
+    },
     category: '기본'
   },
   importantSite: { 
@@ -16,7 +20,11 @@ export const MENU_CONFIG = {
     label: '주요현장', 
     path: '/importantsite', 
     icon: 'Star',
-    defaultPermissions: { master: true, admin: true, user: true },
+    defaultPermissions: { 
+      master: { view: true, create: true, edit: true, delete: true, manage: true },
+      admin: { view: true, create: true, edit: true, delete: false, manage: false },
+      user: { view: true, create: false, edit: false, delete: false, manage: false }
+    },
     category: '기본'
   },
   sites: { 
@@ -24,7 +32,11 @@ export const MENU_CONFIG = {
     label: '현장관리', 
     path: '/sites', 
     icon: 'Construction',
-    defaultPermissions: { master: true, admin: true, user: false },
+    defaultPermissions: { 
+      master: { view: true, create: true, edit: true, delete: true, manage: true },
+      admin: { view: true, create: true, edit: true, delete: true, manage: false },
+      user: { view: false, create: false, edit: false, delete: false, manage: false }
+    },
     category: '관리'
   },
   mapping: { 
@@ -32,7 +44,11 @@ export const MENU_CONFIG = {
     label: 'MAP', 
     path: '/mapping', 
     icon: 'Map',
-    defaultPermissions: { master: true, admin: true, user: true },
+    defaultPermissions: { 
+      master: { view: true, create: true, edit: true, delete: true, manage: true },
+      admin: { view: true, create: true, edit: true, delete: false, manage: false },
+      user: { view: true, create: false, edit: false, delete: false, manage: false }
+    },
     category: '기본'
   },
   safety: { 
@@ -40,7 +56,11 @@ export const MENU_CONFIG = {
     label: '안전관리', 
     path: '/safety', 
     icon: 'Security',
-    defaultPermissions: { master: true, admin: true, user: true },
+    defaultPermissions: { 
+      master: { view: true, create: true, edit: true, delete: true, manage: true },
+      admin: { view: true, create: true, edit: true, delete: true, manage: false },
+      user: { view: true, create: true, edit: false, delete: false, manage: false }
+    },
     category: '관리'
   },
   claims: { 
@@ -48,7 +68,11 @@ export const MENU_CONFIG = {
     label: '청구예정', 
     path: '/claims', 
     icon: 'AttachMoney',
-    defaultPermissions: { master: true, admin: true, user: false },
+    defaultPermissions: { 
+      master: { view: true, create: true, edit: true, delete: true, manage: true },
+      admin: { view: true, create: true, edit: true, delete: true, manage: false },
+      user: { view: false, create: false, edit: false, delete: false, manage: false }
+    },
     category: '재무'
   },
   estimates: { 

@@ -82,22 +82,48 @@ const Permissions = () => {
       
       setPermissions(membersData);
       
-      // 편집 권한 초기화
+      // 편집 권한 초기화 - 세분화된 권한 체계
       const initialPermissions = {};
       membersData.forEach(member => {
         const isMaster = member.role === '마스터' || member.grade === '마스터' || member.role === 'master';
         const isAdmin = member.role === '관리자' || member.grade === '관리자' || member.role === 'admin';
         
-        if (isMaster || isAdmin) {
-          // 마스터와 관리자는 모든 권한 true로 초기화
-          initialPermissions[member.id] = {};
-          Object.keys(MENU_CONFIG).forEach(menuKey => {
-            initialPermissions[member.id][menuKey] = { access: true };
-          });
-        } else {
-          // 일반 사용자는 기존 권한 또는 빈 객체로 초기화
-          initialPermissions[member.id] = member.permissions || {};
-        }
+        initialPermissions[member.id] = {};
+        Object.keys(MENU_CONFIG).forEach(menuKey => {
+          const menuConfig = MENU_CONFIG[menuKey];
+          const existingPermissions = member.permissions?.[menuKey] || {};
+          
+          if (isMaster) {
+            // 마스터는 모든 권한 true
+            initialPermissions[member.id][menuKey] = {
+              view: true,
+              create: true,
+              edit: true,
+              delete: true,
+              manage: true
+            };
+          } else if (isAdmin) {
+            // 관리자는 기본 권한 + 기존 설정
+            const defaultAdminPerms = menuConfig.defaultPermissions.admin;
+            initialPermissions[member.id][menuKey] = {
+              view: existingPermissions.view ?? defaultAdminPerms.view,
+              create: existingPermissions.create ?? defaultAdminPerms.create,
+              edit: existingPermissions.edit ?? defaultAdminPerms.edit,
+              delete: existingPermissions.delete ?? defaultAdminPerms.delete,
+              manage: existingPermissions.manage ?? defaultAdminPerms.manage
+            };
+          } else {
+            // 일반 사용자는 기본 권한 + 기존 설정
+            const defaultUserPerms = menuConfig.defaultPermissions.user;
+            initialPermissions[member.id][menuKey] = {
+              view: existingPermissions.view ?? defaultUserPerms.view,
+              create: existingPermissions.create ?? defaultUserPerms.create,
+              edit: existingPermissions.edit ?? defaultUserPerms.edit,
+              delete: existingPermissions.delete ?? defaultUserPerms.delete,
+              manage: existingPermissions.manage ?? defaultUserPerms.manage
+            };
+          }
+        });
       });
       setEditedPermissions(initialPermissions);
     } catch (error) {
@@ -255,7 +281,7 @@ const Permissions = () => {
 
   return (
     <Box sx={{ 
-      minHeight: 'calc(100vh + 250px)',
+      height: '1000px',
       bgcolor: 'background.default',
       display: 'flex',
       flexDirection: 'column',
@@ -379,8 +405,8 @@ const Permissions = () => {
                     <TableCell>사용자</TableCell>
                     <TableCell>역할</TableCell>
                     {Object.values(MENU_CONFIG).map((menu) => (
-                      <TableCell key={menu.key} align="center" sx={{ minWidth: 120 }}>
-                        <Typography variant="caption" display="block" fontWeight="bold">
+                      <TableCell key={menu.key} align="center" sx={{ minWidth: 150 }}>
+                        <Typography variant="caption" display="block" fontWeight="bold" sx={{ mb: 1 }}>
                           {menu.label}
                         </Typography>
                         <Chip
@@ -388,7 +414,15 @@ const Permissions = () => {
                           color={getCategoryColor(menu.category)}
                           size="small"
                           variant="outlined"
+                          sx={{ mb: 1 }}
                         />
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'center' }}>
+                          <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>보기</Typography>
+                          <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>쓰기</Typography>
+                          <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>수정</Typography>
+                          <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>삭제</Typography>
+                          <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>관리</Typography>
+                        </Box>
                       </TableCell>
                     ))}
                   </TableRow>
@@ -419,55 +453,98 @@ const Permissions = () => {
                         const isAdmin = member.role === '관리자' || member.grade === '관리자' || member.role === 'admin';
                         const isCurrentUser = member.id === currentUser?.uid || member.email === currentUser?.email;
                         
-                        // 권한 확인: 명시적으로 설정된 권한만 확인
-                        let hasAccess = false;
-                        if (isMaster) {
-                          hasAccess = true; // 마스터는 항상 모든 권한
-                        } else if (isAdmin) {
-                          // 관리자는 기본적으로 모든 권한이지만, 명시적으로 false로 설정된 경우 false
-                          const adminPermission = editedPermissions[member.id]?.[menu.key]?.access;
-                          hasAccess = adminPermission !== false;
-                        } else {
-                          // 일반 사용자는 명시적으로 true로 설정된 경우만 true
-                          hasAccess = editedPermissions[member.id]?.[menu.key]?.access === true;
-                        }
-                        
+                        // 권한 확인: 세분화된 권한 체계
+                        const permissions = editedPermissions[member.id]?.[menu.key] || {};
+                        const hasView = isMaster || permissions.view === true || (isAdmin && permissions.view !== false);
+                        const hasCreate = isMaster || permissions.create === true || (isAdmin && permissions.create !== false);
+                        const hasEdit = isMaster || permissions.edit === true || (isAdmin && permissions.edit !== false);
+                        const hasDelete = isMaster || permissions.delete === true;
+                        const hasManage = isMaster || permissions.manage === true;
                         
                         // 권한 수정 제한: 마스터는 자신의 권한만 수정 불가, 관리자는 자신의 권한만 수정 불가
                         const isDisabled = (isMaster && isCurrentUser) || (isAdmin && isCurrentUser);
                         
                         return (
                           <TableCell key={menu.key} align="center">
-                            <Checkbox
-                              checked={hasAccess}
-                              onChange={(e) => handlePermissionChange(member.id, menu.key, 'access', e.target.checked)}
-                              disabled={isDisabled}
-                              sx={{
-                                '&.Mui-disabled': {
-                                  color: isMaster ? 'success.main' : 'warning.main',
-                                  '&.Mui-checked': {
-                                    color: isMaster ? 'success.main' : 'warning.main',
-                                  }
-                                }
-                              }}
-                            />
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'center' }}>
+                              {/* 보기 권한 */}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Checkbox
+                                  size="small"
+                                  checked={hasView}
+                                  onChange={(e) => handlePermissionChange(member.id, menu.key, 'view', e.target.checked)}
+                                  disabled={isDisabled}
+                                  sx={{ p: 0.5 }}
+                                />
+                                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>보기</Typography>
+                              </Box>
+                              
+                              {/* 쓰기 권한 */}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Checkbox
+                                  size="small"
+                                  checked={hasCreate}
+                                  onChange={(e) => handlePermissionChange(member.id, menu.key, 'create', e.target.checked)}
+                                  disabled={isDisabled}
+                                  sx={{ p: 0.5 }}
+                                />
+                                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>쓰기</Typography>
+                              </Box>
+                              
+                              {/* 수정 권한 */}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Checkbox
+                                  size="small"
+                                  checked={hasEdit}
+                                  onChange={(e) => handlePermissionChange(member.id, menu.key, 'edit', e.target.checked)}
+                                  disabled={isDisabled}
+                                  sx={{ p: 0.5 }}
+                                />
+                                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>수정</Typography>
+                              </Box>
+                              
+                              {/* 삭제 권한 */}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Checkbox
+                                  size="small"
+                                  checked={hasDelete}
+                                  onChange={(e) => handlePermissionChange(member.id, menu.key, 'delete', e.target.checked)}
+                                  disabled={isDisabled}
+                                  sx={{ p: 0.5 }}
+                                />
+                                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>삭제</Typography>
+                              </Box>
+                              
+                              {/* 관리 권한 */}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Checkbox
+                                  size="small"
+                                  checked={hasManage}
+                                  onChange={(e) => handlePermissionChange(member.id, menu.key, 'manage', e.target.checked)}
+                                  disabled={isDisabled}
+                                  sx={{ p: 0.5 }}
+                                />
+                                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>관리</Typography>
+                              </Box>
+                            </Box>
+                            
                             {isMaster && isCurrentUser && (
-                              <Typography variant="caption" color="success.main" display="block">
+                              <Typography variant="caption" color="success.main" display="block" sx={{ mt: 1 }}>
                                 마스터(본인)
                               </Typography>
                             )}
                             {isMaster && !isCurrentUser && (
-                              <Typography variant="caption" color="success.main" display="block">
+                              <Typography variant="caption" color="success.main" display="block" sx={{ mt: 1 }}>
                                 마스터
                               </Typography>
                             )}
                             {isAdmin && isCurrentUser && (
-                              <Typography variant="caption" color="warning.main" display="block">
+                              <Typography variant="caption" color="warning.main" display="block" sx={{ mt: 1 }}>
                                 관리자(본인)
                               </Typography>
                             )}
                             {isAdmin && !isCurrentUser && (
-                              <Typography variant="caption" color="warning.main" display="block">
+                              <Typography variant="caption" color="warning.main" display="block" sx={{ mt: 1 }}>
                                 관리자
                               </Typography>
                             )}

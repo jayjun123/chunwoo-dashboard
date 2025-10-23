@@ -378,6 +378,17 @@ export const AuthProvider = ({ children }) => {
                 
                 // 디버깅 로그 추가
                 debugMasterUser(enhancedUser);
+                
+                // 자동 로그인 감지 시 보안 로그 기록
+                try {
+                  await logLoginSuccess(enhancedUser.uid, enhancedUser.email, {
+                    loginMethod: 'auto',
+                    userRole: enhancedUser.role || 'user',
+                    source: 'onAuthStateChanged'
+                  });
+                } catch (logError) {
+                  console.warn('자동 로그인 보안 로그 기록 실패:', logError);
+                }
               } else {
                 console.log('⚠️ Firestore에 사용자 데이터가 없습니다.');
                 setCurrentUser(user);

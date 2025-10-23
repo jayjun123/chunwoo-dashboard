@@ -83,9 +83,13 @@ const Members = () => {
   const [approvalTeamGrade, setApprovalTeamGrade] = useState('A');
   const [securityAlertDialog, setSecurityAlertDialog] = useState({ open: false, alert: null });
 
-  // 권한 옵션 - Firebase에서 가져올 수 있지만 기본값으로 설정
-  const permissionOptions = ['읽기', '쓰기', '읽기/쓰기', '권한없음'];
-  const menuItems = ['메인메뉴', '일정관리', '현장관리', '문서관리', '설정'];
+  // 권한 옵션 - 세분화된 권한 체계
+  const permissionOptions = ['보기', '쓰기', '수정', '삭제', '관리', '권한없음'];
+  const menuItems = [
+    '메인메뉴', '일정관리', '현장관리', '문서관리', '설정', 
+    '회원관리', '보안모니터링', '입찰현황', '견적관리', '진행관리',
+    '안전관리', '정산관리', '자재관리', '팀관리', '데이터베이스관리'
+  ];
   const teamGrades = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
   // 역할 정의 - Firebase에서 가져올 수 있지만 기본값으로 설정
@@ -95,6 +99,34 @@ const Members = () => {
     team: { label: '대마팀', color: 'info', icon: GroupIcon },
     user: { label: '일반회원', color: 'default', icon: PersonIcon },
     pending: { label: '보류', color: 'secondary', icon: PendingIcon }
+  };
+
+  // 권한 체크 함수들
+  const hasPermission = (menuItem, permissionType) => {
+    if (!currentUser) return false;
+    
+    // 마스터는 모든 권한 보유
+    if (currentUser.role === 'master') return true;
+    
+    const userPermissions = currentUser.permissions || getDefaultPermissions(currentUser.role);
+    const menuPermission = userPermissions[menuItem];
+    
+    if (!menuPermission) return false;
+    
+    // 권한 레벨 체크
+    const permissionLevels = {
+      '권한없음': 0,
+      '보기': 1,
+      '쓰기': 2,
+      '수정': 3,
+      '삭제': 4,
+      '관리': 5
+    };
+    
+    const requiredLevel = permissionLevels[permissionType] || 0;
+    const userLevel = permissionLevels[menuPermission] || 0;
+    
+    return userLevel >= requiredLevel;
   };
 
   // 역할 변경 권한 체크
@@ -307,32 +339,80 @@ const Members = () => {
     }
   };
 
-  // 역할별 기본 권한 반환
+  // 역할별 기본 권한 반환 - 세분화된 권한 체계
   const getDefaultPermissions = (role) => {
     switch (role) {
+      case 'master':
+        return {
+          '메인메뉴': '관리',
+          '일정관리': '관리',
+          '현장관리': '관리',
+          '문서관리': '관리',
+          '설정': '관리',
+          '회원관리': '관리',
+          '보안모니터링': '관리',
+          '입찰현황': '관리',
+          '견적관리': '관리',
+          '진행관리': '관리',
+          '안전관리': '관리',
+          '정산관리': '관리',
+          '자재관리': '관리',
+          '팀관리': '관리',
+          '데이터베이스관리': '관리'
+        };
       case 'admin':
         return {
-          '메인메뉴': '읽기/쓰기',
-          '일정관리': '읽기/쓰기',
-          '현장관리': '읽기/쓰기',
-          '문서관리': '읽기/쓰기',
-          '설정': '읽기/쓰기'
+          '메인메뉴': '수정',
+          '일정관리': '수정',
+          '현장관리': '수정',
+          '문서관리': '수정',
+          '설정': '수정',
+          '회원관리': '수정',
+          '보안모니터링': '보기',
+          '입찰현황': '수정',
+          '견적관리': '수정',
+          '진행관리': '수정',
+          '안전관리': '수정',
+          '정산관리': '수정',
+          '자재관리': '수정',
+          '팀관리': '수정',
+          '데이터베이스관리': '보기'
         };
       case 'team':
         return {
-          '메인메뉴': '읽기/쓰기',
-          '일정관리': '읽기/쓰기',
-          '현장관리': '읽기',
-          '문서관리': '읽기',
-          '설정': '읽기'
+          '메인메뉴': '쓰기',
+          '일정관리': '쓰기',
+          '현장관리': '보기',
+          '문서관리': '보기',
+          '설정': '보기',
+          '회원관리': '보기',
+          '보안모니터링': '권한없음',
+          '입찰현황': '보기',
+          '견적관리': '보기',
+          '진행관리': '쓰기',
+          '안전관리': '쓰기',
+          '정산관리': '보기',
+          '자재관리': '보기',
+          '팀관리': '보기',
+          '데이터베이스관리': '권한없음'
         };
       case 'user':
         return {
-          '메인메뉴': '읽기',
-          '일정관리': '읽기',
-          '현장관리': '읽기',
-          '문서관리': '읽기',
-          '설정': '권한없음'
+          '메인메뉴': '보기',
+          '일정관리': '보기',
+          '현장관리': '보기',
+          '문서관리': '보기',
+          '설정': '권한없음',
+          '회원관리': '권한없음',
+          '보안모니터링': '권한없음',
+          '입찰현황': '보기',
+          '견적관리': '보기',
+          '진행관리': '보기',
+          '안전관리': '보기',
+          '정산관리': '보기',
+          '자재관리': '보기',
+          '팀관리': '보기',
+          '데이터베이스관리': '권한없음'
         };
       default:
         return null;
