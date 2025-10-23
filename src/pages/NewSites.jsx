@@ -847,6 +847,9 @@ const NewSites = () => {
     if (!selectedSite || isEditing) return; // 수정하기 모드일 때는 자동 저장 비활성화
     const timer = setTimeout(async () => {
       try {
+        // 자동 저장 시작 전 스크롤 위치 저장
+        saveScrollPosition();
+        setIsFormSubmitting(true);
         const norm = (v) => (v ?? '').toString().trim();
         const currentSite = {
           name: selectedSite?.name || '',
@@ -943,6 +946,10 @@ const NewSites = () => {
         }
       } catch (e) {
         console.error('자동 저장 실패:', e);
+      } finally {
+        // 자동 저장 완료 후 스크롤 위치 복원
+        setIsFormSubmitting(false);
+        restoreScrollPosition();
       }
     }, 700);
     return () => clearTimeout(timer);
@@ -1297,6 +1304,10 @@ const NewSites = () => {
     if (selectedSite) {
       const newTimer = setTimeout(async () => {
         try {
+          // 물량내역 저장 시작 전 스크롤 위치 저장
+          saveScrollPosition();
+          setIsFormSubmitting(true);
+          
           const { doc } = await import('firebase/firestore');
           const docRef = doc(db, 'sites', selectedSite.id);
           
@@ -1310,6 +1321,10 @@ const NewSites = () => {
           }
         } catch (error) {
           console.error('물량내역 실시간 저장 오류:', error);
+        } finally {
+          // 물량내역 저장 완료 후 스크롤 위치 복원
+          setIsFormSubmitting(false);
+          restoreScrollPosition();
         }
       }, 1000); // 1초 후 저장
       
@@ -1341,6 +1356,10 @@ const NewSites = () => {
     // Firebase에 실시간 저장 (모든 모드에서 저장)
     if (selectedSite) {
       try {
+        // 품목 추가 저장 시작 전 스크롤 위치 저장
+        saveScrollPosition();
+        setIsFormSubmitting(true);
+        
         // sites 컬렉션 업데이트
         await updateDoc(doc(db, 'sites', selectedSite.id), {
           items: currentItems,
@@ -1374,6 +1393,10 @@ const NewSites = () => {
         }
       } catch (error) {
         console.error('품목 추가 실시간 저장 오류:', error);
+      } finally {
+        // 품목 추가 저장 완료 후 스크롤 위치 복원
+        setIsFormSubmitting(false);
+        restoreScrollPosition();
       }
     }
   };
@@ -1460,6 +1483,10 @@ const NewSites = () => {
     // Firebase에 실시간 저장 (수정 모드일 때만)
     if (selectedSite && isEditing) {
       try {
+        // 단수정리 항목 추가 저장 시작 전 스크롤 위치 저장
+        saveScrollPosition();
+        setIsFormSubmitting(true);
+        
         // sites 컬렉션 업데이트
         await updateDoc(doc(db, 'sites', selectedSite.id), {
           items: currentItems,
@@ -1489,6 +1516,10 @@ const NewSites = () => {
         }
       } catch (error) {
         console.error('단수정리 항목 추가 실시간 저장 오류:', error);
+      } finally {
+        // 단수정리 항목 추가 저장 완료 후 스크롤 위치 복원
+        setIsFormSubmitting(false);
+        restoreScrollPosition();
       }
     }
   };
@@ -2121,7 +2152,35 @@ const NewSites = () => {
   }, [sites, showDistributionView]);
   const isReadOnly = !isEditing;
 
+  // 스크롤 위치 저장 및 복원을 위한 상태
+  const [savedScrollPosition, setSavedScrollPosition] = useState(0);
+  const [isFormSubmitting, setIsFormSubmitting] = useState(false);
+
+  // 스크롤 위치 저장
+  const saveScrollPosition = () => {
+    const container = containerRef.current;
+    if (container) {
+      setSavedScrollPosition(container.scrollTop);
+    }
+  };
+
+  // 스크롤 위치 복원
+  const restoreScrollPosition = () => {
+    const container = containerRef.current;
+    if (container && savedScrollPosition > 0) {
+      setTimeout(() => {
+        container.scrollTop = savedScrollPosition;
+        setSavedScrollPosition(0); // 복원 후 초기화
+      }, 100);
+    }
+  };
+
   const scrollFocus = (ref) => () => {
+    // 폼 제출 중이면 스크롤 조정하지 않음
+    if (isFormSubmitting) {
+      return;
+    }
+
     if (isMobile) {
       setTimeout(() => {
         ref?.current?.scrollIntoView({ 
