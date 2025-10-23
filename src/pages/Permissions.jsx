@@ -175,37 +175,91 @@ const Permissions = () => {
     }));
   };
 
+  // 전체 선택/해제 함수
+  const handleSelectAll = (memberId, menuKey, checked) => {
+    setEditedPermissions(prev => ({
+      ...prev,
+      [memberId]: {
+        ...prev[memberId],
+        [menuKey]: {
+          view: checked,
+          create: checked,
+          edit: checked,
+          delete: checked,
+          manage: checked
+        }
+      }
+    }));
+  };
+
+  // 특정 권한 타입 전체 선택/해제 함수
+  const handleSelectAllByPermission = (memberId, permKey, checked) => {
+    setEditedPermissions(prev => {
+      const newPermissions = { ...prev };
+      Object.keys(MENU_CONFIG).forEach(menuKey => {
+        if (!newPermissions[memberId]) {
+          newPermissions[memberId] = {};
+        }
+        if (!newPermissions[memberId][menuKey]) {
+          newPermissions[memberId][menuKey] = {};
+        }
+        newPermissions[memberId][menuKey][permKey] = checked;
+      });
+      return newPermissions;
+    });
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      console.log('💾 권한 저장 시작...', editedPermissions);
+      
       const updates = Object.entries(editedPermissions);
+      let savedCount = 0;
+      
       for (const [memberId, perms] of updates) {
-        // 자신의 권한은 저장에서 제외 (다른 사용자 권한은 저장 가능)
         const member = permissions.find(m => m.id === memberId);
-        const isMemberMaster = member?.role === '마스터' || member?.grade === '마스터' || member?.role === 'master';
-        const isMemberAdmin = member?.role === '관리자' || member?.grade === '관리자' || member?.role === 'admin';
         
-        // 자신의 권한만 저장에서 제외
-        if (member.id === currentUser?.uid) {
-          continue; // 자신의 권한은 건너뛰기
+        // 자신의 권한은 저장에서 제외
+        if (member && (member.id === currentUser?.uid || member.email === currentUser?.email)) {
+          console.log(`⏭️ 자신의 권한은 저장에서 제외: ${member.name}`);
+          continue;
         }
         
-        // 일반 사용자의 경우 권한이 명시적으로 설정된 경우만 저장
-        const hasAnyPermission = Object.values(perms).some(permission => permission?.access === true);
-        if (!hasAnyPermission) {
-          continue; // 권한이 없는 사용자는 건너뛰기
+        // 권한이 변경된 경우만 저장
+        const originalPermissions = member?.permissions || {};
+        const hasChanges = JSON.stringify(originalPermissions) !== JSON.stringify(perms);
+        
+        if (!hasChanges) {
+          console.log(`⏭️ 변경사항 없음: ${member?.name || memberId}`);
+          continue;
         }
+        
+        console.log(`💾 권한 저장 중: ${member?.name || memberId}`, perms);
         
         const memberRef = doc(db, 'members', memberId);
         await updateDoc(memberRef, {
-          permissions: perms
+          permissions: perms,
+          updatedAt: new Date().toISOString()
         });
+        
+        savedCount++;
+        console.log(`✅ 권한 저장 완료: ${member?.name || memberId}`);
       }
+      
+      console.log(`🎉 총 ${savedCount}명의 권한이 저장되었습니다.`);
+      
+      // 데이터 새로고침
       await fetchMembers();
       setError('');
+      
+      // 성공 메시지 표시
+      alert(`${savedCount}명의 권한이 성공적으로 저장되었습니다.`);
+      
     } catch (error) {
-      console.error('권한 변경 실패:', error);
-      setError('권한 변경에 실패했습니다.');
+      console.error('❌ 권한 변경 실패:', error);
+      setError(`권한 변경에 실패했습니다: ${error.message}`);
+      alert(`권한 저장에 실패했습니다: ${error.message}`);
     }
     setIsSaving(false);
   };
@@ -404,6 +458,18 @@ const Permissions = () => {
                   <TableRow>
                     <TableCell>사용자</TableCell>
                     <TableCell>역할</TableCell>
+                    <TableCell align="center" sx={{ minWidth: 100 }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" sx={{ mb: 1 }}>
+                        전체 선택
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'center' }}>
+                        <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>보기</Typography>
+                        <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>쓰기</Typography>
+                        <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>수정</Typography>
+                        <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>삭제</Typography>
+                        <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>관리</Typography>
+                      </Box>
+                    </TableCell>
                     {Object.values(MENU_CONFIG).map((menu) => (
                       <TableCell key={menu.key} align="center" sx={{ minWidth: 150 }}>
                         <Typography variant="caption" display="block" fontWeight="bold" sx={{ mb: 1 }}>
@@ -447,6 +513,93 @@ const Permissions = () => {
                           size="small"
                           variant={member.role === '마스터' || member.grade === '마스터' || member.role === 'master' ? 'filled' : 'outlined'}
                         />
+                      </TableCell>
+                      {/* 전체 선택 컬럼 */}
+                      <TableCell align="center">
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'center' }}>
+                          {/* 보기 전체 선택 */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Checkbox
+                              size="small"
+                              checked={Object.values(MENU_CONFIG).every(menu => {
+                                const isMaster = member.role === '마스터' || member.grade === '마스터' || member.role === 'master';
+                                const isAdmin = member.role === '관리자' || member.grade === '관리자' || member.role === 'admin';
+                                const permissions = editedPermissions[member.id]?.[menu.key] || {};
+                                return isMaster || permissions.view === true || (isAdmin && permissions.view !== false);
+                              })}
+                              onChange={(e) => handleSelectAllByPermission(member.id, 'view', e.target.checked)}
+                              disabled={(member.role === '마스터' || member.grade === '마스터' || member.role === 'master') && (member.id === currentUser?.uid || member.email === currentUser?.email)}
+                              sx={{ p: 0.5 }}
+                            />
+                            <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>보기</Typography>
+                          </Box>
+                          
+                          {/* 쓰기 전체 선택 */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Checkbox
+                              size="small"
+                              checked={Object.values(MENU_CONFIG).every(menu => {
+                                const isMaster = member.role === '마스터' || member.grade === '마스터' || member.role === 'master';
+                                const isAdmin = member.role === '관리자' || member.grade === '관리자' || member.role === 'admin';
+                                const permissions = editedPermissions[member.id]?.[menu.key] || {};
+                                return isMaster || permissions.create === true || (isAdmin && permissions.create !== false);
+                              })}
+                              onChange={(e) => handleSelectAllByPermission(member.id, 'create', e.target.checked)}
+                              disabled={(member.role === '마스터' || member.grade === '마스터' || member.role === 'master') && (member.id === currentUser?.uid || member.email === currentUser?.email)}
+                              sx={{ p: 0.5 }}
+                            />
+                            <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>쓰기</Typography>
+                          </Box>
+                          
+                          {/* 수정 전체 선택 */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Checkbox
+                              size="small"
+                              checked={Object.values(MENU_CONFIG).every(menu => {
+                                const isMaster = member.role === '마스터' || member.grade === '마스터' || member.role === 'master';
+                                const isAdmin = member.role === '관리자' || member.grade === '관리자' || member.role === 'admin';
+                                const permissions = editedPermissions[member.id]?.[menu.key] || {};
+                                return isMaster || permissions.edit === true || (isAdmin && permissions.edit !== false);
+                              })}
+                              onChange={(e) => handleSelectAllByPermission(member.id, 'edit', e.target.checked)}
+                              disabled={(member.role === '마스터' || member.grade === '마스터' || member.role === 'master') && (member.id === currentUser?.uid || member.email === currentUser?.email)}
+                              sx={{ p: 0.5 }}
+                            />
+                            <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>수정</Typography>
+                          </Box>
+                          
+                          {/* 삭제 전체 선택 */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Checkbox
+                              size="small"
+                              checked={Object.values(MENU_CONFIG).every(menu => {
+                                const isMaster = member.role === '마스터' || member.grade === '마스터' || member.role === 'master';
+                                const permissions = editedPermissions[member.id]?.[menu.key] || {};
+                                return isMaster || permissions.delete === true;
+                              })}
+                              onChange={(e) => handleSelectAllByPermission(member.id, 'delete', e.target.checked)}
+                              disabled={(member.role === '마스터' || member.grade === '마스터' || member.role === 'master') && (member.id === currentUser?.uid || member.email === currentUser?.email)}
+                              sx={{ p: 0.5 }}
+                            />
+                            <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>삭제</Typography>
+                          </Box>
+                          
+                          {/* 관리 전체 선택 */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Checkbox
+                              size="small"
+                              checked={Object.values(MENU_CONFIG).every(menu => {
+                                const isMaster = member.role === '마스터' || member.grade === '마스터' || member.role === 'master';
+                                const permissions = editedPermissions[member.id]?.[menu.key] || {};
+                                return isMaster || permissions.manage === true;
+                              })}
+                              onChange={(e) => handleSelectAllByPermission(member.id, 'manage', e.target.checked)}
+                              disabled={(member.role === '마스터' || member.grade === '마스터' || member.role === 'master') && (member.id === currentUser?.uid || member.email === currentUser?.email)}
+                              sx={{ p: 0.5 }}
+                            />
+                            <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>관리</Typography>
+                          </Box>
+                        </Box>
                       </TableCell>
                       {Object.values(MENU_CONFIG).map((menu) => {
                         const isMaster = member.role === '마스터' || member.grade === '마스터' || member.role === 'master';

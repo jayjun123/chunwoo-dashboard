@@ -620,43 +620,105 @@ const convertSharedFormulasToIndividual = (workbook) => {
     workbook.worksheets.forEach((worksheet, sheetIndex) => {
       console.log(`🔄 시트 ${sheetIndex + 1}: ${worksheet.name} 처리 중...`);
       
-      // 모든 셀을 순회하면서 공유수식을 개별 수식으로 변환
+      // 공유수식 마스터를 먼저 찾아서 개별 수식으로 변환
+      const sharedFormulaMasters = new Map();
+      
+      // 1단계: 공유수식 마스터들을 찾아서 개별 수식으로 변환
       worksheet.eachRow((row, rowNumber) => {
         row.eachCell((cell, colNumber) => {
           try {
-            if (cell.formula) {
+            if (cell.formula && (cell.sharedFormula || cell.si !== undefined)) {
               const cellAddress = `${String.fromCharCode(64 + colNumber)}${rowNumber}`;
               const originalFormula = cell.formula.toString();
               
-              // 공유수식 관련 속성이 있으면 제거
-              if (cell.sharedFormula || cell.si !== undefined) {
-                console.log(`🔄 ${cellAddress} 공유수식을 개별수식으로 변환: ${originalFormula}`);
-                
-                // 공유수식 속성들 제거
-                delete cell.sharedFormula;
-                delete cell.si;
-                delete cell.ref;
-                delete cell.sharedFormulaMaster;
-                delete cell.sharedFormulaRef;
-                
-                // 수식을 개별 수식으로 재설정
-                delete cell.formula;
-                cell.formula = originalFormula;
-              }
+              console.log(`🔄 ${cellAddress} 공유수식 마스터 발견: ${originalFormula}`);
+              
+              // 공유수식 속성들 제거
+              delete cell.sharedFormula;
+              delete cell.si;
+              delete cell.ref;
+              delete cell.sharedFormulaMaster;
+              delete cell.sharedFormulaRef;
+              
+              // 수식을 개별 수식으로 재설정
+              delete cell.formula;
+              cell.formula = originalFormula;
+              
+              // 마스터 정보 저장
+              sharedFormulaMasters.set(cellAddress, originalFormula);
             }
           } catch (cellError) {
-            console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 공유수식 변환 실패:`, cellError.message);
+            console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 공유수식 마스터 변환 실패:`, cellError.message);
           }
         });
       });
       
-      // 워크시트 레벨의 공유수식 정보도 정리
+      // 2단계: 공유수식 클론들을 개별 수식으로 변환
+      worksheet.eachRow((row, rowNumber) => {
+        row.eachCell((cell, colNumber) => {
+          try {
+            if (cell.formula && (cell.sharedFormula || cell.si !== undefined)) {
+              const cellAddress = `${String.fromCharCode(64 + colNumber)}${rowNumber}`;
+              
+              // 이미 마스터로 처리된 경우 스킵
+              if (sharedFormulaMasters.has(cellAddress)) {
+                return;
+              }
+              
+              console.log(`🔄 ${cellAddress} 공유수식 클론을 개별수식으로 변환`);
+              
+              // 공유수식 속성들 제거
+              delete cell.sharedFormula;
+              delete cell.si;
+              delete cell.ref;
+              delete cell.sharedFormulaMaster;
+              delete cell.sharedFormulaRef;
+              
+              // 수식을 개별 수식으로 재설정 (마스터와 동일한 수식 사용)
+              const masterFormula = cell.formula.toString();
+              delete cell.formula;
+              cell.formula = masterFormula;
+            }
+          } catch (cellError) {
+            console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 공유수식 클론 변환 실패:`, cellError.message);
+          }
+        });
+      });
+      
+      // 3단계: 워크시트 레벨의 공유수식 정보 정리
       if (worksheet.sharedFormulas) {
+        console.log('🔄 워크시트 공유수식 정보 제거');
         delete worksheet.sharedFormulas;
       }
       if (worksheet._sharedFormulas) {
         delete worksheet._sharedFormulas;
       }
+      
+      // 4단계: 남은 공유수식 관련 속성들 정리
+      worksheet.eachRow((row, rowNumber) => {
+        row.eachCell((cell, colNumber) => {
+          try {
+            // 공유수식 관련 속성들이 남아있으면 제거
+            if (cell.sharedFormula !== undefined) {
+              delete cell.sharedFormula;
+            }
+            if (cell.si !== undefined) {
+              delete cell.si;
+            }
+            if (cell.ref !== undefined) {
+              delete cell.ref;
+            }
+            if (cell.sharedFormulaMaster !== undefined) {
+              delete cell.sharedFormulaMaster;
+            }
+            if (cell.sharedFormulaRef !== undefined) {
+              delete cell.sharedFormulaRef;
+            }
+          } catch (cellError) {
+            console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 속성 정리 실패:`, cellError.message);
+          }
+        });
+      });
       
       console.log(`✅ 시트 ${sheetIndex + 1}: ${worksheet.name} 공유수식 변환 완료`);
     });
