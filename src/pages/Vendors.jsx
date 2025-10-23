@@ -33,6 +33,7 @@ import {
   Container
 } from '@mui/material';
 import MobileSidebar from '../components/MobileSidebar';
+import BiddingAnalysisChart from '../components/BiddingAnalysisChart';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -75,8 +76,6 @@ const Vendors = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
-  const [sortField, setSortField] = useState('bidDate');
-  const [sortDirection, setSortDirection] = useState('desc');
   
   // 업체 등록 관련 상태
   const [companyFormData, setCompanyFormData] = useState({
@@ -100,10 +99,24 @@ const Vendors = () => {
   
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(6);
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [hasUpdatedCreatedAt, setHasUpdatedCreatedAt] = useState(false);
+  
+  // 정렬 상태
+  const [sortField, setSortField] = useState('bidDate');
+  const [sortDirection, setSortDirection] = useState('desc');
+  
+  // 정렬 함수
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
   // 업종별 칩 색상 정의
   const getCompanyTypeColor = (type) => {
@@ -905,27 +918,6 @@ const Vendors = () => {
     }
   };
 
-  const handleSort = (field) => {
-    console.log('정렬 요청:', field, '현재 필드:', sortField, '현재 방향:', sortDirection);
-    
-    if (sortField === field) {
-      const newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-      console.log('방향 변경:', sortDirection, '→', newDirection);
-      setSortDirection(newDirection);
-    } else {
-      console.log('필드 변경:', sortField, '→', field);
-      setSortField(field);
-      setSortDirection('asc');
-    }
-    
-    // 강제로 리렌더링을 위해 상태 업데이트
-    setCurrentPage(1); // 정렬 변경 시 첫 페이지로
-    
-    // 디버깅을 위한 로그
-    setTimeout(() => {
-      console.log('정렬 후 상태:', { sortField: field, sortDirection: sortField === field ? (sortDirection === 'asc' ? 'desc' : 'asc') : 'asc' });
-    }, 0);
-  };
 
   const getSortedVendors = () => {
     // 전체 데이터에서 검색어 필터링
@@ -1281,86 +1273,92 @@ const Vendors = () => {
 
       {/* 업종별 통계 */}
       <Box sx={{ mb: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-          <Typography variant="h6">업종별 통계</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Grid container spacing={1} sx={{ flex: 1 }}>
+          {Object.entries(getCompanyTypeStats()).map(([type, count]) => (
+            <Grid item xs={12} key={type}>
+              {type === '천우건업(주)' ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                  <Chip 
+                    label={type}
+                    onClick={() => handleCompanyTypeCardClick(type)}
+                    sx={{ 
+                      fontWeight: 'bold', 
+                      fontSize: '1rem', 
+                      px: 2, 
+                      py: 1,
+                      borderRadius: '8px', // 네모 형태로 각을 살짝 둥글게
+                      backgroundColor: '#9c27b0', // 보라색 배경
+                      color: 'white', // 흰색 텍스트
+                      cursor: 'pointer',
+                      '&:hover': {
+                        backgroundColor: '#7b1fa2' // 호버 시 더 진한 보라색
+                      },
+                      '& .MuiChip-label': {
+                        borderRadius: '6px'
+                      }
+                    }}
+                  />
+                </Box>
+              ) : (
+                <Card 
+                  sx={{ 
+                    bgcolor: 'background.paper', 
+                    border: 1, 
+                    borderColor: 'divider',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': {
+                      borderColor: getCompanyTypeColor(type) === 'primary' ? 'primary.main' :
+                                  getCompanyTypeColor(type) === 'secondary' ? 'secondary.main' :
+                                  'success.main',
+                      boxShadow: 2,
+                      transform: 'translateY(-2px)'
+                    }
+                  }}
+                  onClick={() => handleCompanyTypeCardClick(type)}
+                  onDoubleClick={() => handleCompanyTypeCardDoubleClick(type)}
+                >
+                  <CardContent sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    py: 1,
+                    px: 2,
+                    '&:last-child': { pb: 1 }
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip 
+                        label={type}
+                        color={getCompanyTypeColor(type)}
+                        sx={{ fontWeight: 'bold' }}
+                      />
+                      <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+                        업체
+                      </Typography>
+                      <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'text.primary', ml: 1 }}>
+                        {count}개
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
+              )}
+            </Grid>
+          ))}
+          </Grid>
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic', ml: 2, whiteSpace: 'nowrap' }}>
             클릭: 테이블 필터링 | 더블클릭: 업체 목록 팝업 | 제목 클릭: 필터 초기화
           </Typography>
         </Box>
-        <Grid container spacing={1} sx={{ mb: 2 }}>
-        {Object.entries(getCompanyTypeStats()).map(([type, count]) => (
-          <Grid item xs={12} key={type}>
-            {type === '천우건업(주)' ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
-                <Chip 
-                  label={type}
-                  onClick={() => handleCompanyTypeCardClick(type)}
-                  sx={{ 
-                    fontWeight: 'bold', 
-                    fontSize: '1rem', 
-                    px: 2, 
-                    py: 1,
-                    borderRadius: '8px', // 네모 형태로 각을 살짝 둥글게
-                    backgroundColor: '#9c27b0', // 보라색 배경
-                    color: 'white', // 흰색 텍스트
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: '#7b1fa2' // 호버 시 더 진한 보라색
-                    },
-                    '& .MuiChip-label': {
-                      borderRadius: '6px'
-                    }
-                  }}
-                />
-              </Box>
-            ) : (
-              <Card 
-                sx={{ 
-                  bgcolor: 'background.paper', 
-                  border: 1, 
-                  borderColor: 'divider',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease-in-out',
-                  '&:hover': {
-                    borderColor: getCompanyTypeColor(type) === 'primary' ? 'primary.main' :
-                                getCompanyTypeColor(type) === 'secondary' ? 'secondary.main' :
-                                'success.main',
-                    boxShadow: 2,
-                    transform: 'translateY(-2px)'
-                  }
-                }}
-                onClick={() => handleCompanyTypeCardClick(type)}
-                onDoubleClick={() => handleCompanyTypeCardDoubleClick(type)}
-              >
-                <CardContent sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  py: 1,
-                  px: 2,
-                  '&:last-child': { pb: 1 }
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Chip 
-                      label={type}
-                      color={getCompanyTypeColor(type)}
-                      sx={{ fontWeight: 'bold' }}
-                    />
-                    <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-                      업체
-                    </Typography>
-                    <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'text.primary', ml: 1 }}>
-                      {count}개
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            )}
-          </Grid>
-        ))}
-        </Grid>
       </Box>
 
-
+      {/* 천우건업(주) 탭에서 입찰 분석 차트 표시 */}
+      {filteredByCompanyType === '천우건업(주)' && (
+        <Box sx={{ mb: 3 }}>
+          <BiddingAnalysisChart vendors={vendors.filter(vendor => 
+            vendor.companyTypes && vendor.companyTypes.includes('천우건업(주)') && selectedItems.includes(vendor.id)
+          )} />
+        </Box>
+      )}
 
       <TableContainer component={Paper}>
         <Table size="small" sx={{ 
