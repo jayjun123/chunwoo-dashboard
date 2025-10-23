@@ -414,7 +414,8 @@ const Members = () => {
           px: 1,
           ml: 0,
           mr: 0,
-          maxWidth: '100%'
+          maxWidth: '100%',
+          mt: '44px' // 전체 화면을 아래로 44px 이동
         }}
       >
         <Box sx={{ 

@@ -37,7 +37,9 @@ import {
   Badge,
   Autocomplete,
   CircularProgress,
-  LinearProgress
+  LinearProgress,
+  Pagination,
+  TablePagination
 } from '@mui/material';
 import {
   Security as SecurityIcon,
@@ -87,6 +89,8 @@ const SecurityDashboard = () => {
   const [selectedLog, setSelectedLog] = useState(null);
   const [logDetailOpen, setLogDetailOpen] = useState(false);
   const [timeWindow, setTimeWindow] = useState(24); // 시간
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(8);
 
   // 보안 로그 타입별 색상
   const getLogTypeColor = (type) => {
@@ -198,6 +202,16 @@ const SecurityDashboard = () => {
       ...prev,
       [field]: value
     }));
+  };
+
+  // 페이지네이션 핸들러
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
   };
 
   // 로그 상세 보기
@@ -431,25 +445,36 @@ const SecurityDashboard = () => {
 
       {/* 보안 로그 테이블 */}
       <Paper>
-        <TableContainer sx={{ maxHeight: 600 }}>
-          <Table stickyHeader>
+        <TableContainer 
+          sx={{ 
+            maxHeight: 400,
+            '&::-webkit-scrollbar': {
+              display: 'none'
+            },
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}
+        >
+          <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                <TableCell>시간</TableCell>
-                <TableCell>타입</TableCell>
-                <TableCell>사용자</TableCell>
-                <TableCell>IP 주소</TableCell>
-                <TableCell>브라우저</TableCell>
-                <TableCell>심각도</TableCell>
-                <TableCell>상세내용</TableCell>
-                <TableCell>작업</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>시간</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>타입</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>사용자</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>IP 주소</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>브라우저</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>심각도</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>상세내용</TableCell>
+                <TableCell sx={{ py: 1, fontSize: '0.75rem' }}>작업</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {securityLogs.map((log) => (
-                <TableRow key={log.id} hover>
+              {securityLogs
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((log) => (
+                <TableRow key={log.id} hover sx={{ '& .MuiTableCell-root': { py: 0.5 } }}>
                   <TableCell>
-                    <Typography variant="body2">
+                    <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
                       {log.timestamp?.toDate ? 
                         format(log.timestamp.toDate(), 'MM-dd HH:mm:ss') : 
                         format(new Date(log.createdAt), 'MM-dd HH:mm:ss')
@@ -461,15 +486,16 @@ const SecurityDashboard = () => {
                       label={getLogTypeLabel(log.type)}
                       color={getLogTypeColor(log.type)}
                       size="small"
+                      sx={{ height: 20, fontSize: '0.65rem' }}
                     />
                   </TableCell>
                   <TableCell>
                     <Box>
-                      <Typography variant="body2" fontWeight="bold">
+                      <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.7rem' }}>
                         {log.email || '알 수 없음'}
                       </Typography>
                       {log.userId && (
-                        <Typography variant="caption" color="textSecondary">
+                        <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.6rem' }}>
                           {log.userId.substring(0, 8)}...
                         </Typography>
                       )}
@@ -477,14 +503,14 @@ const SecurityDashboard = () => {
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <LocationIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                      <Typography variant="body2">
+                      <LocationIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary', fontSize: '0.7rem' }} />
+                      <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
                         {log.ipAddress || '알 수 없음'}
                       </Typography>
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">
+                    <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
                       {log.browser || '알 수 없음'}
                     </Typography>
                   </TableCell>
@@ -494,10 +520,11 @@ const SecurityDashboard = () => {
                       color={getLevelColor(log.level)}
                       size="small"
                       variant={log.level === SECURITY_LEVELS.CRITICAL ? 'filled' : 'outlined'}
+                      sx={{ height: 20, fontSize: '0.65rem' }}
                     />
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
+                    <Typography variant="caption" noWrap sx={{ maxWidth: 150, fontSize: '0.7rem' }}>
                       {log.details?.message || '-'}
                     </Typography>
                   </TableCell>
@@ -506,8 +533,9 @@ const SecurityDashboard = () => {
                       <IconButton
                         size="small"
                         onClick={() => handleLogDetail(log)}
+                        sx={{ p: 0.5 }}
                       >
-                        <VisibilityIcon />
+                        <VisibilityIcon sx={{ fontSize: '0.8rem' }} />
                       </IconButton>
                     </Tooltip>
                   </TableCell>
@@ -516,6 +544,28 @@ const SecurityDashboard = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        
+        {/* 페이지네이션 */}
+        <TablePagination
+          rowsPerPageOptions={[8, 16, 24]}
+          component="div"
+          count={securityLogs.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="페이지당 행 수:"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count}`}
+          sx={{
+            '& .MuiTablePagination-toolbar': {
+              minHeight: 40,
+              fontSize: '0.75rem'
+            },
+            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+              fontSize: '0.75rem'
+            }
+          }}
+        />
       </Paper>
 
       {/* 로그 상세 다이얼로그 */}
