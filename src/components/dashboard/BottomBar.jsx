@@ -481,7 +481,7 @@ const BottomBar = ({
           requester: item.desc || '입찰요청',
           requestContent: item.desc || '입찰요청',
           submissionDeadline: item.date,
-          submissionStatus: item.completed ? '제출완료' : '제출대기',
+          submissionStatus: (item.completed || item.bidStatus === '입찰완료') ? '제출완료' : '제출대기',
           type: '입찰',
           isFromSchedule: true // 일정에서 온 데이터임을 표시
         }));
