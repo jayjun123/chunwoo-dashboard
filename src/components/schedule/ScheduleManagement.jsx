@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, startTransition } from 'react';
 import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, Autocomplete, Tabs, Tab, InputAdornment } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, EditNote as EditNoteIcon, CalendarToday as CalendarIcon, BarChart as BarChartIcon, Clear as ClearIcon } from '@mui/icons-material';
 import CustomCalendar from '../CustomCalendar';
@@ -13,6 +13,10 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { subscribeToEstimates } from '../../api/estimates';
 import SiteInfoPopup from '../common/SiteInfoPopup';
+import { fixNestedScrollContainers, getDroppableStyles, restoreScrollContainers } from '../../utils/dndScrollFix';
+import { firestoreErrorHandler } from '../../utils/firestoreErrorHandler';
+import { isAdminUserSync, isMasterUserSync, debugMasterUser } from '../../utils/masterUtils';
+import { permissionsAPI, membersAPI } from '../../api/database';
 
 // CSS 애니메이션을 위한 스타일
 const pulseAnimation = `
@@ -139,6 +143,152 @@ const ScheduleManagement = ({
   const authUser = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // 권한 체크 (기본 권한)
+  const basicCanEdit = isAdminUserSync(authUser.currentUser) || isMasterUserSync(authUser.currentUser);
+  const basicCanDelete = isAdminUserSync(authUser.currentUser) || isMasterUserSync(authUser.currentUser);
+  const basicCanAdd = isAdminUserSync(authUser.currentUser) || isMasterUserSync(authUser.currentUser);
+  
+  // Firestore 권한 정보 상태
+  const [userPermissions, setUserPermissions] = useState(null);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  
+  // Firestore에서 사용자 권한 정보 가져오기
+  useEffect(() => {
+    const loadUserPermissions = async () => {
+      if (authUser.currentUser?.uid) {
+        try {
+          // members 컬렉션에서 사용자 정보와 권한 조회
+          const member = await membersAPI.getById(authUser.currentUser.uid);
+          if (member) {
+            setUserPermissions(member.permissions || {});
+            console.log('🔍 Members 컬렉션에서 권한 정보:', member.permissions);
+            console.log('🔍 사용자 역할:', member.role);
+            console.log('🔍 사용자 등급:', member.teamGrade);
+          } else {
+            console.log('⚠️ Members 컬렉션에 사용자 정보가 없습니다. 회원관리에서 사용자를 등록해주세요.');
+            // members 컬렉션에 없으면 permissions 컬렉션에서 조회 (기존 방식)
+            const permissions = await permissionsAPI.getUserPermissions(authUser.currentUser.uid);
+            setUserPermissions(permissions);
+            console.log('🔍 Permissions 컬렉션에서 권한 정보:', permissions);
+          }
+        } catch (error) {
+          console.error('권한 정보 로드 실패:', error);
+        } finally {
+          setPermissionsLoaded(true);
+        }
+      }
+    };
+    
+    loadUserPermissions();
+  }, [authUser.currentUser?.uid]);
+  
+  // 최종 권한 체크 (기본 권한 + Firestore 권한)
+  const checkSchedulePermission = (action) => {
+    // 권한이 아직 로딩 중이면 기본 권한만 사용
+    if (!permissionsLoaded) {
+      console.log('⚠️ 권한 로딩 중 - 기본 권한만 사용');
+      return false;
+    }
+    
+    // 권한이 로드되었지만 userPermissions가 null이면 권한 없음
+    if (permissionsLoaded && userPermissions === null) {
+      console.log('⚠️ 권한 로드 완료되었지만 권한 정보 없음');
+      return false;
+    }
+    
+    if (!userPermissions) return false;
+    
+    // 권한관리페이지에서 설정한 권한 구조 확인
+    const schedulePerm = userPermissions['일정관리'];
+    if (schedulePerm) {
+      // 권한관리페이지 방식: '관리', '편집', '생성', '보기', '권한없음'
+      if (schedulePerm === '관리' || schedulePerm === '편집') {
+        return true; // 관리나 편집 권한이면 모든 작업 가능
+      }
+      if (action === 'create' && (schedulePerm === '생성' || schedulePerm === '편집' || schedulePerm === '관리')) {
+        return true;
+      }
+      if (action === 'edit' && (schedulePerm === '편집' || schedulePerm === '관리')) {
+        return true;
+      }
+      if (action === 'delete' && schedulePerm === '관리') {
+        return true;
+      }
+    }
+    
+    // 기존 방식도 지원 (scheduleManagement 구조)
+    const scheduleManagement = userPermissions.scheduleManagement;
+    if (scheduleManagement) {
+      if (action === 'create' || action === 'edit') {
+        return scheduleManagement.write || scheduleManagement.create || scheduleManagement.edit;
+      }
+      if (action === 'delete') {
+        return scheduleManagement.delete;
+      }
+    }
+    
+    return false;
+  };
+  
+  // 권한 체크 - 기본 권한이 있으면 바로 허용, 없으면 Firestore 권한 확인
+  const canEdit = basicCanEdit || (permissionsLoaded && checkSchedulePermission('edit'));
+  const canDelete = basicCanDelete || (permissionsLoaded && checkSchedulePermission('delete'));
+  const canAdd = basicCanAdd || (permissionsLoaded && checkSchedulePermission('create'));
+
+  // 디버깅용 로그
+  console.log('🔍 ScheduleManagement 권한 체크:', {
+    currentUser: authUser.currentUser,
+    userEmail: authUser.currentUser?.email,
+    userUid: authUser.currentUser?.uid,
+    userRole: authUser.currentUser?.role,
+    userGrade: authUser.currentUser?.grade,
+    userDisplayName: authUser.currentUser?.displayName,
+    isAdmin: isAdminUserSync(authUser.currentUser),
+    isMaster: isMasterUserSync(authUser.currentUser),
+    basicCanEdit,
+    basicCanDelete,
+    basicCanAdd,
+    userPermissions,
+    permissionsLoaded,
+    schedulePermission: userPermissions?.['일정관리'],
+    scheduleManagementPermission: userPermissions?.scheduleManagement,
+    canEdit,
+    canDelete,
+    canAdd
+  });
+  
+  // 상세 디버깅 정보 출력
+  if (authUser.currentUser) {
+    console.log('🔍 사용자 상세 정보:', {
+      email: authUser.currentUser.email,
+      uid: authUser.currentUser.uid,
+      role: authUser.currentUser.role,
+      grade: authUser.currentUser.grade,
+      displayName: authUser.currentUser.displayName,
+      emailVerified: authUser.currentUser.emailVerified,
+      providerData: authUser.currentUser.providerData
+    });
+    
+    // masterUtils 디버깅 함수 호출
+    debugMasterUser(authUser.currentUser);
+  }
+
+  // 컴포넌트 마운트 시 스크롤 문제 해결
+  useEffect(() => {
+    console.log('🔍 ScheduleManagement 컴포넌트 마운트 - 스크롤 문제 해결');
+    
+    // react-beautiful-dnd 중첩 스크롤 컨테이너 문제 해결
+    const timer = setTimeout(() => {
+      fixNestedScrollContainers();
+    }, 100); // DOM 렌더링 완료 후 실행
+    
+    // 컴포넌트 언마운트 시 스크롤 컨테이너 복원
+    return () => {
+      clearTimeout(timer);
+      restoreScrollContainers();
+    };
+  }, []);
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -635,10 +785,16 @@ const ScheduleManagement = ({
           setCalendarItems({});
           setLoading(false);
         }
-      }, (error) => {
+      }, async (error) => {
         console.error('일정 구독 오류:', error);
         setCalendarItems({});
         setLoading(false);
+        
+        // Firestore 오류 처리
+        await firestoreErrorHandler.handleError(error, () => {
+          console.log('🔄 일정 데이터 재로드 시도');
+          setLoading(true);
+        });
       });
 
       // 체크 상태 실시간 구독
@@ -761,11 +917,14 @@ const ScheduleManagement = ({
   const onDragEnd = async (result) => {
     if (!result.destination) return;
     const { source, destination, draggableId } = result;
-    const user = authUser.currentUser;
-    if (!user) {
-      alert('로그인이 필요합니다.');
-      return;
-    }
+    
+    // startTransition으로 감싸서 동기 입력 처리 개선
+    startTransition(async () => {
+      const user = authUser.currentUser;
+      if (!user) {
+        alert('로그인이 필요합니다.');
+        return;
+      }
 
     // 웹(PC)에서만 날짜셀 간 드래그앤드롭 허용
     const isWeb = window.innerWidth >= 768; // 태블릿/데스크톱 크기
@@ -777,6 +936,27 @@ const ScheduleManagement = ({
     }
 
     if (source.droppableId === 'siteList' && destination.droppableId.startsWith('20')) {
+      // 권한 체크
+      if (!canAdd) {
+        const userInfo = authUser.currentUser ? 
+          `현재 사용자: ${authUser.currentUser.email || '이메일 없음'}` : 
+          '로그인되지 않음';
+        
+        let permissionInfo = '';
+        if (permissionsLoaded) {
+          if (userPermissions) {
+            permissionInfo = `\nFirestore 권한: ${JSON.stringify(userPermissions.scheduleManagement || {})}`;
+          } else {
+            permissionInfo = '\nFirestore 권한: 없음';
+          }
+        } else {
+          permissionInfo = '\n권한 정보 로딩 중...';
+        }
+        
+        alert(`일정 추가 권한이 없습니다.\n${userInfo}${permissionInfo}\n\n해결 방법:\n1. 회원관리에서 사용자를 등록하세요\n2. 권한관리에서 일정관리 권한을 부여하세요\n3. 관리자에게 문의하세요`);
+        return;
+      }
+      
       const site = filteredSites[source.index];
       if (!site) return;
       const itemsOnDate = calendarItems[destination.droppableId] || [];
@@ -805,7 +985,16 @@ const ScheduleManagement = ({
           await addDoc(collection(db, 'schedules'), newItem);
         }
       } catch (error) {
-        alert('일정 추가에 실패했습니다.');
+        console.error('일정 추가 실패:', error);
+        
+        // Firestore 오류 처리
+        if (error.code === 'permission-denied') {
+          alert('일정 추가 권한이 없습니다. 관리자에게 문의하세요.');
+        } else if (error.code === 'unavailable') {
+          alert('서버 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요.');
+        } else {
+          alert('일정 추가에 실패했습니다: ' + error.message);
+        }
       }
     } else if (source.droppableId !== destination.droppableId) {
       // 드래그앤드롭으로 날짜 이동 시 중복 체크
@@ -834,6 +1023,7 @@ const ScheduleManagement = ({
       // 같은 날짜 내에서 순서 변경 - Firestore에서는 순서를 관리하지 않으므로 DB 업데이트 불필요
       // 실시간 구독으로 인해 UI 업데이트도 제거
     }
+    }); // startTransition 닫기
   };
 
   const handleOpenPopup = (dateStr) => {
@@ -870,6 +1060,47 @@ const ScheduleManagement = ({
     const user = authUser.currentUser;
     if (!user) {
       alert('로그인이 필요합니다.');
+      return;
+    }
+    
+    // 권한 체크
+    if (!canAdd) {
+      const userInfo = authUser.currentUser ? 
+        `현재 사용자: ${authUser.currentUser.email || '이메일 없음'}` : 
+        '로그인되지 않음';
+      
+      let permissionInfo = '';
+      if (permissionsLoaded) {
+        if (userPermissions) {
+          const schedulePerm = userPermissions['일정관리'];
+          const scheduleManagementPerm = userPermissions.scheduleManagement;
+          permissionInfo = `\n일정관리 권한: ${schedulePerm || '없음'}`;
+          if (scheduleManagementPerm) {
+            permissionInfo += `\n상세 권한: ${JSON.stringify(scheduleManagementPerm)}`;
+          }
+        } else {
+          permissionInfo = '\nFirestore 권한: 없음';
+        }
+      } else {
+        permissionInfo = '\n권한 정보 로딩 중...';
+      }
+      
+      // 관리자 권한이 있는지 확인
+      const isAdmin = isAdminUserSync(authUser.currentUser);
+      const isMaster = isMasterUserSync(authUser.currentUser);
+      const adminInfo = `\n기본 권한: ${isMaster ? '마스터' : isAdmin ? '관리자' : '일반사용자'}`;
+      
+      alert(`일정 추가 권한이 없습니다.\n${userInfo}${adminInfo}${permissionInfo}\n\n해결 방법:\n1. 회원관리에서 사용자를 등록하세요\n2. 권한관리에서 일정관리 권한을 부여하세요\n3. 관리자에게 문의하세요`);
+      console.error('❌ 권한 없음 - 일정 추가 시도:', {
+        user: authUser.currentUser,
+        canAdd,
+        basicCanAdd,
+        userPermissions,
+        permissionsLoaded,
+        isAdmin,
+        isMaster,
+        checkSchedulePermissionResult: checkSchedulePermission('create')
+      });
       return;
     }
     
@@ -1251,6 +1482,46 @@ const ScheduleManagement = ({
     const items = calendarItems[date] || [];
     const item = items.find(item => item.id === itemId);
     
+    // 권한 체크
+    if (!canDelete) {
+      const userInfo = authUser.currentUser ? 
+        `현재 사용자: ${authUser.currentUser.email || '이메일 없음'}` : 
+        '로그인되지 않음';
+      
+      let permissionInfo = '';
+      if (permissionsLoaded) {
+        if (userPermissions) {
+          const schedulePerm = userPermissions['일정관리'];
+          const scheduleManagementPerm = userPermissions.scheduleManagement;
+          permissionInfo = `\n일정관리 권한: ${schedulePerm || '없음'}`;
+          if (scheduleManagementPerm) {
+            permissionInfo += `\n상세 권한: ${JSON.stringify(scheduleManagementPerm)}`;
+          }
+        } else {
+          permissionInfo = '\nFirestore 권한: 없음';
+        }
+      } else {
+        permissionInfo = '\n권한 정보 로딩 중...';
+      }
+      
+      // 관리자 권한이 있는지 확인
+      const isAdmin = isAdminUserSync(authUser.currentUser);
+      const isMaster = isMasterUserSync(authUser.currentUser);
+      const adminInfo = `\n기본 권한: ${isMaster ? '마스터' : isAdmin ? '관리자' : '일반사용자'}`;
+      
+      alert(`일정 삭제 권한이 없습니다.\n${userInfo}${adminInfo}${permissionInfo}\n\n해결 방법:\n1. 회원관리에서 사용자를 등록하세요\n2. 권한관리에서 일정관리 권한을 부여하세요\n3. 관리자에게 문의하세요`);
+      console.error('❌ 권한 없음 - 일정 삭제 시도:', {
+        user: authUser.currentUser,
+        canDelete,
+        basicCanDelete,
+        userPermissions,
+        permissionsLoaded,
+        isAdmin: isAdminUserSync(authUser.currentUser),
+        isMaster: isMasterUserSync(authUser.currentUser)
+      });
+      return;
+    }
+    
     // 견적 일정은 삭제 불가
     if (item && item.isEstimate) {
       alert('견적 일정은 견적 페이지에서 관리해주세요.');
@@ -1273,12 +1544,60 @@ const ScheduleManagement = ({
       }
     } catch (error) {
       console.error('일정 삭제 실패:', error);
-      alert('일정 삭제에 실패했습니다.');
+      
+      // Firestore 오류 처리
+      if (error.code === 'permission-denied') {
+        alert('일정 삭제 권한이 없습니다. 관리자에게 문의하세요.');
+      } else if (error.code === 'unavailable') {
+        alert('서버 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요.');
+      } else {
+        alert('일정 삭제에 실패했습니다: ' + error.message);
+      }
     }
   };
 
   const handleEditSave = async () => {
     if (!editPopup.item || (!editPopup.item.text?.trim() && !editPopup.item.siteName?.trim())) return;
+    
+    // 권한 체크
+    if (!canEdit) {
+      const userInfo = authUser.currentUser ? 
+        `현재 사용자: ${authUser.currentUser.email || '이메일 없음'}` : 
+        '로그인되지 않음';
+      
+      let permissionInfo = '';
+      if (permissionsLoaded) {
+        if (userPermissions) {
+          const schedulePerm = userPermissions['일정관리'];
+          const scheduleManagementPerm = userPermissions.scheduleManagement;
+          permissionInfo = `\n일정관리 권한: ${schedulePerm || '없음'}`;
+          if (scheduleManagementPerm) {
+            permissionInfo += `\n상세 권한: ${JSON.stringify(scheduleManagementPerm)}`;
+          }
+        } else {
+          permissionInfo = '\nFirestore 권한: 없음';
+        }
+      } else {
+        permissionInfo = '\n권한 정보 로딩 중...';
+      }
+      
+      // 관리자 권한이 있는지 확인
+      const isAdmin = isAdminUserSync(authUser.currentUser);
+      const isMaster = isMasterUserSync(authUser.currentUser);
+      const adminInfo = `\n기본 권한: ${isMaster ? '마스터' : isAdmin ? '관리자' : '일반사용자'}`;
+      
+      alert(`일정 수정 권한이 없습니다.\n${userInfo}${adminInfo}${permissionInfo}\n\n해결 방법:\n1. 회원관리에서 사용자를 등록하세요\n2. 권한관리에서 일정관리 권한을 부여하세요\n3. 관리자에게 문의하세요`);
+      console.error('❌ 권한 없음 - 일정 수정 시도:', {
+        user: authUser.currentUser,
+        canEdit,
+        basicCanEdit,
+        userPermissions,
+        permissionsLoaded,
+        isAdmin: isAdminUserSync(authUser.currentUser),
+        isMaster: isMasterUserSync(authUser.currentUser)
+      });
+      return;
+    }
     
     try {
       const updateData = {
@@ -1299,7 +1618,15 @@ const ScheduleManagement = ({
       setEditPopup({ open: false, item: null, date: null });
     } catch (error) {
       console.error('일정 수정 실패:', error);
-      alert('일정 수정에 실패했습니다.');
+      
+      // Firestore 오류 처리
+      if (error.code === 'permission-denied') {
+        alert('일정 수정 권한이 없습니다. 관리자에게 문의하세요.');
+      } else if (error.code === 'unavailable') {
+        alert('서버 연결에 문제가 있습니다. 잠시 후 다시 시도해주세요.');
+      } else {
+        alert('일정 수정에 실패했습니다: ' + error.message);
+      }
     }
   };
 
@@ -2026,24 +2353,11 @@ const ScheduleManagement = ({
             <Droppable droppableId="siteList" isDropDisabled={false}>
               {(provided, snapshot) => (
                 <Box ref={provided.innerRef} {...provided.droppableProps} sx={{
-                  flex: 1, 
-                  overflowY: isMobile ? 'hidden' : 'auto', // 스크롤은 되지만 스크롤바는 숨김
+                  ...getDroppableStyles(snapshot.isDraggingOver),
                   p: isMobile ? 0.5 : 1,
-                  bgcolor: snapshot.isDraggingOver ? '#2a2b32' : '#23242a',
                   maxHeight: isMobile ? 'calc(100vh - 200px)' : 'none',
                   position: { xs: 'static', md: 'static' },
                   transform: { xs: 'none', md: 'none' },
-                  scrollbarWidth: 'none', // Firefox에서 스크롤바 숨기기
-                  msOverflowStyle: 'none', // IE/Edge에서 스크롤바 숨기기
-                  '&::-webkit-scrollbar': {
-                    display: 'none', // Webkit 브라우저에서 스크롤바 숨기기
-                  },
-                  '&::-webkit-scrollbar-track': {
-                    display: 'none',
-                  },
-                  '&::-webkit-scrollbar-thumb': {
-                    display: 'none',
-                  },
                 }}>
                   {filteredSites.length > 0 ? (
                     filteredSites.map((site, index) => (
@@ -2428,8 +2742,8 @@ const ScheduleManagement = ({
                     onClick={editPopup.item ? handleEditSave : handleAddSchedule} 
                     sx={{ minWidth: 80 }}
                     disabled={editPopup.item ? 
-                      (!editPopup.item?.text?.trim() && !editPopup.item?.siteName?.trim()) :
-                      ((!popupTitle.trim() && !popupSiteName.trim()) || selectedTypes.length === 0)
+                      (!editPopup.item?.text?.trim() && !editPopup.item?.siteName?.trim()) || !canEdit :
+                      ((!popupTitle.trim() && !popupSiteName.trim()) || selectedTypes.length === 0) || !canAdd
                     }
                   >
                     {editPopup.item ? '저장' : '추가'}

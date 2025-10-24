@@ -37,136 +37,104 @@ export const fixNestedScrollContainers = () => {
       
       // 중첩된 스크롤 컨테이너가 있는 경우 해결
       if (scrollableParents.length > 1) {
-        console.log(`🔧 중첩 스크롤 컨테이너 발견: ${scrollableParents.length}개`);
+        console.log('⚠️ 중첩 스크롤 컨테이너 감지:', {
+          droppableId: container.getAttribute('data-rbd-droppable-id'),
+          scrollableParents: scrollableParents.length
+        });
         
         // 가장 가까운 스크롤 컨테이너만 유지하고 나머지는 스크롤 비활성화
-        const closestScrollable = scrollableParents[0];
+        const closestScrollParent = scrollableParents[0];
         
         scrollableParents.slice(1).forEach(parent => {
           // 임시로 스크롤 비활성화
           parent.style.overflow = 'hidden';
-          parent.style.overflowY = 'hidden';
-          parent.style.overflowX = 'hidden';
-          
-          // 데이터 속성으로 원래 스타일 저장
-          parent.setAttribute('data-original-overflow', parent.style.overflow);
-          parent.setAttribute('data-original-overflow-y', parent.style.overflowY);
-          parent.setAttribute('data-original-overflow-x', parent.style.overflowX);
-          
-          console.log(`🔧 스크롤 비활성화: ${parent.tagName} (${parent.className})`);
+          parent.setAttribute('data-dnd-scroll-disabled', 'true');
+          fixedCount++;
         });
         
-        // 가장 가까운 스크롤 컨테이너는 유지
-        closestScrollable.style.overflow = 'auto';
-        closestScrollable.style.overflowY = 'auto';
-        
-        fixedCount++;
+        // Droppable 컨테이너에 스크롤 속성 추가
+        if (!container.style.overflow) {
+          container.style.overflow = 'auto';
+          container.style.maxHeight = '100%';
+        }
       }
     });
     
     console.log(`✅ 중첩 스크롤 컨테이너 문제 해결 완료: ${fixedCount}개 컨테이너 수정`);
-    
+    return fixedCount;
   } catch (error) {
-    console.warn('⚠️ 중첩 스크롤 컨테이너 문제 해결 중 오류:', error.message);
+    console.error('❌ 중첩 스크롤 컨테이너 문제 해결 실패:', error);
+    return 0;
   }
 };
 
 /**
- * 스크롤 컨테이너 스타일 복원 함수
- * 드래그 앤 드롭 완료 후 원래 스타일로 복원
+ * 스크롤 컨테이너 복원 함수
+ * 컴포넌트 언마운트 시 원래 스크롤 상태로 복원
  */
 export const restoreScrollContainers = () => {
   try {
-    console.log('🔧 스크롤 컨테이너 스타일 복원 시작');
+    console.log('🔧 스크롤 컨테이너 복원 시작');
     
-    const modifiedContainers = document.querySelectorAll('[data-original-overflow]');
+    const disabledContainers = document.querySelectorAll('[data-dnd-scroll-disabled="true"]');
     let restoredCount = 0;
     
-    modifiedContainers.forEach(container => {
-      const originalOverflow = container.getAttribute('data-original-overflow');
-      const originalOverflowY = container.getAttribute('data-original-overflow-y');
-      const originalOverflowX = container.getAttribute('data-original-overflow-x');
-      
-      if (originalOverflow) {
-        container.style.overflow = originalOverflow;
-        container.removeAttribute('data-original-overflow');
-      }
-      
-      if (originalOverflowY) {
-        container.style.overflowY = originalOverflowY;
-        container.removeAttribute('data-original-overflow-y');
-      }
-      
-      if (originalOverflowX) {
-        container.style.overflowX = originalOverflowX;
-        container.removeAttribute('data-original-overflow-x');
-      }
-      
+    disabledContainers.forEach(container => {
+      // 원래 스크롤 속성 복원
+      container.style.overflow = '';
+      container.removeAttribute('data-dnd-scroll-disabled');
       restoredCount++;
     });
     
-    console.log(`✅ 스크롤 컨테이너 스타일 복원 완료: ${restoredCount}개 컨테이너 복원`);
-    
+    console.log(`✅ 스크롤 컨테이너 복원 완료: ${restoredCount}개 컨테이너 복원`);
+    return restoredCount;
   } catch (error) {
-    console.warn('⚠️ 스크롤 컨테이너 스타일 복원 중 오류:', error.message);
+    console.error('❌ 스크롤 컨테이너 복원 실패:', error);
+    return 0;
   }
 };
 
 /**
- * DragDropContext에서 사용할 수 있는 이벤트 핸들러
+ * Droppable 컴포넌트용 스타일 개선
+ * 중첩 스크롤 문제를 방지하는 스타일 적용
  */
-export const createDndEventHandlers = () => {
-  return {
-    onDragStart: () => {
-      console.log('🚀 드래그 시작 - 중첩 스크롤 컨테이너 문제 해결');
-      fixNestedScrollContainers();
-    },
-    
-    onDragEnd: () => {
-      console.log('🏁 드래그 종료 - 스크롤 컨테이너 스타일 복원');
-      // 약간의 지연 후 복원 (드래그 애니메이션 완료 대기)
-      setTimeout(() => {
-        restoreScrollContainers();
-      }, 300);
+export const getDroppableStyles = (isDraggingOver = false) => ({
+  flex: 1,
+  overflow: 'auto',
+  maxHeight: '100%',
+  position: 'relative',
+  backgroundColor: isDraggingOver ? '#2a2b32' : '#23242a',
+  // 스크롤바 스타일링
+  scrollbarWidth: 'thin',
+  scrollbarColor: '#4a5568 #2d3748',
+  '&::-webkit-scrollbar': {
+    width: '8px'
+  },
+  '&::-webkit-scrollbar-track': {
+    backgroundColor: '#2d3748',
+    borderRadius: '4px'
+  },
+  '&::-webkit-scrollbar-thumb': {
+    backgroundColor: '#4a5568',
+    borderRadius: '4px',
+    '&:hover': {
+      backgroundColor: '#718096'
     }
-  };
-};
+  }
+});
 
 /**
- * Droppable 컴포넌트에 적용할 수 있는 공통 props
+ * 자동 스크롤 컨테이너 문제 해결
+ * 컴포넌트 마운트 시 자동으로 실행
  */
-export const getDroppableProps = () => {
-  return {
-    isDropDisabled: false,
-    // 중첩 스크롤 컨테이너 문제 해결을 위한 추가 속성
-    ignoreContainerClipping: false,
-    isCombineEnabled: false
-  };
-};
-
-/**
- * 자동으로 중첩 스크롤 컨테이너 문제를 해결하는 훅
- */
-export const useDndScrollFix = () => {
-  const [isDragging, setIsDragging] = React.useState(false);
-  
-  const handleDragStart = () => {
-    setIsDragging(true);
+export const autoFixScrollContainers = () => {
+  // DOM이 준비된 후 실행
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fixNestedScrollContainers);
+  } else {
     fixNestedScrollContainers();
-  };
+  }
   
-  const handleDragEnd = () => {
-    setIsDragging(false);
-    setTimeout(() => {
-      restoreScrollContainers();
-    }, 300);
-  };
-  
-  return {
-    isDragging,
-    handleDragStart,
-    handleDragEnd
-  };
+  // 페이지 언로드 시 복원
+  window.addEventListener('beforeunload', restoreScrollContainers);
 };
-
-

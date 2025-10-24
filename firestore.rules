@@ -6,10 +6,11 @@ service cloud.firestore {
       allow read: if request.auth != null;
     }
     
-    // fire8803@naver.com은 마스터 권한, 나머지는 일반 사용자
+    // 마스터 이메일들은 마스터 권한, 나머지는 일반 사용자
     match /{document=**} {
       allow create, update, delete: if request.auth != null && 
         (request.auth.token.email == 'fire8803@naver.com' || 
+         request.auth.token.email == 'parkmg0688@naver.com' ||
          request.auth.token.role == 'admin' || 
          request.auth.token.role == 'master');
     }

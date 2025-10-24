@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, startTransition } from 'react';
 import {
   Box,
   Paper,
@@ -44,6 +44,8 @@ import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { useNavigate } from 'react-router-dom';
 import { exportToExcel } from '../utils/excelUtils';
+import { useAuth } from '../contexts/AuthContext';
+import { isAdminUser, isMasterUser } from '../utils/masterUtils';
 
 const STATUS_OPTIONS = ['계획', '진행중', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급'];
@@ -107,6 +109,7 @@ const scrollFocus = (ref) => () => {
 };
 
 const WholeList = () => {
+  const { currentUser } = useAuth();
   const [sites, setSites] = useState([]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -122,10 +125,27 @@ const WholeList = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear()); // 현재 년도로 초기화
   const navigate = useNavigate();
 
+  // 권한 체크
+  const canEdit = isAdminUser(currentUser) || isMasterUser(currentUser);
+  const canDelete = isAdminUser(currentUser) || isMasterUser(currentUser);
+  const canAdd = isAdminUser(currentUser) || isMasterUser(currentUser);
+
+  // 디버깅용 로그
+  console.log('🔍 WholeList 권한 체크:', {
+    currentUser: currentUser,
+    isAdmin: isAdminUser(currentUser),
+    isMaster: isMasterUser(currentUser),
+    canEdit,
+    canDelete,
+    canAdd
+  });
+
   // 년도 변경 시 페이지 리셋
   const handleYearChange = (year) => {
-    setSelectedYear(year);
-    setPage(0); // 년도 변경 시 첫 페이지로 이동
+    startTransition(() => {
+      setSelectedYear(year);
+      setPage(0); // 년도 변경 시 첫 페이지로 이동
+    });
   };
 
   // 공사기간이 1년을 넘어가는지 확인하는 함수
@@ -189,9 +209,11 @@ const WholeList = () => {
   // 정렬 처리
   const handleRequestSort = (property) => {
     const isAsc = sortBy === property && order === 'asc';
-    setOrder(isAsc ? 'desc' : 'asc');
-    setSortBy(property);
-    setPage(0); // 정렬 변경 시 첫 페이지로 이동
+    startTransition(() => {
+      setOrder(isAsc ? 'desc' : 'asc');
+      setSortBy(property);
+      setPage(0); // 정렬 변경 시 첫 페이지로 이동
+    });
   };
 
   // 년도별 필터링 함수
@@ -223,25 +245,33 @@ const WholeList = () => {
 
   // 페이지 변경
   const handleChangePage = (event, newPage) => {
-    setPage(newPage);
+    startTransition(() => {
+      setPage(newPage);
+    });
   };
 
   // 페이지당 행 수 변경
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
+    startTransition(() => {
+      setRowsPerPage(parseInt(event.target.value, 10));
+      setPage(0);
+    });
   };
 
   // 편집 다이얼로그 열기
   const handleEdit = (site) => {
-    setSelectedSite(site);
-    setEditDialog(true);
+    startTransition(() => {
+      setSelectedSite(site);
+      setEditDialog(true);
+    });
   };
 
   // 편집 다이얼로그 닫기
   const handleCloseEdit = () => {
-    setEditDialog(false);
-    setSelectedSite(null);
+    startTransition(() => {
+      setEditDialog(false);
+      setSelectedSite(null);
+    });
   };
 
   // 데이터 저장
@@ -758,7 +788,8 @@ const WholeList = () => {
           <Button
             variant="outlined"
             startIcon={<UploadIcon />}
-            onClick={() => setUploadDialog(true)}
+            disabled={!canAdd}
+            onClick={() => startTransition(() => setUploadDialog(true))}
             onTouchStart={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -766,7 +797,7 @@ const WholeList = () => {
             onTouchEnd={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              setUploadDialog(true);
+              startTransition(() => setUploadDialog(true));
             }}
             sx={{
               // 스마트폰에서만 적용
@@ -812,6 +843,7 @@ const WholeList = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
+            disabled={!canAdd}
             onClick={() => setEditDialog(true)}
             onTouchStart={(e) => {
               e.preventDefault();
@@ -1513,9 +1545,10 @@ const WholeList = () => {
                             gap: 0.25
                           }
                         }}>
-                          <Tooltip title="수정">
+                          <Tooltip title={canEdit ? "수정" : "수정 권한이 없습니다"}>
                             <IconButton 
                               size="small" 
+                              disabled={!canEdit}
                               onClick={() => handleEdit(site)}
                               sx={{
                                 // 스마트폰에서만 적용
@@ -1532,9 +1565,10 @@ const WholeList = () => {
                               }} />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="삭제">
+                          <Tooltip title={canDelete ? "삭제" : "삭제 권한이 없습니다"}>
                             <IconButton 
                               size="small" 
+                              disabled={!canDelete}
                               onClick={() => handleDelete(site.id)}
                               sx={{
                                 // 스마트폰에서만 적용
@@ -1657,7 +1691,7 @@ const WholeList = () => {
       />
 
       {/* 엑셀 업로드 다이얼로그 */}
-      <Dialog open={uploadDialog} onClose={() => setUploadDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={uploadDialog} onClose={() => startTransition(() => setUploadDialog(false))} maxWidth="sm" fullWidth>
         <DialogTitle>엑셀 파일 업로드</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -1674,7 +1708,7 @@ const WholeList = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setUploadDialog(false)}>취소</Button>
+          <Button onClick={() => startTransition(() => setUploadDialog(false))}>취소</Button>
           <Button 
             onClick={handleUploadExcel} 
             variant="contained"

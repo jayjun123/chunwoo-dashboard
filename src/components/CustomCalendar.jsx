@@ -19,12 +19,20 @@ import Autocomplete from '@mui/material/Autocomplete';
 import { addSchedule, updateSchedule } from '../api/schedules';
 import AddIcon from '@mui/icons-material/Add';
 import { getKoreanHolidays, getHolidayInfo } from '../utils/koreanHolidays';
+import { isAdminUserSync, isMasterUserSync } from '../utils/masterUtils';
+import { useAuth } from '../contexts/AuthContext';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 const CustomCalendar = (props) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { currentUser } = useAuth();
+
+  // 권한 체크
+  const canEdit = isAdminUserSync(currentUser) || isMasterUserSync(currentUser);
+  const canDelete = isAdminUserSync(currentUser) || isMasterUserSync(currentUser);
+  const canAdd = isAdminUserSync(currentUser) || isMasterUserSync(currentUser);
   const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
   const isLargeDesktop = useMediaQuery(theme.breakpoints.up('xl'));
@@ -685,8 +693,14 @@ const CustomCalendar = (props) => {
             <Tooltip title="월간 보기"><ToggleButton value="month"><CalendarMonthIcon /></ToggleButton></Tooltip>
           </ToggleButtonGroup>
           <IconButton
-            onClick={onDeleteSelected}
-            disabled={!Array.isArray(selectedItems) || selectedItems.length === 0}
+            onClick={() => {
+              if (!canDelete) {
+                alert('일정 삭제 권한이 없습니다. 관리자에게 문의하세요.');
+                return;
+              }
+              onDeleteSelected();
+            }}
+            disabled={!Array.isArray(selectedItems) || selectedItems.length === 0 || !canDelete}
             sx={isMobile ? { bgcolor: '#ef4444', color: '#fff', p: '6px', ml: '4px', fontSize: '1.3rem', borderRadius: 2, minWidth: 36, minHeight: 36 } : { display: 'none' }}
           >
             <DeleteIcon sx={{ fontSize: 22 }} />
@@ -751,8 +765,14 @@ const CustomCalendar = (props) => {
               </Button>
               <Button
                 variant="contained"
-                onClick={onDeleteSelected}
-                disabled={!Array.isArray(selectedItems) || selectedItems.length === 0}
+                onClick={() => {
+                  if (!canDelete) {
+                    alert('일정 삭제 권한이 없습니다. 관리자에게 문의하세요.');
+                    return;
+                  }
+                  onDeleteSelected();
+                }}
+                disabled={!Array.isArray(selectedItems) || selectedItems.length === 0 || !canDelete}
                 sx={{
                   bgcolor: '#ef4444',
                   color: '#fff',
