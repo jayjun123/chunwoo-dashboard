@@ -1031,10 +1031,11 @@ const Estimates = () => {
 
     return (
     <Box sx={{ 
-      minHeight: '100vh',
+      height: '100vh',
       bgcolor: 'background.default',
       position: 'relative',
-      pt: isMobile ? 5.5 : 5.5
+      pt: isMobile ? 5.5 : 5.5,
+      overflow: 'hidden'
     }}>
       {/* 모바일 사이드바 */}
       <MobileSidebar />
@@ -1056,7 +1057,9 @@ const Estimates = () => {
           backgroundColor: '#1a1a1a', 
           color: '#fff',
           borderRadius: 2,
-          boxShadow: 3
+          boxShadow: 3,
+          height: 'calc(100vh - 140px)',
+          overflow: 'auto'
         }}>
       {/* 스마트 카드 */}
       <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, width: '100%' }}>
@@ -1507,7 +1510,7 @@ const Estimates = () => {
       {/* 견적 테이블 */}
       <TableContainer component={Paper} sx={{ 
         backgroundColor: '#2a2a2a', 
-        maxHeight: '60vh',
+        maxHeight: 'calc(100vh - 400px)',
         '&::-webkit-scrollbar': {
           display: 'none'
         },

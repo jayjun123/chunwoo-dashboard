@@ -185,3 +185,4 @@ export const firestoreErrorHandler = new FirestoreErrorHandler();
 // 전역 오류 핸들러 등록
 window.firestoreErrorHandler = firestoreErrorHandler;
 
+

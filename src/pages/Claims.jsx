@@ -1956,10 +1956,11 @@ const Claims = () => {
 
   return (
     <Box sx={{ 
-      minHeight: '100vh',
+      height: '100vh',
       bgcolor: 'background.default',
       position: 'relative',
-      pt: isMobile ? 4.25 : 4.25
+      pt: isMobile ? 4.25 : 4.25,
+      overflow: 'hidden'
     }}>
       {/* 모바일 사이드바 */}
       <MobileSidebar />
@@ -1978,16 +1979,18 @@ const Claims = () => {
       >
         <Box sx={{ 
           backgroundColor: '#181a20', 
-          minHeight: '100vh',
+          height: 'calc(100vh - 120px)',
           color: 'white',
           p: { xs: 1, md: 3 },
           borderRadius: 2,
           boxShadow: 3,
+          overflow: 'auto',
           // 스마트폰에서만 적용
           '@media (max-width: 767px)': {
             bgcolor: '#f5f5f5',
             color: '#333',
-            p: 2
+            p: 2,
+            height: 'calc(100vh - 100px)'
           }
         }}>
       {/* 스마트폰 전용 안내 메시지 */}

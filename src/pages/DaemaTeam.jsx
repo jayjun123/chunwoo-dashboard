@@ -681,10 +681,11 @@ const ConstructionTeam = () => {
 
   return (
     <Box sx={{ 
-      minHeight: '100vh',
+      height: '100vh',
       bgcolor: 'background.default',
       position: 'relative',
-      pt: isMobile ? 5.5 : 5.5
+      pt: isMobile ? 5.5 : 5.5,
+      overflow: 'hidden'
     }}>
       {/* 모바일 사이드바 */}
       <MobileSidebar />
@@ -705,12 +706,11 @@ const ConstructionTeam = () => {
           p: isMobile ? 2 : 3, 
           pb: isMobile ? 4 : 6,
           bgcolor: '#0f1419', 
-          minHeight: '100vh',
+          height: 'calc(100vh - 120px)',
           color: '#fff',
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
           overscrollBehavior: 'contain',
-          height: '100%',
           touchAction: 'pan-y',
           borderRadius: 2,
           boxShadow: 3,

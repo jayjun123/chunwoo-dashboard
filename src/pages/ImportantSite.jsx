@@ -1001,10 +1001,11 @@ export default function ImportantSite() {
 
   return (
         <Box sx={{ 
-          minHeight: '100vh',
+          height: '100vh',
           bgcolor: 'background.default',
           position: 'relative',
-          pt: isMobile ? 4 : 4
+          pt: isMobile ? 4 : 4,
+          overflow: 'hidden'
         }}>
       {/* 모바일 사이드바 */}
       <MobileSidebar />
@@ -1022,7 +1023,7 @@ export default function ImportantSite() {
         }}
       >
         <Box sx={{ 
-          height: '100vh', 
+          height: 'calc(100vh - 120px)', 
           overflow: 'hidden', 
           pb: 4, 
           display: 'flex',
