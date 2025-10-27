@@ -93,7 +93,7 @@ const Claims = () => {
     searchAll: false // 전체 검색 여부
   });
   const [sortBy, setSortBy] = useState('number');
-  const [sortOrder, setSortOrder] = useState('asc');
+  const [sortOrder, setSortOrder] = useState('desc');
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -742,7 +742,7 @@ const Claims = () => {
       filtered.sort((a, b) => {
         const aValue = fixedNumbers.get(a.id) || 999999;
         const bValue = fixedNumbers.get(b.id) || 999999;
-        return aValue - bValue; // 항상 오름차순 (번호순)
+        return bValue - aValue; // 항상 내림차순 (높은 번호 먼저)
       });
       setSkipSorting(false); // 플래그 리셋
     }
@@ -3359,7 +3359,7 @@ const Claims = () => {
                 fullWidth
                 label="비고"
                 multiline
-                rows={3}
+                rows={1}
                 value={formData.notes}
                 onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                 size="small"
@@ -3601,7 +3601,7 @@ const Claims = () => {
                   fullWidth
                   label="비고"
                   multiline
-                  rows={2}
+                  rows={1}
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   sx={{ 
