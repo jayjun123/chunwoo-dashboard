@@ -1478,8 +1478,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
 
   return (
     <Box sx={{ 
-      minHeight: '900px',
-      height: '900px',
+      minHeight: '500px',
+      height: '500px',
       bgcolor: 'background.default',
       position: 'relative'
     }}>
@@ -1496,8 +1496,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
           ml: isMobile ? 0 : 'auto',
           mr: isMobile ? 0 : 'auto',
           maxWidth: isMobile ? '100%' : 'none',
-          height: '900px',
-          maxHeight: '900px'
+          height: '500px',
+          maxHeight: '500px'
         }}
       >
         <Box sx={{ 

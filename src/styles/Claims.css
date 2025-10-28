@@ -1,4 +1,8 @@
 /* 청구예정 페이지 스타일 */
+body {
+  overflow: hidden;
+}
+
 .claims-container {
   background-color: #181a20;
   min-height: 100vh;

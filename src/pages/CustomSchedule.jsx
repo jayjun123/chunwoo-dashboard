@@ -54,6 +54,27 @@ const CustomSchedule = () => {
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [checkedItems, setCheckedItems] = useState({});
   const colorChoices = ['transparent', '#3b82f6', '#22c55e', '#f59e42', '#ef4444', '#a855f7', '#eab308'];
+  
+  // 분류별 기본 색상 설정
+  const getDefaultColorByType = (type) => {
+    switch (type) {
+      case '현장':
+        return 'transparent'; // 기본이 없음
+      case '회의':
+        return '#a855f7'; // 보라색
+      case '전자입찰':
+        return '#eab308'; // 노란색
+      case '현설':
+        return '#ef4444'; // 빨간색
+      case '실측':
+        return '#3b82f6'; // 파란색
+      case '기타':
+        return '#f59e42'; // 주황색
+      default:
+        return 'transparent';
+    }
+  };
+  
   const [selectedColor, setSelectedColor] = useState(colorChoices[0]);
   const [selectedWeather, setSelectedWeather] = useState('☀️');
   const [showListPopup, setShowListPopup] = useState(false);
@@ -67,6 +88,22 @@ const CustomSchedule = () => {
   const [isLongPress, setIsLongPress] = useState(false); // 길게 터치 상태
 
   const authUser = useAuth();
+
+  // 분류 변경 시 기본 색상 자동 설정
+  useEffect(() => {
+    if (popupType) {
+      const defaultColor = getDefaultColorByType(popupType);
+      setSelectedColor(defaultColor);
+    }
+  }, [popupType]);
+
+  // 편집 팝업 열릴 때 분류별 기본 색상 설정
+  useEffect(() => {
+    if (editPopup.open && editPopup.item) {
+      const defaultColor = getDefaultColorByType(editPopup.item.type);
+      setSelectedColor(defaultColor);
+    }
+  }, [editPopup.open, editPopup.item]);
 
   useEffect(() => {
     const q = query(collection(db, 'sites'));
@@ -944,6 +981,25 @@ const CustomSchedule = () => {
     }
 
     try {
+      // 같은 날짜에 같은 현장이 이미 있는지 확인
+      const targetDateStart = new Date(targetDate + 'T00:00:00');
+      const targetDateEnd = new Date(targetDate + 'T23:59:59');
+      
+      const existingQuery = query(
+        collection(db, 'schedules'),
+        where('userId', '==', user.uid),
+        where('date', '>=', targetDateStart),
+        where('date', '<=', targetDateEnd),
+        where('siteId', '==', copiedItem.siteId || '')
+      );
+      
+      const existingSnapshot = await getDocs(existingQuery);
+      
+      if (!existingSnapshot.empty) {
+        alert('해당 날짜에 같은 현장의 일정이 이미 존재합니다.');
+        return;
+      }
+
       const newItem = {
         text: copiedItem.text || '',
         type: copiedItem.type || '기타',
@@ -1320,7 +1376,14 @@ const CustomSchedule = () => {
             {/* 색상 선택과 날씨 선택 */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 2 }}>
               <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>색상 선택</Typography>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  색상 선택
+                  {(popupType || (editPopup.item && editPopup.item.type)) && (
+                    <Typography component="span" variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+                      ({popupType || editPopup.item.type} 기본: {getDefaultColorByType(popupType || editPopup.item.type) === 'transparent' ? '없음' : '설정됨'})
+                    </Typography>
+                  )}
+                </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
               {colorChoices.map(color => (
                 <Box

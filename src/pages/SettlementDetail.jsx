@@ -149,6 +149,7 @@ export default function SettlementDetail() {
   const [deleteDialog, setDeleteDialog] = useState({ open: false, siteId: null, siteName: '' });
   const [detailDialog, setDetailDialog] = useState({ open: false, title: '', items: [] });
   const [materialDialog, setMaterialDialog] = useState({ open: false });
+  const [selectedMaterialSequence, setSelectedMaterialSequence] = useState(null);
   const [materialCompanyFilter, setMaterialCompanyFilter] = useState('');
   
   // 노무능률 단위 전환 상태 (true: M²/일, false: M²/명)
@@ -1342,7 +1343,7 @@ export default function SettlementDetail() {
                 // 이미 저장된 실물량 데이터들 삭제 (롤백)
                 for (const result of quantityResults) {
                   try {
-                    await deleteDoc(doc(db, 'quantity_info', result.docRef.id));
+                    await deleteDoc(doc(db, 'quantity_info', String(result.docRef.id)));
                   } catch (rollbackError) {
                     console.error('실물량 롤백 오류:', rollbackError);
                   }
@@ -1405,6 +1406,9 @@ export default function SettlementDetail() {
           );
           setMaterialData(updatedMaterialData);
           
+          // 즉시 화면에 반영되도록 강제 업데이트
+          console.log('✅ 자재비 수정 완료 - 즉시 화면 반영:', { ...editingMaterial, ...materialData_to_save });
+          
           savedMaterial = { ...editingMaterial, ...materialData_to_save };
         } else {
           // 추가 모드 - 차수 재계산 (같은 회사의 기존 항목들 확인)
@@ -1427,6 +1431,9 @@ export default function SettlementDetail() {
           const materialWithId = { ...newMaterial, firebaseId: docRef.id };
           const updatedMaterialData = [...materialData, materialWithId];
           setMaterialData(updatedMaterialData);
+          
+          // 즉시 화면에 반영되도록 강제 업데이트
+          console.log('✅ 자재비 등록 완료 - 즉시 화면 반영:', materialWithId);
           
           savedMaterial = materialWithId;
         }
@@ -1453,7 +1460,7 @@ export default function SettlementDetail() {
         // 성공 메시지 표시
         setSnackbar({ 
           open: true, 
-          message: editingMaterial ? '자재비가 수정되었습니다.' : '자재비가 추가되었습니다.', 
+          message: editingMaterial ? '자재비가 수정되었습니다.' : '자재비가 등록되었습니다.', 
           severity: 'success' 
         });
         
@@ -1461,32 +1468,27 @@ export default function SettlementDetail() {
         try {
           console.log('자재비 추가 후 데이터 새로고침 시작...');
           
-          // materialData 다시 불러오기
+          // materialData 다시 불러오기 (올바른 컬렉션명 사용)
           const materialQuery = query(
-            collection(db, 'material'),
+            collection(db, 'material_costs'),
             where('siteId', '==', siteId)
           );
           const materialSnapshot = await getDocs(materialQuery);
           const updatedMaterialData = materialSnapshot.docs.map(doc => ({
-            id: doc.id,
+            firebaseId: doc.id,
             ...doc.data()
-          }));
-          
-          // 기존 데이터와 새 데이터를 병합하여 중복 제거
-          const mergedMaterialData = [...materialData];
-          updatedMaterialData.forEach(newItem => {
-            const existingIndex = mergedMaterialData.findIndex(item => item.id === newItem.id);
-            if (existingIndex >= 0) {
-              // 기존 항목 업데이트
-              mergedMaterialData[existingIndex] = newItem;
-            } else {
-              // 새 항목 추가
-              mergedMaterialData.push(newItem);
-            }
+          })).sort((a, b) => {
+            const dateA = parseDate(a.createdAt || 0);
+            const dateB = parseDate(b.createdAt || 0);
+            return dateA - dateB;
           });
           
-          setMaterialData(mergedMaterialData);
-          console.log('자재비 데이터 새로고침 완료:', mergedMaterialData.length, '개');
+          setMaterialData(updatedMaterialData);
+          console.log('자재비 데이터 새로고침 완료:', updatedMaterialData.length, '개 항목');
+          
+          // 회사명 목록도 업데이트
+          const companies = [...new Set(updatedMaterialData.map(item => item.company))];
+          setSavedCompanies(companies);
           
           // costData도 다시 불러오기 (자재비가 costData에 포함될 수 있음)
           const costQuery = query(
@@ -1519,8 +1521,11 @@ export default function SettlementDetail() {
           console.error('데이터 새로고침 오류:', refreshError);
         }
         
-        // 폼 초기화 (모달은 닫지 않음)
+        // 폼 초기화 (모달은 닫지 않음 - 계속 등록 가능)
         resetMaterialForm();
+        
+        // 등록 모드로 전환 (수정 모드 해제)
+        setEditingMaterial(null);
       } catch (error) {
         console.error('자재비 저장 오류:', error);
         setSnackbar({ open: true, message: `자재비 저장에 실패했습니다: ${error.message}`, severity: 'error' });
@@ -1546,24 +1551,84 @@ export default function SettlementDetail() {
     // 해당 자재비와 연결된 실물량 데이터 로드
     let connectedQuantityItems = [];
     try {
-      const quantityQuery = query(
-        collection(db, 'quantity_info'), 
-        where('materialId', '==', material.id),
-        where('siteId', '==', siteId)
-      );
-      const quantitySnapshot = await getDocs(quantityQuery);
+      console.log('자재비 수정 - 실물량 검색 시작:', material);
       
-      connectedQuantityItems = quantitySnapshot.docs.map(doc => ({
-        id: Date.now() + Math.random(), // 폼에서 사용할 임시 ID
-        firebaseId: doc.id, // Firebase 문서 ID
-        siteItem: doc.data().siteItem,
-        specification: doc.data().specification || '',
-        unit: doc.data().unit,
-        actualQuantity: doc.data().actualQuantity.toString(),
-        quantityNote: doc.data().note || ''
-      }));
+      // 여러 방법으로 실물량 데이터 검색 (firebaseId 우선)
+      const searchIds = [material.firebaseId, material.id].filter(Boolean);
+      console.log('검색할 ID들:', searchIds);
+      console.log('자재비 데이터:', material);
       
-      console.log('연결된 실물량 데이터 로드됨:', connectedQuantityItems);
+      // 1. materialId로 직접 검색 (문자열로 변환)
+      for (const searchId of searchIds) {
+        const quantityQuery = query(
+          collection(db, 'quantity_info'), 
+          where('materialId', '==', String(searchId)),
+          where('siteId', '==', siteId)
+        );
+        const quantitySnapshot = await getDocs(quantityQuery);
+        
+        if (quantitySnapshot.docs.length > 0) {
+          connectedQuantityItems = quantitySnapshot.docs.map(doc => ({
+            id: Date.now() + Math.random(), // 폼에서 사용할 임시 ID
+            firebaseId: doc.id, // Firebase 문서 ID
+            siteItem: doc.data().siteItem,
+            specification: doc.data().specification || '',
+            unit: doc.data().unit,
+            actualQuantity: doc.data().actualQuantity.toString(),
+            quantityNote: doc.data().note || ''
+          }));
+          console.log('materialId로 찾은 실물량 데이터:', connectedQuantityItems);
+          break;
+        }
+      }
+      
+      // 2. 항목명과 회사명으로 검색 (materialId가 없는 경우)
+      if (connectedQuantityItems.length === 0) {
+        const nameQuery = query(
+          collection(db, 'quantity_info'), 
+          where('siteItem', '==', material.item),
+          where('company', '==', material.company),
+          where('siteId', '==', siteId)
+        );
+        const nameSnapshot = await getDocs(nameQuery);
+        
+        if (nameSnapshot.docs.length > 0) {
+          connectedQuantityItems = nameSnapshot.docs.map(doc => ({
+            id: Date.now() + Math.random(),
+            firebaseId: doc.id,
+            siteItem: doc.data().siteItem,
+            specification: doc.data().specification || '',
+            unit: doc.data().unit,
+            actualQuantity: doc.data().actualQuantity.toString(),
+            quantityNote: doc.data().note || ''
+          }));
+          console.log('항목명+회사명으로 찾은 실물량 데이터:', connectedQuantityItems);
+        }
+      }
+      
+      // 3. 기존 quantityData에서도 검색 (firebaseId 우선)
+      if (connectedQuantityItems.length === 0) {
+        const existingQuantity = quantityData.filter(item => 
+          item.materialId === material.firebaseId || 
+          item.materialId === material.id ||
+          (item.siteItem === material.item && item.company === material.company)
+        );
+        
+        if (existingQuantity.length > 0) {
+          connectedQuantityItems = existingQuantity.map(item => ({
+            id: Date.now() + Math.random(),
+            firebaseId: item.firebaseId || item.id,
+            siteItem: item.siteItem,
+            specification: item.specification || '',
+            unit: item.unit,
+            actualQuantity: item.actualQuantity.toString(),
+            quantityNote: item.note || ''
+          }));
+          console.log('기존 quantityData에서 찾은 실물량 데이터:', connectedQuantityItems);
+        }
+      }
+      
+      console.log('최종 연결된 실물량 데이터:', connectedQuantityItems);
     } catch (error) {
       console.error('실물량 데이터 로드 오류:', error);
     }
@@ -1580,7 +1645,7 @@ export default function SettlementDetail() {
       note: material.note || '',
       quantityItems: connectedQuantityItems
     });
-  }, [siteId]);
+  }, [siteId, quantityData]);
 
   // 자재비 수정 취소 함수
   const handleCancelEdit = useCallback(() => {
@@ -1697,6 +1762,13 @@ export default function SettlementDetail() {
           setQuantityInfoData(prev => {
             const filtered = prev.filter(item => item.materialId !== materialDoc.firebaseId);
             console.log(`🔄 물량 내역에서 materialId ${materialDoc.firebaseId} 관련 항목 제거: ${prev.length} → ${filtered.length}`);
+            return filtered;
+          });
+          
+          // quantityData도 즉시 업데이트
+          setQuantityData(prev => {
+            const filtered = prev.filter(item => item.materialId !== materialDoc.firebaseId);
+            console.log(`🔄 quantityData에서 materialId ${materialDoc.firebaseId} 관련 항목 제거: ${prev.length} → ${filtered.length}`);
             return filtered;
           });
           
@@ -2308,7 +2380,7 @@ export default function SettlementDetail() {
     // Firebase에 저장된 항목인 경우 즉시 삭제
     if (itemToRemove?.firebaseId) {
       try {
-        await deleteDoc(doc(db, 'quantity_info', itemToRemove.firebaseId));
+        await deleteDoc(doc(db, 'quantity_info', String(itemToRemove.firebaseId)));
         console.log('Firebase에서 실물량 항목 삭제됨:', itemToRemove.firebaseId);
         
         // 물량내역에서도 같은 항목 삭제
@@ -2720,7 +2792,7 @@ export default function SettlementDetail() {
           console.warn('⚠️ 유효하지 않은 문서 ID:', item);
           return Promise.resolve();
         }
-        return deleteDoc(doc(db, 'quantity_info', docId));
+        return deleteDoc(doc(db, 'quantity_info', String(docId)));
       });
       
       await Promise.all(deletePromises);
@@ -2776,7 +2848,7 @@ export default function SettlementDetail() {
     try {
       const quantityDoc = quantityData.find(item => item.id === id);
       if (quantityDoc && quantityDoc.firebaseId) {
-        await deleteDoc(doc(db, 'quantity_info', quantityDoc.firebaseId));
+        await deleteDoc(doc(db, 'quantity_info', String(quantityDoc.firebaseId)));
         console.log('Firebase에서 물량 정보 삭제됨:', quantityDoc.firebaseId);
       }
       
@@ -2847,6 +2919,175 @@ export default function SettlementDetail() {
     }
   }, [quantityData, materialData, materialForm]);
 
+  // 고아 물량 데이터 정리 함수 (강화된 버전)
+  const cleanupOrphanedQuantityData = useCallback(async () => {
+    try {
+      console.log('🧹 고아 물량 데이터 정리 시작...');
+      
+      // 모든 물량 데이터 소스에서 고아 데이터 찾기
+      const allQuantityItems = [
+        ...quantityData,
+        ...(quantityInfoData || []),
+        ...(allQuantityData || [])
+      ];
+      
+      // 중복 제거 (같은 ID를 가진 항목들)
+      const uniqueItems = allQuantityItems.reduce((acc, item) => {
+        const key = item.id || item.firebaseId;
+        if (key && !acc.find(existing => existing.id === key || existing.firebaseId === key)) {
+          acc.push(item);
+        }
+        return acc;
+      }, []);
+      
+      console.log(`📊 총 ${uniqueItems.length}개의 물량 항목 확인 중...`);
+      
+      const orphanedQuantity = [];
+      
+      for (const item of uniqueItems) {
+        const firebaseId = item.firebaseId || item.id;
+        if (firebaseId) {
+          try {
+            const docRef = doc(db, 'quantity_info', String(firebaseId));
+            const docSnap = await getDoc(docRef);
+            
+            if (!docSnap.exists()) {
+              orphanedQuantity.push(item);
+              console.log('🔍 고아 물량 데이터 발견:', firebaseId, item.siteItem || item.item);
+            }
+          } catch (error) {
+            console.error('고아 물량 확인 오류:', error);
+            // 오류가 발생한 경우에도 고아 데이터로 간주
+            orphanedQuantity.push(item);
+            console.log('⚠️ 확인 불가능한 물량 데이터 (고아로 간주):', firebaseId, item.siteItem || item.item);
+          }
+        }
+      }
+      
+      if (orphanedQuantity.length > 0) {
+        console.log(`🧹 ${orphanedQuantity.length}개의 고아 물량 데이터 발견`);
+        
+        // 고아 물량 데이터 자동 정리
+        console.log('🧹 고아 물량 데이터 정리 시작...');
+        const deletePromises = orphanedQuantity.map(async (item) => {
+          try {
+            // ID를 문자열로 변환하여 Firebase 오류 방지
+            const itemId = String(item.firebaseId || item.id);
+            await deleteDoc(doc(db, 'quantity_info', itemId));
+            console.log('✅ 고아 물량 데이터 삭제됨:', itemId, item.siteItem || item.item);
+            return item;
+          } catch (error) {
+            console.error('❌ 고아 물량 데이터 삭제 실패:', item.firebaseId || item.id, error);
+            return null;
+          }
+        });
+        
+        // 모든 삭제 작업 완료 대기
+        await Promise.all(deletePromises);
+        
+        // 모든 상태에서 제거
+        setQuantityData(prev => prev.filter(item => 
+          !orphanedQuantity.some(orphaned => 
+            (orphaned.id === item.id) || (orphaned.firebaseId === item.firebaseId)
+          )
+        ));
+        
+        // quantityInfoData도 업데이트 (만약 상태로 관리되고 있다면)
+        if (setQuantityInfoData) {
+          setQuantityInfoData(prev => prev.filter(item => 
+            !orphanedQuantity.some(orphaned => 
+              (orphaned.id === item.id) || (orphaned.firebaseId === item.firebaseId)
+            )
+          ));
+        }
+        
+        console.log('✅ 고아 물량 데이터 정리 완료');
+        setSnackbar({ 
+          open: true, 
+          message: `${orphanedQuantity.length}개의 고아 물량 데이터가 정리되었습니다.`, 
+          severity: 'success' 
+        });
+        
+        // 데이터 새로고침
+        console.log('🔄 물량 데이터 새로고침 중...');
+        // 여기서 물량 데이터를 다시 불러오는 로직을 추가할 수 있습니다
+        
+      } else {
+        console.log('✅ 고아 물량 데이터 없음');
+        setSnackbar({ 
+          open: true, 
+          message: '고아 물량 데이터가 없습니다.', 
+          severity: 'info' 
+        });
+      }
+    } catch (error) {
+      console.error('고아 물량 데이터 정리 오류:', error);
+      setSnackbar({ 
+        open: true, 
+        message: '고아 물량 데이터 정리에 실패했습니다.', 
+        severity: 'error' 
+      });
+    }
+  }, [quantityData, quantityInfoData, allQuantityData]);
+
+  // 차수 클릭 시 물량 보기 함수
+  const handleSequenceClick = useCallback((materialItem) => {
+    console.log('차수 클릭:', materialItem);
+    
+    // 모든 물량 데이터 소스에서 관련 물량 찾기
+    const allQuantitySources = [
+      ...quantityData,
+      ...(quantityInfoData || []),
+      ...(allQuantityData || [])
+    ];
+    
+    // 해당 차수의 물량 데이터 찾기 (더 포괄적인 검색)
+    const relatedQuantity = allQuantitySources.filter(item => {
+      // 1. materialId로 직접 연결된 경우
+      if (item.materialId === materialItem.firebaseId || item.materialId === materialItem.id) {
+        return true;
+      }
+      
+      // 2. 항목명과 회사명이 일치하는 경우
+      if (item.siteItem === materialItem.item && item.company === materialItem.company) {
+        return true;
+      }
+      
+      // 3. 항목명만 일치하는 경우 (회사명이 다를 수 있음)
+      if (item.siteItem === materialItem.item) {
+        return true;
+      }
+      
+      // 4. 자재비 항목명이 물량 항목명에 포함되는 경우
+      if (item.siteItem && materialItem.item && item.siteItem.includes(materialItem.item)) {
+        return true;
+      }
+      
+      // 5. 물량 항목명이 자재비 항목명에 포함되는 경우
+      if (item.siteItem && materialItem.item && materialItem.item.includes(item.siteItem)) {
+        return true;
+      }
+      
+      return false;
+    });
+    
+    console.log('관련 물량 데이터:', relatedQuantity);
+    console.log('검색된 물량 소스:', allQuantitySources.length);
+    
+    if (relatedQuantity.length > 0) {
+      setSelectedMaterialSequence({
+        material: materialItem,
+        quantity: relatedQuantity
+      });
+    } else {
+      setSnackbar({
+        open: true,
+        message: `${materialItem.item} (${materialItem.company}) ${materialItem.차수}차의 물량 정보가 없습니다.`,
+        severity: 'info'
+      });
+    }
+  }, [quantityData, quantityInfoData, allQuantityData]);
+
   // 남은 물량 계산 함수 (품목명 + 규격 기준)
   const getRemainingQuantity = useCallback((itemName, specification) => {
     if (!quantityInfoData || quantityInfoData.length === 0) return null;
@@ -2914,6 +3155,7 @@ export default function SettlementDetail() {
   // 전체 물량 대비 사용 퍼센트 계산 함수 (실제 물량 기반)
   const getQuantityPercentage = useCallback(() => {
     if (!site?.items || !Array.isArray(site.items) || !quantityInfoData || quantityInfoData.length === 0) {
+      console.log('물량진행률 계산 불가: site.items 또는 quantityInfoData 없음');
       return 0;
     }
     
@@ -2931,7 +3173,10 @@ export default function SettlementDetail() {
       return itemName.includes('유리') && unit === 'M2';
     });
     
-    if (glassItems.length === 0) return 0;
+    if (glassItems.length === 0) {
+      console.log('유리 항목이 없음 - 진행률 0% 반환');
+      return 0;
+    }
     
     let totalPlannedQuantity = 0; // 전체 계획 물량 (site.items에서)
     let totalActualQuantity = 0;  // 전체 실제 물량 (quantityData에서)
@@ -3044,7 +3289,8 @@ export default function SettlementDetail() {
       percentage: Math.round(percentage * 10) / 10,
       processedItemsCount: processedItems.size,
       originalItemsCount: glassItems.length,
-      quantityInfoDataCount: quantityInfoData.length
+      quantityInfoDataCount: quantityInfoData.length,
+      processedItems: Array.from(processedItems.values())
     });
     
     return Math.round(percentage * 10) / 10;
@@ -5731,6 +5977,7 @@ export default function SettlementDetail() {
           open={showPasswordDialog} 
           maxWidth="sm" 
           fullWidth
+          disableEnforceFocus
           onClose={handlePasswordDialogClose}
           PaperProps={{
             sx: {
@@ -6536,21 +6783,23 @@ export default function SettlementDetail() {
                       <TrendingDownIcon /> {detailDialog.title}
                     </Typography>
                     {detailDialog.title === '자재비' && (
-        <Button
-          variant="contained"
-          size="small"
-          onClick={() => {
-            resetMaterialForm();
-            setMaterialDialog({ open: true });
-          }}
-          sx={{
-            bgcolor: '#43e97b',
-            color: '#000',
-            '&:hover': { bgcolor: '#35d16a' }
-          }}
-        >
-          관리
-        </Button>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={() => {
+                            resetMaterialForm();
+                            setMaterialDialog({ open: true });
+                          }}
+                          sx={{
+                            bgcolor: '#43e97b',
+                            color: '#000',
+                            '&:hover': { bgcolor: '#35d16a' }
+                          }}
+                        >
+                          관리
+                        </Button>
+                      </Box>
                     )}
                   </Box>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, height: '238px', overflowY: 'auto', ...scrollbarHiddenStyle }}>
@@ -7290,6 +7539,13 @@ export default function SettlementDetail() {
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={chartData.data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke={isChartLightMode ? '#e0e0e0' : '#333'} />
+                      <Legend 
+                        wrapperStyle={{ 
+                          color: isChartLightMode ? '#000' : '#fff',
+                          fontSize: '14px',
+                          paddingTop: '20px'
+                        }}
+                      />
                       <XAxis 
                         dataKey="month" 
                         stroke={isChartLightMode ? '#000' : '#fff'}
@@ -7320,7 +7576,7 @@ export default function SettlementDetail() {
                                 y={0} 
                                 dy={32} 
                                 textAnchor="middle" 
-                                fill="#00bcd4" 
+                                fill={isChartLightMode ? '#000' : '#00bcd4'} 
                                 fontSize="16"
                               >
                                 ({workers})
@@ -7790,6 +8046,7 @@ export default function SettlementDetail() {
         onClose={() => setDeleteDialog({ open: false, siteId: null, siteName: '' })}
         maxWidth="sm"
         fullWidth
+        disableEnforceFocus
       >
         <DialogTitle sx={{ 
           bgcolor: '#1a1d21', 
@@ -7854,6 +8111,7 @@ export default function SettlementDetail() {
         }}
         maxWidth="md"
         fullWidth
+        disableEnforceFocus
         PaperProps={{
           sx: {
             bgcolor: '#232b3b',
@@ -7993,7 +8251,16 @@ export default function SettlementDetail() {
                     }}
                   >
                     <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography sx={{ color: '#fff', fontWeight: 'bold', fontSize: '1rem' }}>
+                      <Typography 
+                        sx={{ 
+                          color: '#fff', 
+                          fontWeight: 'bold', 
+                          fontSize: '1rem',
+                          cursor: 'pointer',
+                          '&:hover': { color: '#64b5f6' }
+                        }}
+                        onClick={() => handleSequenceClick(item)}
+                      >
                         {item.item} ({item.company}) - {item.차수}차
                       </Typography>
                       <Typography sx={{ color: '#bbb', fontSize: '0.9rem' }}>
@@ -8536,7 +8803,7 @@ export default function SettlementDetail() {
                     '&:hover': { bgcolor: '#35d16a' }
                   }}
                 >
-                  {editingMaterial ? '수정' : '관리'}
+                  {editingMaterial ? '수정' : '등록'}
                 </Button>
                 {editingMaterial && (
                   <Button
@@ -8586,6 +8853,7 @@ export default function SettlementDetail() {
         onClose={() => setQuantityDialog({ open: false })}
         maxWidth="sm"
         fullWidth
+        disableEnforceFocus
         PaperProps={{
           sx: {
             bgcolor: '#232b3b',
@@ -8690,22 +8958,148 @@ export default function SettlementDetail() {
           </Box>
         </DialogContent>
         <DialogActions>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Button
+              onClick={cleanupOrphanedQuantityData}
+              variant="outlined"
+              sx={{
+                borderColor: '#ff9800',
+                color: '#ff9800',
+                '&:hover': { borderColor: '#f57c00', color: '#f57c00' }
+              }}
+            >
+              🧹 고아 물량 정리
+            </Button>
+            <Button
+              onClick={() => setQuantityDialog({ open: false })}
+              sx={{ color: '#bbb' }}
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleAddQuantity}
+              variant="contained"
+              sx={{
+                bgcolor: '#43e97b',
+                color: '#000',
+                '&:hover': { bgcolor: '#35d16a' }
+              }}
+            >
+              추가
+            </Button>
+          </Box>
+        </DialogActions>
+      </Dialog>
+
+      {/* 차수별 물량 보기 다이얼로그 */}
+      <Dialog
+        open={selectedMaterialSequence !== null}
+        onClose={() => setSelectedMaterialSequence(null)}
+        maxWidth="md"
+        fullWidth
+        disableEnforceFocus
+        PaperProps={{
+          sx: {
+            bgcolor: '#232b3b',
+            color: '#fff',
+            borderRadius: 2,
+            maxHeight: '80vh',
+            height: '80vh'
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: '#43e97b', display: 'flex', alignItems: 'center', gap: 1 }}>
+          📊 {selectedMaterialSequence?.material?.item} ({selectedMaterialSequence?.material?.company}) - {selectedMaterialSequence?.material?.차수}차 물량 정보
+        </DialogTitle>
+        <DialogContent sx={scrollbarHiddenStyle}>
+          {selectedMaterialSequence?.quantity && selectedMaterialSequence.quantity.length > 0 ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* 총 물량 요약 */}
+              <Box sx={{ 
+                bgcolor: '#1e40af', 
+                borderRadius: 2, 
+                p: 2, 
+                border: '1px solid #3b82f6',
+                mb: 2
+              }}>
+                <Typography sx={{ color: '#fff', fontWeight: 'bold', fontSize: '1.2rem', mb: 1 }}>
+                  📊 총 물량 요약
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 3 }}>
+                  <Typography sx={{ color: '#93c5fd', fontSize: '1rem' }}>
+                    전체: {selectedMaterialSequence.quantity.reduce((sum, item) => sum + (Number(item.totalQuantity) || 0), 0).toLocaleString()} M2
+                  </Typography>
+                  <Typography sx={{ color: '#60a5fa', fontSize: '1rem' }}>
+                    실물량: {selectedMaterialSequence.quantity.reduce((sum, item) => sum + (Number(item.actualQuantity) || 0), 0).toLocaleString()} M2
+                  </Typography>
+                  <Typography sx={{ color: '#fbbf24', fontSize: '1rem', fontWeight: 'bold' }}>
+                    잔여: {selectedMaterialSequence.quantity.reduce((sum, item) => sum + (Number(item.totalQuantity) || 0) - (Number(item.actualQuantity) || 0), 0).toLocaleString()} M2
+                  </Typography>
+                </Box>
+              </Box>
+              
+              {/* 개별 물량 상세 */}
+              {selectedMaterialSequence.quantity.map((quantityItem, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    bgcolor: '#334155',
+                    borderRadius: 2,
+                    p: 2,
+                    border: '1px solid #475569'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography sx={{ color: '#fff', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                      {quantityItem.siteItem || quantityItem.item || '항목명 없음'}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                      <Typography sx={{ color: '#64b5f6', fontSize: '1rem', fontWeight: 'bold' }}>
+                        전체: {Number(quantityItem.totalQuantity || 0).toLocaleString()} M2
+                      </Typography>
+                      <Typography sx={{ color: '#60a5fa', fontSize: '1rem', fontWeight: 'bold' }}>
+                        실물량: {Number(quantityItem.actualQuantity || 0).toLocaleString()} M2
+                      </Typography>
+                      <Typography sx={{ color: '#fbbf24', fontSize: '1rem', fontWeight: 'bold' }}>
+                        잔여: {(Number(quantityItem.totalQuantity || 0) - Number(quantityItem.actualQuantity || 0)).toLocaleString()} M2
+                      </Typography>
+                    </Box>
+                  </Box>
+                  {quantityItem.specification && (
+                    <Typography sx={{ color: '#bbb', fontSize: '0.9rem', mb: 1 }}>
+                      📏 규격: {quantityItem.specification}
+                    </Typography>
+                  )}
+                  {quantityItem.company && (
+                    <Typography sx={{ color: '#94a3b8', fontSize: '0.9rem', mb: 1 }}>
+                      🏢 회사: {quantityItem.company}
+                    </Typography>
+                  )}
+                  {quantityItem.note && (
+                    <Typography sx={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                      📝 비고: {quantityItem.note}
+                    </Typography>
+                  )}
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography sx={{ color: '#bbb', fontSize: '1.1rem' }}>
+                해당 차수의 물량 정보가 없습니다.
+              </Typography>
+              <Typography sx={{ color: '#666', fontSize: '0.9rem', mt: 1 }}>
+                실물량을 등록하면 여기에 표시됩니다.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
           <Button
-            onClick={() => setQuantityDialog({ open: false })}
+            onClick={() => setSelectedMaterialSequence(null)}
             sx={{ color: '#bbb' }}
           >
-            취소
-          </Button>
-          <Button
-            onClick={handleAddQuantity}
-            variant="contained"
-            sx={{
-              bgcolor: '#43e97b',
-              color: '#000',
-              '&:hover': { bgcolor: '#35d16a' }
-            }}
-          >
-            추가
+            닫기
           </Button>
         </DialogActions>
       </Dialog>
@@ -8724,6 +9118,7 @@ export default function SettlementDetail() {
       <Dialog
         open={calculationModeDialog.open}
         onClose={cancelCalculationModeChange}
+        disableEnforceFocus
         sx={{
           '& .MuiDialog-paper': {
             bgcolor: '#1e293b',

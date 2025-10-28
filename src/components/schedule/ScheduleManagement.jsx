@@ -49,6 +49,33 @@ function isInMonth(site, year, month) {
   return !(e < first || s > last);
 }
 
+// 분류별 색상 매핑 함수
+function getCategoryColor(itemType) {
+  const colorMap = {
+    '현장': '#ff6b6b',      // 빨간색
+    '회의': '#4ecdc4',      // 청록색
+    '전자입찰': '#45b7d1',  // 파란색
+    '현설': '#96ceb4',      // 연두색
+    '실측': '#feca57',      // 노란색
+    '기타': '#a55eea',      // 보라색
+    '날씨': '#ff9ff3',      // 핑크색
+    '휴무': '#6c5ce7',      // 보라색
+    '검사': '#fd79a8',      // 핑크색
+    '시설': '#00b894',      // 초록색
+    '관리': '#e17055',      // 주황색
+    '보수': '#74b9ff',      // 하늘색
+    '정비': '#a29bfe',      // 연보라색
+    '청소': '#00cec9',      // 청록색
+    '안전점검': '#fd79a8',  // 핑크색
+    '설비점검': '#6c5ce7',  // 보라색
+    '환경점검': '#00b894',  // 초록색
+    '품질점검': '#e17055',  // 주황색
+    '보안점검': '#74b9ff'   // 하늘색
+  };
+  
+  return colorMap[itemType] || '#181c24'; // 기본 색상
+}
+
 // 날짜 포맷 함수 (YYYY-MM-DD → 7월 4일(목) 일정)
 function formatKoreanDate(dateStr) {
   if (!dateStr) return '';
@@ -1113,7 +1140,7 @@ const ScheduleManagement = ({
       desc: popupDesc,
       date: koreanDate,
       userId: user.uid,
-      color: selectedColor,
+      color: selectedColor === colorChoices[0] ? getCategoryColor(selectedTypes[0]) : selectedColor, // 분류별 색상 자동 설정
       weather: selectedWeather,
       siteName: popupSiteName,
       createdAt: new Date()
@@ -1604,7 +1631,7 @@ const ScheduleManagement = ({
         text: editPopup.item.text,
         type: editPopup.item.type,
         desc: editPopup.item.desc,
-        color: editPopup.item.color,
+        color: editPopup.item.color === colorChoices[0] ? getCategoryColor(editPopup.item.type?.split(', ')[0]) : editPopup.item.color, // 분류별 색상 자동 설정
         weather: editPopup.item.weather,
         updatedAt: new Date()
       };

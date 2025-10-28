@@ -702,6 +702,22 @@ const Claims = () => {
             aValue = parseFloat(a.claimAmount) || 0;
             bValue = parseFloat(b.claimAmount) || 0;
             break;
+          case 'manager':
+            aValue = a.manager || '';
+            bValue = b.manager || '';
+            break;
+          case 'contractAmount':
+            aValue = parseFloat(a.contractAmount) || 0;
+            bValue = parseFloat(b.contractAmount) || 0;
+            break;
+          case 'balance':
+            aValue = parseFloat(a.balance) || 0;
+            bValue = parseFloat(b.balance) || 0;
+            break;
+          case 'progressRate':
+            aValue = parseFloat(a.progressRate) || 0;
+            bValue = parseFloat(b.progressRate) || 0;
+            break;
           case 'claimStatus':
             // 청구여부 정렬: 청구대기(X) > 청구완료(O) > 이월
             const statusOrder = { 'X': 1, 'O': 2, '이월': 3 };
@@ -890,15 +906,25 @@ const Claims = () => {
     const totalProgressAmount = totalGisungAmount + advanceAmount;
     const progressRate = (totalProgressAmount / contractAmount) * 100;
     
+    // 계약금액과 청구금액이 거의 같을 때 100%로 처리 (소수점 오차 방지)
+    const roundedProgressRate = Math.round(progressRate * 10) / 10;
+    
+    // 추가 검증: 계약금액과 기성금액이 거의 같으면 100%로 강제 설정
+    const isContractAmountCloseToProgress = Math.abs(contractAmount - totalProgressAmount) < contractAmount * 0.001; // 0.1% 이내
+    const finalProgressRate = isContractAmountCloseToProgress ? 100 : roundedProgressRate;
+    
     console.log(`📊 기성율 계산 - ${siteName}:`, {
       totalGisungAmount,
       advanceAmount,
       contractAmount,
       totalProgressAmount,
-      progressRate: Math.round(progressRate)
+      progressRate: progressRate,
+      roundedProgressRate: roundedProgressRate,
+      isContractAmountCloseToProgress,
+      finalProgressRate: finalProgressRate
     });
     
-    return Math.round(progressRate);
+    return finalProgressRate;
   };
 
   // 계약금액 가져오기 함수
@@ -1915,9 +1941,9 @@ const Claims = () => {
   };
 
   // 페이지네이션 계산
-  const totalPages = Math.ceil(filteredClaims.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
+  const totalPages = itemsPerPage === -1 ? 1 : Math.ceil(filteredClaims.length / itemsPerPage);
+  const startIndex = itemsPerPage === -1 ? 0 : (currentPage - 1) * itemsPerPage;
+  const endIndex = itemsPerPage === -1 ? filteredClaims.length : startIndex + itemsPerPage;
   const currentClaims = filteredClaims.slice(startIndex, endIndex);
 
   console.log('Claims 렌더링, loading:', loading, 'claims:', claims.length);
@@ -1960,7 +1986,23 @@ const Claims = () => {
       bgcolor: 'background.default',
       position: 'relative',
       pt: isMobile ? 4.25 : 4.25,
-      overflow: 'hidden'
+      overflow: 'hidden',
+      '&::-webkit-scrollbar': {
+        display: 'none'
+      },
+      '&::-ms-scrollbar': {
+        display: 'none'
+      },
+      scrollbarWidth: 'none',
+      '& *': {
+        '&::-webkit-scrollbar': {
+          display: 'none'
+        },
+        '&::-ms-scrollbar': {
+          display: 'none'
+        },
+        scrollbarWidth: 'none'
+      }
     }}>
       {/* 모바일 사이드바 */}
       <MobileSidebar />
@@ -1969,12 +2011,17 @@ const Claims = () => {
       <Container 
         maxWidth={false} 
         sx={{ 
-          pt: isMobile ? 2 : 3,
+          pt: isMobile ? 1 : 1,
           pb: 3,
           px: isMobile ? 1 : 3,
           ml: isMobile ? 0 : 'auto',
           mr: isMobile ? 0 : 'auto',
-          maxWidth: isMobile ? '100%' : 'none'
+          maxWidth: isMobile ? '100%' : 'none',
+          height: 'calc(100vh - 68px)',
+          overflow: 'hidden',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
         <Box sx={{ 
@@ -1984,7 +2031,11 @@ const Claims = () => {
           p: { xs: 1, md: 3 },
           borderRadius: 2,
           boxShadow: 3,
-          overflow: 'auto',
+          overflow: 'hidden',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          mb: 2.5,
           // 스마트폰에서만 적용
           '@media (max-width: 767px)': {
             bgcolor: '#f5f5f5',
@@ -2573,11 +2624,28 @@ const Claims = () => {
       {/* 테이블 */}
       <Paper sx={{ backgroundColor: '#2d3748', overflow: 'hidden' }}>
         <TableContainer sx={{ 
-          maxHeight: isMobile ? 'calc(100vh - 300px)' : 'calc(100vh - 400px)',
-          overflowX: isMobile ? 'auto' : 'hidden'
+          maxHeight: isMobile ? 'calc(100vh - 355px)' : 'calc(100vh - 455px)',
+          overflowX: isMobile ? 'auto' : 'hidden',
+          overflowY: 'auto',
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          },
+          '&::-ms-scrollbar': {
+            display: 'none'
+          },
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar-thumb': {
+            display: 'none'
+          },
+          '&::-webkit-scrollbar-track': {
+            display: 'none'
+          },
+          '&::-webkit-scrollbar-corner': {
+            display: 'none'
+          }
         }}>
           <Table size="small" sx={{ minWidth: isMobile ? 900 : 'auto' }}>
-            <TableHead>
+            <TableHead sx={{ position: 'sticky', top: 0, zIndex: 1 }}>
               <TableRow sx={{ backgroundColor: '#444' }}>
                 {isMobile ? (
                   <>
@@ -2663,16 +2731,23 @@ const Claims = () => {
                     >
                       현장명
                     </TableCell>
-                    <TableCell sx={{ 
-                      color: 'white', 
-                      fontWeight: 'bold', 
-                      minWidth: 120, 
-                      py: 0.5,
-                      // 1500px 미만에서 숨김
-                      '@media (max-width: 1499px)': {
-                        display: 'none !important'
-                      }
-                    }}>소장/회사명</TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold', 
+                        minWidth: 120, 
+                        py: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#555' },
+                        // 1500px 미만에서 숨김
+                        '@media (max-width: 1499px)': {
+                          display: 'none !important'
+                        }
+                      }}
+                      onClick={() => handleSort('manager')}
+                    >
+                      소장/회사명 {getSortIcon('manager')}
+                    </TableCell>
                     <TableCell 
                       sx={{ 
                         color: 'white', 
@@ -2686,9 +2761,45 @@ const Claims = () => {
                     >
                       차수
                     </TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>계약금액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>잔액</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 70, py: 0.5 }}>기성율</TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold', 
+                        minWidth: 100, 
+                        py: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#555' }
+                      }}
+                      onClick={() => handleSort('contractAmount')}
+                    >
+                      계약금액 {getSortIcon('contractAmount')}
+                    </TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold', 
+                        minWidth: 100, 
+                        py: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#555' }
+                      }}
+                      onClick={() => handleSort('balance')}
+                    >
+                      잔액 {getSortIcon('balance')}
+                    </TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold', 
+                        minWidth: 70, 
+                        py: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#555' }
+                      }}
+                      onClick={() => handleSort('progressRate')}
+                    >
+                      청구 전 기성율 {getSortIcon('progressRate')}
+                    </TableCell>
                     <TableCell 
                       sx={{ 
                         color: 'white', 
@@ -3007,7 +3118,7 @@ const Claims = () => {
         </TableContainer>
         
         {/* 커스텀 페이지네이션 */}
-        {totalPages > 1 && (
+        {(totalPages > 1 || itemsPerPage === -1) && (
           <Box sx={{ 
             display: 'flex', 
             justifyContent: 'space-between', 
@@ -3015,7 +3126,9 @@ const Claims = () => {
             mt: 3, 
             p: 2, 
             backgroundColor: '#2a2a2a',
-            borderRadius: 1
+            borderRadius: 1,
+            height: '55px',
+            minHeight: '55px'
           }}>
             {/* 페이지당 항목 수 선택 */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -3035,14 +3148,17 @@ const Claims = () => {
                     }
                   }}
                 >
-                  <MenuItem value={5}>5개</MenuItem>
-                  <MenuItem value={10}>10개</MenuItem>
-                  <MenuItem value={20}>20개</MenuItem>
-                  <MenuItem value={50}>50개</MenuItem>
+                  <MenuItem value={10}>10개보기</MenuItem>
+                  <MenuItem value={20}>20개보기</MenuItem>
+                  <MenuItem value={30}>30개보기</MenuItem>
+                  <MenuItem value={-1}>전체보기</MenuItem>
                 </Select>
               </FormControl>
               <Typography sx={{ color: '#ccc', fontSize: '0.875rem' }}>
-                총 {filteredClaims.length}개 중 {startIndex + 1}-{Math.min(endIndex, filteredClaims.length)}개
+                {itemsPerPage === -1 
+                  ? `전체 ${filteredClaims.length}개` 
+                  : `총 ${filteredClaims.length}개 중 ${startIndex + 1}-${Math.min(endIndex, filteredClaims.length)}개`
+                }
               </Typography>
             </Box>
 
