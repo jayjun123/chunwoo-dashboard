@@ -30,7 +30,8 @@ import {
   Pagination,
   Checkbox,
   Box as MuiBox,
-  Container
+  Container,
+  InputAdornment
 } from '@mui/material';
 import MobileSidebar from '../components/MobileSidebar';
 import BiddingAnalysisChart from '../components/BiddingAnalysisChart';
@@ -45,7 +46,8 @@ import {
   ArrowUpward as ArrowUpwardIcon,
   ArrowDownward as ArrowDownwardIcon,
   Business as BusinessIcon,
-  OpenInNew as OpenInNewIcon
+  OpenInNew as OpenInNewIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -74,6 +76,8 @@ const Vendors = () => {
   });
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [startDateFilter, setStartDateFilter] = useState(''); // 시작일 필터
+  const [endDateFilter, setEndDateFilter] = useState(''); // 종료일 필터
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
   
@@ -357,11 +361,11 @@ const Vendors = () => {
 
   // 선택된 항목이 변경될 때 selectAll 상태 업데이트
   useEffect(() => {
-    const currentPageVendors = getPaginatedVendors();
-    const allCurrentPageSelected = currentPageVendors.length > 0 && 
-      currentPageVendors.every(vendor => selectedItems.includes(vendor.id));
-    setSelectAll(allCurrentPageSelected);
-  }, [selectedItems, currentPage, vendors]);
+    const allVendors = getSortedVendors();
+    const allSelected = allVendors.length > 0 && 
+      allVendors.every(vendor => selectedItems.includes(vendor.id));
+    setSelectAll(allSelected);
+  }, [selectedItems, vendors, searchTerm, filteredByCompanyType]);
 
   const loadData = async () => {
     setLoading(true);
@@ -929,6 +933,19 @@ const Vendors = () => {
       vendor.item?.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
+    // 날짜 필터링 추가
+    filteredVendors = filteredVendors.filter(vendor => {
+      // 시작일 필터링
+      const matchesStartDate = !startDateFilter || 
+        (vendor.bidDate && vendor.bidDate >= startDateFilter);
+      
+      // 종료일 필터링
+      const matchesEndDate = !endDateFilter || 
+        (vendor.bidDate && vendor.bidDate <= endDateFilter);
+      
+      return matchesStartDate && matchesEndDate;
+    });
+    
     // 업종별 필터링 (임시 비활성화)
     if (filteredByCompanyType) {
       console.log('업종별 필터링 적용됨:', filteredByCompanyType);
@@ -1057,8 +1074,9 @@ const Vendors = () => {
     if (selectAll) {
       setSelectedItems([]);
     } else {
-      const currentPageVendors = getPaginatedVendors();
-      setSelectedItems(currentPageVendors.map(vendor => vendor.id));
+      // 전체 리스트의 모든 항목 선택 (페이지별이 아닌)
+      const allVendors = getSortedVendors();
+      setSelectedItems(allVendors.map(vendor => vendor.id));
     }
     setSelectAll(!selectAll);
   };
@@ -1102,6 +1120,26 @@ const Vendors = () => {
         alert('삭제 중 오류가 발생했습니다.');
       }
     }
+  };
+
+  // 검색어 초기화
+  const handleClearSearch = () => {
+    setSearchTerm('');
+  };
+
+  // 날짜 필터 초기화
+  const handleClearDateFilter = () => {
+    setStartDateFilter('');
+    setEndDateFilter('');
+  };
+
+  // 전체 필터 초기화
+  const handleClearAllFilters = () => {
+    setSearchTerm('');
+    setStartDateFilter('');
+    setEndDateFilter('');
+    setSelectedItems([]);
+    setSelectAll(false);
   };
 
   // 로딩 중이면 스피너 표시
@@ -1236,9 +1274,6 @@ const Vendors = () => {
               선택 삭제 ({selectedItems.length})
             </Button>
           )}
-          <IconButton onClick={() => setShowSearch(!showSearch)}>
-            <SearchIcon />
-          </IconButton>
           <IconButton onClick={() => setCompanyDialogOpen(true)} title="업체명 등록">
             <BusinessIcon />
           </IconButton>
@@ -1256,20 +1291,6 @@ const Vendors = () => {
           </IconButton>
         </Box>
       </Box>
-
-      {showSearch && (
-        <Box sx={{ mb: 2 }}>
-          <TextField
-            fullWidth
-            placeholder="검색어를 입력하세요..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ mb: 2 }}
-          />
-        </Box>
-      )}
-
-
 
       {/* 업종별 통계 */}
       <Box sx={{ mb: 2 }}>
@@ -1359,6 +1380,92 @@ const Vendors = () => {
           )} />
         </Box>
       )}
+
+      {/* 검색 및 필터 섹션 */}
+      <Box sx={{ mb: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          {/* 검색 입력칸 */}
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              placeholder="업체명, 현장명, 발주자, 품목으로 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              size="small"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: searchTerm && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={handleClearSearch}
+                    >
+                      <ClearIcon />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+          </Grid>
+          
+          {/* 시작일 필터 */}
+          <Grid item xs={12} md={2}>
+            <TextField
+              fullWidth
+              label="시작일 (이후)"
+              type="date"
+              value={startDateFilter}
+              onChange={(e) => setStartDateFilter(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              size="small"
+            />
+          </Grid>
+          
+          {/* 종료일 필터 */}
+          <Grid item xs={12} md={2}>
+            <TextField
+              fullWidth
+              label="종료일 (이전)"
+              type="date"
+              value={endDateFilter}
+              onChange={(e) => setEndDateFilter(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              size="small"
+            />
+          </Grid>
+          
+          {/* 필터 초기화 버튼 */}
+          <Grid item xs={12} md={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<ClearIcon />}
+              onClick={handleClearAllFilters}
+              size="small"
+            >
+              필터 초기화
+            </Button>
+          </Grid>
+          
+          {/* 선택된 항목 수 표시 */}
+          <Grid item xs={12} md={2}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
+              sx={{
+                textAlign: 'center',
+                py: 1
+              }}
+            >
+              선택: {selectedItems.length}개 / 전체: {getSortedVendors().length}개
+            </Typography>
+          </Grid>
+        </Grid>
+      </Box>
 
       <TableContainer component={Paper}>
         <Table size="small" sx={{ 

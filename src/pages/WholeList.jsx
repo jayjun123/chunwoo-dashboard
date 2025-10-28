@@ -26,7 +26,9 @@ import {
   Checkbox,
   FormControlLabel,
   TableSortLabel,
-  Autocomplete
+  Autocomplete,
+  InputAdornment,
+  Grid
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -36,7 +38,9 @@ import {
   Add as AddIcon,
   Star as StarIcon,
   StarBorder as StarBorderIcon,
-  ArrowBack as ArrowBackIcon
+  ArrowBack as ArrowBackIcon,
+  Search as SearchIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -123,6 +127,10 @@ const WholeList = () => {
   const [order, setOrder] = useState('desc');
   const [vendors, setVendors] = useState([]); // 거래처 데이터 상태 추가
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear()); // 현재 년도로 초기화
+  const [searchTerm, setSearchTerm] = useState(''); // 검색어 상태
+  const [startDateFilter, setStartDateFilter] = useState(''); // 시작일 필터
+  const [endDateFilter, setEndDateFilter] = useState(''); // 종료일 필터
+  const [selectedSites, setSelectedSites] = useState(new Set()); // 선택된 현장들 (전체 리스트 기준)
   const navigate = useNavigate();
 
   // 권한 체크
@@ -238,7 +246,32 @@ const WholeList = () => {
   };
 
   // 선택된 년도의 현장들
-  const filteredSites = getSitesByYear(selectedYear);
+  const yearFilteredSites = getSitesByYear(selectedYear);
+  
+  // 검색 및 날짜 필터링 함수
+  const getFilteredSites = () => {
+    return yearFilteredSites.filter(site => {
+      // 검색어 필터링
+      const matchesSearch = !searchTerm || 
+        site.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        site.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        site.manager?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        site.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        site.contractType?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // 시작일 필터링
+      const matchesStartDate = !startDateFilter || 
+        (site.startDate && site.startDate >= startDateFilter);
+      
+      // 종료일 필터링
+      const matchesEndDate = !endDateFilter || 
+        (site.endDate && site.endDate <= endDateFilter);
+      
+      return matchesSearch && matchesStartDate && matchesEndDate;
+    });
+  };
+  
+  const filteredSites = getFilteredSites();
   
   // 정렬된 데이터 (사용자 선택에 따라)
   const sortedSites = sortData([...filteredSites], sortBy, order);
@@ -589,6 +622,48 @@ const WholeList = () => {
     }
   };
 
+  // 전체 체크박스 핸들러
+  const handleSelectAll = (event) => {
+    if (event.target.checked) {
+      // 전체 리스트의 모든 현장 선택
+      const allSiteIds = new Set(filteredSites.map(site => site.id));
+      setSelectedSites(allSiteIds);
+    } else {
+      // 모든 선택 해제
+      setSelectedSites(new Set());
+    }
+  };
+
+  // 개별 체크박스 핸들러
+  const handleSelectSite = (siteId) => {
+    const newSelectedSites = new Set(selectedSites);
+    if (newSelectedSites.has(siteId)) {
+      newSelectedSites.delete(siteId);
+    } else {
+      newSelectedSites.add(siteId);
+    }
+    setSelectedSites(newSelectedSites);
+  };
+
+  // 검색어 초기화
+  const handleClearSearch = () => {
+    setSearchTerm('');
+  };
+
+  // 날짜 필터 초기화
+  const handleClearDateFilter = () => {
+    setStartDateFilter('');
+    setEndDateFilter('');
+  };
+
+  // 전체 필터 초기화
+  const handleClearAllFilters = () => {
+    setSearchTerm('');
+    setStartDateFilter('');
+    setEndDateFilter('');
+    setSelectedSites(new Set());
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -875,6 +950,129 @@ const WholeList = () => {
         </Box>
       </Box>
 
+      {/* 검색 및 필터 섹션 */}
+      <Paper sx={{ 
+        width: '100%', 
+        p: 2, 
+        mb: 2,
+        // 스마트폰에서만 적용
+        '@media (max-width: 767px)': {
+          mx: 1,
+          borderRadius: '12px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          p: 1.5
+        }
+      }}>
+        <Grid container spacing={2} alignItems="center">
+          {/* 검색 입력칸 */}
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              placeholder="현장명, 회사명, 소장, 진행상황, 계약구분으로 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: searchTerm && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={handleClearSearch}
+                    >
+                      <ClearIcon />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+              sx={{
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
+            />
+          </Grid>
+          
+          {/* 시작일 필터 */}
+          <Grid item xs={12} md={2}>
+            <TextField
+              fullWidth
+              label="시작일 (이후)"
+              type="date"
+              value={startDateFilter}
+              onChange={(e) => setStartDateFilter(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
+            />
+          </Grid>
+          
+          {/* 종료일 필터 */}
+          <Grid item xs={12} md={2}>
+            <TextField
+              fullWidth
+              label="종료일 (이전)"
+              type="date"
+              value={endDateFilter}
+              onChange={(e) => setEndDateFilter(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                '@media (max-width: 767px)': {
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem'
+                  }
+                }
+              }}
+            />
+          </Grid>
+          
+          {/* 필터 초기화 버튼 */}
+          <Grid item xs={12} md={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<ClearIcon />}
+              onClick={handleClearAllFilters}
+              sx={{
+                '@media (max-width: 767px)': {
+                  fontSize: '0.8rem',
+                  py: 1.5
+                }
+              }}
+            >
+              필터 초기화
+            </Button>
+          </Grid>
+          
+          {/* 선택된 항목 수 표시 */}
+          <Grid item xs={12} md={2}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
+              sx={{
+                textAlign: 'center',
+                py: 1,
+                '@media (max-width: 767px)': {
+                  fontSize: '0.8rem'
+                }
+              }}
+            >
+              선택: {selectedSites.size}개 / 전체: {filteredSites.length}개
+            </Typography>
+          </Grid>
+        </Grid>
+      </Paper>
+
       {/* 스마트폰 전용 데이터 테이블 */}
       <Paper sx={{ 
         width: '100%', 
@@ -896,6 +1094,30 @@ const WholeList = () => {
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
+                {/* 전체 선택 체크박스 */}
+                <TableCell sx={{ 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600, 
+                  width: '50px', 
+                  py: 1,
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    fontSize: '0.7rem',
+                    width: '40px',
+                    px: 0.5
+                  }
+                }}>
+                  <Checkbox
+                    checked={filteredSites.length > 0 && selectedSites.size === filteredSites.length}
+                    indeterminate={selectedSites.size > 0 && selectedSites.size < filteredSites.length}
+                    onChange={handleSelectAll}
+                    sx={{
+                      '@media (max-width: 767px)': {
+                        padding: '4px'
+                      }
+                    }}
+                  />
+                </TableCell>
                 {/* 스마트폰에서는 핵심 컬럼만 표시 */}
                 <TableCell sx={{ 
                   fontSize: '0.8rem', 
@@ -1294,6 +1516,23 @@ const WholeList = () => {
                 .map((site, index) => {
                   return (
                     <TableRow key={site.id} hover>
+                      {/* 개별 선택 체크박스 */}
+                      <TableCell sx={{
+                        // 스마트폰에서만 적용
+                        '@media (max-width: 767px)': {
+                          px: 0.5
+                        }
+                      }}>
+                        <Checkbox
+                          checked={selectedSites.has(site.id)}
+                          onChange={() => handleSelectSite(site.id)}
+                          sx={{
+                            '@media (max-width: 767px)': {
+                              padding: '4px'
+                            }
+                          }}
+                        />
+                      </TableCell>
                       <TableCell sx={{ 
                         fontSize: '0.8rem', 
                         textAlign: 'center', 
