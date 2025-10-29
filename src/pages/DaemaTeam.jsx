@@ -97,6 +97,80 @@ const ConstructionTeam = () => {
     loadSites();
   }, []);
 
+  // 현장 데이터를 기반으로 팀원 목록 생성
+  useEffect(() => {
+    if (sites.length > 0) {
+      generateTeamMembersFromSites();
+    }
+  }, [sites]);
+
+  const generateTeamMembersFromSites = () => {
+    // 현장의 team 필드에서 팀원 정보 추출
+    const teamMembers = {};
+    
+    sites.forEach(site => {
+      if (site.team) {
+        // team 필드가 문자열인 경우 (예: "오태훈, 김철수, 이영희")
+        if (typeof site.team === 'string') {
+          const members = site.team.split(',').map(name => name.trim()).filter(name => name);
+          members.forEach(memberName => {
+            if (!teamMembers[memberName]) {
+              teamMembers[memberName] = {
+                name: memberName,
+                sites: [],
+                role: '시공팀원'
+              };
+            }
+            teamMembers[memberName].sites.push(site.name);
+          });
+        }
+        // team 필드가 배열인 경우
+        else if (Array.isArray(site.team)) {
+          site.team.forEach(member => {
+            const memberName = typeof member === 'string' ? member : member.name;
+            if (memberName) {
+              if (!teamMembers[memberName]) {
+                teamMembers[memberName] = {
+                  name: memberName,
+                  sites: [],
+                  role: '시공팀원'
+                };
+              }
+              teamMembers[memberName].sites.push(site.name);
+            }
+          });
+        }
+      }
+    });
+
+    console.log('현장 데이터에서 추출한 팀원 목록:', teamMembers);
+    
+    // 기존 팀 데이터와 병합하여 업데이트
+    setTeams(prevTeams => {
+      const updatedTeams = prevTeams.map(team => {
+        // 해당 팀과 연결된 현장들 찾기
+        const linkedSites = sites.filter(site => {
+          const siteTeamName = (site.team || '').replace(/팀$/, '');
+          const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
+          return siteTeamName === teamNameWithoutTeam || site.manager === team.managerName;
+        });
+        
+        // 해당 현장들에 속한 팀원들 찾기
+        const teamMembersList = Object.values(teamMembers).filter(member => 
+          member.sites.some(siteName => linkedSites.some(site => site.name === siteName))
+        );
+        
+        return {
+          ...team,
+          members: teamMembersList
+        };
+      });
+      
+      console.log('업데이트된 팀 데이터:', updatedTeams);
+      return updatedTeams;
+    });
+  };
+
   const loadTeams = async () => {
     try {
       const snapshot = await getDocs(collection(db, 'constructionTeams'));
@@ -118,18 +192,18 @@ const ConstructionTeam = () => {
 
   const loadSites = async () => {
     try {
-      // 진행중 또는 예정인 현장 가져오기
-      const q = query(
-        collection(db, 'sites'),
-        where('status', 'in', ['진행중', '예정'])
-      );
-      const snapshot = await getDocs(q);
+      // 모든 현장 데이터 가져오기 (시공팀 정보 확인용)
+      const snapshot = await getDocs(collection(db, 'sites'));
       const sitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setSites(sitesData);
       
       console.log('현장 데이터:', sitesData);
       console.log('진행중 현장:', sitesData.filter(site => site.status === '진행중'));
       console.log('예정 현장:', sitesData.filter(site => site.status === '예정'));
+      
+      // 시공팀 정보가 있는 현장들 확인
+      const sitesWithTeam = sitesData.filter(site => site.team);
+      console.log('시공팀 정보가 있는 현장들:', sitesWithTeam);
       
       // 특정 현장들 확인
       const specificSites = sitesData.filter(site => 
@@ -947,6 +1021,33 @@ const ConstructionTeam = () => {
                 </Box>
 
                 <Divider sx={{ my: 2, bgcolor: '#333' }} />
+
+                {/* 팀원 목록 */}
+                {team.members && team.members.length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: '#f59e42', fontWeight: 'bold', mb: 1 }}>
+                      팀원 ({team.members.length}명)
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {team.members.map((member, index) => (
+                        <Chip
+                          key={index}
+                          label={member.name}
+                          size="small"
+                          sx={{
+                            bgcolor: '#374151',
+                            color: '#fff',
+                            fontSize: '0.75rem',
+                            height: '24px',
+                            '& .MuiChip-label': {
+                              px: 1
+                            }
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
 
                 {/* 진행 현장 */}
                 <Box sx={{ mb: 2 }}>
