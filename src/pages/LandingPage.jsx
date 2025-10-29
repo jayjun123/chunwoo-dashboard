@@ -254,27 +254,50 @@ const LandingPage = () => {
                   category = `[${data.type}]`; // 기타 타입은 그대로 표시
               }
             } else {
-              // data.type이 없으면 제목으로 판단
-              if (actualTitle.includes('현장') || actualTitle.includes('공사') || actualTitle.includes('건설') || actualTitle.includes('시설')) {
+              // 제목에 명시적인 분류 태그가 있는지 먼저 확인
+              if (actualTitle.startsWith('[현장]')) {
                 category = '[현장]';
-              } else if (actualTitle.includes('실측') || actualTitle.includes('측량') || actualTitle.includes('측정')) {
+              } else if (actualTitle.startsWith('[실측]')) {
                 category = '[실측]';
-              } else if (actualTitle.includes('안전') || actualTitle.includes('점검') || actualTitle.includes('교육')) {
+              } else if (actualTitle.startsWith('[안전]')) {
                 category = '[안전]';
-              } else if (actualTitle.includes('회의') || actualTitle.includes('미팅') || actualTitle.includes('검토')) {
+              } else if (actualTitle.startsWith('[회의]')) {
                 category = '[회의]';
-              } else if (actualTitle.includes('기성') || actualTitle.includes('진행') || actualTitle.includes('완료')) {
+              } else if (actualTitle.startsWith('[기성]')) {
                 category = '[기성]';
-              } else if (actualTitle.includes('견적') || actualTitle.includes('계약') || actualTitle.includes('거래처')) {
+              } else if (actualTitle.startsWith('[견적]')) {
                 category = '[견적]';
-              } else if (actualTitle.includes('입찰') || actualTitle.includes('공고')) {
+              } else if (actualTitle.startsWith('[입찰]')) {
                 category = '[입찰]';
-              } else if (actualTitle.includes('전자입찰')) {
+              } else if (actualTitle.startsWith('[전자입찰]')) {
                 category = '[전자입찰]';
-              } else if (actualTitle.includes('현설') || actualTitle.includes('현장설치')) {
+              } else if (actualTitle.startsWith('[현설]')) {
                 category = '[현설]';
-              } else {
+              } else if (actualTitle.startsWith('[기타]')) {
                 category = '[기타]';
+              } else {
+                // 명시적 태그가 없으면 제목으로 판단
+                if (actualTitle.includes('현장') || actualTitle.includes('공사') || actualTitle.includes('건설') || actualTitle.includes('시설')) {
+                  category = '[현장]';
+                } else if (actualTitle.includes('실측') || actualTitle.includes('측량') || actualTitle.includes('측정')) {
+                  category = '[실측]';
+                } else if (actualTitle.includes('안전') || actualTitle.includes('점검') || actualTitle.includes('교육')) {
+                  category = '[안전]';
+                } else if (actualTitle.includes('회의') || actualTitle.includes('미팅') || actualTitle.includes('검토')) {
+                  category = '[회의]';
+                } else if (actualTitle.includes('기성') || actualTitle.includes('진행') || actualTitle.includes('완료')) {
+                  category = '[기성]';
+                } else if (actualTitle.includes('견적') || actualTitle.includes('계약') || actualTitle.includes('거래처')) {
+                  category = '[견적]';
+                } else if (actualTitle.includes('입찰') || actualTitle.includes('공고')) {
+                  category = '[입찰]';
+                } else if (actualTitle.includes('전자입찰')) {
+                  category = '[전자입찰]';
+                } else if (actualTitle.includes('현설') || actualTitle.includes('현장설치')) {
+                  category = '[현설]';
+                } else {
+                  category = '[기타]';
+                }
               }
             }
             
