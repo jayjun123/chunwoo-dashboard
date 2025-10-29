@@ -302,6 +302,7 @@ const LandingPage = () => {
             }
             
             console.log(`📅 일정 분류 결정: ${actualTitle} - 원본타입: ${data.type || '없음'}, 결정된분류: ${category}`);
+            console.log(`📅 전체 데이터:`, data);
             
             schedules.push({
               id: doc.id,
@@ -1364,14 +1365,14 @@ const LandingPage = () => {
                               }
                             }}
                           >
-                            {/* [기타] 분류일 때는 분류 태그를 표시하지 않고 직접 입력한 내용만 표시 */}
+                            {/* [기타] 분류일 때는 [기타] 태그를 추가해서 표시 */}
                             {schedule.category === '[기타]' ? (
                               <Box component="span" sx={{ 
                                 color: categoryColor,
                                 fontWeight: 'bold',
                                 textShadow: `0 0 8px ${categoryColor}40`
                               }}>
-                                {schedule.title}
+                                [기타] {schedule.title}
                               </Box>
                             ) : (
                               <>
