@@ -1382,8 +1382,8 @@ const Vendors = () => {
       )}
 
       {/* 검색 및 필터 섹션 */}
-      <Box sx={{ mb: 2 }}>
-        <Grid container spacing={2} alignItems="center">
+      <Box sx={{ mb: 1 }}>
+        <Grid container spacing={1} alignItems="center">
           {/* 검색 입력칸 */}
           <Grid item xs={12} md={4}>
             <TextField

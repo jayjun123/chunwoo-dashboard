@@ -93,7 +93,7 @@ const Claims = () => {
     searchAll: false // 전체 검색 여부
   });
   const [sortBy, setSortBy] = useState('number');
-  const [sortOrder, setSortOrder] = useState('desc');
+  const [sortOrder, setSortOrder] = useState('desc'); // 내림차순으로 높은 번호가 위로
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -686,9 +686,9 @@ const Claims = () => {
         
         switch (sortBy) {
           case 'number':
-            // 고정 번호로 정렬
-            aValue = fixedNumbers.get(a.id) || 999999;
-            bValue = fixedNumbers.get(b.id) || 999999;
+            // 고정 번호로 정렬 (높은 번호가 위로 오도록)
+            aValue = fixedNumbers.get(a.id) || 0;
+            bValue = fixedNumbers.get(b.id) || 0;
             break;
           case 'siteName':
             aValue = a.siteName || '';
@@ -725,9 +725,9 @@ const Claims = () => {
             bValue = statusOrder[b.claimStatus] || 4;
             break;
           default:
-            // 기본값은 고정 번호 (번호순)
-            aValue = fixedNumbers.get(a.id) || 999999;
-            bValue = fixedNumbers.get(b.id) || 999999;
+            // 기본값은 고정 번호 (높은 번호가 위로)
+            aValue = fixedNumbers.get(a.id) || 0;
+            bValue = fixedNumbers.get(b.id) || 0;
         }
         
         // 숫자 비교
@@ -753,11 +753,11 @@ const Claims = () => {
         }
       });
     } else {
-      // 청구여부 변경 시에도 번호순 정렬은 유지
-      console.log('🔄 청구여부 변경 - 번호순 정렬 유지');
+      // 청구여부 변경 시에도 번호순 정렬은 유지 (높은 번호가 위로)
+      console.log('🔄 청구여부 변경 - 번호순 정렬 유지 (높은 번호가 위로)');
       filtered.sort((a, b) => {
-        const aValue = fixedNumbers.get(a.id) || 999999;
-        const bValue = fixedNumbers.get(b.id) || 999999;
+        const aValue = fixedNumbers.get(a.id) || 0;
+        const bValue = fixedNumbers.get(b.id) || 0;
         return bValue - aValue; // 항상 내림차순 (높은 번호 먼저)
       });
       setSkipSorting(false); // 플래그 리셋
@@ -768,20 +768,21 @@ const Claims = () => {
     // 고정 번호 설정 (새로운 항목에만 번호 할당)
     setFixedNumbers(prevFixedNumbers => {
       const newFixedNumbers = new Map(prevFixedNumbers);
-      let nextNumber = 1;
+      let maxNumber = 0;
       
       // 기존 번호가 있는 항목들의 최대 번호 찾기
       for (const [_, number] of newFixedNumbers) {
-        if (number >= nextNumber) {
-          nextNumber = number + 1;
+        if (number > maxNumber) {
+          maxNumber = number;
         }
       }
       
-      // 새로운 항목들에 번호 할당
+      // 새로운 항목들에 가장 큰 번호부터 할당 (제일 위로 오도록)
       filtered.forEach(claim => {
         if (!newFixedNumbers.has(claim.id)) {
-          newFixedNumbers.set(claim.id, nextNumber++);
-          console.log(`🔢 새 항목에 번호 할당: ${claim.siteName} → ${nextNumber - 1}번`);
+          maxNumber += 1;
+          newFixedNumbers.set(claim.id, maxNumber);
+          console.log(`🔢 새 항목에 번호 할당: ${claim.siteName} → ${maxNumber}번 (제일 위로)`);
         }
       });
       
