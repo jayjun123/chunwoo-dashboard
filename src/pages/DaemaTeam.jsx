@@ -91,6 +91,34 @@ const ConstructionTeam = () => {
     status: 'active'
   });
 
+  // 날짜 기반 상태 판별 함수
+  const parseDate = (value) => {
+    if (!value) return null;
+    try {
+      if (value.toDate) return value.toDate(); // Firestore Timestamp
+      return new Date(value);
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const isOngoingSite = (site) => {
+    const today = new Date();
+    const start = parseDate(site.startDate || site.startedAt || site.start || site.start_date);
+    const end = parseDate(site.endDate || site.completedAt || site.end || site.end_date);
+    if (!start) return false;
+    if (isNaN(start.getTime())) return false;
+    if (end && isNaN(end.getTime())) return false;
+    return start <= today && (!end || end >= today);
+  };
+
+  const isScheduledSite = (site) => {
+    const today = new Date();
+    const start = parseDate(site.startDate || site.startedAt || site.start || site.start_date);
+    if (!start || isNaN(start.getTime())) return false;
+    return start > today;
+  };
+
   // 데이터 로드
   useEffect(() => {
     loadTeams();
@@ -200,6 +228,16 @@ const ConstructionTeam = () => {
       console.log('현장 데이터:', sitesData);
       console.log('진행중 현장:', sitesData.filter(site => site.status === '진행중'));
       console.log('예정 현장:', sitesData.filter(site => site.status === '예정'));
+      
+      // 모든 현장의 상태값 확인
+      const allStatuses = [...new Set(sitesData.map(site => site.status))];
+      console.log('모든 현장 상태값들:', allStatuses);
+      
+      // 각 상태별 현장 개수
+      allStatuses.forEach(status => {
+        const count = sitesData.filter(site => site.status === status).length;
+        console.log(`${status} 현장: ${count}개`);
+      });
       
       // 시공팀 정보가 있는 현장들 확인
       const sitesWithTeam = sitesData.filter(site => site.team);
@@ -874,15 +912,17 @@ const ConstructionTeam = () => {
                 <WorkIcon sx={{ color: '#10b981', mr: 2, fontSize: 40 }} />
                 <Box>
                   <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold' }}>
-                    {teams.reduce((sum, team) => {
-                      const teamSitesCount = sites.filter(site => {
-                        const siteTeamName = (site.team || '').replace(/팀$/, '');
-                        const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                        return site.status === '진행중' && 
-                          (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
-                      }).length;
-                      return sum + teamSitesCount;
-                    }, 0)}
+                    {sites.filter(site => {
+                      // 진행중 상태 판별 (더 포괄적으로)
+                      const isOngoing = site.status === '진행중' || 
+                                       site.status === '진행' || 
+                                       site.status === '공사중' ||
+                                       site.status === '시공중' ||
+                                       site.status === 'active' ||
+                                       site.status === 'ongoing' ||
+                                       (site.status && !['완료', '종료', '완료됨', '종료됨', 'completed', 'finished', '예정', 'scheduled'].includes(site.status));
+                      return isOngoing;
+                    }).length}
                   </Typography>
                   <Typography variant="body2" sx={{ color: '#bbb' }}>
                     진행 현장
@@ -1022,32 +1062,6 @@ const ConstructionTeam = () => {
 
                 <Divider sx={{ my: 2, bgcolor: '#333' }} />
 
-                {/* 팀원 목록 */}
-                {team.members && team.members.length > 0 && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ color: '#f59e42', fontWeight: 'bold', mb: 1 }}>
-                      팀원 ({team.members.length}명)
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {team.members.map((member, index) => (
-                        <Chip
-                          key={index}
-                          label={member.name}
-                          size="small"
-                          sx={{
-                            bgcolor: '#374151',
-                            color: '#fff',
-                            fontSize: '0.75rem',
-                            height: '24px',
-                            '& .MuiChip-label': {
-                              px: 1
-                            }
-                          }}
-                        />
-                      ))}
-                    </Box>
-                  </Box>
-                )}
 
                 {/* 진행 현장 */}
                 <Box sx={{ mb: 2 }}>
@@ -1060,8 +1074,35 @@ const ConstructionTeam = () => {
                           const linkedSites = sites.filter(site => {
                             const siteTeamName = (site.team || '').replace(/팀$/, '');
                             const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                            return site.status === '진행중' && 
+                            
+                            // 진행중 상태 판별 (더 포괄적으로)
+                            const isOngoing = site.status === '진행중' || 
+                                             site.status === '진행' || 
+                                             site.status === '공사중' ||
+                                             site.status === '시공중' ||
+                                             site.status === 'active' ||
+                                             site.status === 'ongoing' ||
+                                             (site.status && !['완료', '종료', '완료됨', '종료됨', 'completed', 'finished', '예정', 'scheduled'].includes(site.status));
+                            
+                            const isMatched = isOngoing && 
                               (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                            
+                            // 디버깅 로그
+                            if (team.teamName === '오태훈팀') {
+                              console.log('오태훈팀 현장 매칭 확인:', {
+                                siteName: site.name,
+                                siteStatus: site.status,
+                                siteTeam: site.team,
+                                siteTeamName,
+                                teamNameWithoutTeam,
+                                siteManager: site.manager,
+                                teamManager: team.managerName,
+                                isOngoing,
+                                isMatched
+                              });
+                            }
+                            
+                            return isMatched;
                           });
                           
                           // 직접 추가한 현장들
@@ -1072,6 +1113,13 @@ const ConstructionTeam = () => {
                             ...linkedSites.map(site => site.name),
                             ...directSites
                           ]);
+                          
+                          console.log('오태훈팀 진행현장 계산:', {
+                            linkedSites: linkedSites.map(s => s.name),
+                            directSites,
+                            allSiteNames: Array.from(allSiteNames),
+                            totalCount: allSiteNames.size
+                          });
                           
                           return allSiteNames.size;
                         })()}개)
@@ -1094,7 +1142,17 @@ const ConstructionTeam = () => {
                       const linkedSites = sites.filter(site => {
                         const siteTeamName = (site.team || '').replace(/팀$/, '');
                         const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                        return site.status === '진행중' && 
+                        
+                        // 진행중 상태 판별 (더 포괄적으로)
+                        const isOngoing = site.status === '진행중' || 
+                                         site.status === '진행' || 
+                                         site.status === '공사중' ||
+                                         site.status === '시공중' ||
+                                         site.status === 'active' ||
+                                         site.status === 'ongoing' ||
+                                         (site.status && !['완료', '종료', '완료됨', '종료됨', 'completed', 'finished', '예정', 'scheduled'].includes(site.status));
+                        
+                        return isOngoing && 
                           (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
                       });
                       
@@ -1119,7 +1177,17 @@ const ConstructionTeam = () => {
                           const linkedSites = sites.filter(site => {
                             const siteTeamName = (site.team || '').replace(/팀$/, '');
                             const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                            return site.status === '진행중' && 
+                            
+                            // 진행중 상태 판별 (더 포괄적으로)
+                            const isOngoing = site.status === '진행중' || 
+                                             site.status === '진행' || 
+                                             site.status === '공사중' ||
+                                             site.status === '시공중' ||
+                                             site.status === 'active' ||
+                                             site.status === 'ongoing' ||
+                                             (site.status && !['완료', '종료', '완료됨', '종료됨', 'completed', 'finished', '예정', 'scheduled'].includes(site.status));
+                            
+                            return isOngoing && 
                               (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
                           });
                           
