@@ -921,7 +921,23 @@ const ConstructionTeam = () => {
                                        site.status === 'active' ||
                                        site.status === 'ongoing' ||
                                        (site.status && !['완료', '종료', '완료됨', '종료됨', 'completed', 'finished', '예정', 'scheduled'].includes(site.status));
-                      return isOngoing;
+                      
+                      // 공사기간 체크 (착공일이 속한 달까지는 표시)
+                      const today = new Date();
+                      const startDate = parseDate(site.startDate || site.startedAt || site.start || site.start_date);
+                      const endDate = parseDate(site.endDate || site.completedAt || site.end || site.end_date);
+                      
+                      // 착공일이 속한 달 계산
+                      const startMonth = startDate ? new Date(startDate.getFullYear(), startDate.getMonth(), 1) : null;
+                      const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                      
+                      // 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
+                      const isWithinStartMonth = !startMonth || startMonth <= currentMonth;
+                      
+                      // 완료일이 지났더라도 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
+                      const isWithinPeriod = !endDate || endDate >= today || isWithinStartMonth;
+                      
+                      return isOngoing && isWithinPeriod;
                     }).length}
                   </Typography>
                   <Typography variant="body2" sx={{ color: '#bbb' }}>
@@ -1084,7 +1100,22 @@ const ConstructionTeam = () => {
                                              site.status === 'ongoing' ||
                                              (site.status && !['완료', '종료', '완료됨', '종료됨', 'completed', 'finished', '예정', 'scheduled'].includes(site.status));
                             
-                            const isMatched = isOngoing && 
+                            // 공사기간 체크 (착공일이 속한 달까지는 표시)
+                            const today = new Date();
+                            const startDate = parseDate(site.startDate || site.startedAt || site.start || site.start_date);
+                            const endDate = parseDate(site.endDate || site.completedAt || site.end || site.end_date);
+                            
+                            // 착공일이 속한 달 계산
+                            const startMonth = startDate ? new Date(startDate.getFullYear(), startDate.getMonth(), 1) : null;
+                            const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                            
+                            // 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
+                            const isWithinStartMonth = !startMonth || startMonth <= currentMonth;
+                            
+                            // 완료일이 지났더라도 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
+                            const isWithinPeriod = !endDate || endDate >= today || isWithinStartMonth;
+                            
+                            const isMatched = isOngoing && isWithinPeriod && 
                               (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
                             
                             // 디버깅 로그
@@ -1098,6 +1129,12 @@ const ConstructionTeam = () => {
                                 siteManager: site.manager,
                                 teamManager: team.managerName,
                                 isOngoing,
+                                startDate: startDate,
+                                endDate: endDate,
+                                startMonth: startMonth,
+                                currentMonth: currentMonth,
+                                isWithinStartMonth,
+                                isWithinPeriod,
                                 isMatched
                               });
                             }
@@ -1152,7 +1189,22 @@ const ConstructionTeam = () => {
                                          site.status === 'ongoing' ||
                                          (site.status && !['완료', '종료', '완료됨', '종료됨', 'completed', 'finished', '예정', 'scheduled'].includes(site.status));
                         
-                        return isOngoing && 
+                        // 공사기간 체크 (착공일이 속한 달까지는 표시)
+                        const today = new Date();
+                        const startDate = parseDate(site.startDate || site.startedAt || site.start || site.start_date);
+                        const endDate = parseDate(site.endDate || site.completedAt || site.end || site.end_date);
+                        
+                        // 착공일이 속한 달 계산
+                        const startMonth = startDate ? new Date(startDate.getFullYear(), startDate.getMonth(), 1) : null;
+                        const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                        
+                        // 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
+                        const isWithinStartMonth = !startMonth || startMonth <= currentMonth;
+                        
+                        // 완료일이 지났더라도 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
+                        const isWithinPeriod = !endDate || endDate >= today || isWithinStartMonth;
+                        
+                        return isOngoing && isWithinPeriod && 
                           (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
                       });
                       
@@ -1187,7 +1239,22 @@ const ConstructionTeam = () => {
                                              site.status === 'ongoing' ||
                                              (site.status && !['완료', '종료', '완료됨', '종료됨', 'completed', 'finished', '예정', 'scheduled'].includes(site.status));
                             
-                            return isOngoing && 
+                            // 공사기간 체크 (착공일이 속한 달까지는 표시)
+                            const today = new Date();
+                            const startDate = parseDate(site.startDate || site.startedAt || site.start || site.start_date);
+                            const endDate = parseDate(site.endDate || site.completedAt || site.end || site.end_date);
+                            
+                            // 착공일이 속한 달 계산
+                            const startMonth = startDate ? new Date(startDate.getFullYear(), startDate.getMonth(), 1) : null;
+                            const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                            
+                            // 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
+                            const isWithinStartMonth = !startMonth || startMonth <= currentMonth;
+                            
+                            // 완료일이 지났더라도 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
+                            const isWithinPeriod = !endDate || endDate >= today || isWithinStartMonth;
+                            
+                            return isOngoing && isWithinPeriod && 
                               (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
                           });
                           
