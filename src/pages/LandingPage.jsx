@@ -408,8 +408,8 @@ const LandingPage = () => {
           }
         }
         
-        // 오늘 또는 어제 날짜와 일치하고 완료되지 않은 할일만 추가
-        const isTodayOrYesterday = (todoDate === todayStr || todoDate === yesterdayStr);
+        // 오늘 날짜이고 완료되지 않은 할일만 추가 (미완료/연체 항목 제외)
+        const isToday = (todoDate === todayStr);
         const isNotCompleted = !todo.completed;
         
         // 통계 카운트
@@ -422,18 +422,18 @@ const LandingPage = () => {
           오늘날짜: todayStr,
           어제날짜: yesterdayStr,
           완료상태: todo.completed,
-          포함여부: isTodayOrYesterday && isNotCompleted,
+          포함여부: isToday && isNotCompleted,
           업데이트시간: todo.updatedAt ? (todo.updatedAt.toDate ? todo.updatedAt.toDate() : new Date(todo.updatedAt)) : null
         });
         
-        if (isTodayOrYesterday && isNotCompleted) {
+        if (isToday && isNotCompleted) {
           filteredTodos.push({
             id: todo.id,
             title: todo.title || todo.text || '할일',
             completed: todo.completed || false,
             priority: todo.priority || 'medium',
             date: todoDate,
-            isOverdue: todoDate === yesterdayStr, // 어제 할일이면 지연으로 표시
+            isOverdue: false,
             updatedAt: todo.updatedAt,
             createdAt: todo.createdAt
           });
@@ -1694,7 +1694,7 @@ const LandingPage = () => {
                                   transition: 'all 0.2s ease'
                                 }}
                               >
-                                {todo.isOverdue ? '[미완료] ' : ''}{todo.title}
+                                {todo.title}
                               </Typography>
                             </Box>
                             <Box sx={{

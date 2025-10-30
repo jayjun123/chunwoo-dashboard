@@ -882,7 +882,7 @@ const Claims = () => {
     }
   };
 
-  // 기성율 계산 함수 (총 기성금액 + 선급금 / 총 계약금액 * 100)
+  // 기성율 계산 함수 (총 기성금액 + 선급금 / 표시용 계약금액(올림) * 100)
   const calculateProgressRate = (siteName) => {
     // 기성 데이터에서 해당 현장의 기성금액 합계 계산
     const siteGisungData = gisungData.filter(gisung => gisung.name === siteName);
@@ -900,28 +900,31 @@ const Claims = () => {
     
     const advanceAmount = Number(siteData.advance || 0); // 선급금
     const contractAmount = Number(siteData.contractAmount);
+    // 화면에 표시되는 계약금액은 소수점 올림하여 보여주므로 동일 기준으로 계산
+    const displayedContractAmount = Math.ceil(contractAmount);
     
-    if (contractAmount === 0) return 0;
+    if (displayedContractAmount === 0) return 0;
     
     // 기성금액 + 선급금을 계약금액으로 나누어 기성율 계산
     const totalProgressAmount = totalGisungAmount + advanceAmount;
-    const progressRate = (totalProgressAmount / contractAmount) * 100;
+    const progressRate = (totalProgressAmount / displayedContractAmount) * 100;
     
-    // 계약금액과 청구금액이 거의 같을 때 100%로 처리 (소수점 오차 방지)
+    // 계약금액(표시용, 올림)과 거의 같을 때 100%로 처리 (소수점 오차 방지)
     const roundedProgressRate = Math.round(progressRate * 10) / 10;
-    
-    // 추가 검증: 계약금액과 기성금액이 거의 같으면 100%로 강제 설정
-    const isContractAmountCloseToProgress = Math.abs(contractAmount - totalProgressAmount) < contractAmount * 0.001; // 0.1% 이내
-    const finalProgressRate = isContractAmountCloseToProgress ? 100 : roundedProgressRate;
+    const isCloseToDisplayedContract = Math.abs(displayedContractAmount - totalProgressAmount) <= 0.5; // 0.5원 이내는 동일로 간주
+    let finalProgressRate = isCloseToDisplayedContract ? 100 : roundedProgressRate;
+    // 상한 클램프
+    if (finalProgressRate > 100) finalProgressRate = 100;
     
     console.log(`📊 기성율 계산 - ${siteName}:`, {
       totalGisungAmount,
       advanceAmount,
       contractAmount,
+      displayedContractAmount,
       totalProgressAmount,
       progressRate: progressRate,
       roundedProgressRate: roundedProgressRate,
-      isContractAmountCloseToProgress,
+      isCloseToDisplayedContract,
       finalProgressRate: finalProgressRate
     });
     
