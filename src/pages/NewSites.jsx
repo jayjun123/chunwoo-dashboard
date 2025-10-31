@@ -1028,10 +1028,15 @@ const NewSites = () => {
         }
         return true;
       })
-      .filter(site =>
-        site?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (site.manager && site.manager.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
+      .filter(site => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          site?.name?.toLowerCase().includes(searchLower) ||
+          (site.manager && site.manager.toLowerCase().includes(searchLower)) ||
+          (site.address && site.address.toLowerCase().includes(searchLower)) ||
+          (site.contractType && site.contractType.toLowerCase().includes(searchLower))
+        );
+      });
     
     // 정산완료된 현장을 제일 아래쪽에 배치
     const activeSites = [];
@@ -2664,7 +2669,7 @@ const NewSites = () => {
           ))}
         </Tabs>
         <TextField 
-          placeholder="현장명, 담당자 검색" 
+          placeholder="현장명, 담당자, 주소, 계약구분 검색" 
           value={searchTerm} 
           onChange={e => setSearchTerm(e.target.value)} 
           variant="outlined" 
@@ -2909,6 +2914,29 @@ const NewSites = () => {
                       >
                         {site.status}
                       </Typography>
+                      
+                      {/* 계약 유형 표시 */}
+                      {site.contractType && (
+                        <Chip
+                          label={site.contractType === '원도급' || site.contractType === '원도급계약' ? '원도급' : site.contractType}
+                          size="small"
+                          sx={{
+                            backgroundColor: 
+                              site.contractType === '하도급계약' ? '#2196F3' :
+                              site.contractType === '납품계약' ? '#FF9800' :
+                              (site.contractType === '원도급' || site.contractType === '원도급계약') ? '#4CAF50' :
+                              '#9E9E9E', // 계약없음, 일반계약, 관급 등
+                            color: '#fff',
+                            fontWeight: 'bold',
+                            fontSize: '0.65rem',
+                            height: '18px',
+                            minWidth: 'auto',
+                            px: 0.5,
+                            borderRadius: '4px' // 꼭짓점만 약간 둥글게
+                          }}
+                          title={`계약 유형: ${site.contractType}`}
+                        />
+                      )}
                       
                       {/* 물량 타입 표시 (견적서/납품계약서 템플릿 기준) */}
                       {/* 물량 개수에 따른 템플릿 타입 표시 (실시간 계산) */}
