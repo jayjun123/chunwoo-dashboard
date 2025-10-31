@@ -284,6 +284,65 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     }
   }, []);
 
+  // 날짜 형식 정규화 함수 (2025.10., 2025-10, 2025.10 등을 2025-10 형식으로 통일)
+  const normalizeMonthFormat = useCallback((monthStr) => {
+    if (!monthStr) return null;
+    
+    const str = monthStr.toString().trim();
+    if (!str) return null;
+    
+    // 2025.10. 또는 2025.10 형식 처리 (점으로 구분)
+    if (str.includes('.')) {
+      // 점으로 split한 후 빈 문자열 제거
+      const parts = str.split('.').filter(part => part && part.trim());
+      if (parts.length >= 2) {
+        const year = parts[0]?.replace(/[^\d]/g, '') || ''; // 숫자만 추출
+        const month = parts[1]?.replace(/[^\d]/g, '') || ''; // 숫자만 추출
+        if (year && month && year.length === 4) {
+          return `${year}-${month.padStart(2, '0')}`;
+        }
+      }
+    }
+    
+    // 2025-10 형식 처리 (하이픈으로 구분)
+    if (str.includes('-')) {
+      const parts = str.split('-').filter(part => part && part.trim());
+      if (parts.length >= 2) {
+        const year = parts[0]?.replace(/[^\d]/g, '') || '';
+        const month = parts[1]?.replace(/[^\d]/g, '') || '';
+        if (year && month && year.length === 4) {
+          return `${year}-${month.padStart(2, '0')}`;
+        }
+      }
+    }
+    
+    // 기타 형식 (숫자만 있는 경우 등)
+    const digitsOnly = str.replace(/[^\d]/g, '');
+    if (digitsOnly.length >= 6) {
+      // YYYYMM 형식 (예: 202510)
+      const year = digitsOnly.substring(0, 4);
+      const month = digitsOnly.substring(4, 6);
+      if (year && month) {
+        return `${year}-${month}`;
+      }
+    }
+    
+    return str;
+  }, []);
+  
+  // 두 월 문자열이 같은 달인지 비교하는 함수
+  const isSameMonth = useCallback((month1, month2) => {
+    if (!month1 || !month2) return false;
+    
+    const norm1 = normalizeMonthFormat(month1);
+    const norm2 = normalizeMonthFormat(month2);
+    
+    if (!norm1 || !norm2) return false;
+    
+    // 정규화된 형식이 같은지 비교
+    return norm1 === norm2;
+  }, [normalizeMonthFormat]);
+
   // 기성 데이터 로드
   const fetchGisung = useCallback(async () => {
     try {
@@ -300,9 +359,9 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       const gisungCollection = collection(db, 'gisung');
       
       if (viewType === 'month') {
-        const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-        // console.log('월별 필터링 - monthStr:', monthStr);
-        q = query(gisungCollection, where('gisungMonth', '==', monthStr));
+        // 월별 필터링은 클라이언트에서 처리 (날짜 형식 정규화를 위해)
+        // Firestore 쿼리 대신 모든 데이터를 가져와서 클라이언트에서 필터링
+        q = query(gisungCollection);
 
       } else if (viewType === 'site' && selectedSites && selectedSites.length > 0) {
         // console.log('현장별 필터링 - selectedSites:', selectedSites);
@@ -453,7 +512,27 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       }
       
       const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 월별 필터링인 경우 클라이언트에서 날짜 형식 정규화하여 필터링
+      if (viewType === 'month') {
+        const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+        console.log(`📅 월별 필터링 - monthStr: ${monthStr}`);
+        
+        data = data.filter(item => {
+          if (item.gisungMonth) {
+            const matches = isSameMonth(item.gisungMonth, monthStr);
+            if (matches) {
+              console.log(`✅ 월별 매칭: ${item.gisungMonth} === ${monthStr}`, item.name);
+            }
+            return matches;
+          }
+          return false;
+        });
+        
+        console.log(`📊 월별 필터링 결과: ${data.length}개 항목`);
+      }
+      
       // console.log('로드된 기성 데이터:', data);
       
               // 전회기성 동적 계산
@@ -514,7 +593,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       console.error('기성 데이터 로드 오류:', e);
       setGisungList([]);
     }
-  }, [viewType, currentMonth, selectedSites]);
+  }, [viewType, currentMonth, selectedSites, isSameMonth, allGisungData]);
 
   // 검색 및 정렬된 데이터
   const filteredAndSortedGisung = useMemo(() => {

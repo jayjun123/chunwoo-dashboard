@@ -1323,23 +1323,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
 
   // 요약 정보 컴포넌트
   const SummaryInfo = () => (
-    <Card sx={{ 
-      bgcolor: '#181f2e', 
-      border: '1px solid #2a3441',
-      borderRadius: 2,
-      p: 2,
-      mb: 2
-    }}>
-      <Typography variant="h6" sx={{ 
-        color: '#fff', 
-        fontWeight: 'bold', 
-        mb: 1.5,
-        fontSize: '1rem'
-      }}>
-        요약 정보
-      </Typography>
-      
-      <Grid container spacing={1.5}>
+    <Grid container spacing={1.5} sx={{ mb: 2 }}>
         {/* 총 지출 건수 */}
         <Grid item xs={12} md={4}>
           <Box sx={{ 
@@ -1445,7 +1429,6 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
           </Box>
         </Grid>
       </Grid>
-    </Card>
   );
 
   // 필터 적용 (상위 컴포넌트에서 전달받은 filteredData 사용)
@@ -1478,10 +1461,12 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
 
   return (
     <Box sx={{ 
-      minHeight: '500px',
-      height: '500px',
+      height: '100%',
       bgcolor: 'background.default',
-      position: 'relative'
+      position: 'relative',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column'
     }}>
       {/* 모바일 사이드바 */}
       <MobileSidebar />
@@ -1491,36 +1476,35 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         maxWidth={false} 
         sx={{ 
           pt: isMobile ? 2 : 3,
-          pb: 3,
+          pb: isMobile ? 1 : 1,
           px: isMobile ? 1 : 3,
           ml: isMobile ? 0 : 'auto',
           mr: isMobile ? 0 : 'auto',
           maxWidth: isMobile ? '100%' : 'none',
-          height: '500px',
-          maxHeight: '500px'
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          minHeight: 0
         }}
       >
-        <Box sx={{ 
-          width: '100%',
-          maxWidth: '100%',
-          p: 0,
-          overflow: 'hidden',
-          borderRadius: 2,
-          boxShadow: 3,
-          bgcolor: 'background.paper'
-        }}>
-
       
       {/* 요약 정보 */}
-      <SummaryInfo />
+      <Box sx={{ flexShrink: 0 }}>
+        <SummaryInfo />
+      </Box>
       
-      <Paper sx={{ 
+      <Box sx={{ 
         width: '100%',
         maxWidth: '100%',
+        flex: 1,
         overflow: 'hidden', 
-        mt: 3, 
-        p: 0,
-        boxSizing: 'border-box'
+        mt: 3,
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0
       }}>
         <Box sx={{ 
           display: 'flex', 
@@ -1531,7 +1515,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
           width: '100%',
           maxWidth: '100%',
           px: { xs: 1, md: 2 },
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
+          flexShrink: 0
         }}>
           {/* 왼쪽: 지출현황 제목과 검색칸 */}
           <Box sx={{ 
@@ -1610,59 +1595,61 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
           width: '100%',
           maxWidth: '100%',
           overflowX: 'auto',
-          px: { xs: 1, md: 2 },
+          overflowY: 'auto',
           boxSizing: 'border-box',
+          flex: 1,
+          minHeight: 0,
           '& .MuiTable-root': {
             width: '100%',
-            minWidth: '100%',
-            maxWidth: '100%'
+            tableLayout: 'fixed'
           }
         }}>
-          <Table size={isMobile ? 'small' : 'medium'} sx={{ 
+          <Table size="small" sx={{ 
             width: '100%',
-            minWidth: '100%',
-            maxWidth: '100%',
-            tableLayout: 'auto'
+            tableLayout: 'fixed'
           }}>
             <TableHead>
               <TableRow sx={{ bgcolor: '#232b3b' }}>
                 <TableCell padding="checkbox" sx={{ 
                   display: isMobile ? 'none' : 'table-cell',
-                  width: 'auto',
-                  minWidth: 0,
-                  maxWidth: '100%',
-                  py: 0.5
+                  width: '5%',
+                  py: 0.25,
+                  px: 0.5
                 }}>
                   <Checkbox
                     indeterminate={currentData.some(item => selectedItems.includes(item.id)) && !currentData.every(item => selectedItems.includes(item.id))}
                     checked={currentData.length > 0 && currentData.every(item => selectedItems.includes(item.id))}
                     onChange={handleSelectAll}
-                    sx={{ color: '#fff' }}
+                    sx={{ color: '#fff', padding: '4px' }}
+                    size="small"
                   />
                 </TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
                   fontWeight: 700, 
                   ml: isMobile ? '-8px' : 0,
-                  width: 'auto',
-                  minWidth: 0,
-                  maxWidth: '100%',
-                  py: 0.5
+                  width: '15%',
+                  py: 0.25,
+                  px: 1,
+                  fontSize: '0.85rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
                 }}>현장명</TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
                   fontWeight: 700, 
                   ml: isMobile ? '-8px' : 0,
-                  width: 'auto',
-                  minWidth: 0,
-                  maxWidth: '100%',
+                  width: '10%',
+                  py: 0.25,
+                  px: 1,
+                  fontSize: '0.85rem',
                   cursor: 'pointer',
-                  '&:hover': { bgcolor: '#2a3441' },
-                  py: 0.5
+                  '&:hover': { bgcolor: '#2a3441' }
                 }} onClick={() => handleSort('itemType')}>
                   항목
                   {sortField === 'itemType' && (
-                    <span style={{ marginLeft: '4px', fontSize: '0.8rem' }}>
+                    <span style={{ marginLeft: '4px', fontSize: '0.75rem' }}>
                       {sortDirection === 'asc' ? '↑' : '↓'}
                     </span>
                   )}
@@ -1671,17 +1658,16 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   color: '#fff', 
                   fontWeight: 700, 
                   display: isMobile ? 'none' : 'table-cell',
-                  width: 'auto',
-                  minWidth: 0,
-                  maxWidth: '100%',
-                  fontSize: isMobile ? '0.7rem' : '0.95rem',
+                  width: '8%',
+                  fontSize: '0.85rem',
                   cursor: 'pointer',
                   '&:hover': { bgcolor: '#2a3441' },
-                  py: 0.5
+                  py: 0.25,
+                  px: 1
                 }} onClick={() => handleSort('sequence')}>
                   차수
                   {sortField === 'sequence' && (
-                    <span style={{ marginLeft: '4px', fontSize: '0.8rem' }}>
+                    <span style={{ marginLeft: '4px', fontSize: '0.75rem' }}>
                       {sortDirection === 'asc' ? '↑' : '↓'}
                     </span>
                   )}
@@ -1690,26 +1676,26 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   color: '#fff', 
                   fontWeight: 700, 
                   display: isMobile ? 'none' : 'table-cell',
-                  width: 'auto',
-                  minWidth: 0,
-                  maxWidth: '100%',
-                  fontSize: isMobile ? '0.7rem' : '0.95rem',
-                  py: 0.5
+                  width: '12%',
+                  fontSize: '0.85rem',
+                  py: 0.25,
+                  px: 1
                 }}>사용날짜</TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
                   fontWeight: 700, 
                   ml: isMobile ? '-8px' : 0,
-                  width: 'auto',
-                  minWidth: 0,
-                  maxWidth: '100%',
+                  width: '12%',
+                  fontSize: '0.85rem',
                   cursor: 'pointer',
                   '&:hover': { bgcolor: '#2a3441' },
-                  py: 0.5
+                  py: 0.25,
+                  px: 1,
+                  textAlign: 'right'
                 }} onClick={() => handleSort('totalValue')}>
                   금액
                   {sortField === 'totalValue' && (
-                    <span style={{ marginLeft: '4px', fontSize: '0.8rem' }}>
+                    <span style={{ marginLeft: '4px', fontSize: '0.75rem' }}>
                       {sortDirection === 'asc' ? '↑' : '↓'}
                     </span>
                   )}
@@ -1718,29 +1704,29 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   color: '#fff', 
                   fontWeight: 700, 
                   display: isMobile ? 'none' : 'table-cell',
-                  width: 'auto',
-                  minWidth: 0,
-                  maxWidth: '100%',
-                  py: 0.5
+                  width: '12%',
+                  fontSize: '0.85rem',
+                  py: 0.25,
+                  px: 1
                 }}>결제</TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
                   fontWeight: 700, 
                   display: isMobile ? 'none' : 'table-cell',
-                  width: '200px',
-                  minWidth: '150px',
-                  maxWidth: '250px',
-                  py: 0.5
+                  width: '15%',
+                  fontSize: '0.85rem',
+                  py: 0.25,
+                  px: 1
                 }}>비고</TableCell>
 
                 <TableCell sx={{ 
                   color: '#fff', 
                   fontWeight: 700, 
                   display: isMobile ? 'none' : 'table-cell',
-                  width: 'auto',
-                  minWidth: 0,
-                  maxWidth: '100%',
-                  py: 0.5
+                  width: '8%',
+                  fontSize: '0.85rem',
+                  py: 0.25,
+                  px: 1
                 }}>관리</TableCell>
               </TableRow>
             </TableHead>
@@ -1788,29 +1774,31 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   >
                     <TableCell padding="checkbox" sx={{ 
                       display: isMobile ? 'none' : 'table-cell',
-                      width: 'auto',
-                      minWidth: 0,
-                      maxWidth: '100%',
-                      py: 0.5
+                      width: '5%',
+                      py: 0.25,
+                      px: 0.5
                     }}>
                       <Checkbox
                         checked={selectedItems.includes(cost.id)}
                         onChange={() => handleSelectItem(cost.id)}
-                        sx={{ color: '#90caf9' }}
+                        sx={{ color: '#90caf9', padding: '4px' }}
+                        size="small"
                       />
                     </TableCell>
                     <TableCell sx={{ 
                       color: '#fff',
-                      width: 'auto',
-                      minWidth: 0,
-                      maxWidth: '100%',
-                      py: 0.5
+                      width: '15%',
+                      py: 0.25,
+                      px: 1,
+                      fontSize: '0.85rem',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
                     }}>{cost.site || '-'}</TableCell>
                     <TableCell sx={{
-                      width: 'auto',
-                      minWidth: 0,
-                      maxWidth: '100%',
-                      py: 0.5
+                      width: '10%',
+                      py: 0.25,
+                      px: 1
                     }}>
                       <Chip 
                         label={(() => {
@@ -1831,27 +1819,27 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                                   cost.itemType === '월세' ? '#ffffff' :
                                   cost.itemType === '세금' ? '#ff5722' : '#a084e8',
                           color: cost.itemType === '월세' || cost.itemType === '지게차' || cost.itemType === '곤도라' ? '#000' : '#000',
-                          fontWeight: 700
+                          fontWeight: 700,
+                          height: '20px',
+                          fontSize: '0.7rem'
                         }} 
                       />
                     </TableCell>
                     <TableCell sx={{ 
                       color: '#fff', 
                       display: isMobile ? 'none' : 'table-cell',
-                      width: 'auto',
-                      minWidth: 0,
-                      maxWidth: '100%',
-                      fontSize: isMobile ? '0.7rem' : '0.95rem',
-                      py: 0.5
+                      width: '8%',
+                      fontSize: '0.85rem',
+                      py: 0.25,
+                      px: 1
                     }}>{calculateSequence(cost)}</TableCell>
                     <TableCell sx={{ 
                       color: '#fff', 
                       display: isMobile ? 'none' : 'table-cell',
-                      width: 'auto',
-                      minWidth: 0,
-                      maxWidth: '100%',
-                      fontSize: isMobile ? '0.7rem' : '0.95rem',
-                      py: 0.5
+                      width: '12%',
+                      fontSize: '0.85rem',
+                      py: 0.25,
+                      px: 1
                     }}>{(() => {
                       try {
                         if (!cost.date) return '-';
@@ -1864,10 +1852,11 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                     <TableCell sx={{ 
                       color: '#ef5350', 
                       fontWeight: 700,
-                      width: 'auto',
-                      minWidth: 0,
-                      maxWidth: '100%',
-                      py: 0.5
+                      width: '12%',
+                      fontSize: '0.85rem',
+                      py: 0.25,
+                      px: 1,
+                      textAlign: 'right'
                     }}>
                       {(() => {
                         const baseAmount = Number(cost.totalValue || 0);
@@ -1879,10 +1868,9 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                     </TableCell>
                     <TableCell sx={{ 
                       display: isMobile ? 'none' : 'table-cell',
-                      width: 'auto',
-                      minWidth: 0,
-                      maxWidth: '100%',
-                      py: 0.5
+                      width: '12%',
+                      py: 0.25,
+                      px: 1
                     }}>
                       <Chip 
                         label={cost.paymentType || '-'} 
@@ -1890,42 +1878,43 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                         variant="outlined"
                         sx={{ 
                           borderColor: '#555',
-                          color: '#fff'
+                          color: '#fff',
+                          height: '20px',
+                          fontSize: '0.7rem'
                         }} 
                       />
                     </TableCell>
                     <TableCell sx={{ 
                       color: '#bbb', 
                       display: isMobile ? 'none' : 'table-cell',
-                      width: '200px',
-                      minWidth: '150px',
-                      maxWidth: '250px',
+                      width: '15%',
+                      fontSize: '0.85rem',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
-                      py: 0.5
+                      py: 0.25,
+                      px: 1
                     }}>{cost.description || '-'}</TableCell>
 
                     <TableCell sx={{ 
                       display: isMobile ? 'none' : 'table-cell',
-                      width: 'auto',
-                      minWidth: 0,
-                      maxWidth: '100%',
-                      py: 0.5
+                      width: '8%',
+                      py: 0.25,
+                      px: 1
                     }}>
                       <IconButton 
                         size="small" 
                         onClick={() => openDialog(cost)}
-                        sx={{ color: '#90caf9' }}
+                        sx={{ color: '#90caf9', padding: '4px' }}
                       >
-                        <EditIcon />
+                        <EditIcon fontSize="small" />
                       </IconButton>
                       <IconButton 
                         size="small" 
                         onClick={() => handleDelete(cost.id)}
-                        sx={{ color: '#ef5350' }}
+                        sx={{ color: '#ef5350', padding: '4px' }}
                       >
-                        <DeleteIcon />
+                        <DeleteIcon fontSize="small" />
                       </IconButton>
                     </TableCell>
                   </TableRow>
@@ -1941,8 +1930,11 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             display: 'flex', 
             justifyContent: 'space-between', 
             alignItems: 'center', 
-            p: 2, 
-            borderTop: '1px solid #333' 
+            pt: 1,
+            pb: 1,
+            px: 2, 
+            borderTop: '1px solid #333',
+            flexShrink: 0
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography variant="body2" sx={{ color: '#bbb' }}>
@@ -1990,7 +1982,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             />
           </Box>
         )}
-      </Paper>
+      </Box>
 
       {/* 항목 추가/수정 다이얼로그 */}
       <Dialog 
@@ -2479,7 +2471,6 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
           {snackbar.message}
         </Alert>
       </Snackbar>
-        </Box>
       </Container>
     </Box>
   );

@@ -297,6 +297,68 @@ const Progress = () => {
   };
   // 월 텍스트
   const monthText = `${currentMonth.getFullYear()}년 ${String(currentMonth.getMonth() + 1).padStart(2, '0')}월`;
+  
+  // 날짜 형식 정규화 함수 (2025.10., 2025-10, 2025.10 등을 2025-10 형식으로 통일)
+  const normalizeMonthFormat = (monthStr) => {
+    if (!monthStr) return null;
+    
+    const str = monthStr.toString().trim();
+    if (!str) return null;
+    
+    // 2025.10. 또는 2025.10 형식 처리 (점으로 구분)
+    if (str.includes('.')) {
+      // 점으로 split한 후 빈 문자열 제거
+      const parts = str.split('.').filter(part => part && part.trim());
+      if (parts.length >= 2) {
+        const year = parts[0]?.replace(/[^\d]/g, '') || ''; // 숫자만 추출
+        const month = parts[1]?.replace(/[^\d]/g, '') || ''; // 숫자만 추출
+        if (year && month && year.length === 4) {
+          return `${year}-${month.padStart(2, '0')}`;
+        }
+      }
+    }
+    
+    // 2025-10 형식 처리 (하이픈으로 구분)
+    if (str.includes('-')) {
+      const parts = str.split('-').filter(part => part && part.trim());
+      if (parts.length >= 2) {
+        const year = parts[0]?.replace(/[^\d]/g, '') || '';
+        const month = parts[1]?.replace(/[^\d]/g, '') || '';
+        if (year && month && year.length === 4) {
+          return `${year}-${month.padStart(2, '0')}`;
+        }
+      }
+    }
+    
+    // 기타 형식 (숫자만 있는 경우 등)
+    const digitsOnly = str.replace(/[^\d]/g, '');
+    if (digitsOnly.length >= 6) {
+      // YYYYMM 형식 (예: 202510)
+      const year = digitsOnly.substring(0, 4);
+      const month = digitsOnly.substring(4, 6);
+      if (year && month) {
+        return `${year}-${month}`;
+      }
+    }
+    
+    // 형식 변환 실패 시 원본 반환
+    console.warn('날짜 형식 정규화 실패:', monthStr);
+    return str;
+  };
+  
+  // 두 월 문자열이 같은 달인지 비교하는 함수
+  const isSameMonth = (month1, month2) => {
+    if (!month1 || !month2) return false;
+    
+    const norm1 = normalizeMonthFormat(month1);
+    const norm2 = normalizeMonthFormat(month2);
+    
+    if (!norm1 || !norm2) return false;
+    
+    // 정규화된 형식이 같은지 비교
+    return norm1 === norm2;
+  };
+  
   const [sites, setSites] = useState([]);
   // 현장별 검색 상태 추가
   const [selectedSites, setSelectedSites] = useState([]);
@@ -875,7 +937,11 @@ const Progress = () => {
       const monthGisungData = progressList.filter(item => {
         // gisungMonth가 있는 경우 (기성현황 데이터)
         if (item.gisungMonth) {
-          return item.gisungMonth === monthStr;
+          const matches = isSameMonth(item.gisungMonth, monthStr);
+          if (matches) {
+            console.log(`✅ 월별 차트 매칭: ${item.gisungMonth} === ${monthStr}`);
+          }
+          return matches;
         }
         // payments가 있는 경우 (기성관리 데이터)
         if (item.payments && item.payments.length > 0) {
@@ -1096,7 +1162,13 @@ const Progress = () => {
     const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
     let filtered = progressList.filter(item => {
       if (item.gisungMonth) {
-        return item.gisungMonth === monthStr;
+        const matches = isSameMonth(item.gisungMonth, monthStr);
+        if (matches) {
+          console.log(`✅ 월별 필터 매칭: ${item.gisungMonth} === ${monthStr}`, item.name);
+        } else if (normalizeMonthFormat(item.gisungMonth)) {
+          console.log(`❌ 월별 필터 불일치: ${item.gisungMonth} (정규화: ${normalizeMonthFormat(item.gisungMonth)}) !== ${monthStr}`, item.name);
+        }
+        return matches;
       }
       if (item.payments && item.payments.length > 0) {
         return item.payments.some(payment => {
@@ -1593,6 +1665,7 @@ const Progress = () => {
             <SearchableSiteSelect
               sites={filteredSites}
               value={selectedSites}
+              excludeCompletedSites={true}
               onChange={(newValue) => {
                 console.log('현장 선택됨:', newValue);
                 const newSelectedSites = Array.isArray(newValue) ? newValue : (newValue ? [newValue] : []);
@@ -1689,7 +1762,11 @@ const Progress = () => {
                 if (location.state && location.state.fromPage) {
                   switch (location.state.fromPage) {
                     case 'claims':
-                      navigate('/claims');
+                      navigate('/claims', { 
+                        state: { 
+                          fromProgress: true // Progress에서 돌아왔음을 표시
+                        } 
+                      });
                       console.log('✅ 청구예정 페이지로 돌아가기');
                       break;
                     case 'sites':

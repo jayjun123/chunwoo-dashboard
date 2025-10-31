@@ -66,7 +66,7 @@ import {
   checkProgressAndUpdateClaim
 } from '../api/claims';
 import * as XLSX from 'xlsx';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
 import { collection, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -76,6 +76,10 @@ const Claims = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // 페이지 상태 저장/복원 키
+  const CLAIMS_PAGE_STATE_KEY = 'claimsPageState';
   
   // 상태 관리
   const [claims, setClaims] = useState([]);
@@ -111,11 +115,70 @@ const Claims = () => {
 
   // 월별 네비게이션
   const [currentMonth, setCurrentMonth] = useState(() => {
+    // 복원된 상태가 있으면 사용, 없으면 현재 월
+    try {
+      const savedState = localStorage.getItem(CLAIMS_PAGE_STATE_KEY);
+      if (savedState) {
+        const pageState = JSON.parse(savedState);
+        if (pageState.currentMonth) {
+          return pageState.currentMonth;
+        }
+      }
+    } catch (error) {
+      console.error('월 복원 실패:', error);
+    }
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
+  // 페이지 상태 저장 함수
+  const saveClaimsPageState = () => {
+    const pageState = {
+      currentPage,
+      itemsPerPage,
+      searchTerm,
+      filters,
+      sortBy,
+      sortOrder,
+      currentMonth
+    };
+    localStorage.setItem(CLAIMS_PAGE_STATE_KEY, JSON.stringify(pageState));
+  };
+  
+  // 페이지 상태 복원 함수
+  const restoreClaimsPageState = () => {
+    try {
+      const savedState = localStorage.getItem(CLAIMS_PAGE_STATE_KEY);
+      if (savedState) {
+        const pageState = JSON.parse(savedState);
+        setCurrentPage(pageState.currentPage || 1);
+        setItemsPerPage(pageState.itemsPerPage || 10);
+        setSearchTerm(pageState.searchTerm || '');
+        setFilters(pageState.filters || { claimStatus: '', searchAll: false });
+        setSortBy(pageState.sortBy || 'number');
+        setSortOrder(pageState.sortOrder || 'desc');
+        if (pageState.currentMonth) {
+          setCurrentMonth(pageState.currentMonth);
+        }
+      }
+    } catch (error) {
+      console.error('페이지 상태 복원 실패:', error);
+    }
+  };
 
+  // 컴포넌트 마운트 시 페이지 상태 복원
+  useEffect(() => {
+    // Progress 페이지에서 돌아온 경우에만 상태 복원
+    if (location.state?.fromProgress) {
+      const savedState = localStorage.getItem(CLAIMS_PAGE_STATE_KEY);
+      if (savedState) {
+        // 약간의 딜레이를 주어 상태 업데이트가 완료된 후 복원
+        setTimeout(() => {
+          restoreClaimsPageState();
+        }, 100);
+      }
+    }
+  }, [location.state]);
 
   // 엑셀 업로드 함수
   const handleUploadExcel = (event) => {
@@ -1252,6 +1315,8 @@ const Claims = () => {
           severity: 'success'
         });
       }
+      // 수정/생성 후 현재 페이지 상태 저장 (같은 페이지에 머물기 위함)
+      saveClaimsPageState();
       setDialogOpen(false);
       setEditingClaim(null);
       resetForm();
@@ -1337,6 +1402,8 @@ const Claims = () => {
 
   // 기성등록 버튼 클릭
   const handleProgressRegistration = (claim) => {
+    // 현재 페이지 상태 저장
+    saveClaimsPageState();
     // 기존 경로인 /progress로 이동 (안전한 방법)
     navigate('/progress', { 
       state: { 
@@ -1635,6 +1702,9 @@ const Claims = () => {
         );
         console.log(`🔄 isUpdating 플래그 제거 완료: ${claim.siteName}`);
         
+        // 페이지 상태 저장 (현재 페이지 유지)
+        saveClaimsPageState();
+        
         // 3초 후 시각적 피드백 제거
         setTimeout(() => {
           recentlyUpdatedRef.current.delete(claim.id);
@@ -1716,6 +1786,9 @@ const Claims = () => {
           severity: 'success'
         });
       }
+      
+      // 청구여부 변경 후 현재 페이지 상태 저장 (테이블 페이지 유지)
+      saveClaimsPageState();
 
     } catch (error) {
       console.error('청구여부 상태 변경 실패:', error);

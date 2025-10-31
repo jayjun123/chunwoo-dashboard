@@ -1319,11 +1319,24 @@ const LandingPage = () => {
                         textShadow: '0 0 10px rgba(67, 233, 123, 0.3)',
                         fontSize: '1.4rem'
                       }}>
-                        오늘의 일정
+                        오늘의 일정 ({todaySchedules.length})
                       </Typography>
                     </Box>
                     
-                    <Box sx={{ textAlign: 'left' }}>
+                    <Box sx={{ 
+                      textAlign: 'left',
+                      height: '200px', // 데이터가 없을 때 크기로 고정
+                      overflowY: 'auto',
+                      overflowX: 'hidden',
+                      touchAction: 'pan-y', // 터치 스크롤 가능
+                      // 스크롤바 숨기기
+                      '&::-webkit-scrollbar': {
+                        display: 'none'
+                      },
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none',
+                      WebkitOverflowScrolling: 'touch' // iOS 부드러운 스크롤
+                    }}>
                       {todaySchedules.length > 0 ? (
                         todaySchedules.map((schedule, index) => {
                           // 분류별 색상 정의
@@ -1626,12 +1639,25 @@ const LandingPage = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Assignment sx={{ color: '#43e97b', fontSize: 24 }} />
                       <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                        오늘의 할일
+                        오늘의 할일 ({todayTodos.length})
                       </Typography>
                     </Box>
                   </Box>
                   
-                    <Box sx={{ p: 1, flex: 1, overflow: 'auto' }}>
+                    <Box sx={{ 
+                      p: 1, 
+                      height: '200px', // 데이터가 없을 때 크기로 고정
+                      overflowY: 'auto',
+                      overflowX: 'hidden',
+                      touchAction: 'pan-y', // 터치 스크롤 가능
+                      // 스크롤바 숨기기
+                      '&::-webkit-scrollbar': {
+                        display: 'none'
+                      },
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none',
+                      WebkitOverflowScrolling: 'touch' // iOS 부드러운 스크롤
+                    }}>
                       {todayTodos.length > 0 ? (
                         todayTodos.map((todo, index) => (
                           <Box

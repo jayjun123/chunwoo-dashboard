@@ -25,7 +25,8 @@ const SearchableSiteSelect = ({
   clearOnBlur = false,
   selectOnFocus = false,
   excludeFullyPaidSites = false,
-  paymentStatusMap = {}
+  paymentStatusMap = {},
+  excludeCompletedSites = false // 완료된 현장을 드롭다운에서 숨기기 (검색은 가능)
 }) => {
   const [inputValue, setInputValue] = useState('');
 
@@ -133,12 +134,27 @@ const SearchableSiteSelect = ({
       });
     }
     
+    // 완료된 현장을 드롭다운에서 숨기기 (검색할 때는 포함)
+    // inputValue가 없을 때만 완료된 현장 제외 (드롭다운 열 때)
+    if (!inputValue && excludeCompletedSites) {
+      filteredOptions = filteredOptions.filter(option => {
+        if (typeof option === 'string') {
+          return true; // 문자열인 경우 sites 배열에서 status를 확인할 수 없으므로 포함
+        } else if (option && typeof option === 'object') {
+          // 완료된 현장 제외 (status가 '완료'인 경우)
+          return option.status !== '완료';
+        }
+        return true;
+      });
+    }
+    
     if (!inputValue) {
       // 전체선택 옵션을 맨 위에 추가
       const allSitesOption = { name: '전체선택', id: 'all', isAllOption: true };
       return [allSitesOption, ...filteredOptions];
     }
     
+    // 검색 시에는 모든 현장 포함 (완료된 현장도 검색 가능)
     const filtered = filteredOptions.filter(option => {
       let siteName = '';
       let manager = '';
