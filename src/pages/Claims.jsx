@@ -101,10 +101,12 @@ const Claims = () => {
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [skipPageReset, setSkipPageReset] = useState(false);
-  const [skipSorting, setSkipSorting] = useState(false);
+  const skipPageResetRef = useRef(false); // useState 대신 useRef 사용
+  const skipSortingRef = useRef(false); // useState 대신 useRef 사용
   const savedPageRef = useRef(1);
   const recentlyUpdatedRef = useRef(new Set());
+  const prevSearchTermRef = useRef(''); // 검색어 변경 감지용
+  const prevFiltersRef = useRef({}); // 필터 변경 감지용
   const [fixedNumbers, setFixedNumbers] = useState(new Map()); // 고정 번호 저장
   const [stats, setStats] = useState({
     total: 0,
@@ -433,8 +435,16 @@ const Claims = () => {
       console.log('월 변경됨:', currentMonth);
       const currentMonthClaims = allClaims.filter(claim => claim.claimMonth === currentMonth);
       console.log(`📊 현재 월 (${currentMonth}) 데이터:`, currentMonthClaims.length, '개');
-      setClaims(currentMonthClaims);
-      setFilteredClaims(currentMonthClaims);
+      
+      // 칩 변경으로 인한 업데이트가 아닌 경우에만 페이지 리셋 허용
+      if (!skipPageResetRef.current) {
+        setClaims(currentMonthClaims);
+        setFilteredClaims(currentMonthClaims);
+      } else {
+        // 페이지 유지 플래그가 설정된 경우, claims만 업데이트하고 useEffect에서 필터링 처리
+        console.log('📄 페이지 유지 모드 - claims만 업데이트');
+        setClaims(currentMonthClaims);
+      }
     }
   }, [currentMonth, allClaims]);
 
@@ -551,18 +561,33 @@ const Claims = () => {
             console.log('📊 데이터 변경 없음 - 상태 업데이트 스킵');
             return prevClaims;
           }
-          console.log('📊 데이터 변경 감지 - 상태 업데이트');
+          
+          // 칩 변경으로 인한 업데이트인 경우 페이지 유지
+          if (skipPageResetRef.current) {
+            console.log('📄 Firebase 데이터 업데이트 (칩 변경 모드) - 페이지 유지, skipPageResetRef: true');
+            // 플래그가 설정되어 있으면 Firebase 업데이트 후에도 유지하도록 플래그 재설정
+            if (savedPageRef.current > 0) {
+              console.log(`📄 Firebase 업데이트 후에도 페이지 유지: ${savedPageRef.current}`);
+              skipPageResetRef.current = true; // 플래그 재설정
+            }
+          } else {
+            console.log('📊 데이터 변경 감지 - 상태 업데이트');
+          }
+          
           return currentMonthClaims;
         });
         
-        setFilteredClaims(prevFiltered => {
-          // 데이터가 실제로 변경되었는지 확인
-          const hasChanges = JSON.stringify(prevFiltered) !== JSON.stringify(currentMonthClaims);
-          if (!hasChanges) {
-            return prevFiltered;
-          }
-          return currentMonthClaims;
-        });
+        // filteredClaims는 useEffect에서 처리하도록 하되, 칩 변경 모드가 아닌 경우에만 직접 업데이트
+        if (!skipPageResetRef.current) {
+          setFilteredClaims(prevFiltered => {
+            // 데이터가 실제로 변경되었는지 확인
+            const hasChanges = JSON.stringify(prevFiltered) !== JSON.stringify(currentMonthClaims);
+            if (!hasChanges) {
+              return prevFiltered;
+            }
+            return currentMonthClaims;
+          });
+        }
         
         setLoading(false);
       }, null); // null을 전달하여 모든 데이터 가져오기
@@ -691,6 +716,28 @@ const Claims = () => {
 
   // 필터링 및 검색 (claims 데이터 변경 시에도 실시간 업데이트)
   useEffect(() => {
+    console.log('🔍 useEffect 실행 - 필터링 및 검색');
+    console.log('📊 현재 상태:', {
+      claimsLength: claims.length,
+      currentPage,
+      skipPageResetRef: skipPageResetRef.current,
+      savedPageRef: savedPageRef.current,
+      currentMonth,
+      searchTerm,
+      filters,
+      sortBy,
+      sortOrder,
+      itemsPerPage
+    });
+    
+    // 검색이나 필터가 변경된 경우 savedPageRef 리셋 (페이지 리셋 허용)
+    if (searchTerm !== prevSearchTermRef.current || JSON.stringify(filters) !== JSON.stringify(prevFiltersRef.current)) {
+      console.log('🔍 검색/필터 변경 감지 - savedPageRef 리셋');
+      savedPageRef.current = 0;
+      prevSearchTermRef.current = searchTerm;
+      prevFiltersRef.current = filters;
+    }
+    
     // 검색은 전체 월에서 하되, 결과는 현재 월 데이터에서 필터링
     let filtered = claims;
 
@@ -742,7 +789,7 @@ const Claims = () => {
     }
 
     // 정렬 (청구여부 변경 시에도 번호순 정렬 유지)
-    if (!skipSorting) {
+    if (!skipSortingRef.current) {
       filtered.sort((a, b) => {
         // 정렬 기준에 따른 값 비교
         let aValue, bValue;
@@ -823,7 +870,7 @@ const Claims = () => {
         const bValue = fixedNumbers.get(b.id) || 0;
         return bValue - aValue; // 항상 내림차순 (높은 번호 먼저)
       });
-      setSkipSorting(false); // 플래그 리셋
+      skipSortingRef.current = false; // 플래그 리셋
     }
 
     setFilteredClaims(filtered);
@@ -853,16 +900,36 @@ const Claims = () => {
     });
     
     // 칩 클릭이 아닌 경우에만 페이지 리셋
-    if (!skipPageReset) {
-      setCurrentPage(1);
+    console.log(`📄 페이지 리셋 체크 - skipPageResetRef: ${skipPageResetRef.current}, savedPageRef: ${savedPageRef.current}, currentPage: ${currentPage}`);
+    
+    const savedPage = savedPageRef.current;
+    const totalPagesCalc = itemsPerPage === -1 ? 1 : Math.ceil(filtered.length / itemsPerPage);
+    
+    // skipPageResetRef가 true이거나 savedPageRef가 유효한 값(> 1)이면 페이지 유지
+    if (skipPageResetRef.current || (savedPage > 1 && savedPage <= totalPagesCalc)) {
+      // 페이지 유지
+      const validPage = savedPage > 0 && savedPage <= totalPagesCalc ? savedPage : currentPage;
+      console.log(`✅ 페이지 유지 - savedPage: ${savedPage}, currentPage: ${currentPage}, validPage: ${validPage}, totalPages: ${totalPagesCalc}`);
+      
+      if (currentPage !== validPage && validPage > 0) {
+        console.log(`📊 페이지 복원 - currentPage: ${currentPage} → ${validPage}`);
+        setCurrentPage(validPage);
+      }
+      
+      // 플래그를 리셋하지 않고 유지 (Firebase 업데이트 후에도 페이지 유지)
+      // 단, 정상적인 복원이 완료된 경우에만 플래그 리셋
+      if (skipPageResetRef.current && currentPage === validPage) {
+        console.log(`✅ 페이지 복원 완료 - 플래그 리셋`);
+        skipPageResetRef.current = false;
+      }
     } else {
-      // 저장된 페이지로 복원
-      const savedPage = savedPageRef.current;
-      console.log(`📄 저장된 페이지로 복원: ${savedPage}`);
-      setCurrentPage(savedPage);
-      setSkipPageReset(false); // 플래그 리셋
+      // 페이지 리셋 (검색, 필터 변경 등)
+      if (currentPage !== 1) {
+        console.log(`⚠️ 페이지 리셋: 1페이지로 이동 (skipPageResetRef: ${skipPageResetRef.current}, savedPage: ${savedPage})`);
+        setCurrentPage(1);
+      }
     }
-  }, [claims, allClaims, currentMonth, searchTerm, filters, sortBy, sortOrder]);
+  }, [claims, allClaims, currentMonth, searchTerm, filters, sortBy, sortOrder, itemsPerPage]);
 
 
   // 폼 데이터 초기화
@@ -1660,9 +1727,11 @@ const Claims = () => {
       console.log(`🔄 청구여부 상태 변경: ${claim.siteName} - ${claim.claimStatus} → ${newStatus}`);
 
       // 현재 페이지 저장 및 플래그 설정
+      console.log(`🔵 칩 변경 시작 - 현재 페이지: ${currentPage}`);
       savedPageRef.current = currentPage;
-      setSkipPageReset(true);
-      console.log(`📄 현재 페이지 저장: ${currentPage}`);
+      skipPageResetRef.current = true;
+      skipSortingRef.current = true;
+      console.log(`📄 플래그 설정 완료 - savedPageRef: ${savedPageRef.current}, skipPageResetRef: ${skipPageResetRef.current}, skipSortingRef: ${skipSortingRef.current}`);
 
       // 낙관적 업데이트: UI를 먼저 업데이트 (즉시 반영)
       const updatedClaim = {
@@ -1671,35 +1740,30 @@ const Claims = () => {
         updatedAt: new Date(),
         isUpdating: true // 업데이트 중 플래그 추가
       };
-
+      
       // 로컬 상태 즉시 업데이트 (위치 유지, 페이지네이션 유지)
+      // setClaims만 호출하고, filteredClaims는 useEffect에서 자동 업데이트되도록 함
       setClaims(prevClaims => 
         prevClaims.map(c => c.id === claim.id ? updatedClaim : c)
       );
-      setFilteredClaims(prevFiltered => 
-        prevFiltered.map(c => c.id === claim.id ? updatedClaim : c)
-      );
-      
-      // 정렬 건너뛰기 플래그 설정 (원래 위치 유지)
-      setSkipSorting(true);
       
       // 최근 업데이트된 현장 ID 저장 (시각적 피드백용)
       recentlyUpdatedRef.current.add(claim.id);
       
       // 페이지네이션 상태 유지 (현재 페이지 그대로 유지)
-      console.log(`📄 현재 페이지 유지: ${currentPage}`);
+      console.log(`📄 현재 페이지 유지: ${currentPage}, savedPageRef: ${savedPageRef.current}`);
 
       // 백그라운드에서 Firebase 업데이트
       updateClaim(claim.id, updatedClaim).then(() => {
         console.log(`✅ Firebase 업데이트 성공: ${claim.siteName}`);
-        // 성공 시 isUpdating 플래그 제거 (정렬은 건너뛰기)
-        setSkipSorting(true);
+        // 성공 시 isUpdating 플래그 제거 (정렬은 건너뛰기, 페이지는 유지)
+        // savedPageRef는 이미 설정되어 있으므로 다시 설정하지 않음
+        skipPageResetRef.current = true;
+        skipSortingRef.current = true;
         setClaims(prevClaims => 
           prevClaims.map(c => c.id === claim.id ? { ...c, isUpdating: false } : c)
         );
-        setFilteredClaims(prevFiltered => 
-          prevFiltered.map(c => c.id === claim.id ? { ...c, isUpdating: false } : c)
-        );
+        // setFilteredClaims는 제거 - useEffect에서 자동 업데이트되도록 함
         console.log(`🔄 isUpdating 플래그 제거 완료: ${claim.siteName}`);
         
         // 페이지 상태 저장 (현재 페이지 유지)
@@ -1711,14 +1775,14 @@ const Claims = () => {
         }, 3000);
       }).catch(error => {
         console.error('Firebase 업데이트 실패:', error);
-        // 실패 시 원래 상태로 롤백하고 isUpdating 플래그도 제거 (정렬은 건너뛰기)
-        setSkipSorting(true);
+        // 실패 시 원래 상태로 롤백하고 isUpdating 플래그도 제거 (정렬은 건너뛰기, 페이지는 유지)
+        // savedPageRef는 이미 설정되어 있으므로 다시 설정하지 않음
+        skipPageResetRef.current = true;
+        skipSortingRef.current = true;
         setClaims(prevClaims => 
           prevClaims.map(c => c.id === claim.id ? { ...claim, isUpdating: false } : c)
         );
-        setFilteredClaims(prevFiltered => 
-          prevFiltered.map(c => c.id === claim.id ? { ...claim, isUpdating: false } : c)
-        );
+        // setFilteredClaims는 제거 - useEffect에서 자동 업데이트되도록 함
         setSnackbar({
           open: true,
           message: '청구여부 변경에 실패했습니다.',
@@ -3128,9 +3192,9 @@ const Claims = () => {
                                   cursor: 'pointer',
                                   fontSize: '1.2rem',
                                   fontWeight: 'bold',
-                                  color: '#90caf9',
+                                  color: '#f44336', // 빨간색으로 변경
                                   '&:hover': { 
-                                    color: '#4caf50',
+                                    color: '#d32f2f', // 호버 시 더 진한 빨간색
                                     transform: 'scale(1.2)'
                                   },
                                   transition: 'all 0.2s ease'
