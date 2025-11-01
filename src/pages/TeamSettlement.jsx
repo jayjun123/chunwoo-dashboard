@@ -88,7 +88,7 @@ const TeamSettlement = () => {
   const [isTabDeleteDialogOpen, setIsTabDeleteDialogOpen] = useState(false);
   const [tabToDelete, setTabToDelete] = useState(null);
   const [isAllSelected, setIsAllSelected] = useState(false);
-  const [collapsedSites, setCollapsedSites] = useState(new Set()); // 숨겨진 현장들 (기본적으로 모든 현장이 접혀있음)
+  const [collapsedSites, setCollapsedSites] = useState(new Set()); // 숨겨진 현장들 (기본적으로 모든 현장이 확장되어 있음)
   const [editingSiteName, setEditingSiteName] = useState(null); // 편집 중인 현장명
   const [editingSiteValue, setEditingSiteValue] = useState(''); // 편집 중인 현장명 값
   const [formData, setFormData] = useState({
@@ -711,8 +711,17 @@ const TeamSettlement = () => {
     setTeamTableData(updatedData);
     console.log('🔄 상태 업데이트 완료');
     
+    // 항목이 추가된 경우 해당 현장을 확장 상태로 설정
+    if (selectedSiteForRowAdd && newRow.isItemRow) {
+      setCollapsedSites(prev => {
+        const newCollapsedSites = new Set(prev);
+        newCollapsedSites.delete(selectedSiteForRowAdd);
+        console.log('항목 추가 시 현장을 확장 상태로 설정:', selectedSiteForRowAdd);
+        return newCollapsedSites;
+      });
+    }
     // 새로운 현장이 추가된 경우 접힌 상태로 설정
-    if (newRow.siteName && newRow.siteName !== '') {
+    else if (newRow.siteName && newRow.siteName !== '' && !newRow.isItemRow) {
       setCollapsedSites(prev => {
         const newCollapsedSites = new Set(prev);
         newCollapsedSites.add(newRow.siteName);
@@ -4322,7 +4331,7 @@ const TeamSettlement = () => {
                       </TableCell>
                       <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '120px', fontSize: '1.1rem' }}>소계</TableCell>
                       <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '120px', fontSize: '1.1rem' }}>항목</TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '80px', fontSize: '1.1rem' }}>물량(자평)</TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '80px', fontSize: '1.1rem' }}>물량</TableCell>
                       <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '80px', fontSize: '1.1rem' }}>단가</TableCell>
                       <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '120px', fontSize: '1.1rem' }}>금액</TableCell>
                       <TableCell sx={{ color: '#fff', fontWeight: 'bold', width: '150px', fontSize: '1.1rem' }}>비고</TableCell>
