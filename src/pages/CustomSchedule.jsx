@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, useMediaQuery, Container } from '@mui/material';
+import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, useMediaQuery, Container, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import MobileSidebar from '../components/MobileSidebar';
 import CustomCalendar from '../components/CustomCalendar';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -84,6 +84,8 @@ const CustomSchedule = () => {
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     return todayStr;
   });
+  const [pastePopup, setPastePopup] = useState({ open: false, startDate: '', endDate: '' });
+  const [isPasting, setIsPasting] = useState(false); // 중복 호출 방지 플래그
   const [dragStartTime, setDragStartTime] = useState(null); // 드래그 시작 시간
   const [isLongPress, setIsLongPress] = useState(false); // 길게 터치 상태
 
@@ -942,7 +944,7 @@ const CustomSchedule = () => {
       }
     }
     
-    // Ctrl+V: 붙여넣기
+    // Ctrl+V: 붙여넣기 팝업 열기 (바로 붙여넣지 않고 팝업으로 기간 설정)
     if (e.ctrlKey && e.key === 'v') {
       e.preventDefault();
       console.log('Ctrl+V 감지됨');
@@ -950,19 +952,20 @@ const CustomSchedule = () => {
       console.log('복사된 항목:', copiedItem);
       
       if (copiedItem) {
-        // selectedDate가 없거나 오늘 날짜인 경우 사용자에게 날짜 선택 요청
-        if (!selectedDate || selectedDate === new Date().toISOString().slice(0, 10)) {
-          const targetDate = prompt('붙여넣을 날짜를 입력하세요 (YYYY-MM-DD 형식):', selectedDate || new Date().toISOString().slice(0, 10));
-          if (targetDate && targetDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            console.log('사용자 입력 날짜로 붙여넣기 시도:', targetDate);
-            handlePasteItem(targetDate);
-          } else if (targetDate) {
-            alert('올바른 날짜 형식(YYYY-MM-DD)을 입력해주세요.');
-          }
+        // 붙여넣기 팝업 열기 - 클릭한 날짜를 기본값으로 사용
+        let defaultDate;
+        if (selectedDate && selectedDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          // 선택된 날짜를 기본값으로 사용
+          defaultDate = selectedDate;
         } else {
-          console.log('선택된 날짜로 붙여넣기 시도:', selectedDate);
-          handlePasteItem(selectedDate);
+          // 선택된 날짜가 없으면 오늘 날짜를 기본값으로 사용
+          const today = new Date();
+          const yearStr = today.getFullYear();
+          const monthStr = String(today.getMonth() + 1).padStart(2, '0');
+          const dayStr = String(today.getDate()).padStart(2, '0');
+          defaultDate = `${yearStr}-${monthStr}-${dayStr}`;
         }
+        setPastePopup({ open: true, startDate: defaultDate, endDate: defaultDate });
       } else {
         console.log('복사된 항목이 없음');
         alert('복사된 항목이 없습니다. Ctrl+C로 항목을 복사하세요.');
@@ -970,9 +973,9 @@ const CustomSchedule = () => {
     }
   };
 
-  // 붙여넣기 핸들러
+  // 붙여넣기 핸들러 (단일 날짜)
   const handlePasteItem = async (targetDate) => {
-    if (!copiedItem) return;
+    if (!copiedItem || isPasting) return;
     
     const user = authUser.currentUser;
     if (!user) {
@@ -980,6 +983,10 @@ const CustomSchedule = () => {
       return;
     }
 
+    console.log('붙여넣기 핸들러 호출됨, 대상 날짜:', targetDate);
+    
+    setIsPasting(true);
+    
     try {
       // 같은 날짜에 같은 현장이 이미 있는지 확인
       const targetDateStart = new Date(targetDate + 'T00:00:00');
@@ -997,6 +1004,7 @@ const CustomSchedule = () => {
       
       if (!existingSnapshot.empty) {
         alert('해당 날짜에 같은 현장의 일정이 이미 존재합니다.');
+        setIsPasting(false);
         return;
       }
 
@@ -1025,9 +1033,200 @@ const CustomSchedule = () => {
       
       await addDoc(collection(db, 'schedules'), newItem);
       console.log('항목 붙여넣기 완료:', targetDate);
+      
+      setPastePopup({ open: false, startDate: '', endDate: '' });
+      alert('일정이 생성되었습니다.');
     } catch (error) {
       console.error('항목 붙여넣기 실패:', error);
       alert('항목 붙여넣기에 실패했습니다.');
+    } finally {
+      setIsPasting(false);
+    }
+  };
+
+  // 붙여넣기 핸들러 (기간 설정)
+  const handlePasteItemRange = async (startDate, endDate) => {
+    if (!copiedItem || isPasting) return;
+    
+    const user = authUser.currentUser;
+    if (!user) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      alert('시작일과 종료일을 모두 입력해주세요.');
+      return;
+    }
+
+    // 날짜 문자열을 직접 파싱 (YYYY-MM-DD 형식)
+    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+    
+    const start = new Date(startYear, startMonth - 1, startDay);
+    const end = new Date(endYear, endMonth - 1, endDay);
+    
+    if (start > end) {
+      alert('시작일이 종료일보다 늦을 수 없습니다.');
+      return;
+    }
+
+    console.log('붙여넣기 핸들러 호출됨, 기간:', startDate, '~', endDate);
+    
+    setIsPasting(true);
+    
+    try {
+      // 기간 내 모든 날짜 생성 (날짜 문자열 기준으로 직접 계산)
+      const dates = [];
+      let currentYear = startYear;
+      let currentMonth = startMonth;
+      let currentDay = startDay;
+      
+      // 종료일까지 포함하여 모든 날짜 생성
+      while (true) {
+        const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+        dates.push(dateStr);
+        
+        // 종료일인지 확인
+        if (currentYear === endYear && currentMonth === endMonth && currentDay === endDay) {
+          break;
+        }
+        
+        // 다음 날로 이동
+        const lastDayOfMonth = new Date(currentYear, currentMonth, 0).getDate();
+        if (currentDay < lastDayOfMonth) {
+          currentDay++;
+        } else {
+          currentDay = 1;
+          if (currentMonth < 12) {
+            currentMonth++;
+          } else {
+            currentMonth = 1;
+            currentYear++;
+          }
+        }
+      }
+      
+      console.log('생성될 날짜 목록:', dates);
+      console.log('총 날짜 수:', dates.length);
+      console.log('복사된 항목 siteId:', copiedItem.siteId);
+
+      let successCount = 0;
+      let skipCount = 0;
+      let errorCount = 0;
+
+      // 각 날짜에 대해 일정 생성
+      for (const targetDate of dates) {
+        try {
+          console.log(`처리 중: ${targetDate}`);
+          
+          // 같은 날짜에 같은 현장이 이미 있는지 확인
+          try {
+            const targetDateStart = new Date(targetDate + 'T00:00:00');
+            const targetDateEnd = new Date(targetDate + 'T23:59:59');
+            
+            // siteId가 없으면 빈 문자열로 검색하지 않도록 조건부 쿼리
+            const queryConditions = [
+              where('userId', '==', user.uid),
+              where('date', '>=', targetDateStart),
+              where('date', '<=', targetDateEnd)
+            ];
+            
+            // siteId가 있을 때만 siteId 조건 추가
+            if (copiedItem.siteId) {
+              queryConditions.push(where('siteId', '==', copiedItem.siteId));
+            }
+            
+            console.log(`  중복 체크 쿼리 조건:`, queryConditions.length, '개');
+            const existingQuery = query(collection(db, 'schedules'), ...queryConditions);
+            
+            const existingSnapshot = await getDocs(existingQuery);
+            console.log(`  중복 체크 결과:`, existingSnapshot.empty ? '없음' : `${existingSnapshot.docs.length}개 발견`);
+            
+            // siteId가 있는 경우에만 중복 체크, 없으면 항상 추가
+            if (copiedItem.siteId && !existingSnapshot.empty) {
+              // 같은 siteId가 이미 있는지 확인
+              const hasSameSite = existingSnapshot.docs.some(doc => {
+                const data = doc.data();
+                return data.siteId === copiedItem.siteId;
+              });
+              
+              if (hasSameSite) {
+                console.log(`  건너뜀 (이미 존재): ${targetDate}`);
+                skipCount++;
+                continue;
+              }
+            }
+          } catch (queryError) {
+            console.error(`  중복 체크 중 에러 발생 (${targetDate}):`, queryError);
+            // 중복 체크 에러는 무시하고 계속 진행
+          }
+
+          const newItem = {
+            text: copiedItem.text || '',
+            type: copiedItem.type || '기타',
+            desc: copiedItem.desc || '',
+            siteId: copiedItem.siteId || '',
+            date: new Date(targetDate + 'T12:00:00'),
+            userId: user.uid,
+            color: copiedItem.color === 'transparent' ? colorChoices[0] : (copiedItem.color || colorChoices[0]),
+            siteName: copiedItem.siteName || '',
+            selectedTypes: copiedItem.selectedTypes || [copiedItem.type || '기타'],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          
+          // undefined 값 제거
+          Object.keys(newItem).forEach(key => {
+            if (newItem[key] === undefined) {
+              delete newItem[key];
+            }
+          });
+          
+          console.log(`  생성 시도: ${targetDate}`, newItem);
+          
+          const docRef = await addDoc(collection(db, 'schedules'), newItem);
+          console.log(`  addDoc 성공, 문서 ID:`, docRef.id);
+          console.log(`  성공: ${targetDate}, successCount 증가 전:`, successCount);
+          successCount++;
+          console.log(`  successCount 증가 후:`, successCount);
+        } catch (error) {
+          console.error(`날짜 ${targetDate} 붙여넣기 실패:`, error);
+          console.error(`에러 상세:`, {
+            message: error.message,
+            code: error.code,
+            stack: error.stack
+          });
+          errorCount++;
+        }
+      }
+      
+      console.log('최종 결과:', { successCount, skipCount, errorCount, totalDates: dates.length });
+
+      setPastePopup({ open: false, startDate: '', endDate: '' });
+      
+      if (successCount > 0) {
+        alert(`${successCount}개 일정이 생성되었습니다.${skipCount > 0 ? `\n${skipCount}개 날짜는 이미 일정이 있어 건너뛰었습니다.` : ''}${errorCount > 0 ? `\n${errorCount}개 날짜에서 오류가 발생했습니다.` : ''}`);
+      } else {
+        let message = '일정이 생성되지 않았습니다.\n';
+        if (skipCount > 0) {
+          message += `- ${skipCount}개 날짜는 이미 일정이 있어 건너뛰었습니다.\n`;
+        }
+        if (errorCount > 0) {
+          message += `- ${errorCount}개 날짜에서 오류가 발생했습니다.\n`;
+        }
+        if (skipCount === 0 && errorCount === 0) {
+          message += '- 모든 날짜에 이미 일정이 존재하거나 오류가 발생했습니다.';
+        }
+        alert(message);
+      }
+      
+      console.log('기간 붙여넣기 완료:', successCount, '개 생성,', skipCount, '개 건너뜀,', errorCount, '개 오류');
+    } catch (error) {
+      console.error('기간 붙여넣기 실패:', error);
+      alert('항목 붙여넣기에 실패했습니다.');
+    } finally {
+      setIsPasting(false);
     }
   };
 
@@ -1570,6 +1769,71 @@ const CustomSchedule = () => {
           </Box>
         </Box>
       )}
+      
+      {/* 붙여넣기 팝업 */}
+      <Dialog
+        open={pastePopup.open}
+        onClose={() => !isPasting && setPastePopup({ open: false, startDate: '', endDate: '' })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          일정 붙여넣기
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              복사된 항목: <strong>{copiedItem?.siteName || copiedItem?.text}</strong>
+            </Typography>
+            <TextField
+              label="시작일"
+              type="date"
+              value={pastePopup.startDate}
+              onChange={(e) => setPastePopup({ ...pastePopup, startDate: e.target.value })}
+              fullWidth
+              sx={{ mb: 2 }}
+              InputLabelProps={{ shrink: true }}
+              disabled={isPasting}
+            />
+            <TextField
+              label="종료일"
+              type="date"
+              value={pastePopup.endDate}
+              onChange={(e) => setPastePopup({ ...pastePopup, endDate: e.target.value })}
+              fullWidth
+              sx={{ mb: 2 }}
+              InputLabelProps={{ shrink: true }}
+              disabled={isPasting}
+            />
+            <Typography variant="caption" color="text.secondary">
+              시작일과 종료일이 같으면 해당 날짜에만 일정이 생성됩니다.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setPastePopup({ open: false, startDate: '', endDate: '' })}
+            disabled={isPasting}
+          >
+            취소
+          </Button>
+          <Button
+            onClick={() => {
+              if (pastePopup.startDate === pastePopup.endDate) {
+                // 단일 날짜인 경우
+                handlePasteItem(pastePopup.startDate);
+              } else {
+                // 기간인 경우
+                handlePasteItemRange(pastePopup.startDate, pastePopup.endDate);
+              }
+            }}
+            variant="contained"
+            disabled={isPasting || !pastePopup.startDate || !pastePopup.endDate}
+          >
+            {isPasting ? '생성 중...' : '붙여넣기'}
+          </Button>
+        </DialogActions>
+      </Dialog>
         </Box>
       </Container>
     </Box>

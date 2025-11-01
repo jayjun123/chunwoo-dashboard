@@ -358,41 +358,9 @@ const CustomCalendar = (props) => {
   const handleKeyDown = (e) => {
     console.log('키보드 이벤트:', e.key, 'Ctrl:', e.ctrlKey);
     
-    // Ctrl+C: 복사
-    if (e.ctrlKey && e.key === 'c') {
-      e.preventDefault();
-      console.log('Ctrl+C 감지됨');
-      if (selectedItems && selectedItems.length > 0) {
-        // 선택된 항목 중 첫 번째 항목을 복사
-        const selectedItem = selectedItems[0];
-        const item = calendarItems[selectedItem.date]?.find(item => item.id === selectedItem.id);
-        if (item) {
-          setCopiedItem(item);
-          console.log('항목 복사됨:', item);
-          alert('항목이 복사되었습니다!');
-        } else {
-          console.log('복사할 항목을 찾을 수 없음');
-        }
-      } else {
-        console.log('선택된 항목이 없음');
-      }
-    }
-    
-    // Ctrl+V: 붙여넣기
-    if (e.ctrlKey && e.key === 'v') {
-      e.preventDefault();
-      console.log('Ctrl+V 감지됨');
-      console.log('현재 선택된 날짜:', selectedDate);
-      console.log('복사된 항목:', copiedItem);
-      if (copiedItem && selectedDate) {
-        console.log('붙여넣기 시도:', selectedDate);
-        handlePasteItem(selectedDate);
-      } else {
-        console.log('복사된 항목이 없거나 선택된 날짜가 없음');
-        if (!copiedItem) alert('복사된 항목이 없습니다. Ctrl+C로 항목을 복사하세요.');
-        if (!selectedDate) alert('붙여넣을 날짜를 선택하세요.');
-      }
-    }
+    // Ctrl+C와 Ctrl+V는 ScheduleManagement에서 처리되므로 여기서는 처리하지 않음
+    // CustomCalendar는 ScheduleManagement 내부에서 사용되므로,
+    // 키보드 이벤트는 ScheduleManagement에서 처리됩니다.
   };
 
   // 붙여넣기 핸들러
@@ -981,6 +949,10 @@ const CustomCalendar = (props) => {
                     if (dateStr) {
                       setSelectedDate(dateStr);
                       console.log('날짜 클릭됨:', dateStr);
+                      // 부모 컴포넌트의 onDateClick 호출
+                      if (onDateClick) {
+                        onDateClick(dateStr);
+                      }
                     }
                   }}
                   onDoubleClick={() => {
