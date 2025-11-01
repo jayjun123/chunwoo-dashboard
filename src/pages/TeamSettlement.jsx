@@ -3672,7 +3672,20 @@ const TeamSettlement = () => {
                     fontSize: '0.9rem'
                   }
                 }}>
-                  팀별 정산 현황을 관리하고 월별 데이터를 확인하세요
+                  시공팀별 월별 정산 현황을 관리하고 지급 내역을 추적합니다.
+                </Typography>
+                <Typography variant="body2" sx={{ 
+                  color: '#999', 
+                  fontSize: '0.9rem',
+                  mt: 0.5,
+                  fontStyle: 'italic',
+                  // 스마트폰에서만 적용
+                  '@media (max-width: 767px)': {
+                    color: '#888',
+                    fontSize: '0.85rem'
+                  }
+                }}>
+                  (단, 현장별 노무비 지급 중 주요현장 노임은 제외일 수 있습니다.)
                 </Typography>
               </Box>
             </Box>
@@ -3848,9 +3861,6 @@ const TeamSettlement = () => {
               </Card>
             </Box>
           </Box>
-          <Typography variant="body1" sx={{ color: '#bbb', ml: 7 }}>
-            시공팀별 월별 정산 현황을 관리하고 지급 내역을 추적합니다.
-          </Typography>
         </Box>
       </Box>
 
