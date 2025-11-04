@@ -21,6 +21,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import InfoIcon from '@mui/icons-material/Info';
+import PushPinIcon from '@mui/icons-material/PushPin';
+import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import StarIcon from '@mui/icons-material/Star';
@@ -171,6 +173,12 @@ const BottomBar = ({
   const [expandSettings, setExpandSettings] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false); // 하단바 전체 확장/축소 상태
   const [currentDate, setCurrentDate] = useState(new Date());
+  
+  // TodoList 고정 상태
+  const [isTodoPinned, setIsTodoPinned] = useState(() => {
+    const saved = localStorage.getItem('todoList_pinned');
+    return saved === 'true';
+  });
   
   // 현재 날짜를 실시간으로 업데이트
   useEffect(() => {
@@ -1749,6 +1757,38 @@ const BottomBar = ({
               >
                 불러오기
               </Button>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  const newPinned = !isTodoPinned;
+                  setIsTodoPinned(newPinned);
+                  localStorage.setItem('todoList_pinned', String(newPinned));
+                  // 전역 플로팅 TodoList 상태 업데이트
+                  if (window.setFloatingTodoPinned) {
+                    window.setFloatingTodoPinned(newPinned);
+                  }
+                  if (newPinned && window.openFloatingTodo) {
+                    window.openFloatingTodo();
+                  }
+                  // 고정 핀을 누르면 하단바 닫기
+                  setExpandTodo(false);
+                }}
+                sx={{ 
+                  color: isTodoPinned ? '#ff9800' : '#666',
+                  width: '32px',
+                  height: '32px',
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 152, 0, 0.1)',
+                  }
+                }}
+                title={isTodoPinned ? '고정 해제' : '고정하기'}
+              >
+                {isTodoPinned ? (
+                  <PushPinIcon fontSize="small" />
+                ) : (
+                  <PushPinOutlinedIcon fontSize="small" />
+                )}
+              </IconButton>
             </Box>
           </Box>
           

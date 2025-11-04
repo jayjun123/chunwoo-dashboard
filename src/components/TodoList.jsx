@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   List,
   ListItem,
@@ -12,6 +12,9 @@ import {
   Box,
   Chip,
   Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -19,6 +22,10 @@ import {
   Check as CheckIcon,
   Refresh as RefreshIcon,
   Add as AddIcon,
+  OpenInFull as ExpandIcon,
+  PushPin as PushPinIcon,
+  PushPinOutlined as PushPinOutlinedIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { collection, query, onSnapshot, where, addDoc, getDocs, orderBy, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db, collections } from '../firebase';
@@ -38,7 +45,7 @@ const statusColor = (completed, planned) => {
   return 'error.main';
 };
 
-const TodoList = () => {
+const TodoList = ({ onFloatingMode }) => {
   const { todos, loading, error, addTodo, updateTodo, deleteTodo, toggleTodo } = useTodo();
   const [allUsers, setAllUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -49,6 +56,37 @@ const TodoList = () => {
   const { currentUser } = useAuth();
   const userId = currentUser?.uid;
   const isMaster = isMasterUser(currentUser);
+  
+  // 드래그 및 리사이즈 상태
+  const [dialogPosition, setDialogPosition] = useState(() => {
+    const saved = localStorage.getItem('todoList_full_position');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return { x: 50, y: 50 };
+      }
+    }
+    return { x: 50, y: 50 };
+  });
+  const [dialogSize, setDialogSize] = useState(() => {
+    const saved = localStorage.getItem('todoList_full_size');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return { width: window.innerWidth - 100, height: window.innerHeight - 100 };
+      }
+    }
+    return { width: window.innerWidth - 100, height: window.innerHeight - 100 };
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const containerRef = useRef(null);
+  const headerRef = useRef(null);
+  const resizeHandleRef = useRef(null);
 
   // 사용자 목록 가져오기 (마스터 계정용)
   const fetchAllUsers = async () => {
@@ -228,6 +266,93 @@ const TodoList = () => {
   // 미해결 항목 수 계산
   const unresolvedCount = getUnresolvedTodos().length;
 
+  // 드래그 및 리사이즈 핸들러
+  const handleMouseDown = useCallback((e) => {
+    if (e.target.closest('button, input, textarea, [role="button"], .resize-handle')) return;
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - dialogPosition.x,
+      y: e.clientY - dialogPosition.y
+    });
+  }, [dialogPosition]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (isDragging) {
+      const newX = e.clientX - dragStart.x;
+      const newY = e.clientY - dragStart.y;
+      
+      const maxX = window.innerWidth - dialogSize.width;
+      const maxY = window.innerHeight - dialogSize.height;
+      
+      setDialogPosition({
+        x: Math.max(0, Math.min(newX, maxX)),
+        y: Math.max(0, Math.min(newY, maxY))
+      });
+    } else if (isResizing) {
+      const deltaX = e.clientX - resizeStart.x;
+      const deltaY = e.clientY - resizeStart.y;
+      
+      const newWidth = Math.max(600, Math.min(window.innerWidth - 50, resizeStart.width + deltaX));
+      const newHeight = Math.max(400, Math.min(window.innerHeight - 50, resizeStart.height + deltaY));
+      
+      setDialogSize({ width: newWidth, height: newHeight });
+      
+      const maxX = window.innerWidth - newWidth;
+      const maxY = window.innerHeight - newHeight;
+      
+      setDialogPosition(prev => ({
+        x: Math.min(prev.x, maxX),
+        y: Math.min(prev.y, maxY)
+      }));
+    }
+  }, [isDragging, isResizing, dragStart, resizeStart, dialogSize]);
+
+  const handleMouseUp = useCallback(() => {
+    if (isDragging) {
+      setIsDragging(false);
+      setDialogPosition(prev => {
+        localStorage.setItem('todoList_full_position', JSON.stringify(prev));
+        return prev;
+      });
+    }
+    if (isResizing) {
+      setIsResizing(false);
+      setDialogSize(prev => {
+        localStorage.setItem('todoList_full_size', JSON.stringify(prev));
+        return prev;
+      });
+    }
+  }, [isDragging, isResizing]);
+
+  const handleResizeStart = useCallback((e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsResizing(true);
+    setResizeStart({
+      x: e.clientX,
+      y: e.clientY,
+      width: dialogSize.width,
+      height: dialogSize.height
+    });
+  }, [dialogSize]);
+
+  useEffect(() => {
+    if (isDragging || isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleMouseMove, { passive: false });
+      document.addEventListener('touchend', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('touchmove', handleMouseMove);
+        document.removeEventListener('touchend', handleMouseUp);
+      };
+    }
+  }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
+
   // 포스트잇 색상 배열 (연노란하얀빛)
   const postItColors = [
     '#fff9c4', // 연한 노란색
@@ -239,143 +364,214 @@ const TodoList = () => {
   ];
 
   return (
-    <Box sx={{ 
-      p: 3, 
-      mt: '60px', // 페이지를 60px 아래로 이동
-      minHeight: 'calc(100vh - 60px)',
-      background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
-      position: 'relative'
-    }}>
-      {/* 블랙보드 배경 효과 */}
-      <Box sx={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%), radial-gradient(circle at 40% 80%, rgba(120, 219, 255, 0.3) 0%, transparent 50%)',
-        pointerEvents: 'none'
-      }} />
-
-      {/* 헤더 */}
-      <Box sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        mb: 3, 
-        gap: 2, 
-        flexWrap: 'wrap',
-        position: 'relative',
-        zIndex: 1
-      }}>
-        <Typography variant="h4" sx={{ 
-          fontWeight: 700, 
-          color: '#fff',
-          textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
-        }}>
+    <Dialog
+      open={true}
+      maxWidth={false}
+      PaperProps={{
+        ref: containerRef,
+        sx: {
+          position: 'fixed',
+          left: `${dialogPosition.x}px`,
+          top: `${dialogPosition.y}px`,
+          width: `${dialogSize.width}px`,
+          height: `${dialogSize.height}px`,
+          maxWidth: 'none',
+          maxHeight: 'none',
+          m: 0,
+          overflow: 'hidden',
+          cursor: isDragging ? 'grabbing' : 'default',
+        }
+      }}
+      BackdropProps={{
+        sx: { backgroundColor: 'rgba(0,0,0,0.5)', pointerEvents: 'none' }
+      }}
+      disableEscapeKeyDown={true}
+      onClose={() => {}}
+      slotProps={{
+        backdrop: {
+          onClick: (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+          },
+          sx: {
+            pointerEvents: 'none'
+          }
+        }
+      }}
+    >
+      <DialogTitle
+        ref={headerRef}
+        onMouseDown={(e) => {
+          // 버튼이나 입력 요소가 아닌 경우에만 드래그 시작
+          const target = e.target;
+          if (target.closest('button, input, textarea, [role="button"], .MuiIconButton-root, .MuiButton-root')) {
+            return;
+          }
+          e.preventDefault();
+          handleMouseDown(e);
+        }}
+        onTouchStart={(e) => {
+          // 버튼이나 입력 요소가 아닌 경우에만 드래그 시작
+          const target = e.target;
+          if (target.closest('button, input, textarea, [role="button"], .MuiIconButton-root, .MuiButton-root')) {
+            return;
+          }
+          e.preventDefault();
+          handleMouseDown(e);
+        }}
+        sx={{
+          cursor: isDragging ? 'grabbing' : 'grab',
+          userSelect: 'none',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          p: 2,
+          bgcolor: 'primary.main',
+          color: 'white',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          '& button': {
+            display: 'none !important', // 모든 버튼 숨기기 (기본 닫기 버튼 포함)
+          },
+          '& .MuiIconButton-root': {
+            display: 'inline-flex !important', // 우리가 추가한 IconButton은 표시
+          }
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
           📋 전체 ToDo 리스트
         </Typography>
-        
-        {/* 마스터 계정용 사용자 선택 */}
-        {isMaster && (
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ color: '#fff' }}>
-              {getCurrentDisplayUser()}
-            </Typography>
-            <TextField
-              select
-              size="small"
-              value={selectedUser || ''}
-              onChange={(e) => setSelectedUser(e.target.value)}
-              sx={{ 
-                minWidth: 150, 
-                bgcolor: 'rgba(255,255,255,0.9)',
-                borderRadius: 1,
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': {
-                    borderColor: 'rgba(255,255,255,0.3)',
-                  },
-                }
-              }}
-            >
-              <option value="">내 투두리스트</option>
-              {allUsers.map(user => (
-                <option key={user.id} value={user.id}>
-                  {user.displayName || user.email}
-                </option>
-              ))}
-            </TextField>
-          </Box>
-        )}
-        
-        {/* 미해결 버튼 */}
-        <Button
-          variant="contained"
-          color="warning"
-          startIcon={<RefreshIcon />}
-          onClick={handleCarryOverUnresolved}
-          sx={{ 
-            bgcolor: '#ff9800',
-            color: '#fff',
-            '&:hover': {
-              bgcolor: '#f57c00'
-            },
-            boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
-          }}
-        >
-          미해결 이월 ({unresolvedCount})
-        </Button>
-        
-        <Button 
-          variant="contained" 
-          onClick={handleExcelDownload}
-          sx={{ 
-            bgcolor: '#4caf50',
-            color: '#fff',
-            '&:hover': {
-              bgcolor: '#388e3c'
-            },
-            boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
-          }}
-        >
-          엑셀 다운로드
-        </Button>
-      </Box>
-
-      {/* 미해결 항목이 있을 때 알림 */}
-      {unresolvedCount > 0 && (
-        <Box sx={{ 
-          mb: 3, 
-          p: 2, 
-          bgcolor: 'rgba(255, 193, 7, 0.9)', 
-          borderRadius: 2, 
-          border: '2px solid #ffc107',
-          position: 'relative',
-          zIndex: 1,
-          boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
-        }}>
-          <Typography variant="body2" sx={{ color: '#e65100', fontWeight: 600 }}>
-            📋 전날 미완료된 {unresolvedCount}개의 항목이 있습니다. 
-            <Button 
-              size="small" 
-              variant="contained"
-              color="warning" 
-              onClick={handleCarryOverUnresolved}
-              sx={{ ml: 1, textTransform: 'none', bgcolor: '#ff9800' }}
-            >
-              오늘로 이월하기
-            </Button>
-          </Typography>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <IconButton
+            size="small"
+            onClick={() => window.history.back()}
+            sx={{ 
+              color: 'white',
+              display: 'inline-flex !important' // 명시적으로 표시
+            }}
+            title="닫기"
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+          {/* 마스터 계정용 사용자 선택 */}
+          {isMaster && (
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" sx={{ color: '#fff' }}>
+                {getCurrentDisplayUser()}
+              </Typography>
+              <TextField
+                select
+                size="small"
+                value={selectedUser || ''}
+                onChange={(e) => setSelectedUser(e.target.value)}
+                sx={{ 
+                  minWidth: 150, 
+                  bgcolor: 'rgba(255,255,255,0.9)',
+                  borderRadius: 1,
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: 'rgba(255,255,255,0.3)',
+                    },
+                  }
+                }}
+              >
+                <option value="">내 투두리스트</option>
+                {allUsers.map(user => (
+                  <option key={user.id} value={user.id}>
+                    {user.displayName || user.email}
+                  </option>
+                ))}
+              </TextField>
+            </Box>
+          )}
+          <Button
+            variant="contained"
+            color="warning"
+            size="small"
+            startIcon={<RefreshIcon />}
+            onClick={handleCarryOverUnresolved}
+            sx={{ 
+              bgcolor: '#ff9800',
+              color: '#fff',
+              '&:hover': {
+                bgcolor: '#f57c00'
+              }
+            }}
+          >
+            미해결 이월 ({unresolvedCount})
+          </Button>
+          <Button 
+            variant="contained" 
+            size="small"
+            onClick={handleExcelDownload}
+            startIcon={<ExpandIcon />}
+            sx={{ 
+              bgcolor: '#4caf50',
+              color: '#fff',
+              '&:hover': {
+                bgcolor: '#388e3c'
+              }
+            }}
+          >
+            엑셀 다운로드
+          </Button>
         </Box>
-      )}
-
-      {sortedDates.length === 0 && (
-        <Typography color="rgba(255,255,255,0.8)" sx={{ textAlign: 'center', py: 4 }}>
-          할 일이 없습니다.
-        </Typography>
-      )}
+      </DialogTitle>
       
-      {/* 포스트잇 그리드 */}
-      <Grid container spacing={3} sx={{ position: 'relative', zIndex: 1 }}>
+      <DialogContent sx={{ p: 0, m: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'calc(100% - 64px)' }}>
+        <Box sx={{ 
+          flex: 1,
+          overflowY: 'auto',
+          p: 3, 
+          background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
+          position: 'relative'
+        }}>
+          {/* 블랙보드 배경 효과 */}
+          <Box sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%), radial-gradient(circle at 40% 80%, rgba(120, 219, 255, 0.3) 0%, transparent 50%)',
+            pointerEvents: 'none'
+          }} />
+
+          {/* 미해결 항목 알림 */}
+          {unresolvedCount > 0 && (
+            <Box sx={{ 
+              mb: 3, 
+              p: 2, 
+              bgcolor: 'rgba(255, 193, 7, 0.9)', 
+              borderRadius: 2, 
+              border: '2px solid #ffc107',
+              position: 'relative',
+              zIndex: 1,
+              boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+            }}>
+              <Typography variant="body2" sx={{ color: '#e65100', fontWeight: 600 }}>
+                📋 전날 미완료된 {unresolvedCount}개의 항목이 있습니다. 
+                <Button 
+                  size="small" 
+                  variant="contained"
+                  color="warning" 
+                  onClick={handleCarryOverUnresolved}
+                  sx={{ ml: 1, textTransform: 'none', bgcolor: '#ff9800' }}
+                >
+                  오늘로 이월하기
+                </Button>
+              </Typography>
+            </Box>
+          )}
+
+          {sortedDates.length === 0 && (
+            <Typography color="rgba(255,255,255,0.8)" sx={{ textAlign: 'center', py: 4, position: 'relative', zIndex: 1 }}>
+              할 일이 없습니다.
+            </Typography>
+          )}
+          
+          {/* 포스트잇 그리드 */}
+          {sortedDates.length > 0 && (
+            <Grid container spacing={3} sx={{ position: 'relative', zIndex: 1 }}>
         {sortedDates.map((date, index) => (
           <Grid item xs={12} sm={6} md={4} lg={3} key={date}>
             <Paper 
@@ -624,8 +820,43 @@ const TodoList = () => {
             </Paper>
           </Grid>
         ))}
-      </Grid>
-    </Box>
+            </Grid>
+          )}
+        </Box>
+      </DialogContent>
+      
+      {/* 리사이즈 핸들 */}
+      <Box
+        ref={resizeHandleRef}
+        onMouseDown={handleResizeStart}
+        className="resize-handle"
+        sx={{
+          position: 'absolute',
+          bottom: 0,
+          right: 0,
+          width: '20px',
+          height: '20px',
+          cursor: 'nwse-resize',
+          bgcolor: 'rgba(0,0,0,0.1)',
+          borderTop: '2px solid rgba(0,0,0,0.3)',
+          borderLeft: '2px solid rgba(0,0,0,0.3)',
+          zIndex: 1,
+          '&:hover': {
+            bgcolor: 'rgba(0,0,0,0.2)',
+          },
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            bottom: '4px',
+            right: '4px',
+            width: '8px',
+            height: '8px',
+            borderRight: '2px solid rgba(0,0,0,0.5)',
+            borderBottom: '2px solid rgba(0,0,0,0.5)',
+          }
+        }}
+      />
+    </Dialog>
   );
 };
 

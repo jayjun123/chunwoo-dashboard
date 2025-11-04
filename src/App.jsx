@@ -28,6 +28,7 @@ import LoadingProvider from './components/common/LoadingProvider';
 import PopupProvider from './contexts/PopupContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import SplashScreen from './components/common/SplashScreen';
+import FloatingTodoList from './components/FloatingTodoList';
 
 // 성능 최적화: 로딩 컴포넌트
 const LoadingSpinner = () => (
@@ -283,6 +284,20 @@ const App = React.memo(() => {
   const [ideaPadSiteName, setIdeaPadSiteName] = useState('');
   const [ideaPadDrawingId, setIdeaPadDrawingId] = useState(null);
   
+  // 플로팅 TodoList 상태
+  const [showFloatingTodo, setShowFloatingTodo] = useState(() => {
+    const saved = localStorage.getItem('todoList_pinned');
+    return saved === 'true';
+  });
+  
+  // 페이지 로드 시 고정 상태 확인
+  useEffect(() => {
+    const saved = localStorage.getItem('todoList_pinned');
+    if (saved === 'true') {
+      setShowFloatingTodo(true);
+    }
+  }, []);
+  
   // 아이디어패드 열기 함수
   const handleOpenIdeaPad = (siteId, siteName, drawingId = null) => {
     console.log('🔍 아이디어패드 열기:', { siteId, siteName, drawingId });
@@ -299,6 +314,31 @@ const App = React.memo(() => {
     setIdeaPadSiteName('');
     setIdeaPadDrawingId(null);
   };
+  
+  // 플로팅 TodoList 열기
+  const handleOpenFloatingTodo = () => {
+    setShowFloatingTodo(true);
+  };
+  
+  // 플로팅 TodoList 닫기
+  const handleCloseFloatingTodo = () => {
+    setShowFloatingTodo(false);
+    localStorage.setItem('todoList_pinned', 'false');
+  };
+  
+  // 전역 함수로 노출 (BottomBar에서 사용)
+  useEffect(() => {
+    window.openFloatingTodo = handleOpenFloatingTodo;
+    window.setFloatingTodoPinned = (pinned) => {
+      if (pinned) {
+        setShowFloatingTodo(true);
+      }
+    };
+    return () => {
+      delete window.openFloatingTodo;
+      delete window.setFloatingTodoPinned;
+    };
+  }, []);
 
   // 전역 cleanup 매니저 및 성능 모니터링 초기화
   useEffect(() => {
@@ -560,9 +600,21 @@ const App = React.memo(() => {
                         </Suspense>
                       } />
                       <Route path="/login" element={<Login />} />
-                      <Route path="/register" element={<Register />} />
-                      <Route path="/register-success" element={<RegisterSuccess />} />
-                      <Route path="/forgot-password" element={<ForgotPassword />} />
+                      <Route path="/register" element={
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <Register />
+                        </Suspense>
+                      } />
+                      <Route path="/register-success" element={
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <RegisterSuccess />
+                        </Suspense>
+                      } />
+                      <Route path="/forgot-password" element={
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <ForgotPassword />
+                        </Suspense>
+                      } />
                       <Route path="/auth" element={<Login />} />
                       <Route
                         path="/"
@@ -577,7 +629,9 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
-                              <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
+                              </Suspense>
                             </Layout>
                           </ProtectedRoute>
                         }
@@ -587,7 +641,9 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
-                              <NewSites />
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <NewSites />
+                              </Suspense>
                             </Layout>
                           </ProtectedRoute>
                         }
@@ -607,8 +663,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <QuantityCheck />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -617,8 +675,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <SiteDetail />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -651,8 +711,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <SafetyInspections />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -661,8 +723,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <SafetyIncidents />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -671,8 +735,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <SafetyTraining />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -681,8 +747,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <SafetyReports />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -691,7 +759,9 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
-                              <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <ScheduleManagement onOpenIdeaPad={handleOpenIdeaPad} />
+                              </Suspense>
                             </Layout>
                           </ProtectedRoute>
                         }
@@ -701,8 +771,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <GanttChartPage />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -711,8 +783,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <Confidential />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -721,8 +795,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <ConstructionTeam />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -732,8 +808,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <TeamSettlement />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -743,8 +821,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <Discussions />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -753,8 +833,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <Vendors />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -773,8 +855,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <Progress />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -783,8 +867,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <Members />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -793,8 +879,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <Permissions />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -803,8 +891,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
-                                <TodoList />
-                              </Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <TodoListWrapper onFloatingMode={handleOpenFloatingTodo} />
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -813,8 +903,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <TodoList />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -823,8 +915,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <Settings />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         } 
                       />
@@ -833,8 +927,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <ImportantSite />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -843,8 +939,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <GisungStatusPage onOpenIdeaPad={handleOpenIdeaPad} />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -853,8 +951,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <WholeList />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -863,8 +963,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <Cost />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -873,7 +975,9 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
-                              <Estimates />
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <Estimates />
+                              </Suspense>
                             </Layout>
                           </ProtectedRoute>
                         }
@@ -893,8 +997,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <Claims onOpenIdeaPad={handleOpenIdeaPad} />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -923,8 +1029,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <Users />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -933,8 +1041,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <Profile />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -943,8 +1053,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <NewsFavorites />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -953,8 +1065,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <PDFTest />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -973,8 +1087,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <UserManual />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -983,8 +1099,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <EstimateAnalysis />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -1001,30 +1119,51 @@ const App = React.memo(() => {
                         }
                       />
 
-                      <Route path="*" element={<NotFound />} />
+                      <Route path="*" element={
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <NotFound />
+                        </Suspense>
+                      } />
                     </Routes>
                   </Router>
                 </PopupProvider>
               </LoadingProvider>
+              
+              {/* 아이디어패드 */}
+              <Suspense fallback={<div>Loading...</div>}>
+                <NotepadApp 
+                  open={ideaPadOpen}
+                  onClose={handleCloseIdeaPad}
+                  siteId={ideaPadSiteId}
+                  siteName={ideaPadSiteName}
+                  drawingId={ideaPadDrawingId}
+                />
+              </Suspense>
+              
+              {/* 플로팅 TodoList */}
+              {showFloatingTodo && (
+                <FloatingTodoList
+                  onClose={handleCloseFloatingTodo}
+                />
+              )}
             </MuiThemeProvider>
           </ThemeProvider>
         </TodoProvider>
       </AuthProvider>
     </Provider>
     </ErrorBoundary>
-    
-    {/* 아이디어패드 */}
-    <Suspense fallback={<div>Loading...</div>}>
-      <NotepadApp 
-        open={ideaPadOpen}
-        onClose={handleCloseIdeaPad}
-        siteId={ideaPadSiteId}
-        siteName={ideaPadSiteName}
-        drawingId={ideaPadDrawingId}
-      />
-    </Suspense>
     </>
   );
 });
+
+// TodoList Wrapper 컴포넌트
+const TodoListWrapper = ({ onFloatingMode }) => {
+  const TodoList = React.lazy(() => import('./components/TodoList'));
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <TodoList onFloatingMode={onFloatingMode} />
+    </Suspense>
+  );
+};
 
 export default App; 
