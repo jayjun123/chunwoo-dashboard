@@ -114,6 +114,8 @@ const TeamSettlement = () => {
   const [statusUpdating, setStatusUpdating] = useState({}); // 상태 업데이트 중인 팀들
   const lastDeletedRef = useRef({}); // 삭제 기록: { teamId_month: timestamp }
   const isManuallyDeletingRef = useRef(false); // 수동 삭제 중 플래그
+  const isLoadingMonthRef = useRef(false); // 월 변경 로딩 중 플래그 (중복 로드 방지)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // 저장되지 않은 변경사항 여부
 
   // 시공팀 데이터 로드
   useEffect(() => {
@@ -150,17 +152,25 @@ const TeamSettlement = () => {
     return () => unsubscribe();
   }, []);
 
-  // 초기 로드 시 현재 월의 데이터가 있는 팀들만 표시
+  // 초기 로드 플래그 (마운트 시에만 실행)
+  const isInitialMountRef = useRef(true);
+  
+  // 초기 로드 시 현재 월의 데이터가 있는 팀들만 표시 (마운트 시에만 실행)
   useEffect(() => {
     const loadInitialData = async () => {
-      if (teams.length > 0 && selectedMonth) {
+      // 첫 마운트 시에만 실행 (월 변경은 loadTeamsForMonth에서 처리)
+      if (isInitialMountRef.current && teams.length > 0 && selectedMonth) {
         console.log('초기 로드: 현재 월의 데이터가 있는 팀들만 표시');
+        isInitialMountRef.current = false;
         await loadMonthlyStatusData(selectedMonth);
+      } else if (isInitialMountRef.current) {
+        // teams가 아직 로드되지 않았으면 다음 렌더링에서 다시 시도
+        isInitialMountRef.current = false;
       }
     };
     
     loadInitialData();
-  }, [teams, selectedMonth]);
+  }, [teams]); // selectedMonth 의존성 제거 (월 변경은 loadTeamsForMonth에서 처리)
 
   // 해당 팀의 현장 목록 가져오기 (현장관리페이지 스케줄 데이터 기반)
   const getTeamSites = (teamId) => {
@@ -302,8 +312,8 @@ const TeamSettlement = () => {
       checked: false,
       siteName: siteName,
       item: '',
-      quantity: 0,
-      unitPrice: 0,
+      quantity: '',
+      unitPrice: '',
       totalPrice: 0, // 현장 추가 시 소계는 0으로 시작
       note: '',
       isSiteHeader: true // 현장 헤더 행임을 표시하는 플래그
@@ -372,6 +382,9 @@ const TeamSettlement = () => {
         message: `"${siteName}" 현장이 추가되었습니다. 이제 행 추가 버튼을 클릭하여 항목을 추가하세요.`, 
         severity: 'success' 
       });
+      
+      // 🔴 변경사항 플래그 설정 (현장 추가는 Firebase에 즉시 저장되지만, 로컬 상태 변경으로 간주)
+      setHasUnsavedChanges(true);
       
     } catch (error) {
       console.error('현장 추가 저장 오류:', error);
@@ -526,24 +539,23 @@ const TeamSettlement = () => {
   // 탭 변경 시 해당 팀의 테이블 데이터 로드 (월이 변경될 때만)
   const prevMonthRef = useRef(selectedMonth);
   useEffect(() => {
+    // 🔴 월 변경 로딩 중이면 건너뛰기 (중복 로드 방지)
+    if (isLoadingMonthRef.current) {
+      console.log('🔒 월 변경 로딩 중 - useEffect 건너뛰기');
+      return;
+    }
+    
     // 월이 실제로 변경되었을 때만 데이터 로드
     if (prevMonthRef.current !== selectedMonth) {
       prevMonthRef.current = selectedMonth;
       
-      if (activeTab > 0 && selectedTeamsForTabs[activeTab - 1]) {
-        const currentTeam = selectedTeamsForTabs[activeTab - 1];
-        console.log('월 변경으로 인한 데이터 로드:', { 
-          activeTab, 
-          teamId: currentTeam.id, 
-          teamName: currentTeam.teamName,
-          selectedMonth 
-        });
-        loadTeamTableData(currentTeam.id, selectedMonth);
-      } else if (activeTab === 0) {
-        console.log('월 변경으로 인한 전체 탭 데이터 로드:', selectedMonth);
-        loadAllTeamsData();
-      }
-    } else if (activeTab > 0 && selectedTeamsForTabs[activeTab - 1]) {
+      // 월 변경은 loadTeamsForMonth에서 처리하므로 여기서는 건너뛰기
+      console.log('월 변경 감지 - loadTeamsForMonth에서 처리됨, 여기서는 건너뛰기');
+      return;
+    }
+    
+    // 월은 같고 탭/팀 목록만 변경된 경우
+    if (activeTab > 0 && selectedTeamsForTabs[activeTab - 1]) {
       // 월은 같고 탭만 변경된 경우
       const currentTeam = selectedTeamsForTabs[activeTab - 1];
       const deleteKey = `${currentTeam.id}_${selectedMonth}`;
@@ -822,8 +834,8 @@ const TeamSettlement = () => {
       checked: false,
       siteName: selectedSiteForRowAdd || '', // 선택된 현장이 있으면 자동 설정
       item: '',
-      quantity: 0,
-      unitPrice: 0,
+      quantity: '',
+      unitPrice: '',
       totalPrice: 0,
       note: '',
       isItemRow: selectedSiteForRowAdd ? true : false, // 현장이 선택되어 있으면 항목 행으로 추가
@@ -894,6 +906,9 @@ const TeamSettlement = () => {
       message: selectedSiteForRowAdd ? '새 항목이 추가되었습니다.' : '새 현장과 항목이 추가되었습니다.', 
       severity: 'success' 
     });
+    
+    // 🔴 변경사항 플래그 설정
+    setHasUnsavedChanges(true);
   };
 
   // 테이블 행 삭제 (Firebase 즉시 저장)
@@ -922,6 +937,9 @@ const TeamSettlement = () => {
       message: '항목이 삭제되었습니다. 저장 버튼을 눌러 Firebase에 저장하세요.', 
       severity: 'info' 
     });
+    
+    // 🔴 변경사항 플래그 설정
+    setHasUnsavedChanges(true);
     
     // 삭제 플래그 해제 (즉시 해제, Firebase 저장 안 함)
     isManuallyDeletingRef.current = false;
@@ -971,6 +989,9 @@ const TeamSettlement = () => {
       severity: 'info' 
     });
     
+    // 🔴 변경사항 플래그 설정
+    setHasUnsavedChanges(true);
+    
     // 삭제 플래그 해제 (즉시 해제, Firebase 저장 안 함)
     isManuallyDeletingRef.current = false;
     console.log('🔴 선택 항목 삭제 완료 (로컬 상태만 업데이트됨, 저장 버튼을 눌러야 Firebase에 저장됨)');
@@ -1009,6 +1030,9 @@ const TeamSettlement = () => {
       message: `"${siteName}" 현장이 삭제되었습니다. 저장 버튼을 눌러 Firebase에 저장하세요.`, 
       severity: 'info' 
     });
+    
+    // 🔴 변경사항 플래그 설정
+    setHasUnsavedChanges(true);
     
     // 삭제 플래그 해제 (즉시 해제, Firebase 저장 안 함)
     isManuallyDeletingRef.current = false;
@@ -1068,9 +1092,11 @@ const TeamSettlement = () => {
       const updatedRows = currentRows.map(row => {
         if (row.id === rowId) {
           const updatedRow = { ...row, [field]: value };
-          // 물량이나 단가가 변경되면 총액 자동 계산
+          // 물량이나 단가가 변경되면 총액 자동 계산 (빈 문자열은 0으로 처리)
           if (field === 'quantity' || field === 'unitPrice') {
-            updatedRow.totalPrice = (updatedRow.quantity || 0) * (updatedRow.unitPrice || 0);
+            const qty = updatedRow.quantity === '' || updatedRow.quantity === undefined ? 0 : Number(updatedRow.quantity);
+            const price = updatedRow.unitPrice === '' || updatedRow.unitPrice === undefined ? 0 : Number(updatedRow.unitPrice);
+            updatedRow.totalPrice = qty * price;
           }
           return updatedRow;
         }
@@ -1140,6 +1166,8 @@ const TeamSettlement = () => {
     }
     
     // 🔴 자동 저장 제거: 로컬 상태만 업데이트, Firebase 저장은 저장 버튼 클릭 시에만 수행
+    // 🔴 변경사항 플래그 설정
+    setHasUnsavedChanges(true);
     console.log('📝 테이블 데이터 업데이트 완료 (로컬 상태만 업데이트됨, 저장 버튼을 눌러야 Firebase에 저장됨)');
   }, [handleSiteNameInput, teamTableData, selectedMonth]);
 
@@ -1221,6 +1249,16 @@ const TeamSettlement = () => {
     
     const newSelectedTeams = selectedTeamsForTabs.filter(t => t.id !== tabToDelete.id);
     
+    // 🔴 로컬 상태 먼저 업데이트 (UI 즉시 반영)
+    setSelectedTeamsForTabs(newSelectedTeams);
+    
+    // 로컬 상태에서도 해당 팀의 데이터 제거
+    setTeamTableData(prev => {
+      const updated = { ...prev };
+      delete updated[tabToDelete.id];
+      return updated;
+    });
+    
     // Firebase에 업데이트된 탭 목록 저장
     try {
       const userSettingsRef = doc(db, 'userSettings', 'teamSettlementTabs');
@@ -1233,13 +1271,6 @@ const TeamSettlement = () => {
       const teamSettlementRef = doc(db, 'teamSettlements', `${tabToDelete.id}_${selectedMonth}`);
       await deleteDoc(teamSettlementRef);
       
-      // 로컬 상태에서도 해당 팀의 데이터 제거
-      setTeamTableData(prev => {
-        const updated = { ...prev };
-        delete updated[tabToDelete.id];
-        return updated;
-      });
-      
       setSnackbar({ 
         open: true, 
         message: `"${tabToDelete.teamName}" 탭이 삭제되었습니다.`, 
@@ -1248,16 +1279,27 @@ const TeamSettlement = () => {
       
     } catch (error) {
       console.error('탭 제거 저장 오류:', error);
+      // 오류 시 로컬 상태 롤백
+      setSelectedTeamsForTabs(selectedTeamsForTabs);
       setSnackbar({ 
         open: true, 
         message: '탭 삭제 중 오류가 발생했습니다.', 
         severity: 'error' 
       });
+      return;
     }
     
-    if (selectedTeam === tabToDelete.id) {
-      setActiveTab(0);
-      setSelectedTeam('');
+    // 삭제된 탭이 현재 활성 탭이면 전체 탭으로 이동
+    const deletedTabIndex = selectedTeamsForTabs.findIndex(t => t.id === tabToDelete.id);
+    if (deletedTabIndex !== -1) {
+      if (activeTab === deletedTabIndex + 1) {
+        // 삭제된 탭이 현재 활성 탭이면 전체 탭으로 이동
+        setActiveTab(0);
+        setSelectedTeam('');
+      } else if (activeTab > deletedTabIndex + 1) {
+        // 삭제된 탭보다 뒤에 있는 탭이면 인덱스 조정
+        setActiveTab(activeTab - 1);
+      }
     }
     
     setIsTabDeleteDialogOpen(false);
@@ -1378,7 +1420,7 @@ const TeamSettlement = () => {
     return new Intl.NumberFormat('ko-KR').format(amount) + '원';
   };
 
-  // 현재 팀의 총금액 계산
+  // 현재 팀의 총금액 계산 (소계만 합산 - 현장 헤더 행의 totalPrice만)
   const getCurrentTeamTotalAmount = () => {
     if (activeTab === 0 || !selectedTeamsForTabs[activeTab - 1]) {
       return 0;
@@ -1387,7 +1429,13 @@ const TeamSettlement = () => {
     const teamId = selectedTeamsForTabs[activeTab - 1].id;
     const currentRows = teamTableData[teamId] || [];
     
-    return currentRows.reduce((sum, row) => sum + (row.totalPrice || 0), 0);
+    // 소계만 합산: isSiteHeader가 true이거나 isItemRow가 false인 행만
+    return currentRows.reduce((sum, row) => {
+      if (row.isSiteHeader === true || (row.isSiteHeader !== false && row.isItemRow === false)) {
+        return sum + (row.totalPrice || 0);
+      }
+      return sum;
+    }, 0);
   };
 
   // 숫자 포맷팅 (콤마만)
@@ -1395,7 +1443,7 @@ const TeamSettlement = () => {
     return new Intl.NumberFormat('ko-KR').format(number);
   };
 
-  // 탭별 팀 금액 계산 (현재 선택된 월의 데이터만 사용)
+  // 탭별 팀 금액 계산 (현재 선택된 월의 데이터만 사용, 소계만 합산)
   const getTeamAmount = (teamId) => {
     // selectedTeamsForTabs에 해당 팀이 있는지 확인 (현재 월에 데이터가 있는 팀만)
     const hasTeamInCurrentMonth = selectedTeamsForTabs.some(team => team.id === teamId);
@@ -1404,7 +1452,13 @@ const TeamSettlement = () => {
       return 0;
     }
     const teamRows = teamTableData[teamId] || [];
-    return teamRows.reduce((sum, row) => sum + (row.totalPrice || 0), 0);
+    // 소계만 합산: isSiteHeader가 true이거나 isItemRow가 false인 행만
+    return teamRows.reduce((sum, row) => {
+      if (row.isSiteHeader === true || (row.isSiteHeader !== false && row.isItemRow === false)) {
+        return sum + (row.totalPrice || 0);
+      }
+      return sum;
+    }, 0);
   };
 
   // 정산 데이터에서 팀 금액 가져오기
@@ -3466,6 +3520,9 @@ const TeamSettlement = () => {
   // 월 변경 시 해당 월에 데이터가 있는 팀들 자동 로드
   const loadTeamsForMonth = async (month, previousMonth = null) => {
     try {
+      // 🔴 로딩 플래그 설정 (중복 로드 방지)
+      isLoadingMonthRef.current = true;
+      
       console.log(`월 변경: ${month} - 이전 월: ${previousMonth || selectedMonth} - 월별 데이터가 있는 팀들만 로드`);
       
       // 먼저 이전 월의 데이터를 저장 (이전 월 정보를 명시적으로 사용)
@@ -3501,8 +3558,18 @@ const TeamSettlement = () => {
         setActiveTab(0);
       }
       
+      // 🔴 로딩 플래그 해제 (약간의 지연 후)
+      setTimeout(() => {
+        isLoadingMonthRef.current = false;
+        console.log('🔓 월 변경 로딩 완료');
+      }, 500);
+      
+      // 🔴 월 변경 시 변경사항 플래그 초기화
+      setHasUnsavedChanges(false);
+      
     } catch (error) {
       console.error('월별 팀 로드 오류:', error);
+      isLoadingMonthRef.current = false; // 오류 시에도 플래그 해제
     }
   };
 
@@ -3806,8 +3873,8 @@ const TeamSettlement = () => {
           id: siteRowId,
           siteName: siteName,
           item: '',
-          quantity: 0,
-          unitPrice: 0,
+          quantity: '',
+          unitPrice: '',
           totalPrice: totalOriginalAmount,
           note: `기성현황에서 가져옴 (${costs.length}건)`,
           checked: true, // 자동으로 체크
@@ -3847,6 +3914,9 @@ const TeamSettlement = () => {
         });
         return;
       }
+      
+      // 🔴 변경사항 플래그 설정
+      setHasUnsavedChanges(true);
       
       // 기존 데이터에 새 행들 추가
       setTeamTableData(prev => ({
@@ -4497,17 +4567,6 @@ const TeamSettlement = () => {
                  탭 생성
                </Button>
                <Button
-                 variant="contained"
-                 startIcon={<ContentCopyIcon />}
-                 onClick={() => setIsMigrationDialogOpen(true)}
-                 sx={{
-                   bgcolor: '#ff9800',
-                   '&:hover': { bgcolor: '#f57c00' }
-                 }}
-               >
-                 데이터 복사
-               </Button>
-               <Button
                  variant="outlined"
                  startIcon={<DownloadIcon />}
                  onClick={handleExcelDownload}
@@ -4890,61 +4949,78 @@ const TeamSettlement = () => {
                     기성현황에서 가져오기
                   </Button>
                   <Button
-                    variant="contained"
+                    variant={hasUnsavedChanges ? "contained" : "outlined"}
                     startIcon={<SaveIcon />}
+                    disabled={!hasUnsavedChanges}
                     onClick={async () => {
-                      const teamId = selectedTeamsForTabs[activeTab - 1]?.id;
-                      if (teamId) {
-                        try {
-                          const rows = teamTableData[teamId] || [];
-                          const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${selectedMonth}`);
-                          const docSnap = await getDoc(teamSettlementRef);
-                          
-                          if (docSnap.exists()) {
-                            await updateDoc(teamSettlementRef, {
-                              tableData: rows,
-                              month: selectedMonth,
-                              updatedAt: serverTimestamp()
-                            });
-                          } else {
-                            await setDoc(teamSettlementRef, {
-                              teamId: teamId,
-                              month: selectedMonth,
-                              tableData: rows,
-                              createdAt: serverTimestamp(),
-                              updatedAt: serverTimestamp()
-                            });
+                      try {
+                        // 🔴 모든 탭의 모든 팀 데이터를 저장 (월별로 분리되어 저장됨)
+                        console.log(`💾 저장 시작: ${selectedMonth}월의 모든 팀 데이터`);
+                        
+                        // 먼저 모든 팀의 데이터를 Firebase에 저장
+                        await saveAllDataOnPageLeaveForMonth(selectedMonth);
+                        
+                        // 각 팀별로 기성현황 지출에 동기화
+                        const syncPromises = [];
+                        Object.keys(teamTableData).forEach(teamId => {
+                          const rows = teamTableData[teamId];
+                          if (rows && rows.length > 0) {
+                            syncPromises.push(
+                              syncTeamSettlementToCosts(teamId, rows, selectedMonth)
+                                .then(() => {
+                                  console.log(`✅ ${teamId} 팀 지출 동기화 완료: ${selectedMonth}`);
+                                })
+                                .catch(error => {
+                                  console.error(`❌ ${teamId} 팀 지출 동기화 오류:`, error);
+                                })
+                            );
                           }
-                          
-                          // 🔴 기성현황 지출에 동기화 (저장 버튼 클릭 시에만 수행)
-                          console.log(`🔄 지출 동기화 시작: ${teamId}, ${selectedMonth}`);
-                          await syncTeamSettlementToCosts(teamId, rows, selectedMonth);
-                          console.log(`✅ 지출 동기화 완료: ${teamId}, ${selectedMonth}`);
-                          
-                          setSnackbar({ 
-                            open: true, 
-                            message: '데이터가 저장되었고 기성현황 지출에 반영되었습니다.', 
-                            severity: 'success' 
-                          });
-                        } catch (error) {
-                          console.error('저장 오류:', error);
-                          setSnackbar({ 
-                            open: true, 
-                            message: '저장 중 오류가 발생했습니다.', 
-                            severity: 'error' 
-                          });
-                        }
+                        });
+                        
+                        // 모든 동기화 작업 완료 대기
+                        await Promise.all(syncPromises);
+                        
+                        const teamCount = Object.keys(teamTableData).filter(
+                          teamId => teamTableData[teamId] && teamTableData[teamId].length > 0
+                        ).length;
+                        
+                        setSnackbar({ 
+                          open: true, 
+                          message: `${selectedMonth}월 ${teamCount}개 팀의 데이터가 저장되었고 기성현황 지출에 반영되었습니다.`, 
+                          severity: 'success' 
+                        });
+                        
+                        // 🔴 저장 완료 후 변경사항 플래그 해제
+                        setHasUnsavedChanges(false);
+                        
+                        console.log(`✅ 저장 완료: ${selectedMonth}월, ${teamCount}개 팀`);
+                      } catch (error) {
+                        console.error('저장 오류:', error);
+                        setSnackbar({ 
+                          open: true, 
+                          message: '저장 중 오류가 발생했습니다: ' + error.message, 
+                          severity: 'error' 
+                        });
                       }
                     }}
                     sx={{
-                      bgcolor: '#4caf50',
-                      color: '#fff',
-                      '&:hover': { 
-                        bgcolor: '#45a049' 
-                      }
+                      ...(hasUnsavedChanges ? {
+                        bgcolor: '#4caf50',
+                        color: '#fff',
+                        '&:hover': { 
+                          bgcolor: '#45a049' 
+                        }
+                      } : {
+                        borderColor: '#666',
+                        color: '#999',
+                        '&:hover': {
+                          borderColor: '#888',
+                          bgcolor: 'rgba(255, 255, 255, 0.05)'
+                        }
+                      })
                     }}
                   >
-                    저장
+                    {hasUnsavedChanges ? '저장' : '저장됨'}
                   </Button>
                   <Button
                     variant="contained"
@@ -5479,11 +5555,16 @@ const TeamSettlement = () => {
                                 <TextField
                                   size="small"
                                   type="number"
-                                  value={itemRow.quantity !== undefined ? itemRow.quantity : ''}
+                                  value={itemRow.quantity !== undefined && itemRow.quantity !== '' ? itemRow.quantity : ''}
                                   onChange={(e) => {
                                     const value = e.target.value;
-                                    const numValue = value === '' ? 0 : parseFloat(value);
-                                    handleUpdateTableData(teamId, itemRow.id, 'quantity', isNaN(numValue) ? 0 : numValue);
+                                    // 빈 문자열이면 빈 문자열 유지, 아니면 숫자로 변환
+                                    if (value === '') {
+                                      handleUpdateTableData(teamId, itemRow.id, 'quantity', '');
+                                    } else {
+                                      const numValue = parseFloat(value);
+                                      handleUpdateTableData(teamId, itemRow.id, 'quantity', isNaN(numValue) ? '' : numValue);
+                                    }
                                   }}
                                   placeholder="예: 1.5"
                                   inputProps={{
@@ -5506,10 +5587,16 @@ const TeamSettlement = () => {
                               <TableCell>
                                 <TextField
                                   size="small"
-                                  value={itemRow.unitPrice ? formatNumber(itemRow.unitPrice) : ''}
+                                  value={itemRow.unitPrice !== undefined && itemRow.unitPrice !== '' ? formatNumber(itemRow.unitPrice) : ''}
                                   onChange={(e) => {
                                     const value = e.target.value.replace(/,/g, '');
-                                    handleUpdateTableData(teamId, itemRow.id, 'unitPrice', parseFloat(value) || 0);
+                                    // 빈 문자열이면 빈 문자열 유지, 아니면 숫자로 변환
+                                    if (value === '') {
+                                      handleUpdateTableData(teamId, itemRow.id, 'unitPrice', '');
+                                    } else {
+                                      const numValue = parseFloat(value);
+                                      handleUpdateTableData(teamId, itemRow.id, 'unitPrice', isNaN(numValue) ? '' : numValue);
+                                    }
                                   }}
                                   placeholder="예: 50,000"
                                   sx={{
@@ -5645,12 +5732,16 @@ const TeamSettlement = () => {
                               <TextField
                                 size="small"
                                 type="number"
-                                value={row.quantity !== undefined ? row.quantity : ''}
+                                value={row.quantity !== undefined && row.quantity !== '' ? row.quantity : ''}
                                 onChange={(e) => {
                                   const value = e.target.value;
-                                  // 빈 문자열이면 0, 아니면 숫자로 변환 (음수 포함)
-                                  const numValue = value === '' ? 0 : parseFloat(value);
-                                  handleUpdateTableData(teamId, row.id, 'quantity', isNaN(numValue) ? 0 : numValue);
+                                  // 빈 문자열이면 빈 문자열 유지, 아니면 숫자로 변환 (음수 포함)
+                                  if (value === '') {
+                                    handleUpdateTableData(teamId, row.id, 'quantity', '');
+                                  } else {
+                                    const numValue = parseFloat(value);
+                                    handleUpdateTableData(teamId, row.id, 'quantity', isNaN(numValue) ? '' : numValue);
+                                  }
                                 }}
                                 placeholder="예: 1.5 또는 -0.5"
                                 inputProps={{
@@ -5673,10 +5764,16 @@ const TeamSettlement = () => {
                             <TableCell>
                               <TextField
                                 size="small"
-                                value={row.unitPrice ? formatNumber(row.unitPrice) : ''}
+                                value={row.unitPrice !== undefined && row.unitPrice !== '' ? formatNumber(row.unitPrice) : ''}
                                 onChange={(e) => {
                                   const value = e.target.value.replace(/,/g, '');
-                                  handleUpdateTableData(teamId, row.id, 'unitPrice', parseFloat(value) || 0);
+                                  // 빈 문자열이면 빈 문자열 유지, 아니면 숫자로 변환
+                                  if (value === '') {
+                                    handleUpdateTableData(teamId, row.id, 'unitPrice', '');
+                                  } else {
+                                    const numValue = parseFloat(value);
+                                    handleUpdateTableData(teamId, row.id, 'unitPrice', isNaN(numValue) ? '' : numValue);
+                                  }
                                 }}
                                 placeholder="예: 50,000"
                                 sx={{
@@ -5737,11 +5834,17 @@ const TeamSettlement = () => {
                 </Table>
               </TableContainer>
               
-              {/* 총계 표시 */}
+              {/* 총계 표시 (소계만 합산) */}
               <Box sx={{ mt: 2, textAlign: 'right' }}>
                 <Typography variant="h6" sx={{ color: '#fff', fontSize: '1.5rem' }}>
                   총 금액: <span style={{ color: '#4caf50', fontSize: '1.6rem', fontWeight: 'bold' }}>
-                    {formatAmount((teamTableData[selectedTeamsForTabs[activeTab - 1]?.id] || []).reduce((sum, row) => sum + (row.totalPrice || 0), 0))}
+                    {formatAmount((teamTableData[selectedTeamsForTabs[activeTab - 1]?.id] || []).reduce((sum, row) => {
+                      // 소계만 합산: isSiteHeader가 true이거나 isItemRow가 false인 행만
+                      if (row.isSiteHeader === true || (row.isSiteHeader !== false && row.isItemRow === false)) {
+                        return sum + (row.totalPrice || 0);
+                      }
+                      return sum;
+                    }, 0))}
                   </span>
                 </Typography>
               </Box>
