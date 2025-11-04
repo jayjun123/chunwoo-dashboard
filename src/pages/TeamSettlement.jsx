@@ -60,7 +60,8 @@ import {
   ContentCopy as ContentCopyIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
-  Visibility as VisibilityIcon
+  Visibility as VisibilityIcon,
+  CloudDownload as CloudDownloadIcon
 } from '@mui/icons-material';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, addDoc, deleteDoc, writeBatch, serverTimestamp, setDoc, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -111,6 +112,8 @@ const TeamSettlement = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [sites, setSites] = useState([]);
   const [statusUpdating, setStatusUpdating] = useState({}); // 상태 업데이트 중인 팀들
+  const lastDeletedRef = useRef({}); // 삭제 기록: { teamId_month: timestamp }
+  const isManuallyDeletingRef = useRef(false); // 수동 삭제 중 플래그
 
   // 시공팀 데이터 로드
   useEffect(() => {
@@ -285,7 +288,14 @@ const TeamSettlement = () => {
 
   // 현장 추가 함수
   const handleAddSite = async (teamId, siteName) => {
-    console.log('현장 추가 시작:', { teamId, siteName });
+    console.log('🔵 현장 추가 시작:', { teamId, siteName, selectedMonth, documentId: `${teamId}_${selectedMonth}` });
+    
+    // 🔴 중요: selectedMonth 검증
+    if (!selectedMonth || !selectedMonth.match(/^\d{4}-\d{2}$/)) {
+      console.error('❌ 잘못된 selectedMonth:', selectedMonth);
+      setSnackbar({ open: true, message: '월 정보가 올바르지 않습니다. 페이지를 새로고침해주세요.', severity: 'error' });
+      return;
+    }
     
     const newRow = {
       id: Date.now().toString(),
@@ -299,7 +309,7 @@ const TeamSettlement = () => {
       isSiteHeader: true // 현장 헤더 행임을 표시하는 플래그
     };
     
-    console.log('새 행 데이터:', newRow);
+    console.log('🔵 새 행 데이터:', newRow);
     
     const currentRows = teamTableData[teamId] || [];
     const updatedRows = [...currentRows, newRow];
@@ -309,7 +319,7 @@ const TeamSettlement = () => {
       [teamId]: updatedRows
     };
     
-    console.log('업데이트된 데이터:', updatedData);
+    console.log('🔵 업데이트된 데이터:', updatedData);
     setTeamTableData(updatedData);
     
     // Firebase에 저장
@@ -318,12 +328,21 @@ const TeamSettlement = () => {
       const docSnap = await getDoc(teamSettlementRef);
       
       if (docSnap.exists()) {
+        const existingData = docSnap.data();
+        // 기존 문서의 month 필드 확인
+        if (existingData.month && existingData.month !== selectedMonth) {
+          console.error(`❌ 기존 문서의 month(${existingData.month})와 selectedMonth(${selectedMonth})가 다릅니다.`);
+          setSnackbar({ open: true, message: '월 정보가 일치하지 않습니다. 페이지를 새로고침해주세요.', severity: 'error' });
+          return;
+        }
+        
         // 문서가 존재하면 업데이트
         await updateDoc(teamSettlementRef, {
           tableData: updatedRows,
+          month: selectedMonth, // 월 정보 명시적으로 저장
           updatedAt: serverTimestamp()
         });
-        console.log('✅ Firebase 현장 추가 업데이트 완료');
+        console.log(`✅ Firebase 현장 추가 업데이트 완료: ${selectedMonth}월`);
       } else {
         // 문서가 없으면 새로 생성
         await setDoc(teamSettlementRef, {
@@ -333,7 +352,7 @@ const TeamSettlement = () => {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
-        console.log('✅ Firebase 현장 추가 새 문서 생성 완료');
+        console.log(`✅ Firebase 현장 추가 새 문서 생성 완료: ${selectedMonth}월`);
       }
       
       // 현장 추가 후 자동으로 해당 현장 선택
@@ -361,25 +380,100 @@ const TeamSettlement = () => {
   };
 
   // Firebase에서 팀별 테이블 데이터 로드
-  const loadTeamTableData = async (teamId) => {
+  const loadTeamTableData = async (teamId, month = null) => {
     try {
-      console.log('테이블 데이터 로드 시작:', { teamId, selectedMonth });
-      const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${selectedMonth}`);
+      // month 파라미터가 제공되지 않으면 selectedMonth 사용 (하지만 항상 명시적으로 전달하는 것을 권장)
+      const targetMonth = month || selectedMonth;
+      const deleteKey = `${teamId}_${targetMonth}`;
+      
+      // 🔴 삭제 직후 재로드 차단 (최근 3초 이내 삭제 기록이 있으면 재로드하지 않음)
+      if (isManuallyDeletingRef.current && lastDeletedRef.current[deleteKey]) {
+        const timeSinceDelete = Date.now() - lastDeletedRef.current[deleteKey];
+        if (timeSinceDelete < 3000) {
+          console.log('🔴 삭제 직후 재로드 차단:', { teamId, targetMonth, timeSinceDelete: `${timeSinceDelete}ms` });
+          return; // 재로드하지 않음
+        }
+      }
+      
+      console.log('🔵 테이블 데이터 로드 시작:', { teamId, targetMonth, providedMonth: month, selectedMonth, documentId: `${teamId}_${targetMonth}` });
+      
+      // 먼저 해당 팀의 데이터를 빈 배열로 초기화 (이전 월 데이터 제거)
+      setTeamTableData(prev => ({
+        ...prev,
+        [teamId]: [] // 먼저 초기화
+      }));
+      
+      const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${targetMonth}`);
       const docSnap = await getDoc(teamSettlementRef);
       
-      console.log('Firebase 문서 존재 여부:', docSnap.exists());
+      console.log('🔵 Firebase 문서 존재 여부:', docSnap.exists(), `문서 ID: ${teamId}_${targetMonth}`);
       
       if (docSnap.exists()) {
         const data = docSnap.data();
-        console.log('로드된 데이터:', data);
-        const tableData = data.tableData || [];
-        console.log('테이블 데이터:', tableData);
+        console.log('🔵 로드된 데이터:', { 
+          documentMonth: data.month, 
+          targetMonth: targetMonth,
+          tableDataLength: (data.tableData || []).length,
+          documentId: docSnap.id
+        });
         
+        // 🔴 중요: 로드된 데이터의 월이 올바른지 반드시 확인 (문서 내부 month 필드 검증)
+        if (!data.month) {
+          console.warn(`⚠️ 경고: 문서(${teamId}_${targetMonth})에 month 필드가 없습니다.`);
+          // month 필드가 없으면 자동으로 올바른 월로 수정
+          try {
+            await updateDoc(teamSettlementRef, {
+              month: targetMonth,
+              updatedAt: serverTimestamp()
+            });
+            console.log(`✅ month 필드 자동 수정: ${targetMonth}`);
+          } catch (error) {
+            console.error('month 필드 수정 오류:', error);
+            setTeamTableData(prev => ({
+              ...prev,
+              [teamId]: []
+            }));
+            setCollapsedSites(new Set());
+            return;
+          }
+        }
+        
+        if (data.month !== targetMonth) {
+          console.error(`❌ 월 불일치 오류: 문서의 월(${data.month})과 요청한 월(${targetMonth})이 다릅니다.`);
+          console.error(`❌ 문서 ID: ${teamId}_${targetMonth}, 문서 내부 월: ${data.month}`);
+          console.error(`❌ 이 문서의 데이터를 삭제하고 빈 데이터로 처리합니다.`);
+          
+          // 🔴 잘못된 월 데이터를 문서에서 완전히 삭제 (tableData를 빈 배열로)
+          try {
+            await updateDoc(teamSettlementRef, {
+              tableData: [],
+              month: targetMonth, // 올바른 월로 수정
+              updatedAt: serverTimestamp()
+            });
+            console.log(`✅ 잘못된 월 데이터 삭제 완료: ${teamId}_${targetMonth}`);
+          } catch (error) {
+            console.error('잘못된 데이터 삭제 오류:', error);
+          }
+          
+          // 빈 배열 반환
+          setTeamTableData(prev => ({
+            ...prev,
+            [teamId]: []
+          }));
+          setCollapsedSites(new Set());
+          return;
+        }
+        
+        console.log(`✅ 월 일치 확인 완료: ${targetMonth}월 데이터 정상 로드`);
+        const tableData = data.tableData || [];
+        console.log('🔵 테이블 데이터:', tableData);
+        
+        // 올바른 월의 데이터만 설정
         setTeamTableData(prev => ({
           ...prev,
           [teamId]: tableData
         }));
-        console.log('테이블 데이터 상태 업데이트 완료:', tableData);
+        console.log(`✅ ${targetMonth}월 테이블 데이터 상태 업데이트 완료:`, { teamId, dataCount: tableData.length });
         
         // 모든 현장을 접힌 상태로 초기화
         const siteNames = new Set();
@@ -391,7 +485,7 @@ const TeamSettlement = () => {
         setCollapsedSites(siteNames);
         console.log('모든 현장을 접힌 상태로 초기화:', Array.from(siteNames));
       } else {
-        console.log('문서가 존재하지 않음, 빈 배열로 초기화');
+        console.log(`✅ ${targetMonth}월 문서가 존재하지 않음, 빈 배열로 초기화`);
         setTeamTableData(prev => ({
           ...prev,
           [teamId]: []
@@ -429,21 +523,64 @@ const TeamSettlement = () => {
     }
   }, [selectedMonth]);
 
-  // 탭 변경 시 해당 팀의 테이블 데이터 로드
+  // 탭 변경 시 해당 팀의 테이블 데이터 로드 (월이 변경될 때만)
+  const prevMonthRef = useRef(selectedMonth);
   useEffect(() => {
-    if (activeTab > 0 && selectedTeamsForTabs[activeTab - 1]) {
+    // 월이 실제로 변경되었을 때만 데이터 로드
+    if (prevMonthRef.current !== selectedMonth) {
+      prevMonthRef.current = selectedMonth;
+      
+      if (activeTab > 0 && selectedTeamsForTabs[activeTab - 1]) {
+        const currentTeam = selectedTeamsForTabs[activeTab - 1];
+        console.log('월 변경으로 인한 데이터 로드:', { 
+          activeTab, 
+          teamId: currentTeam.id, 
+          teamName: currentTeam.teamName,
+          selectedMonth 
+        });
+        loadTeamTableData(currentTeam.id, selectedMonth);
+      } else if (activeTab === 0) {
+        console.log('월 변경으로 인한 전체 탭 데이터 로드:', selectedMonth);
+        loadAllTeamsData();
+      }
+    } else if (activeTab > 0 && selectedTeamsForTabs[activeTab - 1]) {
+      // 월은 같고 탭만 변경된 경우
       const currentTeam = selectedTeamsForTabs[activeTab - 1];
-      console.log('탭 변경으로 인한 데이터 로드:', { 
-        activeTab, 
-        teamId: currentTeam.id, 
-        teamName: currentTeam.teamName,
-        selectedMonth 
+      const deleteKey = `${currentTeam.id}_${selectedMonth}`;
+      
+      // 🔴 삭제 직후 재로드 차단
+      if (isManuallyDeletingRef.current && lastDeletedRef.current[deleteKey]) {
+        const timeSinceDelete = Date.now() - lastDeletedRef.current[deleteKey];
+        if (timeSinceDelete < 3000) {
+          console.log('🔴 삭제 직후 탭 변경 재로드 차단:', {
+            activeTab,
+            teamId: currentTeam.id,
+            timeSinceDelete: `${timeSinceDelete}ms`
+          });
+          return; // 재로드하지 않음
+        }
+      }
+      
+      // 🔴 중요: 이미 로드된 데이터가 있으면 절대 재로드하지 않음 (사용자가 삭제한 데이터 보호)
+      const existingData = teamTableData[currentTeam.id];
+      
+      // existingData가 undefined가 아닌 경우 (로드된 적이 있는 경우) 재로드하지 않음
+      if (existingData !== undefined) {
+        console.log('🔒 탭 변경 - 기존 데이터 유지 (재로드 안 함, 사용자 삭제 보호):', {
+          activeTab,
+          teamId: currentTeam.id,
+          dataCount: existingData.length
+        });
+        return; // 재로드하지 않음
+      }
+      
+      // existingData가 undefined인 경우에만 로드 (아직 로드된 적이 없는 경우)
+      console.log('탭 변경 - 데이터 없음, 로드 시작:', {
+        activeTab,
+        teamId: currentTeam.id,
+        selectedMonth
       });
-      loadTeamTableData(currentTeam.id);
-    } else if (activeTab === 0) {
-      // 전체 탭으로 이동할 때 모든 팀의 데이터 로드
-      console.log('전체 탭으로 이동 - 모든 팀 데이터 로드');
-      loadAllTeamsData();
+      loadTeamTableData(currentTeam.id, selectedMonth);
     }
   }, [activeTab, selectedTeamsForTabs, selectedMonth]);
 
@@ -619,11 +756,15 @@ const TeamSettlement = () => {
   // 시공팀 선택하여 탭 추가
   const handleAddTeamTab = async (team) => {
     // 데이터가 없어도 탭 생성 허용
-    console.log(`${team.teamName} 팀의 ${selectedMonth} 탭을 생성합니다.`);
+    console.log(`🔵 ${team.teamName} 팀의 ${selectedMonth}월 탭을 생성합니다.`);
     
     if (!selectedTeamsForTabs.find(t => t.id === team.id)) {
       const newSelectedTeams = [...selectedTeamsForTabs, team];
       setSelectedTeamsForTabs(newSelectedTeams);
+      
+      // 🔴 중요: 탭 추가 시 현재 선택된 월(selectedMonth)의 데이터를 즉시 로드
+      console.log(`🔵 ${selectedMonth}월 데이터 로드 시작: ${team.teamName} (${team.id})`);
+      await loadTeamTableData(team.id, selectedMonth); // 명시적으로 selectedMonth 전달
       
       // Firebase에 선택된 팀 목록 저장
       try {
@@ -646,14 +787,9 @@ const TeamSettlement = () => {
         }
       }
       
-      // 새로 추가된 탭으로 이동
+      // 새로 추가된 탭으로 이동 (loadTeamTableData가 데이터를 로드한 후)
       setActiveTab(newSelectedTeams.length);
       setSelectedTeam(team.id);
-      // 새 팀 탭에 대한 빈 테이블 데이터 초기화
-      setTeamTableData(prev => ({
-        ...prev,
-        [team.id]: []
-      }));
     }
     setIsTeamSelectDialogOpen(false);
   };
@@ -664,8 +800,16 @@ const TeamSettlement = () => {
       teamId, 
       selectedSiteForRowAdd, 
       currentTeamTableData: teamTableData[teamId],
-      selectedMonth 
+      selectedMonth,
+      documentId: `${teamId}_${selectedMonth}`
     });
+    
+    // 🔴 중요: selectedMonth 검증
+    if (!selectedMonth || !selectedMonth.match(/^\d{4}-\d{2}$/)) {
+      console.error('❌ 잘못된 selectedMonth:', selectedMonth);
+      setSnackbar({ open: true, message: '월 정보가 올바르지 않습니다. 페이지를 새로고침해주세요.', severity: 'error' });
+      return;
+    }
     
     if (!teamId) {
       console.error('❌ teamId가 없습니다');
@@ -752,167 +896,133 @@ const TeamSettlement = () => {
     });
   };
 
-  // 테이블 행 삭제 (Firebase 저장)
+  // 테이블 행 삭제 (Firebase 즉시 저장)
   const handleDeleteTableRow = async (teamId, rowId) => {
-    console.log('행 삭제 시작:', { teamId, rowId });
+    console.log('🔴 행 삭제 시작:', { teamId, rowId, selectedMonth });
+    
+    isManuallyDeletingRef.current = true; // 삭제 중 플래그 설정
+    const deleteKey = `${teamId}_${selectedMonth}`;
+    lastDeletedRef.current[deleteKey] = Date.now(); // 삭제 기록
     
     const currentRows = teamTableData[teamId] || [];
     const updatedRows = currentRows.filter(row => row.id !== rowId);
     
+    // 🔴 로컬 상태 즉시 업데이트
     const updatedData = {
       ...teamTableData,
       [teamId]: updatedRows
     };
     
-    console.log('행 삭제 후 업데이트된 데이터:', updatedData);
-    setTeamTableData(updatedData);
+    console.log('🔴 행 삭제 후 업데이트된 데이터:', updatedData);
+    setTeamTableData(updatedData); // 즉시 상태 업데이트
     
-    // Firebase에 저장
-    try {
-      const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${selectedMonth}`);
-      
-      // 문서 존재 여부 확인
-      const docSnap = await getDoc(teamSettlementRef);
-      
-      if (docSnap.exists()) {
-        // 문서가 존재하면 업데이트
-        await updateDoc(teamSettlementRef, {
-          tableData: updatedRows,
-          updatedAt: serverTimestamp()
-        });
-        console.log('Firebase 행 삭제 업데이트 완료');
-      } else {
-        // 문서가 존재하지 않으면 새로 생성
-        await setDoc(teamSettlementRef, {
-          teamId: teamId,
-          month: selectedMonth,
-          tableData: updatedRows,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-        console.log('Firebase 행 삭제 새 문서 생성 완료');
-      }
-      
-      setSnackbar({ 
-        open: true, 
-        message: '항목이 삭제되었습니다.', 
-        severity: 'success' 
-      });
-    } catch (error) {
-      console.error('행 삭제 저장 오류:', error);
-      setSnackbar({ open: true, message: '행 삭제 중 오류가 발생했습니다.', severity: 'error' });
-    }
+    // 🔴 Firebase 저장 제거: 로컬 상태만 업데이트, 저장 버튼을 눌러야 Firebase에 저장됨
+    setSnackbar({ 
+      open: true, 
+      message: '항목이 삭제되었습니다. 저장 버튼을 눌러 Firebase에 저장하세요.', 
+      severity: 'info' 
+    });
+    
+    // 삭제 플래그 해제 (즉시 해제, Firebase 저장 안 함)
+    isManuallyDeletingRef.current = false;
+    console.log('🔴 행 삭제 완료 (로컬 상태만 업데이트됨, 저장 버튼을 눌러야 Firebase에 저장됨)');
   };
 
-  // 현장 전체 삭제 (현장 헤더 + 모든 항목)
+  // 선택된 항목들 일괄 삭제
+  const handleDeleteSelectedRows = async (teamId) => {
+    const currentRows = teamTableData[teamId] || [];
+    const selectedRows = currentRows.filter(row => row.checked);
+    
+    if (selectedRows.length === 0) {
+      setSnackbar({ 
+        open: true, 
+        message: '삭제할 항목을 선택해주세요.', 
+        severity: 'warning' 
+      });
+      return;
+    }
+    
+    if (!window.confirm(`선택한 ${selectedRows.length}개의 항목을 삭제하시겠습니까?`)) {
+      return;
+    }
+    
+    console.log('🔴 선택 항목 삭제 시작:', { teamId, selectedCount: selectedRows.length, selectedMonth });
+    
+    isManuallyDeletingRef.current = true; // 삭제 중 플래그 설정
+    const deleteKey = `${teamId}_${selectedMonth}`;
+    lastDeletedRef.current[deleteKey] = Date.now(); // 삭제 기록
+    
+    const updatedRows = currentRows.filter(row => !row.checked);
+    
+    // 🔴 로컬 상태 즉시 업데이트 (재로드 방지)
+    const updatedData = {
+      ...teamTableData,
+      [teamId]: updatedRows
+    };
+    
+    console.log('🔴 선택 항목 삭제 후 업데이트된 데이터:', updatedData);
+    setTeamTableData(updatedData);
+    setIsAllSelected(false);
+    
+    // 🔴 Firebase 저장 제거: 로컬 상태만 업데이트, 저장 버튼을 눌러야 Firebase에 저장됨
+    setSnackbar({ 
+      open: true, 
+      message: `${selectedRows.length}개의 항목이 삭제되었습니다. 저장 버튼을 눌러 Firebase에 저장하세요.`, 
+      severity: 'info' 
+    });
+    
+    // 삭제 플래그 해제 (즉시 해제, Firebase 저장 안 함)
+    isManuallyDeletingRef.current = false;
+    console.log('🔴 선택 항목 삭제 완료 (로컬 상태만 업데이트됨, 저장 버튼을 눌러야 Firebase에 저장됨)');
+  };
+
+  // 현장 전체 삭제 (현장 헤더 + 모든 항목) - Firebase 즉시 저장
   const handleDeleteSite = async (teamId, siteName) => {
-    console.log('현장 전체 삭제 시작:', { teamId, siteName });
+    console.log('🔴 현장 전체 삭제 시작:', { teamId, siteName, selectedMonth });
+    
+    isManuallyDeletingRef.current = true; // 삭제 중 플래그 설정
+    const deleteKey = `${teamId}_${selectedMonth}`;
+    lastDeletedRef.current[deleteKey] = Date.now(); // 삭제 기록
     
     const currentRows = teamTableData[teamId] || [];
     // 해당 현장의 모든 행 삭제 (현장 헤더 + 항목들)
     const updatedRows = currentRows.filter(row => row.siteName !== siteName);
     
+    // 🔴 로컬 상태 즉시 업데이트
     const updatedData = {
       ...teamTableData,
       [teamId]: updatedRows
     };
     
-    console.log('현장 삭제 후 업데이트된 데이터:', updatedData);
-    setTeamTableData(updatedData);
+    console.log('🔴 현장 삭제 후 업데이트된 데이터:', updatedData);
+    setTeamTableData(updatedData); // 즉시 상태 업데이트
     
-    // Firebase에 저장
-    try {
-      const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${selectedMonth}`);
-      
-      // 문서 존재 여부 확인
-      const docSnap = await getDoc(teamSettlementRef);
-      
-      if (docSnap.exists()) {
-        // 문서가 존재하면 업데이트
-        await updateDoc(teamSettlementRef, {
-          tableData: updatedRows,
-          updatedAt: serverTimestamp()
-        });
-        console.log('Firebase 현장 삭제 업데이트 완료');
-      } else {
-        // 문서가 존재하지 않으면 새로 생성
-        await setDoc(teamSettlementRef, {
-          teamId: teamId,
-          month: selectedMonth,
-          tableData: updatedRows,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-        console.log('Firebase 현장 삭제 새 문서 생성 완료');
-      }
-      
-      // 삭제된 현장이 선택되어 있었다면 선택 해제
-      if (selectedSiteForRowAdd === siteName) {
-        setSelectedSiteForRowAdd('');
-        console.log('삭제된 현장 선택 해제:', siteName);
-      }
-      
-      setSnackbar({ 
-        open: true, 
-        message: `"${siteName}" 현장이 완전히 삭제되었습니다.`, 
-        severity: 'success' 
-      });
-    } catch (error) {
-      console.error('현장 삭제 저장 오류:', error);
-      setSnackbar({ open: true, message: '현장 삭제 중 오류가 발생했습니다.', severity: 'error' });
+    // 삭제된 현장이 선택되어 있었다면 선택 해제
+    if (selectedSiteForRowAdd === siteName) {
+      setSelectedSiteForRowAdd('');
+      console.log('삭제된 현장 선택 해제:', siteName);
     }
+    
+    // 🔴 Firebase 저장 제거: 로컬 상태만 업데이트, 저장 버튼을 눌러야 Firebase에 저장됨
+    setSnackbar({ 
+      open: true, 
+      message: `"${siteName}" 현장이 삭제되었습니다. 저장 버튼을 눌러 Firebase에 저장하세요.`, 
+      severity: 'info' 
+    });
+    
+    // 삭제 플래그 해제 (즉시 해제, Firebase 저장 안 함)
+    isManuallyDeletingRef.current = false;
+    console.log('🔴 현장 삭제 완료 (로컬 상태만 업데이트됨, 저장 버튼을 눌러야 Firebase에 저장됨)');
   };
 
   // 테이블 데이터 업데이트 (실시간 Firebase 저장)
 
 
-  // 페이지 이동 시 모든 데이터 저장
+  // 🔴 페이지 이동 시 자동 저장 비활성화: 저장 버튼을 눌러야만 Firebase에 저장됨
   const saveAllDataOnPageLeave = async () => {
-    console.log('📤 페이지 이동 시 모든 데이터 저장 시작');
-    
-    const savePromises = [];
-    
-    // 모든 팀의 데이터를 저장
-    Object.keys(teamTableData).forEach(teamId => {
-      const rows = teamTableData[teamId];
-      if (rows && rows.length > 0) {
-        const promise = (async () => {
-          try {
-            const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${selectedMonth}`);
-            
-            // 문서 존재 여부 확인
-            const docSnap = await getDoc(teamSettlementRef);
-            
-            if (docSnap.exists()) {
-              // 문서가 존재하면 업데이트
-              await updateDoc(teamSettlementRef, {
-                tableData: rows,
-                updatedAt: serverTimestamp()
-              });
-              console.log(`✅ ${teamId} 팀 데이터 저장 완료`);
-            } else {
-              // 문서가 존재하지 않으면 새로 생성
-              await setDoc(teamSettlementRef, {
-                teamId: teamId,
-                month: selectedMonth,
-                tableData: rows,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp()
-              });
-              console.log(`✅ ${teamId} 팀 데이터 새 문서 생성 완료`);
-            }
-          } catch (error) {
-            console.error(`❌ ${teamId} 팀 데이터 저장 오류:`, error);
-          }
-        })();
-        
-        savePromises.push(promise);
-      }
-    });
-    
-    // 모든 저장 작업 완료 대기
-    await Promise.all(savePromises);
-    console.log('📤 페이지 이동 시 모든 데이터 저장 완료');
+    console.log('⚠️ 페이지 이동 시 자동 저장 비활성화됨 - 저장 버튼을 눌러야 Firebase에 저장됩니다.');
+    // 자동 저장 기능 비활성화 - 사용자가 명시적으로 저장 버튼을 눌러야만 저장됨
+    return;
   };
 
   // 현장명 입력을 위한 안전한 함수
@@ -951,6 +1061,8 @@ const TeamSettlement = () => {
       return;
     }
     
+    let savedRows = null;
+    
     setTeamTableData(prevData => {
       const currentRows = prevData[teamId] || [];
       const updatedRows = currentRows.map(row => {
@@ -965,6 +1077,9 @@ const TeamSettlement = () => {
         return row;
       });
       
+      // 저장할 데이터 저장
+      savedRows = updatedRows;
+      
       return {
         ...prevData,
         [teamId]: updatedRows
@@ -973,31 +1088,79 @@ const TeamSettlement = () => {
     
     // 체크박스 상태가 변경되면 전체 선택 상태 업데이트
     if (field === 'checked') {
-      setTeamTableData(prevData => {
-        const currentRows = prevData[teamId] || [];
-        const updatedRows = currentRows.map(row => {
-          if (row.id === rowId) {
-            return { ...row, [field]: value };
-          }
-          return row;
-        });
-        const allChecked = updatedRows.length > 0 && updatedRows.every(row => row.checked);
-        setIsAllSelected(allChecked);
-        return prevData;
+      const currentRows = teamTableData[teamId] || [];
+      const updatedRows = currentRows.map(row => {
+        if (row.id === rowId) {
+          return { ...row, [field]: value };
+        }
+        return row;
       });
+      const allChecked = updatedRows.length > 0 && updatedRows.every(row => row.checked);
+      setIsAllSelected(allChecked);
+      
+      // 🔴 체크박스 변경 시에도 즉시 동기화 (디바운스 없이)
+      savedRows = updatedRows;
     }
     
-    // Firebase 저장은 페이지 이동 시에만 수행 (입력 필드 안정성을 위해)
-    console.log('📝 테이블 데이터 업데이트 완료, Firebase 저장은 페이지 이동 시 수행');
-  }, [handleSiteNameInput]);
+    // Firebase에 즉시 저장 및 동기화 (데이터 손실 방지)
+    if (savedRows) {
+      const saveUpdatedData = async () => {
+        try {
+          const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${selectedMonth}`);
+          const docSnap = await getDoc(teamSettlementRef);
+          
+          if (docSnap.exists()) {
+            await updateDoc(teamSettlementRef, {
+              tableData: savedRows,
+              month: selectedMonth,
+              updatedAt: serverTimestamp()
+            });
+          } else {
+            await setDoc(teamSettlementRef, {
+              teamId: teamId,
+              month: selectedMonth,
+              tableData: savedRows,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+          }
+          console.log('✅ 테이블 데이터 즉시 저장 완료');
+          
+          // 🔴 기성현황 지출에 자동 반영 (체크박스 변경 포함)
+          console.log(`🔄 지출 동기화 시작: ${teamId}, ${selectedMonth}`);
+          await syncTeamSettlementToCosts(teamId, savedRows, selectedMonth);
+          console.log(`✅ 지출 동기화 완료: ${teamId}, ${selectedMonth}`);
+        } catch (error) {
+          console.error('❌ 테이블 데이터 즉시 저장 오류:', error);
+        }
+      };
+      
+      // 🔴 자동 저장 제거: 로컬 상태만 업데이트, Firebase 저장은 저장 버튼 클릭 시에만 수행
+      // 위의 saveUpdatedData 함수 호출 제거됨
+    }
+    
+    // 🔴 자동 저장 제거: 로컬 상태만 업데이트, Firebase 저장은 저장 버튼 클릭 시에만 수행
+    console.log('📝 테이블 데이터 업데이트 완료 (로컬 상태만 업데이트됨, 저장 버튼을 눌러야 Firebase에 저장됨)');
+  }, [handleSiteNameInput, teamTableData, selectedMonth]);
 
-  // 전체 선택/해제
+  // 전체 선택/해제 (현재 탭의 팀만)
   const handleSelectAll = async (teamId) => {
-    console.log('전체 선택/해제:', { teamId, currentState: isAllSelected });
+    console.log('전체 선택/해제:', { teamId });
     
     const currentRows = teamTableData[teamId] || [];
-    const newSelectState = !isAllSelected;
     
+    // 현재 탭의 선택 상태 확인 (현재 팀의 데이터만 체크)
+    const allCurrentlyChecked = currentRows.length > 0 && currentRows.every(row => row.checked);
+    const newSelectState = !allCurrentlyChecked;
+    
+    console.log('전체 선택 상태 변경:', { 
+      teamId, 
+      currentState: allCurrentlyChecked, 
+      newState: newSelectState,
+      rowsCount: currentRows.length 
+    });
+    
+    // 현재 탭의 팀 데이터만 업데이트
     const updatedRows = currentRows.map(row => ({
       ...row,
       checked: newSelectState
@@ -1009,7 +1172,7 @@ const TeamSettlement = () => {
     };
     
     setTeamTableData(updatedData);
-    setIsAllSelected(newSelectState);
+    setIsAllSelected(newSelectState); // 현재 탭의 상태만 업데이트
     
     // 선택된 현장 초기화
     setSelectedSiteForRowAdd('');
@@ -1025,6 +1188,7 @@ const TeamSettlement = () => {
         // 문서가 존재하면 업데이트
         await updateDoc(teamSettlementRef, {
           tableData: updatedRows,
+          month: selectedMonth, // 월 정보 명시적으로 저장
           updatedAt: serverTimestamp()
         });
         console.log('Firebase 전체 선택 업데이트 완료');
@@ -1189,16 +1353,18 @@ const TeamSettlement = () => {
     const currentDate = new Date(selectedMonth + '-01');
     currentDate.setMonth(currentDate.getMonth() - 1);
     const newMonth = currentDate.toISOString().slice(0, 7);
-    setSelectedMonth(newMonth);
-    await loadTeamsForMonth(newMonth);
+    const previousMonth = selectedMonth; // 이전 월 저장
+    await loadTeamsForMonth(newMonth, previousMonth); // 이전 월 정보 전달
+    setSelectedMonth(newMonth); // 데이터 로드 후 월 변경
   };
 
   const handleNextMonth = async () => {
     const currentDate = new Date(selectedMonth + '-01');
     currentDate.setMonth(currentDate.getMonth() + 1);
     const newMonth = currentDate.toISOString().slice(0, 7);
-    setSelectedMonth(newMonth);
-    await loadTeamsForMonth(newMonth);
+    const previousMonth = selectedMonth; // 이전 월 저장
+    await loadTeamsForMonth(newMonth, previousMonth); // 이전 월 정보 전달
+    setSelectedMonth(newMonth); // 데이터 로드 후 월 변경
   };
 
   // 월 표시 포맷팅
@@ -1229,8 +1395,14 @@ const TeamSettlement = () => {
     return new Intl.NumberFormat('ko-KR').format(number);
   };
 
-  // 탭별 팀 금액 계산
+  // 탭별 팀 금액 계산 (현재 선택된 월의 데이터만 사용)
   const getTeamAmount = (teamId) => {
+    // selectedTeamsForTabs에 해당 팀이 있는지 확인 (현재 월에 데이터가 있는 팀만)
+    const hasTeamInCurrentMonth = selectedTeamsForTabs.some(team => team.id === teamId);
+    if (!hasTeamInCurrentMonth) {
+      // 현재 월에 해당 팀의 데이터가 없으면 0 반환
+      return 0;
+    }
     const teamRows = teamTableData[teamId] || [];
     return teamRows.reduce((sum, row) => sum + (row.totalPrice || 0), 0);
   };
@@ -1375,10 +1547,13 @@ const TeamSettlement = () => {
     };
   };
 
-  // 전체 탭에서 모든 팀의 데이터 로드
+  // 전체 탭에서 모든 팀의 데이터 로드 (명시적으로 selectedMonth 사용)
   const loadAllTeamsData = async () => {
-    const promises = selectedTeamsForTabs.map(team => loadTeamTableData(team.id));
+    console.log('🔵 전체 탭 데이터 로드:', { selectedMonth, teamsCount: selectedTeamsForTabs.length });
+    // 명시적으로 selectedMonth 전달하여 올바른 월의 데이터만 로드
+    const promises = selectedTeamsForTabs.map(team => loadTeamTableData(team.id, selectedMonth));
     await Promise.all(promises);
+    console.log('✅ 전체 탭 데이터 로드 완료');
   };
 
   // 팀별 현장 개수 계산
@@ -3086,11 +3261,32 @@ const TeamSettlement = () => {
   // 팀 정보 업데이트 (날짜, 비고) - 월별 관리
   const updateTeamInfo = async (teamId, field, value) => {
     try {
+      console.log('🔵 팀 정보 업데이트:', teamId, field, value, selectedMonth);
+      
+      // 문서가 없으면 먼저 생성
       const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${selectedMonth}`);
-      await updateDoc(teamSettlementRef, {
-        [field]: value,
-        updatedAt: serverTimestamp()
-      });
+      const docSnap = await getDoc(teamSettlementRef);
+      
+      if (docSnap.exists()) {
+        // 문서가 존재하면 업데이트
+        await updateDoc(teamSettlementRef, {
+          [field]: value,
+          month: selectedMonth, // 월 정보도 함께 저장
+          updatedAt: serverTimestamp()
+        });
+        console.log(`✅ ${field} 업데이트 완료: ${value}`);
+      } else {
+        // 문서가 없으면 새로 생성
+        await setDoc(teamSettlementRef, {
+          teamId: teamId,
+          month: selectedMonth,
+          [field]: value,
+          tableData: [],
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        console.log(`✅ ${field} 새 문서 생성 완료: ${value}`);
+      }
       
       if (field === 'settlementDate') {
         setTeamSettlementDates(prev => ({
@@ -3100,6 +3296,7 @@ const TeamSettlement = () => {
             [teamId]: value
           }
         }));
+        console.log(`✅ 정산날짜 상태 업데이트: ${selectedMonth}월, ${teamId}, ${value}`);
       } else if (field === 'notes') {
         setTeamNotes(prev => ({
           ...prev,
@@ -3108,16 +3305,18 @@ const TeamSettlement = () => {
             [teamId]: value
           }
         }));
+        console.log(`✅ 비고 상태 업데이트: ${selectedMonth}월, ${teamId}, ${value}`);
       }
     } catch (error) {
       console.error('팀 정보 업데이트 오류:', error);
+      setSnackbar({ open: true, message: `${field === 'settlementDate' ? '정산날짜' : '비고'} 저장 중 오류가 발생했습니다.`, severity: 'error' });
     }
   };
 
-  // 월별로 실제 데이터가 있는 팀들 필터링
+  // 월별로 실제 데이터가 있는 팀들 필터링 (문서 내부 month 필드 검증)
   const getTeamsWithDataForMonth = async (month) => {
     try {
-      console.log(`월별 데이터가 있는 팀들 필터링 시작: ${month}`);
+      console.log(`🔍 월별 데이터가 있는 팀들 필터링 시작: ${month}`);
       
       // 모든 팀에 대해 해당 월의 데이터 존재 여부 확인
       const promises = teams.map(async (team) => {
@@ -3126,13 +3325,45 @@ const TeamSettlement = () => {
         
         if (docSnap.exists()) {
           const data = docSnap.data();
+          
+          // 🔴 중요: 문서 내부의 month 필드가 요청한 월과 일치하는지 반드시 확인
+          if (data.month && data.month !== month) {
+            console.error(`❌ 월 불일치 발견: 문서 ID(${team.id}_${month})의 내부 month(${data.month})가 요청 월(${month})과 다릅니다.`);
+            console.error(`❌ 이 문서의 잘못된 데이터를 삭제합니다.`);
+            
+            // 🔴 잘못된 월 데이터를 문서에서 완전히 삭제
+            try {
+              await updateDoc(teamSettlementRef, {
+                tableData: [],
+                month: month, // 올바른 월로 수정
+                updatedAt: serverTimestamp()
+              });
+              console.log(`✅ 잘못된 월 데이터 삭제 완료: ${team.id}_${month}`);
+            } catch (error) {
+              console.error('잘못된 데이터 삭제 오류:', error);
+            }
+            
+            return {
+              team,
+              hasData: false, // 월이 다르면 데이터가 없는 것으로 처리
+              status: 'unpaid',
+              settlementDate: '',
+              notes: ''
+            };
+          }
+          
+          // month 필드가 없거나 일치하는 경우에만 데이터 확인
           const hasTableData = data.tableData && data.tableData.length > 0;
-          const hasStatus = data.status !== undefined; // 상태가 정의되어 있으면 (unpaid 포함)
+          const hasStatus = data.status !== undefined;
           const hasSettlementDate = data.settlementDate && data.settlementDate !== '';
           const hasNotes = data.notes && data.notes !== '';
           
           // 테이블 데이터가 있거나, 상태/날짜/비고 중 하나라도 있으면 해당 월에 데이터가 있는 것으로 간주
           const hasData = hasTableData || hasStatus || hasSettlementDate || hasNotes;
+          
+          if (hasData) {
+            console.log(`✅ ${team.teamName} 팀 - ${month}월 데이터 확인됨`);
+          }
           
           return {
             team,
@@ -3154,12 +3385,12 @@ const TeamSettlement = () => {
       
       const teamDataResults = await Promise.all(promises);
       
-      // 데이터가 있는 팀들만 필터링
+      // 데이터가 있는 팀들만 필터링 (월이 일치하는 문서만)
       const teamsWithData = teamDataResults
         .filter(result => result.hasData)
         .map(result => result.team);
       
-      console.log(`월별 데이터가 있는 팀들: ${month}`, teamsWithData.map(t => t.teamName));
+      console.log(`✅ ${month}월 데이터가 있는 팀들:`, teamsWithData.map(t => t.teamName));
       
       return {
         teamsWithData,
@@ -3223,28 +3454,49 @@ const TeamSettlement = () => {
         newSettlementDates, 
         newNotes 
       });
+      
+      // 업데이트된 팀 리스트 반환 (비동기 상태 업데이트 대신 직접 반환)
+      return teamsForTabs;
     } catch (error) {
       console.error('월별 상태 데이터 로드 오류:', error);
+      return [];
     }
   };
 
   // 월 변경 시 해당 월에 데이터가 있는 팀들 자동 로드
-  const loadTeamsForMonth = async (month) => {
+  const loadTeamsForMonth = async (month, previousMonth = null) => {
     try {
-      console.log(`월 변경: ${month} - 월별 데이터가 있는 팀들만 로드`);
+      console.log(`월 변경: ${month} - 이전 월: ${previousMonth || selectedMonth} - 월별 데이터가 있는 팀들만 로드`);
       
-      // 월별 상태 데이터 로드 (이 함수에서 selectedTeamsForTabs도 업데이트됨)
-      await loadMonthlyStatusData(month);
+      // 먼저 이전 월의 데이터를 저장 (이전 월 정보를 명시적으로 사용)
+      const monthToSave = previousMonth || selectedMonth;
+      if (monthToSave && monthToSave !== month) {
+        console.log(`이전 월(${monthToSave})의 데이터 저장 시작`);
+        await saveAllDataOnPageLeaveForMonth(monthToSave);
+      }
       
-      // 업데이트된 팀들의 테이블 데이터 로드
-      const updatedTeams = selectedTeamsForTabs;
-      if (updatedTeams.length > 0) {
-        const promises = updatedTeams.map(team => loadTeamTableData(team.id));
+      // 이전 월의 모든 데이터 완전히 제거 (모든 팀의 데이터 초기화)
+      setTeamTableData({});
+      setSelectedTeamsForTabs([]); // 팀 탭 목록도 초기화
+      console.log('🧹 이전 월의 모든 데이터 완전 초기화 완료');
+      
+      // 약간의 지연을 주어 상태 초기화가 완전히 완료되도록 함
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // 월별 상태 데이터 로드 (이 함수에서 selectedTeamsForTabs도 업데이트되고, 업데이트된 팀 리스트를 반환)
+      const updatedTeams = await loadMonthlyStatusData(month);
+      
+      // 업데이트된 팀들의 테이블 데이터 로드 (명시적으로 month 파라미터 전달)
+      if (updatedTeams && updatedTeams.length > 0) {
+        const promises = updatedTeams.map(team => loadTeamTableData(team.id, month));
         await Promise.all(promises);
+        console.log(`✅ ${month}월 데이터 로드 완료: ${updatedTeams.length}개 팀`);
+      } else {
+        console.log(`✅ ${month}월 데이터 없음`);
       }
       
       // activeTab이 유효하지 않으면 전체 탭으로 리셋
-      if (activeTab > selectedTeamsForTabs.length) {
+      if (updatedTeams && activeTab > updatedTeams.length) {
         console.log('월 변경으로 인한 activeTab 리셋:', activeTab, '-> 0');
         setActiveTab(0);
       }
@@ -3252,6 +3504,56 @@ const TeamSettlement = () => {
     } catch (error) {
       console.error('월별 팀 로드 오류:', error);
     }
+  };
+
+  // 특정 월의 데이터만 저장하는 함수
+  const saveAllDataOnPageLeaveForMonth = async (month) => {
+    console.log(`📤 ${month}월 데이터 저장 시작`);
+    
+    const savePromises = [];
+    
+    // 해당 월에 해당하는 팀들의 데이터만 저장
+    Object.keys(teamTableData).forEach(teamId => {
+      const rows = teamTableData[teamId];
+      if (rows && rows.length > 0) {
+        const promise = (async () => {
+          try {
+            const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${month}`);
+            
+            // 문서 존재 여부 확인
+            const docSnap = await getDoc(teamSettlementRef);
+            
+            if (docSnap.exists()) {
+              // 문서가 존재하면 업데이트 (월 정보도 함께 업데이트)
+              await updateDoc(teamSettlementRef, {
+                tableData: rows,
+                month: month, // 월 정보 명시적으로 저장
+                updatedAt: serverTimestamp()
+              });
+              console.log(`✅ ${teamId} 팀 데이터 저장 완료 (${month})`);
+            } else {
+              // 문서가 존재하지 않으면 새로 생성
+              await setDoc(teamSettlementRef, {
+                teamId: teamId,
+                month: month,
+                tableData: rows,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+              });
+              console.log(`✅ ${teamId} 팀 데이터 새 문서 생성 완료 (${month})`);
+            }
+          } catch (error) {
+            console.error(`❌ ${teamId} 팀 데이터 저장 오류:`, error);
+          }
+        })();
+        
+        savePromises.push(promise);
+      }
+    });
+    
+    // 모든 저장 작업 완료 대기
+    await Promise.all(savePromises);
+    console.log(`📤 ${month}월 데이터 저장 완료`);
   };
 
   // 데이터 마이그레이션 함수
@@ -3317,8 +3619,285 @@ const TeamSettlement = () => {
     setEditingSiteValue(siteName);
   };
 
+  // 시공팀 정산 데이터를 기성현황 지출에 자동 반영하는 함수
+  const syncTeamSettlementToCosts = async (teamId, rows, month) => {
+    try {
+      const team = teams.find(t => t.id === teamId);
+      if (!team) {
+        console.warn(`팀을 찾을 수 없음: ${teamId}`);
+        return;
+      }
 
-  // 시공팀 정산 노무비를 기성관리로 전송하는 함수
+      if (!rows || rows.length === 0) {
+        // 데이터가 없으면 기존 전송 데이터 삭제
+        await deleteExistingTransferredCosts(teamId, month);
+        return;
+      }
+
+      // 체크된 항목들만 지출에 반영
+      const checkedRows = rows.filter(row => row.checked && row.siteName && row.totalPrice > 0);
+      
+      // 현장별로 그룹화
+      const siteGroups = {};
+      checkedRows.forEach(row => {
+        if (!siteGroups[row.siteName]) {
+          siteGroups[row.siteName] = [];
+        }
+        siteGroups[row.siteName].push(row);
+      });
+
+      // 기존 전송된 데이터 삭제 후 재생성
+      await deleteExistingTransferredCosts(teamId, month);
+
+      // 체크된 항목이 없으면 여기서 종료
+      if (Object.keys(siteGroups).length === 0) {
+        console.log(`✅ ${teamId} 팀 - 체크된 항목 없음, 기존 지출 데이터 삭제 완료`);
+        return;
+      }
+
+      // 각 현장별로 지출 데이터 생성
+      const batch = writeBatch(db);
+      let transferCount = 0;
+
+      for (const [siteName, siteRows] of Object.entries(siteGroups)) {
+        const totalAmount = siteRows.reduce((sum, row) => sum + (row.totalPrice || 0), 0);
+        const transferAmount = Math.round(totalAmount * 1.1); // 1.1배 적용
+
+        // 해당 현장의 기존 노무비 지출 데이터 확인하여 다음 차수 계산
+        const existingCostsQuery = query(
+          collection(db, 'costs'),
+          where('site', '==', siteName),
+          where('itemType', '==', '노무비')
+        );
+        const existingCostsSnapshot = await getDocs(existingCostsQuery);
+        
+        let nextSequence = '1차';
+        if (!existingCostsSnapshot.empty) {
+          const existingCosts = existingCostsSnapshot.docs.map(doc => doc.data());
+          const sequences = existingCosts
+            .map(cost => cost.sequence)
+            .filter(seq => seq && typeof seq === 'string')
+            .map(seq => {
+              const match = seq.match(/(\d+)차/);
+              return match ? parseInt(match[1]) : 0;
+            })
+            .filter(num => num > 0);
+          
+          if (sequences.length > 0) {
+            const maxSequence = Math.max(...sequences);
+            nextSequence = `${maxSequence + 1}차`;
+          }
+        }
+
+        // 정산 월의 마지막 날짜로 설정
+        const [settlementYear, settlementMonth] = month.split('-');
+        const settlementDate = new Date(parseInt(settlementYear), parseInt(settlementMonth), 0);
+        const dateString = settlementDate.toISOString().split('T')[0];
+
+        const costData = {
+          site: siteName,
+          itemType: '노무비',
+          date: dateString,
+          totalValue: transferAmount,
+          paymentType: '시공팀정산',
+          description: `${team.teamName} 팀 ${month} 정산 노무비`,
+          etcNote: `시공팀 정산 자동 반영 - 원금액: ${totalAmount.toLocaleString()}원, 전송금액: ${transferAmount.toLocaleString()}원 (1.1배)`,
+          sequence: nextSequence,
+          source: 'teamSettlement',
+          teamId: teamId,
+          teamName: team.teamName,
+          settlementMonth: month,
+          originalAmount: totalAmount,
+          transferAmount: transferAmount,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        };
+
+        const costRef = doc(collection(db, 'costs'));
+        batch.set(costRef, costData);
+        transferCount++;
+      }
+
+      await batch.commit();
+      console.log(`✅ ${transferCount}개 현장의 노무비가 기성현황 지출에 자동 반영됨 (${teamId})`);
+      
+      setSnackbar({
+        open: true,
+        message: `${transferCount}개 현장의 노무비가 기성현황 지출에 반영되었습니다.`,
+        severity: 'success'
+      });
+
+    } catch (error) {
+      console.error('지출 자동 반영 오류:', error);
+      setSnackbar({
+        open: true,
+        message: '지출 반영 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
+  // 기성현황 지출에서 시공팀 정산으로 데이터 가져오기
+  const syncCostsToTeamSettlement = async (teamId, month) => {
+    try {
+      console.log('🔄 기성현황 지출에서 시공팀 정산으로 데이터 가져오기 시작:', { teamId, month });
+      
+      // 기성현황 지출에서 해당 팀, 해당 월의 시공팀 정산 데이터 조회
+      const costsQuery = query(
+        collection(db, 'costs'),
+        where('source', '==', 'teamSettlement'),
+        where('teamId', '==', teamId),
+        where('settlementMonth', '==', month),
+        where('itemType', '==', '노무비')
+      );
+      
+      const costsSnapshot = await getDocs(costsQuery);
+      
+      if (costsSnapshot.empty) {
+        setSnackbar({
+          open: true,
+          message: '가져올 데이터가 없습니다. 기성현황 지출에 해당 팀/월의 시공팀 정산 데이터가 없습니다.',
+          severity: 'info'
+        });
+        return;
+      }
+      
+      const costsData = costsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('가져온 기성현황 지출 데이터:', costsData.length, '개');
+      
+      // 현장별로 그룹화
+      const siteGroups = {};
+      costsData.forEach(cost => {
+        if (!siteGroups[cost.site]) {
+          siteGroups[cost.site] = [];
+        }
+        siteGroups[cost.site].push(cost);
+      });
+      
+      // 현재 팀의 테이블 데이터 가져오기
+      const currentRows = teamTableData[teamId] || [];
+      const existingSites = new Set(currentRows.map(row => row.siteName).filter(Boolean));
+      
+      let addedCount = 0;
+      const newRows = [];
+      
+      // 각 현장별로 데이터 추가
+      for (const [siteName, costs] of Object.entries(siteGroups)) {
+        // originalAmount가 있으면 그것을 사용, 없으면 totalValue를 1.1로 나눈 값 사용
+        const totalOriginalAmount = costs.reduce((sum, cost) => {
+          if (cost.originalAmount) {
+            return sum + cost.originalAmount;
+          } else if (cost.totalValue) {
+            // 1.1배로 전송되었으므로 역산 (정확도는 떨어질 수 있음)
+            return sum + Math.round(cost.totalValue / 1.1);
+          }
+          return sum;
+        }, 0);
+        
+        // 현장이 이미 있으면 건너뛰기 (중복 방지)
+        if (existingSites.has(siteName)) {
+          console.log(`⚠️ 현장 "${siteName}"은 이미 존재합니다. 건너뜁니다.`);
+          continue;
+        }
+        
+        // 현장 헤더 행 생성
+        const siteRowId = `site_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const siteRow = {
+          id: siteRowId,
+          siteName: siteName,
+          item: '',
+          quantity: 0,
+          unitPrice: 0,
+          totalPrice: totalOriginalAmount,
+          note: `기성현황에서 가져옴 (${costs.length}건)`,
+          checked: true, // 자동으로 체크
+          isItemRow: false // 현장 헤더
+        };
+        
+        newRows.push(siteRow);
+        
+        // 각 cost를 항목 행으로 추가
+        costs.forEach((cost, index) => {
+          const itemRowId = `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${index}`;
+          const originalAmount = cost.originalAmount || Math.round(cost.totalValue / 1.1);
+          
+          const itemRow = {
+            id: itemRowId,
+            siteName: siteName,
+            item: `정산 ${cost.sequence || ''}`,
+            quantity: 1,
+            unitPrice: originalAmount,
+            totalPrice: originalAmount,
+            note: cost.description || `기성현황에서 가져옴`,
+            checked: true, // 자동으로 체크
+            isItemRow: true // 항목 행
+          };
+          
+          newRows.push(itemRow);
+        });
+        
+        addedCount++;
+      }
+      
+      if (newRows.length === 0) {
+        setSnackbar({
+          open: true,
+          message: '추가할 새 현장이 없습니다. (모든 현장이 이미 존재합니다)',
+          severity: 'info'
+        });
+        return;
+      }
+      
+      // 기존 데이터에 새 행들 추가
+      setTeamTableData(prev => ({
+        ...prev,
+        [teamId]: [...currentRows, ...newRows]
+      }));
+      
+      setSnackbar({
+        open: true,
+        message: `${addedCount}개 현장, 총 ${newRows.length}개 항목을 기성현황 지출에서 가져왔습니다. 저장 버튼을 눌러 저장하세요.`,
+        severity: 'success'
+      });
+      
+      console.log(`✅ 기성현황 지출에서 시공팀 정산으로 데이터 가져오기 완료: ${addedCount}개 현장, ${newRows.length}개 항목`);
+      
+    } catch (error) {
+      console.error('기성현황 지출에서 데이터 가져오기 오류:', error);
+      setSnackbar({
+        open: true,
+        message: '데이터 가져오기 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
+  // 기존 전송된 지출 데이터 삭제
+  const deleteExistingTransferredCosts = async (teamId, month) => {
+    try {
+      const existingCosts = await getDocs(
+        query(
+          collection(db, 'costs'),
+          where('source', '==', 'teamSettlement'),
+          where('teamId', '==', teamId),
+          where('settlementMonth', '==', month)
+        )
+      );
+
+      if (!existingCosts.empty) {
+        const batch = writeBatch(db);
+        existingCosts.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
+        console.log(`✅ 기존 전송 데이터 ${existingCosts.docs.length}개 삭제 완료 (${teamId}, ${month})`);
+      }
+    } catch (error) {
+      console.error('기존 전송 데이터 삭제 오류:', error);
+    }
+  };
+
+  // 시공팀 정산 노무비를 기성관리로 전송하는 함수 (수동 전송 버튼용)
   const handleTransferLaborCosts = async (teamId) => {
     try {
       const team = teams.find(t => t.id === teamId);
@@ -3937,10 +4516,10 @@ const TeamSettlement = () => {
                    color: '#4caf50',
                    '&:hover': { borderColor: '#45a049', bgcolor: 'rgba(76, 175, 80, 0.1)' }
                  }}
-               >
-                 {activeTab === 0 ? '전체 팀 엑셀 다운로드' : '팀별 엑셀 다운로드'}
-               </Button>
-             </Box>
+              >
+                {activeTab === 0 ? '전체 팀 엑셀 다운로드' : '팀별 엑셀 다운로드'}
+              </Button>
+            </Box>
       </Box>
 
 
@@ -4282,6 +4861,128 @@ const TeamSettlement = () => {
                   >
                     {selectedSiteForRowAdd ? `항목 추가 (${selectedSiteForRowAdd})` : '현장+항목 추가'}
                   </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<CloudDownloadIcon />}
+                    onClick={async () => {
+                      const teamId = selectedTeamsForTabs[activeTab - 1]?.id;
+                      if (teamId) {
+                        if (window.confirm('기성현황 지출에서 해당 팀/월의 시공팀 정산 데이터를 가져오시겠습니까?\n\n기존에 같은 현장이 있으면 추가되지 않습니다.')) {
+                          await syncCostsToTeamSettlement(teamId, selectedMonth);
+                        }
+                      } else {
+                        setSnackbar({
+                          open: true,
+                          message: '팀을 선택해주세요.',
+                          severity: 'warning'
+                        });
+                      }
+                    }}
+                    sx={{
+                      borderColor: '#2196f3',
+                      color: '#2196f3',
+                      '&:hover': { 
+                        borderColor: '#1976d2', 
+                        bgcolor: 'rgba(33, 150, 243, 0.1)' 
+                      }
+                    }}
+                  >
+                    기성현황에서 가져오기
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<SaveIcon />}
+                    onClick={async () => {
+                      const teamId = selectedTeamsForTabs[activeTab - 1]?.id;
+                      if (teamId) {
+                        try {
+                          const rows = teamTableData[teamId] || [];
+                          const teamSettlementRef = doc(db, 'teamSettlements', `${teamId}_${selectedMonth}`);
+                          const docSnap = await getDoc(teamSettlementRef);
+                          
+                          if (docSnap.exists()) {
+                            await updateDoc(teamSettlementRef, {
+                              tableData: rows,
+                              month: selectedMonth,
+                              updatedAt: serverTimestamp()
+                            });
+                          } else {
+                            await setDoc(teamSettlementRef, {
+                              teamId: teamId,
+                              month: selectedMonth,
+                              tableData: rows,
+                              createdAt: serverTimestamp(),
+                              updatedAt: serverTimestamp()
+                            });
+                          }
+                          
+                          // 🔴 기성현황 지출에 동기화 (저장 버튼 클릭 시에만 수행)
+                          console.log(`🔄 지출 동기화 시작: ${teamId}, ${selectedMonth}`);
+                          await syncTeamSettlementToCosts(teamId, rows, selectedMonth);
+                          console.log(`✅ 지출 동기화 완료: ${teamId}, ${selectedMonth}`);
+                          
+                          setSnackbar({ 
+                            open: true, 
+                            message: '데이터가 저장되었고 기성현황 지출에 반영되었습니다.', 
+                            severity: 'success' 
+                          });
+                        } catch (error) {
+                          console.error('저장 오류:', error);
+                          setSnackbar({ 
+                            open: true, 
+                            message: '저장 중 오류가 발생했습니다.', 
+                            severity: 'error' 
+                          });
+                        }
+                      }
+                    }}
+                    sx={{
+                      bgcolor: '#4caf50',
+                      color: '#fff',
+                      '&:hover': { 
+                        bgcolor: '#45a049' 
+                      }
+                    }}
+                  >
+                    저장
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => {
+                      const teamId = selectedTeamsForTabs[activeTab - 1]?.id;
+                      if (teamId) {
+                        handleDeleteSelectedRows(teamId);
+                      }
+                    }}
+                    disabled={(() => {
+                      const teamId = selectedTeamsForTabs[activeTab - 1]?.id;
+                      if (!teamId) return true;
+                      const currentRows = teamTableData[teamId] || [];
+                      const selectedCount = currentRows.filter(row => row.checked).length;
+                      return selectedCount === 0;
+                    })()}
+                    sx={{
+                      bgcolor: '#f44336',
+                      color: '#fff',
+                      '&:hover': { 
+                        bgcolor: '#d32f2f' 
+                      },
+                      '&.Mui-disabled': {
+                        bgcolor: '#666',
+                        color: '#999'
+                      }
+                    }}
+                  >
+                    선택 삭제
+                    {(() => {
+                      const teamId = selectedTeamsForTabs[activeTab - 1]?.id;
+                      if (!teamId) return '';
+                      const currentRows = teamTableData[teamId] || [];
+                      const selectedCount = currentRows.filter(row => row.checked).length;
+                      return selectedCount > 0 ? ` (${selectedCount})` : '';
+                    })()}
+                  </Button>
                 </Box>
               </Box>
               
@@ -4294,7 +4995,7 @@ const TeamSettlement = () => {
                   '&::-webkit-scrollbar': {
                     display: 'none'
                   },
-                  '-ms-overflow-style': 'none',
+                  msOverflowStyle: 'none',
                   scrollbarWidth: 'none'
                 }}
               >
@@ -5908,6 +6609,7 @@ const TeamSettlement = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
 
       {/* 스낵바 */}
       <Snackbar

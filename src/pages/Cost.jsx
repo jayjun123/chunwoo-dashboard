@@ -120,23 +120,43 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
 
   // 실시간 지출 데이터 리스너
   useEffect(() => {
+    console.log('🔴 실시간 지출 데이터 리스너 시작');
     // 실시간 리스너 설정 (항상 설정)
-    const unsubscribe = onSnapshot(collection(db, 'costs'), (snapshot) => {
-      const costsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('실시간 데이터 업데이트:', costsData.length, '개');
-      console.log('업데이트된 데이터 샘플:', costsData.slice(0, 2).map(cost => ({
-        id: cost.id,
-        site: cost.site,
-        itemType: cost.itemType,
-        paymentType: cost.paymentType,
-        totalValue: cost.totalValue
-      })));
-      setCosts(costsData);
-    }, (error) => {
-      console.error('지출 데이터 실시간 리스너 오류:', error);
-    });
+    const unsubscribe = onSnapshot(
+      collection(db, 'costs'),
+      (snapshot) => {
+        const costsData = snapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data() 
+        }));
+        
+        console.log('✅ 실시간 데이터 업데이트 완료:', costsData.length, '개');
+        
+        // 변경 사항 감지 (추가/수정/삭제)
+        if (snapshot.docChanges().length > 0) {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              console.log('➕ 새 항목 추가됨:', change.doc.id);
+            } else if (change.type === 'modified') {
+              console.log('✏️ 항목 수정됨:', change.doc.id);
+            } else if (change.type === 'removed') {
+              console.log('🗑️ 항목 삭제됨:', change.doc.id);
+            }
+          });
+        }
+        
+        // 상태 즉시 업데이트
+        setCosts(costsData);
+      },
+      (error) => {
+        console.error('❌ 지출 데이터 실시간 리스너 오류:', error);
+      }
+    );
 
-    return () => unsubscribe();
+    return () => {
+      console.log('🔴 실시간 지출 데이터 리스너 해제');
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -232,19 +252,9 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     }
 
     // 클라이언트 사이드 정렬
-    console.log('정렬 실행:', { sortField, sortDirection, filteredLength: filtered.length });
+    console.log('정렬 실행:', { sortField, sortDirection, filteredLength: filtered.length, isNewlyAdded });
     filtered.sort((a, b) => {
-      // 새로 추가된 항목이 있을 때만 createdAt으로 최신순 정렬
-      if (isNewlyAdded) {
-        const aCreatedAt = a.createdAt ? (a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt)) : new Date(0);
-        const bCreatedAt = b.createdAt ? (b.createdAt.toDate ? b.createdAt.toDate() : new Date(b.createdAt)) : new Date(0);
-        
-        // createdAt이 있으면 최신순으로 정렬 (내림차순)
-        if (aCreatedAt.getTime() !== bCreatedAt.getTime()) {
-          return bCreatedAt.getTime() - aCreatedAt.getTime();
-        }
-      }
-      
+      // 🔴 사용자가 선택한 정렬 필드로 정렬 (isNewlyAdded 무시)
       // 기존 정렬 로직 적용
       let aValue, bValue;
       
@@ -257,6 +267,12 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       } else if (sortField === 'itemType') {
         aValue = String(a.itemType || '').toLowerCase();
         bValue = String(b.itemType || '').toLowerCase();
+      } else if (sortField === 'site') {
+        aValue = String(a.site || '').toLowerCase();
+        bValue = String(b.site || '').toLowerCase();
+      } else if (sortField === 'paymentType') {
+        aValue = String(a.paymentType || '').toLowerCase();
+        bValue = String(b.paymentType || '').toLowerCase();
       } else if (sortField === 'sequence') {
         // 차수 문자열 정렬 (예: "2차-5" > "2차-1" > "1차")
         const getSequenceValue = (sequenceStr) => {
@@ -315,11 +331,29 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         bValue = String(b[sortField] || '').toLowerCase();
       }
 
-      if (sortDirection === 'asc') {
-        return aValue > bValue ? 1 : -1;
+      // 🔴 정렬 비교 로직 수정 (숫자, 날짜, 문자열 올바른 비교)
+      let comparison = 0;
+      
+      if (sortField === 'totalValue') {
+        // 숫자 비교
+        comparison = aValue - bValue;
+      } else if (sortField === 'date') {
+        // 날짜 비교
+        const aTime = aValue instanceof Date ? aValue.getTime() : 0;
+        const bTime = bValue instanceof Date ? bValue.getTime() : 0;
+        comparison = aTime - bTime;
+      } else if (sortField === 'sequence') {
+        // 차수는 이미 숫자로 변환됨
+        comparison = aValue - bValue;
       } else {
-        return aValue < bValue ? 1 : -1;
+        // 문자열 비교
+        if (aValue > bValue) comparison = 1;
+        else if (aValue < bValue) comparison = -1;
+        else comparison = 0;
       }
+      
+      // 방향에 따라 반환
+      return sortDirection === 'asc' ? comparison : -comparison;
     });
     console.log('정렬 완료:', filtered.slice(0, 3).map(item => ({ itemType: item.itemType, sequence: item.sequence })));
     console.log('필터링된 데이터 개수:', filtered.length);
@@ -418,14 +452,24 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     if (window.confirm(`선택된 ${selectedItems.length}개 항목을 삭제하시겠습니까?`)) {
       try {
         const selectedItemsCopy = [...selectedItems];
+        
+        // 🔴 Optimistic Update: 로컬 상태에서 즉시 제거
+        const deletedCosts = costs.filter(c => selectedItemsCopy.includes(c.id));
+        setCosts(prev => prev.filter(cost => !selectedItemsCopy.includes(cost.id)));
         setSelectedItems([]);
         
+        // Firebase에서 일괄 삭제
         const deletePromises = selectedItemsCopy.map(id => deleteDoc(doc(db, 'costs', id)));
         await Promise.all(deletePromises);
         
+        console.log('✅ 일괄 삭제 완료 (Firebase 삭제 완료):', selectedItemsCopy.length, '개');
         setSnackbar({ open: true, message: `${selectedItemsCopy.length}개 항목이 삭제되었습니다.`, severity: 'success' });
       } catch (error) {
-        console.error('일괄 삭제 실패:', error);
+        console.error('❌ 일괄 삭제 실패:', error);
+        // 🔴 오류 발생 시 롤백: 삭제한 항목들 다시 추가
+        if (deletedCosts && deletedCosts.length > 0) {
+          setCosts(prev => [...prev, ...deletedCosts]);
+        }
         setSnackbar({ open: true, message: '삭제에 실패했습니다.', severity: 'error' });
       }
     }
@@ -736,15 +780,39 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       };
 
       if (editId) {
+        // 🔴 Optimistic Update: 로컬 상태 즉시 업데이트
+        setCosts(prev => prev.map(cost => 
+          cost.id === editId 
+            ? { ...cost, ...costData, id: editId }
+            : cost
+        ));
+        
         await updateDoc(doc(db, 'costs', editId), costData);
+        console.log('✅ 지출 항목 수정 완료 (Firebase 저장 완료):', editId);
         setSnackbar({ open: true, message: '지출 항목이 수정되었습니다.', severity: 'success' });
       } else {
-        await addDoc(collection(db, 'costs'), {
+        // 🔴 Optimistic Update: 새 항목을 로컬 상태에 즉시 추가 (임시 ID)
+        const tempId = `temp_${Date.now()}`;
+        const newCost = {
+          id: tempId,
+          ...costData,
+          createdAt: new Date(),
+          createdBy: currentUser.uid,
+          isOptimistic: true // 임시 항목 표시
+        };
+        setCosts(prev => [newCost, ...prev]);
+        
+        // Firebase에 저장 (실제 ID를 받아옴)
+        const docRef = await addDoc(collection(db, 'costs'), {
           ...costData,
           createdAt: serverTimestamp(),
           createdBy: currentUser.uid
         });
         
+        // 🔴 임시 항목을 실제 Firebase 데이터로 교체 (onSnapshot이 처리하지만 확실하게)
+        setCosts(prev => prev.filter(c => c.id !== tempId));
+        
+        console.log('✅ 지출 항목 추가 완료 (Firebase 저장 완료):', docRef.id);
         setSnackbar({ open: true, message: '지출 항목이 추가되었습니다.', severity: 'success' });
       }
 
@@ -789,10 +857,19 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
   const handleDelete = async (id) => {
     if (window.confirm('정말로 삭제하시겠습니까?')) {
       try {
+        // 🔴 Optimistic Update: 로컬 상태에서 즉시 제거
+        const deletedCost = costs.find(c => c.id === id);
+        setCosts(prev => prev.filter(cost => cost.id !== id));
+        
         await deleteDoc(doc(db, 'costs', id));
+        console.log('✅ 지출 항목 삭제 완료 (Firebase 삭제 완료):', id);
         setSnackbar({ open: true, message: '삭제되었습니다.', severity: 'success' });
       } catch (error) {
-        console.error('지출 항목 삭제 실패:', error);
+        console.error('❌ 지출 항목 삭제 실패:', error);
+        // 🔴 오류 발생 시 롤백: 삭제한 항목 다시 추가
+        if (deletedCost) {
+          setCosts(prev => [...prev, deletedCost]);
+        }
         setSnackbar({ open: true, message: '삭제에 실패했습니다.', severity: 'error' });
       }
     }
@@ -950,15 +1027,24 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     if (window.confirm(confirmMessage)) {
       try {
         const allIds = currentData.map(cost => cost.id);
+        
+        // 🔴 Optimistic Update: 로컬 상태에서 즉시 제거
+        const deletedCosts = costs.filter(c => allIds.includes(c.id));
+        setCosts(prev => prev.filter(cost => !allIds.includes(cost.id)));
         setSelectedItems([]);
         
         // Firebase에서 일괄 삭제
         const deletePromises = allIds.map(id => deleteDoc(doc(db, 'costs', id)));
         await Promise.all(deletePromises);
         
+        console.log('✅ 전체 삭제 완료 (Firebase 삭제 완료):', allIds.length, '개');
         setSnackbar({ open: true, message: `모든 지출 데이터(${allIds.length}개)가 삭제되었습니다.`, severity: 'success' });
       } catch (error) {
-        console.error('전체 삭제 실패:', error);
+        console.error('❌ 전체 삭제 실패:', error);
+        // 🔴 오류 발생 시 롤백: 삭제한 항목들 다시 추가
+        if (deletedCosts && deletedCosts.length > 0) {
+          setCosts(prev => [...prev, ...deletedCosts]);
+        }
         setSnackbar({ open: true, message: '전체 삭제에 실패했습니다.', severity: 'error' });
       }
     }
@@ -1431,8 +1517,86 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       </Grid>
   );
 
-  // 필터 적용 (상위 컴포넌트에서 전달받은 filteredData 사용)
-  const filtered = filteredData || filteredAndSortedCosts;
+  // 🔴 필터 및 정렬 적용 (filteredData가 있어도 정렬 적용)
+  const filtered = useMemo(() => {
+    const baseData = filteredData || filteredAndSortedCosts;
+    
+    // filteredData가 전달된 경우에도 정렬 적용
+    if (filteredData) {
+      console.log('🔴 filteredData 사용 중 - 정렬 적용:', { sortField, sortDirection, dataLength: baseData.length });
+      const sorted = [...baseData].sort((a, b) => {
+        let aValue, bValue;
+        
+        if (sortField === 'totalValue') {
+          aValue = Number(a.totalValue) || 0;
+          bValue = Number(b.totalValue) || 0;
+        } else if (sortField === 'date') {
+          aValue = parseDate(a.date || 0);
+          bValue = parseDate(b.date || 0);
+        } else if (sortField === 'itemType') {
+          aValue = String(a.itemType || '').toLowerCase();
+          bValue = String(b.itemType || '').toLowerCase();
+        } else if (sortField === 'site') {
+          aValue = String(a.site || '').toLowerCase();
+          bValue = String(b.site || '').toLowerCase();
+        } else if (sortField === 'paymentType') {
+          aValue = String(a.paymentType || '').toLowerCase();
+          bValue = String(b.paymentType || '').toLowerCase();
+        } else if (sortField === 'sequence') {
+          const getSequenceValue = (sequenceStr) => {
+            if (!sequenceStr) return { base: 0, sub: 0 };
+            const str = sequenceStr.toString();
+            const subMatch = str.match(/(\d+)차-(\d+)/);
+            if (subMatch) {
+              return { base: Number(subMatch[1]), sub: Number(subMatch[2]) };
+            }
+            const baseMatch = str.match(/(\d+)차/);
+            if (baseMatch) {
+              return { base: Number(baseMatch[1]), sub: 0 };
+            }
+            return { base: 0, sub: 0 };
+          };
+          
+          const aSeq = getSequenceValue(a.sequence);
+          const bSeq = getSequenceValue(b.sequence);
+          
+          if (aSeq.base !== bSeq.base) {
+            aValue = aSeq.base;
+            bValue = bSeq.base;
+          } else {
+            aValue = aSeq.sub;
+            bValue = bSeq.sub;
+          }
+        } else {
+          aValue = String(a[sortField] || '').toLowerCase();
+          bValue = String(b[sortField] || '').toLowerCase();
+        }
+        
+        let comparison = 0;
+        if (sortField === 'totalValue') {
+          comparison = aValue - bValue;
+        } else if (sortField === 'date') {
+          const aTime = aValue instanceof Date ? aValue.getTime() : 0;
+          const bTime = bValue instanceof Date ? bValue.getTime() : 0;
+          comparison = aTime - bTime;
+        } else if (sortField === 'sequence') {
+          comparison = aValue - bValue;
+        } else {
+          if (aValue > bValue) comparison = 1;
+          else if (aValue < bValue) comparison = -1;
+          else comparison = 0;
+        }
+        
+        return sortDirection === 'asc' ? comparison : -comparison;
+      });
+      
+      console.log('🔴 filteredData 정렬 완료:', sorted.length, '개');
+      return sorted;
+    }
+    
+    // filteredData가 없으면 이미 정렬된 filteredAndSortedCosts 사용
+    return baseData;
+  }, [filteredData, filteredAndSortedCosts, sortField, sortDirection]);
 
   // 페이지네이션 계산
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -1573,6 +1737,26 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
             alignItems: 'center', 
             gap: 1
           }}>
+            <Button 
+              variant="contained" 
+              color="error" 
+              startIcon={<DeleteIcon />} 
+              onClick={handleBulkDelete}
+              disabled={selectedItems.length === 0}
+              sx={{ 
+                display: isMobile ? 'none' : 'flex',
+                minHeight: '44px',
+                height: '44px',
+                bgcolor: '#f44336',
+                '&:hover': { bgcolor: '#d32f2f' },
+                '&.Mui-disabled': {
+                  bgcolor: '#666',
+                  color: '#999'
+                }
+              }}
+            >
+              선택 항목 삭제 {selectedItems.length > 0 ? `(${selectedItems.length})` : ''}
+            </Button>
             <Button variant="contained" color="success" startIcon={<AddIcon />} sx={{ 
               display: isMobile ? 'none' : 'flex',
               minHeight: '44px',
@@ -1634,8 +1818,17 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   fontSize: '0.85rem',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
-                }}>현장명</TableCell>
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: '#2a3441' }
+                }} onClick={() => handleSort('site')}>
+                  현장명
+                  {sortField === 'site' && (
+                    <span style={{ marginLeft: '4px', fontSize: '0.75rem' }}>
+                      {sortDirection === 'asc' ? '↑' : '↓'}
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
                   fontWeight: 700, 
@@ -1679,8 +1872,17 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
                   width: '12%',
                   fontSize: '0.85rem',
                   py: 0.25,
-                  px: 1
-                }}>사용날짜</TableCell>
+                  px: 1,
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: '#2a3441' }
+                }} onClick={() => handleSort('date')}>
+                  사용날짜
+                  {sortField === 'date' && (
+                    <span style={{ marginLeft: '4px', fontSize: '0.75rem' }}>
+                      {sortDirection === 'asc' ? '↑' : '↓'}
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell sx={{ 
                   color: '#fff', 
                   fontWeight: 700, 
