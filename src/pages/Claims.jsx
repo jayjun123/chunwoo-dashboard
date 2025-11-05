@@ -1548,10 +1548,10 @@ const Claims = () => {
 
       // 데이터 행들 추가
       filteredClaims.forEach((claim, index) => {
-        const contractAmount = getContractAmount(claim.siteName) ? Number(getContractAmount(claim.siteName)) : 0;
-        const remainingAmount = calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount, claim.isException) ? Number(calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount, claim.isException)) : 0;
+        const contractAmount = getContractAmount(claim.siteName) ? Math.ceil(Number(getContractAmount(claim.siteName))) : 0;
+        const remainingAmount = calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount, claim.isException) ? Math.ceil(Number(calculateBalanceByClaimAmount(claim.siteName, claim.claimAmount, claim.isException))) : 0;
         const progressRate = claim.progressRate ? Number(claim.progressRate) : 0;
-        const claimAmount = claim.claimAmount ? Number(claim.claimAmount) : 0;
+        const claimAmount = claim.claimAmount ? Math.ceil(Number(claim.claimAmount)) : 0;
         
         // 천단위 쉼표 포맷팅 함수
         const formatNumber = (num) => {
@@ -1563,10 +1563,10 @@ const Claims = () => {
           claim.siteName || '', // 현장명
           claim.manager || '', // 소장/회사명
           claim.sequence || '', // 차수
-          formatNumber(contractAmount), // 계약금액 (천단위 쉼표 포함)
-          formatNumber(remainingAmount), // 잔액 (천단위 쉼표 포함)
+          formatNumber(contractAmount), // 계약금액 (천단위 쉼표 포함, 정수로 올림)
+          formatNumber(remainingAmount), // 잔액 (천단위 쉼표 포함, 정수로 올림)
           progressRate, // 청구 전 기성율(%) (숫자)
-          formatNumber(claimAmount), // 청구금액 (천단위 쉼표 포함)
+          formatNumber(claimAmount), // 청구금액 (천단위 쉼표 포함, 정수로 올림)
           getStatusLabel(claim.claimStatus), // 청구여부
           claim.notes || '' // 비고
         ]);
