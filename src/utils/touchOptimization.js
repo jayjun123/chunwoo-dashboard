@@ -1,62 +1,79 @@
 // 아이패드 터치 이벤트 최적화 유틸리티
 
-// 터치 이벤트 지연 시간 제거 및 애플펜슬 최적화
+// 애플펜슬과 손가락 터치 간격 관리
+let lastPencilTouchTime = 0;
+let lastFingerTouchTime = 0;
+const PENCIL_FINGER_GAP = 50; // 애플펜슬과 손가락 터치 간격 (ms)
+const PENCIL_PRIORITY = true; // 애플펜슬 우선 처리
+
+// 터치 이벤트 지연 시간 제거 및 애플펜슬 최적화 - IPA 빌드 호환
 export const preventTouchDelay = () => {
-  // 터치 이벤트 지연 제거
+  // 터치 이벤트 지연 제거 - IPA 빌드에서는 preventDefault 제거
   document.addEventListener('touchstart', (e) => {
+    // 애플펜슬과 손가락 터치 구분
+    const isPencil = isApplePencilTouch(e);
+    const now = Date.now();
+    
     // 애플펜슬 터치 좌표 정확도 개선
     if (e.touches && e.touches.length > 0) {
-      const touch = e.touches[0];
-      // 터치 좌표를 정확히 계산
-      const rect = e.target.getBoundingClientRect();
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
+      const coords = getAccurateTouchCoordinates(e);
       
       // 터치 좌표 정보를 이벤트에 추가
-      e.touchX = x;
-      e.touchY = y;
+      e.touchX = coords.x;
+      e.touchY = coords.y;
+      e.isPencilTouch = isPencil;
+      
+      // 애플펜슬과 손가락 터치 간격 조정
+      if (isPencil) {
+        lastPencilTouchTime = now;
+        // 애플펜슬 터치 시 손가락 터치 무시 (50ms 이내)
+        if (now - lastFingerTouchTime < PENCIL_FINGER_GAP) {
+          e.pencilPriority = true;
+        }
+      } else {
+        lastFingerTouchTime = now;
+        // 손가락 터치 시 애플펜슬 터치와 충돌 방지
+        if (now - lastPencilTouchTime < PENCIL_FINGER_GAP && PENCIL_PRIORITY) {
+          // 애플펜슬이 최근에 터치했다면 손가락 터치 무시
+          e.shouldIgnore = true;
+        }
+      }
     }
     
-    // 터치 시작 시 즉시 처리 (애플펜슬 반응성 개선)
-    e.preventDefault();
-  }, { passive: false });
+    // IPA 빌드에서는 preventDefault 제거하여 터치 허용
+    // 터치 시작 시 즉시 처리하지 않고 기본 동작 허용
+  }, { passive: true });
 
-  // 터치 이동 시 스크롤과 클릭 이벤트 분리
+  // 터치 이동 시 스크롤과 클릭 이벤트 분리 - IPA 빌드 호환
   document.addEventListener('touchmove', (e) => {
-    // 스크롤 영역에서는 터치 이동 허용
-    const target = e.target;
-    const scrollableParent = target.closest('[data-scrollable="true"]');
+    // 애플펜슬과 손가락 터치 구분
+    const isPencil = isApplePencilTouch(e);
+    e.isPencilTouch = isPencil;
     
-    if (!scrollableParent) {
-      // 스크롤 가능한 영역이 아닌 경우 터치 이동 제한
-      e.preventDefault();
-    }
-  }, { passive: false });
+    // 모든 터치 이동 허용 (IPA 빌드 호환)
+    // 스크롤 영역과 비스크롤 영역 모두 터치 허용
+  }, { passive: true });
 
-  // 터치 종료 시 더블탭 줌 방지 및 정확한 클릭 처리
+  // 터치 종료 시 더블탭 줌 방지 및 정확한 클릭 처리 - IPA 빌드 호환
   document.addEventListener('touchend', (e) => {
     const now = Date.now();
     const lastTouch = window.lastTouchTime || 0;
     
-    if (now - lastTouch < 300) {
-      // 300ms 내 연속 터치 방지 (더블탭 줌 방지)
-      e.preventDefault();
-    }
+    // IPA 빌드에서는 preventDefault 제거
+    // 더블탭 줌 방지는 CSS로 처리
     
     // 애플펜슬 터치 종료 시 정확한 좌표 계산
     if (e.changedTouches && e.changedTouches.length > 0) {
-      const touch = e.changedTouches[0];
-      const rect = e.target.getBoundingClientRect();
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
+      const coords = getAccurateTouchCoordinates(e);
       
       // 터치 종료 좌표 정보를 이벤트에 추가
-      e.touchEndX = x;
-      e.touchEndY = y;
+      e.touchEndX = coords.x;
+      e.touchEndY = coords.y;
+      e.isPencilTouch = coords.isPencil;
     }
     
     window.lastTouchTime = now;
-  }, { passive: false });
+  }, { passive: true });
 };
 
 // 버튼 클릭 이벤트 최적화 (애플펜슬 포함)
@@ -71,24 +88,21 @@ export const optimizeButtonClicks = () => {
     button.style.minHeight = '44px';
     button.style.minWidth = '44px';
     
-    // 애플펜슬 터치 이벤트 최적화
+    // 애플펜슬 터치 이벤트 최적화 - IPA 빌드 호환
     button.addEventListener('touchstart', (e) => {
-      // 터치 시작 시 즉시 반응
-      e.preventDefault();
+      // 터치 시작 시 시각적 피드백만 제공 (preventDefault 제거)
       button.style.transform = 'scale(0.95)';
       button.style.transition = 'transform 0.1s ease';
-    }, { passive: false });
+      // IPA 빌드에서는 preventDefault 제거하여 기본 동작 허용
+    }, { passive: true });
     
     button.addEventListener('touchend', (e) => {
       // 터치 종료 시 원래 크기로 복원
-      e.preventDefault();
       button.style.transform = 'scale(1)';
       
-      // 클릭 이벤트 실행
-      if (!button.disabled) {
-        button.click();
-      }
-    }, { passive: false });
+      // IPA 빌드에서는 preventDefault 제거하여 기본 동작 허용
+      // 클릭 이벤트는 브라우저가 자동으로 처리
+    }, { passive: true });
     
     // 클릭 이벤트 최적화
     button.addEventListener('click', (e) => {
@@ -314,7 +328,7 @@ export const optimizeApplePencil = () => {
     `;
     document.head.appendChild(style);
     
-    // 애플펜슬 터치 이벤트 개선
+    // 애플펜슬 터치 이벤트 개선 - IPA 빌드 호환
     document.addEventListener('touchstart', (e) => {
       // 애플펜슬 터치 시 즉시 반응하도록 처리
       if (e.touches && e.touches.length > 0) {
@@ -330,13 +344,14 @@ export const optimizeApplePencil = () => {
         e.touchX = x;
         e.touchY = y;
         
-        // 애플펜슬 터치 시 시각적 피드백
+        // 애플펜슬 터치 시 시각적 피드백 (preventDefault 제거)
         if (target.closest('button, [role="button"], .clickable')) {
           target.style.transform = 'scale(0.95)';
           target.style.transition = 'transform 0.1s ease';
         }
       }
-    }, { passive: false });
+      // IPA 빌드에서는 preventDefault 제거하여 기본 동작 허용
+    }, { passive: true });
     
     document.addEventListener('touchend', (e) => {
       // 터치 종료 시 시각적 피드백 제거
@@ -346,28 +361,109 @@ export const optimizeApplePencil = () => {
           target.style.transform = 'scale(1)';
         }
       }
-    }, { passive: false });
+      // IPA 빌드에서는 preventDefault 제거하여 기본 동작 허용
+    }, { passive: true });
   }
 };
 
-// 애플펜슬 터치 좌표 정확도 개선 함수
-export const getAccurateTouchCoordinates = (event) => {
-  if (!event.touches || event.touches.length === 0) {
-    return { x: 0, y: 0 };
+// 애플펜슬과 손가락 터치 구분 함수
+export const isApplePencilTouch = (event) => {
+  // 포인터 이벤트에서 애플펜슬 감지
+  if (event.pointerType === 'pen') {
+    return true;
   }
   
-  const touch = event.touches[0];
+  // 터치 이벤트에서 애플펜슬 감지 (force 값으로 판단)
+  if (event.touches && event.touches.length > 0) {
+    const touch = event.touches[0];
+    // 애플펜슬은 일반적으로 force 값이 더 정확하고 일정함
+    if (touch.force !== undefined && touch.force > 0) {
+      // 애플펜슬의 경우 force 값이 더 정밀함
+      return true;
+    }
+    // radiusX/Y가 작을수록 애플펜슬일 가능성 높음
+    if (touch.radiusX !== undefined && touch.radiusY !== undefined) {
+      const radius = Math.min(touch.radiusX, touch.radiusY);
+      // 반경이 5px 미만이면 애플펜슬로 간주
+      if (radius < 5) {
+        return true;
+      }
+    }
+  }
+  
+  // changedTouches에서도 확인
+  if (event.changedTouches && event.changedTouches.length > 0) {
+    const touch = event.changedTouches[0];
+    if (touch.force !== undefined && touch.force > 0) {
+      return true;
+    }
+  }
+  
+  return false;
+};
+
+// 애플펜슬 터치 좌표 정확도 개선 함수 (오프셋 보정 포함)
+export const getAccurateTouchCoordinates = (event) => {
+  // 애플펜슬 감지
+  const isPencil = isApplePencilTouch(event);
+  
+  let clientX, clientY, touch;
+  
+  // 포인터 이벤트 (애플펜슬 우선)
+  if (event.pointerType === 'pen') {
+    clientX = event.clientX;
+    clientY = event.clientY;
+  }
+  // 터치 이벤트
+  else if (event.touches && event.touches.length > 0) {
+    touch = event.touches[0];
+    clientX = touch.clientX;
+    clientY = touch.clientY;
+  }
+  // 변경된 터치 이벤트
+  else if (event.changedTouches && event.changedTouches.length > 0) {
+    touch = event.changedTouches[0];
+    clientX = touch.clientX;
+    clientY = touch.clientY;
+  }
+  // 마우스 이벤트
+  else {
+    clientX = event.clientX;
+    clientY = event.clientY;
+  }
+  
+  if (typeof clientX !== 'number' || typeof clientY !== 'number') {
+    return { x: 0, y: 0, isPencil: false };
+  }
+  
   const target = event.target;
   const rect = target.getBoundingClientRect();
   
-  // 터치 좌표를 요소 기준으로 정확하게 계산
-  const x = touch.clientX - rect.left;
-  const y = touch.clientY - rect.top;
+  // 애플펜슬 좌표 보정 (오프셋 조정)
+  let x, y;
   
-  return { x, y };
+  if (isPencil) {
+    // 애플펜슬 전용 오프셋 보정값 (더 정확한 위치 계산)
+    const pencilOffsetX = 0; // 필요시 조정 가능
+    const pencilOffsetY = 0; // 필요시 조정 가능
+    
+    // 스크롤 오프셋 고려
+    const scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
+    const scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+    
+    // 애플펜슬 좌표 계산 (더 정밀한 보정)
+    x = (clientX - rect.left + scrollX + pencilOffsetX);
+    y = (clientY - rect.top + scrollY + pencilOffsetY);
+  } else {
+    // 일반 터치 좌표 (기존 방식)
+    x = clientX - rect.left;
+    y = clientY - rect.top;
+  }
+  
+  return { x, y, isPencil };
 };
 
-// 애플펜슬 터치 이벤트 개선 함수
+// 애플펜슬 터치 이벤트 개선 함수 - IPA 빌드 호환
 export const enhanceApplePencilTouch = (element) => {
   if (!isApplePencil()) return;
   
@@ -378,23 +474,20 @@ export const enhanceApplePencilTouch = (element) => {
     e.touchX = coords.x;
     e.touchY = coords.y;
     
-    // 애플펜슬 터치 시 즉시 반응
-    e.preventDefault();
+    // IPA 빌드에서는 preventDefault 제거하여 기본 동작 허용
     
     // 시각적 피드백
     element.style.transform = 'scale(0.95)';
     element.style.transition = 'transform 0.1s ease';
-  }, { passive: false });
+  }, { passive: true });
   
   element.addEventListener('touchend', (e) => {
     // 터치 종료 시 시각적 피드백 제거
     element.style.transform = 'scale(1)';
     
-    // 클릭 이벤트 실행
-    if (!element.disabled) {
-      element.click();
-    }
-  }, { passive: false });
+    // IPA 빌드에서는 preventDefault 제거하여 기본 동작 허용
+    // 클릭 이벤트는 브라우저가 자동으로 처리
+  }, { passive: true });
 };
 
 // 아이패드에서만 터치 최적화 적용

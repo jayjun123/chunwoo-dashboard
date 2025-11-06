@@ -58,7 +58,7 @@ import {
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { formatNumber } from '../utils/formatUtils';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const ConstructionTeam = () => {
   const theme = useTheme();
@@ -349,22 +349,59 @@ const ConstructionTeam = () => {
     }
   };
 
-  // 엑셀 다운로드 함수
-  const handleExcelDownload = () => {
+  // 엑셀 다운로드 함수 (ExcelJS 사용)
+  const handleExcelDownload = async () => {
     try {
+      // 상태 표기 정규화 함수
+      const normalizeStatus = (status) => {
+        if (!status) return '';
+        const statusStr = String(status).trim();
+        
+        // 원본이 "진행"이면 "진행", "진행중"이면 "진행중"으로 그대로 유지
+        if (statusStr === '진행') return '진행';
+        if (statusStr === '진행중') return '진행중';
+        
+        // 다른 진행 관련 상태들을 정규화
+        if (statusStr === '공사중' || statusStr === '시공중' || statusStr === 'ongoing') {
+          return '진행중';
+        }
+        if (statusStr === 'active') {
+          return '진행';
+        }
+        
+        // 예정 관련 상태들
+        if (statusStr === '예정' || statusStr === 'scheduled') {
+          return '예정';
+        }
+        
+        // 그 외는 원본 그대로 반환
+        return statusStr;
+      };
+
       // 팀별 현장 데이터 정리
       const teamSiteData = teams.map(team => {
-        // 해당 팀이 담당하는 현장들 찾기
+        // 해당 팀이 담당하는 현장들 찾기 (진행중/예정만 포함)
         const teamSites = sites.filter(site => {
           const siteTeamName = (site.team || '').replace(/팀$/, '');
           const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-          return siteTeamName === teamNameWithoutTeam || site.manager === team.managerName;
+          const isTeamMatch = siteTeamName === teamNameWithoutTeam || site.manager === team.managerName;
+          
+          // 진행중/예정 상태만 필터링
+          const isOngoing = site.status === '진행중' || 
+                           site.status === '진행' || 
+                           site.status === '공사중' ||
+                           site.status === '시공중' ||
+                           site.status === 'active' ||
+                           site.status === 'ongoing';
+          const isScheduled = site.status === '예정' || site.status === 'scheduled';
+          
+          return isTeamMatch && (isOngoing || isScheduled);
         });
 
-        // 현장 정보 정리
+        // 현장 정보 정리 (상태 표기 정규화)
         const siteDetails = teamSites.map(site => ({
           현장명: site.name || '',
-          현장상태: site.status || '',
+          현장상태: normalizeStatus(site.status),
           계약금액: site.contractAmount ? formatNumber(site.contractAmount, true) : '',
           시작일: site.startDate || '',
           완료예정일: site.endDate || '',
@@ -388,133 +425,96 @@ const ConstructionTeam = () => {
         };
       });
 
-      // 모든 데이터를 하나의 시트에 통합 (이미지 레이아웃에 맞춤)
-      const allData = [];
-      
-      // 날짜 정보 (1행)
-      const currentDate = new Date().toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long'
-      });
-      allData.push({ '작성일': currentDate });
-      
-      // 통계 데이터를 상단에 배치 (2-7행)
-      const totalTeams = teams.length;
-      const activeTeams = teams.filter(team => team.status === 'active').length;
-      const totalSites = sites.filter(site => site.status === '진행중').length;
-      const totalMembers = teams.reduce((sum, team) => sum + (Number(team.memberCount) || 0), 0);
-      const avgSitesPerTeam = totalSites > 0 ? (totalSites / totalTeams).toFixed(1) : '0';
-      const avgMembersPerTeam = totalTeams > 0 ? (totalMembers / totalTeams).toFixed(1) : '0';
+      // ExcelJS 워크북 생성
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('시공팀현장관리');
 
-      // 통계 정보를 한 행에 배치
-      allData.push({
-        '총 시공팀': totalTeams + '개',
-        '활성 팀 수': activeTeams + '개', 
-        '총 진행 현': totalSites + '개',
-        '총 인원 수': totalMembers + '명',
-        '팀당 현장 평균': avgSitesPerTeam + '개',
-        '팀당 인원 평균': avgMembersPerTeam + '명'
+      // 컬럼 설정
+      worksheet.columns = [
+        { header: '팀명', key: '팀명', width: 12 },
+        { header: '소장', key: '소장', width: 10 },
+        { header: '인원수', key: '인원수', width: 8 },
+        { header: '팀연락처', key: '팀연락처', width: 15 },
+        { header: '이메일', key: '이메일', width: 20 },
+        { header: '팀상태', key: '팀상태', width: 8 },
+        { header: '담당현장수', key: '담당현장수', width: 10 },
+        { header: '기타사항', key: '기타사항', width: 20 },
+        { header: '현장명', key: '현장명', width: 25 },
+        { header: '현장상태', key: '현장상태', width: 10 },
+        { header: '계약금액', key: '계약금액', width: 15 },
+        { header: '시작일', key: '시작일', width: 12 },
+        { header: '완료예정일', key: '완료예정일', width: 12 },
+        { header: '주소', key: '주소', width: 30 },
+        { header: '현장소장', key: '현장소장', width: 10 },
+        { header: '현장연락처', key: '현장연락처', width: 15 }
+      ];
+
+      // 헤더 행 스타일 적용
+      const headerRow = worksheet.getRow(1);
+      headerRow.height = 25;
+      headerRow.font = { name: '맑은 고딕', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF4CAF50' }
+      };
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      
+      // 헤더 셀에 테두리 적용
+      worksheet.columns.forEach((column, index) => {
+        const cell = headerRow.getCell(index + 1);
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF2E7D32' } },
+          bottom: { style: 'thin', color: { argb: 'FF2E7D32' } },
+          left: { style: 'thin', color: { argb: 'FF2E7D32' } },
+          right: { style: 'thin', color: { argb: 'FF2E7D32' } }
+        };
       });
       
-      // 빈 행 추가
-      allData.push({});
-      
-      // 현장별 통합 데이터 (팀 정보 + 현장 정보를 한 행에, G-P 중복 제거)
+      // 데이터 행 추가
+      let currentRow = 2;
       teamSiteData.forEach(team => {
-        let previousValues = {}; // 이전 행의 G-P 값들을 저장
-        
         team.현장상세정보.forEach((site, index) => {
-          // G-P 컬럼 값들 (기타사항부터 연락처까지)
-          const currentValues = {
-            기타사항: team.기타사항,
-            현장명: site.현장명,
-            현장상태: site.현장상태,
-            계약금액: site.계약금액,
-            시작일: site.시작일,
-            완료예정일: site.완료예정일,
-            주소: site.주소,
-            현장소장: site.소장,
-            연락처: site.연락처
-          };
+          // 각 팀의 첫 번째 행에만 팀 정보 표시, 나머지는 빈칸
+          const isFirstRow = index === 0;
           
-          // 중복 체크 및 처리
-          const processedValues = {};
-          Object.keys(currentValues).forEach(key => {
-            if (index === 0) {
-              // 첫 번째 행은 항상 표시
-              processedValues[key] = currentValues[key];
-            } else {
-              // 이전 행과 같은 값이면 빈 값으로 처리
-              processedValues[key] = (currentValues[key] === previousValues[key]) ? '' : currentValues[key];
-            }
+          const row = worksheet.addRow({
+            '팀명': isFirstRow ? team.팀명 : '',
+            '소장': isFirstRow ? team.소장 : '',
+            '인원수': isFirstRow ? team.인원수 : '',
+            '팀연락처': isFirstRow ? team.연락처 : '',
+            '이메일': isFirstRow ? team.이메일 : '',
+            '팀상태': isFirstRow ? team.팀상태 : '',
+            '담당현장수': isFirstRow ? team.담당현장수 : '',
+            '기타사항': isFirstRow ? team.기타사항 : '',
+            '현장명': site.현장명,
+            '현장상태': site.현장상태,
+            '계약금액': site.계약금액,
+            '시작일': site.시작일,
+            '완료예정일': site.완료예정일,
+            '주소': site.주소,
+            '현장소장': site.소장,
+            '현장연락처': site.연락처
           });
           
-          // 처리된 값을 이전 값으로 저장 (원본 값이 아닌)
-          previousValues = { ...processedValues };
+          // 행 높이 설정
+          row.height = 20;
           
-          allData.push({
-            '팀명': team.팀명,
-            '소장': team.소장,
-            '인원수': team.인원수,
-            '팀연락처': team.연락처,
-            '이메일': team.이메일,
-            '팀상태': team.팀상태,
-            '담당현장수': team.담당현장수,
-            '타업체현장': team.타업체현장,
-            '자기현장': team.자기현장,
-            '기타사항': processedValues.기타사항,
-            '현장명': processedValues.현장명,
-            '현장상태': processedValues.현장상태,
-            '계약금액': processedValues.계약금액,
-            '시작일': processedValues.시작일,
-            '완료예정일': processedValues.완료예정일,
-            '주소': processedValues.주소,
-            '현장소장': processedValues.현장소장,
-            '현장연락처': processedValues.연락처
+          // 모든 셀에 스타일 적용
+          row.eachCell((cell, colNumber) => {
+            cell.font = { name: '맑은 고딕', size: 11 };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+              bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+              left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+              right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+            };
+            cell.alignment = { horizontal: 'left', vertical: 'center' };
           });
+          
+          currentRow++;
         });
       });
-
-      // 하나의 워크시트 생성
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(allData);
-      
-      // 제목 셀들에 스타일 적용 (굵게, 큰 글씨)
-      const titleCells = [
-        'A1' // 작성일
-      ];
-      
-      // 워크시트에 스타일 적용
-      if (!ws['!rows']) ws['!rows'] = [];
-      if (!ws['!cols']) ws['!cols'] = [];
-      
-      // 제목 행들의 높이와 스타일 설정
-      titleCells.forEach(cellRef => {
-        if (ws[cellRef]) {
-          ws[cellRef].s = {
-            font: { bold: true, sz: 14 },
-            alignment: { horizontal: 'left', vertical: 'center' }
-          };
-        }
-      });
-      
-      // 일반 데이터 행들의 스타일 설정
-      const range = XLSX.utils.decode_range(ws['!ref']);
-      for (let R = range.s.r; R <= range.e.r; ++R) {
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-          const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
-          if (ws[cellRef] && !titleCells.includes(cellRef)) {
-            ws[cellRef].s = {
-              font: { sz: 11 },
-              alignment: { horizontal: 'left', vertical: 'center' }
-            };
-          }
-        }
-      }
-      
-      XLSX.utils.book_append_sheet(wb, ws, '시공팀현장관리');
 
       // 파일명 생성 (현재 날짜 포함)
       const now = new Date();
@@ -522,7 +522,14 @@ const ConstructionTeam = () => {
       const fileName = `시공팀현장관리_${dateStr}.xlsx`;
 
       // 엑셀 파일 다운로드
-      XLSX.writeFile(wb, fileName);
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
 
       setSnackbar({
         open: true,
@@ -531,11 +538,6 @@ const ConstructionTeam = () => {
       });
 
       console.log('✅ 엑셀 다운로드 완료:', fileName);
-      console.log('📊 다운로드된 데이터:', {
-        팀수: totalTeams,
-        현장수: totalSites,
-        인원수: totalMembers
-      });
 
     } catch (error) {
       console.error('엑셀 다운로드 오류:', error);

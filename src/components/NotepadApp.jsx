@@ -38,7 +38,8 @@ import {
   List as ListIcon,
   PushPin as PinIcon,
   PushPinOutlined as PinOutlinedIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  EditNote as EditNoteIcon
 } from '@mui/icons-material';
 import { storage, db } from '../firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -120,6 +121,7 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
   // Refs
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [dialogSize, setDialogSize] = useState({ width: 550, height: 800 });
   const [dialogPosition, setDialogPosition] = useState({ 
     x: window.innerWidth - 650, // 오른쪽에서 550px(캔버스) + 100px(여백)
@@ -418,6 +420,11 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
 
       const rect = canvas.getBoundingClientRect();
       
+      // 애플펜과 손가락 터치 구분
+      const isPencil = e.pointerType === 'pen' || 
+                      (e.touches && e.touches.length > 0 && e.touches[0].force !== undefined && e.touches[0].force > 0) ||
+                      e.isPencilTouch;
+      
       // 애플펜, 터치, 마우스 이벤트 모두 처리
       let clientX, clientY;
       
@@ -425,19 +432,19 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
       if (e.pointerType && (e.pointerType === 'pen' || e.pointerType === 'touch')) {
         clientX = e.clientX;
         clientY = e.clientY;
-        console.log('애플펜/포인터 이벤트:', { clientX, clientY, pointerType: e.pointerType });
+        console.log('애플펜/포인터 이벤트:', { clientX, clientY, pointerType: e.pointerType, isPencil });
       }
       // 터치 이벤트
       else if (e.touches && e.touches.length > 0) {
         clientX = e.touches[0].clientX;
         clientY = e.touches[0].clientY;
-        console.log('터치 이벤트:', { clientX, clientY });
+        console.log('터치 이벤트:', { clientX, clientY, isPencil });
       } 
       // 변경된 터치 이벤트
       else if (e.changedTouches && e.changedTouches.length > 0) {
         clientX = e.changedTouches[0].clientX;
         clientY = e.changedTouches[0].clientY;
-        console.log('변경된 터치 이벤트:', { clientX, clientY });
+        console.log('변경된 터치 이벤트:', { clientX, clientY, isPencil });
       } 
       // 마우스 이벤트
       else {
@@ -461,46 +468,64 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
       // 아이패드에서 좌표 보정 (더 정확한 계산)
       let x, y;
       
+      // 캔버스의 실제 크기와 표시 크기 비율
+      const canvasScaleX = canvas.width / rect.width;
+      const canvasScaleY = canvas.height / rect.height;
+      
       if (isIPad || isTouchDevice) {
-        // 아이패드/터치 디바이스에서 더 정확한 좌표 계산
-        // 캔버스의 실제 크기와 표시 크기 비율
-        const canvasScaleX = canvas.width / rect.width;
-        const canvasScaleY = canvas.height / rect.height;
-        
-        // 아이패드에서 애플펜슬 위치 보정 (더 정확한 계산)
         // 뷰포트 오프셋과 스크롤 오프셋을 모두 고려
         const viewportOffsetX = window.pageXOffset || document.documentElement.scrollLeft || 0;
         const viewportOffsetY = window.pageYOffset || document.documentElement.scrollTop || 0;
         
-        // 좌표 계산 (아이패드에서 정확한 위치 계산)
-        x = (clientX - rect.left + viewportOffsetX) * canvasScaleX;
-        y = (clientY - rect.top + viewportOffsetY) * canvasScaleY;
-        
-        console.log('아이패드 애플펜슬 좌표 보정:', { 
-          clientX, clientY, 
-          rectLeft: rect.left, rectTop: rect.top,
-          viewportOffsetX, viewportOffsetY,
-          canvasScaleX, canvasScaleY,
-          finalX: x, finalY: y 
-        });
+        // 애플펜슬 전용 오프셋 보정 (더 정확한 위치 계산)
+        if (isPencil) {
+          // 애플펜슬 좌표 보정값 (필요시 조정)
+          const pencilOffsetX = 0; // 애플펜슬 X 오프셋 (픽셀)
+          const pencilOffsetY = 0; // 애플펜슬 Y 오프셋 (픽셀)
+          
+          // 애플펜슬 좌표 계산 (더 정밀한 보정)
+          x = (clientX - rect.left + viewportOffsetX + pencilOffsetX) * canvasScaleX;
+          y = (clientY - rect.top + viewportOffsetY + pencilOffsetY) * canvasScaleY;
+          
+          console.log('아이패드 애플펜슬 좌표 보정:', { 
+            clientX, clientY, 
+            rectLeft: rect.left, rectTop: rect.top,
+            viewportOffsetX, viewportOffsetY,
+            pencilOffsetX, pencilOffsetY,
+            canvasScaleX, canvasScaleY,
+            finalX: x, finalY: y 
+          });
+        } else {
+          // 일반 손가락 터치 좌표 계산
+          x = (clientX - rect.left + viewportOffsetX) * canvasScaleX;
+          y = (clientY - rect.top + viewportOffsetY) * canvasScaleY;
+          
+          console.log('아이패드 손가락 터치 좌표:', { 
+            clientX, clientY, 
+            rectLeft: rect.left, rectTop: rect.top,
+            viewportOffsetX, viewportOffsetY,
+            canvasScaleX, canvasScaleY,
+            finalX: x, finalY: y 
+          });
+        }
       } else {
         // 데스크톱에서 기존 방식 사용
         const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
         const scrollY = window.pageYOffset || document.documentElement.scrollTop;
         
-        x = (clientX - rect.left + scrollX) * (canvas.width / rect.width);
-        y = (clientY - rect.top + scrollY) * (canvas.height / rect.height);
+        x = (clientX - rect.left + scrollX) * canvasScaleX;
+        y = (clientY - rect.top + scrollY) * canvasScaleY;
       }
 
       // 좌표 유효성 검사 (캔버스 범위 내)
       const validX = Math.max(0, Math.min(canvas.width, x));
       const validY = Math.max(0, Math.min(canvas.height, y));
 
-      console.log('최종 좌표:', { validX, validY, originalX: x, originalY: y });
-      return { x: validX, y: validY };
+      console.log('최종 좌표:', { validX, validY, originalX: x, originalY: y, isPencil });
+      return { x: validX, y: validY, isPencil };
     } catch (error) {
       console.warn('좌표 변환 중 오류:', error);
-      return { x: 0, y: 0 };
+      return { x: 0, y: 0, isPencil: false };
     }
   }, []);
 
@@ -1341,6 +1366,111 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
     link.href = safeToDataURL(canvas);
     link.click();
   }, []);
+
+  // 이미지 삽입
+  const handleImageInsert = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }, []);
+
+  // 이미지 파일 선택 처리
+  const handleImageFileSelect = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 이미지 파일인지 확인
+    if (!file.type.startsWith('image/')) {
+      setAlert({ open: true, message: '이미지 파일만 업로드할 수 있습니다.', severity: 'error' });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // 현재 캔버스 상태를 히스토리에서 가져오기
+        if (history.length > 0 && historyIndex >= 0) {
+          const historyImg = new Image();
+          historyImg.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawNotebookBackground(ctx, canvas.width, canvas.height, false);
+            ctx.drawImage(historyImg, 0, 0);
+            
+            // 이미지 크기 조정 (캔버스 크기에 맞춤)
+            const maxWidth = canvas.width;
+            const maxHeight = canvas.height;
+            let drawWidth = img.width;
+            let drawHeight = img.height;
+            
+            // 비율 유지하면서 크기 조정
+            if (drawWidth > maxWidth || drawHeight > maxHeight) {
+              const ratio = Math.min(maxWidth / drawWidth, maxHeight / drawHeight);
+              drawWidth = drawWidth * ratio;
+              drawHeight = drawHeight * ratio;
+            }
+            
+            // 중앙에 배치
+            const x = (canvas.width - drawWidth) / 2;
+            const y = (canvas.height - drawHeight) / 2;
+            
+            ctx.drawImage(img, x, y, drawWidth, drawHeight);
+            
+            // 히스토리에 저장
+            const imageData = safeToDataURL(canvas);
+            const newHistory = history.slice(0, historyIndex + 1);
+            newHistory.push(imageData);
+            setHistory(newHistory);
+            setHistoryIndex(newHistory.length - 1);
+            
+            setAlert({ open: true, message: '이미지가 삽입되었습니다.', severity: 'success' });
+          };
+          historyImg.src = history[historyIndex];
+        } else {
+          // 히스토리가 없는 경우
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          drawNotebookBackground(ctx, canvas.width, canvas.height, false);
+          
+          // 이미지 크기 조정
+          const maxWidth = canvas.width;
+          const maxHeight = canvas.height;
+          let drawWidth = img.width;
+          let drawHeight = img.height;
+          
+          if (drawWidth > maxWidth || drawHeight > maxHeight) {
+            const ratio = Math.min(maxWidth / drawWidth, maxHeight / drawHeight);
+            drawWidth = drawWidth * ratio;
+            drawHeight = drawHeight * ratio;
+          }
+          
+          const x = (canvas.width - drawWidth) / 2;
+          const y = (canvas.height - drawHeight) / 2;
+          
+          ctx.drawImage(img, x, y, drawWidth, drawHeight);
+          
+          const imageData = safeToDataURL(canvas);
+          setHistory([imageData]);
+          setHistoryIndex(0);
+          
+          setAlert({ open: true, message: '이미지가 삽입되었습니다.', severity: 'success' });
+        }
+      };
+      img.src = event.target.result;
+    };
+    reader.onerror = () => {
+      setAlert({ open: true, message: '이미지 파일을 읽는데 실패했습니다.', severity: 'error' });
+    };
+    reader.readAsDataURL(file);
+    
+    // 파일 입력 초기화 (같은 파일을 다시 선택할 수 있도록)
+    e.target.value = '';
+  }, [history, historyIndex, drawNotebookBackground, safeToDataURL]);
 
   // Effects (안정성 개선)
   useEffect(() => {
@@ -2218,6 +2348,16 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
             >
               다운로드
             </Button>
+
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<ImageIcon />}
+              onClick={handleImageInsert}
+              sx={{ minWidth: 'auto', px: 1 }}
+            >
+              사진
+            </Button>
           </Box>
         </Box>
 
@@ -2327,6 +2467,15 @@ const IdeaPad = ({ open, onClose, siteId, siteName, drawingId }) => {
           />
           
         </Box>
+
+        {/* 숨겨진 파일 입력 */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleImageFileSelect}
+        />
 
         {/* 저장된 목록 */}
         {showList && (

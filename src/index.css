@@ -72,9 +72,9 @@
   -webkit-text-fill-color: #000000 !important;
 }
 
-/* aria-hidden 경고 완화 */
+/* aria-hidden 경고 완화 - IPA 빌드에서는 터치 허용 */
 [aria-hidden="true"] {
-  pointer-events: none !important;
+  pointer-events: auto !important;
 }
 
 /* Material-UI 내부 aria-hidden 요소 스타일링 */
@@ -98,14 +98,14 @@
   box-shadow: none !important;
 }
 
-/* inert 속성 지원 */
+/* inert 속성 지원 - IPA 빌드에서는 터치 허용 */
 [inert] {
-  pointer-events: none !important;
+  pointer-events: auto !important;
   user-select: none !important;
 }
 
 [inert] * {
-  pointer-events: none !important;
+  pointer-events: auto !important;
   user-select: none !important;
 }
 
@@ -791,18 +791,21 @@ html, body {
   -ms-overflow-style: none !important;
 }
 
-/* 터치 최적화 */
+/* 터치 최적화 - IPA 빌드 호환 */
 * {
-  -webkit-touch-callout: none;
+  -webkit-touch-callout: default;
   -webkit-user-select: none;
   -khtml-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
   /* 모든 요소에 스크롤 바운스 방지 */
   overscroll-behavior: none !important;
   -webkit-overflow-scrolling: touch !important;
+  /* IPA 빌드에서 터치 활성화 */
+  pointer-events: auto !important;
+  touch-action: auto !important;
 }
 
 /* 입력 필드는 선택 가능 */
@@ -1358,12 +1361,56 @@ body.popup-open {
   filter: blur(1px);
 }
 
-/* PWA 최적화 */
+/* PWA 및 IPA 빌드 최적화 - 터치 활성화 */
 @media (display-mode: standalone) {
   body {
     /* PWA 모드에서 브라우저 UI 숨김 */
     -webkit-user-select: none;
     user-select: none;
+  }
+  
+  /* IPA 빌드에서 모든 터치 활성화 */
+  * {
+    pointer-events: auto !important;
+    touch-action: auto !important;
+    -webkit-touch-callout: default !important;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  /* 인터랙티브 요소 터치 최적화 */
+  button, a, [role="button"], input, textarea, select, .MuiButton-root, 
+  .MuiIconButton-root, .MuiTab-root, .MuiMenuItem-root, .MuiChip-root,
+  .MuiCard-root, .MuiPaper-root, .MuiTableCell-root, .clickable {
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1) !important;
+    cursor: pointer !important;
+  }
+  
+  /* 스크롤 영역 터치 활성화 */
+  .main-content, .MuiBox-root, .MuiContainer-root, .MuiGrid-root,
+  .MuiPaper-root, .MuiCard-root, [class*="scroll"], [class*="overflow"] {
+    pointer-events: auto !important;
+    touch-action: pan-y pan-x !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* 입력 필드 터치 활성화 */
+  input, textarea, select, [contenteditable] {
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    -webkit-user-select: text !important;
+    user-select: text !important;
+  }
+  
+  /* aria-hidden이나 inert 속성도 터치 가능하도록 (필요시) */
+  [aria-hidden="true"]:not([aria-hidden="true"] *) {
+    pointer-events: auto !important;
+  }
+  
+  /* inert 속성이 있어도 터치 가능하도록 */
+  [inert] {
+    pointer-events: auto !important;
   }
 }
 
@@ -1628,7 +1675,7 @@ code {
   transform: translateY(-50%) scale(1.02) !important;
 }
 
-/* 빈 Grid 요소 제거 */
+/* 빈 Grid 요소 제거 - IPA 빌드에서는 터치 허용하지 않음 (의도적) */
 .MuiGrid-root.MuiGrid-direction-xs-row:empty,
 .MuiGrid-root.MuiGrid-direction-xs-row:blank,
 .MuiGrid-root.MuiGrid-direction-xs-row:not(:has(*)),
@@ -1656,6 +1703,23 @@ code {
   box-shadow: none !important;
 }
 
+/* IPA 빌드에서는 숨겨진 요소는 터치 불가능 (의도적) */
+@media (display-mode: standalone) {
+  /* 숨겨진 빈 요소는 터치 불가능하게 유지 (성능상 이유) */
+  .MuiGrid-root.MuiGrid-direction-xs-row:empty,
+  .MuiGrid-root.MuiGrid-direction-xs-row:blank,
+  .MuiGrid-root.MuiGrid-direction-xs-row:not(:has(*)),
+  .MuiGrid-root.css-1uo269c-MuiGrid-root,
+  .css-1uo269c-MuiGrid-root,
+  .MuiGrid-root[class*="css-1uo269c"]:empty,
+  .MuiGrid-root[class*="css-1uo269c"]:not(:has(*)),
+  .MuiGrid-root:empty,
+  .MuiGrid-root:blank,
+  .MuiGrid-root:not(:has(*)) {
+    pointer-events: none !important;
+  }
+}
+
 /* 하얀 배경 요소 제거 */
 .MuiBox-root[style*="background: white"],
 .MuiBox-root[style*="background: #fff"],
@@ -1669,7 +1733,7 @@ code {
   box-shadow: none !important;
 }
 
-/* 빈 Grid 요소 완전 제거 */
+/* 빈 Grid 요소 완전 제거 - IPA 빌드에서는 터치 허용하지 않음 (의도적) */
 .MuiGrid-root[class*="css-1uo269c"],
 .MuiGrid-root[class*="css-1uo269c"]:empty,
 .MuiGrid-root[class*="css-1uo269c"]:not(:has(*)),

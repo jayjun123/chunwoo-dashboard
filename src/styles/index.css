@@ -365,18 +365,20 @@ html, body, #root {
   }
 }
 
-/* 아이패드 터치 이벤트 개선 */
+/* 아이패드 터치 이벤트 개선 - IPA 빌드 호환 */
 @media (min-width: 768px) and (max-width: 1024px) {
-  /* 터치 지연 시간 제거 */
+  /* 터치 지연 시간 제거 - IPA 빌드에서 터치 활성화 */
   * {
-    -webkit-touch-callout: none !important;
+    -webkit-touch-callout: default !important;
     -webkit-user-select: none !important;
     -khtml-user-select: none !important;
     -moz-user-select: none !important;
     -ms-user-select: none !important;
     user-select: none !important;
-    -webkit-tap-highlight-color: transparent !important;
-    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1) !important;
+    touch-action: auto !important;
+    /* IPA 빌드에서 모든 터치 활성화 */
+    pointer-events: auto !important;
   }
   
   /* 입력 필드는 텍스트 선택 허용 */
@@ -388,46 +390,86 @@ html, body, #root {
     user-select: text !important;
   }
   
-  /* 버튼 터치 영역 최적화 */
+  /* 버튼 터치 영역 최적화 - IPA 빌드 호환 */
   button, .MuiButton-root, .MuiIconButton-root, .MuiTab-root {
     min-height: 44px !important;
     min-width: 44px !important;
     touch-action: manipulation !important;
-    -webkit-tap-highlight-color: transparent !important;
-    -webkit-touch-callout: none !important;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1) !important;
+    -webkit-touch-callout: default !important;
     -webkit-user-select: none !important;
     user-select: none !important;
+    /* IPA 빌드에서 터치 활성화 */
+    pointer-events: auto !important;
+    cursor: pointer !important;
   }
   
-  /* 테이블 셀 터치 최적화 */
+  /* 테이블 셀 터치 최적화 - IPA 빌드 호환 */
   .MuiTableCell-root {
     min-height: 44px !important;
     touch-action: manipulation !important;
-    -webkit-tap-highlight-color: transparent !important;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1) !important;
+    /* IPA 빌드에서 터치 활성화 */
+    pointer-events: auto !important;
   }
   
-  /* 카드 및 클릭 가능한 요소 터치 최적화 */
+  /* 카드 및 클릭 가능한 요소 터치 최적화 - IPA 빌드 호환 */
   .MuiCard-root, .MuiPaper-root, .MuiChip-root {
     touch-action: manipulation !important;
-    -webkit-tap-highlight-color: transparent !important;
-    -webkit-touch-callout: none !important;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1) !important;
+    -webkit-touch-callout: default !important;
+    /* IPA 빌드에서 터치 활성화 */
+    pointer-events: auto !important;
   }
   
-  /* 스크롤 영역과 터치 이벤트 분리 */
+  /* 스크롤 영역과 터치 이벤트 분리 - IPA 빌드 호환 */
   .MuiBox-root, .MuiContainer-root, .MuiGrid-root {
-    touch-action: pan-y !important;
+    touch-action: pan-y pan-x !important;
     -webkit-overflow-scrolling: touch !important;
+    /* IPA 빌드에서 터치 활성화 */
+    pointer-events: auto !important;
   }
   
-  /* 링크 터치 지연 제거 */
+  /* 링크 터치 지연 제거 - IPA 빌드 호환 */
   a, .MuiLink-root {
-    -webkit-tap-highlight-color: transparent !important;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1) !important;
     touch-action: manipulation !important;
+    /* IPA 빌드에서 터치 활성화 */
+    pointer-events: auto !important;
+    cursor: pointer !important;
   }
   
-  /* 드롭다운 및 메뉴 터치 최적화 */
+  /* 드롭다운 및 메뉴 터치 최적화 - IPA 빌드 호환 */
   .MuiSelect-root, .MuiMenuItem-root, .MuiList-root {
     touch-action: manipulation !important;
-    -webkit-tap-highlight-color: transparent !important;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1) !important;
+    /* IPA 빌드에서 터치 활성화 */
+    pointer-events: auto !important;
+  }
+}
+
+/* IPA 빌드 및 PWA 모드 전용 터치 활성화 */
+@media (display-mode: standalone) {
+  /* 모든 요소에 터치 활성화 */
+  * {
+    pointer-events: auto !important;
+    touch-action: auto !important;
+  }
+  
+  /* 인터랙티브 요소 터치 최적화 */
+  button, a, [role="button"], input, textarea, select, 
+  .MuiButton-root, .MuiIconButton-root, .MuiTab-root, 
+  .MuiMenuItem-root, .MuiChip-root, .MuiCard-root, 
+  .MuiPaper-root, .MuiTableCell-root, .clickable {
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    cursor: pointer !important;
+  }
+  
+  /* 스크롤 영역 터치 활성화 */
+  .main-content, .MuiBox-root, .MuiContainer-root, 
+  .MuiGrid-root, .MuiPaper-root, .MuiCard-root {
+    pointer-events: auto !important;
+    touch-action: pan-y pan-x !important;
   }
 } 
