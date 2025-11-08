@@ -10,6 +10,20 @@ const PENCIL_PRIORITY = true; // 애플펜슬 우선 처리
 export const preventTouchDelay = () => {
   // 터치 이벤트 지연 제거 - IPA 빌드에서는 preventDefault 제거
   document.addEventListener('touchstart', (e) => {
+    // 입력 필드인 경우 기본 동작 허용 (커서 생성을 위해)
+    const target = e.target;
+    if (target && (
+      target.tagName === 'INPUT' || 
+      target.tagName === 'TEXTAREA' || 
+      target.tagName === 'SELECT' ||
+      target.closest('input, textarea, select') ||
+      target.closest('.MuiTextField-root') ||
+      target.closest('.MuiInputBase-root')
+    )) {
+      // 입력 필드는 기본 동작 허용
+      return;
+    }
+    
     // 애플펜슬과 손가락 터치 구분
     const isPencil = isApplePencilTouch(e);
     const now = Date.now();
@@ -162,6 +176,11 @@ export const optimizeClickableElements = () => {
   const clickableElements = document.querySelectorAll('.MuiCard-root, .MuiPaper-root, .MuiChip-root, [role="button"]');
   
   clickableElements.forEach(element => {
+    // 입력 필드가 포함된 경우 건너뛰기
+    if (element.querySelector('input, textarea, select')) {
+      return;
+    }
+    
     // 터치 최적화
     element.style.touchAction = 'manipulation';
     element.style.webkitTapHighlightColor = 'transparent';
@@ -281,6 +300,22 @@ export const optimizeApplePencil = () => {
         touch-action: manipulation;
       }
       
+      /* 입력 필드는 선택 가능하도록 예외 처리 */
+      input, textarea, select,
+      input *, textarea *, select *,
+      .MuiTextField-root input,
+      .MuiTextField-root textarea,
+      .MuiInputBase-input,
+      .MuiInputBase-root input,
+      .MuiInputBase-root textarea {
+        -webkit-user-select: text !important;
+        -moz-user-select: text !important;
+        -ms-user-select: text !important;
+        user-select: text !important;
+        pointer-events: auto !important;
+        cursor: text !important;
+      }
+      
       button, [role="button"], .clickable {
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
@@ -292,14 +327,26 @@ export const optimizeApplePencil = () => {
       }
       
       input, textarea, select {
-        -webkit-user-select: text;
-        -moz-user-select: text;
-        -ms-user-select: text;
-        user-select: text;
+        -webkit-user-select: text !important;
+        -moz-user-select: text !important;
+        -ms-user-select: text !important;
+        user-select: text !important;
         touch-action: manipulation;
         /* 입력 필드는 터치 영역 확대 */
         min-height: 44px !important;
         padding: 12px !important;
+        /* 포커스 가능하도록 설정 */
+        pointer-events: auto !important;
+        cursor: text !important;
+      }
+      
+      input:focus, textarea:focus, select:focus {
+        -webkit-user-select: text !important;
+        -moz-user-select: text !important;
+        -ms-user-select: text !important;
+        user-select: text !important;
+        outline: none !important;
+        cursor: text !important;
       }
       
       /* Material-UI 컴포넌트 터치 영역 확대 */
@@ -330,10 +377,23 @@ export const optimizeApplePencil = () => {
     
     // 애플펜슬 터치 이벤트 개선 - IPA 빌드 호환
     document.addEventListener('touchstart', (e) => {
+      // 입력 필드인 경우 기본 동작 허용 (커서 생성을 위해)
+      const target = e.target;
+      if (target && (
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' || 
+        target.tagName === 'SELECT' ||
+        target.closest('input, textarea, select') ||
+        target.closest('.MuiTextField-root') ||
+        target.closest('.MuiInputBase-root')
+      )) {
+        // 입력 필드는 기본 동작 허용
+        return;
+      }
+      
       // 애플펜슬 터치 시 즉시 반응하도록 처리
       if (e.touches && e.touches.length > 0) {
         const touch = e.touches[0];
-        const target = e.target;
         
         // 터치 좌표 정확도 개선
         const rect = target.getBoundingClientRect();
