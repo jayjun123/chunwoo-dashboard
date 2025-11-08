@@ -10,7 +10,7 @@ import { globalCleanupManager, enhancedPerformanceMonitor } from './utils/perfor
 import { initializeMobileInputOptimization } from './utils/mobileInputOptimization';
 import { fixAriaHiddenIssues } from './utils/materialUploadUtils';
 import { fixNestedScrollContainers } from './utils/dndScrollFix';
-import { applyIPadTouchOptimization, enhanceApplePencilTouch } from './utils/touchOptimization';
+import { applyIPadTouchOptimization, enhanceApplePencilTouch, ensureInputFocus } from './utils/touchOptimization';
 import { initTouchOptimization } from './utils/touchUtils';
 import './utils/migrateUtils';
 import './styles/IME.css';
@@ -381,6 +381,17 @@ const App = React.memo(() => {
     } catch (error) {
       console.error('Mobile optimization error:', error);
       // 오류가 발생해도 앱은 계속 실행
+    }
+  }, []);
+
+  // 입력 필드 포커스 강제 활성화 (모든 디바이스)
+  useEffect(() => {
+    try {
+      // 즉시 실행
+      ensureInputFocus();
+      console.log('Input focus optimization initialized');
+    } catch (error) {
+      console.error('Input focus optimization error:', error);
     }
   }, []);
 

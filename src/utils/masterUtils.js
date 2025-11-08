@@ -28,6 +28,58 @@ const getMasterUids = () => {
   return ['HpF5IrlTscYbWPsUhtdzV05sjbF2', 'rNNl8lQK3JaPImKipSqmcBANAKf2'];
 };
 
+// 메모이제이션 캐시 (성능 최적화)
+const permissionCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5분
+
+// 캐시 키 생성
+const getCacheKey = (user, type) => {
+  if (!user) return null;
+  return `${type}_${user.uid}_${user.role}_${user.grade}`;
+};
+
+// 캐시에서 값 가져오기
+const getCachedPermission = (key) => {
+  if (!key) return null;
+  const cached = permissionCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.value;
+  }
+  permissionCache.delete(key);
+  return null;
+};
+
+// 캐시에 값 저장
+const setCachedPermission = (key, value) => {
+  if (!key) return;
+  permissionCache.set(key, {
+    value,
+    timestamp: Date.now()
+  });
+};
+
+// 디버그 모드 확인 (환경변수로 제어)
+const isDebugMode = () => {
+  return import.meta.env.VITE_DEBUG_PERMISSIONS === 'true';
+};
+
+// 캐시 무효화 함수 (사용자 정보 변경 시 호출)
+export const clearPermissionCache = (userId = null) => {
+  if (userId) {
+    // 특정 사용자의 캐시만 삭제
+    const keysToDelete = [];
+    for (const key of permissionCache.keys()) {
+      if (key.includes(userId)) {
+        keysToDelete.push(key);
+      }
+    }
+    keysToDelete.forEach(key => permissionCache.delete(key));
+  } else {
+    // 전체 캐시 삭제
+    permissionCache.clear();
+  }
+};
+
 /**
  * 사용자가 마스터 권한을 가지고 있는지 확인
  * @param {Object} user - 사용자 객체
@@ -150,8 +202,17 @@ export const isAdminUser = async (user) => {
  */
 export const isAdminUserSync = (user) => {
   if (!user) {
-    console.log('🔍 isAdminUserSync: 사용자 정보 없음');
+    if (isDebugMode()) {
+      console.log('🔍 isAdminUserSync: 사용자 정보 없음');
+    }
     return false;
+  }
+  
+  // 캐시 확인
+  const cacheKey = getCacheKey(user, 'admin');
+  const cached = getCachedPermission(cacheKey);
+  if (cached !== null) {
+    return cached;
   }
   
   const role = user.role || '';
@@ -159,33 +220,47 @@ export const isAdminUserSync = (user) => {
   const email = user.email?.toLowerCase() || '';
   const displayName = user.displayName || '';
   
-  console.log('🔍 isAdminUserSync 체크:', {
-    email,
-    role,
-    grade,
-    displayName,
-    uid: user.uid
-  });
+  if (isDebugMode()) {
+    console.log('🔍 isAdminUserSync 체크:', {
+      email,
+      role,
+      grade,
+      displayName,
+      uid: user.uid
+    });
+  }
   
   // 마스터는 관리자 권한도 포함
   if (isMasterUserSync(user)) {
-    console.log('✅ 마스터 권한으로 관리자 권한 부여');
+    if (isDebugMode()) {
+      console.log('✅ 마스터 권한으로 관리자 권한 부여');
+    }
+    setCachedPermission(cacheKey, true);
     return true;
   }
   
   // 관리자 역할이나 등급 확인
   if (role === 'admin' || grade === '관리자') {
-    console.log('✅ 역할/등급으로 관리자 권한 부여:', { role, grade });
+    if (isDebugMode()) {
+      console.log('✅ 역할/등급으로 관리자 권한 부여:', { role, grade });
+    }
+    setCachedPermission(cacheKey, true);
     return true;
   }
   
   // 이메일이나 이름에 'admin' 포함 확인
   if (email.includes('admin') || displayName.includes('관리자')) {
-    console.log('✅ 이메일/이름으로 관리자 권한 부여:', { email, displayName });
+    if (isDebugMode()) {
+      console.log('✅ 이메일/이름으로 관리자 권한 부여:', { email, displayName });
+    }
+    setCachedPermission(cacheKey, true);
     return true;
   }
   
-  console.log('❌ 관리자 권한 없음');
+  if (isDebugMode()) {
+    console.log('❌ 관리자 권한 없음');
+  }
+  setCachedPermission(cacheKey, false);
   return false;
 };
 
@@ -196,8 +271,17 @@ export const isAdminUserSync = (user) => {
  */
 export const isMasterUserSync = (user) => {
   if (!user) {
-    console.log('🔍 isMasterUserSync: 사용자 정보 없음');
+    if (isDebugMode()) {
+      console.log('🔍 isMasterUserSync: 사용자 정보 없음');
+    }
     return false;
+  }
+  
+  // 캐시 확인
+  const cacheKey = getCacheKey(user, 'master');
+  const cached = getCachedPermission(cacheKey);
+  if (cached !== null) {
+    return cached;
   }
   
   const email = user.email?.toLowerCase() || '';
@@ -206,43 +290,64 @@ export const isMasterUserSync = (user) => {
   const grade = user.grade || '';
   const displayName = user.displayName || '';
   
-  console.log('🔍 isMasterUserSync 체크:', {
-    email,
-    uid,
-    role,
-    grade,
-    displayName
-  });
+  if (isDebugMode()) {
+    console.log('🔍 isMasterUserSync 체크:', {
+      email,
+      uid,
+      role,
+      grade,
+      displayName
+    });
+  }
   
   // 1. 역할이나 등급으로 확인
   if (role === 'master' || grade === '마스터') {
-    console.log('✅ 역할/등급으로 마스터 권한 부여:', { role, grade });
+    if (isDebugMode()) {
+      console.log('✅ 역할/등급으로 마스터 권한 부여:', { role, grade });
+    }
+    setCachedPermission(cacheKey, true);
     return true;
   }
   
   // 2. 이메일로 확인
   const masterEmails = getMasterEmails();
-  console.log('🔍 마스터 이메일 목록:', masterEmails);
+  if (isDebugMode()) {
+    console.log('🔍 마스터 이메일 목록:', masterEmails);
+  }
   if (masterEmails.some(masterEmail => email === masterEmail.toLowerCase())) {
-    console.log('✅ 이메일로 마스터 권한 부여:', email);
+    if (isDebugMode()) {
+      console.log('✅ 이메일로 마스터 권한 부여:', email);
+    }
+    setCachedPermission(cacheKey, true);
     return true;
   }
   
   // 3. UID로 확인
   const masterUids = getMasterUids();
-  console.log('🔍 마스터 UID 목록:', masterUids);
+  if (isDebugMode()) {
+    console.log('🔍 마스터 UID 목록:', masterUids);
+  }
   if (masterUids.includes(uid)) {
-    console.log('✅ UID로 마스터 권한 부여:', uid);
+    if (isDebugMode()) {
+      console.log('✅ UID로 마스터 권한 부여:', uid);
+    }
+    setCachedPermission(cacheKey, true);
     return true;
   }
   
   // 4. 이메일이나 이름에 'master' 포함 확인
   if (email.includes('master') || displayName.includes('마스터')) {
-    console.log('✅ 이메일/이름으로 마스터 권한 부여:', { email, displayName });
+    if (isDebugMode()) {
+      console.log('✅ 이메일/이름으로 마스터 권한 부여:', { email, displayName });
+    }
+    setCachedPermission(cacheKey, true);
     return true;
   }
   
-  console.log('❌ 마스터 권한 없음');
+  if (isDebugMode()) {
+    console.log('❌ 마스터 권한 없음');
+  }
+  setCachedPermission(cacheKey, false);
   return false;
 };
 
