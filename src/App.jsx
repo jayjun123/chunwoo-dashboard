@@ -29,6 +29,7 @@ import PopupProvider from './contexts/PopupContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import SplashScreen from './components/common/SplashScreen';
 import FloatingTodoList from './components/FloatingTodoList';
+import ProtectedRoute from './components/common/ProtectedRoute';
 
 // 성능 최적화: 로딩 컴포넌트
 const LoadingSpinner = () => (
@@ -245,37 +246,8 @@ const Claims = React.lazy(() => import('./pages/Claims'));
 const Confidential = React.lazy(() => import('./pages/Confidential'));
 const UserManual = React.lazy(() => import('./pages/UserManual'));
 const EstimateAnalysis = React.lazy(() => import('./pages/EstimateAnalysis'));
-import { CircularProgress } from '@mui/material';
 const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const NotificationCrawler = React.lazy(() => import('./components/NotificationCrawler'));
-
-const ProtectedRoute = ({ children }) => {
-  const { currentUser, loading } = useAuth();
-  const [showSplash, setShowSplash] = useState(true);
-  
-  console.log('🛡️ ProtectedRoute 렌더링:', { currentUser, loading, showSplash });
-  
-  if (loading || showSplash) {
-    console.log('⏳ ProtectedRoute - 로딩 중 또는 스플래시 표시 중');
-    return (
-      <SplashScreen 
-        onComplete={() => {
-          console.log('✅ 스플래시 화면 완료');
-          setShowSplash(false);
-        }} 
-      />
-    );
-  }
-  
-  // 로그인하지 않은 경우 로그인 화면 표시
-  if (!currentUser) {
-    console.log('🚫 ProtectedRoute - 로그인 필요, 로그인 페이지로 이동');
-    return <Navigate to="/auth" replace />;
-  }
-  
-  console.log('✅ ProtectedRoute - 로그인 완료, 메인 페이지로 이동');
-  return children;
-};
 
 const App = React.memo(() => {
   // 아이디어패드 상태
