@@ -1399,12 +1399,28 @@ const Estimates = () => {
                 <SearchIcon sx={{ color: '#666' }} />
               </InputAdornment>
             ),
-            endAdornment: (
+            endAdornment: searchTerm && (
               <InputAdornment position="end">
                 <IconButton
-                  onClick={() => setSearchTerm('')}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSearchTerm('');
+                  }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSearchTerm('');
+                  }}
                   edge="end"
-                  sx={{ color: '#666', '&:hover': { color: '#fff' } }}
+                  sx={{ 
+                    color: '#666', 
+                    '&:hover': { color: '#fff' },
+                    pointerEvents: 'auto !important',
+                    touchAction: 'manipulation !important',
+                    minWidth: '44px',
+                    minHeight: '44px'
+                  }}
                 >
                   <ClearIcon fontSize="small" />
                 </IconButton>
@@ -1735,8 +1751,23 @@ const Estimates = () => {
                     <Tooltip title="수정">
                       <IconButton
                         size="small"
-                        onClick={() => handleOpenDialog(estimate)}
-                        sx={{ color: '#ff9800' }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleOpenDialog(estimate);
+                        }}
+                        onTouchStart={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleOpenDialog(estimate);
+                        }}
+                        sx={{ 
+                          color: '#ff9800',
+                          pointerEvents: 'auto !important',
+                          touchAction: 'manipulation !important',
+                          minWidth: '44px',
+                          minHeight: '44px'
+                        }}
                       >
                         <EditIcon fontSize="small" />
                       </IconButton>
@@ -1879,7 +1910,21 @@ const Estimates = () => {
         maxWidth="md"
         fullWidth
         PaperProps={{
-          sx: { backgroundColor: '#2a2a2a' }
+          sx: { 
+            backgroundColor: '#2a2a2a',
+            pointerEvents: 'auto !important',
+            touchAction: 'auto !important'
+          }
+        }}
+        sx={{
+          '& .MuiDialog-container': {
+            pointerEvents: 'auto !important',
+            touchAction: 'auto !important'
+          },
+          '& .MuiBackdrop-root': {
+            pointerEvents: 'auto !important',
+            touchAction: 'auto !important'
+          }
         }}
       >
         <DialogTitle sx={{ color: '#fff' }}>
@@ -2221,11 +2266,53 @@ const Estimates = () => {
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleCloseDialog} sx={{ color: '#ccc' }}>
+        <DialogActions sx={{ 
+          p: 2,
+          pointerEvents: 'auto !important',
+          touchAction: 'manipulation !important'
+        }}>
+          <Button 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleCloseDialog();
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleCloseDialog();
+            }}
+            sx={{ 
+              color: '#ccc',
+              pointerEvents: 'auto !important',
+              touchAction: 'manipulation !important',
+              minWidth: '44px',
+              minHeight: '44px'
+            }}
+          >
             취소
           </Button>
-          <Button onClick={handleSave} variant="contained" sx={{ backgroundColor: '#ff9800', '&:hover': { backgroundColor: '#f57c00' } }}>
+          <Button 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleSave();
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleSave();
+            }}
+            variant="contained" 
+            sx={{ 
+              backgroundColor: '#ff9800', 
+              '&:hover': { backgroundColor: '#f57c00' },
+              pointerEvents: 'auto !important',
+              touchAction: 'manipulation !important',
+              minWidth: '44px',
+              minHeight: '44px'
+            }}
+          >
             저장
           </Button>
         </DialogActions>

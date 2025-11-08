@@ -2784,8 +2784,42 @@ const ScheduleManagement = ({
           tabIndex={0}
           sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', bgcolor: 'rgba(0,0,0,0.7)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          <Box onClick={e => e.stopPropagation()} sx={{ width: 600, height: 'auto', bgcolor: '#2d2d2d', borderRadius: 2, p: 3, boxShadow: 8, position: 'relative', zIndex: 3100 }}>
-            <IconButton onClick={e => { e.stopPropagation(); handleCloseListPopup(); }} sx={{ position: 'absolute', top: 8, right: 8, color: 'text.primary' }}>X</IconButton>
+          <Box onClick={e => e.stopPropagation()} sx={{ 
+            width: 600, 
+            height: 'auto', 
+            bgcolor: '#2d2d2d', 
+            borderRadius: 2, 
+            p: 3, 
+            boxShadow: 8, 
+            position: 'relative', 
+            zIndex: 3100,
+            pointerEvents: 'auto !important',
+            touchAction: 'auto !important'
+          }}>
+            <IconButton 
+              onClick={(e) => { 
+                e.preventDefault();
+                e.stopPropagation(); 
+                handleCloseListPopup(); 
+              }}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleCloseListPopup();
+              }}
+              sx={{ 
+                position: 'absolute', 
+                top: 8, 
+                right: 8, 
+                color: 'text.primary',
+                pointerEvents: 'auto !important',
+                touchAction: 'manipulation !important',
+                minWidth: '44px',
+                minHeight: '44px'
+              }}
+            >
+              X
+            </IconButton>
             <Typography variant="h5" sx={{ color: 'text.primary', mb: 3, fontWeight: 'bold' }}>
               {editPopup.open && editPopup.item ? '일정 수정' : 
                editPopup.open && !editPopup.item ? `${listPopupDate} 일정 추가` : 
@@ -2806,7 +2840,17 @@ const ScheduleManagement = ({
                     }
                   }} 
                   fullWidth 
-                  sx={{ mb: 3 }} 
+                  sx={{ 
+                    mb: 3,
+                    '& .MuiInputBase-root': {
+                      pointerEvents: 'auto !important',
+                      touchAction: 'manipulation !important'
+                    },
+                    '& .MuiInputBase-input': {
+                      pointerEvents: 'auto !important',
+                      touchAction: 'manipulation !important'
+                    }
+                  }} 
                   autoFocus 
                   variant="outlined"
                   size="medium"
@@ -2818,9 +2862,30 @@ const ScheduleManagement = ({
                     options={sites.map(site => site.name).filter(Boolean)}
                     value={popupSiteName || ''}
                     onInputChange={(_, v) => setPopupSiteName(v)}
-                    renderInput={(params) => <TextField {...params} label="현장명 검색" />}
+                    renderInput={(params) => (
+                      <TextField 
+                        {...params} 
+                        label="현장명 검색"
+                        sx={{
+                          '& .MuiInputBase-root': {
+                            pointerEvents: 'auto !important',
+                            touchAction: 'manipulation !important'
+                          },
+                          '& .MuiInputBase-input': {
+                            pointerEvents: 'auto !important',
+                            touchAction: 'manipulation !important'
+                          }
+                        }}
+                      />
+                    )}
                     freeSolo
-                    sx={{ mb: 2 }}
+                    sx={{ 
+                      mb: 2,
+                      '& .MuiAutocomplete-inputRoot': {
+                        pointerEvents: 'auto !important',
+                        touchAction: 'manipulation !important'
+                      }
+                    }}
                   />
                 )}
                 
@@ -2970,24 +3035,77 @@ const ScheduleManagement = ({
                   fullWidth 
                   multiline 
                   rows={4} 
-                  sx={{ mb: 3 }} 
+                  sx={{ 
+                    mb: 3,
+                    '& .MuiInputBase-root': {
+                      pointerEvents: 'auto !important',
+                      touchAction: 'manipulation !important'
+                    },
+                    '& .MuiInputBase-input': {
+                      pointerEvents: 'auto !important',
+                      touchAction: 'manipulation !important'
+                    }
+                  }} 
                   variant="outlined"
                   size="medium"
                 />
                 
-                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 3 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  gap: 2, 
+                  justifyContent: 'flex-end', 
+                  mt: 3,
+                  pointerEvents: 'auto !important',
+                  touchAction: 'manipulation !important'
+                }}>
                   <Button 
                     variant="outlined" 
-                    onClick={() => setEditPopup({ open: false, item: null, date: null })} 
-                    sx={{ minWidth: 80 }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditPopup({ open: false, item: null, date: null });
+                    }}
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditPopup({ open: false, item: null, date: null });
+                    }}
+                    sx={{ 
+                      minWidth: 80,
+                      pointerEvents: 'auto !important',
+                      touchAction: 'manipulation !important',
+                      minHeight: '44px'
+                    }}
                   >
                     취소
                   </Button>
                   <Button 
                     variant="contained" 
                     color="primary" 
-                    onClick={editPopup.item ? handleEditSave : handleAddSchedule} 
-                    sx={{ minWidth: 80 }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (editPopup.item) {
+                        handleEditSave();
+                      } else {
+                        handleAddSchedule();
+                      }
+                    }}
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (editPopup.item) {
+                        handleEditSave();
+                      } else {
+                        handleAddSchedule();
+                      }
+                    }}
+                    sx={{ 
+                      minWidth: 80,
+                      pointerEvents: 'auto !important',
+                      touchAction: 'manipulation !important',
+                      minHeight: '44px'
+                    }}
                     disabled={editPopup.item ? 
                       (!editPopup.item?.text?.trim() && !editPopup.item?.siteName?.trim()) || !canEdit :
                       ((!popupTitle.trim() && !popupSiteName.trim()) || selectedTypes.length === 0) || !canAdd
@@ -3241,7 +3359,17 @@ const ScheduleManagement = ({
               value={pastePopup.startDate}
               onChange={(e) => setPastePopup({ ...pastePopup, startDate: e.target.value })}
               fullWidth
-              sx={{ mb: 2 }}
+              sx={{ 
+                mb: 2,
+                '& .MuiInputBase-root': {
+                  pointerEvents: 'auto !important',
+                  touchAction: 'manipulation !important'
+                },
+                '& .MuiInputBase-input': {
+                  pointerEvents: 'auto !important',
+                  touchAction: 'manipulation !important'
+                }
+              }}
               InputLabelProps={{ shrink: true }}
               disabled={isPasting}
             />
@@ -3251,7 +3379,17 @@ const ScheduleManagement = ({
               value={pastePopup.endDate}
               onChange={(e) => setPastePopup({ ...pastePopup, endDate: e.target.value })}
               fullWidth
-              sx={{ mb: 2 }}
+              sx={{ 
+                mb: 2,
+                '& .MuiInputBase-root': {
+                  pointerEvents: 'auto !important',
+                  touchAction: 'manipulation !important'
+                },
+                '& .MuiInputBase-input': {
+                  pointerEvents: 'auto !important',
+                  touchAction: 'manipulation !important'
+                }
+              }}
               InputLabelProps={{ shrink: true }}
               disabled={isPasting}
             />

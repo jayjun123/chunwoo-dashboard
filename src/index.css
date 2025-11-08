@@ -803,17 +803,26 @@ html, body {
   /* 모든 요소에 스크롤 바운스 방지 */
   overscroll-behavior: none !important;
   -webkit-overflow-scrolling: touch !important;
-  /* IPA 빌드에서 터치 활성화 */
-  pointer-events: auto !important;
+  /* IPA 빌드에서 터치 활성화 - 입력 필드는 제외 */
   touch-action: auto !important;
 }
 
-/* 입력 필드는 선택 가능 */
+/* 입력 필드와 인터랙티브 요소는 터치 활성화 */
+input, textarea, select, button, a, [role="button"], 
+.MuiButton-root, .MuiIconButton-root, .MuiTextField-root,
+.MuiInputBase-root, .MuiSelect-root, .MuiAutocomplete-root {
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+}
+
+/* 입력 필드는 선택 가능 및 터치 활성화 */
 input, textarea, select {
   -webkit-user-select: text;
   -moz-user-select: text;
   -ms-user-select: text;
   user-select: text;
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
 }
 
 /* 토론의견에서 하단바 숨김 */
