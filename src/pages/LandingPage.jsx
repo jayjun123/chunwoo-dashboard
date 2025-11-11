@@ -723,7 +723,7 @@ const LandingPage = () => {
       display: 'flex',
       flexDirection: 'column',
       // 스마트폰에서만 적용
-      '@media (max-width: 767px)': {
+      [theme.breakpoints.down('md')]: {
         height: 'auto',
         overflow: 'auto',
         WebkitOverflowScrolling: 'touch'
@@ -800,7 +800,7 @@ const LandingPage = () => {
         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
         flexShrink: 0,
         // 스마트폰에서만 적용
-        '@media (max-width: 767px)': {
+        [theme.breakpoints.down('md')]: {
           py: 1
         }
       }}>
@@ -812,7 +812,7 @@ const LandingPage = () => {
             py: 2,
             gap: '200px',
             // 스마트폰에서만 적용
-            '@media (max-width: 767px)': {
+            [theme.breakpoints.down('md')]: {
               justifyContent: 'center',
               gap: 1,
               py: 1
@@ -823,7 +823,7 @@ const LandingPage = () => {
               alignItems: 'center', 
               gap: 2,
               // 스마트폰에서만 적용
-              '@media (max-width: 767px)': {
+              [theme.breakpoints.down('md')]: {
                 gap: 1
               }
             }}>
@@ -834,7 +834,7 @@ const LandingPage = () => {
                 border: '2px solid #43e97b',
                 boxShadow: '0 0 20px rgba(67, 233, 123, 0.3)',
                 // 스마트폰에서만 적용
-                '@media (max-width: 767px)': {
+                [theme.breakpoints.down('md')]: {
                   width: 32,
                   height: 32
                 }
@@ -842,7 +842,7 @@ const LandingPage = () => {
                 <Construction sx={{ 
                   color: '#43e97b',
                   // 스마트폰에서만 적용
-                  '@media (max-width: 767px)': {
+                  [theme.breakpoints.down('md')]: {
                     fontSize: 20
                   }
                 }} />
@@ -851,7 +851,7 @@ const LandingPage = () => {
                 fontWeight: 'bold', 
                 color: '#43e97b',
                 // 스마트폰에서만 적용
-                '@media (max-width: 767px)': {
+                [theme.breakpoints.down('md')]: {
                   fontSize: '1.2rem'
                 }
               }}>
@@ -888,7 +888,7 @@ const LandingPage = () => {
                   WebkitTouchCallout: 'none',
                   WebkitUserDrag: 'none',
                   // 스마트폰에서만 적용 - 버튼 숨기기
-                  '@media (max-width: 767px)': {
+                  [theme.breakpoints.down('md')]: {
                     display: 'none'
                   }
                 }}
@@ -907,7 +907,7 @@ const LandingPage = () => {
         flexDirection: 'column', 
         overflow: 'auto',
         // 스마트폰에서만 적용
-        '@media (max-width: 767px)': {
+        [theme.breakpoints.down('md')]: {
           overflow: 'auto',
           WebkitOverflowScrolling: 'touch'
         }
@@ -919,7 +919,7 @@ const LandingPage = () => {
           flexDirection: 'column', 
           py: 2,
           // 스마트폰에서만 적용
-          '@media (max-width: 767px)': {
+          [theme.breakpoints.down('md')]: {
             py: 1,
             px: 1
           }
@@ -928,7 +928,7 @@ const LandingPage = () => {
             flex: 1, 
             alignItems: 'stretch',
             // 스마트폰에서만 적용
-            '@media (max-width: 767px)': {
+            [theme.breakpoints.down('md')]: {
               flexDirection: 'column'
             }
           }}>
@@ -946,7 +946,7 @@ const LandingPage = () => {
                     textShadow: '0 0 30px rgba(67, 233, 123, 0.3)',
                     filter: 'drop-shadow(0 0 10px rgba(67, 233, 123, 0.2))',
                     // 스마트폰에서만 적용
-                    '@media (max-width: 767px)': {
+                    [theme.breakpoints.down('md')]: {
                       fontSize: '1.8rem'
                     }
                   }}>
@@ -996,7 +996,7 @@ const LandingPage = () => {
                           WebkitTouchCallout: 'none',
                           WebkitUserDrag: 'none',
                           // 스마트폰에서만 적용
-                          '@media (max-width: 767px)': {
+                          [theme.breakpoints.down('md')]: {
                             px: 2,
                             py: 0.8,
                             fontSize: '0.9rem'
@@ -1033,7 +1033,7 @@ const LandingPage = () => {
                           textShadow: '0 0 10px rgba(239, 68, 68, 0.5)'
                         }),
                         // 스마트폰에서만 적용
-                        '@media (max-width: 767px)': {
+                        [theme.breakpoints.down('md')]: {
                           px: 2,
                           py: 0.8,
                           fontSize: '0.9rem'
@@ -1061,14 +1061,14 @@ const LandingPage = () => {
                   <Grid container spacing={1} sx={{ 
                     flex: 1,
                     // 스마트폰에서만 적용
-                    '@media (max-width: 767px)': {
+                    [theme.breakpoints.down('md')]: {
                       spacing: 0.5
                     }
                   }}>
                     {stats.map((stat, index) => (
                       <Grid item xs={3} key={index} sx={{
                         // 스마트폰에서만 적용
-                        '@media (max-width: 767px)': {
+                        [theme.breakpoints.down('md')]: {
                           xs: 3,
                           minWidth: 0
                         }
@@ -1092,7 +1092,7 @@ const LandingPage = () => {
                             border: '1px solid rgba(67, 233, 123, 0.3)'
                           },
                           // 스마트폰에서만 적용
-                          '@media (max-width: 767px)': {
+                          [theme.breakpoints.down('md')]: {
                             p: 1,
                             minHeight: '80px',
                             borderRadius: 1
@@ -1102,7 +1102,7 @@ const LandingPage = () => {
                             color: '#43e97b', 
                             mb: 1,
                             // 스마트폰에서만 적용
-                            '@media (max-width: 767px)': {
+                            [theme.breakpoints.down('md')]: {
                               mb: 0.5
                             }
                           }}>
@@ -1114,7 +1114,7 @@ const LandingPage = () => {
                             color: '#43e97b',
                             textShadow: '0 0 10px rgba(67, 233, 123, 0.3)',
                             // 스마트폰에서만 적용
-                            '@media (max-width: 767px)': {
+                            [theme.breakpoints.down('md')]: {
                               fontSize: '1.2rem',
                               mb: 0.25
                             }
@@ -1125,7 +1125,7 @@ const LandingPage = () => {
                             color: '#e5e7eb',
                             fontWeight: '500',
                             // 스마트폰에서만 적용
-                            '@media (max-width: 767px)': {
+                            [theme.breakpoints.down('md')]: {
                               fontSize: '0.7rem'
                             }
                           }}>

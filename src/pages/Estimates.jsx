@@ -1379,11 +1379,12 @@ const Estimates = () => {
       </Box>
 
       {/* 검색 및 정렬 */}
-      <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
+      <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
         <TextField
           placeholder="견적 검색..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          size="small"
           sx={{
             flex: 1,
             '& .MuiOutlinedInput-root': {
@@ -1391,7 +1392,7 @@ const Estimates = () => {
               '&:hover fieldset': { borderColor: '#666' },
               '&.Mui-focused fieldset': { borderColor: '#ff9800' }
             },
-            '& .MuiInputBase-input': { color: '#fff' }
+            '& .MuiInputBase-input': { color: '#fff', py: 0.75 }
           }}
           InputProps={{
             startAdornment: (
@@ -1430,13 +1431,14 @@ const Estimates = () => {
         />
         
         {/* 회사별 필터링 */}
-        <FormControl sx={{ minWidth: 140 }}>
-          <InputLabel sx={{ color: '#ccc' }}>회사</InputLabel>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel sx={{ color: '#ccc', fontSize: '0.875rem' }}>회사</InputLabel>
           <Select
             value={companyFilter}
             onChange={(e) => setCompanyFilter(e.target.value)}
             sx={{
               color: '#fff',
+              fontSize: '0.875rem',
               '& .MuiOutlinedInput-root': {
                 '& fieldset': { borderColor: '#444' },
                 '&:hover fieldset': { borderColor: '#666' },
@@ -1451,13 +1453,14 @@ const Estimates = () => {
         </FormControl>
 
         {/* 제출상태 필터링 */}
-        <FormControl sx={{ minWidth: 140 }}>
-          <InputLabel sx={{ color: '#ccc' }}>제출상태</InputLabel>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel sx={{ color: '#ccc', fontSize: '0.875rem' }}>제출상태</InputLabel>
           <Select
             value={submissionStatusFilter}
             onChange={(e) => setSubmissionStatusFilter(e.target.value)}
             sx={{
               color: '#fff',
+              fontSize: '0.875rem',
               '& .MuiOutlinedInput-root': {
                 '& fieldset': { borderColor: '#444' },
                 '&:hover fieldset': { borderColor: '#666' },
@@ -1473,8 +1476,8 @@ const Estimates = () => {
           </Select>
         </FormControl>
         
-        <FormControl sx={{ minWidth: 120 }}>
-          <InputLabel sx={{ color: '#ccc' }}>정렬</InputLabel>
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <InputLabel sx={{ color: '#ccc', fontSize: '0.875rem' }}>정렬</InputLabel>
           <Select
             value={`${sortField}-${sortDirection}`}
             onChange={(e) => {
@@ -1484,6 +1487,7 @@ const Estimates = () => {
             }}
             sx={{
               color: '#fff',
+              fontSize: '0.875rem',
               '& .MuiOutlinedInput-root': {
                 '& fieldset': { borderColor: '#444' },
                 '&:hover fieldset': { borderColor: '#666' },
@@ -1508,10 +1512,13 @@ const Estimates = () => {
         {(searchTerm || companyFilter !== '전체' || submissionStatusFilter !== '전체') && (
           <Button
             variant="outlined"
+            size="small"
             onClick={handleClearFilters}
             sx={{
               borderColor: '#666',
               color: '#fff',
+              fontSize: '0.875rem',
+              py: 0.5,
               '&:hover': { 
                 borderColor: '#ff9800',
                 backgroundColor: 'rgba(255, 152, 0, 0.1)'
@@ -1527,15 +1534,26 @@ const Estimates = () => {
       <TableContainer component={Paper} sx={{ 
         backgroundColor: '#2a2a2a', 
         maxHeight: 'calc(100vh - 400px)',
+        mt: 1.25,
+        overflow: 'auto',
         '&::-webkit-scrollbar': {
+          width: 0,
+          height: 0,
+          display: 'none'
+        },
+        '&::-webkit-scrollbar-track': {
+          display: 'none'
+        },
+        '&::-webkit-scrollbar-thumb': {
           display: 'none'
         },
         scrollbarWidth: 'none',
-        msOverflowStyle: 'none'
+        msOverflowStyle: 'none',
+        WebkitOverflowScrolling: 'touch'
       }}>
-        <Table size="small">
+        <Table size="small" sx={{ '& .MuiTableCell-root': { py: 0.3, fontSize: '0.875rem' } }}>
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#333', '& .MuiTableCell-root': { py: 0.8 } }}>
+            <TableRow sx={{ backgroundColor: '#333', '& .MuiTableCell-root': { py: 0.3, fontWeight: 600 } }}>
               <TableCell sx={{ color: '#fff', fontWeight: 600, width: 80 }}>NO.</TableCell>
               <TableCell 
                 sx={{ 
@@ -1591,7 +1609,7 @@ const Estimates = () => {
           </TableHead>
           <TableBody>
             {currentEstimates.map((estimate, index) => (
-              <TableRow key={estimate.id} sx={{ '&:hover': { backgroundColor: '#333' }, '& .MuiTableCell-root': { py: 0.8 } }}>
+              <TableRow key={estimate.id} sx={{ '&:hover': { backgroundColor: '#333' }, '& .MuiTableCell-root': { py: 0.3 } }}>
                 <TableCell sx={{ color: '#fff' }}>{filteredEstimates.length - filteredEstimates.findIndex(e => e.id === estimate.id)}</TableCell>
                 <TableCell 
                   sx={{ 
@@ -1609,7 +1627,7 @@ const Estimates = () => {
                     label={estimate.type || '견적'}
                     color={estimate.type === '입찰' ? 'secondary' : 'primary'}
                     size="small"
-                    sx={{ fontWeight: 500 }}
+                    sx={{ fontWeight: 500, height: 20, fontSize: '0.75rem', '& .MuiChip-label': { px: 1 } }}
                   />
                 </TableCell>
                 <TableCell sx={{ color: '#fff', fontWeight: 500 }}>{estimate.requester}</TableCell>
@@ -1678,7 +1696,7 @@ const Estimates = () => {
                         alert('상태 업데이트에 실패했습니다.');
                       }
                     }}
-                    sx={{ cursor: 'pointer' }}
+                    sx={{ height: 20, fontSize: '0.75rem', '& .MuiChip-label': { px: 1 }, cursor: 'pointer' }}
                   />
                 </TableCell>
                 <TableCell>
@@ -1686,6 +1704,7 @@ const Estimates = () => {
                       label={estimate.contractStatus}
                       color={estimate.contractStatus === '수주' ? 'success' : 'default'}
                       size="small"
+                      sx={{ height: 20, fontSize: '0.75rem', '& .MuiChip-label': { px: 1 }, cursor: 'pointer' }}
                       onClick={async () => {
                         try {
                           const newStatus = estimate.contractStatus === '수주' ? '미수주' : '수주';

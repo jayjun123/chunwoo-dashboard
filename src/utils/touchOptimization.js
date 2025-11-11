@@ -20,6 +20,54 @@ const isInputElement = (element) => {
   );
 };
 
+// IconButton이나 ClearIcon 버튼인지 확인하는 헬퍼 함수
+const isIconButton = (element) => {
+  if (!element) return false;
+  
+  // IconButton 자체이거나 IconButton 내부 요소
+  if (element.classList.contains('MuiIconButton-root') || 
+      element.closest('.MuiIconButton-root')) {
+    return true;
+  }
+  
+  // ClearIcon을 포함하는 버튼
+  if (element.closest('button[aria-label*="clear"], button[aria-label*="Clear"]')) {
+    return true;
+  }
+  
+  // InputAdornment 내부의 IconButton (X버튼) - 더 강력한 체크
+  const inputAdornment = element.closest('.MuiInputAdornment-root');
+  if (inputAdornment) {
+    const iconButton = inputAdornment.querySelector('.MuiIconButton-root');
+    if (iconButton && (element === iconButton || iconButton.contains(element))) {
+      return true;
+    }
+  }
+  
+  // SVG 아이콘 자체를 클릭한 경우도 IconButton으로 간주
+  if (element.tagName === 'svg' || element.tagName === 'path') {
+    const iconButton = element.closest('.MuiIconButton-root');
+    if (iconButton) {
+      return true;
+    }
+  }
+  
+  return false;
+};
+
+// Select나 MenuItem인지 확인하는 헬퍼 함수
+const isSelectElement = (element) => {
+  if (!element) return false;
+  return (
+    element.classList.contains('MuiSelect-root') ||
+    element.classList.contains('MuiMenuItem-root') ||
+    element.closest('.MuiSelect-root') ||
+    element.closest('.MuiMenu-root') ||
+    element.closest('.MuiPopover-root') ||
+    element.closest('.MuiList-root')
+  );
+};
+
 // 터치 이벤트 지연 시간 제거 및 애플펜슬 최적화 - IPA 빌드 호환
 export const preventTouchDelay = () => {
   // 터치 이벤트 지연 제거 - IPA 빌드에서는 preventDefault 제거
@@ -27,6 +75,16 @@ export const preventTouchDelay = () => {
     // 입력 필드인 경우 기본 동작 허용 (커서 생성을 위해)
     if (isInputElement(e.target)) {
       // 입력 필드는 기본 동작 허용, 이벤트 전파 허용
+      return;
+    }
+    
+    // IconButton (X버튼)인 경우 기본 동작 허용
+    if (isIconButton(e.target)) {
+      return;
+    }
+    
+    // Select/MenuItem인 경우 기본 동작 허용
+    if (isSelectElement(e.target)) {
       return;
     }
     
@@ -124,7 +182,7 @@ export const optimizeButtonClicks = () => {
       // 클릭 이벤트는 브라우저가 자동으로 처리
     }, { passive: true });
     
-    // 클릭 이벤트 최적화
+    // 클릭 이벤트 최적화 - 버튼의 실제 onClick이 실행되도록 허용
     button.addEventListener('click', (e) => {
       // 입력 필드인 경우 기본 동작 허용
       const target = e.target;
@@ -140,7 +198,29 @@ export const optimizeButtonClicks = () => {
         return;
       }
       
-      // 이벤트 버블링 방지
+      // IconButton (X버튼 등)인 경우 기본 동작 허용 - 가장 먼저 체크
+      if (isIconButton(target) || isIconButton(button)) {
+        // IconButton은 기본 동작 허용 (stopPropagation 하지 않음)
+        e.stopPropagation = () => {}; // stopPropagation 무효화
+        e.stopImmediatePropagation = () => {}; // stopImmediatePropagation 무효화
+        return;
+      }
+      
+      // Select/MenuItem인 경우 기본 동작 허용
+      if (isSelectElement(target) || isSelectElement(button)) {
+        // Select는 기본 동작 허용
+        return;
+      }
+      
+      // Material-UI 버튼이나 하단바 버튼은 기본 동작 허용
+      if (button.classList.contains('MuiButton-root') || 
+          button.closest('[data-bottom-bar]') ||
+          button.closest('.MuiBottomNavigation-root')) {
+        // Material-UI 버튼은 기본 동작 허용
+        return;
+      }
+      
+      // 이벤트 버블링 방지 (일반 버튼에만 적용)
       e.stopPropagation();
       
       // 중복 클릭 방지
@@ -149,12 +229,12 @@ export const optimizeButtonClicks = () => {
         return;
       }
       
-      // 버튼 비활성화 (중복 클릭 방지)
+      // 버튼 비활성화 (중복 클릭 방지) - 일반 버튼에만 적용
       button.disabled = true;
       setTimeout(() => {
         button.disabled = false;
       }, 500);
-    });
+    }, { capture: false }); // capture phase가 아닌 bubble phase에서 실행
   });
 };
 
@@ -212,12 +292,71 @@ export const optimizeClickableElements = () => {
 
 // 드롭다운 및 메뉴 터치 최적화
 export const optimizeDropdowns = () => {
-  const dropdowns = document.querySelectorAll('.MuiSelect-root, .MuiMenuItem-root, .MuiList-root');
+  const dropdowns = document.querySelectorAll('.MuiSelect-root, .MuiList-root, .MuiMenu-root, .MuiPopover-root, .MuiSelect-select');
   
   dropdowns.forEach(dropdown => {
     // 터치 최적화
     dropdown.style.touchAction = 'manipulation';
     dropdown.style.webkitTapHighlightColor = 'transparent';
+    // 마우스 커서를 포인터로 변경
+    dropdown.style.cursor = 'pointer';
+    // 클릭 가능하도록 설정
+    dropdown.style.pointerEvents = 'auto';
+  });
+  
+  // MenuItem에 직접 스타일 적용 (별도 처리)
+  const menuItems = document.querySelectorAll('.MuiMenuItem-root');
+  menuItems.forEach(item => {
+    // 이미 처리된 항목은 건너뛰기
+    if (item.dataset.dropdownOptimized) return;
+    item.dataset.dropdownOptimized = 'true';
+    
+    item.style.cursor = 'pointer';
+    item.style.pointerEvents = 'auto';
+    item.style.transition = 'background-color 0.2s ease';
+    
+    // 인라인 스타일로 불투명 배경 강제 설정 (transparent 덮어쓰기)
+    if (item.classList.contains('Mui-selected')) {
+      item.style.backgroundColor = 'rgba(25, 118, 210, 0.8)';
+    } else {
+      item.style.backgroundColor = '#23242a';
+    }
+    
+    // 호버 효과를 위한 이벤트 리스너
+    const handleMouseEnter = () => {
+      if (!item.classList.contains('Mui-selected')) {
+        item.style.backgroundColor = '#3a3b42'; // 불투명 배경
+      } else {
+        item.style.backgroundColor = 'rgba(25, 118, 210, 0.9)'; // 불투명 배경
+      }
+    };
+    
+    const handleMouseLeave = () => {
+      if (!item.classList.contains('Mui-selected')) {
+        item.style.backgroundColor = '#23242a';
+      } else {
+        item.style.backgroundColor = 'rgba(25, 118, 210, 0.8)'; // 불투명 배경
+      }
+    };
+    
+    item.addEventListener('mouseenter', handleMouseEnter);
+    item.addEventListener('mouseleave', handleMouseLeave);
+    
+    // 클릭 이벤트는 Material-UI가 처리하도록 허용 (아무것도 하지 않음)
+    // capture phase에서 이벤트를 막지 않도록 주의
+  });
+  
+  // 드롭다운 메뉴 컨테이너 z-index 설정
+  const menuContainers = document.querySelectorAll('.MuiMenu-root, .MuiPopover-root, .MuiMenu-paper, .MuiPopover-paper');
+  menuContainers.forEach(container => {
+    container.style.zIndex = '99999';
+  });
+  
+  // 리스트 컨테이너도 불투명하게
+  const listContainers = document.querySelectorAll('.MuiList-root');
+  listContainers.forEach(list => {
+    list.style.backgroundColor = '#23242a';
+    list.style.zIndex = '99999';
   });
 };
 
@@ -227,8 +366,8 @@ export const ensureInputFocus = () => {
   const style = document.createElement('style');
   style.id = 'input-focus-fix';
   style.textContent = `
-    input, textarea, select,
-    input *, textarea *, select *,
+    input, textarea,
+    input *, textarea *,
     .MuiTextField-root input,
     .MuiTextField-root textarea,
     .MuiInputBase-input,
@@ -250,7 +389,15 @@ export const ensureInputFocus = () => {
       z-index: 9999 !important;
     }
     
-    input:focus, textarea:focus, select:focus,
+    /* select는 드롭다운이므로 포인터 커서 사용 */
+    select, .MuiSelect-root, .MuiSelect-select {
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      touch-action: manipulation !important;
+      z-index: 9999 !important;
+    }
+    
+    input:focus, textarea:focus,
     .MuiTextField-root input:focus,
     .MuiTextField-root textarea:focus,
     .MuiInputBase-input:focus,
@@ -265,6 +412,57 @@ export const ensureInputFocus = () => {
       cursor: text !important;
       z-index: 10000 !important;
     }
+    
+    /* select 포커스 시에도 포인터 커서 유지 */
+    select:focus, .MuiSelect-root:focus, .MuiSelect-select:focus {
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      z-index: 10000 !important;
+    }
+    
+    /* 드롭다운 메뉴 항목 스타일 - 인라인 스타일 덮어쓰기 */
+    .MuiMenuItem-root,
+    .MuiMenuItem-root[style*="background-color"],
+    .MuiButtonBase-root.MuiMenuItem-root {
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      transition: background-color 0.2s ease !important;
+      background-color: #23242a !important; /* 기본 배경색 추가 - transparent 덮어쓰기 */
+    }
+    
+    .MuiMenuItem-root:hover,
+    .MuiMenuItem-root[style*="background-color"]:hover,
+    .MuiButtonBase-root.MuiMenuItem-root:hover {
+      background-color: #3a3b42 !important; /* 호버 시 불투명 배경 */
+    }
+    
+    .MuiMenuItem-root.Mui-selected,
+    .MuiMenuItem-root.Mui-selected[style*="background-color"],
+    .MuiButtonBase-root.MuiMenuItem-root.Mui-selected {
+      background-color: rgba(25, 118, 210, 0.8) !important; /* 선택된 항목 불투명 배경 */
+    }
+    
+    .MuiMenuItem-root.Mui-selected:hover,
+    .MuiMenuItem-root.Mui-selected[style*="background-color"]:hover,
+    .MuiButtonBase-root.MuiMenuItem-root.Mui-selected:hover {
+      background-color: rgba(25, 118, 210, 0.9) !important; /* 선택된 항목 호버 시 불투명 배경 */
+    }
+    
+    /* 드롭다운 메뉴 배경 및 z-index */
+    .MuiMenu-paper, .MuiPopover-paper {
+      background-color: #23242a !important;
+      color: #fff !important;
+      z-index: 99999 !important; /* 최상위에 표시 */
+    }
+    
+    .MuiMenu-root, .MuiPopover-root {
+      z-index: 99999 !important; /* 최상위에 표시 */
+    }
+    
+    .MuiList-root {
+      background-color: #23242a !important; /* 리스트 배경색 추가 */
+      z-index: 99999 !important; /* 최상위에 표시 */
+    }
   `;
   
   // 기존 스타일이 있으면 제거하고 새로 추가
@@ -274,10 +472,132 @@ export const ensureInputFocus = () => {
   }
   document.head.appendChild(style);
   
-  // 전역 클릭 이벤트에서 입력 필드 보호 (가장 먼저 실행)
+  // document 레벨에서 IconButton 클릭 감지 및 처리 (가장 먼저 실행되어야 함)
+  const handleIconButtonClick = (e) => {
+    const target = e.target;
+    console.log('🔵 [1순위] document 레벨 이벤트 감지:', {
+      type: e.type,
+      target: target,
+      tagName: target?.tagName,
+      className: target?.className,
+      pointerEvents: window.getComputedStyle(target)?.pointerEvents,
+      zIndex: window.getComputedStyle(target)?.zIndex
+    });
+    
+    // IconButton 또는 그 내부 요소인지 확인
+    const iconButton = target.closest('.MuiIconButton-root');
+    if (!iconButton) {
+      // IconButton이 아니어도 InputAdornment 내부인지 확인
+      const inputAdornment = target.closest('.MuiInputAdornment-root');
+      if (inputAdornment) {
+        console.log('🔍 InputAdornment 내부 요소 감지, IconButton 찾는 중...');
+        const foundIconButton = inputAdornment.querySelector('.MuiIconButton-root');
+        if (foundIconButton) {
+          console.log('✅ InputAdornment 내부 IconButton 발견!');
+          // input 값 지우기
+          const textField = foundIconButton.closest('.MuiTextField-root, .MuiInputBase-root');
+          const input = textField ? textField.querySelector('input, textarea') : null;
+          if (input) {
+            console.log('✅ 부모 input 요소 발견, 값 직접 지우기');
+            input.value = '';
+            input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+            console.log('✅ input 값 지우기 완료');
+          }
+          setTimeout(() => foundIconButton.click(), 0);
+        }
+      }
+      return;
+    }
+    
+    // InputAdornment 내부의 IconButton인지 확인
+    const inputAdornment = iconButton.closest('.MuiInputAdornment-root');
+    if (!inputAdornment) {
+      console.log('❌ InputAdornment 내부 아님');
+      return;
+    }
+    
+    console.log('✅✅✅ InputAdornment 내부 IconButton 감지! 클릭 처리 시작');
+    
+    // 모든 이벤트 제어 무효화
+    e.stopImmediatePropagation = () => {
+      console.log('⚠️ stopImmediatePropagation 무효화');
+    };
+    e.stopPropagation = () => {
+      console.log('⚠️ stopPropagation 무효화');
+    };
+    e.preventDefault = () => {
+      console.log('⚠️ preventDefault 무효화');
+    };
+    
+    // 부모 TextField의 input 요소 찾기
+    const textField = iconButton.closest('.MuiTextField-root, .MuiInputBase-root');
+    const input = textField ? textField.querySelector('input, textarea') : null;
+    
+    if (input) {
+      console.log('✅ 부모 input 요소 발견, 값 직접 지우기');
+      // input의 value를 직접 지우고 change 이벤트 트리거
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+      console.log('✅ input 값 지우기 완료');
+    }
+    
+    // IconButton의 click 이벤트 강제 트리거
+    setTimeout(() => {
+      console.log('🟢 IconButton.click() 강제 호출');
+      try {
+        iconButton.click();
+        console.log('✅ iconButton.click() 성공');
+      } catch (err) {
+        console.error('❌ iconButton.click() 실패:', err);
+      }
+    }, 0);
+  };
+  
+  // document 레벨에서 가장 먼저 실행되도록 이벤트 리스너 추가 (1순위)
+  document.addEventListener('mousedown', handleIconButtonClick, { capture: true, passive: false });
+  document.addEventListener('touchstart', handleIconButtonClick, { capture: true, passive: false });
+  document.addEventListener('pointerdown', handleIconButtonClick, { capture: true, passive: false });
+  
+  // 전역 클릭 이벤트에서 입력 필드 보호 (2순위 - handleIconButtonClick 이후 실행)
   const globalClickHandler = (e) => {
-    if (isInputElement(e.target)) {
-      const input = e.target.closest('input, textarea, select') || e.target;
+    const target = e.target;
+    
+    // IconButton (X버튼)인 경우 - 가장 먼저 체크하고 완전히 무시
+    if (isIconButton(target)) {
+      console.log('🟡 [2순위] globalClickHandler - IconButton 감지, 이벤트 허용:', target);
+      
+      // 모든 이벤트 제어 함수를 무효화하여 실제 클릭 이벤트가 실행되도록
+      e.stopImmediatePropagation = () => {
+        console.log('⚠️ globalClickHandler - stopImmediatePropagation 무효화');
+      };
+      e.stopPropagation = () => {
+        console.log('⚠️ globalClickHandler - stopPropagation 무효화');
+      };
+      e.preventDefault = () => {
+        console.log('⚠️ globalClickHandler - preventDefault 무효화');
+      };
+      
+      // 즉시 return하여 다른 처리를 하지 않음
+      return;
+    }
+    
+    // Material-UI 버튼이나 하단바 버튼은 기본 동작 허용
+    if (target.closest('.MuiButton-root') || 
+        target.closest('[data-bottom-bar]') ||
+        target.closest('.MuiBottomNavigation-root') ||
+        target.closest('.MuiIconButton-root')) {
+      return;
+    }
+    
+    // Select/MenuItem인 경우 기본 동작 허용
+    if (isSelectElement(target)) {
+      return;
+    }
+    
+    if (isInputElement(target)) {
+      const input = target.closest('input, textarea, select') || target;
       if (input && (input.tagName === 'INPUT' || input.tagName === 'TEXTAREA' || input.tagName === 'SELECT')) {
         // 이벤트 전파를 막지 않음
         e.stopImmediatePropagation = () => {}; // stopImmediatePropagation 무효화
@@ -300,10 +620,40 @@ export const ensureInputFocus = () => {
     }
   };
   
-  // capture phase에서 가장 먼저 실행되도록 추가
-  document.addEventListener('click', globalClickHandler, { capture: true, passive: true });
-  document.addEventListener('mousedown', globalClickHandler, { capture: true, passive: true });
-  document.addEventListener('touchstart', globalClickHandler, { capture: true, passive: true });
+  // capture phase에서 실행되도록 추가 (2순위)
+  document.addEventListener('click', globalClickHandler, { capture: true, passive: false });
+  document.addEventListener('mousedown', globalClickHandler, { capture: true, passive: false });
+  document.addEventListener('touchstart', globalClickHandler, { capture: true, passive: false });
+  
+  // InputAdornment 내부의 IconButton에 직접 클릭 이벤트 강제 실행 추가
+  const protectIconButtons = () => {
+    const iconButtons = document.querySelectorAll('.MuiInputAdornment-root .MuiIconButton-root');
+    iconButtons.forEach(iconButton => {
+      if (iconButton.dataset.iconButtonProtected) return;
+      iconButton.dataset.iconButtonProtected = 'true';
+      
+      // pointer-events와 z-index 강제 설정
+      iconButton.style.setProperty('pointer-events', 'auto', 'important');
+      iconButton.style.setProperty('z-index', '10001', 'important');
+      iconButton.style.setProperty('position', 'relative', 'important');
+      iconButton.style.setProperty('cursor', 'pointer', 'important');
+      
+      console.log('🟡 IconButton 보호 설정 완료:', iconButton);
+    });
+  };
+  
+  // 초기 실행
+  protectIconButtons();
+  
+  // 동적으로 추가되는 IconButton도 보호
+  const iconButtonObserver = new MutationObserver(() => {
+    protectIconButtons();
+  });
+  
+  iconButtonObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
   
   // 모든 입력 필드에 직접 이벤트 리스너 추가
   const addInputFocusListeners = () => {
@@ -322,6 +672,35 @@ export const ensureInputFocus = () => {
       
       // 클릭 이벤트 강제 처리
       const clickHandler = (e) => {
+        const target = e.target;
+        
+        // IconButton (X버튼)인 경우 - 가장 먼저 체크하고 완전히 무시
+        if (isIconButton(target)) {
+          // 모든 이벤트 제어를 무효화
+          e.stopPropagation = () => {};
+          e.stopImmediatePropagation = () => {};
+          e.preventDefault = () => {};
+          // 즉시 return하여 입력 필드 포커스 처리를 하지 않음
+          return;
+        }
+        
+        // Material-UI 버튼이나 하단바 버튼은 기본 동작 허용
+        if (target.closest('.MuiButton-root') || 
+            target.closest('[data-bottom-bar]') ||
+            target.closest('.MuiBottomNavigation-root') ||
+            target.closest('.MuiIconButton-root')) {
+          e.stopPropagation = () => {};
+          e.stopImmediatePropagation = () => {};
+          return;
+        }
+        
+        // Select/MenuItem인 경우 기본 동작 허용
+        if (isSelectElement(target)) {
+          e.stopPropagation = () => {};
+          e.stopImmediatePropagation = () => {};
+          return;
+        }
+        
         e.stopPropagation = () => {}; // stopPropagation 무효화
         e.stopImmediatePropagation = () => {}; // stopImmediatePropagation 무효화
         
@@ -420,6 +799,67 @@ export const initializeTouchOptimization = () => {
               area.setAttribute('data-scrollable', 'true');
               area.style.touchAction = 'pan-y';
               area.style.webkitOverflowScrolling = 'touch';
+            });
+            
+            // 새로 추가된 MenuItem 최적화
+            const newMenuItems = node.querySelectorAll ? node.querySelectorAll('.MuiMenuItem-root') : [];
+            if (node.classList && node.classList.contains('MuiMenuItem-root')) {
+              newMenuItems.push(node);
+            }
+            newMenuItems.forEach(item => {
+              // 이미 처리된 항목은 건너뛰기
+              if (item.dataset.dropdownOptimized) return;
+              item.dataset.dropdownOptimized = 'true';
+              
+              item.style.cursor = 'pointer';
+              item.style.pointerEvents = 'auto';
+              item.style.transition = 'background-color 0.2s ease';
+              
+              // 인라인 스타일로 불투명 배경 강제 설정 (transparent 덮어쓰기)
+              if (item.classList.contains('Mui-selected')) {
+                item.style.backgroundColor = 'rgba(25, 118, 210, 0.8)';
+              } else {
+                item.style.backgroundColor = '#23242a';
+              }
+              
+              // 호버 효과를 위한 이벤트 리스너
+              const handleMouseEnter = () => {
+                if (!item.classList.contains('Mui-selected')) {
+                  item.style.backgroundColor = '#3a3b42';
+                } else {
+                  item.style.backgroundColor = 'rgba(25, 118, 210, 0.9)';
+                }
+              };
+              
+              const handleMouseLeave = () => {
+                if (!item.classList.contains('Mui-selected')) {
+                  item.style.backgroundColor = '#23242a';
+                } else {
+                  item.style.backgroundColor = 'rgba(25, 118, 210, 0.8)';
+                }
+              };
+              
+              item.addEventListener('mouseenter', handleMouseEnter);
+              item.addEventListener('mouseleave', handleMouseLeave);
+            });
+            
+            // 새로 추가된 드롭다운 메뉴 컨테이너 z-index 설정
+            const newMenuContainers = node.querySelectorAll ? Array.from(node.querySelectorAll('.MuiMenu-root, .MuiPopover-root, .MuiMenu-paper, .MuiPopover-paper')) : [];
+            if (node.classList && (node.classList.contains('MuiMenu-root') || node.classList.contains('MuiPopover-root') || node.classList.contains('MuiMenu-paper') || node.classList.contains('MuiPopover-paper'))) {
+              newMenuContainers.push(node);
+            }
+            newMenuContainers.forEach(container => {
+              container.style.zIndex = '99999';
+            });
+            
+            // 새로 추가된 리스트 컨테이너도 불투명하게
+            const newListContainers = node.querySelectorAll ? Array.from(node.querySelectorAll('.MuiList-root')) : [];
+            if (node.classList && node.classList.contains('MuiList-root')) {
+              newListContainers.push(node);
+            }
+            newListContainers.forEach(list => {
+              list.style.backgroundColor = '#23242a';
+              list.style.zIndex = '99999';
             });
           }
         });
@@ -552,6 +992,16 @@ export const optimizeApplePencil = () => {
       // 입력 필드인 경우 기본 동작 허용 (커서 생성을 위해)
       if (isInputElement(e.target)) {
         // 입력 필드는 기본 동작 허용
+        return;
+      }
+      
+      // IconButton (X버튼)인 경우 기본 동작 허용
+      if (isIconButton(e.target)) {
+        return;
+      }
+      
+      // Select/MenuItem인 경우 기본 동작 허용
+      if (isSelectElement(e.target)) {
         return;
       }
       

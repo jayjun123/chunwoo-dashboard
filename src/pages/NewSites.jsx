@@ -2849,6 +2849,16 @@ const NewSites = () => {
                 <Box sx={{ width: '100%' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, overflow: 'hidden' }}>
+                      {/* 주요현장 노란색 별 */}
+                      {site.isFavorite && (
+                        <StarIcon 
+                          sx={{ 
+                            color: '#FFD700', 
+                            fontSize: isMobile ? '0.9rem' : '1rem',
+                            flexShrink: 0
+                          }} 
+                        />
+                      )}
                       <Typography 
                         sx={{ 
                           fontSize: isMobile ? '0.8rem' : 'inherit',

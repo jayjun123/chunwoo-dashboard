@@ -129,6 +129,8 @@ div[style*="background-color: #fff"] .MuiTypography-root {
 .MuiTextField-root .MuiInputLabel-root,
 .MuiInputLabel-root {
   color: #cccccc !important;
+  position: relative !important;
+  z-index: 1 !important;
 }
 
 /* GanttChart 다크 UI 처리 */
@@ -813,6 +815,69 @@ input, textarea, select, button, a, [role="button"],
 .MuiInputBase-root, .MuiSelect-root, .MuiAutocomplete-root {
   pointer-events: auto !important;
   touch-action: manipulation !important;
+}
+
+/* 드롭다운에 마우스 커서 포인터 적용 */
+.MuiSelect-root, .MuiSelect-select, .MuiMenuItem-root, .MuiMenu-root, .MuiPopover-root {
+  cursor: pointer !important;
+}
+
+/* TextField의 fieldset (외곽선)은 클릭 불가능하도록 */
+.MuiOutlinedInput-notchedOutline {
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
+/* IconButton (X버튼) 클릭 보장 */
+.MuiIconButton-root, .MuiInputAdornment-root .MuiIconButton-root {
+  pointer-events: auto !important;
+  z-index: 10001 !important;
+  position: relative !important;
+  cursor: pointer !important;
+}
+
+/* 드롭다운 메뉴 항목 배경색 및 호버 효과 - 인라인 스타일 덮어쓰기 */
+.MuiMenuItem-root,
+.MuiMenuItem-root[style*="background-color"],
+.MuiButtonBase-root.MuiMenuItem-root {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  transition: background-color 0.2s ease !important;
+  background-color: #23242a !important; /* 기본 배경색 추가 - transparent 덮어쓰기 */
+}
+
+.MuiMenuItem-root:hover,
+.MuiMenuItem-root[style*="background-color"]:hover,
+.MuiButtonBase-root.MuiMenuItem-root:hover {
+  background-color: #3a3b42 !important; /* 호버 시 불투명 배경 */
+}
+
+.MuiMenuItem-root.Mui-selected,
+.MuiMenuItem-root.Mui-selected[style*="background-color"],
+.MuiButtonBase-root.MuiMenuItem-root.Mui-selected {
+  background-color: rgba(25, 118, 210, 0.8) !important; /* 선택된 항목 불투명 배경 */
+}
+
+.MuiMenuItem-root.Mui-selected:hover,
+.MuiMenuItem-root.Mui-selected[style*="background-color"]:hover,
+.MuiButtonBase-root.MuiMenuItem-root.Mui-selected:hover {
+  background-color: rgba(25, 118, 210, 0.9) !important; /* 선택된 항목 호버 시 불투명 배경 */
+}
+
+/* 드롭다운 메뉴 배경 및 z-index */
+.MuiMenu-paper, .MuiPopover-paper {
+  background-color: #23242a !important;
+  color: #fff !important;
+  z-index: 99999 !important; /* 최상위에 표시 */
+}
+
+.MuiMenu-root, .MuiPopover-root {
+  z-index: 99999 !important; /* 최상위에 표시 */
+}
+
+.MuiList-root {
+  background-color: #23242a !important; /* 리스트 배경색 추가 */
+  z-index: 99999 !important; /* 최상위에 표시 */
 }
 
 /* 입력 필드는 선택 가능 및 터치 활성화 - 최우선 적용 */

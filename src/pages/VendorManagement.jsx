@@ -1316,7 +1316,7 @@ const VendorManagement = () => {
                 color: '#fff', 
                 fontWeight: 600, 
                 width: 80,
-                py: 1,
+                py: 0.3,
                 fontSize: '0.9rem',
                 // 아이패드에서 표시
                 '@media (min-width: 768px) and (max-width: 1024px)': {
@@ -1327,7 +1327,7 @@ const VendorManagement = () => {
                 color: '#fff', 
                 fontWeight: 600, 
                 cursor: 'pointer',
-                py: 1,
+                py: 0.3,
                 fontSize: '0.9rem',
                 // 아이패드에서 표시
                 '@media (min-width: 768px) and (max-width: 1024px)': {
@@ -1345,7 +1345,7 @@ const VendorManagement = () => {
               <TableCell sx={{ 
                 color: '#fff', 
                 fontWeight: 600,
-                py: 1,
+                py: 0.3,
                 fontSize: '0.9rem',
                 // 아이패드에서 표시
                 '@media (min-width: 768px) and (max-width: 1024px)': {
@@ -1355,7 +1355,7 @@ const VendorManagement = () => {
               <TableCell sx={{ 
                 color: '#fff', 
                 fontWeight: 600,
-                py: 1,
+                py: 0.3,
                 fontSize: '0.9rem',
                 // 아이패드에서 표시
                 '@media (min-width: 768px) and (max-width: 1024px)': {
@@ -1365,7 +1365,7 @@ const VendorManagement = () => {
               <TableCell sx={{ 
                 color: '#fff', 
                 fontWeight: 600, 
-                py: 1,
+                py: 0.3,
                 fontSize: '0.9rem',
                 // 1500px 미만에서 숨김
                 '@media (max-width: 1499px)': {
@@ -1376,7 +1376,7 @@ const VendorManagement = () => {
                 color: '#fff', 
                 fontWeight: 600, 
                 cursor: 'pointer',
-                py: 1,
+                py: 0.3,
                 fontSize: '0.9rem',
                 // 아이패드에서 표시
                 '@media (min-width: 768px) and (max-width: 1024px)': {
@@ -1394,7 +1394,7 @@ const VendorManagement = () => {
               <TableCell sx={{ 
                 color: '#fff', 
                 fontWeight: 600,
-                py: 1,
+                py: 0.3,
                 fontSize: '0.9rem',
                 // 1500px 미만에서 숨김
                 '@media (max-width: 1499px)': {
@@ -1404,7 +1404,7 @@ const VendorManagement = () => {
               <TableCell sx={{ 
                 color: '#fff', 
                 fontWeight: 600,
-                py: 1,
+                py: 0.3,
                 fontSize: '0.9rem',
                 // 아이패드에서 숨김
                 '@media (min-width: 768px) and (max-width: 1024px)': {
@@ -1414,7 +1414,7 @@ const VendorManagement = () => {
               <TableCell sx={{ 
                 color: '#fff', 
                 fontWeight: 600,
-                py: 1,
+                py: 0.3,
                 fontSize: '0.9rem',
                 // 1500px 미만에서 숨김
                 '@media (max-width: 1499px)': {
@@ -1424,7 +1424,7 @@ const VendorManagement = () => {
               <TableCell sx={{ 
                 color: '#fff', 
                 fontWeight: 600,
-                py: 1,
+                py: 0.3,
                 fontSize: '0.9rem',
                 // 1500px 미만에서 숨김
                 '@media (max-width: 1499px)': {
@@ -1435,7 +1435,7 @@ const VendorManagement = () => {
                 color: '#fff', 
                 fontWeight: 600, 
                 width: 120,
-                py: 1,
+                py: 0.3,
                 fontSize: '0.9rem',
                 // 아이패드에서 표시
                 '@media (min-width: 768px) and (max-width: 1024px)': {
@@ -1449,7 +1449,7 @@ const VendorManagement = () => {
               // 최신 등록 순서대로 번호 계산 (마지막 번호부터)
               const globalIndex = filteredVendors.length - filteredVendors.findIndex(v => v.id === vendor.id);
               return (
-                <TableRow key={vendor.id} sx={{ '&:hover': { backgroundColor: '#333' }, '& td': { py: 1, fontSize: '0.9rem' } }}>
+                <TableRow key={vendor.id} sx={{ '&:hover': { backgroundColor: '#333' }, '& td': { py: 0.3, fontSize: '0.9rem' } }}>
                   <TableCell sx={{ 
                     color: '#fff',
                     // 아이패드에서 표시

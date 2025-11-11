@@ -1529,6 +1529,25 @@ export default function ImportantSite() {
                       navigate(`/discussions?siteId=${site.id}`);
                     }}
                   >토론</Button>
+                  <Button 
+                    variant="contained" 
+                    color="primary" 
+                    size={isMobile ? 'small' : 'medium'}
+                    sx={{ 
+                      borderRadius: 2, 
+                      fontWeight: 700,
+                      fontSize: isMobile ? '0.65rem' : 'inherit',
+                      padding: isMobile ? '4px 8px' : 'inherit',
+                      minWidth: isMobile ? 'auto' : 'inherit',
+                      bgcolor: '#3b82f6',
+                      '&:hover': { bgcolor: '#2563eb' }
+                    }} 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate(`/hyunjangsch/${site.id}`);
+                    }}
+                  >상세</Button>
                 </Box>
               </Box>
               {/* 가운데: 차트 - 모바일에서 숨김 */}

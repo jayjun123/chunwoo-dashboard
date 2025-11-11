@@ -2795,7 +2795,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 60, 
-                        py: 0.5,
+                        py: 0.3,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2808,7 +2808,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 120, 
-                        py: 0.5,
+                        py: 0.3,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2821,7 +2821,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 120, 
-                        py: 0.5,
+                        py: 0.3,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2834,7 +2834,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 100, 
-                        py: 0.5,
+                        py: 0.3,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2850,7 +2850,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 60, 
-                        py: 0.5,
+                        py: 0.3,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2858,13 +2858,13 @@ const Claims = () => {
                     >
                       No.
                     </TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>청구월</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.3 }}>청구월</TableCell>
                     <TableCell 
                       sx={{ 
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 150, 
-                        py: 0.5,
+                        py: 0.3,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2877,7 +2877,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 120, 
-                        py: 0.5,
+                        py: 0.3,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' },
                         // 1500px 미만에서 숨김
@@ -2894,7 +2894,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 80, 
-                        py: 0.5,
+                        py: 0.3,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2907,7 +2907,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 100, 
-                        py: 0.5,
+                        py: 0.3,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2920,7 +2920,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 100, 
-                        py: 0.5,
+                        py: 0.3,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2933,7 +2933,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 70, 
-                        py: 0.5,
+                        py: 0.3,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2946,7 +2946,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 120, 
-                        py: 0.5,
+                        py: 0.3,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2959,7 +2959,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 100, 
-                        py: 0.5,
+                        py: 0.3,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2980,7 +2980,7 @@ const Claims = () => {
                         display: 'none'
                       }
                     }}>비고</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.5 }}>관리</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.3 }}>관리</TableCell>
                   </>
                 )}
               </TableRow>
@@ -2993,7 +2993,7 @@ const Claims = () => {
                     key={claim.id} 
                     sx={{ 
                       '&:hover': { backgroundColor: '#444' }, 
-                      '& td': { py: 0.5 },
+                      '& td': { py: 0.3 },
                       // 최근 업데이트된 현장 하이라이트
                       ...(isRecentlyUpdated && {
                         backgroundColor: 'rgba(76, 175, 80, 0.1)',

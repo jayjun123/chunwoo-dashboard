@@ -1307,7 +1307,7 @@ const Vendors = () => {
                       fontWeight: 'bold', 
                       fontSize: '1rem', 
                       px: 2, 
-                      py: 1,
+                      py: 0.3,
                       borderRadius: '8px', // 네모 형태로 각을 살짝 둥글게
                       backgroundColor: '#9c27b0', // 보라색 배경
                       color: 'white', // 흰색 텍스트
@@ -1467,20 +1467,38 @@ const Vendors = () => {
         </Grid>
       </Box>
 
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} sx={{
+        overflow: 'auto',
+        '&::-webkit-scrollbar': {
+          width: 0,
+          height: 0,
+          display: 'none'
+        },
+        '&::-webkit-scrollbar-track': {
+          display: 'none'
+        },
+        '&::-webkit-scrollbar-thumb': {
+          display: 'none'
+        },
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
+        WebkitOverflowScrolling: 'touch'
+      }}>
         <Table size="small" sx={{ 
           '& .MuiTableCell-root': {
-            fontSize: '1rem',
-            fontWeight: 'normal'
+            fontSize: '0.875rem',
+            fontWeight: 'normal',
+            py: 0.3
           },
           '& .MuiTableCell-head': {
-            fontSize: '1rem',
-            fontWeight: 'bold'
+            fontSize: '0.875rem',
+            fontWeight: 'bold',
+            py: 0.3
           }
         }}>
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox" sx={{ py: 0.5 }}>
+              <TableCell padding="checkbox" sx={{ py: 0.3 }}>
                 <Checkbox
                   checked={selectAll}
                   onChange={handleSelectAll}
@@ -1491,7 +1509,7 @@ const Vendors = () => {
                 <>
                   <TableCell
                     onClick={() => handleSort('siteName')}
-                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
+                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.3 }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       현장명
@@ -1505,7 +1523,7 @@ const Vendors = () => {
                     sx={{ 
                       cursor: 'pointer', 
                       '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
-                      py: 1,
+                      py: 0.3,
                       // 1500px 미만에서 숨김
                       '@media (max-width: 1499px)': {
                         display: 'none !important'
@@ -1543,7 +1561,7 @@ const Vendors = () => {
                 <>
                   <TableCell
                     onClick={() => handleSort('companyName')}
-                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
+                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.3 }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       업체명
@@ -1557,7 +1575,7 @@ const Vendors = () => {
                     sx={{ 
                       cursor: 'pointer', 
                       '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
-                      py: 1,
+                      py: 0.3,
                       // 테블릿에서 숨김
                       '@media (min-width: 768px) and (max-width: 1024px)': {
                         display: 'none'
@@ -1573,7 +1591,7 @@ const Vendors = () => {
                   </TableCell>
                   <TableCell
                     onClick={() => handleSort('siteName')}
-                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
+                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.3 }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       계약건명
@@ -1584,7 +1602,7 @@ const Vendors = () => {
                   </TableCell>
                   <TableCell 
                     onClick={() => handleSort('amount')}
-                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.5 }}
+                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }, py: 0.3 }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       금액
@@ -1597,14 +1615,14 @@ const Vendors = () => {
               )}
               {filteredByCompanyType === '천우건업(주)' ? (
                 <>
-                  <TableCell sx={{ py: 1 }}>투찰율</TableCell>
-                  <TableCell sx={{ py: 1 }}>투찰금액</TableCell>
+                  <TableCell sx={{ py: 0.3 }}>투찰율</TableCell>
+                  <TableCell sx={{ py: 0.3 }}>투찰금액</TableCell>
                   <TableCell 
                     onClick={() => handleSort('bidDate')}
                     sx={{ 
                       cursor: 'pointer', 
                       '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
-                      py: 1,
+                      py: 0.3,
                       // 테블릿에서 숨김
                       '@media (min-width: 768px) and (max-width: 1024px)': {
                         display: 'none'
@@ -1618,11 +1636,11 @@ const Vendors = () => {
                       )}
                     </Box>
                   </TableCell>
-                  <TableCell sx={{ py: 1 }}>결과순위</TableCell>
-                  <TableCell sx={{ py: 1 }}>낙찰금액</TableCell>
+                  <TableCell sx={{ py: 0.3 }}>결과순위</TableCell>
+                  <TableCell sx={{ py: 0.3 }}>낙찰금액</TableCell>
                   <TableCell 
                     sx={{ 
-                      py: 1,
+                      py: 0.3,
                       // 1500px 미만에서 숨김
                       '@media (max-width: 1499px)': {
                         display: 'none !important'
@@ -1631,11 +1649,11 @@ const Vendors = () => {
                   >
                     낙찰율
                   </TableCell>
-                  <TableCell sx={{ py: 1 }}>관리</TableCell>
+                  <TableCell sx={{ py: 0.3 }}>관리</TableCell>
                 </>
               ) : (
                 <>
-                  <TableCell sx={{ py: 1 }}>관리</TableCell>
+                  <TableCell sx={{ py: 0.3 }}>관리</TableCell>
                 </>
               )}
               <TableCell 
@@ -1653,7 +1671,7 @@ const Vendors = () => {
           </TableHead>
           <TableBody>
             {getPaginatedVendors().map((vendor) => (
-              <TableRow key={vendor.id} sx={{ '& td': { py: 1 } }}>
+              <TableRow key={vendor.id} sx={{ '& td': { py: 0.3 } }}>
                 <TableCell padding="checkbox">
                   <Checkbox
                     checked={selectedItems.includes(vendor.id)}

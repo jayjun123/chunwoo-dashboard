@@ -191,16 +191,16 @@ const BiddingAnalysisChart = ({ vendors = [] }) => {
   };
 
   return (
-    <Box sx={{ p: 2, pr: '40px', bgcolor: '#1a1a1a', color: '#fff', height: '430px' }}>
+    <Box sx={{ p: 2, pr: '40px', bgcolor: '#1a1a1a', color: '#fff', height: '320px' }}>
       <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', lg: 'row' } }}>
         {/* 그래프 분석 섹션 - 왼쪽 (65%) */}
         <Box sx={{ flex: '0 0 65%' }}>
-          <Paper sx={{ p: 3, bgcolor: '#2a2a2a', border: '1px solid #444', width: '100%', height: '400px' }}>
-            <Typography variant="h6" sx={{ mb: 2, color: '#fff', fontWeight: 'bold' }}>
+          <Paper sx={{ p: 2, bgcolor: '#2a2a2a', border: '1px solid #444', width: '100%', height: '290px' }}>
+            <Typography variant="h6" sx={{ mb: 1, color: '#fff', fontWeight: 'bold', fontSize: '1rem' }}>
               나의사정률, 발주처낙찰률 그래프
             </Typography>
             
-            <Box sx={{ height: 300, mb: 3 }}>
+            <Box sx={{ height: 220, mb: 2 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#444" />
@@ -276,12 +276,12 @@ const BiddingAnalysisChart = ({ vendors = [] }) => {
 
         {/* 투찰코칭 섹션 - 오른쪽 (35%) */}
         <Box sx={{ flex: '0 0 35%' }}>
-          <Paper sx={{ p: 3, bgcolor: '#2a2a2a', border: '1px solid #444', width: '100%', height: '400px' }}>
-            <Typography variant="h6" sx={{ mb: 2, color: '#fff', fontWeight: 'bold' }}>
+          <Paper sx={{ p: 2, bgcolor: '#2a2a2a', border: '1px solid #444', width: '100%', height: '290px' }}>
+            <Typography variant="h6" sx={{ mb: 1, color: '#fff', fontWeight: 'bold', fontSize: '1rem' }}>
               투찰코칭
             </Typography>
             
-            <Box sx={{ display: 'flex', alignItems: 'center', height: 'calc(100% - 40px)' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', height: 'calc(100% - 30px)' }}>
               {/* 왼쪽: 텍스트 내용 */}
               <Box sx={{ flex: 1, pr: 2 }}>
                 {/* 동적 코칭 메시지 */}
@@ -304,15 +304,15 @@ const BiddingAnalysisChart = ({ vendors = [] }) => {
               </Box>
 
               {/* 오른쪽: 파이 차트 */}
-              <Box sx={{ width: 200, height: 200 }}>
+              <Box sx={{ width: 150, height: 150 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={pieData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={40}
-                      outerRadius={80}
+                      innerRadius={30}
+                      outerRadius={60}
                       paddingAngle={5}
                       dataKey="value"
                     >

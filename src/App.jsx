@@ -248,6 +248,7 @@ const UserManual = React.lazy(() => import('./pages/UserManual'));
 const EstimateAnalysis = React.lazy(() => import('./pages/EstimateAnalysis'));
 const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const NotificationCrawler = React.lazy(() => import('./components/NotificationCrawler'));
+const HyunjangSch = React.lazy(() => import('./pages/HyunjangSch'));
 
 const App = React.memo(() => {
   // 아이디어패드 상태
@@ -660,6 +661,18 @@ const App = React.memo(() => {
                             <Layout>
                               <Suspense fallback={<LoadingSpinner />}>
                                 <SiteDetail />
+                              </Suspense>
+                            </Layout>
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/hyunjangsch/:siteId"
+                        element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <HyunjangSch />
                               </Suspense>
                             </Layout>
                           </ProtectedRoute>
