@@ -280,6 +280,47 @@ export const updateDiscussion = async (discussionId, updateData) => {
   }
 };
 
+// 메시지 삭제
+export const deleteMessage = async (messageId) => {
+  try {
+    console.log('🔥 메시지 삭제 시작:', messageId);
+    
+    const messageRef = doc(messagesCollection, messageId);
+    const messageDoc = await getDoc(messageRef);
+    
+    if (!messageDoc.exists()) {
+      throw new Error('메시지를 찾을 수 없습니다.');
+    }
+    
+    const messageData = messageDoc.data();
+    
+    // 첨부된 파일이 있으면 Storage에서도 삭제
+    if (messageData.files && messageData.files.length > 0) {
+      const deleteFilePromises = messageData.files.map(file => {
+        if (file.url) {
+          try {
+            const fileRef = ref(storage, file.url);
+            return deleteObject(fileRef);
+          } catch (error) {
+            console.warn('🔥 파일 삭제 실패 (무시):', file.url, error);
+            return Promise.resolve();
+          }
+        }
+        return Promise.resolve();
+      });
+      await Promise.all(deleteFilePromises);
+    }
+    
+    // 메시지 삭제
+    await deleteDoc(messageRef);
+    
+    console.log('🔥 메시지 삭제 완료:', messageId);
+  } catch (error) {
+    console.error('🔥 메시지 삭제 실패:', error);
+    throw error;
+  }
+};
+
 // 토론 삭제 (개선된 버전)
 export const deleteDiscussion = async (discussionId) => {
   try {

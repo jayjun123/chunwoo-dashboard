@@ -36,7 +36,7 @@ import {
   Edit,
   Delete
 } from '@mui/icons-material';
-import { doc, getDoc, updateDoc, collection, query, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, getDocs, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -58,6 +58,10 @@ const HyunjangSch = () => {
   // 시공팀 선택 상태
   const [selectedTeams, setSelectedTeams] = useState([]);
   const [teamOptions, setTeamOptions] = useState([]);
+  const [teamLabels, setTeamLabels] = useState({}); // 시공팀 라벨 상태 (예: {0: '시공팀1', 1: '시공팀2'})
+  const [editingTeamLabel, setEditingTeamLabel] = useState(null); // 편집 중인 시공팀 인덱스
+  const [editLabelValue, setEditLabelValue] = useState('');
+  const longPressTimerRef = useRef(null);
   
   // 전체 진행율 상태
   const [overallProgress, setOverallProgress] = useState(100);
@@ -131,8 +135,10 @@ const HyunjangSch = () => {
         // 기본값으로 첫 번째 팀 설정
         if (teamNames.length > 0 && selectedTeams.length === 0) {
           setSelectedTeams([teamNames[0]]);
+          // 기본 라벨 설정
+          setTeamLabels({ 0: '시공팀1' });
         }
-      } catch (error) {
+          } catch (error) {
         console.error('시공팀 데이터 로드 실패:', error);
       }
     };
@@ -147,11 +153,11 @@ const HyunjangSch = () => {
           collection(db, 'sites'),
           where('isFavorite', '==', true)
         );
-        const sitesSnapshot = await getDocs(sitesQuery);
+            const sitesSnapshot = await getDocs(sitesQuery);
         const sites = sitesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+              id: doc.id,
+              ...doc.data()
+            }));
         setAllSites(sites);
       } catch (error) {
         console.error('주요현장 목록 로드 실패:', error);
@@ -266,7 +272,19 @@ const HyunjangSch = () => {
     // hyunjangSchData 로드
     if (foundSite.hyunjangSchData) {
       const data = foundSite.hyunjangSchData;
-      if (data.selectedTeams) setSelectedTeams(data.selectedTeams);
+      if (data.selectedTeams) {
+        setSelectedTeams(data.selectedTeams);
+        // 저장된 라벨이 있으면 사용, 없으면 기본값 설정
+        if (data.teamLabels) {
+          setTeamLabels(data.teamLabels);
+        } else {
+          const defaultLabels = {};
+          data.selectedTeams.forEach((_, index) => {
+            defaultLabels[index] = `시공팀${index + 1}`;
+          });
+          setTeamLabels(defaultLabels);
+        }
+      }
       if (data.overallProgress !== undefined) setOverallProgress(data.overallProgress);
       if (data.progressBars) setProgressBars(data.progressBars);
       if (data.ganttItems) setGanttItems(data.ganttItems);
@@ -357,14 +375,28 @@ const HyunjangSch = () => {
     if (teamOptions.length > 0) {
       const availableTeam = teamOptions.find(team => !selectedTeams.includes(team));
       if (availableTeam) {
+        const newIndex = selectedTeams.length;
         setSelectedTeams([...selectedTeams, availableTeam]);
+        setTeamLabels({ ...teamLabels, [newIndex]: `시공팀${newIndex + 1}` });
       }
     }
   };
 
   // 시공팀 제거
   const handleRemoveTeam = (team) => {
-    setSelectedTeams(selectedTeams.filter(t => t !== team));
+    const index = selectedTeams.indexOf(team);
+    const newTeams = selectedTeams.filter(t => t !== team);
+    setSelectedTeams(newTeams);
+    // 라벨 재정렬
+    const newLabels = {};
+    newTeams.forEach((_, i) => {
+      if (i < index) {
+        newLabels[i] = teamLabels[i] || `시공팀${i + 1}`;
+      } else {
+        newLabels[i] = teamLabels[i + 1] || `시공팀${i + 1}`;
+      }
+    });
+    setTeamLabels(newLabels);
   };
 
   // 시공팀 변경
@@ -377,6 +409,11 @@ const HyunjangSch = () => {
       updated[index] = newTeam;
       setSelectedTeams(updated);
     }
+  };
+
+  // 시공팀 라벨 변경
+  const handleTeamLabelChange = (index, newLabel) => {
+    setTeamLabels({ ...teamLabels, [index]: newLabel });
   };
 
   // 진행율 막대 편집
@@ -609,6 +646,23 @@ const HyunjangSch = () => {
     }
   };
 
+  // 체크된 간트 아이템들 일괄 삭제
+  const handleDeleteCheckedGanttItems = () => {
+    const checkedItems = ganttItems.filter(item => item.checked);
+    if (checkedItems.length === 0) {
+      setSnackbar({ open: true, message: '삭제할 항목을 선택해주세요', severity: 'warning' });
+      return;
+    }
+    
+    if (ganttItems.length - checkedItems.length < 1) {
+      setSnackbar({ open: true, message: '최소 하나의 항목은 남아있어야 합니다', severity: 'warning' });
+      return;
+    }
+    
+    setGanttItems(ganttItems.filter(item => !item.checked));
+    setSnackbar({ open: true, message: `${checkedItems.length}개 항목이 삭제되었습니다`, severity: 'success' });
+  };
+
   // 현장 선택 핸들러
   const handleSiteChange = (selectedSiteId) => {
     if (selectedSiteId && selectedSiteId !== 'no-site') {
@@ -677,6 +731,7 @@ const HyunjangSch = () => {
         await updateDoc(doc(db, 'sites', site.id), {
           hyunjangSchData: {
             selectedTeams,
+            teamLabels,
             overallProgress,
             progressBars,
             ganttItems,
@@ -694,7 +749,7 @@ const HyunjangSch = () => {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [selectedTeams, overallProgress, progressBars, ganttItems, memo, site, loading]);
+  }, [selectedTeams, teamLabels, overallProgress, progressBars, ganttItems, memo, site, loading]);
 
   if (loading) {
     return (
@@ -730,7 +785,7 @@ const HyunjangSch = () => {
               value={site?.id || 'no-site'}
               onChange={(e) => handleSiteChange(e.target.value)}
               label="현장 선택"
-              sx={{
+          sx={{ 
                 color: 'white',
                 '& .MuiOutlinedInput-notchedOutline': {
                   borderColor: 'rgba(255,255,255,0.3)'
@@ -760,38 +815,43 @@ const HyunjangSch = () => {
           <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#3b82f6' }}>
             진행 요약
         </Typography>
-        </Box>
+      </Box>
       </Box>
 
       {/* 첫 번째 줄: 주소정보박스, 시공팀박스 */}
-      <Grid container spacing={2} sx={{ mb: 2, display: 'flex', alignItems: 'stretch', flexWrap: 'nowrap' }}>
+      <Grid container spacing={2} sx={{ mb: '5px', mt: '-10px', display: 'flex', alignItems: 'stretch', flexWrap: 'nowrap' }}>
         {/* 주소정보박스 */}
         <Grid item sx={{ 
           display: 'flex', 
           flex: '0 0 30%',
           maxWidth: '30%'
         }}>
-        <Paper sx={{ 
-          p: 2, 
-          bgcolor: '#23242a',
+          <Paper sx={{ 
+            p: 2, 
+            bgcolor: '#23242a',
             width: '100%',
           display: 'flex',
             flexDirection: 'column'
           }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, justifyContent: 'space-between', flex: 1 }}>
               {/* 주소 */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <LocationOn sx={{ color: '#43e97b', fontSize: 20 }} />
                     <TextField
+                      id="address-input"
+                      name="address"
+                      label="주소"
                       fullWidth
                       size="small"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
+                      autoComplete="street-address"
                       sx={{
                         '& .MuiInputBase-input': { color: 'white' },
                         '& .MuiOutlinedInput-root': {
                           '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' }
-                        }
+                        },
+                        '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
                       }}
                     />
                   </Box>
@@ -800,15 +860,20 @@ const HyunjangSch = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Business sx={{ color: '#43e97b', fontSize: 20 }} />
                     <TextField
+                      id="company-input"
+                      name="company"
+                      label="회사명"
                       fullWidth
                       size="small"
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
+                      autoComplete="organization"
                       sx={{
                         '& .MuiInputBase-input': { color: 'white' },
                         '& .MuiOutlinedInput-root': {
                           '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' }
-                        }
+                        },
+                        '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
                       }}
                     />
                   </Box>
@@ -817,33 +882,21 @@ const HyunjangSch = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Person sx={{ color: '#43e97b', fontSize: 20 }} />
                     <TextField
+                      id="contact-person-input"
+                      name="contactPerson"
+                      label="현장소장"
                       fullWidth
                       size="small"
-                  placeholder="담당자명"
+                  placeholder="현장소장"
                   value={contactPerson}
                   onChange={(e) => setContactPerson(e.target.value)}
+                      autoComplete="name"
                       sx={{
                         '& .MuiInputBase-input': { color: 'white' },
                         '& .MuiOutlinedInput-root': {
                           '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' }
-                        }
-                      }}
-                    />
-                  </Box>
-                  
-              {/* 연락처 */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Phone sx={{ color: '#43e97b', fontSize: 20 }} />
-                    <TextField
-                      fullWidth
-                      size="small"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                      sx={{
-                        '& .MuiInputBase-input': { color: 'white' },
-                        '& .MuiOutlinedInput-root': {
-                          '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' }
-                        }
+                        },
+                        '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
                       }}
                     />
                   </Box>
@@ -865,35 +918,127 @@ const HyunjangSch = () => {
             flexDirection: 'column'
           }}>
             {/* 시공팀 선택 */}
-            <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'nowrap', alignItems: 'center' }}>
-              {selectedTeams.map((team, index) => (
-                <FormControl key={index} size="small" sx={{ minWidth: 150 }}>
-                  <Select
-                    value={team}
-                    onChange={(e) => handleTeamChange(index, e.target.value)}
-                    sx={{
-                      color: 'white',
-                      bgcolor: index === 0 ? '#43e97b' : index === 1 ? '#f59e0b' : '#60a5fa',
-                      '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'transparent'
-                      },
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'rgba(255,255,255,0.3)'
-                      },
-                      '& .MuiSvgIcon-root': {
-                        color: 'white'
-                      }
-                    }}
-                  >
-                    {teamOptions.map(option => (
-                      <MenuItem key={option} value={option}>{option}</MenuItem>
-                    ))}
-                    <MenuItem value="__DELETE__" sx={{ color: '#f44336' }}>
-                      삭제
-                    </MenuItem>
-                  </Select>
-                </FormControl>
-              ))}
+            <Box sx={{ display: 'flex', gap: 1, mb: 1.5, flexWrap: 'nowrap', alignItems: 'center' }}>
+              {selectedTeams.map((team, index) => {
+                const isEditingLabel = editingTeamLabel === index;
+                const currentLabel = teamLabels[index] || `시공팀${index + 1}`;
+                
+                const handleLabelDoubleClick = () => {
+                  setEditingTeamLabel(index);
+                  setEditLabelValue(currentLabel);
+                };
+                
+                const handleLabelLongPress = () => {
+                  setEditingTeamLabel(index);
+                  setEditLabelValue(currentLabel);
+                };
+                
+                const handleLabelTouchStart = (e) => {
+                  longPressTimerRef.current = setTimeout(() => {
+                    handleLabelLongPress();
+                  }, 500);
+                };
+                
+                const handleLabelTouchEnd = () => {
+                  if (longPressTimerRef.current) {
+                    clearTimeout(longPressTimerRef.current);
+                  }
+                };
+                
+                const handleLabelBlur = () => {
+                  if (editLabelValue.trim()) {
+                    handleTeamLabelChange(index, editLabelValue.trim());
+                  }
+                  setEditingTeamLabel(null);
+                };
+                
+                const handleLabelKeyDown = (e) => {
+                  if (e.key === 'Enter') {
+                    handleLabelBlur();
+                  } else if (e.key === 'Escape') {
+                    setEditingTeamLabel(null);
+                    setEditLabelValue(currentLabel);
+                  }
+                };
+                
+                return (
+                  <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {isEditingLabel ? (
+                      <TextField
+                        value={editLabelValue}
+                        onChange={(e) => setEditLabelValue(e.target.value)}
+                        onBlur={handleLabelBlur}
+                        onKeyDown={handleLabelKeyDown}
+                        onFocus={(e) => {
+                          e.target.select();
+                        }}
+                        autoFocus
+                        size="small"
+                        sx={{
+                          width: 80,
+                          '& .MuiInputBase-input': { 
+                            color: 'white', 
+                            fontSize: '0.875rem',
+                            py: 0.5
+                          },
+                          '& .MuiOutlinedInput-root': {
+                            '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' }
+                          }
+                        }}
+                      />
+                    ) : (
+                      <Typography
+                        onDoubleClick={handleLabelDoubleClick}
+                        onTouchStart={handleLabelTouchStart}
+                        onTouchEnd={handleLabelTouchEnd}
+                        sx={{
+                          fontSize: '0.875rem',
+                          color: 'rgba(255,255,255,0.9)',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          WebkitTapHighlightColor: 'transparent',
+                          touchAction: 'manipulation',
+                          minWidth: 60,
+                          '&:hover': {
+                            color: 'white'
+                          }
+                        }}
+                      >
+                        {currentLabel}
+                      </Typography>
+                    )}
+                    <FormControl size="small" sx={{ minWidth: 150 }}>
+                      <Select
+                        id={`team-select-${index}`}
+                        name={`team-${index}`}
+                        value={team}
+                        onChange={(e) => handleTeamChange(index, e.target.value)}
+                        sx={{
+                          color: 'white',
+                          bgcolor: index === 0 ? '#43e97b' : index === 1 ? '#f59e0b' : '#60a5fa',
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'transparent'
+                          },
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(255,255,255,0.3)'
+                          },
+                          '& .MuiSvgIcon-root': {
+                            color: 'white'
+                          }
+                        }}
+                      >
+                        {teamOptions.map(option => (
+                          <MenuItem key={option} value={option}>{option}</MenuItem>
+                        ))}
+                        <MenuItem value="__DELETE__" sx={{ color: '#f44336' }}>
+                          삭제
+                        </MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Box>
+                );
+              })}
               {teamOptions.length > 0 && teamOptions.some(team => !selectedTeams.includes(team)) && (
                 <Button
                   variant="outlined"
@@ -913,23 +1058,28 @@ const HyunjangSch = () => {
 
             {/* 전체 진행율 */}
               <Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '1rem', fontWeight: 500 }}>
                   전체 진행율
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <TextField
+                    id="overall-progress-input"
+                    name="overallProgress"
+                    label="진행율"
                     type="number"
                             size="small"
                     value={overallProgress}
                     onChange={(e) => setOverallProgress(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
                     inputProps={{ min: 0, max: 100 }}
+                    autoComplete="off"
                     sx={{
                       width: 80,
                       '& .MuiInputBase-input': { color: 'white', textAlign: 'center' },
                       '& .MuiOutlinedInput-root': {
                         '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' }
-                      }
+                      },
+                      '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
                     }}
                   />
                   <Typography variant="body2">%</Typography>
@@ -1034,7 +1184,7 @@ const HyunjangSch = () => {
                   }}
                 >
                   착공
-                </Typography>
+                            </Typography>
                 <Typography 
                   variant="caption" 
                   sx={{ 
@@ -1067,7 +1217,7 @@ const HyunjangSch = () => {
                     color: 'rgba(255,255,255,0.7)', 
                     fontSize: '0.7rem',
                     position: 'absolute',
-                    left: '70%',
+                    left: '40%',
                     transform: 'translateX(-50%)',
                     whiteSpace: 'nowrap'
                   }}
@@ -1099,15 +1249,15 @@ const HyunjangSch = () => {
                   }}
                 >
                   준공
-                </Typography>
-              </Box>
+                              </Typography>
+                            </Box>
               </Box>
             </Paper>
         </Grid>
           </Grid>
 
       {/* 둘째 줄: 간트차트 박스 */}
-      <Grid container spacing={2} sx={{ mb: 2, display: 'flex', alignItems: 'stretch' }}>
+      <Grid container spacing={2} sx={{ mb: '5px', display: 'flex', alignItems: 'stretch' }}>
         <Grid item xs={12} sx={{ width: '100%', display: 'flex' }}>
             <Paper sx={{ 
               p: 3, 
@@ -1119,24 +1269,57 @@ const HyunjangSch = () => {
           }}>
             <Box sx={{ width: '100%', minWidth: '100%' }}>
               {/* 날짜 헤더 */}
-              <Box sx={{ display: 'flex', mb: 2, width: '100%', alignItems: 'center' }}>
-                <Typography
-                  onClick={handleAddGanttItem}
-                  sx={{
-                    fontSize: '0.75rem',
-                    color: 'rgba(255,255,255,0.7)',
-                    cursor: 'pointer',
-                    width: 150,
-                    flexShrink: 0,
-                    textAlign: 'left',
-                    pl: 1,
-                    '&:hover': {
-                      color: 'rgba(255,255,255,0.9)'
-                    }
-                  }}
-                >
-                  입력칸 추가
+              <Box sx={{ display: 'flex', mb: 1, width: '100%', alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', gap: 1, width: 150, flexShrink: 0, pl: 1 }}>
+                  <Typography
+                    onClick={handleAddGanttItem}
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      handleAddGanttItem();
+                    }}
+                    sx={{
+                      fontSize: '0.75rem',
+                      color: 'rgba(255,255,255,0.7)',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      WebkitTapHighlightColor: 'transparent',
+                      touchAction: 'manipulation',
+                      '&:hover': {
+                        color: 'rgba(255,255,255,0.9)'
+                      },
+                      '&:active': {
+                        color: 'rgba(255,255,255,1)'
+                      }
+                    }}
+                  >
+                    입력칸 추가
               </Typography>
+                  {ganttItems.some(item => item.checked) && (
+                    <Typography
+                      onClick={handleDeleteCheckedGanttItems}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        handleDeleteCheckedGanttItems();
+                      }}
+                      sx={{
+                        fontSize: '0.75rem',
+                        color: '#f44336',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        WebkitTapHighlightColor: 'transparent',
+                        touchAction: 'manipulation',
+                        '&:hover': {
+                          color: '#ff6b6b'
+                        },
+                        '&:active': {
+                          color: '#d32f2f'
+                        }
+                      }}
+                    >
+                      삭제
+                </Typography>
+                  )}
+              </Box>
                 <Box sx={{ display: 'flex', flex: 1, pl: '10px' }}>
                   {dateRange.dates.length > 0 ? dateRange.dates.map((date, index) => {
                     const dateStr = date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }).replace(/\./g, '/');
@@ -1148,7 +1331,7 @@ const HyunjangSch = () => {
                         sx={{
                           flex: `1 1 ${widthPercent}%`,
                           textAlign: 'center',
-                          fontSize: '0.75rem',
+                          fontSize: '1rem',
                           color: 'rgba(255,255,255,0.7)',
                           minWidth: 0
                         }}
@@ -1159,51 +1342,113 @@ const HyunjangSch = () => {
                   }) : (
                     <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem' }}>
                       날짜 정보가 없습니다.
-                </Typography>
+                        </Typography>
                   )}
-                </Box>
-              </Box>
+                      </Box>
+                    </Box>
               
               {/* 간트 차트 행들 */}
               <Box sx={{ width: '100%' }}>
                 {ganttItems.map((item) => (
-                  <Box key={item.id} sx={{ display: 'flex', mb: 1, alignItems: 'center', width: '100%' }}>
+                  <Box 
+                    key={item.id} 
+                    sx={{ 
+                      display: 'flex', 
+                      mb: 0.3, 
+                      alignItems: 'center', 
+                      width: '100%',
+                      cursor: 'default'
+                    }}
+                  >
                     {/* 왼쪽: 체크박스와 입력칸 */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 150, flexShrink: 0 }}>
-                      <Checkbox
-                        checked={item.checked}
-                        onChange={(e) => {
+                    <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 0.5, 
+                        width: 180, 
+                        flexShrink: 0,
+                        cursor: 'default'
+                      }}
+                    >
+                      <Box
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setGanttItems(ganttItems.map(i => 
-                            i.id === item.id ? { ...i, checked: e.target.checked } : i
+                            i.id === item.id ? { ...i, checked: !i.checked } : i
                           ));
                         }}
-                        sx={{ color: 'white', p: 0.5 }}
-                      />
+                        onTouchStart={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setGanttItems(ganttItems.map(i => 
+                            i.id === item.id ? { ...i, checked: !i.checked } : i
+                          ));
+                        }}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          WebkitTapHighlightColor: 'transparent',
+                          touchAction: 'manipulation',
+                          '&:hover': {
+                            opacity: 0.8
+                          }
+                        }}
+                      >
+                        <Checkbox
+                          id={`gantt-checkbox-${item.id}`}
+                          name={`ganttCheckbox-${item.id}`}
+                          checked={item.checked}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setGanttItems(ganttItems.map(i => 
+                              i.id === item.id ? { ...i, checked: e.target.checked } : i
+                            ));
+                          }}
+                          sx={{ 
+                            color: 'white', 
+                            p: 0.25,
+                            cursor: 'pointer',
+                            pointerEvents: 'auto',
+                            '&:hover': {
+                              bgcolor: 'rgba(255,255,255,0.1)'
+                            }
+                          }}
+                          aria-label={`${item.label} 선택`}
+                        />
+                      </Box>
                       <TextField
+                        id={`gantt-item-label-${item.id}`}
+                        name={`ganttItemLabel-${item.id}`}
                         size="small"
                         value={item.label}
                         onChange={(e) => handleGanttLabelChange(item.id, e.target.value)}
+                        onFocus={(e) => {
+                          e.target.select();
+                        }}
+                        autoComplete="off"
+                        variant="standard"
                           sx={{
                           flex: 1,
-                          '& .MuiInputBase-input': { color: 'white', fontSize: '0.75rem', py: 0.5 },
-                          '& .MuiOutlinedInput-root': {
-                            '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' }
+                          minWidth: 120,
+                          '& .MuiInputBase-input': { 
+                            color: 'white', 
+                            fontSize: '1rem', 
+                            py: 0.3,
+                            px: 0.5
+                          },
+                          '& .MuiInput-underline:before': {
+                            borderBottom: 'none'
+                          },
+                          '& .MuiInput-underline:hover:before': {
+                            borderBottom: 'none'
+                          },
+                          '& .MuiInput-underline:after': {
+                            borderBottom: 'none'
                           }
                         }}
                       />
-                      {ganttItems.length > 1 && (
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveGanttItem(item.id)}
-                          sx={{ 
-                            color: '#f44336', 
-                            p: 0.5,
-                            '&:hover': { bgcolor: 'rgba(244, 67, 54, 0.1)' }
-                          }}
-                        >
-                          <Delete fontSize="small" />
-                      </IconButton>
-                      )}
                     </Box>
 
                     {/* 오른쪽: 간트 바들 */}
@@ -1212,11 +1457,11 @@ const HyunjangSch = () => {
                       sx={{ 
                         flex: 1, 
                         position: 'relative', 
-                        height: 32,
+                        height: 28,
                         display: 'flex',
                         gap: 0.5,
                         alignItems: 'center',
-                        width: 'calc(100% - 150px)',
+                        width: 'calc(100% - 180px)',
                         minWidth: 0,
                         pl: '10px'
                       }}
@@ -1246,7 +1491,7 @@ const HyunjangSch = () => {
                               position: 'absolute',
                               left: `${startPercent}%`,
                               width: `${widthPercent}%`,
-                              height: 24,
+                              height: 22,
                               bgcolor: bar.color,
                               borderRadius: 0.5,
                               cursor: isDragging ? 'grabbing' : 'grab',
@@ -1277,7 +1522,7 @@ const HyunjangSch = () => {
                                 }}
                               >
                                 {bar.label}
-                              </Typography>
+                            </Typography>
                             )}
                             {/* 시작점 리사이즈 핸들 */}
                             <Box
@@ -1438,15 +1683,20 @@ const HyunjangSch = () => {
               </Typography>
             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <TextField
+                id="memo-input"
+                name="memo"
+                label="메모"
                 fullWidth
                 multiline
                 rows={8}
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
                 placeholder="메모를 입력하세요..."
+                autoComplete="off"
                       sx={{
                   flex: 1,
                   '& .MuiInputBase-input': { color: 'white' },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
                   '& .MuiOutlinedInput-root': {
                     height: '100%',
                     '& textarea': {
@@ -1554,7 +1804,7 @@ const HyunjangSch = () => {
                   position: 'relative',
                   width: '100%',
                   height: 40,
-                  bgcolor: 'rgba(255,255,255,0.1)',
+                        bgcolor: 'rgba(255,255,255,0.1)',
                   borderRadius: 1,
                   overflow: 'hidden',
                   border: '1px solid rgba(255,255,255,0.2)'
@@ -1570,8 +1820,8 @@ const HyunjangSch = () => {
                     top: 5,
                     bgcolor: editGanttData.color,
                     borderRadius: 0.5,
-                    display: 'flex',
-                    alignItems: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
                     justifyContent: 'center',
                     overflow: 'hidden'
                   }}
@@ -1590,17 +1840,20 @@ const HyunjangSch = () => {
                       }}
                     >
                       {editGanttData.label}
-                    </Typography>
+                      </Typography>
                   )}
-                </Box>
+              </Box>
               </Box>
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', mt: 1, display: 'block' }}>
                 • 간트 차트에서 직접 드래그하여 이동하거나 양쪽 끝을 드래그하여 크기 조절 가능
                     </Typography>
                   </Box>
             <Box>
-              <Typography gutterBottom>시작일: {editGanttData.start}일</Typography>
+              <Typography gutterBottom id="gantt-start-label">시작일: {editGanttData.start}일</Typography>
               <Slider
+                id="gantt-start-slider"
+                name="ganttStart"
+                aria-labelledby="gantt-start-label"
                 value={editGanttData.start}
                 onChange={(e, value) => setEditGanttData({ ...editGanttData, start: value })}
                 min={0}
@@ -1609,8 +1862,11 @@ const HyunjangSch = () => {
               />
             </Box>
             <Box>
-              <Typography gutterBottom>종료일: {editGanttData.end}일</Typography>
+              <Typography gutterBottom id="gantt-end-label">종료일: {editGanttData.end}일</Typography>
               <Slider
+                id="gantt-end-slider"
+                name="ganttEnd"
+                aria-labelledby="gantt-end-label"
                 value={editGanttData.end}
                 onChange={(e, value) => setEditGanttData({ ...editGanttData, end: value })}
                 min={editGanttData.start}
@@ -1621,7 +1877,7 @@ const HyunjangSch = () => {
             <Box>
               <Typography gutterBottom>색상</Typography>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                {['#f59e0b', '#43e97b', '#60a5fa', '#ef4444', '#a855f7'].map(color => (
+                {['#f59e0b', '#43e97b', '#60a5fa', '#ef4444', '#a855f7', '#10b981', '#f97316', '#8b5cf6', '#ec4899', '#06b6d4'].map(color => (
                   <Box
                     key={color}
                     onClick={() => setEditGanttData({ ...editGanttData, color })}
@@ -1637,23 +1893,38 @@ const HyunjangSch = () => {
                 ))}
               </Box>
               <TextField
+                id="gantt-color-input"
+                name="ganttColor"
+                label="색상 코드"
                 fullWidth
                 size="small"
                 value={editGanttData.color}
                 onChange={(e) => setEditGanttData({ ...editGanttData, color: e.target.value })}
                 placeholder="#f59e0b"
-                sx={{ mt: 1, '& .MuiInputBase-input': { color: 'white' } }}
+                autoComplete="off"
+                sx={{ 
+                  mt: 1, 
+                  '& .MuiInputBase-input': { color: 'white' },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
+                }}
               />
             </Box>
             <Box>
               <Typography gutterBottom>텍스트</Typography>
               <TextField
+                id="gantt-label-input"
+                name="ganttLabel"
+                label="간트바 텍스트"
                 fullWidth
                 size="small"
                 value={editGanttData.label || ''}
                 onChange={(e) => setEditGanttData({ ...editGanttData, label: e.target.value })}
                 placeholder="간트바에 표시할 텍스트를 입력하세요"
-                sx={{ '& .MuiInputBase-input': { color: 'white' } }}
+                autoComplete="off"
+                sx={{ 
+                  '& .MuiInputBase-input': { color: 'white' },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
+                }}
               />
             </Box>
           </Box>

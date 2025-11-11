@@ -366,18 +366,20 @@ export const ensureInputFocus = () => {
   const style = document.createElement('style');
   style.id = 'input-focus-fix';
   style.textContent = `
-    input, textarea,
-    input *, textarea *,
-    .MuiTextField-root input,
-    .MuiTextField-root textarea,
-    .MuiInputBase-input,
-    .MuiInputBase-root input,
-    .MuiInputBase-root textarea,
-    .MuiInputBase-root,
-    .MuiOutlinedInput-input,
-    .MuiFilledInput-input,
-    .MuiInput-input,
-    [contenteditable="true"] {
+    input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]), 
+    textarea:not([aria-hidden="true"]),
+    input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]) *, 
+    textarea:not([aria-hidden="true"]) *,
+    .MuiTextField-root input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]),
+    .MuiTextField-root textarea:not([aria-hidden="true"]),
+    .MuiInputBase-input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]),
+    .MuiInputBase-root input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]),
+    .MuiInputBase-root textarea:not([aria-hidden="true"]),
+    .MuiInputBase-root:not([aria-hidden="true"]),
+    .MuiOutlinedInput-input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]),
+    .MuiFilledInput-input:not([aria-hidden="true"]),
+    .MuiInput-input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]),
+    [contenteditable="true"]:not([aria-hidden="true"]) {
       pointer-events: auto !important;
       -webkit-user-select: text !important;
       -moz-user-select: text !important;
@@ -397,13 +399,14 @@ export const ensureInputFocus = () => {
       z-index: 9999 !important;
     }
     
-    input:focus, textarea:focus,
-    .MuiTextField-root input:focus,
-    .MuiTextField-root textarea:focus,
-    .MuiInputBase-input:focus,
-    .MuiInputBase-root input:focus,
-    .MuiInputBase-root textarea:focus,
-    [contenteditable="true"]:focus {
+    input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]):focus, 
+    textarea:not([aria-hidden="true"]):focus,
+    .MuiTextField-root input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]):focus,
+    .MuiTextField-root textarea:not([aria-hidden="true"]):focus,
+    .MuiInputBase-input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]):focus,
+    .MuiInputBase-root input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]):focus,
+    .MuiInputBase-root textarea:not([aria-hidden="true"]):focus,
+    [contenteditable="true"]:not([aria-hidden="true"]):focus {
       pointer-events: auto !important;
       -webkit-user-select: text !important;
       -moz-user-select: text !important;

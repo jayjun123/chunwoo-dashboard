@@ -881,17 +881,21 @@ input, textarea, select, button, a, [role="button"],
 }
 
 /* 입력 필드는 선택 가능 및 터치 활성화 - 최우선 적용 */
-input, textarea, select,
-input *, textarea *, select *,
-.MuiTextField-root input,
-.MuiTextField-root textarea,
-.MuiInputBase-input,
-.MuiInputBase-root input,
-.MuiInputBase-root textarea,
-.MuiInputBase-root,
-.MuiOutlinedInput-input,
-.MuiFilledInput-input,
-.MuiInput-input {
+input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]), 
+textarea:not([aria-hidden="true"]), 
+select:not([aria-hidden="true"]),
+input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]) *, 
+textarea:not([aria-hidden="true"]) *, 
+select:not([aria-hidden="true"]) *,
+.MuiTextField-root input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]),
+.MuiTextField-root textarea:not([aria-hidden="true"]),
+.MuiInputBase-input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]),
+.MuiInputBase-root input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]),
+.MuiInputBase-root textarea:not([aria-hidden="true"]),
+.MuiInputBase-root:not([aria-hidden="true"]),
+.MuiOutlinedInput-input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]),
+.MuiFilledInput-input:not([aria-hidden="true"]),
+.MuiInput-input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]) {
   -webkit-user-select: text !important;
   -moz-user-select: text !important;
   -ms-user-select: text !important;
@@ -902,12 +906,14 @@ input *, textarea *, select *,
   -webkit-touch-callout: default !important;
 }
 
-input:focus, textarea:focus, select:focus,
-.MuiTextField-root input:focus,
-.MuiTextField-root textarea:focus,
-.MuiInputBase-input:focus,
-.MuiInputBase-root input:focus,
-.MuiInputBase-root textarea:focus {
+input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]):focus, 
+textarea:not([aria-hidden="true"]):focus, 
+select:not([aria-hidden="true"]):focus,
+.MuiTextField-root input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]):focus,
+.MuiTextField-root textarea:not([aria-hidden="true"]):focus,
+.MuiInputBase-input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]):focus,
+.MuiInputBase-root input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]):focus,
+.MuiInputBase-root textarea:not([aria-hidden="true"]):focus {
   -webkit-user-select: text !important;
   -moz-user-select: text !important;
   -ms-user-select: text !important;

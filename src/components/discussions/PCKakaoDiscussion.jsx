@@ -6,6 +6,7 @@ import {
   createDiscussion, 
   sendMessage, 
   deleteDiscussion,
+  deleteMessage,
   removeParticipant,
   addParticipant,
   getDiscussionParticipants
@@ -819,6 +820,21 @@ const PCKakaoDiscussion = () => {
     setSnackbar({ open: true, message: '선택된 메시지가 삭제되었습니다', severity: 'success' });
   };
 
+  // 개별 메시지 삭제
+  const handleDeleteMessage = async (messageId) => {
+    if (!window.confirm('이 메시지를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      await deleteMessage(messageId);
+      setSnackbar({ open: true, message: '메시지가 삭제되었습니다', severity: 'success' });
+    } catch (error) {
+      console.error('메시지 삭제 실패:', error);
+      setSnackbar({ open: true, message: '메시지 삭제에 실패했습니다', severity: 'error' });
+    }
+  };
+
   // 필터링된 토론 목록
   const filteredDiscussions = useMemo(() => {
     return discussions.filter(discussion =>
@@ -1098,21 +1114,33 @@ const PCKakaoDiscussion = () => {
                             </Typography>
                           </Paper>
                             
-                            <Typography variant="caption" sx={{ 
-                              color: '#718096', 
-                              mr: 1, 
-                              mt: 0.5, 
-                              display: 'block',
-                              textAlign: 'right'
-                            }}>
-                              {message.timestamp?.toDate
-                                ? message.timestamp.toDate().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
-                                : (message.timestamp instanceof Date
-                                    ? message.timestamp.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
-                                    : (message.timestamp ? String(message.timestamp) : '')
-                                  )
-                              }
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end', mt: 0.5 }}>
+                              <Typography variant="caption" sx={{ 
+                                color: '#718096'
+                              }}>
+                                {message.timestamp?.toDate
+                                  ? message.timestamp.toDate().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
+                                  : (message.timestamp instanceof Date
+                                      ? message.timestamp.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
+                                      : (message.timestamp ? String(message.timestamp) : '')
+                                    )
+                                }
+                              </Typography>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDeleteMessage(message.id)}
+                                sx={{
+                                  color: '#718096',
+                                  '&:hover': {
+                                    color: '#f44336',
+                                    bgcolor: 'rgba(244, 67, 54, 0.1)'
+                                  },
+                                  p: 0.25
+                                }}
+                              >
+                                <DeleteIcon sx={{ fontSize: 14 }} />
+                              </IconButton>
+                            </Box>
                           </Box>
                         </Box>
                       ) : (

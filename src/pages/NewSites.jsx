@@ -1038,23 +1038,30 @@ const NewSites = () => {
         );
       });
     
-    // 정산완료된 현장을 제일 아래쪽에 배치
-    const activeSites = [];
-    const completedSites = [];
+    // 주요현장을 제일 위로, 나머지는 가나다 순으로 정렬
+    const favoriteSites = [];
+    const normalSites = [];
     
     filtered.forEach(site => {
-      // 정산완료 여부 확인
-      const isFullyPaid = paymentStatusMap[site.name]?.isFullyPaid || false;
-      
-      if (isFullyPaid) {
-        completedSites.push(site);
+      // 주요현장 여부 확인
+      if (site.isFavorite === true) {
+        favoriteSites.push(site);
       } else {
-        activeSites.push(site);
+        normalSites.push(site);
       }
     });
     
-    // 진행인 현장을 먼저, 정산완료된 현장을 나중에 배치
-    return [...activeSites, ...completedSites];
+    // 가나다 순 정렬 함수
+    const sortByName = (a, b) => {
+      return (a.name || '').localeCompare(b.name || '', 'ko');
+    };
+    
+    // 주요현장을 가나다 순으로 정렬 후, 일반현장을 가나다 순으로 정렬
+    favoriteSites.sort(sortByName);
+    normalSites.sort(sortByName);
+    
+    // 주요현장을 먼저, 일반현장을 나중에 배치
+    return [...favoriteSites, ...normalSites];
   }, [sites, statusTab, searchTerm, showHiddenCompleted, paymentStatusMap]);
 
   const handleSelectSite = async (site) => {

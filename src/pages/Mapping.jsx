@@ -54,6 +54,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from '@mui/icons-material';
+import StarIcon from '@mui/icons-material/Star';
 import * as d3 from 'd3';
 import { collection, onSnapshot, query, orderBy, setDoc, getDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -85,7 +86,7 @@ const Mapping = () => {
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentYear, setCurrentYear] = useState(2025);
-  const [activeTab, setActiveTab] = useState('진행중');
+  const [activeTab, setActiveTab] = useState('진행');
   const [isLoading, setIsLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [mapSvg, setMapSvg] = useState(null);
@@ -880,12 +881,15 @@ const Mapping = () => {
   useEffect(() => {
     const q = query(collection(db, 'sites'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const sitesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
+      const sitesData = snapshot.docs.map(doc => {
+        const data = { id: doc.id, ...doc.data() };
+        // status 필드 변환 (NewSites.jsx와 동일하게)
+        if (data.status === '진행중') data.status = '진행';
+        else if (data.status === '진행상황') data.status = '예정';
         // 주소가 없으면 "주소 미입력"으로 설정
-        address: doc.data().address || '주소 미입력'
-      }));
+        data.address = data.address || '주소 미입력';
+        return data;
+      });
       setSites(sitesData);
       setIsLoading(false);
     });
@@ -1666,9 +1670,14 @@ const Mapping = () => {
     return true;
   };
 
-  // 검색어와 년도로 필터링된 현장들 (선택된 현장을 맨 위로 정렬)
+  // 검색어와 년도로 필터링된 현장들 (선택된 현장 > 주요현장 > 일반현장 순으로 정렬)
   const filteredSites = sites.filter(site => {
-    const matchesTab = activeTab === '미정' ? (!site.status || site.status === '미정') : site.status === activeTab;
+    // status 필드 변환된 값으로 필터링
+    let siteStatus = site.status;
+    if (siteStatus === '진행중') siteStatus = '진행';
+    else if (siteStatus === '진행상황') siteStatus = '예정';
+    
+    const matchesTab = activeTab === '미정' ? (!siteStatus || siteStatus === '미정') : siteStatus === activeTab;
     const matchesSearch = site.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesTab && matchesSearch && isSiteInYear(site, currentYear);
   }).sort((a, b) => {
@@ -1678,6 +1687,19 @@ const Mapping = () => {
     
     if (aSelected && !bSelected) return -1;
     if (!aSelected && bSelected) return 1;
+    
+    // 선택되지 않은 경우, 주요현장을 먼저 표시
+    if (!aSelected && !bSelected) {
+      const aIsFavorite = a.isFavorite === true;
+      const bIsFavorite = b.isFavorite === true;
+      
+      if (aIsFavorite && !bIsFavorite) return -1;
+      if (!aIsFavorite && bIsFavorite) return 1;
+      
+      // 둘 다 주요현장이거나 둘 다 일반현장인 경우 가나다 순으로 정렬
+      return (a.name || '').localeCompare(b.name || '', 'ko');
+    }
+    
     return 0;
   });
 
@@ -1791,10 +1813,15 @@ const Mapping = () => {
       const getSiteStatus = (site) => {
         // status 필드가 있으면 그것을 사용
         if (site.status) {
-          if (site.status === '진행중') return 'ongoing';
-          if (site.status === '예정') return 'scheduled';
-          if (site.status === '완료') return 'completed';
-          if (site.status === '미정') return 'undefined';
+          // status 변환
+          let status = site.status;
+          if (status === '진행중') status = '진행';
+          else if (status === '진행상황') status = '예정';
+          
+          if (status === '진행') return 'ongoing';
+          if (status === '예정') return 'scheduled';
+          if (status === '완료') return 'completed';
+          if (status === '미정') return 'undefined';
         }
         
         // status 필드가 없으면 날짜로 판단
@@ -2516,10 +2543,15 @@ const Mapping = () => {
       const getSiteStatus = (site) => {
         // status 필드가 있으면 그것을 사용
         if (site.status) {
-          if (site.status === '진행중') return 'ongoing';
-          if (site.status === '예정') return 'scheduled';
-          if (site.status === '완료') return 'completed';
-          if (site.status === '미정') return 'undefined';
+          // status 변환
+          let status = site.status;
+          if (status === '진행중') status = '진행';
+          else if (status === '진행상황') status = '예정';
+          
+          if (status === '진행') return 'ongoing';
+          if (status === '예정') return 'scheduled';
+          if (status === '완료') return 'completed';
+          if (status === '미정') return 'undefined';
         }
         
         // status 필드가 없으면 날짜로 판단
@@ -3396,7 +3428,10 @@ const Mapping = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.75rem' }}>
                     <CheckCircle sx={{ fontSize: 14, color: '#00ff88' }} />
                     완료
-                    <Badge badgeContent={sites.filter(s => s.status === '완료' && isSiteInYear(s, currentYear)).length} color="primary" sx={{ fontSize: '0.6rem' }} />
+                    <Badge badgeContent={sites.filter(s => {
+                      const status = s.status === '진행중' ? '진행' : (s.status === '진행상황' ? '예정' : s.status);
+                      return status === '완료' && isSiteInYear(s, currentYear);
+                    }).length} color="primary" sx={{ fontSize: '0.6rem' }} />
                   </Box>
                 } 
                 value="완료" 
@@ -3406,11 +3441,14 @@ const Mapping = () => {
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.75rem' }}>
                     <Construction sx={{ fontSize: 14, color: '#00bcd4' }} />
-                    진행중
-                    <Badge badgeContent={sites.filter(s => s.status === '진행중' && isSiteInYear(s, currentYear)).length} color="primary" sx={{ fontSize: '0.6rem' }} />
+                    진행
+                    <Badge badgeContent={sites.filter(s => {
+                      const status = s.status === '진행중' ? '진행' : (s.status === '진행상황' ? '예정' : s.status);
+                      return status === '진행' && isSiteInYear(s, currentYear);
+                    }).length} color="primary" sx={{ fontSize: '0.6rem' }} />
                   </Box>
                 } 
-                value="진행중" 
+                value="진행" 
                 sx={{ fontSize: '0.75rem', py: 0.5, px: 0.8 }}
               />
               <Tab 
@@ -3418,7 +3456,10 @@ const Mapping = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.75rem' }}>
                     <Schedule sx={{ fontSize: 14, color: '#ff9800' }} />
                     예정
-                    <Badge badgeContent={sites.filter(s => s.status === '예정' && isSiteInYear(s, currentYear)).length} color="primary" sx={{ fontSize: '0.6rem' }} />
+                    <Badge badgeContent={sites.filter(s => {
+                      const status = s.status === '진행중' ? '진행' : (s.status === '진행상황' ? '예정' : s.status);
+                      return status === '예정' && isSiteInYear(s, currentYear);
+                    }).length} color="primary" sx={{ fontSize: '0.6rem' }} />
                   </Box>
                 } 
                 value="예정" 
@@ -3453,11 +3494,21 @@ const Mapping = () => {
             <List sx={{ p: 0, pb: 2 }}>
               {filteredSites
                 .sort((a, b) => {
-                  // 주소 미입력을 맨 아래로 정렬
-                  const aHasAddress = a.address && a.address.trim() !== '' && a.address !== '주소 미입력';
-                  const bHasAddress = b.address && b.address.trim() !== '' && b.address !== '주소 미입력';
-                  if (aHasAddress && !bHasAddress) return -1;
-                  if (!aHasAddress && bHasAddress) return 1;
+                  // 선택된 현장은 맨 위 (이미 filteredSites에서 정렬됨)
+                  const aSelected = selectedSites.some(s => s.id === a.id);
+                  const bSelected = selectedSites.some(s => s.id === b.id);
+                  
+                  if (aSelected && !bSelected) return -1;
+                  if (!aSelected && bSelected) return 1;
+                  
+                  // 선택되지 않은 경우, 주소 미입력을 맨 아래로 정렬 (주요현장/가나다 순 정렬은 이미 filteredSites에서 처리됨)
+                  if (!aSelected && !bSelected) {
+                    const aHasAddress = a.address && a.address.trim() !== '' && a.address !== '주소 미입력';
+                    const bHasAddress = b.address && b.address.trim() !== '' && b.address !== '주소 미입력';
+                    if (aHasAddress && !bHasAddress) return -1;
+                    if (!aHasAddress && bHasAddress) return 1;
+                  }
+                  
                   return 0;
                 })
                 .map((site) => (
@@ -3497,6 +3548,16 @@ const Mapping = () => {
                 >
                   <CardContent sx={{ p: 0.5, '&:last-child': { pb: 0.5 } }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.2 }}>
+                      {/* 주요현장 노란색 별 */}
+                      {site.isFavorite && (
+                        <StarIcon 
+                          sx={{ 
+                            color: '#FFD700', 
+                            fontSize: '0.9rem',
+                            flexShrink: 0
+                          }} 
+                        />
+                      )}
                       <Typography 
                         variant="subtitle2" 
                         sx={{ 
