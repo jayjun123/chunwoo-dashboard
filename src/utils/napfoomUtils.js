@@ -112,154 +112,56 @@ export const createNapfoomContract = async (siteData, materialItems = [], fileNa
     }
     
     // 템플릿 로드 (공유수식 문제 완전 해결)
+    // 템플릿 로드 (수식 보존, Shared Formula만 제거)
     const workbook = new ExcelJS.Workbook();
     try {
-      console.log(`📥 NAPFOOM ${templateType} 타입 템플릿 로드 시작...`);
-      
-      // 공유수식 문제를 완전히 방지하기 위한 강력한 옵션 설정
+      // 첫 번째 시도: 기본 설정으로 로딩
       await workbook.xlsx.load(arrayBuffer, {
-        ignoreNodes: ['sharedFormulas', 'sharedFormulaRefs', 'sharedFormula'],
-        ignoreAttributes: ['si', 'ref', 'sharedFormula', 'sharedFormulaMaster', 'sharedFormulaRef'],
-        ignoreElements: ['sharedFormulas', 'sharedFormulaRefs']
+        sharedFormula: false,
+        ignoreFormulas: false,  // 수식 보존
+        ignoreFormulaErrors: true,
+        ignoreStyles: false,
+        ignoreDataValidations: false,
+        ignoreConditionalFormats: false
       });
-      
-      console.log(`✅ ${templateType} 타입 NAPFOOM 템플릿 로드 성공`);
+      console.log(`✅ 기본 설정으로 NAPFOOM ${templateType} 타입 템플릿 로드 성공`);
     } catch (loadError) {
-      console.error(`❌ ${templateType} 타입 NAPFOOM 템플릿 로드 실패:`, loadError.message);
+      console.warn('⚠️ 기본 로딩 실패, Shared Formula 무시로 재시도:', loadError.message);
       
-      // 첫 번째 시도 실패 시 기본 방식으로 재시도
-      try {
-        console.log('🔄 기본 방식으로 템플릿 로드 재시도...');
-        await workbook.xlsx.load(arrayBuffer);
-        console.log(`✅ ${templateType} 타입 NAPFOOM 템플릿 로드 재시도 성공`);
-      } catch (retryError) {
-        console.error(`❌ ${templateType} 타입 NAPFOOM 템플릿 로드 재시도 실패:`, retryError.message);
-        throw new Error(`${templateType} 타입 NAPFOOM 템플릿 로드 실패: ${retryError.message}`);
-      }
-    }
-    
-    // 템플릿은 그대로 두고 데이터만 입력
-    console.log('✅ 템플릿 로드 완료 - 데이터 입력 준비');
-    
-    // 공유수식을 개별 수식으로 안전하게 변환
-    console.log('🔧 공유수식을 개별수식으로 변환 시작...');
-    convertSharedFormulasToIndividual(workbook);
-    console.log('✅ 공유수식을 개별수식으로 변환 완료');
-    
-    // 추가 안전장치: H6 셀 및 주변 셀 특별 처리
-    console.log('🔧 H6 셀 및 주변 셀 공유수식 특별 처리 시작...');
-    try {
-      workbook.worksheets.forEach((worksheet, sheetIndex) => {
-        // H6 셀과 주변 셀들 특별 처리 (H5, H6, H7, G6, I6)
-        const targetCells = ['H5', 'H6', 'H7', 'G6', 'I6'];
-        
-        targetCells.forEach(cellAddress => {
-          try {
-            const cell = worksheet.getCell(cellAddress);
-            if (cell) {
-              // 공유수식 관련 모든 속성 강제 제거
-              const sharedFormulaProps = [
-                'sharedFormula', 'si', 'ref', 'sharedFormulaMaster', 'sharedFormulaRef',
-                '_sharedFormula', '_si', '_ref', '_sharedFormulaMaster', '_sharedFormulaRef'
-              ];
-              
-              let hasSharedFormula = false;
-              sharedFormulaProps.forEach(prop => {
-                if (cell[prop] !== undefined) {
-                  hasSharedFormula = true;
-                  delete cell[prop];
-                }
-              });
-              
-              if (hasSharedFormula) {
-                console.log(`🔧 ${cellAddress} 셀 공유수식 속성 제거 중...`);
-                
-                if (cell.formula) {
-                  const formula = cell.formula.toString();
-                  console.log(`🔧 ${cellAddress} 셀 수식 유지:`, formula);
-                  delete cell.formula;
-                  cell.formula = formula;
-                }
-              }
-            }
-          } catch (cellError) {
-            console.warn(`⚠️ ${cellAddress} 셀 특별 처리 실패:`, cellError.message);
-          }
-        });
+      // 두 번째 시도: Shared Formula만 무시
+      await workbook.xlsx.load(arrayBuffer, {
+        sharedFormula: false,
+        ignoreSharedFormulas: true,
+        ignoreFormulas: false,  // 수식 보존
+        ignoreFormulaErrors: true,
+        ignoreStyles: false,
+        ignoreDataValidations: false,
+        ignoreConditionalFormats: false
       });
-      console.log('✅ H6 셀 및 주변 셀 공유수식 특별 처리 완료');
-    } catch (h6Error) {
-      console.warn('⚠️ H6 셀 특별 처리 실패:', h6Error.message);
+      console.log(`✅ Shared Formula 무시로 NAPFOOM ${templateType} 타입 템플릿 로드 성공`);
     }
     
-    // 수식은 템플릿 그대로 유지 (인덱스2 함수 보존)
-    console.log('🔧 수식 보존 모드: 템플릿 수식 유지');
+    // Shared Formula 문제만 해결 (수식은 보존)
+    fixNapfoomSharedFormulaIssues(workbook);
+    console.log('✅ Shared Formula 문제 해결 완료 (수식 보존)');
     
-    // 데이터 입력
-    console.log('📝 데이터 입력 시작');
+    // 데이터만 입력 (양식은 건드리지 않음)
     await fillNapfoomData(workbook, siteData, materialItems);
-    console.log('✅ 데이터 입력 완료');
     
-    // 수식은 템플릿 그대로 유지
-    
-    // 파일 생성 전 최종 안전장치 (강화된 버전)
-    console.log('🛡️ 파일 생성 전 최종 안전장치 실행 (강화된 버전)...');
-    try {
-      workbook.worksheets.forEach((worksheet, sheetIndex) => {
-        // 모든 셀의 공유수식 속성 최종 정리
-        worksheet.eachRow((row, rowNumber) => {
-          row.eachCell((cell, colNumber) => {
-            try {
-              // 공유수식 관련 모든 속성 최종 제거
-              const sharedFormulaProps = [
-                'sharedFormula', 'si', 'ref', 'sharedFormulaMaster', 'sharedFormulaRef',
-                '_sharedFormula', '_si', '_ref', '_sharedFormulaMaster', '_sharedFormulaRef'
-              ];
-              
-              sharedFormulaProps.forEach(prop => {
-                if (cell[prop] !== undefined) {
-                  delete cell[prop];
-                }
-              });
-            } catch (finalCleanupError) {
-              // 최종 정리 실패는 무시
-            }
-          });
-        });
-        
-        // 워크시트 레벨 최종 정리
-        try {
-          const worksheetSharedFormulaProps = [
-            'sharedFormulas', '_sharedFormulas', 'sharedFormulaRefs', '_sharedFormulaRefs'
-          ];
-          
-          worksheetSharedFormulaProps.forEach(prop => {
-            if (worksheet[prop] !== undefined) {
-              delete worksheet[prop];
-            }
-          });
-          
-          if (worksheet.model) {
-            if (worksheet.model.sharedFormulas !== undefined) {
-              delete worksheet.model.sharedFormulas;
-            }
-            if (worksheet.model._sharedFormulas !== undefined) {
-              delete worksheet.model._sharedFormulas;
-            }
-          }
-        } catch (worksheetCleanupError) {
-          // 워크시트 정리 실패는 무시
-        }
-      });
-      console.log('✅ 최종 안전장치 완료 (강화된 버전)');
-    } catch (finalError) {
-      console.warn('⚠️ 최종 안전장치 실패:', finalError.message);
-    }
-    
-    // 파일 생성 및 다운로드
+    // 파일 생성 및 다운로드 (수식 보존 강제)
     console.log('💾 파일 생성 중...');
-    const buffer = await workbook.xlsx.writeBuffer();
-    console.log('📦 버퍼 생성 완료, 크기:', buffer.byteLength);
+    const buffer = await workbook.xlsx.writeBuffer({
+      sharedFormula: false,
+      ignoreFormulas: false,  // 수식 보존 강제
+      ignoreSharedFormulas: true,
+      ignoreStyles: false,
+      ignoreDataValidations: false,
+      ignoreConditionalFormats: false,
+      ignoreMacros: false,
+      ignorePictures: false,
+      ignoreCharts: false
+    });
+    console.log('📦 버퍼 생성 완료 (수식 보존), 크기:', buffer.byteLength);
     
     const blob = new Blob([buffer], { 
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
@@ -462,28 +364,8 @@ const fillSummarySheet = async (sheet, siteData, materialItems) => {
     const companyName = siteData.companyName || siteData.company || '';
     const siteName = siteData.name || siteData.siteName || '';
     
-    // 갑지 시트에 회사명과 현장명 입력 (일반적인 갑지 위치)
-    const dataMapping = {
-      // 현장명 (일반적으로 B2 또는 B3 위치)
-      'B2': siteName,
-      'B3': siteName,
-      
-      // 회사명 (일반적으로 B4 또는 B5 위치)
-      'B4': companyName,
-      'B5': companyName,
-    };
-    
-    // 데이터 입력
-    Object.entries(dataMapping).forEach(([cellAddress, value]) => {
-      try {
-        if (value) {
-          sheet.getCell(cellAddress).value = value;
-          console.log(`✅ 갑지 ${cellAddress}: ${value}`);
-        }
-      } catch (e) {
-        console.log(`⚠️ 갑지 ${cellAddress} 입력 실패:`, e.message);
-      }
-    });
+    // 갑지 시트에 회사명과 현장명 입력 제거 (B2, B3, B4, B5 셀은 비워둠)
+    // B2, B3, B4, B5 셀 입력 제거됨
     
     // 갑지 시트: 요약 정보만 표시 (개별 물량은 내역서에만)
     console.log('📋 갑지 시트는 요약용 - 개별 물량 데이터 입력하지 않음');
@@ -753,21 +635,343 @@ export const downloadNapfoomContract = async (site, materialItems = []) => {
 };
 
 /**
+ * NAPFOOM Shared Formula 문제 해결 (수식 보존)
+ * @param {ExcelJS.Workbook} workbook - 워크북
+ */
+const fixNapfoomSharedFormulaIssues = (workbook) => {
+  try {
+    console.log('🔧 NAPFOOM Shared Formula 문제 해결 시작');
+    
+    workbook.worksheets.forEach((worksheet) => {
+      console.log(`🔧 ${worksheet?.name} 시트 Shared Formula 문제 해결`);
+      
+      worksheet.eachRow((row, rowNumber) => {
+        row.eachCell((cell, colNumber) => {
+          try {
+            // Shared Formula 관련 속성만 제거 (수식은 보존)
+            if (cell.sharedFormula !== undefined) {
+              delete cell.sharedFormula;
+            }
+            if (cell.si !== undefined) {
+              delete cell.si;
+            }
+            if (cell.ref !== undefined) {
+              delete cell.ref;
+            }
+            
+            // 수식에 si 참조가 포함된 경우만 정리
+            if (cell.formula && typeof cell.formula === 'string' && cell.formula.includes('si=')) {
+              // si 참조만 제거하고 수식은 보존
+              cell.formula = cell.formula.replace(/si=\d+/g, '');
+            }
+          } catch (err) {
+            // 개별 셀 오류는 무시
+          }
+        });
+      });
+    });
+    
+    console.log('✅ NAPFOOM Shared Formula 문제 해결 완료');
+  } catch (error) {
+    console.warn('⚠️ NAPFOOM Shared Formula 문제 해결 중 오류:', error.message);
+  }
+};
+
+/**
+ * 템플릿 로드 직후 즉시 모든 공유수식 완전 제거 (1단계)
+ * @param {ExcelJS.Workbook} workbook - 워크북
+ */
+const removeAllSharedFormulasImmediately = (workbook) => {
+  try {
+    console.log('🔄 [1단계] 모든 시트의 공유수식 즉시 제거 중...');
+    
+    workbook.worksheets.forEach((worksheet, sheetIndex) => {
+      console.log(`🔄 [1단계] 시트 ${sheetIndex + 1}: ${worksheet.name} 처리 중...`);
+      
+      // 워크시트 레벨 공유수식 정보 즉시 제거 (완전 제거)
+      try {
+        const worksheetSharedFormulaProps = [
+          'sharedFormulas', '_sharedFormulas', 'sharedFormulaRefs', '_sharedFormulaRefs',
+          'sharedFormula', 'si', 'ref', 'sharedFormulaMaster', 'sharedFormulaRef'
+        ];
+        
+        worksheetSharedFormulaProps.forEach(prop => {
+          if (worksheet[prop] !== undefined) {
+            console.log(`🔄 [1단계] 워크시트 ${prop} 즉시 제거`);
+            delete worksheet[prop];
+          }
+        });
+        
+        // worksheet.model 완전 정리
+        if (worksheet.model) {
+          // model.sharedFormulas 완전 제거 (객체인 경우 모든 키 제거)
+          if (worksheet.model.sharedFormulas) {
+            console.log('🔄 [1단계] 워크시트 모델 sharedFormulas 완전 제거');
+            if (typeof worksheet.model.sharedFormulas === 'object') {
+              Object.keys(worksheet.model.sharedFormulas).forEach(key => {
+                delete worksheet.model.sharedFormulas[key];
+              });
+            }
+            delete worksheet.model.sharedFormulas;
+          }
+          if (worksheet.model._sharedFormulas) {
+            console.log('🔄 [1단계] 워크시트 모델 _sharedFormulas 완전 제거');
+            if (typeof worksheet.model._sharedFormulas === 'object') {
+              Object.keys(worksheet.model._sharedFormulas).forEach(key => {
+                delete worksheet.model._sharedFormulas[key];
+              });
+            }
+            delete worksheet.model._sharedFormulas;
+          }
+          if (worksheet.model.sharedFormulaRefs) {
+            console.log('🔄 [1단계] 워크시트 모델 sharedFormulaRefs 완전 제거');
+            if (typeof worksheet.model.sharedFormulaRefs === 'object') {
+              Object.keys(worksheet.model.sharedFormulaRefs).forEach(key => {
+                delete worksheet.model.sharedFormulaRefs[key];
+              });
+            }
+            delete worksheet.model.sharedFormulaRefs;
+          }
+          if (worksheet.model._sharedFormulaRefs) {
+            console.log('🔄 [1단계] 워크시트 모델 _sharedFormulaRefs 완전 제거');
+            if (typeof worksheet.model._sharedFormulaRefs === 'object') {
+              Object.keys(worksheet.model._sharedFormulaRefs).forEach(key => {
+                delete worksheet.model._sharedFormulaRefs[key];
+              });
+            }
+            delete worksheet.model._sharedFormulaRefs;
+          }
+        }
+      } catch (worksheetError) {
+        console.warn('⚠️ [1단계] 워크시트 공유수식 정보 제거 실패:', worksheetError.message);
+      }
+      
+      // 모든 셀의 공유수식 즉시 제거 (H6 셀 우선 처리)
+      const criticalCells = ['H6', 'H5', 'H7', 'G6', 'I6', 'H4', 'H8', 'G5', 'G7', 'I5', 'I7', 'F6', 'J6', 'F5', 'F7', 'J5', 'J7', 'E6', 'K6'];
+      
+      // 중요 셀들 먼저 처리
+      criticalCells.forEach(cellAddress => {
+        try {
+          const cell = worksheet.getCell(cellAddress);
+          if (cell) {
+            // 공유수식 관련 모든 속성 즉시 강제 제거
+            const sharedFormulaProps = [
+              'sharedFormula', 'si', 'ref', 'sharedFormulaMaster', 'sharedFormulaRef',
+              '_sharedFormula', '_si', '_ref', '_sharedFormulaMaster', '_sharedFormulaRef'
+            ];
+            
+            sharedFormulaProps.forEach(prop => {
+              if (cell[prop] !== undefined) {
+                console.log(`🔄 [1단계] ${cellAddress} ${prop} 즉시 제거`);
+                delete cell[prop];
+              }
+            });
+            
+            // 공유수식 속성만 제거 (수식은 그대로 유지 - 읽기 전용 속성 오류 방지)
+            // 수식은 ExcelJS가 자동으로 처리하므로 직접 수정하지 않음
+          }
+        } catch (cellError) {
+          console.warn(`⚠️ [1단계] ${cellAddress} 셀 즉시 처리 실패:`, cellError.message);
+        }
+      });
+      
+      // 나머지 모든 셀 처리 (최대 200행, 26열까지)
+      for (let row = 1; row <= 200; row++) {
+        for (let col = 1; col <= 26; col++) {
+          try {
+            const cell = worksheet.getCell(row, col);
+            if (cell) {
+              const cellAddress = `${String.fromCharCode(64 + col)}${row}`;
+              
+              // 중요 셀은 이미 처리했으므로 스킵
+              if (criticalCells.includes(cellAddress)) {
+                continue;
+              }
+              
+              // 공유수식 관련 모든 속성 즉시 제거
+              const sharedFormulaProps = [
+                'sharedFormula', 'si', 'ref', 'sharedFormulaMaster', 'sharedFormulaRef',
+                '_sharedFormula', '_si', '_ref', '_sharedFormulaMaster', '_sharedFormulaRef'
+              ];
+              
+              let hasSharedFormula = false;
+              sharedFormulaProps.forEach(prop => {
+                if (cell[prop] !== undefined) {
+                  hasSharedFormula = true;
+                  delete cell[prop];
+                }
+              });
+              
+              // 공유수식 속성만 제거 (수식은 그대로 유지 - 읽기 전용 속성 오류 방지)
+              // 수식은 ExcelJS가 자동으로 처리하므로 직접 수정하지 않음
+            }
+          } catch (cellError) {
+            // 개별 셀 오류는 무시
+          }
+        }
+      }
+      
+      console.log(`✅ [1단계] 시트 ${sheetIndex + 1}: ${worksheet.name} 즉시 제거 완료`);
+    });
+    
+    console.log('✅ [1단계] 모든 공유수식 즉시 제거 완료');
+  } catch (error) {
+    console.error('❌ [1단계] 공유수식 즉시 제거 실패:', error.message);
+  }
+};
+
+/**
  * 공유수식을 완전히 제거하고 안전하게 처리 (강화된 버전)
  * @param {ExcelJS.Workbook} workbook - 워크북
  */
 const convertSharedFormulasToIndividual = (workbook) => {
   try {
-    console.log('🔄 공유수식 완전 제거 중 (강화된 버전)...');
+    console.log('🔄 [2단계] 공유수식 완전 제거 중 (강화된 버전)...');
+    
+    // 먼저 워크시트 레벨의 모든 공유수식 정보 완전 제거
+    workbook.worksheets.forEach((worksheet) => {
+      try {
+        // worksheet.model.sharedFormulas 완전 제거 (객체인 경우 모든 키 제거)
+        if (worksheet.model && worksheet.model.sharedFormulas) {
+          console.log(`🔧 [2단계] ${worksheet.name} 시트 model.sharedFormulas 완전 제거`);
+          if (typeof worksheet.model.sharedFormulas === 'object') {
+            Object.keys(worksheet.model.sharedFormulas).forEach(key => {
+              delete worksheet.model.sharedFormulas[key];
+            });
+          }
+          delete worksheet.model.sharedFormulas;
+        }
+        if (worksheet.model && worksheet.model._sharedFormulas) {
+          console.log(`🔧 [2단계] ${worksheet.name} 시트 model._sharedFormulas 완전 제거`);
+          if (typeof worksheet.model._sharedFormulas === 'object') {
+            Object.keys(worksheet.model._sharedFormulas).forEach(key => {
+              delete worksheet.model._sharedFormulas[key];
+            });
+          }
+          delete worksheet.model._sharedFormulas;
+        }
+        if (worksheet.model && worksheet.model.sharedFormulaRefs) {
+          console.log(`🔧 [2단계] ${worksheet.name} 시트 model.sharedFormulaRefs 완전 제거`);
+          if (typeof worksheet.model.sharedFormulaRefs === 'object') {
+            Object.keys(worksheet.model.sharedFormulaRefs).forEach(key => {
+              delete worksheet.model.sharedFormulaRefs[key];
+            });
+          }
+          delete worksheet.model.sharedFormulaRefs;
+        }
+        if (worksheet.model && worksheet.model._sharedFormulaRefs) {
+          console.log(`🔧 [2단계] ${worksheet.name} 시트 model._sharedFormulaRefs 완전 제거`);
+          if (typeof worksheet.model._sharedFormulaRefs === 'object') {
+            Object.keys(worksheet.model._sharedFormulaRefs).forEach(key => {
+              delete worksheet.model._sharedFormulaRefs[key];
+            });
+          }
+          delete worksheet.model._sharedFormulaRefs;
+        }
+      } catch (modelError) {
+        console.warn(`⚠️ [2단계] ${worksheet.name} 시트 모델 정리 실패:`, modelError.message);
+      }
+    });
     
     workbook.worksheets.forEach((worksheet, sheetIndex) => {
-      console.log(`🔄 시트 ${sheetIndex + 1}: ${worksheet.name} 처리 중...`);
+      console.log(`🔄 [2단계] 시트 ${sheetIndex + 1}: ${worksheet.name} 처리 중...`);
       
-      // 1단계: 모든 셀의 공유수식 속성 완전 제거
+      // 1단계: 워크시트 레벨의 공유수식 정보 먼저 제거
+      try {
+        const worksheetSharedFormulaProps = [
+          'sharedFormulas', '_sharedFormulas', 'sharedFormulaRefs', '_sharedFormulaRefs'
+        ];
+        
+        worksheetSharedFormulaProps.forEach(prop => {
+          if (worksheet[prop] !== undefined) {
+            console.log(`🔄 [2단계] 워크시트 ${prop} 제거`);
+            delete worksheet[prop];
+          }
+        });
+        
+        // 모델 레벨의 공유수식 정보도 제거 (이미 위에서 처리했지만 다시 확인)
+        if (worksheet.model) {
+          if (worksheet.model.sharedFormulas !== undefined) {
+            console.log('🔄 [2단계] 워크시트 모델 sharedFormulas 제거');
+            if (typeof worksheet.model.sharedFormulas === 'object') {
+              Object.keys(worksheet.model.sharedFormulas).forEach(key => {
+                delete worksheet.model.sharedFormulas[key];
+              });
+            }
+            delete worksheet.model.sharedFormulas;
+          }
+          if (worksheet.model._sharedFormulas !== undefined) {
+            console.log('🔄 [2단계] 워크시트 모델 _sharedFormulas 제거');
+            if (typeof worksheet.model._sharedFormulas === 'object') {
+              Object.keys(worksheet.model._sharedFormulas).forEach(key => {
+                delete worksheet.model._sharedFormulas[key];
+              });
+            }
+            delete worksheet.model._sharedFormulas;
+          }
+          if (worksheet.model.sharedFormulaRefs !== undefined) {
+            console.log('🔄 [2단계] 워크시트 모델 sharedFormulaRefs 제거');
+            if (typeof worksheet.model.sharedFormulaRefs === 'object') {
+              Object.keys(worksheet.model.sharedFormulaRefs).forEach(key => {
+                delete worksheet.model.sharedFormulaRefs[key];
+              });
+            }
+            delete worksheet.model.sharedFormulaRefs;
+          }
+          if (worksheet.model._sharedFormulaRefs !== undefined) {
+            console.log('🔄 [2단계] 워크시트 모델 _sharedFormulaRefs 제거');
+            if (typeof worksheet.model._sharedFormulaRefs === 'object') {
+              Object.keys(worksheet.model._sharedFormulaRefs).forEach(key => {
+                delete worksheet.model._sharedFormulaRefs[key];
+              });
+            }
+            delete worksheet.model._sharedFormulaRefs;
+          }
+        }
+      } catch (worksheetError) {
+        console.warn('⚠️ [2단계] 워크시트 공유수식 정보 제거 실패:', worksheetError.message);
+      }
+      
+      // 2단계: 모든 셀의 공유수식 속성 완전 제거 (H6 셀 및 주변 셀 우선 처리)
+      const criticalCells = ['H6', 'H5', 'H7', 'G6', 'I6', 'H4', 'H8', 'G5', 'G7', 'I5', 'I7', 'F6', 'J6'];
+      
+      // 중요 셀들 먼저 처리
+      criticalCells.forEach(cellAddress => {
+        try {
+          const cell = worksheet.getCell(cellAddress);
+          if (cell) {
+            // 공유수식 관련 모든 속성 강제 제거
+            const sharedFormulaProps = [
+              'sharedFormula', 'si', 'ref', 'sharedFormulaMaster', 'sharedFormulaRef',
+              '_sharedFormula', '_si', '_ref', '_sharedFormulaMaster', '_sharedFormulaRef'
+            ];
+            
+            let hasSharedFormula = false;
+            sharedFormulaProps.forEach(prop => {
+              if (cell[prop] !== undefined) {
+                hasSharedFormula = true;
+                delete cell[prop];
+              }
+            });
+            
+            // 공유수식 속성만 제거 (수식은 그대로 유지 - 읽기 전용 속성 오류 방지)
+            // 수식은 ExcelJS가 자동으로 처리하므로 직접 수정하지 않음
+          }
+        } catch (cellError) {
+          console.warn(`⚠️ ${cellAddress} 셀 특별 처리 실패:`, cellError.message);
+        }
+      });
+      
+      // 3단계: 나머지 모든 셀 처리
       worksheet.eachRow((row, rowNumber) => {
         row.eachCell((cell, colNumber) => {
           try {
             const cellAddress = `${String.fromCharCode(64 + colNumber)}${rowNumber}`;
+            
+            // 중요 셀은 이미 처리했으므로 스킵
+            if (criticalCells.includes(cellAddress)) {
+              return;
+            }
             
             // 공유수식 관련 모든 속성 강제 제거
             const sharedFormulaProps = [
@@ -783,20 +987,9 @@ const convertSharedFormulasToIndividual = (workbook) => {
               }
             });
             
-            if (hasSharedFormula) {
-              console.log(`🔄 ${cellAddress} 공유수식 속성 제거 중...`);
-              
-              // 수식이 있다면 개별 수식으로 유지
-              if (cell.formula) {
-                const formula = cell.formula.toString();
-                console.log(`🔄 ${cellAddress} 수식 유지: ${formula}`);
-                // 수식을 다시 설정하여 공유수식 참조 완전 제거
-                delete cell.formula;
-                cell.formula = formula;
-              }
-            }
+            // 공유수식 속성만 제거 (수식은 그대로 유지 - 읽기 전용 속성 오류 방지)
+            // 수식은 ExcelJS가 자동으로 처리하므로 직접 수정하지 않음
           } catch (cellError) {
-            console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 공유수식 처리 실패:`, cellError.message);
             // 오류 발생 시 공유수식 속성만이라도 제거
             try {
               const sharedFormulaProps = [
@@ -809,37 +1002,11 @@ const convertSharedFormulasToIndividual = (workbook) => {
                 }
               });
             } catch (cleanupError) {
-              console.warn(`⚠️ ${rowNumber}행 ${colNumber}열 정리 실패:`, cleanupError.message);
+              // 정리 실패는 무시
             }
           }
         });
       });
-      
-      // 2단계: 워크시트 레벨의 공유수식 정보 완전 제거
-      try {
-        const worksheetSharedFormulaProps = [
-          'sharedFormulas', '_sharedFormulas', 'sharedFormulaRefs', '_sharedFormulaRefs'
-        ];
-        
-        worksheetSharedFormulaProps.forEach(prop => {
-          if (worksheet[prop] !== undefined) {
-            console.log(`🔄 워크시트 ${prop} 제거`);
-            delete worksheet[prop];
-          }
-        });
-        
-        // 모델 레벨의 공유수식 정보도 제거
-        if (worksheet.model) {
-          if (worksheet.model.sharedFormulas !== undefined) {
-            delete worksheet.model.sharedFormulas;
-          }
-          if (worksheet.model._sharedFormulas !== undefined) {
-            delete worksheet.model._sharedFormulas;
-          }
-        }
-      } catch (worksheetError) {
-        console.warn('⚠️ 워크시트 공유수식 정보 제거 실패:', worksheetError.message);
-      }
       
       console.log(`✅ 시트 ${sheetIndex + 1}: ${worksheet.name} 공유수식 제거 완료`);
     });

@@ -4007,7 +4007,24 @@ const NewSites = () => {
       </Paper>
 
       {/* 물량내역 업로드 다이얼로그 */}
-      <Dialog open={uploadDialogOpen} onClose={handleCloseUploadDialog} maxWidth="lg" fullWidth>
+      <Dialog 
+        open={uploadDialogOpen} 
+        onClose={handleCloseUploadDialog} 
+        maxWidth="lg" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            zIndex: 99999,
+            position: 'relative'
+          }
+        }}
+        sx={{
+          zIndex: 99999,
+          '& .MuiBackdrop-root': {
+            zIndex: 99998
+          }
+        }}
+      >
         <DialogTitle>
           물량내역 업로드
         </DialogTitle>
@@ -4219,7 +4236,15 @@ const NewSites = () => {
             color: '#fff',
             borderRadius: 4,
             p: 4,
-            textAlign: 'center'
+            textAlign: 'center',
+            zIndex: 99999,
+            position: 'relative'
+          }
+        }}
+        sx={{
+          zIndex: 99999,
+          '& .MuiBackdrop-root': {
+            zIndex: 99998
           }
         }}
       >
@@ -4248,7 +4273,15 @@ const NewSites = () => {
             bgcolor: '#181f2e',
             color: '#fff',
             borderRadius: 4,
-            p: 4
+            p: 4,
+            zIndex: 99999,
+            position: 'relative'
+          }
+        }}
+        sx={{
+          zIndex: 99999,
+          '& .MuiBackdrop-root': {
+            zIndex: 99998
           }
         }}
       >
@@ -4323,7 +4356,15 @@ const NewSites = () => {
             color: '#fff',
             borderRadius: 4,
             p: 4,
-            textAlign: 'center'
+            textAlign: 'center',
+            zIndex: 99999,
+            position: 'relative'
+          }
+        }}
+        sx={{
+          zIndex: 99999,
+          '& .MuiBackdrop-root': {
+            zIndex: 99998
           }
         }}
       >

@@ -429,21 +429,27 @@ const Claims = () => {
     return monthlyCounts;
   }, [allClaims]);
 
-  // 월 변경 시 현재 월 데이터 필터링
+  // 월 변경 시 현재 월 데이터 필터링 (부드러운 전환)
+  const prevMonthRef = useRef(currentMonth);
   useEffect(() => {
     if (currentMonth && allClaims.length > 0) {
-      console.log('월 변경됨:', currentMonth);
       const currentMonthClaims = allClaims.filter(claim => claim.claimMonth === currentMonth);
-      console.log(`📊 현재 월 (${currentMonth}) 데이터:`, currentMonthClaims.length, '개');
       
-      // 칩 변경으로 인한 업데이트가 아닌 경우에만 페이지 리셋 허용
-      if (!skipPageResetRef.current) {
+      // 월이 실제로 변경되었는지 확인
+      const monthChanged = prevMonthRef.current !== currentMonth;
+      
+      if (monthChanged) {
+        prevMonthRef.current = currentMonth;
+        // 월 변경 시 페이지는 1로 리셋
+        setCurrentPage(1);
+        // 상태 업데이트를 배치로 처리하여 불필요한 리렌더링 방지
         setClaims(currentMonthClaims);
-        setFilteredClaims(currentMonthClaims);
       } else {
-        // 페이지 유지 플래그가 설정된 경우, claims만 업데이트하고 useEffect에서 필터링 처리
-        console.log('📄 페이지 유지 모드 - claims만 업데이트');
-        setClaims(currentMonthClaims);
+        // 같은 월이지만 데이터가 변경된 경우만 업데이트
+        const claimsChanged = JSON.stringify(claims) !== JSON.stringify(currentMonthClaims);
+        if (claimsChanged) {
+          setClaims(currentMonthClaims);
+        }
       }
     }
   }, [currentMonth, allClaims]);
@@ -716,23 +722,8 @@ const Claims = () => {
 
   // 필터링 및 검색 (claims 데이터 변경 시에도 실시간 업데이트)
   useEffect(() => {
-    console.log('🔍 useEffect 실행 - 필터링 및 검색');
-    console.log('📊 현재 상태:', {
-      claimsLength: claims.length,
-      currentPage,
-      skipPageResetRef: skipPageResetRef.current,
-      savedPageRef: savedPageRef.current,
-      currentMonth,
-      searchTerm,
-      filters,
-      sortBy,
-      sortOrder,
-      itemsPerPage
-    });
-    
     // 검색이나 필터가 변경된 경우 savedPageRef 리셋 (페이지 리셋 허용)
     if (searchTerm !== prevSearchTermRef.current || JSON.stringify(filters) !== JSON.stringify(prevFiltersRef.current)) {
-      console.log('🔍 검색/필터 변경 감지 - savedPageRef 리셋');
       savedPageRef.current = 0;
       prevSearchTermRef.current = searchTerm;
       prevFiltersRef.current = filters;
@@ -875,25 +866,29 @@ const Claims = () => {
 
     setFilteredClaims(filtered);
     
-    // 고정 번호 설정 (새로운 항목에만 번호 할당)
+    // 고정 번호 설정 (월별로 1부터 시작, 정렬된 순서대로)
     setFixedNumbers(prevFixedNumbers => {
       const newFixedNumbers = new Map(prevFixedNumbers);
-      let maxNumber = 0;
       
-      // 기존 번호가 있는 항목들의 최대 번호 찾기
-      for (const [_, number] of newFixedNumbers) {
-        if (number > maxNumber) {
-          maxNumber = number;
-        }
-      }
-      
-      // 새로운 항목들에 가장 큰 번호부터 할당 (제일 위로 오도록)
+      // 현재 필터링된 항목들을 월별로 그룹화
+      const claimsByMonth = new Map();
       filtered.forEach(claim => {
-        if (!newFixedNumbers.has(claim.id)) {
-          maxNumber += 1;
-          newFixedNumbers.set(claim.id, maxNumber);
-          console.log(`🔢 새 항목에 번호 할당: ${claim.siteName} → ${maxNumber}번 (제일 위로)`);
+        if (claim.claimMonth) {
+          if (!claimsByMonth.has(claim.claimMonth)) {
+            claimsByMonth.set(claim.claimMonth, []);
+          }
+          claimsByMonth.get(claim.claimMonth).push(claim);
         }
+      });
+      
+      // 각 월별로 번호 재할당 (1부터 시작, 정렬된 순서대로)
+      claimsByMonth.forEach((monthClaims, month) => {
+        // 해당 월의 항목들을 정렬 순서대로 번호 할당 (1부터 시작)
+        monthClaims.forEach((claim, index) => {
+          // 월별로 1부터 시작하는 번호 할당
+          const monthNumber = index + 1;
+          newFixedNumbers.set(claim.id, monthNumber);
+        });
       });
       
       return newFixedNumbers;
@@ -2795,7 +2790,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 60, 
-                        py: 0.3,
+                        py: 0.1,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2808,7 +2803,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 120, 
-                        py: 0.3,
+                        py: 0.1,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2821,7 +2816,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 120, 
-                        py: 0.3,
+                        py: 0.1,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2834,7 +2829,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 100, 
-                        py: 0.3,
+                        py: 0.1,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2850,7 +2845,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 60, 
-                        py: 0.3,
+                        py: 0.1,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2858,13 +2853,13 @@ const Claims = () => {
                     >
                       No.
                     </TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.3 }}>청구월</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.1 }}>청구월</TableCell>
                     <TableCell 
                       sx={{ 
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 150, 
-                        py: 0.3,
+                        py: 0.1,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2877,7 +2872,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 120, 
-                        py: 0.3,
+                        py: 0.1,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' },
                         // 1500px 미만에서 숨김
@@ -2894,7 +2889,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 80, 
-                        py: 0.3,
+                        py: 0.1,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2907,7 +2902,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 100, 
-                        py: 0.3,
+                        py: 0.1,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2920,7 +2915,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 100, 
-                        py: 0.3,
+                        py: 0.1,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2933,7 +2928,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 70, 
-                        py: 0.3,
+                        py: 0.1,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2946,7 +2941,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 120, 
-                        py: 0.3,
+                        py: 0.1,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2959,7 +2954,7 @@ const Claims = () => {
                         color: 'white', 
                         fontWeight: 'bold', 
                         minWidth: 100, 
-                        py: 0.3,
+                        py: 0.1,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#555' }
                       }}
@@ -2980,7 +2975,7 @@ const Claims = () => {
                         display: 'none'
                       }
                     }}>비고</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.3 }}>관리</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold', minWidth: 100, py: 0.1 }}>관리</TableCell>
                   </>
                 )}
               </TableRow>
@@ -2993,7 +2988,7 @@ const Claims = () => {
                     key={claim.id} 
                     sx={{ 
                       '&:hover': { backgroundColor: '#444' }, 
-                      '& td': { py: 0.3 },
+                      '& td': { py: 0.1 },
                       // 최근 업데이트된 현장 하이라이트
                       ...(isRecentlyUpdated && {
                         backgroundColor: 'rgba(76, 175, 80, 0.1)',
@@ -3259,7 +3254,7 @@ const Claims = () => {
         </TableContainer>
         
         {/* 커스텀 페이지네이션 */}
-        {(totalPages > 1 || itemsPerPage === -1) && (
+        {(
           <Box sx={{ 
             display: 'flex', 
             justifyContent: 'space-between', 
@@ -3389,11 +3384,19 @@ const Claims = () => {
           sx: { 
             backgroundColor: '#2d3748', 
             color: 'white',
+            zIndex: 99999,
+            position: 'relative',
             ...(isMobile && {
               margin: 0,
               borderRadius: 0,
               height: '100vh'
             })
+          }
+        }}
+        sx={{
+          zIndex: 99999,
+          '& .MuiBackdrop-root': {
+            zIndex: 99998
           }
         }}
       >
@@ -3912,7 +3915,18 @@ const Claims = () => {
         open={deleteDialogOpen} 
         onClose={() => setDeleteDialogOpen(false)}
         PaperProps={{
-          sx: { backgroundColor: '#2d3748', color: 'white' }
+          sx: { 
+            backgroundColor: '#2d3748', 
+            color: 'white',
+            zIndex: 99999,
+            position: 'relative'
+          }
+        }}
+        sx={{
+          zIndex: 99999,
+          '& .MuiBackdrop-root': {
+            zIndex: 99998
+          }
         }}
       >
         <DialogTitle>청구예정 삭제</DialogTitle>

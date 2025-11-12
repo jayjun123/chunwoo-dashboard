@@ -1003,6 +1003,24 @@ select:not([aria-hidden="true"]):focus,
 .popup-priority-7 { z-index: 2600; }
 .popup-priority-8 { z-index: 2700; }
 
+/* MUI Dialog 전역 z-index 설정 - 모든 모달이 최상위에 표시되도록 */
+.MuiDialog-root {
+  z-index: 99999 !important;
+}
+
+.MuiDialog-container {
+  z-index: 99999 !important;
+}
+
+.MuiDialog-paper {
+  z-index: 99999 !important;
+  position: relative !important;
+}
+
+.MuiBackdrop-root {
+  z-index: 99998 !important;
+}
+
 /* 모바일 키보드 대응 */
 .keyboard-open {
   height: 100vh;
