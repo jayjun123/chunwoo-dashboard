@@ -290,27 +290,36 @@ const HyunjangSch = () => {
       if (data.progressBars) setProgressBars(data.progressBars);
       if (data.ganttItems) setGanttItems(data.ganttItems);
       if (data.memo !== undefined) setMemo(data.memo);
-      if (data.photos) {
+      
+      // 사진 로드 (항상 기본 3개 구조 유지)
+      const defaultPhotos = [
+        { id: 1, url: null, label: '사진 추가', storagePath: null },
+        { id: 2, url: null, label: '사진 추가', storagePath: null },
+        { id: 3, url: null, label: '사진 추가', storagePath: null }
+      ];
+      
+      if (data.photos && Array.isArray(data.photos) && data.photos.length > 0) {
         // photos 배열을 기본 구조에 맞게 변환
-        const loadedPhotos = data.photos.map((photo, index) => ({
-          id: index + 1,
-          url: photo.url || null,
-          label: photo.label || '사진 추가',
-          storagePath: photo.storagePath || null
-        }));
-        // 기본 3개 구조 유지
-        const defaultPhotos = [
-          { id: 1, url: null, label: '사진 추가' },
-          { id: 2, url: null, label: '사진 추가' },
-          { id: 3, url: null, label: '사진 추가' }
-        ];
-        loadedPhotos.forEach((photo, index) => {
+        data.photos.forEach((photo, index) => {
           if (defaultPhotos[index]) {
-            defaultPhotos[index] = { ...defaultPhotos[index], ...photo };
+            defaultPhotos[index] = {
+              id: index + 1,
+              url: photo.url || null,
+              label: photo.label || '사진 추가',
+              storagePath: photo.storagePath || null
+            };
           }
         });
-        setPhotos(defaultPhotos);
       }
+      setPhotos(defaultPhotos);
+    } else {
+      // hyunjangSchData가 없을 때도 기본 사진 구조 유지
+      const defaultPhotos = [
+        { id: 1, url: null, label: '사진 추가', storagePath: null },
+        { id: 2, url: null, label: '사진 추가', storagePath: null },
+        { id: 3, url: null, label: '사진 추가', storagePath: null }
+      ];
+      setPhotos(defaultPhotos);
     }
   };
 
@@ -737,13 +746,38 @@ const HyunjangSch = () => {
       const downloadURL = await getDownloadURL(sRef);
 
       // 상태 업데이트
-      setPhotos(prevPhotos => prevPhotos.map(photo => 
+      const updatedPhotos = photos.map(photo => 
         photo.id === photoId ? { 
           ...photo, 
           url: downloadURL,
           storagePath: `hyunjangSch/${site.id}/${fileName}`
         } : photo
-      ));
+      );
+      setPhotos(updatedPhotos);
+
+      // 즉시 Firebase에 저장
+      try {
+        await updateDoc(doc(db, 'sites', site.id), {
+          hyunjangSchData: {
+            selectedTeams,
+            teamLabels,
+            overallProgress,
+            progressBars,
+            ganttItems,
+            photos: updatedPhotos.map(photo => ({
+              url: photo.url,
+              label: photo.label,
+              storagePath: photo.storagePath
+            })),
+            memo,
+            updatedAt: new Date()
+          }
+        });
+        console.log('사진 저장 완료');
+      } catch (saveError) {
+        console.error('사진 저장 실패:', saveError);
+        setSnackbar({ open: true, message: '사진 저장에 실패했습니다.', severity: 'error' });
+      }
     } catch (error) {
       console.error('사진 업로드 실패:', error);
       setSnackbar({ open: true, message: '사진 업로드에 실패했습니다.', severity: 'error' });
