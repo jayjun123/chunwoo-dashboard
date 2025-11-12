@@ -37,6 +37,7 @@ import {
   Delete
 } from '@mui/icons-material';
 import { doc, getDoc, updateDoc, collection, query, getDocs, where } from 'firebase/firestore';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -289,6 +290,27 @@ const HyunjangSch = () => {
       if (data.progressBars) setProgressBars(data.progressBars);
       if (data.ganttItems) setGanttItems(data.ganttItems);
       if (data.memo !== undefined) setMemo(data.memo);
+      if (data.photos) {
+        // photos 배열을 기본 구조에 맞게 변환
+        const loadedPhotos = data.photos.map((photo, index) => ({
+          id: index + 1,
+          url: photo.url || null,
+          label: photo.label || '사진 추가',
+          storagePath: photo.storagePath || null
+        }));
+        // 기본 3개 구조 유지
+        const defaultPhotos = [
+          { id: 1, url: null, label: '사진 추가' },
+          { id: 2, url: null, label: '사진 추가' },
+          { id: 3, url: null, label: '사진 추가' }
+        ];
+        loadedPhotos.forEach((photo, index) => {
+          if (defaultPhotos[index]) {
+            defaultPhotos[index] = { ...defaultPhotos[index], ...photo };
+          }
+        });
+        setPhotos(defaultPhotos);
+      }
     }
   };
 
@@ -677,17 +699,56 @@ const HyunjangSch = () => {
   };
 
   // 사진 업로드
-  const handlePhotoUpload = (photoId, event) => {
+  const handlePhotoUpload = async (photoId, event) => {
     const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPhotos(prevPhotos => prevPhotos.map(photo => 
-          photo.id === photoId ? { ...photo, url: e.target.result } : photo
-        ));
-      };
-      reader.readAsDataURL(file);
+    if (!file || !site || site.id === 'no-site' || site.id === 'error-site') {
+      event.target.value = '';
+      return;
     }
+
+    try {
+      // 기존 사진이 있으면 Storage에서 삭제
+      const currentPhoto = photos.find(p => p.id === photoId);
+      if (currentPhoto && currentPhoto.storagePath) {
+        try {
+          const storage = getStorage();
+          const oldRef = storageRef(storage, currentPhoto.storagePath);
+          await deleteObject(oldRef);
+        } catch (error) {
+          console.warn('기존 사진 삭제 실패 (무시):', error);
+        }
+      }
+
+      // Firebase Storage에 업로드
+      const storage = getStorage();
+      const fileName = `${site.id}_photo${photoId}_${Date.now()}_${file.name}`;
+      const sRef = storageRef(storage, `hyunjangSch/${site.id}/${fileName}`);
+      
+      await uploadBytes(sRef, file, {
+        customMetadata: {
+          userId: currentUser?.uid || '',
+          uploadedAt: new Date().toISOString(),
+          photoId: photoId.toString(),
+          siteId: site.id
+        }
+      });
+
+      // 다운로드 URL 가져오기
+      const downloadURL = await getDownloadURL(sRef);
+
+      // 상태 업데이트
+      setPhotos(prevPhotos => prevPhotos.map(photo => 
+        photo.id === photoId ? { 
+          ...photo, 
+          url: downloadURL,
+          storagePath: `hyunjangSch/${site.id}/${fileName}`
+        } : photo
+      ));
+    } catch (error) {
+      console.error('사진 업로드 실패:', error);
+      setSnackbar({ open: true, message: '사진 업로드에 실패했습니다.', severity: 'error' });
+    }
+
     // 같은 파일을 다시 선택할 수 있도록 input 값 초기화
     event.target.value = '';
   };
@@ -735,6 +796,11 @@ const HyunjangSch = () => {
             overallProgress,
             progressBars,
             ganttItems,
+            photos: photos.map(photo => ({
+              url: photo.url,
+              label: photo.label,
+              storagePath: photo.storagePath
+            })),
             memo,
             updatedAt: new Date()
           }
@@ -749,7 +815,7 @@ const HyunjangSch = () => {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [selectedTeams, teamLabels, overallProgress, progressBars, ganttItems, memo, site, loading]);
+  }, [selectedTeams, teamLabels, overallProgress, progressBars, ganttItems, photos, memo, site, loading]);
 
   if (loading) {
     return (
