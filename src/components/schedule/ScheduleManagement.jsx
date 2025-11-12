@@ -957,12 +957,11 @@ const ScheduleManagement = ({
         return;
       }
 
-    // 웹(PC)에서만 날짜셀 간 드래그앤드롭 허용
-    const isWeb = window.innerWidth >= 768; // 태블릿/데스크톱 크기
+    // 날짜셀 간 드래그앤드롭 비활성화 (모든 환경에서)
     const isDateToDate = source.droppableId.startsWith('20') && destination.droppableId.startsWith('20');
     
-    if (!isWeb && isDateToDate) {
-      // 모바일에서는 날짜셀 간 드래그앤드롭 불가
+    if (isDateToDate) {
+      // 날짜셀 간 드래그앤드롭 불가 (터치, 스크롤 등 다른 기능은 정상 작동)
       return;
     }
 

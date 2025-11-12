@@ -223,12 +223,11 @@ const CustomSchedule = () => {
       return;
     }
 
-    // 1500px 이상에서만 날짜셀 간 드래그앤드롭 허용
-    const isLargeScreen = window.innerWidth >= 1500;
+    // 날짜셀 간 드래그앤드롭 비활성화 (모든 환경에서)
     const isDateToDate = source.droppableId.startsWith('20') && destination.droppableId.startsWith('20');
     
-    if (!isLargeScreen && isDateToDate) {
-      // 1500px 미만에서는 날짜셀 간 드래그앤드롭 불가
+    if (isDateToDate) {
+      // 날짜셀 간 드래그앤드롭 불가 (터치, 스크롤 등 다른 기능은 정상 작동)
       return;
     }
 
