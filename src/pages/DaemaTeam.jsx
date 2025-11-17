@@ -1598,7 +1598,23 @@ const ConstructionTeam = () => {
       </Grid>
 
       {/* 다이얼로그 */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog} 
+        maxWidth="md" 
+        fullWidth
+        sx={{
+          zIndex: 9999,
+          '& .MuiBackdrop-root': {
+            zIndex: 9998
+          }
+        }}
+        PaperProps={{
+          sx: {
+            zIndex: 9999
+          }
+        }}
+      >
         <DialogTitle sx={{ bgcolor: '#1a1d21', color: '#fff' }}>
           {editingTeam ? '시공팀 수정' : '시공팀 추가'}
         </DialogTitle>
