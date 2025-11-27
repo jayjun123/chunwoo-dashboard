@@ -28,9 +28,12 @@ const SearchableSiteSelect = ({
   paymentStatusMap = {},
   excludeCompletedSites = false // 완료된 현장을 드롭다운에서 숨기기 (검색은 가능)
 }) => {
-  const [inputValue, setInputValue] = useState('');
+  const [open, setOpen] = useState(false);
 
   const handleChange = (event, newValue) => {
+    // 선택이 완료되면 드롭다운 닫기
+    setOpen(false);
+    
     console.log('SearchableSiteSelect handleChange:', newValue);
     console.log('SearchableSiteSelect multiple:', multiple);
     
@@ -79,13 +82,14 @@ const SearchableSiteSelect = ({
   };
 
   const handleInputChange = (event, newInputValue, reason) => {
-    setInputValue(newInputValue);
-    
-    // freeSolo 모드에서 직접 입력된 값 처리
-    if (reason === 'input' && !multiple) {
-      // 사용자가 직접 입력한 값이면 onChange 호출
-      onChange(newInputValue);
+    // 검색어가 입력되면 드롭다운이 자동으로 열리도록 함
+    if (reason === 'input' || reason === 'clear') {
+      // 사용자가 입력하거나 지운 경우 드롭다운 열기
+      setOpen(true);
     }
+    
+    // 검색 중에는 onChange를 호출하지 않음 (검색 결과를 보여주기 위함)
+    // 실제 선택은 handleChange에서 처리됨
   };
 
   const getOptionLabel = (option) => {
@@ -118,7 +122,15 @@ const SearchableSiteSelect = ({
     return false;
   };
 
-  const filterOptions = (options, { inputValue }) => {
+  const filterOptions = (options, { inputValue: searchValue }) => {
+    // options가 배열이 아닌 경우 빈 배열 반환
+    if (!Array.isArray(options)) {
+      return [];
+    }
+    
+    // MUI Autocomplete가 전달하는 inputValue를 직접 사용
+    const currentInputValue = searchValue || '';
+    
     // 정산완료 현장 제외 옵션이 활성화된 경우 필터링
     let filteredOptions = options;
     if (excludeFullyPaidSites && Object.keys(paymentStatusMap).length > 0) {
@@ -135,8 +147,8 @@ const SearchableSiteSelect = ({
     }
     
     // 완료된 현장을 드롭다운에서 숨기기 (검색할 때는 포함)
-    // inputValue가 없을 때만 완료된 현장 제외 (드롭다운 열 때)
-    if (!inputValue && excludeCompletedSites) {
+    // currentInputValue가 없을 때만 완료된 현장 제외 (드롭다운 열 때)
+    if (!currentInputValue && excludeCompletedSites) {
       filteredOptions = filteredOptions.filter(option => {
         if (typeof option === 'string') {
           return true; // 문자열인 경우 sites 배열에서 status를 확인할 수 없으므로 포함
@@ -148,13 +160,14 @@ const SearchableSiteSelect = ({
       });
     }
     
-    if (!inputValue) {
+    if (!currentInputValue || currentInputValue.trim() === '') {
       // 전체선택 옵션을 맨 위에 추가
       const allSitesOption = { name: '전체선택', id: 'all', isAllOption: true };
       return [allSitesOption, ...filteredOptions];
     }
     
     // 검색 시에는 모든 현장 포함 (완료된 현장도 검색 가능)
+    const searchLower = currentInputValue.toLowerCase().trim();
     const filtered = filteredOptions.filter(option => {
       let siteName = '';
       let manager = '';
@@ -164,7 +177,6 @@ const SearchableSiteSelect = ({
         siteName = option.name || '';
         manager = option.manager || '';
       }
-      const searchLower = inputValue.toLowerCase();
       return siteName.toLowerCase().includes(searchLower) || 
              manager.toLowerCase().includes(searchLower);
     });
@@ -197,14 +209,43 @@ const SearchableSiteSelect = ({
     // key를 별도로 추출하여 직접 전달
     const { key, ...otherProps } = props;
     
+    // 터치 이벤트 처리
+    const handleClick = (e) => {
+      if (!isDisabled && otherProps.onClick) {
+        e.preventDefault();
+        e.stopPropagation();
+        otherProps.onClick(e);
+      }
+    };
+    
+    const handleTouchStart = (e) => {
+      if (!isDisabled && otherProps.onClick) {
+        e.preventDefault();
+        e.stopPropagation();
+        otherProps.onClick(e);
+      }
+    };
+    
     return (
-      <Box component="li" key={key} {...otherProps}>
+      <Box 
+        component="li" 
+        key={key} 
+        {...otherProps}
+        onClick={handleClick}
+        onTouchStart={handleTouchStart}
+        sx={{
+          touchAction: 'manipulation',
+          WebkitTapHighlightColor: 'transparent'
+        }}
+      >
         <Box sx={{ 
           display: 'flex', 
           flexDirection: 'column', 
           width: '100%',
           opacity: isDisabled ? 0.6 : 1,
-          cursor: isDisabled ? 'default' : 'pointer'
+          cursor: isDisabled ? 'default' : 'pointer',
+          minHeight: isMobile ? '44px' : 'auto',
+          py: isMobile ? 1.5 : 1
         }}>
           <Typography sx={{ 
             fontSize: isMobile ? '0.9rem' : '1rem',
@@ -334,13 +375,16 @@ const SearchableSiteSelect = ({
   };
 
   // value가 문자열인 경우 해당하는 객체를 찾아서 설정
+  // sites가 배열이 아닌 경우 빈 배열로 처리
+  const safeSites = Array.isArray(sites) ? sites : [];
+
   const getValueForAutocomplete = () => {
     if (multiple) {
       // multiple 모드에서는 value가 배열이어야 함
       if (Array.isArray(value)) {
         return value.map(item => {
           if (typeof item === 'string') {
-            const foundSite = sites.find(site => site.name === item);
+            const foundSite = safeSites.find(site => site.name === item);
             return foundSite || item;
           }
           return item;
@@ -349,7 +393,7 @@ const SearchableSiteSelect = ({
       return [];
     }
     if (typeof value === 'string' && value) {
-      const foundSite = sites.find(site => site.name === value);
+      const foundSite = safeSites.find(site => site.name === value);
       // 찾은 현장이 있으면 객체 반환, 없으면 문자열 그대로 반환 (freeSolo 모드)
       return foundSite || value;
     }
@@ -358,10 +402,9 @@ const SearchableSiteSelect = ({
 
   return (
     <Autocomplete
-      options={sites}
+      options={safeSites}
       value={getValueForAutocomplete()}
       onChange={handleChange}
-      inputValue={inputValue}
       onInputChange={handleInputChange}
       getOptionLabel={getOptionLabel}
       isOptionEqualToValue={isOptionEqualToValue}
@@ -373,39 +416,71 @@ const SearchableSiteSelect = ({
       disabled={disabled}
       fullWidth={fullWidth}
       size={size}
-      openOnFocus={openOnFocus}
-      clearOnBlur={clearOnBlur}
+      open={open}
+      onOpen={() => setOpen(true)}
+      onClose={(event, reason) => {
+        // escape 키를 누르거나 옵션을 선택한 경우에만 닫기
+        if (reason === 'escape' || reason === 'selectOption') {
+          setOpen(false);
+        }
+        // blur 이벤트로는 닫지 않음 (검색 결과를 계속 보여주기 위함)
+      }}
+      openOnFocus={true}
+      clearOnBlur={false}
       freeSolo={true}
       selectOnFocus={false}
+      disableClearable={false}
+      clearOnEscape={true}
+      autoHighlight={false}
+      autoComplete={false}
+      disablePortal={false}
+      slotProps={{
+        popper: {
+          style: {
+            zIndex: 1400, // Dialog(1300)보다 높은 z-index
+            position: 'fixed' // fixed positioning으로 확실하게 위에 표시
+          },
+          modifiers: [
+            {
+              name: 'zIndex',
+              enabled: true,
+              options: {
+                zIndex: 1400
+              }
+            },
+            {
+              name: 'offset',
+              enabled: true,
+              options: {
+                offset: [0, 4]
+              }
+            }
+          ]
+        }
+      }}
       sx={{
         '& .MuiAutocomplete-paper': {
           bgcolor: '#232b3b',
           maxHeight: isMobile ? 200 : 300,
           overflow: 'auto',
-          // 스크롤바 숨기기
-          '&::-webkit-scrollbar': {
-            width: '0px',
-            background: 'transparent'
-          },
-          '& .MuiAutocomplete-listbox': {
-            maxHeight: 'none',
-            // 스크롤바 숨기기
-            '&::-webkit-scrollbar': {
-              width: '0px',
-              background: 'transparent'
-            },
-            '& .MuiAutocomplete-option': {
-              color: '#fff',
-              fontSize: isMobile ? '0.9rem' : '1rem',
-              py: isMobile ? 1 : 1.5,
-              '&:hover': { bgcolor: '#2c3446' },
-              '&.Mui-focused': { bgcolor: '#2c3446' },
-              '&.Mui-selected': { bgcolor: '#1976d2' },
-              '&.Mui-disabled': {
-                color: '#888',
-                cursor: 'default',
-                '&:hover': { bgcolor: 'transparent' }
-              }
+          zIndex: '1400 !important', // Dialog(1300)보다 높은 z-index
+        },
+        '& .MuiAutocomplete-popper': {
+          zIndex: '1400 !important', // Popper도 Dialog보다 높은 z-index 설정
+        },
+        '& .MuiAutocomplete-listbox': {
+          maxHeight: 'none',
+          '& .MuiAutocomplete-option': {
+            color: '#fff',
+            fontSize: isMobile ? '0.9rem' : '1rem',
+            py: isMobile ? 1 : 1.5,
+            '&:hover': { bgcolor: '#2c3446' },
+            '&.Mui-focused': { bgcolor: '#2c3446' },
+            '&.Mui-selected': { bgcolor: '#1976d2' },
+            '&.Mui-disabled': {
+              color: '#888',
+              cursor: 'default',
+              '&:hover': { bgcolor: 'transparent' }
             }
           }
         }
@@ -413,12 +488,8 @@ const SearchableSiteSelect = ({
       ListboxProps={{
         style: {
           maxHeight: isMobile ? 200 : 300,
-          // 스크롤바 숨기기
           scrollbarWidth: 'none', // Firefox
-          msOverflowStyle: 'none', // IE/Edge
-          '&::-webkit-scrollbar': {
-            display: 'none' // Chrome/Safari
-          }
+          msOverflowStyle: 'none' // IE/Edge
         },
         onScroll: (event) => {
           const { target } = event;
@@ -432,12 +503,8 @@ const SearchableSiteSelect = ({
           style: {
             maxHeight: isMobile ? 200 : 300,
             overflow: 'auto',
-            // 스크롤바 숨기기
             scrollbarWidth: 'none', // Firefox
-            msOverflowStyle: 'none', // IE/Edge
-            '&::-webkit-scrollbar': {
-              display: 'none' // Chrome/Safari
-            }
+            msOverflowStyle: 'none' // IE/Edge
           }
         }
       }}

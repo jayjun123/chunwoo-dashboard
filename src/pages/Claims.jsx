@@ -1272,7 +1272,11 @@ const Claims = () => {
   };
 
   // 청구예정 생성/수정
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     try {
       console.log('=== 청구예정 저장 시작 ===');
       console.log('현재 formData:', formData);
@@ -3384,7 +3388,7 @@ const Claims = () => {
           sx: { 
             backgroundColor: '#2d3748', 
             color: 'white',
-            zIndex: 99999,
+            zIndex: 1300, // MUI 기본 Dialog z-index
             position: 'relative',
             ...(isMobile && {
               margin: 0,
@@ -3394,9 +3398,9 @@ const Claims = () => {
           }
         }}
         sx={{
-          zIndex: 99999,
+          zIndex: 1300, // MUI 기본 Dialog z-index
           '& .MuiBackdrop-root': {
-            zIndex: 99998
+            zIndex: 1299
           }
         }}
       >
@@ -3901,10 +3905,56 @@ const Claims = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ ...(isMobile && { p: 2, borderTop: '1px solid #555' }) }}>
-          <Button onClick={() => setDialogOpen(false)} sx={{ color: '#ccc' }}>
+          <Button 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDialogOpen(false);
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDialogOpen(false);
+            }}
+            sx={{ 
+              color: '#ccc',
+              minHeight: isMobile ? '44px' : 'auto',
+              minWidth: isMobile ? '80px' : 'auto',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+              '&:active': {
+                backgroundColor: 'rgba(255, 255, 255, 0.1)'
+              }
+            }}
+          >
             취소
           </Button>
-          <Button onClick={handleSubmit} variant="contained" sx={{ backgroundColor: '#4caf50' }}>
+          <Button 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleSubmit(e);
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleSubmit(e);
+            }}
+            variant="contained" 
+            sx={{ 
+              backgroundColor: '#4caf50',
+              minHeight: isMobile ? '44px' : 'auto',
+              minWidth: isMobile ? '80px' : 'auto',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+              '&:hover': {
+                backgroundColor: '#45a049'
+              },
+              '&:active': {
+                backgroundColor: '#3d8b40'
+              }
+            }}
+          >
             {editingClaim ? '수정' : '생성'}
           </Button>
         </DialogActions>
