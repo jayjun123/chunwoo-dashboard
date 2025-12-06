@@ -64,22 +64,18 @@ import {
 
 // 3D 아이소메트릭 한반도 이미지 아이콘
 const KoreaMapIcon = ({ sx, ...props }) => (
-  <picture>
-    <source srcSet="/MAPICON.webp" type="image/webp" />
-    <img 
-      src="/MAPICON.png" 
-      alt="지도 아이콘" 
-      loading="lazy"
-      width="24"
-      height="24"
-      style={{ 
-        width: 24, 
-        height: 24,
-        ...sx 
-      }} 
-      {...props}
-    />
-  </picture>
+  <img 
+    src="/MAPICON.png" 
+    alt="지도 아이콘" 
+    width="24"
+    height="24"
+    style={{ 
+      width: 24, 
+      height: 24,
+      ...sx 
+    }} 
+    {...props}
+  />
 );
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
