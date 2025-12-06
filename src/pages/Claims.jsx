@@ -3410,7 +3410,11 @@ const Claims = () => {
               {editingClaim ? '청구예정 수정' : '새 청구예정'}
             </Typography>
             {isMobile && (
-              <IconButton onClick={() => setDialogOpen(false)} sx={{ color: '#ccc' }}>
+              <IconButton 
+                onClick={() => setDialogOpen(false)} 
+                sx={{ color: '#ccc' }}
+                aria-label="모달 닫기"
+              >
                 <DeleteIcon />
               </IconButton>
             )}

@@ -64,16 +64,22 @@ import {
 
 // 3D 아이소메트릭 한반도 이미지 아이콘
 const KoreaMapIcon = ({ sx, ...props }) => (
-  <img 
-    src="/MAPICON.png" 
-    alt="MAP" 
-    style={{ 
-      width: 24, 
-      height: 24,
-      ...sx 
-    }} 
-    {...props}
-  />
+  <picture>
+    <source srcSet="/MAPICON.webp" type="image/webp" />
+    <img 
+      src="/MAPICON.png" 
+      alt="지도 아이콘" 
+      loading="lazy"
+      width="24"
+      height="24"
+      style={{ 
+        width: 24, 
+        height: 24,
+        ...sx 
+      }} 
+      {...props}
+    />
+  </picture>
 );
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -242,26 +248,32 @@ const Layout = React.memo(({ children }) => {
         }}>
           {/* 왼쪽: 로고 */}
           <Box sx={{ minWidth: 70, px: 1, display: 'flex', alignItems: 'center' }}>
-            <img 
-              src="/chunwoo.png" 
-              alt="Chunwoo" 
-              style={{ height: 40, width: 'auto', cursor: 'pointer' }}
-              onClick={() => {
-                if (isMobile) {
-                  setDrawerOpen(true);
-                } else {
-                  // 권한에 따라 다른 페이지로 이동
-                  if (isMaster) {
-                    // 히트맵 탭에서도 일정관리 탭으로 이동하도록 강제 업데이트
-                    navigate('/schedule', { state: { initialTab: 0 }, replace: true }); // 마스터는 일정관리 페이지로 (일정관리 탭)
-                    // 커스텀 이벤트 발생
-                    window.dispatchEvent(new CustomEvent('logoClick'));
+            <picture>
+              <source srcSet="/chunwoo.webp" type="image/webp" />
+              <img 
+                src="/chunwoo.png" 
+                alt="천우 건설현장관리시스템 로고" 
+                loading="lazy"
+                width="120"
+                height="40"
+                style={{ height: 40, width: 'auto', cursor: 'pointer' }}
+                onClick={() => {
+                  if (isMobile) {
+                    setDrawerOpen(true);
                   } else {
-                    navigate('/gantt'); // 일반 사용자는 현장일정 페이지로
+                    // 권한에 따라 다른 페이지로 이동
+                    if (isMaster) {
+                      // 히트맵 탭에서도 일정관리 탭으로 이동하도록 강제 업데이트
+                      navigate('/schedule', { state: { initialTab: 0 }, replace: true }); // 마스터는 일정관리 페이지로 (일정관리 탭)
+                      // 커스텀 이벤트 발생
+                      window.dispatchEvent(new CustomEvent('logoClick'));
+                    } else {
+                      navigate('/gantt'); // 일반 사용자는 현장일정 페이지로
+                    }
                   }
-                }
-              }}
-            />
+                }}
+              />
+            </picture>
           </Box>
 
           {/* 중앙: 메뉴 */}
@@ -348,6 +360,7 @@ const Layout = React.memo(({ children }) => {
             <IconButton
               size="small"
               color="inherit"
+              aria-label="그림판 열기"
               onClick={() => setPaintAppOpen(true)}
               sx={{
                 backgroundColor: 'rgba(255,255,255,0.1)',
@@ -389,6 +402,7 @@ const Layout = React.memo(({ children }) => {
               size="large"
               color="inherit"
               onClick={handleProfileMenuOpen}
+              aria-label="사용자 메뉴"
             >
               <AccountCircleIcon />
             </IconButton>

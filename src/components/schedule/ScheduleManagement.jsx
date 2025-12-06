@@ -1,14 +1,19 @@
 import React, { useState, useMemo, useEffect, startTransition } from 'react';
 import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, Autocomplete, Tabs, Tab, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, EditNote as EditNoteIcon, CalendarToday as CalendarIcon, BarChart as BarChartIcon, Clear as ClearIcon } from '@mui/icons-material';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
+import EditNoteIcon from '@mui/icons-material/EditNote';
+import CalendarIcon from '@mui/icons-material/CalendarToday';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import ClearIcon from '@mui/icons-material/Clear';
 import CustomCalendar from '../CustomCalendar';
 import ScheduleHeatmap from './ScheduleHeatmap';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, where, getDocs, setDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import * as XLSX from 'xlsx';
-import { exportCalendarToExcel, exportToExcel, exportScheduleToExcel } from '../../utils/excelUtils.jsx';
+// 엑셀 라이브러리는 동적 import로 지연 로딩
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { subscribeToEstimates } from '../../api/estimates';
@@ -2065,7 +2070,8 @@ const ScheduleManagement = ({
       
       console.log('📄 엑셀 파일명:', fileName);
       
-      // 새로운 스타일링이 적용된 함수 사용
+      // 엑셀 라이브러리 동적 import (지연 로딩)
+      const { exportScheduleToExcel } = await import('../../utils/excelUtils.jsx');
       await exportScheduleToExcel(monthlyData, fileName, year, month);
       
     } catch (error) {

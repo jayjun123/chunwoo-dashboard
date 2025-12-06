@@ -2641,6 +2641,7 @@ const BottomBar = ({
                       e.stopPropagation();
                       handleTodoSelection(todo.id);
                     }}
+                    aria-label={`${todo.text} 완료 체크`}
                     sx={{ 
                       mr: 1, 
                       p: isMobile ? 1 : 0.5,
@@ -2652,13 +2653,18 @@ const BottomBar = ({
                     }}
                     size={isMobile ? "medium" : "small"}
                   />
-                  <Typography sx={{ 
-                    flex: 1, 
-                    fontSize: isMobile ? '0.9rem' : '0.75rem', 
-                    color: '#000', 
-                    lineHeight: 1.2,
-                    userSelect: 'none'
-                  }}>
+                  <Typography 
+                    component="label"
+                    htmlFor={`todo-checkbox-${todo.id}`}
+                    sx={{ 
+                      flex: 1, 
+                      fontSize: isMobile ? '0.9rem' : '0.75rem', 
+                      color: '#000', 
+                      lineHeight: 1.2,
+                      userSelect: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
                     {todo.text}
                   </Typography>
                 </Box>

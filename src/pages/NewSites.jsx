@@ -108,8 +108,7 @@ const formatDateRange = (startDate, endDate) => {
   }
 };
 import { getSiteIntegratedStatus } from '../utils/integrationUtils';
-import * as XLSX from 'xlsx';
-import ExcelJS from 'exceljs';
+// 엑셀 라이브러리는 동적 import로 지연 로딩
 import { uploadMaterialData, generateDocumentExcel, getMaterialDataFromFirebase } from '../utils/materialUploadUtils.jsx';
 import { downloadNapfoomContract } from '../utils/napfoomUtils';
 import { safeUpdateDoc, debouncedUpdate } from '../utils/databaseUtils';

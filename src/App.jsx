@@ -58,13 +58,15 @@ const LoadingSpinner = () => (
     `}</style>
   </div>
 );
-import TemplateUpload from './pages/TemplateUpload';
-import CompanyDistribution from './pages/CompanyDistribution';
-import SettlementManagement from './pages/SettlementManagement';
-import SettlementDetail from './pages/SettlementDetail';
-import Mapping from './pages/Mapping';
 import { URL_ALIASES, expandUrl } from './utils/urlShortener';
 import errorHandler from './utils/errorHandler';
+
+// 성능 최적화: 추가 페이지들을 lazy loading으로 변경
+const TemplateUpload = React.lazy(() => import('./pages/TemplateUpload'));
+const CompanyDistribution = React.lazy(() => import('./pages/CompanyDistribution'));
+const SettlementManagement = React.lazy(() => import('./pages/SettlementManagement'));
+const SettlementDetail = React.lazy(() => import('./pages/SettlementDetail'));
+const Mapping = React.lazy(() => import('./pages/Mapping'));
 
 // 임시: 현장명 동기화 함수
 import { syncSiteNames } from './scripts/syncSiteNames';
@@ -215,7 +217,7 @@ const ConstructionTeam = React.lazy(() => import('./pages/DaemaTeam'));
 const TeamSettlement = React.lazy(() => import('./pages/TeamSettlement'));
 const Discussions = React.lazy(() => import('./pages/Discussions'));
 const Vendors = React.lazy(() => import('./pages/Vendors'));
-import VendorManagement from './pages/VendorManagement';
+const VendorManagement = React.lazy(() => import('./pages/VendorManagement'));
 const Progress = React.lazy(() => import('./pages/Progress'));
 const Members = React.lazy(() => import('./pages/Members'));
 const Permissions = React.lazy(() => import('./pages/Permissions'));
@@ -637,7 +639,9 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
-                              <CompanyDistribution />
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <CompanyDistribution />
+                              </Suspense>
                             </Layout>
                           </ProtectedRoute>
                         }
@@ -841,7 +845,9 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
-                              <VendorManagement />
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <VendorManagement />
+                              </Suspense>
                             </Layout>
                           </ProtectedRoute>
                         }
@@ -983,8 +989,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <Mapping />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -1005,7 +1013,9 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
-                              <SettlementManagement />
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <SettlementManagement />
+                              </Suspense>
                             </Layout>
                           </ProtectedRoute>
                         }
@@ -1015,8 +1025,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <SettlementDetail />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
@@ -1073,8 +1085,10 @@ const App = React.memo(() => {
                         element={
                           <ProtectedRoute>
                             <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
                                 <TemplateUpload />
-                              </Layout>
+                              </Suspense>
+                            </Layout>
                           </ProtectedRoute>
                         }
                       />
