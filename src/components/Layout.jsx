@@ -245,11 +245,18 @@ const Layout = React.memo(({ children }) => {
           {/* 왼쪽: 로고 */}
           <Box sx={{ minWidth: 70, px: 1, display: 'flex', alignItems: 'center' }}>
             <img 
-              src="/chunwoo.png" 
+              src="/chunwoo.png?v=2" 
               alt="천우 건설현장관리시스템 로고" 
               width="120"
               height="40"
               style={{ height: 40, width: 'auto', cursor: 'pointer' }}
+              onError={(e) => {
+                // 캐시로 인한 로고 깨짐 방지: 실패 시 동일 파일로 재시도
+                if (!e.currentTarget.dataset.retried) {
+                  e.currentTarget.dataset.retried = 'true';
+                  e.currentTarget.src = '/chunwoo.png';
+                }
+              }}
               onClick={() => {
                   if (isMobile) {
                     setDrawerOpen(true);
