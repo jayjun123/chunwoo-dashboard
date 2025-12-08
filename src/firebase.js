@@ -1,5 +1,5 @@
 import { initializeApp, getApps, deleteApp } from 'firebase/app';
-import { getFirestore, collection, query, orderBy, limit, where, connectFirestoreEmulator } from 'firebase/firestore';
+import { initializeFirestore, collection, query, orderBy, limit, where, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported } from 'firebase/analytics';
@@ -108,8 +108,11 @@ try {
   console.error('❌ Firebase Auth 지속성 설정 중 오류:', error);
 }
 
-// Firestore 설정 (BloomFilter 오류 방지)
-export const db = getFirestore(app);
+// Firestore 설정 (네트워크 차단 대비 롱폴링 강제)
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  useFetchStreams: false
+});
 
 // Firestore 설정 최적화 및 오류 처리
 if (import.meta.env.DEV) {
