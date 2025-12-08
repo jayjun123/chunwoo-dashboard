@@ -244,16 +244,13 @@ const Layout = React.memo(({ children }) => {
         }}>
           {/* 왼쪽: 로고 */}
           <Box sx={{ minWidth: 70, px: 1, display: 'flex', alignItems: 'center' }}>
-            <picture>
-              <source srcSet="/chunwoo.webp" type="image/webp" />
-              <img 
-                src="/chunwoo.png" 
-                alt="천우 건설현장관리시스템 로고" 
-                loading="lazy"
-                width="120"
-                height="40"
-                style={{ height: 40, width: 'auto', cursor: 'pointer' }}
-                onClick={() => {
+            <img 
+              src="/chunwoo.png" 
+              alt="천우 건설현장관리시스템 로고" 
+              width="120"
+              height="40"
+              style={{ height: 40, width: 'auto', cursor: 'pointer' }}
+              onClick={() => {
                   if (isMobile) {
                     setDrawerOpen(true);
                   } else {
