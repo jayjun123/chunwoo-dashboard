@@ -143,21 +143,17 @@ const SplashScreen = ({ onComplete }) => {
               },
             }}
           >
-            <picture>
-              <source srcSet="/loding.webp" type="image/webp" />
-              <img 
-                src="/loding.png" 
-                alt="로딩 이미지"
-                loading="eager"
-                width="100"
-                height="100"
-                style={{
-                  width: '80%',
-                  height: '80%',
-                  objectFit: 'contain'
-                }}
-              />
-            </picture>
+            <img 
+              src="/loding.png" 
+              alt="로딩 이미지"
+              width="100"
+              height="100"
+              style={{
+                width: '80%',
+                height: '80%',
+                objectFit: 'contain'
+              }}
+            />
           </Box>
 
           {/* 앱 이름 */}
