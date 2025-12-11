@@ -41,7 +41,7 @@ import {
 import MobileSidebar from '../components/MobileSidebar';
 import Grid from '@mui/material/Grid';
 import {
-  Add as AddIcon,
+  ArrowBack as ArrowBackIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Search as SearchIcon,
@@ -1060,13 +1060,14 @@ const SettlementManagement = () => {
           {!siteId && (
             <Button
               variant="contained"
-              startIcon={<AddIcon />}
+              startIcon={<ArrowBackIcon />}
+              onClick={() => navigate(-1)}
               sx={{
                 backgroundColor: '#ff9800',
                 '&:hover': { backgroundColor: '#f57c00' }
               }}
             >
-              정산 추가
+              돌아가기
             </Button>
           )}
         </Box>

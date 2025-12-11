@@ -273,7 +273,6 @@ const Layout = React.memo(({ children }) => {
                   }
                 }}
               />
-            </picture>
           </Box>
 
           {/* 중앙: 메뉴 */}
