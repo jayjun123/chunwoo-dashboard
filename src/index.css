@@ -1116,6 +1116,23 @@ body > div[class*="MuiModal"] {
   z-index: 9999999 !important;
 }
 
+/* Autocomplete Popper 최상위 설정 - Dialog 내부에서도 작동 */
+.MuiAutocomplete-popper,
+.MuiAutocomplete-paper,
+.MuiPopper-root[role="presentation"],
+div[class*="MuiAutocomplete-popper"],
+div[class*="MuiPopper-root"] {
+  z-index: 9999999 !important;
+}
+
+/* Dialog 내부의 Autocomplete Popper는 더 높은 z-index */
+.MuiDialog-root .MuiAutocomplete-popper,
+.MuiDialog-root .MuiAutocomplete-paper,
+.MuiDialog-root .MuiPopper-root,
+.MuiDialog-root div[class*="MuiAutocomplete-popper"] {
+  z-index: 10000000 !important;
+}
+
 /* 모바일 키보드 대응 */
 .keyboard-open {
   height: 100vh;
