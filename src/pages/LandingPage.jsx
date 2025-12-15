@@ -1311,13 +1311,13 @@ const LandingPage = () => {
                   
                   {/* 오늘의 일정 */}
                   <Box sx={{ textAlign: 'center' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
-                      <Today sx={{ color: '#43e97b', mr: 1, fontSize: 20 }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: { xs: 1.5, md: 1 } }}>
+                      <Today sx={{ color: '#43e97b', mr: 1, fontSize: { xs: 18, md: 20 } }} />
                       <Typography variant="h6" sx={{ 
                         fontWeight: 'bold', 
                         color: '#43e97b',
                         textShadow: '0 0 10px rgba(67, 233, 123, 0.3)',
-                        fontSize: '1.4rem'
+                        fontSize: { xs: '1.1rem', md: '1.4rem' }
                       }}>
                         오늘의 일정 ({todaySchedules.length})
                       </Typography>
@@ -1325,10 +1325,11 @@ const LandingPage = () => {
                     
                     <Box sx={{ 
                       textAlign: 'left',
-                      height: '200px', // 데이터가 없을 때 크기로 고정
+                      height: { xs: '250px', md: '200px' }, // 모바일에서 더 큰 높이
                       overflowY: 'auto',
                       overflowX: 'hidden',
                       touchAction: 'pan-y', // 터치 스크롤 가능
+                      px: { xs: 1, md: 0 },
                       // 스크롤바 숨기기
                       '&::-webkit-scrollbar': {
                         display: 'none'
@@ -1364,17 +1365,20 @@ const LandingPage = () => {
                             variant="body1" 
                             sx={{ 
                               color: '#e5e7eb',
-                              mb: 0.5,
-                              fontSize: '1.1rem',
+                              mb: { xs: 1, md: 0.5 },
+                              py: { xs: 0.5, md: 0 },
+                              fontSize: { xs: '1rem', md: '1.1rem' },
                               textShadow: '0 0 5px rgba(67, 233, 123, 0.2)',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
                               maxWidth: '100%',
+                              lineHeight: { xs: 1.6, md: 1.5 },
                               '&:before': {
                                 content: '"• "',
                                 color: categoryColor,
-                                fontWeight: 'bold'
+                                fontWeight: 'bold',
+                                fontSize: { xs: '1.2rem', md: '1.1rem' }
                               }
                             }}
                           >
@@ -1424,8 +1428,9 @@ const LandingPage = () => {
                 <Box sx={{ 
                   height: '100%',
                   display: 'flex',
+                  flexDirection: { xs: 'column', md: 'row' },
                   gap: 2,
-                  marginTop: '-40px',
+                  marginTop: { xs: 0, md: '-40px' },
                   maxWidth: '1600px',
                   width: '100%'
                 }}>
@@ -1439,36 +1444,38 @@ const LandingPage = () => {
                     overflow: 'hidden',
                     boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
                     display: 'flex',
-                    flexDirection: 'column'
+                    flexDirection: 'column',
+                    minHeight: { xs: 'auto', md: '100%' }
                   }}>
                     <Box sx={{ 
-                      p: 2, 
+                      p: { xs: 1.5, md: 2 }, 
                       borderBottom: '1px solid rgba(67, 233, 123, 0.2)',
                       background: 'linear-gradient(135deg, rgba(67, 233, 123, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%)'
                     }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Dashboard sx={{ color: '#43e97b', fontSize: 24 }} />
-                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                        <Dashboard sx={{ color: '#43e97b', fontSize: { xs: 20, md: 24 } }} />
+                        <Typography variant="h6" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', md: '1.25rem' } }}>
                           주요 기능
                         </Typography>
                       </Box>
                     </Box>
                     
                     <Box sx={{ 
-                      p: 0.2, 
+                      p: { xs: 0.5, md: 0.2 }, 
                       flex: 1, 
                       overflow: 'auto',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '3px'
+                      gap: { xs: '4px', md: '3px' }
                     }}>
                       {/* 첫 번째 줄 */}
-                      <Box sx={{ display: 'flex', gap: '2px', mb: '3px' }}>
+                      <Box sx={{ display: 'flex', gap: { xs: '4px', md: '2px' }, mb: { xs: '4px', md: '3px' }, flexWrap: { xs: 'wrap', md: 'nowrap' } }}>
                         {quickAccess.slice(0, 6).map((item, index) => (
-                          <Box key={index} sx={{ flex: 1 }}>
+                          <Box key={index} sx={{ flex: { xs: '0 0 calc(50% - 2px)', md: 1 }, minWidth: 0 }}>
                           <Paper sx={{ 
-                            p: 0.2,
-                            height: '65px',
+                            p: { xs: 1, md: 0.2 },
+                            height: { xs: '70px', md: '65px' },
+                            minHeight: { xs: '70px', md: '65px' },
                             background: 'rgba(0, 0, 0, 0.4)',
                             border: '1px solid rgba(67, 233, 123, 0.1)',
                             borderRadius: 2,
@@ -1482,7 +1489,11 @@ const LandingPage = () => {
                             WebkitTapHighlightColor: 'transparent',
                             WebkitTouchCallout: 'none',
                             WebkitUserDrag: 'none',
-                            marginBottom: index >= 6 ? '2px' : '0px',
+                            userSelect: 'none',
+                            '&:active': {
+                              transform: 'scale(0.98)',
+                              background: 'rgba(67, 233, 123, 0.15)'
+                            },
                             '&:hover': {
                               transform: 'translateY(-2px)',
                               boxShadow: '0 15px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(67, 233, 123, 0.2)',
@@ -1506,32 +1517,37 @@ const LandingPage = () => {
                             }
                           }}
 >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.8, md: 1 }, width: '100%', px: { xs: 0.5, md: 0 } }}>
                               <Box sx={{ 
-                                p: 0.5,
+                                p: { xs: 0.8, md: 0.5 },
                                 borderRadius: 1,
                                 background: 'rgba(0, 0, 0, 0.3)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                border: '1px solid rgba(67, 233, 123, 0.1)'
+                                border: '1px solid rgba(67, 233, 123, 0.1)',
+                                flexShrink: 0
                               }}>
-                                {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
+                                {React.cloneElement(item.icon, { sx: { fontSize: { xs: 24, md: 20 } } })}
                               </Box>
                               <Box sx={{ flex: 1, minWidth: 0 }}>
                                 <Typography variant="body2" sx={{ 
                                   fontWeight: 'bold', 
                                   color: 'white',
                                   display: 'block',
-                                  fontSize: '0.9rem'
+                                  fontSize: { xs: '0.85rem', md: '0.9rem' },
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
                                 }}>
                                   {item.title}
                                 </Typography>
                               </Box>
                               <Launch sx={{ 
-                                fontSize: 12, 
+                                fontSize: { xs: 14, md: 12 }, 
                                 color: '#43e97b',
-                                opacity: 0.6
+                                opacity: 0.6,
+                                flexShrink: 0
                               }} />
                             </Box>
                           </Paper>
@@ -1540,12 +1556,13 @@ const LandingPage = () => {
                       </Box>
                       
                       {/* 두 번째 줄 */}
-                      <Box sx={{ display: 'flex', gap: '2px' }}>
+                      <Box sx={{ display: 'flex', gap: { xs: '4px', md: '2px' }, flexWrap: { xs: 'wrap', md: 'nowrap' } }}>
                         {quickAccess.slice(6, 12).map((item, index) => (
-                          <Box key={index + 6} sx={{ flex: 1 }}>
+                          <Box key={index + 6} sx={{ flex: { xs: '0 0 calc(50% - 2px)', md: 1 }, minWidth: 0 }}>
                           <Paper sx={{ 
-                            p: 0.2,
-                            height: '65px',
+                            p: { xs: 1, md: 0.2 },
+                            height: { xs: '70px', md: '65px' },
+                            minHeight: { xs: '70px', md: '65px' },
                             background: 'rgba(0, 0, 0, 0.4)',
                             border: '1px solid rgba(67, 233, 123, 0.1)',
                             borderRadius: 2,
@@ -1559,6 +1576,11 @@ const LandingPage = () => {
                             WebkitTapHighlightColor: 'transparent',
                             WebkitTouchCallout: 'none',
                             WebkitUserDrag: 'none',
+                            userSelect: 'none',
+                            '&:active': {
+                              transform: 'scale(0.98)',
+                              background: 'rgba(67, 233, 123, 0.15)'
+                            },
                             '&:hover': {
                               transform: 'translateY(-2px)',
                               boxShadow: '0 15px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(67, 233, 123, 0.2)',
@@ -1582,32 +1604,37 @@ const LandingPage = () => {
                             }
                           }}
 >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.8, md: 1 }, width: '100%', px: { xs: 0.5, md: 0 } }}>
                               <Box sx={{ 
-                                p: 0.5,
+                                p: { xs: 0.8, md: 0.5 },
                                 borderRadius: 1,
                                 background: 'rgba(0, 0, 0, 0.3)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                border: '1px solid rgba(67, 233, 123, 0.1)'
+                                border: '1px solid rgba(67, 233, 123, 0.1)',
+                                flexShrink: 0
                               }}>
-                                {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
+                                {React.cloneElement(item.icon, { sx: { fontSize: { xs: 24, md: 20 } } })}
                               </Box>
                               <Box sx={{ flex: 1, minWidth: 0 }}>
                                 <Typography variant="body2" sx={{ 
                                   fontWeight: 'bold', 
                                   color: 'white',
                                   display: 'block',
-                                  fontSize: '0.9rem'
+                                  fontSize: { xs: '0.85rem', md: '0.9rem' },
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
                                 }}>
                                   {item.title}
                                 </Typography>
                               </Box>
                               <Launch sx={{ 
-                                fontSize: 12, 
+                                fontSize: { xs: 14, md: 12 }, 
                                 color: '#43e97b',
-                                opacity: 0.6
+                                opacity: 0.6,
+                                flexShrink: 0
                               }} />
                             </Box>
                           </Paper>
@@ -1619,9 +1646,10 @@ const LandingPage = () => {
 
                   {/* 오늘의 할일 */}
                   <Paper sx={{ 
-                    flex: 0.5,
-                    height: '100%',
-                    minWidth: '400px',
+                    flex: { xs: 'none', md: 0.5 },
+                    height: { xs: 'auto', md: '100%' },
+                    minHeight: { xs: '300px', md: 'auto' },
+                    minWidth: { xs: '100%', md: '400px' },
                     background: 'rgba(0, 0, 0, 0.7)',
                     backdropFilter: 'blur(20px)',
                     border: '1px solid rgba(67, 233, 123, 0.1)',
@@ -1632,21 +1660,21 @@ const LandingPage = () => {
                     flexDirection: 'column'
                   }}>
                   <Box sx={{ 
-                    p: 2, 
+                    p: { xs: 1.5, md: 2 }, 
                     borderBottom: '1px solid rgba(67, 233, 123, 0.2)',
                     background: 'linear-gradient(135deg, rgba(67, 233, 123, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%)'
                   }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Assignment sx={{ color: '#43e97b', fontSize: 24 }} />
-                      <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                      <Assignment sx={{ color: '#43e97b', fontSize: { xs: 20, md: 24 } }} />
+                      <Typography variant="h6" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', md: '1.25rem' } }}>
                         오늘의 할일 ({todayTodos.length})
                       </Typography>
                     </Box>
                   </Box>
                   
                     <Box sx={{ 
-                      p: 1, 
-                      height: '200px', // 데이터가 없을 때 크기로 고정
+                      p: { xs: 1.5, md: 1 }, 
+                      height: { xs: '250px', md: '200px' }, // 모바일에서 더 큰 높이
                       overflowY: 'auto',
                       overflowX: 'hidden',
                       touchAction: 'pan-y', // 터치 스크롤 가능
@@ -1666,9 +1694,10 @@ const LandingPage = () => {
                             sx={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 0.8,
-                              mb: 1,
-                              p: 0.7,
+                              gap: { xs: 1, md: 0.8 },
+                              mb: { xs: 1.5, md: 1 },
+                              p: { xs: 1.2, md: 0.7 },
+                              minHeight: { xs: '48px', md: 'auto' },
                               borderRadius: 1,
                               background: 'rgba(0, 0, 0, 0.3)',
                               border: '1px solid rgba(67, 233, 123, 0.1)',
@@ -1684,27 +1713,27 @@ const LandingPage = () => {
                               WebkitTapHighlightColor: 'transparent',
                               WebkitTouchCallout: 'none',
                               WebkitUserDrag: 'none',
+                              '&:active': {
+                                transform: 'scale(0.98)',
+                                background: 'rgba(67, 233, 123, 0.15)'
+                              },
                               '&:hover': {
                                 background: 'rgba(67, 233, 123, 0.1)',
                                 border: '1px solid rgba(67, 233, 123, 0.3)',
                                 transform: 'translateY(-1px)'
-                              },
-                              '&:active': {
-                                transform: 'translateY(0px)'
                               }
                             }}
                           >
                             <Box sx={{
-                              width: 12,
-                              height: 12,
+                              width: { xs: 18, md: 12 },
+                              height: { xs: 18, md: 12 },
+                              minWidth: { xs: 18, md: 12 },
+                              minHeight: { xs: 18, md: 12 },
                               borderRadius: '50%',
                               border: '2px solid #43e97b',
                               backgroundColor: todo.completed ? '#43e97b' : 'transparent',
                               flexShrink: 0,
-                              transition: 'all 0.2s ease',
-                              '&:hover': {
-                                transform: 'scale(1.1)'
-                              }
+                              transition: 'all 0.2s ease'
                             }} />
                             <Box sx={{ flex: 1, minWidth: 0 }}>
                               <Typography 
@@ -1717,15 +1746,18 @@ const LandingPage = () => {
                                   textDecoration: todo.completed ? 'line-through' : 'none',
                                   opacity: todo.completed ? 0.6 : 1,
                                   fontWeight: todo.isOverdue ? 'bold' : 'normal',
-                                  transition: 'all 0.2s ease'
+                                  transition: 'all 0.2s ease',
+                                  fontSize: { xs: '0.95rem', md: '0.875rem' }
                                 }}
                               >
                                 {todo.title}
                               </Typography>
                             </Box>
                             <Box sx={{
-                              width: 8,
-                              height: 8,
+                              width: { xs: 10, md: 8 },
+                              height: { xs: 10, md: 8 },
+                              minWidth: { xs: 10, md: 8 },
+                              minHeight: { xs: 10, md: 8 },
                               borderRadius: '50%',
                               backgroundColor: todo.priority === 'high' ? '#ef4444' : 
                                              todo.priority === 'medium' ? '#f59e0b' : '#43e97b',

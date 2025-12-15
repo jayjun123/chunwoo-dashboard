@@ -1420,7 +1420,7 @@ const TeamSettlement = () => {
     return new Intl.NumberFormat('ko-KR').format(amount) + '원';
   };
 
-  // 현재 팀의 총금액 계산 (소계만 합산 - 현장 헤더 행의 totalPrice만)
+  // 현재 팀의 총금액 계산 (현장별 항목 행들의 totalPrice 합산)
   const getCurrentTeamTotalAmount = () => {
     if (activeTab === 0 || !selectedTeamsForTabs[activeTab - 1]) {
       return 0;
@@ -1429,13 +1429,39 @@ const TeamSettlement = () => {
     const teamId = selectedTeamsForTabs[activeTab - 1].id;
     const currentRows = teamTableData[teamId] || [];
     
-    // 소계만 합산: isSiteHeader가 true이거나 isItemRow가 false인 행만
-    return currentRows.reduce((sum, row) => {
-      if (row.isSiteHeader === true || (row.isSiteHeader !== false && row.isItemRow === false)) {
-        return sum + (row.totalPrice || 0);
+    // 현장별로 그룹화
+    const siteGroups = {};
+    const independentRows = [];
+    
+    currentRows.forEach(row => {
+      // 항목 행인 경우 (isItemRow === true)
+      if (row.isItemRow === true && row.siteName && row.siteName.trim() !== '') {
+        const siteName = row.siteName.trim();
+        if (!siteGroups[siteName]) {
+          siteGroups[siteName] = {
+            itemRows: []
+          };
+        }
+        siteGroups[siteName].itemRows.push(row);
+      } else if (!row.isSiteHeader || (row.isSiteHeader !== true && row.isItemRow !== true)) {
+        // 독립적인 행 (현장 헤더가 아니고 항목 행도 아닌 경우)
+        independentRows.push(row);
       }
-      return sum;
-    }, 0);
+    });
+    
+    // 현장별 항목 행들의 totalPrice 합산
+    let total = 0;
+    Object.values(siteGroups).forEach(group => {
+      const siteTotal = group.itemRows.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+      total += siteTotal;
+    });
+    
+    // 독립적인 행들의 totalPrice 합산
+    independentRows.forEach(row => {
+      total += (row.totalPrice || 0);
+    });
+    
+    return total;
   };
 
   // 숫자 포맷팅 (콤마만)
@@ -1443,7 +1469,7 @@ const TeamSettlement = () => {
     return new Intl.NumberFormat('ko-KR').format(number);
   };
 
-  // 탭별 팀 금액 계산 (현재 선택된 월의 데이터만 사용, 소계만 합산)
+  // 탭별 팀 금액 계산 (현재 선택된 월의 데이터만 사용, 현장별 항목 행들의 totalPrice 합산)
   const getTeamAmount = (teamId) => {
     // selectedTeamsForTabs에 해당 팀이 있는지 확인 (현재 월에 데이터가 있는 팀만)
     const hasTeamInCurrentMonth = selectedTeamsForTabs.some(team => team.id === teamId);
@@ -1452,13 +1478,40 @@ const TeamSettlement = () => {
       return 0;
     }
     const teamRows = teamTableData[teamId] || [];
-    // 소계만 합산: isSiteHeader가 true이거나 isItemRow가 false인 행만
-    return teamRows.reduce((sum, row) => {
-      if (row.isSiteHeader === true || (row.isSiteHeader !== false && row.isItemRow === false)) {
-        return sum + (row.totalPrice || 0);
+    
+    // 현장별로 그룹화
+    const siteGroups = {};
+    const independentRows = [];
+    
+    teamRows.forEach(row => {
+      // 항목 행인 경우 (isItemRow === true)
+      if (row.isItemRow === true && row.siteName && row.siteName.trim() !== '') {
+        const siteName = row.siteName.trim();
+        if (!siteGroups[siteName]) {
+          siteGroups[siteName] = {
+            itemRows: []
+          };
+        }
+        siteGroups[siteName].itemRows.push(row);
+      } else if (!row.isSiteHeader || (row.isSiteHeader !== true && row.isItemRow !== true)) {
+        // 독립적인 행 (현장 헤더가 아니고 항목 행도 아닌 경우)
+        independentRows.push(row);
       }
-      return sum;
-    }, 0);
+    });
+    
+    // 현장별 항목 행들의 totalPrice 합산
+    let total = 0;
+    Object.values(siteGroups).forEach(group => {
+      const siteTotal = group.itemRows.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+      total += siteTotal;
+    });
+    
+    // 독립적인 행들의 totalPrice 합산
+    independentRows.forEach(row => {
+      total += (row.totalPrice || 0);
+    });
+    
+    return total;
   };
 
   // 정산 데이터에서 팀 금액 가져오기
@@ -5834,17 +5887,11 @@ const TeamSettlement = () => {
                 </Table>
               </TableContainer>
               
-              {/* 총계 표시 (소계만 합산) */}
+              {/* 총계 표시 (현장별 항목 행들의 totalPrice 합산) */}
               <Box sx={{ mt: 2, textAlign: 'right' }}>
                 <Typography variant="h6" sx={{ color: '#fff', fontSize: '1.5rem' }}>
                   총 금액: <span style={{ color: '#4caf50', fontSize: '1.6rem', fontWeight: 'bold' }}>
-                    {formatAmount((teamTableData[selectedTeamsForTabs[activeTab - 1]?.id] || []).reduce((sum, row) => {
-                      // 소계만 합산: isSiteHeader가 true이거나 isItemRow가 false인 행만
-                      if (row.isSiteHeader === true || (row.isSiteHeader !== false && row.isItemRow === false)) {
-                        return sum + (row.totalPrice || 0);
-                      }
-                      return sum;
-                    }, 0))}
+                    {formatAmount(getCurrentTeamTotalAmount())}
                   </span>
                 </Typography>
               </Box>
