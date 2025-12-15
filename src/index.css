@@ -1121,15 +1121,37 @@ body > div[class*="MuiModal"] {
 .MuiAutocomplete-paper,
 .MuiPopper-root[role="presentation"],
 div[class*="MuiAutocomplete-popper"],
-div[class*="MuiPopper-root"] {
-  z-index: 9999999 !important;
+div[class*="MuiPopper-root"],
+[role="listbox"],
+.MuiAutocomplete-listbox {
+  z-index: 10000000 !important;
 }
 
 /* Dialog 내부의 Autocomplete Popper는 더 높은 z-index */
 .MuiDialog-root .MuiAutocomplete-popper,
 .MuiDialog-root .MuiAutocomplete-paper,
 .MuiDialog-root .MuiPopper-root,
-.MuiDialog-root div[class*="MuiAutocomplete-popper"] {
+.MuiDialog-root div[class*="MuiAutocomplete-popper"],
+.MuiDialog-root div[class*="MuiPopper-root"],
+.MuiDialog-root [role="listbox"],
+.MuiDialog-root .MuiAutocomplete-listbox,
+.MuiDialog-root .MuiAutocomplete-option {
+  z-index: 10000000 !important;
+}
+
+/* 모든 Dialog 내부의 Popper 요소 최상위 설정 */
+.MuiDialog-root ~ .MuiAutocomplete-popper,
+.MuiDialog-root ~ .MuiPopper-root,
+body > div[class*="MuiAutocomplete-popper"],
+body > div[class*="MuiPopper-root"][role="presentation"] {
+  z-index: 10000000 !important;
+}
+
+/* Autocomplete Popper 전역 최상위 설정 */
+.MuiAutocomplete-popper,
+.MuiPopper-root[role="presentation"],
+div[class*="MuiAutocomplete-popper"],
+div[class*="MuiPopper-root"][role="presentation"] {
   z-index: 10000000 !important;
 }
 

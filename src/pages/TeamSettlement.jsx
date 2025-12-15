@@ -6566,26 +6566,32 @@ const TeamSettlement = () => {
         maxWidth="sm"
         fullWidth
         container={() => document.body}
-        style={{ zIndex: 999999 }}
+        style={{ zIndex: 9999999 }}
         PaperProps={{
           sx: { 
             bgcolor: '#1a1d21', 
             color: '#fff',
-            zIndex: 999999,
+            zIndex: 9999999,
             position: 'relative'
           },
-          style: { zIndex: 999999 }
+          style: { zIndex: 9999999 }
+        }}
+        BackdropProps={{
+          sx: {
+            bgcolor: 'rgba(0, 0, 0, 0.8)',
+            zIndex: 9999998
+          }
         }}
         sx={{
-          zIndex: 999999,
+          zIndex: 9999999,
           '& .MuiDialog-container': {
-            zIndex: 999999
+            zIndex: 9999999
           },
           '& .MuiBackdrop-root': {
-            zIndex: 999998
+            zIndex: 9999998
           },
           '& .MuiDialog-root': {
-            zIndex: 999999
+            zIndex: 9999999
           }
         }}
       >
@@ -6633,6 +6639,20 @@ const TeamSettlement = () => {
               return filtered;
             }}
             freeSolo
+            componentsProps={{
+              popper: {
+                style: { zIndex: 10000000 },
+                sx: { zIndex: '10000000 !important' }
+              },
+              paper: {
+                style: { zIndex: 10000000 },
+                sx: { 
+                  zIndex: '10000000 !important',
+                  bgcolor: '#1a1d21',
+                  color: '#fff'
+                }
+              }
+            }}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -6683,12 +6703,16 @@ const TeamSettlement = () => {
               '& .MuiAutocomplete-clearIndicator': {
                 color: '#fff'
               },
+              '& .MuiAutocomplete-popper': {
+                zIndex: '10000000 !important'
+              },
               '& .MuiAutocomplete-paper': {
-                bgcolor: '#2d2d2d',
-                color: '#fff'
+                bgcolor: '#1a1d21',
+                color: '#fff',
+                zIndex: '10000000 !important'
               },
               '& .MuiAutocomplete-listbox': {
-                bgcolor: '#2d2d2d'
+                bgcolor: '#1a1d21'
               },
               '& .MuiAutocomplete-option': {
                 color: '#fff',
