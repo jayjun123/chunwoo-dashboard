@@ -102,6 +102,61 @@ const ConstructionTeam = () => {
     }
   };
 
+  // 팀명 정규화 함수 (공백 제거, "팀" 접미사 제거)
+  const normalizeTeamName = (name) => {
+    if (!name) return '';
+    return String(name).trim().replace(/\s+/g, '').replace(/팀$/, '').trim();
+  };
+
+  // 팀 매칭 함수 (쉼표로 구분된 여러 팀 지원) - 정확한 매칭만 허용
+  const isTeamMatched = (site, team) => {
+    const teamName = team.teamName || '';
+    const managerName = team.managerName || '';
+    const siteTeam = site.team || '';
+    const siteManager = site.manager || '';
+    const siteConstructionTeam = site.constructionTeam || '';
+
+    // 팀명 정규화
+    const normalizedTeamName = normalizeTeamName(teamName);
+    const normalizedManagerName = normalizeTeamName(managerName);
+
+    // site.team이 여러 팀으로 구분되어 있는 경우 처리
+    if (siteTeam && siteTeam.trim() !== '') {
+      const teamNames = siteTeam.split(',').map(name => normalizeTeamName(name)).filter(name => name);
+      
+      for (const siteTeamName of teamNames) {
+        // 정확한 매칭만 허용 (부분 매칭 제거)
+        const exactMatch = siteTeamName === normalizedTeamName || 
+                          siteTeamName === normalizedManagerName;
+        
+        if (exactMatch) {
+          return true;
+        }
+      }
+    }
+
+    // site.constructionTeam도 확인
+    if (siteConstructionTeam && siteConstructionTeam.trim() !== '') {
+      const constructionTeamNames = siteConstructionTeam.split(',').map(name => normalizeTeamName(name)).filter(name => name);
+      
+      for (const constructionTeamName of constructionTeamNames) {
+        // 정확한 매칭만 허용
+        const exactMatch = constructionTeamName === normalizedTeamName || 
+                          constructionTeamName === normalizedManagerName;
+        
+        if (exactMatch) {
+          return true;
+        }
+      }
+    }
+
+    // site.manager로도 확인 (정확한 매칭만)
+    const normalizedSiteManager = normalizeTeamName(siteManager);
+    const exactMatch = normalizedSiteManager === normalizedTeamName || normalizedSiteManager === normalizedManagerName;
+
+    return exactMatch;
+  };
+
   const isOngoingSite = (site) => {
     const today = new Date();
     const start = parseDate(site.startDate || site.startedAt || site.start || site.start_date);
@@ -178,9 +233,7 @@ const ConstructionTeam = () => {
       const updatedTeams = prevTeams.map(team => {
         // 해당 팀과 연결된 현장들 찾기
         const linkedSites = sites.filter(site => {
-          const siteTeamName = (site.team || '').replace(/팀$/, '');
-          const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-          return siteTeamName === teamNameWithoutTeam || site.manager === team.managerName;
+          return isTeamMatched(site, team);
         });
         
         // 해당 현장들에 속한 팀원들 찾기
@@ -382,9 +435,7 @@ const ConstructionTeam = () => {
       const teamSiteData = teams.map(team => {
         // 해당 팀이 담당하는 현장들 찾기 (진행중/예정만 포함)
         const teamSites = sites.filter(site => {
-          const siteTeamName = (site.team || '').replace(/팀$/, '');
-          const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-          const isTeamMatch = siteTeamName === teamNameWithoutTeam || site.manager === team.managerName;
+          const isTeamMatch = isTeamMatched(site, team);
           
           // 진행중/예정 상태만 필터링
           const isOngoing = site.status === '진행중' || 
@@ -1090,9 +1141,6 @@ const ConstructionTeam = () => {
                         진행 현장 ({(() => {
                           // 현장관리에서 연결된 현장들
                           const linkedSites = sites.filter(site => {
-                            const siteTeamName = (site.team || '').replace(/팀$/, '');
-                            const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                            
                             // 진행중 상태 판별 (더 포괄적으로)
                             const isOngoing = site.status === '진행중' || 
                                              site.status === '진행' || 
@@ -1117,27 +1165,25 @@ const ConstructionTeam = () => {
                             // 완료일이 지났더라도 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
                             const isWithinPeriod = !endDate || endDate >= today || isWithinStartMonth;
                             
-                            const isMatched = isOngoing && isWithinPeriod && 
-                              (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                            const isMatched = isOngoing && isWithinPeriod && isTeamMatched(site, team);
                             
                             // 디버깅 로그
                             if (team.teamName === '오태훈팀') {
+                              const teamMatched = isTeamMatched(site, team);
+                              const matched = teamMatched && isOngoing && isWithinPeriod;
                               console.log('오태훈팀 현장 매칭 확인:', {
                                 siteName: site.name,
                                 siteStatus: site.status,
                                 siteTeam: site.team,
-                                siteTeamName,
-                                teamNameWithoutTeam,
-                                siteManager: site.manager,
+                                siteConstructionTeam: site.constructionTeam,
+                                teamName: team.teamName,
                                 teamManager: team.managerName,
+                                normalizedTeamName: normalizeTeamName(team.teamName),
+                                normalizedManagerName: normalizeTeamName(team.managerName),
                                 isOngoing,
-                                startDate: startDate,
-                                endDate: endDate,
-                                startMonth: startMonth,
-                                currentMonth: currentMonth,
-                                isWithinStartMonth,
                                 isWithinPeriod,
-                                isMatched
+                                teamMatched,
+                                isMatched: matched
                               });
                             }
                             
@@ -1179,9 +1225,6 @@ const ConstructionTeam = () => {
                     {(() => {
                       // 현장관리에서 연결된 현장들
                       const linkedSites = sites.filter(site => {
-                        const siteTeamName = (site.team || '').replace(/팀$/, '');
-                        const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                        
                         // 진행중 상태 판별 (더 포괄적으로)
                         const isOngoing = site.status === '진행중' || 
                                          site.status === '진행' || 
@@ -1206,8 +1249,7 @@ const ConstructionTeam = () => {
                         // 완료일이 지났더라도 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
                         const isWithinPeriod = !endDate || endDate >= today || isWithinStartMonth;
                         
-                        return isOngoing && isWithinPeriod && 
-                          (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                        return isOngoing && isWithinPeriod && isTeamMatched(site, team);
                       });
                       
                       // 직접 추가한 현장들
@@ -1229,9 +1271,6 @@ const ConstructionTeam = () => {
                         {(() => {
                           // 현장관리에서 연결된 현장들
                           const linkedSites = sites.filter(site => {
-                            const siteTeamName = (site.team || '').replace(/팀$/, '');
-                            const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                            
                             // 진행중 상태 판별 (더 포괄적으로)
                             const isOngoing = site.status === '진행중' || 
                                              site.status === '진행' || 
@@ -1256,8 +1295,7 @@ const ConstructionTeam = () => {
                             // 완료일이 지났더라도 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
                             const isWithinPeriod = !endDate || endDate >= today || isWithinStartMonth;
                             
-                            return isOngoing && isWithinPeriod && 
-                              (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                            return isOngoing && isWithinPeriod && isTeamMatched(site, team);
                           });
                           
                           // 직접 추가한 현장들
@@ -1385,10 +1423,7 @@ const ConstructionTeam = () => {
                         예정 현장 ({(() => {
                           // 현장관리에서 연결된 현장들
                           const linkedSites = sites.filter(site => {
-                            const siteTeamName = (site.team || '').replace(/팀$/, '');
-                            const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                            return site.status === '예정' && 
-                              (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                            return site.status === '예정' && isTeamMatched(site, team);
                           });
                           
                           // 직접 추가한 현장들
@@ -1419,10 +1454,7 @@ const ConstructionTeam = () => {
                     {(() => {
                       // 현장관리에서 연결된 현장들
                       const linkedSites = sites.filter(site => {
-                        const siteTeamName = (site.team || '').replace(/팀$/, '');
-                        const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                        return site.status === '예정' && 
-                          (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                        return site.status === '예정' && isTeamMatched(site, team);
                       });
                       
                       // 직접 추가한 현장들
@@ -1444,10 +1476,7 @@ const ConstructionTeam = () => {
                         {(() => {
                           // 현장관리에서 연결된 현장들
                           const linkedSites = sites.filter(site => {
-                            const siteTeamName = (site.team || '').replace(/팀$/, '');
-                            const teamNameWithoutTeam = team.teamName.replace(/팀$/, '');
-                            return site.status === '예정' && 
-                              (siteTeamName === teamNameWithoutTeam || site.manager === team.managerName);
+                            return site.status === '예정' && isTeamMatched(site, team);
                           });
                           
                           // 직접 추가한 현장들
@@ -1603,15 +1632,21 @@ const ConstructionTeam = () => {
         onClose={handleCloseDialog} 
         maxWidth="md" 
         fullWidth
-        sx={{
-          zIndex: 9999,
-          '& .MuiBackdrop-root': {
-            zIndex: 9998
-          }
-        }}
+        container={() => document.body}
+        style={{ zIndex: 9999999 }}
         PaperProps={{
+          sx: { 
+            bgcolor: '#1a1d21', 
+            color: '#fff',
+            zIndex: 9999999,
+            position: 'relative'
+          },
+          style: { zIndex: 9999999 }
+        }}
+        BackdropProps={{
           sx: {
-            zIndex: 9999
+            bgcolor: 'rgba(0, 0, 0, 0.8)',
+            zIndex: 9999998
           }
         }}
       >
@@ -1768,7 +1803,29 @@ const ConstructionTeam = () => {
       </Dialog>
 
       {/* 현장 선택 다이얼로그 */}
-      <Dialog open={openSiteDialog} onClose={handleCloseSiteDialog} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={openSiteDialog} 
+        onClose={handleCloseSiteDialog} 
+        maxWidth="sm" 
+        fullWidth
+        container={() => document.body}
+        style={{ zIndex: 9999999 }}
+        PaperProps={{
+          sx: { 
+            bgcolor: '#1a1d21', 
+            color: '#fff',
+            zIndex: 9999999,
+            position: 'relative'
+          },
+          style: { zIndex: 9999999 }
+        }}
+        BackdropProps={{
+          sx: {
+            bgcolor: 'rgba(0, 0, 0, 0.8)',
+            zIndex: 9999998
+          }
+        }}
+      >
         <DialogTitle sx={{ bgcolor: '#1a1d21', color: '#fff' }}>
           {siteType} 현장 추가 - {selectedTeamForSite?.teamName}
         </DialogTitle>

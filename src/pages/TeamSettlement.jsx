@@ -174,18 +174,37 @@ const TeamSettlement = () => {
     loadInitialData();
   }, [teams]); // selectedMonth 의존성 제거 (월 변경은 loadTeamsForMonth에서 처리)
 
+  // 팀명 정규화 함수 (공백 제거, "팀" 접미사 제거, 모든 공백 제거)
+  const normalizeTeamName = (name) => {
+    if (!name) return '';
+    // 모든 공백 제거, "팀" 접미사 제거, 앞뒤 공백 제거
+    return String(name).trim().replace(/\s+/g, '').replace(/팀$/, '').trim();
+  };
+
   // 해당 팀의 현장 목록 가져오기 (현장관리페이지 스케줄 데이터 기반)
   const getTeamSites = (teamId) => {
-    if (!teamId) return [];
+    if (!teamId) {
+      console.log('❌ getTeamSites: teamId가 없음');
+      return [];
+    }
     
     const team = teams.find(t => t.id === teamId);
-    if (!team) return [];
+    if (!team) {
+      console.log('❌ getTeamSites: 팀을 찾을 수 없음', teamId);
+      return [];
+    }
     
-    console.log('현재 팀 정보:', { teamName: team.teamName, managerName: team.managerName });
+    console.log('🔍 getTeamSites 호출:', { 
+      teamId, 
+      teamName: team.teamName, 
+      managerName: team.managerName,
+      totalSites: sites.length 
+    });
     
     // 1. 팀의 currentSites와 scheduledSites에서 현장명 가져오기
     const currentSites = team.currentSites || [];
     const scheduledSites = team.scheduledSites || [];
+    console.log('📋 팀의 할당된 현장:', { currentSites, scheduledSites });
     
     // 2. 현장관리페이지의 sites 데이터에서 해당 팀이 배정된 현장들 찾기
     const assignedSites = sites.filter(site => {
@@ -193,50 +212,108 @@ const TeamSettlement = () => {
       const managerName = team.managerName || '';
       const siteTeam = site.team || '';
       const siteManager = site.manager || '';
+      const siteConstructionTeam = site.constructionTeam || '';
       
-      // 정확한 매칭 (공백 제거 후 비교)
-      const cleanTeamName = teamName.trim();
-      const cleanManagerName = managerName.trim();
-      const cleanSiteTeam = siteTeam.trim();
-      const cleanSiteManager = siteManager.trim();
+      // 팀명 정규화 (공백 제거, "팀" 접미사 제거)
+      const normalizedTeamName = normalizeTeamName(teamName);
+      const normalizedManagerName = normalizeTeamName(managerName);
+      const normalizedSiteTeam = normalizeTeamName(siteTeam);
+      const normalizedSiteManager = normalizeTeamName(siteManager);
+      const normalizedSiteConstructionTeam = normalizeTeamName(siteConstructionTeam);
       
-      // 정확한 매칭
-      const exactMatch1 = cleanSiteTeam === cleanTeamName || cleanSiteTeam === cleanManagerName;
-      const exactMatch2 = cleanSiteManager === cleanTeamName || cleanSiteManager === cleanManagerName;
-      
-      // 부분 매칭도 허용 (팀명이나 관리자명이 포함된 경우)
-      const partialMatch1 = cleanSiteTeam.includes(cleanTeamName) || cleanSiteTeam.includes(cleanManagerName);
-      const partialMatch2 = cleanSiteManager.includes(cleanTeamName) || cleanSiteManager.includes(cleanManagerName);
-      
-      // 정확한 매칭 또는 부분 매칭 중 하나라도 일치하면 매칭
-      const isMatch = exactMatch1 || exactMatch2 || partialMatch1 || partialMatch2;
-      
-      if (isMatch) {
-        console.log('매칭된 현장:', {
+      // 디버깅: 모든 현장의 team 필드 확인
+      if (siteTeam && siteTeam.includes(',')) {
+        console.log('🔍 다중 팀 현장 발견:', {
           siteName: site.name,
-          siteTeam: cleanSiteTeam,
-          siteManager: cleanSiteManager,
-          teamName: cleanTeamName,
-          managerName: cleanManagerName,
-          exactMatch1, exactMatch2,
-          partialMatch1, partialMatch2,
-          matchType: exactMatch1 || exactMatch2 ? '정확한 매칭' : '부분 매칭'
+          siteTeam: siteTeam,
+          siteConstructionTeam: siteConstructionTeam,
+          teamName: teamName,
+          managerName: managerName
         });
       }
       
-      // 모든 현장 정보 출력 (디버깅용)
-      if (site.name === '경북대 노후교체(4개동)') {
-        console.log('경북대 현장 상세 정보:', {
+      // site.team이 여러 팀으로 구분되어 있는 경우 처리 (예: "김성구, 전해곤, 오태훈")
+      let isMatch = false;
+      
+      // site.team을 쉼표로 분리하여 각 팀명 확인
+      if (siteTeam && siteTeam.trim() !== '') {
+        const teamNames = siteTeam.split(',').map(name => normalizeTeamName(name)).filter(name => name);
+        
+        console.log('🔍 현장 팀명 분석:', {
           siteName: site.name,
-          siteTeam: cleanSiteTeam,
-          siteManager: cleanSiteManager,
-          teamName: cleanTeamName,
-          managerName: cleanManagerName,
-          exactMatch1, exactMatch2,
-          partialMatch1, partialMatch2,
-          isMatch,
-          matchType: exactMatch1 || exactMatch2 ? '정확한 매칭' : '부분 매칭'
+          originalSiteTeam: siteTeam,
+          splitTeamNames: teamNames,
+          normalizedTeamName: normalizedTeamName,
+          normalizedManagerName: normalizedManagerName
         });
+        
+        // 각 팀명이 현재 팀의 teamName 또는 managerName과 일치하는지 확인
+        for (const siteTeamName of teamNames) {
+          // 정확한 매칭만 허용 (부분 매칭 제거)
+          const exactMatch = siteTeamName === normalizedTeamName || 
+                            siteTeamName === normalizedManagerName;
+          
+          if (exactMatch) {
+            isMatch = true;
+            console.log('✅ 매칭된 현장 (다중 팀):', {
+              siteName: site.name,
+              siteTeamName: siteTeamName,
+              originalSiteTeam: siteTeam,
+              normalizedTeamName: normalizedTeamName,
+              normalizedManagerName: normalizedManagerName,
+              matchType: '정확한 매칭'
+            });
+            break; // 하나라도 일치하면 매칭
+          }
+        }
+      }
+      
+      // site.constructionTeam도 확인 (다중 팀 지원)
+      if (!isMatch && siteConstructionTeam && siteConstructionTeam.trim() !== '') {
+        const constructionTeamNames = siteConstructionTeam.split(',').map(name => normalizeTeamName(name)).filter(name => name);
+        
+        for (const constructionTeamName of constructionTeamNames) {
+          // 정확한 매칭만 허용
+          const exactMatch = constructionTeamName === normalizedTeamName || 
+                            constructionTeamName === normalizedManagerName;
+          
+          if (exactMatch) {
+            isMatch = true;
+            console.log('✅ 매칭된 현장 (constructionTeam):', {
+              siteName: site.name,
+              constructionTeamName: constructionTeamName,
+              originalSiteConstructionTeam: siteConstructionTeam,
+              normalizedTeamName: normalizedTeamName,
+              normalizedManagerName: normalizedManagerName,
+              matchType: '정확한 매칭'
+            });
+            break;
+          }
+        }
+      }
+      
+      // site.team 매칭이 실패했을 경우 site.manager로도 확인 (정확한 매칭만)
+      if (!isMatch) {
+        // 정규화된 이름으로 정확한 매칭만 허용
+        const exactMatch1 = normalizedSiteTeam === normalizedTeamName || normalizedSiteTeam === normalizedManagerName;
+        const exactMatch2 = normalizedSiteManager === normalizedTeamName || normalizedSiteManager === normalizedManagerName;
+        
+        // 정확한 매칭만 허용
+        isMatch = exactMatch1 || exactMatch2;
+        
+        if (isMatch) {
+          console.log('✅ 매칭된 현장 (manager):', {
+            siteName: site.name,
+            originalSiteTeam: siteTeam,
+            originalSiteManager: siteManager,
+            normalizedSiteTeam: normalizedSiteTeam,
+            normalizedSiteManager: normalizedSiteManager,
+            normalizedTeamName: normalizedTeamName,
+            normalizedManagerName: normalizedManagerName,
+            exactMatch1, exactMatch2,
+            matchType: '정확한 매칭'
+          });
+        }
       }
       
       return isMatch;
@@ -246,7 +323,21 @@ const TeamSettlement = () => {
     const allSites = [...currentSites, ...scheduledSites, ...assignedSites];
     const uniqueSites = [...new Set(allSites)];
     
-    console.log('최종 현장 목록:', uniqueSites);
+    // 디버깅: 모든 현장의 team 필드 출력
+    console.log('📊 모든 현장의 team 필드:', sites.map(s => ({
+      siteName: s.name,
+      team: s.team,
+      constructionTeam: s.constructionTeam,
+      manager: s.manager
+    })));
+    
+    console.log('✅ 최종 현장 목록:', {
+      currentSites,
+      scheduledSites,
+      assignedSites,
+      uniqueSites,
+      totalCount: uniqueSites.length
+    });
     
     return uniqueSites;
   };
@@ -737,10 +828,39 @@ const TeamSettlement = () => {
     setSelectedTeamForPricing(selectedTeam);
     
     // 해당 시공팀이 담당하는 현장들 필터링
-    const teamSites = sites.filter(site => 
-      site.assignedTeamId === selectedTeam.id || 
-      site.assignedTeamName === selectedTeam.teamName
-    );
+    const teamSites = sites.filter(site => {
+      // assignedTeamId나 assignedTeamName으로 먼저 확인
+      if (site.assignedTeamId === selectedTeam.id || site.assignedTeamName === selectedTeam.teamName) {
+        return true;
+      }
+      
+      // site.team 필드에서 여러 팀이 쉼표로 구분된 경우 처리
+      const teamName = selectedTeam.teamName || '';
+      const managerName = selectedTeam.managerName || '';
+      const siteTeam = site.team || '';
+      
+      // 팀명 정규화 (공백 제거, "팀" 접미사 제거)
+      const normalizedTeamName = normalizeTeamName(teamName);
+      const normalizedManagerName = normalizeTeamName(managerName);
+      
+      if (siteTeam && siteTeam.trim() !== '') {
+        // site.team을 쉼표로 분리하여 각 팀명 확인
+        const teamNames = siteTeam.split(',').map(name => normalizeTeamName(name)).filter(name => name);
+        
+        // 각 팀명이 현재 팀의 teamName 또는 managerName과 일치하는지 확인
+        for (const siteTeamName of teamNames) {
+          // 정확한 매칭만 허용
+          const exactMatch = siteTeamName === normalizedTeamName || 
+                            siteTeamName === normalizedManagerName;
+          
+          if (exactMatch) {
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    });
 
     setQuantityPricingData({
       teamId: selectedTeam.id,
@@ -1431,22 +1551,35 @@ const TeamSettlement = () => {
     const teamId = selectedTeamsForTabs[activeTab - 1].id;
     const currentRows = teamTableData[teamId] || [];
     
-    // 현장별로 그룹화
+    // 테이블 렌더링 로직과 동일하게 처리
     const siteGroups = {};
     const independentRows = [];
     
     currentRows.forEach(row => {
-      // 항목 행인 경우 (isItemRow === true)
-      if (row.isItemRow === true && row.siteName && row.siteName.trim() !== '') {
-        const siteName = row.siteName.trim();
-        if (!siteGroups[siteName]) {
-          siteGroups[siteName] = {
-            itemRows: []
-          };
+      // 현장 헤더 행 판별: siteName이 있고 item이 없고 isItemRow가 false
+      const isSiteHeader = row.siteName && (!row.item || row.item === '') && !row.isItemRow;
+      
+      if (isSiteHeader) {
+        // 현장 헤더 행은 합산에서 제외
+        return;
+      }
+      
+      // 항목 행 판별: isItemRow가 true이거나, siteName과 item이 모두 있는 경우
+      if (row.isItemRow || (row.siteName && row.item && row.item.trim() !== '')) {
+        const siteName = row.siteName ? row.siteName.trim() : '';
+        if (siteName) {
+          if (!siteGroups[siteName]) {
+            siteGroups[siteName] = {
+              itemRows: []
+            };
+          }
+          siteGroups[siteName].itemRows.push(row);
+        } else {
+          // siteName이 없는 항목 행은 독립적인 행으로 처리
+          independentRows.push(row);
         }
-        siteGroups[siteName].itemRows.push(row);
-      } else if (!row.isSiteHeader || (row.isSiteHeader !== true && row.isItemRow !== true)) {
-        // 독립적인 행 (현장 헤더가 아니고 항목 행도 아닌 경우)
+      } else {
+        // 독립적인 행 (항목 행이 아니고 현장 헤더도 아닌 경우)
         independentRows.push(row);
       }
     });
@@ -1461,6 +1594,14 @@ const TeamSettlement = () => {
     // 독립적인 행들의 totalPrice 합산
     independentRows.forEach(row => {
       total += (row.totalPrice || 0);
+    });
+    
+    console.log('💰 총금액 계산:', {
+      teamId,
+      rowsCount: currentRows.length,
+      siteGroupsCount: Object.keys(siteGroups).length,
+      independentRowsCount: independentRows.length,
+      total
     });
     
     return total;
@@ -1481,22 +1622,35 @@ const TeamSettlement = () => {
     }
     const teamRows = teamTableData[teamId] || [];
     
-    // 현장별로 그룹화
+    // 테이블 렌더링 로직과 동일하게 처리
     const siteGroups = {};
     const independentRows = [];
     
     teamRows.forEach(row => {
-      // 항목 행인 경우 (isItemRow === true)
-      if (row.isItemRow === true && row.siteName && row.siteName.trim() !== '') {
-        const siteName = row.siteName.trim();
-        if (!siteGroups[siteName]) {
-          siteGroups[siteName] = {
-            itemRows: []
-          };
+      // 현장 헤더 행 판별: siteName이 있고 item이 없고 isItemRow가 false
+      const isSiteHeader = row.siteName && (!row.item || row.item === '') && !row.isItemRow;
+      
+      if (isSiteHeader) {
+        // 현장 헤더 행은 합산에서 제외
+        return;
+      }
+      
+      // 항목 행 판별: isItemRow가 true이거나, siteName과 item이 모두 있는 경우
+      if (row.isItemRow || (row.siteName && row.item && row.item.trim() !== '')) {
+        const siteName = row.siteName ? row.siteName.trim() : '';
+        if (siteName) {
+          if (!siteGroups[siteName]) {
+            siteGroups[siteName] = {
+              itemRows: []
+            };
+          }
+          siteGroups[siteName].itemRows.push(row);
+        } else {
+          // siteName이 없는 항목 행은 독립적인 행으로 처리
+          independentRows.push(row);
         }
-        siteGroups[siteName].itemRows.push(row);
-      } else if (!row.isSiteHeader || (row.isSiteHeader !== true && row.isItemRow !== true)) {
-        // 독립적인 행 (현장 헤더가 아니고 항목 행도 아닌 경우)
+      } else {
+        // 독립적인 행 (항목 행이 아니고 현장 헤더도 아닌 경우)
         independentRows.push(row);
       }
     });
@@ -3785,7 +3939,26 @@ const TeamSettlement = () => {
         const totalAmount = siteRows.reduce((sum, row) => sum + (row.totalPrice || 0), 0);
         const transferAmount = Math.round(totalAmount * 1.1); // 1.1배 적용
 
-        // 해당 현장의 기존 노무비 지출 데이터 확인하여 다음 차수 계산
+        // 🔴 같은 현장의 기존 노무비 데이터 중 같은 팀/월에서 온 것 삭제 (합산 방지)
+        const existingSameSiteCostsQuery = query(
+          collection(db, 'costs'),
+          where('site', '==', siteName),
+          where('itemType', '==', '노무비'),
+          where('source', '==', 'teamSettlement'),
+          where('teamId', '==', teamId),
+          where('settlementMonth', '==', month)
+        );
+        const existingSameSiteCostsSnapshot = await getDocs(existingSameSiteCostsQuery);
+        
+        if (!existingSameSiteCostsSnapshot.empty) {
+          // 같은 현장/팀/월의 기존 노무비 데이터 삭제
+          existingSameSiteCostsSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+          });
+          console.log(`🗑️ 같은 현장의 기존 노무비 데이터 삭제: ${siteName} (${existingSameSiteCostsSnapshot.docs.length}개)`);
+        }
+
+        // 해당 현장의 기존 노무비 지출 데이터 확인하여 다음 차수 계산 (다른 팀/월의 데이터는 유지)
         const existingCostsQuery = query(
           collection(db, 'costs'),
           where('site', '==', siteName),
@@ -3930,10 +4103,11 @@ const TeamSettlement = () => {
           item: '',
           quantity: '',
           unitPrice: '',
-          totalPrice: totalOriginalAmount,
+          totalPrice: 0, // 현장 헤더는 합산에서 제외되므로 0으로 설정 (소계는 항목 행들의 합으로 계산)
           note: `기성현황에서 가져옴 (${costs.length}건)`,
           checked: true, // 자동으로 체크
-          isItemRow: false // 현장 헤더
+          isItemRow: false, // 현장 헤더
+          isSiteHeader: true // 현장 헤더 행임을 명시
         };
         
         newRows.push(siteRow);
@@ -4065,24 +4239,8 @@ const TeamSettlement = () => {
         return;
       }
 
-      // 중복 방지를 위한 기존 데이터 확인
-      const existingCosts = await getDocs(
-        query(
-          collection(db, 'costs'),
-          where('source', '==', 'teamSettlement'),
-          where('teamId', '==', teamId),
-          where('settlementMonth', '==', selectedMonth)
-        )
-      );
-
-      if (!existingCosts.empty) {
-        setSnackbar({
-          open: true,
-          message: '이미 전송된 데이터입니다. 중복 전송을 방지합니다.',
-          severity: 'warning'
-        });
-        return;
-      }
+      // 🔴 기존 전송된 데이터 삭제 (같은 팀/월의 데이터는 삭제 후 재생성)
+      await deleteExistingTransferredCosts(teamId, selectedMonth);
 
       // 각 현장별로 지출 데이터 생성
       const batch = writeBatch(db);
@@ -4092,8 +4250,26 @@ const TeamSettlement = () => {
         const totalAmount = rows.reduce((sum, row) => sum + (row.totalPrice || 0), 0);
         const transferAmount = Math.round(totalAmount * 1.1); // 1.1배 적용
 
-        // 해당 현장의 기존 노무비 지출 데이터 확인하여 다음 차수 계산
-        // 인덱스 문제를 피하기 위해 단순한 쿼리 사용
+        // 🔴 같은 현장의 기존 노무비 데이터 중 같은 팀/월에서 온 것 삭제 (합산 방지)
+        const existingSameSiteCostsQuery = query(
+          collection(db, 'costs'),
+          where('site', '==', siteName),
+          where('itemType', '==', '노무비'),
+          where('source', '==', 'teamSettlement'),
+          where('teamId', '==', teamId),
+          where('settlementMonth', '==', selectedMonth)
+        );
+        const existingSameSiteCostsSnapshot = await getDocs(existingSameSiteCostsQuery);
+        
+        if (!existingSameSiteCostsSnapshot.empty) {
+          // 같은 현장/팀/월의 기존 노무비 데이터 삭제
+          existingSameSiteCostsSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+          });
+          console.log(`🗑️ 같은 현장의 기존 노무비 데이터 삭제: ${siteName} (${existingSameSiteCostsSnapshot.docs.length}개)`);
+        }
+
+        // 해당 현장의 기존 노무비 지출 데이터 확인하여 다음 차수 계산 (다른 팀/월의 데이터는 유지)
         const existingCostsQuery = query(
           collection(db, 'costs'),
           where('site', '==', siteName),
@@ -5034,6 +5210,15 @@ const TeamSettlement = () => {
                         
                         // 모든 동기화 작업 완료 대기
                         await Promise.all(syncPromises);
+                        
+                        // 🔴 저장 후 최신 데이터를 다시 로드 (Firebase에서 최신 데이터 가져오기)
+                        console.log(`🔄 저장 후 최신 데이터 재로드 시작: ${selectedMonth}월`);
+                        const reloadPromises = [];
+                        Object.keys(teamTableData).forEach(teamId => {
+                          reloadPromises.push(loadTeamTableData(teamId, selectedMonth));
+                        });
+                        await Promise.all(reloadPromises);
+                        console.log(`✅ 저장 후 최신 데이터 재로드 완료`);
                         
                         const teamCount = Object.keys(teamTableData).filter(
                           teamId => teamTableData[teamId] && teamTableData[teamId].length > 0

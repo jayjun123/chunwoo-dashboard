@@ -179,12 +179,21 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
 
   // 검색 및 정렬된 데이터
   const filteredAndSortedCosts = useMemo(() => {
-    let filtered = costs.filter(cost =>
-      cost.site?.toLowerCase().includes(search.toLowerCase()) ||
-      cost.itemType?.toLowerCase().includes(search.toLowerCase()) ||
-      cost.paymentType?.toLowerCase().includes(search.toLowerCase()) ||
-      cost.description?.toLowerCase().includes(search.toLowerCase())
-    );
+    let filtered = costs;
+    
+    // 검색어가 있을 때만 필터링 적용
+    if (search && search.trim() !== '') {
+      const searchLower = search.toLowerCase().trim();
+      filtered = costs.filter(cost =>
+        cost.site?.toLowerCase().includes(searchLower) ||
+        cost.itemType?.toLowerCase().includes(searchLower) ||
+        cost.paymentType?.toLowerCase().includes(searchLower) ||
+        cost.description?.toLowerCase().includes(searchLower) ||
+        cost.totalValue?.toString().includes(searchLower) ||
+        cost.etcNote?.toLowerCase().includes(searchLower) ||
+        cost.sequence?.toLowerCase().includes(searchLower)
+      );
+    }
 
     // 월별 뷰에서는 선택된 월의 데이터만 표시
     if (viewType === 'month') {
@@ -1517,9 +1526,24 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       </Grid>
   );
 
-  // 🔴 필터 및 정렬 적용 (filteredData가 있어도 정렬 적용)
+  // 🔴 필터 및 정렬 적용 (filteredData가 있어도 검색 및 정렬 적용)
   const filtered = useMemo(() => {
-    const baseData = filteredData || filteredAndSortedCosts;
+    let baseData = filteredData || filteredAndSortedCosts;
+    
+    // 🔴 검색 필터 적용 (filteredData가 있어도 검색 적용)
+    if (search && search.trim() !== '') {
+      const searchLower = search.toLowerCase().trim();
+      baseData = baseData.filter(cost =>
+        cost.site?.toLowerCase().includes(searchLower) ||
+        cost.itemType?.toLowerCase().includes(searchLower) ||
+        cost.paymentType?.toLowerCase().includes(searchLower) ||
+        cost.description?.toLowerCase().includes(searchLower) ||
+        cost.totalValue?.toString().includes(searchLower) ||
+        cost.etcNote?.toLowerCase().includes(searchLower) ||
+        cost.sequence?.toLowerCase().includes(searchLower)
+      );
+      console.log('🔍 검색 필터 적용:', { search, filteredCount: baseData.length });
+    }
     
     // filteredData가 전달된 경우에도 정렬 적용
     if (filteredData) {
@@ -1596,7 +1620,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     
     // filteredData가 없으면 이미 정렬된 filteredAndSortedCosts 사용
     return baseData;
-  }, [filteredData, filteredAndSortedCosts, sortField, sortDirection]);
+  }, [filteredData, filteredAndSortedCosts, sortField, sortDirection, search]);
 
   // 페이지네이션 계산
   const totalPages = Math.ceil(filtered.length / itemsPerPage);

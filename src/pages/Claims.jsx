@@ -3384,23 +3384,32 @@ const Claims = () => {
         maxWidth={isMobile ? "xs" : "md"}
         fullWidth
         fullScreen={isMobile}
+        container={() => document.body}
+        style={{ zIndex: 9999999 }}
         PaperProps={{
           sx: { 
             backgroundColor: '#2d3748', 
             color: 'white',
-            zIndex: 1300, // MUI 기본 Dialog z-index
+            zIndex: 9999999,
             position: 'relative',
             ...(isMobile && {
               margin: 0,
               borderRadius: 0,
               height: '100vh'
             })
-          }
+          },
+          style: { zIndex: 9999999 }
         }}
         sx={{
-          zIndex: 1300, // MUI 기본 Dialog z-index
+          zIndex: 9999999,
+          '& .MuiDialog-container': {
+            zIndex: 9999999
+          },
           '& .MuiBackdrop-root': {
-            zIndex: 1299
+            zIndex: 9999998
+          },
+          '& .MuiDialog-root': {
+            zIndex: 9999999
           }
         }}
       >

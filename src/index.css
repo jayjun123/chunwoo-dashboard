@@ -1042,29 +1042,78 @@ select:not([aria-hidden="true"]):focus,
 
 /* MUI Dialog 전역 z-index 설정 - 모든 모달이 최상위에 표시되도록 */
 .MuiDialog-root {
-  z-index: 999999 !important;
+  z-index: 9999999 !important;
 }
 
 .MuiDialog-container {
-  z-index: 999999 !important;
+  z-index: 9999999 !important;
 }
 
 .MuiDialog-paper {
-  z-index: 999999 !important;
+  z-index: 9999999 !important;
   position: relative !important;
 }
 
 .MuiBackdrop-root {
-  z-index: 999998 !important;
+  z-index: 9999998 !important;
 }
 
-/* 시공팀 정산관리 Dialog 추가 보강 */
+/* 모든 Dialog 관련 요소 최상위 설정 */
 [role="dialog"] {
-  z-index: 999999 !important;
+  z-index: 9999999 !important;
 }
 
 .MuiModal-root {
-  z-index: 999999 !important;
+  z-index: 9999999 !important;
+}
+
+.MuiModal-backdrop {
+  z-index: 9999998 !important;
+}
+
+/* Popover, Menu 등도 최상위 설정 */
+.MuiPopover-root {
+  z-index: 9999999 !important;
+}
+
+.MuiMenu-root {
+  z-index: 9999999 !important;
+}
+
+.MuiDrawer-root {
+  z-index: 9999999 !important;
+}
+
+/* 모든 모달/팝업 요소 강제 최상위 */
+[data-mui-internal-clone-element="true"] {
+  z-index: 9999999 !important;
+}
+
+/* 모든 Dialog 관련 클래스 강제 최상위 */
+div[class*="MuiDialog"],
+div[class*="MuiModal"],
+div[role="dialog"],
+div[aria-modal="true"] {
+  z-index: 9999999 !important;
+}
+
+/* Portal 컨테이너도 최상위 */
+body > div[data-reactroot],
+body > div[id*="mui"],
+body > div[class*="MuiDialog"],
+body > div[class*="MuiModal"] {
+  z-index: 9999999 !important;
+}
+
+/* 모든 Dialog의 자식 요소들도 최상위 */
+.MuiDialog-root *,
+.MuiModal-root * {
+  position: relative;
+}
+
+.MuiDialog-paper,
+.MuiModal-backdrop {
+  z-index: 9999999 !important;
 }
 
 /* 모바일 키보드 대응 */

@@ -258,19 +258,31 @@ const SiteInfoPopup = ({ open, onClose, site }) => {
       onClose={onClose}
       maxWidth="md"
       fullWidth
+      container={() => document.body}
+      style={{ zIndex: 9999999 }}
       PaperProps={{
         sx: {
           bgcolor: '#1a1a1a',
           color: '#fff',
           borderRadius: 3,
           maxHeight: '90vh',
-          zIndex: 9999
-        }
+          zIndex: 9999999
+        },
+        style: { zIndex: 9999999 }
       }}
       sx={{
-        zIndex: 9999,
+        zIndex: 9999999,
+        '& .MuiDialog-container': {
+          zIndex: 9999999
+        },
+        '& .MuiBackdrop-root': {
+          zIndex: 9999998
+        },
+        '& .MuiDialog-root': {
+          zIndex: 9999999
+        },
         '& .MuiDialog-paper': {
-          zIndex: 9999
+          zIndex: 9999999
         }
       }}
     >
