@@ -1042,20 +1042,29 @@ select:not([aria-hidden="true"]):focus,
 
 /* MUI Dialog 전역 z-index 설정 - 모든 모달이 최상위에 표시되도록 */
 .MuiDialog-root {
-  z-index: 99999 !important;
+  z-index: 999999 !important;
 }
 
 .MuiDialog-container {
-  z-index: 99999 !important;
+  z-index: 999999 !important;
 }
 
 .MuiDialog-paper {
-  z-index: 99999 !important;
+  z-index: 999999 !important;
   position: relative !important;
 }
 
 .MuiBackdrop-root {
-  z-index: 99998 !important;
+  z-index: 999998 !important;
+}
+
+/* 시공팀 정산관리 Dialog 추가 보강 */
+[role="dialog"] {
+  z-index: 999999 !important;
+}
+
+.MuiModal-root {
+  z-index: 999999 !important;
 }
 
 /* 모바일 키보드 대응 */

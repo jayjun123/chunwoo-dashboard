@@ -39,7 +39,8 @@ import {
   Tab,
   Autocomplete,
   Checkbox,
-  Container
+  Container,
+  InputAdornment
 } from '@mui/material';
 import MobileSidebar from '../components/MobileSidebar';
 import {
@@ -58,6 +59,7 @@ import {
   ArrowBack as ArrowBackIcon,
   Work as WorkIcon,
   ContentCopy as ContentCopyIcon,
+  Close as CloseIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   Visibility as VisibilityIcon,
@@ -5591,6 +5593,19 @@ const TeamSettlement = () => {
                                   value={itemRow.item || ''}
                                   onChange={(e) => handleUpdateTableData(teamId, itemRow.id, 'item', e.target.value)}
                                   placeholder="항목 입력"
+                                  InputProps={{
+                                    endAdornment: itemRow.item ? (
+                                      <InputAdornment position="end">
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleUpdateTableData(teamId, itemRow.id, 'item', '')}
+                                          sx={{ color: '#888', '&:hover': { color: '#fff' } }}
+                                        >
+                                          <CloseIcon fontSize="small" />
+                                        </IconButton>
+                                      </InputAdornment>
+                                    ) : null
+                                  }}
                                   sx={{
                                     width: '100%',
                                     '& .MuiOutlinedInput-root': {
@@ -5624,6 +5639,19 @@ const TeamSettlement = () => {
                                     step: "0.01",
                                     min: 0
                                   }}
+                                  InputProps={{
+                                    endAdornment: itemRow.quantity !== undefined && itemRow.quantity !== '' ? (
+                                      <InputAdornment position="end">
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleUpdateTableData(teamId, itemRow.id, 'quantity', '')}
+                                          sx={{ color: '#888', '&:hover': { color: '#fff' } }}
+                                        >
+                                          <CloseIcon fontSize="small" />
+                                        </IconButton>
+                                      </InputAdornment>
+                                    ) : null
+                                  }}
                                   sx={{
                                     width: '100%',
                                     '& .MuiOutlinedInput-root': {
@@ -5652,6 +5680,19 @@ const TeamSettlement = () => {
                                     }
                                   }}
                                   placeholder="예: 50,000"
+                                  InputProps={{
+                                    endAdornment: itemRow.unitPrice !== undefined && itemRow.unitPrice !== '' ? (
+                                      <InputAdornment position="end">
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleUpdateTableData(teamId, itemRow.id, 'unitPrice', '')}
+                                          sx={{ color: '#888', '&:hover': { color: '#fff' } }}
+                                        >
+                                          <CloseIcon fontSize="small" />
+                                        </IconButton>
+                                      </InputAdornment>
+                                    ) : null
+                                  }}
                                   sx={{
                                     width: '100%',
                                     '& .MuiOutlinedInput-root': {
@@ -5674,6 +5715,19 @@ const TeamSettlement = () => {
                                   value={itemRow.note || ''}
                                   onChange={(e) => handleUpdateTableData(teamId, itemRow.id, 'note', e.target.value)}
                                   placeholder="비고 입력"
+                                  InputProps={{
+                                    endAdornment: itemRow.note ? (
+                                      <InputAdornment position="end">
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleUpdateTableData(teamId, itemRow.id, 'note', '')}
+                                          sx={{ color: '#888', '&:hover': { color: '#fff' } }}
+                                        >
+                                          <CloseIcon fontSize="small" />
+                                        </IconButton>
+                                      </InputAdornment>
+                                    ) : null
+                                  }}
                                   sx={{
                                     width: '100%',
                                     '& .MuiOutlinedInput-root': {
@@ -5746,6 +5800,19 @@ const TeamSettlement = () => {
                                 onChange={(e) => handleSiteNameInput(teamId, row.id, e.target.value)}
                                 placeholder="현장명 입력"
                                 autoComplete="off"
+                                InputProps={{
+                                  endAdornment: row.siteName ? (
+                                    <InputAdornment position="end">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleSiteNameInput(teamId, row.id, '')}
+                                        sx={{ color: '#888', '&:hover': { color: '#fff' } }}
+                                      >
+                                        <CloseIcon fontSize="small" />
+                                      </IconButton>
+                                    </InputAdornment>
+                                  ) : null
+                                }}
                                 sx={{
                                   width: '100%',
                                   '& .MuiOutlinedInput-root': {
@@ -5768,6 +5835,19 @@ const TeamSettlement = () => {
                                 value={row.item || ''}
                                 onChange={(e) => handleUpdateTableData(teamId, row.id, 'item', e.target.value)}
                                 placeholder="항목 입력"
+                                InputProps={{
+                                  endAdornment: row.item ? (
+                                    <InputAdornment position="end">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleUpdateTableData(teamId, row.id, 'item', '')}
+                                        sx={{ color: '#888', '&:hover': { color: '#fff' } }}
+                                      >
+                                        <CloseIcon fontSize="small" />
+                                      </IconButton>
+                                    </InputAdornment>
+                                  ) : null
+                                }}
                                 sx={{
                                   width: '100%',
                                   '& .MuiOutlinedInput-root': {
@@ -5801,6 +5881,19 @@ const TeamSettlement = () => {
                                   step: "0.01",
                                   min: undefined // 음수 허용
                                 }}
+                                InputProps={{
+                                  endAdornment: row.quantity !== undefined && row.quantity !== '' ? (
+                                    <InputAdornment position="end">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleUpdateTableData(teamId, row.id, 'quantity', '')}
+                                        sx={{ color: '#888', '&:hover': { color: '#fff' } }}
+                                      >
+                                        <CloseIcon fontSize="small" />
+                                      </IconButton>
+                                    </InputAdornment>
+                                  ) : null
+                                }}
                                 sx={{
                                   width: '100%',
                                   '& .MuiOutlinedInput-root': {
@@ -5829,6 +5922,19 @@ const TeamSettlement = () => {
                                   }
                                 }}
                                 placeholder="예: 50,000"
+                                InputProps={{
+                                  endAdornment: row.unitPrice !== undefined && row.unitPrice !== '' ? (
+                                    <InputAdornment position="end">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleUpdateTableData(teamId, row.id, 'unitPrice', '')}
+                                        sx={{ color: '#888', '&:hover': { color: '#fff' } }}
+                                      >
+                                        <CloseIcon fontSize="small" />
+                                      </IconButton>
+                                    </InputAdornment>
+                                  ) : null
+                                }}
                                 sx={{
                                   width: '100%',
                                   '& .MuiOutlinedInput-root': {
@@ -5851,6 +5957,19 @@ const TeamSettlement = () => {
                                 value={row.note || ''}
                                 onChange={(e) => handleUpdateTableData(teamId, row.id, 'note', e.target.value)}
                                 placeholder="비고 입력"
+                                InputProps={{
+                                  endAdornment: row.note ? (
+                                    <InputAdornment position="end">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleUpdateTableData(teamId, row.id, 'note', '')}
+                                        sx={{ color: '#888', '&:hover': { color: '#fff' } }}
+                                      >
+                                        <CloseIcon fontSize="small" />
+                                      </IconButton>
+                                    </InputAdornment>
+                                  ) : null
+                                }}
                                 sx={{
                                   width: '100%',
                                   '& .MuiOutlinedInput-root': {
@@ -5906,8 +6025,28 @@ const TeamSettlement = () => {
         onClose={() => setIsDialogOpen(false)}
         maxWidth="md"
         fullWidth
+        container={() => document.body}
+        style={{ zIndex: 999999 }}
         PaperProps={{
-          sx: { bgcolor: '#1a1d21', color: '#fff' }
+          sx: { 
+            bgcolor: '#1a1d21', 
+            color: '#fff',
+            zIndex: 999999,
+            position: 'relative'
+          },
+          style: { zIndex: 999999 }
+        }}
+        sx={{
+          zIndex: 999999,
+          '& .MuiDialog-container': {
+            zIndex: 999999
+          },
+          '& .MuiBackdrop-root': {
+            zIndex: 999998
+          },
+          '& .MuiDialog-root': {
+            zIndex: 999999
+          }
         }}
       >
         <DialogTitle>
@@ -6087,8 +6226,28 @@ const TeamSettlement = () => {
         onClose={() => setIsQuantityPricingDialogOpen(false)}
         maxWidth="lg"
         fullWidth
+        container={() => document.body}
+        style={{ zIndex: 999999 }}
         PaperProps={{
-          sx: { bgcolor: '#1a1d21', color: '#fff' }
+          sx: { 
+            bgcolor: '#1a1d21', 
+            color: '#fff',
+            zIndex: 999999,
+            position: 'relative'
+          },
+          style: { zIndex: 999999 }
+        }}
+        sx={{
+          zIndex: 999999,
+          '& .MuiDialog-container': {
+            zIndex: 999999
+          },
+          '& .MuiBackdrop-root': {
+            zIndex: 999998
+          },
+          '& .MuiDialog-root': {
+            zIndex: 999999
+          }
         }}
       >
         <DialogTitle>
@@ -6221,8 +6380,28 @@ const TeamSettlement = () => {
         onClose={() => setIsTeamSelectDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        container={() => document.body}
+        style={{ zIndex: 999999 }}
         PaperProps={{
-          sx: { bgcolor: '#1a1d21', color: '#fff' }
+          sx: { 
+            bgcolor: '#1a1d21', 
+            color: '#fff',
+            zIndex: 999999,
+            position: 'relative'
+          },
+          style: { zIndex: 999999 }
+        }}
+        sx={{
+          zIndex: 999999,
+          '& .MuiDialog-container': {
+            zIndex: 999999
+          },
+          '& .MuiBackdrop-root': {
+            zIndex: 999998
+          },
+          '& .MuiDialog-root': {
+            zIndex: 999999
+          }
         }}
       >
         <DialogTitle>
@@ -6419,8 +6598,28 @@ const TeamSettlement = () => {
         }}
         maxWidth="sm"
         fullWidth
+        container={() => document.body}
+        style={{ zIndex: 999999 }}
         PaperProps={{
-          sx: { bgcolor: '#1a1d21', color: '#fff' }
+          sx: { 
+            bgcolor: '#1a1d21', 
+            color: '#fff',
+            zIndex: 999999,
+            position: 'relative'
+          },
+          style: { zIndex: 999999 }
+        }}
+        sx={{
+          zIndex: 999999,
+          '& .MuiDialog-container': {
+            zIndex: 999999
+          },
+          '& .MuiBackdrop-root': {
+            zIndex: 999998
+          },
+          '& .MuiDialog-root': {
+            zIndex: 999999
+          }
         }}
       >
         <DialogTitle>
@@ -6611,8 +6810,28 @@ const TeamSettlement = () => {
         }}
         maxWidth="sm"
         fullWidth
+        container={() => document.body}
+        style={{ zIndex: 999999 }}
         PaperProps={{
-          sx: { bgcolor: '#1a1d21', color: '#fff' }
+          sx: { 
+            bgcolor: '#1a1d21', 
+            color: '#fff',
+            zIndex: 999999,
+            position: 'relative'
+          },
+          style: { zIndex: 999999 }
+        }}
+        sx={{
+          zIndex: 999999,
+          '& .MuiDialog-container': {
+            zIndex: 999999
+          },
+          '& .MuiBackdrop-root': {
+            zIndex: 999998
+          },
+          '& .MuiDialog-root': {
+            zIndex: 999999
+          }
         }}
       >
         <DialogTitle>
@@ -6659,8 +6878,28 @@ const TeamSettlement = () => {
         }}
         maxWidth="sm"
         fullWidth
+        container={() => document.body}
+        style={{ zIndex: 999999 }}
         PaperProps={{
-          sx: { bgcolor: '#1a1d21', color: '#fff' }
+          sx: { 
+            bgcolor: '#1a1d21', 
+            color: '#fff',
+            zIndex: 999999,
+            position: 'relative'
+          },
+          style: { zIndex: 999999 }
+        }}
+        sx={{
+          zIndex: 999999,
+          '& .MuiDialog-container': {
+            zIndex: 999999
+          },
+          '& .MuiBackdrop-root': {
+            zIndex: 999998
+          },
+          '& .MuiDialog-root': {
+            zIndex: 999999
+          }
         }}
       >
         <DialogTitle>
