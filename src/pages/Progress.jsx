@@ -240,6 +240,8 @@ const Progress = () => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  // 월별 필터 상태 관리 (1년, 상반기, 하반기)
+  const [monthFilter, setMonthFilter] = useState('1년'); // '1년', '상반기', '하반기'
   
   // 차트 범례 숨김 상태 관리
   const [hiddenBars, setHiddenBars] = useState(new Set());
@@ -924,10 +926,29 @@ const Progress = () => {
     const currentYear = currentMonth.getFullYear();
     const currentMonthNum = currentMonth.getMonth() + 1;
     
-    // 모바일에서는 현재 월이 속한 분기만 표시, PC에서는 전체 12개월 표시
-    const quarterStartMonth = Math.floor((currentMonthNum - 1) / 3) * 3 + 1;
-    const monthsToShow = isMobile ? 3 : 12;
-    const startMonth = isMobile ? quarterStartMonth : 1;
+    // 필터에 따라 표시할 월 범위 결정
+    let startMonth, monthsToShow;
+    if (isMobile) {
+      // 모바일에서는 현재 월이 속한 분기만 표시
+      const quarterStartMonth = Math.floor((currentMonthNum - 1) / 3) * 3 + 1;
+      startMonth = quarterStartMonth;
+      monthsToShow = 3;
+    } else {
+      // PC에서는 필터에 따라 결정
+      if (monthFilter === '1년') {
+        startMonth = 1;
+        monthsToShow = 12;
+      } else if (monthFilter === '상반기') {
+        startMonth = 1;
+        monthsToShow = 6;
+      } else if (monthFilter === '하반기') {
+        startMonth = 7;
+        monthsToShow = 6;
+      } else {
+        startMonth = 1;
+        monthsToShow = 12;
+      }
+    }
     
     for (let i = 0; i < monthsToShow; i++) {
       const month = startMonth + i;
@@ -1041,11 +1062,12 @@ const Progress = () => {
       currentMonthNum,
       startMonth,
       monthsToShow,
+      monthFilter,
       monthData
     });
     
     return monthData;
-  }, [progressList, allCostData, currentMonth, isMobile]);
+  }, [progressList, allCostData, currentMonth, isMobile, monthFilter]);
 
   // 필터링된 기성 데이터 - 현장별
   const getFilteredGisungData = useMemo(() => {
@@ -1566,43 +1588,89 @@ const Progress = () => {
       {statusView === 'month' && (tab === 'chart' || tab === 'gisung' || tab === 'cost') && (
         <Box sx={{ 
           display: 'flex', 
-          justifyContent: 'flex-end', 
+          justifyContent: 'space-between', 
           alignItems: 'center', 
           mb: 2, 
           gap: isMobile ? 1 : 2,
           width: '100%'
         }}>
-          <Button 
-            variant="outlined" 
-            onClick={handlePrevMonth}
-            size={isMobile ? 'small' : 'medium'}
-            sx={{ fontSize: isMobile ? '0.75rem' : 'inherit' }}
-          >
-            이전달
-          </Button>
-          <Typography 
-            sx={{ 
-              fontWeight: 700, 
-              color: '#90caf9', 
-              cursor: 'pointer',
-              px: isMobile ? 1 : 2,
-              py: isMobile ? 0.5 : 1,
-              borderRadius: 1,
-              fontSize: isMobile ? '0.8rem' : 'inherit',
-              '&:hover': { bgcolor: '#232b3b' }
-            }}
-            onClick={handleThisMonth}
-          >
-            {monthText}
-          </Typography>
-          <Button 
-            variant="outlined" 
-            onClick={handleNextMonth}
-            size={isMobile ? 'small' : 'medium'}
-            sx={{ fontSize: isMobile ? '0.75rem' : 'inherit' }}
-          >
-            다음달
-          </Button>
+          {/* 필터 버튼 (PC에서만 표시) */}
+          {!isMobile && (
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button 
+                variant={monthFilter === '1년' ? 'contained' : 'outlined'}
+                onClick={() => setMonthFilter('1년')}
+                size="small"
+                sx={{ 
+                  fontSize: '0.875rem',
+                  minWidth: '60px'
+                }}
+              >
+                1년
+              </Button>
+              <Button 
+                variant={monthFilter === '상반기' ? 'contained' : 'outlined'}
+                onClick={() => setMonthFilter('상반기')}
+                size="small"
+                sx={{ 
+                  fontSize: '0.875rem',
+                  minWidth: '60px'
+                }}
+              >
+                상반기
+              </Button>
+              <Button 
+                variant={monthFilter === '하반기' ? 'contained' : 'outlined'}
+                onClick={() => setMonthFilter('하반기')}
+                size="small"
+                sx={{ 
+                  fontSize: '0.875rem',
+                  minWidth: '60px'
+                }}
+              >
+                하반기
+              </Button>
+            </Box>
+          )}
+          {/* 월 네비게이션 버튼 */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: isMobile ? 1 : 2,
+            ml: 'auto'
+          }}>
+            <Button 
+              variant="outlined" 
+              onClick={handlePrevMonth}
+              size={isMobile ? 'small' : 'medium'}
+              sx={{ fontSize: isMobile ? '0.75rem' : 'inherit' }}
+            >
+              이전달
+            </Button>
+            <Typography 
+              sx={{ 
+                fontWeight: 700, 
+                color: '#90caf9', 
+                cursor: 'pointer',
+                px: isMobile ? 1 : 2,
+                py: isMobile ? 0.5 : 1,
+                borderRadius: 1,
+                fontSize: isMobile ? '0.8rem' : 'inherit',
+                '&:hover': { bgcolor: '#232b3b' }
+              }}
+              onClick={handleThisMonth}
+            >
+              {monthText}
+            </Typography>
+            <Button 
+              variant="outlined" 
+              onClick={handleNextMonth}
+              size={isMobile ? 'small' : 'medium'}
+              sx={{ fontSize: isMobile ? '0.75rem' : 'inherit' }}
+            >
+              다음달
+            </Button>
+          </Box>
         </Box>
       )}
 
@@ -1982,8 +2050,8 @@ const Progress = () => {
               <ResponsiveContainer width="100%" minWidth="100vw" height={isMobile ? 300 : 600} minHeight={isMobile ? 200 : 500} style={{ margin: '0 auto', display: 'flex', justifyContent: 'center', width: '100%', maxWidth: 'none' }}>
                 <BarChart
                   data={getMonthChartData}
-                  margin={{ top: 80, right: 20, left: isMobile ? 10 : 20, bottom: 20 }}
-                  barCategoryGap="20%"
+                  margin={{ top: 80, right: isMobile ? 20 : 40, left: isMobile ? 10 : 20, bottom: 20 }}
+                  barCategoryGap={isMobile ? "20%" : "10%"}
                   barSize={30}
                 >
                   <XAxis dataKey="name" tick={{ fontSize: isMobile ? 14 : 16 }} />
