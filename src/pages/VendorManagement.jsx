@@ -626,6 +626,28 @@ const VendorManagement = () => {
     setCurrentPage(1);
   }, [searchTerm]);
 
+  // 데이터 품질 점수 계산 함수
+  const calculateDataQualityScore = (vendorData) => {
+    let score = 0;
+    
+    // 필수 필드 (높은 가중치)
+    if (vendorData.name && vendorData.name.trim()) score += 10;
+    if (vendorData.companyName && vendorData.companyName.trim()) score += 10;
+    
+    // 중요 필드 (중간 가중치)
+    if (vendorData.phone && vendorData.phone.trim()) score += 8;
+    if (vendorData.email && vendorData.email.trim()) score += 6;
+    if (vendorData.position && vendorData.position.trim()) score += 5;
+    
+    // 추가 정보 필드 (낮은 가중치)
+    if (vendorData.ceo && vendorData.ceo.trim()) score += 4;
+    if (vendorData.businessNumber && vendorData.businessNumber.trim()) score += 4;
+    if (vendorData.address && vendorData.address.trim()) score += 3;
+    if (vendorData.note && vendorData.note.trim()) score += 2;
+    
+    return score;
+  };
+
   // 중복 데이터 제거 함수
   const removeDuplicates = (vendorsList) => {
     const seen = new Map();
@@ -810,28 +832,6 @@ const VendorManagement = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '거래처목록');
     XLSX.writeFile(wb, `거래처목록_${new Date().toISOString().split('T')[0]}.xlsx`);
-  };
-
-  // 데이터 품질 점수 계산 함수
-  const calculateDataQualityScore = (vendorData) => {
-    let score = 0;
-    
-    // 필수 필드 (높은 가중치)
-    if (vendorData.name && vendorData.name.trim()) score += 10;
-    if (vendorData.companyName && vendorData.companyName.trim()) score += 10;
-    
-    // 중요 필드 (중간 가중치)
-    if (vendorData.phone && vendorData.phone.trim()) score += 8;
-    if (vendorData.email && vendorData.email.trim()) score += 6;
-    if (vendorData.position && vendorData.position.trim()) score += 5;
-    
-    // 추가 정보 필드 (낮은 가중치)
-    if (vendorData.ceo && vendorData.ceo.trim()) score += 4;
-    if (vendorData.businessNumber && vendorData.businessNumber.trim()) score += 4;
-    if (vendorData.address && vendorData.address.trim()) score += 3;
-    if (vendorData.note && vendorData.note.trim()) score += 2;
-    
-    return score;
   };
 
   // 이름과 회사명 정규화 함수
