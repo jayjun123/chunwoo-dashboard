@@ -890,8 +890,11 @@ const ScheduleManagement = ({
     let searchFiltered = monthFiltered;
     
     if (siteSearchTerm) {
+      const searchLower = siteSearchTerm.toLowerCase();
       searchFiltered = monthFiltered.filter(site => 
-        site.name && site.name.toLowerCase().includes(siteSearchTerm.toLowerCase())
+        (site.name && site.name.toLowerCase().includes(searchLower)) ||
+        (site.companyName && site.companyName.toLowerCase().includes(searchLower)) ||
+        (site.manager && site.manager.toLowerCase().includes(searchLower))
       );
     }
     
@@ -2516,7 +2519,7 @@ const ScheduleManagement = ({
               </Box>
               <TextField
                 size="small"
-                placeholder="현장명 검색"
+                placeholder="현장명, 회사명, 소장명 검색"
                 value={siteSearchTerm}
                 sx={{ 
                   width: '100%',

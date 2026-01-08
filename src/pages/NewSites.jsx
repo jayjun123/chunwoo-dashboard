@@ -1031,6 +1031,7 @@ const NewSites = () => {
         const searchLower = searchTerm.toLowerCase();
         return (
           site?.name?.toLowerCase().includes(searchLower) ||
+          (site.companyName && site.companyName.toLowerCase().includes(searchLower)) ||
           (site.manager && site.manager.toLowerCase().includes(searchLower)) ||
           (site.address && site.address.toLowerCase().includes(searchLower)) ||
           (site.contractType && site.contractType.toLowerCase().includes(searchLower))
@@ -3309,20 +3310,54 @@ const NewSites = () => {
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  진행상황
                </Typography>
-               <FormControl fullWidth size="small">
+               <FormControl fullWidth size="small" sx={{ cursor: 'pointer' }}>
                  <Select 
                    name="status" 
                    value={form.status ?? '진행'} 
                    onChange={handleChange} 
                    disabled={false}
+                   inputProps={{
+                     style: { cursor: 'pointer' },
+                     readOnly: false
+                   }}
                    sx={{
+                     cursor: 'pointer',
                      '& .MuiSelect-select': {
                        backgroundColor: form.status === '예정' ? '#ff9800' : 
                                       form.status === '진행' ? '#1976d2' : 
                                       form.status === '완료' ? '#43a047' : 
                                       form.status === '미정' ? '#757575' : '#757575',
                        color: 'white',
-                       fontWeight: 'bold'
+                       fontWeight: 'bold',
+                       cursor: 'pointer !important',
+                       userSelect: 'none',
+                       '&:focus': {
+                         cursor: 'pointer !important'
+                       }
+                     },
+                     '& .MuiInputBase-root': {
+                       cursor: 'pointer !important',
+                       userSelect: 'none',
+                       '&:hover': {
+                         cursor: 'pointer !important'
+                       },
+                       '& input': {
+                         cursor: 'pointer !important',
+                         caretColor: 'transparent'
+                       }
+                     },
+                     '& .MuiOutlinedInput-input': {
+                       cursor: 'pointer !important',
+                       caretColor: 'transparent'
+                     },
+                     '& .MuiOutlinedInput-notchedOutline': {
+                       borderColor: 'rgba(255, 255, 255, 0.23)'
+                     },
+                     '&:hover .MuiOutlinedInput-notchedOutline': {
+                       borderColor: 'rgba(255, 255, 255, 0.5)'
+                     },
+                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                       borderColor: 'rgba(255, 255, 255, 0.5)'
                      }
                    }}
                  >
