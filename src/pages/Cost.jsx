@@ -262,9 +262,55 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
 
     // 클라이언트 사이드 정렬
     console.log('정렬 실행:', { sortField, sortDirection, filteredLength: filtered.length, isNewlyAdded });
+    
+    // 차수 파싱 헬퍼 함수
+    const getSequenceValue = (sequenceStr) => {
+      if (!sequenceStr) return { base: 0, sub: 0 };
+      const str = sequenceStr.toString();
+      
+      // 세분화된 차수 패턴 확인 (예: "2차-5")
+      const subMatch = str.match(/(\d+)차-(\d+)/);
+      if (subMatch) {
+        return { base: Number(subMatch[1]), sub: Number(subMatch[2]) };
+      }
+      
+      // 기본 차수 패턴 확인 (예: "2차")
+      const baseMatch = str.match(/(\d+)차/);
+      if (baseMatch) {
+        return { base: Number(baseMatch[1]), sub: 0 };
+      }
+      
+      return { base: 0, sub: 0 };
+    };
+    
     filtered.sort((a, b) => {
-      // 🔴 사용자가 선택한 정렬 필드로 정렬 (isNewlyAdded 무시)
-      // 기존 정렬 로직 적용
+      // 항목별 정렬인 경우 특별 처리
+      if (sortField === 'itemType') {
+        // 항목명 비교
+        const aItemType = String(a.itemType || '').toLowerCase();
+        const bItemType = String(b.itemType || '').toLowerCase();
+        
+        // 항목명이 다르면 항목명으로 정렬
+        if (aItemType !== bItemType) {
+          const comparison = aItemType > bItemType ? 1 : (aItemType < bItemType ? -1 : 0);
+          return sortDirection === 'asc' ? comparison : -comparison;
+        }
+        
+        // 같은 항목이면 차수 내림차순으로 정렬 (항상 내림차순)
+        const aSeq = getSequenceValue(a.sequence);
+        const bSeq = getSequenceValue(b.sequence);
+        
+        // 차수 비교: 내림차순 (큰 차수가 위에)
+        // 먼저 base 차수 비교
+        if (aSeq.base !== bSeq.base) {
+          return bSeq.base - aSeq.base; // 내림차순 (큰 차수가 위에)
+        }
+        
+        // base 차수가 같으면 sub 차수 비교
+        return bSeq.sub - aSeq.sub; // 내림차순 (큰 차수가 위에)
+      }
+      
+      // 다른 필드 정렬
       let aValue, bValue;
       
       if (sortField === 'totalValue') {
@@ -273,9 +319,6 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
       } else if (sortField === 'date') {
         aValue = parseDate(a.date || 0);
         bValue = parseDate(b.date || 0);
-      } else if (sortField === 'itemType') {
-        aValue = String(a.itemType || '').toLowerCase();
-        bValue = String(b.itemType || '').toLowerCase();
       } else if (sortField === 'site') {
         aValue = String(a.site || '').toLowerCase();
         bValue = String(b.site || '').toLowerCase();
@@ -284,32 +327,8 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         bValue = String(b.paymentType || '').toLowerCase();
       } else if (sortField === 'sequence') {
         // 차수 문자열 정렬 (예: "2차-5" > "2차-1" > "1차")
-        const getSequenceValue = (sequenceStr) => {
-          if (!sequenceStr) return { base: 0, sub: 0 };
-          const str = sequenceStr.toString();
-          
-          // 세분화된 차수 패턴 확인 (예: "2차-5")
-          const subMatch = str.match(/(\d+)차-(\d+)/);
-          if (subMatch) {
-            return { base: Number(subMatch[1]), sub: Number(subMatch[2]) };
-          }
-          
-          // 기본 차수 패턴 확인 (예: "2차")
-          const baseMatch = str.match(/(\d+)차/);
-          if (baseMatch) {
-            return { base: Number(baseMatch[1]), sub: 0 };
-          }
-          
-          return { base: 0, sub: 0 };
-        };
-        
         const aSeq = getSequenceValue(a.sequence);
         const bSeq = getSequenceValue(b.sequence);
-        
-        console.log('🔍 차수 정렬 비교:', {
-          a: { sequence: a.sequence, parsed: aSeq },
-          b: { sequence: b.sequence, parsed: bSeq }
-        });
         
         // 먼저 기본 차수로 비교, 같으면 세분화 차수로 비교
         if (aSeq.base !== bSeq.base) {
@@ -340,7 +359,7 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         bValue = String(b[sortField] || '').toLowerCase();
       }
 
-      // 🔴 정렬 비교 로직 수정 (숫자, 날짜, 문자열 올바른 비교)
+      // 정렬 비교 로직
       let comparison = 0;
       
       if (sortField === 'totalValue') {
@@ -1548,7 +1567,50 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
     // filteredData가 전달된 경우에도 정렬 적용
     if (filteredData) {
       console.log('🔴 filteredData 사용 중 - 정렬 적용:', { sortField, sortDirection, dataLength: baseData.length });
+      
+      // 차수 파싱 헬퍼 함수
+      const getSequenceValue = (sequenceStr) => {
+        if (!sequenceStr) return { base: 0, sub: 0 };
+        const str = sequenceStr.toString();
+        const subMatch = str.match(/(\d+)차-(\d+)/);
+        if (subMatch) {
+          return { base: Number(subMatch[1]), sub: Number(subMatch[2]) };
+        }
+        const baseMatch = str.match(/(\d+)차/);
+        if (baseMatch) {
+          return { base: Number(baseMatch[1]), sub: 0 };
+        }
+        return { base: 0, sub: 0 };
+      };
+      
       const sorted = [...baseData].sort((a, b) => {
+        // 항목별 정렬인 경우 특별 처리
+        if (sortField === 'itemType') {
+          // 항목명 비교
+          const aItemType = String(a.itemType || '').toLowerCase();
+          const bItemType = String(b.itemType || '').toLowerCase();
+          
+          // 항목명이 다르면 항목명으로 정렬
+          if (aItemType !== bItemType) {
+            const comparison = aItemType > bItemType ? 1 : (aItemType < bItemType ? -1 : 0);
+            return sortDirection === 'asc' ? comparison : -comparison;
+          }
+          
+          // 같은 항목이면 차수 내림차순으로 정렬 (항상 내림차순)
+          const aSeq = getSequenceValue(a.sequence);
+          const bSeq = getSequenceValue(b.sequence);
+          
+          // 차수 비교: 내림차순 (큰 차수가 위에)
+          // 먼저 base 차수 비교
+          if (aSeq.base !== bSeq.base) {
+            return bSeq.base - aSeq.base; // 내림차순 (큰 차수가 위에)
+          }
+          
+          // base 차수가 같으면 sub 차수 비교
+          return bSeq.sub - aSeq.sub; // 내림차순 (큰 차수가 위에)
+        }
+        
+        // 다른 필드 정렬
         let aValue, bValue;
         
         if (sortField === 'totalValue') {
@@ -1557,9 +1619,6 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
         } else if (sortField === 'date') {
           aValue = parseDate(a.date || 0);
           bValue = parseDate(b.date || 0);
-        } else if (sortField === 'itemType') {
-          aValue = String(a.itemType || '').toLowerCase();
-          bValue = String(b.itemType || '').toLowerCase();
         } else if (sortField === 'site') {
           aValue = String(a.site || '').toLowerCase();
           bValue = String(b.site || '').toLowerCase();
@@ -1567,20 +1626,6 @@ const Cost = ({ viewType, currentMonth, monthText, selectedSites, filteredData }
           aValue = String(a.paymentType || '').toLowerCase();
           bValue = String(b.paymentType || '').toLowerCase();
         } else if (sortField === 'sequence') {
-          const getSequenceValue = (sequenceStr) => {
-            if (!sequenceStr) return { base: 0, sub: 0 };
-            const str = sequenceStr.toString();
-            const subMatch = str.match(/(\d+)차-(\d+)/);
-            if (subMatch) {
-              return { base: Number(subMatch[1]), sub: Number(subMatch[2]) };
-            }
-            const baseMatch = str.match(/(\d+)차/);
-            if (baseMatch) {
-              return { base: Number(baseMatch[1]), sub: 0 };
-            }
-            return { base: 0, sub: 0 };
-          };
-          
           const aSeq = getSequenceValue(a.sequence);
           const bSeq = getSequenceValue(b.sequence);
           
