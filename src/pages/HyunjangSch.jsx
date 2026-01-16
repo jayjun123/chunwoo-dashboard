@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -19,10 +19,15 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Chip,
+  List,
+  ListItem,
+  ListItemText,
   Slider,
   InputAdornment,
   Snackbar,
-  Alert
+  Alert,
+  Tooltip
 } from '@mui/material';
 import {
   ArrowBack,
@@ -42,13 +47,20 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 
 const HyunjangSch = () => {
-  const { siteId } = useParams();
+  const { siteId, groupId } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const isGroupMode = Boolean(groupId);
   
   const [site, setSite] = useState(null);
   const [loading, setLoading] = useState(true);
   const [allSites, setAllSites] = useState([]);
+  const [groupData, setGroupData] = useState(null);
+  const [groupItems, setGroupItems] = useState([]);
+  const [groupSiteSelect, setGroupSiteSelect] = useState('');
+  const [groupCustomInput, setGroupCustomInput] = useState({ name: '', note: '' });
+  const [groupItemsDialogOpen, setGroupItemsDialogOpen] = useState(false);
+  const [groupDates, setGroupDates] = useState({ start: '', end: '' });
   
   // 현장 정보 상태
   const [address, setAddress] = useState('');
@@ -146,19 +158,32 @@ const HyunjangSch = () => {
     loadConstructionTeams();
   }, []);
 
-  // 주요현장 목록만 로드
+  // 주요현장 목록 로드 (그룹 모드에서는 전체 현장 로드)
   useEffect(() => {
     const loadImportantSites = async () => {
       try {
+        if (isGroupMode) {
+          const sitesQuery = query(collection(db, 'sites'), orderBy('name', 'asc'));
+          const sitesSnapshot = await getDocs(sitesQuery);
+          const sites = sitesSnapshot.docs
+            .map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }))
+            .filter(site => site.status !== '완료');
+          setAllSites(sites);
+          return;
+        }
+
         const sitesQuery = query(
           collection(db, 'sites'),
           where('isFavorite', '==', true)
         );
-            const sitesSnapshot = await getDocs(sitesQuery);
+        const sitesSnapshot = await getDocs(sitesQuery);
         const sites = sitesSnapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            }));
+          id: doc.id,
+          ...doc.data()
+        }));
         setAllSites(sites);
       } catch (error) {
         console.error('주요현장 목록 로드 실패:', error);
@@ -166,25 +191,75 @@ const HyunjangSch = () => {
         try {
           const allSitesQuery = query(collection(db, 'sites'));
           const allSitesSnapshot = await getDocs(allSitesQuery);
-          const allSites = allSitesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          // 클라이언트에서 주요현장만 필터링
-          const importantSites = allSites.filter(site => site.isFavorite === true);
-          setAllSites(importantSites);
+          const allSites = allSitesSnapshot.docs
+            .map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }))
+            .filter(site => site.status !== '완료');
+          if (isGroupMode) {
+            setAllSites(allSites);
+          } else {
+            // 클라이언트에서 주요현장만 필터링
+            const importantSites = allSites.filter(site => site.isFavorite === true);
+            setAllSites(importantSites);
+          }
         } catch (fallbackError) {
           console.error('전체 현장 목록 로드 실패:', fallbackError);
         }
       }
     };
     loadImportantSites();
-  }, []);
+  }, [isGroupMode]);
+
+  useEffect(() => {
+    const loadGroupData = async () => {
+      if (!isGroupMode || !groupId) return;
+      try {
+        setLoading(true);
+        const groupDoc = await getDoc(doc(db, 'site_groups', groupId));
+        if (!groupDoc.exists()) {
+          setSnackbar({ open: true, message: '그룹 정보를 찾을 수 없습니다.', severity: 'error' });
+          setGroupData(null);
+          setGroupItems([]);
+          setSite({ id: 'no-group', name: '그룹을 찾을 수 없습니다' });
+          return;
+        }
+        const group = { id: groupDoc.id, ...groupDoc.data() };
+        setGroupData(group);
+        setGroupItems(Array.isArray(group.items) ? group.items : []);
+        setSite({ id: group.id, name: group.title || '그룹 진행 요약' });
+        setAddress('');
+        setCompany('');
+        setContactPerson('');
+        applyHyunjangSchData(group.hyunjangSchData);
+        setGroupDates({
+          start: group.hyunjangSchData?.groupStartDate || '',
+          end: group.hyunjangSchData?.groupEndDate || ''
+        });
+        if (group.hyunjangSchData?.groupStartDate && group.hyunjangSchData?.groupEndDate) {
+          setDateRangeFromCustom(
+            group.hyunjangSchData.groupStartDate,
+            group.hyunjangSchData.groupEndDate
+          );
+        }
+      } catch (error) {
+        console.error('그룹 정보 로드 실패:', error);
+        setSnackbar({ open: true, message: '그룹 정보를 불러오지 못했습니다.', severity: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadGroupData();
+  }, [groupId, isGroupMode]);
 
   // 현장 정보 로드
   useEffect(() => {
     const loadSiteData = async () => {
       try {
+        if (isGroupMode) {
+          return;
+        }
         setLoading(true);
         let foundSite = null;
 
@@ -260,7 +335,53 @@ const HyunjangSch = () => {
     };
 
     loadSiteData();
-  }, [siteId]);
+  }, [siteId, isGroupMode]);
+
+  useEffect(() => {
+    if (!isGroupMode) return;
+    if (groupDates.start && groupDates.end) {
+      setDateRangeFromCustom(groupDates.start, groupDates.end);
+    }
+  }, [groupDates, isGroupMode]);
+
+  function applyHyunjangSchData(data) {
+    if (data?.selectedTeams) {
+      setSelectedTeams(data.selectedTeams);
+      if (data.teamLabels) {
+        setTeamLabels(data.teamLabels);
+      } else {
+        const defaultLabels = {};
+        data.selectedTeams.forEach((_, index) => {
+          defaultLabels[index] = `시공팀${index + 1}`;
+        });
+        setTeamLabels(defaultLabels);
+      }
+    }
+    if (data?.overallProgress !== undefined) setOverallProgress(data.overallProgress);
+    if (data?.progressBars) setProgressBars(data.progressBars);
+    if (data?.ganttItems) setGanttItems(data.ganttItems);
+    if (data?.memo !== undefined) setMemo(data.memo);
+    
+    const defaultPhotos = [
+      { id: 1, url: null, label: '사진 추가', storagePath: null },
+      { id: 2, url: null, label: '사진 추가', storagePath: null },
+      { id: 3, url: null, label: '사진 추가', storagePath: null }
+    ];
+    
+    if (data?.photos && Array.isArray(data.photos) && data.photos.length > 0) {
+      data.photos.forEach((photo, index) => {
+        if (defaultPhotos[index]) {
+          defaultPhotos[index] = {
+            id: index + 1,
+            url: photo.url || null,
+            label: photo.label || '사진 추가',
+            storagePath: photo.storagePath || null
+          };
+        }
+      });
+    }
+    setPhotos(defaultPhotos);
+  }
 
   // 현장 정보 업데이트 함수
   const updateSiteInfo = (foundSite) => {
@@ -269,58 +390,65 @@ const HyunjangSch = () => {
     setCompany(foundSite.companyName || foundSite.company || '');
     setContactPerson(foundSite.manager || '');
     setPhone(foundSite.phone || '');
-    
-    // hyunjangSchData 로드
-    if (foundSite.hyunjangSchData) {
-      const data = foundSite.hyunjangSchData;
-      if (data.selectedTeams) {
-        setSelectedTeams(data.selectedTeams);
-        // 저장된 라벨이 있으면 사용, 없으면 기본값 설정
-        if (data.teamLabels) {
-          setTeamLabels(data.teamLabels);
-        } else {
-          const defaultLabels = {};
-          data.selectedTeams.forEach((_, index) => {
-            defaultLabels[index] = `시공팀${index + 1}`;
-          });
-          setTeamLabels(defaultLabels);
-        }
-      }
-      if (data.overallProgress !== undefined) setOverallProgress(data.overallProgress);
-      if (data.progressBars) setProgressBars(data.progressBars);
-      if (data.ganttItems) setGanttItems(data.ganttItems);
-      if (data.memo !== undefined) setMemo(data.memo);
-      
-      // 사진 로드 (항상 기본 3개 구조 유지)
-      const defaultPhotos = [
-        { id: 1, url: null, label: '사진 추가', storagePath: null },
-        { id: 2, url: null, label: '사진 추가', storagePath: null },
-        { id: 3, url: null, label: '사진 추가', storagePath: null }
-      ];
-      
-      if (data.photos && Array.isArray(data.photos) && data.photos.length > 0) {
-        // photos 배열을 기본 구조에 맞게 변환
-        data.photos.forEach((photo, index) => {
-          if (defaultPhotos[index]) {
-            defaultPhotos[index] = {
-              id: index + 1,
-              url: photo.url || null,
-              label: photo.label || '사진 추가',
-              storagePath: photo.storagePath || null
-            };
-          }
-        });
-      }
-      setPhotos(defaultPhotos);
-    } else {
-      // hyunjangSchData가 없을 때도 기본 사진 구조 유지
-      const defaultPhotos = [
-        { id: 1, url: null, label: '사진 추가', storagePath: null },
-        { id: 2, url: null, label: '사진 추가', storagePath: null },
-        { id: 3, url: null, label: '사진 추가', storagePath: null }
-      ];
-      setPhotos(defaultPhotos);
+    applyHyunjangSchData(foundSite.hyunjangSchData);
+  };
+
+  const siteMap = useMemo(() => new Map(allSites.map(s => [s.id, s])), [allSites]);
+
+  const updateGroupItems = async (items) => {
+    if (!groupId) return;
+    try {
+      await updateDoc(doc(db, 'site_groups', groupId), {
+        items,
+        updatedAt: new Date()
+      });
+      setGroupItems(items);
+      setGroupData(prev => prev ? { ...prev, items } : prev);
+    } catch (error) {
+      console.error('그룹 항목 업데이트 실패:', error);
+      setSnackbar({ open: true, message: '그룹 항목 업데이트 실패', severity: 'error' });
     }
+  };
+
+  const handleAddGroupSite = () => {
+    if (!groupSiteSelect) return;
+    const nextItems = [...groupItems, { type: 'site', siteId: groupSiteSelect }];
+    updateGroupItems(nextItems);
+    setGroupSiteSelect('');
+  };
+
+  const handleAddGroupCustom = () => {
+    if (!groupCustomInput.name.trim()) return;
+    const nextItems = [
+      ...groupItems,
+      { type: 'custom', name: groupCustomInput.name.trim(), note: groupCustomInput.note.trim() }
+    ];
+    updateGroupItems(nextItems);
+    setGroupCustomInput({ name: '', note: '' });
+  };
+
+  const handleRemoveGroupItem = (index) => {
+    const nextItems = groupItems.filter((_, idx) => idx !== index);
+    updateGroupItems(nextItems);
+  };
+
+  const renderGroupItemLabel = (item) => {
+    if (item.type === 'site') {
+      return siteMap.get(item.siteId)?.name || '현장';
+    }
+    return item.name || '임의 입력';
+  };
+
+  const renderGroupItemTooltip = (item) => {
+    if (item.type !== 'site') return '';
+    const siteInfo = siteMap.get(item.siteId);
+    if (!siteInfo) return '';
+    const lines = [
+      siteInfo.address ? `주소: ${siteInfo.address}` : null,
+      siteInfo.companyName || siteInfo.company ? `회사명: ${siteInfo.companyName || siteInfo.company}` : null,
+      siteInfo.manager ? `현장소장: ${siteInfo.manager}` : null
+    ].filter(Boolean);
+    return lines.join('\n');
   };
 
   // 날짜 범위 업데이트 함수
@@ -399,6 +527,74 @@ const HyunjangSch = () => {
             daysDiff,
             dates
           });
+  };
+
+  const teamColors = [
+    '#43e97b',
+    '#f59e0b',
+    '#60a5fa',
+    '#a78bfa',
+    '#f43f5e',
+    '#22c55e',
+    '#14b8a6',
+    '#eab308',
+    '#38bdf8',
+    '#f97316'
+  ];
+
+  const truncateLabel = (value, maxLength = 8) => {
+    if (!value) return '';
+    return value.length > maxLength ? value.slice(0, maxLength) : value;
+  };
+
+  useEffect(() => {
+    if (!isGroupMode) return;
+    setGanttItems(prev => {
+      const nonGroupItems = prev.filter(item => !item.isGroupItem);
+      const maxId = nonGroupItems.reduce((max, item) => Math.max(max, item.id || 0), 0);
+      let nextId = maxId + 1;
+
+      const groupMapped = groupItems.map(item => {
+        const key = item.type === 'site'
+          ? `site:${item.siteId}`
+          : `custom:${item.name || ''}:${item.note || ''}`;
+        const existing = prev.find(p => p.groupKey === key);
+        const label = truncateLabel(renderGroupItemLabel(item), 8);
+        if (existing) {
+          return { ...existing, label, groupKey: key, isGroupItem: true };
+        }
+        const newItem = { id: nextId++, label, checked: false, bars: [], groupKey: key, isGroupItem: true };
+        return newItem;
+      });
+
+      return [...groupMapped, ...nonGroupItems];
+    });
+  }, [groupItems, isGroupMode]);
+
+  const setDateRangeFromCustom = (startDate, endDate) => {
+    if (!startDate || !endDate) return;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+
+    const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    if (daysDiff <= 0) return;
+    const dates = [];
+    const interval = Math.max(1, Math.floor(daysDiff / 20));
+    for (let i = 0; i <= daysDiff; i += interval) {
+      const date = new Date(start);
+      date.setDate(date.getDate() + i);
+      dates.push(date);
+    }
+    if (dates[dates.length - 1] < end) {
+      dates.push(end);
+    }
+    setDateRange({
+      startDate: start,
+      endDate: end,
+      daysDiff,
+      dates
+    });
   };
 
   // 시공팀 추가
@@ -696,6 +892,7 @@ const HyunjangSch = () => {
 
   // 현장 선택 핸들러
   const handleSiteChange = (selectedSiteId) => {
+    if (isGroupMode) return;
     if (selectedSiteId && selectedSiteId !== 'no-site') {
       const selectedSite = allSites.find(s => s.id === selectedSiteId);
       if (selectedSite) {
@@ -757,22 +954,28 @@ const HyunjangSch = () => {
 
       // 즉시 Firebase에 저장
       try {
-        await updateDoc(doc(db, 'sites', site.id), {
-          hyunjangSchData: {
-            selectedTeams,
-            teamLabels,
-            overallProgress,
-            progressBars,
-            ganttItems,
-            photos: updatedPhotos.map(photo => ({
-              url: photo.url,
-              label: photo.label,
-              storagePath: photo.storagePath
-            })),
-            memo,
-            updatedAt: new Date()
-          }
-        });
+        const targetCollection = isGroupMode ? 'site_groups' : 'sites';
+        const targetId = isGroupMode ? groupId : site.id;
+        if (targetId) {
+          await updateDoc(doc(db, targetCollection, targetId), {
+            hyunjangSchData: {
+              selectedTeams,
+              teamLabels,
+              overallProgress,
+              progressBars,
+              ganttItems,
+              photos: updatedPhotos.map(photo => ({
+                url: photo.url,
+                label: photo.label,
+                storagePath: photo.storagePath
+              })),
+              memo,
+              groupStartDate: isGroupMode ? groupDates.start : undefined,
+              groupEndDate: isGroupMode ? groupDates.end : undefined,
+              updatedAt: new Date()
+            }
+          });
+        }
         console.log('사진 저장 완료');
       } catch (saveError) {
         console.error('사진 저장 실패:', saveError);
@@ -792,20 +995,31 @@ const HyunjangSch = () => {
     if (!site || site.id === 'no-site' || site.id === 'error-site') return;
     
     try {
-      await updateDoc(doc(db, 'sites', site.id), {
-        address,
-        companyName: company,
-        manager: contactPerson,
-        phone,
+      const targetCollection = isGroupMode ? 'site_groups' : 'sites';
+      const targetId = isGroupMode ? groupId : site.id;
+      if (!targetId) return;
+
+      const updatePayload = {
         hyunjangSchData: {
           selectedTeams,
           overallProgress,
           progressBars,
           ganttItems,
           memo,
+          groupStartDate: isGroupMode ? groupDates.start : undefined,
+          groupEndDate: isGroupMode ? groupDates.end : undefined,
           updatedAt: new Date()
         }
-      });
+      };
+
+      if (!isGroupMode) {
+        updatePayload.address = address;
+        updatePayload.companyName = company;
+        updatePayload.manager = contactPerson;
+        updatePayload.phone = phone;
+      }
+
+      await updateDoc(doc(db, targetCollection, targetId), updatePayload);
       setSnackbar({ open: true, message: '저장되었습니다.', severity: 'success' });
     } catch (error) {
       console.error('저장 실패:', error);
@@ -823,7 +1037,10 @@ const HyunjangSch = () => {
     
     saveTimeoutRef.current = setTimeout(async () => {
       try {
-        await updateDoc(doc(db, 'sites', site.id), {
+        const targetCollection = isGroupMode ? 'site_groups' : 'sites';
+        const targetId = isGroupMode ? groupId : site.id;
+        if (!targetId) return;
+        await updateDoc(doc(db, targetCollection, targetId), {
           hyunjangSchData: {
             selectedTeams,
             teamLabels,
@@ -836,6 +1053,8 @@ const HyunjangSch = () => {
               storagePath: photo.storagePath
             })),
             memo,
+            groupStartDate: isGroupMode ? groupDates.start : undefined,
+            groupEndDate: isGroupMode ? groupDates.end : undefined,
             updatedAt: new Date()
           }
         });
@@ -849,7 +1068,7 @@ const HyunjangSch = () => {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [selectedTeams, teamLabels, overallProgress, progressBars, ganttItems, photos, memo, site, loading]);
+  }, [selectedTeams, teamLabels, overallProgress, progressBars, ganttItems, photos, memo, site, loading, isGroupMode, groupId, groupDates]);
 
   if (loading) {
     return (
@@ -879,42 +1098,68 @@ const HyunjangSch = () => {
           <IconButton onClick={() => navigate('/sites')} sx={{ color: 'white' }}>
             <ArrowBack />
           </IconButton>
-          <FormControl size="small" sx={{ minWidth: 250 }}>
-            <InputLabel sx={{ color: 'rgba(255,255,255,0.7)' }}>현장 선택</InputLabel>
-            <Select
-              value={site?.id || 'no-site'}
-              onChange={(e) => handleSiteChange(e.target.value)}
-              label="현장 선택"
-          sx={{ 
-                color: 'white',
-                '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'rgba(255,255,255,0.3)'
-                },
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'rgba(255,255,255,0.5)'
-                },
-                '& .MuiSvgIcon-root': {
-                  color: 'white'
-                }
-              }}
-            >
-              <MenuItem value="no-site">
-                <em>주요현장을 선택해주세요</em>
-              </MenuItem>
-              {allSites.length > 0 ? allSites.map((s) => (
-                <MenuItem key={s.id} value={s.id}>
-                  {s.name || '이름 없음'}
+          {!isGroupMode && (
+            <FormControl size="small" sx={{ minWidth: 250 }}>
+              <InputLabel sx={{ color: 'rgba(255,255,255,0.7)' }}>현장 선택</InputLabel>
+              <Select
+                value={site?.id || 'no-site'}
+                onChange={(e) => handleSiteChange(e.target.value)}
+                label="현장 선택"
+                sx={{ 
+                  color: 'white',
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'rgba(255,255,255,0.3)'
+                  },
+                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'rgba(255,255,255,0.5)'
+                  },
+                  '& .MuiSvgIcon-root': {
+                    color: 'white'
+                  }
+                }}
+              >
+                <MenuItem value="no-site">
+                  <em>주요현장을 선택해주세요</em>
                 </MenuItem>
-              )) : (
-                <MenuItem disabled>
-                  주요현장이 없습니다
-                </MenuItem>
-              )}
-            </Select>
-          </FormControl>
-          <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#3b82f6' }}>
-            진행 요약
-        </Typography>
+                {allSites.length > 0 ? allSites.map((s) => (
+                  <MenuItem key={s.id} value={s.id}>
+                    {s.name || '이름 없음'}
+                  </MenuItem>
+                )) : (
+                  <MenuItem disabled>
+                    주요현장이 없습니다
+                  </MenuItem>
+                )}
+              </Select>
+            </FormControl>
+          )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#3b82f6' }}>
+              {isGroupMode ? (groupData?.title || '그룹 진행 요약') : '진행 요약'}
+            </Typography>
+            {isGroupMode && (
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', marginLeft: 'auto' }}>
+                <TextField
+                  type="date"
+                  label="시작일"
+                  size="small"
+                  value={groupDates.start}
+                  onChange={(e) => setGroupDates(prev => ({ ...prev, start: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' } }}
+                />
+                <TextField
+                  type="date"
+                  label="종료일"
+                  size="small"
+                  value={groupDates.end}
+                  onChange={(e) => setGroupDates(prev => ({ ...prev, end: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' } }}
+                />
+              </Box>
+            )}
+          </Box>
       </Box>
       </Box>
 
@@ -930,79 +1175,242 @@ const HyunjangSch = () => {
             p: 2, 
             bgcolor: '#23242a',
             width: '100%',
-          display: 'flex',
+            display: 'flex',
             flexDirection: 'column'
           }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, justifyContent: 'space-between', flex: 1 }}>
-              {/* 주소 */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <LocationOn sx={{ color: '#43e97b', fontSize: 20 }} />
-                    <TextField
-                      id="address-input"
-                      name="address"
-                      label="주소"
-                      fullWidth
-                      size="small"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                      autoComplete="street-address"
-                      sx={{
-                        '& .MuiInputBase-input': { color: 'white' },
-                        '& .MuiOutlinedInput-root': {
-                          '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' }
-                        },
-                        '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
-                      }}
-                    />
-                  </Box>
-                  
-              {/* 회사 */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Business sx={{ color: '#43e97b', fontSize: 20 }} />
-                    <TextField
-                      id="company-input"
-                      name="company"
-                      label="회사명"
-                      fullWidth
-                      size="small"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                      autoComplete="organization"
-                      sx={{
-                        '& .MuiInputBase-input': { color: 'white' },
-                        '& .MuiOutlinedInput-root': {
-                          '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' }
-                        },
-                        '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
-                      }}
-                    />
-                  </Box>
-                  
-              {/* 연락처 담당자 */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Person sx={{ color: '#43e97b', fontSize: 20 }} />
-                    <TextField
-                      id="contact-person-input"
-                      name="contactPerson"
-                      label="현장소장"
-                      fullWidth
-                      size="small"
-                  placeholder="현장소장"
-                  value={contactPerson}
-                  onChange={(e) => setContactPerson(e.target.value)}
-                      autoComplete="name"
-                      sx={{
-                        '& .MuiInputBase-input': { color: 'white' },
-                        '& .MuiOutlinedInput-root': {
-                          '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' }
-                        },
-                        '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
-                      }}
-                    />
-                  </Box>
+            {isGroupMode ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1 }}>
+                <Typography sx={{ color: '#fff', fontWeight: 700 }}>
+                  현장 선택 및 그룹 관리
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={groupSiteSelect}
+                      onChange={(e) => setGroupSiteSelect(e.target.value)}
+                      displayEmpty
+                      sx={{ color: '#fff', bgcolor: '#232b3b' }}
+                    >
+                      <MenuItem value="">
+                        <em>현장 선택</em>
+                      </MenuItem>
+                      {allSites.map((s) => (
+                        <MenuItem key={s.id} value={s.id}>
+                          {s.name || '이름 없음'}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Button
+                    variant="outlined"
+                    onClick={handleAddGroupSite}
+                    sx={{ color: '#90caf9', borderColor: '#90caf9' }}
+                  >
+                    추가
+                  </Button>
+                </Box>
+                <TextField
+                  label="임의 현장명"
+                  size="small"
+                  value={groupCustomInput.name}
+                  onChange={(e) => setGroupCustomInput(prev => ({ ...prev, name: e.target.value }))}
+                  sx={{ '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' } }}
+                />
+                <TextField
+                  label="메모 (선택)"
+                  size="small"
+                  value={groupCustomInput.note}
+                  onChange={(e) => setGroupCustomInput(prev => ({ ...prev, note: e.target.value }))}
+                  sx={{ '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' } }}
+                />
+                <Button
+                  variant="outlined"
+                  onClick={handleAddGroupCustom}
+                  sx={{ color: '#90caf9', borderColor: '#90caf9', alignSelf: 'flex-start' }}
+                >
+                  임의 항목 추가
+                </Button>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {groupItems.length === 0 ? (
+                    <Typography sx={{ color: '#bbb' }}>추가된 항목이 없습니다.</Typography>
+                  ) : (
+                    <>
+                      {(() => {
+                        const firstItem = groupItems[0];
+                        const label = renderGroupItemLabel(firstItem);
+                        const tooltip = renderGroupItemTooltip(firstItem);
+                        const content = (
+                          <Chip
+                            label={label}
+                            onDoubleClick={() => setGroupItemsDialogOpen(true)}
+                            sx={{ bgcolor: '#39475c', color: '#fff', cursor: 'pointer' }}
+                          />
+                        );
+                        return (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                            {tooltip ? (
+                              <Tooltip title={<span style={{ whiteSpace: 'pre-line' }}>{tooltip}</span>}>
+                                {content}
+                              </Tooltip>
+                            ) : (
+                              content
+                            )}
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => setGroupItemsDialogOpen(true)}
+                              sx={{ color: '#90caf9', borderColor: '#90caf9' }}
+                            >
+                              현장 목록
+                            </Button>
+                          </Box>
+                        );
+                      })()}
+                      <Typography sx={{ color: '#aaa', fontSize: '0.8rem' }}>
+                        총 {groupItems.length}개 현장 (더블클릭 또는 버튼으로 목록 보기)
+                      </Typography>
+                    </>
+                  )}
+                </Box>
               </Box>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, justifyContent: 'space-between', flex: 1 }}>
+                {/* 주소 */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <LocationOn sx={{ color: '#43e97b', fontSize: 20 }} />
+                  <TextField
+                    id="address-input"
+                    name="address"
+                    label="주소"
+                    fullWidth
+                    size="small"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    autoComplete="street-address"
+                    sx={{
+                      '& .MuiInputBase-input': { color: 'white' },
+                      '& .MuiOutlinedInput-root': {
+                        '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' }
+                      },
+                      '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
+                    }}
+                  />
+                </Box>
+                
+                {/* 회사 */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Business sx={{ color: '#43e97b', fontSize: 20 }} />
+                  <TextField
+                    id="company-input"
+                    name="company"
+                    label="회사명"
+                    fullWidth
+                    size="small"
+                    value={company}
+                    onChange={(e) => setCompany(e.target.value)}
+                    autoComplete="organization"
+                    sx={{
+                      '& .MuiInputBase-input': { color: 'white' },
+                      '& .MuiOutlinedInput-root': {
+                        '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' }
+                      },
+                      '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
+                    }}
+                  />
+                </Box>
+                
+                {/* 연락처 담당자 */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Person sx={{ color: '#43e97b', fontSize: 20 }} />
+                  <TextField
+                    id="contact-person-input"
+                    name="contactPerson"
+                    label="현장소장"
+                    fullWidth
+                    size="small"
+                    placeholder="현장소장"
+                    value={contactPerson}
+                    onChange={(e) => setContactPerson(e.target.value)}
+                    autoComplete="name"
+                    sx={{
+                      '& .MuiInputBase-input': { color: 'white' },
+                      '& .MuiOutlinedInput-root': {
+                        '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' }
+                      },
+                      '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
+                    }}
+                  />
+                </Box>
+              </Box>
+            )}
           </Paper>
         </Grid>
+
+      <Dialog
+        open={groupItemsDialogOpen}
+        onClose={() => setGroupItemsDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        sx={{
+          zIndex: 2600,
+          '& .MuiDialog-container': {
+            zIndex: 2600
+          }
+        }}
+        PaperProps={{
+          sx: {
+            bgcolor: '#1a1d21',
+            zIndex: 2601
+          }
+        }}
+        BackdropProps={{
+          sx: {
+            zIndex: 2599,
+            backgroundColor: 'rgba(0,0,0,0.6)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ bgcolor: '#1a1d21', color: '#fff' }}>그룹 현장 목록</DialogTitle>
+        <DialogContent sx={{ bgcolor: '#1a1d21' }}>
+          {groupItems.length === 0 ? (
+            <Typography sx={{ color: '#bbb' }}>추가된 항목이 없습니다.</Typography>
+          ) : (
+            <List>
+              {groupItems.map((item, index) => {
+                const label = renderGroupItemLabel(item);
+                const tooltip = renderGroupItemTooltip(item);
+                return (
+                  <ListItem
+                    key={`group-dialog-item-${index}`}
+                    secondaryAction={
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveGroupItem(index)}
+                        sx={{ color: '#f44336' }}
+                      >
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    }
+                  >
+                    {tooltip ? (
+                      <Tooltip title={<span style={{ whiteSpace: 'pre-line' }}>{tooltip}</span>}>
+                        <ListItemText primary={label} sx={{ color: '#fff' }} />
+                      </Tooltip>
+                    ) : (
+                      <ListItemText primary={label} sx={{ color: '#fff' }} />
+                    )}
+                  </ListItem>
+                );
+              })}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: '#1a1d21' }}>
+          <Button onClick={() => setGroupItemsDialogOpen(false)} sx={{ color: '#ccc' }}>
+            닫기
+          </Button>
+        </DialogActions>
+      </Dialog>
 
         {/* 시공팀박스 */}
         <Grid item sx={{ 
@@ -1116,7 +1524,7 @@ const HyunjangSch = () => {
                         onChange={(e) => handleTeamChange(index, e.target.value)}
                         sx={{
                           color: 'white',
-                          bgcolor: index === 0 ? '#43e97b' : index === 1 ? '#f59e0b' : '#60a5fa',
+                          bgcolor: teamColors[index % teamColors.length],
                           '& .MuiOutlinedInput-notchedOutline': {
                             borderColor: 'transparent'
                           },
@@ -1491,6 +1899,7 @@ const HyunjangSch = () => {
                           userSelect: 'none',
                           WebkitTapHighlightColor: 'transparent',
                           touchAction: 'manipulation',
+                          position: 'relative',
                           '&:hover': {
                             opacity: 0.8
                           }
@@ -1517,26 +1926,47 @@ const HyunjangSch = () => {
                           }}
                           aria-label={`${item.label} 선택`}
                         />
+                        <Typography
+                          sx={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            fontSize: '0.6rem',
+                            color: 'rgba(255,255,255,0.85)',
+                            pointerEvents: 'none'
+                          }}
+                        >
+                          {ganttItems.findIndex(i => i.id === item.id) + 1}
+                        </Typography>
                       </Box>
                       <TextField
                         id={`gantt-item-label-${item.id}`}
                         name={`ganttItemLabel-${item.id}`}
                         size="small"
                         value={item.label}
-                        onChange={(e) => handleGanttLabelChange(item.id, e.target.value)}
+                        onChange={(e) => {
+                          if (!item.isGroupItem) {
+                            handleGanttLabelChange(item.id, e.target.value);
+                          }
+                        }}
                         onFocus={(e) => {
-                          e.target.select();
+                          if (!item.isGroupItem) {
+                            e.target.select();
+                          }
                         }}
                         autoComplete="off"
                         variant="standard"
-                          sx={{
+                        inputProps={{ readOnly: Boolean(item.isGroupItem) }}
+                        sx={{
                           flex: 1,
                           minWidth: 120,
                           '& .MuiInputBase-input': { 
                             color: 'white', 
                             fontSize: '1rem', 
                             py: 0.3,
-                            px: 0.5
+                            px: 0.5,
+                            cursor: item.isGroupItem ? 'default' : 'text'
                           },
                           '& .MuiInput-underline:before': {
                             borderBottom: 'none'
@@ -1776,7 +2206,9 @@ const HyunjangSch = () => {
               bgcolor: '#23242a',
             width: '100%',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            position: 'relative',
+            zIndex: 1
             }}>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
               메모
@@ -1798,6 +2230,7 @@ const HyunjangSch = () => {
                   '& .MuiInputBase-input': { color: 'white' },
                   '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
                   '& .MuiOutlinedInput-root': {
+                    zIndex: 1,
                     height: '100%',
                     '& textarea': {
                       height: '100% !important'

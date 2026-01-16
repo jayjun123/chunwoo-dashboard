@@ -1028,6 +1028,62 @@ export const claimsAPI = {
   }
 };
 
+// 주요현장 그룹 관련 API
+export const siteGroupsAPI = {
+  async getAll() {
+    return await withErrorHandling(async () => {
+      const snapshot = await getDocs(query(collection(db, 'site_groups'), orderBy('createdAt', 'desc')));
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }, 'site_groups.getAll');
+  },
+  async getById(id) {
+    return await withErrorHandling(async () => {
+      const docRef = doc(db, 'site_groups', id);
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) return null;
+      return { id: docSnap.id, ...docSnap.data() };
+    }, 'site_groups.getById');
+  },
+  async add(data) {
+    return await withErrorHandling(async () => {
+      return await addDoc(collection(db, 'site_groups'), {
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    }, 'site_groups.add');
+  },
+  async update(id, data) {
+    return await withErrorHandling(async () => {
+      return await updateDoc(doc(db, 'site_groups', id), {
+        ...data,
+        updatedAt: new Date()
+      });
+    }, 'site_groups.update');
+  },
+  async remove(id) {
+    return await withErrorHandling(async () => {
+      return await deleteDoc(doc(db, 'site_groups', id));
+    }, 'site_groups.remove');
+  },
+  subscribeToSiteGroups(callback) {
+    try {
+      const q = query(collection(db, 'site_groups'), orderBy('createdAt', 'desc'));
+      return onSnapshot(q, (snapshot) => {
+        const groups = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        callback(groups);
+      }, (error) => {
+        console.error('Site groups subscription error:', error);
+        dbConnectionManager.updateStatus('error', error);
+      });
+    } catch (error) {
+      console.error('Site groups subscription setup error:', error);
+      dbConnectionManager.updateStatus('error', error);
+      throw error;
+    }
+  }
+};
+
 // 데이터베이스 연결 상태 확인 함수
 export const checkDatabaseConnection = async () => {
   try {
@@ -1058,6 +1114,7 @@ export const databaseAPI = {
   discussions: discussionsAPI,
   estimates: estimatesAPI,
   claims: claimsAPI,
+  site_groups: siteGroupsAPI,
   connectionManager: dbConnectionManager,
   checkConnection: checkDatabaseConnection
 }; 

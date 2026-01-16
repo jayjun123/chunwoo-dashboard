@@ -683,6 +683,18 @@ const App = React.memo(() => {
                         }
                       />
                       <Route
+                        path="/hyunjangsch/group/:groupId"
+                        element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <HyunjangSch />
+                              </Suspense>
+                            </Layout>
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
                         path="/safety"
                         element={
                           <ProtectedRoute>

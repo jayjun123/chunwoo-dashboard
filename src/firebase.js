@@ -197,6 +197,7 @@ export const collections = {
   vendors: 'vendors',       // 거래처 관리
   gisung: 'gisung',         // 기성 관리
   estimates: 'estimates',   // 견적 관리
+  site_groups: 'site_groups', // 주요현장 그룹
   security_logs: 'security_logs' // 보안 로그
 };
 

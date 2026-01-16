@@ -24,7 +24,8 @@ import {
   FormControl,
   Select,
   MenuItem,
-  Container
+  Container,
+  Autocomplete
 } from '@mui/material';
 import MobileSidebar from '../components/MobileSidebar';
 import Image from '../components/common/Image';
@@ -35,6 +36,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import CommentIcon from '@mui/icons-material/Comment';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import AddCommentIcon from '@mui/icons-material/AddComment';
+import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Switch from '@mui/material/Switch';
@@ -106,6 +108,12 @@ export default function ImportantSite() {
   const [settlementDialog, setSettlementDialog] = useState({ open: false, siteId: null, siteName: '' });
   const [settlementPages, setSettlementPages] = useState({}); // { siteId: boolean } - 정산 페이지 존재 여부
   const [selectedSiteId, setSelectedSiteId] = useState(null); // 선택된 현장 ID
+  const [siteGroups, setSiteGroups] = useState([]);
+  const [allSitesForGroups, setAllSitesForGroups] = useState([]);
+  const [groupDialog, setGroupDialog] = useState({ open: false, mode: 'create', groupId: null });
+  const [groupForm, setGroupForm] = useState({ title: '', description: '', items: [] });
+  const [groupSiteId, setGroupSiteId] = useState('');
+  const [groupCustomItem, setGroupCustomItem] = useState({ name: '', note: '' });
   const navigate = useNavigate();
 
   const scrollFocus = (ref) => () => {
@@ -571,6 +579,137 @@ export default function ImportantSite() {
     };
     fetchComments();
   }, []);
+
+  useEffect(() => {
+    const loadAllSitesForGroups = async () => {
+      try {
+        const sitesQuery = query(collection(db, 'sites'), orderBy('name', 'asc'));
+        const sitesSnapshot = await getDocs(sitesQuery);
+        const allSitesData = sitesSnapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+          .filter(site => site.status !== '완료');
+        setAllSitesForGroups(allSitesData);
+      } catch (error) {
+        devError('그룹용 전체 현장 로드 실패:', error);
+      }
+    };
+    loadAllSitesForGroups();
+  }, []);
+
+  useEffect(() => {
+    const groupsQuery = query(collection(db, 'site_groups'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(groupsQuery, (snapshot) => {
+      const groupsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setSiteGroups(groupsData);
+    }, (error) => {
+      devError('주요현장 그룹 로드 실패:', error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const getSiteNameById = (siteId) => {
+    const site = allSitesForGroups.find(s => s.id === siteId) || sites.find(s => s.id === siteId);
+    return site?.name || '알 수 없는 현장';
+  };
+
+  const openCreateGroup = () => {
+    setGroupForm({ title: '', description: '', items: [] });
+    setGroupSiteId('');
+    setGroupCustomItem({ name: '', note: '' });
+    setGroupDialog({ open: true, mode: 'create', groupId: null });
+  };
+
+  const openEditGroup = (group) => {
+    setGroupForm({
+      title: group.title || '',
+      description: group.description || '',
+      items: Array.isArray(group.items) ? group.items : []
+    });
+    setGroupSiteId('');
+    setGroupCustomItem({ name: '', note: '' });
+    setGroupDialog({ open: true, mode: 'edit', groupId: group.id });
+  };
+
+  const closeGroupDialog = () => {
+    setGroupDialog({ open: false, mode: 'create', groupId: null });
+  };
+
+  const addGroupSiteItem = () => {
+    if (!groupSiteId) return;
+    setGroupForm(prev => ({
+      ...prev,
+      items: [...prev.items, { type: 'site', siteId: groupSiteId }]
+    }));
+    setGroupSiteId('');
+  };
+
+  const addGroupCustomItem = () => {
+    if (!groupCustomItem.name.trim()) return;
+    setGroupForm(prev => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          type: 'custom',
+          name: groupCustomItem.name.trim(),
+          note: groupCustomItem.note.trim()
+        }
+      ]
+    }));
+    setGroupCustomItem({ name: '', note: '' });
+  };
+
+  const removeGroupItem = (index) => {
+    setGroupForm(prev => ({
+      ...prev,
+      items: prev.items.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  const saveGroup = async () => {
+    if (!groupForm.title.trim()) {
+      setSnackbar({ open: true, message: '그룹 제목을 입력해주세요.', severity: 'warning' });
+      return;
+    }
+    try {
+      const payload = {
+        title: groupForm.title.trim(),
+        description: groupForm.description?.trim() || '',
+        items: groupForm.items || [],
+        updatedAt: serverTimestamp(),
+        createdBy: currentUser?.uid || null
+      };
+
+      if (groupDialog.mode === 'create') {
+        await addDoc(collection(db, 'site_groups'), {
+          ...payload,
+          createdAt: serverTimestamp()
+        });
+        setSnackbar({ open: true, message: '그룹이 생성되었습니다.', severity: 'success' });
+      } else if (groupDialog.groupId) {
+        await updateDoc(doc(db, 'site_groups', groupDialog.groupId), payload);
+        setSnackbar({ open: true, message: '그룹이 수정되었습니다.', severity: 'success' });
+      }
+      closeGroupDialog();
+    } catch (error) {
+      devError('그룹 저장 실패:', error);
+      setSnackbar({ open: true, message: '그룹 저장에 실패했습니다.', severity: 'error' });
+    }
+  };
+
+  const deleteGroup = async (groupId) => {
+    if (!window.confirm('이 그룹을 삭제하시겠습니까?')) return;
+    try {
+      await deleteDoc(doc(db, 'site_groups', groupId));
+      setSnackbar({ open: true, message: '그룹이 삭제되었습니다.', severity: 'success' });
+    } catch (error) {
+      devError('그룹 삭제 실패:', error);
+      setSnackbar({ open: true, message: '그룹 삭제에 실패했습니다.', severity: 'error' });
+    }
+  };
 
   // 검색어와 선택된 현장에 따라 필터링
   const filteredSites = useMemo(() => {
@@ -1131,6 +1270,31 @@ export default function ImportantSite() {
             inputRef={scrollFocus(null)}
           />
           
+          <Button
+            variant="outlined"
+            size="medium"
+            startIcon={<AddIcon />}
+            onClick={openCreateGroup}
+            sx={{
+              backgroundColor: 'transparent',
+              color: '#43e97b',
+              borderColor: '#43e97b',
+              fontWeight: 'bold',
+              fontSize: '0.9rem',
+              px: 1.5,
+              borderRadius: 2,
+              height: '40px',
+              minHeight: '40px',
+              '&:hover': {
+                backgroundColor: 'rgba(67, 233, 123, 0.1)',
+                borderColor: '#43e97b',
+                color: '#43e97b'
+              }
+            }}
+          >
+            그룹 추가
+          </Button>
+
           {/* 정산확인 버튼 */}
           <Button
             variant="outlined"
@@ -1195,7 +1359,85 @@ export default function ImportantSite() {
             padding: '5px 5px 0 5px'
           }
         }}>
-          {filteredSites.length === 0 && (
+            {siteGroups.map(group => {
+              const items = Array.isArray(group.items) ? group.items : [];
+            return (
+              <Grid size={{ xs: 12, sm: 12, md: 12 }} key={`group-${group.id}`} sx={{ minWidth: isMobile ? 'auto' : '700px' }}>
+                <Paper
+                  sx={{
+                    mb: isMobile ? 0.625 : 0.2,
+                    borderRadius: 4,
+                    boxShadow: 6,
+                    bgcolor: '#202634',
+                    color: '#fff',
+                    display: 'flex',
+                    flexDirection: { xs: 'column', md: 'row' },
+                    alignItems: 'stretch',
+                    height: isMobile ? 'auto' : 260,
+                    minWidth: isMobile ? 'calc(100vw - 20px)' : '700px',
+                    width: '100%',
+                    p: 2,
+                    overflow: 'hidden',
+                    position: 'relative',
+                    zIndex: 10,
+                    '&:hover': {
+                      boxShadow: 8,
+                      zIndex: 20
+                    }
+                  }}
+                >
+                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Typography variant="h6" sx={{ fontWeight: 800, color: '#90caf9' }}>
+                        {group.title || '그룹'}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => navigate(`/hyunjangsch/group/${group.id}`)}
+                          sx={{ color: '#90caf9', borderColor: '#90caf9' }}
+                        >
+                          열기
+                        </Button>
+                        <IconButton size="small" onClick={() => openEditGroup(group)} sx={{ color: '#4caf50' }}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => deleteGroup(group.id)} sx={{ color: '#f44336' }}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </Box>
+                    {group.description && (
+                      <Typography sx={{ color: '#ccc', fontSize: '0.9rem' }}>
+                        {group.description}
+                      </Typography>
+                    )}
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                      {items.map((item, index) => {
+                        const label = item.type === 'site'
+                          ? getSiteNameById(item.siteId)
+                          : (item.name || '임의 입력');
+                        return (
+                          <Chip
+                            key={`${group.id}-item-${index}`}
+                            size="small"
+                            label={label}
+                            sx={{ bgcolor: '#39475c', color: '#fff' }}
+                          />
+                        );
+                      })}
+                    </Box>
+                    <Typography sx={{ color: '#aaa', fontSize: '0.8rem' }}>
+                      총 {items.length}개 항목
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Grid>
+            );
+          })}
+
+          {siteGroups.length === 0 && filteredSites.length === 0 && (
             <Grid size={12}>
               <Typography sx={{ color: '#bbb', mt: 4 }}>
                 {search.trim() !== '' ? '검색 결과가 없습니다.' : '주요현장으로 지정된 현장이 없습니다. 현장관리에서 별표를 체크하여 주요현장을 추가해주세요.'}
@@ -1801,6 +2043,111 @@ export default function ImportantSite() {
       })}
       </Grid>
       </Box>
+
+      <Dialog open={groupDialog.open} onClose={closeGroupDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: '#1a1d21', color: '#fff' }}>
+          {groupDialog.mode === 'create' ? '그룹 추가' : '그룹 수정'}
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: '#1a1d21' }}>
+          <TextField
+            fullWidth
+            label="그룹 제목"
+            value={groupForm.title}
+            onChange={(e) => setGroupForm(prev => ({ ...prev, title: e.target.value }))}
+            sx={{ mt: 2, '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: '#ccc' } }}
+          />
+          <TextField
+            fullWidth
+            label="설명 (선택)"
+            value={groupForm.description}
+            onChange={(e) => setGroupForm(prev => ({ ...prev, description: e.target.value }))}
+            sx={{ mt: 2, '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: '#ccc' } }}
+          />
+
+          <Box sx={{ mt: 3 }}>
+            <Typography sx={{ color: '#fff', fontWeight: 700, mb: 1 }}>현장 선택</Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Autocomplete
+              fullWidth
+              size="small"
+              options={allSitesForGroups}
+              getOptionLabel={(option) => option.name || ''}
+              value={allSitesForGroups.find(site => site.id === groupSiteId) || null}
+              onChange={(_, newValue) => setGroupSiteId(newValue?.id || '')}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="현장 선택"
+                  sx={{ '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: '#ccc' } }}
+                />
+              )}
+              sx={{ bgcolor: '#232b3b', borderRadius: 1 }}
+            />
+            <Button variant="outlined" onClick={addGroupSiteItem} sx={{ color: '#90caf9', borderColor: '#90caf9' }}>
+              추가
+            </Button>
+          </Box>
+          </Box>
+
+          <Box sx={{ mt: 3 }}>
+            <Typography sx={{ color: '#fff', fontWeight: 700, mb: 1 }}>임의 입력</Typography>
+            <TextField
+              fullWidth
+              label="현장명"
+              value={groupCustomItem.name}
+              onChange={(e) => setGroupCustomItem(prev => ({ ...prev, name: e.target.value }))}
+              sx={{ '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: '#ccc' } }}
+            />
+            <TextField
+              fullWidth
+              label="메모 (선택)"
+              value={groupCustomItem.note}
+              onChange={(e) => setGroupCustomItem(prev => ({ ...prev, note: e.target.value }))}
+              sx={{ mt: 2, '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: '#ccc' } }}
+            />
+            <Button variant="outlined" onClick={addGroupCustomItem} sx={{ mt: 1, color: '#90caf9', borderColor: '#90caf9' }}>
+              임의 항목 추가
+            </Button>
+          </Box>
+
+          <Box sx={{ mt: 3 }}>
+            <Typography sx={{ color: '#fff', fontWeight: 700, mb: 1 }}>현재 항목</Typography>
+            {groupForm.items.length === 0 ? (
+              <Typography sx={{ color: '#bbb' }}>추가된 항목이 없습니다.</Typography>
+            ) : (
+              <List>
+                {groupForm.items.map((item, index) => {
+                  const label = item.type === 'site'
+                    ? getSiteNameById(item.siteId)
+                    : (item.name || '임의 입력');
+                  return (
+                    <ListItem
+                      key={`group-item-${index}`}
+                      secondaryAction={
+                        <IconButton edge="end" onClick={() => removeGroupItem(index)} sx={{ color: '#f44336' }}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      }
+                    >
+                      <ListItemText
+                        primary={label}
+                        secondary={item.type === 'custom' ? (item.note || '') : ''}
+                        sx={{ color: '#fff' }}
+                      />
+                    </ListItem>
+                  );
+                })}
+              </List>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: '#1a1d21' }}>
+          <Button onClick={closeGroupDialog} sx={{ color: '#ccc' }}>취소</Button>
+          <Button onClick={saveGroup} variant="contained" sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#45a049' } }}>
+            저장
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* 정산 페이지 생성 확인 다이얼로그 */}
       <Dialog
