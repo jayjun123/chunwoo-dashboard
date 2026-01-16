@@ -1364,10 +1364,10 @@ const HyunjangSch = () => {
                   >
                     {tooltip ? (
                       <Tooltip title={<span style={{ whiteSpace: 'pre-line' }}>{tooltip}</span>}>
-                        <ListItemText primary={label} sx={{ color: '#fff' }} />
+                        <ListItemText primary={`${index + 1}. ${label}`} sx={{ color: '#fff' }} />
                       </Tooltip>
                     ) : (
-                      <ListItemText primary={label} sx={{ color: '#fff' }} />
+                      <ListItemText primary={`${index + 1}. ${label}`} sx={{ color: '#fff' }} />
                     )}
                   </ListItem>
                 );

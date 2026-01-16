@@ -1429,7 +1429,7 @@ export default function ImportantSite() {
                       })}
                     </Box>
                     <Typography sx={{ color: '#aaa', fontSize: '0.8rem' }}>
-                      총 {items.length}개 항목
+                      총 {items.length}개 현장
                     </Typography>
                   </Box>
                 </Paper>
