@@ -61,6 +61,7 @@ const HyunjangSch = () => {
   const [groupCustomInput, setGroupCustomInput] = useState({ name: '', note: '' });
   const [groupItemsDialogOpen, setGroupItemsDialogOpen] = useState(false);
   const [groupDates, setGroupDates] = useState({ start: '', end: '' });
+  const [groupAddDialog, setGroupAddDialog] = useState({ open: false, mode: 'site' });
   
   // 현장 정보 상태
   const [address, setAddress] = useState('');
@@ -1183,53 +1184,22 @@ const HyunjangSch = () => {
                 <Typography sx={{ color: '#fff', fontWeight: 700 }}>
                   현장 선택 및 그룹 관리
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <FormControl fullWidth size="small">
-                    <Select
-                      value={groupSiteSelect}
-                      onChange={(e) => setGroupSiteSelect(e.target.value)}
-                      displayEmpty
-                      sx={{ color: '#fff', bgcolor: '#232b3b' }}
-                    >
-                      <MenuItem value="">
-                        <em>현장 선택</em>
-                      </MenuItem>
-                      {allSites.map((s) => (
-                        <MenuItem key={s.id} value={s.id}>
-                          {s.name || '이름 없음'}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   <Button
                     variant="outlined"
-                    onClick={handleAddGroupSite}
+                    onClick={() => setGroupAddDialog({ open: true, mode: 'site' })}
                     sx={{ color: '#90caf9', borderColor: '#90caf9' }}
                   >
-                    추가
+                    현장 추가
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setGroupAddDialog({ open: true, mode: 'custom' })}
+                    sx={{ color: '#90caf9', borderColor: '#90caf9' }}
+                  >
+                    임의 항목 추가
                   </Button>
                 </Box>
-                <TextField
-                  label="임의 현장명"
-                  size="small"
-                  value={groupCustomInput.name}
-                  onChange={(e) => setGroupCustomInput(prev => ({ ...prev, name: e.target.value }))}
-                  sx={{ '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' } }}
-                />
-                <TextField
-                  label="메모 (선택)"
-                  size="small"
-                  value={groupCustomInput.note}
-                  onChange={(e) => setGroupCustomInput(prev => ({ ...prev, note: e.target.value }))}
-                  sx={{ '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' } }}
-                />
-                <Button
-                  variant="outlined"
-                  onClick={handleAddGroupCustom}
-                  sx={{ color: '#90caf9', borderColor: '#90caf9', alignSelf: 'flex-start' }}
-                >
-                  임의 항목 추가
-                </Button>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   {groupItems.length === 0 ? (
                     <Typography sx={{ color: '#bbb' }}>추가된 항목이 없습니다.</Typography>
@@ -1409,6 +1379,85 @@ const HyunjangSch = () => {
           <Button onClick={() => setGroupItemsDialogOpen(false)} sx={{ color: '#ccc' }}>
             닫기
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={groupAddDialog.open}
+        onClose={() => setGroupAddDialog({ open: false, mode: 'site' })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: '#1a1d21', color: '#fff' }}>
+          {groupAddDialog.mode === 'site' ? '현장 추가' : '임의 항목 추가'}
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: '#1a1d21' }}>
+          {groupAddDialog.mode === 'site' ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <FormControl fullWidth size="small">
+                <Select
+                  value={groupSiteSelect}
+                  onChange={(e) => setGroupSiteSelect(e.target.value)}
+                  displayEmpty
+                  sx={{ color: '#fff', bgcolor: '#232b3b' }}
+                >
+                  <MenuItem value="">
+                    <em>현장 선택</em>
+                  </MenuItem>
+                  {allSites.map((s) => (
+                    <MenuItem key={s.id} value={s.id}>
+                      {s.name || '이름 없음'}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <TextField
+                label="임의 현장명"
+                size="small"
+                value={groupCustomInput.name}
+                onChange={(e) => setGroupCustomInput(prev => ({ ...prev, name: e.target.value }))}
+                sx={{ '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' } }}
+              />
+              <TextField
+                label="메모 (선택)"
+                size="small"
+                value={groupCustomInput.note}
+                onChange={(e) => setGroupCustomInput(prev => ({ ...prev, note: e.target.value }))}
+                sx={{ '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' } }}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: '#1a1d21' }}>
+          <Button onClick={() => setGroupAddDialog({ open: false, mode: 'site' })} sx={{ color: '#ccc' }}>
+            취소
+          </Button>
+          {groupAddDialog.mode === 'site' ? (
+            <Button
+              onClick={() => {
+                handleAddGroupSite();
+                setGroupAddDialog({ open: false, mode: 'site' });
+              }}
+              variant="contained"
+              sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#45a049' } }}
+            >
+              추가
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                handleAddGroupCustom();
+                setGroupAddDialog({ open: false, mode: 'custom' });
+              }}
+              variant="contained"
+              sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#45a049' } }}
+            >
+              추가
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 
