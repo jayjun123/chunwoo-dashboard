@@ -1906,7 +1906,7 @@ const HyunjangSch = () => {
               
               {/* 간트 차트 행들 */}
               <Box sx={{ width: '100%' }}>
-                {ganttItems.map((item) => (
+                {ganttItems.map((item, index) => (
                   <Box 
                     key={item.id} 
                     sx={{ 
@@ -1986,7 +1986,7 @@ const HyunjangSch = () => {
                             pointerEvents: 'none'
                           }}
                         >
-                          {ganttItems.findIndex(i => i.id === item.id) + 1}
+                          {index + 1}
                         </Typography>
                       </Box>
                       <TextField
