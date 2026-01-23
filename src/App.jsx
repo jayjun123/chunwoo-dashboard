@@ -251,6 +251,8 @@ const EstimateAnalysis = React.lazy(() => import('./pages/EstimateAnalysis'));
 const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const NotificationCrawler = React.lazy(() => import('./components/NotificationCrawler'));
 const HyunjangSch = React.lazy(() => import('./pages/HyunjangSch'));
+const AISummary = React.lazy(() => import('./pages/AISummary'));
+const MailDashboard = React.lazy(() => import('./pages/MailDashboard'));
 
 const App = React.memo(() => {
   // 아이디어패드 상태
@@ -1018,6 +1020,26 @@ const App = React.memo(() => {
                               </Suspense>
                             </Layout>
                           </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/ai-summary"
+                        element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <AISummary />
+                              </Suspense>
+                            </Layout>
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/mail-dashboard"
+                        element={
+                          <Suspense fallback={<LoadingSpinner />}>
+                            <MailDashboard />
+                          </Suspense>
                         }
                       />
                       <Route

@@ -44,6 +44,7 @@ import {
   Sort as SortIcon,
   Business as BusinessIcon,
   Assignment as AssignmentIcon,
+  AutoAwesome as AutoAwesomeIcon,
   NavigateBefore as NavigateBeforeIcon,
   NavigateNext as NavigateNextIcon,
   FirstPage as FirstPageIcon,
@@ -1150,6 +1151,33 @@ const Estimates = () => {
           </Paper>
         )}
 
+        <Paper
+          onClick={() => navigate('/ai-summary')}
+          sx={{
+            p: 1.5,
+            bgcolor: '#232734',
+            border: '1px solid #3b82f6',
+            borderRadius: 2,
+            minWidth: 180,
+            flex: '0 0 auto',
+            cursor: 'pointer',
+            '&:hover': {
+              bgcolor: '#2a2f3a',
+              border: '1px solid #60a5fa'
+            }
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <AutoAwesomeIcon sx={{ color: '#60a5fa', fontSize: '1.2rem' }} />
+            <Typography variant="body2" sx={{ color: '#bbb', fontSize: '0.9rem' }}>
+              AI 메일 요약
+            </Typography>
+          </Box>
+          <Typography variant="body2" sx={{ color: '#9aa4b2' }}>
+            클릭해서 확인
+          </Typography>
+        </Paper>
+
         {/* 미제출 현장명 목록 */}
         {smartCardStats.pendingSiteNames.length > 0 && (
           <Paper sx={{ 
@@ -1761,7 +1789,6 @@ const Estimates = () => {
                           alert('수주상태 업데이트에 실패했습니다.');
                         }
                       }}
-                      sx={{ cursor: 'pointer' }}
                     />
                 </TableCell>
                 <TableCell sx={{ color: '#fff' }}>{estimate.notes}</TableCell>
