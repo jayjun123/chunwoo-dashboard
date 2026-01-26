@@ -288,53 +288,276 @@ const Estimates = () => {
     }
   }, [estimates, location.state?.selectedEstimateId, navigate, location.pathname]);
 
+  // 거래처관리에서 이름으로 거래처 정보 조회
+  const getVendorInfoByName = async (name) => {
+    if (!name || !name.trim()) return null;
+    
+    try {
+      console.log('🔍 거래처관리에서 이름으로 검색:', name);
+      
+      // vendors 컬렉션에서 해당 이름으로 검색
+      const vendorsQuery = query(collection(db, 'vendors'), where('name', '==', name.trim()));
+      const querySnapshot = await getDocs(vendorsQuery);
+      
+      if (!querySnapshot.empty) {
+        // 첫 번째 매칭 결과 사용 (같은 이름이 여러 개일 경우 첫 번째)
+        const vendorDoc = querySnapshot.docs[0];
+        const vendorData = vendorDoc.data();
+        console.log('✅ 거래처관리에서 거래처 정보 찾음:', vendorData);
+        return {
+          id: vendorDoc.id, // 문서 ID 추가
+          name: vendorData.name || '',
+          position: vendorData.position || '',
+          companyName: vendorData.companyName || '',
+          email: vendorData.email || ''
+        };
+      } else {
+        console.log('⚠️ 거래처관리에서 거래처 정보를 찾을 수 없음:', name);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ 거래처관리 조회 실패:', error);
+      return null;
+    }
+  };
+
+  // 거래처관리에서 이메일로 거래처 정보 조회
+  const getVendorInfoByEmail = async (email) => {
+    if (!email || !email.trim()) return null;
+    
+    try {
+      console.log('🔍 거래처관리에서 이메일로 검색:', email);
+      
+      // vendors 컬렉션에서 해당 이메일로 검색
+      const vendorsQuery = query(collection(db, 'vendors'), where('email', '==', email.trim()));
+      const querySnapshot = await getDocs(vendorsQuery);
+      
+      if (!querySnapshot.empty) {
+        // 첫 번째 매칭 결과 사용
+        const vendorDoc = querySnapshot.docs[0];
+        const vendorData = vendorDoc.data();
+        console.log('✅ 거래처관리에서 이메일로 거래처 정보 찾음:', vendorData);
+        return {
+          id: vendorDoc.id,
+          name: vendorData.name || '',
+          position: vendorData.position || '',
+          companyName: vendorData.companyName || '',
+          email: vendorData.email || ''
+        };
+      } else {
+        console.log('⚠️ 거래처관리에서 이메일로 거래처 정보를 찾을 수 없음:', email);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ 거래처관리 이메일 조회 실패:', error);
+      return null;
+    }
+  };
+
   // AI 메일 요약 페이지에서 전달된 메일 데이터 처리
   useEffect(() => {
-    if (location.state?.fromAISummary && location.state?.mailData && location.state.mailData.length > 0) {
-      console.log('AI 메일 요약에서 전달된 데이터:', location.state.mailData);
-      
-      // 첫 번째 메일 데이터로 폼 채우기
-      const mail = location.state.mailData[0];
-      
-      // 메일 데이터를 견적 폼 데이터로 변환
-      let receptionDate = getKoreanDate();
-      if (mail.receivedAt) {
-        try {
-          const date = mail.receivedAt instanceof Date ? mail.receivedAt : new Date(mail.receivedAt);
-          if (!isNaN(date.getTime())) {
-            receptionDate = date.toISOString().split('T')[0];
+    const processMailData = async () => {
+      if (location.state?.fromAISummary && location.state?.mailData && location.state.mailData.length > 0) {
+        console.log('AI 메일 요약에서 전달된 데이터:', location.state.mailData);
+        
+        // 첫 번째 메일 데이터로 폼 채우기
+        const mail = location.state.mailData[0];
+        console.log('📧 처리할 메일 데이터:', {
+          senderName: mail.senderName,
+          senderEmail: mail.senderEmail,
+          companyName: mail.companyName,
+          subject: mail.subject,
+          summary: mail.summary
+        });
+        
+        // 메일 데이터를 견적 폼 데이터로 변환
+        let receptionDate = getKoreanDate();
+        if (mail.receivedAt) {
+          try {
+            const date = mail.receivedAt instanceof Date ? mail.receivedAt : new Date(mail.receivedAt);
+            if (!isNaN(date.getTime())) {
+              receptionDate = date.toISOString().split('T')[0];
+            }
+          } catch (e) {
+            console.error('날짜 변환 실패:', e);
           }
-        } catch (e) {
-          console.error('날짜 변환 실패:', e);
         }
+        
+        // 발신자 이름 추출
+        // senderName 형식: "이름 <email@domain.com>" 또는 "이름" 또는 이메일 주소만
+        let senderName = '';
+        if (mail.senderName) {
+          // "이름 <email@domain.com>" 형식에서 이름만 추출
+          const nameMatch = mail.senderName.match(/^([^<]+)/);
+          if (nameMatch) {
+            senderName = nameMatch[1].trim();
+          } else {
+            senderName = mail.senderName.trim();
+          }
+        } else if (mail.senderEmail) {
+          // 이메일 주소에서 이름 부분 추출 (예: "anjk2266@naver.com" -> "anjk2266")
+          senderName = mail.senderEmail.split('@')[0];
+        }
+        
+        console.log('👤 발신자 이름 추출:', {
+          originalSenderName: mail.senderName,
+          extractedSenderName: senderName,
+          senderEmail: mail.senderEmail
+        });
+        
+        // 거래처관리에서 검색 (이름 우선, 없으면 이메일로)
+        let vendorInfo = null;
+        if (senderName && senderName.trim()) {
+          vendorInfo = await getVendorInfoByName(senderName.trim());
+          console.log('🔍 거래처 검색 결과 (이름으로):', {
+            searchName: senderName.trim(),
+            vendorInfo: vendorInfo,
+            hasId: !!(vendorInfo?.id),
+            hasEmail: !!(vendorInfo?.email)
+          });
+        }
+        
+        // 이름으로 찾지 못했고 이메일이 있으면 이메일로 검색
+        if (!vendorInfo && mail.senderEmail && mail.senderEmail.trim()) {
+          vendorInfo = await getVendorInfoByEmail(mail.senderEmail.trim());
+          console.log('🔍 거래처 검색 결과 (이메일로):', {
+            searchEmail: mail.senderEmail.trim(),
+            vendorInfo: vendorInfo,
+            hasId: !!(vendorInfo?.id),
+            hasEmail: !!(vendorInfo?.email)
+          });
+        }
+        
+        if (!vendorInfo) {
+          console.log('⚠️ 거래처 검색 실패 (이름과 이메일 모두 시도했으나 찾지 못함)');
+        }
+        
+        // 의뢰자 필드 구성: 이름 + 직책 (거래처관리에서 찾은 경우, 괄호 없이)
+        let requester = senderName;
+        if (vendorInfo && vendorInfo.position) {
+          requester = `${vendorInfo.name} ${vendorInfo.position}`;
+        } else {
+          requester = senderName;
+        }
+        
+        // 회사명: 거래처관리에서 찾은 경우 우선 사용, 없으면 메일의 companyName
+        const company = vendorInfo?.companyName || mail.companyName || '';
+        
+        // 요청내용: summary가 "요약실패" 또는 "요약 실패"가 아니고 유효한 경우에만 사용, 아니면 빈칸
+        let requestContent = '';
+        const summaryText = mail.summary ? mail.summary.trim() : '';
+        
+        // "요약실패", "요약 실패" 등 다양한 변형 체크 (대소문자 무시)
+        const normalizedSummary = summaryText.toLowerCase().replace(/\s+/g, '');
+        const isSummaryFailed = summaryText && (
+          normalizedSummary === '요약실패' ||
+          normalizedSummary === 'summaryfailed' ||
+          normalizedSummary.startsWith('요약실패') ||
+          summaryText === '요약실패' ||
+          summaryText === '요약 실패' ||
+          summaryText.toLowerCase() === 'summary failed'
+        );
+        
+        console.log('요청내용 체크:', {
+          originalSummary: mail.summary,
+          summaryText: summaryText,
+          normalizedSummary: normalizedSummary,
+          isSummaryFailed: isSummaryFailed
+        });
+        
+        if (summaryText && !isSummaryFailed) {
+          requestContent = summaryText;
+        } else {
+          requestContent = ''; // 요약실패인 경우 빈칸
+        }
+        
+        // 비고: 메일 주소 (거래처관리에서 찾은 이메일 우선, 없으면 메일의 senderEmail)
+        const email = vendorInfo?.email || mail.senderEmail || '';
+        const notes = email ? `메일 주소: ${email}` : '';
+        
+        // 거래처관리에 이메일 업데이트 (거래처를 찾았고 메일의 이메일이 있는 경우)
+        console.log('📧 이메일 업데이트 체크:', {
+          vendorInfo: vendorInfo,
+          vendorId: vendorInfo?.id,
+          mailSenderEmail: mail.senderEmail,
+          vendorEmail: vendorInfo?.email,
+          shouldUpdate: vendorInfo && vendorInfo.id && mail.senderEmail && mail.senderEmail.trim()
+        });
+        
+        if (vendorInfo && vendorInfo.id && mail.senderEmail && mail.senderEmail.trim()) {
+          try {
+            const mailEmail = mail.senderEmail.trim();
+            // 거래처관리의 이메일이 없거나 다르면 업데이트
+            if (!vendorInfo.email || vendorInfo.email !== mailEmail) {
+              console.log('📧 거래처관리 이메일 업데이트 시작:', {
+                vendorId: vendorInfo.id,
+                vendorName: vendorInfo.name,
+                oldEmail: vendorInfo.email || '(없음)',
+                newEmail: mailEmail
+              });
+              
+              await updateDoc(doc(db, 'vendors', vendorInfo.id), {
+                email: mailEmail
+              });
+              
+              console.log('✅ 거래처관리 이메일 업데이트 완료');
+              
+              // 스낵바로 사용자에게 알림
+              setSnackbar({
+                open: true,
+                message: `거래처관리에 이메일 주소(${mailEmail})가 연동되었습니다.`,
+                severity: 'success'
+              });
+            } else {
+              console.log('ℹ️ 거래처관리 이메일이 이미 동일함:', vendorInfo.email);
+            }
+          } catch (error) {
+            console.error('❌ 거래처관리 이메일 업데이트 실패:', error);
+            setSnackbar({
+              open: true,
+              message: `거래처관리 이메일 업데이트 실패: ${error.message}`,
+              severity: 'error'
+            });
+            // 업데이트 실패해도 계속 진행
+          }
+        } else {
+          console.log('⚠️ 이메일 업데이트 조건 불만족:', {
+            hasVendorInfo: !!vendorInfo,
+            hasVendorId: !!(vendorInfo?.id),
+            hasMailEmail: !!(mail.senderEmail && mail.senderEmail.trim())
+          });
+        }
+        
+        const mailToEstimateData = {
+          receptionDate: receptionDate,
+          type: '견적',
+          requester: requester,
+          submissionMethod: '메일',
+          customSubmissionMethod: '',
+          company: company,
+          siteName: mail.subject || '',
+          requestContent: requestContent,
+          submissionDeadline: '',
+          submissionStatus: '제출대기',
+          notes: notes,
+          contractStatus: '미수주'
+        };
+        
+        console.log('변환된 견적 데이터:', mailToEstimateData);
+        console.log('거래처 정보:', vendorInfo);
+        
+        // 폼 데이터 설정
+        setFormData(mailToEstimateData);
+        
+        // 다이얼로그 열기
+        setDialogOpen(true);
+        
+        // location.state 초기화 (뒤로가기 시 중복 실행 방지)
+        navigate(location.pathname, { replace: true });
       }
-      
-      const mailToEstimateData = {
-        receptionDate: receptionDate,
-        type: '견적',
-        requester: mail.senderName || mail.senderEmail || '',
-        submissionMethod: '메일',
-        customSubmissionMethod: '',
-        company: mail.companyName || '',
-        siteName: mail.subject || '',
-        requestContent: mail.summary || mail.subject || '',
-        submissionDeadline: '',
-        submissionStatus: '제출대기',
-        notes: mail.senderEmail ? `메일 주소: ${mail.senderEmail}` : '',
-        contractStatus: '미수주'
-      };
-      
-      console.log('변환된 견적 데이터:', mailToEstimateData);
-      
-      // 폼 데이터 설정
-      setFormData(mailToEstimateData);
-      
-      // 다이얼로그 열기
-      setDialogOpen(true);
-      
-      // location.state 초기화 (뒤로가기 시 중복 실행 방지)
-      navigate(location.pathname, { replace: true });
-    }
+    };
+    
+    processMailData();
   }, [location.state?.fromAISummary, location.state?.mailData, navigate, location.pathname]);
 
   // 모바일 스와이프 뒤로가기 비활성화 (안전한 방법)
