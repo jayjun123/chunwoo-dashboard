@@ -288,6 +288,55 @@ const Estimates = () => {
     }
   }, [estimates, location.state?.selectedEstimateId, navigate, location.pathname]);
 
+  // AI 메일 요약 페이지에서 전달된 메일 데이터 처리
+  useEffect(() => {
+    if (location.state?.fromAISummary && location.state?.mailData && location.state.mailData.length > 0) {
+      console.log('AI 메일 요약에서 전달된 데이터:', location.state.mailData);
+      
+      // 첫 번째 메일 데이터로 폼 채우기
+      const mail = location.state.mailData[0];
+      
+      // 메일 데이터를 견적 폼 데이터로 변환
+      let receptionDate = getKoreanDate();
+      if (mail.receivedAt) {
+        try {
+          const date = mail.receivedAt instanceof Date ? mail.receivedAt : new Date(mail.receivedAt);
+          if (!isNaN(date.getTime())) {
+            receptionDate = date.toISOString().split('T')[0];
+          }
+        } catch (e) {
+          console.error('날짜 변환 실패:', e);
+        }
+      }
+      
+      const mailToEstimateData = {
+        receptionDate: receptionDate,
+        type: '견적',
+        requester: mail.senderName || mail.senderEmail || '',
+        submissionMethod: '메일',
+        customSubmissionMethod: '',
+        company: mail.companyName || '',
+        siteName: mail.subject || '',
+        requestContent: mail.summary || mail.subject || '',
+        submissionDeadline: '',
+        submissionStatus: '제출대기',
+        notes: mail.senderEmail ? `메일 주소: ${mail.senderEmail}` : '',
+        contractStatus: '미수주'
+      };
+      
+      console.log('변환된 견적 데이터:', mailToEstimateData);
+      
+      // 폼 데이터 설정
+      setFormData(mailToEstimateData);
+      
+      // 다이얼로그 열기
+      setDialogOpen(true);
+      
+      // location.state 초기화 (뒤로가기 시 중복 실행 방지)
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state?.fromAISummary, location.state?.mailData, navigate, location.pathname]);
+
   // 모바일 스와이프 뒤로가기 비활성화 (안전한 방법)
   useEffect(() => {
     if (isMobile) {
