@@ -64,7 +64,7 @@
 
 [context.production.environment]
   VITE_APP_ENV = "production"
-  NAS_API_URL = "http://chunwoo.iptime.org:8080"
+  NAS_API_URL = "http://chunwoo.iptime.org:3000"
   VITE_FIREBASE_API_KEY = "AIzaSyATCGXGD2_teiJFdpng9J2_fvZRItPef0w"
   VITE_FIREBASE_AUTH_DOMAIN = "chunwooo-edf9f.firebaseapp.com"
   VITE_FIREBASE_PROJECT_ID = "chunwooo-edf9f"

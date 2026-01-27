@@ -6,7 +6,7 @@ const http = require('http');
 
 exports.handler = async function(event, context) {
   // NAS API URL (HTTP)
-  const NAS_API_URL = process.env.NAS_API_URL || 'http://chunwoo.iptime.org:8080';
+  const NAS_API_URL = process.env.NAS_API_URL || 'http://chunwoo.iptime.org:3000';
   
   // CORS 헤더
   const headers = {
