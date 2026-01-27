@@ -1,0 +1,22 @@
+chunwoo.iptime.org {
+    # 내부 API 서버로 프록시
+    reverse_proxy localhost:3000
+    
+    # CORS 헤더 추가
+    header {
+        Access-Control-Allow-Origin *
+        Access-Control-Allow-Methods "GET, POST, PATCH, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization"
+    }
+    
+    # 로그 설정
+    log {
+        output file /volume2/공유폴더/PLAYwithME/my-nas-api/caddy.log
+        format console
+    }
+    
+    # 자동 HTTPS (Let's Encrypt)
+    tls {
+        email fire8803@naver.com
+    }
+}
