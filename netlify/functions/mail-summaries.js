@@ -1,7 +1,10 @@
 // Netlify Function: NAS API 프록시
 // HTTPS 프론트엔드에서 HTTP NAS API를 호출하기 위한 서버사이드 프록시
 
-export async function handler(event, context) {
+const https = require('https');
+const http = require('http');
+
+exports.handler = async function(event, context) {
   // NAS API URL (HTTP)
   const NAS_API_URL = process.env.NAS_API_URL || 'http://chunwoo.iptime.org:8080';
   
@@ -23,18 +26,32 @@ export async function handler(event, context) {
   }
 
   try {
-    const response = await fetch(`${NAS_API_URL}/mail-summaries`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    const data = await new Promise((resolve, reject) => {
+      const url = `${NAS_API_URL}/mail-summaries`;
+      console.log('Fetching from:', url);
+      
+      http.get(url, (res) => {
+        let body = '';
+        
+        res.on('data', (chunk) => {
+          body += chunk;
+        });
+        
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            try {
+              resolve(JSON.parse(body));
+            } catch (e) {
+              reject(new Error('Invalid JSON response'));
+            }
+          } else {
+            reject(new Error(`NAS API responded with status: ${res.statusCode}`));
+          }
+        });
+      }).on('error', (err) => {
+        reject(err);
+      });
     });
-
-    if (!response.ok) {
-      throw new Error(`NAS API responded with status: ${response.status}`);
-    }
-
-    const data = await response.json();
 
     return {
       statusCode: 200,
@@ -53,4 +70,4 @@ export async function handler(event, context) {
       }),
     };
   }
-}
+};
