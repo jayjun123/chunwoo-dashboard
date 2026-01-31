@@ -1255,7 +1255,7 @@ const CustomSchedule = () => {
           tabIndex={0}
           sx={{ 
             p: 0, 
-            height: isMobile ? 'calc(100vh - 100px)' : 'calc(90vh - 320px)',
+            height: isMobile ? 'calc(100vh - 100px)' : 'calc(100vh - 180px)',
             width: '100%',
             mx: 0,
             px: 0,

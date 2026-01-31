@@ -1144,12 +1144,13 @@ const CustomCalendar = (props) => {
                           className="calendar-events"
                           sx={{
                             flex: 1,
+                            minHeight: 0,
                             display: 'flex',
                             flexDirection: 'column',
                             gap: { xs: 0.1, md: 0.3 },
                             overflowY: 'auto',
                             overflowX: 'hidden',
-                            maxHeight: { xs: '280px', md: '240px' },
+                            maxHeight: (viewMode === 'week' || viewMode === '3days') ? 'none' : { xs: '280px', md: '240px' },
                             margin: 0,
                             padding: 0,
                             boxSizing: 'border-box',
