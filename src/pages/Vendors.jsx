@@ -47,11 +47,13 @@ import {
   ArrowDownward as ArrowDownwardIcon,
   Business as BusinessIcon,
   OpenInNew as OpenInNewIcon,
-  Clear as ClearIcon
+  Clear as ClearIcon,
+  Sync as SyncIcon
 } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import * as XLSX from 'xlsx';
+import { fetchBidResultsForBids } from '../api/g2bNara';
 
 const Vendors = () => {
   const theme = useTheme();
@@ -72,7 +74,8 @@ const Vendors = () => {
     quantity: '',
     note: '',
     contractStatus: '미수주', // 수주여부 추가
-    companyTypes: ['AL창호'] // 업종 추가
+    companyTypes: ['AL창호'], // 업종 추가
+    naraAnnouncementNo: '' // 나라장터 공고번호 (개찰결과 연동용)
   });
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -111,6 +114,9 @@ const Vendors = () => {
   // 정렬 상태
   const [sortField, setSortField] = useState('bidDate');
   const [sortDirection, setSortDirection] = useState('desc');
+
+  // 개찰결과 자동 가져오기 상태
+  const [fetchingG2b, setFetchingG2b] = useState(false);
   
   // 정렬 함수
   const handleSort = (field) => {
@@ -430,7 +436,8 @@ const Vendors = () => {
         quantity: vendor.quantity || '',
         note: vendor.note || '',
         contractStatus: vendor.contractStatus || '미수주',
-        companyTypes: companyTypes
+        companyTypes: companyTypes,
+        naraAnnouncementNo: vendor.naraAnnouncementNo || ''
       });
     } else {
       setEditingVendor(null);
@@ -445,6 +452,7 @@ const Vendors = () => {
         note: '',
         contractStatus: '미수주',
         companyTypes: filteredByCompanyType === '천우건업(주)' ? ['천우건업(주)'] : ['AL창호'],
+        naraAnnouncementNo: '',
         // 천우건업(주) 전용 필드들
         bidRate: '',
         bidAmount: '',
@@ -461,23 +469,24 @@ const Vendors = () => {
     setEditingVendor(null);
     // formData 초기화
     setFormData({
-      companyName: '',
-      bidDate: '',
-      siteName: '',
-      winningCompany: '',
-      amount: '',
-      item: '',
-      quantity: '',
-      note: '',
-      contractStatus: '미수주',
-      companyTypes: ['AL창호'],
-      // 천우건업(주) 전용 필드들
-      bidRate: '',
-      bidAmount: '',
-      resultRank: '',
-      winningAmount: '',
-      winningRate: ''
-    });
+        companyName: '',
+        bidDate: '',
+        siteName: '',
+        winningCompany: '',
+        amount: '',
+        item: '',
+        quantity: '',
+        note: '',
+        contractStatus: '미수주',
+        companyTypes: ['AL창호'],
+        naraAnnouncementNo: '',
+        // 천우건업(주) 전용 필드들
+        bidRate: '',
+        bidAmount: '',
+        resultRank: '',
+        winningAmount: '',
+        winningRate: ''
+      });
   };
 
   const handleSubmit = async (e) => {
@@ -550,6 +559,7 @@ const Vendors = () => {
       note: vendor.note || '',
       contractStatus: vendor.contractStatus || '미수주',
       companyTypes: companyTypes,
+      naraAnnouncementNo: vendor.naraAnnouncementNo || '',
       // 천우건업(주) 전용 필드들
       bidRate: vendor.bidRate || '',
       bidAmount: vendor.bidAmount || '',
@@ -1122,6 +1132,67 @@ const Vendors = () => {
     }
   };
 
+  // 개찰결과 자동 가져오기 (천우건업 투찰 건에 대해 나라장터 API로 결과 조회 후 Firebase 업데이트)
+  const handleFetchG2bResults = async () => {
+    // 테이블 필터와 동일: registeredCompanies 기준 + bid의 companyName/companyTypes
+    const isChunwooBid = (v) => {
+      const types = v.companyTypes || (v.companyName === '천우건업(주)' ? ['천우건업(주)'] : []);
+      if (types.includes('천우건업(주)')) return true;
+      const company = registeredCompanies.find((c) => c.companyName === v.companyName);
+      const companyTypes = company?.companyTypes || (company?.companyType ? [company.companyType] : []);
+      return companyTypes.includes('천우건업(주)');
+    };
+    const chunwooBids = vendors.filter(
+      (v) => isChunwooBid(v) && v.naraAnnouncementNo && String(v.naraAnnouncementNo).trim()
+    );
+    if (chunwooBids.length === 0) {
+      const chunwooTotal = vendors.filter(isChunwooBid).length;
+      if (chunwooTotal === 0) {
+        alert('천우건업(주) 투찰 건이 없습니다. 먼저 입찰을 등록해주세요.');
+      } else {
+        alert(`천우건업(주) 투찰 건 ${chunwooTotal}건 중 나라장터 공고번호가 있는 건이 없습니다.\n각 입찰을 수정하여 "나라장터 공고번호"를 입력해주세요.`);
+      }
+      return;
+    }
+    setFetchingG2b(true);
+    setError(null);
+    try {
+      const results = await fetchBidResultsForBids(chunwooBids);
+      let updated = 0;
+      const errors = [];
+      for (const r of results) {
+        if (r.success && r.data) {
+          const d = r.data;
+          const updatePayload = {
+            updatedAt: new Date(),
+          };
+          if (d.winningCompany != null && d.winningCompany !== '') updatePayload.winningCompany = d.winningCompany;
+          if (d.winningAmount != null) updatePayload.winningAmount = d.winningAmount;
+          if (d.winningRate != null) updatePayload.winningRate = d.winningRate;
+          if (d.resultRank != null) updatePayload.resultRank = d.resultRank;
+          if (Object.keys(updatePayload).length > 1) {
+            await updateDoc(doc(db, 'bids', r.bidId), updatePayload);
+            updated++;
+          }
+        } else if (r.error) {
+          errors.push(`${r.announcementNo}: ${r.error}`);
+        }
+      }
+      await fetchVendors();
+      if (errors.length > 0) {
+        alert(`개찰결과 반영 완료: ${updated}건 업데이트.\n일부 실패: ${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n... 외 ${errors.length - 5}건` : ''}`);
+      } else {
+        alert(`개찰결과 반영 완료: ${updated}건 업데이트되었습니다.`);
+      }
+    } catch (err) {
+      console.error('개찰결과 가져오기 오류:', err);
+      setError(err.message || '개찰결과를 가져오는 중 오류가 발생했습니다.');
+      alert('개찰결과 가져오기 실패: ' + (err.message || '알 수 없는 오류'));
+    } finally {
+      setFetchingG2b(false);
+    }
+  };
+
   // 검색어 초기화
   const handleClearSearch = () => {
     setSearchTerm('');
@@ -1261,6 +1332,25 @@ const Vendors = () => {
                   >
                     관급조달
                   </Button>
+                  {filteredByCompanyType === '천우건업(주)' && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={fetchingG2b ? <CircularProgress size={16} color="inherit" /> : <SyncIcon />}
+                      onClick={handleFetchG2bResults}
+                      disabled={fetchingG2b}
+                      sx={{
+                        borderColor: '#9c27b0',
+                        color: '#9c27b0',
+                        '&:hover': {
+                          borderColor: '#7b1fa2',
+                          bgcolor: 'rgba(156, 39, 176, 0.04)'
+                        }
+                      }}
+                    >
+                      개찰결과 자동 가져오기
+                    </Button>
+                  )}
         </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           {selectedItems.length > 0 && (
@@ -1649,10 +1739,12 @@ const Vendors = () => {
                   >
                     낙찰율
                   </TableCell>
+                  <TableCell sx={{ py: 0.3 }}>나라장터 개찰</TableCell>
                   <TableCell sx={{ py: 0.3 }}>관리</TableCell>
                 </>
               ) : (
                 <>
+                  <TableCell sx={{ py: 0.3 }}>나라장터 개찰</TableCell>
                   <TableCell sx={{ py: 0.3 }}>관리</TableCell>
                 </>
               )}
@@ -1894,6 +1986,27 @@ const Vendors = () => {
                         vendor.winningRate || '-'
                       )}
                     </TableCell>
+                    <TableCell sx={{ py: 0.3 }}>
+                      {vendor.naraAnnouncementNo ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<OpenInNewIcon fontSize="small" />}
+                          onClick={() => {
+                            const no = String(vendor.naraAnnouncementNo).trim();
+                            const url = no
+                              ? `https://www.g2b.go.kr/ep/invitation/publish/bidPblancListSrch.do?bidPblancNo=${encodeURIComponent(no)}`
+                              : 'https://www.g2b.go.kr/ep/invitation/publish/bidPblancListSrch.do';
+                            window.open(url, '_blank');
+                          }}
+                          sx={{ fontSize: '0.75rem', py: 0.25 }}
+                        >
+                          개찰보기
+                        </Button>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">-</Typography>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <IconButton
                         size="small"
@@ -1913,6 +2026,27 @@ const Vendors = () => {
                   </>
                 ) : (
                   <>
+                    <TableCell sx={{ py: 0.3 }}>
+                      {vendor.naraAnnouncementNo ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<OpenInNewIcon fontSize="small" />}
+                          onClick={() => {
+                            const no = String(vendor.naraAnnouncementNo).trim();
+                            const url = no
+                              ? `https://www.g2b.go.kr/ep/invitation/publish/bidPblancListSrch.do?bidPblancNo=${encodeURIComponent(no)}`
+                              : 'https://www.g2b.go.kr/ep/invitation/publish/bidPblancListSrch.do';
+                            window.open(url, '_blank');
+                          }}
+                          sx={{ fontSize: '0.75rem', py: 0.25 }}
+                        >
+                          개찰보기
+                        </Button>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">-</Typography>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <IconButton
                         size="small"
@@ -2293,6 +2427,23 @@ const Vendors = () => {
               margin="normal"
               multiline
               rows={2}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: '#444' },
+                  '&:hover fieldset': { borderColor: '#666' },
+                  '&.Mui-focused fieldset': { borderColor: '#4caf50' }
+                },
+                '& .MuiInputLabel-root': { color: '#ccc' },
+                '& .MuiInputBase-input': { color: '#fff' }
+              }}
+            />
+            <TextField
+              fullWidth
+              label="나라장터 공고번호"
+              value={formData.naraAnnouncementNo || ''}
+              onChange={(e) => setFormData({ ...formData, naraAnnouncementNo: e.target.value.trim() })}
+              margin="normal"
+              placeholder="개찰결과 보기용 (선택) - 나라장터 공고번호 입력"
               sx={{
                 '& .MuiOutlinedInput-root': {
                   '& fieldset': { borderColor: '#444' },

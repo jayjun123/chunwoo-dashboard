@@ -198,7 +198,8 @@ const ZoomableChart = ({ children, title, isMobile }) => {
           height: 'calc(100% - 60px)',
           overflow: 'hidden',
           position: 'relative',
-          touchAction: 'none'
+          touchAction: 'none',
+          pr: '40px'
         }}
       >
         <Box
@@ -2050,11 +2051,18 @@ const Progress = () => {
               <ResponsiveContainer width="100%" minWidth="100vw" height={isMobile ? 300 : 600} minHeight={isMobile ? 200 : 500} style={{ margin: '0 auto', display: 'flex', justifyContent: 'center', width: '100%', maxWidth: 'none' }}>
                 <BarChart
                   data={getMonthChartData}
-                  margin={{ top: 80, right: isMobile ? 20 : 40, left: isMobile ? 10 : 20, bottom: 20 }}
-                  barCategoryGap={isMobile ? "20%" : "10%"}
-                  barSize={30}
+                  margin={{ top: 80, right: isMobile ? 48 : 72, left: isMobile ? 10 : 20, bottom: 20 }}
+                  barCategoryGap={0}
+                  barSize={isMobile ? 10 : 12}
                 >
-                  <XAxis dataKey="name" tick={{ fontSize: isMobile ? 14 : 16 }} />
+                  <XAxis 
+                    dataKey="name" 
+                    tick={{ fontSize: isMobile ? 14 : 16 }} 
+                    interval={0} 
+                    angle={0}
+                    textAnchor="middle"
+                    tickMargin={8}
+                  />
                   <YAxis 
                     tickFormatter={(value) => {
                       if (value >= 100000000) {

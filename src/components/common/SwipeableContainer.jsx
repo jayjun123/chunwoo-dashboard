@@ -93,14 +93,9 @@ const SwipeableContainer = ({ children, enableSwipeBack = true }) => {
       ref={containerRef}
       sx={{
         width: '100%',
-        height: '100%',
         position: 'relative',
-        overflow: 'hidden',
-        touchAction: 'pan-y',
-        // 스와이프 제스처를 위한 추가 스타일
-        WebkitOverflowScrolling: 'touch',
-        msOverflowStyle: 'none',
-        '&::-webkit-scrollbar': { display: 'none' }
+        overflowX: 'hidden',
+        touchAction: 'pan-y'
       }}
     >
       {children}

@@ -218,7 +218,7 @@ const Layout = React.memo(({ children }) => {
     <Box sx={{ 
       display: 'flex', 
       flexDirection: 'column', 
-      minHeight: '90vh', // 100vh에서 90vh로 줄임
+      minHeight: '100vh',
       width: '100%',
       margin: 0,
       padding: 0
@@ -476,7 +476,7 @@ const Layout = React.memo(({ children }) => {
       
       <SwipeableContainer>
         <Box component="main" sx={{ 
-          flexGrow: 1, 
+          flex: 1,
           mt: 0, 
           p: 0, 
           width: '100%',
@@ -487,14 +487,14 @@ const Layout = React.memo(({ children }) => {
           boxSizing: 'border-box', 
           overflowX: 'hidden',
           bgcolor: '#23242a',
-          minHeight: '90vh', // 100vh에서 90vh로 줄임
-          ...(isMobile && { height: '90vh', maxHeight: '90vh' }), // 100vh에서 90vh로 줄임
+          minHeight: '90vh',
           ...(isMobile && { marginTop: '5px' }),
-          // 일정관리 페이지일 때만 특별한 스타일 적용
+          // 일정관리 페이지일 때만 특별한 스타일 적용 (내부 스크롤 유지)
           ...(location.pathname === '/schedule' && !isMobile && {
             marginTop: '60px',
             height: 'calc(90vh - 160px)',
-            maxHeight: 'calc(90vh - 160px)'
+            maxHeight: 'calc(90vh - 160px)',
+            overflowY: 'auto'
           })
         }}>
           {children}

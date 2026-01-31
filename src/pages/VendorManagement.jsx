@@ -1679,8 +1679,12 @@ const VendorManagement = () => {
         disableEnforceFocus
         disableAutoFocus
         disableRestoreFocus
+        sx={{ zIndex: 9999 }}
         PaperProps={{
-          sx: { backgroundColor: '#2a2a2a' }
+          sx: { backgroundColor: '#2a2a2a', position: 'relative', zIndex: 10000 }
+        }}
+        slotProps={{
+          root: { sx: { zIndex: 9999 } }
         }}
       >
         <DialogTitle sx={{ color: '#fff' }}>
