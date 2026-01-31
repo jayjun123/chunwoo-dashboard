@@ -846,16 +846,16 @@ const ConstructionTeam = () => {
 
   return (
     <Box sx={{ 
-      height: '100vh',
+      minHeight: '100vh',
       bgcolor: 'background.default',
       position: 'relative',
       pt: isMobile ? 5.5 : 5.5,
-      overflow: 'hidden'
+      pb: 4
     }}>
       {/* 모바일 사이드바 */}
       <MobileSidebar />
       
-      {/* 메인 콘텐츠 */}
+      {/* 메인 콘텐츠 - 높이 제한 제거하여 페이지 전체 스크롤 가능 */}
       <Container 
         maxWidth={false} 
         sx={{ 
@@ -871,15 +871,10 @@ const ConstructionTeam = () => {
           p: isMobile ? 2 : 3, 
           pb: isMobile ? 4 : 6,
           bgcolor: '#0f1419', 
-          height: 'calc(100vh - 120px)',
           color: '#fff',
-          overflowY: 'auto',
-          WebkitOverflowScrolling: 'touch',
-          overscrollBehavior: 'contain',
-          touchAction: 'pan-y',
           borderRadius: 2,
           boxShadow: 3,
-          // 스크롤바 숨기기
+          // 스크롤바 숨기기 (페이지 스크롤 시)
           '&::-webkit-scrollbar': {
             display: 'none'
           },
@@ -1054,17 +1049,7 @@ const ConstructionTeam = () => {
 
       {/* 시공팀 카드 목록 */}
       <Grid container spacing={3} sx={{
-        pb: 4, // 하단 여백 추가
-        overflowY: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        overscrollBehavior: 'contain',
-        touchAction: 'pan-y', // 세로 스크롤만 허용
-        // 스크롤바 숨기기
-        '&::-webkit-scrollbar': {
-          display: 'none'
-        },
-        scrollbarWidth: 'none',
-        msOverflowStyle: 'none'
+        pb: 4
       }}>
         {teams.map((team) => (
           <Grid item xs={12} md={6} key={team.id}>
