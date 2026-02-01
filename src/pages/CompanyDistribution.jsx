@@ -255,31 +255,51 @@ const CompanyDistribution = () => {
 
   return (
     <Box sx={{ 
-      minHeight: '100vh',
+      height: '100%',
+      minHeight: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      overflowY: 'auto',
+      overflowX: 'hidden',
       bgcolor: 'background.default',
-      position: 'relative'
+      position: 'relative',
+      boxSizing: 'border-box',
+      '&::-webkit-scrollbar': { display: 'none' },
+      scrollbarWidth: 'none',
+      msOverflowStyle: 'none'
     }}>
       {/* 모바일 사이드바 */}
       <MobileSidebar />
       
-      {/* 메인 콘텐츠 */}
+      {/* 메인 콘텐츠 - 보이는 영역에 맞추고 스크롤 */}
       <Container 
         maxWidth={false} 
         sx={{ 
+          flex: 1,
+          minHeight: 0,
           pt: 5.5,
           pb: 3,
           px: 1,
           ml: 0,
           mr: 0,
-          maxWidth: '100%'
+          maxWidth: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
         }}
       >
         <Box sx={{ 
-          minHeight: '100vh', 
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          overflowX: 'hidden',
           bgcolor: '#1a1d21', 
           p: isMobile ? 2 : 3,
           borderRadius: 2,
-          boxShadow: 3
+          boxShadow: 3,
+          '&::-webkit-scrollbar': { display: 'none' },
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none'
     }}>
       {/* 헤더 */}
       <Box sx={{ 

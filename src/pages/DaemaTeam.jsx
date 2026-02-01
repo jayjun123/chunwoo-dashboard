@@ -846,38 +846,52 @@ const ConstructionTeam = () => {
 
   return (
     <Box sx={{ 
-      minHeight: '100vh',
+      height: '100%',
+      minHeight: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      overflowY: 'auto',
+      overflowX: 'hidden',
       bgcolor: 'background.default',
       position: 'relative',
       pt: isMobile ? 5.5 : 5.5,
-      pb: 4
+      pb: 4,
+      boxSizing: 'border-box',
+      '&::-webkit-scrollbar': { display: 'none' },
+      scrollbarWidth: 'none',
+      msOverflowStyle: 'none'
     }}>
       {/* 모바일 사이드바 */}
       <MobileSidebar />
       
-      {/* 메인 콘텐츠 - 높이 제한 제거하여 페이지 전체 스크롤 가능 */}
+      {/* 메인 콘텐츠 - 보이는 영역에 맞추고 스크롤 */}
       <Container 
         maxWidth={false} 
         sx={{ 
+          flex: 1,
+          minHeight: 0,
           pt: isMobile ? 2 : 3,
           pb: 3,
           px: isMobile ? 1 : 3,
           ml: isMobile ? 0 : 'auto',
           mr: isMobile ? 0 : 'auto',
-          maxWidth: isMobile ? '100%' : 'none'
+          maxWidth: isMobile ? '100%' : 'none',
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
         <Box sx={{ 
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          overflowX: 'hidden',
           p: isMobile ? 2 : 3, 
           pb: isMobile ? 4 : 6,
           bgcolor: '#0f1419', 
           color: '#fff',
           borderRadius: 2,
           boxShadow: 3,
-          // 스크롤바 숨기기 (페이지 스크롤 시)
-          '&::-webkit-scrollbar': {
-            display: 'none'
-          },
+          '&::-webkit-scrollbar': { display: 'none' },
           scrollbarWidth: 'none',
           msOverflowStyle: 'none'
         }}>
@@ -1047,18 +1061,24 @@ const ConstructionTeam = () => {
         </Box>
       </Box>
 
-      {/* 시공팀 카드 목록 */}
+      {/* 시공팀 카드 목록 - 카드 세로 높이 통일 (김성구팀 박스 크기 기준) */}
       <Grid container spacing={3} sx={{
-        pb: 4
+        pb: 4,
+        alignItems: 'stretch'
       }}>
         {teams.map((team) => (
-          <Grid item xs={12} md={6} key={team.id}>
+          <Grid size={{ xs: 12, md: 2.4 }} key={team.id} sx={{ display: 'flex' }}>
             <Card 
               draggable
               onDragStart={(e) => handleDragStart(e, team)}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, team)}
               sx={{ 
+                width: '100%',
+                minHeight: 440,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
                 bgcolor: '#1a1d21', 
                 border: '1px solid #333',
                 cursor: 'move',
@@ -1069,7 +1089,7 @@ const ConstructionTeam = () => {
                 }
               }}
             >
-              <CardContent>
+              <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                   <Box sx={{ flex: 1 }}>
                     <Typography variant="h6" sx={{ color: '#fff', mb: 1 }}>
@@ -1242,17 +1262,18 @@ const ConstructionTeam = () => {
                       
                       return linkedSites.length > 0 || directSites.length > 0;
                     })() ? (
-                      <List sx={{ 
-                        p: 0,
-                        '& .MuiListItem-root': {
-                          py: 0.5,
-                          px: 1,
-                          borderRadius: 1,
-                          '&:hover': {
-                            bgcolor: '#374151'
+                      <Box sx={{ maxHeight: 320, overflowY: 'auto', overflowX: 'hidden', '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                        <List sx={{ 
+                          p: 0,
+                          '& .MuiListItem-root': {
+                            py: 0.5,
+                            px: 1,
+                            borderRadius: 1,
+                            '&:hover': {
+                              bgcolor: '#374151'
+                            }
                           }
-                        }
-                      }}>
+                        }}>
                         {(() => {
                           // 현장관리에서 연결된 현장들
                           const linkedSites = sites.filter(site => {
@@ -1393,7 +1414,8 @@ const ConstructionTeam = () => {
                             })
                           ];
                         })()}
-                      </List>
+                        </List>
+                      </Box>
                     ) : (
                       <Typography variant="body2" sx={{ color: '#666', fontStyle: 'italic' }}>
                         진행 현장 없음
@@ -1722,7 +1744,7 @@ const ConstructionTeam = () => {
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <FormControl fullWidth sx={{ mb: 2 }}>
                   <InputLabel sx={{ color: '#bbb' }}>현재 진행 현장</InputLabel>
                   <Select
@@ -1763,7 +1785,7 @@ const ConstructionTeam = () => {
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
                   label="기타사항"

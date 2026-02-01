@@ -93,8 +93,13 @@ const SwipeableContainer = ({ children, enableSwipeBack = true }) => {
       ref={containerRef}
       sx={{
         width: '100%',
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
         position: 'relative',
         overflowX: 'hidden',
+        overflow: 'hidden',
         touchAction: 'pan-y'
       }}
     >

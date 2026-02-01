@@ -218,7 +218,8 @@ const Layout = React.memo(({ children }) => {
     <Box sx={{ 
       display: 'flex', 
       flexDirection: 'column', 
-      minHeight: '100vh',
+      flex: 1,
+      minHeight: 0,
       width: '100%',
       margin: 0,
       padding: 0
@@ -477,6 +478,8 @@ const Layout = React.memo(({ children }) => {
       <SwipeableContainer>
         <Box component="main" sx={{ 
           flex: 1,
+          minHeight: 0,
+          height: '100%',
           mt: 0, 
           p: 0, 
           width: '100%',
@@ -486,15 +489,25 @@ const Layout = React.memo(({ children }) => {
           padding: 0, 
           boxSizing: 'border-box', 
           overflowX: 'hidden',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
           bgcolor: '#23242a',
-          minHeight: '90vh',
+          // 스크롤바 숨김 (스크롤은 동작)
+          '&::-webkit-scrollbar': { display: 'none' },
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
           ...(isMobile && { marginTop: '5px' }),
-          // 일정관리 페이지일 때만 특별한 스타일 적용 (내부 스크롤 유지)
+          // 일정관리 페이지일 때만 고정 높이 적용
           ...(location.pathname === '/schedule' && !isMobile && {
             marginTop: '60px',
             height: 'calc(90vh - 160px)',
-            maxHeight: 'calc(90vh - 160px)',
-            overflowY: 'auto'
+            maxHeight: 'calc(90vh - 160px)'
+          }),
+          // 시공팀/현장관리 페이지: 보이는 영역에 맞추고 내부 스크롤
+          ...((location.pathname === '/daema-team' || location.pathname === '/company-distribution') && {
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 58px - 56px)'
           })
         }}>
           {children}

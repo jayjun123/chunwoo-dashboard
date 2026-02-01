@@ -47,13 +47,28 @@
   --status-bar-height: env(safe-area-inset-top);
 }
 
+/* 전역 CSS 재설정 */
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden !important; /* 전역 스크롤 방지 */
+  scrollbar-width: none !important; /* Firefox 스크롤바 숨김 */
+  -ms-overflow-style: none !important; /* IE/Edge 스크롤바 숨김 */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#root::-webkit-scrollbar {
+  display: none !important; /* Chrome, Safari, Opera 스크롤바 숨김 */
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
-
-
 
 /* 채팅 메시지 텍스트는 검은색으로 */
 .chat-message-text {
