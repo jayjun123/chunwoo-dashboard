@@ -156,6 +156,18 @@ const WholeList = () => {
     });
   };
 
+  // 날짜 파싱 (Firestore Timestamp 또는 문자열 지원)
+  const parseSiteDate = (value) => {
+    if (value == null || value === '') return null;
+    try {
+      if (typeof value?.toDate === 'function') return value.toDate();
+      const d = new Date(value);
+      return isNaN(d.getTime()) ? null : d;
+    } catch {
+      return null;
+    }
+  };
+
   // 공사기간이 1년을 넘어가는지 확인하는 함수
   const isLongTermProject = (site) => {
     const startDate = site.startDate ? 
@@ -259,13 +271,15 @@ const WholeList = () => {
         site.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         site.contractType?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      // 시작일 필터링
+      // 시작일 필터링: "시작일 (이후)" → 현장 시작일이 필터 날짜 이상인 것
+      const siteStartDate = parseSiteDate(site.startDate);
       const matchesStartDate = !startDateFilter || 
-        (site.startDate && site.startDate >= startDateFilter);
+        (siteStartDate && siteStartDate >= new Date(startDateFilter + 'T00:00:00'));
       
-      // 종료일 필터링
+      // 종료일 필터링: "종료일 (이전)" → 현장 종료일이 필터 날짜 이하인 것
+      const siteEndDate = parseSiteDate(site.endDate);
       const matchesEndDate = !endDateFilter || 
-        (site.endDate && site.endDate <= endDateFilter);
+        (siteEndDate && siteEndDate <= new Date(endDateFilter + 'T23:59:59.999'));
       
       return matchesSearch && matchesStartDate && matchesEndDate;
     });
