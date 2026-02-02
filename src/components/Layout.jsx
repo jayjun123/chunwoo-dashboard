@@ -503,10 +503,11 @@ const Layout = React.memo(({ children }) => {
             height: 'calc(90vh - 160px)',
             maxHeight: 'calc(90vh - 160px)'
           }),
-          // 시공팀/현장관리 페이지: 보이는 영역에 맞추고 내부 스크롤
+          // 시공팀/현장관리 페이지: 하단바 바로 위까지 높이 채우고 내부 스크롤
           ...((location.pathname === '/daema-team' || location.pathname === '/company-distribution') && {
             display: 'flex',
             flexDirection: 'column',
+            height: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 58px - 56px)',
             maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 58px - 56px)'
           })
         }}>
