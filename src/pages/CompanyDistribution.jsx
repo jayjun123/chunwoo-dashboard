@@ -101,6 +101,18 @@ const CompanyDistribution = () => {
     return Math.round(adjustedFull * ratio);
   };
 
+  // 회사명 정규화: "(주)"와 "㈜" 등을 같은 키로 묶기 위함
+  const normalizeCompanyKey = (name) => {
+    if (!name || name === '미지정') return name || '미지정';
+    const s = String(name).trim();
+    return s.replace(/\(주\)/g, '㈜').replace(/\s+/g, '');
+  };
+  // 표시용 회사명 통일 (㈜ → (주)로 통일해 한 카드에 하나의 이름으로 표시)
+  const normalizeCompanyDisplayName = (name) => {
+    if (!name || name === '미지정') return name || '미지정';
+    return String(name).trim().replace(/㈜/g, '(주)');
+  };
+
   // 회사별 현장 분포 계산
   const companyDistribution = useMemo(() => {
     const startOfYear = new Date(selectedYear, 0, 1, 0, 0, 0);
@@ -117,24 +129,25 @@ const CompanyDistribution = () => {
       return true;
     });
 
-    // 회사별로 그룹화 (연도별 공사기간 비율 적용)
+    // 회사별로 그룹화 (정규화된 회사명 키 사용, 표시명은 통일)
     const companyMap = new Map();
 
     yearSites.forEach(site => {
-      const companyName = site.companyName || '미지정';
+      const rawCompanyName = site.companyName || '미지정';
+      const companyKey = normalizeCompanyKey(rawCompanyName);
 
       // 미정 현장은 계약금액에 포함하지 않음
       if (site.status === '미정') {
-        if (!companyMap.has(companyName)) {
-          companyMap.set(companyName, {
-            companyName,
+        if (!companyMap.has(companyKey)) {
+          companyMap.set(companyKey, {
+            companyName: normalizeCompanyDisplayName(rawCompanyName),
             sites: [],
             totalContractAmount: 0,
             siteCount: 0,
             statusCounts: { '예정': 0, '진행중': 0, '완료': 0, '미정': 0 }
           });
         }
-        const company = companyMap.get(companyName);
+        const company = companyMap.get(companyKey);
         company.sites.push({
           id: site.id,
           name: site.name,
@@ -152,16 +165,16 @@ const CompanyDistribution = () => {
       // 해당 연도 공사기간 비율로 나눈 계약금액
       const proportionalAmount = getProportionalContractAmount(site, startOfYear, endOfYear);
 
-      if (!companyMap.has(companyName)) {
-        companyMap.set(companyName, {
-          companyName,
+      if (!companyMap.has(companyKey)) {
+        companyMap.set(companyKey, {
+          companyName: normalizeCompanyDisplayName(rawCompanyName),
           sites: [],
           totalContractAmount: 0,
           siteCount: 0,
           statusCounts: { '예정': 0, '진행중': 0, '완료': 0, '미정': 0 }
         });
       }
-      const company = companyMap.get(companyName);
+      const company = companyMap.get(companyKey);
       company.sites.push({
         id: site.id,
         name: site.name,
