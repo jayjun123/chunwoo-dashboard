@@ -1144,8 +1144,9 @@ const ConstructionTeam = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                       <Typography variant="body2" sx={{ color: '#43e97b', fontWeight: 'bold' }}>
                         진행 현장 ({(() => {
-                          // 현장관리에서 연결된 현장들
+                          // 현장관리에서 연결된 현장들 (완료된 건 제외)
                           const linkedSites = sites.filter(site => {
+                            if (['완료', '종료', '완료됨', '종료됨', 'completed', 'finished'].includes(site.status)) return false;
                             // 진행중 상태 판별 (더 포괄적으로)
                             const isOngoing = site.status === '진행중' || 
                                              site.status === '진행' || 
@@ -1195,8 +1196,11 @@ const ConstructionTeam = () => {
                             return isMatched;
                           });
                           
-                          // 직접 추가한 현장들
-                          const directSites = team.currentSites || [];
+                          // 직접 추가한 현장들 (완료된 현장은 제외)
+                          const directSites = (team.currentSites || []).filter(siteName => {
+                            const s = sites.find(s => s.name === siteName);
+                            return !s || !['완료', '종료', '완료됨', '종료됨', 'completed', 'finished'].includes(s.status);
+                          });
                           
                           // 중복 제거하여 총 개수 계산
                           const allSiteNames = new Set([
@@ -1228,38 +1232,29 @@ const ConstructionTeam = () => {
                       </Tooltip>
                     </Box>
                     {(() => {
-                      // 현장관리에서 연결된 현장들
+                      // 현장관리에서 연결된 현장들 (완료된 건 제외)
                       const linkedSites = sites.filter(site => {
-                        // 진행중 상태 판별 (더 포괄적으로)
-                        const isOngoing = site.status === '진행중' || 
-                                         site.status === '진행' || 
+                        if (['완료', '종료', '완료됨', '종료됨', 'completed', 'finished'].includes(site.status)) return false;
+                        const isOngoing = site.status === '진행중' ||
+                                         site.status === '진행' ||
                                          site.status === '공사중' ||
                                          site.status === '시공중' ||
                                          site.status === 'active' ||
                                          site.status === 'ongoing' ||
                                          (site.status && !['완료', '종료', '완료됨', '종료됨', 'completed', 'finished', '예정', 'scheduled'].includes(site.status));
-                        
-                        // 공사기간 체크 (착공일이 속한 달까지는 표시)
                         const today = new Date();
                         const startDate = parseDate(site.startDate || site.startedAt || site.start || site.start_date);
                         const endDate = parseDate(site.endDate || site.completedAt || site.end || site.end_date);
-                        
-                        // 착공일이 속한 달 계산
                         const startMonth = startDate ? new Date(startDate.getFullYear(), startDate.getMonth(), 1) : null;
                         const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                        
-                        // 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
                         const isWithinStartMonth = !startMonth || startMonth <= currentMonth;
-                        
-                        // 완료일이 지났더라도 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
                         const isWithinPeriod = !endDate || endDate >= today || isWithinStartMonth;
-                        
                         return isOngoing && isWithinPeriod && isTeamMatched(site, team);
                       });
-                      
-                      // 직접 추가한 현장들
-                      const directSites = team.currentSites || [];
-                      
+                      const directSites = (team.currentSites || []).filter(siteName => {
+                        const s = sites.find(s => s.name === siteName);
+                        return !s || !['완료', '종료', '완료됨', '종료됨', 'completed', 'finished'].includes(s.status);
+                      });
                       return linkedSites.length > 0 || directSites.length > 0;
                     })() ? (
                       <Box sx={{ maxHeight: 320, overflowY: 'auto', overflowX: 'hidden', '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
@@ -1275,38 +1270,29 @@ const ConstructionTeam = () => {
                           }
                         }}>
                         {(() => {
-                          // 현장관리에서 연결된 현장들
+                          // 현장관리에서 연결된 현장들 (완료된 건 제외)
                           const linkedSites = sites.filter(site => {
-                            // 진행중 상태 판별 (더 포괄적으로)
-                            const isOngoing = site.status === '진행중' || 
-                                             site.status === '진행' || 
+                            if (['완료', '종료', '완료됨', '종료됨', 'completed', 'finished'].includes(site.status)) return false;
+                            const isOngoing = site.status === '진행중' ||
+                                             site.status === '진행' ||
                                              site.status === '공사중' ||
                                              site.status === '시공중' ||
                                              site.status === 'active' ||
                                              site.status === 'ongoing' ||
                                              (site.status && !['완료', '종료', '완료됨', '종료됨', 'completed', 'finished', '예정', 'scheduled'].includes(site.status));
-                            
-                            // 공사기간 체크 (착공일이 속한 달까지는 표시)
                             const today = new Date();
                             const startDate = parseDate(site.startDate || site.startedAt || site.start || site.start_date);
                             const endDate = parseDate(site.endDate || site.completedAt || site.end || site.end_date);
-                            
-                            // 착공일이 속한 달 계산
                             const startMonth = startDate ? new Date(startDate.getFullYear(), startDate.getMonth(), 1) : null;
                             const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                            
-                            // 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
                             const isWithinStartMonth = !startMonth || startMonth <= currentMonth;
-                            
-                            // 완료일이 지났더라도 착공일이 속한 달이 현재 달과 같거나 미래이면 표시
                             const isWithinPeriod = !endDate || endDate >= today || isWithinStartMonth;
-                            
                             return isOngoing && isWithinPeriod && isTeamMatched(site, team);
                           });
-                          
-                          // 직접 추가한 현장들
-                          const directSites = team.currentSites || [];
-                          
+                          const directSites = (team.currentSites || []).filter(siteName => {
+                            const s = sites.find(s => s.name === siteName);
+                            return !s || !['완료', '종료', '완료됨', '종료됨', 'completed', 'finished'].includes(s.status);
+                          });
                           return [
                             // 기존 연동 현장들
                             ...linkedSites.map(site => (

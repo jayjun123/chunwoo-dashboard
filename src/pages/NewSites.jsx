@@ -7,10 +7,12 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import UploadIcon from '@mui/icons-material/Upload';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import ClearIcon from '@mui/icons-material/Clear';
+import CloseIcon from '@mui/icons-material/Close';
 import MaterialInventory from '../components/MaterialInventory';
 
 import { collection, onSnapshot, query, orderBy, where, getDocs, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../firebase';
 import { addSite, updateSite, deleteSite } from '../api/sites';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -188,6 +190,11 @@ const NewSites = () => {
   const [showHiddenCompleted, setShowHiddenCompleted] = useState(false);
   const [showDistributionView, setShowDistributionView] = useState(false);
 
+  // 계약서 업로드/미리보기
+  const [contractUploading, setContractUploading] = useState(false);
+  const [showContractPreview, setShowContractPreview] = useState(false);
+  const contractInputRef = useRef(null);
+
   // 상태별 카운트 계산
   const statusCounts = useMemo(() => {
     const counts = {
@@ -241,6 +248,11 @@ const NewSites = () => {
       }
     }
   }, [location.search, sites]);
+
+  // 현장 변경 시 계약서 미리보기 닫기
+  useEffect(() => {
+    setShowContractPreview(false);
+  }, [selectedSite?.id]);
 
   // 기성관리 데이터 로드
   useEffect(() => {
@@ -1445,6 +1457,40 @@ const NewSites = () => {
     setShowQuantityDialog(false);
     setQuantityPassword('');
     setQuantityPasswordError('');
+  };
+
+  // 계약서 업로드
+  const handleContractFileChange = async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file || !selectedSite?.id) return;
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const allowed = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+    if (!allowed.includes(ext)) {
+      alert('PDF 또는 이미지 파일(jpg, png, gif, webp)만 업로드할 수 있습니다.');
+      e.target.value = '';
+      return;
+    }
+    setContractUploading(true);
+    try {
+      const path = `sites/${selectedSite.id}/contract.${ext}`;
+      const storageRef = ref(storage, path);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      await updateDoc(doc(db, 'sites', selectedSite.id), {
+        contractFileUrl: url,
+        contractFileName: file.name
+      });
+      setForm(prev => ({ ...prev, contractFileUrl: url, contractFileName: file.name }));
+      const updated = sites.find(s => s.id === selectedSite.id);
+      if (updated) setSelectedSite({ ...updated, contractFileUrl: url, contractFileName: file.name });
+      alert('계약서가 업로드되었습니다.');
+    } catch (err) {
+      console.error('계약서 업로드 오류:', err);
+      alert('계약서 업로드에 실패했습니다.');
+    } finally {
+      setContractUploading(false);
+      e.target.value = '';
+    }
   };
 
   const handleAddAdjustmentItem = async (itemType = '단수정리') => {
@@ -3608,21 +3654,45 @@ const NewSites = () => {
            </Box>
          </Box>
           <Box sx={{ mt: 'auto', pt: isMobile ? 0.5 : 1, display: 'flex', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
-           {/* 실물량파악 버튼 */}
-           <Button 
-             variant="outlined" 
-             color="warning" 
-             onClick={(e) => {
-               e.preventDefault();
-               e.stopPropagation();
-               handleQuantityCheck();
-             }} 
-             disabled={!selectedSite} 
-             size={isMobile ? 'small' : 'medium'} 
-             sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
-           >
-             실물량파악
-           </Button>
+           {/* 계약서 업로드 / 계약서 보기 */}
+           <input
+             type="file"
+             ref={contractInputRef}
+             accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+             style={{ display: 'none' }}
+             onChange={handleContractFileChange}
+           />
+           {(form.contractFileUrl || selectedSite?.contractFileUrl) ? (
+             <Button
+               variant="outlined"
+               color="info"
+               onClick={(e) => {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 setShowContractPreview(true);
+               }}
+               disabled={!selectedSite}
+               size={isMobile ? 'small' : 'medium'}
+               sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+             >
+               계약서 보기
+             </Button>
+           ) : (
+             <Button
+               variant="outlined"
+               color="info"
+               onClick={(e) => {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 contractInputRef.current?.click();
+               }}
+               disabled={!selectedSite || contractUploading}
+               size={isMobile ? 'small' : 'medium'}
+               sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+             >
+               {contractUploading ? '업로드 중...' : '계약서업로드'}
+             </Button>
+           )}
            
            {isEditing ? (
              <Button 
@@ -3719,6 +3789,34 @@ const NewSites = () => {
         overflow: 'auto', // 모바일에서 스크롤 허용
         mb: '30px' // 아래쪽 마진 30px 추가
       }}>
+        {/* 계약서 미리보기: 켜지면 물량내역 숨김, 제목·X버튼·전체 영역 크게 표시 */}
+        {showContractPreview && (form.contractFileUrl || selectedSite?.contractFileUrl) && (
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, border: '1px solid #444', borderRadius: 1, overflow: 'hidden', bgcolor: '#1a1d21' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1.5, py: 0.75, borderBottom: '1px solid #444', flexShrink: 0 }}>
+              <Typography variant="h6" sx={{ color: '#fff', fontWeight: 'bold', fontSize: '1rem' }}>미리보기</Typography>
+              <IconButton size="small" onClick={() => setShowContractPreview(false)} sx={{ color: '#aaa', '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.08)' } }} title="닫기" aria-label="닫기">
+                <CloseIcon />
+              </IconButton>
+            </Box>
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', p: 0, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+              {(() => {
+                const url = form.contractFileUrl || selectedSite?.contractFileUrl || '';
+                const fileName = (form.contractFileName || selectedSite?.contractFileName || '').toLowerCase();
+                const isPdf = fileName.endsWith('.pdf') || url.includes('.pdf') || url.toLowerCase().includes('contenttype=application%2fpdf');
+                if (isPdf) {
+                  return <iframe src={url} title="계약서" style={{ width: '100%', flex: 1, minHeight: 0, border: 'none', display: 'block' }} />;
+                }
+                return (
+                  <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+                    <img src={url} alt="계약서" style={{ width: '100%', height: '100%', minHeight: '100%', objectFit: 'contain', display: 'block' }} />
+                  </Box>
+                );
+              })()}
+            </Box>
+          </Box>
+        )}
+        {!showContractPreview && (
+        <>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>
@@ -4038,6 +4136,8 @@ const NewSites = () => {
             </Box>
           ))}
         </Box>
+        </>
+        )}
       </Paper>
 
       {/* 물량내역 업로드 다이얼로그 */}
