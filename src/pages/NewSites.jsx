@@ -3807,7 +3807,7 @@ const NewSites = () => {
                   return <iframe src={url} title="계약서" style={{ width: '100%', flex: 1, minHeight: 0, border: 'none', display: 'block' }} />;
                 }
                 return (
-                  <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+                  <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', scrollbarWidth: 'none', msOverflowStyle: 'none', '&::-webkit-scrollbar': { display: 'none' } }}>
                     <img src={url} alt="계약서" style={{ width: '100%', height: '100%', minHeight: '100%', objectFit: 'contain', display: 'block' }} />
                   </Box>
                 );

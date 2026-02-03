@@ -16,7 +16,8 @@ import {
   MenuItem,
   InputLabel,
   TextField,
-  Container
+  Container,
+  Popover
 } from '@mui/material';
 import MobileSidebar from '../components/MobileSidebar';
 import {
@@ -33,6 +34,11 @@ import { db } from '../firebase';
 import { formatNumber } from '../utils/formatUtils';
 import SiteInfoPopup from '../components/common/SiteInfoPopup';
 import ExcelJS from 'exceljs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { ko } from 'date-fns/locale';
+import { format, parseISO, startOfYear, endOfYear } from 'date-fns';
 
 const CompanyDistribution = () => {
   const theme = useTheme();
@@ -42,7 +48,13 @@ const CompanyDistribution = () => {
   
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [periodStart, setPeriodStart] = useState(`${currentYear}-01-01`);
+  const [periodEnd, setPeriodEnd] = useState(`${currentYear}-12-31`);
+  const [periodAnchorEl, setPeriodAnchorEl] = useState(null);
+  const [pickerStart, setPickerStart] = useState(null);
+  const [pickerEnd, setPickerEnd] = useState(null);
   const [sortOrder, setSortOrder] = useState('가나다순');
   const [searchTerm, setSearchTerm] = useState('');
   const [siteInfoPopup, setSiteInfoPopup] = useState({ open: false, site: null });
@@ -113,19 +125,33 @@ const CompanyDistribution = () => {
     return String(name).trim().replace(/㈜/g, '(주)');
   };
 
-  // 회사별 현장 분포 계산
-  const companyDistribution = useMemo(() => {
-    const startOfYear = new Date(selectedYear, 0, 1, 0, 0, 0);
-    const endOfYear = new Date(selectedYear, 11, 31, 23, 59, 59);
+  // 기간 표시 라벨 (전체 연도면 "YYYY년", 아니면 "YYYY.MM.DD ~ YYYY.MM.DD")
+  const periodLabel = useMemo(() => {
+    const start = parseISO(periodStart);
+    const end = parseISO(periodEnd);
+    const jan1 = startOfYear(start);
+    const dec31 = endOfYear(start);
+    if (format(start, 'yyyy-MM-dd') === format(jan1, 'yyyy-MM-dd') && format(end, 'yyyy-MM-dd') === format(dec31, 'yyyy-MM-dd') && start.getFullYear() === end.getFullYear()) {
+      return `${start.getFullYear()}년`;
+    }
+    return `${format(start, 'yyyy.MM.dd')} ~ ${format(end, 'yyyy.MM.dd')}`;
+  }, [periodStart, periodEnd]);
 
-    // 선택된 연도와 공사기간이 하루라도 겹치는 현장만 포함
+  // 회사별 현장 분포 계산 (기간 기준)
+  const companyDistribution = useMemo(() => {
+    const periodStartDate = new Date(periodStart);
+    periodStartDate.setHours(0, 0, 0, 0);
+    const periodEndDate = new Date(periodEnd);
+    periodEndDate.setHours(23, 59, 59, 999);
+
+    // 선택된 기간과 공사기간이 하루라도 겹치는 현장만 포함
     const yearSites = sites.filter(site => {
       const startDate = parseSiteDate(site.startDate);
       if (!startDate) return false;
       const endDate = parseSiteDate(site.endDate);
-      if (startDate > endOfYear) return false;
-      if (!endDate) return startDate <= endOfYear;
-      if (endDate < startOfYear) return false;
+      if (startDate > periodEndDate) return false;
+      if (!endDate) return startDate <= periodEndDate;
+      if (endDate < periodStartDate) return false;
       return true;
     });
 
@@ -162,8 +188,8 @@ const CompanyDistribution = () => {
         return;
       }
 
-      // 해당 연도 공사기간 비율로 나눈 계약금액
-      const proportionalAmount = getProportionalContractAmount(site, startOfYear, endOfYear);
+      // 해당 기간 공사기간 비율로 나눈 계약금액
+      const proportionalAmount = getProportionalContractAmount(site, periodStartDate, periodEndDate);
 
       if (!companyMap.has(companyKey)) {
         companyMap.set(companyKey, {
@@ -231,11 +257,32 @@ const CompanyDistribution = () => {
   }
   
   return [...nonUnassigned, ...unassigned];
-  }, [sites, selectedYear, searchTerm, sortOrder]);
+  }, [sites, periodStart, periodEnd, searchTerm, sortOrder]);
 
-  // 연도 변경 핸들러
+  // 연도 변경 핸들러 (기간을 해당 연도 1/1 ~ 12/31로 설정)
   const handleYearChange = (increment) => {
-    setSelectedYear(prev => prev + increment);
+    const nextYear = selectedYear + increment;
+    setSelectedYear(nextYear);
+    setPeriodStart(`${nextYear}-01-01`);
+    setPeriodEnd(`${nextYear}-12-31`);
+  };
+
+  // 기간 설정 팝오버 열기/닫기
+  const handlePeriodClick = (event) => {
+    setPickerStart(parseISO(periodStart));
+    setPickerEnd(parseISO(periodEnd));
+    setPeriodAnchorEl(event.currentTarget);
+  };
+  const handlePeriodClose = () => {
+    setPeriodAnchorEl(null);
+  };
+  const handlePeriodApply = () => {
+    if (pickerStart && pickerEnd && pickerStart <= pickerEnd) {
+      setPeriodStart(format(pickerStart, 'yyyy-MM-dd'));
+      setPeriodEnd(format(pickerEnd, 'yyyy-MM-dd'));
+      setSelectedYear(pickerStart.getFullYear());
+    }
+    handlePeriodClose();
   };
 
   // 정렬 순서 변경 핸들러
@@ -261,37 +308,40 @@ const CompanyDistribution = () => {
     try {
       const workbook = new ExcelJS.Workbook();
       workbook.creator = '천우 건설현장관리시스템';
-      const sheet = workbook.addWorksheet(`${selectedYear}년도 회사별 현장`, { views: [{ state: 'frozen', ySplit: 5 }] });
+      const sheetTitle = periodLabel.includes('~') ? `회사별 현장 ${periodStart}~${periodEnd}` : `${selectedYear}년도 회사별 현장`;
+      const sheet = workbook.addWorksheet(sheetTitle.slice(0, 31), { views: [{ state: 'frozen', ySplit: 5 }] });
 
-      // 제목 행
-      const titleRow = sheet.addRow([`천우건업(주) 회사별 현장 현황 - ${selectedYear}년`]);
+      // 제목 행 (기간 반영)
+      const titleText = periodLabel.includes('~') ? `천우건업(주) 회사별 현장 현황 - ${format(parseISO(periodStart), 'yyyy.MM.dd')} ~ ${format(parseISO(periodEnd), 'yyyy.MM.dd')}` : `천우건업(주) 회사별 현장 현황 - ${selectedYear}년`;
+      const titleRow = sheet.addRow([titleText]);
       titleRow.font = { size: 16, bold: true, color: { argb: 'FF2E7D32' } };
       titleRow.alignment = { horizontal: 'center', vertical: 'middle' };
-      sheet.mergeCells('A1:G1');
+      sheet.mergeCells('A1:H1');
 
       sheet.addRow([]);
 
       const dateRow = sheet.addRow([`작성일: ${new Date().toLocaleDateString('ko-KR')}`]);
       dateRow.font = { size: 12, color: { argb: 'FF666666' } };
       dateRow.alignment = { horizontal: 'right' };
-      sheet.mergeCells('A3:G3');
+      sheet.mergeCells('A3:H3');
 
       sheet.addRow([]);
 
-      // 헤더 행 (5행, 녹색은 A~G열만) 순서: 현장명 회사명 소장명 계약금액 착공일 준공일 상태
-      const headers = ['현장명', '회사명', '소장명', '계약금액', '착공일', '준공일', '상태'];
+      // 헤더 행 (5행, 녹색 A~H) 순서: 번호 현장명 회사명 소장명 계약금액 착공일 준공일 상태
+      const headers = ['번호', '현장명', '회사명', '소장명', '계약금액', '착공일', '준공일', '상태'];
       const headerRow = sheet.addRow(headers);
       headerRow.font = { size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
       headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
       const greenFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E7D32' } };
       const thinBlack = { style: 'thin', color: { argb: 'FF000000' } };
-      for (let c = 1; c <= 7; c++) {
+      for (let c = 1; c <= 8; c++) {
         headerRow.getCell(c).fill = greenFill;
         headerRow.getCell(c).border = { top: thinBlack, left: thinBlack, bottom: thinBlack, right: thinBlack };
       }
 
-      // 컬럼 너비 (현장명 회사명 소장명 계약금액 착공일 준공일 상태)
+      // 컬럼 너비 (번호 현장명 회사명 소장명 계약금액 착공일 준공일 상태)
       sheet.columns = [
+        { width: 8 },
         { width: 28 },
         { width: 22 },
         { width: 14 },
@@ -302,15 +352,17 @@ const CompanyDistribution = () => {
       ];
 
       let dataRowIndex = 5;
+      let rowNum = 0;
       companyDistribution.forEach(company => {
         company.sites.forEach((site, idx) => {
+          rowNum++;
           const startStr = site.startDate ? (typeof site.startDate?.toDate === 'function' ? site.startDate.toDate().toLocaleDateString('ko-KR') : new Date(site.startDate).toLocaleDateString('ko-KR')) : '';
           const endStr = site.endDate ? (typeof site.endDate?.toDate === 'function' ? site.endDate.toDate().toLocaleDateString('ko-KR') : new Date(site.endDate).toLocaleDateString('ko-KR')) : '';
           const contractAmount = Number(site.contractAmount) || 0;
-          const companyNameVal = idx === 0 ? company.companyName : '';
           const rowValues = [
+            rowNum,
             site.name || '',
-            companyNameVal,
+            company.companyName || '',
             site.manager || '',
             contractAmount,
             startStr,
@@ -326,23 +378,24 @@ const CompanyDistribution = () => {
           // 데이터 행 스타일
           row.font = { size: 11 };
           row.alignment = { horizontal: 'center', vertical: 'middle' };
-          for (let c = 1; c <= 7; c++) {
+          for (let c = 1; c <= 8; c++) {
             const val = rowValues[c - 1];
-            const isFilled = c === 4 ? (typeof val === 'number' && !Number.isNaN(val)) : hasData(val);
+            const isFilled = c === 1 ? (typeof val === 'number' && !Number.isNaN(val)) : (c === 5 ? (typeof val === 'number' && !Number.isNaN(val)) : hasData(val));
             if (isFilled) {
               row.getCell(c).border = { top: thinGray, left: thinGray, bottom: thinGray, right: thinGray };
             }
           }
-          row.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };   // 현장명
-          row.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };   // 회사명
-          row.getCell(3).alignment = { horizontal: 'left', vertical: 'middle' };   // 소장명
-          row.getCell(4).alignment = { horizontal: 'right', vertical: 'middle' };  // 계약금액
+          row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };  // 번호
+          row.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };   // 현장명
+          row.getCell(3).alignment = { horizontal: 'left', vertical: 'middle' };   // 회사명
+          row.getCell(4).alignment = { horizontal: 'left', vertical: 'middle' };   // 소장명
+          row.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' };  // 계약금액
 
           // 계약금액 숫자 포맷
-          row.getCell(4).numFmt = '#,##0';
+          row.getCell(5).numFmt = '#,##0';
 
-          // 상태 셀 색상 (7열)
-          const statusCell = row.getCell(7);
+          // 상태 셀 색상 (8열)
+          const statusCell = row.getCell(8);
           const status = (site.status || '').trim();
           if (status === '예정') statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE3F2FD' } };
           else if (status === '진행') statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3E5F5' } };
@@ -351,13 +404,13 @@ const CompanyDistribution = () => {
         });
       });
 
-      // 데이터가 있으면 A5:G 영역을 엑셀 표(테이블)로 추가 (실패해도 다운로드는 진행)
+      // 데이터가 있으면 A5:H 영역을 엑셀 표(테이블)로 추가 (실패해도 다운로드는 진행)
       const lastDataRow = dataRowIndex - 1;
       if (lastDataRow >= 5) {
         try {
           sheet.addTable({
             name: 'CompanySiteTable',
-            ref: `A5:G${lastDataRow}`,
+            ref: `A5:H${lastDataRow}`,
             headerRow: true,
             style: {
               theme: 'TableStyleMedium9',
@@ -365,6 +418,7 @@ const CompanyDistribution = () => {
               showColumnStripes: false
             },
             columns: [
+              { name: '번호', filterButton: true },
               { name: '현장명', filterButton: true },
               { name: '회사명', filterButton: true },
               { name: '소장명', filterButton: true },
@@ -384,7 +438,7 @@ const CompanyDistribution = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${selectedYear}년도_회사별현장.xlsx`;
+      a.download = periodLabel.includes('~') ? `회사별현장_${periodStart}_${periodEnd}.xlsx` : `${selectedYear}년도_회사별현장.xlsx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -468,11 +522,11 @@ const CompanyDistribution = () => {
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold' }}>
-            {selectedYear}년도 회사별 현장
+            회사별 현장
           </Typography>
         </Box>
         
-        {/* 연도 선택 + 엑셀 다운로드 */}
+        {/* 기간 선택(연도 클릭 시 기간설정) + 엑셀 다운로드 */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Button
@@ -482,8 +536,22 @@ const CompanyDistribution = () => {
             >
               {selectedYear - 1}
             </Button>
-            <Typography sx={{ color: '#fff', px: 2, fontWeight: 'bold' }}>
-              {selectedYear}
+            <Typography
+              component="button"
+              onClick={handlePeriodClick}
+              sx={{
+                color: '#fff',
+                px: 2,
+                py: 1,
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                border: '1px solid transparent',
+                borderRadius: 1,
+                bgcolor: 'transparent',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.1)', borderColor: '#fff' },
+              }}
+            >
+              {periodLabel}
             </Typography>
             <Button
               variant="outlined"
@@ -493,6 +561,47 @@ const CompanyDistribution = () => {
               {selectedYear + 1}
             </Button>
           </Box>
+          <Popover
+            open={Boolean(periodAnchorEl)}
+            anchorEl={periodAnchorEl}
+            onClose={handlePeriodClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+            slotProps={{ paper: { sx: { p: 2, bgcolor: '#232734', border: '1px solid #444' } } }}
+          >
+            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ko}>
+              <Typography variant="subtitle1" sx={{ color: '#fff', mb: 2 }}>기간 설정</Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 280 }}>
+                <DatePicker
+                  label="시작일"
+                  value={pickerStart}
+                  onChange={(v) => setPickerStart(v)}
+                  slotProps={{
+                    textField: {
+                      size: 'small',
+                      sx: { '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: '#aaa' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#555' } }
+                    },
+                    popper: { sx: { zIndex: 99999 } }
+                  }}
+                />
+                <DatePicker
+                  label="종료일"
+                  value={pickerEnd}
+                  onChange={(v) => setPickerEnd(v)}
+                  slotProps={{
+                    textField: {
+                      size: 'small',
+                      sx: { '& .MuiInputBase-input': { color: '#fff' }, '& .MuiInputLabel-root': { color: '#aaa' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#555' } }
+                    },
+                    popper: { sx: { zIndex: 99999 } }
+                  }}
+                />
+                <Button variant="contained" onClick={handlePeriodApply} sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#388e3c' } }}>
+                  적용
+                </Button>
+              </Box>
+            </LocalizationProvider>
+          </Popover>
           <Button
             variant="outlined"
             startIcon={<CloudDownloadIcon />}
@@ -791,10 +900,10 @@ const CompanyDistribution = () => {
         }}>
           <TimelineIcon sx={{ fontSize: '4rem', mb: 2, opacity: 0.5 }} />
           <Typography variant="h6" sx={{ mb: 1 }}>
-            {selectedYear}년도 현장 데이터가 없습니다
+            해당 기간 현장 데이터가 없습니다
           </Typography>
           <Typography variant="body2">
-            다른 연도를 선택하거나 현장을 등록해주세요
+            기간을 변경하거나 현장을 등록해주세요
           </Typography>
         </Box>
       )}
