@@ -270,43 +270,47 @@ export default function ImportantSite() {
         console.log(`   - isStarred: ${site.isStarred} (타입: ${typeof site.isStarred})`);
       });
       
-      // 완료된 현장과 무효한 날짜 형식 제외
-      const activeSitesData = allSitesData.filter(site => {
-        // 무효한 날짜 형식 체크
-        if (site.endDate) {
-          const endDateStr = String(site.endDate);
-          
-          // 무효한 날짜 형식 체크 (0000.00.00, 0000/00/00, 0000-00-00, 0000.0.00 등)
-          if (endDateStr.match(/^0{4}[.\/-]0{1,2}[.\/-]0{1,2}$/) ||
-              endDateStr === '0000.00.00' || 
-              endDateStr === '0000/00/00' || 
-              endDateStr === '0000-00-00' ||
-              endDateStr === '0000.0.00') {
-            console.log(`🔍 주요현장 - ${site.name}: 무효한 날짜 형식 (${site.endDate}) -> 제외`);
-            return false; // 무효한 날짜는 제외
-          }
-          
-          // 완료된 현장 체크 (공사 종료일이 현재 날짜보다 이전인 경우)
-          try {
-            const today = new Date();
-            const endDate = new Date(endDateStr.replace(/[.\/-]/g, '-'));
-            
-            if (endDate < today) {
-              console.log(`🔍 주요현장 - ${site.name}: 공사 완료된 현장 (${site.endDate}) -> 제외`);
-              return false; // 완료된 현장은 제외
+      // 무효한 날짜 형식은 제외하되, 공기 종료 현장은 데이터에서 제거하지 않고 숨김 처리 플래그만 부여
+      const validSitesData = allSitesData
+        .map((site) => {
+          let isExpired = false;
+
+          if (site.endDate) {
+            const endDateStr = String(site.endDate);
+
+            // 무효한 날짜 형식 체크 (0000.00.00, 0000/00/00, 0000-00-00, 0000.0.00 등)
+            if (endDateStr.match(/^0{4}[.\/-]0{1,2}[.\/-]0{1,2}$/) ||
+                endDateStr === '0000.00.00' ||
+                endDateStr === '0000/00/00' ||
+                endDateStr === '0000-00-00' ||
+                endDateStr === '0000.0.00') {
+              console.log(`🔍 주요현장 - ${site.name}: 무효한 날짜 형식 (${site.endDate}) -> 제외`);
+              return null;
             }
-          } catch (error) {
-            console.log(`🔍 주요현장 - ${site.name}: 날짜 파싱 오류 (${site.endDate}) -> 포함`);
-            // 날짜 파싱 오류 시에는 포함
+
+            // 공기 종료 여부 판단 (종료되면 숨김 대상)
+            try {
+              const today = new Date();
+              const endDate = new Date(endDateStr.replace(/[.\/-]/g, '-'));
+              if (!Number.isNaN(endDate.getTime()) && endDate < today) {
+                isExpired = true;
+              }
+            } catch (error) {
+              console.log(`🔍 주요현장 - ${site.name}: 날짜 파싱 오류 (${site.endDate}) -> 포함`);
+            }
           }
-        }
-        
-        console.log(`🔍 주요현장 - ${site.name}: 진행중인 현장 -> 포함`);
-        return true; // 진행중인 현장만 포함
-      });
+
+          return {
+            ...site,
+            _isExpired: isExpired
+          };
+        })
+        .filter(Boolean);
+
+      const activeSitesData = validSitesData.filter(site => !site._isExpired);
       
       // isFavorite 또는 isStarred가 true인 현장 필터링 (더 관대한 조건)
-      const importantSitesData = activeSitesData.filter(site => {
+      const importantSitesData = validSitesData.filter(site => {
         const isFav = site.isFavorite === true || site.isStarred === true;
         
         console.log(`🔍 필터링 체크 - ${site.name}: isFavorite=${site.isFavorite}, isStarred=${site.isStarred} -> ${isFav ? '포함' : '제외'}`);
@@ -323,8 +327,10 @@ export default function ImportantSite() {
         console.log('🔍 ImportantSite - 주요현장이 없어서 공사기간이 진행중인 최근 현장 5개를 표시합니다.');
         finalSitesData = activeSitesData.slice(0, 5);
       } else {
-        // 최대 10개까지만 표시
-        finalSitesData = importantSitesData.slice(0, 10);
+        // 최대 10개까지만 표시 (진행중 우선, 공기 종료 현장은 뒤로)
+        const activeImportant = importantSitesData.filter(site => !site._isExpired);
+        const expiredImportant = importantSitesData.filter(site => site._isExpired);
+        finalSitesData = [...activeImportant, ...expiredImportant].slice(0, 10);
       }
       
       console.log('🔍 ImportantSite - 최종 표시할 현장:', finalSitesData);
@@ -723,6 +729,9 @@ export default function ImportantSite() {
     // 검색어가 있으면 추가 필터링
     if (search.trim()) {
       filtered = filtered.filter(site => site.name.includes(search.trim()));
+    } else {
+      // 기본 화면에서는 공기 종료(숨김) 현장을 제외
+      filtered = filtered.filter(site => !site._isExpired);
     }
     
     // 정산완료된 현장(공사기간 종료)을 제일 아래쪽에 배치

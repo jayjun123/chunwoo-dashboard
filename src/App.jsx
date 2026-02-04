@@ -1034,14 +1034,16 @@ const App = React.memo(() => {
                           </ProtectedRoute>
                         }
                       />
-                      <Route
-                        path="/mail-dashboard"
-                        element={
-                          <Suspense fallback={<LoadingSpinner />}>
-                            <MailDashboard />
-                          </Suspense>
-                        }
-                      />
+                      {import.meta.env.DEV && (
+                        <Route
+                          path="/mail-dashboard"
+                          element={
+                            <Suspense fallback={<LoadingSpinner />}>
+                              <MailDashboard />
+                            </Suspense>
+                          }
+                        />
+                      )}
                       <Route
                         path="/settlement"
                         element={
