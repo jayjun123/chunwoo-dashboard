@@ -13,6 +13,7 @@ app.use(cors());
 app.use(express.json());
 
 const PHOTOS_BASE_PATH = process.env.PHOTOS_BASE_PATH || '/data/site-photos';
+const PHOTOS_API_KEY = process.env.PHOTOS_API_KEY || '';
 
 const safeSegment = (value) => {
   return String(value || '')
@@ -27,13 +28,42 @@ const ensureDir = async (dirPath) => {
   await fs.promises.mkdir(dirPath, { recursive: true });
 };
 
+const requirePhotosApiKey = (req, res, next) => {
+  if (!PHOTOS_API_KEY) return next();
+  const key = req.get('x-api-key') || '';
+  if (key !== PHOTOS_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  return next();
+};
+
+const resolveSiteFolder = (siteId, siteName) => {
+  const safeSiteId = safeSegment(siteId);
+  const safeSiteName = safeSegment(siteName);
+
+  if (!safeSiteId || !safeSiteName || safeSiteId === 'unknown' || safeSiteName === 'unknown') {
+    return null;
+  }
+
+  return `${safeSiteId}_${safeSiteName}`;
+};
+
+const resolveSafePhotoPath = (siteFolder, fileName) => {
+  const safeName = safeSegment(fileName);
+  const base = path.resolve(PHOTOS_BASE_PATH);
+  const full = path.resolve(PHOTOS_BASE_PATH, siteFolder, safeName);
+  if (!full.startsWith(base + path.sep)) return null;
+  return { safeName, full };
+};
+
 const upload = multer({
   storage: multer.diskStorage({
     destination: async (req, file, cb) => {
       try {
-        const siteId = safeSegment(req.body.siteId);
-        const siteName = safeSegment(req.body.siteName);
-        const siteFolder = `${siteId}_${siteName}`;
+        const siteFolder = resolveSiteFolder(req.body.siteId, req.body.siteName);
+        if (!siteFolder) {
+          throw new Error('siteId and siteName are required');
+        }
         const dest = path.join(PHOTOS_BASE_PATH, siteFolder);
         await ensureDir(dest);
         cb(null, dest);
@@ -62,16 +92,16 @@ const upload = multer({
 
 app.use('/site-photos', express.static(PHOTOS_BASE_PATH));
 
-app.post('/site-photos/upload', upload.array('files', 20), async (req, res) => {
+app.post('/site-photos/upload', requirePhotosApiKey, upload.array('files', 20), async (req, res) => {
   try {
-    const siteId = safeSegment(req.body.siteId);
-    const siteName = safeSegment(req.body.siteName);
+    const siteId = req.body.siteId;
+    const siteName = req.body.siteName;
+    const siteFolder = resolveSiteFolder(siteId, siteName);
 
-    if (!siteId || !siteName || siteId === 'unknown' || siteName === 'unknown') {
+    if (!siteFolder) {
       return res.status(400).json({ error: 'siteId and siteName are required' });
     }
 
-    const siteFolder = `${siteId}_${siteName}`;
     const files = (req.files || []).map((f) => ({
       name: f.filename,
       originalName: f.originalname,
@@ -87,16 +117,75 @@ app.post('/site-photos/upload', upload.array('files', 20), async (req, res) => {
   }
 });
 
-app.get('/site-photos/list', async (req, res) => {
+app.delete('/site-photos/delete', requirePhotosApiKey, async (req, res) => {
   try {
-    const siteId = safeSegment(req.query.siteId);
-    const siteName = safeSegment(req.query.siteName);
+    const siteFolder = resolveSiteFolder(req.query.siteId, req.query.siteName);
+    const fileName = req.query.name;
 
-    if (!siteId || !siteName || siteId === 'unknown' || siteName === 'unknown') {
-      return res.status(400).json({ error: 'siteId and siteName are required' });
+    if (!siteFolder || !fileName) {
+      return res.status(400).json({ error: 'siteId, siteName, and name are required' });
     }
 
-    const siteFolder = `${siteId}_${siteName}`;
+    const resolved = resolveSafePhotoPath(siteFolder, fileName);
+    if (!resolved) {
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
+
+    await fs.promises.unlink(resolved.full);
+    return res.json({ ok: true });
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    console.error('사진 삭제 실패:', error);
+    return res.status(500).json({ error: 'Delete failed' });
+  }
+});
+
+app.post('/site-photos/replace', requirePhotosApiKey, upload.single('file'), async (req, res) => {
+  try {
+    const siteFolder = resolveSiteFolder(req.body.siteId, req.body.siteName);
+    const oldName = req.body.oldName;
+
+    if (!siteFolder || !oldName || !req.file) {
+      return res.status(400).json({ error: 'siteId, siteName, oldName, and file are required' });
+    }
+
+    const resolvedOld = resolveSafePhotoPath(siteFolder, oldName);
+    if (!resolvedOld) {
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
+
+    try {
+      await fs.promises.unlink(resolvedOld.full);
+    } catch (e) {
+      if (!(e && e.code === 'ENOENT')) throw e;
+    }
+
+    return res.json({
+      ok: true,
+      siteFolder,
+      file: {
+        name: req.file.filename,
+        originalName: req.file.originalname,
+        size: req.file.size,
+        mimeType: req.file.mimetype,
+        url: `/site-photos/${encodeURIComponent(siteFolder)}/${encodeURIComponent(req.file.filename)}`,
+      },
+    });
+  } catch (error) {
+    console.error('사진 변경 실패:', error);
+    return res.status(500).json({ error: 'Replace failed' });
+  }
+});
+
+app.get('/site-photos/list', async (req, res) => {
+  try {
+    const siteFolder = resolveSiteFolder(req.query.siteId, req.query.siteName);
+
+    if (!siteFolder) {
+      return res.status(400).json({ error: 'siteId and siteName are required' });
+    }
     const dir = path.join(PHOTOS_BASE_PATH, siteFolder);
 
     let entries = [];

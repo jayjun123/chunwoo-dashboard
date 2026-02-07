@@ -199,12 +199,84 @@ const NewSites = () => {
 
   const isNasPhotoBackend = import.meta.env.VITE_SITE_PHOTOS_BACKEND === 'nas';
   const nasApiUrl = import.meta.env.VITE_NAS_API_URL;
+  const photosApiKey = import.meta.env.VITE_PHOTOS_API_KEY;
   const [showSitePhotosSection, setShowSitePhotosSection] = useState(true);
   const [sitePhotos, setSitePhotos] = useState([]);
   const [sitePhotosLoading, setSitePhotosLoading] = useState(false);
   const [sitePhotosError, setSitePhotosError] = useState('');
   const [sitePhotoUploadOpen, setSitePhotoUploadOpen] = useState(false);
   const [selectedPreviewPhoto, setSelectedPreviewPhoto] = useState(null);
+  const replacePhotoInputRef = useRef(null);
+
+  const getPhotosAuthHeaders = () => {
+    if (!photosApiKey) return {};
+    return { 'x-api-key': photosApiKey };
+  };
+
+  const handleDeleteSelectedPhoto = async () => {
+    try {
+      if (!isNasPhotoBackend || !nasApiUrl) {
+        throw new Error('NAS 사진 백엔드가 설정되어 있지 않습니다.');
+      }
+      if (!selectedSite?.id || !selectedSite?.name || !selectedPreviewPhoto?.name) {
+        throw new Error('삭제할 사진 정보가 없습니다.');
+      }
+
+      const url = `${nasApiUrl}/site-photos/delete?siteId=${encodeURIComponent(selectedSite.id)}&siteName=${encodeURIComponent(selectedSite.name)}&name=${encodeURIComponent(selectedPreviewPhoto.name)}`;
+      const res = await fetch(url, { method: 'DELETE', headers: { ...getPhotosAuthHeaders() } });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(body || `Delete failed (${res.status})`);
+      }
+
+      setSelectedPreviewPhoto(null);
+      await loadSitePhotos();
+    } catch (e) {
+      console.error('사진 삭제 실패:', e);
+      setSitePhotosError(e?.message || '사진 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleReplaceSelectedPhoto = async (file) => {
+    try {
+      if (!isNasPhotoBackend || !nasApiUrl) {
+        throw new Error('NAS 사진 백엔드가 설정되어 있지 않습니다.');
+      }
+      if (!selectedSite?.id || !selectedSite?.name || !selectedPreviewPhoto?.name) {
+        throw new Error('변경할 사진 정보가 없습니다.');
+      }
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('siteId', selectedSite.id);
+      formData.append('siteName', selectedSite.name);
+      formData.append('oldName', selectedPreviewPhoto.name);
+      formData.append('file', file);
+
+      const url = `${nasApiUrl}/site-photos/replace`;
+      const res = await fetch(url, { method: 'POST', headers: { ...getPhotosAuthHeaders() }, body: formData });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(body || `Replace failed (${res.status})`);
+      }
+      const data = await res.json();
+      const newPhoto = data?.file;
+      await loadSitePhotos();
+
+      if (newPhoto?.url) {
+        setSelectedPreviewPhoto({
+          id: newPhoto.name,
+          name: newPhoto.name,
+          url: `${nasApiUrl}${newPhoto.url}`,
+          size: newPhoto.size,
+          mtimeMs: Date.now(),
+        });
+      }
+    } catch (e) {
+      console.error('사진 변경 실패:', e);
+      setSitePhotosError(e?.message || '사진 변경 중 오류가 발생했습니다.');
+    }
+  };
 
   const loadSitePhotos = async () => {
     try {
@@ -4310,9 +4382,37 @@ const NewSites = () => {
               ? new Date(selectedPreviewPhoto.mtimeMs).toLocaleString('ko-KR')
               : ''}
           </Typography>
-          <Button variant="outlined" onClick={() => setSelectedPreviewPhoto(null)}>
-            닫기
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <input
+              ref={replacePhotoInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                handleReplaceSelectedPhoto(file);
+              }}
+            />
+            <Button
+              variant="outlined"
+              onClick={() => replacePhotoInputRef.current?.click()}
+              disabled={!selectedPreviewPhoto}
+            >
+              사진변경
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={handleDeleteSelectedPhoto}
+              disabled={!selectedPreviewPhoto}
+            >
+              삭제
+            </Button>
+            <Button variant="outlined" onClick={() => setSelectedPreviewPhoto(null)}>
+              닫기
+            </Button>
+          </Box>
         </DialogTitle>
         <DialogContent dividers>
           {selectedPreviewPhoto && (
