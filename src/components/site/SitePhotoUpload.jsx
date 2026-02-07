@@ -44,6 +44,8 @@ import Image from '../common/Image';
 
 const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
   const { currentUser } = useAuth();
+  const isNasPhotoBackend = import.meta.env.VITE_SITE_PHOTOS_BACKEND === 'nas';
+  const nasApiUrl = import.meta.env.VITE_NAS_API_URL;
   const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -70,6 +72,29 @@ const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
   // 사진 로드
   const loadPhotos = async () => {
     try {
+      if (isNasPhotoBackend) {
+        if (!nasApiUrl) {
+          throw new Error('VITE_NAS_API_URL이 설정되어 있지 않습니다.');
+        }
+
+        const url = `${nasApiUrl}/site-photos/list?siteId=${encodeURIComponent(siteId)}&siteName=${encodeURIComponent(siteName)}`;
+        const res = await fetch(url, { method: 'GET' });
+        if (!res.ok) {
+          throw new Error(`NAS API responded with status: ${res.status}`);
+        }
+        const data = await res.json();
+        const photoList = (Array.isArray(data) ? data : []).map((p) => ({
+          id: p.name,
+          url: `${nasApiUrl}${p.url}`,
+          name: p.name,
+          size: p.size,
+          timeCreated: new Date(p.mtimeMs || Date.now()).toISOString(),
+          customMetadata: {},
+        }));
+        setPhotos(photoList);
+        return;
+      }
+
       const storageRef = ref(storage, `sites/${siteId}/photos`);
       const result = await listAll(storageRef);
       
@@ -104,6 +129,59 @@ const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
     setUploadProgress(0);
 
     try {
+      if (isNasPhotoBackend) {
+        if (!nasApiUrl) {
+          throw new Error('VITE_NAS_API_URL이 설정되어 있지 않습니다.');
+        }
+
+        const validFiles = files.filter((file) => {
+          if (file.size > 10 * 1024 * 1024) {
+            setSnackbar({ open: true, message: `${file.name} 파일이 너무 큽니다. (최대 10MB)`, severity: 'warning' });
+            return false;
+          }
+          if (!file.type.startsWith('image/')) {
+            setSnackbar({ open: true, message: `${file.name}은 이미지 파일이 아닙니다.`, severity: 'warning' });
+            return false;
+          }
+          return true;
+        });
+
+        if (validFiles.length === 0) {
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('siteId', siteId);
+        formData.append('siteName', siteName);
+        validFiles.forEach((file) => formData.append('files', file));
+
+        const uploadUrl = `${nasApiUrl}/site-photos/upload`;
+        const res = await fetch(uploadUrl, { method: 'POST', body: formData });
+        if (!res.ok) {
+          throw new Error(`NAS API responded with status: ${res.status}`);
+        }
+        const result = await res.json();
+        const uploaded = (result?.files || []).map((f) => ({
+          id: f.name,
+          url: `${nasApiUrl}${f.url}`,
+          name: f.originalName || f.name,
+          size: f.size,
+          timeCreated: new Date().toISOString(),
+          customMetadata: {
+            uploadedBy: currentUser?.uid || '',
+            uploadedAt: new Date().toISOString(),
+            title: f.originalName || f.name,
+            description: '',
+            category: '일반'
+          }
+        }));
+
+        setPhotos((prev) => [...uploaded, ...prev]);
+        setUploadProgress(100);
+        setSnackbar({ open: true, message: '사진이 업로드되었습니다.', severity: 'success' });
+        return;
+      }
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         
@@ -171,6 +249,11 @@ const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
   // 사진 삭제
   const handleDeletePhoto = async (photo) => {
     try {
+      if (isNasPhotoBackend) {
+        setSnackbar({ open: true, message: 'NAS 저장 방식에서는 삭제 기능이 아직 지원되지 않습니다.', severity: 'info' });
+        return;
+      }
+
       // Storage에서 파일 삭제
       const storageRef = ref(storage, `sites/${siteId}/photos/${photo.id}`);
       await deleteObject(storageRef);
@@ -190,6 +273,12 @@ const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
     if (!selectedPhoto) return;
 
     try {
+      if (isNasPhotoBackend) {
+        // TODO: NAS API에 사진 정보 수정 기능을 구현하세요.
+        setSnackbar({ open: true, message: 'NAS 저장 방식에서는 사진 정보 수정 기능이 아직 지원되지 않습니다.', severity: 'info' });
+        return;
+      }
+
       const storageRef = ref(storage, `sites/${siteId}/photos/${selectedPhoto.id}`);
       
       // 메타데이터 업데이트
@@ -371,16 +460,18 @@ const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
                       >
                         <ShareIcon />
                       </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeletePhoto(photo);
-                        }}
-                        color="error"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                      {!isNasPhotoBackend && (
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeletePhoto(photo);
+                          }}
+                          color="error"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
                     </Box>
                   }
                 />
