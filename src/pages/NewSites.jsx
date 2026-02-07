@@ -8,7 +8,9 @@ import UploadIcon from '@mui/icons-material/Upload';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import ClearIcon from '@mui/icons-material/Clear';
 import CloseIcon from '@mui/icons-material/Close';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import MaterialInventory from '../components/MaterialInventory';
+import SitePhotoUpload from '../components/site/SitePhotoUpload';
 
 import { collection, onSnapshot, query, orderBy, where, getDocs, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -194,6 +196,63 @@ const NewSites = () => {
   const [contractUploading, setContractUploading] = useState(false);
   const [showContractPreview, setShowContractPreview] = useState(false);
   const contractInputRef = useRef(null);
+
+  const isNasPhotoBackend = import.meta.env.VITE_SITE_PHOTOS_BACKEND === 'nas';
+  const nasApiUrl = import.meta.env.VITE_NAS_API_URL;
+  const [showSitePhotosSection, setShowSitePhotosSection] = useState(true);
+  const [sitePhotos, setSitePhotos] = useState([]);
+  const [sitePhotosLoading, setSitePhotosLoading] = useState(false);
+  const [sitePhotosError, setSitePhotosError] = useState('');
+  const [sitePhotoUploadOpen, setSitePhotoUploadOpen] = useState(false);
+  const [selectedPreviewPhoto, setSelectedPreviewPhoto] = useState(null);
+
+  const loadSitePhotos = async () => {
+    try {
+      setSitePhotosError('');
+
+      if (!selectedSite?.id || !selectedSite?.name) {
+        setSitePhotos([]);
+        return;
+      }
+
+      if (isNasPhotoBackend) {
+        if (!nasApiUrl) {
+          throw new Error('VITE_NAS_API_URL이 설정되어 있지 않습니다.');
+        }
+
+        setSitePhotosLoading(true);
+        const url = `${nasApiUrl}/site-photos/list?siteId=${encodeURIComponent(selectedSite.id)}&siteName=${encodeURIComponent(selectedSite.name)}`;
+        const res = await fetch(url, { method: 'GET' });
+        if (!res.ok) {
+          throw new Error(`NAS API responded with status: ${res.status}`);
+        }
+        const data = await res.json();
+        const list = (Array.isArray(data) ? data : []).map((p) => ({
+          id: p.name,
+          name: p.name,
+          url: `${nasApiUrl}${p.url}`,
+          size: p.size,
+          mtimeMs: p.mtimeMs,
+        }));
+        setSitePhotos(list);
+        return;
+      }
+
+      setSitePhotos([]);
+    } catch (e) {
+      console.error('현장사진 로드 실패:', e);
+      setSitePhotosError(e?.message || '현장사진 로드 중 오류가 발생했습니다.');
+      setSitePhotos([]);
+    } finally {
+      setSitePhotosLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showSitePhotosSection) return;
+    loadSitePhotos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSite?.id, selectedSite?.name, showSitePhotosSection, isNasPhotoBackend, nasApiUrl]);
 
   // 상태별 카운트 계산
   const statusCounts = useMemo(() => {
@@ -3817,6 +3876,10 @@ const NewSites = () => {
         )}
         {!showContractPreview && (
         <>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, flex: 1 }}>
+
+        {/* 상단 1/2: 물량내역 */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: isMobile ? 1 : 2, flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>
@@ -3936,7 +3999,8 @@ const NewSites = () => {
         </Box>
         <Box
           sx={{
-            height: 'calc(100vh - 300px)',
+            flex: 1,
+            minHeight: 0,
             overflowY: 'auto',
             border: '1px solid #444',
             borderRadius: '4px',
@@ -4136,9 +4200,132 @@ const NewSites = () => {
             </Box>
           ))}
         </Box>
+        </Box>
+
+        {/* 하단 1/2: 현장사진 */}
+        {showSitePhotosSection && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1, border: '1px solid #444', borderRadius: 1, overflow: 'hidden', bgcolor: '#1a1d21' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1.5, py: 0.75, borderBottom: '1px solid #444', flexShrink: 0 }}>
+              <Typography variant="h6" sx={{ color: '#fff', fontWeight: 'bold', fontSize: '1rem' }}>
+                현장사진
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Button
+                  variant="outlined"
+                  size={isMobile ? 'small' : 'small'}
+                  onClick={() => setSitePhotoUploadOpen(true)}
+                  disabled={!selectedSite}
+                  startIcon={<PhotoCameraIcon />}
+                  sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+                >
+                  사진추가하기
+                </Button>
+                <IconButton
+                  size="small"
+                  onClick={() => setShowSitePhotosSection(false)}
+                  sx={{ color: '#aaa', '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.08)' } }}
+                  title="닫기"
+                  aria-label="닫기"
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
+            </Box>
+
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 1 }}>
+              {sitePhotosLoading && (
+                <Typography variant="body2" sx={{ color: '#bbb' }}>
+                  불러오는 중...
+                </Typography>
+              )}
+
+              {!sitePhotosLoading && sitePhotosError && (
+                <Typography variant="body2" sx={{ color: '#f44336' }}>
+                  {sitePhotosError}
+                </Typography>
+              )}
+
+              {!sitePhotosLoading && !sitePhotosError && sitePhotos.length === 0 && (
+                <Typography variant="body2" sx={{ color: '#bbb' }}>
+                  사진이 없습니다.
+                </Typography>
+              )}
+
+              {!sitePhotosLoading && !sitePhotosError && sitePhotos.length > 0 && (
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+                  {sitePhotos.slice(0, 30).map((p) => (
+                    <Box
+                      key={p.id}
+                      onClick={() => setSelectedPreviewPhoto(p)}
+                      sx={{
+                        width: '100%',
+                        aspectRatio: '1 / 1',
+                        borderRadius: 1,
+                        overflow: 'hidden',
+                        border: '1px solid #333',
+                        cursor: 'pointer',
+                        bgcolor: '#111',
+                      }}
+                      title="눌러서 확대"
+                    >
+                      <img
+                        src={p.url}
+                        alt={p.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        loading="lazy"
+                      />
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          </Box>
+        )}
+
+        </Box>
         </>
         )}
       </Paper>
+
+      <SitePhotoUpload
+        open={sitePhotoUploadOpen}
+        onClose={() => {
+          setSitePhotoUploadOpen(false);
+          setShowSitePhotosSection(true);
+          loadSitePhotos();
+        }}
+        siteId={selectedSite?.id}
+        siteName={selectedSite?.name}
+      />
+
+      <Dialog
+        open={Boolean(selectedPreviewPhoto)}
+        onClose={() => setSelectedPreviewPhoto(null)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+            {selectedPreviewPhoto?.mtimeMs
+              ? new Date(selectedPreviewPhoto.mtimeMs).toLocaleString('ko-KR')
+              : ''}
+          </Typography>
+          <Button variant="outlined" onClick={() => setSelectedPreviewPhoto(null)}>
+            닫기
+          </Button>
+        </DialogTitle>
+        <DialogContent dividers>
+          {selectedPreviewPhoto && (
+            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+              <img
+                src={selectedPreviewPhoto.url}
+                alt={selectedPreviewPhoto.name}
+                style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+              />
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* 물량내역 업로드 다이얼로그 */}
       <Dialog 
