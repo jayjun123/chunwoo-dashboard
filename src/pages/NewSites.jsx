@@ -206,7 +206,12 @@ const NewSites = () => {
   const [sitePhotosError, setSitePhotosError] = useState('');
   const [sitePhotoUploadOpen, setSitePhotoUploadOpen] = useState(false);
   const [selectedPreviewPhoto, setSelectedPreviewPhoto] = useState(null);
+  const [previewScale, setPreviewScale] = useState(1);
+  const [previewTranslate, setPreviewTranslate] = useState({ x: 0, y: 0 });
+  const [isPreviewPanning, setIsPreviewPanning] = useState(false);
+  const previewPanStartRef = useRef(null);
   const replacePhotoInputRef = useRef(null);
+  const sitePhotosSectionRef = useRef(null);
 
   const getPhotosAuthHeaders = () => {
     if (!photosApiKey) return {};
@@ -325,6 +330,14 @@ const NewSites = () => {
     loadSitePhotos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSite?.id, selectedSite?.name, showSitePhotosSection, isNasPhotoBackend, nasApiUrl]);
+
+  useEffect(() => {
+    if (!selectedPreviewPhoto) return;
+    setPreviewScale(1);
+    setPreviewTranslate({ x: 0, y: 0 });
+    setIsPreviewPanning(false);
+    previewPanStartRef.current = null;
+  }, [selectedPreviewPhoto?.url]);
 
   // 상태별 카운트 계산
   const statusCounts = useMemo(() => {
@@ -3824,7 +3837,23 @@ const NewSites = () => {
                {contractUploading ? '업로드 중...' : '계약서업로드'}
              </Button>
            )}
-           
+           <Button
+             variant="outlined"
+             color="info"
+             onClick={(e) => {
+               e.preventDefault();
+               e.stopPropagation();
+               setShowSitePhotosSection(true);
+               requestAnimationFrame(() => {
+                 sitePhotosSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+               });
+             }}
+             disabled={!selectedSite}
+             size={isMobile ? 'small' : 'medium'}
+             sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+           >
+             현장사진
+           </Button>
            {isEditing ? (
              <Button 
                variant="contained" 
@@ -4276,7 +4305,10 @@ const NewSites = () => {
 
         {/* 하단 1/2: 현장사진 */}
         {showSitePhotosSection && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1, border: '1px solid #444', borderRadius: 1, overflow: 'hidden', bgcolor: '#1a1d21' }}>
+          <Box
+            ref={sitePhotosSectionRef}
+            sx={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1, border: '1px solid #444', borderRadius: 1, overflow: 'hidden', bgcolor: '#1a1d21' }}
+          >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1.5, py: 0.75, borderBottom: '1px solid #444', flexShrink: 0 }}>
               <Typography variant="h6" sx={{ color: '#fff', fontWeight: 'bold', fontSize: '1rem' }}>
                 현장사진
@@ -4416,11 +4448,64 @@ const NewSites = () => {
         </DialogTitle>
         <DialogContent dividers>
           {selectedPreviewPhoto && (
-            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <Box
+              sx={{
+                width: '100%',
+                height: '70vh',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                overflow: 'hidden',
+                userSelect: 'none',
+                cursor: isPreviewPanning ? 'grabbing' : 'grab',
+              }}
+              onWheel={(e) => {
+                e.preventDefault();
+                const delta = e.deltaY;
+                setPreviewScale((prev) => {
+                  const next = delta > 0 ? prev / 1.1 : prev * 1.1;
+                  return Math.min(6, Math.max(1, next));
+                });
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setIsPreviewPanning(true);
+                previewPanStartRef.current = {
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  baseX: previewTranslate.x,
+                  baseY: previewTranslate.y,
+                };
+              }}
+              onMouseMove={(e) => {
+                if (!isPreviewPanning) return;
+                const s = previewPanStartRef.current;
+                if (!s) return;
+                const dx = e.clientX - s.startX;
+                const dy = e.clientY - s.startY;
+                setPreviewTranslate({ x: s.baseX + dx, y: s.baseY + dy });
+              }}
+              onMouseUp={() => {
+                setIsPreviewPanning(false);
+                previewPanStartRef.current = null;
+              }}
+              onMouseLeave={() => {
+                setIsPreviewPanning(false);
+                previewPanStartRef.current = null;
+              }}
+            >
               <img
                 src={selectedPreviewPhoto.url}
                 alt={selectedPreviewPhoto.name}
-                style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                  transform: `translate(${previewTranslate.x}px, ${previewTranslate.y}px) scale(${previewScale})`,
+                  transformOrigin: 'center center',
+                  willChange: 'transform',
+                  pointerEvents: 'none',
+                }}
               />
             </Box>
           )}
