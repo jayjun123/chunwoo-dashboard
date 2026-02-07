@@ -18,8 +18,20 @@ export const ThemeProvider = ({ children }) => {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
+  const zIndex = {
+    mobileStepper: 2147480000,
+    fab: 2147480100,
+    speedDial: 2147480200,
+    appBar: 2147480300,
+    drawer: 2147480400,
+    modal: 2147483000,
+    snackbar: 2147483100,
+    tooltip: 2147483200,
+  };
+
   // 라이트 테마
   const lightTheme = createTheme({
+    zIndex,
     palette: {
       mode: 'light',
       primary: {
@@ -43,6 +55,55 @@ export const ThemeProvider = ({ children }) => {
       divider: '#e0e0e0',
     },
     components: {
+      MuiModal: {
+        styleOverrides: {
+          root: {
+            zIndex: zIndex.modal,
+          },
+        },
+      },
+      MuiDialog: {
+        styleOverrides: {
+          root: {
+            zIndex: zIndex.modal,
+          },
+        },
+      },
+      MuiPopover: {
+        styleOverrides: {
+          root: {
+            zIndex: zIndex.modal,
+          },
+        },
+      },
+      MuiPopper: {
+        styleOverrides: {
+          root: {
+            zIndex: zIndex.tooltip,
+          },
+        },
+      },
+      MuiTooltip: {
+        styleOverrides: {
+          popper: {
+            zIndex: zIndex.tooltip,
+          },
+        },
+      },
+      MuiSnackbar: {
+        styleOverrides: {
+          root: {
+            zIndex: zIndex.snackbar,
+          },
+        },
+      },
+      MuiBackdrop: {
+        styleOverrides: {
+          root: {
+            zIndex: zIndex.modal - 1,
+          },
+        },
+      },
       MuiCard: {
         styleOverrides: {
           root: {
@@ -70,6 +131,7 @@ export const ThemeProvider = ({ children }) => {
 
   // 다크 테마
   const darkTheme = createTheme({
+    zIndex,
     palette: {
       mode: 'dark',
       primary: {
@@ -93,6 +155,55 @@ export const ThemeProvider = ({ children }) => {
       divider: '#333333',
     },
     components: {
+      MuiModal: {
+        styleOverrides: {
+          root: {
+            zIndex: zIndex.modal,
+          },
+        },
+      },
+      MuiDialog: {
+        styleOverrides: {
+          root: {
+            zIndex: zIndex.modal,
+          },
+        },
+      },
+      MuiPopover: {
+        styleOverrides: {
+          root: {
+            zIndex: zIndex.modal,
+          },
+        },
+      },
+      MuiPopper: {
+        styleOverrides: {
+          root: {
+            zIndex: zIndex.tooltip,
+          },
+        },
+      },
+      MuiTooltip: {
+        styleOverrides: {
+          popper: {
+            zIndex: zIndex.tooltip,
+          },
+        },
+      },
+      MuiSnackbar: {
+        styleOverrides: {
+          root: {
+            zIndex: zIndex.snackbar,
+          },
+        },
+      },
+      MuiBackdrop: {
+        styleOverrides: {
+          root: {
+            zIndex: zIndex.modal - 1,
+          },
+        },
+      },
       MuiCard: {
         styleOverrides: {
           root: {

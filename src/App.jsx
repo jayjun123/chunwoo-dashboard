@@ -514,6 +514,16 @@ const App = React.memo(() => {
           <TodoProvider>
             <ThemeProvider>
               <MuiThemeProvider theme={createTheme({
+                zIndex: {
+                  mobileStepper: 2147480000,
+                  fab: 2147480100,
+                  speedDial: 2147480200,
+                  appBar: 2147480300,
+                  drawer: 2147480400,
+                  modal: 2147483000,
+                  snackbar: 2147483100,
+                  tooltip: 2147483200,
+                },
                 palette: {
                   mode: 'dark',
                   primary: {
@@ -533,6 +543,55 @@ const App = React.memo(() => {
                   divider: '#2d3344',
                 },
                 components: {
+                  MuiModal: {
+                    styleOverrides: {
+                      root: {
+                        zIndex: 2147483000,
+                      },
+                    },
+                  },
+                  MuiDialog: {
+                    styleOverrides: {
+                      root: {
+                        zIndex: 2147483000,
+                      },
+                    },
+                  },
+                  MuiPopover: {
+                    styleOverrides: {
+                      root: {
+                        zIndex: 2147483000,
+                      },
+                    },
+                  },
+                  MuiPopper: {
+                    styleOverrides: {
+                      root: {
+                        zIndex: 2147483200,
+                      },
+                    },
+                  },
+                  MuiTooltip: {
+                    styleOverrides: {
+                      popper: {
+                        zIndex: 2147483200,
+                      },
+                    },
+                  },
+                  MuiSnackbar: {
+                    styleOverrides: {
+                      root: {
+                        zIndex: 2147483100,
+                      },
+                    },
+                  },
+                  MuiBackdrop: {
+                    styleOverrides: {
+                      root: {
+                        zIndex: 2147482999,
+                      },
+                    },
+                  },
                   MuiCssBaseline: {
                     styleOverrides: {
                       body: {
