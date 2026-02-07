@@ -59,6 +59,17 @@ const formatPrice = (value) => {
   return Math.round(num).toLocaleString();
 };
 
+const parseAmountNumber = (value) => {
+  if (value === '' || value === null || value === undefined) return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const normalized = String(value)
+    .replace(/\s/g, '')
+    .replace(/,/g, '')
+    .replace(/[^0-9.-]/g, '');
+  const num = Number(normalized);
+  return Number.isFinite(num) ? num : 0;
+};
+
 // 진행상황 계산 함수
 const calculateProgress = (site) => {
   if (!site.startDate || !site.endDate) return null;
@@ -433,22 +444,23 @@ const NewSites = () => {
           }
           
           // 해당 현장의 모든 기성 데이터 확인
-          const totalGisung = siteGisungData.reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+          const totalGisung = siteGisungData.reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
           const paidGisung = siteGisungData
             .filter(g => g.paymentStatus === '입금완료')
-            .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+            .reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
           
           // 선급금도 고려
-          const advanceAmount = Number(site.advance) || 0;
+          const advanceAmount = parseAmountNumber(site.advance);
           const totalWithAdvance = totalGisung + advanceAmount;
           
           // 잔액 계산 (계약금액 - 선급금 - 입금완료된 기성)
-          const contractAmount = Number(site.contractAmount) || 0;
+          const contractAmount = parseAmountNumber(site.contractAmount);
           const balance = contractAmount - advanceAmount - paidGisung;
           
-          // 정산완료 조건: 잔액이 0이고 입금완료 칩이 있는 경우
+          // 정산완료 조건: 잔액이 0 이하이고, 선급금 또는 입금완료 기성이 있는 경우
           const hasPaidGisung = siteGisungData.some(g => g.paymentStatus === '입금완료');
-          const isFullyPaid = balance <= 0 && hasPaidGisung;
+          const hasAnyPayment = advanceAmount > 0 || paidGisung > 0;
+          const isFullyPaid = balance <= 0 && (hasAnyPayment || hasPaidGisung);
           
           // 입금률 계산 (참고용)
           const paymentRate = totalWithAdvance > 0 ? ((paidGisung + advanceAmount) / totalWithAdvance) * 100 : 0;
@@ -459,7 +471,8 @@ const NewSites = () => {
             paidGisung,
             paymentRate,
             balance,
-            hasPaidGisung
+            hasPaidGisung,
+            hasAnyPayment
           };
         });
         
@@ -568,22 +581,23 @@ const NewSites = () => {
         }
         
         // 해당 현장의 모든 기성 데이터 확인
-        const totalGisung = siteGisungData.reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+        const totalGisung = siteGisungData.reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
         const paidGisung = siteGisungData
           .filter(g => g.paymentStatus === '입금완료')
-          .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+          .reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
         
         // 선급금도 고려
-        const advanceAmount = Number(site.advance) || 0;
+        const advanceAmount = parseAmountNumber(site.advance);
         const totalWithAdvance = totalGisung + advanceAmount;
         
         // 잔액 계산 (계약금액 - 선급금 - 입금완료된 기성)
-        const contractAmount = Number(site.contractAmount) || 0;
+        const contractAmount = parseAmountNumber(site.contractAmount);
         const balance = contractAmount - advanceAmount - paidGisung;
         
-        // 정산완료 조건: 기성 데이터가 없거나, 잔액이 0이고 입금완료 칩이 있는 경우
+        // 정산완료 조건: (기성데이터 없음) 또는 (잔액이 0 이하이고 선급금/입금완료 기성이 있는 경우)
         const hasPaidGisung = siteGisungData.some(g => g.paymentStatus === '입금완료');
-        const isFullyPaid = siteGisungData.length === 0 || (balance <= 0 && hasPaidGisung);
+        const hasAnyPayment = advanceAmount > 0 || paidGisung > 0;
+        const isFullyPaid = siteGisungData.length === 0 || (balance <= 0 && (hasAnyPayment || hasPaidGisung));
         
         // 입금률 계산 (참고용)
         const paymentRate = totalWithAdvance > 0 ? ((paidGisung + advanceAmount) / totalWithAdvance) * 100 : 0;
@@ -594,7 +608,8 @@ const NewSites = () => {
           paidGisung: paidGisung + advanceAmount,
           paymentRate: Math.round(paymentRate),
           balance: balance,
-          contractAmount: contractAmount
+          contractAmount: contractAmount,
+          hasAnyPayment
         };
       });
       
