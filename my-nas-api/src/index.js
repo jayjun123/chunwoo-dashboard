@@ -106,8 +106,6 @@ initDB()
     scheduleMailSync();
 // src/index.js 에 추가 (app.listen 위에 넣으세요)
 
-const { pool } = require('./db'); // db.js 경로 확인
-
 // 메일 목록 조회 API
 app.get('/api/mails', async (req, res) => {
   try {
