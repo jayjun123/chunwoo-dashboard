@@ -28,19 +28,16 @@ exports.handler = async function(event, context) {
   try {
     const data = await new Promise((resolve, reject) => {
       const url = `${NAS_API_URL}/mail-summaries`;
-      console.log('Fetching from:', url);
-      
-      http.get(url, (res) => {
+      const timeoutMs = 12000;
+
+      const req = http.get(url, (res) => {
         let body = '';
-        
-        res.on('data', (chunk) => {
-          body += chunk;
-        });
-        
+        res.on('data', (chunk) => { body += chunk; });
         res.on('end', () => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
             try {
-              resolve(JSON.parse(body));
+              const parsed = body ? JSON.parse(body) : [];
+              resolve(Array.isArray(parsed) ? parsed : parsed?.rows ?? parsed?.data ?? []);
             } catch (e) {
               reject(new Error('Invalid JSON response'));
             }
@@ -48,19 +45,32 @@ exports.handler = async function(event, context) {
             reject(new Error(`NAS API responded with status: ${res.statusCode}`));
           }
         });
-      }).on('error', (err) => {
-        reject(err);
+      });
+
+      req.on('error', (err) => reject(err));
+      req.setTimeout(timeoutMs, () => {
+        req.destroy();
+        reject(new Error('NAS API request timeout'));
       });
     });
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(data),
+      body: JSON.stringify(Array.isArray(data) ? data : data),
     };
   } catch (error) {
     console.error('NAS API proxy error:', error);
-    
+
+    const returnEmptyOnError = process.env.MAIL_SUMMARIES_RETURN_EMPTY_ON_ERROR === 'true';
+    if (returnEmptyOnError) {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify([]),
+      };
+    }
+
     return {
       statusCode: 500,
       headers,

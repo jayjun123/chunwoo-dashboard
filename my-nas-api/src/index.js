@@ -19,7 +19,7 @@ app.get('/mail-summaries', async (req, res) => {
       `
         SELECT *
         FROM mail_summaries
-        WHERE received_at >= DATE '2026-01-01'
+        WHERE received_at >= DATE '2020-01-01'
         ORDER BY
           CASE
             WHEN importance = 'high' THEN 0
