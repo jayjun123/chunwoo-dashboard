@@ -299,7 +299,7 @@ const NewSites = () => {
 
         setSitePhotosLoading(true);
         const url = `${nasApiUrl}/site-photos/list?siteId=${encodeURIComponent(selectedSite.id)}&siteName=${encodeURIComponent(selectedSite.name)}`;
-        const res = await fetch(url, { method: 'GET' });
+        const res = await fetch(url, { method: 'GET', headers: { ...getPhotosAuthHeaders() } });
         if (!res.ok) {
           throw new Error(`NAS API responded with status: ${res.status}`);
         }
