@@ -46,6 +46,7 @@ const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
   const { currentUser } = useAuth();
   const isNasPhotoBackend = import.meta.env.VITE_SITE_PHOTOS_BACKEND === 'nas';
   const nasApiUrl = import.meta.env.VITE_NAS_API_URL;
+  const photosApiKey = import.meta.env.VITE_PHOTOS_API_KEY;
   const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -53,6 +54,11 @@ const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editData, setEditData] = useState({ title: '', description: '', category: '일반' });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+
+  const getPhotosAuthHeaders = () => {
+    if (!photosApiKey) return {};
+    return { 'x-api-key': photosApiKey };
+  };
 
   // 사진 카테고리
   const categories = [
@@ -78,7 +84,7 @@ const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
         }
 
         const url = `${nasApiUrl}/site-photos/list?siteId=${encodeURIComponent(siteId)}&siteName=${encodeURIComponent(siteName)}`;
-        const res = await fetch(url, { method: 'GET' });
+        const res = await fetch(url, { method: 'GET', headers: { ...getPhotosAuthHeaders() } });
         if (!res.ok) {
           throw new Error(`NAS API responded with status: ${res.status}`);
         }
@@ -156,7 +162,7 @@ const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
         validFiles.forEach((file) => formData.append('files', file));
 
         const uploadUrl = `${nasApiUrl}/site-photos/upload`;
-        const res = await fetch(uploadUrl, { method: 'POST', body: formData });
+        const res = await fetch(uploadUrl, { method: 'POST', headers: { ...getPhotosAuthHeaders() }, body: formData });
         if (!res.ok) {
           throw new Error(`NAS API responded with status: ${res.status}`);
         }
@@ -250,7 +256,20 @@ const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
   const handleDeletePhoto = async (photo) => {
     try {
       if (isNasPhotoBackend) {
-        setSnackbar({ open: true, message: 'NAS 저장 방식에서는 삭제 기능이 아직 지원되지 않습니다.', severity: 'info' });
+        if (!nasApiUrl) {
+          throw new Error('VITE_NAS_API_URL이 설정되어 있지 않습니다.');
+        }
+        const name = photo?.id || photo?.name;
+        if (!name) {
+          throw new Error('삭제할 사진 정보가 없습니다.');
+        }
+        const url = `${nasApiUrl}/site-photos/delete?siteId=${encodeURIComponent(siteId)}&siteName=${encodeURIComponent(siteName)}&name=${encodeURIComponent(name)}`;
+        const res = await fetch(url, { method: 'DELETE', headers: { ...getPhotosAuthHeaders() } });
+        if (!res.ok) {
+          throw new Error(`NAS API responded with status: ${res.status}`);
+        }
+        setPhotos((prev) => prev.filter((p) => (p?.id || p?.name) !== name));
+        setSnackbar({ open: true, message: '사진이 삭제되었습니다.', severity: 'success' });
         return;
       }
 
