@@ -6,7 +6,10 @@ const http = require('http');
 
 exports.handler = async function(event, context) {
   // NAS API URL (HTTP)
-  const NAS_API_URL = process.env.NAS_API_URL || 'http://chunwoo.iptime.org:3000';
+  const NAS_API_URL =
+    process.env.NAS_API_URL ||
+    process.env.VITE_NAS_API_URL ||
+    'https://nas-api.chunwoo-ph.com';
   
   // CORS 헤더
   const headers = {
@@ -14,6 +17,8 @@ exports.handler = async function(event, context) {
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Content-Type': 'application/json',
+    'Cache-Control': 'no-store, max-age=0, must-revalidate',
+    Pragma: 'no-cache',
   };
 
   // OPTIONS 요청 처리 (CORS preflight)
@@ -27,10 +32,12 @@ exports.handler = async function(event, context) {
 
   try {
     const data = await new Promise((resolve, reject) => {
-      const url = `${NAS_API_URL}/mail-summaries`;
+      const qs = event.rawQuery ? `?${event.rawQuery}` : '';
+      const url = `${NAS_API_URL}/mail-summaries${qs}`;
       const timeoutMs = 12000;
 
-      const req = http.get(url, (res) => {
+      const client = url.startsWith('https://') ? https : http;
+      const req = client.get(url, (res) => {
         let body = '';
         res.on('data', (chunk) => { body += chunk; });
         res.on('end', () => {

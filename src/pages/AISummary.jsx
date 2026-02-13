@@ -147,6 +147,25 @@ const AISummary = () => {
     loadMails();
   }, []);
 
+  useEffect(() => {
+    const handleFocus = () => {
+      loadMails();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadMails();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   // 제외 키워드 변경 시 localStorage에 저장
   useEffect(() => {
     localStorage.setItem('aiSummary_excludeKeywords', JSON.stringify(excludeKeywords));
