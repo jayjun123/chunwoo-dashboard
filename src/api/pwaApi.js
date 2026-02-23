@@ -1,12 +1,12 @@
 /**
  * PWA 전용 API 클라이언트 (읽기 전용)
- * Netlify Function: /.netlify/functions/pwa-api
+ * Netlify: /api/* → pwa-api 함수로 리다이렉트됨
  * 예: 오늘 일정, OO현장 소장, OO현장 기성 잔액
  */
 
 import axios from 'axios';
 
-const PWA_API_PREFIX = '/.netlify/functions/pwa-api';
+const PWA_API_PREFIX = '/api';
 
 const api = axios.create({
   timeout: 15000,

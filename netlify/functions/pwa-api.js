@@ -17,7 +17,8 @@ const send = (statusCode, body) => ({
 });
 
 const getPath = (event) => {
-  const raw = event.path || '';
+  let raw = event.path || '';
+  if (raw.startsWith('/api/')) raw = '/.netlify/functions/pwa-api' + raw.slice(4);
   const prefix = '/.netlify/functions/pwa-api';
   const path = raw.startsWith(prefix) ? raw.slice(prefix.length) || '/' : raw;
   return path.replace(/^\//, '').split('/').filter(Boolean);

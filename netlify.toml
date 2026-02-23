@@ -23,6 +23,12 @@
   VITE_MASTER_EMAIL = "fire8803@naver.com"
   VITE_GOOGLE_MAPS_API_KEY = "your_google_maps_api_key_here"
 
+# /api/* → pwa-api 함수로 전달 (SPA 폴백보다 먼저 매칭)
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/pwa-api/:splat"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
