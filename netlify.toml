@@ -23,6 +23,13 @@
   VITE_MASTER_EMAIL = "fire8803@naver.com"
   VITE_GOOGLE_MAPS_API_KEY = "your_google_maps_api_key_here"
 
+# 함수 URL은 SPA 폴백보다 먼저 처리 (순서 중요)
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
