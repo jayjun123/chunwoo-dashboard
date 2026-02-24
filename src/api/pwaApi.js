@@ -27,9 +27,9 @@ export const getScheduleToday = () =>
   get('/schedule/today').then((res) => res?.data ?? []);
 
 /**
- * 현장명으로 검색 (소장, 기성잔액 등)
+ * 현장명으로 검색 (소장, 계약금액, 주소, 창호업체, 준공일, 시공팀, 기성잔액 등)
  * @param {string} siteName - 현장명 (부분 일치)
- * @returns {Promise<{ data: Array }>}
+ * @returns {Promise<{ data: Array<{ name, manager, contractAmount, address, windowCompany, endDate, team, balance, ... }> }>}
  */
 export const getSitesByName = (siteName) =>
   get('/sites', { name: siteName });

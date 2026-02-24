@@ -747,10 +747,15 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       .reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
     
     // 입금완료된 기성만 입금완료금액에 포함 (예외항목 제외)
-    const totalPaidAmount = filteredAndSortedGisung
+    const totalPaidFromGisung = filteredAndSortedGisung
       .filter(gisung => gisung.paymentStatus === '입금완료' && !gisung.isException)
       .reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
-    
+    // 선급금 행이 입금완료인 경우 해당 선급금도 입금완료금액에 합산 (비고에 '선급금' 포함된 행)
+    const totalPaidFromAdvance = filteredAndSortedGisung
+      .filter(gisung => gisung.paymentStatus === '입금완료' && gisung.note && String(gisung.note).trim().includes('선급금'))
+      .reduce((sum, gisung) => sum + (Number(gisung.advance) || 0), 0);
+    const totalPaidAmount = totalPaidFromGisung + totalPaidFromAdvance;
+
     // 예외 금액 합계 계산
     const totalExceptionAmount = filteredAndSortedGisung
       .filter(gisung => gisung.isException)

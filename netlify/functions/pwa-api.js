@@ -122,6 +122,8 @@ async function getSitesQuery(name, field) {
     const advance = parseAmount(site.advance);
     const balance = contractAmount - advance - paidGisung;
 
+    const endDateStr = toDateStr(site.endDate);
+
     if (field === 'manager') {
       result.push({ name: siteName, manager: site.manager || '' });
       continue;
@@ -142,6 +144,11 @@ async function getSitesQuery(name, field) {
       name: siteName,
       manager: site.manager || '',
       contractAmount,
+      contractAmountFormatted: contractAmount.toLocaleString(),
+      address: site.address || '',
+      windowCompany: site.windowCompany || '',
+      endDate: endDateStr,
+      team: site.team || '',
       advance,
       paidGisung,
       balance,
@@ -181,7 +188,7 @@ exports.handler = async function (event, context) {
         readOnly: true,
         endpoints: {
           'GET /schedule/today': '오늘 일정 목록',
-          'GET /sites?name=현장명': '현장 검색 (소장, 기성잔액 포함)',
+          'GET /sites?name=현장명': '현장 검색 (소장, 계약금액, 주소, 창호업체, 준공일, 시공팀, 기성잔액 등)',
           'GET /sites?name=현장명&field=manager': '해당 현장 소장만',
           'GET /sites?name=현장명&field=balance': '해당 현장 기성 잔액만',
         },
