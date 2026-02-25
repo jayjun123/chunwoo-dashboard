@@ -746,17 +746,14 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       .filter(gisung => gisung.claimStatus === '청구완료')
       .reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
     
-    // 입금완료금액 = 입금완료된 선급금 + 입금완료된 기성금액
+    // 입금완료금액 = 총 선급금 + 입금완료된 기성금액 (선급금은 현장 합계로 이미 지급된 금액)
     const isAdvanceRow = (g) => g.note && String(g.note).trim().includes('선급금');
     // 입금완료된 기성금액만 (예외항목·선급금 행 제외)
     const totalPaidFromGisung = filteredAndSortedGisung
       .filter(gisung => gisung.paymentStatus === '입금완료' && !gisung.isException && !isAdvanceRow(gisung))
       .reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
-    // 입금완료된 선급금: 비고 '선급금'인 행 중 입금완료 → advance 또는 gisungAmount(금회기성) 합산
-    const totalPaidFromAdvance = filteredAndSortedGisung
-      .filter(gisung => gisung.paymentStatus === '입금완료' && isAdvanceRow(gisung))
-      .reduce((sum, gisung) => sum + (Number(gisung.advance) || Number(gisung.gisungAmount) || 0), 0);
-    const totalPaidAmount = totalPaidFromGisung + totalPaidFromAdvance;
+    // 표시용 입금완료금액 = 총 선급금(현장 합계) + 입금완료된 기성금액
+    const totalPaidAmount = totalAdvance + totalPaidFromGisung;
 
     // 예외 금액 합계 계산
     const totalExceptionAmount = filteredAndSortedGisung
@@ -768,8 +765,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       .filter(gisung => gisung.isException && gisung.paymentStatus === '입금완료')
       .reduce((sum, gisung) => sum + (Number(gisung.exceptionAmount) || 0), 0);
     
-    // 잔액 = 계약금액 - 선급금 - 입금완료금액 (예외항목 제외)
-    const totalBalance = totalContractAmount - totalAdvance - totalPaidAmount;
+    // 잔액 = 계약금액 - 선급금 - 입금완료된 기성금액 (입금완료금액 표시에는 선급금 포함되므로 여기서는 기성만 차감)
+    const totalBalance = totalContractAmount - totalAdvance - totalPaidFromGisung;
     
     return { 
       totalContractAmount, 

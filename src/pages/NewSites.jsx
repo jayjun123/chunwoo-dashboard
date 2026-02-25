@@ -431,10 +431,11 @@ const NewSites = () => {
         const paymentMap = {};
         
         sites.forEach(site => {
-          // 현장명 매칭 (정확한 매칭과 부분 매칭 모두 시도)
+          // 현장명 매칭 (정확한 매칭 + 양방향 부분 매칭: 기성 현장명이 짧을 수 있음)
           const siteGisungData = gisungData.filter(g => {
+            if (!g.name || !site.name) return false;
             const exactMatch = g.name === site.name;
-            const partialMatch = g.name && site.name && g.name.includes(site.name);
+            const partialMatch = g.name.includes(site.name) || site.name.includes(g.name);
             return exactMatch || partialMatch;
           });
           
@@ -445,24 +446,24 @@ const NewSites = () => {
           
           // 해당 현장의 모든 기성 데이터 확인
           const totalGisung = siteGisungData.reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
-          const paidGisung = siteGisungData
-            .filter(g => g.paymentStatus === '입금완료')
+          const isAdvanceRow = (g) => g.note && String(g.note).trim().includes('선급금');
+          const paidFromGisung = siteGisungData
+            .filter(g => g.paymentStatus === '입금완료' && !isAdvanceRow(g))
             .reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
+          const paidFromAdvanceRows = siteGisungData
+            .filter(g => g.paymentStatus === '입금완료' && isAdvanceRow(g))
+            .reduce((sum, g) => sum + (parseAmountNumber(g.advance) || parseAmountNumber(g.gisungAmount)), 0);
+          const paidGisung = paidFromGisung + paidFromAdvanceRows;
           
-          // 선급금도 고려
           const advanceAmount = parseAmountNumber(site.advance);
           const totalWithAdvance = totalGisung + advanceAmount;
-          
-          // 잔액 계산 (계약금액 - 선급금 - 입금완료된 기성)
           const contractAmount = parseAmountNumber(site.contractAmount);
-          const balance = contractAmount - advanceAmount - paidGisung;
+          // 잔액 = 계약 - 선급금 - 입금완료 기성(선급금 행 제외, 선급금은 이미 advanceAmount로 차감)
+          const balance = contractAmount - advanceAmount - paidFromGisung;
           
-          // 정산완료 조건: 잔액이 0 이하이고, 선급금 또는 입금완료 기성이 있는 경우
-          const hasPaidGisung = siteGisungData.some(g => g.paymentStatus === '입금완료');
-          const hasAnyPayment = advanceAmount > 0 || paidGisung > 0;
-          const isFullyPaid = balance <= 0 && (hasAnyPayment || hasPaidGisung);
+          // 정산완료: 기성금 내역이 있고 잔액이 0(반올림 허용 1원)이면 표시
+          const isFullyPaid = siteGisungData.length > 0 && (balance <= 0 || Math.abs(balance) < 1);
           
-          // 입금률 계산 (참고용)
           const paymentRate = totalWithAdvance > 0 ? ((paidGisung + advanceAmount) / totalWithAdvance) * 100 : 0;
           
           paymentMap[site.name] = {
@@ -470,9 +471,7 @@ const NewSites = () => {
             totalGisung,
             paidGisung,
             paymentRate,
-            balance,
-            hasPaidGisung,
-            hasAnyPayment
+            balance
           };
         });
         
@@ -568,11 +567,9 @@ const NewSites = () => {
       const paymentMap = {};
       
       sites.forEach(site => {
-        // 현장명 매칭 (정확한 매칭과 부분 매칭 모두 시도)
         const siteGisungData = gisungData.filter(g => {
-          const exactMatch = g.name === site.name;
-          const partialMatch = g.name && site.name && g.name.includes(site.name);
-          return exactMatch || partialMatch;
+          if (!g.name || !site.name) return false;
+          return g.name === site.name || g.name.includes(site.name) || site.name.includes(g.name);
         });
         
         if (siteGisungData.length === 0) {
@@ -580,26 +577,23 @@ const NewSites = () => {
           return;
         }
         
-        // 해당 현장의 모든 기성 데이터 확인
         const totalGisung = siteGisungData.reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
-        const paidGisung = siteGisungData
-          .filter(g => g.paymentStatus === '입금완료')
+        const isAdvanceRow = (g) => g.note && String(g.note).trim().includes('선급금');
+        const paidFromGisung = siteGisungData
+          .filter(g => g.paymentStatus === '입금완료' && !isAdvanceRow(g))
           .reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
+        const paidFromAdvanceRows = siteGisungData
+          .filter(g => g.paymentStatus === '입금완료' && isAdvanceRow(g))
+          .reduce((sum, g) => sum + (parseAmountNumber(g.advance) || parseAmountNumber(g.gisungAmount)), 0);
+        const paidGisung = paidFromGisung + paidFromAdvanceRows;
         
-        // 선급금도 고려
         const advanceAmount = parseAmountNumber(site.advance);
         const totalWithAdvance = totalGisung + advanceAmount;
-        
-        // 잔액 계산 (계약금액 - 선급금 - 입금완료된 기성)
         const contractAmount = parseAmountNumber(site.contractAmount);
-        const balance = contractAmount - advanceAmount - paidGisung;
+        const balance = contractAmount - advanceAmount - paidFromGisung;
         
-        // 정산완료 조건: (기성데이터 없음) 또는 (잔액이 0 이하이고 선급금/입금완료 기성이 있는 경우)
-        const hasPaidGisung = siteGisungData.some(g => g.paymentStatus === '입금완료');
-        const hasAnyPayment = advanceAmount > 0 || paidGisung > 0;
-        const isFullyPaid = siteGisungData.length === 0 || (balance <= 0 && (hasAnyPayment || hasPaidGisung));
+        const isFullyPaid = siteGisungData.length > 0 && (balance <= 0 || Math.abs(balance) < 1);
         
-        // 입금률 계산 (참고용)
         const paymentRate = totalWithAdvance > 0 ? ((paidGisung + advanceAmount) / totalWithAdvance) * 100 : 0;
         
         paymentMap[site.name] = {
@@ -608,8 +602,7 @@ const NewSites = () => {
           paidGisung: paidGisung + advanceAmount,
           paymentRate: Math.round(paymentRate),
           balance: balance,
-          contractAmount: contractAmount,
-          hasAnyPayment
+          contractAmount: contractAmount
         };
       });
       
@@ -3040,6 +3033,7 @@ const NewSites = () => {
                   handleSelectSite(site);
                 }} 
                 sx={{ 
+                  position: 'relative',
                   mb: isMobile ? 0.25 : 0.5, 
                   borderRadius: 1,
                   py: isMobile ? 0.25 : 0.5,

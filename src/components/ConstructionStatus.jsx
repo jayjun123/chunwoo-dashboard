@@ -91,11 +91,9 @@ const ConstructionStatus = () => {
       const paymentMap = {};
       
       sitesData.forEach(site => {
-        // 현장명 매칭 (정확한 매칭과 부분 매칭 모두 시도)
         const siteGisungData = gisungData.filter(g => {
-          const exactMatch = g.name === site.name;
-          const partialMatch = g.name && site.name && g.name.includes(site.name);
-          return exactMatch || partialMatch;
+          if (!g.name || !site.name) return false;
+          return g.name === site.name || g.name.includes(site.name) || site.name.includes(g.name);
         });
         
         console.log(`🔍 현장 "${site.name}" 기성 데이터 검색:`, {
@@ -114,21 +112,21 @@ const ConstructionStatus = () => {
         const totalGisung = siteGisungData
           .filter(g => g.claimStatus === '청구완료')
           .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
-        const paidGisung = siteGisungData
-          .filter(g => g.claimStatus === '청구완료' && g.paymentStatus === '입금완료')
+        const isAdvanceRow = (g) => g.note && String(g.note).trim().includes('선급금');
+        const paidFromGisung = siteGisungData
+          .filter(g => g.claimStatus === '청구완료' && g.paymentStatus === '입금완료' && !isAdvanceRow(g))
           .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
+        const paidFromAdvanceRows = siteGisungData
+          .filter(g => g.paymentStatus === '입금완료' && isAdvanceRow(g))
+          .reduce((sum, g) => sum + (Number(g.advance) || Number(g.gisungAmount) || 0), 0);
+        const paidGisung = paidFromGisung + paidFromAdvanceRows;
         
-        // 선급금도 고려
         const advanceAmount = Number(site.advance) || 0;
         const totalWithAdvance = totalGisung + advanceAmount;
-        
-        // 잔액 계산 (계약금액 - 선급금 - 입금완료된 기성)
         const contractAmount = Number(site.contractAmount) || 0;
-        const balance = contractAmount - advanceAmount - paidGisung;
+        const balance = contractAmount - advanceAmount - paidFromGisung;
         
-        // 정산완료 조건: 잔액이 0이고 입금완료 칩이 있는 경우
-        const hasPaidGisung = siteGisungData.some(g => g.paymentStatus === '입금완료');
-        const isFullyPaid = balance <= 0 && hasPaidGisung;
+        const isFullyPaid = siteGisungData.length > 0 && (balance <= 0 || Math.abs(balance) < 1);
         
         // 입금률 계산 (참고용)
         const paymentRate = totalWithAdvance > 0 ? ((paidGisung + advanceAmount) / totalWithAdvance) * 100 : 0;
@@ -149,8 +147,7 @@ const ConstructionStatus = () => {
           totalGisung: totalGisung,
           paidGisung: paidGisung,
           balance: balance,
-          hasPaidGisung: hasPaidGisung,
-          isFullyPaid: isFullyPaid,
+          isFullyPaid,
           paymentRate: paymentRate.toFixed(2) + '%',
           gisungData: siteGisungData.map(g => ({
             sequence: g.sequence,
