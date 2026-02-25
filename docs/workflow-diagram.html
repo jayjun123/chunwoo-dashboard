@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>천우 건설현장관리시스템 — 전체 + 페이지 연동 워크플로우</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #1a1d24;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    h1 { text-align: center; font-size: 1.4rem; margin-bottom: 6px; color: #fff; }
+    .subtitle { text-align: center; color: #888; font-size: 0.85rem; margin-bottom: 20px; }
+    .canvas {
+      position: relative;
+      width: 100%;
+      min-height: 1200px;
+      background: #232734;
+      border-radius: 12px;
+      border: 1px solid #444;
+      overflow: auto;
+    }
+    .workflow {
+      position: relative;
+      width: 1680px;
+      min-height: 1160px;
+      padding: 24px;
+    }
+    .section { margin-bottom: 20px; }
+    .section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      padding-left: 4px;
+    }
+    .row { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .lane-label {
+      width: 90px;
+      padding-top: 10px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .lane { display: flex; flex-wrap: wrap; gap: 12px; flex: 1; min-width: 0; }
+    .node {
+      min-width: 150px;
+      max-width: 200px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      cursor: default;
+      border: 2px solid transparent;
+      transition: transform 0.12s, box-shadow 0.12s;
+      position: relative;
+    }
+    .node:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
+    .node-title { font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; font-size: 0.8rem; }
+    .node-desc, .node-path { font-size: 0.65rem; color: rgba(255,255,255,0.7); line-height: 1.35; }
+    .node-features { font-size: 0.65rem; color: rgba(255,255,255,0.85); line-height: 1.4; }
+    .node-features span { display: block; padding-left: 10px; position: relative; }
+    .node-features span::before { content: '•'; position: absolute; left: 0; }
+    .connector {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      right: -5px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 2px solid rgba(255,255,255,0.5);
+      background: inherit;
+      box-shadow: 0 0 0 2px #232734;
+    }
+    .connector-in {
+      right: auto;
+      left: -5px;
+      background: #555;
+      border-color: #888;
+    }
+    /* 시스템 노드 */
+    .node-trigger { background: linear-gradient(135deg, #2d5a27 0%, #1e3d1a 100%); border-color: #4caf50; color: #fff; }
+    .node-trigger .connector { background: #4caf50; }
+    .node-app { background: linear-gradient(135deg, #1e3a5f 0%, #132a4a 100%); border-color: #2196f3; color: #fff; }
+    .node-app .connector { background: #2196f3; }
+    .node-api { background: linear-gradient(135deg, #5a4a2d 0%, #4a3d13 100%); border-color: #ff9800; color: #fff; }
+    .node-api .connector { background: #ff9800; }
+    .node-data { background: linear-gradient(135deg, #5a2d5a 0%, #3d1e3d 100%); border-color: #9c27b0; color: #fff; }
+    .node-data .connector { background: #9c27b0; }
+    .node-storage { background: linear-gradient(135deg, #2d5a5a 0%, #1e3d3d 100%); border-color: #00bcd4; color: #fff; }
+    .node-storage .connector { background: #00bcd4; }
+    .node-external { background: linear-gradient(135deg, #5a2d2d 0%, #3d1e1e 100%); border-color: #f44336; color: #fff; }
+    .node-external .connector { background: #f44336; }
+    /* 페이지 노드 */
+    .node-entry { background: linear-gradient(135deg, #2d5a27 0%, #1e3d1a 100%); border-color: #4caf50; color: #fff; }
+    .node-entry .connector { background: #4caf50; }
+    .node-auth { background: linear-gradient(135deg, #5a3d2d 0%, #4a2d13 100%); border-color: #8d6e63; color: #fff; }
+    .node-auth .connector { background: #8d6e63; }
+    .node-layout { background: linear-gradient(135deg, #1e3a5f 0%, #132a4a 100%); border-color: #2196f3; color: #fff; }
+    .node-layout .connector { background: #2196f3; }
+    .node-schedule { border-color: #9c27b0; background: linear-gradient(135deg, #4a2d5a 0%, #2d1e3d 100%); color: #fff; }
+    .node-schedule .connector { background: #9c27b0; }
+    .node-site { border-color: #4caf50; background: linear-gradient(135deg, #2d5a3d 0%, #1e3d2a 100%); color: #fff; }
+    .node-site .connector { background: #4caf50; }
+    .node-money { border-color: #2196f3; background: linear-gradient(135deg, #2d4a5a 0%, #1e3540 100%); color: #fff; }
+    .node-money .connector { background: #2196f3; }
+    .node-estimate { border-color: #ff9800; background: linear-gradient(135deg, #5a4a2d 0%, #3d331e 100%); color: #fff; }
+    .node-estimate .connector { background: #ff9800; }
+    .node-people { border-color: #c4a574; background: linear-gradient(135deg, #5a4a2d 0%, #3d2d1e 100%); color: #fff; }
+    .node-people .connector { background: #c4a574; }
+    .node-safety { border-color: #f44336; background: linear-gradient(135deg, #5a2d2d 0%, #3d1e1e 100%); color: #fff; }
+    .node-safety .connector { background: #f44336; }
+    .node-etc { border-color: #00bcd4; background: linear-gradient(135deg, #2d5a5a 0%, #1e3d3d 100%); color: #fff; }
+    .node-etc .connector { background: #00bcd4; }
+    .node-admin { border-color: #e91e63; background: linear-gradient(135deg, #5a2d3d 0%, #3d1e2a 100%); color: #fff; }
+    .node-admin .connector { background: #e91e63; }
+    .flow-strip { margin-bottom: 16px; }
+    .flow-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 12px;
+      background: #2a2e3a;
+      border-radius: 8px;
+      border: 1px solid #444;
+      font-size: 0.78rem;
+    }
+    .flow-node { padding: 4px 10px; background: #3a3f4d; border-radius: 6px; color: #b0b8d0; }
+    .flow-arrow { color: #5c6bc0; font-weight: 700; }
+    svg.connections {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+    svg.connections path.link {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.22);
+      stroke-width: 1.5;
+      stroke-dasharray: 5 4;
+    }
+    svg.connections path.link.data {
+      stroke: rgba(33, 150, 243, 0.5);
+      stroke-dasharray: none;
+    }
+    svg.connections circle.connector-dot {
+      fill: rgba(255, 255, 255, 0.5);
+      stroke: #5c6bc0;
+      stroke-width: 1;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 20px;
+      padding: 12px;
+      background: #232734;
+      border-radius: 8px;
+      border: 1px solid #444;
+      font-size: 0.75rem;
+      color: #aaa;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>천우 건설현장관리시스템 — 전체 + 페이지 연동</h1>
+  <p class="subtitle">n8n / Make.com 스타일 · 시스템–페이지 통합 · 데이터 연동 연결선 및 연결고리</p>
+
+  <div class="canvas">
+    <svg class="connections" id="connSvg" width="1680" height="1160"></svg>
+    <div class="workflow" id="workflow">
+      <!-- 연동 흐름 -->
+      <div class="section flow-strip">
+        <div class="section-title">연동 흐름</div>
+        <div class="flow-row">
+          <span class="flow-node">랜딩 /</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">로그인·회원가입</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">ProtectedRoute</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">Layout</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">대시보드/일정</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">메뉴 → 각 페이지</span>
+        </div>
+      </div>
+
+      <!-- 시스템: Trigger + App -->
+      <div class="section">
+        <div class="section-title">시스템 · Trigger / Application</div>
+        <div class="row">
+          <div class="lane-label">Trigger</div>
+          <div class="lane">
+            <div class="node node-trigger" data-id="user">
+              <span class="node-title">👤 사용자</span>
+              <span class="node-desc">브라우저 · PWA (chunwoodb.netlify.app)</span>
+              <span class="connector"></span>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="lane-label">App</div>
+          <div class="lane">
+            <div class="node node-app" data-id="pwa">
+              <span class="node-title">⚛️ React PWA</span>
+              <span class="node-desc">대시보드, 현장·일정·기성·견적, 회사별현장, AI메일요약, 지출/클레임 등</span>
+              <span class="connector"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 시스템: Services -->
+      <div class="section">
+        <div class="section-title">시스템 · Services</div>
+        <div class="row">
+          <div class="lane-label">API</div>
+          <div class="lane">
+            <div class="node node-api" data-id="pwa-api">
+              <span class="node-title">🔌 PWA API</span>
+              <span class="node-desc">읽기 전용 · 일정, 현장 소장/잔액/계약금액/주소/창호/준공/시공팀</span>
+              <span class="connector"></span>
+            </div>
+            <div class="node node-api" data-id="mail-proxy">
+              <span class="node-title">📬 mail-summaries</span>
+              <span class="node-desc">Netlify Function · 메일 요약 프록시 → NAS API</span>
+              <span class="connector"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 시스템: Data -->
+      <div class="section">
+        <div class="section-title">시스템 · Data (Firebase)</div>
+        <div class="row">
+          <div class="lane-label">Data</div>
+          <div class="lane">
+            <div class="node node-data" data-id="auth">
+              <span class="node-title">🔐 Auth</span>
+              <span class="node-desc">로그인 · 권한</span>
+              <span class="connector"></span>
+            </div>
+            <div class="node node-data" data-id="firestore">
+              <span class="node-title">📁 Firestore</span>
+              <span class="node-desc">sites, schedules, gisung, costs, estimates, claims, users, discussions …</span>
+              <span class="connector"></span>
+            </div>
+            <div class="node node-storage" data-id="storage">
+              <span class="node-title">📦 Storage</span>
+              <span class="node-desc">계약서 PDF/이미지, 첨부파일</span>
+              <span class="connector"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 시스템: Backend / External -->
+      <div class="section">
+        <div class="section-title">시스템 · Backend / External</div>
+        <div class="row">
+          <div class="lane-label">Backend</div>
+          <div class="lane">
+            <div class="node node-api" data-id="nas-api">
+              <span class="node-title">🖥️ NAS API</span>
+              <span class="node-desc">GET /mail-summaries · PostgreSQL · PATCH</span>
+              <span class="connector"></span>
+            </div>
+            <div class="node node-external" data-id="postgres">
+              <span class="node-title">🐘 PostgreSQL</span>
+              <span class="node-desc">mail_summaries</span>
+              <span class="connector"></span>
+            </div>
+            <div class="node node-external" data-id="imap">
+              <span class="node-title">📩 IMAP</span>
+              <span class="node-desc">메일 수집 (cron)</span>
+              <span class="connector"></span>
+            </div>
+            <div class="node node-external" data-id="gemini">
+              <span class="node-title">🤖 Gemini</span>
+              <span class="node-desc">메일 요약·분류·중요도</span>
+              <span class="connector"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 페이지: 진입 · 인증 · 레이아웃 -->
+      <div class="section">
+        <div class="section-title">페이지 · 진입 · 인증 · 레이아웃</div>
+        <div class="row">
+          <div class="node node-entry" data-id="landing">
+            <span class="node-title">🏠 랜딩</span>
+            <span class="node-path">/ , /landing</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-auth" data-id="login">
+            <span class="node-title">🔐 로그인</span>
+            <span class="node-path">/login</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-auth" data-id="register">
+            <span class="node-title">📝 회원가입</span>
+            <span class="node-path">/register</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-auth" data-id="forgot">
+            <span class="node-title">🔑 비밀번호 찾기</span>
+            <span class="node-path">/forgot-password</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-layout" data-id="layout">
+            <span class="node-title">📐 Layout</span>
+            <span class="node-path">로그인 후 공통 레이아웃 · 메뉴</span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 페이지: 일정 · 현장 -->
+      <div class="section">
+        <div class="section-title">페이지 · 일정 · 현장</div>
+        <div class="row">
+          <div class="node node-schedule" data-id="schedule">
+            <span class="node-title">📅 일정관리</span>
+            <span class="node-path">/schedule, /dashboard</span>
+            <span class="node-features"><span>캘린더·일정 CRUD</span><span>PWA API 오늘일정</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-schedule" data-id="gantt">
+            <span class="node-title">📊 현장일정(간트)</span>
+            <span class="node-path">/gantt</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-site" data-id="sites">
+            <span class="node-title">🏗️ 현장관리</span>
+            <span class="node-path">/sites</span>
+            <span class="node-features"><span>목록·등록·계약서/물량</span><span>Firestore·Storage</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-site" data-id="company-dist">
+            <span class="node-title">📊 회사별 현장</span>
+            <span class="node-path">/company-distribution</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-etc" data-id="mapping">
+            <span class="node-title">🗺️ MAP</span>
+            <span class="node-path">/mapping</span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 페이지: 기성 · 지출 · 견적 · AI메일 -->
+      <div class="section">
+        <div class="section-title">페이지 · 기성 · 지출 · 견적 · AI 메일</div>
+        <div class="row">
+          <div class="node node-money" data-id="progress">
+            <span class="node-title">💰 기성관리</span>
+            <span class="node-path">/progress</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-money" data-id="gisung">
+            <span class="node-title">📑 기성현황</span>
+            <span class="node-path">/gisung</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-money" data-id="cost">
+            <span class="node-title">💸 지출</span>
+            <span class="node-path">/cost</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-money" data-id="claims">
+            <span class="node-title">📌 청구예정</span>
+            <span class="node-path">/claims</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-estimate" data-id="estimates">
+            <span class="node-title">📄 견적요청</span>
+            <span class="node-path">/estimates</span>
+            <span class="node-features"><span>Firestore · AI 메일에서 적용</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-etc" data-id="ai-summary">
+            <span class="node-title">📧 AI 메일 요약</span>
+            <span class="node-path">/ai-summary</span>
+            <span class="node-features"><span>mail-summaries API · 견적 연동</span></span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 페이지: 시공·거래처 · 안전 · 기타 · 관리자 -->
+      <div class="section">
+        <div class="section-title">페이지 · 시공·거래처 · 안전 · 기타 · 관리자</div>
+        <div class="row">
+          <div class="node node-people" data-id="daema-team">
+            <span class="node-title">👷 시공팀</span>
+            <span class="node-path">/daema-team</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-people" data-id="vendors">
+            <span class="node-title">📢 입찰현황</span>
+            <span class="node-path">/vendors</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-people" data-id="vendor-mgmt">
+            <span class="node-title">🏢 거래처관리</span>
+            <span class="node-path">/vendor-management</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-safety" data-id="safety">
+            <span class="node-title">🦺 안전관리</span>
+            <span class="node-path">/safety</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-etc" data-id="discussions">
+            <span class="node-title">💬 토론의견</span>
+            <span class="node-path">/discussions</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-etc" data-id="confidential">
+            <span class="node-title">🔒 대외비</span>
+            <span class="node-path">/confidential</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-admin" data-id="members">
+            <span class="node-title">👥 멤버 관리</span>
+            <span class="node-path">/members</span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-admin" data-id="permissions">
+            <span class="node-title">🔐 권한 관리</span>
+            <span class="node-path">/permissions</span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="legend-dot" style="background:#4caf50"></span> Trigger/진입</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#2196f3"></span> App/레이아웃</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#ff9800"></span> API/Service</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#9c27b0"></span> Data (Auth/Firestore)</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#00bcd4"></span> Storage</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#f44336"></span> External</div>
+    <div class="legend-item"><span style="color:rgba(33,150,243,0.8)">──</span> 데이터 연동선</div>
+    <div class="legend-item"><span style="color:rgba(255,255,255,0.4)">- -</span> 시스템 연결선</div>
+  </div>
+
+  <script>
+(function() {
+  var canvas = document.querySelector('.canvas');
+  var workflow = document.getElementById('workflow');
+  var svg = document.getElementById('connSvg');
+  if (!canvas || !workflow || !svg) return;
+
+  var ns = 'http://www.w3.org/2000/svg';
+  var allNodes = workflow.querySelectorAll('[data-id]');
+  var nodeMap = {};
+  allNodes.forEach(function(el) {
+    var id = el.getAttribute('data-id');
+    if (id) nodeMap[id] = el;
+  });
+
+  function toSvgCoords(el, useRight) {
+    if (!el) return { x: 0, y: 0 };
+    var r = el.getBoundingClientRect();
+    var c = canvas.getBoundingClientRect();
+    var scrollX = canvas.scrollLeft || 0;
+    var scrollY = canvas.scrollTop || 0;
+    var conn = el.querySelector('.connector:not(.connector-in)');
+    if (conn && useRight !== false) {
+      var cr = conn.getBoundingClientRect();
+      return { x: cr.left - c.left + scrollX + cr.width / 2, y: cr.top - c.top + scrollY + cr.height / 2 };
+    }
+    if (useRight) return { x: r.right - c.left + scrollX - 2, y: r.top - c.top + scrollY + r.height / 2 };
+    return { x: r.left - c.left + scrollX + r.width / 2, y: r.top - c.top + scrollY + r.height / 2 };
+  }
+
+  function getConnectorOut(el) {
+    return toSvgCoords(el, true);
+  }
+  function getCenter(el) {
+    return toSvgCoords(el, false);
+  }
+
+  var systemPairs = [
+    ['user', 'pwa'],
+    ['pwa', 'pwa-api'],
+    ['pwa', 'mail-proxy'],
+    ['pwa', 'auth'],
+    ['pwa', 'firestore'],
+    ['pwa', 'storage'],
+    ['pwa-api', 'firestore'],
+    ['mail-proxy', 'nas-api'],
+    ['nas-api', 'postgres'],
+    ['imap', 'nas-api'],
+    ['gemini', 'nas-api']
+  ];
+
+  var dataPairs = [
+    ['landing', 'pwa'],
+    ['login', 'auth'],
+    ['register', 'auth'],
+    ['forgot', 'auth'],
+    ['layout', 'pwa'],
+    ['schedule', 'pwa-api'],
+    ['schedule', 'firestore'],
+    ['gantt', 'firestore'],
+    ['sites', 'firestore'],
+    ['sites', 'storage'],
+    ['company-dist', 'firestore'],
+    ['mapping', 'firestore'],
+    ['progress', 'firestore'],
+    ['gisung', 'firestore'],
+    ['cost', 'firestore'],
+    ['claims', 'firestore'],
+    ['estimates', 'firestore'],
+    ['ai-summary', 'mail-proxy'],
+    ['estimates', 'ai-summary'],
+    ['daema-team', 'firestore'],
+    ['vendors', 'firestore'],
+    ['vendor-mgmt', 'firestore'],
+    ['safety', 'firestore'],
+    ['discussions', 'firestore'],
+    ['confidential', 'firestore'],
+    ['members', 'auth'],
+    ['members', 'firestore'],
+    ['permissions', 'firestore']
+  ];
+
+  function drawPath(fromEl, toEl, isData) {
+    var p1 = getConnectorOut(fromEl);
+    var p2 = getCenter(toEl);
+    var midY = (p1.y + p2.y) / 2;
+    var d = 'M ' + p1.x + ' ' + p1.y + ' C ' + (p1.x + 80) + ' ' + p1.y + ', ' + (p2.x - 80) + ' ' + p2.y + ', ' + p2.x + ' ' + p2.y;
+    var path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'link' + (isData ? ' data' : ''));
+    svg.appendChild(path);
+    var dot = document.createElementNS(ns, 'circle');
+    dot.setAttribute('class', 'connector-dot');
+    dot.setAttribute('r', 5);
+    dot.setAttribute('cx', p2.x);
+    dot.setAttribute('cy', p2.y);
+    svg.appendChild(dot);
+  }
+
+  function drawAll() {
+    var wRect = workflow.getBoundingClientRect();
+    var cRect = workflow.parentElement.getBoundingClientRect();
+    var offsetX = wRect.left - cRect.left;
+    var offsetY = wRect.top - cRect.top;
+
+    systemPairs.forEach(function(pair) {
+      var a = nodeMap[pair[0]];
+      var b = nodeMap[pair[1]];
+      if (a && b) drawPath(a, b, false);
+    });
+    dataPairs.forEach(function(pair) {
+      var a = nodeMap[pair[0]];
+      var b = nodeMap[pair[1]];
+      if (a && b) drawPath(a, b, true);
+    });
+  }
+
+  setTimeout(drawAll, 100);
+  window.addEventListener('resize', function() {
+    var existing = svg.querySelectorAll('path.link, circle.connector-dot');
+    existing.forEach(function(el) { el.remove(); });
+    setTimeout(drawAll, 150);
+  });
+})();
+  </script>
+</body>
+</html>

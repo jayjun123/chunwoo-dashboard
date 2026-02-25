@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>페이지 연동 및 기능 — 워크플로우</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 20px; font-family: 'Inter', sans-serif; background: #1a1d24; color: #e0e0e0; min-height: 100vh; }
+    h1 { text-align: center; font-size: 1.4rem; margin-bottom: 4px; color: #fff; }
+    .subtitle { text-align: center; color: #888; font-size: 0.85rem; margin-bottom: 20px; }
+    .canvas { position: relative; width: 100%; min-height: 900px; background: #232734; border-radius: 12px; border: 1px solid #444; overflow: auto; }
+    .workflow { position: relative; width: 1720px; min-height: 880px; padding: 24px; }
+    .section { margin-bottom: 28px; }
+    .section-title { font-size: 0.7rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; padding-left: 4px; }
+    .row { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+    .node {
+      min-width: 180px; max-width: 220px; padding: 10px 14px; border-radius: 8px; font-size: 0.75rem; cursor: default;
+      border: 2px solid transparent; transition: transform 0.12s, box-shadow 0.12s; position: relative;
+    }
+    .node:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
+    .node-title { font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+    .node-path { font-size: 0.65rem; color: rgba(255,255,255,0.6); margin-bottom: 6px; }
+    .node-features { font-size: 0.68rem; color: rgba(255,255,255,0.85); line-height: 1.45; }
+    .node-features span { display: block; padding-left: 10px; position: relative; }
+    .node-features span::before { content: '•'; position: absolute; left: 0; }
+    .connector { position: absolute; width: 10px; height: 10px; border-radius: 50%; right: -5px; top: 50%; transform: translateY(-50%); border: 2px solid rgba(255,255,255,0.4); }
+    .node-entry { background: linear-gradient(135deg, #2d5a27 0%, #1e3d1a 100%); border-color: #4caf50; color: #fff; }
+    .node-entry .connector { background: #4caf50; }
+    .node-auth { background: linear-gradient(135deg, #5a3d2d 0%, #4a2d13 100%); border-color: #8d6e63; color: #fff; }
+    .node-auth .connector { background: #8d6e63; }
+    .node-layout { background: linear-gradient(135deg, #1e3a5f 0%, #132a4a 100%); border-color: #2196f3; color: #fff; }
+    .node-layout .connector { background: #2196f3; }
+    .node-page { background: linear-gradient(135deg, #2d3a5a 0%, #1e2840 100%); border-color: #5c6bc0; color: #fff; }
+    .node-page .connector { background: #5c6bc0; }
+    .node-schedule { border-color: #9c27b0; background: linear-gradient(135deg, #4a2d5a 0%, #2d1e3d 100%); }
+    .node-schedule .connector { background: #9c27b0; }
+    .node-site { border-color: #4caf50; background: linear-gradient(135deg, #2d5a3d 0%, #1e3d2a 100%); }
+    .node-site .connector { background: #4caf50; }
+    .node-money { border-color: #2196f3; background: linear-gradient(135deg, #2d4a5a 0%, #1e3540 100%); }
+    .node-money .connector { background: #2196f3; }
+    .node-estimate { border-color: #ff9800; background: linear-gradient(135deg, #5a4a2d 0%, #3d331e 100%); }
+    .node-estimate .connector { background: #ff9800; }
+    .node-people { border-color: #8b4513; background: linear-gradient(135deg, #5a4a2d 0%, #3d2d1e 100%); }
+    .node-people .connector { background: #c4a574; }
+    .node-safety { border-color: #f44336; background: linear-gradient(135deg, #5a2d2d 0%, #3d1e1e 100%); }
+    .node-safety .connector { background: #f44336; }
+    .node-etc { border-color: #00bcd4; background: linear-gradient(135deg, #2d5a5a 0%, #1e3d3d 100%); }
+    .node-etc .connector { background: #00bcd4; }
+    .node-admin { border-color: #e91e63; background: linear-gradient(135deg, #5a2d3d 0%, #3d1e2a 100%); }
+    .node-admin .connector { background: #e91e63; }
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 20px; padding: 12px; background: #232734; border-radius: 8px; border: 1px solid #444; font-size: 0.75rem; color: #aaa; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+    .flow-strip { margin-bottom: 20px; }
+    .flow-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 10px 14px; background: #2a2e3a; border-radius: 8px; border: 1px solid #444; font-size: 0.8rem; }
+    .flow-node { padding: 4px 10px; background: #3a3f4d; border-radius: 6px; color: #b0b8d0; }
+    .flow-arrow { color: #5c6bc0; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <h1>랜딩 → 인증 → 페이지 연동 및 기능</h1>
+  <p class="subtitle">n8n / Make.com 스타일 노드 기반 · 랜딩페이지부터 각 페이지 연동과 주요 기능</p>
+
+  <div class="canvas">
+    <div class="workflow">
+      <!-- 0. 연동 흐름 요약 -->
+      <div class="section flow-strip">
+        <div class="section-title">연동 흐름 (Flow)</div>
+        <div class="flow-row">
+          <span class="flow-node">랜딩 /</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">로그인 / 회원가입</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">ProtectedRoute</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">Layout (메뉴)</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">대시보드/일정 (기본)</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">메뉴 클릭 → 각 페이지</span>
+        </div>
+      </div>
+      <!-- 1. 진입점 -->
+      <div class="section">
+        <div class="section-title">① 진입 (Entry)</div>
+        <div class="row">
+          <div class="node node-entry" data-id="landing">
+            <span class="node-title">🏠 랜딩페이지</span>
+            <span class="node-path">/ , /landing, /home</span>
+            <span class="node-features"><span>로그인·회원가입 버튼</span><span>비로그인 진입점</span></span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. 인증 -->
+      <div class="section">
+        <div class="section-title">② 인증 (Auth)</div>
+        <div class="row">
+          <div class="node node-auth" data-id="login">
+            <span class="node-title">🔐 로그인</span>
+            <span class="node-path">/login, /auth</span>
+            <span class="node-features"><span>Firebase Auth</span><span>이메일/비밀번호</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-auth" data-id="register">
+            <span class="node-title">📝 회원가입</span>
+            <span class="node-path">/register</span>
+            <span class="node-features"><span>가입 후 /register-success</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-auth" data-id="forgot">
+            <span class="node-title">🔑 비밀번호 찾기</span>
+            <span class="node-path">/forgot-password</span>
+            <span class="node-features"><span>이메일로 재설정 링크</span></span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. 레이아웃(공통) -->
+      <div class="section">
+        <div class="section-title">③ 공통 레이아웃 (ProtectedRoute + Layout)</div>
+        <div class="row">
+          <div class="node node-layout" data-id="layout">
+            <span class="node-title">📐 Layout</span>
+            <span class="node-path">로그인 후 모든 메인 페이지</span>
+            <span class="node-features"><span>사이드 메뉴(일정·현장·기성·견적 등)</span><span>헤더·알림·프로필</span><span>하단 네비(모바일)</span><span>권한별 메뉴 노출</span></span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. 일정 -->
+      <div class="section">
+        <div class="section-title">④ 일정</div>
+        <div class="row">
+          <div class="node node-schedule" data-id="schedule">
+            <span class="node-title">📅 일정관리</span>
+            <span class="node-path">/schedule, /dashboard, /d</span>
+            <span class="node-features"><span>캘린더·일정 CRUD</span><span>견적/입찰 일정 연동</span><span>날씨·체크</span><span>엑셀 다운로드</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-schedule" data-id="gantt">
+            <span class="node-title">📊 현장일정(간트)</span>
+            <span class="node-path">/gantt, /g</span>
+            <span class="node-features"><span>간트 차트</span><span>현장별 일정</span><span>히트맵 탭</span></span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. 현장 -->
+      <div class="section">
+        <div class="section-title">⑤ 현장</div>
+        <div class="row">
+          <div class="node node-site" data-id="sites">
+            <span class="node-title">🏗️ 현장관리</span>
+            <span class="node-path">/sites, /st</span>
+            <span class="node-features"><span>현장 목록·등록·수정·삭제</span><span>물량내역·계약서 업로드/미리보기</span><span>기성현황·참여회사</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-site" data-id="sites-detail">
+            <span class="node-title">📋 현장 상세</span>
+            <span class="node-path">/sites/:siteName</span>
+            <span class="node-features"><span>단일 현장 상세</span><span>SiteDetail 컴포넌트</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-site" data-id="company-dist">
+            <span class="node-title">📊 회사별 현장</span>
+            <span class="node-path">/company-distribution, /cd</span>
+            <span class="node-features"><span>기간 설정·연도/일자</span><span>회사별 그룹·총계약금액</span><span>엑셀 다운로드(번호·회사명)</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-site" data-id="whole-list">
+            <span class="node-title">📄 전체 리스트</span>
+            <span class="node-path">/whole-list, /wl</span>
+            <span class="node-features"><span>전체 현장 목록</span><span>날짜/상태 필터</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-site" data-id="importantsite">
+            <span class="node-title">⭐ 주요현장</span>
+            <span class="node-path">/importantsite, /is</span>
+            <span class="node-features"><span>즐겨찾기 현장</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-etc" data-id="mapping">
+            <span class="node-title">🗺️ MAP</span>
+            <span class="node-path">/mapping, /map</span>
+            <span class="node-features"><span>지도·현장 위치</span></span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. 기성·지출·청구 -->
+      <div class="section">
+        <div class="section-title">⑥ 기성·지출·청구</div>
+        <div class="row">
+          <div class="node node-money" data-id="progress">
+            <span class="node-title">💰 기성관리</span>
+            <span class="node-path">/progress, /p</span>
+            <span class="node-features"><span>기성현황·차수별</span><span>선급금/입금완료 합산</span><span>엑셀·청구서</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-money" data-id="gisung">
+            <span class="node-title">📑 기성현황</span>
+            <span class="node-path">/gisung, /gs</span>
+            <span class="node-features"><span>현장별 기성 테이블</span><span>입금확인·선급금 행 반영</span><span>기성등록·청구서 업로드</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-money" data-id="cost">
+            <span class="node-title">💸 지출</span>
+            <span class="node-path">/cost, /c</span>
+            <span class="node-features"><span>현장별 지출·자재/노무/장비 등</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-money" data-id="claims">
+            <span class="node-title">📌 청구예정</span>
+            <span class="node-path">/claims, /cl</span>
+            <span class="node-features"><span>청구예정 목록</span><span>기성과 연동</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-money" data-id="settlement">
+            <span class="node-title">📋 정산관리</span>
+            <span class="node-path">/settlement, /settlement/:siteId</span>
+            <span class="node-features"><span>정산 목록·상세</span></span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. 견적 -->
+      <div class="section">
+        <div class="section-title">⑦ 견적</div>
+        <div class="row">
+          <div class="node node-estimate" data-id="estimates">
+            <span class="node-title">📄 견적요청</span>
+            <span class="node-path">/estimates, /es</span>
+            <span class="node-features"><span>견적 목록·등록·상태</span><span>AI 메일 요약에서 적용</span><span>엑셀·납품계약서</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-estimate" data-id="estimate-analysis">
+            <span class="node-title">📈 견적 분석</span>
+            <span class="node-path">/estimate-analysis</span>
+            <span class="node-features"><span>견적 분석 뷰</span></span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 8. 시공·거래처 -->
+      <div class="section">
+        <div class="section-title">⑧ 시공·거래처</div>
+        <div class="row">
+          <div class="node node-people" data-id="daema-team">
+            <span class="node-title">👷 시공팀</span>
+            <span class="node-path">/daema-team, /dt</span>
+            <span class="node-features"><span>팀별 카드·진행 현장</span><span>5열 카드·스크롤</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-people" data-id="team-settlement">
+            <span class="node-title">🤝 팀 정산</span>
+            <span class="node-path">/team-settlement</span>
+            <span class="node-features"><span>팀별 정산</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-people" data-id="vendors">
+            <span class="node-title">📢 입찰현황</span>
+            <span class="node-path">/vendors, /v</span>
+            <span class="node-features"><span>입찰·견적 현황</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-people" data-id="vendor-mgmt">
+            <span class="node-title">🏢 거래처관리</span>
+            <span class="node-path">/vendor-management, /vm</span>
+            <span class="node-features"><span>거래처 CRUD</span></span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 9. 안전 -->
+      <div class="section">
+        <div class="section-title">⑨ 안전</div>
+        <div class="row">
+          <div class="node node-safety" data-id="safety">
+            <span class="node-title">🦺 안전관리</span>
+            <span class="node-path">/safety, /sf</span>
+            <span class="node-features"><span>안전 대시·탭</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-safety" data-id="safety-inspections">
+            <span class="node-title">📋 안전점검</span>
+            <span class="node-path">/safety-inspections</span>
+            <span class="node-features"><span>점검 목록</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-safety" data-id="safety-accidents">
+            <span class="node-title">⚠️ 사고/사고관리</span>
+            <span class="node-path">/safety-accidents</span>
+            <span class="node-features"><span>사고 기록</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-safety" data-id="safety-education">
+            <span class="node-title">📚 안전교육</span>
+            <span class="node-path">/safety-education</span>
+            <span class="node-features"><span>교육 이력</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-safety" data-id="safety-costs">
+            <span class="node-title">📊 안전 보고</span>
+            <span class="node-path">/safety-costs</span>
+            <span class="node-features"><span>안전 관련 보고</span></span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 10. 기타 -->
+      <div class="section">
+        <div class="section-title">⑩ 기타</div>
+        <div class="row">
+          <div class="node node-etc" data-id="discussions">
+            <span class="node-title">💬 토론의견</span>
+            <span class="node-path">/discussions, /dc</span>
+            <span class="node-features"><span>토론방·댓글</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-etc" data-id="confidential">
+            <span class="node-title">🔒 대외비</span>
+            <span class="node-path">/confidential, /cf</span>
+            <span class="node-features"><span>대외비 문서·악성미수금</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-etc" data-id="ai-summary">
+            <span class="node-title">📧 AI 메일 요약</span>
+            <span class="node-path">/ai-summary</span>
+            <span class="node-features"><span>메일 목록·요약·검색</span><span>제외 키워드·견적 연동</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-etc" data-id="quantity-check">
+            <span class="node-title">📐 물량 파악</span>
+            <span class="node-path">/quantity-check</span>
+            <span class="node-features"><span>물량 확인</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-etc" data-id="todo">
+            <span class="node-title">✅ 할일</span>
+            <span class="node-path">/todo-list, /todo/all</span>
+            <span class="node-features"><span>할일 목록</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-etc" data-id="settings">
+            <span class="node-title">⚙️ 설정</span>
+            <span class="node-path">/settings, /set</span>
+            <span class="node-features"><span>앱 설정</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-etc" data-id="profile">
+            <span class="node-title">👤 프로필</span>
+            <span class="node-path">/profile, /pr</span>
+            <span class="node-features"><span>내 정보</span></span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 11. 관리자 -->
+      <div class="section">
+        <div class="section-title">⑪ 관리자</div>
+        <div class="row">
+          <div class="node node-admin" data-id="members">
+            <span class="node-title">👥 멤버 관리</span>
+            <span class="node-path">/members, /m</span>
+            <span class="node-features"><span>회원 목록·등록·수정</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-admin" data-id="permissions">
+            <span class="node-title">🔐 권한 관리</span>
+            <span class="node-path">/permissions, /pm</span>
+            <span class="node-features"><span>메뉴별 권한 설정</span></span>
+            <span class="connector"></span>
+          </div>
+          <div class="node node-admin" data-id="users">
+            <span class="node-title">👤 사용자 관리</span>
+            <span class="node-path">/users, /u</span>
+            <span class="node-features"><span>사용자·역할</span></span>
+            <span class="connector"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="legend-dot" style="background:#4caf50"></span> 진입</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#8d6e63"></span> 인증</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#2196f3"></span> 레이아웃</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#9c27b0"></span> 일정</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#4caf50"></span> 현장</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#2196f3"></span> 기성·지출</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#ff9800"></span> 견적</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#c4a574"></span> 시공·거래처</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#f44336"></span> 안전</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#00bcd4"></span> 기타</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#e91e63"></span> 관리자</div>
+  </div>
+</body>
+</html>

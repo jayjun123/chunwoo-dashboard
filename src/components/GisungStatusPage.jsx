@@ -746,14 +746,16 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       .filter(gisung => gisung.claimStatus === '청구완료')
       .reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
     
-    // 입금완료된 기성만 입금완료금액에 포함 (예외항목 제외)
+    // 입금완료금액 = 입금완료된 선급금 + 입금완료된 기성금액
+    const isAdvanceRow = (g) => g.note && String(g.note).trim().includes('선급금');
+    // 입금완료된 기성금액만 (예외항목·선급금 행 제외)
     const totalPaidFromGisung = filteredAndSortedGisung
-      .filter(gisung => gisung.paymentStatus === '입금완료' && !gisung.isException)
+      .filter(gisung => gisung.paymentStatus === '입금완료' && !gisung.isException && !isAdvanceRow(gisung))
       .reduce((sum, gisung) => sum + (Number(gisung.gisungAmount) || 0), 0);
-    // 선급금 행이 입금완료인 경우 해당 선급금도 입금완료금액에 합산 (비고에 '선급금' 포함된 행)
+    // 입금완료된 선급금: 비고 '선급금'인 행 중 입금완료 → advance 또는 gisungAmount(금회기성) 합산
     const totalPaidFromAdvance = filteredAndSortedGisung
-      .filter(gisung => gisung.paymentStatus === '입금완료' && gisung.note && String(gisung.note).trim().includes('선급금'))
-      .reduce((sum, gisung) => sum + (Number(gisung.advance) || 0), 0);
+      .filter(gisung => gisung.paymentStatus === '입금완료' && isAdvanceRow(gisung))
+      .reduce((sum, gisung) => sum + (Number(gisung.advance) || Number(gisung.gisungAmount) || 0), 0);
     const totalPaidAmount = totalPaidFromGisung + totalPaidFromAdvance;
 
     // 예외 금액 합계 계산
