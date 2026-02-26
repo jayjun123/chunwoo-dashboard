@@ -1,7 +1,7 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material/styles';
-import { CssBaseline } from '@mui/material';
+import { Box, CssBaseline } from '@mui/material';
 import { configureIME } from './utils/imeHandler.jsx';
 import { initKeyboardManager } from './utils/pwaKeyboardUtils';
 import { initMobileOptimization, initViewportHeight } from './utils/mobileOptimization';
@@ -607,6 +607,8 @@ const App = React.memo(() => {
                 <LoadingProvider>
                   <PopupProvider>
                     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', width: '100%' }}>
+                    <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                     <Routes>
                       {/* URL 단축 라우트들 */}
                       <Route path="/d" element={<Navigate to="/dashboard" replace />} />
@@ -1243,6 +1245,8 @@ const App = React.memo(() => {
                         </Suspense>
                       } />
                     </Routes>
+                    </Box>
+                    </Box>
                   </Router>
                 </PopupProvider>
               </LoadingProvider>

@@ -24,7 +24,13 @@
       border-radius: 12px;
       border: 1px solid #444;
       overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     }
+    .canvas::-webkit-scrollbar { width: 0; height: 0; display: none; }
+    body { scrollbar-width: none; -ms-overflow-style: none; }
+    body::-webkit-scrollbar { width: 0; height: 0; display: none; }
     .workflow {
       position: relative;
       width: 1680px;

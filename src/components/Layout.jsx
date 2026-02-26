@@ -509,6 +509,15 @@ const Layout = React.memo(({ children }) => {
             flexDirection: 'column',
             height: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 58px - 56px)',
             maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 58px - 56px)'
+          }),
+          // 사용설명서/시스템연동도: 헤더·하단바 유지, 메인 영역만 채움
+          ...((location.pathname === '/manual' || location.pathname === '/workflow-diagram') && {
+            display: 'flex',
+            flexDirection: 'column',
+            ...(!isMobile && { marginTop: '58px' }),
+            height: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 58px - 56px)',
+            maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 58px - 56px)',
+            overflow: 'hidden',
           })
         }}>
           {children}

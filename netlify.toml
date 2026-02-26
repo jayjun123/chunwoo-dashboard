@@ -29,6 +29,16 @@
   to = "/.netlify/functions/pwa-api/:splat"
   status = 200
 
+# iframe용 정적 HTML은 실제 파일로 서빙 (아래 /* SPA 폴백보다 먼저 매칭)
+[[redirects]]
+  from = "/workflow-diagram.html"
+  to = "/workflow-diagram.html"
+  status = 200
+[[redirects]]
+  from = "/사용설명서.html"
+  to = "/사용설명서.html"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
