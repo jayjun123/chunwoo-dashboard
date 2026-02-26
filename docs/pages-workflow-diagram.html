@@ -22,8 +22,18 @@
     .node-title { font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
     .node-path { font-size: 0.65rem; color: rgba(255,255,255,0.6); margin-bottom: 6px; }
     .node-features { font-size: 0.68rem; color: rgba(255,255,255,0.85); line-height: 1.45; }
-    .node-features span { display: block; padding-left: 10px; position: relative; }
+    .node-features span { display: block; padding-left: 10px; position: relative; cursor: pointer; }
     .node-features span::before { content: '•'; position: absolute; left: 0; }
+    .node-features span:hover { text-decoration: underline; color: #fff; }
+    .feature-popup-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99999; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .feature-popup-overlay.show { display: flex; }
+    .feature-popup { background: #2a2e3a; border: 1px solid #555; border-radius: 12px; max-width: 420px; width: 100%; max-height: 85vh; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+    .feature-popup-title { padding: 14px 18px; font-weight: 700; font-size: 1rem; border-bottom: 1px solid #444; background: #333; color: #ffc850; }
+    .feature-popup-body { padding: 16px 18px; font-size: 0.88rem; line-height: 1.6; color: #ddd; overflow-y: auto; max-height: 60vh; }
+    .feature-popup-body h4 { font-size: 0.8rem; color: #90caf9; margin: 10px 0 6px; }
+    .feature-popup-body p { margin: 0 0 8px; }
+    .feature-popup-close { display: block; margin: 12px 18px 14px auto; padding: 8px 20px; background: #444; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+    .feature-popup-close:hover { background: #555; }
     .connector { position: absolute; width: 10px; height: 10px; border-radius: 50%; right: -5px; top: 50%; transform: translateY(-50%); border: 2px solid rgba(255,255,255,0.4); }
     .node-entry { background: linear-gradient(135deg, #2d5a27 0%, #1e3d1a 100%); border-color: #4caf50; color: #fff; }
     .node-entry .connector { background: #4caf50; }
@@ -407,5 +417,76 @@
     <div class="legend-item"><span class="legend-dot" style="background:#00bcd4"></span> 기타</div>
     <div class="legend-item"><span class="legend-dot" style="background:#e91e63"></span> 관리자</div>
   </div>
+
+  <div id="featurePopupOverlay" class="feature-popup-overlay">
+    <div class="feature-popup">
+      <div id="featurePopupTitle" class="feature-popup-title"></div>
+      <div id="featurePopupBody" class="feature-popup-body"></div>
+      <button type="button" id="featurePopupClose" class="feature-popup-close">닫기</button>
+    </div>
+  </div>
+
+  <script>
+(function() {
+  var FEATURE_DETAILS = {
+    landing: [{ title: '로그인·회원가입 버튼', connection: '랜딩 → 로그인/회원가입', desc: '비로그인 사용자가 로그인 또는 회원가입 페이지로 이동하는 버튼입니다.' }, { title: '비로그인 진입', connection: '랜딩은 PWA 진입점', desc: '캠페인/공유 링크 등으로 접속한 사용자의 첫 화면입니다.' }],
+    login: [{ title: 'Firebase Auth', connection: '로그인 → Auth', desc: 'Firebase Authentication으로 이메일/비밀번호 인증을 수행합니다.' }, { title: '이메일/비밀번호', connection: '로그인 → Auth', desc: '이메일과 비밀번호로 로그인합니다. 인증 후 Layout과 모든 메인 페이지 접근이 가능합니다.' }],
+    register: [{ title: '가입 후 /register-success', connection: '회원가입 → Auth · Firestore(users)', desc: '가입 완료 후 성공 페이지로 이동합니다.' }],
+    forgot: [{ title: '이메일로 재설정 링크', connection: '비밀번호 찾기 → Auth', desc: 'Firebase Auth 비밀번호 재설정 메일을 발송합니다.' }],
+    layout: [{ title: '사이드 메뉴', connection: 'Layout → 각 페이지', desc: '로그인 후 공통 좌측 메뉴. 메뉴 클릭 시 해당 페이지로 라우팅됩니다.' }, { title: '헤더·알림·프로필', connection: 'Layout → Auth · Firestore', desc: '상단 헤더의 알림·프로필 메뉴입니다.' }, { title: '하단 네비(모바일)', connection: 'Layout → 대시보드·관리', desc: '모바일에서 하단 고정 네비로 주요 메뉴 접근입니다.' }, { title: '권한별 메뉴 노출', connection: 'Layout → Firestore(permissions)', desc: '권한 설정에 따라 메뉴 항목이 보이거나 숨겨집니다.' }],
+    schedule: [{ title: '캘린더·일정 CRUD', connection: '일정관리 → Firestore(schedules)', desc: '캘린더에서 일정 조회·등록·수정·삭제합니다.' }, { title: '견적/입찰 일정 연동', connection: '일정관리 ↔ 견적·입찰', desc: '견적·입찰 관련 일정을 캘린더에 표시합니다.' }, { title: '날씨·체크', connection: '일정관리 → Firestore', desc: '날씨 표시 및 일정 체크 기능입니다.' }, { title: '엑셀 다운로드', connection: '일정관리 → Firestore', desc: '일정 데이터를 엑셀으로 내보냅니다.' }],
+    gantt: [{ title: '간트 차트', connection: '현장일정 → Firestore', desc: '현장별 일정을 간트 차트로 표시합니다.' }, { title: '현장별 일정', connection: '간트 → Firestore', desc: '현장 단위로 일정을 묶어 보여줍니다.' }, { title: '히트맵 탭', connection: '간트 → Firestore', desc: '일정/진행 현황을 히트맵으로 표시합니다.' }],
+    sites: [{ title: '현장 목록·등록·수정·삭제', connection: '현장관리 → Firestore(sites)', desc: '현장 CRUD를 수행합니다. 데이터는 Firestore sites에 저장됩니다.' }, { title: '물량내역·계약서 업로드/미리보기', connection: '현장관리 → Firestore · Storage', desc: '물량내역과 계약서 파일을 업로드·미리보기합니다.' }, { title: '기성현황·참여회사', connection: '현장관리 → Firestore(gisung·sites)', desc: '현장별 기성 현황과 참여 회사 정보를 표시합니다.' }],
+    'company-dist': [{ title: '기간 설정·연도/일자', connection: '회사별 현장 → Firestore', desc: '조회 기간을 설정해 현장을 집계합니다.' }, { title: '회사별 그룹·총계약금액', connection: '회사별 현장 → Firestore', desc: '회사별로 그룹 짓고 총계약금액 등을 합산합니다.' }, { title: '엑셀 다운로드(번호·회사명)', connection: '회사별 현장 → Firestore', desc: '목록을 엑셀으로 내보냅니다.' }],
+    mapping: [{ title: '지도·현장 위치', connection: 'MAP → Firestore(sites)', desc: '지도 위에 현장 위치를 표시합니다.' }],
+    progress: [{ title: '기성현황·차수별', connection: '기성관리 → Firestore(gisung)', desc: '현장별·차수별 기성 현황을 조회합니다.' }, { title: '선급금/입금완료 합산', connection: '기성관리 → Firestore', desc: '선급금과 입금완료 기성을 합산해 총 입금액·잔액을 계산합니다.' }, { title: '엑셀·청구서', connection: '기성관리 → Firestore', desc: '기성 데이터 엑셀 내보내기·청구서 출력입니다.' }],
+    gisung: [{ title: '현장별 기성 테이블', connection: '기성현황 → Firestore(gisung)', desc: '현장별 기성 내역을 테이블로 표시합니다.' }, { title: '입금확인·선급금 반영', connection: '기성현황 → Firestore', desc: '입금확인과 선급금을 반영해 입금완료금액을 계산합니다.' }, { title: '기성등록·청구서 업로드', connection: '기성현황 → Firestore · Storage', desc: '기성 등록과 청구서 파일 업로드입니다.' }, { title: '입금완료금액=선급금+기성', connection: '기성현황 → sites.advance · gisung', desc: '입금완료금액을 총 선급금 + 입금완료 기성금액으로 표시합니다.' }],
+    cost: [{ title: '현장별 지출', connection: '지출 → Firestore(costs)', desc: '현장별 지출 내역을 조회·관리합니다.' }, { title: '자재/노무/장비 등', connection: '지출 → Firestore', desc: '자재비·노무비·장비비 등 항목별 지출 입력·집계입니다.' }],
+    claims: [{ title: '청구예정 목록', connection: '청구예정 → Firestore(claims·gisung)', desc: '청구 예정 기성 목록을 관리합니다.' }, { title: '기성과 연동·잔액 계산', connection: '청구예정 → Firestore', desc: '기성 입금 현황과 연동해 잔액·청구 가능 금액을 계산합니다.' }],
+    estimates: [{ title: '견적 목록·등록·상태', connection: '견적요청 → Firestore(estimates)', desc: '견적 요청 목록 조회·등록·상태 변경입니다.' }, { title: 'AI 메일 요약에서 적용', connection: '견적요청 ↔ AI 메일 요약', desc: 'AI 메일 요약에서 견적 적용 시 해당 메일을 견적 요청으로 등록합니다.' }, { title: '엑셀·납품계약서', connection: '견적요청 → Firestore · Storage', desc: '견적/납품계약서 엑셀·문서 생성입니다.' }],
+    'ai-summary': [{ title: '메일 목록·요약·검색', connection: 'AI 메일 요약 → mail-summaries(NAS API)', desc: 'NAS API를 통해 메일 요약 목록을 가져와 표시·검색합니다.' }, { title: '제외 키워드·견적 연동', connection: 'AI 메일 요약 → NAS API · 견적', desc: '제외 키워드 설정 및 견적 연동 적용 기능입니다.' }],
+    'daema-team': [{ title: '팀별 카드·진행 현장', connection: '시공팀 → Firestore', desc: '시공팀별 카드로 현장·진행 현황을 표시합니다.' }, { title: '5열 카드·스크롤', connection: '시공팀 → Firestore', desc: '팀별 진행 현장을 5열 그리드·가로 스크롤로 표시합니다.' }],
+    vendors: [{ title: '입찰·견적 현황', connection: '입찰현황 → Firestore', desc: '입찰·견적 관련 현황을 조회합니다.' }],
+    'vendor-mgmt': [{ title: '거래처 CRUD', connection: '거래처관리 → Firestore', desc: '거래처 목록 조회·등록·수정·삭제입니다.' }],
+    safety: [{ title: '안전 대시·탭', connection: '안전관리 → Firestore', desc: '안전 대시보드와 점검·사고·교육·보고 탭을 제공합니다.' }],
+    discussions: [{ title: '토론방·댓글', connection: '토론의견 → Firestore(discussions)', desc: '토론방 글과 댓글 조회·작성입니다.' }],
+    confidential: [{ title: '대외비 문서·악성미수금', connection: '대외비 → Firestore · Storage', desc: '대외비 문서와 악성 미수금 등을 관리합니다.' }],
+    members: [{ title: '회원 목록·등록·수정', connection: '멤버 관리 → Auth · Firestore(users)', desc: '시스템 회원 목록 조회·등록·수정입니다.' }],
+    permissions: [{ title: '메뉴별 권한 설정', connection: '권한 관리 → Firestore(permissions)', desc: '메뉴별 접근 권한을 설정합니다. Layout에서 메뉴 노출에 반영됩니다.' }]
+  };
+  var overlayEl = document.getElementById('featurePopupOverlay');
+  var titleEl = document.getElementById('featurePopupTitle');
+  var bodyEl = document.getElementById('featurePopupBody');
+  var closeBtn = document.getElementById('featurePopupClose');
+  if (!overlayEl || !titleEl || !bodyEl) return;
+  function showFeaturePopup(nodeName, feature) {
+    if (!feature) return;
+    titleEl.textContent = nodeName + ' · ' + feature.title;
+    bodyEl.innerHTML = '<h4>연동</h4><p>' + (feature.connection || '-') + '</p><h4>기능 설명</h4><p>' + (feature.desc || '-') + '</p>';
+    overlayEl.classList.add('show');
+    overlayEl.style.display = 'flex';
+  }
+  function closeFeaturePopup() {
+    overlayEl.classList.remove('show');
+    overlayEl.style.display = '';
+  }
+  document.body.addEventListener('click', function(e) {
+    var span = e.target.closest('.node-features span');
+    if (!span) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var node = span.closest('.node');
+    var nodeId = node ? node.getAttribute('data-id') : '';
+    var nodeName = node && node.querySelector('.node-title') ? node.querySelector('.node-title').textContent.trim() : nodeId;
+    var features = node ? node.querySelectorAll('.node-features span') : [];
+    var idx = Array.prototype.indexOf.call(features, span);
+    var list = FEATURE_DETAILS[nodeId];
+    var feature = list && list[idx];
+    showFeaturePopup(nodeName || nodeId, feature || { title: span.textContent.trim(), connection: '해당 페이지와 연동된 시스템은 통합 다이어그램(workflow-diagram.html)을 참고하세요.', desc: '선택한 항목의 상세 설명입니다.' });
+  }, true);
+  if (closeBtn) closeBtn.addEventListener('click', closeFeaturePopup);
+  overlayEl.addEventListener('click', function(e) { if (e.target === overlayEl) closeFeaturePopup(); });
+})();
+  </script>
 </body>
 </html>

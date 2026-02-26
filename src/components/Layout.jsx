@@ -579,6 +579,12 @@ const Layout = React.memo(({ children }) => {
           사용설명서
         </MenuItem>
         <MenuItem onClick={() => {
+          navigate('/workflow-diagram');
+          handleMenuClose();
+        }}>
+          시스템 연동도
+        </MenuItem>
+        <MenuItem onClick={() => {
           navigate('/');
           handleMenuClose();
         }}>

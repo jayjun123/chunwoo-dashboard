@@ -247,6 +247,7 @@ const Estimates = React.lazy(() => import('./pages/Estimates'));
 const Claims = React.lazy(() => import('./pages/Claims'));
 const Confidential = React.lazy(() => import('./pages/Confidential'));
 const UserManual = React.lazy(() => import('./pages/UserManual'));
+const WorkflowDiagramPage = React.lazy(() => import('./pages/WorkflowDiagramPage'));
 const EstimateAnalysis = React.lazy(() => import('./pages/EstimateAnalysis'));
 const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const NotificationCrawler = React.lazy(() => import('./components/NotificationCrawler'));
@@ -1194,6 +1195,18 @@ const App = React.memo(() => {
                             <Layout>
                               <Suspense fallback={<LoadingSpinner />}>
                                 <UserManual />
+                              </Suspense>
+                            </Layout>
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/workflow-diagram"
+                        element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <WorkflowDiagramPage />
                               </Suspense>
                             </Layout>
                           </ProtectedRoute>
