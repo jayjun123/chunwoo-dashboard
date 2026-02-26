@@ -4,6 +4,16 @@ import MobileSidebar from '../components/MobileSidebar';
 import { FEATURE_DETAILS, DATA_PAIRS } from '../data/workflowDiagramData';
 import './WorkflowDiagramPage.css';
 
+/** 연동 대상(시스템) 노드 — 랜딩과 같은 줄 오른쪽 끝에 배치 */
+const SYSTEM_NODES = [
+  { id: 'pwa', type: 'system', title: 'PWA', path: '앱', features: [] },
+  { id: 'auth', type: 'system', title: 'Auth', path: 'Firebase Auth', features: [] },
+  { id: 'firestore', type: 'system', title: 'Firestore', path: 'DB', features: [] },
+  { id: 'storage', type: 'system', title: 'Storage', path: '파일', features: [] },
+  { id: 'pwa-api', type: 'system', title: 'PWA API', path: 'API', features: [] },
+  { id: 'mail-proxy', type: 'system', title: 'Mail/NAS', path: '메일·NAS', features: [] },
+];
+
 /** 노드 정의: data-id, type, title, path, features[] */
 const NODE_SECTIONS = [
   {
@@ -98,17 +108,6 @@ const NODE_SECTIONS = [
       { id: 'members', type: 'admin', title: '👥 멤버 관리', path: '/members, /m', features: ['회원 목록·등록·수정'] },
       { id: 'permissions', type: 'admin', title: '🔐 권한 관리', path: '/permissions, /pm', features: ['메뉴별 권한 설정'] },
       { id: 'users', type: 'admin', title: '👤 사용자 관리', path: '/users, /u', features: ['사용자·역할'] },
-    ],
-  },
-  {
-    title: '연동 대상 (시스템)',
-    nodes: [
-      { id: 'pwa', type: 'system', title: 'PWA', path: '앱', features: [] },
-      { id: 'auth', type: 'system', title: 'Auth', path: 'Firebase Auth', features: [] },
-      { id: 'firestore', type: 'system', title: 'Firestore', path: 'DB', features: [] },
-      { id: 'storage', type: 'system', title: 'Storage', path: '파일', features: [] },
-      { id: 'pwa-api', type: 'system', title: 'PWA API', path: 'API', features: [] },
-      { id: 'mail-proxy', type: 'system', title: 'Mail/NAS', path: '메일·NAS', features: [] },
     ],
   },
 ];
@@ -394,7 +393,7 @@ const WorkflowDiagramPage = () => {
                   {NODE_SECTIONS.map((sec) => (
                     <div key={sec.title} className="section">
                       <div className="section-title">{sec.title}</div>
-                      <div className="row">
+                      <div className={sec.title === '① 진입 (Entry)' ? 'row row-entry-with-system' : 'row'}>
                         {sec.nodes.map((node) => (
                           <div
                             key={node.id}
@@ -416,6 +415,28 @@ const WorkflowDiagramPage = () => {
                             <span className="connector" />
                           </div>
                         ))}
+                        {sec.title === '① 진입 (Entry)' && (
+                          <>
+                            <div className="row-entry-spacer" aria-hidden="true" />
+                            <div className="row row-system-nodes">
+                              {SYSTEM_NODES.map((node) => (
+                                <div
+                                  key={node.id}
+                                  className={`node node-${node.type} ${selectedNodeId === node.id ? 'selected' : ''}`}
+                                  data-id={node.id}
+                                  role="button"
+                                  tabIndex={0}
+                                  title="클릭 시 연결선 강조"
+                                >
+                                  <span className="node-title">{node.title}</span>
+                                  <span className="node-path">{node.path}</span>
+                                  <span className="node-features" />
+                                  <span className="connector" />
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}

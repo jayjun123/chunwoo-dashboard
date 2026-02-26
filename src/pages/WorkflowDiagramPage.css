@@ -76,6 +76,20 @@
   flex-wrap: wrap;
 }
 
+.wf-diagram .row-entry-with-system {
+  width: 100%;
+}
+
+.wf-diagram .row-entry-spacer {
+  flex: 1;
+  min-width: 24px;
+}
+
+.wf-diagram .row-system-nodes {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 .wf-diagram .node {
   min-width: 180px;
   max-width: 220px;
