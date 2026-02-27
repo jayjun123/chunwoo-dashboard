@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -34,7 +34,10 @@ import {
   Badge,
   Tooltip,
   LinearProgress,
-  Container
+  Container,
+  Checkbox,
+  FormGroup,
+  FormControlLabel
 } from '@mui/material';
 import MobileSidebar from '../components/MobileSidebar';
 import {
@@ -180,6 +183,19 @@ const ConstructionTeam = () => {
     loadSites();
   }, []);
 
+  // 수정 모달이 막 열렸을 때만 해당 팀 데이터로 formData 동기화 (입력 중 덮어쓰기 방지)
+  const prevDialogOpen = useRef(false);
+  const prevEditingTeamId = useRef(null);
+  useEffect(() => {
+    const justOpened = openDialog && !prevDialogOpen.current;
+    const switchedTeam = openDialog && editingTeam?.id != null && prevEditingTeamId.current !== editingTeam?.id;
+    if ((justOpened || switchedTeam) && editingTeam) {
+      setFormData(teamToFormData(editingTeam));
+    }
+    prevDialogOpen.current = openDialog;
+    prevEditingTeamId.current = editingTeam?.id ?? null;
+  }, [openDialog, editingTeam?.id]);
+
   // 현장 데이터를 기반으로 팀원 목록 생성
   useEffect(() => {
     if (sites.length > 0) {
@@ -306,10 +322,27 @@ const ConstructionTeam = () => {
     }
   };
 
+  // 팀 객체를 폼 데이터 형태로 정규화 (수정 모달에 올바르게 반영되도록)
+  const teamToFormData = (team) => {
+    if (!team) return null;
+    return {
+      teamName: team.teamName ?? '',
+      managerName: team.managerName ?? '',
+      memberCount: team.memberCount !== undefined && team.memberCount !== null ? String(team.memberCount) : '',
+      phone: team.phone ?? '',
+      email: team.email ?? '',
+      currentSites: Array.isArray(team.currentSites) ? [...team.currentSites] : [],
+      otherCompanySites: team.otherCompanySites ?? '',
+      ownSites: team.ownSites ?? '',
+      notes: team.notes ?? '',
+      status: team.status ?? 'active'
+    };
+  };
+
   const handleOpenDialog = (team = null) => {
     setEditingTeam(team);
     if (team) {
-      setFormData(team);
+      setFormData(teamToFormData(team));
     } else {
       setFormData({
         teamName: '',
@@ -344,25 +377,40 @@ const ConstructionTeam = () => {
     });
   };
 
+  // Firestore에 저장할 문서 필드만 추출 (id, members, createdAt, updatedAt 제외)
+  const formDataToPayload = () => ({
+    teamName: formData.teamName ?? '',
+    managerName: formData.managerName ?? '',
+    memberCount: formData.memberCount === '' ? '' : (Number(formData.memberCount) || formData.memberCount),
+    phone: formData.phone ?? '',
+    email: formData.email ?? '',
+    currentSites: Array.isArray(formData.currentSites) ? formData.currentSites : [],
+    otherCompanySites: formData.otherCompanySites ?? '',
+    ownSites: formData.ownSites ?? '',
+    notes: formData.notes ?? '',
+    status: formData.status ?? 'active'
+  });
+
   const handleSave = async () => {
     try {
+      const payload = formDataToPayload();
       if (editingTeam) {
         await updateDoc(doc(db, 'constructionTeams', editingTeam.id), {
-          ...formData,
+          ...payload,
           updatedAt: serverTimestamp()
         });
       } else {
         // 새 팀 추가 시 순서를 맨 뒤로 설정
         const maxOrder = teams.length > 0 ? Math.max(...teams.map(team => team.order || 0)) : -1;
         await addDoc(collection(db, 'constructionTeams'), {
-          ...formData,
+          ...payload,
           order: maxOrder + 1,
           createdAt: serverTimestamp()
         });
       }
 
       // 현장 데이터도 업데이트
-      await updateSiteConstructionTeam(formData);
+      await updateSiteConstructionTeam(payload);
 
       setSnackbar({
         open: true,
@@ -1619,8 +1667,9 @@ const ConstructionTeam = () => {
         ))}
       </Grid>
 
-      {/* 다이얼로그 */}
+      {/* 다이얼로그 - key로 팀별로 모달 초기화하여 해당 카드 데이터가 확실히 반영되도록 */}
       <Dialog 
+        key={editingTeam?.id ?? 'new'}
         open={openDialog} 
         onClose={handleCloseDialog} 
         maxWidth="md" 
@@ -1653,8 +1702,8 @@ const ConstructionTeam = () => {
                 <TextField
                   fullWidth
                   label="시공팀명"
-                  value={formData.teamName}
-                  onChange={(e) => setFormData({ ...formData, teamName: e.target.value })}
+                  value={formData.teamName ?? ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, teamName: e.target.value }))}
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>
@@ -1662,8 +1711,8 @@ const ConstructionTeam = () => {
                 <TextField
                   fullWidth
                   label="소장님 이름"
-                  value={formData.managerName}
-                  onChange={(e) => setFormData({ ...formData, managerName: e.target.value })}
+                  value={formData.managerName ?? ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, managerName: e.target.value }))}
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>
@@ -1672,22 +1721,31 @@ const ConstructionTeam = () => {
                   fullWidth
                   label="시공팀 인원"
                   type="number"
-                  value={formData.memberCount}
-                  onChange={(e) => setFormData({ ...formData, memberCount: e.target.value })}
+                  value={formData.memberCount ?? ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, memberCount: e.target.value }))}
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel sx={{ color: '#bbb' }}>상태</InputLabel>
+                  <InputLabel shrink sx={{ color: '#bbb', bgcolor: '#1a1d21', px: 0.5 }}>상태</InputLabel>
                   <Select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    sx={{ color: '#fff' }}
+                    native
+                    value={formData.status ?? 'active'}
+                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                    sx={{
+                      color: '#fff',
+                      '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.23)' },
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.4)' },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#43e97b' },
+                      '& select': { color: '#fff', py: 1.5 },
+                      '& option': { bgcolor: '#1a1d21', color: '#fff' }
+                    }}
+                    inputProps={{ 'aria-label': '상태 선택' }}
                   >
-                    <MenuItem value="active">활성</MenuItem>
-                    <MenuItem value="inactive">비활성</MenuItem>
-                    <MenuItem value="pending">대기</MenuItem>
+                    <option value="active">활성</option>
+                    <option value="inactive">비활성</option>
+                    <option value="pending">대기</option>
                   </Select>
                 </FormControl>
               </Grid>
@@ -1695,7 +1753,7 @@ const ConstructionTeam = () => {
                 <TextField
                   fullWidth
                   label="연락처"
-                  value={formData.phone}
+                  value={formData.phone ?? ''}
                   onChange={(e) => {
                     const value = e.target.value.replace(/[^0-9]/g, ''); // 숫자만 허용
                     let formattedValue = value;
@@ -1715,7 +1773,7 @@ const ConstructionTeam = () => {
                       }
                     }
                     
-                    setFormData({ ...formData, phone: formattedValue });
+                    setFormData(prev => ({ ...prev, phone: formattedValue }));
                   }}
                   placeholder="010-1234-5678 또는 02-123-4567"
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
@@ -1725,40 +1783,68 @@ const ConstructionTeam = () => {
                 <TextField
                   fullWidth
                   label="이메일"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  value={formData.email ?? ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>
               <Grid size={{ xs: 12 }}>
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel sx={{ color: '#bbb' }}>현재 진행 현장</InputLabel>
-                  <Select
-                    multiple
-                    value={formData.currentSites}
-                    onChange={(e) => setFormData({ ...formData, currentSites: e.target.value })}
-                    sx={{ color: '#fff' }}
+                <FormControl fullWidth sx={{ mb: 2 }} component="fieldset">
+                  <Typography component="span" sx={{ color: '#bbb', fontSize: '0.75rem', mb: 0.5, display: 'block' }}>
+                    현재 진행 현장
+                  </Typography>
+                  <Box
+                    sx={{
+                      border: '1px solid rgba(255,255,255,0.23)',
+                      borderRadius: 1,
+                      bgcolor: '#1a1d21',
+                      maxHeight: 200,
+                      overflowY: 'auto',
+                      scrollbarWidth: 'none',
+                      '-ms-overflow-style': 'none',
+                      '&::-webkit-scrollbar': { width: 0, height: 0 },
+                      py: 0.5
+                    }}
                   >
-                    {sites
-                      .filter(site => {
-                        // 같은 팀에 이미 등록된 현장은 제외 (중복 방지)
-                        const isAlreadyAssigned = (formData.currentSites || []).includes(site.name);
-                        return !isAlreadyAssigned;
-                      })
-                      .map((site) => (
-                        <MenuItem key={site.id} value={site.name}>
-                          {site.name}
-                        </MenuItem>
-                      ))}
-                  </Select>
+                    <FormGroup sx={{ px: 1 }}>
+                      {sites.map((site) => {
+                        const selected = Array.isArray(formData.currentSites) && formData.currentSites.includes(site.name);
+                        return (
+                          <FormControlLabel
+                            key={site.id}
+                            control={
+                              <Checkbox
+                                checked={selected}
+                                onChange={(e) => {
+                                  setFormData(prev => {
+                                    const arr = Array.isArray(prev.currentSites) ? [...prev.currentSites] : [];
+                                    if (e.target.checked) {
+                                      if (!arr.includes(site.name)) arr.push(site.name);
+                                    } else {
+                                      const i = arr.indexOf(site.name);
+                                      if (i !== -1) arr.splice(i, 1);
+                                    }
+                                    return { ...prev, currentSites: arr };
+                                  });
+                                }}
+                                sx={{ color: '#fff', '&.Mui-checked': { color: '#43e97b' } }}
+                                size="small"
+                              />
+                            }
+                            label={<Typography sx={{ color: '#fff', fontSize: '0.875rem' }}>{site.name}</Typography>}
+                          />
+                        );
+                      })}
+                    </FormGroup>
+                  </Box>
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="타업체 현장"
-                  value={formData.otherCompanySites}
-                  onChange={(e) => setFormData({ ...formData, otherCompanySites: e.target.value })}
+                  value={formData.otherCompanySites ?? ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, otherCompanySites: e.target.value }))}
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>
@@ -1766,8 +1852,8 @@ const ConstructionTeam = () => {
                 <TextField
                   fullWidth
                   label="자기 현장"
-                  value={formData.ownSites}
-                  onChange={(e) => setFormData({ ...formData, ownSites: e.target.value })}
+                  value={formData.ownSites ?? ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, ownSites: e.target.value }))}
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>
@@ -1777,8 +1863,8 @@ const ConstructionTeam = () => {
                   label="기타사항"
                   multiline
                   rows={3}
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  value={formData.notes ?? ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                 />
               </Grid>

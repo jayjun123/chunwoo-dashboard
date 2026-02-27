@@ -576,8 +576,8 @@ export const fillGisungStyleData = (sheet, materialItems, startRow = 6, sheetNam
         }
         
         const cells = [
-          { col: 1, value: item.specification || '' }, // A열: 규격
-          { col: 2, value: item?.name || '' }, // B열: 품명
+          { col: 1, value: item?.name || '' }, // A열: 품명 (B열과 순서 변경)
+          { col: 2, value: item.specification || '' }, // B열: 규격
           { col: 3, value: item.unit || '' }, // C열: 단위
           { col: 4, value: item.quantity || 0 }, // D열: 수량
           { col: 5, value: unitPrice } // E열: 단가
