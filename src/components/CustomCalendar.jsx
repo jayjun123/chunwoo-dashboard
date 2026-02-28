@@ -18,6 +18,7 @@ import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
 import { addSchedule, updateSchedule } from '../api/schedules';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import { getKoreanHolidays, getHolidayInfo } from '../utils/koreanHolidays';
 import { isAdminUserSync, isMasterUserSync } from '../utils/masterUtils';
 import { useAuth } from '../contexts/AuthContext';
@@ -132,6 +133,7 @@ const CustomCalendar = (props) => {
     onAddSchedule,
     onSiteNameDoubleClick,
     copiedItem: propCopiedItem,
+    onNavigateToDate,
   } = props;
   
 
@@ -197,6 +199,10 @@ const CustomCalendar = (props) => {
 
   const [currentViewDate, setCurrentViewDate] = useState(today); // 3일/7일 보기에서 현재 표시되는 시작 날짜
   const [editPopup, setEditPopup] = useState({ open: false, item: null, date: '' }); // 수정 팝업 상태
+  const [siteSearchDialogOpen, setSiteSearchDialogOpen] = useState(false);
+  const [siteSearchInput, setSiteSearchInput] = useState('');
+  const [highlightedDates, setHighlightedDates] = useState(null); // Set of date strings for yellow border
+  const [highlightedSiteName, setHighlightedSiteName] = useState(null);
   const [copiedItem, setCopiedItem] = useState(propCopiedItem || null); // 복사된 항목 상태
 
   // propCopiedItem이 변경될 때마다 copiedItem 업데이트
@@ -314,6 +320,46 @@ const CustomCalendar = (props) => {
     };
   }, [viewMode, isLargeDesktop, isDesktop, isTablet, isMobile]);
 
+  // 달력 일정에서 현장별 등록일·날짜 목록 추출 (현장 찾기용)
+  const siteScheduleMap = useMemo(() => {
+    const map = {};
+    const items = calendarItems || {};
+    Object.keys(items).forEach(dateStr => {
+      (items[dateStr] || []).forEach(item => {
+        const name = (item.siteName || item.text || '').toString().trim();
+        if (!name) return;
+        if (!map[name]) map[name] = [];
+        const createdAt = item.createdAt?.toDate ? item.createdAt.toDate() : (item.createdAt ? new Date(item.createdAt) : null);
+        map[name].push({ dateStr, item, createdAt });
+      });
+    });
+    // 날짜순 정렬 및 중복 제거 (같은 날 같은 현장 여러 일정이면 하나로)
+    Object.keys(map).forEach(name => {
+      const list = map[name];
+      const byDate = {};
+      list.forEach(({ dateStr, item, createdAt }) => {
+        if (!byDate[dateStr] || (createdAt && (!byDate[dateStr].createdAt || createdAt < byDate[dateStr].createdAt)))
+          byDate[dateStr] = { dateStr, item, createdAt };
+      });
+      map[name] = Object.values(byDate).sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+    });
+    return map;
+  }, [calendarItems]);
+
+  const siteSearchFilteredList = useMemo(() => {
+    const term = (siteSearchInput || '').trim().toLowerCase();
+    return Object.entries(siteScheduleMap)
+      .filter(([name]) => !term || name.toLowerCase().includes(term))
+      .map(([siteName, list]) => ({
+        siteName,
+        firstDate: list.length ? list[0].dateStr : null,
+        firstCreatedAt: list.length && list[0].createdAt ? list[0].createdAt : null,
+        dates: list.map(x => x.dateStr),
+        list
+      }))
+      .sort((a, b) => (a.firstDate || '').localeCompare(b.firstDate || ''));
+  }, [siteScheduleMap, siteSearchInput]);
+
   // 플러스 버튼 onClick 핸들러를 handleOpenPopup(selectedDate)로 연결
   const handleOpenPopup = (date) => {
     if (onOpenPopup) {
@@ -356,6 +402,14 @@ const CustomCalendar = (props) => {
 
   // 키보드 이벤트 핸들러 (복사/붙여넣기)
   const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      if (highlightedDates && highlightedDates.size > 0) {
+        setHighlightedDates(null);
+        setHighlightedSiteName(null);
+        e.preventDefault();
+        return;
+      }
+    }
     console.log('키보드 이벤트:', e.key, 'Ctrl:', e.ctrlKey);
     
     // Ctrl+C와 Ctrl+V는 ScheduleManagement에서 처리되므로 여기서는 처리하지 않음
@@ -655,6 +709,38 @@ const CustomCalendar = (props) => {
           </Box>
         )}
         
+        {/* 현장 강조(노란 테두리) 취소 */}
+        {highlightedDates && highlightedDates.size > 0 && (
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1, 
+            bgcolor: '#eab308', 
+            color: '#181c24', 
+            px: 2, 
+            py: 1, 
+            borderRadius: 2,
+            fontSize: '0.9rem',
+            fontWeight: 'bold'
+          }}>
+            <span>노란 테두리: {highlightedSiteName || '선택 현장'}</span>
+            <IconButton
+              size="small"
+              onClick={() => {
+                setHighlightedDates(null);
+                setHighlightedSiteName(null);
+              }}
+              sx={{ 
+                color: '#181c24', 
+                p: 0.5,
+                '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' }
+              }}
+            >
+              취소
+            </IconButton>
+          </Box>
+        )}
+        
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
           <ToggleButtonGroup value={viewMode} exclusive onChange={onViewModeChange} size="small"
             sx={{
@@ -687,6 +773,14 @@ const CustomCalendar = (props) => {
             <Tooltip title="7일 보기"><ToggleButton value="week"><CalendarViewWeekIcon /></ToggleButton></Tooltip>
             <Tooltip title="월간 보기"><ToggleButton value="month"><CalendarMonthIcon /></ToggleButton></Tooltip>
           </ToggleButtonGroup>
+          <Tooltip title="현장 찾기">
+            <IconButton
+              onClick={() => setSiteSearchDialogOpen(true)}
+              sx={isMobile ? { bgcolor: '#6366f1', color: '#fff', p: '6px', ml: '4px', borderRadius: 2, minWidth: 36, minHeight: 36 } : { display: 'none' }}
+            >
+              <SearchIcon sx={{ fontSize: 22 }} />
+            </IconButton>
+          </Tooltip>
           <IconButton
             onClick={() => {
               if (!canDelete) {
@@ -703,6 +797,23 @@ const CustomCalendar = (props) => {
 
           {!isMobile && (
             <>
+              <Tooltip title="달력에서 현장별 일정 찾기">
+                <Button
+                  variant="contained"
+                  onClick={() => setSiteSearchDialogOpen(true)}
+                  sx={{
+                    bgcolor: '#6366f1',
+                    color: '#fff',
+                    fontWeight: 700,
+                    borderRadius: 2,
+                    px: 2,
+                    '&:hover': { bgcolor: '#4f46e5' }
+                  }}
+                >
+                  <SearchIcon sx={{ mr: 0.5, fontSize: '1.2rem' }} />
+                  현장 찾기
+                </Button>
+              </Tooltip>
               <Button
                 variant="contained"
                 onClick={() => {
@@ -978,7 +1089,9 @@ const CustomCalendar = (props) => {
                     position: 'relative',
                     border: snapshot.isDraggingOver 
                       ? '2px solid #3b82f6' 
-                      : isTodayCell
+                      : (highlightedDates && dateStr && highlightedDates.has(dateStr))
+                        ? '2px solid #eab308'
+                        : isTodayCell
                         ? '2px solid #ef4444'
                         : '1px solid #232837',
                     flexShrink: 0,
@@ -1847,6 +1960,137 @@ const CustomCalendar = (props) => {
             }}
           >
             설정 완료
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 현장 찾기 다이얼로그 */}
+      <Dialog
+        open={siteSearchDialogOpen}
+        onClose={() => { setSiteSearchDialogOpen(false); setSiteSearchInput(''); }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ color: '#fff', bgcolor: '#232b3b' }}>
+          달력 현장 찾기
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: '#232b3b', color: '#fff' }}>
+          <Typography variant="body2" sx={{ color: '#9ca3af', mb: 2 }}>
+            일정에 등록된 현장별로 첫 등장일과 들어간 날짜를 확인할 수 있습니다. <strong>현장을 더블클릭</strong>하면 달력에 해당 현장이 있는 날짜에 노란색 테두리가 표시됩니다. (ESC 또는 취소 버튼으로 해제)
+          </Typography>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="현장명 검색..."
+            value={siteSearchInput}
+            onChange={(e) => setSiteSearchInput(e.target.value)}
+            sx={{
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                color: '#fff',
+                bgcolor: '#181c24',
+                '& fieldset': { borderColor: '#555' },
+                '&:hover fieldset': { borderColor: '#6366f1' }
+              }
+            }}
+          />
+          <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+            {siteSearchFilteredList.length === 0 ? (
+              <Typography sx={{ color: '#9ca3af', py: 2 }}>
+                {siteSearchInput.trim() ? '검색 결과가 없습니다.' : '일정에 등록된 현장이 없습니다.'}
+              </Typography>
+            ) : (
+              siteSearchFilteredList.map(({ siteName, firstDate, firstCreatedAt, dates }) => (
+                <Card
+                  key={siteName}
+                  onDoubleClick={() => {
+                    setHighlightedDates(new Set(dates));
+                    setHighlightedSiteName(siteName);
+                    setSiteSearchDialogOpen(false);
+                  }}
+                  sx={{
+                    mb: 1.5,
+                    bgcolor: '#181c24',
+                    border: '1px solid #333',
+                    cursor: 'pointer',
+                    '&:hover': { borderColor: '#6366f1' }
+                  }}
+                >
+                  <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#fff', mb: 0.5 }}>
+                      🏗️ {siteName}
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center', mt: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                        첫 등장일:
+                      </Typography>
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        sx={{
+                          color: '#6366f1',
+                          fontWeight: 600,
+                          cursor: onNavigateToDate ? 'pointer' : 'default',
+                          textDecoration: 'underline'
+                        }}
+                        onClick={() => {
+                          if (onNavigateToDate && firstDate) {
+                            onNavigateToDate(firstDate);
+                            setSiteSearchDialogOpen(false);
+                          }
+                        }}
+                      >
+                        {firstDate || '-'}
+                      </Typography>
+                      {firstCreatedAt && (
+                        <Typography variant="caption" sx={{ color: '#64748b', ml: 1 }}>
+                          (등록: {firstCreatedAt.toLocaleDateString('ko-KR')})
+                        </Typography>
+                      )}
+                    </Box>
+                    <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', mt: 0.5 }}>
+                      일정에 들어간 날짜 {dates.length}일
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                      {dates.slice(0, 10).map(d => (
+                        <Typography
+                          key={d}
+                          component="span"
+                          variant="caption"
+                          onClick={() => {
+                            if (onNavigateToDate) {
+                              onNavigateToDate(d);
+                              setSiteSearchDialogOpen(false);
+                            }
+                          }}
+                          sx={{
+                            cursor: onNavigateToDate ? 'pointer' : 'default',
+                            color: '#a5b4fc',
+                            px: 0.75,
+                            py: 0.25,
+                            borderRadius: 1,
+                            bgcolor: '#1e293b',
+                            '&:hover': onNavigateToDate ? { bgcolor: '#6366f1' } : {}
+                          }}
+                        >
+                          {d}
+                        </Typography>
+                      ))}
+                      {dates.length > 10 && (
+                        <Typography variant="caption" sx={{ color: '#64748b' }}>
+                          외 {dates.length - 10}일
+                        </Typography>
+                      )}
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: '#232b3b' }}>
+          <Button onClick={() => { setSiteSearchDialogOpen(false); setSiteSearchInput(''); }} sx={{ color: '#94a3b8' }}>
+            닫기
           </Button>
         </DialogActions>
       </Dialog>

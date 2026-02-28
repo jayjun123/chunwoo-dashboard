@@ -2741,6 +2741,13 @@ const ScheduleManagement = ({
               onExcel={handleExcel}
               onAddSchedule={onAddSchedule}
               onSiteNameDoubleClick={handleSiteNameDoubleClick}
+              onNavigateToDate={(dateStr) => {
+                if (!dateStr) return;
+                const d = new Date(dateStr + 'T12:00:00');
+                setYear(d.getFullYear());
+                setMonth(d.getMonth());
+                setSelectedDate(dateStr);
+              }}
             />
             {console.log('🔍 CustomCalendar에 전달되는 props:', {
               year,
