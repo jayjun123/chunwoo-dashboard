@@ -7,25 +7,27 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { permissionsAPI } from '../api/database';
 
-// 마스터 이메일 목록 (환경변수 우선, 하드코딩된 값들 백업)
+// 마스터 이메일 목록 (환경변수만 사용, 하드코딩 제거)
+// .env 예: VITE_MASTER_EMAIL=admin@example.com 또는 여러 명일 경우 VITE_MASTER_EMAILS=email1@a.com,email2@b.com
 const getMasterEmails = () => {
-  const envMasterEmail = import.meta.env.VITE_MASTER_EMAIL;
-  const hardcodedEmails = ['fire8803@naver.com', 'parkmg0688@naver.com'];
-  
+  const envSingle = import.meta.env.VITE_MASTER_EMAIL;
+  const envMultiple = import.meta.env.VITE_MASTER_EMAILS;
   const emails = [];
-  if (envMasterEmail) {
-    emails.push(envMasterEmail);
+  if (envSingle) {
+    emails.push(...String(envSingle).split(',').map((e) => e.trim()).filter(Boolean));
   }
-  // 하드코딩된 이메일들도 추가 (환경변수가 없을 때 백업용)
-  emails.push(...hardcodedEmails);
-  
-  // 중복 제거
+  if (envMultiple) {
+    emails.push(...String(envMultiple).split(',').map((e) => e.trim()).filter(Boolean));
+  }
   return [...new Set(emails)];
 };
 
-// 마스터 UID 목록 (하드코딩된 UID들)
+// 마스터 UID 목록 (환경변수만 사용, 하드코딩 제거)
+// .env 예: VITE_MASTER_UIDS=uid1,uid2
 const getMasterUids = () => {
-  return ['HpF5IrlTscYbWPsUhtdzV05sjbF2', 'rNNl8lQK3JaPImKipSqmcBANAKf2'];
+  const envUids = import.meta.env.VITE_MASTER_UIDS;
+  if (!envUids) return [];
+  return String(envUids).split(',').map((u) => u.trim()).filter(Boolean);
 };
 
 // 메모이제이션 캐시 (성능 최적화)

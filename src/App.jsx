@@ -202,8 +202,8 @@ const syncSiteNamesDirect = async () => {
   }
 };
 
-// 전역 함수 노출
-if (typeof window !== 'undefined') {
+// 전역 함수 노출 (개발 환경에서만, 마이그레이션/디버깅용)
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
   window.syncSiteNamesDirect = syncSiteNamesDirect;
   window.addSequenceToCostsDirect = addSequenceToCostsDirect;
 }
@@ -324,9 +324,11 @@ const App = React.memo(() => {
       // 성능 모니터링 시작
       enhancedPerformanceMonitor.startMemoryMonitoring();
       
-      // 임시: 현장명 동기화 함수를 전역으로 추가
-      window.syncSiteNames = syncSiteNames;
-      window.syncSiteNamesDirect = syncSiteNamesDirect;
+      // 임시: 현장명 동기화 함수를 전역으로 추가 (개발 환경에서만)
+      if (import.meta.env.DEV) {
+        window.syncSiteNames = syncSiteNames;
+        window.syncSiteNamesDirect = syncSiteNamesDirect;
+      }
       
       // 페이지 언로드 시 cleanup 실행
       const handleBeforeUnload = () => {
@@ -338,6 +340,10 @@ const App = React.memo(() => {
       
       return () => {
         window.removeEventListener('beforeunload', handleBeforeUnload);
+        if (import.meta.env.DEV) {
+          delete window.syncSiteNames;
+          delete window.syncSiteNamesDirect;
+        }
         globalCleanupManager.cleanup();
         enhancedPerformanceMonitor.stopMemoryMonitoring();
       };

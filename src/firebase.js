@@ -4,59 +4,35 @@ import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth'
 import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 
-// Firebase 설정 (개발 환경에서는 하드코딩, 프로덕션에서는 환경변수)
-let firebaseConfig;
+// Firebase 설정 (개발/프로덕션 모두 환경변수만 사용, 하드코딩 제거)
+const requiredEnvVars = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_STORAGE_BUCKET',
+  'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  'VITE_FIREBASE_APP_ID'
+];
 
-if (import.meta.env.DEV) {
-  // 개발 환경에서도 환경변수 사용 (없으면 기본값 사용)
-  firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyATCGXGD2_teiJFdpng9J2_fvZRItPef0w",
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "chunwooo-edf9f.firebaseapp.com",
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "chunwooo-edf9f",
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "chunwooo-edf9f.firebasestorage.app",
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "417029078660",
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:417029078660:web:00e23d79af77876e598cd1",
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-653CL9XWFH"
-  };
-  
-  if (!import.meta.env.VITE_FIREBASE_API_KEY) {
-    console.warn('⚠️ 개발 환경에서 기본 Firebase 설정을 사용합니다. .env 파일을 확인해주세요.');
-  } else {
-    console.log('✅ 개발 환경에서 환경변수 Firebase 설정을 사용합니다.');
-  }
-} else {
-  // 프로덕션 환경에서는 환경변수 사용
-  firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
-  };
-
-  // 프로덕션에서만 환경변수 검증
-  const requiredEnvVars = [
-    'VITE_FIREBASE_API_KEY',
-    'VITE_FIREBASE_AUTH_DOMAIN',
-    'VITE_FIREBASE_PROJECT_ID',
-    'VITE_FIREBASE_STORAGE_BUCKET',
-    'VITE_FIREBASE_MESSAGING_SENDER_ID',
-    'VITE_FIREBASE_APP_ID'
-  ];
-
-  const missingEnvVars = requiredEnvVars.filter(varName => !import.meta.env[varName]);
-
-  if (missingEnvVars.length > 0) {
-    console.error('❌ 누락된 환경변수:', missingEnvVars);
-    console.error('📝 .env 파일에 다음 변수들을 추가해주세요:');
-    missingEnvVars.forEach(varName => {
-      console.error(`   ${varName}=your_value_here`);
-    });
-    throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
-  }
+const missingEnvVars = requiredEnvVars.filter(varName => !import.meta.env[varName]);
+if (missingEnvVars.length > 0) {
+  console.error('❌ 누락된 환경변수:', missingEnvVars);
+  console.error('📝 .env 파일에 다음 변수들을 추가해주세요:');
+  missingEnvVars.forEach(varName => {
+    console.error(`   ${varName}=your_value_here`);
+  });
+  throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
 }
+
+let firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || undefined
+};
 
 console.log('✅ Firebase 설정 완료:', {
   projectId: firebaseConfig.projectId,
