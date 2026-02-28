@@ -203,6 +203,7 @@ const CustomCalendar = (props) => {
   const [siteSearchInput, setSiteSearchInput] = useState('');
   const [highlightedDates, setHighlightedDates] = useState(null); // Set of date strings for yellow border
   const [highlightedSiteName, setHighlightedSiteName] = useState(null);
+  const [expandedSiteInSearch, setExpandedSiteInSearch] = useState(null); // 현장 찾기 모달에서 '더보기' 펼친 현장명
   const [copiedItem, setCopiedItem] = useState(propCopiedItem || null); // 복사된 항목 상태
 
   // propCopiedItem이 변경될 때마다 copiedItem 업데이트
@@ -277,10 +278,10 @@ const CustomCalendar = (props) => {
 
   const weekCount = renderDates.length; // 5 또는 6
 
-  // 반응형 글자수 조절 함수
+  // 반응형 글자수 조절 함수 (skipPrefix: true면 [현장]/[회의] 등 접두어 제외, 아이콘 자리용)
   const getResponsiveText = useMemo(() => {
-    return (text, type, item) => {
-      const typePrefix = 
+    return (text, type, item, skipPrefix = false) => {
+      const typePrefix = skipPrefix ? '' : (
         type === '현장' ? '[현장]' : 
         type === '회의' ? '[회의]' : 
         type === '입찰' ? '[입찰]' : 
@@ -288,7 +289,8 @@ const CustomCalendar = (props) => {
         type === '현설' ? '[현설]' : 
         type === '견적' ? '[견적]' : 
         type === '실측' ? '[실측]' : 
-        type === '기타' ? '' : ''; // 기타 분류 시 [기타] 붙이지 않음
+        type === '기타' ? '' : ''
+      );
       
       // 견적 일정의 경우 title 필드도 확인
       let displayText = text || '';
@@ -300,9 +302,8 @@ const CustomCalendar = (props) => {
       
       // 보기 모드에 따른 처리
       if (viewMode === '3days' || viewMode === 'week') {
-        return fullText; // 3일/주 보기에서는 전체 텍스트
+        return fullText;
       } else if (viewMode === 'month') {
-        // 월 보기에서는 화면 크기에 따라 조절 (PC 버전은 더 엄격하게)
         if (isLargeDesktop) {
           return fullText.length > 12 ? fullText.slice(0, 12) + '...' : fullText;
         } else if (isDesktop) {
@@ -315,24 +316,29 @@ const CustomCalendar = (props) => {
           return fullText.length > 8 ? fullText.slice(0, 8) + '...' : fullText;
         }
       } else {
-        return fullText; // 기타 보기에서는 전체 텍스트
+        return fullText;
       }
     };
   }, [viewMode, isLargeDesktop, isDesktop, isTablet, isMobile]);
+
+  // YYYY-MM-DD 형식만 허용 (siteList 등 드래그 영역 ID 제외)
+  const isValidDateStr = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
   // 달력 일정에서 현장별 등록일·날짜 목록 추출 (현장 찾기용)
   const siteScheduleMap = useMemo(() => {
     const map = {};
     const items = calendarItems || {};
-    Object.keys(items).forEach(dateStr => {
-      (items[dateStr] || []).forEach(item => {
-        const name = (item.siteName || item.text || '').toString().trim();
-        if (!name) return;
-        if (!map[name]) map[name] = [];
-        const createdAt = item.createdAt?.toDate ? item.createdAt.toDate() : (item.createdAt ? new Date(item.createdAt) : null);
-        map[name].push({ dateStr, item, createdAt });
+    Object.keys(items)
+      .filter(dateStr => isValidDateStr(dateStr))
+      .forEach(dateStr => {
+        (items[dateStr] || []).forEach(item => {
+          const name = (item.siteName || item.text || '').toString().trim();
+          if (!name) return;
+          if (!map[name]) map[name] = [];
+          const createdAt = item.createdAt?.toDate ? item.createdAt.toDate() : (item.createdAt ? new Date(item.createdAt) : null);
+          map[name].push({ dateStr, item, createdAt });
+        });
       });
-    });
     // 날짜순 정렬 및 중복 제거 (같은 날 같은 현장 여러 일정이면 하나로)
     Object.keys(map).forEach(name => {
       const list = map[name];
@@ -350,15 +356,27 @@ const CustomCalendar = (props) => {
     const term = (siteSearchInput || '').trim().toLowerCase();
     return Object.entries(siteScheduleMap)
       .filter(([name]) => !term || name.toLowerCase().includes(term))
-      .map(([siteName, list]) => ({
-        siteName,
-        firstDate: list.length ? list[0].dateStr : null,
-        firstCreatedAt: list.length && list[0].createdAt ? list[0].createdAt : null,
-        dates: list.map(x => x.dateStr),
-        list
-      }))
+      .map(([siteName, list]) => {
+        const dates = list.map(x => x.dateStr).filter(isValidDateStr);
+        const type = list[0]?.item?.type || '현장';
+        return {
+          siteName,
+          type,
+          firstDate: dates.length ? dates[0] : null,
+          firstCreatedAt: list.length && list[0].createdAt ? list[0].createdAt : null,
+          dates,
+          list
+        };
+      })
+      .filter(entry => entry.dates.length > 0)
       .sort((a, b) => (a.firstDate || '').localeCompare(b.firstDate || ''));
   }, [siteScheduleMap, siteSearchInput]);
+
+  // 현장 찾기 모달용 타입 뱃지 텍스트
+  const getSiteSearchTypeLabel = (type) => {
+    const map = { '현장': '[현장]', '회의': '[회의]', '입찰': '[입찰]', '전자입찰': '[전자입찰]', '현설': '[현설]', '견적': '[견적]', '실측': '[실측]', '기타': '[기타]' };
+    return map[type] || '[현장]';
+  };
 
   // 플러스 버튼 onClick 핸들러를 handleOpenPopup(selectedDate)로 연결
   const handleOpenPopup = (date) => {
@@ -1533,16 +1551,13 @@ const CustomCalendar = (props) => {
                                           item.type === '현설' ? '[현설]' : 
                                           item.type === '견적' ? '[견적]' : 
                                           item.type === '실측' ? '[실측]' : 
-                                          item.type === '기타' ? '' : ''; // 기타 분류 시 [기타] 붙이지 않음
+                                          item.type === '기타' ? '' : '';
                                         const siteName = item.siteName || '';
                                         const title = item.text || '';
-                                        
-                                        // 현장이름과 제목이 중복되는 경우 제목에서 현장이름 제거
                                         let displayTitle = title;
                                         if (siteName && title.includes(siteName)) {
                                           displayTitle = title.replace(siteName, '').trim();
                                         }
-                                        
                                         const fullText = typePrefix + (siteName ? `${siteName} ` : '') + displayTitle;
                                         return fullText + (item.desc ? `\n${item.desc}` : '');
                                       })()}
@@ -1559,7 +1574,9 @@ const CustomCalendar = (props) => {
                                           whiteSpace: 'nowrap',
                                           overflow: 'hidden',
                                           textOverflow: 'ellipsis',
-                                          display: 'block'
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px'
                                         }}
                                         onDoubleClick={(e) => {
                                           e.stopPropagation();
@@ -1567,9 +1584,24 @@ const CustomCalendar = (props) => {
                                             onSiteNameDoubleClick(item.siteName);
                                           }
                                         }}
-
                                       >
-                                        {getResponsiveText(item.text, item.type, item)}
+                                        {/* 회의/현장은 아이콘 자리에 [회의]/[현장] 텍스트 뱃지 */}
+                                        {(item.type === '현장' || item.type === '회의') && (
+                                          <Typography
+                                            component="span"
+                                            sx={{
+                                              flexShrink: 0,
+                                              fontSize: 'inherit',
+                                              fontWeight: 700,
+                                              color: item.type === '현장' ? '#ff6b6b' : '#4ecdc4'
+                                            }}
+                                          >
+                                            {item.type === '현장' ? '[현장]' : '[회의]'}
+                                          </Typography>
+                                        )}
+                                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                          {getResponsiveText(item.text, item.type, item, item.type === '현장' || item.type === '회의')}
+                                        </span>
                                       </span>
                                     </Tooltip>
                                     <Box
@@ -1967,7 +1999,7 @@ const CustomCalendar = (props) => {
       {/* 현장 찾기 다이얼로그 */}
       <Dialog
         open={siteSearchDialogOpen}
-        onClose={() => { setSiteSearchDialogOpen(false); setSiteSearchInput(''); }}
+        onClose={() => { setSiteSearchDialogOpen(false); setSiteSearchInput(''); setExpandedSiteInSearch(null); }}
         maxWidth="sm"
         fullWidth
       >
@@ -1994,13 +2026,19 @@ const CustomCalendar = (props) => {
               }
             }}
           />
-          <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+          <Box sx={{
+            maxHeight: 400,
+            overflowY: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            '&::-webkit-scrollbar': { display: 'none' }
+          }}>
             {siteSearchFilteredList.length === 0 ? (
               <Typography sx={{ color: '#9ca3af', py: 2 }}>
                 {siteSearchInput.trim() ? '검색 결과가 없습니다.' : '일정에 등록된 현장이 없습니다.'}
               </Typography>
             ) : (
-              siteSearchFilteredList.map(({ siteName, firstDate, firstCreatedAt, dates }) => (
+              siteSearchFilteredList.map(({ siteName, type, firstDate, firstCreatedAt, dates }) => (
                 <Card
                   key={siteName}
                   onDoubleClick={() => {
@@ -2017,8 +2055,11 @@ const CustomCalendar = (props) => {
                   }}
                 >
                   <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#fff', mb: 0.5 }}>
-                      🏗️ {siteName}
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#fff', mb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography component="span" sx={{ color: type === '현장' ? '#ff6b6b' : type === '회의' ? '#4ecdc4' : '#a5b4fc', fontWeight: 700 }}>
+                        {getSiteSearchTypeLabel(type)}
+                      </Typography>
+                      {siteName}
                     </Typography>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center', mt: 0.5 }}>
                       <Typography variant="caption" sx={{ color: '#94a3b8' }}>
@@ -2052,13 +2093,15 @@ const CustomCalendar = (props) => {
                       일정에 들어간 날짜 {dates.length}일
                     </Typography>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                      {dates.slice(0, 10).map(d => (
+                      {(expandedSiteInSearch === siteName ? dates : dates.slice(0, 10))
+                        .filter(d => isValidDateStr(d))
+                        .map(d => (
                         <Typography
                           key={d}
                           component="span"
                           variant="caption"
                           onClick={() => {
-                            if (onNavigateToDate) {
+                            if (onNavigateToDate && isValidDateStr(d)) {
                               onNavigateToDate(d);
                               setSiteSearchDialogOpen(false);
                             }
@@ -2077,9 +2120,22 @@ const CustomCalendar = (props) => {
                         </Typography>
                       ))}
                       {dates.length > 10 && (
-                        <Typography variant="caption" sx={{ color: '#64748b' }}>
-                          외 {dates.length - 10}일
-                        </Typography>
+                        <Button
+                          size="small"
+                          onClick={(e) => { e.stopPropagation(); setExpandedSiteInSearch(expandedSiteInSearch === siteName ? null : siteName); }}
+                          sx={{
+                            mt: 0.5,
+                            color: '#6366f1',
+                            fontSize: '0.75rem',
+                            textTransform: 'none',
+                            minWidth: 'auto',
+                            py: 0.25,
+                            px: 1,
+                            '&:hover': { bgcolor: 'rgba(99, 102, 241, 0.1)' }
+                          }}
+                        >
+                          {expandedSiteInSearch === siteName ? '접기' : `더보기 (${dates.length - 10}일)`}
+                        </Button>
                       )}
                     </Box>
                   </CardContent>
@@ -2089,7 +2145,7 @@ const CustomCalendar = (props) => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ bgcolor: '#232b3b' }}>
-          <Button onClick={() => { setSiteSearchDialogOpen(false); setSiteSearchInput(''); }} sx={{ color: '#94a3b8' }}>
+          <Button onClick={() => { setSiteSearchDialogOpen(false); setSiteSearchInput(''); setExpandedSiteInSearch(null); }} sx={{ color: '#94a3b8' }}>
             닫기
           </Button>
         </DialogActions>
