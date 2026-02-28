@@ -1108,7 +1108,7 @@ const CustomCalendar = (props) => {
                     border: snapshot.isDraggingOver 
                       ? '2px solid #3b82f6' 
                       : (highlightedDates && dateStr && highlightedDates.has(dateStr))
-                        ? '2px solid #eab308'
+                        ? '4px solid #eab308'
                         : isTodayCell
                         ? '2px solid #ef4444'
                         : '1px solid #232837',
