@@ -249,16 +249,24 @@ const SafetyPage = () => {
     }
   }, [searchParams, sites]);
 
-  // 데이터 필터링
+  // 데이터 필터링 + 날짜 기준 최신순 정렬 (최신이 위로)
   const filteredData = React.useMemo(() => {
-    if (filteredSiteName && data && data.length > 0) {
+    let list = data || [];
+    if (filteredSiteName && list.length > 0) {
       console.log('🔍 Safety.jsx - 현장별 필터링 적용:', filteredSiteName);
-      const filtered = data.filter(row => row.siteName === filteredSiteName);
-      console.log('🔍 Safety.jsx - 필터링된 데이터 개수:', filtered.length);
-      return filtered;
+      list = list.filter(row => row.siteName === filteredSiteName);
+      console.log('🔍 Safety.jsx - 필터링된 데이터 개수:', list.length);
     }
-    return data;
-  }, [filteredSiteName, data]);
+    const actualTab = getActualTabIndex();
+    if (actualTab >= 1 && list.length > 0) {
+      list = [...list].sort((a, b) => {
+        const dA = (a.date && new Date(a.date).getTime()) || (a.createdAt && new Date(a.createdAt).getTime()) || 0;
+        const dB = (b.date && new Date(b.date).getTime()) || (b.createdAt && new Date(b.createdAt).getTime()) || 0;
+        return dB - dA;
+      });
+    }
+    return list;
+  }, [filteredSiteName, data, tab, isMobile]);
 
   const openDialog = (row = null) => {
     console.log('=== 다이얼로그 열기 ===');

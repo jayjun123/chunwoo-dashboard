@@ -110,6 +110,8 @@ export default function ImportantSite() {
   const [selectedSiteId, setSelectedSiteId] = useState(null); // 선택된 현장 ID
   const [siteGroups, setSiteGroups] = useState([]);
   const [allSitesForGroups, setAllSitesForGroups] = useState([]);
+  const [allImportantSites, setAllImportantSites] = useState([]); // 검색/전체보기용 전체 주요현장
+  const [showAllSites, setShowAllSites] = useState(false); // 전체 보기 모드
   const [groupDialog, setGroupDialog] = useState({ open: false, mode: 'create', groupId: null });
   const [groupForm, setGroupForm] = useState({ title: '', description: '', items: [] });
   const [groupSiteId, setGroupSiteId] = useState('');
@@ -320,6 +322,9 @@ export default function ImportantSite() {
       });
       console.log('🔍 ImportantSite - 주요현장 필터링 결과:', importantSitesData);
       console.log('🔍 ImportantSite - 주요현장 개수:', importantSitesData.length);
+      
+      // 검색/전체보기용: 모든 주요현장(완료·공기지난 포함) 저장
+      setAllImportantSites(importantSitesData);
       
       // 주요현장이 없으면 공사기간이 진행중인 최근 현장 5개를 표시
       let finalSitesData = importantSitesData;
@@ -591,12 +596,10 @@ export default function ImportantSite() {
       try {
         const sitesQuery = query(collection(db, 'sites'), orderBy('name', 'asc'));
         const sitesSnapshot = await getDocs(sitesQuery);
-        const allSitesData = sitesSnapshot.docs
-          .map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }))
-          .filter(site => site.status !== '완료');
+        const allSitesData = sitesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
         setAllSitesForGroups(allSitesData);
       } catch (error) {
         devError('그룹용 전체 현장 로드 실패:', error);
@@ -619,6 +622,34 @@ export default function ImportantSite() {
   const getSiteNameById = (siteId) => {
     const site = allSitesForGroups.find(s => s.id === siteId) || sites.find(s => s.id === siteId);
     return site?.name || '알 수 없는 현장';
+  };
+
+  // 현장 진행상황 라벨: 예정현장 / 진행중 현장 / 완료 현장
+  const getSiteStatusLabel = (site) => {
+    if (!site) return '완료 현장';
+    const today = new Date();
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    let startDate = null;
+    let endDate = null;
+    if (site.startDate) {
+      const s = String(site.startDate).replace(/[.\/-]/g, '-');
+      if (s.length >= 10) startDate = new Date(s.slice(0, 10) + 'T00:00:00');
+    }
+    if (site.endDate) {
+      const s = String(site.endDate).replace(/[.\/-]/g, '-');
+      if (s.length >= 10 && !s.match(/^0{4}/)) endDate = new Date(s.slice(0, 10) + 'T00:00:00');
+    }
+    if (startDate && !Number.isNaN(startDate.getTime()) && todayDate < startDate) return '예정현장';
+    if (endDate && !Number.isNaN(endDate.getTime()) && todayDate > endDate) return '완료 현장';
+    return '진행중 현장';
+  };
+
+  // 그룹 카드용: 현장명 + 진행상황 라벨
+  const getGroupSiteDisplay = (siteId) => {
+    const site = allSitesForGroups.find(s => s.id === siteId) || sites.find(s => s.id === siteId);
+    const name = site?.name || '알 수 없는 현장';
+    const statusLabel = getSiteStatusLabel(site);
+    return { name, statusLabel };
   };
 
   const openCreateGroup = () => {
@@ -717,21 +748,27 @@ export default function ImportantSite() {
     }
   };
 
-  // 검색어와 선택된 현장에 따라 필터링
+  // 검색어, 전체보기, 선택된 현장에 따라 필터링
   const filteredSites = useMemo(() => {
-    let filtered = sortedSites;
-    
-    // 선택된 현장이 있으면 해당 현장만 표시
-    if (selectedSiteId) {
-      filtered = filtered.filter(site => site.id === selectedSiteId);
+    let filtered;
+    const searchTerm = search.trim();
+    // 검색 시: 전체 주요현장에서 검색 (완료·공기지난 포함)
+    if (searchTerm) {
+      filtered = (allImportantSites || []).filter(site =>
+        (site.name && site.name.includes(searchTerm)) ||
+        (site.manager && site.manager.includes(searchTerm)) ||
+        (site.address && site.address.includes(searchTerm))
+      );
+    } else if (showAllSites) {
+      // 전체 보기: 모든 주요현장
+      filtered = [...(allImportantSites || [])];
+    } else {
+      // 기본: 진행중인 주요현장만 (공기 종료 제외)
+      filtered = sortedSites.filter(site => !site._isExpired);
     }
     
-    // 검색어가 있으면 추가 필터링
-    if (search.trim()) {
-      filtered = filtered.filter(site => site.name.includes(search.trim()));
-    } else {
-      // 기본 화면에서는 공기 종료(숨김) 현장을 제외
-      filtered = filtered.filter(site => !site._isExpired);
+    if (selectedSiteId) {
+      filtered = filtered.filter(site => site.id === selectedSiteId);
     }
     
     // 정산완료된 현장(공사기간 종료)을 제일 아래쪽에 배치
@@ -832,7 +869,7 @@ export default function ImportantSite() {
     
     // 긴급 현장(준공일 60일 지났지만 미입금/미청구)을 맨 위에, 진행중인 현장을 그 다음에, 완료된 현장을 맨 아래에 배치
     return [...urgentSites, ...activeSites, ...completedSites];
-  }, [sortedSites, selectedSiteId, search]);
+  }, [sortedSites, selectedSiteId, search, showAllSites, allImportantSites]);
 
   const handleRemarkChange = (id, value) => {
     setRemarks(prev => ({ ...prev, [id]: value }));
@@ -1237,7 +1274,7 @@ export default function ImportantSite() {
               <MenuItem value="">
                 <em>전체 현장</em>
               </MenuItem>
-              {sortedSites.map(site => (
+              {(showAllSites ? (allImportantSites || []) : sortedSites).map(site => (
                 <MenuItem key={site.id} value={site.id}>
                   {site.name}
                 </MenuItem>
@@ -1278,6 +1315,30 @@ export default function ImportantSite() {
             }}
             inputRef={scrollFocus(null)}
           />
+          
+          <Button
+            variant="outlined"
+            size="medium"
+            onClick={() => setShowAllSites(prev => !prev)}
+            sx={{
+              backgroundColor: showAllSites ? 'rgba(255, 152, 0, 0.15)' : 'transparent',
+              color: '#ff9800',
+              borderColor: '#ff9800',
+              fontWeight: 'bold',
+              fontSize: '0.9rem',
+              px: 1.5,
+              borderRadius: 2,
+              height: '40px',
+              minHeight: '40px',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 152, 0, 0.25)',
+                borderColor: '#ff9800',
+                color: '#ff9800'
+              }
+            }}
+          >
+            {showAllSites ? '해제하기' : '전체 보기'}
+          </Button>
           
           <Button
             variant="outlined"
@@ -1422,20 +1483,79 @@ export default function ImportantSite() {
                         {group.description}
                       </Typography>
                     )}
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {items.map((item, index) => {
-                        const label = item.type === 'site'
-                          ? getSiteNameById(item.siteId)
-                          : (item.name || '임의 입력');
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {(() => {
+                        const siteItems = (items || []).filter(i => i.type === 'site');
+                        const customItems = (items || []).filter(i => i.type === 'custom');
+                        const byStatus = { '예정현장': [], '진행중 현장': [], '완료 현장': [] };
+                        siteItems.forEach(item => {
+                          const { name, statusLabel } = getGroupSiteDisplay(item.siteId);
+                          if (byStatus[statusLabel]) byStatus[statusLabel].push(name);
+                        });
+                        const statusOrder = ['예정현장', '진행중 현장', '완료 현장'];
                         return (
-                          <Chip
-                            key={`${group.id}-item-${index}`}
-                            size="small"
-                            label={label}
-                            sx={{ bgcolor: '#39475c', color: '#fff' }}
-                          />
+                          <>
+                            {statusOrder.map(statusLabel => {
+                              const names = byStatus[statusLabel] || [];
+                              if (names.length === 0) return null;
+                              const isOngoing = statusLabel === '진행중 현장';
+                              return (
+                                <Box
+                                  key={statusLabel}
+                                  sx={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    alignItems: 'center',
+                                    gap: 0.5,
+                                    marginBottom: isOngoing ? 2 : 0
+                                  }}
+                                >
+                                  <Typography
+                                    component="span"
+                                    sx={{
+                                      fontSize: '1.08rem',
+                                      fontWeight: 700,
+                                      color: isOngoing ? '#22c55e' : statusLabel === '완료 현장' ? '#9ca3af' : '#93c5fd',
+                                      flexShrink: 0,
+                                      mr: 0.5
+                                    }}
+                                  >
+                                    [{statusLabel}]
+                                  </Typography>
+                                  {names.map((name, idx) => (
+                                    <Chip
+                                      key={`${group.id}-${statusLabel}-${idx}`}
+                                      size="small"
+                                      label={name}
+                                      sx={{
+                                        bgcolor: statusLabel === '완료 현장' ? '#374151' : statusLabel === '예정현장' ? '#1e3a5f' : '#39475c',
+                                        color: '#fff',
+                                        fontSize: '1.08rem',
+                                        fontWeight: 600
+                                      }}
+                                    />
+                                  ))}
+                                </Box>
+                              );
+                            })}
+                            {customItems.length > 0 && (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
+                                <Typography component="span" sx={{ fontSize: '1.08rem', fontWeight: 700, color: '#9ca3af', flexShrink: 0, mr: 0.5 }}>
+                                  [기타]
+                                </Typography>
+                                {customItems.map((item, idx) => (
+                                  <Chip
+                                    key={`${group.id}-custom-${idx}`}
+                                    size="small"
+                                    label={item.name || '임의 입력'}
+                                    sx={{ bgcolor: '#39475c', color: '#fff', fontSize: '1.08rem' }}
+                                  />
+                                ))}
+                              </Box>
+                            )}
+                          </>
                         );
-                      })}
+                      })()}
                     </Box>
                     <Typography sx={{ color: '#aaa', fontSize: '0.8rem' }}>
                       총 {items.length}개 현장

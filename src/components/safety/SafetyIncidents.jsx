@@ -53,6 +53,7 @@ const SafetyIncidents = () => {
         id: doc.id,
         ...doc.data()
       }));
+      incidentList.sort((a, b) => (new Date(b.date || 0)).getTime() - (new Date(a.date || 0)).getTime());
       setIncidents(incidentList);
     } catch (error) {
       console.error('Error fetching incidents:', error);

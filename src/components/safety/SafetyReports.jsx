@@ -52,6 +52,7 @@ const SafetyReports = () => {
         id: doc.id,
         ...doc.data()
       }));
+      reportList.sort((a, b) => (new Date(b.date || 0)).getTime() - (new Date(a.date || 0)).getTime());
       setReports(reportList);
     } catch (error) {
       console.error('Error fetching reports:', error);

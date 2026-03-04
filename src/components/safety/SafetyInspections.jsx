@@ -79,17 +79,23 @@ const SafetyInspections = () => {
       const sitesSnapshot = await getDocs(collection(db, 'sites'));
       setSites(sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-      // 안전 점검 목록 로드
+      // 안전 점검 목록 로드 (날짜 최신순)
       const inspectionsSnapshot = await getDocs(collection(db, 'safetyInspections'));
-      setInspections(inspectionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const inspectionsList = inspectionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      inspectionsList.sort((a, b) => (new Date(b.date || 0)).getTime() - (new Date(a.date || 0)).getTime());
+      setInspections(inspectionsList);
 
-      // 안전 교육 목록 로드
+      // 안전 교육 목록 로드 (날짜 최신순)
       const trainingsSnapshot = await getDocs(collection(db, 'safetyTrainings'));
-      setTrainings(trainingsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const trainingsList = trainingsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      trainingsList.sort((a, b) => (new Date(b.date || 0)).getTime() - (new Date(a.date || 0)).getTime());
+      setTrainings(trainingsList);
 
-      // 안전 사고 목록 로드
+      // 안전 사고 목록 로드 (날짜 최신순)
       const accidentsSnapshot = await getDocs(collection(db, 'safetyAccidents'));
-      setAccidents(accidentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const accidentsList = accidentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      accidentsList.sort((a, b) => (new Date(b.date || 0)).getTime() - (new Date(a.date || 0)).getTime());
+      setAccidents(accidentsList);
 
       setLoading(false);
     } catch (error) {

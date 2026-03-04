@@ -189,11 +189,18 @@ function SafetyOverviewCards() {
        }));
       const arr = Array.from(allSites);
       const siteArr = arr.length > 0 ? arr : ['등록된 현장 없음'];
+      const sortByDateDesc = (arr, dateKey = 'date') => {
+        return [...arr].sort((a, b) => {
+          const tA = (a[dateKey] && new Date(a[dateKey]).getTime()) || (a.createdAt && new Date(a.createdAt).getTime()) || 0;
+          const tB = (b[dateKey] && new Date(b[dateKey]).getTime()) || (b.createdAt && new Date(b.createdAt).getTime()) || 0;
+          return tB - tA;
+        });
+      };
       const result = siteArr.map(siteName => {
-        const inspections = ins.docs.map(d => d.data()).filter(d => getSiteName(d) === siteName);
-        const accidents = acc.docs.map(d => d.data()).filter(d => getSiteName(d) === siteName);
-        const educations = edu.docs.map(d => d.data()).filter(d => getSiteName(d) === siteName);
-        const costs = cost.docs.map(d => d.data()).filter(d => getSiteName(d) === siteName);
+        const inspections = sortByDateDesc(ins.docs.map(d => d.data()).filter(d => getSiteName(d) === siteName));
+        const accidents = sortByDateDesc(acc.docs.map(d => d.data()).filter(d => getSiteName(d) === siteName));
+        const educations = sortByDateDesc(edu.docs.map(d => d.data()).filter(d => getSiteName(d) === siteName));
+        const costs = sortByDateDesc(cost.docs.map(d => d.data()).filter(d => getSiteName(d) === siteName));
         return {
           siteName,
           inspection: {

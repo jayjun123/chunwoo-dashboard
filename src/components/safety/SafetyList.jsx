@@ -50,12 +50,14 @@ const SafetyList = () => {
     setLoading(false);
   }, []);
 
-  const filteredInspections = inspections.filter(inspection => {
-    const matchesSearch = inspection.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         inspection.site.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || inspection.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredInspections = inspections
+    .filter(inspection => {
+      const matchesSearch = inspection.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           inspection.site.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = filterStatus === 'all' || inspection.status === filterStatus;
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => (new Date(b.date || 0)).getTime() - (new Date(a.date || 0)).getTime());
 
   if (loading) {
     return <div className="loading">로딩 중...</div>;
