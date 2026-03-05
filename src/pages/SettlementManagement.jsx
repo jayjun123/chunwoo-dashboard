@@ -58,7 +58,7 @@ import {
   Receipt as ReceiptIcon,
   Security as SecurityIcon
 } from '@mui/icons-material';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
@@ -385,6 +385,23 @@ const SettlementManagement = () => {
           id: doc.id,
           ...doc.data()
         }));
+        // 금사동 현장은 정산 페이지 없어도 목록/진입 가능하도록 플래그 자동 설정
+        const geumsaSites = sitesData.filter(s => s.name && s.name.includes('금사동'));
+        for (const site of geumsaSites) {
+          if (!site.settlementPageCreated || !site.settlementEnabled) {
+            try {
+              await updateDoc(doc(db, 'sites', site.id), {
+                settlementEnabled: true,
+                settlementPageCreated: true,
+                settlementUpdatedAt: serverTimestamp()
+              });
+              site.settlementEnabled = true;
+              site.settlementPageCreated = true;
+            } catch (e) {
+              console.error('금사동 정산 플래그 설정 오류:', e);
+            }
+          }
+        }
         setSites(sitesData);
         console.log('현장 데이터 로드 완료:', sitesData.length, '개');
       } catch (error) {

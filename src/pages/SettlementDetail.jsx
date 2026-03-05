@@ -6069,13 +6069,23 @@ export default function SettlementDetail() {
     return (
       <Box sx={{ 
         display: 'flex', 
+        flexDirection: 'column',
         justifyContent: 'center', 
         alignItems: 'center', 
         height: '100vh',
         bgcolor: '#1a1d21',
-        color: '#fff'
+        color: '#fff',
+        gap: 2
       }}>
         <Typography variant="h5">현장 정보를 찾을 수 없습니다.</Typography>
+        <Button
+          variant="contained"
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate('/settlement')}
+          sx={{ mt: 2 }}
+        >
+          정산관리로 돌아가기
+        </Button>
       </Box>
     );
   }

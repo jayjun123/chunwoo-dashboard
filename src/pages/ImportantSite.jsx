@@ -343,7 +343,7 @@ export default function ImportantSite() {
       
       setSites(finalSitesData);
       
-      // 정산 토글 상태 초기화
+      // 정산 토글 상태 초기화 (표시되는 현장 기준)
       const toggles = {};
       const pages = {};
       finalSitesData.forEach(site => {
@@ -351,25 +351,20 @@ export default function ImportantSite() {
         pages[site.id] = site.settlementPageCreated || false;
       });
       
-      // 금사동 현장의 정산을 자동으로 ON으로 설정
-      const geumsaSites = finalSitesData.filter(site => 
+      // 금사동 현장의 정산을 자동으로 ON 설정 (전체 현장에서 검사 - 목록에 없어도 정산 페이지 진입 가능하도록)
+      const geumsaSites = validSitesData.filter(site => 
         site.name && site.name.includes('금사동')
       );
-      
       for (const site of geumsaSites) {
-        if (!site.settlementEnabled) {
-          console.log(`금사동 현장 "${site.name}" 정산을 ON으로 설정 중...`);
+        if (!site.settlementEnabled || !site.settlementPageCreated) {
           try {
             updateDoc(doc(db, 'sites', site.id), {
               settlementEnabled: true,
               settlementPageCreated: true,
               settlementUpdatedAt: serverTimestamp()
             });
-            
             toggles[site.id] = true;
             pages[site.id] = true;
-            
-            console.log(`금사동 현장 "${site.name}" 정산 설정 완료`);
           } catch (error) {
             console.error(`금사동 현장 "${site.name}" 정산 설정 오류:`, error);
           }
@@ -467,42 +462,55 @@ export default function ImportantSite() {
     devLog('=== 기성 데이터 구독 시작 ===');
     devLog('현재 sites:', sites.map(s => ({ id: s.id, name: s.name })));
 
-    const siteIds = sites.map(site => site.id);
     const unsubscribes = [];
-    
-    // 각 현장별로 기성 데이터 구독
-    siteIds.forEach(siteId => {
+
+    const mergeGisungForSite = (siteId, newItems) => {
+      setGisungData(prev => {
+        const existing = prev[siteId] || [];
+        const byId = new Map(existing.map(g => [g.id, g]));
+        newItems.forEach(g => byId.set(g.id, g));
+        return { ...prev, [siteId]: Array.from(byId.values()) };
+      });
+    };
+
+    sites.forEach(site => {
+      const siteId = site.id;
+      const siteName = (site.name || '').trim();
       try {
-        devLog(`SiteId ${siteId}에 대한 기성 쿼리 생성`);
-        
-        // siteId로 쿼리
-        const gisungQuery = query(
-          collection(db, 'gisung'), 
+        const gisungBySiteIdQuery = query(
+          collection(db, 'gisung'),
           where('siteId', '==', siteId)
         );
-        
-        const unsubscribe = onSnapshot(gisungQuery, (snapshot) => {
-          const gisungItems = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          
-          // 주단위 그룹화 제거 - 기성 데이터를 그대로 사용
-          devLog(`Site ${siteId}의 기성 데이터 (${gisungItems.length}개):`, gisungItems);
-          
-          setGisungData(prev => ({
-            ...prev,
-            [siteId]: gisungItems
-          }));
+        const unsub1 = onSnapshot(gisungBySiteIdQuery, (snapshot) => {
+          const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          mergeGisungForSite(siteId, items);
         }, (error) => {
-          devError(`Error fetching gisung for site ${siteId}:`, error);
-          setGisungData(prev => ({
-            ...prev,
-            [siteId]: []
-          }));
+          devError(`Error fetching gisung by siteId ${siteId}:`, error);
+          mergeGisungForSite(siteId, []);
         });
-        
-        unsubscribes.push(unsubscribe);
+        unsubscribes.push(unsub1);
+
+        if (siteName) {
+          const gisungBySiteNameQuery = query(
+            collection(db, 'gisung'),
+            where('siteName', '==', siteName)
+          );
+          const unsub2 = onSnapshot(gisungBySiteNameQuery, (snapshot) => {
+            const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            mergeGisungForSite(siteId, items);
+          }, () => {});
+          unsubscribes.push(unsub2);
+
+          const gisungByNameQuery = query(
+            collection(db, 'gisung'),
+            where('name', '==', siteName)
+          );
+          const unsub3 = onSnapshot(gisungByNameQuery, (snapshot) => {
+            const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            mergeGisungForSite(siteId, items);
+          }, () => {});
+          unsubscribes.push(unsub3);
+        }
       } catch (error) {
         devError(`Error setting up gisung listener for site ${siteId}:`, error);
       }
@@ -763,7 +771,7 @@ export default function ImportantSite() {
       // 전체 보기: 모든 주요현장
       filtered = [...(allImportantSites || [])];
     } else {
-      // 기본: 진행중인 주요현장만 (공기 종료 제외)
+      // 기본: 진행중인 주요현장만 (공사기간 지난 현장은 전체 보기에서만 표시)
       filtered = sortedSites.filter(site => !site._isExpired);
     }
     
@@ -1574,16 +1582,11 @@ export default function ImportantSite() {
             </Grid>
           )}
         {filteredSites.map(site => {
-          // siteId로 바로 접근해서 누계기성값 계산
           const siteGisungData = gisungData[site.id] || [];
-          const totalGisung = siteGisungData.reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
-          
-          // 기성 데이터 디버깅
-          console.log(`Site ${site.id} (${site.name}):`, {
-            siteGisungData: siteGisungData,
-            totalGisung: totalGisung,
-            gisungDataKeys: Object.keys(gisungData)
-          });
+          let totalGisung = siteGisungData.reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
+          if (totalGisung === 0 && Number(site.totalProgress) > 0) {
+            totalGisung = Number(site.totalProgress);
+          }
           
           return (
             <Grid size={{ xs: 12, sm: 12, md: 12 }} key={site.id} sx={{ minWidth: isMobile ? 'auto' : '700px' }}>
@@ -1717,13 +1720,14 @@ export default function ImportantSite() {
                       variant="outlined"
                       size={isMobile ? 'small' : 'medium'}
                       onClick={(e) => {
-                        if (settlementPages[site.id]) {
+                        const canEnter = settlementPages[site.id] || site.settlementPageCreated || site.settlementEnabled;
+                        if (canEnter) {
                           e.preventDefault();
                           e.stopPropagation();
                           handleGoToSettlement(site.id);
                         }
                       }}
-                      disabled={!settlementPages[site.id]}
+                      disabled={!(settlementPages[site.id] || site.settlementPageCreated || site.settlementEnabled)}
                       sx={{
                         backgroundColor: 'transparent',
                         color: '#f44336',
@@ -1777,14 +1781,18 @@ export default function ImportantSite() {
                     minWidth: isMobile ? '60px' : '120px' 
                   }}>계약금: {formatContractAmount(site.contractAmount)}</Typography>
                   {(() => {
-                    // 기성금 데이터에서 입금완료와 미입금 계산
-                    const siteGisungData = gisungData[site.id] || [];
-                    const paidAmount = siteGisungData
-                      .filter(item => item.paymentStatus === '입금완료' || item.paymentStatus === '완료')
-                      .reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
-                    const unpaidAmount = siteGisungData
-                      .filter(item => item.paymentStatus === '미입금' || item.paymentStatus === '미지급' || !item.paymentStatus)
-                      .reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
+                    const siteGisungDataForDisplay = gisungData[site.id] || [];
+                    const hasGisungItems = siteGisungDataForDisplay.length > 0;
+                    const paidAmount = hasGisungItems
+                      ? siteGisungDataForDisplay
+                          .filter(item => item.paymentStatus === '입금완료' || item.paymentStatus === '완료')
+                          .reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0)
+                      : totalGisung;
+                    const unpaidAmount = hasGisungItems
+                      ? siteGisungDataForDisplay
+                          .filter(item => item.paymentStatus === '미입금' || item.paymentStatus === '미지급' || !item.paymentStatus)
+                          .reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0)
+                      : 0;
                     
                     return (
                       <Box sx={{ 
@@ -1976,11 +1984,8 @@ export default function ImportantSite() {
                   </Box>
                   {/* 진행률 바(숫자 입력) - 상단 고정 */}
                   {(() => {
-                    // 저장된 진행률이 있으면 우선 사용, 없으면 기성 데이터 기반으로 계산
                     const contract = Number(site.contractAmount) || 0;
                     const savedProgressRate = Number(site.progressRate) || 0;
-                    const siteGisungData = gisungData[site.id] || [];
-                    const totalGisung = siteGisungData.reduce((sum, item) => sum + Number(item.gisungAmount || 0), 0);
                     const calculatedPercent = contract > 0 ? Math.round((totalGisung / contract) * 100) : 0;
                     
                     // 저장된 진행률이 있으면 그것을 사용, 없으면 계산된 값 사용
