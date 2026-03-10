@@ -105,6 +105,8 @@
     "firebase:deploy": "npm run build && firebase deploy",
     "firebase:deploy:hosting": "npm run build && firebase deploy --only hosting",
     "firebase:deploy:firestore": "firebase deploy --only firestore",
+    "backup": "node scripts/backup-src.js",
+    "backup:firebase": "node scripts/backupFirebase.js",
     "firebase:deploy:storage": "firebase deploy --only storage",
     "firebase:emulators": "firebase emulators:start",
     "firebase:emulators:export": "firebase emulators:export ./emulator-data",

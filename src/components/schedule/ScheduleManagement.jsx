@@ -886,12 +886,17 @@ const ScheduleManagement = ({
       return [];
     }
     
-    const monthFiltered = sites.filter(site => isInMonth(site, year, month));
-    let searchFiltered = monthFiltered;
+    // 기본은 이달의 현장만 보여주되,
+    // 검색어가 있으면 공사기간과 상관없이 전체 현장(sites)을 대상으로 검색
+    const baseList = siteSearchTerm
+      ? sites
+      : sites.filter(site => isInMonth(site, year, month));
+
+    let searchFiltered = baseList;
     
     if (siteSearchTerm) {
       const searchLower = siteSearchTerm.toLowerCase();
-      searchFiltered = monthFiltered.filter(site => 
+      searchFiltered = baseList.filter(site => 
         (site.name && site.name.toLowerCase().includes(searchLower)) ||
         (site.companyName && site.companyName.toLowerCase().includes(searchLower)) ||
         (site.manager && site.manager.toLowerCase().includes(searchLower))

@@ -862,8 +862,8 @@ const Confidential = () => {
                      '&::-webkit-scrollbar': {
                        display: 'none'
                      },
-                     '-ms-overflow-style': 'none',
-                     'scrollbar-width': 'none'
+                     msOverflowStyle: 'none',
+                     scrollbarWidth: 'none'
                    }}>
                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5, color: 'primary.main' }}>
                        📋 진행이력
@@ -922,7 +922,7 @@ const Confidential = () => {
                      )}
                    </Box>
                    
-                   <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                   <Box component="div" sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                      <Typography variant="caption" sx={{ mr: 0.5, color: 'text.secondary' }}>
                        고소장접수
                      </Typography>
@@ -932,7 +932,7 @@ const Confidential = () => {
                        size="small"
                        sx={{ fontSize: '0.6rem', height: '20px' }}
                      />
-                   </Typography>
+                   </Box>
                    {item.lawsuitNumber && (
                      <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary', mb: 0.5 }}>
                        번호: {item.lawsuitNumber}

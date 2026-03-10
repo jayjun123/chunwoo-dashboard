@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -57,6 +57,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { isMasterUser } from '../utils/masterUtils';
 import { formatNumber } from '../utils/formatUtils';
 import ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 
 // 전화번호 포맷팅 함수 (전역 함수)
 const formatPhoneNumber = (value) => {
@@ -294,6 +295,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     }, (error) => {
       console.error('섹션 데이터 구독 오류:', error);
       setSections([]);
+      setSnackbar({ open: true, message: `선물 리스트를 불러오지 못했습니다. (${error?.message || '인덱스 필요'}) Firestore 인덱스 배포 후 새로고침하세요.`, severity: 'error' });
     });
     
     return unsubscribe;
@@ -418,6 +420,8 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
       }
     }, (error) => {
       console.error('카드 데이터 구독 오류:', error);
+      setCards([]);
+      setSnackbar({ open: true, message: `선물 카드 데이터를 불러오지 못했습니다. (${error?.message || '인덱스 필요'}) firebase deploy --only firestore 후 새로고침하세요.`, severity: 'error' });
     });
     
     return unsubscribe;
@@ -914,6 +918,44 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
     }
   };
 
+  // 양식 다운로드 (업로드용 템플릿 - 이름/선물종류 등)
+  const handleTemplateDownload = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('명절선물_양식');
+      const headers = ['이름', '선물종류', '회사명', '직책', '비고'];
+      const headerRow = worksheet.addRow(headers);
+      headerRow.font = { bold: true };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
+      };
+      worksheet.addRow(['홍길동', '상품권', '(주)예시회사', '대리', '']);
+      worksheet.addRow(['김철수', '과일세트', '예시건설', '과장', '']);
+      worksheet.columns = [
+        { width: 18 },
+        { width: 18 },
+        { width: 22 },
+        { width: 14 },
+        { width: 24 }
+      ];
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `명절선물_업로드_양식_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      setSnackbar({ open: true, message: '업로드용 양식이 다운로드되었습니다. 이름·선물종류를 채운 뒤 업로드하세요.', severity: 'success' });
+    } catch (error) {
+      console.error('양식 다운로드 오류:', error);
+      setSnackbar({ open: true, message: '양식 다운로드 중 오류가 발생했습니다.', severity: 'error' });
+    }
+  };
 
   // 거래처 다이얼로그 열기
   const handleOpenVendorDialog = (vendor = null) => {
@@ -1953,7 +1995,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
 
 
 
-  // 엑셀 업로드 처리 (B,G열: 이름, C,H열: 선물종류)
+  // 엑셀 업로드 처리 (헤더 기반: 이름/선물종류 인식, 없으면 B·C열 / G·H열 고정 포맷 호환)
   const handleExcelUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -1965,25 +2007,44 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
 
-        // B, G열에서 이름, C, H열에서 선물종류 추출
+        const toStr = (v) => (v != null && String(v).trim() !== '' ? String(v).trim() : null);
+        const headerRow = (jsonData[0] || []).map((c) => toStr(c) || '');
+        const nameCol = headerRow.findIndex((h) => h === '이름');
+        const giftTypeCol = headerRow.findIndex((h) => h === '선물종류' || h === '선물');
+        const companyCol = headerRow.findIndex((h) => h === '회사명');
+        const positionCol = headerRow.findIndex((h) => h === '직책');
+        const noteCol = headerRow.findIndex((h) => h === '비고');
+        const useHeader = nameCol >= 0 && giftTypeCol >= 0;
+        const nameColFinal = useHeader ? nameCol : 1;
+        const giftTypeColFinal = useHeader ? giftTypeCol : 2;
+
         const giftData = [];
-        jsonData.forEach((row, index) => {
-          if (index === 0) return; // 헤더 스킵
-          
-          const nameB = row[1]; // B열 (이름)
-          const giftTypeC = row[2]; // C열 (선물종류)
-          const nameG = row[6]; // G열 (이름)
-          const giftTypeH = row[7]; // H열 (선물종류)
-
-          if (nameB && giftTypeC) {
-            giftData.push({ name: nameB, giftType: giftTypeC });
+        const dataStart = useHeader ? 1 : 1;
+        for (let i = dataStart; i < jsonData.length; i++) {
+          const row = jsonData[i] || [];
+          if (useHeader) {
+            const name = toStr(row[nameColFinal]);
+            const giftType = toStr(row[giftTypeColFinal]);
+            if (name && giftType) {
+              giftData.push({
+                name,
+                giftType,
+                company: companyCol >= 0 ? toStr(row[companyCol]) : null,
+                position: positionCol >= 0 ? toStr(row[positionCol]) : null,
+                note: noteCol >= 0 ? toStr(row[noteCol]) : null
+              });
+            }
+          } else {
+            const nameB = toStr(row[1]);
+            const giftTypeC = toStr(row[2]);
+            const nameG = toStr(row[6]);
+            const giftTypeH = toStr(row[7]);
+            if (nameB && giftTypeC) giftData.push({ name: nameB, giftType: giftTypeC });
+            if (nameG && giftTypeH) giftData.push({ name: nameG, giftType: giftTypeH });
           }
-          if (nameG && giftTypeH) {
-            giftData.push({ name: nameG, giftType: giftTypeH });
-          }
-        });
+        }
 
         // 섹션별 최대 카드 번호 관리용 맵
         const sectionMaxNumbers = {};
@@ -2001,16 +2062,13 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         
         console.log('섹션별 최대 번호:', sectionMaxNumbers);
         
-        // 선물종류별로 그룹화 (중복 제거)
+        // 선물종류별로 그룹화 (중복 제거, 업로드 항목 전체 유지)
         const giftGroups = {};
-        giftData.forEach(({ name, giftType }) => {
-          if (!giftGroups[giftType]) {
-            giftGroups[giftType] = [];
-          }
-          // 같은 선물종류 내에서 중복 제거
-          if (!giftGroups[giftType].includes(name)) {
-            giftGroups[giftType].push(name);
-          }
+        giftData.forEach((item) => {
+          const { name, giftType, company, position, note } = item;
+          if (!giftGroups[giftType]) giftGroups[giftType] = [];
+          const exists = giftGroups[giftType].some((x) => x.name === name);
+          if (!exists) giftGroups[giftType].push({ name, company, position, note });
         });
 
         // 중복 확인 및 상세 정보 수집
@@ -2024,17 +2082,17 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         const duplicateInfo = [];
         const newNames = [];
 
-        Object.entries(giftGroups).forEach(([giftType, names]) => {
-          names.forEach(name => {
-            // 기존 데이터베이스에서 같은 이름 찾기
-            const existingCards = allExistingCards.filter(card => card.name === name);
-            
+        Object.entries(giftGroups).forEach(([giftType, items]) => {
+          items.forEach(({ name, company, position, note }) => {
+            const existingCards = allExistingCards.filter((card) => card.name === name);
             if (existingCards.length > 0) {
-              // 중복 정보 수집
-              existingCards.forEach(existingCard => {
+              existingCards.forEach((existingCard) => {
                 duplicateInfo.push({
-                  name: name,
+                  name,
                   uploadGiftType: giftType,
+                  company,
+                  position,
+                  note,
                   existingInfo: {
                     giftType: existingCard.giftType || existingCard.type,
                     company: existingCard.company || '회사명 없음',
@@ -2045,7 +2103,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
                 });
               });
             } else {
-              newNames.push({ name, giftType });
+              newNames.push({ name, giftType, company, position, note });
             }
           });
         });
@@ -2085,11 +2143,13 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
 
           const confirmed = window.confirm(detailMessage);
           if (confirmed) {
-            // 중복된 이름들도 추가
-            duplicateInfo.forEach(dup => {
-              newNames.push({ 
-                name: dup.name, 
+            duplicateInfo.forEach((dup) => {
+              newNames.push({
+                name: dup.name,
                 giftType: dup.uploadGiftType,
+                company: dup.company,
+                position: dup.position,
+                note: dup.note,
                 isDuplicate: true,
                 existingInfo: dup.existingInfo
               });
@@ -2097,15 +2157,13 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
           }
         }
 
-        // 각 선물종류별로 섹션에 추가 (중복 제거)
+        // 선물종류별로 묶기 (항목 전체 유지)
         const groupedNewNames = {};
-        newNames.forEach(({ name, giftType }) => {
-          if (!groupedNewNames[giftType]) {
-            groupedNewNames[giftType] = [];
-          }
-          // 같은 선물종류 내에서 중복 제거
-          if (!groupedNewNames[giftType].includes(name)) {
-            groupedNewNames[giftType].push(name);
+        newNames.forEach((item) => {
+          const { name, giftType } = item;
+          if (!groupedNewNames[giftType]) groupedNewNames[giftType] = [];
+          if (!groupedNewNames[giftType].some((x) => (typeof x === 'string' ? x : x.name) === name)) {
+            groupedNewNames[giftType].push(item);
           }
         });
 
@@ -2136,40 +2194,40 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
             const docRef = await addDoc(collection(db, 'giftSections'), newSectionData);
             const newSection = { id: docRef.id, ...newSectionData };
             
-            // 카드들을 Firebase에 추가 (중복 항목을 맨 위로)
             const sortedNames = names.sort((a, b) => {
-              // 중복된 항목(isDuplicate: true)을 맨 위로
-              if (a.isDuplicate && !b.isDuplicate) return -1;
-              if (!a.isDuplicate && b.isDuplicate) return 1;
+              const aDup = typeof a === 'object' && a.isDuplicate;
+              const bDup = typeof b === 'object' && b.isDuplicate;
+              if (aDup && !bDup) return -1;
+              if (!aDup && bDup) return 1;
               return 0;
             });
             
             const cardPromises = sortedNames.map(async (nameData, index) => {
               const name = typeof nameData === 'string' ? nameData : nameData.name;
-              const isDuplicate = typeof nameData === 'object' ? nameData.isDuplicate : false;
+              const isDuplicate = typeof nameData === 'object' && nameData.isDuplicate;
               const existingInfo = typeof nameData === 'object' ? nameData.existingInfo : null;
+              const uploadCompany = typeof nameData === 'object' ? nameData.company : null;
+              const uploadPosition = typeof nameData === 'object' ? nameData.position : null;
+              const uploadNote = typeof nameData === 'object' ? nameData.note : null;
               
-              // 섹션별 순차 번호 할당 (기존 최대 번호 다음부터)
               const cardNumber = sectionMaxNumbers[docRef.id] + index + 1;
-              
               const cardData = {
                 type: 'gift',
-                name: name,
+                name,
                 giftType: giftType,
                 quantity: 1,
-                note: isDuplicate ? `[중복] 기존: ${existingInfo?.giftType} (${existingInfo?.company})` : '',
-                company: existingInfo?.company || '회사명 없음',
-                position: existingInfo?.position || '',
+                note: isDuplicate ? `[중복] 기존: ${existingInfo?.giftType} (${existingInfo?.company})` : (uploadNote || ''),
+                company: uploadCompany || existingInfo?.company || '회사명 없음',
+                position: uploadPosition || existingInfo?.position || '',
                 sectionId: docRef.id,
                 year: selectedYear,
                 holiday: selectedHoliday,
-                isDuplicate: isDuplicate,
-                duplicateInfo: existingInfo,
-                cardNumber: cardNumber, // 회사명 가나다순으로 할당된 번호
+                isDuplicate: !!isDuplicate,
+                ...(existingInfo != null && { duplicateInfo: existingInfo }),
+                cardNumber,
                 createdAt: serverTimestamp(),
                 createdBy: currentUser?.email || 'unknown'
               };
-              
               const cardDocRef = await addDoc(collection(db, 'giftCards'), cardData);
               return { id: cardDocRef.id, ...cardData };
             });
@@ -2178,40 +2236,40 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
             newSection.cards = newCards;
             newSections.push(newSection);
           } else {
-            // 기존 섹션에 모든 카드 추가 (중복 항목을 맨 위로)
             const sortedNames = names.sort((a, b) => {
-              // 중복된 항목(isDuplicate: true)을 맨 위로
-              if (a.isDuplicate && !b.isDuplicate) return -1;
-              if (!a.isDuplicate && b.isDuplicate) return 1;
+              const aDup = typeof a === 'object' && a.isDuplicate;
+              const bDup = typeof b === 'object' && b.isDuplicate;
+              if (aDup && !bDup) return -1;
+              if (!aDup && bDup) return 1;
               return 0;
             });
             
             const cardPromises = sortedNames.map(async (nameData, index) => {
               const name = typeof nameData === 'string' ? nameData : nameData.name;
-              const isDuplicate = typeof nameData === 'object' ? nameData.isDuplicate : false;
+              const isDuplicate = typeof nameData === 'object' && nameData.isDuplicate;
               const existingInfo = typeof nameData === 'object' ? nameData.existingInfo : null;
+              const uploadCompany = typeof nameData === 'object' ? nameData.company : null;
+              const uploadPosition = typeof nameData === 'object' ? nameData.position : null;
+              const uploadNote = typeof nameData === 'object' ? nameData.note : null;
               
-              // 섹션별 순차 번호 할당 (기존 최대 번호 다음부터)
               const cardNumber = sectionMaxNumbers[targetSection.id] + index + 1;
-              
               const cardData = {
                 type: 'gift',
-                name: name,
+                name,
                 giftType: giftType,
                 quantity: 1,
-                note: isDuplicate ? `[중복] 기존: ${existingInfo?.giftType} (${existingInfo?.company})` : '',
-                company: existingInfo?.company || '회사명 없음',
-                position: existingInfo?.position || '',
+                note: isDuplicate ? `[중복] 기존: ${existingInfo?.giftType} (${existingInfo?.company})` : (uploadNote || ''),
+                company: uploadCompany || existingInfo?.company || '회사명 없음',
+                position: uploadPosition || existingInfo?.position || '',
                 sectionId: targetSection.id,
                 year: selectedYear,
                 holiday: selectedHoliday,
-                isDuplicate: isDuplicate,
-                duplicateInfo: existingInfo,
-                cardNumber: cardNumber, // 섹션별 순차 번호
+                isDuplicate: !!isDuplicate,
+                ...(existingInfo != null && { duplicateInfo: existingInfo }),
+                cardNumber,
                 createdAt: serverTimestamp(),
                 createdBy: currentUser?.email || 'unknown'
               };
-              
               const cardDocRef = await addDoc(collection(db, 'giftCards'), cardData);
               return { id: cardDocRef.id, ...cardData };
             });
@@ -2256,6 +2314,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
         console.error('엑셀 파싱 오류:', error);
         setSnackbar({ open: true, message: '엑셀 파일을 읽는 중 오류가 발생했습니다.', severity: 'error' });
       }
+      event.target.value = '';
     };
     reader.readAsArrayBuffer(file);
   };
@@ -2399,6 +2458,7 @@ const GiftListTab = ({ selectedYear: propSelectedYear, selectedHoliday: propSele
                 onEdit={handleOpenDialog}
                 onDelete={handleDelete}
                 onDownload={handleDownload}
+                onTemplateDownload={handleTemplateDownload}
                 onExcelUpload={handleExcelUpload}
                 loading={loading}
                 sections={sections}
@@ -3005,6 +3065,7 @@ const GiftManagementTab = ({
   onEdit,
   onDelete,
   onDownload,
+  onTemplateDownload,
   onExcelUpload,
   loading,
   sections,
@@ -3311,6 +3372,19 @@ const GiftManagementTab = ({
           </>
         )}
 
+        <Button
+          variant="outlined"
+          startIcon={<DownloadIcon />}
+          onClick={onTemplateDownload}
+          sx={{
+            borderColor: '#9e9e9e',
+            color: '#9e9e9e',
+            '&:hover': { borderColor: '#bdbdbd', color: '#bdbdbd' },
+            mr: 1
+          }}
+        >
+          양식 다운로드
+        </Button>
         <input
           accept=".xlsx,.xls"
           style={{ display: 'none' }}
@@ -3465,6 +3539,9 @@ const GiftManagementTab = ({
               <Typography variant="body2" sx={{ color: '#888' }}>
                 '그룹 추가' 버튼을 눌러 새 섹션을 만들거나<br/>
                 엑셀 파일을 업로드하여 데이터를 추가하세요
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#888', mt: 0.5 }}>
+                상단에서 「양식 다운로드」로 템플릿을 받은 뒤, 이름·선물종류를 채워 업로드하면 자동으로 섹션별로 정리됩니다.
               </Typography>
             </Box>
           </Box>

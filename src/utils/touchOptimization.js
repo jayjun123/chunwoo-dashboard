@@ -662,6 +662,10 @@ export const ensureInputFocus = () => {
   const addInputFocusListeners = () => {
     const inputs = document.querySelectorAll('input, textarea, select, [contenteditable="true"]');
     inputs.forEach(input => {
+      // MUI Select 숨겨진 native input은 건너뛰기 (aria-hidden 요소에 포커스 시 a11y 위반)
+      if (input.classList.contains('MuiSelect-nativeInput') || input.getAttribute('aria-hidden') === 'true') {
+        return;
+      }
       // 이미 리스너가 추가된 경우 건너뛰기
       if (input.dataset.focusListenerAdded) return;
       input.dataset.focusListenerAdded = 'true';
