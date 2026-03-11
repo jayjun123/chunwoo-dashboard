@@ -137,11 +137,21 @@ async function getScheduleHeatmap(year, month) {
       byDate[dateStr] = { date: dateStr, count: 0, items: [] };
     }
     byDate[dateStr].count += 1;
+    // present/workerCount 등 인원 정보 포함
+    const workerCount =
+      d.workerCount ??
+      d.present ??
+      d.방문 ??
+      d.인원 ??
+      null;
+
     byDate[dateStr].items.push({
       id: doc.id,
       text: d.text || '',
       siteName: d.siteName || d.company || '',
       type: d.type || '일정',
+      workerCount,
+      present: d.present ?? null,
     });
   });
   const data = Object.keys(byDate)
