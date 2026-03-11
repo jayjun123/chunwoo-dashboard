@@ -88,6 +88,68 @@ async function getScheduleToday() {
   return items;
 }
 
+/** 주요현장 목록 (isFavorite 또는 isStarred true인 현장) */
+async function getImportantSites() {
+  const db = getDb();
+  const sitesSnap = await db.collection('sites').get();
+  const list = sitesSnap.docs
+    .filter((doc) => {
+      const d = doc.data();
+      return d.isFavorite === true || d.isStarred === true;
+    })
+    .map((doc) => {
+      const d = doc.data();
+      return {
+        id: doc.id,
+        name: d.name || '',
+        manager: d.manager || '',
+        address: d.address || '',
+        status: d.status || '',
+        endDate: toDateStr(d.endDate),
+        team: d.team || '',
+      };
+    });
+  return { data: list };
+}
+
+/** 히트맵용 월별 일정 집계 (날짜별 건수·요약) */
+async function getScheduleHeatmap(year, month) {
+  const db = getDb();
+  const y = parseInt(String(year), 10) || new Date().getFullYear();
+  const m = parseInt(String(month), 10);
+  if (Number.isNaN(m) || m < 0 || m > 11) {
+    return { error: 'month must be 0-11', data: [] };
+  }
+  const startOfMonth = new Date(y, m, 1, 0, 0, 0, 0);
+  const endOfMonth = new Date(y, m + 1, 0, 23, 59, 59, 999);
+
+  const snap = await db.collection('schedules')
+    .where('date', '>=', startOfMonth)
+    .where('date', '<=', endOfMonth)
+    .get();
+
+  const byDate = {};
+  snap.docs.forEach((doc) => {
+    const d = doc.data();
+    const dateStr = toDateStr(d.date);
+    if (!dateStr) return;
+    if (!byDate[dateStr]) {
+      byDate[dateStr] = { date: dateStr, count: 0, items: [] };
+    }
+    byDate[dateStr].count += 1;
+    byDate[dateStr].items.push({
+      id: doc.id,
+      text: d.text || '',
+      siteName: d.siteName || d.company || '',
+      type: d.type || '일정',
+    });
+  });
+  const data = Object.keys(byDate)
+    .sort()
+    .map((date) => byDate[date]);
+  return { year: y, month: m + 1, data };
+}
+
 /** 현장명으로 sites 검색 후 소장/잔액 등 반환 (읽기 전용) */
 async function getSitesQuery(name, field) {
   const db = getDb();
@@ -188,9 +250,15 @@ exports.handler = async function (event, context) {
         readOnly: true,
         endpoints: {
           'GET /schedule/today': '오늘 일정 목록',
+          'GET /schedule/heatmap?year=YYYY&month=M': '히트맵 분석: 지정 연·월(1–12) 일정 집계(날짜별 건수·요약)',
           'GET /sites?name=현장명': '현장 검색 (소장, 계약금액, 주소, 창호업체, 준공일, 시공팀, 기성잔액 등)',
           'GET /sites?name=현장명&field=manager': '해당 현장 소장만',
           'GET /sites?name=현장명&field=balance': '해당 현장 기성 잔액만',
+          'GET /important-sites': '주요현장 목록 (즐겨찾기 현장)',
+        },
+        pages: {
+          '히트맵 분석': '/schedule (일정관리 탭 내 히트맵)',
+          '주요현장': '/importantsite',
         },
       });
     }
@@ -202,6 +270,29 @@ exports.handler = async function (event, context) {
       }
       const items = await getScheduleToday();
       return send(200, { data: items, date: new Date().toISOString().slice(0, 10) });
+    }
+
+    // ----- 주요현장 목록 (읽기 전용) -----
+    if (resource === 'important-sites') {
+      if (!hasFirebase()) {
+        return send(503, { error: 'Firebase not configured', hint: 'FIREBASE_SERVICE_ACCOUNT_JSON 설정 필요' });
+      }
+      const out = await getImportantSites();
+      return send(200, out);
+    }
+
+    // ----- 히트맵: 월별 일정 집계 (읽기 전용) -----
+    if (resource === 'schedule' && id === 'heatmap') {
+      if (!hasFirebase()) {
+        return send(503, { error: 'Firebase not configured', hint: 'FIREBASE_SERVICE_ACCOUNT_JSON 설정 필요' });
+      }
+      const y = query.year || new Date().getFullYear();
+      const m = query.month != null ? Number(query.month) : new Date().getMonth() + 1;
+      const out = await getScheduleHeatmap(y, m - 1);
+      if (out.error) {
+        return send(400, out);
+      }
+      return send(200, out);
     }
 
     // ----- 현장 검색: 소장, 기성 잔액 (읽기 전용) -----

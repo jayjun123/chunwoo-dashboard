@@ -27,6 +27,22 @@ export const getScheduleToday = () =>
   get('/schedule/today').then((res) => res?.data ?? []);
 
 /**
+ * 히트맵 분석: 지정 연·월 일정 집계 (날짜별 건수·요약)
+ * @param {number} year - 연도 (예: 2025)
+ * @param {number} month - 월 1–12
+ * @returns {Promise<{ year, month, data: Array<{ date, count, items }> }>}
+ */
+export const getScheduleHeatmap = (year, month) =>
+  get('/schedule/heatmap', { year, month });
+
+/**
+ * 주요현장 목록 (즐겨찾기 현장, isFavorite/isStarred true)
+ * @returns {Promise<{ data: Array<{ id, name, manager, address, status, endDate, team }> }>}
+ */
+export const getImportantSites = () =>
+  get('/important-sites').then((res) => res?.data ?? []);
+
+/**
  * 현장명으로 검색 (소장, 계약금액, 주소, 창호업체, 준공일, 시공팀, 기성잔액 등)
  * @param {string} siteName - 현장명 (부분 일치)
  * @returns {Promise<{ data: Array<{ name, manager, contractAmount, address, windowCompany, endDate, team, balance, ... }> }>}
@@ -54,6 +70,8 @@ export default {
   getHealth,
   getConfig,
   getScheduleToday,
+  getScheduleHeatmap,
+  getImportantSites,
   getSitesByName,
   getSiteManager,
   getSiteBalance,
