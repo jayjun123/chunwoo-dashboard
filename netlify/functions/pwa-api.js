@@ -137,7 +137,7 @@ async function getScheduleHeatmap(year, month) {
       byDate[dateStr] = { date: dateStr, count: 0, items: [] };
     }
     byDate[dateStr].count += 1;
-    // present/workerCount 등 인원 정보 포함
+    // 명수(공수): Firestore의 workerCount/present/방문/인원 중 하나로 통일해 workerCount로만 내보냄
     const workerCount =
       d.workerCount ??
       d.present ??
@@ -151,7 +151,6 @@ async function getScheduleHeatmap(year, month) {
       siteName: d.siteName || d.company || '',
       type: d.type || '일정',
       workerCount,
-      present: d.present ?? null,
     });
   });
   const data = Object.keys(byDate)
