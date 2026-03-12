@@ -61,6 +61,27 @@ const parseAmount = (v) => {
   return Number.isNaN(n) ? 0 : n;
 };
 
+/** 설명(desc)에서 명수 추출: "N명", "N인" 패턴 합산. PWA 히트맵과 동일 로직 */
+function extractManpowerFromDescription(description) {
+  if (!description || typeof description !== 'string') return null;
+  let sum = 0;
+  const match명 = description.match(/(\d+)명/g);
+  if (match명) {
+    match명.forEach((m) => {
+      const n = parseInt(m.replace('명', ''), 10);
+      if (!Number.isNaN(n)) sum += n;
+    });
+  }
+  const match인 = description.match(/(\d+)인/g);
+  if (match인) {
+    match인.forEach((m) => {
+      const n = parseInt(m.replace('인', ''), 10);
+      if (!Number.isNaN(n)) sum += n;
+    });
+  }
+  return sum > 0 ? sum : (match명 || match인 ? 0 : null);
+}
+
 /** 오늘 일정 조회 (일정관리 schedules 컬렉션) */
 async function getScheduleToday() {
   const db = getDb();
@@ -137,13 +158,14 @@ async function getScheduleHeatmap(year, month) {
       byDate[dateStr] = { date: dateStr, count: 0, items: [] };
     }
     byDate[dateStr].count += 1;
-    // 명수(공수): Firestore의 workerCount/present/방문/인원 중 하나로 통일해 workerCount로만 내보냄
+    // 명수(공수): 전용 필드 없으면 설명(desc)에서 "N명"/"N인" 파싱 (PWA 히트맵과 동일)
+    const fromDesc = extractManpowerFromDescription(d.desc || d.description || '');
     const workerCount =
       d.workerCount ??
       d.present ??
       d.방문 ??
       d.인원 ??
-      null;
+      fromDesc;
 
     byDate[dateStr].items.push({
       id: doc.id,
