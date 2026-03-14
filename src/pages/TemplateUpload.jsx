@@ -16,6 +16,7 @@ import MobileSidebar from '../components/MobileSidebar';
 import { Upload as UploadIcon, Download as DownloadIcon, CloudUpload as CloudUploadIcon } from '@mui/icons-material';
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
 import { storage } from '../firebase';
+import { createDefaultDeliveryConfirmationTemplate } from '../utils/deliveryConfirmationUtils';
 
 const TemplateUpload = () => {
   const [message, setMessage] = useState('');
@@ -199,6 +200,39 @@ export const templateDescriptions = {`;
     await handleFirebaseUpload(file, templateName);
   };
 
+  // 납품확인서: public/(납품확인서).xlsx 를 Firebase templates/납품확인서.xlsx 로 업로드
+  const handleUploadDefaultDeliveryConfirmation = async () => {
+    try {
+      setUploading(true);
+      setProgressStep('납품확인서 템플릿 업로드 중...');
+      setUploadProgress(20);
+      const response = await fetch('/(납품확인서).xlsx');
+      if (!response.ok) {
+        setProgressStep('기본 템플릿 생성 중...');
+        const buffer = await createDefaultDeliveryConfirmationTemplate();
+        const file = new File([buffer], '납품확인서.xlsx', {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+        await handleFirebaseUpload(file, '납품확인서.xlsx');
+        return;
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      setUploadProgress(50);
+      const file = new File([arrayBuffer], '납품확인서.xlsx', {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      await handleFirebaseUpload(file, '납품확인서.xlsx');
+    } catch (error) {
+      console.error('납품확인서 템플릿 업로드 실패:', error);
+      setMessage(`납품확인서 템플릿 업로드에 실패했습니다: ${error.message}`);
+      setMessageType('error');
+      setProgressStep('');
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
   // 모든 템플릿 일괄 업로드
   const handleBulkUpload = async () => {
     try {
@@ -212,7 +246,8 @@ export const templateDescriptions = {`;
         { name: 'Ngyunjuk.xlsx', path: '/Ngyunjuk.xlsx', description: '견적서 N타입' },
         { name: 'Lgyunjuk.xlsx', path: '/Lgyunjuk.xlsx', description: '견적서 L타입' },
         { name: 'Nnapfoom.xlsx', path: '/Nnapfoom.xlsx', description: '납품계약서 N타입' },
-        { name: 'Lnapfoom.xlsx', path: '/Lnapfoom.xlsx', description: '납품계약서 L타입' }
+        { name: 'Lnapfoom.xlsx', path: '/Lnapfoom.xlsx', description: '납품계약서 L타입' },
+        { name: '납품확인서.xlsx', path: '/(납품확인서).xlsx', description: '납품확인서' }
       ];
 
       for (let i = 0; i < templates.length; i++) {
@@ -723,6 +758,51 @@ export const templateDescriptions = {`;
                     fullWidth
                   >
                     업로드
+                  </Button>
+                </label>
+              </CardActions>
+            </Card>
+          </Grid>
+
+          {/* 납품확인서 - 기본 템플릿 생성 후 업로드 */}
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderColor: 'primary.main', borderWidth: 1, borderStyle: 'solid' }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  납품확인서
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  public/(납품확인서).xlsx → templates/납품확인서.xlsx
+                </Typography>
+              </CardContent>
+              <CardActions sx={{ flexDirection: 'column', alignItems: 'stretch', gap: 1 }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<CloudUploadIcon />}
+                  onClick={handleUploadDefaultDeliveryConfirmation}
+                  disabled={uploading}
+                  fullWidth
+                >
+                  (납품확인서).xlsx 업로드
+                </Button>
+                <input
+                  accept=".xlsx"
+                  style={{ display: 'none' }}
+                  id="delivery-confirmation-template-upload"
+                  type="file"
+                  onChange={(e) => handleFileUpload(e, '납품확인서.xlsx')}
+                  disabled={uploading}
+                />
+                <label htmlFor="delivery-confirmation-template-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    startIcon={<UploadIcon />}
+                    disabled={uploading}
+                    fullWidth
+                  >
+                    파일 선택 후 업로드
                   </Button>
                 </label>
               </CardActions>

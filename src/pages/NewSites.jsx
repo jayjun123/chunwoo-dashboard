@@ -135,11 +135,16 @@ const STATUS_OPTIONS = ['예정', '진행', '완료', '미정'];
 const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급', '관급'];
 const ESTIMATE_STATUS_OPTIONS = ['제출대기', '제출완료', '수주', '미수주', '기타'];
 
+const WORK_SCOPE_OPTIONS = ['없음', '관급', '사급'];
+
 const initialFormState = {
   name: '',
   status: '진행',
   contractType: '계약없음',
   subcontractGuardian: false,
+  workScope: '없음',
+  orderer: '',
+  announcementNo: '',
   installment: '',
   contractAmount: '',
   advance: '',
@@ -1017,6 +1022,9 @@ const NewSites = () => {
         const currentSite = {
           name: selectedSite?.name || '',
           contractType: selectedSite?.contractType || '',
+          workScope: selectedSite?.workScope || '없음',
+          orderer: selectedSite?.orderer || '',
+          announcementNo: selectedSite?.announcementNo || '',
           contractAmount: Number(selectedSite?.contractAmount || 0),
           advance: Number(selectedSite?.advance || 0),
           safetyCost: Number(selectedSite?.safetyCost ?? 0),
@@ -1037,6 +1045,9 @@ const NewSites = () => {
         const desired = {
           name: form.name || '',
           contractType: form.contractType || '',
+          workScope: form.workScope || '없음',
+          orderer: form.orderer || '',
+          announcementNo: form.announcementNo || '',
           contractAmount: Number(form.contractAmount || 0),
           advance: Number(form.advance || 0),
           address: form.address || '',
@@ -1117,7 +1128,8 @@ const NewSites = () => {
     }, 700);
     return () => clearTimeout(timer);
   }, [selectedSite,
-      form.name, form.contractType, form.contractAmount, form.advance, form.address,
+      form.name, form.contractType, form.workScope, form.orderer, form.announcementNo,
+      form.contractAmount, form.advance, form.address,
       form.startDate, form.endDate, form.manager, form.phone, form.team,
       form.windowCompany, form.note, form.desc, form.isFavorite, form.stampType,
       form.companyName, companyFocused]);
@@ -1128,6 +1140,8 @@ const NewSites = () => {
         ...initialFormState,
         ...selectedSite,
         companyName: selectedSite.companyName || selectedSite.company || '',
+        orderer: selectedSite.orderer || '',
+        announcementNo: selectedSite.announcementNo || '',
         startDate: selectedSite.startDate ? selectedSite.startDate.split('T')[0] : '',
         endDate: selectedSite.endDate ? selectedSite.endDate.split('T')[0] : '',
         safetyCost: Number(selectedSite.safetyCost ?? 0)
@@ -3482,18 +3496,18 @@ const NewSites = () => {
              </Box>
            </Box>
            
-           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end', flexDirection: 'row' }}>
-             <Box sx={{ flex: isMobile ? 1 : 3 }}>
+           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end', flexDirection: 'row', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+             <Box sx={{ width: 250, minWidth: isMobile ? '100%' : 250 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  계약구분
                </Typography>
-               <FormControl fullWidth size="small">
-                 <Select name="contractType" value={form.contractType ?? '계약없음'} onChange={handleChange} disabled={isReadOnly}>
+               <FormControl fullWidth size="small" sx={{ width: 250 }}>
+                 <Select name="contractType" value={form.contractType ?? '계약없음'} onChange={handleChange} disabled={isReadOnly} sx={{ width: 250 }}>
                    {CONTRACT_TYPE_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
                  </Select>
                </FormControl>
              </Box>
-             <Box sx={{ flex: isMobile ? 1 : 3, pb: 0.5 }}>
+             <Box sx={{ pb: 0.5, flexShrink: 0 }}>
                <FormControlLabel 
                  control={<Checkbox name="subcontractGuardian" checked={form.subcontractGuardian ?? false} onChange={handleChange} disabled={isReadOnly} />} 
                  label="하도급지킴이"
@@ -3505,11 +3519,33 @@ const NewSites = () => {
                  }}
                />
              </Box>
-             <Box sx={{ flex: isMobile ? 1 : 3 }}>
+             <Box sx={{ flex: '0 0 auto', width: isMobile ? 160 : 260 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 발주처
+               </Typography>
+               <TextField name="orderer" value={form.orderer ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} placeholder="발주처" />
+             </Box>
+             <Box sx={{ flex: '0 0 auto', width: isMobile ? 64 : 100 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 관급/사급
+               </Typography>
+               <FormControl fullWidth size="small" sx={{ minWidth: 0 }}>
+                 <Select name="workScope" value={form.workScope ?? '없음'} onChange={handleChange} disabled={isReadOnly} sx={{ fontSize: isMobile ? '0.75rem' : 'inherit' }}>
+                   {WORK_SCOPE_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                 </Select>
+               </FormControl>
+             </Box>
+             <Box sx={{ flex: '0 0 auto', width: isMobile ? 120 : 140 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 공고번호
+               </Typography>
+               <TextField name="announcementNo" value={form.announcementNo ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} placeholder="공고번호" />
+             </Box>
+             <Box sx={{ width: 215, minWidth: isMobile ? '100%' : 215 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  진행상황
                </Typography>
-               <FormControl fullWidth size="small" sx={{ cursor: 'pointer' }}>
+               <FormControl fullWidth size="small" sx={{ cursor: 'pointer', width: 215 }}>
                  <Select 
                    name="status" 
                    value={form.status ?? '진행'} 
@@ -3520,6 +3556,7 @@ const NewSites = () => {
                      readOnly: false
                    }}
                    sx={{
+                     width: 215,
                      cursor: 'pointer',
                      '& .MuiSelect-select': {
                        backgroundColor: form.status === '예정' ? '#ff9800' : 
@@ -3807,6 +3844,46 @@ const NewSites = () => {
            </Box>
          </Box>
           <Box sx={{ mt: 'auto', pt: isMobile ? 0.5 : 1, display: 'flex', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
+           <Button
+             variant="outlined"
+             color="info"
+             onClick={async (e) => {
+               e.preventDefault();
+               e.stopPropagation();
+               if (!selectedSite) {
+                 alert('현장을 선택해 주세요.');
+                 return;
+               }
+               try {
+                 setLoading(true);
+                 setLoadingMessage('납품확인서 생성 중...');
+                 const { createDeliveryConfirmation } = await import('../utils/deliveryConfirmationUtils');
+                 const siteData = { ...selectedSite, stampType: form.stampType || selectedSite.stampType || 'A인감' };
+                 const { buffer, fileName } = await createDeliveryConfirmation(siteData);
+                 const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                 const url = window.URL.createObjectURL(blob);
+                 const link = document.createElement('a');
+                 link.href = url;
+                 link.download = fileName;
+                 document.body.appendChild(link);
+                 link.click();
+                 document.body.removeChild(link);
+                 window.URL.revokeObjectURL(url);
+                 alert('납품확인서가 다운로드되었습니다.');
+               } catch (err) {
+                 console.error('납품확인서 생성 실패:', err);
+                 alert(err?.message || '납품확인서 생성에 실패했습니다.');
+               } finally {
+                 setLoading(false);
+                 setLoadingMessage('');
+               }
+             }}
+             disabled={!selectedSite || loading}
+             size={isMobile ? 'small' : 'medium'}
+             sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+           >
+             납품확인서
+           </Button>
            {/* 계약서 업로드 / 계약서 보기 */}
            <input
              type="file"
