@@ -3496,18 +3496,18 @@ const NewSites = () => {
              </Box>
            </Box>
            
-           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end', flexDirection: 'row', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-             <Box sx={{ width: 250, minWidth: isMobile ? '100%' : 250 }}>
+           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end', flexDirection: 'row', flexWrap: isMobile ? 'wrap' : 'nowrap', minWidth: 0 }}>
+             <Box sx={{ flex: '1 1 250px', minWidth: isMobile ? '100%' : 100 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  계약구분
                </Typography>
-               <FormControl fullWidth size="small" sx={{ width: 250 }}>
-                 <Select name="contractType" value={form.contractType ?? '계약없음'} onChange={handleChange} disabled={isReadOnly} sx={{ width: 250 }}>
+               <FormControl fullWidth size="small" sx={{ minWidth: 0 }}>
+                 <Select name="contractType" value={form.contractType ?? '계약없음'} onChange={handleChange} disabled={isReadOnly}>
                    {CONTRACT_TYPE_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
                  </Select>
                </FormControl>
              </Box>
-             <Box sx={{ pb: 0.5, flexShrink: 0 }}>
+             <Box sx={{ pb: 0.5, flex: '0 0 auto' }}>
                <FormControlLabel 
                  control={<Checkbox name="subcontractGuardian" checked={form.subcontractGuardian ?? false} onChange={handleChange} disabled={isReadOnly} />} 
                  label="하도급지킴이"
@@ -3519,13 +3519,13 @@ const NewSites = () => {
                  }}
                />
              </Box>
-             <Box sx={{ flex: '0 0 auto', width: isMobile ? 160 : 260 }}>
+             <Box sx={{ flex: '1 1 260px', minWidth: isMobile ? '100%' : 100 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  발주처
                </Typography>
-               <TextField name="orderer" value={form.orderer ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} placeholder="발주처" />
+               <TextField name="orderer" value={form.orderer ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} placeholder="발주처" sx={{ minWidth: 0, '& .MuiInputBase-root': { height: 40 } }} />
              </Box>
-             <Box sx={{ flex: '0 0 auto', width: isMobile ? 64 : 100 }}>
+             <Box sx={{ flex: '0 1 100px', minWidth: 64 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  관급/사급
                </Typography>
@@ -3535,17 +3535,17 @@ const NewSites = () => {
                  </Select>
                </FormControl>
              </Box>
-             <Box sx={{ flex: '0 0 auto', width: isMobile ? 120 : 140 }}>
+             <Box sx={{ flex: '0 1 140px', minWidth: 80 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  공고번호
                </Typography>
-               <TextField name="announcementNo" value={form.announcementNo ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} placeholder="공고번호" />
+               <TextField name="announcementNo" value={form.announcementNo ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} placeholder="공고번호" sx={{ minWidth: 0, '& .MuiInputBase-root': { height: 40 } }} />
              </Box>
-             <Box sx={{ width: 215, minWidth: isMobile ? '100%' : 215 }}>
+             <Box sx={{ flex: '1 1 215px', minWidth: isMobile ? '100%' : 100 }}>
                <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
                  진행상황
                </Typography>
-               <FormControl fullWidth size="small" sx={{ cursor: 'pointer', width: 215 }}>
+               <FormControl fullWidth size="small" sx={{ cursor: 'pointer', minWidth: 0 }}>
                  <Select 
                    name="status" 
                    value={form.status ?? '진행'} 
@@ -3556,7 +3556,6 @@ const NewSites = () => {
                      readOnly: false
                    }}
                    sx={{
-                     width: 215,
                      cursor: 'pointer',
                      '& .MuiSelect-select': {
                        backgroundColor: form.status === '예정' ? '#ff9800' : 
