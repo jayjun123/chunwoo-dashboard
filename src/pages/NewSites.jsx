@@ -573,8 +573,16 @@ const NewSites = () => {
       
       sites.forEach(site => {
         const siteGisungData = gisungData.filter(g => {
-          if (!g.name || !site.name) return false;
-          return g.name === site.name || g.name.includes(site.name) || site.name.includes(g.name);
+          const gisungSiteId = g.siteId || g.siteID || null;
+          const gisungName = g.name || g.siteName || '';
+          const matchById = gisungSiteId && site.id && gisungSiteId === site.id;
+          const matchByName =
+            !!gisungName &&
+            !!site.name &&
+            (gisungName === site.name ||
+             gisungName.includes(site.name) ||
+             site.name.includes(gisungName));
+          return matchById || matchByName;
         });
         
         if (siteGisungData.length === 0) {
@@ -632,10 +640,15 @@ const NewSites = () => {
       }, 0);
       
       // 2. 누계기성: 캐시된 데이터 사용 (선급금 포함)
-      const siteNames = sites.map(site => site?.name);
+      const siteIds = sites.map(site => site?.id).filter(Boolean);
+      const siteNames = sites.map(site => site?.name).filter(Boolean);
       
       totalProgressAmount = gisungData.reduce((sum, gisung) => {
-        if (siteNames.includes(gisung.name)) {
+        const gisungSiteId = gisung.siteId || gisung.siteID || null;
+        const gisungName = gisung.name || gisung.siteName || '';
+        const matchById = gisungSiteId && siteIds.includes(gisungSiteId);
+        const matchByName = gisungName && siteNames.includes(gisungName);
+        if (matchById || matchByName) {
           return sum + (Number(gisung.gisungAmount) || 0);
         }
         return sum;
@@ -649,7 +662,11 @@ const NewSites = () => {
       totalProgressAmount += totalAdvanceAmount;
       
       totalCostAmount = costData.reduce((sum, cost) => {
-        if (siteNames.includes(cost.siteName)) {
+        const costSiteId = cost.siteId || cost.siteID || null;
+        const costSiteName = cost.siteName || cost.name || '';
+        const matchById = costSiteId && siteIds.includes(costSiteId);
+        const matchByName = costSiteName && siteNames.includes(costSiteName);
+        if (matchById || matchByName) {
           return sum + (Number(cost.amount) || 0);
         }
         return sum;
