@@ -160,11 +160,28 @@ const initialFormState = {
   isFavorite: false,
   stampType: '인감없음',
   safetyCost: 0,
-  items: [],
   estimateStatus: '',
   windowCompany: '', // 창호업체 필드
   note: '', // estimateNote를 note로 변경
+  items: [
+    { isSpacer: true, name: '', quantity: '', price: '', amount: '' },
+    { isSpacer: true, name: '', quantity: '', price: '', amount: '' },
+    { isSpacer: true, name: '', quantity: '', price: '', amount: '' },
+    { isTotal: true, name: '총 공사계(부가세별도)', quantity: '', price: '', amount: '0' },
+    { isVat: true, name: '부가세', quantity: '', price: '', amount: '0' },
+    { isTotalWithVat: true, name: '계약금액(부가세포함)', quantity: '', price: '', amount: '0' }
+  ]
 };
+
+// 물량 오른쪽 패널 기본 표시용 (총 공사계, 부가세, 계약금액 항목) - 현장 선택 시 items 비었을 때 사용
+const DEFAULT_ITEMS_WITH_SUMMARY = [
+  { isSpacer: true, name: '', quantity: '', price: '', amount: '' },
+  { isSpacer: true, name: '', quantity: '', price: '', amount: '' },
+  { isSpacer: true, name: '', quantity: '', price: '', amount: '' },
+  { isTotal: true, name: '총 공사계(부가세별도)', quantity: '', price: '', amount: '0' },
+  { isVat: true, name: '부가세', quantity: '', price: '', amount: '0' },
+  { isTotalWithVat: true, name: '계약금액(부가세포함)', quantity: '', price: '', amount: '0' }
+];
 
 const NewSites = () => {
   const [sites, setSites] = useState([]);
@@ -1229,7 +1246,10 @@ const NewSites = () => {
           (site.companyName && site.companyName.toLowerCase().includes(searchLower)) ||
           (site.manager && site.manager.toLowerCase().includes(searchLower)) ||
           (site.address && site.address.toLowerCase().includes(searchLower)) ||
-          (site.contractType && site.contractType.toLowerCase().includes(searchLower))
+          (site.contractType && site.contractType.toLowerCase().includes(searchLower)) ||
+          (site.windowCompany && site.windowCompany.toLowerCase().includes(searchLower)) ||
+          (site.note && site.note.toLowerCase().includes(searchLower)) ||
+          (site.desc && site.desc.toLowerCase().includes(searchLower))
         );
       });
     
@@ -1343,11 +1363,12 @@ const NewSites = () => {
         
         setSiteIntegratedStatus(integratedStatus);
         
-        // 폼 데이터 설정 (물량내역의 계약금액 우선, 정리된 아이템 사용)
+        // 폼 데이터 설정 (물량내역의 계약금액 우선, 정리된 아이템 사용. 비어 있으면 총 공사계·부가세·계약금액 기본 행 표시)
+        const itemsToShow = (cleanedItems && cleanedItems.length > 0) ? cleanedItems : DEFAULT_ITEMS_WITH_SUMMARY;
         setForm(prev => ({
           ...prev,
           ...site,
-          items: cleanedItems,
+          items: itemsToShow,
           contractAmount: autoContractAmount > 0 ? autoContractAmount.toString() : (site.contractAmount || '')
         }));
         
@@ -2905,7 +2926,7 @@ const NewSites = () => {
           ))}
         </Tabs>
         <TextField 
-          placeholder="현장명, 담당자, 주소, 계약구분 검색" 
+          placeholder="현장명, 담당자, 주소, 계약구분, 창호업체, 비고, 기타사항 검색" 
           value={searchTerm} 
           onChange={e => setSearchTerm(e.target.value)} 
           variant="outlined" 
