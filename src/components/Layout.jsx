@@ -92,6 +92,7 @@ const menuItems = [
   { text: '현장일정', icon: <TimelineIcon />, path: '/gantt' },
   { text: '주요현장', icon: <StarIcon />, path: '/importantSite', iconColor: '#FFD700' },
   { text: '현장관리', icon: <BusinessIcon />, path: '/sites', iconColor: '#4CAF50' },
+  { text: '현장세부내용', icon: <DashboardIcon />, path: '/project-dsh', iconColor: '#00D4AA' },
   { text: 'MAP', icon: <KoreaMapIcon />, path: '/mapping', iconColor: '#00BCD4' },
   { text: '안전관리', icon: <SecurityIcon />, path: '/safety' },
   { text: '견적요청', icon: <DescriptionIcon />, path: '/estimates', iconColor: '#FF9800' },
@@ -141,6 +142,7 @@ const Layout = React.memo(({ children }) => {
       '현장일정': 'gantt',
       '주요현장': 'importantSite',
       '현장관리': 'sites',
+      '현장세부내용': 'projectDsh',
       'MAP': 'mapping',
       '안전관리': 'safety',
       '견적요청': 'estimates',
@@ -154,6 +156,7 @@ const Layout = React.memo(({ children }) => {
     };
     
     return menuItems.filter(item => {
+      if (item.text === '현장일정' || item.text === '청구예정') return false;
       const menuKey = menuTextToKey[item.text];
       return menuKey ? hasMenuAccess(currentUser, menuKey) : false;
     });
@@ -219,10 +222,12 @@ const Layout = React.memo(({ children }) => {
       display: 'flex', 
       flexDirection: 'column', 
       flex: 1,
+      height: '100vh',
       minHeight: 0,
       width: '100%',
       margin: 0,
-      padding: 0
+      padding: 0,
+      overflow: 'hidden',
     }}>
       <CssBaseline />
       <AppBar

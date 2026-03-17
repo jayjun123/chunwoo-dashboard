@@ -67,6 +67,7 @@ const CompanyDistribution = React.lazy(() => import('./pages/CompanyDistribution
 const SettlementManagement = React.lazy(() => import('./pages/SettlementManagement'));
 const SettlementDetail = React.lazy(() => import('./pages/SettlementDetail'));
 const Mapping = React.lazy(() => import('./pages/Mapping'));
+const ProjectDSH = React.lazy(() => import('./pages/ProjectDSH'));
 
 // 임시: 현장명 동기화 함수
 import { syncSiteNames } from './scripts/syncSiteNames';
@@ -1239,6 +1240,30 @@ const App = React.memo(() => {
                             <Layout>
                               <Suspense fallback={<LoadingSpinner />}>
                                 <NotificationCrawler />
+                              </Suspense>
+                            </Layout>
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/project-dsh"
+                        element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <ProjectDSH />
+                              </Suspense>
+                            </Layout>
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/project-dsh/:siteId"
+                        element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <ProjectDSH />
                               </Suspense>
                             </Layout>
                           </ProtectedRoute>

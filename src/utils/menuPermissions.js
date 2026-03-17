@@ -39,6 +39,18 @@ export const MENU_CONFIG = {
     },
     category: '관리'
   },
+  projectDsh: {
+    key: 'projectDsh',
+    label: '현장세부내용',
+    path: '/project-dsh',
+    icon: 'Dashboard',
+    defaultPermissions: {
+      master: { view: true, create: true, edit: true, delete: true, manage: true },
+      admin: { view: true, create: true, edit: true, delete: false, manage: false },
+      user: { view: true, create: false, edit: false, delete: false, manage: false }
+    },
+    category: '관리'
+  },
   mapping: { 
     key: 'mapping', 
     label: 'MAP', 
