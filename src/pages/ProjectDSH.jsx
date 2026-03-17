@@ -18,6 +18,15 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Cell,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from 'recharts';
 import SearchIcon from '@mui/icons-material/Search';
 import BusinessIcon from '@mui/icons-material/Business';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -143,7 +152,7 @@ function CompanySelector({
                 selected={selected}
                 onClick={() => onChange(c.name)}
                 sx={{
-                  py: 1.25,
+                  py: 0.75,
                   borderBottom: `1px solid ${theme.palette.divider}`,
                   '&:last-of-type': { borderBottom: 'none' },
                 }}
@@ -151,7 +160,8 @@ function CompanySelector({
                 <ListItemText
                   primary={c.name}
                   secondary={`${c.count}개 현장`}
-                  primaryTypographyProps={{ fontWeight: selected ? 700 : 500 }}
+                  primaryTypographyProps={{ fontWeight: selected ? 800 : 600, fontSize: '0.9rem' }}
+                  secondaryTypographyProps={{ fontSize: '0.75rem' }}
                 />
               </ListItemButton>
             );
@@ -329,7 +339,7 @@ export default function ProjectDSH() {
   const [companyList, setCompanyList] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState('');
   const [selectedSiteIds, setSelectedSiteIds] = useState([]);
-  const [leftTab, setLeftTab] = useState(1); // 0: 현장, 1: 회사
+  const [leftTab, setLeftTab] = useState(0); // 0: 현장, 1: 회사
 
   useEffect(() => {
     setQuantityItems(initItemsFromSiteAndQuantity(site || null, quantityInfo || []));
@@ -362,23 +372,74 @@ export default function ProjectDSH() {
 
   const companyDSH = useCompanyDSH(!siteId ? selectedCompany : '');
 
+  const formatMoney = useMemo(() => (n) => Math.round(Number(n) || 0).toLocaleString(), []);
+
+  const calcReceiptTotal = useMemo(
+    () => (list, advanceSum) => {
+      const isAdvanceRow = (item) => item?.note && String(item.note).trim().includes('선급금');
+      const paidFromGisung = (list || [])
+        .filter((item) => item?.paymentStatus === '입금완료' && !item?.isException && !isAdvanceRow(item))
+        .reduce((sum, item) => sum + (parseFloat(item?.gisungAmount) || 0), 0);
+      return (Number(advanceSum) || 0) + paidFromGisung;
+    },
+    []
+  );
+
+  const selectedSites = useMemo(() => {
+    if (siteId) return [];
+    if (!selectedSiteIds.length) return [];
+    const byId = new Map((companyDSH.sites || []).map((s) => [s.id, s]));
+    return selectedSiteIds.map((id) => byId.get(id)).filter(Boolean);
+  }, [siteId, companyDSH.sites, selectedSiteIds]);
+
+  const moneyTotals = useMemo(() => {
+    if (siteId) return null;
+    if (leftTab !== 1) return null;
+    if (!selectedSites.length) return companyDSH.totals;
+
+    const contractAmount = selectedSites.reduce((s, site) => s + (Number(site?.contractAmount) || 0), 0);
+    const advanceTotal = selectedSites.reduce((s, site) => s + (Number(site?.advance) || 0), 0);
+    const selectedIdSet = new Set(selectedSites.map((s) => s.id));
+    const gisungList = (companyDSH.gisungList || []).filter((g) => selectedIdSet.has(g?.siteId));
+    const receiptTotal = calcReceiptTotal(gisungList, advanceTotal);
+    const balance = contractAmount - receiptTotal;
+
+    return { contractAmount, advanceTotal, receiptTotal, balance };
+  }, [siteId, leftTab, selectedSites, companyDSH.totals, companyDSH.gisungList, calcReceiptTotal]);
+
+  const topChartItems = useMemo(() => {
+    if (siteId) return [];
+    if (leftTab !== 1) return [];
+    if (selectedSites.length > 0) return buildQuantityItemsForSites(selectedSites, companyDSH.quantityInfoBySiteId);
+    return companyDSH.companyQuantityItems;
+  }, [siteId, leftTab, selectedSites, companyDSH.companyQuantityItems, companyDSH.quantityInfoBySiteId]);
+
+  const paidMapBySiteId = useMemo(() => {
+    if (siteId) return new Map();
+    const bySiteId = new Map();
+    const isAdvanceRow = (item) => item?.note && String(item.note).trim().includes('선급금');
+
+    (companyDSH.sites || []).forEach((site) => {
+      const contract = Number(site?.contractAmount) || 0;
+      if (!contract) {
+        bySiteId.set(site.id, false);
+        return;
+      }
+      const advance = Number(site?.advance) || 0;
+      const paidFromGisung = (companyDSH.gisungList || [])
+        .filter((g) => g?.siteId === site.id && g?.paymentStatus === '입금완료' && !g?.isException && !isAdvanceRow(g))
+        .reduce((sum, g) => sum + (parseFloat(g?.gisungAmount) || 0), 0);
+      const receiptTotal = advance + paidFromGisung;
+      bySiteId.set(site.id, receiptTotal >= contract);
+    });
+    return bySiteId;
+  }, [siteId, companyDSH.sites, companyDSH.gisungList]);
+
   const handleSelectSite = (id) => {
     navigate(`/project-dsh/${id}`, { replace: true });
   };
 
   if (!siteId) {
-    const selectedSites = useMemo(() => {
-      if (!selectedSiteIds.length) return [];
-      const byId = new Map(companyDSH.sites.map((s) => [s.id, s]));
-      return selectedSiteIds.map((id) => byId.get(id)).filter(Boolean);
-    }, [companyDSH.sites, selectedSiteIds]);
-
-    const topChartItems = useMemo(() => {
-      if (leftTab !== 1) return [];
-      if (selectedSites.length > 0) return buildQuantityItemsForSites(selectedSites, companyDSH.quantityInfoBySiteId);
-      return companyDSH.companyQuantityItems;
-    }, [leftTab, selectedSites, companyDSH.companyQuantityItems, companyDSH.quantityInfoBySiteId]);
-
     return (
       <Container
         maxWidth={false}
@@ -493,32 +554,123 @@ export default function ProjectDSH() {
               </Box>
 
               {/* 상단 차트: 선택된 현장들 기준(없으면 회사 전체) */}
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                  {selectedSiteIds.length > 0 ? `선택 현장 합산 물량/실물량 (${selectedSiteIds.length}개)` : '회사 합산 물량/실물량'}
-                </Typography>
-                {selectedSiteIds.length > 0 && (
+              {/* 기성(계약/입금/잔액) 요약 차트 */}
+              {/* 기성 차트 + 물량 차트: 한 줄(2:8) */}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', md: '2fr 8fr' },
+                  gap: 2,
+                  alignItems: 'stretch',
+                }}
+              >
+                {/* 기성(계약/입금/잔액) 요약 차트 - 천단위 */}
+                {moneyTotals && (
                   <Box
-                    component="button"
-                    onClick={() => setSelectedSiteIds([])}
                     sx={{
-                      px: 1.25,
-                      py: 0.6,
-                      borderRadius: 1,
                       border: '1px solid',
                       borderColor: 'divider',
-                      bgcolor: 'action.hover',
-                      color: 'text.primary',
-                      cursor: 'pointer',
-                      fontSize: '0.8125rem',
-                      '&:hover': { bgcolor: 'action.selected' },
+                      borderRadius: 2,
+                      p: 2,
+                      bgcolor: 'rgba(255,255,255,0.02)',
+                      minWidth: 0,
                     }}
                   >
-                    선택 해제
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 1 }}>
+                      계약/입금/잔액 (천단위)
+                    </Typography>
+                    <Box sx={{ width: '100%', height: 190 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          layout="vertical"
+                          data={[
+                            {
+                              name: '계약',
+                              value: (Number(moneyTotals.contractAmount) || 0) / 1000,
+                              raw: Number(moneyTotals.contractAmount) || 0,
+                            },
+                            {
+                              name: '입금',
+                              value: (Number(moneyTotals.receiptTotal) || 0) / 1000,
+                              raw: Number(moneyTotals.receiptTotal) || 0,
+                            },
+                            {
+                              name: '잔액',
+                              value: (Number(moneyTotals.balance) || 0) / 1000,
+                              raw: Number(moneyTotals.balance) || 0,
+                            },
+                          ]}
+                          margin={{ top: 6, right: 10, left: 10, bottom: 6 }}
+                        >
+                          <XAxis
+                            type="number"
+                            stroke="rgba(255,255,255,0.65)"
+                            fontSize={12}
+                            tickFormatter={(v) => Math.round(Number(v)).toLocaleString()}
+                          />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            stroke="rgba(255,255,255,0.65)"
+                            fontSize={12}
+                            width={36}
+                          />
+                          <Tooltip
+                            formatter={(_, __, p) => {
+                              const raw = p?.payload?.raw ?? 0;
+                              return [Math.round(Number(raw)).toLocaleString(), '금액'];
+                            }}
+                            contentStyle={{
+                              background: 'rgba(15,15,15,0.95)',
+                              border: '1px solid rgba(255,255,255,0.12)',
+                            }}
+                          />
+                          <Bar dataKey="value" radius={[6, 6, 6, 6]} barSize={10}>
+                            <Cell fill="#4aa3ff" />
+                            <Cell fill="#43e97b" />
+                            <Cell fill="#ffb74d" />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Box>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 0.75, mt: 1 }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        계약 {formatMoney(moneyTotals.contractAmount)} / 입금 {formatMoney(moneyTotals.receiptTotal)} / 잔액 {formatMoney(moneyTotals.balance)}
+                      </Typography>
+                    </Box>
                   </Box>
                 )}
+
+                {/* 물량 차트 */}
+                <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                      {selectedSiteIds.length > 0 ? `선택 현장 합산 물량/실물량 (${selectedSiteIds.length}개)` : '회사 합산 물량/실물량'}
+                    </Typography>
+                    {selectedSiteIds.length > 0 && (
+                      <Box
+                        component="button"
+                        onClick={() => setSelectedSiteIds([])}
+                        sx={{
+                          px: 1.25,
+                          py: 0.6,
+                          borderRadius: 1,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          bgcolor: 'action.hover',
+                          color: 'text.primary',
+                          cursor: 'pointer',
+                          fontSize: '0.8125rem',
+                          '&:hover': { bgcolor: 'action.selected' },
+                        }}
+                      >
+                        선택 해제
+                      </Box>
+                    )}
+                  </Box>
+                  <QuantityCompareChartOnly items={topChartItems} />
+                </Box>
               </Box>
-              <QuantityCompareChartOnly items={topChartItems} />
 
               {/* 현장 카드 목록 */}
               <Box
@@ -541,7 +693,7 @@ export default function ProjectDSH() {
                       });
                     }}
                     sx={{
-                      p: 2,
+                      p: 1.25,
                       borderRadius: 2,
                       cursor: 'pointer',
                       borderColor: selectedSiteIds.includes(s.id) ? theme.palette.primary.main : theme.palette.divider,
@@ -549,54 +701,76 @@ export default function ProjectDSH() {
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
-                      <Typography sx={{ fontWeight: 700, mb: 0.5, minWidth: 0 }}>
-                        {s.name || s.id}
+                      <Typography sx={{ fontWeight: 800, mb: 0.5, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75, fontSize: '1.05rem' }}>
+                        {paidMapBySiteId.get(s.id) && (
+                          <Box
+                            component="span"
+                            sx={{
+                              px: 1,
+                              py: 0.25,
+                              borderRadius: 3,
+                              fontSize: '0.75rem',
+                              fontWeight: 900,
+                              lineHeight: 1.2,
+                              bgcolor: 'warning.main',
+                              color: 'warning.contrastText',
+                              border: '1px solid',
+                              borderColor: 'rgba(255,255,255,0.12)',
+                              flexShrink: 0,
+                            }}
+                          >
+                            정산완료
+                          </Box>
+                        )}
+                        <Box component="span" sx={{ minWidth: 0 }}>
+                          {s.name || s.id}
+                        </Box>
                       </Typography>
-                      <Box
-                        sx={() => {
-                          const raw = (s.status || '').toString().trim();
-                          const label =
-                            raw === '완료' ? '완료'
-                              : raw === '예정' ? '예정'
-                              : raw === '진행중' || raw === '진행' ? '진행'
-                              : raw ? raw : '미정';
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0, mt: 0.1 }}>
+                        <Box
+                          sx={() => {
+                            const raw = (s.status || '').toString().trim();
+                            const label =
+                              raw === '완료' ? '완료'
+                                : raw === '예정' ? '예정'
+                                : raw === '진행중' || raw === '진행' ? '진행'
+                                : raw ? raw : '미정';
 
-                          const color =
-                            label === '완료' ? { bg: 'success.main', fg: 'success.contrastText' }
-                              : label === '진행' ? { bg: 'info.main', fg: 'info.contrastText' }
-                              : label === '예정' ? { bg: 'warning.main', fg: 'warning.contrastText' }
-                              : { bg: 'grey.700', fg: '#fff' };
+                            const color =
+                              label === '완료' ? { bg: 'success.main', fg: 'success.contrastText' }
+                                : label === '진행' ? { bg: 'info.main', fg: 'info.contrastText' }
+                                : label === '예정' ? { bg: 'warning.main', fg: 'warning.contrastText' }
+                                : { bg: 'grey.700', fg: '#fff' };
 
-                          return {
-                            flexShrink: 0,
-                            px: 1,
-                            py: 0.25,
-                            borderRadius: 999,
-                            fontSize: '0.75rem',
-                            fontWeight: 800,
-                            lineHeight: 1.2,
-                            bgcolor: color.bg,
-                            color: color.fg,
-                            border: '1px solid',
-                            borderColor: 'rgba(255,255,255,0.12)',
-                            mt: 0.1,
-                          };
-                        }}
-                      >
-                        {(s.status || '').toString().trim()
-                          ? ((s.status || '').toString().trim() === '진행중' || (s.status || '').toString().trim() === '진행')
-                            ? '진행'
-                            : (s.status || '').toString().trim()
-                          : '미정'}
+                            return {
+                              px: 1,
+                              py: 0.25,
+                              borderRadius: 999,
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              lineHeight: 1.2,
+                              bgcolor: color.bg,
+                              color: color.fg,
+                              border: '1px solid',
+                              borderColor: 'rgba(255,255,255,0.12)',
+                            };
+                          }}
+                        >
+                          {(s.status || '').toString().trim()
+                            ? ((s.status || '').toString().trim() === '진행중' || (s.status || '').toString().trim() === '진행')
+                              ? '진행'
+                              : (s.status || '').toString().trim()
+                            : '미정'}
+                        </Box>
                       </Box>
                     </Box>
                     {/* 공기(기간) */}
-                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.25, fontSize: '0.9rem', fontWeight: 600 }}>
                       {s.startDate || s.endDate
                         ? `${s.startDate || '-'} ~ ${s.endDate || '-'}`
                         : '공기 정보 없음'}
                     </Typography>
-                    <Box sx={{ height: 8 }} />
+                    <Box sx={{ height: 4 }} />
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                       <Box
                         component="button"
@@ -606,14 +780,14 @@ export default function ProjectDSH() {
                         }}
                         sx={{
                           px: 1.25,
-                          py: 0.6,
+                          py: 0.45,
                           borderRadius: 1,
                           border: '1px solid',
                           borderColor: 'divider',
                           bgcolor: 'action.hover',
                           color: 'text.primary',
                           cursor: 'pointer',
-                          fontSize: '0.8125rem',
+                          fontSize: '0.75rem',
                           '&:hover': { bgcolor: 'action.selected' },
                         }}
                       >
