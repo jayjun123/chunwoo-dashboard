@@ -24,11 +24,12 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useProjectDSH } from '../hooks/useProjectDSH';
+import { useCompanyDSH } from '../hooks/useCompanyDSH';
 import KpiCards from '../components/projectDSH/KpiCards';
 import RiskStatusCards from '../components/projectDSH/RiskStatusCards';
 import QuantityComparePanel from '../components/projectDSH/QuantityComparePanel';
 import QuantityCompareChartOnly from '../components/projectDSH/QuantityCompareChartOnly';
-import { initItemsFromSiteAndQuantity } from '../components/projectDSH/QuantityComparePanel';
+import { initItemsFromSiteAndQuantity, isGlassQuantityItem } from '../components/projectDSH/QuantityComparePanel';
 import BalanceCard from '../components/projectDSH/BalanceCard';
 import ProjectTimeline from '../components/projectDSH/ProjectTimeline';
 import SiteSummaryCard from '../components/projectDSH/SiteSummaryCard';
@@ -38,6 +39,128 @@ import GisungStatusPanel from '../components/projectDSH/GisungStatusPanel';
 import CostStatusPanel from '../components/projectDSH/CostStatusPanel';
 import SettlementStatusPanel from '../components/projectDSH/SettlementStatusPanel';
 import SiteSchedulePanel from '../components/projectDSH/SiteSchedulePanel';
+
+function buildQuantityItemsForSites(sites = [], quantityInfoBySiteId) {
+  const contractByName = new Map();
+  const actualByName = new Map();
+
+  (sites || []).forEach((site) => {
+    const items = site?.items;
+    if (!Array.isArray(items)) return;
+    items.forEach((item) => {
+      const name = (item?.name || '').toString().trim();
+      if (!name) return;
+      if (item?.isSpacer || item?.isTotal || item?.isVat || item?.isTotalWithVat) return;
+      if (!isGlassQuantityItem(name)) return;
+      const qty = Number(item?.quantity) || Number(item?.contract) || 0;
+      if (!qty) return;
+      contractByName.set(name, (contractByName.get(name) || 0) + qty);
+    });
+  });
+
+  (sites || []).forEach((site) => {
+    const list = quantityInfoBySiteId?.get?.(site.id) || [];
+    list.forEach((q) => {
+      const name = (q?.category || q?.name || q?.itemName || '').toString().trim();
+      if (!name) return;
+      if (!isGlassQuantityItem(name)) return;
+      const actual = Number(q?.actual) || Number(q?.amount) || 0;
+      if (actual) actualByName.set(name, (actualByName.get(name) || 0) + actual);
+      if (!contractByName.has(name)) {
+        const contract = Number(q?.contract) || Number(q?.contractAmount) || 0;
+        if (contract) contractByName.set(name, contract);
+      }
+    });
+  });
+
+  const names = Array.from(new Set([...contractByName.keys(), ...actualByName.keys()]));
+  return names
+    .map((name, idx) => ({
+      id: `sel-${idx}-${name}`,
+      name,
+      contract: contractByName.get(name) || 0,
+      actual: actualByName.get(name) || 0,
+    }))
+    .filter((row) => row.name && String(row.name).trim() !== '');
+}
+
+function CompanySelector({
+  companies = [],
+  value,
+  onChange,
+}) {
+  const theme = useTheme();
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return companies;
+    return companies.filter((c) => (c.name || '').toLowerCase().includes(q));
+  }, [companies, search]);
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%', minHeight: 0 }}>
+      <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
+        회사 검색/선택
+      </Typography>
+      <TextField
+        size="small"
+        placeholder="회사명 검색"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon color="action" />
+            </InputAdornment>
+          ),
+        }}
+        sx={{
+          '& .MuiOutlinedInput-root': {
+            bgcolor: theme.palette.mode === 'dark' ? 'action.hover' : 'grey.50',
+            borderRadius: 2,
+          },
+        }}
+      />
+      <Paper
+        variant="outlined"
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          overflow: 'auto',
+          borderRadius: 2,
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
+        <List disablePadding>
+          {filtered.map((c) => {
+            const selected = value === c.name;
+            return (
+              <ListItemButton
+                key={c.name}
+                selected={selected}
+                onClick={() => onChange(c.name)}
+                sx={{
+                  py: 1.25,
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                  '&:last-of-type': { borderBottom: 'none' },
+                }}
+              >
+                <ListItemText
+                  primary={c.name}
+                  secondary={`${c.count}개 현장`}
+                  primaryTypographyProps={{ fontWeight: selected ? 700 : 500 }}
+                />
+              </ListItemButton>
+            );
+          })}
+        </List>
+      </Paper>
+    </Box>
+  );
+}
 
 function SiteSelector({ onSelect }) {
   const theme = useTheme();
@@ -203,36 +326,310 @@ export default function ProjectDSH() {
   const { site, progressList, costs, quantityInfo, scheduleWorkDays, scheduleTotalManpower, loading, error } = useProjectDSH(siteId || null);
   const [tab, setTab] = useState(0);
   const [quantityItems, setQuantityItems] = useState([]);
+  const [companyList, setCompanyList] = useState([]);
+  const [selectedCompany, setSelectedCompany] = useState('');
+  const [selectedSiteIds, setSelectedSiteIds] = useState([]);
+  const [leftTab, setLeftTab] = useState(1); // 0: 현장, 1: 회사
 
   useEffect(() => {
     setQuantityItems(initItemsFromSiteAndQuantity(site || null, quantityInfo || []));
   }, [siteId, site, quantityInfo]);
+
+  useEffect(() => {
+    // 회사 리스트는 siteId 없이도 미리 로딩
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDocs(collection(db, 'sites'));
+        if (cancelled) return;
+        const sitesAll = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const map = new Map();
+        sitesAll.forEach((s) => {
+          const name = (s?.companyName || '미지정').toString().trim() || '미지정';
+          map.set(name, (map.get(name) || 0) + 1);
+        });
+        const list = Array.from(map.entries())
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko'));
+        setCompanyList(list);
+        if (!selectedCompany && list.length) setSelectedCompany(list[0].name);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedCompany]);
+
+  const companyDSH = useCompanyDSH(!siteId ? selectedCompany : '');
 
   const handleSelectSite = (id) => {
     navigate(`/project-dsh/${id}`, { replace: true });
   };
 
   if (!siteId) {
+    const selectedSites = useMemo(() => {
+      if (!selectedSiteIds.length) return [];
+      const byId = new Map(companyDSH.sites.map((s) => [s.id, s]));
+      return selectedSiteIds.map((id) => byId.get(id)).filter(Boolean);
+    }, [companyDSH.sites, selectedSiteIds]);
+
+    const topChartItems = useMemo(() => {
+      if (leftTab !== 1) return [];
+      if (selectedSites.length > 0) return buildQuantityItemsForSites(selectedSites, companyDSH.quantityInfoBySiteId);
+      return companyDSH.companyQuantityItems;
+    }, [leftTab, selectedSites, companyDSH.companyQuantityItems, companyDSH.quantityInfoBySiteId]);
+
     return (
       <Container
-        maxWidth="md"
+        maxWidth={false}
+        disableGutters
         sx={{
-          py: 3,
-          px: isMobile ? 2 : 3,
-          pb: isMobile ? 8 : 3,
+          width: '100vw',
           height: 'calc(100vh - 64px)',
           display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
+          overflow: 'hidden',
         }}
       >
-        <Typography variant="h5" fontWeight={600} gutterBottom>
-          Project DSH
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          현장세부내용 — 현장을 선택하면 해당 현장 대시보드를 볼 수 있습니다.
-        </Typography>
-        <SiteSelector onSelect={handleSelectSite} />
+        {/* 좌측 2: 회사 선택 */}
+        <Box
+          sx={{
+            width: { xs: '100%', md: '20%' },
+            minWidth: { md: 260 },
+            borderRight: { md: `1px solid ${theme.palette.divider}` },
+            p: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1.5,
+            minHeight: 0,
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            현장세부내용
+          </Typography>
+          <Tabs
+            value={leftTab}
+            onChange={(_, v) => setLeftTab(v)}
+            sx={{
+              minHeight: 36,
+              '& .MuiTab-root': { minHeight: 36, py: 0.5, px: 1.5, fontWeight: 700 },
+            }}
+          >
+            <Tab label="현장" />
+            <Tab label="회사" />
+          </Tabs>
+
+          {leftTab === 0 ? (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              현장을 선택하면 해당 현장 대시보드로 이동합니다.
+            </Typography>
+          ) : (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              회사를 선택하면 해당 회사의 현장/물량 요약을 볼 수 있습니다.
+            </Typography>
+          )}
+          <Box sx={{ flex: 1, minHeight: 0 }}>
+            {leftTab === 0 ? (
+              <SiteSelector onSelect={handleSelectSite} />
+            ) : (
+              <CompanySelector
+                companies={companyList}
+                value={selectedCompany}
+                onChange={(name) => {
+                  setSelectedCompany(name);
+                  setSelectedSiteIds([]);
+                }}
+              />
+            )}
+          </Box>
+        </Box>
+
+        {/* 우측 8: 회사 대시보드 */}
+        <Box
+          sx={{
+            width: { xs: '100%', md: '80%' },
+            p: 2,
+            minHeight: 0,
+            overflowY: 'auto',
+          }}
+        >
+          {leftTab === 0 ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                왼쪽에서 현장을 선택하세요.
+              </Typography>
+            </Box>
+          ) : companyDSH.loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+              <CircularProgress />
+            </Box>
+          ) : companyDSH.error ? (
+            <Alert severity="error">{companyDSH.error?.message || '회사 데이터를 불러오지 못했습니다.'}</Alert>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                  {selectedCompany}
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  총 {companyDSH.sites.length}개 현장
+                </Typography>
+              </Box>
+
+              {/* 회사 KPI(계약/선급/기성/지출/입금) */}
+              <Box sx={{ mt: 1 }}>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    color: '#fff',
+                    fontWeight: 900,
+                    fontSize: 29,
+                    mb: 1,
+                    letterSpacing: 0.2,
+                  }}
+                >
+                  {selectedCompany}
+                </Typography>
+                <KpiCards site={companyDSH.companySite} progressList={companyDSH.gisungList} costs={companyDSH.costs} />
+              </Box>
+
+              {/* 상단 차트: 선택된 현장들 기준(없으면 회사 전체) */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                  {selectedSiteIds.length > 0 ? `선택 현장 합산 물량/실물량 (${selectedSiteIds.length}개)` : '회사 합산 물량/실물량'}
+                </Typography>
+                {selectedSiteIds.length > 0 && (
+                  <Box
+                    component="button"
+                    onClick={() => setSelectedSiteIds([])}
+                    sx={{
+                      px: 1.25,
+                      py: 0.6,
+                      borderRadius: 1,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      bgcolor: 'action.hover',
+                      color: 'text.primary',
+                      cursor: 'pointer',
+                      fontSize: '0.8125rem',
+                      '&:hover': { bgcolor: 'action.selected' },
+                    }}
+                  >
+                    선택 해제
+                  </Box>
+                )}
+              </Box>
+              <QuantityCompareChartOnly items={topChartItems} />
+
+              {/* 현장 카드 목록 */}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+                  gap: 2,
+                }}
+              >
+                {companyDSH.sites.map((s) => (
+                  <Paper
+                    key={s.id}
+                    variant="outlined"
+                    onClick={() => {
+                      setSelectedSiteIds((prev) => {
+                        const set = new Set(prev);
+                        if (set.has(s.id)) set.delete(s.id);
+                        else set.add(s.id);
+                        return Array.from(set);
+                      });
+                    }}
+                    sx={{
+                      p: 2,
+                      borderRadius: 2,
+                      cursor: 'pointer',
+                      borderColor: selectedSiteIds.includes(s.id) ? theme.palette.primary.main : theme.palette.divider,
+                      '&:hover': { borderColor: theme.palette.primary.main },
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+                      <Typography sx={{ fontWeight: 700, mb: 0.5, minWidth: 0 }}>
+                        {s.name || s.id}
+                      </Typography>
+                      <Box
+                        sx={() => {
+                          const raw = (s.status || '').toString().trim();
+                          const label =
+                            raw === '완료' ? '완료'
+                              : raw === '예정' ? '예정'
+                              : raw === '진행중' || raw === '진행' ? '진행'
+                              : raw ? raw : '미정';
+
+                          const color =
+                            label === '완료' ? { bg: 'success.main', fg: 'success.contrastText' }
+                              : label === '진행' ? { bg: 'info.main', fg: 'info.contrastText' }
+                              : label === '예정' ? { bg: 'warning.main', fg: 'warning.contrastText' }
+                              : { bg: 'grey.700', fg: '#fff' };
+
+                          return {
+                            flexShrink: 0,
+                            px: 1,
+                            py: 0.25,
+                            borderRadius: 999,
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            lineHeight: 1.2,
+                            bgcolor: color.bg,
+                            color: color.fg,
+                            border: '1px solid',
+                            borderColor: 'rgba(255,255,255,0.12)',
+                            mt: 0.1,
+                          };
+                        }}
+                      >
+                        {(s.status || '').toString().trim()
+                          ? ((s.status || '').toString().trim() === '진행중' || (s.status || '').toString().trim() === '진행')
+                            ? '진행'
+                            : (s.status || '').toString().trim()
+                          : '미정'}
+                      </Box>
+                    </Box>
+                    {/* 공기(기간) */}
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                      {s.startDate || s.endDate
+                        ? `${s.startDate || '-'} ~ ${s.endDate || '-'}`
+                        : '공기 정보 없음'}
+                    </Typography>
+                    <Box sx={{ height: 8 }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                      <Box
+                        component="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectSite(s.id);
+                        }}
+                        sx={{
+                          px: 1.25,
+                          py: 0.6,
+                          borderRadius: 1,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          bgcolor: 'action.hover',
+                          color: 'text.primary',
+                          cursor: 'pointer',
+                          fontSize: '0.8125rem',
+                          '&:hover': { bgcolor: 'action.selected' },
+                        }}
+                      >
+                        현장 대시보드
+                      </Box>
+                    </Box>
+                  </Paper>
+                ))}
+              </Box>
+
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                현장 카드는 여러 개 선택할 수 있고, 선택된 현장들의 합산 물량/실물량이 위 차트에 반영됩니다.
+              </Typography>
+            </Box>
+          )}
+        </Box>
       </Container>
     );
   }

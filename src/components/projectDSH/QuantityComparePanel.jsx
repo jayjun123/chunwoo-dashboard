@@ -22,8 +22,8 @@ export const DEFAULT_QUANTITY_ITEMS = [
 
 let nextId = 5;
 
-/** 강제 제외 키워드: 시트, 코킹, 설치, 방습거울 등 (유리 포함되어도 무조건 제외) */
-const HARD_EXCLUDE_KEYWORDS = ['시트', '코킹', '설치', '방습거울'];
+/** 강제 제외 키워드: 포함되어 있으면 무조건 제외 */
+const HARD_EXCLUDE_KEYWORDS = ['시트', '코킹', '설치', '방습거울', '내측면', '필름', '몰딩'];
 
 /** 일반 제외 키워드: 유리두께, 타격, 에칭, 필름, 실리콘 등 */
 const EXCLUDE_KEYWORDS = ['유리두께', '타격', '에칭', '필름', '실리콘', '스페이서', '실란', '부착'];
@@ -32,7 +32,7 @@ const EXCLUDE_KEYWORDS = ['유리두께', '타격', '에칭', '필름', '실리�
 const INCLUDE_KEYWORDS = ['투명', '강화', '맑은', '복층유리', '로이유리', '로이', '복층', '반강화'];
 
 /** 항목명이 유리 계열만 허용 — 포함 조건(키워드·00.0 숫자)을 먼저 보고, 해당하면 필름 등 제외 키워드 있어도 포함 */
-function isGlassQuantityItem(name) {
+export function isGlassQuantityItem(name) {
   const n = (name || '').toString().trim();
   if (!n) return false;
   // 시트, 코킹 등은 유리 단어가 있어도 항상 제외
