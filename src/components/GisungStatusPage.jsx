@@ -1551,10 +1551,28 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         console.log(`🔍 기성등록 팝업 - ${defaultSiteName} 누계기성 계산: ${prevSum.toLocaleString()}원 (이전 기성들만)`);
       }
       
-      // 기본 기성월을 전달로 설정
-      const previousMonth = new Date();
-      previousMonth.setMonth(previousMonth.getMonth() - 1);
-      const defaultGisungMonth = `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, '0')}`;
+      // 기본 기성월 계산
+      // - 원래는 항상 "전달"이었음
+      // - 요구사항:
+      //   · 기본은 현재월
+      //   · 매월 10일까지는 이전달
+      //   · 단, 10일이 토요일이면 12일까지 이전달, 10일이 일요일이면 11일까지 이전달
+      const today = new Date();
+      const tenth = new Date(today.getFullYear(), today.getMonth(), 10);
+      let cutoffDay = 10;
+      if (tenth.getDay() === 6) {
+        // 토요일
+        cutoffDay = 12;
+      } else if (tenth.getDay() === 0) {
+        // 일요일
+        cutoffDay = 11;
+      }
+      const usePreviousMonth = today.getDate() <= cutoffDay;
+      const baseMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      if (usePreviousMonth) {
+        baseMonth.setMonth(baseMonth.getMonth() - 1);
+      }
+      const defaultGisungMonth = `${baseMonth.getFullYear()}-${String(baseMonth.getMonth() + 1).padStart(2, '0')}`;
       
       setFormData({
         name: defaultSiteName,
