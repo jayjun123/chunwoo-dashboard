@@ -103,50 +103,44 @@ export const createNapfoomContract = async (siteData, materialItems = [], fileNa
       // 폴백: 직접 URL 사용
       const response = await fetch(templateUrl);
       if (!response.ok) {
-        console.error(`❌ L 타입 템플릿 다운로드 실패: HTTP ${response.status} ${response.statusText}`);
+        console.error(`❌ ${templateKey} 템플릿 다운로드 실패: HTTP ${response.status} ${response.statusText}`);
         console.error(`❌ 요청 URL: ${templateUrl}`);
-        throw new Error(`L 타입 템플릿 파일을 찾을 수 없습니다. HTTP error! status: ${response.status}`);
+        throw new Error(`${templateKey} 템플릿 파일을 찾을 수 없습니다. HTTP error! status: ${response.status}`);
       }
       arrayBuffer = await response.arrayBuffer();
-      console.log(`✅ L 타입 템플릿 다운로드 완료: ${arrayBuffer.byteLength} bytes`);
+      console.log(`✅ ${templateKey} 템플릿 다운로드 완료: ${arrayBuffer.byteLength} bytes`);
     }
     
-    // 템플릿 로드 (공유수식 문제 완전 해결)
-    // 템플릿 로드 (수식 보존, Shared Formula만 제거)
+    // 템플릿 로드: 처음부터 ignoreSharedFormulas 사용 → H6 clone 오류 근본 방지
     const workbook = new ExcelJS.Workbook();
-    try {
-      // 첫 번째 시도: 기본 설정으로 로딩
-      await workbook.xlsx.load(arrayBuffer, {
-        sharedFormula: false,
-        ignoreFormulas: false,  // 수식 보존
-        ignoreFormulaErrors: true,
-        ignoreStyles: false,
-        ignoreDataValidations: false,
-        ignoreConditionalFormats: false
-      });
-      console.log(`✅ 기본 설정으로 NAPFOOM ${templateType} 타입 템플릿 로드 성공`);
-    } catch (loadError) {
-      console.warn('⚠️ 기본 로딩 실패, Shared Formula 무시로 재시도:', loadError.message);
-      
-      // 두 번째 시도: Shared Formula만 무시
-      await workbook.xlsx.load(arrayBuffer, {
-        sharedFormula: false,
-        ignoreSharedFormulas: true,
-        ignoreFormulas: false,  // 수식 보존
-        ignoreFormulaErrors: true,
-        ignoreStyles: false,
-        ignoreDataValidations: false,
-        ignoreConditionalFormats: false
-      });
-      console.log(`✅ Shared Formula 무시로 NAPFOOM ${templateType} 타입 템플릿 로드 성공`);
-    }
-    
-    // Shared Formula 문제만 해결 (수식은 보존)
+    await workbook.xlsx.load(arrayBuffer, {
+      sharedFormula: false,
+      ignoreSharedFormulas: true,  // 로드 시점부터 공유수식 미적용 (clone/master 없음)
+      ignoreFormulas: false,
+      ignoreFormulaErrors: true,
+      ignoreStyles: false,
+      ignoreDataValidations: false,
+      ignoreConditionalFormats: false
+    });
+    console.log(`✅ NAPFOOM ${templateType} 타입 템플릿 로드 완료 (ignoreSharedFormulas)`);
+
+    // 로드 직후에도 공유수식 잔여 상태 제거 (이중 안전장치)
     fixNapfoomSharedFormulaIssues(workbook);
-    console.log('✅ Shared Formula 문제 해결 완료 (수식 보존)');
+    removeAllSharedFormulasImmediately(workbook);
+    console.log('✅ Shared Formula 정리 완료');
     
+    // 템플릿 시트 구조 확인 (계약서, 갑지, 내역서 최소 3개 시트 필요)
+    const sheets = workbook.worksheets;
+    if (!sheets || sheets.length < 3) {
+      throw new Error(`템플릿 시트가 부족합니다. 계약서/갑지/내역서 시트가 필요합니다. (현재 ${sheets?.length ?? 0}개)`);
+    }
+
     // 데이터만 입력 (양식은 건드리지 않음)
     await fillNapfoomData(workbook, siteData, materialItems);
+    
+    // 빈 행 처리로 인해 공유수식 master가 제거된 뒤 clone만 남는 경우 방지 (H6 등)
+    // writeBuffer 직전에 공유수식 상태를 제거하여 "Shared Formula master must exist..." 오류 방지
+    removeAllSharedFormulasImmediately(workbook);
     
     // 파일 생성 및 다운로드 (수식 보존 강제)
     console.log('💾 파일 생성 중...');
@@ -226,8 +220,14 @@ const fillNapfoomData = async (workbook, siteData, materialItems) => {
     
     // 각 시트에 데이터 입력 (인덱스 기준: 0=계약서, 1=갑지, 2=내역서)
     const sheets = workbook.worksheets;
-    for (let index = 0; index < sheets.length; index++) {
+    if (!sheets || sheets.length < 3) {
+      throw new Error(`템플릿에 필요한 시트가 없습니다. (계약서, 갑지, 내역서 3개 필요, 현재 ${sheets?.length ?? 0}개)`);
+    }
+    for (let index = 0; index < Math.min(sheets.length, 3); index++) {
       const sheet = sheets[index];
+      if (!sheet) {
+        throw new Error(`템플릿 ${index + 1}번째 시트를 읽을 수 없습니다.`);
+      }
       console.log(`📋 [${index}] ${sheet?.name} 시트에 데이터 입력`);
       if (index === 0) {
         await fillContractSheet(sheet, siteData);
@@ -242,6 +242,7 @@ const fillNapfoomData = async (workbook, siteData, materialItems) => {
     
   } catch (error) {
     console.error('❌ NAPFOOM 데이터 입력 실패:', error);
+    throw new Error(error?.message || 'NAPFOOM 데이터 입력 중 오류가 발생했습니다.');
   }
 };
 
@@ -499,28 +500,42 @@ const fillDetailSheet = (sheet, materialItems) => {
           const jePrice = getSafePrice(item, 'JE');
           setCellValueSafely(sheet.getCell(`E${row}`), jePrice);
           
-          // F열: 수식 유지 (건드리지 않음) - D*E
-          console.log(`📝 ${row}행 F열 수식 유지: D*E`);
-          
           // G열: 노무비단가 (NO프라이스)
           const noPrice = getSafePrice(item, 'NO');
           setCellValueSafely(sheet.getCell(`G${row}`), noPrice);
-          
-          // H열: 수식 유지 (건드리지 않음) - D*G
-          console.log(`📝 ${row}행 H열 수식 유지: D*G`);
           
           // I열: 경비단가 (KY프라이스)
           const kyPrice = getSafePrice(item, 'KY');
           setCellValueSafely(sheet.getCell(`I${row}`), kyPrice);
           
-          // J열: 수식 유지 (건드리지 않음) - D*I
-          console.log(`📝 ${row}행 J열 수식 유지: D*I`);
-          
-          // K열: 수식 유지 (건드리지 않음) - E+G+I
-          console.log(`📝 ${row}행 K열 수식 유지: E+G+I`);
-          
-          // L열: 수식 유지 (건드리지 않음) - D*K
-          console.log(`📝 ${row}행 L열 수식 유지: D*K`);
+          // F/H/J/K/L: formula는 getter만 있어 할당 불가 → 계산된 값(value)만 넣고 공유수식 ref 제거
+          const dVal = safeNumber(item?.quantity || item?.qty);
+          const eVal = typeof jePrice === 'number' ? jePrice : (Number(jePrice) || 0);
+          const gVal = typeof noPrice === 'number' ? noPrice : (Number(noPrice) || 0);
+          const iVal = typeof kyPrice === 'number' ? kyPrice : (Number(kyPrice) || 0);
+          const kVal = eVal + gVal + iVal;
+          const clearSharedRefs = (cell) => {
+            try {
+              if (cell.sharedFormula !== undefined) delete cell.sharedFormula;
+              if (cell.si !== undefined) delete cell.si;
+              if (cell.ref !== undefined) delete cell.ref;
+            } catch (_) {}
+          };
+          const cellF = sheet.getCell(`F${row}`);
+          cellF.value = dVal * eVal;
+          clearSharedRefs(cellF);
+          const cellH = sheet.getCell(`H${row}`);
+          cellH.value = dVal * gVal;
+          clearSharedRefs(cellH);
+          const cellJ = sheet.getCell(`J${row}`);
+          cellJ.value = dVal * iVal;
+          clearSharedRefs(cellJ);
+          const cellK = sheet.getCell(`K${row}`);
+          cellK.value = kVal;
+          clearSharedRefs(cellK);
+          const cellL = sheet.getCell(`L${row}`);
+          cellL.value = dVal * kVal;
+          clearSharedRefs(cellL);
           
           // M열: 비고
           sheet.getCell(`M${row}`).value = safeString(item?.note || item?.remark);

@@ -11,9 +11,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import MaterialInventory from '../components/MaterialInventory';
 import SitePhotoUpload from '../components/site/SitePhotoUpload';
-import IntegratedStatusBox from '../components/site/IntegratedStatusBox';
-import SiteListItem from '../components/site/SiteListItem';
-import SiteDetailForm from '../components/site/SiteDetailForm';
 
 import { collection, onSnapshot, query, orderBy, where, getDocs, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -24,26 +21,180 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/material';
 import { formatContractAmount, formatAdvanceAmount, formatGisungAmount, formatSafetyCost, formatNumber } from '../utils/formatUtils';
-import { formatQuantity, formatAmount, formatPrice, parseAmountNumber, normalizeCompanyName } from '../utils/siteUtils';
-import { STATUS_OPTIONS, CONTRACT_TYPE_OPTIONS, ESTIMATE_STATUS_OPTIONS, WORK_SCOPE_OPTIONS, initialFormState, DEFAULT_ITEMS_WITH_SUMMARY } from '../utils/siteConstants';
+
+// 물량과 금액 포맷팅 함수
+const formatQuantity = (value) => {
+  if (value === '' || value === null || value === undefined) return '';
+  
+  // "물량"이라는 텍스트가 들어있으면 빈 문자열로 처리
+  if (typeof value === 'string' && value.includes('물량')) {
+    return '';
+  }
+  
+  const num = parseFloat(value);
+  if (isNaN(num)) return '';
+  if (num === 0) return '0';
+  
+  // 소수점 2째 자리까지 표시하되, 정확한 값은 유지
+  const roundedForDisplay = Math.round(num * 100) / 100;
+  return roundedForDisplay.toLocaleString();
+};
+
+const formatAmount = (value) => {
+  if (value === '' || value === null || value === undefined) return '';
+  const num = parseFloat(value);
+  if (isNaN(num)) return value;
+  if (num === 0) return '0';
+  // 정수로 반올림하여 천단위 쉼표 적용
+  const roundedNum = Math.round(num);
+  return roundedNum.toLocaleString();
+};
+
+const formatPrice = (value) => {
+  if (value === '' || value === null || value === undefined) return '';
+  const num = parseFloat(value);
+  if (isNaN(num)) return value;
+  if (num === 0) return '0';
+  // 정수로 반올림하여 천단위 쉼표 적용
+  return Math.round(num).toLocaleString();
+};
+
+const parseAmountNumber = (value) => {
+  if (value === '' || value === null || value === undefined) return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const normalized = String(value)
+    .replace(/\s/g, '')
+    .replace(/,/g, '')
+    .replace(/[^0-9.-]/g, '');
+  const num = Number(normalized);
+  return Number.isFinite(num) ? num : 0;
+};
+
+// 진행상황 계산 함수
+const calculateProgress = (site) => {
+  if (!site.startDate || !site.endDate) return null;
+  
+  const startDate = new Date(site.startDate);
+  const endDate = new Date(site.endDate);
+  const today = new Date();
+  
+  // 날짜가 유효하지 않으면 null 반환
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
+  
+  const totalDays = endDate.getTime() - startDate.getTime();
+  const elapsedDays = today.getTime() - startDate.getTime();
+  
+  if (totalDays <= 0) return null;
+  
+  const progress = (elapsedDays / totalDays) * 100;
+  return Math.max(0, Math.min(100, progress)); // 0-100 범위로 제한
+};
+
+// 날짜 포맷팅 함수
+const formatDateRange = (startDate, endDate) => {
+  if (!startDate || !endDate) return '';
+  
+  try {
+    // Firestore Timestamp 객체인 경우
+    const start = startDate && typeof startDate === 'object' && startDate.toDate 
+      ? startDate.toDate() 
+      : new Date(startDate);
+    
+    const end = endDate && typeof endDate === 'object' && endDate.toDate 
+      ? endDate.toDate() 
+      : new Date(endDate);
+    
+    // Invalid Date 체크
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      console.warn('Invalid date in formatDateRange:', { startDate, endDate });
+      return '';
+    }
+    
+    const formatDate = (date) => {
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${month}/${day}`;
+    };
+    
+    return `${formatDate(start)}~${formatDate(end)}`;
+  } catch (error) {
+    console.error('날짜 포맷팅 오류:', error, '원본 데이터:', { startDate, endDate });
+    return '';
+  }
+};
 import { getSiteIntegratedStatus } from '../utils/integrationUtils';
 // 엑셀 라이브러리는 동적 import로 지연 로딩
 import { uploadMaterialData, generateDocumentExcel, getMaterialDataFromFirebase } from '../utils/materialUploadUtils.jsx';
 import { downloadNapfoomContract } from '../utils/napfoomUtils';
 import { safeUpdateDoc, debouncedUpdate } from '../utils/databaseUtils';
-import { useSitePhotos } from '../hooks/useSitePhotos';
-import { useIntegratedStatus } from '../hooks/useIntegratedStatus';
-import { useSiteForm } from '../hooks/useSiteForm';
+
+// 회사명은 사용자 입력값 그대로 저장합니다. 더 이상 표준화하지 않습니다.
+const normalizeCompanyName = (value) => (value ?? '').toString();
+
+const STATUS_OPTIONS = ['예정', '진행', '완료', '미정'];
+const CONTRACT_TYPE_OPTIONS = ['하도급계약', '납품계약', '일반계약', '계약없음', '원도급', '관급'];
+const ESTIMATE_STATUS_OPTIONS = ['제출대기', '제출완료', '수주', '미수주', '기타'];
+
+const WORK_SCOPE_OPTIONS = ['없음', '관급', '사급'];
+
+const initialFormState = {
+  name: '',
+  status: '진행',
+  contractType: '계약없음',
+  subcontractGuardian: false,
+  workScope: '없음',
+  orderer: '',
+  announcementNo: '',
+  installment: '',
+  contractAmount: '',
+  advance: '',
+  totalProgress: '',
+  address: '',
+  startDate: '',
+  endDate: '',
+  companyName: '',
+  manager: '',
+  phone: '',
+  team: '',
+  desc: '',
+  isFavorite: false,
+  stampType: '인감없음',
+  safetyCost: 0,
+  estimateStatus: '',
+  windowCompany: '', // 창호업체 필드
+  note: '', // estimateNote를 note로 변경
+  items: [
+    { isSpacer: true, name: '', quantity: '', price: '', amount: '' },
+    { isSpacer: true, name: '', quantity: '', price: '', amount: '' },
+    { isSpacer: true, name: '', quantity: '', price: '', amount: '' },
+    { isTotal: true, name: '총 공사계(부가세별도)', quantity: '', price: '', amount: '0' },
+    { isVat: true, name: '부가세', quantity: '', price: '', amount: '0' },
+    { isTotalWithVat: true, name: '계약금액(부가세포함)', quantity: '', price: '', amount: '0' }
+  ]
+};
+
+// 물량 오른쪽 패널 기본 표시용 (총 공사계, 부가세, 계약금액 항목) - 현장 선택 시 items 비었을 때 사용
+const DEFAULT_ITEMS_WITH_SUMMARY = [
+  { isSpacer: true, name: '', quantity: '', price: '', amount: '' },
+  { isSpacer: true, name: '', quantity: '', price: '', amount: '' },
+  { isSpacer: true, name: '', quantity: '', price: '', amount: '' },
+  { isTotal: true, name: '총 공사계(부가세별도)', quantity: '', price: '', amount: '0' },
+  { isVat: true, name: '부가세', quantity: '', price: '', amount: '0' },
+  { isTotalWithVat: true, name: '계약금액(부가세포함)', quantity: '', price: '', amount: '0' }
+];
 
 const NewSites = () => {
   const [sites, setSites] = useState([]);
   const [selectedSite, setSelectedSite] = useState(null);
-  const { form, setForm, isEditing, setIsEditing } = useSiteForm();
+  const [form, setForm] = useState(initialFormState);
   const [statusTab, setStatusTab] = useState('진행');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
   const [vendors, setVendors] = useState([]); // 거래처 데이터 상태 추가
   const [companyFocused, setCompanyFocused] = useState(false);
   const prevSavedCompanyRef = useRef('');
+  const [siteIntegratedStatus, setSiteIntegratedStatus] = useState(null);
+  const [totalIntegratedStatus, setTotalIntegratedStatus] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser } = useAuth();
@@ -62,15 +213,10 @@ const NewSites = () => {
   // 마이그레이션 로딩 상태
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
-
-  const {
-    gisungData,
-    costData,
-    paymentStatusMap,
-    siteIntegratedStatus,
-    setSiteIntegratedStatus,
-    totalIntegratedStatus,
-  } = useIntegratedStatus(sites);
+  
+  // 기성관리 데이터 상태
+  const [gisungData, setGisungData] = useState([]);
+  const [paymentStatusMap, setPaymentStatusMap] = useState({});
 
   // 실물량파악 관련 상태
   const [showQuantityDialog, setShowQuantityDialog] = useState(false);
@@ -84,29 +230,147 @@ const NewSites = () => {
   const [showContractPreview, setShowContractPreview] = useState(false);
   const contractInputRef = useRef(null);
 
-  const {
-    showSitePhotosSection,
-    setShowSitePhotosSection,
-    sitePhotos,
-    sitePhotosLoading,
-    sitePhotosError,
-    sitePhotoUploadOpen,
-    setSitePhotoUploadOpen,
-    selectedPreviewPhoto,
-    setSelectedPreviewPhoto,
-    previewScale,
-    setPreviewScale,
-    previewTranslate,
-    setPreviewTranslate,
-    isPreviewPanning,
-    setIsPreviewPanning,
-    previewPanStartRef,
-    replacePhotoInputRef,
-    sitePhotosSectionRef,
-    loadSitePhotos,
-    handleDeleteSelectedPhoto,
-    handleReplaceSelectedPhoto,
-  } = useSitePhotos(selectedSite);
+  const isNasPhotoBackend = import.meta.env.VITE_SITE_PHOTOS_BACKEND === 'nas';
+  const nasApiUrl = import.meta.env.VITE_NAS_API_URL;
+  const photosApiKey = import.meta.env.VITE_PHOTOS_API_KEY;
+  const [showSitePhotosSection, setShowSitePhotosSection] = useState(true);
+  const [sitePhotos, setSitePhotos] = useState([]);
+  const [sitePhotosLoading, setSitePhotosLoading] = useState(false);
+  const [sitePhotosError, setSitePhotosError] = useState('');
+  const [sitePhotoUploadOpen, setSitePhotoUploadOpen] = useState(false);
+  const [selectedPreviewPhoto, setSelectedPreviewPhoto] = useState(null);
+  const [previewScale, setPreviewScale] = useState(1);
+  const [previewTranslate, setPreviewTranslate] = useState({ x: 0, y: 0 });
+  const [isPreviewPanning, setIsPreviewPanning] = useState(false);
+  const previewPanStartRef = useRef(null);
+  const replacePhotoInputRef = useRef(null);
+  const sitePhotosSectionRef = useRef(null);
+
+  const getPhotosAuthHeaders = () => {
+    if (!photosApiKey) return {};
+    return { 'x-api-key': photosApiKey };
+  };
+
+  const handleDeleteSelectedPhoto = async () => {
+    try {
+      if (!isNasPhotoBackend || !nasApiUrl) {
+        throw new Error('NAS 사진 백엔드가 설정되어 있지 않습니다.');
+      }
+      if (!selectedSite?.id || !selectedSite?.name || !selectedPreviewPhoto?.name) {
+        throw new Error('삭제할 사진 정보가 없습니다.');
+      }
+
+      const url = `${nasApiUrl}/site-photos/delete?siteId=${encodeURIComponent(selectedSite.id)}&siteName=${encodeURIComponent(selectedSite.name)}&name=${encodeURIComponent(selectedPreviewPhoto.name)}`;
+      const res = await fetch(url, { method: 'DELETE', headers: { ...getPhotosAuthHeaders() } });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(body || `Delete failed (${res.status})`);
+      }
+
+      setSelectedPreviewPhoto(null);
+      await loadSitePhotos();
+    } catch (e) {
+      console.error('사진 삭제 실패:', e);
+      setSitePhotosError(e?.message || '사진 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleReplaceSelectedPhoto = async (file) => {
+    try {
+      if (!isNasPhotoBackend || !nasApiUrl) {
+        throw new Error('NAS 사진 백엔드가 설정되어 있지 않습니다.');
+      }
+      if (!selectedSite?.id || !selectedSite?.name || !selectedPreviewPhoto?.name) {
+        throw new Error('변경할 사진 정보가 없습니다.');
+      }
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('siteId', selectedSite.id);
+      formData.append('siteName', selectedSite.name);
+      formData.append('oldName', selectedPreviewPhoto.name);
+      formData.append('file', file);
+
+      const url = `${nasApiUrl}/site-photos/replace`;
+      const res = await fetch(url, { method: 'POST', headers: { ...getPhotosAuthHeaders() }, body: formData });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(body || `Replace failed (${res.status})`);
+      }
+      const data = await res.json();
+      const newPhoto = data?.file;
+      await loadSitePhotos();
+
+      if (newPhoto?.url) {
+        setSelectedPreviewPhoto({
+          id: newPhoto.name,
+          name: newPhoto.name,
+          url: `${nasApiUrl}${newPhoto.url}`,
+          size: newPhoto.size,
+          mtimeMs: Date.now(),
+        });
+      }
+    } catch (e) {
+      console.error('사진 변경 실패:', e);
+      setSitePhotosError(e?.message || '사진 변경 중 오류가 발생했습니다.');
+    }
+  };
+
+  const loadSitePhotos = async () => {
+    try {
+      setSitePhotosError('');
+
+      if (!selectedSite?.id || !selectedSite?.name) {
+        setSitePhotos([]);
+        return;
+      }
+
+      if (isNasPhotoBackend) {
+        if (!nasApiUrl) {
+          throw new Error('VITE_NAS_API_URL이 설정되어 있지 않습니다.');
+        }
+
+        setSitePhotosLoading(true);
+        const url = `${nasApiUrl}/site-photos/list?siteId=${encodeURIComponent(selectedSite.id)}&siteName=${encodeURIComponent(selectedSite.name)}`;
+        const res = await fetch(url, { method: 'GET', headers: { ...getPhotosAuthHeaders() } });
+        if (!res.ok) {
+          throw new Error(`NAS API responded with status: ${res.status}`);
+        }
+        const data = await res.json();
+        const list = (Array.isArray(data) ? data : []).map((p) => ({
+          id: p.name,
+          name: p.name,
+          url: `${nasApiUrl}${p.url}`,
+          size: p.size,
+          mtimeMs: p.mtimeMs,
+        }));
+        setSitePhotos(list);
+        return;
+      }
+
+      setSitePhotos([]);
+    } catch (e) {
+      console.error('현장사진 로드 실패:', e);
+      setSitePhotosError(e?.message || '현장사진 로드 중 오류가 발생했습니다.');
+      setSitePhotos([]);
+    } finally {
+      setSitePhotosLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showSitePhotosSection) return;
+    loadSitePhotos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSite?.id, selectedSite?.name, showSitePhotosSection, isNasPhotoBackend, nasApiUrl]);
+
+  useEffect(() => {
+    if (!selectedPreviewPhoto) return;
+    setPreviewScale(1);
+    setPreviewTranslate({ x: 0, y: 0 });
+    setIsPreviewPanning(false);
+    previewPanStartRef.current = null;
+  }, [selectedPreviewPhoto?.url]);
 
   // 상태별 카운트 계산
   const statusCounts = useMemo(() => {
@@ -167,6 +431,84 @@ const NewSites = () => {
     setShowContractPreview(false);
   }, [selectedSite?.id]);
 
+  // 기성관리 데이터 로드
+  useEffect(() => {
+    const fetchGisungData = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'gisung'));
+        const gisungData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setGisungData(gisungData);
+        console.log('🏗️ 기성관리 데이터 로드 완료:', gisungData.length, '개');
+      } catch (error) {
+        console.error('기성관리 데이터 로드 실패:', error);
+      }
+    };
+    fetchGisungData();
+  }, []);
+
+  // 현장별 입금 상태 계산
+  useEffect(() => {
+    const loadPaymentStatus = async () => {
+      try {
+        const paymentMap = {};
+        
+        sites.forEach(site => {
+          // 현장명 매칭 (정확한 매칭 + 양방향 부분 매칭: 기성 현장명이 짧을 수 있음)
+          const siteGisungData = gisungData.filter(g => {
+            if (!g.name || !site.name) return false;
+            const exactMatch = g.name === site.name;
+            const partialMatch = g.name.includes(site.name) || site.name.includes(g.name);
+            return exactMatch || partialMatch;
+          });
+          
+          if (siteGisungData.length === 0) {
+            paymentMap[site.name] = { isFullyPaid: false, totalGisung: 0, paidGisung: 0, paymentRate: 0 };
+            return;
+          }
+          
+          // 해당 현장의 모든 기성 데이터 확인
+          const totalGisung = siteGisungData.reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
+          const isAdvanceRow = (g) => g.note && String(g.note).trim().includes('선급금');
+          const paidFromGisung = siteGisungData
+            .filter(g => g.paymentStatus === '입금완료' && !isAdvanceRow(g))
+            .reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
+          const paidFromAdvanceRows = siteGisungData
+            .filter(g => g.paymentStatus === '입금완료' && isAdvanceRow(g))
+            .reduce((sum, g) => sum + (parseAmountNumber(g.advance) || parseAmountNumber(g.gisungAmount)), 0);
+          const paidGisung = paidFromGisung + paidFromAdvanceRows;
+          
+          const advanceAmount = parseAmountNumber(site.advance);
+          const totalWithAdvance = totalGisung + advanceAmount;
+          const contractAmount = parseAmountNumber(site.contractAmount);
+          // 잔액 = 계약 - 선급금 - 입금완료 기성(선급금 행 제외, 선급금은 이미 advanceAmount로 차감)
+          const balance = contractAmount - advanceAmount - paidFromGisung;
+          
+          // 정산완료: 기성금 내역이 있고 잔액이 0(반올림 허용 1원)이면 표시
+          const isFullyPaid = siteGisungData.length > 0 && (balance <= 0 || Math.abs(balance) < 1);
+          
+          const paymentRate = totalWithAdvance > 0 ? ((paidGisung + advanceAmount) / totalWithAdvance) * 100 : 0;
+          
+          paymentMap[site.name] = {
+            isFullyPaid,
+            totalGisung,
+            paidGisung,
+            paymentRate,
+            balance
+          };
+        });
+        
+        setPaymentStatusMap(paymentMap);
+        console.log('💰 입금 상태 맵 업데이트 완료:', Object.keys(paymentMap).length, '개 현장');
+      } catch (error) {
+        console.error('입금 상태 계산 실패:', error);
+      }
+    };
+    
+    if (sites.length > 0 && gisungData.length > 0) {
+      loadPaymentStatus();
+    }
+  }, [sites, gisungData]);
+
   // location state에서 전달받은 현장 정보 처리
   useEffect(() => {
     if (location.state && sites.length > 0) {
@@ -198,6 +540,177 @@ const NewSites = () => {
   }, [location.state, sites]);
 
 
+
+  // 현장 데이터가 변경될 때마다 전체 통합현황 재계산 (캐싱 적용)
+  const [costData, setCostData] = useState([]);
+  
+  // 기성 데이터 로드 및 입금 상태 확인
+  useEffect(() => {
+    const loadGisungData = async () => {
+      try {
+        const gisungQuery = query(collection(db, 'gisung'));
+        const gisungSnapshot = await getDocs(gisungQuery);
+        const data = gisungSnapshot.docs.map(doc => doc.data());
+        setGisungData(data);
+        
+        // 입금 상태 확인
+        await loadPaymentStatus(data);
+      } catch (error) {
+        console.error('기성 데이터 로드 오류:', error);
+      }
+    };
+    
+    const loadCostData = async () => {
+      try {
+        const costQuery = query(collection(db, 'costs'));
+        const costSnapshot = await getDocs(costQuery);
+        const data = costSnapshot.docs.map(doc => doc.data());
+        setCostData(data);
+      } catch (error) {
+        console.error('지출 데이터 로드 오류:', error);
+      }
+    };
+    
+    loadGisungData();
+    loadCostData();
+  }, []);
+
+  // sites 데이터가 변경될 때마다 입금 상태 재확인
+  useEffect(() => {
+    if (sites.length > 0 && gisungData.length > 0) {
+      loadPaymentStatus(gisungData);
+    }
+  }, [sites, gisungData]);
+
+  // 기성현황 데이터를 가져와서 현장별 입금 상태 확인
+  const loadPaymentStatus = async (gisungData) => {
+    try {
+      // 현장별 입금 상태 맵 생성
+      const paymentMap = {};
+      
+      sites.forEach(site => {
+        const siteGisungData = gisungData.filter(g => {
+          const gisungSiteId = g.siteId || g.siteID || null;
+          const gisungName = g.name || g.siteName || '';
+          const matchById = gisungSiteId && site.id && gisungSiteId === site.id;
+          const matchByName =
+            !!gisungName &&
+            !!site.name &&
+            (gisungName === site.name ||
+             gisungName.includes(site.name) ||
+             site.name.includes(gisungName));
+          return matchById || matchByName;
+        });
+        
+        if (siteGisungData.length === 0) {
+          paymentMap[site.name] = { isFullyPaid: false, totalGisung: 0, paidGisung: 0, paymentRate: 0 };
+          return;
+        }
+        
+        const totalGisung = siteGisungData.reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
+        const isAdvanceRow = (g) => g.note && String(g.note).trim().includes('선급금');
+        const paidFromGisung = siteGisungData
+          .filter(g => g.paymentStatus === '입금완료' && !isAdvanceRow(g))
+          .reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
+        const paidFromAdvanceRows = siteGisungData
+          .filter(g => g.paymentStatus === '입금완료' && isAdvanceRow(g))
+          .reduce((sum, g) => sum + (parseAmountNumber(g.advance) || parseAmountNumber(g.gisungAmount)), 0);
+        const paidGisung = paidFromGisung + paidFromAdvanceRows;
+        
+        const advanceAmount = parseAmountNumber(site.advance);
+        const totalWithAdvance = totalGisung + advanceAmount;
+        const contractAmount = parseAmountNumber(site.contractAmount);
+        const balance = contractAmount - advanceAmount - paidFromGisung;
+        
+        const isFullyPaid = siteGisungData.length > 0 && (balance <= 0 || Math.abs(balance) < 1);
+        
+        const paymentRate = totalWithAdvance > 0 ? ((paidGisung + advanceAmount) / totalWithAdvance) * 100 : 0;
+        
+        paymentMap[site.name] = {
+          isFullyPaid,
+          totalGisung: totalWithAdvance,
+          paidGisung: paidGisung + advanceAmount,
+          paymentRate: Math.round(paymentRate),
+          balance: balance,
+          contractAmount: contractAmount
+        };
+      });
+      
+      setPaymentStatusMap(paymentMap);
+    } catch (error) {
+      console.error('입금 상태 확인 실패:', error);
+    }
+  };
+  
+  // 캐시된 데이터를 사용한 통합현황 계산
+  useEffect(() => {
+    if (sites.length === 0) return;
+    
+    try {
+      let totalContractAmount = 0;
+      let totalProgressAmount = 0;
+      let totalCostAmount = 0;
+
+      // 1. 계약금액: 현장상세정보에서 직접 가져오기 (로컬 계산)
+      totalContractAmount = sites.reduce((sum, site) => {
+        return sum + (Number(site.contractAmount) || 0);
+      }, 0);
+      
+      // 2. 누계기성: 캐시된 데이터 사용 (선급금 포함)
+      const siteIds = sites.map(site => site?.id).filter(Boolean);
+      const siteNames = sites.map(site => site?.name).filter(Boolean);
+      
+      totalProgressAmount = gisungData.reduce((sum, gisung) => {
+        const gisungSiteId = gisung.siteId || gisung.siteID || null;
+        const gisungName = gisung.name || gisung.siteName || '';
+        const matchById = gisungSiteId && siteIds.includes(gisungSiteId);
+        const matchByName = gisungName && siteNames.includes(gisungName);
+        if (matchById || matchByName) {
+          return sum + (Number(gisung.gisungAmount) || 0);
+        }
+        return sum;
+      }, 0);
+      
+      // 선급금을 누계기성에 포함
+      const totalAdvanceAmount = sites.reduce((sum, site) => {
+        return sum + (Number(site.advance) || 0);
+      }, 0);
+      
+      totalProgressAmount += totalAdvanceAmount;
+      
+      totalCostAmount = costData.reduce((sum, cost) => {
+        const costSiteId = cost.siteId || cost.siteID || null;
+        const costSiteName = cost.siteName || cost.name || '';
+        const matchById = costSiteId && siteIds.includes(costSiteId);
+        const matchByName = costSiteName && siteNames.includes(costSiteName);
+        if (matchById || matchByName) {
+          return sum + (Number(cost.amount) || 0);
+        }
+        return sum;
+      }, 0);
+
+      console.log('통합현황 계산 결과 (캐시 사용):', {
+        totalContractAmount,
+        totalProgressAmount,
+        totalAdvanceAmount,
+        totalCostAmount,
+        sitesCount: sites.length,
+        gisungDataLength: gisungData.length,
+        costDataLength: costData.length,
+        siteNames: siteNames
+      });
+
+      setTotalIntegratedStatus({
+        summary: {
+          totalEstimateAmount: totalContractAmount,
+          totalClaimAmount: totalProgressAmount,
+          totalCostAmount: totalCostAmount
+        }
+      });
+    } catch (error) {
+      console.error('전체 통합현황 계산 오류:', error);
+    }
+  }, [sites, gisungData, costData]);
 
   // 모바일에서 키보드가 올라올 때 뷰포트 조정 (간소화)
   useEffect(() => {
@@ -387,9 +900,7 @@ const NewSites = () => {
 
   const handleDownloadNapfoomContract = async () => {
     setDownloadLoading(true);
-    // 로딩 오버레이 표시 시 aria-hidden 경고 방지: 포커스 해제
-    try { document.activeElement?.blur?.(); } catch (_) {}
-
+    
     try {
       console.log('🔍 NAPFOOM 납품계약서 다운로드 시작 - 현재 form 상태:', form);
       console.log('🔍 현재 selectedSite:', selectedSite);
@@ -526,8 +1037,7 @@ const NewSites = () => {
       console.error('NAPFOOM 납품계약서 다운로드 실패:', e);
       console.error('오류 상세:', e.message);
       console.error('오류 스택:', e.stack);
-      const message = e?.message || '알 수 없는 오류';
-      alert(`NAPFOOM 납품계약서 생성에 실패했습니다.\n\n${message}\n\n템플릿/데이터를 확인해주세요.`);
+      alert('NAPFOOM 납품계약서 생성에 실패했습니다. 템플릿/데이터를 확인해주세요.');
     } finally {
       setDownloadLoading(false);
       setLoadingMessage(''); // 로딩 메시지 초기화
@@ -2530,20 +3040,1021 @@ const NewSites = () => {
             background: '#666'
           }
         }}>
-          {filteredSites.map(site => (
-            <SiteListItem
-              key={site.id}
-              site={site}
-              selectedSite={selectedSite}
-              paymentStatusMap={paymentStatusMap}
-              isMobile={isMobile}
-              onSelect={handleSelectSite}
-            />
-          ))}
+          {filteredSites.map(site => {
+            const progress = calculateProgress(site);
+            const dateRange = formatDateRange(site.startDate, site.endDate);
+            
+            // 숨겨진 완료 현장인지 확인
+            const isHiddenCompleted = site.status === '완료' && site.endDate && (() => {
+              try {
+                const today = new Date();
+                const sixtyDaysAgo = new Date(today.getTime() - (60 * 24 * 60 * 60 * 1000));
+                const endDate = new Date(site.endDate);
+                return !isNaN(endDate.getTime()) && endDate < sixtyDaysAgo;
+              } catch (error) {
+                return false;
+              }
+            })();
+            
+            // 입금처리가 안된 현장인지 확인 (완료 현장 중 60일 지난 현장만)
+            const paymentStatus = paymentStatusMap[site.name];
+            const isUnpaid = site.status === '완료' && site.endDate && (() => {
+              try {
+                const today = new Date();
+                const sixtyDaysAgo = new Date(today.getTime() - (60 * 24 * 60 * 60 * 1000));
+                const endDate = new Date(site.endDate);
+                const isOver60Days = !isNaN(endDate.getTime()) && endDate < sixtyDaysAgo;
+                return isOver60Days && paymentStatus && !paymentStatus.isFullyPaid;
+              } catch (error) {
+                return false;
+              }
+            })();
+            
+            return (
+              <ListItem 
+                key={site.id} 
+                selected={selectedSite?.id === site.id} 
+                onClick={() => handleSelectSite(site)}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSelectSite(site);
+                }} 
+                sx={{ 
+                  position: 'relative',
+                  mb: isMobile ? 0.25 : 0.5, 
+                  borderRadius: 1,
+                  py: isMobile ? 0.25 : 0.5,
+                  border: '1px solid',
+                  borderColor: selectedSite?.id === site.id ? '#90caf9' : 
+                              isUnpaid ? '#f44336' : // 입금처리 안된 현장은 빨간색
+                              isHiddenCompleted ? '#ff9800' : '#333',
+                  bgcolor: selectedSite?.id === site.id ? '#1e3a5f' : 
+                          isUnpaid ? 'rgba(244, 67, 54, 0.1)' : // 입금처리 안된 현장은 빨간색 배경
+                          isHiddenCompleted ? 'rgba(255, 152, 0, 0.1)' : 'transparent',
+                  '&:hover': {
+                    bgcolor: selectedSite?.id === site.id ? '#1e3a5f' : 
+                            isUnpaid ? 'rgba(244, 67, 54, 0.2)' : // 입금처리 안된 현장은 빨간색 호버
+                            isHiddenCompleted ? 'rgba(255, 152, 0, 0.2)' : '#2a2d35',
+                    borderColor: '#90caf9'
+                  }
+                }}
+              >
+                <Box sx={{ width: '100%' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, overflow: 'hidden' }}>
+                      {/* 주요현장 노란색 별 */}
+                      {site.isFavorite && (
+                        <StarIcon 
+                          sx={{ 
+                            color: '#FFD700', 
+                            fontSize: isMobile ? '0.9rem' : '1rem',
+                            flexShrink: 0
+                          }} 
+                        />
+                      )}
+                      <Typography 
+                        sx={{ 
+                          fontSize: isMobile ? '0.8rem' : 'inherit',
+                          fontWeight: selectedSite?.id === site.id ? 'bold' : 'normal',
+                          color: selectedSite?.id === site.id ? '#90caf9' : 
+                                 isUnpaid ? '#f44336' : // 입금처리 안된 현장은 빨간색 텍스트
+                                 '#fff',
+                          flex: 1,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {site.name}
+                      </Typography>
+                      {isUnpaid && (
+                        <Box
+                          sx={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            bgcolor: '#f44336',
+                            flexShrink: 0,
+                            mr: 0.5
+                          }}
+                          title="입금처리 미완료 현장"
+                        />
+                      )}
+                      {isHiddenCompleted && (
+                        <Box
+                          sx={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            bgcolor: '#ff9800',
+                            flexShrink: 0
+                          }}
+                          title="준공일이 60일 이상 지난 완료 현장"
+                        />
+                      )}
+                    </Box>
+                    {dateRange && (
+                      <Typography 
+                        sx={{ 
+                          fontSize: isMobile ? '0.65rem' : '0.7rem',
+                          color: selectedSite?.id === site.id ? '#90caf9' : '#888',
+                          ml: 1,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {dateRange}
+                      </Typography>
+                    )}
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography 
+                        sx={{ 
+                          fontSize: isMobile ? '0.7rem' : 'inherit',
+                          color: selectedSite?.id === site.id ? '#90caf9' : '#aaa'
+                        }}
+                      >
+                        {site.status}
+                      </Typography>
+                      
+                      {/* 계약 유형 표시 */}
+                      {site.contractType && (
+                        <Chip
+                          label={site.contractType === '원도급' || site.contractType === '원도급계약' ? '원도급' : site.contractType}
+                          size="small"
+                          sx={{
+                            backgroundColor: 
+                              site.contractType === '하도급계약' ? '#2196F3' :
+                              site.contractType === '납품계약' ? '#FF9800' :
+                              (site.contractType === '원도급' || site.contractType === '원도급계약') ? '#4CAF50' :
+                              '#9E9E9E', // 계약없음, 일반계약, 관급 등
+                            color: '#fff',
+                            fontWeight: 'bold',
+                            fontSize: '0.65rem',
+                            height: '18px',
+                            minWidth: 'auto',
+                            px: 0.5,
+                            borderRadius: '4px' // 꼭짓점만 약간 둥글게
+                          }}
+                          title={`계약 유형: ${site.contractType}`}
+                        />
+                      )}
+                      
+                      {/* 물량 타입 표시 (견적서/납품계약서 템플릿 기준) */}
+                      {/* 물량 개수에 따른 템플릿 타입 표시 (실시간 계산) */}
+                      {site.items && site.items.length > 0 && (
+                        <Chip
+                          label={site.items.length > 20 ? 'L' : 'N'}
+                          size="small"
+                          sx={{
+                            backgroundColor: site.items.length > 20 ? '#ff9800' : '#4caf50',
+                            color: '#fff',
+                            fontWeight: 'bold',
+                            fontSize: '0.6rem',
+                            height: '18px',
+                            minWidth: 'auto',
+                            px: 0.5
+                          }}
+                          title={`${site.items.length > 20 ? 'LONG' : 'NEW'} 템플릿 (${site.items.length}개) - 견적서/납품계약서 다운로드 시 자동 선택`}
+                        />
+                      )}
+                      
+                      {/* 정산완료 표시 - 현장명 중앙에 겹치게 */}
+                      {paymentStatusMap[site.name]?.isFullyPaid && (
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            zIndex: 10,
+                            backgroundColor: 'transparent',
+                            border: '3px solid #f44336',
+                            borderRadius: '6px',
+                            padding: '4px 12px',
+                            fontSize: '0.9rem',
+                            fontWeight: 'bold',
+                            color: '#f44336',
+                            pointerEvents: 'none',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          정산완료
+                        </Box>
+                      )}
+                    </Box>
+                    
+                    {progress !== null && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+                        <Box sx={{ 
+                          width: isMobile ? '40px' : '50px', 
+                          height: isMobile ? '6px' : '8px', 
+                          bgcolor: '#333', 
+                          borderRadius: '4px',
+                          overflow: 'hidden',
+                          mr: 0.5
+                        }}>
+                          <Box sx={{ 
+                            width: `${progress}%`, 
+                            height: '100%', 
+                            bgcolor: progress >= 100 ? '#f44336' : progress > 80 ? '#ff9800' : '#4caf50',
+                            transition: 'width 0.3s ease'
+                          }} />
+                        </Box>
+                        <Typography 
+                          sx={{ 
+                            fontSize: isMobile ? '0.7rem' : '0.8rem',
+                            color: selectedSite?.id === site.id ? '#90caf9' : '#888',
+                            minWidth: '25px'
+                          }}
+                        >
+                          {Math.round(progress)}%
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
+              </ListItem>
+            );
+          })}
         </List>
       </Paper>
       
-      <SiteDetailForm p={{ form, handleChange, isEditing, setIsEditing, selectedSite, isMobile, handleNewSite, handleWholeList, handleDistributionView, siteIntegratedStatus, totalIntegratedStatus, inputRef1, inputRef2, addressRef, startDateRef, endDateRef, companyNameRef, managerRef, phoneRef, teamRef, descRef, windowCompanyRef, noteRef, scrollFocus, isReadOnly, formatDateForInput, vendors, setCompanyFocused, contractInputRef, handleContractFileChange, setShowContractPreview, contractUploading, setShowSitePhotosSection, sitePhotosSectionRef, setLoading, setLoadingMessage, handleSave, isSaving, handleEditClick, handleViewEstimate, handleDownloadNapfoomContract, handleDelete, handleGisung, loading }} />
+      {/* Center Panel - 현장 상세정보 */}
+      <Paper elevation={3} sx={{ 
+        flex: { xs: 'none', md: 1 }, 
+        width: { xs: '100%', md: 'auto' },
+        display: { xs: isMobile && isEditing ? 'flex' : 'none', md: 'flex' },
+        flexDirection: 'column', 
+        bgcolor: '#232734', 
+        p: isMobile ? 1 : 3, 
+        borderRadius: 2, 
+        minWidth: 0, 
+        height: { xs: 'auto', md: '100%' }, // 모바일에서는 자동 높이
+        position: isMobile ? 'relative' : 'static',
+        top: isMobile ? '0px' : 'auto',
+        left: isMobile ? '0px' : 'auto',
+        overflow: 'visible', // 모바일에서는 스크롤 허용
+        mb: '30px' // 아래쪽 마진 30px 추가
+      }}>
+         <Box sx={{ display: 'flex', alignItems: 'center', mb: isMobile ? 1 : 2 }}>
+           <Typography variant="h5" fontWeight="bold" sx={{ fontSize: isMobile ? '1.1rem' : 'inherit' }}>
+             {isMobile && isEditing && !selectedSite ? '새 현장 등록' : '현장 상세 정보'}
+           </Typography>
+           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
+             {/* 모바일에서 편집 모드이고 새 현장 등록 중일 때 취소 버튼 표시 */}
+             {isMobile && isEditing && !selectedSite ? (
+               <Button 
+                 variant="outlined" 
+                 onClick={(e) => {
+                   e.preventDefault();
+                   e.stopPropagation();
+                   setIsEditing(false);
+                 }} 
+                 size="small" 
+                 sx={{ 
+                   fontSize: '0.7rem',
+                   color: '#f44336',
+                   borderColor: '#f44336',
+                   '&:hover': {
+                     borderColor: '#d32f2f',
+                     bgcolor: 'rgba(244, 67, 54, 0.1)'
+                   }
+                 }}
+               >
+                 취소
+               </Button>
+             ) : (
+               <>
+                 <Button 
+                   variant="contained" 
+                   onClick={(e) => {
+                     e.preventDefault();
+                     e.stopPropagation();
+                     handleNewSite();
+                   }} 
+                   size={isMobile ? 'small' : 'small'} 
+                   sx={{ 
+                     fontSize: isMobile ? '0.7rem' : 'inherit',
+                     bgcolor: '#4caf50',
+                     minHeight: '44px', // 아이패드 터치 최적화
+                     touchAction: 'manipulation',
+                     WebkitTapHighlightColor: 'transparent',
+                     '&:hover': {
+                       bgcolor: '#388e3c'
+                     }
+                   }}
+                 >
+                   + 새현장
+                 </Button>
+                 <Button variant="outlined" onClick={(e) => {
+                   e.preventDefault();
+                   e.stopPropagation();
+                   handleWholeList();
+                 }} size={isMobile ? 'small' : 'small'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit', display: isMobile ? 'none' : 'inline-flex' }}>
+                   전체 List
+                 </Button>
+                 <Button variant="text" onClick={(e) => {
+                   e.preventDefault();
+                   e.stopPropagation();
+                   handleDistributionView();
+                 }} size={isMobile ? 'small' : 'small'} sx={{ 
+                   fontSize: isMobile ? '0.7rem' : 'inherit', 
+                   display: isMobile ? 'none' : 'inline-flex',
+                   ml: 1,
+                   minWidth: 'auto',
+                   px: 1,
+                   border: 'none',
+                   color: '#ffffff',
+                   '&:hover': {
+                     bgcolor: 'rgba(255, 255, 255, 0.1)'
+                   }
+                 }}
+                 title="회사별 현장 분포도 보기"
+                 >
+                   <AccountTreeIcon sx={{ fontSize: '2rem', color: '#ffffff' }} />
+                 </Button>
+               </>
+             )}
+           </Box>
+         </Box>
+         {/* 통합 현황 표시 */}
+         {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite)) && (
+           <Box sx={{ 
+             mb: 1, 
+             p: 1.5, 
+             bgcolor: '#424242', 
+             borderRadius: 1,
+             border: '1px solid #616161'
+           }}>
+             <Typography variant="body1" sx={{ mb: 0.5, fontWeight: 'bold', color: '#ffffff', fontSize: isMobile ? '0.9rem' : '1rem' }}>
+               {selectedSite ? `${selectedSite?.name} 통합 현황` : '전체 현장 통합 현황'}
+             </Typography>
+             <Grid container spacing={1}>
+               <Grid size={{ xs: 4 }}>
+                 <Box sx={{ textAlign: 'center' }}>
+                   <Typography variant="h5" sx={{ color: '#4caf50', fontWeight: 'bold', fontSize: isMobile ? '1.2rem' : '1.5rem' }}>
+                     {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount ? Math.round((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount).toLocaleString() : '0'}
+                   </Typography>
+                   <Typography variant="caption" sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>계약금액</Typography>
+                 </Box>
+               </Grid>
+               <Grid size={{ xs: 4 }}>
+                 <Box sx={{ textAlign: 'center' }}>
+                   <Typography variant="h5" sx={{ color: '#2196f3', fontWeight: 'bold', fontSize: isMobile ? '1.2rem' : '1.5rem' }}>
+                     {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount ? Math.round((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount).toLocaleString() : '0'}
+                   </Typography>
+                   <Typography variant="caption" sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>누계기성 (선급금 포함)</Typography>
+                 </Box>
+               </Grid>
+               <Grid size={{ xs: 4 }}>
+                 <Box sx={{ textAlign: 'center' }}>
+                   <Typography variant="h5" sx={{ color: '#ff9800', fontWeight: 'bold', fontSize: isMobile ? '1.2rem' : '1.5rem' }}>
+                     {(siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount ? Math.round((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount).toLocaleString() : '0'}
+                   </Typography>
+                   <Typography variant="caption" sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>지출</Typography>
+                 </Box>
+               </Grid>
+             </Grid>
+             <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid #616161' }}>
+               <Grid container spacing={1}>
+                 <Grid size={{ xs: 12, sm: 4 }}>
+                   <Box sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
+                     계약금액: {formatNumber((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalEstimateAmount || 0, true)}
+                   </Box>
+                 </Grid>
+                 <Grid size={{ xs: 12, sm: 4 }}>
+                   <Box sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
+                     누계기성: {formatNumber((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalClaimAmount || 0, true)} (선급금 포함)
+                   </Box>
+                 </Grid>
+                 <Grid size={{ xs: 12, sm: 4 }}>
+                   <Box sx={{ color: '#ffffff', fontSize: isMobile ? '0.7rem' : '0.8rem' }}>
+                     지출 총액: {formatNumber((siteIntegratedStatus || (totalIntegratedStatus && !selectedSite))?.summary?.totalCostAmount || 0, true)}
+                   </Box>
+                 </Grid>
+               </Grid>
+             </Box>
+           </Box>
+         )}
+
+         <Box sx={{ 
+           pr: 1, 
+           display: 'flex', 
+           flexDirection: 'column', 
+           gap: isMobile ? 0.5 : 1,
+           height: { xs: 'auto', md: 'calc(100% - 100px)' }, // 모바일에서는 자동 높이
+           minHeight: { xs: 'auto', md: 'auto' }, // 모바일에서 자동 높이
+           overflowY: 'auto', // 모바일에서도 스크롤 허용
+           WebkitOverflowScrolling: 'touch',
+           scrollBehavior: 'smooth',
+           touchAction: 'pan-y',
+           '&::-webkit-scrollbar': {
+             width: '8px'
+           },
+           '&::-webkit-scrollbar-track': {
+             background: '#1a1d21',
+             borderRadius: '4px'
+           },
+           '&::-webkit-scrollbar-thumb': {
+             background: '#444',
+             borderRadius: '4px'
+           },
+           '&::-webkit-scrollbar-thumb:hover': {
+             background: '#666'
+           }
+         }}>
+           <Box sx={{ display: 'flex', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
+             <Box sx={{ flex: isMobile ? 'none' : 8 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 현장명
+               </Typography>
+               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                 <TextField 
+                   name="name" 
+                   value={form.name ?? ''} 
+                   onChange={handleChange} 
+                   size="small" 
+                   disabled={isReadOnly} 
+                   sx={{ 
+                     flex: 6,
+                     '& .MuiOutlinedInput-root': {
+                       '& fieldset': { borderColor: '#ffffff' },
+                       '&:hover fieldset': { borderColor: '#ffffff' },
+                       '&.Mui-focused fieldset': { borderColor: '#ffffff' }
+                     },
+                     '& .MuiInputLabel-root': { color: '#bbb' },
+                     '& .MuiInputBase-input': { color: '#fff' }
+                   }} 
+                   inputRef={inputRef1} 
+                   onFocus={scrollFocus(inputRef1)} 
+                 />
+                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1.5 }}>
+                   <Typography variant="body2" sx={{ fontSize: isMobile ? '0.6rem' : '0.75rem' }}>주요현장</Typography>
+                   <IconButton 
+                     onClick={() => handleChange({ target: { name: 'isFavorite', value: !(form.isFavorite ?? false) } })} 
+                     size="small" 
+                     sx={{ ml: 0.5 }} 
+                     disabled={isReadOnly}
+                   >
+                     {(form.isFavorite ?? false) ? <StarIcon sx={{ color: 'gold' }} /> : <StarBorderIcon />}
+                   </IconButton>
+                 </Box>
+                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 2.5 }}>
+                   <Typography variant="body1" sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>사용인감</Typography>
+                   <FormControl size="small" sx={{ flex: 1 }}>
+                     <Select 
+                       name="stampType" 
+                       value={form.stampType ?? '인감없음'} 
+                       onChange={handleChange} 
+                       disabled={isReadOnly}
+                       sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+                     >
+                       <MenuItem value="인감없음">인감없음</MenuItem>
+                       <MenuItem value="A인감">A인감</MenuItem>
+                       <MenuItem value="□인감">□인감</MenuItem>
+                       <MenuItem value="○인감">○인감</MenuItem>
+                       <MenuItem value="☆인감">☆인감</MenuItem>
+                       <MenuItem value="△인감">△인감</MenuItem>
+                       <MenuItem value="♤인감">♤인감</MenuItem>
+                       <MenuItem value="♧인감">♧인감</MenuItem>
+                       <MenuItem value="♡인감">♡인감</MenuItem>
+                       <MenuItem value="11인감">11인감</MenuItem>
+                       <MenuItem value="기타">기타</MenuItem>
+                     </Select>
+                   </FormControl>
+                 </Box>
+               </Box>
+             </Box>
+           </Box>
+           
+           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end', flexDirection: 'row', flexWrap: isMobile ? 'wrap' : 'nowrap', minWidth: 0 }}>
+             <Box sx={{ flex: '1 1 250px', minWidth: isMobile ? '100%' : 100 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 계약구분
+               </Typography>
+               <FormControl fullWidth size="small" sx={{ minWidth: 0 }}>
+                 <Select name="contractType" value={form.contractType ?? '계약없음'} onChange={handleChange} disabled={isReadOnly}>
+                   {CONTRACT_TYPE_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                 </Select>
+               </FormControl>
+             </Box>
+             <Box sx={{ pb: 0.5, flex: '0 0 auto' }}>
+               <FormControlLabel 
+                 control={<Checkbox name="subcontractGuardian" checked={form.subcontractGuardian ?? false} onChange={handleChange} disabled={isReadOnly} />} 
+                 label="하도급지킴이"
+                 sx={{ 
+                   '& .MuiFormControlLabel-label': {
+                     wordBreak: 'keep-all', 
+                     fontSize: isMobile ? '0.6rem' : 'inherit' 
+                   }
+                 }}
+               />
+             </Box>
+             <Box sx={{ flex: '1 1 260px', minWidth: isMobile ? '100%' : 100 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 발주처
+               </Typography>
+               <TextField name="orderer" value={form.orderer ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} placeholder="발주처" sx={{ minWidth: 0, '& .MuiInputBase-root': { height: 40 } }} />
+             </Box>
+             <Box sx={{ flex: '0 1 100px', minWidth: 64 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 관급/사급
+               </Typography>
+               <FormControl fullWidth size="small" sx={{ minWidth: 0 }}>
+                 <Select name="workScope" value={form.workScope ?? '없음'} onChange={handleChange} disabled={isReadOnly} sx={{ fontSize: isMobile ? '0.75rem' : 'inherit' }}>
+                   {WORK_SCOPE_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                 </Select>
+               </FormControl>
+             </Box>
+             <Box sx={{ flex: '0 1 140px', minWidth: 80 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 공고번호
+               </Typography>
+               <TextField name="announcementNo" value={form.announcementNo ?? ''} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} placeholder="공고번호" sx={{ minWidth: 0, '& .MuiInputBase-root': { height: 40 } }} />
+             </Box>
+             <Box sx={{ flex: '1 1 215px', minWidth: isMobile ? '100%' : 100 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 진행상황
+               </Typography>
+               <FormControl fullWidth size="small" sx={{ cursor: 'pointer', minWidth: 0 }}>
+                 <Select 
+                   name="status" 
+                   value={form.status ?? '진행'} 
+                   onChange={handleChange} 
+                   disabled={false}
+                   inputProps={{
+                     style: { cursor: 'pointer' },
+                     readOnly: false
+                   }}
+                   sx={{
+                     cursor: 'pointer',
+                     '& .MuiSelect-select': {
+                       backgroundColor: form.status === '예정' ? '#ff9800' : 
+                                      form.status === '진행' ? '#1976d2' : 
+                                      form.status === '완료' ? '#43a047' : 
+                                      form.status === '미정' ? '#757575' : '#757575',
+                       color: 'white',
+                       fontWeight: 'bold',
+                       cursor: 'pointer !important',
+                       userSelect: 'none',
+                       '&:focus': {
+                         cursor: 'pointer !important'
+                       }
+                     },
+                     '& .MuiInputBase-root': {
+                       cursor: 'pointer !important',
+                       userSelect: 'none',
+                       '&:hover': {
+                         cursor: 'pointer !important'
+                       },
+                       '& input': {
+                         cursor: 'pointer !important',
+                         caretColor: 'transparent'
+                       }
+                     },
+                     '& .MuiOutlinedInput-input': {
+                       cursor: 'pointer !important',
+                       caretColor: 'transparent'
+                     },
+                     '& .MuiOutlinedInput-notchedOutline': {
+                       borderColor: 'rgba(255, 255, 255, 0.23)'
+                     },
+                     '&:hover .MuiOutlinedInput-notchedOutline': {
+                       borderColor: 'rgba(255, 255, 255, 0.5)'
+                     },
+                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                       borderColor: 'rgba(255, 255, 255, 0.5)'
+                     }
+                   }}
+                 >
+                   {STATUS_OPTIONS.map(opt => (
+                     <MenuItem key={opt} value={opt} sx={{ 
+                       backgroundColor: opt === '예정' ? '#ff9800' : 
+                                     opt === '진행' ? '#1976d2' : 
+                                     opt === '완료' ? '#43a047' : 
+                                     opt === '미정' ? '#757575' : '#757575',
+                       color: 'white',
+                       '&:hover': {
+                         backgroundColor: opt === '예정' ? '#f57c00' : 
+                                        opt === '진행' ? '#1565c0' : 
+                                        opt === '완료' ? '#388e3c' : 
+                                        opt === '미정' ? '#616161' : '#616161'
+                       }
+                     }}>
+                       {opt}
+                     </MenuItem>
+                   ))}
+                 </Select>
+               </FormControl>
+             </Box>
+           </Box>
+           
+           <Box sx={{ display: 'flex', gap: 1, mt: isMobile ? 0.3 : 0.5, flexDirection: isMobile ? 'column' : 'row' }}>
+             <Box sx={{ flex: 1 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 계약금액
+               </Typography>
+               <TextField name="contractAmount" value={isReadOnly ? formatContractAmount(form.contractAmount) : (form.contractAmount ?? '')} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} inputRef={inputRef2} onFocus={scrollFocus(inputRef2)} />
+             </Box>
+             <Box sx={{ flex: 1 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 선급금
+               </Typography>
+               <TextField name="advance" value={isReadOnly ? formatAdvanceAmount(form.advance) : (form.advance ?? '')} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
+             </Box>
+             <Box sx={{ flex: 1 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 누계기성
+               </Typography>
+               <TextField name="totalProgress" value={formatGisungAmount(form.totalProgress)} onChange={handleChange} fullWidth size="small" disabled={true} sx={{ '& .MuiInputBase-input': { color: '#4caf50', fontWeight: 'bold' } }} />
+             </Box>
+             <Box sx={{ flex: 1 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 안전관리비
+               </Typography>
+                <TextField name="safetyCost" value={isReadOnly ? formatSafetyCost(form.safetyCost) : (form.safetyCost ?? '')} onChange={handleChange} fullWidth size="small" disabled={isReadOnly} />
+             </Box>
+           </Box>
+           
+           <Box sx={{ display: 'flex' }}>
+             <Box sx={{ width: '100%' }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 주소
+               </Typography>
+               <TextField 
+                 name="address" 
+                 value={form.address ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 disabled={isReadOnly} 
+                 inputRef={addressRef}
+                 onFocus={scrollFocus(addressRef)}
+               />
+             </Box>
+           </Box>
+           
+           <Box sx={{ display: 'flex', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
+             <Box sx={{ flex: 1 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 착공일
+               </Typography>
+               <TextField 
+                 name="startDate" 
+                 type="date" 
+                 value={formatDateForInput(form.startDate) ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 InputLabelProps={{ shrink: true }} 
+                 disabled={isReadOnly} 
+                 inputRef={startDateRef}
+                 onFocus={scrollFocus(startDateRef)}
+               />
+             </Box>
+             <Box sx={{ flex: 1 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 준공예정일
+               </Typography>
+               <TextField 
+                 name="endDate" 
+                 type="date" 
+                 value={formatDateForInput(form.endDate) ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 InputLabelProps={{ shrink: true }} 
+                 disabled={isReadOnly} 
+                 inputRef={endDateRef}
+                 onFocus={scrollFocus(endDateRef)}
+               />
+             </Box>
+           </Box>
+           
+           <Box sx={{ display: 'flex', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
+             <Box sx={{ flex: 1 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 회사명 (선택 또는 입력)
+               </Typography>
+                <Autocomplete
+                  options={[...new Set(vendors.map(v => (v.companyName ?? '').toString()))].filter(Boolean)}
+                  value={form.companyName ?? ''}
+                  onChange={(event, newValue) => {
+                    const e = { target: { name: 'companyName', value: (newValue ?? '').toString() } };
+                    handleChange(e);
+                  }}
+                  onInputChange={(event, newInputValue) => {
+                    const e = { target: { name: 'companyName', value: (newInputValue ?? '').toString() } };
+                    handleChange(e);
+                  }}
+                  onFocus={() => setCompanyFocused(true)}
+                  onBlur={() => setCompanyFocused(false)}
+                  freeSolo
+                  selectOnFocus={false}
+                  clearOnBlur={false}
+                  autoSelect={false}
+                  disabled={isReadOnly}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      size="small"
+                      inputRef={companyNameRef}
+                      onFocus={scrollFocus(companyNameRef)}
+                    />
+                  )}
+                />
+             </Box>
+             <Box sx={{ flex: 1 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 소장
+               </Typography>
+               <TextField 
+                 name="manager" 
+                 value={form.manager ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 disabled={isReadOnly} 
+                 inputRef={managerRef}
+                 onFocus={scrollFocus(managerRef)}
+               />
+             </Box>
+             <Box sx={{ flex: 1 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 연락처
+               </Typography>
+               <TextField 
+                 name="phone" 
+                 value={form.phone ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 disabled={isReadOnly} 
+                 inputRef={phoneRef}
+                 onFocus={scrollFocus(phoneRef)}
+               />
+             </Box>
+           </Box>
+           
+           <Box sx={{ display: 'flex', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
+             <Box sx={{ flex: 1 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 시공팀
+               </Typography>
+               <TextField 
+                 name="team" 
+                 value={form.team ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 disabled={isReadOnly} 
+                 inputRef={teamRef}
+                 onFocus={scrollFocus(teamRef)}
+               />
+             </Box>
+             <Box sx={{ flex: 1 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 창호업체
+               </Typography>
+               <TextField 
+                 name="windowCompany" 
+                 value={form.windowCompany ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth
+                 size="small" 
+                 disabled={isReadOnly}
+                 placeholder="창호업체명을 입력하세요"
+                 sx={{
+                   '& .MuiOutlinedInput-root': {
+                     '& fieldset': { borderColor: '#ffffff' },
+                     '&:hover fieldset': { borderColor: '#ffffff' },
+                     '&.Mui-focused fieldset': { borderColor: '#ffffff' }
+                   },
+                   '& .MuiInputLabel-root': { color: '#bbb' },
+                   '& .MuiInputBase-input': { color: '#fff' }
+                 }}
+                 inputRef={windowCompanyRef}
+                 onFocus={scrollFocus(windowCompanyRef)}
+               />
+             </Box>
+             <Box sx={{ flex: 1 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 비고
+               </Typography>
+               <TextField 
+                 name="note" 
+                 value={form.note ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 disabled={isReadOnly} 
+                 inputRef={noteRef}
+                 onFocus={scrollFocus(noteRef)}
+                 placeholder="비고 사항"
+               />
+             </Box>
+           </Box>
+           
+           <Box sx={{ display: 'flex', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
+             <Box sx={{ flex: 1 }}>
+               <Typography variant="caption" display="block" sx={{mb: 0.2, textAlign: 'left', fontSize: isMobile ? '0.7rem' : 'inherit'}}>
+                 기타사항
+               </Typography>
+               <TextField 
+                 name="desc" 
+                 value={form.desc ?? ''} 
+                 onChange={handleChange} 
+                 fullWidth 
+                 size="small" 
+                 disabled={isReadOnly} 
+                 inputRef={descRef}
+                 onFocus={scrollFocus(descRef)}
+               />
+             </Box>
+           </Box>
+         </Box>
+          <Box sx={{ mt: 'auto', pt: isMobile ? 0.5 : 1, display: 'flex', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
+           <Button
+             variant="outlined"
+             color="info"
+             onClick={async (e) => {
+               e.preventDefault();
+               e.stopPropagation();
+               if (!selectedSite) {
+                 alert('현장을 선택해 주세요.');
+                 return;
+               }
+               try {
+                 setLoading(true);
+                 setLoadingMessage('납품확인서 생성 중...');
+                 const { createDeliveryConfirmation } = await import('../utils/deliveryConfirmationUtils');
+                 const siteData = { ...selectedSite, stampType: form.stampType || selectedSite.stampType || 'A인감' };
+                 const { buffer, fileName } = await createDeliveryConfirmation(siteData);
+                 const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                 const url = window.URL.createObjectURL(blob);
+                 const link = document.createElement('a');
+                 link.href = url;
+                 link.download = fileName;
+                 document.body.appendChild(link);
+                 link.click();
+                 document.body.removeChild(link);
+                 window.URL.revokeObjectURL(url);
+                 alert('납품확인서가 다운로드되었습니다.');
+               } catch (err) {
+                 console.error('납품확인서 생성 실패:', err);
+                 alert(err?.message || '납품확인서 생성에 실패했습니다.');
+               } finally {
+                 setLoading(false);
+                 setLoadingMessage('');
+               }
+             }}
+             disabled={!selectedSite || loading}
+             size={isMobile ? 'small' : 'medium'}
+             sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+           >
+             납품확인서
+           </Button>
+           {/* 계약서 업로드 / 계약서 보기 */}
+           <input
+             type="file"
+             ref={contractInputRef}
+             accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+             style={{ display: 'none' }}
+             onChange={handleContractFileChange}
+           />
+           {(form.contractFileUrl || selectedSite?.contractFileUrl) ? (
+             <Button
+               variant="outlined"
+               color="info"
+               onClick={(e) => {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 setShowContractPreview(true);
+               }}
+               disabled={!selectedSite}
+               size={isMobile ? 'small' : 'medium'}
+               sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+             >
+               계약서 보기
+             </Button>
+           ) : (
+             <Button
+               variant="outlined"
+               color="info"
+               onClick={(e) => {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 contractInputRef.current?.click();
+               }}
+               disabled={!selectedSite || contractUploading}
+               size={isMobile ? 'small' : 'medium'}
+               sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+             >
+               {contractUploading ? '업로드 중...' : '계약서업로드'}
+             </Button>
+           )}
+           <Button
+             variant="outlined"
+             color="info"
+             onClick={(e) => {
+               e.preventDefault();
+               e.stopPropagation();
+               setShowSitePhotosSection(true);
+               requestAnimationFrame(() => {
+                 sitePhotosSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+               });
+             }}
+             disabled={!selectedSite}
+             size={isMobile ? 'small' : 'medium'}
+             sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}
+           >
+             현장사진
+           </Button>
+           {isEditing ? (
+             <Button 
+               variant="contained" 
+               color="primary" 
+               onClick={(e) => {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 handleSave();
+               }} 
+               disabled={isSaving}
+               size={isMobile ? 'small' : 'medium'} 
+               sx={{ 
+                 fontSize: isMobile ? '0.7rem' : 'inherit',
+                 minHeight: '44px', // 아이패드 터치 최적화
+                 touchAction: 'manipulation',
+                 WebkitTapHighlightColor: 'transparent'
+               }}
+             >
+               {isSaving ? '저장 중...' : (selectedSite ? '저장하기' : '등록하기')}
+             </Button>
+           ) : (
+             <Button 
+               variant="contained" 
+               color="primary" 
+               onClick={(e) => {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 handleEditClick();
+               }} 
+               disabled={!selectedSite} 
+               size={isMobile ? 'small' : 'medium'} 
+               sx={{ 
+                 fontSize: isMobile ? '0.7rem' : 'inherit',
+                 minHeight: '44px', // 아이패드 터치 최적화
+                 touchAction: 'manipulation',
+                 WebkitTapHighlightColor: 'transparent'
+               }}
+             >
+               수정하기
+             </Button>
+           )}
+           <Button variant="outlined" color="info" onClick={(e) => {
+             e.preventDefault();
+             e.stopPropagation();
+             handleViewEstimate();
+           }} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+             견적서보기
+           </Button>
+
+
+           {form?.contractType === '납품계약' && (
+             <Button variant="contained" color="primary" onClick={(e) => {
+               e.preventDefault();
+               e.stopPropagation();
+               handleDownloadNapfoomContract();
+             }} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+               납품계약서
+             </Button>
+           )}
+
+           <Button variant="outlined" color="secondary" onClick={(e) => {
+             e.preventDefault();
+             e.stopPropagation();
+             handleDelete();
+           }} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+             삭제
+           </Button>
+
+           <Button variant="contained" color="success" onClick={(e) => {
+             e.preventDefault();
+             e.stopPropagation();
+             handleGisung();
+           }} disabled={!selectedSite} size={isMobile ? 'small' : 'medium'} sx={{ fontSize: isMobile ? '0.7rem' : 'inherit' }}>
+             기성현황
+           </Button>
+
+         </Box>
+      </Paper>
       
       {/* Right Panel - 물량 내역 */}
       <Paper elevation={3} sx={{ 
