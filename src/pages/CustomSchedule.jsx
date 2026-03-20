@@ -57,13 +57,19 @@ const CustomSchedule = () => {
   
   // 분류별 기본 색상 설정
   const getDefaultColorByType = (type) => {
-    switch (type) {
+    const tokens = (type || '').toString().split(',').map((t) => t.trim()).filter(Boolean);
+    const pick = tokens[0] || '';
+    switch (pick) {
       case '현장':
         return 'transparent'; // 기본이 없음
       case '회의':
         return '#a855f7'; // 보라색
       case '전자입찰':
         return '#eab308'; // 노란색
+      case '하자':
+        return '#d63031';
+      case '샘플':
+        return '#0984e3';
       case '현설':
         return '#ef4444'; // 빨간색
       case '실측':
@@ -1528,42 +1534,56 @@ const CustomSchedule = () => {
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
                 <FormControlLabel
                   control={<Checkbox 
-                    checked={editPopup.item ? editPopup.item.type === '현장' : selectedTypes.includes('현장')} 
+                    checked={editPopup.item ? (editPopup.item.type || '').toString().split(',').map(t => t.trim()).includes('현장') : selectedTypes.includes('현장')} 
                     onChange={() => editPopup.item ? handleEditTypeChange('현장') : handleTypeChange('현장')} 
                   />}
                   label="현장"
                 />
                 <FormControlLabel
                   control={<Checkbox 
-                    checked={editPopup.item ? editPopup.item.type === '회의' : selectedTypes.includes('회의')} 
+                    checked={editPopup.item ? (editPopup.item.type || '').toString().split(',').map(t => t.trim()).includes('회의') : selectedTypes.includes('회의')} 
                     onChange={() => editPopup.item ? handleEditTypeChange('회의') : handleTypeChange('회의')} 
                   />}
                   label="회의"
                 />
                 <FormControlLabel
                   control={<Checkbox 
-                    checked={editPopup.item ? editPopup.item.type === '전자입찰' : selectedTypes.includes('전자입찰')} 
+                    checked={editPopup.item ? (editPopup.item.type || '').toString().split(',').map(t => t.trim()).includes('전자입찰') : selectedTypes.includes('전자입찰')} 
                     onChange={() => editPopup.item ? handleEditTypeChange('전자입찰') : handleTypeChange('전자입찰')} 
                   />}
                   label="전자입찰"
                 />
                 <FormControlLabel
                   control={<Checkbox 
-                    checked={editPopup.item ? editPopup.item.type === '현설' : selectedTypes.includes('현설')} 
+                    checked={editPopup.item ? (editPopup.item.type || '').toString().split(',').map(t => t.trim()).includes('하자') : selectedTypes.includes('하자')} 
+                    onChange={() => editPopup.item ? handleEditTypeChange('하자') : handleTypeChange('하자')} 
+                  />}
+                  label="하자"
+                />
+                <FormControlLabel
+                  control={<Checkbox 
+                    checked={editPopup.item ? (editPopup.item.type || '').toString().split(',').map(t => t.trim()).includes('현설') : selectedTypes.includes('현설')} 
                     onChange={() => editPopup.item ? handleEditTypeChange('현설') : handleTypeChange('현설')} 
                   />}
                   label="현설"
                 />
                 <FormControlLabel
                   control={<Checkbox 
-                    checked={editPopup.item ? editPopup.item.type === '실측' : selectedTypes.includes('실측')} 
+                    checked={editPopup.item ? (editPopup.item.type || '').toString().split(',').map(t => t.trim()).includes('샘플') : selectedTypes.includes('샘플')} 
+                    onChange={() => editPopup.item ? handleEditTypeChange('샘플') : handleTypeChange('샘플')} 
+                  />}
+                  label="샘플"
+                />
+                <FormControlLabel
+                  control={<Checkbox 
+                    checked={editPopup.item ? (editPopup.item.type || '').toString().split(',').map(t => t.trim()).includes('실측') : selectedTypes.includes('실측')} 
                     onChange={() => editPopup.item ? handleEditTypeChange('실측') : handleTypeChange('실측')} 
                   />}
                   label="실측"
                 />
                 <FormControlLabel
                   control={<Checkbox 
-                    checked={editPopup.item ? editPopup.item.type === '기타' : selectedTypes.includes('기타')} 
+                    checked={editPopup.item ? (editPopup.item.type || '').toString().split(',').map(t => t.trim()).includes('기타') : selectedTypes.includes('기타')} 
                     onChange={() => editPopup.item ? handleEditTypeChange('기타') : handleTypeChange('기타')} 
                   />}
                   label="기타"
@@ -1621,8 +1641,10 @@ const CustomSchedule = () => {
               
               {/* 날씨 선택 - 현장, 현설, 실측, 기타만 표시 */}
               {(() => {
-                const currentType = editPopup.item ? editPopup.item.type : selectedTypes[0];
-                const showWeather = currentType === '현장' || currentType === '현설' || currentType === '실측' || currentType === '기타';
+                const weatherTypes = ['현장', '현설', '실측', '기타'];
+                const showWeather = editPopup.item
+                  ? (editPopup.item.type || '').toString().split(',').map(t => t.trim()).some(t => weatherTypes.includes(t))
+                  : weatherTypes.includes(selectedTypes[0]);
                 
                 if (!showWeather) return null;
                 

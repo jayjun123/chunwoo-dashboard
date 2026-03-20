@@ -98,8 +98,18 @@ const SiteList = () => {
   };
 
   const filteredSites = sites.filter(site => {
-    const matchesSearch = site.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         site.location?.toLowerCase().includes(searchTerm.toLowerCase());
+    const t = searchTerm.toLowerCase();
+    const name = (site.name || '').toString().toLowerCase();
+    const location = (site.location || '').toString().toLowerCase();
+    // 현장 상세 폼에서 사용하는 필드명(orderer, announcementNo)을 우선으로 검색
+    const orderer = (site.orderer || site.clientName || site.owner || '').toString().toLowerCase();
+    const announcementNo = (site.announcementNo || site.bidNumber || site.naraAnnouncementNo || '').toString().toLowerCase();
+
+    const matchesSearch =
+      name.includes(t) ||
+      location.includes(t) ||
+      orderer.includes(t) ||
+      announcementNo.includes(t);
     const matchesStatus = filterStatus === 'all' || site.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -128,7 +138,7 @@ const SiteList = () => {
           <FaSearch />
           <input
             type="text"
-            placeholder="현장명 또는 위치로 검색"
+              placeholder="현장명, 위치, 발주처, 공고번호로 검색"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />

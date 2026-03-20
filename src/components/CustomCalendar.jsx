@@ -25,6 +25,36 @@ import { useAuth } from '../contexts/AuthContext';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
+/** 일정 type에 쉼표로 묶인 복수 분류가 있을 때 토큰 배열 */
+function scheduleTypeTokens(typeStr) {
+  return (typeStr || '').toString().split(',').map((t) => t.trim()).filter(Boolean);
+}
+
+function scheduleTypeIncludes(typeStr, label) {
+  return scheduleTypeTokens(typeStr).includes(label);
+}
+
+/** 캘린더/툴팁용 접두 태그 (전자입찰 vs 입찰 순서 주의) */
+function scheduleTypePrefix(typeStr) {
+  const t = (typeStr || '').toString();
+  if (t.includes('전자입찰')) return '[전자입찰]';
+  if (t.includes('견적')) return '[견적]';
+  if (t.includes('입찰')) return '[입찰]';
+  if (t.includes('현장')) return '[현장]';
+  if (t.includes('회의')) return '[회의]';
+  if (t.includes('하자')) return '[하자]';
+  if (t.includes('현설')) return '[현설]';
+  if (t.includes('샘플')) return '[샘플]';
+  if (t.includes('실측')) return '[실측]';
+  if (t.includes('지원')) return '[지원]';
+  if (t.includes('기타')) return '';
+  return '';
+}
+
+function scheduleShowsWeather(typeStr) {
+  return scheduleTypeTokens(typeStr).some((tok) => ['현장', '현설', '실측', '기타'].includes(tok));
+}
+
 const CustomCalendar = (props) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -36,6 +66,8 @@ const CustomCalendar = (props) => {
       '현장': '#ff6b6b',      // 빨간색
       '회의': '#4ecdc4',      // 청록색
       '전자입찰': '#45b7d1',  // 파란색
+      '하자': '#d63031',      // 진한 빨강
+      '샘플': '#0984e3',      // 딥 블루
       '현설': '#96ceb4',      // 연두색
       '실측': '#feca57',      // 노란색
       '기타': '#a55eea',      // 보라색
@@ -281,16 +313,7 @@ const CustomCalendar = (props) => {
   // 반응형 글자수 조절 함수 (skipPrefix: true면 [현장]/[회의] 등 접두어 제외, 아이콘 자리용)
   const getResponsiveText = useMemo(() => {
     return (text, type, item, skipPrefix = false) => {
-      const typePrefix = skipPrefix ? '' : (
-        type === '현장' ? '[현장]' : 
-        type === '회의' ? '[회의]' : 
-        type === '입찰' ? '[입찰]' : 
-        type === '전자입찰' ? '[전자입찰]' : 
-        type === '현설' ? '[현설]' : 
-        type === '견적' ? '[견적]' : 
-        type === '실측' ? '[실측]' : 
-        type === '기타' ? '' : ''
-      );
+      const typePrefix = skipPrefix ? '' : scheduleTypePrefix(type);
       
       // 견적 일정의 경우 title 필드도 확인
       let displayText = text || '';
@@ -374,8 +397,10 @@ const CustomCalendar = (props) => {
 
   // 현장 찾기 모달용 타입 뱃지 텍스트
   const getSiteSearchTypeLabel = (type) => {
-    const map = { '현장': '[현장]', '회의': '[회의]', '입찰': '[입찰]', '전자입찰': '[전자입찰]', '현설': '[현설]', '견적': '[견적]', '실측': '[실측]', '기타': '[기타]' };
-    return map[type] || '[현장]';
+    const p = scheduleTypePrefix(type);
+    if (p) return p;
+    const first = scheduleTypeTokens(type)[0];
+    return first ? `[${first}]` : '[현장]';
   };
 
   // 플러스 버튼 onClick 핸들러를 handleOpenPopup(selectedDate)로 연결
@@ -1055,15 +1080,7 @@ const CustomCalendar = (props) => {
                     {(() => {
                       const item = items[rubric.source.index];
                       if (!item) return '';
-                      const typePrefix = 
-                        item.type === '현장' ? '[현장]' : 
-                        item.type === '회의' ? '[회의]' : 
-                        item.type === '입찰' ? '[입찰]' : 
-                        item.type === '전자입찰' ? '[전자입찰]' : 
-                        item.type === '현설' ? '[현설]' : 
-                        item.type === '지원' ? '[지원]' : 
-                        item.type === '실측' ? '[실측]' : 
-                        item.type === '기타' ? '' : ''; // 기타 분류 시 [기타] 붙이지 않음
+                      const typePrefix = scheduleTypePrefix(item.type);
                       return typePrefix + (viewMode === '3days' ? item.text : item.text.slice(0, 9));
                     })()}
                   </Box>
@@ -1543,15 +1560,7 @@ const CustomCalendar = (props) => {
                                     />
                                     <Tooltip 
                                       title={(() => {
-                                        const typePrefix = 
-                                          item.type === '현장' ? '[현장]' : 
-                                          item.type === '회의' ? '[회의]' : 
-                                          item.type === '입찰' ? '[입찰]' : 
-                                          item.type === '전자입찰' ? '[전자입찰]' : 
-                                          item.type === '현설' ? '[현설]' : 
-                                          item.type === '견적' ? '[견적]' : 
-                                          item.type === '실측' ? '[실측]' : 
-                                          item.type === '기타' ? '' : '';
+                                        const typePrefix = scheduleTypePrefix(item.type);
                                         const siteName = item.siteName || '';
                                         const title = item.text || '';
                                         let displayTitle = title;
@@ -1585,22 +1594,33 @@ const CustomCalendar = (props) => {
                                           }
                                         }}
                                       >
-                                        {/* 회의/현장은 아이콘 자리에 [회의]/[현장] 텍스트 뱃지 */}
-                                        {(item.type === '현장' || item.type === '회의') && (
-                                          <Typography
-                                            component="span"
-                                            sx={{
-                                              flexShrink: 0,
-                                              fontSize: 'inherit',
-                                              fontWeight: 700,
-                                              color: item.type === '현장' ? '#ff6b6b' : '#4ecdc4'
-                                            }}
-                                          >
-                                            {item.type === '현장' ? '[현장]' : '[회의]'}
-                                          </Typography>
-                                        )}
+                                        {/* 주요 분류는 아이콘 자리에 텍스트 뱃지 */}
+                                        {(() => {
+                                          const t = (item.type || '').toString();
+                                          if (t.includes('현장')) {
+                                            return (
+                                              <Typography component="span" sx={{ flexShrink: 0, fontSize: 'inherit', fontWeight: 700, color: '#ff6b6b' }}>[현장]</Typography>
+                                            );
+                                          }
+                                          if (t.includes('회의')) {
+                                            return (
+                                              <Typography component="span" sx={{ flexShrink: 0, fontSize: 'inherit', fontWeight: 700, color: '#4ecdc4' }}>[회의]</Typography>
+                                            );
+                                          }
+                                          if (t.includes('하자')) {
+                                            return (
+                                              <Typography component="span" sx={{ flexShrink: 0, fontSize: 'inherit', fontWeight: 700, color: '#d63031' }}>[하자]</Typography>
+                                            );
+                                          }
+                                          if (t.includes('샘플')) {
+                                            return (
+                                              <Typography component="span" sx={{ flexShrink: 0, fontSize: 'inherit', fontWeight: 700, color: '#0984e3' }}>[샘플]</Typography>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
                                         <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                          {getResponsiveText(item.text, item.type, item, item.type === '현장' || item.type === '회의')}
+                                          {getResponsiveText(item.text, item.type, item, scheduleTypeIncludes(item.type, '현장') || scheduleTypeIncludes(item.type, '회의') || scheduleTypeIncludes(item.type, '하자') || scheduleTypeIncludes(item.type, '샘플'))}
                                         </span>
                                       </span>
                                     </Tooltip>
@@ -1618,7 +1638,7 @@ const CustomCalendar = (props) => {
                                       }}
                                     >
                                       {/* 날씨 아이콘 - 현장, 현설, 실측, 기타만 표시 */}
-                                      {item.weather && item.weather !== '없음' && (item.type === '현장' || item.type === '현설' || item.type === '실측' || item.type === '기타') && (
+                                      {item.weather && item.weather !== '없음' && scheduleShowsWeather(item.type) && (
                                         <Box
                                           sx={{
                                             fontSize: { xs: '0.8rem', md: '0.9rem' },
@@ -1736,27 +1756,35 @@ const CustomCalendar = (props) => {
             <Typography variant="subtitle2" sx={{ mb: 1 }}>분류 선택</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
               <FormControlLabel
-                control={<Checkbox checked={editPopup.item?.type === '현장'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '현장' } }))} />}
+                control={<Checkbox checked={scheduleTypeIncludes(editPopup.item?.type, '현장')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '현장' } }))} />}
                 label="현장"
               />
               <FormControlLabel
-                control={<Checkbox checked={editPopup.item?.type === '회의'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '회의' } }))} />}
+                control={<Checkbox checked={scheduleTypeIncludes(editPopup.item?.type, '회의')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '회의' } }))} />}
                 label="회의"
               />
               <FormControlLabel
-                control={<Checkbox checked={editPopup.item?.type === '전자입찰'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '전자입찰' } }))} />}
+                control={<Checkbox checked={scheduleTypeIncludes(editPopup.item?.type, '전자입찰')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '전자입찰' } }))} />}
                 label="전자입찰"
               />
               <FormControlLabel
-                control={<Checkbox checked={editPopup.item?.type === '현설'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '현설' } }))} />}
+                control={<Checkbox checked={scheduleTypeIncludes(editPopup.item?.type, '하자')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '하자' } }))} />}
+                label="하자"
+              />
+              <FormControlLabel
+                control={<Checkbox checked={scheduleTypeIncludes(editPopup.item?.type, '현설')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '현설' } }))} />}
                 label="현설"
               />
               <FormControlLabel
-                control={<Checkbox checked={editPopup.item?.type === '실측'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '실측' } }))} />}
+                control={<Checkbox checked={scheduleTypeIncludes(editPopup.item?.type, '샘플')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '샘플' } }))} />}
+                label="샘플"
+              />
+              <FormControlLabel
+                control={<Checkbox checked={scheduleTypeIncludes(editPopup.item?.type, '실측')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '실측' } }))} />}
                 label="실측"
               />
               <FormControlLabel
-                control={<Checkbox checked={editPopup.item?.type === '기타'} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '기타' } }))} />}
+                control={<Checkbox checked={scheduleTypeIncludes(editPopup.item?.type, '기타')} onChange={() => setEditPopup(p => ({ ...p, item: { ...p.item, type: '기타' } }))} />}
                 label="기타"
               />
             </Box>
@@ -1798,8 +1826,7 @@ const CustomCalendar = (props) => {
             
             {/* 날씨 선택 - 현장, 현설, 실측, 기타만 표시 */}
             {(() => {
-              const currentType = editPopup.item?.type;
-              const showWeather = currentType === '현장' || currentType === '현설' || currentType === '실측' || currentType === '기타';
+              const showWeather = scheduleShowsWeather(editPopup.item?.type);
               
               if (!showWeather) return null;
               
@@ -2056,7 +2083,17 @@ const CustomCalendar = (props) => {
                 >
                   <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#fff', mb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography component="span" sx={{ color: type === '현장' ? '#ff6b6b' : type === '회의' ? '#4ecdc4' : '#a5b4fc', fontWeight: 700 }}>
+                      <Typography component="span" sx={{
+                        color: (() => {
+                          const t = (type || '').toString();
+                          if (t.includes('현장')) return '#ff6b6b';
+                          if (t.includes('회의')) return '#4ecdc4';
+                          if (t.includes('하자')) return '#d63031';
+                          if (t.includes('샘플')) return '#0984e3';
+                          return '#a5b4fc';
+                        })(),
+                        fontWeight: 700
+                      }}>
                         {getSiteSearchTypeLabel(type)}
                       </Typography>
                       {siteName}
