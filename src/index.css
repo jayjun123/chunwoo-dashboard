@@ -1121,8 +1121,8 @@ select:not([aria-hidden="true"]):focus,
   z-index: 40000000 !important;
 }
 
-/* 실제 렌더링이 Popover/Modal role로만 잡히는 케이스까지 강제 */
-body > div[role="presentation"],
+/* Popover/Menu 포털 자식만 지정 — body 직속 role=presentation 래퍼에 z-index를 주면
+   전체 화면 레이어가 #root 위로 올라가 클릭·입력이 막힐 수 있음 */
 body > div[role="presentation"] .MuiPopover-root,
 body > div[role="presentation"] .MuiMenu-root,
 body > div[role="presentation"] .MuiPopover-paper,
@@ -1148,19 +1148,8 @@ div[aria-modal="true"] {
   z-index: 20000000 !important;
 }
 
-/* Portal 컨테이너도 최상위 */
-body > div[data-reactroot],
-body > div[id*="mui"],
-body > div[class*="MuiDialog"],
-body > div[class*="MuiModal"] {
-  z-index: 30000000 !important;
-}
-
-/* 모든 Dialog의 자식 요소들도 최상위 */
-.MuiDialog-root *,
-.MuiModal-root * {
-  position: relative;
-}
+/* body 직속 div에 일괄 z-index를 주면 #root와 포털의 쌓임 순서가 뒤집혀
+   입력이 막히는 경우가 있어 제거. MuiDialog/MuiPopover-root 규칙으로 충분함 */
 
 .MuiDialog-paper,
 .MuiModal-backdrop {
