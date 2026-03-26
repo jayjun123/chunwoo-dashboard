@@ -255,7 +255,7 @@ function SiteSelector({ onSelect }) {
   }
 
   return (
-    <Box sx={{ pt: 2, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ pt: 2, flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
         현장을 검색하여 선택하세요
       </Typography>
@@ -286,7 +286,9 @@ function SiteSelector({ onSelect }) {
         sx={{
           flex: 1,
           minHeight: 0,
-          overflow: 'auto',
+          height: '100%',
+          overflowY: 'auto',
+          overflowX: 'hidden',
           borderRadius: 2,
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
@@ -462,6 +464,7 @@ export default function ProjectDSH() {
             flexDirection: 'column',
             gap: 1.5,
             minHeight: 0,
+            height: '100%',
           }}
         >
           <Typography variant="h6" sx={{ fontWeight: 700 }}>

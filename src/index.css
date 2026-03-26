@@ -880,6 +880,17 @@ input, textarea, select, button, a, [role="button"],
   cursor: default !important;
 }
 
+/* Dialog 내부에서 OutlinedInput notchedOutline/legend가
+   Select/Autocomplete 메뉴 위로 겹쳐 보이는 문제를 방지 */
+.MuiDialog-root .MuiOutlinedInput-notchedOutline {
+  z-index: 0 !important;
+  position: relative !important;
+}
+.MuiDialog-root legend {
+  z-index: 0 !important;
+  position: relative !important;
+}
+
 /* IconButton (X버튼) 클릭 보장 */
 .MuiIconButton-root, .MuiInputAdornment-root .MuiIconButton-root {
   pointer-events: auto !important;
@@ -920,16 +931,29 @@ input, textarea, select, button, a, [role="button"],
 .MuiMenu-paper, .MuiPopover-paper {
   background-color: #23242a !important;
   color: #fff !important;
-  z-index: 99999 !important; /* 최상위에 표시 */
+  /* 포털 렌더링(Menu/Popover)은 body로 빠져서 모달 내부 선택자보다 전역 z-index가 안정적임 */
+  z-index: 30000000 !important; /* 포탈로 나가도 항상 최상단 */
+}
+
+.MuiDialog-root .MuiMenu-paper,
+.MuiDialog-root .MuiPopover-paper {
+  /* Dialog(모달) 위로 드롭다운이 반드시 올라오도록 */
+  z-index: 30000000 !important;
+  pointer-events: auto !important;
 }
 
 .MuiMenu-root, .MuiPopover-root {
-  z-index: 99999 !important; /* 최상위에 표시 */
+  z-index: 30000000 !important; /* 기본 */
+}
+
+.MuiDialog-root .MuiMenuItem-root {
+  pointer-events: auto !important;
+  z-index: 30000000 !important;
 }
 
 .MuiList-root {
   background-color: #23242a !important; /* 리스트 배경색 추가 */
-  z-index: 99999 !important; /* 최상위에 표시 */
+  z-index: 30000000 !important; /* 최상위에 표시 */
 }
 
 /* 입력 필드는 선택 가능 및 터치 활성화 - 최우선 적용 */
@@ -1057,51 +1081,63 @@ select:not([aria-hidden="true"]):focus,
 
 /* MUI Dialog 전역 z-index 설정 - 모든 모달이 최상위에 표시되도록 */
 .MuiDialog-root {
-  z-index: 9999999 !important;
+  z-index: 20000000 !important;
 }
 
 .MuiDialog-container {
-  z-index: 9999999 !important;
+  z-index: 20000000 !important;
 }
 
 .MuiDialog-paper {
-  z-index: 9999999 !important;
+  z-index: 20000000 !important;
   position: relative !important;
 }
 
 .MuiBackdrop-root {
-  z-index: 9999998 !important;
+  z-index: 19999999 !important;
 }
 
 /* 모든 Dialog 관련 요소 최상위 설정 */
 [role="dialog"] {
-  z-index: 9999999 !important;
+  z-index: 20000000 !important;
 }
 
+/* Modal은 Dialog/Menu/Popover가 모두 사용하므로
+   여기서 z-index를 고정하면 드롭다운이 Dialog 뒤로 숨는 역전이 발생할 수 있음 */
 .MuiModal-root {
-  z-index: 9999999 !important;
+  z-index: unset !important;
 }
 
 .MuiModal-backdrop {
-  z-index: 9999998 !important;
+  z-index: 19999999 !important;
 }
 
 /* Popover, Menu 등도 최상위 설정 */
 .MuiPopover-root {
-  z-index: 9999999 !important;
+  z-index: 40000000 !important;
 }
 
 .MuiMenu-root {
-  z-index: 9999999 !important;
+  z-index: 40000000 !important;
+}
+
+/* 실제 렌더링이 Popover/Modal role로만 잡히는 케이스까지 강제 */
+body > div[role="presentation"],
+body > div[role="presentation"] .MuiPopover-root,
+body > div[role="presentation"] .MuiMenu-root,
+body > div[role="presentation"] .MuiPopover-paper,
+body > div[role="presentation"] .MuiMenu-paper,
+body > div[role="presentation"] [role="listbox"] {
+  z-index: 40000000 !important;
 }
 
 .MuiDrawer-root {
-  z-index: 9999999 !important;
+  z-index: 20000000 !important;
 }
 
 /* 모든 모달/팝업 요소 강제 최상위 */
 [data-mui-internal-clone-element="true"] {
-  z-index: 9999999 !important;
+  z-index: 30000000 !important;
 }
 
 /* 모든 Dialog 관련 클래스 강제 최상위 */
@@ -1109,7 +1145,7 @@ div[class*="MuiDialog"],
 div[class*="MuiModal"],
 div[role="dialog"],
 div[aria-modal="true"] {
-  z-index: 9999999 !important;
+  z-index: 20000000 !important;
 }
 
 /* Portal 컨테이너도 최상위 */
@@ -1117,7 +1153,7 @@ body > div[data-reactroot],
 body > div[id*="mui"],
 body > div[class*="MuiDialog"],
 body > div[class*="MuiModal"] {
-  z-index: 9999999 !important;
+  z-index: 30000000 !important;
 }
 
 /* 모든 Dialog의 자식 요소들도 최상위 */
@@ -1128,7 +1164,7 @@ body > div[class*="MuiModal"] {
 
 .MuiDialog-paper,
 .MuiModal-backdrop {
-  z-index: 9999999 !important;
+  z-index: 20000000 !important;
 }
 
 /* Autocomplete Popper 최상위 설정 - Dialog 내부에서도 작동 */

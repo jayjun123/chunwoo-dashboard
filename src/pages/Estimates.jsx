@@ -31,6 +31,7 @@ import {
   InputAdornment,
   Tooltip,
   Autocomplete,
+  Popper,
   Container
 } from '@mui/material';
 import MobileSidebar from '../components/MobileSidebar';
@@ -2240,8 +2241,9 @@ const Estimates = () => {
             touchAction: 'auto !important'
           },
           '& .MuiBackdrop-root': {
-            pointerEvents: 'auto !important',
-            touchAction: 'auto !important'
+            // 백드롭에 포인터 이벤트가 걸리면, 메뉴는 보이더라도 실제 클릭이 막힐 수 있음
+            pointerEvents: 'none !important',
+            touchAction: 'none !important'
           }
         }}
       >
@@ -2284,6 +2286,23 @@ const Estimates = () => {
                       '&.Mui-focused fieldset': { borderColor: '#ff9800' }
                     }
                   }}
+                    MenuProps={{
+                      disablePortal: false,
+                      PaperProps: {
+                        sx: {
+                          zIndex: '30000000 !important',
+                          pointerEvents: 'auto !important',
+                          '& .MuiMenuItem-root': { zIndex: '30000000 !important' },
+                        }
+                      },
+                      MenuListProps: {
+                        sx: {
+                          zIndex: '30000000 !important',
+                          pointerEvents: 'auto !important',
+                          '& .MuiMenuItem-root': { zIndex: '30000000 !important' },
+                        }
+                      }
+                    }}
                 >
                   <MenuItem value="견적">견적</MenuItem>
                   <MenuItem value="입찰">입찰</MenuItem>
@@ -2341,6 +2360,17 @@ const Estimates = () => {
                   setFormData({ ...formData, requester: newInputValue || '' });
                 }}
                 freeSolo
+                disablePortal={true}
+                PopperComponent={(popperProps) => (
+                  <Popper
+                    {...popperProps}
+                    style={{
+                      ...(popperProps.style || {}),
+                      zIndex: 9999999,
+                      pointerEvents: 'auto'
+                    }}
+                  />
+                )}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -2388,6 +2418,23 @@ const Estimates = () => {
                       '&.Mui-focused fieldset': { borderColor: '#ff9800' }
                     }
                   }}
+                      MenuProps={{
+                        disablePortal: false,
+                        PaperProps: {
+                          sx: {
+                            zIndex: '30000000 !important',
+                            pointerEvents: 'auto !important',
+                            '& .MuiMenuItem-root': { zIndex: '30000000 !important' },
+                          }
+                        },
+                        MenuListProps: {
+                          sx: {
+                            zIndex: '30000000 !important',
+                            pointerEvents: 'auto !important',
+                            '& .MuiMenuItem-root': { zIndex: '30000000 !important' },
+                          }
+                        }
+                      }}
                 >
                   <MenuItem value="메일">메일</MenuItem>
                   <MenuItem value="우편">우편</MenuItem>
@@ -2530,6 +2577,23 @@ const Estimates = () => {
                       '&.Mui-focused fieldset': { borderColor: '#ff9800' }
                     }
                   }}
+                  MenuProps={{
+                    disablePortal: false,
+                    PaperProps: {
+                      sx: {
+                        zIndex: '30000000 !important',
+                        pointerEvents: 'auto !important',
+                        '& .MuiMenuItem-root': { zIndex: '30000000 !important' },
+                      }
+                    },
+                    MenuListProps: {
+                      sx: {
+                        zIndex: '30000000 !important',
+                        pointerEvents: 'auto !important',
+                        '& .MuiMenuItem-root': { zIndex: '30000000 !important' },
+                      }
+                    }
+                  }}
                 >
                   <MenuItem value="제출대기">제출대기</MenuItem>
                   <MenuItem value="제출완료">제출완료</MenuItem>
@@ -2556,6 +2620,23 @@ const Estimates = () => {
                       '& fieldset': { borderColor: '#444' },
                       '&:hover fieldset': { borderColor: '#666' },
                       '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                    }
+                  }}
+                  MenuProps={{
+                    disablePortal: false,
+                    PaperProps: {
+                      sx: {
+                        zIndex: '30000000 !important',
+                        pointerEvents: 'auto !important',
+                        '& .MuiMenuItem-root': { zIndex: '30000000 !important' },
+                      }
+                    },
+                    MenuListProps: {
+                      sx: {
+                        zIndex: '30000000 !important',
+                        pointerEvents: 'auto !important',
+                        '& .MuiMenuItem-root': { zIndex: '30000000 !important' },
+                      }
                     }
                   }}
                 >

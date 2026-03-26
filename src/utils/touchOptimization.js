@@ -60,11 +60,19 @@ const isSelectElement = (element) => {
   if (!element) return false;
   return (
     element.classList.contains('MuiSelect-root') ||
+    element.classList.contains('MuiSelect-select') ||
+    element.classList.contains('MuiSelect-icon') ||
     element.classList.contains('MuiMenuItem-root') ||
+    element.getAttribute?.('role') === 'combobox' ||
+    element.closest('[role="combobox"]') ||
     element.closest('.MuiSelect-root') ||
+    element.closest('.MuiFormControl-root')?.querySelector?.('[role="combobox"]') === element.closest('[role="combobox"]') ||
+    element.closest('.MuiSelect-select') ||
+    element.closest('.MuiSelect-icon') ||
     element.closest('.MuiMenu-root') ||
     element.closest('.MuiPopover-root') ||
-    element.closest('.MuiList-root')
+    element.closest('.MuiList-root') ||
+    element.closest('[role="listbox"]')
   );
 };
 
@@ -349,19 +357,33 @@ export const optimizeDropdowns = () => {
   // 드롭다운 메뉴 컨테이너 z-index 설정
   const menuContainers = document.querySelectorAll('.MuiMenu-root, .MuiPopover-root, .MuiMenu-paper, .MuiPopover-paper');
   menuContainers.forEach(container => {
-    container.style.zIndex = '99999';
+    container.style.zIndex = '40000000';
   });
   
   // 리스트 컨테이너도 불투명하게
   const listContainers = document.querySelectorAll('.MuiList-root');
   listContainers.forEach(list => {
     list.style.backgroundColor = '#23242a';
-    list.style.zIndex = '99999';
+    list.style.zIndex = '40000000';
   });
 };
 
 // 입력 필드 포커스 강제 활성화
 export const ensureInputFocus = () => {
+  // 데스크톱/견적 페이지에서는 전역 캡처 리스너가
+  // MUI Select 열림 동작을 방해할 수 있어 적용하지 않음
+  const isTouchEnv =
+    typeof window !== 'undefined' &&
+    ('ontouchstart' in window || (navigator && navigator.maxTouchPoints > 0));
+  const isEstimatesPage =
+    typeof window !== 'undefined' &&
+    typeof window.location?.pathname === 'string' &&
+    window.location.pathname.includes('/estimates');
+
+  if (!isTouchEnv || isEstimatesPage) {
+    return;
+  }
+
   // 전역 스타일 강제 적용
   const style = document.createElement('style');
   style.id = 'input-focus-fix';
@@ -388,7 +410,6 @@ export const ensureInputFocus = () => {
       cursor: text !important;
       -webkit-touch-callout: default !important;
       touch-action: manipulation !important;
-      z-index: 9999 !important;
     }
     
     /* select는 드롭다운이므로 포인터 커서 사용 */
@@ -396,7 +417,6 @@ export const ensureInputFocus = () => {
       pointer-events: auto !important;
       cursor: pointer !important;
       touch-action: manipulation !important;
-      z-index: 9999 !important;
     }
     
     input:not(.MuiSelect-nativeInput):not([aria-hidden="true"]):focus, 
@@ -413,14 +433,12 @@ export const ensureInputFocus = () => {
       -ms-user-select: text !important;
       user-select: text !important;
       cursor: text !important;
-      z-index: 10000 !important;
     }
     
     /* select 포커스 시에도 포인터 커서 유지 */
     select:focus, .MuiSelect-root:focus, .MuiSelect-select:focus {
       pointer-events: auto !important;
       cursor: pointer !important;
-      z-index: 10000 !important;
     }
     
     /* 드롭다운 메뉴 항목 스타일 - 인라인 스타일 덮어쓰기 */
@@ -455,16 +473,23 @@ export const ensureInputFocus = () => {
     .MuiMenu-paper, .MuiPopover-paper {
       background-color: #23242a !important;
       color: #fff !important;
-      z-index: 99999 !important; /* 최상위에 표시 */
+      z-index: 40000000 !important; /* 최상위에 표시 */
     }
     
     .MuiMenu-root, .MuiPopover-root {
-      z-index: 99999 !important; /* 최상위에 표시 */
+      z-index: 40000000 !important; /* 최상위에 표시 */
     }
     
     .MuiList-root {
       background-color: #23242a !important; /* 리스트 배경색 추가 */
-      z-index: 99999 !important; /* 최상위에 표시 */
+      z-index: 40000000 !important; /* 최상위에 표시 */
+    }
+
+    /* OutlinedInput fieldset/legend가 클릭을 가로채지 않도록 차단 */
+    .MuiOutlinedInput-notchedOutline,
+    .MuiOutlinedInput-notchedOutline * {
+      pointer-events: none !important;
+      z-index: 0 !important;
     }
   `;
   
@@ -477,6 +502,9 @@ export const ensureInputFocus = () => {
   
   // document 레벨에서 IconButton 클릭 감지 및 처리 (가장 먼저 실행되어야 함)
   const handleIconButtonClick = (e) => {
+    // 견적 페이지에서는 Select/Menu 기본 동작을 절대 방해하지 않음
+    if (typeof window !== 'undefined' && window.location.pathname.includes('/estimates')) return;
+
     const target = e.target;
     console.log('🔵 [1순위] document 레벨 이벤트 감지:', {
       type: e.type,
@@ -565,6 +593,9 @@ export const ensureInputFocus = () => {
   
   // 전역 클릭 이벤트에서 입력 필드 보호 (2순위 - handleIconButtonClick 이후 실행)
   const globalClickHandler = (e) => {
+    // 견적 페이지에서는 Select/Menu 기본 동작을 절대 방해하지 않음
+    if (typeof window !== 'undefined' && window.location.pathname.includes('/estimates')) return;
+
     const target = e.target;
     
     // IconButton (X버튼)인 경우 - 가장 먼저 체크하고 완전히 무시
@@ -675,10 +706,13 @@ export const ensureInputFocus = () => {
       input.style.setProperty('user-select', 'text', 'important');
       input.style.setProperty('-webkit-user-select', 'text', 'important');
       input.style.setProperty('cursor', 'text', 'important');
-      input.style.setProperty('z-index', '9999', 'important');
+      // 입력 요소의 z-index를 올리면 드롭다운과 계층 충돌이 발생할 수 있으므로 제외
       
       // 클릭 이벤트 강제 처리
       const clickHandler = (e) => {
+        // 견적 페이지에서는 Select/Menu 기본 동작을 절대 방해하지 않음
+        if (typeof window !== 'undefined' && window.location.pathname.includes('/estimates')) return;
+
         const target = e.target;
         
         // IconButton (X버튼)인 경우 - 가장 먼저 체크하고 완전히 무시
@@ -856,7 +890,7 @@ export const initializeTouchOptimization = () => {
               newMenuContainers.push(node);
             }
             newMenuContainers.forEach(container => {
-              container.style.zIndex = '99999';
+              container.style.zIndex = '40000000';
             });
             
             // 새로 추가된 리스트 컨테이너도 불투명하게
@@ -866,7 +900,7 @@ export const initializeTouchOptimization = () => {
             }
             newListContainers.forEach(list => {
               list.style.backgroundColor = '#23242a';
-              list.style.zIndex = '99999';
+              list.style.zIndex = '40000000';
             });
           }
         });

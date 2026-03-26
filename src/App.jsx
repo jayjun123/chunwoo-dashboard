@@ -356,6 +356,10 @@ const App = React.memo(() => {
   // 모바일 최적화 초기화
   useEffect(() => {
     try {
+      if (window.location.pathname.includes('/estimates')) {
+        console.log('Skip mobile optimization on estimates page');
+        return;
+      }
       const deviceInfo = initMobileOptimization();
       console.log('Device Info:', deviceInfo);
       
@@ -372,6 +376,10 @@ const App = React.memo(() => {
   // 입력 필드 포커스 강제 활성화 (모든 디바이스)
   useEffect(() => {
     try {
+      if (window.location.pathname.includes('/estimates')) {
+        console.log('Skip input focus optimization on estimates page');
+        return;
+      }
       // 즉시 실행
       ensureInputFocus();
       console.log('Input focus optimization initialized');
@@ -383,6 +391,10 @@ const App = React.memo(() => {
   // 아이패드 터치 최적화 초기화
   useEffect(() => {
     try {
+      if (window.location.pathname.includes('/estimates')) {
+        console.log('Skip iPad touch optimization on estimates page');
+        return;
+      }
       // 아이패드 터치 최적화 적용
       applyIPadTouchOptimization();
       console.log('iPad touch optimization initialized');
@@ -395,6 +407,10 @@ const App = React.memo(() => {
   // 터치 이벤트 최적화 초기화
   useEffect(() => {
     try {
+      if (window.location.pathname.includes('/estimates')) {
+        console.log('Skip touch optimization on estimates page');
+        return;
+      }
       initTouchOptimization();
       console.log('Touch optimization initialized');
     } catch (error) {

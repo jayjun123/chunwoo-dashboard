@@ -502,6 +502,12 @@ const EstimatesMobile = () => {
           PaperProps={{
             sx: { backgroundColor: '#2a2a2a' }
           }}
+          sx={{
+            '& .MuiBackdrop-root': {
+              pointerEvents: 'none !important',
+              touchAction: 'none !important'
+            }
+          }}
         >
           <DialogTitle sx={{ color: '#fff', borderBottom: '1px solid #444' }}>
             {editingEstimate ? '견적 수정' : '견적 추가'}
@@ -673,6 +679,23 @@ const EstimatesMobile = () => {
                         '&.Mui-focused fieldset': { borderColor: '#ff9800' }
                       }
                     }}
+                    MenuProps={{
+                      disablePortal: false,
+                      PaperProps: {
+                        sx: {
+                          zIndex: '30000000 !important',
+                          pointerEvents: 'auto !important',
+                          '& .MuiMenuItem-root': { zIndex: '30000000 !important' },
+                        }
+                      },
+                      MenuListProps: {
+                        sx: {
+                          zIndex: '30000000 !important',
+                          pointerEvents: 'auto !important',
+                          '& .MuiMenuItem-root': { zIndex: '30000000 !important' },
+                        }
+                      }
+                    }}
                   >
                     <MenuItem value="제출대기">제출대기</MenuItem>
                     <MenuItem value="제출완료">제출완료</MenuItem>
@@ -693,6 +716,23 @@ const EstimatesMobile = () => {
                         '& fieldset': { borderColor: '#444' },
                         '&:hover fieldset': { borderColor: '#666' },
                         '&.Mui-focused fieldset': { borderColor: '#ff9800' }
+                      }
+                    }}
+                    MenuProps={{
+                      disablePortal: false,
+                      PaperProps: {
+                        sx: {
+                          zIndex: '30000000 !important',
+                          pointerEvents: 'auto !important',
+                          '& .MuiMenuItem-root': { zIndex: '30000000 !important' },
+                        }
+                      },
+                      MenuListProps: {
+                        sx: {
+                          zIndex: '30000000 !important',
+                          pointerEvents: 'auto !important',
+                          '& .MuiMenuItem-root': { zIndex: '30000000 !important' },
+                        }
                       }
                     }}
                   >
