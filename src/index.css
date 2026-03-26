@@ -76,10 +76,7 @@ body::-webkit-scrollbar,
   -webkit-text-fill-color: #000000 !important;
 }
 
-/* Material-UI Typography 내의 모든 텍스트를 검은색으로 강제 */
-.MuiTypography-root {
-  color: inherit !important;
-}
+/* 전역 Typography에 color !important 금지 — 일정관리 분류 뱃지(#ff6b6b 등) sx 색이 덮임 */
 
 /* 토론의견 채팅 메시지 텍스트는 검은색으로 */
 .chat-message-box .MuiTypography-root {
@@ -204,7 +201,7 @@ div[style*="background-color: #fff"] .MuiTypography-root {
   color: #ffffff !important;
 }
 
-.MuiCard-root .MuiCardContent-root .MuiTypography-root {
+.MuiCard-root .MuiCardContent-root .MuiTypography-root:not(.schedule-type-badge) {
   color: #ffffff !important;
 }
 
@@ -1521,10 +1518,7 @@ body.popup-open {
     color: #ffffff !important;
   }
   
-  /* Typography 다크 테마 강제 */
-  .MuiTypography-root {
-    color: #ffffff !important;
-  }
+  /* Typography는 테마/MUI sx에 맡김 — !important로 일정 분류 색 덮지 않음 */
   
   /* 아이패드에서 현장일정 페이지 다크 테마 강제 */
   .ideapad-container, .mobile-layout, .custom-schedule-mobile {
@@ -1812,7 +1806,7 @@ body.popup-open {
     color: black !important;
   }
   
-  .MuiCard-root .MuiCardContent-root .MuiTypography-root {
+  .MuiCard-root .MuiCardContent-root .MuiTypography-root:not(.schedule-type-badge) {
     color: black !important;
   }
   

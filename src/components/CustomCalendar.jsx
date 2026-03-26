@@ -22,6 +22,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import { getKoreanHolidays, getHolidayInfo } from '../utils/koreanHolidays';
 import { isAdminUserSync, isMasterUserSync } from '../utils/masterUtils';
 import { useAuth } from '../contexts/AuthContext';
+import { getScheduleTypeBadge, getCategoryColorForType } from '../utils/scheduleCategoryColors';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -59,35 +60,6 @@ const CustomCalendar = (props) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { currentUser } = useAuth();
-
-  // 분류별 색상 매핑 함수
-  const getCategoryColor = (itemType) => {
-    const colorMap = {
-      '현장': '#ff6b6b',      // 빨간색
-      '회의': '#4ecdc4',      // 청록색
-      '전자입찰': '#45b7d1',  // 파란색
-      '하자': '#d63031',      // 진한 빨강
-      '샘플': '#0984e3',      // 딥 블루
-      '현설': '#96ceb4',      // 연두색
-      '실측': '#feca57',      // 노란색
-      '기타': '#a55eea',      // 보라색
-      '날씨': '#ff9ff3',      // 핑크색
-      '휴무': '#6c5ce7',      // 보라색
-      '검사': '#fd79a8',      // 핑크색
-      '시설': '#00b894',      // 초록색
-      '관리': '#e17055',      // 주황색
-      '보수': '#74b9ff',      // 하늘색
-      '정비': '#a29bfe',      // 연보라색
-      '청소': '#00cec9',      // 청록색
-      '안전점검': '#fd79a8',  // 핑크색
-      '설비점검': '#6c5ce7',  // 보라색
-      '환경점검': '#00b894',  // 초록색
-      '품질점검': '#e17055',  // 주황색
-      '보안점검': '#74b9ff'   // 하늘색
-    };
-    
-    return colorMap[itemType] || '#181c24'; // 기본 색상
-  };
 
   // 권한 체크
   const canEdit = isAdminUserSync(currentUser) || isMasterUserSync(currentUser);
@@ -1496,7 +1468,7 @@ const CustomCalendar = (props) => {
                                     className={snapshot.isDragging ? 'dragging' : ''}
                                     sx={{
                                       p: { xs: 0.1, sm: 0.1, md: 0.4 },
-                                      bgcolor: item.color === 'transparent' ? 'transparent' : (item.color || getCategoryColor(item.itemType) || (isSelected ? '#3b82f6' : '#181c24')),
+                                      bgcolor: item.color === 'transparent' ? 'transparent' : (item.color || getCategoryColorForType(item.itemType) || (isSelected ? '#3b82f6' : '#181c24')),
                                       color: item.color === 'transparent' ? '#fff' : '#fff',
                                       borderRadius: 1,
                                       fontWeight: 500,
@@ -1594,30 +1566,24 @@ const CustomCalendar = (props) => {
                                           }
                                         }}
                                       >
-                                        {/* 주요 분류는 아이콘 자리에 텍스트 뱃지 */}
+                                        {/* 주요 분류는 아이콘 자리에 텍스트 뱃지 (scheduleCategoryColors와 동일 색) */}
                                         {(() => {
-                                          const t = (item.type || '').toString();
-                                          if (t.includes('현장')) {
-                                            return (
-                                              <Typography component="span" sx={{ flexShrink: 0, fontSize: 'inherit', fontWeight: 700, color: '#ff6b6b' }}>[현장]</Typography>
-                                            );
-                                          }
-                                          if (t.includes('회의')) {
-                                            return (
-                                              <Typography component="span" sx={{ flexShrink: 0, fontSize: 'inherit', fontWeight: 700, color: '#4ecdc4' }}>[회의]</Typography>
-                                            );
-                                          }
-                                          if (t.includes('하자')) {
-                                            return (
-                                              <Typography component="span" sx={{ flexShrink: 0, fontSize: 'inherit', fontWeight: 700, color: '#d63031' }}>[하자]</Typography>
-                                            );
-                                          }
-                                          if (t.includes('샘플')) {
-                                            return (
-                                              <Typography component="span" sx={{ flexShrink: 0, fontSize: 'inherit', fontWeight: 700, color: '#0984e3' }}>[샘플]</Typography>
-                                            );
-                                          }
-                                          return null;
+                                          const badge = getScheduleTypeBadge(item.type);
+                                          if (!badge) return null;
+                                          return (
+                                            <Typography
+                                              component="span"
+                                              className="schedule-type-badge"
+                                              style={{ color: badge.color }}
+                                              sx={{
+                                                flexShrink: 0,
+                                                fontSize: 'inherit',
+                                                fontWeight: 700,
+                                              }}
+                                            >
+                                              {badge.label}
+                                            </Typography>
+                                          );
                                         })()}
                                         <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                           {getResponsiveText(item.text, item.type, item, scheduleTypeIncludes(item.type, '현장') || scheduleTypeIncludes(item.type, '회의') || scheduleTypeIncludes(item.type, '하자') || scheduleTypeIncludes(item.type, '샘플'))}
