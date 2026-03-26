@@ -519,6 +519,23 @@ export const isTouchDevice = () => {
   return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 };
 
+/** 마우스가 주 입력인 하이브리드 PC에서 전역 터치 보정을 켜면 입력이 망가지는 경우가 있어
+ *  iPad/아이폰/안드로이드 또는 (거친 포인터 + 터치)일 때만 보정 적용 */
+export const shouldApplyAggressiveTouchOptimization = () => {
+  if (typeof window === 'undefined') return false;
+  if (isIPad()) return true;
+  const ua = navigator.userAgent || '';
+  const isPhoneTablet =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  if (isPhoneTablet) return true;
+  try {
+    if (window.matchMedia('(pointer: coarse)').matches && isTouchDevice()) return true;
+  } catch (_) {
+    /* ignore */
+  }
+  return false;
+};
+
 // 애플펜슬 전용 터치 최적화 (웹 호환성 개선)
 export const optimizeApplePencil = () => {
   if (isApplePencil()) {
@@ -631,6 +648,7 @@ export const optimizeApplePencil = () => {
       // 애플펜슬 터치 시 즉시 반응하도록 처리
       if (e.touches && e.touches.length > 0) {
         const touch = e.touches[0];
+        const target = e.target;
         
         // 터치 좌표 정확도 개선
         const rect = target.getBoundingClientRect();
@@ -789,7 +807,7 @@ export const enhanceApplePencilTouch = (element) => {
 
 // 아이패드에서만 터치 최적화 적용
 export const applyIPadTouchOptimization = () => {
-  if (isIPad() || isTouchDevice()) {
+  if (shouldApplyAggressiveTouchOptimization()) {
     // 입력 필드 포커스 강제 활성화 먼저 실행
     ensureInputFocus();
     

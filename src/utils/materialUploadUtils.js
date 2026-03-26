@@ -14,18 +14,17 @@ export const fixAriaHiddenIssues = () => {
   try {
     console.log('🔧 aria-hidden 문제 해결 시작');
     
-    // root 요소에서 aria-hidden 제거
-    const rootElement = document.getElementById('root');
-    if (rootElement && rootElement.hasAttribute('aria-hidden')) {
-      console.log('🔧 root 요소에서 aria-hidden 제거');
-      rootElement.removeAttribute('aria-hidden');
-    }
+    // #root의 aria-hidden은 제거하지 않음 — MUI Modal/Dialog가 열릴 때
+    // 배경을 스크린리더에서 숨기기 위해 의도적으로 설정함. 여기서 지우면
+    // 포커스 트랩·입력 포커스가 깨져 전역 입력 불가처럼 보일 수 있음.
     
     // 포커스 가능한 요소가 있는 모든 aria-hidden 요소 찾기
     const ariaHiddenElements = document.querySelectorAll('[aria-hidden="true"]');
     let fixedCount = 0;
     
     ariaHiddenElements.forEach(element => {
+      if (element.id === 'root') return;
+      
       // 포커스 가능한 하위 요소가 있는지 확인
       const focusableDescendants = element.querySelectorAll(
         'button, input, select, textarea, [tabindex], [contenteditable="true"]'

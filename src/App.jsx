@@ -10,7 +10,7 @@ import { globalCleanupManager, enhancedPerformanceMonitor } from './utils/perfor
 import { initializeMobileInputOptimization } from './utils/mobileInputOptimization';
 import { fixAriaHiddenIssues } from './utils/materialUploadUtils';
 import { fixNestedScrollContainers } from './utils/dndScrollFix';
-import { applyIPadTouchOptimization, enhanceApplePencilTouch, ensureInputFocus } from './utils/touchOptimization';
+import { applyIPadTouchOptimization, enhanceApplePencilTouch, ensureInputFocus, shouldApplyAggressiveTouchOptimization } from './utils/touchOptimization';
 import { initTouchOptimization } from './utils/touchUtils';
 import './utils/migrateUtils';
 import './styles/IME.css';
@@ -404,11 +404,14 @@ const App = React.memo(() => {
     }
   }, []);
 
-  // 터치 이벤트 최적화 초기화
+  // 터치 이벤트 최적화 (태블릿·터치 주 입력 기기만 — 하이브리드 노트북 제외)
   useEffect(() => {
     try {
       if (window.location.pathname.includes('/estimates')) {
         console.log('Skip touch optimization on estimates page');
+        return;
+      }
+      if (!shouldApplyAggressiveTouchOptimization()) {
         return;
       }
       initTouchOptimization();
@@ -492,20 +495,10 @@ const App = React.memo(() => {
     }
   }, []);
 
-  // aria-hidden 접근성 문제 해결
+  // aria-hidden 접근성 보정 (#root는 제외 — materialUploadUtils 참고)
   useEffect(() => {
     try {
-      // 앱 시작 시 aria-hidden 문제 해결
       fixAriaHiddenIssues();
-      
-      // 주기적으로 aria-hidden 문제 해결 (5초마다)
-      const interval = setInterval(() => {
-        fixAriaHiddenIssues();
-      }, 5000);
-      
-      return () => {
-        clearInterval(interval);
-      };
     } catch (error) {
       console.error('aria-hidden 문제 해결 초기화 오류:', error);
     }

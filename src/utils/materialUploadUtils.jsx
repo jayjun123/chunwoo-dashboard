@@ -14,18 +14,15 @@ const fixAriaHiddenIssues = () => {
   try {
     console.log('🔧 aria-hidden 문제 해결 시작');
     
-    // root 요소에서 aria-hidden 제거
-    const rootElement = document.getElementById('root');
-    if (rootElement && rootElement.hasAttribute('aria-hidden')) {
-      console.log('🔧 root 요소에서 aria-hidden 제거');
-      rootElement.removeAttribute('aria-hidden');
-    }
+    // #root의 aria-hidden은 건드리지 않음 — MUI 모달이 배경 루트에 설정함.
     
     // 포커스 가능한 요소가 있는 모든 aria-hidden 요소 찾기
     const ariaHiddenElements = document.querySelectorAll('[aria-hidden="true"]');
     let fixedCount = 0;
     
     ariaHiddenElements.forEach(element => {
+      if (element.id === 'root') return;
+      
       // 포커스 가능한 하위 요소가 있는지 확인
       const focusableDescendants = element.querySelectorAll(
         'button, input, select, textarea, [tabindex], [contenteditable="true"]'
