@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { formatNasFetchErrorMessage } from '../utils/nasFetchErrors';
 
 /**
  * 현장 사진(NAS/서버) 조회·업로드·삭제·미리보기 상태 및 로직.
@@ -63,7 +64,11 @@ export function useSitePhotos(selectedSite) {
       setSitePhotos([]);
     } catch (e) {
       console.error('현장사진 로드 실패:', e);
-      setSitePhotosError(e?.message || '현장사진 로드 중 오류가 발생했습니다.');
+      setSitePhotosError(
+        isNasPhotoBackend && nasApiUrl
+          ? formatNasFetchErrorMessage(e, nasApiUrl)
+          : e?.message || '현장사진 로드 중 오류가 발생했습니다.'
+      );
       setSitePhotos([]);
     } finally {
       setSitePhotosLoading(false);

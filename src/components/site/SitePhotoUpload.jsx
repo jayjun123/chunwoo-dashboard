@@ -41,6 +41,7 @@ import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { storage, db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import Image from '../common/Image';
+import { formatNasFetchErrorMessage } from '../../utils/nasFetchErrors';
 
 const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
   const { currentUser } = useAuth();
@@ -122,7 +123,11 @@ const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
       setPhotos(photoList.sort((a, b) => new Date(b.timeCreated) - new Date(a.timeCreated)));
     } catch (error) {
       console.error('사진 로드 실패:', error);
-      setSnackbar({ open: true, message: '사진 로드 중 오류가 발생했습니다.', severity: 'error' });
+      const message =
+        isNasPhotoBackend && nasApiUrl
+          ? formatNasFetchErrorMessage(error, nasApiUrl)
+          : '사진 로드 중 오류가 발생했습니다.';
+      setSnackbar({ open: true, message, severity: 'error' });
     }
   };
 
