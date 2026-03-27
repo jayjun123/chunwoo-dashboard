@@ -650,6 +650,30 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     return filtered;
   }, [gisungList, search, sortField, sortDirection]);
 
+  /** 기성 행의 계약/선급: 현장 마스터(sites)와 매칭되면 최신값, 없으면 행 스냅샷 */
+  const resolveSiteMoney = useMemo(() => {
+    const byName = new Map();
+    (sites || []).forEach((s) => {
+      const n = s?.name?.trim();
+      if (n) byName.set(n, s);
+    });
+    return (row) => {
+      if (!row) return { contractAmount: 0, advance: 0 };
+      let site = row.siteId ? (sites || []).find((s) => s.id === row.siteId) : null;
+      if (!site) site = byName.get((row.name || '').trim());
+      if (site) {
+        return {
+          contractAmount: Number(site.contractAmount) || 0,
+          advance: Number(site.advance) || 0,
+        };
+      }
+      return {
+        contractAmount: Number(row.contractAmount) || 0,
+        advance: Number(row.advance) || 0,
+      };
+    };
+  }, [sites]);
+
   // 통계 데이터
   const stats = useMemo(() => {
     // 현장별 뷰에서 선택된 현장이 있으면 해당 현장의 계약금액 사용
@@ -859,10 +883,11 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           };
         }
 
+        const sm = resolveSiteMoney(row);
         return {
           '현장명': row?.name || '현장명없음',
-          '계약금액': Number(row.contractAmount || 0).toLocaleString(),
-          '선급금': Number(row.advance || 0).toLocaleString(),
+          '계약금액': Number(sm.contractAmount || 0).toLocaleString(),
+          '선급금': Number(sm.advance || 0).toLocaleString(),
           '전회기성': Number(row.prevGisung || 0).toLocaleString(),
           '기성월': row.gisungMonth || '-',
           '기성금액': Number(row.gisungAmount || 0).toLocaleString(),
@@ -1036,10 +1061,11 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
               };
             }
             
+            const smRow = resolveSiteMoney(row);
             return {
               name: row?.name || '현장명없음',
-              contractAmount: Number(row.contractAmount || 0),
-              advance: Number(row.advance || 0),
+              contractAmount: Number(smRow.contractAmount || 0),
+              advance: Number(smRow.advance || 0),
               prevGisung: Number(row.prevGisung || 0),
               gisungAmount: Number(row.gisungAmount || 0),
               gisungMonth: row.gisungMonth || '',
@@ -1388,6 +1414,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     try {
       // 월별 뷰에서는 테이블 내용을 다운로드
       const data = filteredAndSortedGisung.map((row, index) => {
+           const sm = resolveSiteMoney(row);
            // 잔액 계산 (예외항목 제외)
            const currentSeq = parseInt(row.sequence?.replace('차', '') || '0');
            const totalGisungForSite = allGisungData
@@ -1399,15 +1426,15 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                       gSeq <= currentSeq;
              })
              .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
-           const balance = (row.contractAmount || 0) - (row.advance || 0) - totalGisungForSite;
+           const balance = (sm.contractAmount || 0) - (sm.advance || 0) - totalGisungForSite;
 
           return {
             'NO.': index + 1,
             '차수': row.sequence || '1차',
             '기성월': row.gisungMonth || '-',
             '현장명': row.name || '',
-            '계약금액': formatNumber(row.contractAmount, true),
-            '선급금': formatNumber(row.advance, true),
+            '계약금액': formatNumber(sm.contractAmount, true),
+            '선급금': formatNumber(sm.advance, true),
             '전회기성': formatNumber(row.prevGisung, true),
             '금회기성': formatNumber(row.gisungAmount, true),
             '잔액': formatNumber(balance, true),
@@ -2191,6 +2218,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
 
   // 모바일용 기성 데이터 카드 컴포넌트
   const MobileGisungCard = ({ gisung, onEdit, onDelete, onStatusChange, onPaymentStatusChange }) => {
+    const sm = resolveSiteMoney(gisung);
       const handleSiteNameDoubleClick = (e) => {
     e.preventDefault();
     e.stopPropagation(); // 이벤트 전파 중단
@@ -2271,13 +2299,13 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
           <Grid xs={6}>
             <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>계약금액</Typography>
             <Typography sx={{ color: '#43e97b', fontWeight: 700, fontSize: '0.9rem' }}>
-              {formatNumber(gisung.contractAmount, true)}
+              {formatNumber(sm.contractAmount, true)}
             </Typography>
           </Grid>
           <Grid xs={6}>
             <Typography sx={{ color: '#bbb', fontSize: '0.8rem' }}>선급금</Typography>
             <Typography sx={{ color: '#ffd600', fontWeight: 700, fontSize: '0.9rem' }}>
-              {formatNumber(gisung.advance, true)}
+              {formatNumber(sm.advance, true)}
             </Typography>
           </Grid>
           <Grid xs={6}>
@@ -2310,8 +2338,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                    })
                    .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
                  
-                 // 잔액 = 계약금액 - 선급금 - 해당 차수까지의 누계기성
-                 const balance = (gisung.contractAmount || 0) - (gisung.advance || 0) - totalGisungForSite;
+                 // 잔액 = 계약금액 - 선급금 - 해당 차수까지의 누계기성 (계약/선급은 현장 마스터 우선)
+                 const balance = (sm.contractAmount || 0) - (sm.advance || 0) - totalGisungForSite;
                  return balance.toLocaleString();
                })()}원
              </Typography>
@@ -2825,7 +2853,9 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredAndSortedGisung.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map(row => (
+                  filteredAndSortedGisung.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage).map(row => {
+                    const rowMoney = resolveSiteMoney(row);
+                    return (
                     <TableRow 
                       key={row.id}
                       sx={{ 
@@ -2879,7 +2909,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                           row.name}
                       </TableCell>
                       <TableCell sx={{ color: '#43e97b', fontWeight: 700 }}>
-                        {formatNumber(row.contractAmount, true)}
+                        {formatNumber(rowMoney.contractAmount, true)}
                       </TableCell>
                       <TableCell 
                         sx={{ 
@@ -2891,7 +2921,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                           }
                         }}
                       >
-                        {formatNumber(row.advance, true)}
+                        {formatNumber(rowMoney.advance, true)}
                       </TableCell>
                       <TableCell 
                         sx={{ 
@@ -2929,8 +2959,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                              })
                              .reduce((sum, g) => sum + (Number(g.gisungAmount) || 0), 0);
                            
-                           // 잔액 = 계약금액 - 선급금 - 해당 차수까지의 누계기성
-                           const balance = (row.contractAmount || 0) - (row.advance || 0) - totalGisungForSite;
+                           // 잔액 = 계약금액 - 선급금 - 해당 차수까지의 누계기성 (계약/선급은 현장 마스터 우선)
+                           const balance = (rowMoney.contractAmount || 0) - (rowMoney.advance || 0) - totalGisungForSite;
                            return formatNumber(balance, true);
                          })()}
                        </TableCell>
@@ -3012,7 +3042,8 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
                         </IconButton>
                       </TableCell>
                     </TableRow>
-                  ))
+                  );
+                  })
                 )}
               </TableBody>
             </Table>
