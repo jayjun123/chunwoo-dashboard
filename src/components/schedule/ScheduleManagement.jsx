@@ -22,7 +22,7 @@ import { fixNestedScrollContainers, getDroppableStyles, restoreScrollContainers 
 import { firestoreErrorHandler } from '../../utils/firestoreErrorHandler';
 import { isAdminUserSync, isMasterUserSync, debugMasterUser } from '../../utils/masterUtils';
 import { permissionsAPI, membersAPI } from '../../api/database';
-import { getCategoryColorForType } from '../../utils/scheduleCategoryColors';
+import { getCategoryColorForType, stripDuplicateScheduleBadgePrefix } from '../../utils/scheduleCategoryColors';
 
 // CSS 애니메이션을 위한 스타일
 const pulseAnimation = `
@@ -3136,21 +3136,27 @@ const ScheduleManagement = ({
                 // 타입에 따른 태그 매핑
                 const getTypeTag = (type) => {
                   if (!type) return '';
-                  const typeStr = type.toString().toLowerCase();
-                  if (typeStr.includes('현장')) return '[현장]';
-                  if (typeStr.includes('실측')) return '[실측]';
-                  if (typeStr.includes('기타')) return '[기타]';
-                  if (typeStr.includes('회의')) return '[회의]';
-                  if (typeStr.includes('현설')) return '[현설]';
-                  if (typeStr.includes('하자')) return '[하자]';
-                  if (typeStr.includes('샘플')) return '[샘플]';
-                  if (typeStr.includes('입찰')) return '[입찰]';
-                  if (typeStr.includes('견적')) return '[견적]';
+                  const t = type.toString();
+                  if (t.includes('전자입찰')) return '[전자입찰]';
+                  if (t.includes('견적')) return '[견적]';
+                  if (t.includes('입찰')) return '[입찰]';
+                  if (t.includes('현장')) return '[현장]';
+                  if (t.includes('회의')) return '[회의]';
+                  if (t.includes('하자')) return '[하자]';
+                  if (t.includes('현설')) return '[현설]';
+                  if (t.includes('샘플')) return '[샘플]';
+                  if (t.includes('실측')) return '[실측]';
+                  if (t.includes('지원')) return '[지원]';
+                  if (t.includes('기타')) return '[기타]';
                   return `[${type}]`;
                 };
 
                 const typeTag = getTypeTag(item.type);
-                
+                let listItemTitle = stripDuplicateScheduleBadgePrefix(item.type, item.text || '');
+                if (typeTag && listItemTitle.trimStart().startsWith(typeTag)) {
+                  listItemTitle = listItemTitle.trimStart().slice(typeTag.length).trimStart();
+                }
+
                 return (
                   <Paper 
                     key={item.id} 
@@ -3187,7 +3193,7 @@ const ScheduleManagement = ({
                         </Typography>
                       )}
                       <Typography sx={{ fontWeight: 600, flex: 1 }}>
-                        {item.text}
+                        {listItemTitle}
                       </Typography>
                     </Box>
                     {item.desc && (

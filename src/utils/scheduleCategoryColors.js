@@ -6,7 +6,7 @@ export const SCHEDULE_CATEGORY_COLORS = {
   현장: '#ff6b6b',
   회의: '#4ecdc4',
   전자입찰: '#45b7d1',
-  하자: '#d63031',
+  하자: '#ffeb3b',
   샘플: '#0984e3',
   현설: '#96ceb4',
   실측: '#feca57',
@@ -25,7 +25,7 @@ export const SCHEDULE_CATEGORY_COLORS = {
   품질점검: '#e17055',
   보안점검: '#74b9ff',
   견적: '#ba68c8',
-  입찰: '#ff1744',
+  입찰: '#22c55e',
   지원: '#26a69a',
 };
 
@@ -50,8 +50,47 @@ export function getScheduleTypeBadge(typeStr) {
   return null;
 }
 
+/** 뱃지 [분류]와 본문 앞 접두가 겹치면 제거 (목록·드래그 표시 등 공통) */
+export function stripDuplicateScheduleBadgePrefix(typeStr, text) {
+  const badge = getScheduleTypeBadge(typeStr);
+  if (!badge) return text ?? '';
+  let s = String(text ?? '').trimStart();
+  if (s.startsWith(badge.label)) {
+    return s.slice(badge.label.length).trimStart();
+  }
+  return String(text ?? '');
+}
+
 export function getCategoryColorForType(itemType) {
   if (!itemType) return '#181c24';
   const key = String(itemType).split(',')[0].trim();
   return SCHEDULE_CATEGORY_COLORS[key] || '#181c24';
+}
+
+/** 날짜 셀 행 배경 전용 (뱃지 글자색 SCHEDULE_CATEGORY_COLORS와 별도) */
+export const SCHEDULE_CELL_BG_SILCHEUK = '#5b21b6';
+export const SCHEDULE_CELL_BG_BID = '#eab308';
+/** 현장: 분류 색(빨강)을 셀 배경에 쓰지 않고 기본 다크 톤 */
+export const SCHEDULE_CELL_BG_FIELD = '#181c24';
+
+function scheduleTypeTokensForCell(typeStr) {
+  return String(typeStr || '')
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
+/**
+ * 일정 캘린더 날짜 셀 행 배경. 실측→보라, 입찰→노랑, 첫 분류가 현장이면 빨강 배경 제거(다크).
+ * @returns {string|null} 지정 색 또는 null(기존 item.color / getCategoryColorForType 로직 사용)
+ */
+export function getScheduleCellBackground(item) {
+  if (!item) return null;
+  if (item.color === 'transparent') return 'transparent';
+  const typeStr = item.type ?? item.itemType ?? '';
+  const tokens = scheduleTypeTokensForCell(typeStr);
+  if (tokens.includes('실측')) return SCHEDULE_CELL_BG_SILCHEUK;
+  if (tokens.includes('입찰')) return SCHEDULE_CELL_BG_BID;
+  if (tokens[0] === '현장') return SCHEDULE_CELL_BG_FIELD;
+  return null;
 }

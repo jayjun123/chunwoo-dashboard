@@ -22,7 +22,13 @@ import SearchIcon from '@mui/icons-material/Search';
 import { getKoreanHolidays, getHolidayInfo } from '../utils/koreanHolidays';
 import { isAdminUserSync, isMasterUserSync } from '../utils/masterUtils';
 import { useAuth } from '../contexts/AuthContext';
-import { getScheduleTypeBadge, getCategoryColorForType } from '../utils/scheduleCategoryColors';
+import {
+  getScheduleTypeBadge,
+  getCategoryColorForType,
+  getScheduleCellBackground,
+  SCHEDULE_CELL_BG_BID,
+  stripDuplicateScheduleBadgePrefix,
+} from '../utils/scheduleCategoryColors';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -292,7 +298,10 @@ const CustomCalendar = (props) => {
       if (type === '견적' && item && item.title) {
         displayText = item.title;
       }
-      
+      if (skipPrefix) {
+        displayText = stripDuplicateScheduleBadgePrefix(type, displayText);
+      }
+
       const fullText = typePrefix + (displayText || '');
       
       // 보기 모드에 따른 처리
@@ -1053,7 +1062,8 @@ const CustomCalendar = (props) => {
                       const item = items[rubric.source.index];
                       if (!item) return '';
                       const typePrefix = scheduleTypePrefix(item.type);
-                      return typePrefix + (viewMode === '3days' ? item.text : item.text.slice(0, 9));
+                      const body = stripDuplicateScheduleBadgePrefix(item.type, item.text || '');
+                      return typePrefix + (viewMode === '3days' ? body : body.slice(0, 9));
                     })()}
                   </Box>
                 )}
@@ -1442,6 +1452,17 @@ const CustomCalendar = (props) => {
                                   e.target.removeAttribute('data-drag-ready');
                                 };
                                 
+                                const scheduleCellBg = getScheduleCellBackground(item);
+                                const resolvedCellBg =
+                                  scheduleCellBg != null
+                                    ? scheduleCellBg
+                                    : item.color === 'transparent'
+                                      ? 'transparent'
+                                      : (item.color ||
+                                          getCategoryColorForType(item.type || item.itemType) ||
+                                          (isSelected ? '#3b82f6' : '#181c24'));
+                                const isBidYellowCell = scheduleCellBg === SCHEDULE_CELL_BG_BID;
+
                                 return (
                                   <Box
                                     ref={provided.innerRef}
@@ -1468,8 +1489,13 @@ const CustomCalendar = (props) => {
                                     className={snapshot.isDragging ? 'dragging' : ''}
                                     sx={{
                                       p: { xs: 0.1, sm: 0.1, md: 0.4 },
-                                      bgcolor: item.color === 'transparent' ? 'transparent' : (item.color || getCategoryColorForType(item.itemType) || (isSelected ? '#3b82f6' : '#181c24')),
-                                      color: item.color === 'transparent' ? '#fff' : '#fff',
+                                      bgcolor: resolvedCellBg,
+                                      color:
+                                        item.color === 'transparent'
+                                          ? '#fff'
+                                          : isBidYellowCell
+                                            ? '#0f172a'
+                                            : '#fff',
                                       borderRadius: 1,
                                       fontWeight: 500,
                                       fontSize: viewMode === '3days' 
@@ -1539,6 +1565,12 @@ const CustomCalendar = (props) => {
                                         if (siteName && title.includes(siteName)) {
                                           displayTitle = title.replace(siteName, '').trim();
                                         }
+                                        if (typePrefix) {
+                                          const d = displayTitle.trimStart();
+                                          if (d.startsWith(typePrefix)) {
+                                            displayTitle = d.slice(typePrefix.length).trimStart();
+                                          }
+                                        }
                                         const fullText = typePrefix + (siteName ? `${siteName} ` : '') + displayTitle;
                                         return fullText + (item.desc ? `\n${item.desc}` : '');
                                       })()}
@@ -1586,7 +1618,7 @@ const CustomCalendar = (props) => {
                                           );
                                         })()}
                                         <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                          {getResponsiveText(item.text, item.type, item, scheduleTypeIncludes(item.type, '현장') || scheduleTypeIncludes(item.type, '회의') || scheduleTypeIncludes(item.type, '하자') || scheduleTypeIncludes(item.type, '샘플'))}
+                                          {getResponsiveText(item.text, item.type, item, !!getScheduleTypeBadge(item.type))}
                                         </span>
                                       </span>
                                     </Tooltip>
