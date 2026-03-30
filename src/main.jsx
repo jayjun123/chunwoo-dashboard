@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './tailwind.css'
+import { CHLOAD_KEY } from './utils/lazyWithRetry'
 
 console.log('🚀 main.jsx 파일이 로드되었습니다!');
 console.log('📍 현재 환경:', import.meta.env.MODE);
@@ -11,10 +12,45 @@ console.log('📍 현재 URL:', window.location.href);
 window.addEventListener('error', (event) => {
   console.error('🔥 전역 오류 발생:', event.error);
   console.error('🔥 오류 위치:', event.filename, ':', event.lineno);
+
+  try {
+    const msg = String(event?.message || '');
+    const err = event?.error;
+    const errMsg = String(err?.message || '');
+    const isChunkLoadFail =
+      msg.includes('Failed to fetch dynamically imported module') ||
+      msg.toLowerCase().includes('dynamically imported module') ||
+      errMsg.includes('Failed to fetch dynamically imported module') ||
+      errMsg.toLowerCase().includes('dynamically imported module') ||
+      String(err?.name || '') === 'ChunkLoadError';
+
+    if (isChunkLoadFail && !sessionStorage.getItem(CHLOAD_KEY)) {
+      sessionStorage.setItem(CHLOAD_KEY, '1');
+      window.location.reload();
+    }
+  } catch {
+    // ignore
+  }
 });
 
 window.addEventListener('unhandledrejection', (event) => {
   console.error('🔥 처리되지 않은 Promise 오류:', event.reason);
+
+  try {
+    const reason = event?.reason;
+    const msg = String(reason?.message || '');
+    const isChunkLoadFail =
+      msg.includes('Failed to fetch dynamically imported module') ||
+      msg.toLowerCase().includes('dynamically imported module') ||
+      String(reason?.name || '') === 'ChunkLoadError';
+
+    if (isChunkLoadFail && !sessionStorage.getItem(CHLOAD_KEY)) {
+      sessionStorage.setItem(CHLOAD_KEY, '1');
+      window.location.reload();
+    }
+  } catch {
+    // ignore
+  }
 });
 
 // 즉시 렌더링 시도

@@ -14,7 +14,7 @@ function isChunkLoadError(error) {
   return CHUNK_MARKERS.some((m) => msg.includes(m));
 }
 
-const CHLOAD_KEY = 'chunk_reload_once';
+export const CHLOAD_KEY = 'chunk_reload_once';
 
 /**
  * Vite/Netlify 배포 후 만료된 청크 URL 요청 시 1회 자동 새로고침
