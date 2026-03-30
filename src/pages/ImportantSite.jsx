@@ -633,8 +633,13 @@ export default function ImportantSite() {
   };
 
   // 현장 진행상황 라벨: 예정현장 / 진행중 현장 / 완료 현장
+  // (공기만 보면: 종료일이 미래로 잘못 들어가 있어도 DB상 완료면 완료로 안 보임 → status 우선)
   const getSiteStatusLabel = (site) => {
     if (!site) return '완료 현장';
+    const statusNorm = (site.status || '').toString().trim();
+    if (statusNorm === '완료') return '완료 현장';
+    if (statusNorm === '예정') return '예정현장';
+
     const today = new Date();
     const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     let startDate = null;
