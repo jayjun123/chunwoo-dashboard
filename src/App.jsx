@@ -1,4 +1,4 @@
-import React, { useEffect, useState, Suspense, lazy } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material/styles';
 import { Box, CssBaseline } from '@mui/material';
@@ -60,14 +60,15 @@ const LoadingSpinner = () => (
 );
 import { URL_ALIASES, expandUrl } from './utils/urlShortener';
 import errorHandler from './utils/errorHandler';
+import { lazyWithRetry } from './utils/lazyWithRetry';
 
 // 성능 최적화: 추가 페이지들을 lazy loading으로 변경
-const TemplateUpload = React.lazy(() => import('./pages/TemplateUpload'));
-const CompanyDistribution = React.lazy(() => import('./pages/CompanyDistribution'));
-const SettlementManagement = React.lazy(() => import('./pages/SettlementManagement'));
-const SettlementDetail = React.lazy(() => import('./pages/SettlementDetail'));
-const Mapping = React.lazy(() => import('./pages/Mapping'));
-const ProjectDSH = React.lazy(() => import('./pages/ProjectDSH'));
+const TemplateUpload = lazyWithRetry(() => import('./pages/TemplateUpload'));
+const CompanyDistribution = lazyWithRetry(() => import('./pages/CompanyDistribution'));
+const SettlementManagement = lazyWithRetry(() => import('./pages/SettlementManagement'));
+const SettlementDetail = lazyWithRetry(() => import('./pages/SettlementDetail'));
+const Mapping = lazyWithRetry(() => import('./pages/Mapping'));
+const ProjectDSH = lazyWithRetry(() => import('./pages/ProjectDSH'));
 
 // 임시: 현장명 동기화 함수
 import { syncSiteNames } from './scripts/syncSiteNames';
@@ -208,53 +209,53 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
   window.syncSiteNamesDirect = syncSiteNamesDirect;
   window.addSequenceToCostsDirect = addSequenceToCostsDirect;
 }
-const Safety = React.lazy(() => import('./pages/Safety'));
-const SafetyInspections = React.lazy(() => import('./components/safety/SafetyInspections'));
-const SafetyIncidents = React.lazy(() => import('./components/safety/SafetyIncidents'));
-const SafetyTraining = React.lazy(() => import('./components/safety/SafetyTraining'));
-const SafetyReports = React.lazy(() => import('./components/safety/SafetyReports'));
+const Safety = lazyWithRetry(() => import('./pages/Safety'));
+const SafetyInspections = lazyWithRetry(() => import('./components/safety/SafetyInspections'));
+const SafetyIncidents = lazyWithRetry(() => import('./components/safety/SafetyIncidents'));
+const SafetyTraining = lazyWithRetry(() => import('./components/safety/SafetyTraining'));
+const SafetyReports = lazyWithRetry(() => import('./components/safety/SafetyReports'));
 // 성능 최적화: 페이지 컴포넌트들을 lazy loading으로 변경
-const ConstructionTeam = React.lazy(() => import('./pages/DaemaTeam'));
-const TeamSettlement = React.lazy(() => import('./pages/TeamSettlement'));
-const Discussions = React.lazy(() => import('./pages/Discussions'));
-const Vendors = React.lazy(() => import('./pages/Vendors'));
-const VendorManagement = React.lazy(() => import('./pages/VendorManagement'));
-const Progress = React.lazy(() => import('./pages/Progress'));
-const Members = React.lazy(() => import('./pages/Members'));
-const Permissions = React.lazy(() => import('./pages/Permissions'));
-const TodoList = React.lazy(() => import('./components/TodoList'));
-const Settings = React.lazy(() => import('./pages/Settings'));
-const Cost = React.lazy(() => import('./pages/Cost'));
-const Users = React.lazy(() => import('./pages/Users'));
-const ImportantSite = React.lazy(() => import('./pages/ImportantSite'));
-const NewSites = React.lazy(() => import('./pages/NewSites'));
-const GisungStatusPage = React.lazy(() => import('./components/GisungStatusPage'));
-const SiteDetail = React.lazy(() => import('./components/sites/SiteDetail'));
+const ConstructionTeam = lazyWithRetry(() => import('./pages/DaemaTeam'));
+const TeamSettlement = lazyWithRetry(() => import('./pages/TeamSettlement'));
+const Discussions = lazyWithRetry(() => import('./pages/Discussions'));
+const Vendors = lazyWithRetry(() => import('./pages/Vendors'));
+const VendorManagement = lazyWithRetry(() => import('./pages/VendorManagement'));
+const Progress = lazyWithRetry(() => import('./pages/Progress'));
+const Members = lazyWithRetry(() => import('./pages/Members'));
+const Permissions = lazyWithRetry(() => import('./pages/Permissions'));
+const TodoList = lazyWithRetry(() => import('./components/TodoList'));
+const Settings = lazyWithRetry(() => import('./pages/Settings'));
+const Cost = lazyWithRetry(() => import('./pages/Cost'));
+const Users = lazyWithRetry(() => import('./pages/Users'));
+const ImportantSite = lazyWithRetry(() => import('./pages/ImportantSite'));
+const NewSites = lazyWithRetry(() => import('./pages/NewSites'));
+const GisungStatusPage = lazyWithRetry(() => import('./components/GisungStatusPage'));
+const SiteDetail = lazyWithRetry(() => import('./components/sites/SiteDetail'));
 
-const WholeList = React.lazy(() => import('./pages/WholeList'));
-const Profile = React.lazy(() => import('./components/Profile'));
-const NewsFavorites = React.lazy(() => import('./pages/NewsFavorites'));
-const PDFTest = React.lazy(() => import('./pages/PDFTest'));
-const NotFound = React.lazy(() => import('./components/NotFound'));
-const Register = React.lazy(() => import('./components/Register'));
-const RegisterSuccess = React.lazy(() => import('./components/RegisterSuccess'));
-const ForgotPassword = React.lazy(() => import('./components/ForgotPassword'));
-const CustomSchedule = React.lazy(() => import('./pages/CustomSchedule'));
-const QuantityCheck = React.lazy(() => import('./pages/QuantityCheck'));
-const ScheduleManagement = React.lazy(() => import('./components/schedule/ScheduleManagement'));
-const NotepadApp = React.lazy(() => import('./components/NotepadApp'));
-const GanttChartPage = React.lazy(() => import('./pages/GanttChart'));
-const Estimates = React.lazy(() => import('./pages/Estimates'));
-const Claims = React.lazy(() => import('./pages/Claims'));
-const Confidential = React.lazy(() => import('./pages/Confidential'));
-const UserManual = React.lazy(() => import('./pages/UserManual'));
-const WorkflowDiagramPage = React.lazy(() => import('./pages/WorkflowDiagramPage'));
-const EstimateAnalysis = React.lazy(() => import('./pages/EstimateAnalysis'));
-const LandingPage = React.lazy(() => import('./pages/LandingPage'));
-const NotificationCrawler = React.lazy(() => import('./components/NotificationCrawler'));
-const HyunjangSch = React.lazy(() => import('./pages/HyunjangSch'));
-const AISummary = React.lazy(() => import('./pages/AISummary'));
-const MailDashboard = React.lazy(() => import('./pages/MailDashboard'));
+const WholeList = lazyWithRetry(() => import('./pages/WholeList'));
+const Profile = lazyWithRetry(() => import('./components/Profile'));
+const NewsFavorites = lazyWithRetry(() => import('./pages/NewsFavorites'));
+const PDFTest = lazyWithRetry(() => import('./pages/PDFTest'));
+const NotFound = lazyWithRetry(() => import('./components/NotFound'));
+const Register = lazyWithRetry(() => import('./components/Register'));
+const RegisterSuccess = lazyWithRetry(() => import('./components/RegisterSuccess'));
+const ForgotPassword = lazyWithRetry(() => import('./components/ForgotPassword'));
+const CustomSchedule = lazyWithRetry(() => import('./pages/CustomSchedule'));
+const QuantityCheck = lazyWithRetry(() => import('./pages/QuantityCheck'));
+const ScheduleManagement = lazyWithRetry(() => import('./components/schedule/ScheduleManagement'));
+const NotepadApp = lazyWithRetry(() => import('./components/NotepadApp'));
+const GanttChartPage = lazyWithRetry(() => import('./pages/GanttChart'));
+const Estimates = lazyWithRetry(() => import('./pages/Estimates'));
+const Claims = lazyWithRetry(() => import('./pages/Claims'));
+const Confidential = lazyWithRetry(() => import('./pages/Confidential'));
+const UserManual = lazyWithRetry(() => import('./pages/UserManual'));
+const WorkflowDiagramPage = lazyWithRetry(() => import('./pages/WorkflowDiagramPage'));
+const EstimateAnalysis = lazyWithRetry(() => import('./pages/EstimateAnalysis'));
+const LandingPage = lazyWithRetry(() => import('./pages/LandingPage'));
+const NotificationCrawler = lazyWithRetry(() => import('./components/NotificationCrawler'));
+const HyunjangSch = lazyWithRetry(() => import('./pages/HyunjangSch'));
+const AISummary = lazyWithRetry(() => import('./pages/AISummary'));
+const MailDashboard = lazyWithRetry(() => import('./pages/MailDashboard'));
 
 const App = React.memo(() => {
   // 아이디어패드 상태
@@ -1320,7 +1321,7 @@ const App = React.memo(() => {
 
 // TodoList Wrapper 컴포넌트
 const TodoListWrapper = ({ onFloatingMode }) => {
-  const TodoList = React.lazy(() => import('./components/TodoList'));
+  const TodoList = lazyWithRetry(() => import('./components/TodoList'));
   return (
     <Suspense fallback={<LoadingSpinner />}>
       <TodoList onFloatingMode={onFloatingMode} />

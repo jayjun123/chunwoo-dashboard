@@ -44,6 +44,12 @@
   to = "/index.html"
   status = 200
 
+# 새 배포 후에도 항상 최신 index.html(청크 경로)을 받도록
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
 [[headers]]
   for = "/*"
   [headers.values]
