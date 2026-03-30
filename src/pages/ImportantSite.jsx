@@ -1444,6 +1444,14 @@ export default function ImportantSite() {
         }}>
             {siteGroups.map(group => {
               const items = Array.isArray(group.items) ? group.items : [];
+              const siteItemsForCount = items.filter((i) => i.type === 'site');
+              let groupCountOngoing = 0;
+              let groupCountDone = 0;
+              siteItemsForCount.forEach((item) => {
+                const { statusLabel } = getGroupSiteDisplay(item.siteId);
+                if (statusLabel === '진행중 현장') groupCountOngoing += 1;
+                else if (statusLabel === '완료 현장') groupCountDone += 1;
+              });
             return (
               <Grid size={{ xs: 12, sm: 12, md: 12 }} key={`group-${group.id}`} sx={{ minWidth: isMobile ? 'auto' : '700px' }}>
                 <Paper
@@ -1470,11 +1478,24 @@ export default function ImportantSite() {
                   }}
                 >
                   <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Typography variant="h6" sx={{ fontWeight: 800, color: '#90caf9' }}>
-                        {group.title || '그룹'}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 1, minWidth: 0, flex: '1 1 auto' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 800, color: '#90caf9' }}>
+                          {group.title || '그룹'}
+                        </Typography>
+                        <Typography
+                          component="span"
+                          sx={{
+                            fontSize: { xs: '1rem', sm: '1.1rem', md: '1.2rem' },
+                            color: '#94a3b8',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          [ 진행 : {String(groupCountOngoing).padStart(2, '0')}개 / 완료 : {String(groupCountDone).padStart(2, '0')}개 ]
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
                         <Button
                           size="small"
                           variant="outlined"
