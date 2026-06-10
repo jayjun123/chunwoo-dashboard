@@ -46,7 +46,7 @@ import { formatNasFetchErrorMessage } from '../../utils/nasFetchErrors';
 const SitePhotoUpload = ({ open, onClose, siteId, siteName }) => {
   const { currentUser } = useAuth();
   const isNasPhotoBackend = import.meta.env.VITE_SITE_PHOTOS_BACKEND === 'nas';
-  const nasApiUrl = import.meta.env.VITE_NAS_API_URL;
+  const nasApiUrl = (import.meta.env.VITE_NAS_API_URL || '').replace(/\/+$/, '');
   const photosApiKey = import.meta.env.VITE_PHOTOS_API_KEY;
   const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);

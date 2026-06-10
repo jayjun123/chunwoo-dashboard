@@ -866,7 +866,8 @@ const ScheduleManagement = ({
       ? sites
       : sites.filter(site => isInMonth(site, year, month));
 
-    let searchFiltered = baseList;
+    // 이달의 현장: 상태가 '미정'인 현장은 표시하지 않음
+    let searchFiltered = baseList.filter(site => site.status !== '미정');
     
     if (siteSearchTerm) {
       const searchLower = siteSearchTerm.toLowerCase();

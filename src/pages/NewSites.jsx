@@ -314,8 +314,9 @@ const NewSites = () => {
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const sitesData = snapshot.docs.map(doc => {
         const data = { id: doc.id, ...doc.data() };
-        if (data.status === '진행중') data.status = '진행';
+        if (data.status === '진행중' || data.status === '진행 중') data.status = '진행';
         else if (data.status === '진행상황') data.status = '예정';
+        else if (data.status === '완료됨' || data.status === '완공') data.status = '완료';
         // 회사명 필드 호환: company → companyName 통합
         if (!data.companyName && data.company) {
           data.companyName = data.company;
@@ -704,70 +705,60 @@ const NewSites = () => {
     }).length;
   }, [sites, statusTab, paymentStatusMap]);
 
-  const filteredSites = useMemo(() => {
+  const statusTabSites = useMemo(() => {
     const today = new Date();
-    const sixtyDaysAgo = new Date(today.getTime() - (60 * 24 * 60 * 60 * 1000)); // 60일 전
-    
-    let filtered = sites
-      .filter(site => site.status === statusTab)
-      .filter(site => {
-        // 완료 상태인 현장의 경우, 준공일이 60일 이상 지났으면 제외 (단, showHiddenCompleted가 true이면 포함)
+    const sixtyDaysAgo = new Date(today.getTime() - (60 * 24 * 60 * 60 * 1000));
+
+    const filtered = sites
+      .filter((site) => site.status === statusTab)
+      .filter((site) => {
         if (site.status === '완료' && site.endDate) {
           try {
             const endDate = new Date(site.endDate);
             if (!isNaN(endDate.getTime()) && endDate < sixtyDaysAgo) {
-              // 60일 이상 지난 완료 현장이지만 입금처리가 안된 현장은 항상 표시
               const paymentStatus = paymentStatusMap[site.name];
               if (paymentStatus && !paymentStatus.isFullyPaid) {
-                return true; // 입금처리 안된 현장은 항상 표시
+                return true;
               }
-              return showHiddenCompleted; // 입금처리 완료된 현장은 숨겨진 목록 보기 모드일 때만 포함
+              return showHiddenCompleted;
             }
           } catch (error) {
             console.warn('현장 준공일 파싱 오류:', site?.name, site.endDate, error);
           }
         }
         return true;
-      })
-      .filter(site => {
-        const searchLower = searchTerm.toLowerCase();
-        return (
-          site?.name?.toLowerCase().includes(searchLower) ||
-          (site.companyName && site.companyName.toLowerCase().includes(searchLower)) ||
-          (site.manager && site.manager.toLowerCase().includes(searchLower)) ||
-          (site.address && site.address.toLowerCase().includes(searchLower)) ||
-          (site.contractType && site.contractType.toLowerCase().includes(searchLower)) ||
-          (site.windowCompany && site.windowCompany.toLowerCase().includes(searchLower)) ||
-          (site.note && site.note.toLowerCase().includes(searchLower)) ||
-          (site.desc && site.desc.toLowerCase().includes(searchLower))
-        );
       });
-    
-    // 주요현장을 제일 위로, 나머지는 가나다 순으로 정렬
+
     const favoriteSites = [];
     const normalSites = [];
-    
-    filtered.forEach(site => {
-      // 주요현장 여부 확인
+    filtered.forEach((site) => {
       if (site.isFavorite === true) {
         favoriteSites.push(site);
       } else {
         normalSites.push(site);
       }
     });
-    
-    // 가나다 순 정렬 함수
-    const sortByName = (a, b) => {
-      return (a.name || '').localeCompare(b.name || '', 'ko');
-    };
-    
-    // 주요현장을 가나다 순으로 정렬 후, 일반현장을 가나다 순으로 정렬
+
+    const sortByName = (a, b) => (a.name || '').localeCompare(b.name || '', 'ko');
     favoriteSites.sort(sortByName);
     normalSites.sort(sortByName);
-    
-    // 주요현장을 먼저, 일반현장을 나중에 배치
     return [...favoriteSites, ...normalSites];
-  }, [sites, statusTab, searchTerm, showHiddenCompleted, paymentStatusMap]);
+  }, [sites, statusTab, showHiddenCompleted, paymentStatusMap]);
+
+  const filteredSites = useMemo(() => {
+    const searchLower = searchTerm.toLowerCase();
+    if (!searchLower) return statusTabSites;
+    return statusTabSites.filter((site) => (
+      site?.name?.toLowerCase().includes(searchLower) ||
+      (site.companyName && site.companyName.toLowerCase().includes(searchLower)) ||
+      (site.manager && site.manager.toLowerCase().includes(searchLower)) ||
+      (site.address && site.address.toLowerCase().includes(searchLower)) ||
+      (site.contractType && site.contractType.toLowerCase().includes(searchLower)) ||
+      (site.windowCompany && site.windowCompany.toLowerCase().includes(searchLower)) ||
+      (site.note && site.note.toLowerCase().includes(searchLower)) ||
+      (site.desc && site.desc.toLowerCase().includes(searchLower))
+    ));
+  }, [statusTabSites, searchTerm]);
 
   const handleSelectSite = async (site) => {
     setSelectedSite(site);

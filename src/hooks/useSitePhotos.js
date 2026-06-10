@@ -4,11 +4,10 @@ import { formatNasFetchErrorMessage } from '../utils/nasFetchErrors';
 /**
  * 현장 사진(NAS/서버) 조회·업로드·삭제·미리보기 상태 및 로직.
  * @param {{ id?: string; name?: string } | null} selectedSite - 선택된 현장
- * @returns {object} 사진 관련 state, refs, 핸들러
  */
 export function useSitePhotos(selectedSite) {
   const isNasPhotoBackend = import.meta.env.VITE_SITE_PHOTOS_BACKEND === 'nas';
-  const nasApiUrl = import.meta.env.VITE_NAS_API_URL;
+  const nasApiUrl = (import.meta.env.VITE_NAS_API_URL || '').replace(/\/+$/, '');
   const photosApiKey = import.meta.env.VITE_PHOTOS_API_KEY;
 
   const [showSitePhotosSection, setShowSitePhotosSection] = useState(true);
@@ -143,7 +142,7 @@ export function useSitePhotos(selectedSite) {
   useEffect(() => {
     if (!showSitePhotosSection) return;
     loadSitePhotos();
-  }, [showSitePhotosSection, loadSitePhotos]);
+  }, [selectedSite?.id, selectedSite?.name, showSitePhotosSection, isNasPhotoBackend, nasApiUrl, loadSitePhotos]);
 
   useEffect(() => {
     if (!selectedPreviewPhoto) return;

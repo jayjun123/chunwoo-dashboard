@@ -56,12 +56,12 @@ import { PieChart, Pie, Cell } from 'recharts';
 import GisungList from '../components/GisungList';
 import GisungStatusTable from '../components/GisungStatusTable';
 import GisungStatusPage from '../components/GisungStatusPage';
-import * as XLSX from 'xlsx';
 import Cost from './Cost';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import SearchableSiteSelect from '../components/common/SearchableSiteSelect';
 import { syncProgressToCost } from '../utils/integrationUtils';
 import { generateDocumentExcel } from '../utils/materialUploadUtils.jsx';
+import { scheduleTypeIncludes } from '../utils/scheduleCategoryColors';
 
 // 핀치 줌 훅
 const usePinchZoom = () => {
@@ -218,6 +218,74 @@ const ZoomableChart = ({ children, title, isMobile }) => {
   );
 };
 
+const getScheduleDateStr = (schedule) => {
+  if (!schedule?.date) return null;
+  if (schedule.date.toDate) {
+    return schedule.date.toDate().toISOString().slice(0, 10);
+  }
+  if (schedule.date instanceof Date) {
+    return schedule.date.toISOString().slice(0, 10);
+  }
+  return String(schedule.date).slice(0, 10);
+};
+
+const getFieldScheduleSitesInMonth = (schedules, year, month) => {
+  const siteIds = new Set();
+  const siteNames = new Set();
+
+  schedules.forEach(schedule => {
+    const typeStr = schedule.type || schedule.itemType || '';
+    if (!scheduleTypeIncludes(typeStr, '현장')) return;
+
+    const dateStr = getScheduleDateStr(schedule);
+    if (!dateStr) return;
+
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime()) || d.getFullYear() !== year || d.getMonth() !== month) {
+      return;
+    }
+
+    if (schedule.siteId) siteIds.add(schedule.siteId);
+    const name = (schedule.siteName || schedule.text || '').trim();
+    if (name) siteNames.add(name);
+  });
+
+  return { siteIds, siteNames };
+};
+
+const siteHasFieldScheduleInMonth = (site, fieldScheduleSet) => {
+  if (!site) return false;
+  if (fieldScheduleSet.siteIds.has(site.id)) return true;
+  const name = (site.name || '').trim();
+  return name && fieldScheduleSet.siteNames.has(name);
+};
+
+const parseAmountNumber = (val) => {
+  if (val == null || val === '') return 0;
+  const num = Number(String(val).replace(/,/g, ''));
+  return Number.isNaN(num) ? 0 : num;
+};
+
+const formatAmount = (val) => parseAmountNumber(val).toLocaleString('ko-KR');
+
+const getSiteGisungSummary = (progressList, siteName) => {
+  const name = (siteName || '').trim();
+  const siteGisungData = progressList.filter(item => {
+    const itemName = (item.name || item.siteName || '').trim();
+    return itemName === name;
+  });
+  const isAdvanceRow = (g) => g.note && String(g.note).trim().includes('선급금');
+  const totalGisung = siteGisungData.reduce(
+    (sum, g) => sum + parseAmountNumber(g.gisungAmount),
+    0
+  );
+  const paidFromGisung = siteGisungData
+    .filter(g => g.paymentStatus === '입금완료' && !isAdvanceRow(g))
+    .reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
+
+  return { totalGisung, paidFromGisung, gisungCount: siteGisungData.length };
+};
+
 const Progress = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -363,12 +431,17 @@ const Progress = () => {
   };
   
   const [sites, setSites] = useState([]);
+  const [schedules, setSchedules] = useState([]);
   // 현장별 검색 상태 추가
   const [selectedSites, setSelectedSites] = useState([]);
   const [siteSearchTerm, setSiteSearchTerm] = useState('');
   const [filteredSiteId, setFilteredSiteId] = useState(null);
   const [filteredSiteName, setFilteredSiteName] = useState('');
   const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
+  const [isInitialDataLoaded, setIsInitialDataLoaded] = useState(false);
+  const [missingGisungModalOpen, setMissingGisungModalOpen] = useState(false);
+  const [missingGisungList, setMissingGisungList] = useState([]);
+  const missingGisungCheckedRef = useRef(false);
 
   // 탭 상태 변화 추적
   useEffect(() => {
@@ -530,12 +603,68 @@ const Progress = () => {
   // 초기 데이터 로딩 및 현장 선택 변경 시 데이터 재로드
   useEffect(() => {
     const loadInitialData = async () => {
+      setIsInitialDataLoaded(false);
       await fetchProgress();
       await fetchSites();
+      await fetchSchedules();
       await fetchCosts();
+      setIsInitialDataLoaded(true);
     };
     loadInitialData();
   }, [selectedSites.length, forceUpdate]); // selectedSites.length만 의존성으로 사용
+
+  // 기성관리 진입 시: 현재달·이전달 '현장' 분류 일정 현장 중 기성 미등록 목록 팝업
+  useEffect(() => {
+    if (!isInitialDataLoaded || missingGisungCheckedRef.current || sites.length === 0) return;
+
+    const now = new Date();
+    const targetMonths = [
+      {
+        year: now.getFullYear(),
+        month: now.getMonth(),
+        label: `${now.getFullYear()}년 ${now.getMonth() + 1}월`,
+      },
+      (() => {
+        const prev = subMonths(now, 1);
+        return {
+          year: prev.getFullYear(),
+          month: prev.getMonth(),
+          label: `${prev.getFullYear()}년 ${prev.getMonth() + 1}월`,
+        };
+      })(),
+    ];
+
+    const missing = [];
+    targetMonths.forEach(({ year, month, label }) => {
+      const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+      const fieldScheduleSet = getFieldScheduleSitesInMonth(schedules, year, month);
+
+      sites
+        .filter(site => site.status !== '미정' && siteHasFieldScheduleInMonth(site, fieldScheduleSet))
+        .forEach(site => {
+          const hasGisung = progressList.some(item => {
+            const itemName = (item.name || item.siteName || '').trim();
+            if (itemName !== (site.name || '').trim()) return false;
+            const itemMonth = item.gisungMonth || item.month;
+            return itemMonth && isSameMonth(itemMonth, monthStr);
+          });
+          if (!hasGisung) {
+            missing.push({
+              siteId: site.id,
+              siteName: site.name,
+              month: monthStr,
+              monthLabel: label,
+            });
+          }
+        });
+    });
+
+    missingGisungCheckedRef.current = true;
+    if (missing.length > 0) {
+      setMissingGisungList(missing);
+      setMissingGisungModalOpen(true);
+    }
+  }, [isInitialDataLoaded, sites, schedules, progressList]);
 
   // 탭 변경 시 데이터 재로드
   useEffect(() => {
@@ -599,6 +728,17 @@ const Progress = () => {
     }
   };
 
+  const fetchSchedules = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, 'schedules'));
+      const schedulesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setSchedules(schedulesData);
+    } catch (e) {
+      console.error('일정 데이터 조회 실패:', e);
+      setSchedules([]);
+    }
+  };
+
   const fetchCosts = async () => {
     try {
       console.log('=== 지출 데이터 로드 시작 ===');
@@ -610,6 +750,203 @@ const Progress = () => {
     } catch (e) {
       console.error('지출 데이터 조회 실패:', e);
       setAllCostData([]);
+    }
+  };
+
+  const handleMissingGisungExcelDownload = async () => {
+    if (!missingGisungList.length) {
+      alert('다운로드할 데이터가 없습니다.');
+      return;
+    }
+
+    const thinBorder = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' },
+    };
+
+    try {
+      const ExcelJS = await import('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = '천우건업(주)';
+      const worksheet = workbook.addWorksheet('기성미등록현장', {
+        views: [{ showGridLines: false }],
+      });
+
+      const now = new Date();
+      const reportDate = now.toLocaleDateString('ko-KR');
+      const prevMonth = subMonths(now, 1);
+      const currentLabel = `${now.getFullYear()}년 ${now.getMonth() + 1}월`;
+      const prevLabel = `${prevMonth.getFullYear()}년 ${prevMonth.getMonth() + 1}월`;
+      const headers = [
+        'No',
+        '해당 월',
+        '현장명',
+        '회사명',
+        '소장',
+        '시공팀',
+        '공사기간',
+        '계약금액',
+        '선급금',
+        '기성금',
+        '입금완료',
+        '잔액',
+        '비고',
+      ];
+      const lastCol = headers.length;
+      const lastColLetter = String.fromCharCode(64 + lastCol);
+
+      // 제목
+      worksheet.mergeCells(`A1:${lastColLetter}1`);
+      const titleCell = worksheet.getCell('A1');
+      titleCell.value = `천우건업(주) 기성 미등록 현장 보고서`;
+      titleCell.font = { size: 18, bold: true, color: { argb: 'FF1F2937' } };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EEF7' } };
+      titleCell.border = thinBorder;
+      worksheet.getRow(1).height = 36;
+
+      // 부제 / 조회 기준
+      worksheet.mergeCells(`A2:${lastColLetter}2`);
+      const subtitleCell = worksheet.getCell('A2');
+      subtitleCell.value = `조회 기준: ${prevLabel} · ${currentLabel}  |  일정 분류: 현장  |  작성일: ${reportDate}`;
+      subtitleCell.font = { size: 11, color: { argb: 'FF374151' } };
+      subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      subtitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+      subtitleCell.border = thinBorder;
+      worksheet.getRow(2).height = 24;
+
+      // 요약
+      worksheet.mergeCells('A3:C3');
+      worksheet.getCell('A3').value = `총 미등록 건수: ${missingGisungList.length}건`;
+      worksheet.getCell('A3').font = { size: 10, bold: true, color: { argb: 'FF1D4ED8' } };
+      worksheet.getCell('A3').alignment = { vertical: 'middle' };
+      worksheet.mergeCells(`D3:${lastColLetter}3`);
+      worksheet.getCell('D3').value = '※ 현장 분류 일정은 있으나 해당 월 기성이 등록되지 않은 현장';
+      worksheet.getCell('D3').font = { size: 10, italic: true, color: { argb: 'FF6B7280' } };
+      worksheet.getCell('D3').alignment = { horizontal: 'right', vertical: 'middle' };
+      worksheet.getRow(3).height = 22;
+
+      worksheet.getRow(4).height = 8;
+
+      const headerRowIndex = 5;
+      const headerRow = worksheet.getRow(headerRowIndex);
+      headerRow.height = 26;
+      headers.forEach((header, index) => {
+        const cell = headerRow.getCell(index + 1);
+        cell.value = header;
+        cell.font = { size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+        cell.border = thinBorder;
+      });
+
+      const moneyColIndexes = new Set([7, 8, 9, 10, 11]);
+      const centerColIndexes = new Set([0, 1, 12]);
+
+      missingGisungList.forEach((item, index) => {
+        const site = sites.find(s => s.id === item.siteId);
+        const period = site?.startDate && site?.endDate
+          ? `${site.startDate} ~ ${site.endDate}`
+          : '-';
+        const company = site?.companyName || site?.company || '-';
+        const manager = site?.manager || '-';
+        const team = site?.team || '-';
+        const contractAmount = parseAmountNumber(site?.contractAmount);
+        const advanceAmount = parseAmountNumber(site?.advance);
+        const { totalGisung, paidFromGisung } = getSiteGisungSummary(progressList, item.siteName);
+        const balance = contractAmount - advanceAmount - paidFromGisung;
+
+        const rowIndex = headerRowIndex + 1 + index;
+        const dataRow = worksheet.getRow(rowIndex);
+        dataRow.height = 24;
+
+        const values = [
+          index + 1,
+          item.monthLabel,
+          item.siteName,
+          company,
+          manager,
+          team,
+          period,
+          formatAmount(contractAmount),
+          formatAmount(advanceAmount),
+          formatAmount(totalGisung),
+          formatAmount(paidFromGisung),
+          formatAmount(balance),
+          '기성 미등록',
+        ];
+
+        values.forEach((value, colIndex) => {
+          const cell = dataRow.getCell(colIndex + 1);
+          cell.value = value;
+          cell.font = {
+            size: 10,
+            color: { argb: colIndex === 12 ? 'FFDC2626' : 'FF111827' },
+            bold: colIndex === 12,
+          };
+          cell.alignment = {
+            horizontal: centerColIndexes.has(colIndex)
+              ? 'center'
+              : moneyColIndexes.has(colIndex)
+                ? 'right'
+                : 'left',
+            vertical: 'middle',
+            wrapText: [2, 3, 4, 5, 6].includes(colIndex),
+          };
+          cell.border = thinBorder;
+          if (index % 2 === 1) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+          }
+        });
+      });
+
+      const summaryRowIndex = headerRowIndex + 1 + missingGisungList.length + 1;
+      worksheet.mergeCells(`A${summaryRowIndex}:${lastColLetter}${summaryRowIndex}`);
+      const summaryCell = worksheet.getCell(`A${summaryRowIndex}`);
+      summaryCell.value = `합계 ${missingGisungList.length}건  —  ${reportDate} 기준`;
+      summaryCell.font = { size: 10, bold: true, color: { argb: 'FF374151' } };
+      summaryCell.alignment = { horizontal: 'right', vertical: 'middle' };
+      summaryCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } };
+      summaryCell.border = thinBorder;
+      worksheet.getRow(summaryRowIndex).height = 24;
+
+      worksheet.columns = [
+        { width: 5 },
+        { width: 12 },
+        { width: 22 },
+        { width: 16 },
+        { width: 10 },
+        { width: 12 },
+        { width: 22 },
+        { width: 14 },
+        { width: 12 },
+        { width: 14 },
+        { width: 14 },
+        { width: 14 },
+        { width: 12 },
+      ];
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob(
+        [buffer],
+        { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
+      );
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      const dateStr = now.toISOString().split('T')[0];
+      const fileName = `기성미등록현장_보고서_${dateStr}.xlsx`;
+      link.href = url;
+      link.download = fileName;
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('기성 미등록 현장 엑셀 다운로드 실패:', error);
+      alert('엑셀 다운로드 중 오류가 발생했습니다.');
     }
   };
 
@@ -2499,6 +2836,81 @@ const Progress = () => {
           filteredData={getFilteredCostData}
         />
       )}
+
+      {/* 기성 미등록 현장 안내 모달 */}
+      <Dialog
+        open={missingGisungModalOpen}
+        onClose={() => setMissingGisungModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { maxHeight: '85vh' },
+        }}
+      >
+        <DialogTitle>기성 미등록 현장 안내</DialogTitle>
+        <DialogContent
+          dividers
+          sx={{
+            overflowY: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            '&::-webkit-scrollbar': { display: 'none' },
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            현재달과 이전 달에 일정관리에서 '현장' 분류로 등록된 일정이 있으나, 해당 월 기성이 등록되지 않은 현장입니다.
+          </Typography>
+          <TableContainer
+            component={Paper}
+            variant="outlined"
+            sx={{
+              maxHeight: 360,
+              overflowY: 'auto',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              '&::-webkit-scrollbar': { display: 'none' },
+            }}
+          >
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>해당 월</TableCell>
+                  <TableCell>현장명</TableCell>
+                  <TableCell>공사기간</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {missingGisungList.map((item, idx) => {
+                  const site = sites.find(s => s.id === item.siteId);
+                  const period = site?.startDate && site?.endDate
+                    ? `${site.startDate} ~ ${site.endDate}`
+                    : '-';
+                  return (
+                    <TableRow key={`${item.siteId}-${item.month}-${idx}`}>
+                      <TableCell>{item.monthLabel}</TableCell>
+                      <TableCell>{item.siteName}</TableCell>
+                      <TableCell>{period}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between' }}>
+          <Button
+            variant="outlined"
+            startIcon={<CloudDownloadIcon />}
+            onClick={handleMissingGisungExcelDownload}
+            disabled={missingGisungList.length === 0}
+          >
+            엑셀 다운로드
+          </Button>
+          <Button onClick={() => setMissingGisungModalOpen(false)} variant="contained">
+            확인
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* 등록/수정 다이얼로그 */}
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>

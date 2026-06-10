@@ -80,6 +80,11 @@ function scheduleTypeTokensForCell(typeStr) {
     .filter(Boolean);
 }
 
+/** 분류 문자열에 특정 분류(예: 현장)가 포함되는지 확인 */
+export function scheduleTypeIncludes(typeStr, label) {
+  return scheduleTypeTokensForCell(typeStr).includes(label);
+}
+
 /**
  * 일정 캘린더 날짜 셀 행 배경. 실측→보라, 입찰→노랑, 첫 분류가 현장이면 빨강 배경 제거(다크).
  * @returns {string|null} 지정 색 또는 null(기존 item.color / getCategoryColorForType 로직 사용)

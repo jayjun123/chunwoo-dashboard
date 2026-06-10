@@ -40,7 +40,9 @@ import {
   CloudDownload as CloudDownloadIcon,
   Search as SearchIcon,
   Upload as UploadIcon,
-  Clear as ClearIcon
+  Clear as ClearIcon,
+  CheckCircle as CheckCircleIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -51,6 +53,38 @@ import { formatNumber } from '../utils/formatUtils';
 import SiteInfoPopup from './common/SiteInfoPopup';
 import { generateTemplateBasedGisungExcel } from '../utils/gisungTemplateUtils';
 // import { parseGisungExcelUpload } from '../utils/gisungUploadUtils';
+
+const parseAmountNumber = (val) => {
+  if (val == null || val === '') return 0;
+  const num = Number(String(val).replace(/,/g, ''));
+  return Number.isNaN(num) ? 0 : num;
+};
+
+const parseCompletionDateMs = (dateStr) => {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return Number.isNaN(d.getTime()) ? null : d.getTime();
+};
+
+const formatCompletionDate = (dateStr) => {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '-';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}.${m}.${day}`;
+};
+
+/** 준공일(endDate)이 이번 달 이후(다음 달~)인지 */
+const isCompletionAfterCurrentMonth = (completionDateMs) => {
+  if (completionDateMs == null) return false;
+  const now = new Date();
+  const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  return completionDateMs > endOfCurrentMonth.getTime();
+};
+
+const GISUNG_CHECK_TABLE_HEIGHT = 420;
 
 const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurrentMonth, monthText: initialMonthText, selectedSites, filteredData }) => {
   // console.log('🔍 GisungStatusPage 컴포넌트 렌더링 시작');
@@ -154,6 +188,11 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
   
   // 현장 정보 팝업 상태
   const [siteInfoPopup, setSiteInfoPopup] = useState({ open: false, site: null });
+  const [showGisungCheckTable, setShowGisungCheckTable] = useState(false);
+  const [unsettledSortField, setUnsettledSortField] = useState('completionDate');
+  const [unsettledSortDirection, setUnsettledSortDirection] = useState('desc');
+  const [unsettledSearch, setUnsettledSearch] = useState('');
+  const [unsettledSitePopup, setUnsettledSitePopup] = useState({ open: false, site: null });
   
   const [formData, setFormData] = useState({
     name: '',
@@ -803,6 +842,121 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       totalPaidExceptionAmount 
     };
   }, [filteredAndSortedGisung, sites, viewType, selectedSites]);
+
+  // 정산 미완료 현장 목록 (기성확인용)
+  const unsettledSites = useMemo(() => {
+    if (!sites.length) return [];
+
+    const isAdvanceRow = (g) => g.note && String(g.note).trim().includes('선급금');
+
+    return sites
+      .filter(site => site.status !== '미정')
+      .map(site => {
+        const siteGisungData = allGisungData.filter(g => {
+          const gName = (g.name || '').trim();
+          const sName = (site.name || '').trim();
+          return gName === sName || gName.includes(sName) || sName.includes(gName);
+        });
+
+        const paidFromGisung = siteGisungData
+          .filter(g => g.paymentStatus === '입금완료' && !isAdvanceRow(g))
+          .reduce((sum, g) => sum + parseAmountNumber(g.gisungAmount), 0);
+
+        const contractAmount = parseAmountNumber(site.contractAmount);
+        const advanceAmount = parseAmountNumber(site.advance);
+        const balance = contractAmount - advanceAmount - paidFromGisung;
+        const isFullyPaid = siteGisungData.length > 0 && (balance <= 0 || Math.abs(balance) < 1);
+
+        return {
+          site,
+          contractAmount,
+          advanceAmount,
+          paidFromGisung,
+          balance,
+          gisungCount: siteGisungData.length,
+          isFullyPaid,
+          completionDateMs: parseCompletionDateMs(site.endDate),
+          completionDateLabel: formatCompletionDate(site.endDate),
+        };
+      })
+      .filter(item => !item.isFullyPaid)
+      .filter(item => !isCompletionAfterCurrentMonth(item.completionDateMs));
+  }, [sites, allGisungData]);
+
+  const sortedUnsettledSites = useMemo(() => {
+    const searchLower = unsettledSearch.trim().toLowerCase();
+    let list = unsettledSites;
+
+    if (searchLower) {
+      list = unsettledSites.filter(item => {
+        const site = item.site;
+        const searchableText = [
+          site?.name,
+          site?.companyName,
+          site?.company,
+          site?.manager,
+          site?.team,
+          site?.status,
+          item.completionDateLabel,
+          formatNumber(item.contractAmount, true),
+          formatNumber(item.advanceAmount, true),
+          formatNumber(item.paidFromGisung, true),
+          formatNumber(item.balance, true),
+          String(item.gisungCount),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return searchableText.includes(searchLower);
+      });
+    }
+
+    const sorted = [...list];
+    const dir = unsettledSortDirection === 'asc' ? 1 : -1;
+    const isDesc = unsettledSortDirection === 'desc';
+
+    sorted.sort((a, b) => {
+      let aVal;
+      let bVal;
+
+      switch (unsettledSortField) {
+        case 'completionDate':
+          aVal = a.completionDateMs ?? (isDesc ? -Infinity : Infinity);
+          bVal = b.completionDateMs ?? (isDesc ? -Infinity : Infinity);
+          break;
+        case 'siteName':
+          return dir * (a.site.name || '').localeCompare(b.site.name || '', 'ko');
+        case 'contractAmount':
+          aVal = a.contractAmount;
+          bVal = b.contractAmount;
+          break;
+        case 'advanceAmount':
+          aVal = a.advanceAmount;
+          bVal = b.advanceAmount;
+          break;
+        case 'paidFromGisung':
+          aVal = a.paidFromGisung;
+          bVal = b.paidFromGisung;
+          break;
+        case 'balance':
+          aVal = a.balance;
+          bVal = b.balance;
+          break;
+        case 'gisungCount':
+          aVal = a.gisungCount;
+          bVal = b.gisungCount;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aVal < bVal) return -dir;
+      if (aVal > bVal) return dir;
+      return (a.site.name || '').localeCompare(b.site.name || '', 'ko');
+    });
+
+    return sorted;
+  }, [unsettledSites, unsettledSortField, unsettledSortDirection, unsettledSearch]);
 
   // 기성현황 엑셀 다운로드 함수 (ExcelJS 사용)
   const handleExcelDownload = async () => {
@@ -1647,6 +1801,31 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
     setSiteInfoPopup({ open: false, site: null });
   };
 
+  const handleUnsettledSiteNameClick = (site) => {
+    if (!site) return;
+    setUnsettledSitePopup({ open: true, site });
+  };
+
+  const handleCloseUnsettledSitePopup = () => {
+    setUnsettledSitePopup({ open: false, site: null });
+  };
+
+  const handleGoToSiteGisung = (site) => {
+    if (!site?.id) {
+      alert('현장 정보를 찾을 수 없습니다.');
+      return;
+    }
+    handleCloseUnsettledSitePopup();
+    navigate(`/progress?siteId=${site.id}&viewMode=site&autoSelect=true`, {
+      state: {
+        fromSiteInfo: true,
+        selectedSiteId: site.id,
+        selectedSiteName: site.name,
+        autoSelectSite: true,
+      },
+    });
+  };
+
   const handleSubmit = async () => {
     try {
       // 현장명 유효성 검사
@@ -1837,6 +2016,27 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
       setSortField(field);
       setSortDirection('asc');
     }
+  };
+
+  const handleUnsettledSort = (field) => {
+    if (unsettledSortField === field) {
+      setUnsettledSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setUnsettledSortField(field);
+      setUnsettledSortDirection(field === 'completionDate' ? 'desc' : 'asc');
+    }
+  };
+
+  const unsettledSortIndicator = (field) =>
+    unsettledSortField === field ? (unsettledSortDirection === 'asc' ? ' ↑' : ' ↓') : '';
+
+  const unsettledHeaderCellSx = {
+    bgcolor: '#232b3b',
+    color: '#fff',
+    fontWeight: 700,
+    cursor: 'pointer',
+    py: 0.75,
+    '&:hover': { bgcolor: '#2c3e50' },
   };
 
   // 체크박스 관련 함수들
@@ -3127,6 +3327,196 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
         </Box>
       )}
 
+      {/* 미완료기성 테이블 + 버튼 (테이블 밖 오른쪽 아래) */}
+      <Box sx={{ mt: 2 }}>
+        {showGisungCheckTable && (
+          <Paper
+            sx={{
+              borderRadius: 4,
+              boxShadow: 6,
+              bgcolor: '#181f2e',
+              color: '#fff',
+              overflow: 'hidden',
+              height: GISUNG_CHECK_TABLE_HEIGHT,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <Box sx={{
+              px: 2,
+              py: 1.5,
+              bgcolor: '#232b3b',
+              borderBottom: '1px solid #333',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+              flexWrap: 'wrap',
+            }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#90caf9', flexShrink: 0 }}>
+                정산 미완료 현장 ({sortedUnsettledSites.length}
+                {unsettledSearch.trim() && unsettledSites.length !== sortedUnsettledSites.length
+                  ? ` / ${unsettledSites.length}`
+                  : ''}
+                개)
+              </Typography>
+              <TextField
+                size="small"
+                placeholder="현장명, 회사, 소장, 시공팀, 금액 검색"
+                value={unsettledSearch}
+                onChange={(e) => setUnsettledSearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: '#888', fontSize: 18 }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: unsettledSearch ? (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setUnsettledSearch('')} sx={{ color: '#888' }}>
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null,
+                }}
+                sx={{
+                  width: { xs: '100%', sm: 280 },
+                  bgcolor: '#181f2e',
+                  borderRadius: 2,
+                  input: { color: '#fff', fontSize: '0.85rem' },
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: '#444' },
+                    '&:hover fieldset': { borderColor: '#666' },
+                    '&.Mui-focused fieldset': { borderColor: '#1976d2' },
+                  },
+                }}
+              />
+            </Box>
+            <TableContainer sx={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              '&::-webkit-scrollbar': { display: 'none' },
+            }}>
+              <Table size="small" stickyHeader sx={{
+                '& .MuiTableCell-root': { py: 0.75, px: 1 },
+              }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell
+                      sx={unsettledHeaderCellSx}
+                      onClick={() => handleUnsettledSort('completionDate')}
+                    >
+                      준공일{unsettledSortIndicator('completionDate')}
+                    </TableCell>
+                    <TableCell
+                      sx={unsettledHeaderCellSx}
+                      onClick={() => handleUnsettledSort('siteName')}
+                    >
+                      현장명{unsettledSortIndicator('siteName')}
+                    </TableCell>
+                    <TableCell
+                      sx={unsettledHeaderCellSx}
+                      onClick={() => handleUnsettledSort('contractAmount')}
+                    >
+                      계약금액{unsettledSortIndicator('contractAmount')}
+                    </TableCell>
+                    <TableCell
+                      sx={unsettledHeaderCellSx}
+                      onClick={() => handleUnsettledSort('advanceAmount')}
+                    >
+                      선급금{unsettledSortIndicator('advanceAmount')}
+                    </TableCell>
+                    <TableCell
+                      sx={unsettledHeaderCellSx}
+                      onClick={() => handleUnsettledSort('paidFromGisung')}
+                    >
+                      입금완료 기성{unsettledSortIndicator('paidFromGisung')}
+                    </TableCell>
+                    <TableCell
+                      sx={unsettledHeaderCellSx}
+                      onClick={() => handleUnsettledSort('balance')}
+                    >
+                      잔액{unsettledSortIndicator('balance')}
+                    </TableCell>
+                    <TableCell
+                      sx={unsettledHeaderCellSx}
+                      onClick={() => handleUnsettledSort('gisungCount')}
+                    >
+                      기성건수{unsettledSortIndicator('gisungCount')}
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {sortedUnsettledSites.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        sx={{
+                          textAlign: 'center',
+                          color: '#bbb',
+                          height: GISUNG_CHECK_TABLE_HEIGHT - 120,
+                          verticalAlign: 'middle',
+                          border: 'none',
+                        }}
+                      >
+                        {unsettledSites.length === 0
+                          ? '정산 미완료 현장이 없습니다.'
+                          : '검색 결과가 없습니다.'}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    sortedUnsettledSites.map(item => (
+                      <TableRow key={item.site.id} sx={{ '&:hover': { bgcolor: '#232b3b' } }}>
+                        <TableCell sx={{ color: '#bbb', whiteSpace: 'nowrap' }}>
+                          {item.completionDateLabel}
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            color: '#fff',
+                            cursor: 'pointer',
+                            '&:hover': {
+                              color: '#90caf9',
+                              textDecoration: 'underline',
+                            },
+                          }}
+                          onClick={() => handleUnsettledSiteNameClick(item.site)}
+                          title="클릭하여 현장 정보 보기"
+                        >
+                          {item.site.name}
+                        </TableCell>
+                        <TableCell sx={{ color: '#43e97b' }}>{formatNumber(item.contractAmount, true)}</TableCell>
+                        <TableCell sx={{ color: '#ffd600' }}>{formatNumber(item.advanceAmount, true)}</TableCell>
+                        <TableCell sx={{ color: '#4caf50' }}>{formatNumber(item.paidFromGisung, true)}</TableCell>
+                        <TableCell sx={{ color: '#ef5350', fontWeight: 700 }}>{formatNumber(item.balance, true)}</TableCell>
+                        <TableCell sx={{ color: '#bbb' }}>{item.gisungCount}건</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        )}
+
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.5 }}>
+          <Button
+            variant="contained"
+            color="info"
+            startIcon={<CheckCircleIcon />}
+            onClick={() => setShowGisungCheckTable(prev => !prev)}
+            sx={{
+              bgcolor: '#0288d1',
+              '&:hover': { bgcolor: '#0277bd' },
+            }}
+          >
+            {showGisungCheckTable ? '접기' : '미완료기성'}
+          </Button>
+        </Box>
+      </Box>
+
       {/* 등록/수정 다이얼로그 */}
       <Dialog 
         open={open} 
@@ -3616,6 +4006,109 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
          </Box>
        </Dialog>
        
+       {/* 정산 미완료 현장 — 간략 정보 팝업 */}
+       <Dialog
+         open={unsettledSitePopup.open}
+         onClose={handleCloseUnsettledSitePopup}
+         maxWidth="xs"
+         fullWidth
+         PaperProps={{
+           sx: {
+             bgcolor: '#181f2e',
+             color: '#fff',
+             borderRadius: 3,
+           },
+         }}
+       >
+         <DialogTitle
+           sx={{
+             bgcolor: '#232b3b',
+             color: '#90caf9',
+             fontWeight: 700,
+             display: 'flex',
+             alignItems: 'center',
+             justifyContent: 'space-between',
+             py: 1.5,
+           }}
+         >
+           현장 정보
+           <IconButton
+             size="small"
+             onClick={handleCloseUnsettledSitePopup}
+             sx={{ color: '#bbb', '&:hover': { color: '#fff' } }}
+             aria-label="닫기"
+           >
+             <CloseIcon />
+           </IconButton>
+         </DialogTitle>
+         <DialogContent sx={{ pt: 2.5, pb: 1 }}>
+           {unsettledSitePopup.site && (
+             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+               {[
+                 { label: '현장명', value: unsettledSitePopup.site.name },
+                 {
+                   label: '회사',
+                   value: unsettledSitePopup.site.companyName || unsettledSitePopup.site.company,
+                 },
+                 { label: '소장', value: unsettledSitePopup.site.manager },
+                 { label: '시공팀', value: unsettledSitePopup.site.team },
+                 {
+                   label: '준공일',
+                   value: formatCompletionDate(unsettledSitePopup.site.endDate),
+                 },
+               ].map(({ label, value }) => (
+                 <Box
+                   key={label}
+                   sx={{
+                     display: 'flex',
+                     gap: 1.5,
+                     py: 0.75,
+                     borderBottom: '1px solid #333',
+                   }}
+                 >
+                   <Typography
+                     sx={{
+                       minWidth: 64,
+                       color: '#90caf9',
+                       fontWeight: 600,
+                       flexShrink: 0,
+                     }}
+                   >
+                     {label}
+                   </Typography>
+                   <Typography sx={{ color: '#fff', wordBreak: 'break-all' }}>
+                     {value || '-'}
+                   </Typography>
+                 </Box>
+               ))}
+             </Box>
+           )}
+         </DialogContent>
+         <DialogActions sx={{ px: 2.5, pb: 2, pt: 1, gap: 1 }}>
+           <Button
+             variant="contained"
+             onClick={() => handleGoToSiteGisung(unsettledSitePopup.site)}
+             sx={{
+               bgcolor: '#1976d2',
+               '&:hover': { bgcolor: '#1565c0' },
+             }}
+           >
+             기성바로가기
+           </Button>
+           <Button
+             variant="outlined"
+             onClick={handleCloseUnsettledSitePopup}
+             sx={{
+               color: '#fff',
+               borderColor: '#666',
+               '&:hover': { borderColor: '#90caf9' },
+             }}
+           >
+             닫기
+           </Button>
+         </DialogActions>
+       </Dialog>
+
        {/* 현장 정보 팝업 */}
        <SiteInfoPopup
          open={siteInfoPopup.open}
