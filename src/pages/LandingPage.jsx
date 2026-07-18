@@ -1044,7 +1044,7 @@ const LandingPage = () => {
                     </Button>
                   </Stack>
                   
-                  {/* 2025년도 현장 제목 */}
+                  {/* 당해년도 현장 제목 */}
                   <Box sx={{ mb: 2, textAlign: 'left' }}>
                     <Typography variant="h4" sx={{ 
                       fontWeight: 'bold', 
@@ -1053,7 +1053,7 @@ const LandingPage = () => {
                       letterSpacing: '2px',
                       fontSize: '2rem'
                     }}>
-                      2025년도 현장
+                      {new Date().getFullYear()}년도 현장
                     </Typography>
                   </Box>
                   

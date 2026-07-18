@@ -85,7 +85,7 @@ const Mapping = () => {
   const [selectedSite, setSelectedSite] = useState(null);
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentYear, setCurrentYear] = useState(2025);
+  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
   const [activeTab, setActiveTab] = useState('진행');
   const [isLoading, setIsLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(100);
