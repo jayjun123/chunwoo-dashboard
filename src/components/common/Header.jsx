@@ -33,6 +33,7 @@ const Header = () => {
     { path: '/vendors', label: '거래처현황', icon: <PeopleIcon /> },
     { path: '/vendor-management', label: '거래처관리', icon: <span role="img" aria-label="vendor">👥</span> },
     { path: '/progress', label: '기성관리', icon: <span role="img" aria-label="money">💰</span> },
+    { path: '/inventory', label: '재고관리', icon: <span role="img" aria-label="inventory">📦</span> },
     { path: '/daema-team', label: '시공팀', icon: <span role="img" aria-label="team">👥</span> }
   ];
 

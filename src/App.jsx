@@ -221,6 +221,7 @@ const Discussions = lazyWithRetry(() => import('./pages/Discussions'));
 const Vendors = lazyWithRetry(() => import('./pages/Vendors'));
 const VendorManagement = lazyWithRetry(() => import('./pages/VendorManagement'));
 const Progress = lazyWithRetry(() => import('./pages/Progress'));
+const Inventory = lazyWithRetry(() => import('./pages/Inventory'));
 const Members = lazyWithRetry(() => import('./pages/Members'));
 const Permissions = lazyWithRetry(() => import('./pages/Permissions'));
 const TodoList = lazyWithRetry(() => import('./components/TodoList'));
@@ -952,6 +953,18 @@ const App = React.memo(() => {
                             <Layout>
                               <Suspense fallback={<LoadingSpinner />}>
                                 <Progress />
+                              </Suspense>
+                            </Layout>
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/inventory/*"
+                        element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <Suspense fallback={<LoadingSpinner />}>
+                                <Inventory />
                               </Suspense>
                             </Layout>
                           </ProtectedRoute>

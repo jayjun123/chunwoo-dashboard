@@ -119,6 +119,14 @@ export const MENU_CONFIG = {
     defaultPermissions: { master: true, admin: true, user: false },
     category: '재무'
   },
+  inventory: {
+    key: 'inventory',
+    label: '재고관리',
+    path: '/inventory',
+    icon: 'Inventory',
+    defaultPermissions: { master: true, admin: true, user: false },
+    category: '관리'
+  },
   daemaTeam: { 
     key: 'daemaTeam', 
     label: '시공팀', 

@@ -12,7 +12,7 @@ import ForumIcon from '@mui/icons-material/Forum';
 import GroupIcon from '@mui/icons-material/Group';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
-
+import InventoryIcon from '@mui/icons-material/Inventory2';
 
 import { useAuth } from '../contexts/AuthContext';
 import { isMasterUser, isAdminUser, debugMasterUser } from '../utils/masterUtils';
@@ -42,6 +42,7 @@ const Header = ({ user, onLogout }) => {
     { path: '/discussions', label: '토론의견', icon: <ForumIcon /> },
     { path: '/vendors', label: '거래처현황', icon: <PeopleIcon /> },
     { path: '/cost', label: '기성관리', icon: <MonetizationOnIcon /> },
+    { path: '/inventory', label: '재고관리', icon: <InventoryIcon /> },
     { path: '/daema-team', label: '시공팀', icon: <BarChartIcon /> }
   ];
 

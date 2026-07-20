@@ -60,6 +60,7 @@ import {
   EditNote as EditNoteIcon,
   Help as HelpIcon,
   Map as MapIcon,
+  Inventory2 as InventoryIcon,
 } from '@mui/icons-material';
 
 // 3D 아이소메트릭 한반도 이미지 아이콘
@@ -101,6 +102,7 @@ const menuItems = [
   { text: '거래처관리', icon: <PeopleIcon />, path: '/vendor-management' },
   { text: '청구예정', icon: <AttachMoneyIcon />, path: '/claims', iconColor: '#FFD700' },
   { text: '기성관리', icon: <MonetizationOnIcon />, path: '/progress', iconColor: '#2196F3' },
+  { text: '재고관리', icon: <InventoryIcon />, path: '/inventory', iconColor: '#26A69A' },
   { text: '시공팀', icon: <AssessmentIcon />, path: '/daema-team', iconColor: '#8B4513' },
   { text: '대외비', icon: <BlockIcon />, path: '/confidential', iconColor: '#FF0000' }
 ];
@@ -151,6 +153,7 @@ const Layout = React.memo(({ children }) => {
       '거래처관리': 'vendorManagement',
       '청구예정': 'claims',
       '기성관리': 'cost',
+      '재고관리': 'inventory',
       '시공팀': 'daemaTeam',
       '대외비': 'confidential'
     };
@@ -509,11 +512,12 @@ const Layout = React.memo(({ children }) => {
             maxHeight: 'calc(90vh - 160px)'
           }),
           // 시공팀/현장관리 페이지: 하단바 바로 위까지 높이 채우고 내부 스크롤
-          ...((location.pathname === '/daema-team' || location.pathname === '/company-distribution') && {
+          ...((location.pathname === '/daema-team' || location.pathname === '/company-distribution' || location.pathname.startsWith('/inventory')) && {
             display: 'flex',
             flexDirection: 'column',
             height: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 58px - 56px)',
-            maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 58px - 56px)'
+            maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 58px - 56px)',
+            overflow: 'hidden',
           }),
           // 사용설명서/시스템연동도: 헤더·하단바 유지, 메인 영역만 채움
           ...((location.pathname === '/manual' || location.pathname === '/workflow-diagram') && {
