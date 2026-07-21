@@ -8,7 +8,6 @@ import {
   setDoc,
   query,
   where,
-  limit,
   onSnapshot,
   runTransaction,
   serverTimestamp,
@@ -109,29 +108,16 @@ export function subscribeMovements(onData, onError) {
 }
 
 export async function createProduct(userId, values) {
-  const sku = String(values.sku || '').trim();
   const name = String(values.name || '').trim();
   if (!name) throw new Error('품목명은 필수입니다.');
 
-  if (sku) {
-    const dup = await getDocs(
-      query(
-        collection(db, INV_COLLECTIONS.products),
-        where('organizationId', '==', INVENTORY_ORG_ID),
-        where('sku', '==', sku),
-        where('isDeleted', '==', false),
-        limit(1)
-      )
-    );
-    if (!dup.empty) throw new Error('이미 사용 중인 SKU입니다.');
-  }
-
   const ref = await addDoc(collection(db, INV_COLLECTIONS.products), {
     organizationId: INVENTORY_ORG_ID,
-    sku,
+    sku: '',
     name,
     categoryName: String(values.categoryName || '기타').trim() || '기타',
     companyName: String(values.companyName || '').trim(),
+    color: String(values.color || '').trim(),
     specification: values.specification || '',
     baseUnit: values.baseUnit || 'EA',
     minStock: Number(values.minStock) || 0,
@@ -158,11 +144,13 @@ export async function deleteProduct(userId, id) {
 }
 
 export async function createWarehouse(userId, values) {
-  if (!values.name || !values.code) throw new Error('창고명과 코드는 필수입니다.');
+  const name = String(values.name || '').trim();
+  if (!name) throw new Error('창고명은 필수입니다.');
+  const code = String(values.code || '').trim() || `WH_${Date.now().toString(36).slice(-6)}`;
   const ref = await addDoc(collection(db, INV_COLLECTIONS.warehouses), {
     organizationId: INVENTORY_ORG_ID,
-    name: String(values.name).trim(),
-    code: String(values.code).trim(),
+    name,
+    code,
     type: values.type || 'material_warehouse',
     address: values.address || '',
     phone: values.phone || '',
@@ -185,12 +173,15 @@ export async function deleteWarehouse(userId, id) {
 }
 
 export async function createInvSite(userId, values) {
-  if (!values.name || !values.code) throw new Error('현장명과 코드는 필수입니다.');
+  const name = String(values.name || '').trim();
+  if (!name) throw new Error('현장명은 필수입니다.');
+  const code = String(values.code || '').trim() || `SITE_${Date.now().toString(36).slice(-6)}`;
   const ref = await addDoc(collection(db, INV_COLLECTIONS.sites), {
     organizationId: INVENTORY_ORG_ID,
-    name: String(values.name).trim(),
-    code: String(values.code).trim(),
+    name,
+    code,
     linkedWarehouseId: values.linkedWarehouseId || null,
+    linkedSiteId: values.linkedSiteId || null,
     address: values.address || '',
     phone: values.phone || '',
     memo: values.memo || '',
