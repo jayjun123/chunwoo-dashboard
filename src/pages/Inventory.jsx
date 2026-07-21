@@ -11,6 +11,7 @@ import {
   TableHead,
   TableRow,
   TableSortLabel,
+  TablePagination,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -230,6 +231,20 @@ const tdSx = {
   fontSize: '0.875rem',
 };
 
+const PRODUCT_PAGE_SIZE = 15;
+
+const productThSx = {
+  ...thSx,
+  fontSize: '0.95rem',
+  py: 1.5,
+};
+
+const productTdSx = {
+  ...tdSx,
+  fontSize: '1.05rem',
+  py: 1.6,
+};
+
 const categoryShortLabel = (cat) => {
   const map = {
     실리콘: '실리콘',
@@ -291,6 +306,7 @@ const Inventory = () => {
   const [search, setSearch] = useState('');
   const [movementFilter, setMovementFilter] = useState('all');
   const [productSort, setProductSort] = useState({ field: 'categoryName', dir: 'asc' });
+  const [productPage, setProductPage] = useState(0);
   const [stockSort, setStockSort] = useState({ field: 'categoryName', dir: 'asc' });
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
@@ -445,6 +461,20 @@ const Inventory = () => {
       return compareValues(a, b, field, dir);
     });
   }, [productStockSummary, productSort]);
+
+  const pagedProducts = useMemo(() => {
+    const start = productPage * PRODUCT_PAGE_SIZE;
+    return sortedProducts.slice(start, start + PRODUCT_PAGE_SIZE);
+  }, [sortedProducts, productPage]);
+
+  useEffect(() => {
+    setProductPage(0);
+  }, [productSort.field, productSort.dir]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(sortedProducts.length / PRODUCT_PAGE_SIZE) - 1);
+    if (productPage > maxPage) setProductPage(maxPage);
+  }, [sortedProducts.length, productPage]);
 
   const toggleProductSort = (field) => {
     setProductSort((prev) => (
@@ -847,8 +877,11 @@ const Inventory = () => {
     },
   };
 
-  const renderTable = (headers, rows, emptyText, sortOpts) => {
+  const renderTable = (headers, rows, emptyText, sortOpts, styleOpts) => {
     const colCount = headers.length;
+    const useThSx = styleOpts?.thSx || thSx;
+    const useTdSx = styleOpts?.tdSx || tdSx;
+    const tableSize = styleOpts?.size || 'small';
     return (
       <Box
         sx={{
@@ -858,8 +891,8 @@ const Inventory = () => {
           bgcolor: SURFACE,
         }}
       >
-        <TableContainer sx={{ maxHeight: 'calc(100vh - 260px)' }}>
-          <Table size="small" stickyHeader>
+        <TableContainer sx={{ maxHeight: styleOpts?.maxHeight || 'calc(100vh - 260px)' }}>
+          <Table size={tableSize} stickyHeader>
             <TableHead>
               <TableRow>
                 {headers.map((h) => {
@@ -868,7 +901,7 @@ const Inventory = () => {
                   const key = field || label || 'actions';
                   const sortable = Boolean(field && sortOpts?.onSort);
                   return (
-                    <TableCell key={key} sx={thSx} align={h?.align}>
+                    <TableCell key={key} sx={useThSx} align={h?.align}>
                       {sortable ? (
                         <TableSortLabel
                           active={sortOpts.sort?.field === field}
@@ -876,6 +909,7 @@ const Inventory = () => {
                           onClick={() => sortOpts.onSort(field)}
                           sx={{
                             color: 'inherit !important',
+                            fontSize: 'inherit',
                             '&.Mui-active': { color: `${ACCENT} !important` },
                             '& .MuiTableSortLabel-icon': { color: `${MUTED} !important` },
                             '&.Mui-active .MuiTableSortLabel-icon': { color: `${ACCENT} !important` },
@@ -894,7 +928,7 @@ const Inventory = () => {
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={colCount} sx={{ ...tdSx, textAlign: 'center', color: MUTED, py: 6 }}>
+                  <TableCell colSpan={colCount} sx={{ ...useTdSx, textAlign: 'center', color: MUTED, py: 6 }}>
                     {emptyText}
                   </TableCell>
                 </TableRow>
@@ -904,6 +938,7 @@ const Inventory = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        {styleOpts?.footer}
       </Box>
     );
   };
@@ -1329,18 +1364,18 @@ const Inventory = () => {
                   { label: '상태', field: 'status' },
                   { label: '' },
                 ],
-                sortedProducts.map((p) => (
+                pagedProducts.map((p) => (
                   <TableRow key={p.id} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
-                    <TableCell sx={{ ...tdSx, color: ACCENT, fontWeight: 700 }}>{p.categoryShort}</TableCell>
-                    <TableCell sx={{ ...tdSx, fontWeight: 600 }}>{p.name}</TableCell>
-                    <TableCell sx={{ ...tdSx, color: MUTED }}>{p.color || '-'}</TableCell>
-                    <TableCell sx={{ ...tdSx, color: MUTED }}>{p.specification || '-'}</TableCell>
-                    <TableCell sx={{ ...tdSx, color: MUTED }}>{p.companyName || '-'}</TableCell>
-                    <TableCell sx={{ ...tdSx, color: MUTED }}>{p.baseUnit}</TableCell>
-                    <TableCell sx={{ ...tdSx, fontWeight: 700 }}>{p.quantityOnHand}</TableCell>
-                    <TableCell sx={{ ...tdSx, color: MUTED }}>{Number(p.totalValue || 0).toLocaleString()}</TableCell>
-                    <TableCell sx={tdSx}>{statusDot(p.status)}</TableCell>
-                    <TableCell sx={tdSx} align="right">
+                    <TableCell sx={{ ...productTdSx, color: ACCENT, fontWeight: 700 }}>{p.categoryShort}</TableCell>
+                    <TableCell sx={{ ...productTdSx, fontWeight: 600 }}>{p.name}</TableCell>
+                    <TableCell sx={{ ...productTdSx, color: MUTED }}>{p.color || '-'}</TableCell>
+                    <TableCell sx={{ ...productTdSx, color: MUTED }}>{p.specification || '-'}</TableCell>
+                    <TableCell sx={{ ...productTdSx, color: MUTED }}>{p.companyName || '-'}</TableCell>
+                    <TableCell sx={{ ...productTdSx, color: MUTED }}>{p.baseUnit}</TableCell>
+                    <TableCell sx={{ ...productTdSx, fontWeight: 700 }}>{p.quantityOnHand}</TableCell>
+                    <TableCell sx={{ ...productTdSx, color: MUTED }}>{Number(p.totalValue || 0).toLocaleString()}</TableCell>
+                    <TableCell sx={productTdSx}>{statusDot(p.status)}</TableCell>
+                    <TableCell sx={productTdSx} align="right">
                       <IconButton
                         size="small"
                         sx={{ color: ACCENT }}
@@ -1371,7 +1406,39 @@ const Inventory = () => {
                   </TableRow>
                 )),
                 '등록된 품목이 없습니다.',
-                { sort: productSort, onSort: toggleProductSort }
+                { sort: productSort, onSort: toggleProductSort },
+                {
+                  thSx: productThSx,
+                  tdSx: productTdSx,
+                  size: 'medium',
+                  maxHeight: 'calc(100vh - 320px)',
+                  footer: (
+                    <TablePagination
+                      component="div"
+                      count={sortedProducts.length}
+                      page={productPage}
+                      onPageChange={(_, page) => setProductPage(page)}
+                      rowsPerPage={PRODUCT_PAGE_SIZE}
+                      rowsPerPageOptions={[PRODUCT_PAGE_SIZE]}
+                      labelDisplayedRows={({ from, to, count }) => `${from}-${to} / 총 ${count}개`}
+                      sx={{
+                        borderTop: `1px solid ${BORDER}`,
+                        color: MUTED,
+                        '.MuiTablePagination-selectLabel, .MuiTablePagination-select, .MuiTablePagination-selectIcon, .MuiTablePagination-input': {
+                          display: 'none',
+                        },
+                        '.MuiTablePagination-displayedRows': {
+                          color: MUTED,
+                          fontSize: '0.95rem',
+                        },
+                        '.MuiIconButton-root': {
+                          color: MUTED,
+                          '&.Mui-disabled': { color: 'rgba(139,147,167,0.35)' },
+                        },
+                      }}
+                    />
+                  ),
+                }
               )
             )}
           </Box>
