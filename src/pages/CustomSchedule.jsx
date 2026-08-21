@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { exportCalendarToExcel } from '../utils/excelUtils.jsx';
 import { stripDuplicateScheduleBadgePrefix } from '../utils/scheduleCategoryColors';
+import { resolveWeatherForSite, findSiteByIdOrName, DEFAULT_WEATHER, canAutoOverwriteWeather, isPastScheduleDate, syncScheduleAutoWeather } from '../utils/siteWeather';
 
 
 function isInMonth(site, year, month) {
@@ -83,7 +84,9 @@ const CustomSchedule = () => {
   };
   
   const [selectedColor, setSelectedColor] = useState(colorChoices[0]);
-  const [selectedWeather, setSelectedWeather] = useState('☀️');
+  const [selectedWeather, setSelectedWeather] = useState(DEFAULT_WEATHER);
+  const [selectedWeatherSource, setSelectedWeatherSource] = useState('auto');
+  const [weatherLoading, setWeatherLoading] = useState(false);
   const [showListPopup, setShowListPopup] = useState(false);
   const [listPopupDate, setListPopupDate] = useState('');
   const [copiedItem, setCopiedItem] = useState(null); // 복사된 항목 상태
@@ -241,15 +244,24 @@ const CustomSchedule = () => {
     if (source.droppableId === 'siteList' && destination.droppableId.startsWith('20')) {
       const site = filteredSites[source.index];
       if (!site) return;
+      let weatherFields = { weather: DEFAULT_WEATHER };
+      try {
+        const info = await resolveWeatherForSite(site, destination.droppableId);
+        if (info) weatherFields = info;
+      } catch (e) {
+        console.warn('드래그 일정 날씨 조회 실패:', e);
+      }
       const newItem = {
         text: site.name,
         type: '현장',
         desc: '', // 설명을 빈 문자열로 설정 (자동 생성 방지)
         siteId: site.id,
+        siteName: site.name,
         date: new Date(destination.droppableId + 'T12:00:00'),
         userId: user.uid,
         createdAt: new Date(),
         updatedAt: new Date(),
+        ...weatherFields,
       };
       try {
         await addDoc(collection(db, 'schedules'), newItem);
@@ -285,10 +297,22 @@ const CustomSchedule = () => {
         } else {
           // 일반 일정이면 schedules 컬렉션 업데이트
           const docRef = doc(db, 'schedules', itemId);
-          await updateDoc(docRef, {
+          const updatePayload = {
             date: destination.droppableId,
-            updatedAt: new Date()
-          });
+            updatedAt: new Date(),
+          };
+          if (
+            movedItem?.weatherSource !== 'manual' &&
+            !(isPastScheduleDate(source.droppableId) && movedItem?.weather)
+          ) {
+            const linkedSite = findSiteByIdOrName(sites, {
+              siteId: movedItem?.siteId,
+              siteName: movedItem?.siteName || movedItem?.text,
+            });
+            const info = await resolveWeatherForSite(linkedSite, destination.droppableId);
+            if (info) Object.assign(updatePayload, info);
+          }
+          await updateDoc(docRef, updatePayload);
         }
       } catch (error) {
         console.error('Failed to update schedule date', error);
@@ -328,6 +352,28 @@ const CustomSchedule = () => {
       alert('로그인이 필요합니다.');
       return;
     }
+
+    const linkedSite = findSiteByIdOrName(sites, { siteName: popupTitle, text: popupTitle });
+    let weatherFields = {
+      weather: selectedWeather || DEFAULT_WEATHER,
+      weatherSource: selectedWeatherSource || 'manual',
+    };
+    if (selectedWeatherSource !== 'manual' && linkedSite) {
+      setWeatherLoading(true);
+      try {
+        // 생성 시 지난 날짜도 1회 조회
+        if (canAutoOverwriteWeather({
+          weatherSource: selectedWeatherSource,
+          dateStr: editPopup.date,
+          allowPastFetch: true,
+        })) {
+          const info = await resolveWeatherForSite(linkedSite, editPopup.date);
+          if (info) weatherFields = info;
+        }
+      } finally {
+        setWeatherLoading(false);
+      }
+    }
     
     // 저장할 데이터 객체 생성
     const scheduleData = {
@@ -336,8 +382,10 @@ const CustomSchedule = () => {
       date: new Date(editPopup.date + 'T12:00:00'),
       userId: user.uid,
       color: selectedColor,
-      weather: selectedWeather,
-      createdAt: new Date()
+      siteId: linkedSite?.id || '',
+      siteName: linkedSite?.name || '',
+      createdAt: new Date(),
+      ...weatherFields,
     };
     
     // 설명이 있을 때만 desc 필드 추가
@@ -353,7 +401,8 @@ const CustomSchedule = () => {
       setPopupDesc('');
       setSelectedTypes([]);
       setSelectedColor(colorChoices[0]);
-      setSelectedWeather('☀️');
+      setSelectedWeather(DEFAULT_WEATHER);
+      setSelectedWeatherSource('auto');
     } catch (error) {
       console.error('일정 추가 실패:', error);
     }
@@ -400,8 +449,9 @@ const CustomSchedule = () => {
     if (item.weather) {
       setSelectedWeather(item.weather);
     } else {
-      setSelectedWeather('☀️');
+      setSelectedWeather(DEFAULT_WEATHER);
     }
+    setSelectedWeatherSource(item.weatherSource === 'auto' ? 'auto' : 'manual');
   };
   const handleItemTouchStart = (date, item) => {
     touchTimer = setTimeout(() => {
@@ -416,8 +466,9 @@ const CustomSchedule = () => {
       if (item.weather) {
         setSelectedWeather(item.weather);
       } else {
-        setSelectedWeather('☀️');
+        setSelectedWeather(DEFAULT_WEATHER);
       }
+      setSelectedWeatherSource(item.weatherSource === 'auto' ? 'auto' : 'manual');
     }, 600);
   };
   const handleItemTouchEnd = () => clearTimeout(touchTimer);
@@ -515,6 +566,35 @@ const CustomSchedule = () => {
     };
   }, [authUser.currentUser, authUser.loading]); // 인증 상태와 로딩 상태 모두 추적
 
+  // 자동 날씨(auto): 오늘·미래만 예보 변경 시 갱신. 수동·지난 날짜 고정.
+  useEffect(() => {
+    if (!sites?.length || !calendarItems || Object.keys(calendarItems).length === 0) return;
+    let cancelled = false;
+    const run = async () => {
+      const flat = Object.values(calendarItems).flat();
+      for (const item of flat) {
+        if (cancelled) break;
+        if (!item?.id || item.isEstimate) continue;
+        if (String(item.id).startsWith('estimate_')) continue;
+        if (item.weatherSource !== 'auto') continue;
+        const site = findSiteByIdOrName(sites, {
+          siteId: item.siteId,
+          siteName: item.siteName || item.text,
+        });
+        if (!site) continue;
+        try {
+          await syncScheduleAutoWeather(item, site, async (id, data) => {
+            await updateDoc(doc(db, 'schedules', id), { ...data, updatedAt: new Date() });
+          });
+        } catch (e) {
+          console.warn('자동 날씨 동기화 실패:', item.id, e);
+        }
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [sites, calendarItems]);
+
   const handleDeleteSelected = async () => {
     if (selectedItems.length === 0) return;
     if (!window.confirm('선택된 항목을 삭제하시겠습니까?')) return;
@@ -602,9 +682,13 @@ const CustomSchedule = () => {
       text: editPopup.item.text,
       type: selectedTypes.join(', '),
       color: selectedColor,
-      weather: editPopup.item.weather || selectedWeather,
+      weather: editPopup.item.weather || selectedWeather || DEFAULT_WEATHER,
+      weatherSource: editPopup.item.weatherSource || selectedWeatherSource || 'manual',
       updatedAt: new Date()
     };
+    if (editPopup.item.weatherFetchedAt) {
+      updateData.weatherFetchedAt = editPopup.item.weatherFetchedAt;
+    }
     
     // 설명이 있을 때만 desc 필드 추가
     if (editPopup.item.desc && editPopup.item.desc.trim()) {
@@ -1651,24 +1735,30 @@ const CustomSchedule = () => {
                 
                 return (
                   <Box>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>날씨 선택</Typography>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      날씨 선택{weatherLoading ? ' (불러오는 중…)' : ''}
+                    </Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       {['☀️', '☔', '⛄', '🌀', '없음'].map((weather, index) => (
                         <Box
                           key={index}
                           onClick={() => {
                             if (editPopup.item) {
-                              setEditPopup({ ...editPopup, item: { ...editPopup.item, weather } });
+                              setEditPopup({
+                                ...editPopup,
+                                item: { ...editPopup.item, weather, weatherSource: 'manual' },
+                              });
                             } else {
                               setSelectedWeather(weather);
+                              setSelectedWeatherSource('manual');
                             }
                           }}
                           sx={{
                             width: 32, height: 32, borderRadius: '50%',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             cursor: 'pointer',
-                            border: (editPopup.item ? (editPopup.item.weather || '☀️') === weather : selectedWeather === weather) ? '2px solid #1976d2' : '2px solid #ccc',
-                            backgroundColor: weather === '없음' ? '#666' : ((editPopup.item ? (editPopup.item.weather || '☀️') === weather : selectedWeather === weather) ? 'rgba(25, 118, 210, 0.1)' : 'transparent'),
+                            border: (editPopup.item ? (editPopup.item.weather || DEFAULT_WEATHER) === weather : selectedWeather === weather) ? '2px solid #1976d2' : '2px solid #ccc',
+                            backgroundColor: weather === '없음' ? '#666' : ((editPopup.item ? (editPopup.item.weather || DEFAULT_WEATHER) === weather : selectedWeather === weather) ? 'rgba(25, 118, 210, 0.1)' : 'transparent'),
                             transition: 'all 0.15s',
                             fontSize: '1.2rem'
                           }}

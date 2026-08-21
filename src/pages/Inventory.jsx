@@ -232,6 +232,7 @@ const tdSx = {
 };
 
 const PRODUCT_PAGE_SIZE = 15;
+const DEFAULT_PRODUCT_SORT = { field: 'companyName', dir: 'desc' };
 
 const productThSx = {
   ...thSx,
@@ -305,8 +306,9 @@ const Inventory = () => {
   const [movements, setMovements] = useState([]);
   const [search, setSearch] = useState('');
   const [movementFilter, setMovementFilter] = useState('all');
-  const [productSort, setProductSort] = useState({ field: 'categoryName', dir: 'asc' });
+  const [productSort, setProductSort] = useState(DEFAULT_PRODUCT_SORT);
   const [productPage, setProductPage] = useState(0);
+  const [pinnedNewProductIds, setPinnedNewProductIds] = useState([]);
   const [stockSort, setStockSort] = useState({ field: 'categoryName', dir: 'asc' });
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
@@ -443,7 +445,7 @@ const Inventory = () => {
 
   const sortedProducts = useMemo(() => {
     const { field, dir } = productSort;
-    return [...productStockSummary].sort((a, b) => {
+    const sorted = [...productStockSummary].sort((a, b) => {
       if (field === 'categoryName') {
         const known = PRODUCT_CATEGORIES.filter((c) => c !== PRODUCT_CATEGORY_OTHER);
         const ia = known.indexOf(a.categoryName);
@@ -456,11 +458,34 @@ const Inventory = () => {
         else if (bKnown) catCmp = 1;
         else catCmp = String(a.categoryName).localeCompare(String(b.categoryName), 'ko');
         if (catCmp !== 0) return dir === 'asc' ? catCmp : -catCmp;
-        return String(a.name || '').localeCompare(String(b.name || ''), 'ko') * (dir === 'asc' ? 1 : -1);
+        const companyCmp = compareValues(a, b, 'companyName', dir);
+        if (companyCmp !== 0) return companyCmp;
+        return compareValues(a, b, 'name', dir);
       }
-      return compareValues(a, b, field, dir);
+
+      let cmp = compareValues(a, b, field, dir);
+      if (cmp !== 0) return cmp;
+
+      if (field === 'companyName') {
+        return compareValues(a, b, 'name', dir);
+      }
+      if (field === 'name') {
+        return compareValues(a, b, 'companyName', dir);
+      }
+
+      const companyCmp = compareValues(a, b, 'companyName', 'desc');
+      if (companyCmp !== 0) return companyCmp;
+      return compareValues(a, b, 'name', 'desc');
     });
-  }, [productStockSummary, productSort]);
+
+    if (pinnedNewProductIds.length === 0) return sorted;
+    const pinnedSet = new Set(pinnedNewProductIds);
+    const pinned = pinnedNewProductIds
+      .map((id) => sorted.find((p) => p.id === id))
+      .filter(Boolean);
+    const rest = sorted.filter((p) => !pinnedSet.has(p.id));
+    return [...pinned, ...rest];
+  }, [productStockSummary, productSort, pinnedNewProductIds]);
 
   const pagedProducts = useMemo(() => {
     const start = productPage * PRODUCT_PAGE_SIZE;
@@ -476,11 +501,19 @@ const Inventory = () => {
     if (productPage > maxPage) setProductPage(maxPage);
   }, [sortedProducts.length, productPage]);
 
+  useEffect(() => {
+    if (section !== 'products') {
+      setProductSort(DEFAULT_PRODUCT_SORT);
+      setPinnedNewProductIds([]);
+      setProductPage(0);
+    }
+  }, [section]);
+
   const toggleProductSort = (field) => {
     setProductSort((prev) => (
       prev.field === field
         ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
-        : { field, dir: 'asc' }
+        : { field, dir: (field === 'companyName' || field === 'name') ? 'desc' : 'asc' }
     ));
   };
 
@@ -640,7 +673,9 @@ const Inventory = () => {
         await updateProduct(userId, productDialog.editId, payload);
         showSnack('품목이 수정되었습니다.');
       } else {
-        await createProduct(userId, payload);
+        const newId = await createProduct(userId, payload);
+        setPinnedNewProductIds((prev) => [newId, ...prev.filter((id) => id !== newId)]);
+        setProductPage(0);
         showSnack('품목이 등록되었습니다.');
       }
       setProductDialog({ open: false, editId: null, form: emptyProduct });
