@@ -23,7 +23,7 @@ import { firestoreErrorHandler } from '../../utils/firestoreErrorHandler';
 import { isAdminUserSync, isMasterUserSync, debugMasterUser } from '../../utils/masterUtils';
 import { permissionsAPI, membersAPI } from '../../api/database';
 import { getCategoryColorForType, stripDuplicateScheduleBadgePrefix } from '../../utils/scheduleCategoryColors';
-import { resolveWeatherForSite, findSiteByIdOrName, DEFAULT_WEATHER, canAutoOverwriteWeather, isPastScheduleDate, syncScheduleAutoWeather } from '../../utils/siteWeather';
+import { resolveWeatherForSite, findSiteByIdOrName, DEFAULT_WEATHER, canAutoOverwriteWeather, isPastScheduleDate, syncScheduleAutoWeather, getSiteAddress } from '../../utils/siteWeather';
 
 // CSS 애니메이션을 위한 스타일
 const pulseAnimation = `
@@ -867,7 +867,10 @@ const ScheduleManagement = ({
         if (cancelled) break;
         if (!item?.id || item.isEstimate) continue;
         if (String(item.id).startsWith('estimate_') || String(item.id).startsWith('bid_')) continue;
-        if (item.weatherSource !== 'auto') continue;
+        // auto 또는 예전 데이터(weatherSource 없음)+siteId
+        if (item.weatherSource === 'manual') continue;
+        if (item.weatherSource != null && item.weatherSource !== 'auto') continue;
+        if (item.weatherSource == null && !item.siteId) continue;
         const site = findSiteByIdOrName(sites, {
           siteId: item.siteId,
           siteName: item.siteName || item.text,
@@ -969,7 +972,9 @@ const ScheduleManagement = ({
   const applyAutoWeather = async ({ site, dateStr, forEdit = false, force = false }) => {
     if (!site || !dateStr) return null;
     const currentSource = forEdit ? editPopup.item?.weatherSource : selectedWeatherSource;
-    if (!force && !canAutoOverwriteWeather({ weatherSource: currentSource, dateStr, allowPastFetch: false })) {
+    // 신규 등록 모달(최초 채움)은 지난 날짜도 허용. 편집은 수동/지난날짜 고정 유지.
+    const allowPastFetch = force || !forEdit;
+    if (!force && !canAutoOverwriteWeather({ weatherSource: currentSource, dateStr, allowPastFetch })) {
       return null;
     }
     setWeatherLoading(true);
@@ -1046,7 +1051,10 @@ const ScheduleManagement = ({
         return;
       }
       
-      const site = filteredSites[source.index];
+      const site =
+        filteredSites.find((s) => s.id === draggableId) ||
+        (Array.isArray(sites) ? sites.find((s) => s.id === draggableId) : null) ||
+        filteredSites[source.index];
       if (!site) return;
       const itemsOnDate = calendarItems[destination.droppableId] || [];
       const isDuplicate = itemsOnDate.some(item => item.text === site.name && item.siteId === site.id);
@@ -1054,10 +1062,15 @@ const ScheduleManagement = ({
         alert('같은 날짜에 같은 현장명과 제목으로 이미 등록된 일정이 있습니다.');
         return;
       }
-      let weatherFields = { weather: DEFAULT_WEATHER };
+      // 실패 시 가짜 ☀️를 넣지 않음 (자동채움 실패와 맑음 구분을 위해)
+      let weatherFields = {};
       try {
         const info = await resolveWeatherForSite(site, destination.droppableId);
-        if (info) weatherFields = info;
+        if (info) {
+          weatherFields = info;
+        } else {
+          console.warn('날씨 자동채움 실패(주소/좌표 확인):', site.name, getSiteAddress(site));
+        }
       } catch (e) {
         console.warn('드래그 일정 날씨 조회 실패:', e);
       }

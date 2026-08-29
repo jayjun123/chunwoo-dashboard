@@ -1323,10 +1323,16 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
       materialItemsCount: materialData.items.length
     });
     
-    // 물량 개수에 따른 템플릿 타입 결정
+    // 물량 개수에 따른 템플릿 타입 결정 (기성금청구서는 20개 초과 시 강제 L)
     const itemCount = materialData?.items?.length || 0;
     let templateType;
-    if (siteData.templateType === 'AUTO') {
+    if (documentType === '기성금청구서') {
+      const { resolveGisungTemplateType } = await import('./gisungTemplateUtils.js');
+      templateType = resolveGisungTemplateType(
+        materialData.items,
+        siteData.templateType === 'AUTO' || !siteData.templateType ? 'AUTO' : siteData.templateType
+      );
+    } else if (siteData.templateType === 'AUTO') {
       templateType = itemCount > 20 ? 'L' : 'N';
     } else {
       templateType = siteData.templateType || 'N';
@@ -1492,6 +1498,16 @@ export const generateDocumentExcel = async (siteData, materialData, documentType
     gapjiSheet.getCell('D3').value = safeString(currentMonth);
     gapjiSheet.getCell('B11').value = safeString(siteData?.companyName || siteData?.company || '대마팀');
     gapjiSheet.getCell('H16').value = safeString(siteData?.name);
+
+    // 기성금청구서 갑지: 착공/준공일 (D10, D12) — YYYY년 MM월 DD일
+    if (documentType === '기성금청구서') {
+      const { formatGisungKoreanDate } = await import('./gisungTemplateUtils.js');
+      gapjiSheet.getCell('D10').value = formatGisungKoreanDate(siteData?.startDate);
+      gapjiSheet.getCell('D12').value = formatGisungKoreanDate(siteData?.endDate);
+      if (siteData?.name) gapjiSheet.getCell('D4').value = safeString(siteData.name);
+      const company = siteData?.companyName || siteData?.company || siteData?.contractor || '';
+      if (company) gapjiSheet.getCell('D6').value = safeString(company);
+    }
     
     // 인감 이미지 추가
     if (siteData.stampType && siteData.stampType !== '인감없음') {

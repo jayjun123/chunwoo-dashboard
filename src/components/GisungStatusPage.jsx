@@ -1193,7 +1193,7 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             endDate: site.endDate || '',
             advance: Number(site.advance || 0),
             stampType: site.stampType || 'A인감',
-            templateType: site.templateType || 'N'
+            templateType: site.templateType || 'AUTO'
           };
           console.log('🔍 매핑된 siteData:', siteData);
           console.log('🔍 templateType 확인:', site.templateType, '→', siteData.templateType);

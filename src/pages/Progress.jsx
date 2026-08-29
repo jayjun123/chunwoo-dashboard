@@ -1647,7 +1647,8 @@ const Progress = () => {
         contractor: firstRow.company || '',
         startDate: firstRow.startDate || '',
         endDate: firstRow.endDate || '',
-        advance: Number(firstRow.advance || 0)
+        advance: Number(firstRow.advance || 0),
+        templateType: firstRow.templateType || 'AUTO'
       };
       
       const gisungData = Array.isArray(firstRow.payments) ? firstRow.payments : [];

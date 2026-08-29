@@ -4,6 +4,85 @@ import { getSafePrice, setCellValueSafely, filterMaterialItems, logMaterialItem,
 import { ref, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
 
+/** 착공/준공일 → `YYYY년 MM월 DD일` (잘못 치환된 `YYYY년 MM년 DD월` 방지) */
+export function formatGisungKoreanDate(dateValue) {
+  if (dateValue == null || dateValue === '') return '0000년 00월 00일';
+
+  let y = null;
+  let m = null;
+  let d = null;
+
+  if (typeof dateValue?.toDate === 'function') {
+    const dt = dateValue.toDate();
+    if (!Number.isNaN(dt.getTime())) {
+      y = dt.getFullYear();
+      m = dt.getMonth() + 1;
+      d = dt.getDate();
+    }
+  } else if (dateValue instanceof Date) {
+    if (!Number.isNaN(dateValue.getTime())) {
+      y = dateValue.getFullYear();
+      m = dateValue.getMonth() + 1;
+      d = dateValue.getDate();
+    }
+  } else {
+    const raw = String(dateValue).trim();
+    // 이미 올바른 형식
+    const already = raw.match(/^(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+    if (already) {
+      y = Number(already[1]);
+      m = Number(already[2]);
+      d = Number(already[3]);
+    } else {
+      // 잘못된 `2024년 01년 15월` / `2024년 01월` 등도 복구 시도
+      const broken = raw.match(/^(\d{4})\s*년\s*(\d{1,2})\s*년\s*(\d{1,2})\s*월/);
+      if (broken) {
+        y = Number(broken[1]);
+        m = Number(broken[2]);
+        d = Number(broken[3]);
+      } else {
+        const ymd = raw.match(/(\d{4})[.\-\/년\s]+(\d{1,2})[.\-\/월\s]+(\d{1,2})/);
+        if (ymd) {
+          y = Number(ymd[1]);
+          m = Number(ymd[2]);
+          d = Number(ymd[3]);
+        } else {
+          const ym = raw.match(/(\d{4})[.\-\/년\s]+(\d{1,2})/);
+          if (ym) {
+            y = Number(ym[1]);
+            m = Number(ym[2]);
+            d = 1;
+          }
+        }
+      }
+    }
+  }
+
+  if (!y || !m) return '0000년 00월 00일';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${y}년 ${pad(m)}월 ${pad(d || 1)}일`;
+}
+
+/** 실제 입력 행 수(총계/부가세 제외) 기준으로 N/L 결정. 20초과면 무조건 L */
+export function resolveGisungTemplateType(siteItems = [], preferredType) {
+  const list = Array.isArray(siteItems) ? siteItems : [];
+  const dataCount = list.filter(
+    (item) => item && !item.isTotal && !item.isVat && !item.isTotalWithVat
+  ).length;
+  const needsLong = dataCount > 20;
+
+  if (needsLong) {
+    if (preferredType === 'N') {
+      console.warn(`⚠️ 물량 ${dataCount}개 → N 템플릿으로는 잘리므로 L(LONG)로 전환`);
+    }
+    return 'L';
+  }
+
+  if (preferredType === 'L' || preferredType === 'N') return preferredType;
+  // AUTO / 미지정
+  return 'N';
+}
+
 // Firebase Storage에서 템플릿 다운로드
 const downloadTemplateFromUrls = async (templateKey) => {
   try {
@@ -179,19 +258,14 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
   try {
     console.log('🚀 기성금청구서 템플릿 기반 생성 시작');
     
-    // 물량 데이터 개수에 따라 템플릿 선택
-    const itemCount = siteItems.length;
-    
-    // siteData.templateType이 'AUTO'인 경우 물량 개수로 결정, 그렇지 않으면 기존 값 사용
-    let templateType;
-    if (siteData.templateType === 'AUTO') {
-      templateType = itemCount > 20 ? 'L' : 'N';
-      console.log(`🔄 AUTO 모드: 물량 ${itemCount}개 → ${templateType} 타입 선택`);
-    } else {
-      templateType = siteData.templateType || 'N';
-      console.log(`📋 수동 설정: ${templateType} 타입 사용`);
-    }
-    
+    // 물량 데이터 개수에 따라 템플릿 선택 (N: 20개 이하, L: 21개 이상 — 초과 시 강제 L)
+    const itemCount = Array.isArray(siteItems) ? siteItems.length : 0;
+    const preferred =
+      siteData?.templateType === 'AUTO' || !siteData?.templateType
+        ? 'AUTO'
+        : siteData.templateType;
+    const templateType = resolveGisungTemplateType(siteItems, preferred);
+
     const templateKey = `(${templateType})기성금청구서`;
     
     console.log(`📊 물량 개수: ${itemCount}개 → ${templateType} 타입 템플릿 사용`);
@@ -439,12 +513,31 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
     
     // Shared Formula 관련 속성 제거 및 데이터 입력
     await fillGisungData(workbook, siteData, gisungData, siteItems, currentSequence, previousGisungData);
+
+    // 내역서 인쇄영역·열 범위: A~M (L에서 잘리고 M만 보이는 현상 방지)
+    const detailSheetAfter = workbook.getWorksheet('기성금 내역서');
+    if (detailSheetAfter) {
+      const printEndRow = templateType === 'L' ? 55 : 30;
+      detailSheetAfter.pageSetup = {
+        ...(detailSheetAfter.pageSetup || {}),
+        printArea: `A1:M${printEndRow}`,
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        orientation: 'landscape',
+      };
+      // 사용 범위가 L에서 끊기지 않도록 M열까지 명시
+      try {
+        detailSheetAfter.getColumn(13).width = detailSheetAfter.getColumn(13).width || 9;
+      } catch (_) { /* ignore */ }
+      console.log(`🖨️ 내역서 printArea = A1:M${printEndRow}`);
+    }
     
     console.log('✅ 기성금청구서 템플릿 기반 생성 완료');
     return { 
       workbook, 
       gisungMonth: getPreviousMonth(),
-      templateType: siteData?.templateType || 'N'
+      templateType
     };
     
   } catch (error) {
@@ -469,8 +562,8 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
          { cell: 'D4', value: siteData?.name || '현장명' }, // 공사명
          { cell: 'D6', value: siteData?.companyName || siteData?.company || siteData?.contractor || '시공사' }, // 시공사
          { cell: 'D8', value: '유리공사' }, // 하도급 공사명 (고정)
-         { cell: 'D10', value: siteData?.startDate ? siteData.startDate.replace(/\./g, '년 ') + '월' : '0000년 00월' }, // 계약(착공)일자
-         { cell: 'D12', value: siteData?.endDate ? siteData.endDate.replace(/\./g, '년 ') + '월' : '0000년 00월' }, // 준공일자
+         { cell: 'D10', value: formatGisungKoreanDate(siteData?.startDate) }, // 계약(착공)일자
+         { cell: 'D12', value: formatGisungKoreanDate(siteData?.endDate) }, // 준공일자
          { cell: 'A36', value: getPreviousMonth() }, // 현재월-1
          { cell: 'A44', value: (siteData?.companyName || siteData?.company || siteData?.contractor || '회사명') + ' 귀중' } // 회사명 귀중
        ];
@@ -588,9 +681,12 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
        console.log(`📋 물량 데이터 개수: ${siteItems.length}개`);
        
        // 기존 데이터 행들 정리 (수식은 보존, 데이터만 정리)
-       // NEW 템플릿: 6-25행만, LONG 템플릿: 6-50행만
-       const maxDataRow = siteItems.length <= 20 ? 25 : 50;
-       console.log(`📋 데이터 입력 범위: 6행부터 ${maxDataRow}행까지만 (수식 보존)`);
+       // NEW 템플릿: 6-25행만, LONG 템플릿: 6-50행만 (필터링 후 개수 기준)
+       const filteredForRange = (siteItems || []).filter(
+         (item) => item && !item.isTotal && !item.isVat && !item.isTotalWithVat
+       );
+       const maxDataRow = filteredForRange.length <= 20 ? 25 : 50;
+       console.log(`📋 데이터 입력 범위: 6행부터 ${maxDataRow}행까지만 (물량 ${filteredForRange.length}개, 수식 보존)`);
        
        for (let row = 6; row <= maxDataRow; row++) {
          for (let col = 1; col <= 5; col++) { // A, B, C, D, E열만 (1-5열)
@@ -626,7 +722,7 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
        
        // C,D열에 값이 없으면 그 행 전체를 빈칸으로 처리
        console.log('🧹 C,D열에 값이 없는 행 전체 빈칸 처리 시작...');
-       const maxCleanupRow = siteItems.length <= 20 ? 25 : 50;
+       const maxCleanupRow = filteredForRange.length <= 20 ? 25 : 50;
        
        for (let row = 6; row <= maxCleanupRow; row++) {
          try {
@@ -652,16 +748,13 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
                    continue; // A,B열은 건드리지 않음
                  }
                  
-                 // C~M열만 빈칸으로 처리 (수식은 보존)
-                 if (cell.formula) {
-                   console.log(`🛡️ ${row}행 ${String.fromCharCode(64 + col)}열 수식 보존: ${cell.formula}`);
-                   // 수식은 그대로 두고 값만 빈칸으로
-                   cell.value = '';
-                 } else {
-                   // 수식이 없는 경우 값만 빈칸으로 처리
-                   cell.value = '';
-                   console.log(`✅ ${row}행 ${String.fromCharCode(64 + col)}열 값만 빈칸 처리 완료`);
+                 // C~M열만 빈칸으로 처리 (수식 셀은 절대 value=''로 지우지 않음 — L/M열 수식 파괴 방지)
+                 if (cell.formula || cell.sharedFormula) {
+                   console.log(`🛡️ ${row}행 ${String.fromCharCode(64 + col)}열 수식 보존: ${cell.formula || cell.sharedFormula}`);
+                   continue;
                  }
+                 cell.value = '';
+                 console.log(`✅ ${row}행 ${String.fromCharCode(64 + col)}열 값만 빈칸 처리 완료`);
                  
                  console.log(`✅ ${row}행 ${String.fromCharCode(64 + col)}열 처리 완료`);
                } catch (e) {
@@ -698,7 +791,7 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
            console.log('📊 추출된 항목들:', extractedItems);
            
            // 모든 항목의 K값(누계수량)을 G값(전회수량)으로 복사
-           const maxGisungRow = siteItems.length <= 20 ? 25 : 50;
+           const maxGisungRow = filteredForRange.length <= 20 ? 25 : 50;
            for (let row = 6; row <= maxGisungRow; row++) {
              // 해당 행의 K값(누계수량) 찾기
              const item = extractedItems.find(item => item.row === row);
@@ -732,7 +825,7 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
        }
        
                 // NEW 템플릿에서는 26행부터는 원본 템플릿 데이터 보존
-        if (siteItems.length <= 20) {
+        if (filteredForRange.length <= 20) {
           console.log('📋 NEW 템플릿: 26행부터는 원본 템플릿 데이터 보존');
           
           // 26행부터 30행까지 원본 데이터 보존 확인 및 강제 보호
@@ -755,7 +848,7 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
         }
         
         // LONG 템플릿에서는 51행부터 54행까지는 건드리지 않음 (셀 보호 유지)
-        if (siteItems.length > 20) {
+        if (filteredForRange.length > 20) {
           console.log('📋 LONG 템플릿: 51행부터 54행까지는 셀 보호 유지하여 원본 데이터 보존');
           
           // 51행부터 54행까지 원본 데이터 보존 확인 및 강제 보호

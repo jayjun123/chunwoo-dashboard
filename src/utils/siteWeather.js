@@ -178,8 +178,8 @@ const REGION_PATTERNS = [
   { pattern: /대전광역시|대전시|대전/, name: '대전' },
   { pattern: /울산광역시|울산시|울산/, name: '울산' },
   { pattern: /세종특별자치시|세종시|세종/, name: '세종' },
-  { pattern: /양주시|양주/, name: '양주' },
   { pattern: /남양주시|남양주/, name: '남양주' },
+  { pattern: /(?<!남)양주시|(?<!남)양주/, name: '양주' },
   { pattern: /수원시|수원/, name: '수원' },
   { pattern: /성남시|성남/, name: '성남' },
   { pattern: /고양시|고양/, name: '고양' },
@@ -212,7 +212,9 @@ const REGION_PATTERNS = [
   { pattern: /춘천시|춘천/, name: '춘천' },
   { pattern: /원주시|원주/, name: '원주' },
   { pattern: /강릉시|강릉/, name: '강릉' },
+  { pattern: /서귀포시|서귀포/, name: '제주' },
   { pattern: /제주시|제주특별자치도|제주도|제주/, name: '제주' },
+  { pattern: /광주광역시/, name: '광주' },
   { pattern: /경기도|경기/, name: '경기도' },
   { pattern: /강원특별자치도|강원도|강원/, name: '강원도' },
   { pattern: /충청북도|충북/, name: '충청북도' },
@@ -232,6 +234,22 @@ export function extractRegionFromAddress(address) {
   return null;
 }
 
+export function getSiteAddress(site) {
+  if (!site) return '';
+  const raw = String(
+    site.address ||
+    site.companyAddress ||
+    site.location ||
+    site.fullAddress ||
+    site.addr ||
+    site.roadAddress ||
+    site.jibunAddress ||
+    ''
+  ).trim();
+  if (!raw || raw === '주소 미입력') return '';
+  return raw;
+}
+
 function parseCoord(value) {
   const n = typeof value === 'number' ? value : parseFloat(value);
   return Number.isFinite(n) ? n : null;
@@ -249,11 +267,120 @@ export function resolveSiteCoords(site) {
     return { lat, lon };
   }
 
-  const region = extractRegionFromAddress(site.address);
+  const address = getSiteAddress(site);
+  const region = extractRegionFromAddress(address);
   if (!region) return null;
   const pair = CITY_COORDINATES[region];
   if (!pair) return null;
   return { lon: pair[0], lat: pair[1] };
+}
+
+const GEOCODE_CACHE = new Map();
+
+function buildGeocodeQueries(address) {
+  const normalized = String(address || '').trim().replace(/\s+/g, ' ');
+  if (!normalized || normalized === '주소 미입력') return [];
+  const queries = [];
+  const region = extractRegionFromAddress(normalized);
+  if (region) {
+    // 테이블 키 → 검색어 (서울강남구 → 강남구, 대구수성구 → 수성구 등)
+    const short = region
+      .replace(/^서울/, '')
+      .replace(/^부산/, '')
+      .replace(/^대구/, '')
+      .replace(/^인천/, '');
+    if (short && short !== region) queries.push(short);
+    queries.push(region);
+  }
+  const cityMatches = normalized.match(/[가-힣]+(?:특별시|광역시|특별자치시|특별자치도|도|시|군|구)/g) || [];
+  cityMatches.forEach((c) => queries.push(c));
+  // 앞쪽 토큰 조합
+  const tokens = normalized.split(' ').filter(Boolean);
+  if (tokens.length >= 2) queries.push(`${tokens[0]} ${tokens[1]}`);
+  if (tokens.length >= 1) queries.push(tokens[0]);
+  queries.push(normalized.slice(0, 40));
+  return [...new Set(queries.filter(Boolean))];
+}
+
+async function geocodeViaOpenMeteo(q) {
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&country=KR`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const hit = (data.results || []).find((r) => r.country_code === 'KR' && r.latitude && r.longitude);
+  if (!hit) return null;
+  return { lat: hit.latitude, lon: hit.longitude };
+}
+
+/** Open-Meteo가 못 잡는 도로명·지번 주소용 (OSM Nominatim) */
+async function geocodeViaNominatim(q) {
+  const url =
+    `https://nominatim.openstreetmap.org/search?format=json&countrycodes=kr&limit=3&q=${encodeURIComponent(q)}`;
+  const res = await fetch(url, {
+    headers: {
+      Accept: 'application/json',
+      'Accept-Language': 'ko',
+      // 브라우저에서는 기본 UA 사용. Node 등에서 403 방지용.
+      'User-Agent': 'ChunwooDashboard/1.0 (weather-autofill)',
+    },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const hit = Array.isArray(data) ? data[0] : null;
+  const lat = parseCoord(hit?.lat);
+  const lon = parseCoord(hit?.lon);
+  if (lat == null || lon == null) return null;
+  if (lat < 33 || lat > 39 || lon < 124 || lon > 132) return null;
+  return { lat, lon };
+}
+
+async function geocodeKoreanAddress(address) {
+  const queries = buildGeocodeQueries(address);
+  // 원문 전체 주소를 맨 앞에 (도로명 지오코딩용)
+  const full = String(address || '').trim().replace(/\s+/g, ' ');
+  const ordered = full && full !== '주소 미입력'
+    ? [full, ...queries.filter((q) => q !== full)]
+    : queries;
+
+  for (const q of ordered) {
+    if (GEOCODE_CACHE.has(q)) {
+      const cached = GEOCODE_CACHE.get(q);
+      if (cached) return cached;
+      continue;
+    }
+    try {
+      let coords = await geocodeViaOpenMeteo(q);
+      if (!coords) coords = await geocodeViaNominatim(q);
+      GEOCODE_CACHE.set(q, coords);
+      if (coords) return coords;
+    } catch (e) {
+      console.warn('지오코딩 실패:', q, e);
+      GEOCODE_CACHE.set(q, null);
+    }
+  }
+  return null;
+}
+
+/** 동기 테이블 조회 후, 없으면 Open-Meteo 지오코딩 */
+export async function resolveSiteCoordsAsync(site) {
+  const sync = resolveSiteCoords(site);
+  if (sync) return sync;
+  const address = getSiteAddress(site);
+  if (address) {
+    const geo = await geocodeKoreanAddress(address);
+    if (geo) return geo;
+  }
+  // 주소가 약해도 현장명에 지역이 들어있는 경우
+  if (site?.name) {
+    const fromName = extractRegionFromAddress(site.name);
+    if (fromName && CITY_COORDINATES[fromName]) {
+      const pair = CITY_COORDINATES[fromName];
+      return { lon: pair[0], lat: pair[1] };
+    }
+    const geoName = await geocodeKoreanAddress(site.name);
+    if (geoName) return geoName;
+  }
+  return null;
 }
 
 /** WMO weathercode → 일정 이모지 */
@@ -314,11 +441,12 @@ async function fetchWeatherCode(lat, lon, dateStr) {
   const base = isPast
     ? 'https://archive-api.open-meteo.com/v1/archive'
     : 'https://api.open-meteo.com/v1/forecast';
-  const url = `${base}?latitude=${lat}&longitude=${lon}&daily=weathercode&timezone=Asia%2FSeoul&start_date=${dateStr}&end_date=${dateStr}`;
+  // weather_code(신규) + weathercode(구) 둘 다 요청
+  const url = `${base}?latitude=${lat}&longitude=${lon}&daily=weather_code,weathercode&timezone=Asia%2FSeoul&start_date=${dateStr}&end_date=${dateStr}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`weather http ${res.status}`);
   const data = await res.json();
-  const codes = data?.daily?.weathercode;
+  const codes = data?.daily?.weather_code || data?.daily?.weathercode;
   if (!Array.isArray(codes) || codes.length === 0) return null;
   return codes[0];
 }
@@ -354,14 +482,25 @@ export async function fetchDailyWeatherEmoji({ lat, lon, dateStr }) {
  * @returns {Promise<{ weather: string, weatherSource: 'auto', weatherFetchedAt: Date } | null>}
  */
 export async function resolveWeatherForSite(site, dateStr) {
-  const coords = resolveSiteCoords(site);
-  if (!coords) return null;
+  if (!site) {
+    console.warn('[weather] site 없음');
+    return null;
+  }
+  const coords = await resolveSiteCoordsAsync(site);
+  if (!coords) {
+    console.warn('[weather] 좌표 해석 실패:', site.name || site.id, getSiteAddress(site));
+    return null;
+  }
   const weather = await fetchDailyWeatherEmoji({
     lat: coords.lat,
     lon: coords.lon,
     dateStr,
   });
-  if (!weather) return null;
+  if (!weather) {
+    console.warn('[weather] 날씨 조회 실패:', coords, dateStr);
+    return null;
+  }
+  console.log('[weather] OK', site.name || site.id, dateStr, weather, coords);
   return {
     weather,
     weatherSource: 'auto',
@@ -379,7 +518,11 @@ const AUTO_REFRESH_COOLDOWN = new Map();
 export async function syncScheduleAutoWeather(schedule, site, updateFn) {
   if (!schedule?.id || typeof updateFn !== 'function') return false;
   if (schedule.weatherSource === 'manual') return false;
-  if (schedule.weatherSource !== 'auto') return false;
+  // auto 이거나, 예전 데이터(weatherSource 없음)+siteId 있으면 갱신 시도
+  const canSync =
+    schedule.weatherSource === 'auto' ||
+    (schedule.weatherSource == null && Boolean(schedule.siteId));
+  if (!canSync) return false;
 
   const dateStr = normalizeDateStr(schedule.date);
   if (!dateStr || isPastScheduleDate(dateStr)) return false;
@@ -390,7 +533,7 @@ export async function syncScheduleAutoWeather(schedule, site, updateFn) {
 
   const info = await resolveWeatherForSite(site, dateStr);
   if (!info) return false;
-  if (info.weather === schedule.weather) return false;
+  if (info.weather === schedule.weather && schedule.weatherSource === 'auto') return false;
 
   await updateFn(schedule.id, {
     weather: info.weather,

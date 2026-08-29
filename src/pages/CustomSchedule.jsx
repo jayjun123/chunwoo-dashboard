@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { exportCalendarToExcel } from '../utils/excelUtils.jsx';
 import { stripDuplicateScheduleBadgePrefix } from '../utils/scheduleCategoryColors';
-import { resolveWeatherForSite, findSiteByIdOrName, DEFAULT_WEATHER, canAutoOverwriteWeather, isPastScheduleDate, syncScheduleAutoWeather } from '../utils/siteWeather';
+import { resolveWeatherForSite, findSiteByIdOrName, DEFAULT_WEATHER, canAutoOverwriteWeather, isPastScheduleDate, syncScheduleAutoWeather, getSiteAddress } from '../utils/siteWeather';
 
 
 function isInMonth(site, year, month) {
@@ -242,12 +242,19 @@ const CustomSchedule = () => {
     }
 
     if (source.droppableId === 'siteList' && destination.droppableId.startsWith('20')) {
-      const site = filteredSites[source.index];
+      const site =
+        filteredSites.find((s) => s.id === draggableId) ||
+        (Array.isArray(sites) ? sites.find((s) => s.id === draggableId) : null) ||
+        filteredSites[source.index];
       if (!site) return;
-      let weatherFields = { weather: DEFAULT_WEATHER };
+      let weatherFields = {};
       try {
         const info = await resolveWeatherForSite(site, destination.droppableId);
-        if (info) weatherFields = info;
+        if (info) {
+          weatherFields = info;
+        } else {
+          console.warn('날씨 자동채움 실패(주소/좌표 확인):', site.name, getSiteAddress(site));
+        }
       } catch (e) {
         console.warn('드래그 일정 날씨 조회 실패:', e);
       }
@@ -576,7 +583,9 @@ const CustomSchedule = () => {
         if (cancelled) break;
         if (!item?.id || item.isEstimate) continue;
         if (String(item.id).startsWith('estimate_')) continue;
-        if (item.weatherSource !== 'auto') continue;
+        if (item.weatherSource === 'manual') continue;
+        if (item.weatherSource != null && item.weatherSource !== 'auto') continue;
+        if (item.weatherSource == null && !item.siteId) continue;
         const site = findSiteByIdOrName(sites, {
           siteId: item.siteId,
           siteName: item.siteName || item.text,

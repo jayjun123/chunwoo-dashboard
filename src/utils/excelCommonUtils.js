@@ -541,17 +541,18 @@ export const fillGisungStyleData = (sheet, materialItems, startRow = 6, sheetNam
     
     console.log(`📊 필터링된 물량 데이터: ${filteredItems.length}개`);
     
-    // 기존 데이터 행들 정리
-    const maxDataRow = materialItems.length <= 20 ? 25 : 50;
+    // 기존 데이터 행들 정리 (21개 이상이면 LONG 범위)
+    const maxDataRow = filteredItems.length <= 20 ? 25 : 50;
     for (let row = startRow; row <= maxDataRow; row++) {
       for (let col = 1; col <= 5; col++) { // A, B, C, D, E열만
         const cell = sheet.getCell(row, col);
+        if (cell.formula || cell.sharedFormula) continue;
         cell.value = '';
       }
     }
     
     // 새로운 데이터 입력
-    const maxInputRow = materialItems.length <= 20 ? 25 : 50;
+    const maxInputRow = filteredItems.length <= 20 ? 25 : 50;
     for (let index = 0; index < filteredItems.length && (index + startRow) <= maxInputRow; index++) {
       const item = filteredItems[index];
       const rowNumber = index + startRow;
