@@ -519,6 +519,74 @@ export const fillContractStyleData = (sheet, materialItems, startRow = 5, sheetN
 };
 
 /**
+ * 셀을 진짜 빈칸으로 (빈 문자열 '' 금지 — 수식 #VALUE! 유발)
+ */
+export function clearExcelCell(cell) {
+  if (!cell) return;
+  try {
+    // 수식·공유수식·값 모두 제거
+    cell.value = null;
+  } catch (_) {
+    try {
+      cell.value = undefined;
+    } catch (__) { /* ignore */ }
+  }
+}
+
+/**
+ * 행 전체가 비어 있는지 (수량이 0이어도 "값 있음"으로 봄)
+ */
+function isBlankCellValue(value) {
+  return value === null || value === undefined || value === '';
+}
+
+/**
+ * 기성 내역서: 데이터 없는 행은 A~M 전부 빈칸(수식 제거).
+ * 품명만 있는 분류 행도 F~M 수식은 제거해 #VALUE! → 합계 전파를 막음.
+ */
+export function blankUnusedGisungDetailRows(sheet, startRow, maxDataRow, filledCount) {
+  if (!sheet) return;
+  const lastFilledRow = startRow + Math.max(filledCount, 0) - 1;
+
+  for (let row = startRow; row <= maxDataRow; row++) {
+    const cellA = sheet.getCell(row, 1);
+    const cellB = sheet.getCell(row, 2);
+    const cellC = sheet.getCell(row, 3);
+    const cellD = sheet.getCell(row, 4);
+    const cellE = sheet.getCell(row, 5);
+
+    const hasName = !isBlankCellValue(cellA.value) || !isBlankCellValue(cellB.value);
+    const hasUnit = !isBlankCellValue(cellC.value);
+    // 숫자 0은 유효한 수량
+    const hasQty =
+      typeof cellD.value === 'number' ||
+      (cellD.value != null && cellD.value !== '' && !Number.isNaN(Number(cellD.value)));
+    const hasPrice =
+      typeof cellE.value === 'number' ||
+      (cellE.value != null && cellE.value !== '' && !Number.isNaN(Number(cellE.value)));
+
+    const beyondData = row > lastFilledRow;
+    const noMeasurable = !hasUnit && !hasQty && !hasPrice;
+
+    if (beyondData || (!hasName && noMeasurable)) {
+      // 완전 빈 행: A~M 수식·값 전부 제거
+      for (let col = 1; col <= 13; col++) {
+        clearExcelCell(sheet.getCell(row, col));
+      }
+      continue;
+    }
+
+    if (hasName && noMeasurable) {
+      // 분류 행(A동, 유리공사 등): 품명·규격만 두고 C~M은 빈칸 (수식 제거)
+      for (let col = 3; col <= 13; col++) {
+        clearExcelCell(sheet.getCell(row, col));
+      }
+      // A/B에 실수로 ''가 들어갔으면 유지, 숫자 셀은 건드리지 않음
+    }
+  }
+}
+
+/**
  * 기성금 스타일 물량 데이터 입력 함수 (공통)
  * @param {ExcelJS.Worksheet} sheet - 엑셀 시트
  * @param {Array} materialItems - 물량 데이터
@@ -544,10 +612,9 @@ export const fillGisungStyleData = (sheet, materialItems, startRow = 6, sheetNam
     // 기존 데이터 행들 정리 (21개 이상이면 LONG 범위)
     const maxDataRow = filteredItems.length <= 20 ? 25 : 50;
     for (let row = startRow; row <= maxDataRow; row++) {
-      for (let col = 1; col <= 5; col++) { // A, B, C, D, E열만
-        const cell = sheet.getCell(row, col);
-        if (cell.formula || cell.sharedFormula) continue;
-        cell.value = '';
+      for (let col = 1; col <= 13; col++) {
+        // 입력 전 행을 깨끗이 (잔여 '' / 깨진 수식 제거) — 합계 행은 maxDataRow 밖
+        clearExcelCell(sheet.getCell(row, col));
       }
     }
     
@@ -558,44 +625,65 @@ export const fillGisungStyleData = (sheet, materialItems, startRow = 6, sheetNam
       const rowNumber = index + startRow;
       
       try {
-        // 단가 계산 (기성금청구서용)
-        let unitPrice = 0;
-        
-        if (item?.name === '단수정리') {
-          console.log(`🔧 기성금청구서 단수정리 특별 처리 (${rowNumber}행)`);
-          // 단수정리의 경우 amount/quantity로 계산
-          unitPrice = item.amount && item.quantity ? item.amount / item.quantity : 0;
-          console.log(`📊 단수정리 단가: ${unitPrice} (amount: ${item.amount}, quantity: ${item.quantity})`);
-        } else {
-          // 일반 항목의 경우 amount/quantity로 계산하거나 기존 단가 사용
-          if (item.amount && item.quantity && item.quantity > 0) {
-            unitPrice = item.amount / item.quantity;
-          } else {
-            unitPrice = item.price || item.unitPrice || 0;
-          }
-          console.log(`📊 일반 항목 단가: ${unitPrice} (amount: ${item.amount}, quantity: ${item.quantity}, price: ${item.price}, unitPrice: ${item.unitPrice})`);
+        const name = item?.name != null ? String(item.name) : '';
+        const spec = item?.specification != null ? String(item.specification) : '';
+        const unit = item?.unit != null && item.unit !== '' ? String(item.unit) : null;
+
+        let quantity = null;
+        if (item?.quantity !== null && item?.quantity !== undefined && item?.quantity !== '') {
+          const q = Number(item.quantity);
+          quantity = Number.isFinite(q) ? q : null;
         }
-        
-        const cells = [
-          { col: 1, value: item?.name || '' }, // A열: 품명 (B열과 순서 변경)
-          { col: 2, value: item.specification || '' }, // B열: 규격
-          { col: 3, value: item.unit || '' }, // C열: 단위
-          { col: 4, value: item.quantity || 0 }, // D열: 수량
-          { col: 5, value: unitPrice } // E열: 단가
-        ];
-        
-        cells.forEach(({ col, value }) => {
-          const cell = sheet.getCell(rowNumber, col);
-          cell.value = value;
-        });
+
+        let unitPrice = null;
+        if (item?.name === '단수정리') {
+          if (item.amount != null && quantity) {
+            unitPrice = Number(item.amount) / quantity;
+          } else if (item.unitPrice != null || item.price != null) {
+            unitPrice = Number(item.unitPrice ?? item.price);
+          }
+        } else if (item.amount != null && quantity) {
+          unitPrice = Number(item.amount) / quantity;
+        } else if (item.price != null || item.unitPrice != null) {
+          unitPrice = Number(item.price ?? item.unitPrice);
+        }
+        if (unitPrice != null && !Number.isFinite(unitPrice)) unitPrice = null;
+
+        // 분류 행(단위·수량·단가 없음): 품명만 넣고 수식 열은 비움
+        const isCategoryOnly = !unit && quantity == null && unitPrice == null;
+
+        sheet.getCell(rowNumber, 1).value = name || null;
+        sheet.getCell(rowNumber, 2).value = spec || null;
+
+        if (isCategoryOnly) {
+          for (let col = 3; col <= 13; col++) {
+            clearExcelCell(sheet.getCell(rowNumber, col));
+          }
+        } else {
+          sheet.getCell(rowNumber, 3).value = unit;
+          sheet.getCell(rowNumber, 4).value = quantity;
+          sheet.getCell(rowNumber, 5).value = unitPrice;
+          // F~M: 템플릿 수식을 다시 넣음 (위에서 지웠으므로)
+          sheet.getCell(rowNumber, 6).value = { formula: `D${rowNumber}*E${rowNumber}` };
+          sheet.getCell(rowNumber, 8).value = { formula: `G${rowNumber}*E${rowNumber}` };
+          sheet.getCell(rowNumber, 10).value = { formula: `E${rowNumber}*I${rowNumber}` };
+          sheet.getCell(rowNumber, 11).value = { formula: `G${rowNumber}+I${rowNumber}` };
+          sheet.getCell(rowNumber, 12).value = { formula: `H${rowNumber}+J${rowNumber}` };
+          sheet.getCell(rowNumber, 13).value = {
+            formula: `IF(OR(F${rowNumber}=0,F${rowNumber}=""),"",L${rowNumber}/F${rowNumber})`,
+          };
+          // G, I는 입력값(전회/금회 수량) — 비우면 진짜 빈칸
+          clearExcelCell(sheet.getCell(rowNumber, 7));
+          clearExcelCell(sheet.getCell(rowNumber, 9));
+        }
         
       } catch (e) {
         console.warn(`⚠️ 행 ${rowNumber} 데이터 입력 실패:`, e.message);
       }
     }
-    
-    // 단수정리 항목은 이미 일반 물량 데이터와 함께 처리되었으므로 별도 처리하지 않음
-    console.log('📋 단수정리 항목은 일반 물량 데이터와 함께 처리됨');
+
+    // 데이터 끝난 뒤~maxDataRow 까지 잔여 행 완전 빈칸
+    blankUnusedGisungDetailRows(sheet, startRow, maxDataRow, filteredItems.length);
     
     console.log(`✅ ${sheetName} 스타일 물량 데이터 입력 완료`);
     

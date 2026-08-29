@@ -680,28 +680,6 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
      if (detailSheet && siteItems && siteItems.length > 0) {
        console.log(`📋 물량 데이터 개수: ${siteItems.length}개`);
        
-       // 기존 데이터 행들 정리 (수식은 보존, 데이터만 정리)
-       // NEW 템플릿: 6-25행만, LONG 템플릿: 6-50행만 (필터링 후 개수 기준)
-       const filteredForRange = (siteItems || []).filter(
-         (item) => item && !item.isTotal && !item.isVat && !item.isTotalWithVat
-       );
-       const maxDataRow = filteredForRange.length <= 20 ? 25 : 50;
-       console.log(`📋 데이터 입력 범위: 6행부터 ${maxDataRow}행까지만 (물량 ${filteredForRange.length}개, 수식 보존)`);
-       
-       for (let row = 6; row <= maxDataRow; row++) {
-         for (let col = 1; col <= 5; col++) { // A, B, C, D, E열만 (1-5열)
-           const cell = detailSheet.getCell(row, col);
-           
-           // 🚨 중요: 수식이 있는 셀은 건드리지 않음!
-           if (!cell.formula) {
-             cell.value = '';
-             console.log(`🔧 ${row}행 ${String.fromCharCode(64 + col)}열 데이터 정리 (수식 없음)`);
-           } else {
-             console.log(`✅ ${row}행 ${String.fromCharCode(64 + col)}열 수식 보존: ${cell.formula}`);
-           }
-         }
-       }
-       
        // 물량 데이터에서 계약서 자동계산 항목만 제외 (isTotal, isVat, isTotalWithVat이 true인 항목들)
        // 단수정리 항목은 물량데이터와 함께 취급해야 함
        const filteredItems = siteItems.filter(item => 
@@ -718,61 +696,11 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
        }
        
        // 🛡️ 공통 유틸리티를 사용하여 기성금용 데이터 입력
+       // (빈 행은 ''가 아니라 null 빈칸 + 수식 제거 → #VALUE!로 합계가 깨지지 않음)
        fillGisungStyleData(detailSheet, siteItems, 6, '기성금');
        
-       // C,D열에 값이 없으면 그 행 전체를 빈칸으로 처리
-       console.log('🧹 C,D열에 값이 없는 행 전체 빈칸 처리 시작...');
-       const maxCleanupRow = filteredForRange.length <= 20 ? 25 : 50;
-       
-       for (let row = 6; row <= maxCleanupRow; row++) {
-         try {
-           // 해당 행의 C, D 열 값 확인
-           const cellC = detailSheet.getCell(row, 3); // C열 (단위)
-           const cellD = detailSheet.getCell(row, 4); // D열 (수량)
-           
-           // C, D 열에 값이 없으면 해당 행 전체를 빈칸으로 처리
-           const isEmptyCD = (!cellC.value || cellC.value === '') && 
-                            (!cellD.value || cellD.value === '');
-           
-           if (isEmptyCD) {
-             console.log(`📝 ${row}행 C,D열이 비어있어서 행 전체를 빈칸으로 처리`);
-             
-             // C,D열에 값이 없으면 A,B열만 놔두고 나머지만 빈칸으로 처리 (수식은 보존)
-             for (let col = 1; col <= 13; col++) { // A=1, M=13
-               try {
-                 const cell = detailSheet.getCell(row, col);
-                 
-                 // A,B열은 그대로 놔두기 (품명, 규격 보존)
-                 if (col === 1 || col === 2) {
-                   console.log(`🛡️ ${row}행 ${String.fromCharCode(64 + col)}열 A,B열 보존: ${cell.value || ''}`);
-                   continue; // A,B열은 건드리지 않음
-                 }
-                 
-                 // C~M열만 빈칸으로 처리 (수식 셀은 절대 value=''로 지우지 않음 — L/M열 수식 파괴 방지)
-                 if (cell.formula || cell.sharedFormula) {
-                   console.log(`🛡️ ${row}행 ${String.fromCharCode(64 + col)}열 수식 보존: ${cell.formula || cell.sharedFormula}`);
-                   continue;
-                 }
-                 cell.value = '';
-                 console.log(`✅ ${row}행 ${String.fromCharCode(64 + col)}열 값만 빈칸 처리 완료`);
-                 
-                 console.log(`✅ ${row}행 ${String.fromCharCode(64 + col)}열 처리 완료`);
-               } catch (e) {
-                 console.log(`⚠️ ${row}행 ${String.fromCharCode(64 + col)}열 처리 실패:`, e.message);
-               }
-             }
-           } else {
-             console.log(`📝 ${row}행 C,D열에 데이터가 있어서 행 유지`);
-           }
-         } catch (error) {
-           console.warn(`⚠️ ${row}행 빈칸 처리 중 오류:`, error.message);
-         }
-       }
-       
-       console.log('✅ C,D열 빈칸 처리 완료');
-       
-       // 보호된 셀/수식은 절대 변경하지 않음 (정리 로직 제거)
-       console.log('🛡️ 보호된 셀과 수식은 변경하지 않음');
+       // 보호된 합계 행은 fillGisungStyleData가 maxDataRow 밖이라 유지됨
+       console.log('🛡️ 보호된 셀과 수식은 변경하지 않음 (합계·선급금 행)');
        
        // 선급금은 갑지 H16에 입력하므로 기성금 내역서에서는 건드리지 않음
        console.log(`💰 선급금은 갑지 H16에 입력됨 (기성금 내역서 보호된 셀 보존)`);
@@ -790,21 +718,18 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
            
            console.log('📊 추출된 항목들:', extractedItems);
            
-           // 모든 항목의 K값(누계수량)을 G값(전회수량)으로 복사
-           const maxGisungRow = filteredForRange.length <= 20 ? 25 : 50;
+           // 데이터가 있는 행에만 전회수량(G) 설정 — 빈 행에 0을 넣으면 수식/#VALUE! 유발
+           const filteredLen = filteredItems.length;
+           const maxGisungRow = 5 + filteredLen;
            for (let row = 6; row <= maxGisungRow; row++) {
-             // 해당 행의 K값(누계수량) 찾기
              const item = extractedItems.find(item => item.row === row);
-             
+             const aVal = detailSheet.getCell(row, 1).value;
+             if (aVal == null || aVal === '') continue;
+
              if (item && item.kValue !== null && item.kValue !== undefined) {
                const gCell = detailSheet.getCell(`G${row}`);
-               gCell.value = item.kValue; // K값(누계수량)을 G값(전회수량)으로 복사
+               gCell.value = Number(item.kValue) || 0;
                console.log(`✅ 행 ${row}: K값(누계수량 ${item.kValue}) → G값(전회수량)으로 복사 완료 - ${item.itemName}`);
-             } else {
-               // 해당 행에 데이터가 없으면 0으로 설정
-               const gCell = detailSheet.getCell(`G${row}`);
-               gCell.value = 0;
-               console.log(`📊 행 ${row}: 데이터 없음, G값을 0으로 설정`);
              }
            }
            
@@ -825,7 +750,7 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
        }
        
                 // NEW 템플릿에서는 26행부터는 원본 템플릿 데이터 보존
-        if (filteredForRange.length <= 20) {
+        if (filteredItems.length <= 20) {
           console.log('📋 NEW 템플릿: 26행부터는 원본 템플릿 데이터 보존');
           
           // 26행부터 30행까지 원본 데이터 보존 확인 및 강제 보호
@@ -848,7 +773,7 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
         }
         
         // LONG 템플릿에서는 51행부터 54행까지는 건드리지 않음 (셀 보호 유지)
-        if (filteredForRange.length > 20) {
+        if (filteredItems.length > 20) {
           console.log('📋 LONG 템플릿: 51행부터 54행까지는 셀 보호 유지하여 원본 데이터 보존');
           
           // 51행부터 54행까지 원본 데이터 보존 확인 및 강제 보호
