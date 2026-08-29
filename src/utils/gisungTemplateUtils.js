@@ -536,7 +536,7 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
     console.log('✅ 기성금청구서 템플릿 기반 생성 완료');
     return { 
       workbook, 
-      gisungMonth: getPreviousMonth(),
+      gisungMonth: getGisungMonthByDownloadDate(),
       templateType
     };
     
@@ -564,7 +564,7 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
          { cell: 'D8', value: '유리공사' }, // 하도급 공사명 (고정)
          { cell: 'D10', value: formatGisungKoreanDate(siteData?.startDate) }, // 계약(착공)일자
          { cell: 'D12', value: formatGisungKoreanDate(siteData?.endDate) }, // 준공일자
-         { cell: 'A36', value: getPreviousMonth() }, // 현재월-1
+         { cell: 'A36', value: getGisungMonthByDownloadDate() }, // 1~10일=이전달, 11일~=이번달
          { cell: 'A44', value: (siteData?.companyName || siteData?.company || siteData?.contractor || '회사명') + ' 귀중' } // 회사명 귀중
        ];
        
@@ -805,7 +805,7 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
      }
     
     console.log('✅ 기성금청구서 데이터 입력 완료');
-    return getPreviousMonth();
+    return getGisungMonthByDownloadDate();
     
   } catch (error) {
     console.error('❌ 데이터 입력 실패:', error);
@@ -932,11 +932,49 @@ const fixGisungSharedFormulaIssues = (workbook) => {
 };
 
 // 헬퍼 함수들
-const getPreviousMonth = () => {
-  const now = new Date();
-  const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  return `${previousMonth.getFullYear()}.${String(previousMonth.getMonth() + 1).padStart(2, '0')}.`;
+/**
+ * 갑지 A36 기성월 — 다운로드일(서울) 기준
+ * 1~10일: 이전달 (예: 2026-08-10 → 2026.07.)
+ * 11일~말일: 이번달 (예: 2026-08-11 → 2026.08.)
+ */
+export const getGisungMonthByDownloadDate = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  let year = Number(parts.find((p) => p.type === 'year')?.value);
+  let month = Number(parts.find((p) => p.type === 'month')?.value);
+  const day = Number(parts.find((p) => p.type === 'day')?.value);
+
+  if (!year || !month || !day) {
+    const now = new Date();
+    year = now.getFullYear();
+    month = now.getMonth() + 1;
+    const d = now.getDate();
+    if (d <= 10) {
+      month -= 1;
+      if (month < 1) {
+        month = 12;
+        year -= 1;
+      }
+    }
+  } else if (day <= 10) {
+    month -= 1;
+    if (month < 1) {
+      month = 12;
+      year -= 1;
+    }
+  }
+
+  return `${year}.${String(month).padStart(2, '0')}.`;
 };
+
+/** @deprecated 이름 유지 — 내부는 다운로드일 기준 기성월 */
+const getPreviousMonth = () => getGisungMonthByDownloadDate();
+
 
 // 기성금 업로드 시 각 항목별 누계기성 값 저장 (수량과 금액 모두)
 export const saveCumulativeGisungData = async (siteId, sequence, extractedItems) => {
