@@ -18,6 +18,7 @@ import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import IntegratedStatusBox from './IntegratedStatusBox';
+import SiteGisungSummary from './SiteGisungSummary';
 import { CONTRACT_TYPE_OPTIONS as CONTRACT_TYPE_OPTIONS_DEFAULT, WORK_SCOPE_OPTIONS as WORK_SCOPE_OPTIONS_DEFAULT, STATUS_OPTIONS as STATUS_OPTIONS_DEFAULT } from '../../utils/siteConstants';
 import { formatContractAmount as formatContractAmountDefault, formatAdvanceAmount as formatAdvanceAmountDefault, formatGisungAmount as formatGisungAmountDefault, formatSafetyCost as formatSafetyCostDefault } from '../../utils/formatUtils';
 
@@ -616,6 +617,9 @@ export default function SiteDetailForm({ p }) {
             />
           </Box>
         </Box>
+
+        {/* 기타사항 아래 — 현장별 기성현황 요약 */}
+        <SiteGisungSummary selectedSite={selectedSite} form={form} isMobile={isMobile} />
       </Box>
 
       <Box sx={{ mt: 'auto', pt: isMobile ? 0.5 : 1, display: 'flex', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
