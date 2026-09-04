@@ -167,6 +167,47 @@ const Layout = React.memo(({ children }) => {
 
   const filteredMenuItems = getFilteredMenuItems();
 
+  const handleMenuNavigate = (path) => {
+    if (path === '/schedule') {
+      navigate(path, { state: { initialTab: 0 } });
+      return;
+    }
+
+    // 현장관리 페이지에서 현장관리 재클릭 → 초기화면
+    if (path === '/sites' && location.pathname.startsWith('/sites')) {
+      sessionStorage.removeItem('sitesRestorePending');
+      sessionStorage.removeItem('sitesRestoreSiteId');
+      sessionStorage.removeItem('sitesRestoreSiteName');
+      navigate('/sites', {
+        state: { resetSitesSelection: true, _t: Date.now() },
+      });
+      return;
+    }
+
+    // 기성관리 → 현장관리: 이전 현장 선택 유지
+    if (path === '/sites' && location.pathname.startsWith('/progress')) {
+      const siteId = sessionStorage.getItem('sitesRestoreSiteId');
+      const siteName = sessionStorage.getItem('sitesRestoreSiteName');
+      if (siteId || siteName) {
+        sessionStorage.setItem('sitesRestorePending', '1');
+        navigate('/sites', {
+          state: {
+            selectedSiteId: siteId || undefined,
+            selectedSiteName: siteName || undefined,
+          },
+        });
+      } else {
+        navigate('/sites');
+      }
+      return;
+    }
+
+    if (location.pathname.startsWith('/progress') && path !== '/sites') {
+      sessionStorage.removeItem('sitesRestorePending');
+    }
+    navigate(path);
+  };
+
   const getModalStyle = () => {
     if (modal === 'weather') {
       return { position: 'fixed', left: 10, bottom: 74, bgcolor: 'background.paper', boxShadow: 24, borderRadius: 2, p: 0, minWidth: 320, maxWidth: 400, width: '95%', zIndex: 2001 };
@@ -318,11 +359,7 @@ const Layout = React.memo(({ children }) => {
                     },
                   }}
                   onClick={() => {
-                    if (item.path === '/schedule') {
-                      navigate(item.path, { state: { initialTab: 0 } });
-                    } else {
-                      navigate(item.path);
-                    }
+                    handleMenuNavigate(item.path);
                   }}
                 >
                   <Box
@@ -455,11 +492,7 @@ const Layout = React.memo(({ children }) => {
                 bgcolor: location.pathname === item.path ? 'action.selected' : 'transparent',
               }}
               onClick={() => {
-                if (item.path === '/schedule') {
-                  navigate(item.path, { state: { initialTab: 0 } });
-                } else {
-                  navigate(item.path);
-                }
+                handleMenuNavigate(item.path);
                 setDrawerOpen(false);
               }}
             >

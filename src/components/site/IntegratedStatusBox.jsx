@@ -4,13 +4,16 @@ import { formatNumber } from '../../utils/formatUtils';
 
 /**
  * 현장/전체 통합 현황 요약 박스 (계약금액, 누계기성, 지출).
- * 데이터·디자인 변경 없이 분리만 함.
+ * 전체 합계는 연도별(올해 착공·올해 기성·올해 지출).
  */
 export default function IntegratedStatusBox({ integratedStatus, selectedSite, isMobile }) {
   if (!integratedStatus) return null;
 
   const summary = integratedStatus.summary;
-  const title = selectedSite ? `${selectedSite?.name} 통합 현황` : '전체 현장 통합 현황';
+  const year = integratedStatus.year;
+  const title = selectedSite
+    ? `${selectedSite?.name} 통합 현황`
+    : `${year || ''}년 전체 현장 통합 현황`.trim();
 
   return (
     <Box sx={{
@@ -23,6 +26,11 @@ export default function IntegratedStatusBox({ integratedStatus, selectedSite, is
       <Typography variant="body1" sx={{ mb: 0.5, fontWeight: 'bold', color: '#ffffff', fontSize: isMobile ? '0.9rem' : '1rem' }}>
         {title}
       </Typography>
+      {!selectedSite && (
+        <Typography variant="caption" sx={{ display: 'block', mb: 0.75, color: '#bdbdbd', fontSize: isMobile ? '0.65rem' : '0.75rem' }}>
+          계약금액: 공사기간에 올해 포함(기간 없으면 포함) · 누계기성: 해당 현장 전체 기성+선급금 · 지출: 올해 지출
+        </Typography>
+      )}
       <Grid container spacing={1}>
         <Grid size={{ xs: 4 }}>
           <Box sx={{ textAlign: 'center' }}>

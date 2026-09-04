@@ -16,7 +16,7 @@ import SiteListItem from '../components/site/SiteListItem';
 import SiteDetailForm from '../components/site/SiteDetailForm';
 
 import { collection, onSnapshot, query, orderBy, where, getDocs, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { addSite, updateSite, deleteSite } from '../api/sites';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -167,32 +167,52 @@ const NewSites = () => {
     setShowContractPreview(false);
   }, [selectedSite?.id]);
 
-  // location state에서 전달받은 현장 정보 처리
+  // location state / 기성관리 복귀용 sessionStorage에서 현장 선택 복원·초기화
   useEffect(() => {
-    if (location.state && sites.length > 0) {
-      const { selectedSiteId, selectedSiteName } = location.state;
-      
-      if (selectedSiteId) {
-        const targetSite = sites.find(site => site.id === selectedSiteId);
-        if (targetSite) {
-          startTransition(() => {
-            setSelectedSite(targetSite);
-            setForm(targetSite);
-            setIsEditing(false);
-          });
-        }
-      } else if (selectedSiteName) {
-        const targetSite = sites.find(site => site.name === selectedSiteName);
-        if (targetSite) {
-          startTransition(() => {
-            setSelectedSite(targetSite);
-            setForm(targetSite);
-            setIsEditing(false);
-          });
-        }
-      }
-      
-      // location state 초기화 (중복 실행 방지)
+    const fromState = location.state || {};
+
+    // 헤더 현장관리 재클릭 → 초기화면
+    if (fromState.resetSitesSelection) {
+      sessionStorage.removeItem('sitesRestorePending');
+      sessionStorage.removeItem('sitesRestoreSiteId');
+      sessionStorage.removeItem('sitesRestoreSiteName');
+      startTransition(() => {
+        setSelectedSite(null);
+        setForm(initialFormState);
+        setIsEditing(false);
+      });
+      window.history.replaceState({}, document.title);
+      return;
+    }
+
+    if (sites.length === 0) return;
+
+    let selectedSiteId = fromState.selectedSiteId;
+    let selectedSiteName = fromState.selectedSiteName;
+    const restorePending = sessionStorage.getItem('sitesRestorePending') === '1';
+
+    if (!selectedSiteId && !selectedSiteName && restorePending) {
+      selectedSiteId = sessionStorage.getItem('sitesRestoreSiteId') || undefined;
+      selectedSiteName = sessionStorage.getItem('sitesRestoreSiteName') || undefined;
+    }
+
+    if (!selectedSiteId && !selectedSiteName) return;
+
+    const targetSite = selectedSiteId
+      ? sites.find((site) => site.id === selectedSiteId)
+      : sites.find((site) => site.name === selectedSiteName);
+
+    if (targetSite) {
+      startTransition(() => {
+        setSelectedSite(targetSite);
+        setForm(targetSite);
+        setIsEditing(false);
+      });
+    }
+
+    sessionStorage.removeItem('sitesRestorePending');
+    // location state 초기화 (중복 실행 방지)
+    if (location.state && (fromState.selectedSiteId || fromState.selectedSiteName)) {
       window.history.replaceState({}, document.title);
     }
   }, [location.state, sites]);
@@ -1144,7 +1164,20 @@ const NewSites = () => {
     setQuantityPasswordError('');
   };
 
-  // 계약서 업로드
+  // 계약서 Storage 경로의 기존 파일 삭제 시도
+  const deleteStoredContractFile = async (siteId, fileName) => {
+    const ext = (fileName || '').split('.').pop()?.toLowerCase();
+    if (!siteId || !ext) return;
+    try {
+      await deleteObject(ref(storage, `sites/${siteId}/contract.${ext}`));
+    } catch (err) {
+      if (err?.code !== 'storage/object-not-found') {
+        console.warn('기존 계약서 Storage 삭제 실패:', err);
+      }
+    }
+  };
+
+  // 계약서 업로드 / 재업로드
   const handleContractFileChange = async (e) => {
     const file = e.target?.files?.[0];
     if (!file || !selectedSite?.id) return;
@@ -1157,6 +1190,11 @@ const NewSites = () => {
     }
     setContractUploading(true);
     try {
+      const prevName = form.contractFileName || selectedSite?.contractFileName || '';
+      const prevExt = prevName.split('.').pop()?.toLowerCase();
+      if (prevExt && prevExt !== ext) {
+        await deleteStoredContractFile(selectedSite.id, prevName);
+      }
       const path = `sites/${selectedSite.id}/contract.${ext}`;
       const storageRef = ref(storage, path);
       await uploadBytes(storageRef, file);
@@ -1166,15 +1204,40 @@ const NewSites = () => {
         contractFileName: file.name
       });
       setForm(prev => ({ ...prev, contractFileUrl: url, contractFileName: file.name }));
-      const updated = sites.find(s => s.id === selectedSite.id);
-      if (updated) setSelectedSite({ ...updated, contractFileUrl: url, contractFileName: file.name });
-      alert('계약서가 업로드되었습니다.');
+      setSelectedSite(prev => (prev ? { ...prev, contractFileUrl: url, contractFileName: file.name } : prev));
+      setSites(prev => prev.map(s => (s.id === selectedSite.id ? { ...s, contractFileUrl: url, contractFileName: file.name } : s)));
+      alert(prevName ? '계약서가 수정(재업로드)되었습니다.' : '계약서가 업로드되었습니다.');
     } catch (err) {
       console.error('계약서 업로드 오류:', err);
       alert('계약서 업로드에 실패했습니다.');
     } finally {
       setContractUploading(false);
       e.target.value = '';
+    }
+  };
+
+  // 계약서 삭제
+  const handleContractDelete = async () => {
+    if (!selectedSite?.id) return;
+    if (!window.confirm('계약서를 삭제하시겠습니까?')) return;
+    setContractUploading(true);
+    try {
+      const fileName = form.contractFileName || selectedSite?.contractFileName || '';
+      await deleteStoredContractFile(selectedSite.id, fileName);
+      await updateDoc(doc(db, 'sites', selectedSite.id), {
+        contractFileUrl: '',
+        contractFileName: ''
+      });
+      setForm(prev => ({ ...prev, contractFileUrl: '', contractFileName: '' }));
+      setSelectedSite(prev => (prev ? { ...prev, contractFileUrl: '', contractFileName: '' } : prev));
+      setSites(prev => prev.map(s => (s.id === selectedSite.id ? { ...s, contractFileUrl: '', contractFileName: '' } : s)));
+      setShowContractPreview(false);
+      alert('계약서가 삭제되었습니다.');
+    } catch (err) {
+      console.error('계약서 삭제 오류:', err);
+      alert('계약서 삭제에 실패했습니다.');
+    } finally {
+      setContractUploading(false);
     }
   };
 
@@ -1817,10 +1880,14 @@ const NewSites = () => {
 
   const handleGisung = () => {
     if (selectedSite) {
+      // 기성→현장관리 복귀 시 해당 현장 재선택용
+      sessionStorage.setItem('sitesRestorePending', '1');
+      sessionStorage.setItem('sitesRestoreSiteId', selectedSite.id);
+      sessionStorage.setItem('sitesRestoreSiteName', selectedSite.name || '');
       // 기성관리 페이지로 이동하면서 해당 현장 선택
-      // 현장별 기성현황 탭에 자동으로 해당 현장이 선택되도록 설정
       navigate(`/progress?siteId=${selectedSite.id}&viewMode=site&autoSelect=true`, {
         state: {
+          fromPage: 'sites',
           fromSiteInfo: true,
           selectedSiteId: selectedSite?.id,
           selectedSiteName: selectedSite?.name,
@@ -2549,8 +2616,11 @@ const NewSites = () => {
         position: isMobile ? 'relative' : 'static',
         top: isMobile ? '0px' : 'auto',
         left: isMobile ? '1%' : 'auto', // 모바일에서 중앙 정렬
-        overflow: 'auto', // 모바일에서 스크롤 허용
-        mb: '30px' // 아래쪽 마진 30px 추가
+        overflow: showContractPreview ? 'hidden' : 'auto',
+        mb: '30px',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
+        '&::-webkit-scrollbar': { display: 'none' },
       }}>
         {/* 계약서 미리보기: 켜지면 물량내역 숨김, 제목·X버튼·전체 영역 크게 표시 */}
         {showContractPreview && (form.contractFileUrl || selectedSite?.contractFileUrl) && (
@@ -2561,20 +2631,86 @@ const NewSites = () => {
                 <CloseIcon />
               </IconButton>
             </Box>
-            <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', p: 0, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
+                p: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                '&::-webkit-scrollbar': { display: 'none' },
+              }}
+            >
               {(() => {
                 const url = form.contractFileUrl || selectedSite?.contractFileUrl || '';
                 const fileName = (form.contractFileName || selectedSite?.contractFileName || '').toLowerCase();
                 const isPdf = fileName.endsWith('.pdf') || url.includes('.pdf') || url.toLowerCase().includes('contenttype=application%2fpdf');
                 if (isPdf) {
-                  return <iframe src={url} title="계약서" style={{ width: '100%', flex: 1, minHeight: 0, border: 'none', display: 'block' }} />;
+                  const pdfSrc = url.includes('#') ? url : `${url}#toolbar=0&navpanes=0&scrollbar=0`;
+                  return (
+                    <iframe
+                      src={pdfSrc}
+                      title="계약서"
+                      scrolling="no"
+                      style={{ width: '100%', flex: 1, minHeight: 0, border: 'none', display: 'block', overflow: 'hidden' }}
+                    />
+                  );
                 }
                 return (
-                  <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', scrollbarWidth: 'none', msOverflowStyle: 'none', '&::-webkit-scrollbar': { display: 'none' } }}>
+                  <Box
+                    sx={{
+                      flex: 1,
+                      minHeight: 0,
+                      overflow: 'auto',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'flex-start',
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none',
+                      '&::-webkit-scrollbar': { width: 0, height: 0, display: 'none' },
+                    }}
+                  >
                     <img src={url} alt="계약서" style={{ width: '100%', height: '100%', minHeight: '100%', objectFit: 'contain', display: 'block' }} />
                   </Box>
                 );
               })()}
+            </Box>
+            <Box
+              sx={{
+                flexShrink: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                gap: 1.5,
+                px: 1.5,
+                py: 1.25,
+                borderTop: '1px solid #444',
+                bgcolor: '#1e2128',
+              }}
+            >
+              <Button
+                variant="outlined"
+                color="warning"
+                size={isMobile ? 'small' : 'medium'}
+                disabled={!selectedSite || contractUploading}
+                onClick={() => contractInputRef.current?.click()}
+                sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem', minWidth: isMobile ? 110 : 140 }}
+              >
+                {contractUploading ? '업로드 중...' : '수정(재업로드)'}
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                size={isMobile ? 'small' : 'medium'}
+                disabled={!selectedSite || contractUploading}
+                onClick={handleContractDelete}
+                sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem', minWidth: isMobile ? 80 : 100 }}
+              >
+                삭제
+              </Button>
             </Box>
           </Box>
         )}

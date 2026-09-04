@@ -3,6 +3,64 @@ import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from '../firebase';
 import { parseAmountNumber } from '../utils/siteUtils';
 
+/** 서울 기준 현재 연도 (1월 1일부터 자동 전환) */
+function getCurrentYearSeoul() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+  }).formatToParts(new Date());
+  return Number(parts.find((p) => p.type === 'year')?.value) || new Date().getFullYear();
+}
+
+/** 시작일/날짜 값에서 연도 추출 */
+function getYearFromDateValue(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'object' && typeof value.toDate === 'function') {
+    try {
+      return value.toDate().getFullYear();
+    } catch {
+      return null;
+    }
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.getFullYear();
+  }
+  if (typeof value === 'object' && typeof value.seconds === 'number') {
+    return new Date(value.seconds * 1000).getFullYear();
+  }
+  const str = String(value).trim();
+  const match = str.match(/(19|20)\d{2}/);
+  return match ? Number(match[0]) : null;
+}
+
+/** 기성월(YYYY.MM. / YYYY-MM 등) 또는 createdAt에서 연도 추출 */
+function getYearFromGisungRecord(gisung) {
+  const fromMonth = getYearFromDateValue(gisung?.gisungMonth || gisung?.month);
+  if (fromMonth) return fromMonth;
+  return getYearFromDateValue(gisung?.createdAt || gisung?.updatedAt || gisung?.date);
+}
+
+/** 지출 기록 연도 */
+function getYearFromCostRecord(cost) {
+  return getYearFromDateValue(cost?.date || cost?.month || cost?.createdAt);
+}
+
+/**
+ * 공사기간에 해당 연도가 포함되는지.
+ * 시작·종료가 모두 없으면(공사기간 없음) 포함.
+ */
+function siteConstructionIncludesYear(site, year) {
+  const startYear = getYearFromDateValue(site?.startDate);
+  const endYear = getYearFromDateValue(site?.endDate);
+
+  // 공사기간 없음 → 포함
+  if (startYear == null && endYear == null) return true;
+
+  const rangeStart = startYear ?? endYear;
+  const rangeEnd = endYear ?? startYear;
+  return rangeStart <= year && year <= rangeEnd;
+}
+
 /**
  * 기성/지출 데이터 로드, 현장별 입금 상태, 전체·현장 통합현황 계산.
  * @param {Array} sites - 현장 목록
@@ -159,61 +217,71 @@ export function useIntegratedStatus(sites) {
     }
   }, [sites, gisungData, loadPaymentStatus]);
 
-  // 캐시된 데이터를 사용한 통합현황 계산
+  // 연도별 전체 통합현황: 공사기간에 올해 포함(또는 기간없음) 계약금 + 올해 기성 + 올해 지출
   useEffect(() => {
     if (sites.length === 0) return;
     try {
-      let totalContractAmount = 0;
-      let totalProgressAmount = 0;
-      let totalCostAmount = 0;
+      const currentYear = getCurrentYearSeoul();
 
-      totalContractAmount = sites.reduce((sum, site) => sum + (Number(site.contractAmount) || 0), 0);
+      // 계약금액: 공사기간에 올해가 포함된 현장 + 공사기간 없는 현장
+      const contractSites = sites.filter((site) => siteConstructionIncludesYear(site, currentYear));
 
-      const siteIds = sites.map(site => site?.id).filter(Boolean);
-      const siteNames = sites.map(site => site?.name).filter(Boolean);
+      const totalContractAmount = contractSites.reduce(
+        (sum, site) => sum + parseAmountNumber(site.contractAmount),
+        0
+      );
 
-      totalProgressAmount = gisungData.reduce((sum, gisung) => {
+      // 누계기성: 공사기간에 올해 포함된 현장(기간없음 포함)의 전체 기성 + 선급금
+      const contractSiteIds = new Set(contractSites.map((s) => s?.id).filter(Boolean));
+      const contractSiteNames = new Set(contractSites.map((s) => s?.name).filter(Boolean));
+
+      const matchedGisungList = gisungData.filter((gisung) => {
         const gisungSiteId = gisung.siteId || gisung.siteID || null;
         const gisungName = gisung.name || gisung.siteName || '';
-        const matchById = gisungSiteId && siteIds.includes(gisungSiteId);
-        const matchByName = gisungName && siteNames.includes(gisungName);
-        if (matchById || matchByName) {
-          return sum + (Number(gisung.gisungAmount) || 0);
+        if (gisungSiteId && contractSiteIds.has(gisungSiteId)) return true;
+        if (gisungName && contractSiteNames.has(gisungName)) return true;
+        return false;
+      });
+
+      const isAdvanceRow = (g) => g.note && String(g.note).trim().includes('선급금');
+      const totalGisungAmount = matchedGisungList.reduce((sum, gisung) => {
+        if (isAdvanceRow(gisung)) {
+          return sum + (parseAmountNumber(gisung.advance) || parseAmountNumber(gisung.gisungAmount));
         }
-        return sum;
+        return sum + parseAmountNumber(gisung.gisungAmount);
       }, 0);
 
-      const totalAdvanceAmount = sites.reduce((sum, site) => sum + (Number(site.advance) || 0), 0);
-      totalProgressAmount += totalAdvanceAmount;
+      const totalAdvanceAmount = contractSites.reduce(
+        (sum, site) => sum + parseAmountNumber(site.advance),
+        0
+      );
+      const totalProgressAmount = totalGisungAmount + totalAdvanceAmount;
 
-      totalCostAmount = costData.reduce((sum, cost) => {
-        const costSiteId = cost.siteId || cost.siteID || null;
-        const costSiteName = cost.siteName || cost.name || '';
-        const matchById = costSiteId && siteIds.includes(costSiteId);
-        const matchByName = costSiteName && siteNames.includes(costSiteName);
-        if (matchById || matchByName) {
-          return sum + (Number(cost.amount) || 0);
-        }
-        return sum;
+      // 올해 지출만 (착공연도 무관)
+      const totalCostAmount = costData.reduce((sum, cost) => {
+        if (getYearFromCostRecord(cost) !== currentYear) return sum;
+        return sum + parseAmountNumber(cost.amount ?? cost.totalValue);
       }, 0);
 
-      console.log('통합현황 계산 결과 (캐시 사용):', {
+      console.log('통합현황 계산 결과 (연도별):', {
+        currentYear,
         totalContractAmount,
         totalProgressAmount,
+        totalGisungAmount,
         totalAdvanceAmount,
         totalCostAmount,
-        sitesCount: sites.length,
-        gisungDataLength: gisungData.length,
-        costDataLength: costData.length,
-        siteNames: siteNames
+        contractSitesCount: contractSites.length,
+        matchedGisungCount: matchedGisungList.length,
+        allGisungCount: gisungData.length,
       });
 
       setTotalIntegratedStatus({
+        year: currentYear,
         summary: {
           totalEstimateAmount: totalContractAmount,
           totalClaimAmount: totalProgressAmount,
-          totalCostAmount: totalCostAmount
-        }
+          totalCostAmount: totalCostAmount,
+        },
       });
     } catch (error) {
       console.error('전체 통합현황 계산 오류:', error);

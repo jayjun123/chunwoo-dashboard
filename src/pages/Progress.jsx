@@ -488,6 +488,8 @@ const Progress = () => {
         setFilteredSiteId(selectedSiteId);
         setFilteredSiteName(selectedSiteName);
         setSelectedSites([selectedSiteName]);
+        sessionStorage.setItem('sitesRestoreSiteId', selectedSiteId);
+        sessionStorage.setItem('sitesRestoreSiteName', selectedSiteName);
         
         // 현장별 뷰로 강제 설정
         console.log('🔄 SiteInfoPopup에서 왔으므로 현장별 뷰로 강제 설정');
@@ -516,6 +518,9 @@ const Progress = () => {
         console.log('✅ URL 파라미터에서 현장 찾음:', site.name);
         setFilteredSiteName(site.name);
         setSelectedSites([site.name]);
+        // 현장관리 복귀 시 선택 유지용
+        sessionStorage.setItem('sitesRestoreSiteId', site.id);
+        sessionStorage.setItem('sitesRestoreSiteName', site.name || '');
         
         // 현장별 뷰로 강제 설정
         console.log('🔄 현장별 뷰로 강제 설정');
@@ -2159,61 +2164,72 @@ const Progress = () => {
               variant="outlined"
               size="small"
               onClick={() => {
-                console.log('🔍 뒤로가기 버튼 클릭됨');
-                console.log('🔍 location.state:', location.state);
-                console.log('🔍 현재 statusView:', statusView);
-                console.log('🔍 현재 tab:', tab);
-                console.log('🔍 현재 selectedSites:', selectedSites);
-                
+                const restoreSiteId =
+                  filteredSiteId ||
+                  location.state?.selectedSiteId ||
+                  sessionStorage.getItem('sitesRestoreSiteId') ||
+                  '';
+                const restoreSiteName =
+                  filteredSiteName ||
+                  location.state?.selectedSiteName ||
+                  (selectedSites.length > 0 ? selectedSites[0] : '') ||
+                  sessionStorage.getItem('sitesRestoreSiteName') ||
+                  '';
+
+                const goToSitesWithSelection = () => {
+                  if (restoreSiteId) sessionStorage.setItem('sitesRestoreSiteId', restoreSiteId);
+                  if (restoreSiteName) sessionStorage.setItem('sitesRestoreSiteName', restoreSiteName);
+                  if (restoreSiteId || restoreSiteName) {
+                    sessionStorage.setItem('sitesRestorePending', '1');
+                  }
+                  navigate('/sites', {
+                    state: {
+                      selectedSiteId: restoreSiteId || undefined,
+                      selectedSiteName: restoreSiteName || undefined,
+                    },
+                  });
+                };
+
                 // 출발 페이지에 따라 적절한 곳으로 이동
                 if (location.state && location.state.fromPage) {
                   switch (location.state.fromPage) {
                     case 'claims':
-                      navigate('/claims', { 
-                        state: { 
-                          fromProgress: true // Progress에서 돌아왔음을 표시
-                        } 
+                      navigate('/claims', {
+                        state: {
+                          fromProgress: true,
+                        },
                       });
-                      console.log('✅ 청구예정 페이지로 돌아가기');
                       break;
                     case 'sites':
-                      navigate('/sites');
-                      console.log('✅ 현장관리 페이지로 돌아가기');
+                      goToSitesWithSelection();
                       break;
                     default:
-                      navigate(-1); // 기본값
-                      console.log('✅ 기본 뒤로가기');
+                      navigate(-1);
                   }
+                } else if (tab === 'gisung' && (restoreSiteId || restoreSiteName || selectedSites.length > 0)) {
+                  goToSitesWithSelection();
+                } else if (tab === 'gisung') {
+                  navigate('/sites');
+                } else if (window.history.length > 1) {
+                  // 브라우저 뒤로가기 시 NewSites가 sessionStorage로 복원할 수 있게 표시
+                  if (restoreSiteId || restoreSiteName) {
+                    sessionStorage.setItem('sitesRestorePending', '1');
+                    if (restoreSiteId) sessionStorage.setItem('sitesRestoreSiteId', restoreSiteId);
+                    if (restoreSiteName) sessionStorage.setItem('sitesRestoreSiteName', restoreSiteName);
+                  }
+                  window.history.back();
                 } else {
-                  // 기성현황 탭에서 현장이 선택된 경우 특별 처리
-                  if (tab === 'gisung' && selectedSites.length > 0) {
-                    console.log('✅ 기성현황 탭에서 현장 선택된 경우 - /sites로 이동');
-                    navigate('/sites');
-                  } else if (tab === 'gisung') {
-                    // 기성현황 탭이지만 현장이 선택되지 않은 경우
-                    console.log('✅ 기성현황 탭 (현장 미선택) - /sites로 이동');
-                    navigate('/sites');
-                  } else if (window.history.length > 1) {
-                    console.log('✅ window.history.back() 실행');
-                    window.history.back();
-                  } else {
-                    // 브라우저 referrer 정보 확인
-                    try {
-                      const referrer = document.referrer;
-                      if (referrer && referrer.includes('/sites')) {
-                        console.log('✅ referrer가 /sites - /sites로 이동');
-                        navigate('/sites');
-                      } else if (referrer && referrer.includes('/claims')) {
-                        console.log('✅ referrer가 /claims - /claims로 이동');
-                        navigate('/claims');
-                      } else {
-                        console.log('✅ 기본값 - /sites로 이동');
-                        navigate('/sites');
-                      }
-                    } catch (error) {
-                      console.log('✅ referrer 확인 실패 - /sites로 이동');
-                      navigate('/sites');
+                  try {
+                    const referrer = document.referrer;
+                    if (referrer && referrer.includes('/sites')) {
+                      goToSitesWithSelection();
+                    } else if (referrer && referrer.includes('/claims')) {
+                      navigate('/claims');
+                    } else {
+                      goToSitesWithSelection();
                     }
+                  } catch (error) {
+                    goToSitesWithSelection();
                   }
                 }
               }}
