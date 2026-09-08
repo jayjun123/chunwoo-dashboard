@@ -1841,6 +1841,15 @@ const NewSites = () => {
           await updateSite(selectedSite.id, formDataToSave);
           // 견적페이지와 연동
           await syncWithEstimates(form.manager, form.companyName);
+          const keptSite = { ...selectedSite, ...formDataToSave, id: selectedSite.id };
+          setSelectedSite(keptSite);
+          setForm((prev) => ({
+            ...prev,
+            ...formDataToSave,
+            id: selectedSite.id,
+            startDate: form.startDate,
+            endDate: form.endDate,
+          }));
           setIsEditing(false);
           console.log('현장 수정 완료');
         }
@@ -1854,11 +1863,24 @@ const NewSites = () => {
         }
         
         console.log('현장 등록 시작');
-        await addSite(formDataToSave);
+        const created = await addSite(formDataToSave);
         // 견적페이지와 연동
         await syncWithEstimates(form.manager, form.companyName);
+        const newSite = { ...formDataToSave, id: created.id };
+        // 등록 후에도 해당 현장이 선택된 상태로 유지
+        if (newSite.status && newSite.status !== statusTab) {
+          setStatusTab(newSite.status);
+        }
+        setSelectedSite(newSite);
+        setForm((prev) => ({
+          ...prev,
+          ...formDataToSave,
+          id: created.id,
+          startDate: form.startDate,
+          endDate: form.endDate,
+        }));
+        setIsEditing(false);
         alert('현장이 성공적으로 등록되었습니다.');
-        handleNewSite(true); // skipEditing = true로 설정하여 편집 모드로 전환하지 않음
         console.log('현장 등록 완료');
       }
     } catch (error) { 
