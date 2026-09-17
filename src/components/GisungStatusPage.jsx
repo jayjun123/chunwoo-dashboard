@@ -1262,14 +1262,38 @@ const GisungStatusPage = ({ viewType: initialViewType, currentMonth: initialCurr
             }
             
             return shouldInclude;
-          }).map(item => ({
-            name: item?.name || '품목명없음',
-            specification: item.specification || '',
-            unit: item.unit || '식',
-            quantity: Number(item.quantity || 0),
-            unitPrice: Number(item.unitPrice || item.JEprice || 0),
-            amount: Number(item.amount || 0)
-          }));
+          }).map(item => {
+            const name = String(item?.name || '').trim() || '품목명없음';
+            let specification = String(item.specification || item.spec || '').trim();
+            // 업로드 시 빈 규격에 품명을 복사한 경우(A동/A동) 규격 제거
+            if (specification && specification === name) {
+              specification = '';
+            }
+            const unit = item.unit != null ? String(item.unit).trim() : '';
+            const qtyRaw = item.quantity;
+            const qtyNum = qtyRaw === null || qtyRaw === undefined || qtyRaw === ''
+              ? null
+              : Number(String(qtyRaw).replace(/,/g, ''));
+            const priceRaw = item.unitPrice ?? item.price ?? item.JEprice;
+            const priceNum = priceRaw === null || priceRaw === undefined || priceRaw === ''
+              ? null
+              : Number(String(priceRaw).replace(/,/g, ''));
+            const amtRaw = item.amount;
+            const amtNum = amtRaw === null || amtRaw === undefined || amtRaw === ''
+              ? null
+              : Number(String(amtRaw).replace(/,/g, ''));
+
+            return {
+              name,
+              specification,
+              // 빈 단위를 '식'으로 넣지 않음 (A동 등이 분류 행으로 유지되도록)
+              unit: unit || '',
+              quantity: Number.isFinite(qtyNum) ? qtyNum : '',
+              unitPrice: Number.isFinite(priceNum) ? priceNum : '',
+              price: Number.isFinite(priceNum) ? priceNum : '',
+              amount: Number.isFinite(amtNum) ? amtNum : '',
+            };
+          });
           
           console.log('현장 물량 데이터 사용:', siteItems);
           console.log('현장 물량 데이터 상세:', JSON.stringify(siteItems, null, 2));

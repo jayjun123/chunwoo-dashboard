@@ -1,6 +1,6 @@
 // 기성금청구서 유틸리티 (템플릿 기반)
 import ExcelJS from 'exceljs';
-import { getSafePrice, setCellValueSafely, filterMaterialItems, logMaterialItem, cleanSheetData, fillGisungStyleData } from './excelCommonUtils';
+import { getSafePrice, setCellValueSafely, filterMaterialItems, logMaterialItem, cleanSheetData, fillGisungStyleData, clearExcelCell, isGisungCategorySheetRow, sanitizeGisungCategoryRow, blankUnusedGisungDetailRows } from './excelCommonUtils';
 import { ref, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
 
@@ -514,23 +514,59 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
     // Shared Formula 관련 속성 제거 및 데이터 입력
     await fillGisungData(workbook, siteData, gisungData, siteItems, currentSequence, previousGisungData);
 
-    // 내역서 인쇄영역·열 범위: A~M (L에서 잘리고 M만 보이는 현상 방지)
+    // 내역서 인쇄: 49행 제거, 열에 맞춤, 2페이지
     const detailSheetAfter = workbook.getWorksheet('기성금 내역서');
     if (detailSheetAfter) {
-      const printEndRow = templateType === 'L' ? 55 : 30;
+      const isLong = templateType === 'L';
+      const summaryEndRow = isLong ? 54 : 30;
+      const printEndRow = summaryEndRow + 1; // 총계 다음 빈줄 한 칸
+      const maxDataRow = isLong ? 50 : 25;
+
+      // 최종 분류 행 정리 (A동/B동 → A열만)
+      blankUnusedGisungDetailRows(detailSheetAfter, 6, maxDataRow, 9999);
+
+      // 49행 지우기(내용 비우고 높이 제거) — 행 splice는 총계 수식 위치를 깨뜨리므로 사용 안 함
+      try {
+        for (let col = 1; col <= 13; col++) {
+          clearExcelCell(detailSheetAfter.getCell(49, col));
+        }
+        const row49 = detailSheetAfter.getRow(49);
+        row49.hidden = true;
+        row49.height = 0.1;
+      } catch (e) {
+        console.warn('49행 처리 경고:', e?.message);
+      }
+
+      try {
+        if (detailSheetAfter.model) {
+          detailSheetAfter.model.rowBreaks = [];
+          detailSheetAfter.model.colBreaks = [];
+        }
+      } catch (_) { /* ignore */ }
+
+      // 총계 다음 빈줄
+      for (let col = 1; col <= 13; col++) {
+        try {
+          clearExcelCell(detailSheetAfter.getCell(printEndRow, col));
+        } catch (_) { /* ignore */ }
+      }
+
       detailSheetAfter.pageSetup = {
         ...(detailSheetAfter.pageSetup || {}),
         printArea: `A1:M${printEndRow}`,
         fitToPage: true,
-        fitToWidth: 1,
-        fitToHeight: 0,
+        fitToWidth: 1, // 열에 맞춤
+        fitToHeight: 2, // 2페이지
         orientation: 'landscape',
+        horizontalCentered: true,
       };
-      // 사용 범위가 L에서 끊기지 않도록 M열까지 명시
+      try {
+        delete detailSheetAfter.pageSetup.scale;
+      } catch (_) { /* ignore */ }
       try {
         detailSheetAfter.getColumn(13).width = detailSheetAfter.getColumn(13).width || 9;
       } catch (_) { /* ignore */ }
-      console.log(`🖨️ 내역서 printArea = A1:M${printEndRow}`);
+      console.log(`🖨️ 내역서 printArea = A1:M${printEndRow}, 열맞춤·2페이지, 49행 제거`);
     }
     
     console.log('✅ 기성금청구서 템플릿 기반 생성 완료');
@@ -718,36 +754,52 @@ const fillGisungData = async (workbook, siteData, gisungData, siteItems, current
            
            console.log('📊 추출된 항목들:', extractedItems);
            
-           // 데이터가 있는 행에만 전회수량(G) 설정 — 빈 행에 0을 넣으면 수식/#VALUE! 유발
+           // 데이터가 있는 행에만 전회수량(G) 설정 — 분류 행·빈 행에는 넣지 않음
            const filteredLen = filteredItems.length;
            const maxGisungRow = 5 + filteredLen;
            for (let row = 6; row <= maxGisungRow; row++) {
-             const item = extractedItems.find(item => item.row === row);
+             if (isGisungCategorySheetRow(detailSheet, row)) {
+               sanitizeGisungCategoryRow(detailSheet, row);
+               continue;
+             }
+             const item = extractedItems.find((it) => it.row === row);
              const aVal = detailSheet.getCell(row, 1).value;
              if (aVal == null || aVal === '') continue;
 
+             // kValue가 금액처럼 비정상적으로 크면 수량으로 쓰지 않음 (오매핑 방지)
              if (item && item.kValue !== null && item.kValue !== undefined) {
+               const kNum = Number(item.kValue);
+               if (!Number.isFinite(kNum) || Math.abs(kNum) >= 100000) {
+                 console.warn(`⚠️ 행 ${row}: kValue=${item.kValue}는 수량으로 부적합 → 건너뜀`);
+                 continue;
+               }
                const gCell = detailSheet.getCell(`G${row}`);
-               gCell.value = Number(item.kValue) || 0;
+               gCell.value = kNum;
                console.log(`✅ 행 ${row}: K값(누계수량 ${item.kValue}) → G값(전회수량)으로 복사 완료 - ${item.itemName}`);
              }
            }
+
+           // 전회 반영 후 분류 행 재정리 (G에 잘못 들어간 값 제거)
+           blankUnusedGisungDetailRows(detailSheet, 6, filteredItems.length <= 20 ? 25 : 50, filteredLen);
            
            console.log('✅ 전회기성(G열) 설정 완료');
          } catch (error) {
            console.warn('⚠️ 전회기성 설정 실패:', error);
          }
        } else if (previousGisungData && previousGisungData.prevGisung) {
-         // extractedItems가 없어도 prevGisung 값이 있으면 사용
-         console.log('📊 prevGisung 값으로 전회기성 설정:', previousGisungData.prevGisung);
-         
-         // 전회기성 총액을 첫 번째 행에 표시 (임시)
-         const gCell = detailSheet.getCell('G6');
-         gCell.value = previousGisungData.prevGisung;
-         console.log(`✅ G6에 전회기성 총액 설정: ${previousGisungData.prevGisung}`);
+         // 총액을 첫 행 G에 넣지 않음 (A동 수량에 2200만 들어가는 원인)
+         console.log('📊 extractedItems 없음 — 전회기성 총액(G6 강제입력) 건너뜀:', previousGisungData.prevGisung);
        } else {
          console.log('📊 이전 기성금청구서 데이터가 없어 전회기성 설정 건너뜀');
        }
+
+       // 최종 분류 행 정리 (A동 → A열만)
+       blankUnusedGisungDetailRows(
+         detailSheet,
+         6,
+         filteredItems.length <= 20 ? 25 : 50,
+         filteredItems.length
+       );
        
                 // NEW 템플릿에서는 26행부터는 원본 템플릿 데이터 보존
         if (filteredItems.length <= 20) {

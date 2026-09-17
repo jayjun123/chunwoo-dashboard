@@ -540,9 +540,65 @@ function isBlankCellValue(value) {
   return value === null || value === undefined || value === '';
 }
 
+function hasMeaningfulNumber(value) {
+  if (value === null || value === undefined || value === '') return false;
+  const n = typeof value === 'number' ? value : Number(String(value).replace(/,/g, ''));
+  return Number.isFinite(n) && n !== 0;
+}
+
+/** 단위·수량·단가·금액이 실질적으로 없으면 분류 행(A동 등). 단위 '식'+수량0 도 분류로 봄 */
+export function isGisungCategoryItem(item) {
+  if (!item) return false;
+  const name = item.name != null ? String(item.name).trim() : '';
+  const spec = String(item.specification ?? item.spec ?? '').trim();
+  const unit = item.unit != null ? String(item.unit).trim() : '';
+  const hasQty = hasMeaningfulNumber(item.quantity);
+  const hasPrice = hasMeaningfulNumber(item.price) || hasMeaningfulNumber(item.unitPrice);
+  const hasAmt = hasMeaningfulNumber(item.amount);
+  if (hasQty || hasPrice || hasAmt) return false;
+  // 단위 없거나 '식'만 있는 헤더성 행
+  if (!unit || unit === '식') return true;
+  // 품명=규격 복제(업로드 시 B←A 복사) + 실측값 없음
+  if (name && spec && name === spec) return true;
+  // A동/B동 패턴
+  if (name && /^[A-Za-z가-힣0-9]+동$/.test(name)) return true;
+  return false;
+}
+
+/** 시트 행이 분류 행인지 */
+export function isGisungCategorySheetRow(sheet, row) {
+  if (!sheet) return false;
+  const aVal = sheet.getCell(row, 1).value;
+  const bVal = sheet.getCell(row, 2).value;
+  if (isBlankCellValue(aVal) && isBlankCellValue(bVal)) return false;
+  const unit = sheet.getCell(row, 3).value;
+  const unitStr = unit != null ? String(unit).trim() : '';
+  const hasQty = hasMeaningfulNumber(sheet.getCell(row, 4).value);
+  const hasPrice = hasMeaningfulNumber(sheet.getCell(row, 5).value);
+  if (hasQty || hasPrice) return false;
+  if (!unitStr || unitStr === '식') return true;
+  const aStr = aVal != null ? String(aVal).trim() : '';
+  const bStr = bVal != null ? String(bVal).trim() : '';
+  if (aStr && bStr && aStr === bStr) return true;
+  if (aStr && /^[A-Za-z가-힣0-9]+동$/.test(aStr)) return true;
+  return false;
+}
+
+/** 분류 행을 A열 품명만 남기고 B~M 완전 빈칸 */
+export function sanitizeGisungCategoryRow(sheet, row) {
+  if (!sheet) return;
+  const aVal = sheet.getCell(row, 1).value;
+  const bVal = sheet.getCell(row, 2).value;
+  const nameOnly = !isBlankCellValue(aVal) ? aVal : bVal;
+  sheet.getCell(row, 1).value = nameOnly ?? null;
+  for (let col = 2; col <= 13; col++) {
+    clearExcelCell(sheet.getCell(row, col));
+  }
+}
+
 /**
  * 기성 내역서: 데이터 없는 행은 A~M 전부 빈칸(수식 제거).
- * 품명만 있는 분류 행도 F~M 수식은 제거해 #VALUE! → 합계 전파를 막음.
+ * 품명만 있는 분류 행은 A열만 남김.
  */
 export function blankUnusedGisungDetailRows(sheet, startRow, maxDataRow, filledCount) {
   if (!sheet) return;
@@ -551,38 +607,36 @@ export function blankUnusedGisungDetailRows(sheet, startRow, maxDataRow, filledC
   for (let row = startRow; row <= maxDataRow; row++) {
     const cellA = sheet.getCell(row, 1);
     const cellB = sheet.getCell(row, 2);
-    const cellC = sheet.getCell(row, 3);
-    const cellD = sheet.getCell(row, 4);
-    const cellE = sheet.getCell(row, 5);
-
     const hasName = !isBlankCellValue(cellA.value) || !isBlankCellValue(cellB.value);
-    const hasUnit = !isBlankCellValue(cellC.value);
-    // 숫자 0은 유효한 수량
-    const hasQty =
-      typeof cellD.value === 'number' ||
-      (cellD.value != null && cellD.value !== '' && !Number.isNaN(Number(cellD.value)));
-    const hasPrice =
-      typeof cellE.value === 'number' ||
-      (cellE.value != null && cellE.value !== '' && !Number.isNaN(Number(cellE.value)));
-
     const beyondData = row > lastFilledRow;
-    const noMeasurable = !hasUnit && !hasQty && !hasPrice;
 
-    if (beyondData || (!hasName && noMeasurable)) {
-      // 완전 빈 행: A~M 수식·값 전부 제거
+    if (beyondData || !hasName) {
       for (let col = 1; col <= 13; col++) {
         clearExcelCell(sheet.getCell(row, col));
       }
       continue;
     }
 
-    if (hasName && noMeasurable) {
-      // 분류 행(A동, 유리공사 등): 품명·규격만 두고 C~M은 빈칸 (수식 제거)
-      for (let col = 3; col <= 13; col++) {
+    if (isGisungCategorySheetRow(sheet, row)) {
+      sanitizeGisungCategoryRow(sheet, row);
+    }
+  }
+}
+
+/**
+ * 데이터와 총계 사이 빈 행을 숨겨 총계가 단독 페이지로 밀리지 않게 함
+ */
+export function hideGisungDetailGapRows(sheet, lastDataRow, summaryStartRow) {
+  if (!sheet || !lastDataRow || !summaryStartRow) return;
+  for (let row = lastDataRow + 1; row < summaryStartRow; row++) {
+    try {
+      const r = sheet.getRow(row);
+      r.hidden = true;
+      // 혹시 남은 잔여값도 제거
+      for (let col = 1; col <= 13; col++) {
         clearExcelCell(sheet.getCell(row, col));
       }
-      // A/B에 실수로 ''가 들어갔으면 유지, 숫자 셀은 건드리지 않음
-    }
+    } catch (_) { /* ignore */ }
   }
 }
 
@@ -625,45 +679,44 @@ export const fillGisungStyleData = (sheet, materialItems, startRow = 6, sheetNam
       const rowNumber = index + startRow;
       
       try {
-        const name = item?.name != null ? String(item.name) : '';
-        const spec = item?.specification != null ? String(item.specification) : '';
-        const unit = item?.unit != null && item.unit !== '' ? String(item.unit) : null;
+        const name = item?.name != null ? String(item.name).trim() : '';
+        const specRaw = item?.specification ?? item?.spec ?? '';
+        const spec = specRaw != null ? String(specRaw).trim() : '';
+        const unitRaw = item?.unit != null ? String(item.unit).trim() : '';
+        const unit = unitRaw !== '' ? unitRaw : null;
 
         let quantity = null;
         if (item?.quantity !== null && item?.quantity !== undefined && item?.quantity !== '') {
-          const q = Number(item.quantity);
+          const q = Number(String(item.quantity).replace(/,/g, ''));
           quantity = Number.isFinite(q) ? q : null;
         }
 
         let unitPrice = null;
         if (item?.name === '단수정리') {
-          if (item.amount != null && quantity) {
+          if (hasMeaningfulNumber(item.amount) && hasMeaningfulNumber(quantity)) {
             unitPrice = Number(item.amount) / quantity;
-          } else if (item.unitPrice != null || item.price != null) {
+          } else if (hasMeaningfulNumber(item.unitPrice) || hasMeaningfulNumber(item.price)) {
             unitPrice = Number(item.unitPrice ?? item.price);
           }
-        } else if (item.amount != null && quantity) {
+        } else if (hasMeaningfulNumber(item.amount) && hasMeaningfulNumber(quantity)) {
           unitPrice = Number(item.amount) / quantity;
-        } else if (item.price != null || item.unitPrice != null) {
+        } else if (hasMeaningfulNumber(item.price) || hasMeaningfulNumber(item.unitPrice)) {
           unitPrice = Number(item.price ?? item.unitPrice);
         }
         if (unitPrice != null && !Number.isFinite(unitPrice)) unitPrice = null;
 
-        // 분류 행(단위·수량·단가 없음): 품명만 넣고 수식 열은 비움
-        const isCategoryOnly = !unit && quantity == null && unitPrice == null;
-
-        sheet.getCell(rowNumber, 1).value = name || null;
-        sheet.getCell(rowNumber, 2).value = spec || null;
-
-        if (isCategoryOnly) {
-          for (let col = 3; col <= 13; col++) {
+        // 분류 행: A열에만 품명 (규격 중복·식·0·수식 금지)
+        if (isGisungCategoryItem(item)) {
+          sheet.getCell(rowNumber, 1).value = name || spec || null;
+          for (let col = 2; col <= 13; col++) {
             clearExcelCell(sheet.getCell(rowNumber, col));
           }
         } else {
+          sheet.getCell(rowNumber, 1).value = name || null;
+          sheet.getCell(rowNumber, 2).value = spec || null;
           sheet.getCell(rowNumber, 3).value = unit;
           sheet.getCell(rowNumber, 4).value = quantity;
           sheet.getCell(rowNumber, 5).value = unitPrice;
-          // F~M: 템플릿 수식을 다시 넣음 (위에서 지웠으므로)
           sheet.getCell(rowNumber, 6).value = { formula: `D${rowNumber}*E${rowNumber}` };
           sheet.getCell(rowNumber, 8).value = { formula: `G${rowNumber}*E${rowNumber}` };
           sheet.getCell(rowNumber, 10).value = { formula: `E${rowNumber}*I${rowNumber}` };
@@ -672,7 +725,6 @@ export const fillGisungStyleData = (sheet, materialItems, startRow = 6, sheetNam
           sheet.getCell(rowNumber, 13).value = {
             formula: `IF(OR(F${rowNumber}=0,F${rowNumber}=""),"",L${rowNumber}/F${rowNumber})`,
           };
-          // G, I는 입력값(전회/금회 수량) — 비우면 진짜 빈칸
           clearExcelCell(sheet.getCell(rowNumber, 7));
           clearExcelCell(sheet.getCell(rowNumber, 9));
         }
@@ -682,7 +734,7 @@ export const fillGisungStyleData = (sheet, materialItems, startRow = 6, sheetNam
       }
     }
 
-    // 데이터 끝난 뒤~maxDataRow 까지 잔여 행 완전 빈칸
+    // 데이터 끝난 뒤~maxDataRow 까지 잔여 행 완전 빈칸 + 분류 행 재정리
     blankUnusedGisungDetailRows(sheet, startRow, maxDataRow, filteredItems.length);
     
     console.log(`✅ ${sheetName} 스타일 물량 데이터 입력 완료`);

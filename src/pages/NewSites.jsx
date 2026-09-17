@@ -14,6 +14,7 @@ import SitePhotoUpload from '../components/site/SitePhotoUpload';
 import IntegratedStatusBox from '../components/site/IntegratedStatusBox';
 import SiteListItem from '../components/site/SiteListItem';
 import SiteDetailForm from '../components/site/SiteDetailForm';
+import MobileSites from '../components/site/MobileSites';
 
 import { collection, onSnapshot, query, orderBy, where, getDocs, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -40,6 +41,7 @@ const NewSites = () => {
   const [selectedSite, setSelectedSite] = useState(null);
   const { form, setForm, isEditing, setIsEditing } = useSiteForm();
   const [statusTab, setStatusTab] = useState('진행');
+  const [mobileScreen, setMobileScreen] = useState('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [vendors, setVendors] = useState([]); // 거래처 데이터 상태 추가
   const [companyFocused, setCompanyFocused] = useState(false);
@@ -50,6 +52,13 @@ const NewSites = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (!location.state?.siteDetail) {
+      setMobileScreen('list');
+    }
+  }, [location.state, isMobile]);
 
   // 물량내역 업로드 관련 상태
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -730,7 +739,7 @@ const NewSites = () => {
     const sixtyDaysAgo = new Date(today.getTime() - (60 * 24 * 60 * 60 * 1000));
 
     const filtered = sites
-      .filter((site) => site.status === statusTab)
+      .filter((site) => statusTab === '전체' || site.status === statusTab)
       .filter((site) => {
         if (site.status === '완료' && site.endDate) {
           try {
@@ -782,6 +791,10 @@ const NewSites = () => {
 
   const handleSelectSite = async (site) => {
     setSelectedSite(site);
+    if (isMobile) setMobileScreen('detail');
+    if (isMobile) {
+      navigate('/sites', { state: { siteDetail: true }, replace: true });
+    }
     
     // 선택된 현장의 통합 현황 조회
     if (site) {
@@ -1024,12 +1037,17 @@ const NewSites = () => {
       contractAmount: autoContractAmount > 0 ? autoContractAmount.toString() : prev.contractAmount
     }));
     
+    // 수정 모드에서는 로컬만 반영 — 저장하기 시에만 Firebase 반영
+    if (isEditing) {
+      return;
+    }
+
     // 기존 타이머 취소
     if (saveTimer) {
       clearTimeout(saveTimer);
     }
     
-    // Firebase에 디바운싱된 저장 (수정 모드에서도 저장)
+    // 수정 모드가 아닐 때만 디바운스 저장
     if (selectedSite) {
       const newTimer = setTimeout(async () => {
         try {
@@ -1082,52 +1100,7 @@ const NewSites = () => {
     
     setForm(prev => ({ ...prev, items: currentItems }));
     
-    // Firebase에 실시간 저장 (모든 모드에서 저장)
-    if (selectedSite) {
-      try {
-        // 품목 추가 저장 시작 전 스크롤 위치 저장
-        saveScrollPosition();
-        setIsFormSubmitting(true);
-        
-        // sites 컬렉션 업데이트
-        await updateDoc(doc(db, 'sites', selectedSite.id), {
-          items: currentItems,
-          updatedAt: new Date()
-        });
-        
-        // materialEstimates 컬렉션도 함께 업데이트 (선택적)
-        try {
-          const materialQuery = query(
-            collection(db, 'materialEstimates'),
-            where('siteId', '==', selectedSite.id)
-          );
-          const materialDocs = await getDocs(materialQuery);
-          
-          if (!materialDocs.empty) {
-            const materialDoc = materialDocs.docs[0];
-            const materialData = materialDoc.data();
-            
-            // 새로운 품목을 materialEstimates의 items에 추가
-            const updatedItems = [...(materialData.items || []), newItem];
-            
-            await updateDoc(doc(db, 'materialEstimates', materialDoc.id), {
-              items: updatedItems,
-              updatedAt: serverTimestamp()
-            });
-            
-            console.log('✅ materialEstimates 컬렉션도 함께 업데이트 완료');
-          }
-        } catch (materialError) {
-          console.warn('materialEstimates 업데이트 실패 (무시됨):', materialError);
-        }
-      } catch (error) {
-        console.error('품목 추가 실시간 저장 오류:', error);
-      } finally {
-        // 품목 추가 저장 완료 후 스크롤 위치 복원
-        setIsFormSubmitting(false);
-        restoreScrollPosition();
-      }
-    }
+    // 수정 모드에서는 로컬만 반영 — 저장하기 시에만 Firebase 반영
   };
 
 
@@ -1286,48 +1259,7 @@ const NewSites = () => {
     
     setForm(prev => ({ ...prev, items: currentItems }));
     
-    // Firebase에 실시간 저장 (수정 모드일 때만)
-    if (selectedSite && isEditing) {
-      try {
-        // 단수정리 항목 추가 저장 시작 전 스크롤 위치 저장
-        saveScrollPosition();
-        setIsFormSubmitting(true);
-        
-        // sites 컬렉션 업데이트
-        await updateDoc(doc(db, 'sites', selectedSite.id), {
-          items: currentItems,
-          updatedAt: new Date()
-        });
-        
-        // materialEstimates 컬렉션도 함께 업데이트
-        const materialQuery = query(
-          collection(db, 'materialEstimates'),
-          where('siteId', '==', selectedSite.id)
-        );
-        const materialDocs = await getDocs(materialQuery);
-        
-        if (!materialDocs.empty) {
-          const materialDoc = materialDocs.docs[0];
-          const materialData = materialDoc.data();
-          
-          // 단수정리 항목을 materialEstimates의 items에 추가
-          const updatedItems = [...(materialData.items || []), adjustmentItem];
-          
-          await updateDoc(doc(db, 'materialEstimates', materialDoc.id), {
-            items: updatedItems,
-            updatedAt: serverTimestamp()
-          });
-          
-          console.log('✅ materialEstimates 컬렉션에 단수정리 추가 완료');
-        }
-      } catch (error) {
-        console.error('단수정리 항목 추가 실시간 저장 오류:', error);
-      } finally {
-        // 단수정리 항목 추가 저장 완료 후 스크롤 위치 복원
-        setIsFormSubmitting(false);
-        restoreScrollPosition();
-      }
-    }
+    // 수정 모드에서는 로컬만 반영 — 저장하기 시에만 Firebase 반영
   };
   
   const handleRemoveItem = async (index) => {
@@ -1384,74 +1316,7 @@ const NewSites = () => {
       contractAmount: autoContractAmount > 0 ? autoContractAmount.toString() : prev.contractAmount
     }));
     
-    // Firebase에 실시간 저장 (수정 모드일 때만)
-    if (selectedSite && isEditing) {
-      try {
-        console.log('🔄 Firebase에 항목 삭제 저장 시작...');
-        
-        // sites 컬렉션 업데이트 (재시도 로직 포함)
-        let retryCount = 0;
-        const maxRetries = 3;
-        
-        while (retryCount < maxRetries) {
-          try {
-            await updateDoc(doc(db, 'sites', selectedSite.id), {
-              items: newItems,
-              contractAmount: autoContractAmount > 0 ? autoContractAmount.toString() : form.contractAmount,
-              updatedAt: new Date()
-            });
-            console.log('✅ sites 컬렉션 업데이트 완료');
-            break;
-          } catch (siteError) {
-            retryCount++;
-            console.warn(`⚠️ sites 업데이트 실패 (${retryCount}/${maxRetries}):`, siteError);
-            if (retryCount === maxRetries) {
-              throw siteError;
-            }
-            // 잠시 대기 후 재시도
-            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-          }
-        }
-        
-        // materialEstimates 컬렉션도 함께 업데이트 (선택적)
-        try {
-          const materialQuery = query(
-            collection(db, 'materialEstimates'),
-            where('siteId', '==', selectedSite.id)
-          );
-          const materialDocs = await getDocs(materialQuery);
-          
-          if (!materialDocs.empty) {
-            const materialDoc = materialDocs.docs[0];
-            const materialData = materialDoc.data();
-            
-            // 삭제된 항목을 materialEstimates의 items에서도 제거
-            const updatedItems = materialData.items.filter((_, i) => i !== index);
-            
-            await updateDoc(doc(db, 'materialEstimates', materialDoc.id), {
-              items: updatedItems,
-              updatedAt: serverTimestamp()
-            });
-            
-            console.log('✅ materialEstimates 컬렉션에서도 품목 삭제 완료');
-          }
-        } catch (materialError) {
-          console.warn('⚠️ materialEstimates 업데이트 실패 (무시함):', materialError);
-          // materialEstimates 업데이트 실패는 무시하고 계속 진행
-        }
-        
-        console.log('✅ 항목 삭제 완료');
-        
-      } catch (error) {
-        console.error('❌ 품목 삭제 실시간 저장 오류:', error);
-        
-        // 사용자에게 오류 알림
-        alert('항목 삭제 중 오류가 발생했습니다. 페이지를 새로고침 후 다시 시도해주세요.');
-        
-        // 로컬 상태 롤백 (실패 시 원래 상태로 복원)
-        // setForm 호출 이전 상태로 되돌리기는 복잡하므로, 사용자에게 새로고침 권장
-      }
-    }
+    // 수정 모드에서는 로컬만 반영 — 저장하기 시에만 Firebase 반영
   };
 
   // 물량내역 업로드 관련 함수들
@@ -1720,6 +1585,8 @@ const NewSites = () => {
     if (isMobile) {
       console.log('📱 모바일에서 편집 모드로 전환');
       setIsEditing(true);
+      setMobileScreen('detail');
+      navigate('/sites', { state: { siteDetail: true }, replace: true });
     } else {
       console.log('💻 PC에서 편집 모드 설정:', !skipEditing);
       setIsEditing(!skipEditing);
@@ -2363,19 +2230,59 @@ const NewSites = () => {
     <Box 
       ref={containerRef}
       sx={{ 
-        minHeight: '100vh',
-        bgcolor: 'background.default',
+        minHeight: isMobile ? 0 : '100vh',
+        height: isMobile ? '100%' : undefined,
+        bgcolor: isMobile ? '#0f1419' : 'background.default',
         position: 'relative',
-        pt: isMobile ? 5.5 : 5.5
+        pt: isMobile ? 0 : 5.5,
+        overflow: isMobile ? 'hidden' : undefined,
       }}
     >
-      {/* 모바일 사이드바 */}
-      <MobileSidebar />
+      {!isMobile && <MobileSidebar />}
+      {isMobile && (
+        <MobileSites
+          sites={sites}
+          filteredSites={filteredSites}
+          statusTabSites={statusTabSites}
+          statusTab={statusTab}
+          setStatusTab={setStatusTab}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          statusCounts={statusCounts}
+          selectedSite={selectedSite}
+          onSelectSite={handleSelectSite}
+          onBack={() => {
+            setMobileScreen('list');
+            navigate('/sites', { replace: true });
+          }}
+          screen={mobileScreen}
+          form={form}
+          handleChange={handleChange}
+          isEditing={isEditing}
+          setIsEditing={setIsEditing}
+          siteIntegratedStatus={siteIntegratedStatus}
+          onNewSite={handleNewSite}
+          onAddItem={handleAddItem}
+          onOpenUpload={handleOpenUploadDialog}
+          onOpenPhotos={() => setSitePhotoUploadOpen(true)}
+          sitePhotos={sitePhotos}
+          onOpenContract={() => {
+            const url = form.contractFileUrl || selectedSite?.contractFileUrl;
+            if (url) {
+              window.open(url, '_blank');
+            } else {
+              alert('등록된 계약서가 없습니다.');
+            }
+          }}
+          isReadOnly={isReadOnly}
+        />
+      )}
       
       {/* 메인 콘텐츠 */}
       <Container 
         maxWidth={false} 
         sx={{ 
+          display: isMobile ? 'none' : 'block',
           pt: isMobile ? 8 : 3,
           pb: 3,
           px: isMobile ? 1 : 3,
