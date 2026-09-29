@@ -999,13 +999,13 @@ const NewSites = () => {
     if (field === 'quantity' || field === 'price') {
       const quantity = parseFloat(newItems[index].quantity) || 0;
       const price = parseFloat(newItems[index].price) || 0;
-      newItems[index].amount = (quantity * price).toString();
+      newItems[index].amount = Math.round(quantity * price).toString();
     }
     
     // 총 공사계 자동 재계산 (단수정리 포함)
-    const totalAmount = newItems
+    const totalAmount = Math.round(newItems
       .filter(item => !item?.isSpacer && !item?.isTotal && !item?.isVat && !item?.isTotalWithVat)
-      .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+      .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0));
     
     // 총 공사계 업데이트
     const totalIndex = newItems.findIndex(item => item?.isTotal);
@@ -1348,42 +1348,51 @@ const NewSites = () => {
     try {
       console.log('🚀 물량 데이터 업로드 시작:', { siteId: selectedSite?.id, siteName: selectedSite?.name });
       
-      // materialUploadUtils의 함수 사용
+      // materialUploadUtils의 함수 사용 (materialEstimates만 저장, sites.items는 '추가' 시 반영)
       const result = await uploadMaterialData(file, selectedSite?.id, selectedSite?.name);
       
       if (result.success) {
         console.log('✅ 물량 데이터 업로드 성공:', result);
-        alert(result.message);
         
-        // 업로드된 데이터를 현재 폼에 반영
+        // 업로드된 데이터를 미리보기에 반영 (금액 = 수량×단가 재계산)
         if (result.data && result.data.items) {
-          const uploadedItems = result.data.items.map(item => ({
-            name: item?.name,
-            specification: item.specification || '',
-            unit: item.unit || '',
-            quantity: item.quantity || 0,
-            price: item.unitPrice || 0,
-            amount: item.amount || 0,
-            isTotal: false,
-            isVat: false,
-            isTotalWithVat: false,
-            isAdjustment: false
-          }));
+          const mappedItems = result.data.items.map(item => {
+            const quantity = Number(item.quantity) || 0;
+            const price = Number(item.unitPrice ?? item.price) || 0;
+            const amount = (quantity && price)
+              ? Math.round(quantity * price)
+              : Math.round(Number(item.amount) || 0);
+            return {
+              name: item?.name,
+              specification: item.specification || '',
+              unit: item.unit || '',
+              quantity,
+              price,
+              amount,
+              isTotal: false,
+              isVat: false,
+              isTotalWithVat: false,
+              isAdjustment: item?.name === '단수정리' || item?.name === 'NEGO' || item?.name === '간접비'
+            };
+          });
+
+          // 미리보기에도 합계/부가세/계약금액 표시
+          const totalAmount = mappedItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+          const vatAmount = Math.round(totalAmount * 0.1);
+          const totalWithVat = totalAmount + vatAmount;
+          const previewItems = [
+            ...mappedItems,
+            { isTotal: true, name: '총 공사계(부가세별도)', quantity: '', price: '', amount: totalAmount },
+            { isVat: true, name: '부가세', quantity: '', price: '', amount: vatAmount },
+            { isTotalWithVat: true, name: '계약금액(부가세포함)', quantity: '', price: '', amount: totalWithVat }
+          ];
           
-          setUploadedItems(uploadedItems);
-          console.log('📊 업로드된 아이템들:', uploadedItems);
+          setUploadedItems(previewItems);
+          console.log('📊 업로드된 아이템들:', previewItems);
+          console.log('💰 자동 계산 합계:', { totalAmount, vatAmount, totalWithVat });
         }
         
-        // 요약 정보도 업데이트
-        if (result.data && result.data.summary) {
-          const summary = result.data.summary;
-          console.log('💰 요약 정보:', summary);
-        }
-        
-        // 업로드 완료 후 즉시 데이터 확인
-        console.log('🔍 업로드 완료 후 데이터 확인 시작...');
-        const checkResult = await getMaterialDataFromFirebase(selectedSite.id);
-        console.log('📊 데이터 확인 결과:', checkResult);
+        alert('물량내역이 추출되었습니다. 합계를 확인한 뒤 추가 버튼을 눌러주세요.');
         
       } else {
         console.error('❌ 물량 데이터 업로드 실패:', result.error);
@@ -1393,6 +1402,9 @@ const NewSites = () => {
     } catch (error) {
       console.error('❌ 업로드 중 오류:', error);
       alert('업로드 중 오류가 발생했습니다: ' + error.message);
+    } finally {
+      // 같은 파일 재선택 가능하도록 초기화
+      event.target.value = '';
     }
   };
 
@@ -1403,71 +1415,69 @@ const NewSites = () => {
     }
 
     try {
-      // 업로드된 아이템들에 기본 구조 추가 (총 공사계, 부가세, 계약금액 포함)
-      const updatedItems = [
-        ...uploadedItems, // 업로드된 아이템들
-        { isTotal: true, name: '총 공사계(부가세별도)', quantity: '', price: '', amount: '0' }, // 총 공사계
-        { isVat: true, name: '부가세', quantity: '', price: '', amount: '0' }, // 부가세
-        { isTotalWithVat: true, name: '계약금액(부가세포함)', quantity: '', price: '', amount: '0' } // 계약금액
-      ];
-      
-      // 총 공사계 자동 계산
-      const totalAmount = uploadedItems
+      // 합계 행 제외한 실품목만, 금액 재계산
+      const materialItems = uploadedItems
         .filter(item => !item?.isSpacer && !item?.isTotal && !item?.isVat && !item?.isTotalWithVat)
-        .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-      
-      // 총 공사계 업데이트
-      const totalIndex = updatedItems.findIndex(item => item.isTotal);
-      if (totalIndex !== -1) {
-        updatedItems[totalIndex].amount = totalAmount.toString();
-      }
-      
-      // 부가세 업데이트 (총공사계의 10%)
+        .map(item => {
+          const quantity = Number(item.quantity) || 0;
+          const price = Number(item.price) || 0;
+          const amount = (quantity && price)
+            ? Math.round(quantity * price)
+            : Math.round(Number(item.amount) || 0);
+          return { ...item, quantity, price, amount };
+        });
+
+      const totalAmount = materialItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
       const vatAmount = Math.round(totalAmount * 0.1);
-      const vatIndex = updatedItems.findIndex(item => item.isVat);
-      if (vatIndex !== -1) {
-        updatedItems[vatIndex].amount = vatAmount.toString();
-      }
-      
-      // 총계 업데이트 (총공사계 + 부가세)
       const totalWithVat = totalAmount + vatAmount;
-      const totalWithVatIndex = updatedItems.findIndex(item => item.isTotalWithVat);
-      if (totalWithVatIndex !== -1) {
-        updatedItems[totalWithVatIndex].amount = totalWithVat.toString();
-      }
-      
-      // 계약금액 자동 업데이트
-      const autoContractAmount = getAutoContractAmount(updatedItems);
+      const contractAmountStr = totalWithVat > 0 ? String(totalWithVat) : (form.contractAmount || '');
+
+      const updatedItems = [
+        ...materialItems,
+        { isTotal: true, name: '총 공사계(부가세별도)', quantity: '', price: '', amount: String(totalAmount) },
+        { isVat: true, name: '부가세', quantity: '', price: '', amount: String(vatAmount) },
+        { isTotalWithVat: true, name: '계약금액(부가세포함)', quantity: '', price: '', amount: String(totalWithVat) }
+      ];
       
       // Firebase에 실시간 저장
       if (selectedSite) {
-        // 기존 현장 수정
         await updateDoc(doc(db, 'sites', selectedSite.id), {
           items: updatedItems,
-          contractAmount: autoContractAmount > 0 ? autoContractAmount.toString() : form.contractAmount,
+          contractAmount: contractAmountStr,
           updatedAt: new Date()
         });
       } else {
-        // 새 현장 생성
         const newSiteData = {
           ...form,
           items: updatedItems,
-          contractAmount: autoContractAmount > 0 ? autoContractAmount.toString() : form.contractAmount,
+          contractAmount: contractAmountStr,
           createdAt: new Date(),
           updatedAt: new Date()
         };
         await addDoc(collection(db, 'sites'), newSiteData);
       }
 
-      // 로컬 상태 업데이트
+      // 로컬 상태 동기화 (selectedSite도 함께 갱신해 폼 덮어쓰기 방지)
       setForm(prev => ({
         ...prev,
         items: updatedItems,
-        contractAmount: autoContractAmount > 0 ? autoContractAmount.toString() : prev.contractAmount
+        contractAmount: contractAmountStr
+      }));
+      setSelectedSite(prev => prev ? {
+        ...prev,
+        items: updatedItems,
+        contractAmount: contractAmountStr
+      } : prev);
+      setSiteIntegratedStatus(prev => ({
+        ...(prev || {}),
+        summary: {
+          ...(prev?.summary || {}),
+          totalEstimateAmount: totalWithVat
+        }
       }));
 
-      console.log('저장된 아이템들:', updatedItems);
-      alert('물량내역이 성공적으로 저장되었습니다. 총 공사계, 부가세, 계약금액이 자동으로 추가되었습니다.');
+      console.log('저장된 아이템들:', updatedItems, { totalAmount, vatAmount, totalWithVat });
+      alert('물량내역이 저장되었습니다. 총 공사계, 부가세, 계약금액이 자동 반영되었습니다.');
       handleCloseUploadDialog();
     } catch (error) {
       console.error('물량내역 저장 오류:', error);
@@ -1477,18 +1487,26 @@ const NewSites = () => {
 
   const handleEditUploadedItem = (index, field, value) => {
     const updatedItems = [...uploadedItems];
+    const target = updatedItems[index];
     
-    // 총 공사계는 편집 불가
-    if (updatedItems[index].isTotal) {
+    // 합계/부가세/계약금액 행은 편집 불가
+    if (target?.isTotal || target?.isVat || target?.isTotalWithVat) {
       return;
     }
     
     // 단가와 금액의 경우 쉼표 제거 후 저장
-    if (field === 'price' || field === 'amount') {
-      const numericValue = value.replace(/,/g, '');
+    if (field === 'price' || field === 'amount' || field === 'quantity') {
+      const numericValue = String(value).replace(/,/g, '');
       updatedItems[index] = { ...updatedItems[index], [field]: numericValue };
     } else {
       updatedItems[index] = { ...updatedItems[index], [field]: value };
+    }
+
+    // 물량·단가 변경 시 금액 재계산
+    if (field === 'quantity' || field === 'price') {
+      const quantity = parseFloat(updatedItems[index].quantity) || 0;
+      const price = parseFloat(updatedItems[index].price) || 0;
+      updatedItems[index].amount = Math.round(quantity * price);
     }
     
     // 총 공사계 자동 재계산 (단수정리 포함)
@@ -1520,8 +1538,8 @@ const NewSites = () => {
   };
 
   const handleDeleteUploadedItem = (index) => {
-    // 총 공사계는 삭제 불가
-    if (uploadedItems[index].isTotal) {
+    // 합계/부가세/계약금액 행은 삭제 불가
+    if (uploadedItems[index]?.isTotal || uploadedItems[index]?.isVat || uploadedItems[index]?.isTotalWithVat) {
       return;
     }
     
@@ -3229,7 +3247,7 @@ const NewSites = () => {
           {uploadedItems.length > 0 && (
             <Box>
               <Typography variant="h6" sx={{ mb: 2 }}>
-                추출된 물량내역 ({uploadedItems.length}개)
+                추출된 물량내역 ({uploadedItems.filter(i => !i?.isTotal && !i?.isVat && !i?.isTotalWithVat && !i?.isSpacer).length}개)
               </Typography>
               <TableContainer component={Paper} sx={{ 
                 maxHeight: { xs: 'none', md: 400 }, 

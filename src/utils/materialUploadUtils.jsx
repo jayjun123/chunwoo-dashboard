@@ -625,7 +625,7 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
          }
         
         if (isValidItem) {
-          // 단수정리 항목이 유효성 검사를 통과했는지 확인
+                   // 단수정리 항목이 유효성 검사를 통과했는지 확인
           if (isAdjustmentItem) {
             console.log(`✅ 단수정리 항목 유효성 검사 통과 (${rowNumber}행)`);
           }
@@ -633,7 +633,10 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
                    // 단수정리 항목일 때 수량을 1로 고정하고, 단가 정보는 원본 그대로 유지
          let finalQuantity = columnD;
          let finalUnitPrice = columnK || columnE;
-         let finalAmount = columnL || columnG;
+         // 금액: 수량×단가 재계산 우선 (엑셀 L열 오차·부동소수점 방지)
+         let finalAmount = (finalQuantity && finalUnitPrice)
+           ? Math.round(finalQuantity * finalUnitPrice)
+           : (columnL || columnG || 0);
          
          console.log(`🔍 단가 계산 - 행 ${rowNumber}:`, {
            columnK: columnK,
@@ -648,7 +651,9 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
            // 단수정리 항목도 원본 단가 정보를 그대로 유지
            // 자재비/노무비/경비 단가는 각각 저장, 합계 단가는 별도 저장
            finalUnitPrice = columnK || columnE; // K열(합계단가) 또는 E열(재료비단가)
-           finalAmount = columnL || columnG || columnM; // L열 또는 G열 또는 M열에서 금액 가져오기
+           finalAmount = (finalUnitPrice)
+             ? Math.round(finalQuantity * finalUnitPrice)
+             : (columnL || columnG || columnM || 0);
            
            console.log(`📝 단수정리 항목 처리 (${rowNumber}행):`, {
              원본수량: columnD,
@@ -759,6 +764,14 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
          }))
        });
      }
+
+    // 엑셀 요약행보다 품목 합계를 우선 (요약행 오차·누락 대비)
+    const computedTotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    if (computedTotal > 0) {
+      totalContractAmount = computedTotal;
+      totalVat = Math.round(computedTotal * 0.1);
+      contractAmount = computedTotal + totalVat;
+    }
     
     return {
       success: true,
@@ -909,27 +922,16 @@ export const saveMaterialDataToFirebase = async (siteId, siteName, parsedData) =
        });
     }
     
-    // 현장 정보 업데이트 (계약금액, 물량 데이터 등)
+    // 현장에는 견적 메타만 연결. items/계약금액은 현장관리 '추가'에서
+    // 물량 합계 기준으로 계산해 반영한다 (엑셀 요약값·합계행 없는 items로 덮어쓰기 방지).
     try {
       const siteRef = doc(db, 'sites', siteId);
       await updateDoc(siteRef, {
-        contractAmount: summary.contractAmount || summary.totalContractAmount,
         materialEstimateId,
-        lastMaterialUpdate: new Date(),
-        items: items.map(item => ({
-          name: item?.name,
-          specification: item?.specification,
-          unit: item?.unit,
-          quantity: item?.quantity,
-          JEprice: item?.JEprice || item?.price || 0,
-          NOprice: item?.NOprice || item?.price || 0,
-          KYprice: item?.KYprice || 0,
-          unitPrice: item?.unitPrice || item?.price || 0,
-          amount: item?.amount
-        }))
+        lastMaterialUpdate: new Date()
       });
       
-      console.log('✅ 현장 정보 업데이트 완료');
+      console.log('✅ 현장 견적 메타 연결 완료 (items/계약금액은 추가 시 반영)');
     } catch (siteUpdateError) {
       console.warn('⚠️ 현장 정보 업데이트 실패:', siteUpdateError);
     }
@@ -937,7 +939,7 @@ export const saveMaterialDataToFirebase = async (siteId, siteName, parsedData) =
     return {
       success: true,
       materialEstimateId,
-      message: '물량 데이터가 성공적으로 저장되었습니다.'
+      message: '물량 데이터가 추출되었습니다. 확인 후 추가 버튼을 눌러주세요.'
     };
     
   } catch (error) {
