@@ -29,7 +29,7 @@ import { formatQuantity, formatAmount, formatPrice, parseAmountNumber, normalize
 import { STATUS_OPTIONS, CONTRACT_TYPE_OPTIONS, ESTIMATE_STATUS_OPTIONS, WORK_SCOPE_OPTIONS, initialFormState, DEFAULT_ITEMS_WITH_SUMMARY } from '../utils/siteConstants';
 import { getSiteIntegratedStatus } from '../utils/integrationUtils';
 // 엑셀 라이브러리는 동적 import로 지연 로딩
-import { uploadMaterialData, generateDocumentExcel, getMaterialDataFromFirebase } from '../utils/materialUploadUtils.jsx';
+import { uploadMaterialData, saveMaterialDataToFirebase, generateDocumentExcel, getMaterialDataFromFirebase } from '../utils/materialUploadUtils.jsx';
 import { downloadNapfoomContract } from '../utils/napfoomUtils';
 import { safeUpdateDoc, debouncedUpdate } from '../utils/databaseUtils';
 import { useSitePhotos } from '../hooks/useSitePhotos';
@@ -63,6 +63,9 @@ const NewSites = () => {
   // 물량내역 업로드 관련 상태
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadedItems, setUploadedItems] = useState([]);
+  const [uploadTargetLabel, setUploadTargetLabel] = useState('');
+  // 업로드 다이얼로그를 연 시점에 대상 현장을 고정 (비동기 중 selectedSite 변경으로 다른 현장에 붙는 것 방지)
+  const uploadTargetRef = useRef(null);
   
   // 다운로드 로딩 상태
   const [downloadLoading, setDownloadLoading] = useState(false);
@@ -137,6 +140,8 @@ const NewSites = () => {
 
   // URL 파라미터에서 현장명 확인 및 자동 선택
   useEffect(() => {
+    // 물량 업로드 중에는 현장 선택을 덮어쓰지 않음
+    if (uploadDialogOpen) return;
     const pathSegments = location.pathname.split('/');
     if (pathSegments.length > 2 && pathSegments[1] === 'sites') {
       const siteName = decodeURIComponent(pathSegments[2]);
@@ -149,10 +154,11 @@ const NewSites = () => {
         });
       }
     }
-  }, [location.pathname, sites]);
+  }, [location.pathname, sites, uploadDialogOpen]);
 
   // URL 쿼리 파라미터에서 siteId 처리
   useEffect(() => {
+    if (uploadDialogOpen) return;
     if (sites.length > 0) {
       const urlParams = new URLSearchParams(location.search);
       const siteId = urlParams.get('siteId');
@@ -169,7 +175,7 @@ const NewSites = () => {
         }
       }
     }
-  }, [location.search, sites]);
+  }, [location.search, sites, uploadDialogOpen]);
 
   // 현장 변경 시 계약서 미리보기 닫기
   useEffect(() => {
@@ -178,6 +184,7 @@ const NewSites = () => {
 
   // location state / 기성관리 복귀용 sessionStorage에서 현장 선택 복원·초기화
   useEffect(() => {
+    if (uploadDialogOpen) return;
     const fromState = location.state || {};
 
     // 헤더 현장관리 재클릭 → 초기화면
@@ -224,7 +231,7 @@ const NewSites = () => {
     if (location.state && (fromState.selectedSiteId || fromState.selectedSiteName)) {
       window.history.replaceState({}, document.title);
     }
-  }, [location.state, sites]);
+  }, [location.state, sites, uploadDialogOpen]);
 
 
 
@@ -689,6 +696,8 @@ const NewSites = () => {
       form.companyName, companyFocused]);
 
   useEffect(() => {
+    // 물량 업로드 다이얼로그가 열린 동안 폼/선택을 덮어쓰지 않음
+    if (uploadDialogOpen) return;
     if (selectedSite) {
       setForm({
         ...initialFormState,
@@ -705,7 +714,7 @@ const NewSites = () => {
       setForm(initialFormState);
       setIsEditing(true);
     }
-  }, [selectedSite]);
+  }, [selectedSite, uploadDialogOpen]);
 
   // 숨겨진 완료 현장 수 계산 (입금처리 안된 현장은 제외)
   const hiddenCompletedSites = useMemo(() => {
@@ -1321,12 +1330,22 @@ const NewSites = () => {
 
   // 물량내역 업로드 관련 함수들
   const handleOpenUploadDialog = () => {
+    if (!selectedSite?.id) {
+      alert('현장을 선택해주세요.');
+      return;
+    }
     // 수정 모드가 아닌 경우 업로드 불가
     if (selectedSite && !isEditing) {
       alert('수정 모드에서만 업로드할 수 있습니다.');
       return;
     }
-    
+
+    const targetName = selectedSite.name || form.name || '';
+    uploadTargetRef.current = {
+      id: selectedSite.id,
+      name: targetName
+    };
+    setUploadTargetLabel(targetName);
     setUploadedItems([]);
     setUploadDialogOpen(true);
   };
@@ -1334,27 +1353,33 @@ const NewSites = () => {
   const handleCloseUploadDialog = () => {
     setUploadDialogOpen(false);
     setUploadedItems([]);
+    setUploadTargetLabel('');
+    uploadTargetRef.current = null;
   };
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    if (!selectedSite) {
-      alert('현장을 선택해주세요.');
+    const target = uploadTargetRef.current;
+    if (!target?.id) {
+      alert('업로드 대상 현장이 없습니다. 다이얼로그를 다시 열어주세요.');
+      event.target.value = '';
       return;
     }
 
     try {
-      console.log('🚀 물량 데이터 업로드 시작:', { siteId: selectedSite?.id, siteName: selectedSite?.name });
-      
-      // materialUploadUtils의 함수 사용 (materialEstimates만 저장, sites.items는 '추가' 시 반영)
-      const result = await uploadMaterialData(file, selectedSite?.id, selectedSite?.name);
-      
+      console.log('🚀 물량 데이터 파싱 시작:', { siteId: target.id, siteName: target.name });
+
+      // 미리보기만: Firebase/sites에 쓰지 않음 (오류·다른 현장 오염 방지)
+      const result = await uploadMaterialData(file, target.id, target.name, {
+        saveToFirebase: false,
+        updateSiteMeta: false
+      });
+
       if (result.success) {
-        console.log('✅ 물량 데이터 업로드 성공:', result);
-        
-        // 업로드된 데이터를 미리보기에 반영 (금액 = 수량×단가 재계산)
+        console.log('✅ 물량 데이터 파싱 성공:', result);
+
         if (result.data && result.data.items) {
           const mappedItems = result.data.items.map(item => {
             const quantity = Number(item.quantity) || 0;
@@ -1363,7 +1388,7 @@ const NewSites = () => {
               ? Math.round(quantity * price)
               : Math.round(Number(item.amount) || 0);
             return {
-              name: item?.name,
+              name: item?.name || '',
               specification: item.specification || '',
               unit: item.unit || '',
               quantity,
@@ -1376,8 +1401,9 @@ const NewSites = () => {
             };
           });
 
-          // 미리보기에도 합계/부가세/계약금액 표시
-          const totalAmount = mappedItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+          const totalAmount = Math.round(
+            mappedItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+          );
           const vatAmount = Math.round(totalAmount * 0.1);
           const totalWithVat = totalAmount + vatAmount;
           const previewItems = [
@@ -1386,24 +1412,21 @@ const NewSites = () => {
             { isVat: true, name: '부가세', quantity: '', price: '', amount: vatAmount },
             { isTotalWithVat: true, name: '계약금액(부가세포함)', quantity: '', price: '', amount: totalWithVat }
           ];
-          
+
           setUploadedItems(previewItems);
           console.log('📊 업로드된 아이템들:', previewItems);
           console.log('💰 자동 계산 합계:', { totalAmount, vatAmount, totalWithVat });
         }
-        
+
         alert('물량내역이 추출되었습니다. 합계를 확인한 뒤 추가 버튼을 눌러주세요.');
-        
       } else {
-        console.error('❌ 물량 데이터 업로드 실패:', result.error);
+        console.error('❌ 물량 데이터 파싱 실패:', result.error);
         alert('업로드 실패: ' + result.error);
       }
-      
     } catch (error) {
       console.error('❌ 업로드 중 오류:', error);
       alert('업로드 중 오류가 발생했습니다: ' + error.message);
     } finally {
-      // 같은 파일 재선택 가능하도록 초기화
       event.target.value = '';
     }
   };
@@ -1411,6 +1434,12 @@ const NewSites = () => {
   const handleSaveUploadedItems = async () => {
     if (uploadedItems.length === 0) {
       alert('저장할 데이터가 없습니다.');
+      return;
+    }
+
+    const target = uploadTargetRef.current;
+    if (!target?.id) {
+      alert('업로드 대상 현장이 없습니다. 다이얼로그를 다시 열어주세요.');
       return;
     }
 
@@ -1424,13 +1453,26 @@ const NewSites = () => {
           const amount = (quantity && price)
             ? Math.round(quantity * price)
             : Math.round(Number(item.amount) || 0);
-          return { ...item, quantity, price, amount };
+          return {
+            name: item?.name || '',
+            specification: item?.specification || '',
+            unit: item?.unit || '',
+            quantity,
+            price,
+            amount,
+            isTotal: false,
+            isVat: false,
+            isTotalWithVat: false,
+            isAdjustment: !!item?.isAdjustment
+          };
         });
 
-      const totalAmount = materialItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      const totalAmount = Math.round(
+        materialItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+      );
       const vatAmount = Math.round(totalAmount * 0.1);
       const totalWithVat = totalAmount + vatAmount;
-      const contractAmountStr = totalWithVat > 0 ? String(totalWithVat) : (form.contractAmount || '');
+      const contractAmountStr = totalWithVat > 0 ? String(totalWithVat) : '';
 
       const updatedItems = [
         ...materialItems,
@@ -1438,46 +1480,58 @@ const NewSites = () => {
         { isVat: true, name: '부가세', quantity: '', price: '', amount: String(vatAmount) },
         { isTotalWithVat: true, name: '계약금액(부가세포함)', quantity: '', price: '', amount: String(totalWithVat) }
       ];
-      
-      // Firebase에 실시간 저장
-      if (selectedSite) {
-        await updateDoc(doc(db, 'sites', selectedSite.id), {
-          items: updatedItems,
-          contractAmount: contractAmountStr,
-          updatedAt: new Date()
-        });
-      } else {
-        const newSiteData = {
-          ...form,
-          items: updatedItems,
-          contractAmount: contractAmountStr,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        await addDoc(collection(db, 'sites'), newSiteData);
+
+      // 다이얼로그를 연 시점에 고정한 현장에만 저장
+      await updateDoc(doc(db, 'sites', target.id), {
+        items: updatedItems,
+        contractAmount: contractAmountStr,
+        lastMaterialUpdate: new Date(),
+        updatedAt: new Date()
+      });
+
+      // materialEstimates 동기화 (실패해도 현장 items는 유지)
+      try {
+        await saveMaterialDataToFirebase(target.id, target.name || '현장명없음', {
+          items: materialItems,
+          summary: {
+            totalContractAmount: totalAmount,
+            totalVat: vatAmount,
+            contractAmount: totalWithVat
+          }
+        }, { updateSiteMeta: true });
+      } catch (estimateErr) {
+        console.warn('materialEstimates 동기화 실패(현장 items는 저장됨):', estimateErr);
       }
 
-      // 로컬 상태 동기화 (selectedSite도 함께 갱신해 폼 덮어쓰기 방지)
-      setForm(prev => ({
-        ...prev,
-        items: updatedItems,
-        contractAmount: contractAmountStr
-      }));
-      setSelectedSite(prev => prev ? {
-        ...prev,
-        items: updatedItems,
-        contractAmount: contractAmountStr
-      } : prev);
-      setSiteIntegratedStatus(prev => ({
-        ...(prev || {}),
-        summary: {
-          ...(prev?.summary || {}),
-          totalEstimateAmount: totalWithVat
-        }
-      }));
+      // 현재 선택 현장이 대상과 같을 때만 폼 반영
+      if (!selectedSite || selectedSite.id === target.id) {
+        setForm(prev => ({
+          ...prev,
+          items: updatedItems,
+          contractAmount: contractAmountStr
+        }));
+        setSelectedSite(prev => prev ? {
+          ...prev,
+          id: target.id,
+          items: updatedItems,
+          contractAmount: contractAmountStr
+        } : prev);
+        setSiteIntegratedStatus(prev => ({
+          ...(prev || {}),
+          summary: {
+            ...(prev?.summary || {}),
+            totalEstimateAmount: totalWithVat
+          }
+        }));
+        setSites(prev => prev.map(site =>
+          site.id === target.id
+            ? { ...site, items: updatedItems, contractAmount: contractAmountStr }
+            : site
+        ));
+      }
 
-      console.log('저장된 아이템들:', updatedItems, { totalAmount, vatAmount, totalWithVat });
-      alert('물량내역이 저장되었습니다. 총 공사계, 부가세, 계약금액이 자동 반영되었습니다.');
+      console.log('저장된 아이템들:', updatedItems, { target, totalAmount, vatAmount, totalWithVat });
+      alert(`물량내역이 "${target.name || '선택한 현장'}"에 저장되었습니다.\n총 공사계·부가세·계약금액이 자동 반영되었습니다.`);
       handleCloseUploadDialog();
     } catch (error) {
       console.error('물량내역 저장 오류:', error);
@@ -3219,11 +3273,17 @@ const NewSites = () => {
       >
         <DialogTitle>
           물량내역 업로드
+          {uploadTargetLabel ? (
+            <Typography component="span" variant="body2" sx={{ ml: 1, color: 'text.secondary' }}>
+              — {uploadTargetLabel}
+            </Typography>
+          ) : null}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mb: 3 }}>
             <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-              엑셀 파일의 "내역서" 시트에서 A, B, C, D, K, L열의 데이터를 추출합니다. (5번째 줄부터)
+              엑셀 파일의 &quot;내역서&quot; 시트에서 A, B, C, D, K, L열의 데이터를 추출합니다. (5번째 줄부터)
+              추가를 누르면 총 공사계·부가세·계약금액이 자동으로 붙고, 위에 표시된 현장에만 저장됩니다.
             </Typography>
             <input
               type="file"

@@ -807,11 +807,29 @@ export const parseEstimateExcel = async (file, siteId, siteName) => {
   }
 };
 
+/** Firestore가 거부하는 undefined/Date/동적셀키를 제거한 저장용 품목 */
+const toFirestoreMaterialItem = (item, index = 0) => ({
+  name: item?.name != null ? String(item.name) : '',
+  specification: item?.specification != null ? String(item.specification) : '',
+  unit: item?.unit != null ? String(item.unit) : '',
+  quantity: Number(item?.quantity) || 0,
+  JEprice: Number(item?.JEprice) || 0,
+  NOprice: Number(item?.NOprice) || 0,
+  KYprice: Number(item?.KYprice) || 0,
+  unitPrice: Number(item?.unitPrice ?? item?.price) || 0,
+  price: Number(item?.price ?? item?.unitPrice) || 0,
+  amount: Number(item?.amount) || 0,
+  sequence: Number(item?.sequence) || (index + 1),
+  rowNumber: Number(item?.rowNumber) || 0
+});
+
 /**
  * 파싱된 물량 데이터를 파이어베이스에 저장하는 함수
  * 컬렉션에 문서 1개에 1개의 견적 모든 내용을 저장
+ * @param {{ updateSiteMeta?: boolean }} options updateSiteMeta=false면 sites 문서를 건드리지 않음(현장 선택 레이스 방지)
  */
-export const saveMaterialDataToFirebase = async (siteId, siteName, parsedData) => {
+export const saveMaterialDataToFirebase = async (siteId, siteName, parsedData, options = {}) => {
+  const { updateSiteMeta = false } = options;
   try {
     console.log('💾 파이어베이스 저장 시작:', { siteId, siteName });
     
@@ -831,7 +849,16 @@ export const saveMaterialDataToFirebase = async (siteId, siteName, parsedData) =
     if (!parsedData.items || !Array.isArray(parsedData.items)) {
       throw new Error('parsedData.items가 유효한 배열이 아닙니다.');
     }
-    const { items, summary } = parsedData;
+    const rawItems = parsedData.items;
+    const items = rawItems.map((item, index) => toFirestoreMaterialItem(item, index));
+    const summary = {
+      totalContractAmount: Number(parsedData.summary?.totalContractAmount) || 0,
+      totalVat: Number(parsedData.summary?.totalVat) || 0,
+      contractAmount: Number(parsedData.summary?.contractAmount) || 0,
+      adjustmentItemNames: Array.isArray(parsedData.summary?.adjustmentItemNames)
+        ? parsedData.summary.adjustmentItemNames.filter((n) => n != null).map(String)
+        : []
+    };
     
     // 단수정리 항목 확인
     const adjustmentItems = items.filter(item => 
@@ -922,18 +949,19 @@ export const saveMaterialDataToFirebase = async (siteId, siteName, parsedData) =
        });
     }
     
-    // 현장에는 견적 메타만 연결. items/계약금액은 현장관리 '추가'에서
-    // 물량 합계 기준으로 계산해 반영한다 (엑셀 요약값·합계행 없는 items로 덮어쓰기 방지).
-    try {
-      const siteRef = doc(db, 'sites', siteId);
-      await updateDoc(siteRef, {
-        materialEstimateId,
-        lastMaterialUpdate: new Date()
-      });
-      
-      console.log('✅ 현장 견적 메타 연결 완료 (items/계약금액은 추가 시 반영)');
-    } catch (siteUpdateError) {
-      console.warn('⚠️ 현장 정보 업데이트 실패:', siteUpdateError);
+    // sites 갱신은 선택적 — 업로드 미리보기 중 sites onSnapshot이 현장 선택을 바꿔
+    // 다른 현장에 붙는 레이스를 막기 위해 기본은 sites를 건드리지 않는다.
+    if (updateSiteMeta) {
+      try {
+        const siteRef = doc(db, 'sites', siteId);
+        await updateDoc(siteRef, {
+          materialEstimateId,
+          lastMaterialUpdate: new Date()
+        });
+        console.log('✅ 현장 견적 메타 연결 완료');
+      } catch (siteUpdateError) {
+        console.warn('⚠️ 현장 정보 업데이트 실패:', siteUpdateError);
+      }
     }
     
     return {
@@ -1087,10 +1115,13 @@ const parseNumber = (value) => {
 
 /**
  * 통합 물량 데이터 업로드 함수
+ * @param {{ saveToFirebase?: boolean, updateSiteMeta?: boolean }} options
+ *   saveToFirebase=false면 파싱만 (현장관리 미리보기용)
  */
-export const uploadMaterialData = async (file, siteId, siteName) => {
+export const uploadMaterialData = async (file, siteId, siteName, options = {}) => {
+  const { saveToFirebase = true, updateSiteMeta = false } = options;
   try {
-    console.log('🚀 물량 데이터 업로드 시작:', { siteId, siteName });
+    console.log('🚀 물량 데이터 업로드 시작:', { siteId, siteName, saveToFirebase, updateSiteMeta });
     
     // 1. 엑셀 파일 파싱
     console.log('📊 1단계: 견적서 엑셀 파일 파싱 시작');
@@ -1104,25 +1135,25 @@ export const uploadMaterialData = async (file, siteId, siteName) => {
       itemsCount: parseResult.data.items.length,
       summary: parseResult.data.summary
     });
+
+    if (!saveToFirebase) {
+      return {
+        success: true,
+        materialEstimateId: null,
+        message: '물량내역이 추출되었습니다. 확인 후 추가 버튼을 눌러주세요.',
+        data: parseResult.data
+      };
+    }
     
     // 2. 파이어베이스에 저장
     console.log('💾 2단계: 파이어베이스 저장 시작');
-    const saveResult = await saveMaterialDataToFirebase(siteId, siteName, parseResult.data);
+    const saveResult = await saveMaterialDataToFirebase(siteId, siteName, parseResult.data, { updateSiteMeta });
     
     if (!saveResult.success) {
       throw new Error(`저장 실패: ${saveResult.error}`);
     }
     
     console.log('✅ 물량 데이터 업로드 완료');
-    console.log('📊 저장된 데이터 구조:', {
-      materialEstimateId: saveResult.materialEstimateId,
-      itemsCount: parseResult.data.items.length,
-      dataStructure: {
-        basicInfo: '품목-규격-단위-물량 세트',
-        pricing: '자재비/노무비/경비 분리 저장',
-        totalPrice: '합계단가 별도 저장'
-      }
-    });
     
     return {
       success: true,
