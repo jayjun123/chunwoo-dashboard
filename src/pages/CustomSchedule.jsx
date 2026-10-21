@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, useMediaQuery, Container, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import MobileSidebar from '../components/MobileSidebar';
 import CustomCalendar from '../components/CustomCalendar';
@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { exportCalendarToExcel } from '../utils/excelUtils.jsx';
 import { stripDuplicateScheduleBadgePrefix } from '../utils/scheduleCategoryColors';
-import { resolveWeatherForSite, findSiteByIdOrName, DEFAULT_WEATHER, canAutoOverwriteWeather, isPastScheduleDate, syncScheduleAutoWeather, getSiteAddress } from '../utils/siteWeather';
+import { resolveWeatherForSite, findSiteByIdOrName, DEFAULT_WEATHER, canAutoOverwriteWeather, isPastScheduleDate, getSiteAddress, buildFutureItemForecastMap, mergeLiveForecastWeather } from '../utils/siteWeather';
 
 
 function isInMonth(site, year, month) {
@@ -87,6 +87,8 @@ const CustomSchedule = () => {
   const [selectedWeather, setSelectedWeather] = useState(DEFAULT_WEATHER);
   const [selectedWeatherSource, setSelectedWeatherSource] = useState('auto');
   const [weatherLoading, setWeatherLoading] = useState(false);
+  const [forecastWeatherByItemId, setForecastWeatherByItemId] = useState({});
+  const forecastSigRef = useRef('');
   const [showListPopup, setShowListPopup] = useState(false);
   const [listPopupDate, setListPopupDate] = useState('');
   const [copiedItem, setCopiedItem] = useState(null); // 복사된 항목 상태
@@ -573,36 +575,56 @@ const CustomSchedule = () => {
     };
   }, [authUser.currentUser, authUser.loading]); // 인증 상태와 로딩 상태 모두 추적
 
-  // 자동 날씨(auto): 오늘·미래만 예보 변경 시 갱신. 수동·지난 날짜 고정.
+  // 내일 이후 일정만 최신 예보로 표시·저장. 오늘·이전·수동은 그대로.
   useEffect(() => {
-    if (!sites?.length || !calendarItems || Object.keys(calendarItems).length === 0) return;
+    if (!calendarItems || Object.keys(calendarItems).length === 0) return;
+    const todayKo = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    const sig = Object.entries(calendarItems)
+      .filter(([dateStr]) => dateStr > todayKo)
+      .flatMap(([dateStr, items]) =>
+        (items || []).map((item) => `${item.id}:${dateStr}:${item.siteId || item.siteName || ''}`)
+      )
+      .sort()
+      .join('|');
+    if (sig && sig === forecastSigRef.current) return;
+
     let cancelled = false;
     const run = async () => {
-      const flat = Object.values(calendarItems).flat();
-      for (const item of flat) {
-        if (cancelled) break;
-        if (!item?.id || item.isEstimate) continue;
-        if (String(item.id).startsWith('estimate_')) continue;
-        if (item.weatherSource === 'manual') continue;
-        if (item.weatherSource != null && item.weatherSource !== 'auto') continue;
-        if (item.weatherSource == null && !item.siteId) continue;
-        const site = findSiteByIdOrName(sites, {
-          siteId: item.siteId,
-          siteName: item.siteName || item.text,
-        });
-        if (!site) continue;
-        try {
-          await syncScheduleAutoWeather(item, site, async (id, data) => {
-            await updateDoc(doc(db, 'schedules', id), { ...data, updatedAt: new Date() });
-          });
-        } catch (e) {
-          console.warn('자동 날씨 동기화 실패:', item.id, e);
+      try {
+        const { byItemId, persistableIds } = await buildFutureItemForecastMap(calendarItems, sites);
+        if (cancelled) return;
+        forecastSigRef.current = sig;
+        setForecastWeatherByItemId(byItemId);
+        const flat = Object.values(calendarItems).flat();
+        for (const item of flat) {
+          if (cancelled) break;
+          const live = byItemId[item.id];
+          if (!live || !persistableIds.has(item.id)) continue;
+          if (item.weatherSource === 'manual' || item.weather === '없음') continue;
+          if (live === item.weather && item.weatherSource === 'auto') continue;
+          try {
+            await updateDoc(doc(db, 'schedules', item.id), {
+              weather: live,
+              weatherSource: 'auto',
+              weatherFetchedAt: new Date(),
+              updatedAt: new Date(),
+            });
+          } catch (e) {
+            console.warn('예보 날씨 저장 실패:', item.id, e);
+          }
         }
+      } catch (e) {
+        console.warn('예보 날씨 동기화 실패:', e);
       }
     };
     run();
     return () => { cancelled = true; };
   }, [sites, calendarItems]);
+
+  const displayCalendarItems = useMemo(
+    () => mergeLiveForecastWeather(calendarItems, forecastWeatherByItemId),
+    [calendarItems, forecastWeatherByItemId]
+  );
 
   const handleDeleteSelected = async () => {
     if (selectedItems.length === 0) return;
@@ -1544,7 +1566,7 @@ const CustomSchedule = () => {
               </Box>
             )}
             <CustomCalendar
-              year={year} month={month} calendarItems={calendarItems}
+              year={year} month={month} calendarItems={displayCalendarItems}
               onPrevMonth={() => {
                 console.log('CustomSchedule onPrevMonth 호출됨, 현재 month:', month);
                 if (month === 0) {

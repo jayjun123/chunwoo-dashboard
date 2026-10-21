@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, startTransition } from 'react';
+import React, { useState, useMemo, useEffect, useRef, startTransition } from 'react';
 import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, Autocomplete, Tabs, Tab, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -8,6 +8,8 @@ import CalendarIcon from '@mui/icons-material/CalendarToday';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import ClearIcon from '@mui/icons-material/Clear';
 import CustomCalendar from '../CustomCalendar';
+import MobileAgendaCalendar from './MobileAgendaCalendar';
+import MobileScheduleForm from './MobileScheduleForm';
 import ScheduleHeatmap from './ScheduleHeatmap';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { collection, doc, query, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, where, getDocs, setDoc } from 'firebase/firestore';
@@ -23,7 +25,7 @@ import { firestoreErrorHandler } from '../../utils/firestoreErrorHandler';
 import { isAdminUserSync, isMasterUserSync, debugMasterUser } from '../../utils/masterUtils';
 import { permissionsAPI, membersAPI } from '../../api/database';
 import { getCategoryColorForType, stripDuplicateScheduleBadgePrefix } from '../../utils/scheduleCategoryColors';
-import { resolveWeatherForSite, findSiteByIdOrName, DEFAULT_WEATHER, canAutoOverwriteWeather, isPastScheduleDate, syncScheduleAutoWeather, getSiteAddress } from '../../utils/siteWeather';
+import { resolveWeatherForSite, findSiteByIdOrName, DEFAULT_WEATHER, canAutoOverwriteWeather, isPastScheduleDate, getSiteAddress, buildFutureItemForecastMap, mergeLiveForecastWeather } from '../../utils/siteWeather';
 
 // CSS 애니메이션을 위한 스타일
 const pulseAnimation = `
@@ -315,6 +317,8 @@ const ScheduleManagement = ({
   const [selectedWeather, setSelectedWeather] = useState(DEFAULT_WEATHER);
   const [selectedWeatherSource, setSelectedWeatherSource] = useState('auto');
   const [weatherLoading, setWeatherLoading] = useState(false);
+  const [forecastWeatherByItemId, setForecastWeatherByItemId] = useState({});
+  const forecastSigRef = useRef('');
   
   
   // 탭 상태 (location.state에서 initialTab 가져오기)
@@ -857,38 +861,53 @@ const ScheduleManagement = ({
     };
   }, [authUser.currentUser, authUser.loading, estimates]); // 견적 데이터도 의존성에 추가
 
-  // 자동 날씨(auto): 오늘·미래만 예보가 바뀌면 갱신. 수동(manual)·지난 날짜는 고정.
+  // 내일 이후 일정만 최신 예보로 표시·저장. 오늘·이전·수동은 그대로.
   useEffect(() => {
-    if (!sites?.length || !calendarItems || Object.keys(calendarItems).length === 0) return;
+    if (!calendarItems || Object.keys(calendarItems).length === 0) return;
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    const sig = Object.entries(calendarItems)
+      .filter(([dateStr]) => dateStr > today)
+      .flatMap(([dateStr, items]) =>
+        (items || []).map((item) => `${item.id}:${dateStr}:${item.siteId || item.siteName || ''}`)
+      )
+      .sort()
+      .join('|');
+    if (sig && sig === forecastSigRef.current) return;
+
     let cancelled = false;
     const run = async () => {
-      const flat = Object.values(calendarItems).flat();
-      for (const item of flat) {
-        if (cancelled) break;
-        if (!item?.id || item.isEstimate) continue;
-        if (String(item.id).startsWith('estimate_') || String(item.id).startsWith('bid_')) continue;
-        // auto 또는 예전 데이터(weatherSource 없음)+siteId
-        if (item.weatherSource === 'manual') continue;
-        if (item.weatherSource != null && item.weatherSource !== 'auto') continue;
-        if (item.weatherSource == null && !item.siteId) continue;
-        const site = findSiteByIdOrName(sites, {
-          siteId: item.siteId,
-          siteName: item.siteName || item.text,
-        });
-        if (!site) continue;
-        try {
-          await syncScheduleAutoWeather(item, site, async (id, data) => {
-            if (onEditSchedule) await onEditSchedule(id, data);
-            else await updateDoc(doc(db, 'schedules', id), { ...data, updatedAt: new Date() });
-          });
-        } catch (e) {
-          console.warn('자동 날씨 동기화 실패:', item.id, e);
+      try {
+        const { byItemId, persistableIds } = await buildFutureItemForecastMap(calendarItems, sites);
+        if (cancelled) return;
+        forecastSigRef.current = sig;
+        setForecastWeatherByItemId(byItemId);
+        const flat = Object.values(calendarItems).flat();
+        for (const item of flat) {
+          if (cancelled) break;
+          const live = byItemId[item.id];
+          if (!live || !persistableIds.has(item.id)) continue;
+          if (item.weatherSource === 'manual' || item.weather === '없음') continue;
+          if (live === item.weather && item.weatherSource === 'auto') continue;
+          try {
+            const data = { weather: live, weatherSource: 'auto', weatherFetchedAt: new Date() };
+            if (onEditSchedule) await onEditSchedule(item.id, data);
+            else await updateDoc(doc(db, 'schedules', item.id), { ...data, updatedAt: new Date() });
+          } catch (e) {
+            console.warn('예보 날씨 저장 실패:', item.id, e);
+          }
         }
+      } catch (e) {
+        console.warn('예보 날씨 동기화 실패:', e);
       }
     };
     run();
     return () => { cancelled = true; };
   }, [sites, calendarItems, onEditSchedule]);
+
+  const displayCalendarItems = useMemo(
+    () => mergeLiveForecastWeather(calendarItems, forecastWeatherByItemId),
+    [calendarItems, forecastWeatherByItemId]
+  );
 
   const filteredSites = useMemo(() => {
     // sites가 undefined이거나 배열이 아닌 경우 빈 배열 반환
@@ -1271,6 +1290,8 @@ const ScheduleManagement = ({
       }
       // 모달 닫기 및 입력 필드 초기화
       setEditPopup({ open: false, item: null, date: null });
+      setShowListPopup(false);
+      setListPopupDate('');
       setPopupTitle('');
       setPopupDesc('');
       setPopupSiteName('');
@@ -1979,6 +2000,8 @@ const ScheduleManagement = ({
       }
       
       setEditPopup({ open: false, item: null, date: null });
+      setShowListPopup(false);
+      setListPopupDate('');
     } catch (error) {
       console.error('일정 수정 실패:', error);
       
@@ -2349,9 +2372,15 @@ const ScheduleManagement = ({
 
   // 날짜 숫자(일) 더블클릭 시 일정 추가 모달 열기
   const handleDateCellDoubleClick = (dateStr) => {
+    setPopupTitle('');
+    setPopupDesc('');
+    setPopupSiteName('');
+    setSelectedTypes([]);
+    setSelectedColor(colorChoices[0]);
+    setSelectedWeather(DEFAULT_WEATHER);
+    setSelectedWeatherSource('auto');
     setShowListPopup(true);
     setListPopupDate(dateStr);
-    // 편집 모드로 시작 (새 일정 추가 모드)
     setEditPopup({ open: true, item: null, date: dateStr });
   };
   const handleCloseListPopup = () => { 
@@ -2413,18 +2442,18 @@ const ScheduleManagement = ({
   return (
     <Box sx={{ 
       p: 0, 
-      height: isMobile ? 'calc(100vh - 100px)' : 'calc(100vh - 4px)',
+      height: isMobile ? '100%' : 'calc(100vh - 4px)',
       width: '100%',
       mx: 0,
       px: 0,
       margin: 0,
       padding: 0,
-      position: 'fixed',
-      top: isMobile ? '50px' : '60px',
+      position: isMobile ? 'relative' : 'fixed',
+      top: isMobile ? 0 : '60px',
       left: 0,
       right: 0,
-      bottom: isMobile ? '50px' : '160px',
-      overflow: isMobile ? 'hidden' : 'auto',
+      bottom: isMobile ? 0 : '160px',
+      overflow: 'hidden',
       bgcolor: '#23242a',
       zIndex: 1
     }}>
@@ -2463,13 +2492,13 @@ const ScheduleManagement = ({
         >
                   <Box sx={{ 
             display: 'flex', 
-            flexDirection: { xs: 'column-reverse', md: 'row' }, 
+            flexDirection: { xs: 'column', md: 'row' }, 
             gap: isMobile ? 0 : 2, 
             height: '100%',
             width: '100%',
             mx: 0,
             px: 0,
-            overflow: isMobile ? 'hidden' : 'auto',
+            overflow: 'hidden',
             bgcolor: '#23242a',
             '&::-webkit-scrollbar': {
               width: '8px'
@@ -2491,14 +2520,12 @@ const ScheduleManagement = ({
             width: { xs: '100%', md: 280 },
             border: '1px solid #444', 
             borderRadius: 2, 
-            display: 'flex',
+            display: { xs: 'none', md: 'flex' },
             flexDirection: 'column', 
-            height: isMobile ? 'calc(100vh - 100px)' : 'calc(100vh - 120px)',
-            maxHeight: { xs: 'calc(100vh - 100px)', md: 'calc(100vh - 120px)' },
-            position: { xs: 'static', md: 'static' },
-            transform: { xs: 'none', md: 'none' },
-            mt: { xs: 0, md: '15px' },
-            overflow: isMobile ? 'hidden' : 'visible',
+            height: 'calc(100vh - 120px)',
+            maxHeight: 'calc(100vh - 120px)',
+            mt: '15px',
+            overflow: 'visible',
             bgcolor: '#23242a'
           }}>
             <Box sx={{ 
@@ -2805,10 +2832,50 @@ const ScheduleManagement = ({
           <Box sx={{ 
             flex: 1, 
             height: '100%',
+            minHeight: 0,
             width: '100%',
             px: isMobile ? 0 : undefined,
-            overflow: isMobile ? 'hidden' : 'visible'
+            overflow: 'hidden'
           }}>
+            {isMobile ? (
+            <MobileAgendaCalendar
+              year={year}
+              month={month}
+              calendarItems={displayCalendarItems}
+              onPrevMonth={() => {
+                if (month === 0) {
+                  setYear(y => y - 1);
+                  setMonth(11);
+                } else {
+                  setMonth(m => m - 1);
+                }
+              }}
+              onNextMonth={() => {
+                if (month === 11) {
+                  setYear(y => y + 1);
+                  setMonth(0);
+                } else {
+                  setMonth(m => m + 1);
+                }
+              }}
+              onGoToday={() => {
+                const now = new Date();
+                setYear(now.getFullYear());
+                setMonth(now.getMonth());
+              }}
+              onAdd={handleDateCellDoubleClick}
+              onItemPress={(dateStr, item) => {
+                setShowListPopup(true);
+                setListPopupDate(dateStr);
+                setEditPopup({ open: true, item, date: dateStr });
+              }}
+              onShowMore={(dateStr) => {
+                setShowListPopup(true);
+                setListPopupDate(dateStr);
+                setEditPopup({ open: false, item: null, date: dateStr });
+              }}
+            />
+            ) : (
             <CustomCalendar
               year={year}
               month={month}
@@ -2830,7 +2897,7 @@ const ScheduleManagement = ({
               }}
               viewMode={viewMode}
               onViewModeChange={handleViewModeChange}
-              calendarItems={calendarItems}
+              calendarItems={displayCalendarItems}
               onItemClick={handleItemClick}
               onItemDoubleClick={handleItemDoubleClick}
               onItemTouchStart={handleItemTouchStart}
@@ -2839,7 +2906,7 @@ const ScheduleManagement = ({
               onOpenPopup={handleOpenPopup}
               onDateNumberClick={handleDateCellDoubleClick}
               onCountClick={handleShowListPopup}
-              onCellDoubleClick={() => {}} // 셀 더블클릭 시 아무것도 하지 않음
+              onCellDoubleClick={() => {}}
               onCheckItem={handleCheckItem}
               checkedItems={checkedItems}
               selectedItems={selectedItems}
@@ -2858,14 +2925,7 @@ const ScheduleManagement = ({
                 setSelectedDate(dateStr);
               }}
             />
-            {console.log('🔍 CustomCalendar에 전달되는 props:', {
-              year,
-              month,
-              viewMode,
-              calendarItemsCount: Object.keys(calendarItems).length,
-              sitesCount: filteredSites.length,
-              selectedDate
-            })}
+            )}
           </Box>
         </Box>
       </DragDropContext>
@@ -2896,8 +2956,88 @@ const ScheduleManagement = ({
       
       
       
+      {/* 모바일 일정 추가/수정 */}
+      {isMobile && showListPopup && editPopup.open && (
+        <MobileScheduleForm
+          dateStr={listPopupDate}
+          isEdit={Boolean(editPopup.item)}
+          sites={sites}
+          title={editPopup.item ? (editPopup.item.text || '') : popupTitle}
+          onTitleChange={(v) => {
+            if (editPopup.item) {
+              setEditPopup({ ...editPopup, item: { ...editPopup.item, text: v } });
+            } else {
+              setPopupTitle(v);
+            }
+          }}
+          siteName={popupSiteName}
+          onSiteNameChange={(name) => {
+            setPopupSiteName(name);
+            const site = findSiteByIdOrName(sites, { siteName: name });
+            if (site && listPopupDate) {
+              applyAutoWeather({ site, dateStr: listPopupDate, forEdit: false });
+            }
+          }}
+          selectedTypes={
+            editPopup.item
+              ? (editPopup.item.type || '').toString().split(',').map((t) => t.trim()).filter(Boolean)
+              : selectedTypes
+          }
+          onToggleType={(type) => {
+            if (editPopup.item) {
+              const current = (editPopup.item.type || '').toString().split(',').map((t) => t.trim()).filter(Boolean);
+              const next = current.includes(type) ? current.filter((t) => t !== type) : [...current, type];
+              setEditPopup((prev) => ({ ...prev, item: { ...prev.item, type: next.join(', ') } }));
+            } else {
+              handleTypeChange(type);
+            }
+          }}
+          colorChoices={colorChoices}
+          selectedColor={editPopup.item ? editPopup.item.color : selectedColor}
+          onColorChange={(color) => {
+            if (editPopup.item) {
+              setEditPopup({ ...editPopup, item: { ...editPopup.item, color } });
+            } else {
+              setSelectedColor(color);
+            }
+          }}
+          weather={editPopup.item ? (editPopup.item.weather || DEFAULT_WEATHER) : selectedWeather}
+          onWeatherChange={(weather) => {
+            if (editPopup.item) {
+              setEditPopup({
+                ...editPopup,
+                item: { ...editPopup.item, weather, weatherSource: 'manual' },
+              });
+            } else {
+              setSelectedWeather(weather);
+              setSelectedWeatherSource('manual');
+            }
+          }}
+          weatherLoading={weatherLoading}
+          desc={editPopup.item ? (editPopup.item.desc || '') : popupDesc}
+          onDescChange={(v) => {
+            if (editPopup.item) {
+              setEditPopup({ ...editPopup, item: { ...editPopup.item, desc: v } });
+            } else {
+              setPopupDesc(v);
+            }
+          }}
+          onBack={handleCloseListPopup}
+          onCancel={handleCloseListPopup}
+          onSave={() => {
+            if (editPopup.item) handleEditSave();
+            else handleAddSchedule();
+          }}
+          canSave={
+            editPopup.item
+              ? Boolean(editPopup.item?.text?.trim() || editPopup.item?.siteName?.trim()) && canEdit
+              : Boolean((popupTitle.trim() || popupSiteName.trim()) && selectedTypes.length > 0 && canAdd)
+          }
+        />
+      )}
+
       {/* 일정 목록 팝업 */}
-      {showListPopup && (
+      {!isMobile && showListPopup && (
         <Box
           onClick={e => { e.stopPropagation(); handleCloseListPopup(); }}
           onKeyDown={(e) => {

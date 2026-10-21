@@ -383,16 +383,34 @@ export async function resolveSiteCoordsAsync(site) {
   return null;
 }
 
-/** WMO weathercode → 일정 이모지 */
-export function wmoCodeToEmoji(code) {
+/**
+ * 일별 예보 → 일정 이모지.
+ * Open-Meteo daily weather_code만 쓰면 흐림/안개가 맑음으로 나오고,
+ * 비 예보(강수확률·강수량)가 빠져 실제 예보와 어긋난다.
+ */
+export function dailyWeatherToEmoji({ code, precipSum = 0, precipProb = 0, snowfall = 0 } = {}) {
   const c = Number(code);
-  if (!Number.isFinite(c)) return DEFAULT_WEATHER;
-  if (c === 0 || c === 1 || c === 2) return '☀️';
-  if (c === 3 || c === 45 || c === 48) return '☀️';
-  if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return '☔';
-  if ((c >= 71 && c <= 77) || (c >= 85 && c <= 86)) return '⛄';
-  if (c >= 95 && c <= 99) return '🌀';
+  const rain = Number(precipSum) || 0;
+  const snow = Number(snowfall) || 0;
+  const prob = Number(precipProb) || 0;
+
+  if (Number.isFinite(c) && c >= 95 && c <= 99) return '🌀';
+  if (snow >= 0.1 || (Number.isFinite(c) && ((c >= 71 && c <= 77) || (c >= 85 && c <= 86)))) {
+    return '⛄';
+  }
+  if (
+    rain >= 0.3 ||
+    prob >= 40 ||
+    (Number.isFinite(c) && ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)))
+  ) {
+    return '☔';
+  }
   return DEFAULT_WEATHER;
+}
+
+/** WMO weathercode → 일정 이모지 (강수 정보 없을 때 폴백) */
+export function wmoCodeToEmoji(code) {
+  return dailyWeatherToEmoji({ code });
 }
 
 function todayStrSeoul() {
@@ -420,6 +438,28 @@ export function isPastScheduleDate(dateStr) {
   return day < todayStrSeoul();
 }
 
+/** 내일 이후(오늘 제외) — 예보와 맞춰야 하는 구간 */
+export function isFutureScheduleDate(dateStr) {
+  const day = normalizeDateStr(dateStr);
+  if (!day) return false;
+  return day > todayStrSeoul();
+}
+
+function addDaysSeoul(dateStr, days) {
+  const d = new Date(`${dateStr}T12:00:00+09:00`);
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+}
+
+function maxForecastDateStr() {
+  return addDaysSeoul(todayStrSeoul(), 16);
+}
+
+function itemShowsWeather(item) {
+  const tokens = String(item?.type || '').split(',').map((t) => t.trim());
+  return tokens.some((tok) => ['현장', '현설', '실측', '기타'].includes(tok));
+}
+
 /**
  * 자동 날씨로 덮어쓸 수 있는지.
  * - manual: 불가
@@ -432,23 +472,36 @@ export function canAutoOverwriteWeather({ weatherSource, dateStr, allowPastFetch
 }
 
 function cacheKey(lat, lon, dateStr) {
-  return `${dateStr}_${lat.toFixed(3)}_${lon.toFixed(3)}`;
+  return `v2_${dateStr}_${lat.toFixed(3)}_${lon.toFixed(3)}`;
 }
 
-async function fetchWeatherCode(lat, lon, dateStr) {
+function parseDayWeatherRow(data, index = 0) {
+  const codes = data?.daily?.weather_code || data?.daily?.weathercode || [];
+  const precip = data?.daily?.precipitation_sum || [];
+  const prob = data?.daily?.precipitation_probability_max || [];
+  const snow = data?.daily?.snowfall_sum || [];
+  if (!Array.isArray(codes) || codes.length === 0) return null;
+  return {
+    code: codes[index],
+    precipSum: precip[index],
+    precipProb: prob[index],
+    snowfall: snow[index],
+  };
+}
+
+async function fetchWeatherDetails(lat, lon, dateStr) {
   const today = todayStrSeoul();
   const isPast = dateStr < today;
   const base = isPast
     ? 'https://archive-api.open-meteo.com/v1/archive'
     : 'https://api.open-meteo.com/v1/forecast';
-  // weather_code(신규) + weathercode(구) 둘 다 요청
-  const url = `${base}?latitude=${lat}&longitude=${lon}&daily=weather_code,weathercode&timezone=Asia%2FSeoul&start_date=${dateStr}&end_date=${dateStr}`;
+  const daily = isPast
+    ? 'weather_code,weathercode,precipitation_sum,snowfall_sum'
+    : 'weather_code,weathercode,precipitation_sum,precipitation_probability_max,snowfall_sum';
+  const url = `${base}?latitude=${lat}&longitude=${lon}&daily=${daily}&timezone=Asia%2FSeoul&start_date=${dateStr}&end_date=${dateStr}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`weather http ${res.status}`);
-  const data = await res.json();
-  const codes = data?.daily?.weather_code || data?.daily?.weathercode;
-  if (!Array.isArray(codes) || codes.length === 0) return null;
-  return codes[0];
+  return parseDayWeatherRow(await res.json(), 0);
 }
 
 /**
@@ -465,9 +518,9 @@ export async function fetchDailyWeatherEmoji({ lat, lon, dateStr }) {
   }
 
   try {
-    const code = await fetchWeatherCode(lat, lon, day);
-    if (code == null) return null;
-    const emoji = wmoCodeToEmoji(code);
+    const details = await fetchWeatherDetails(lat, lon, day);
+    if (!details) return null;
+    const emoji = dailyWeatherToEmoji(details);
     WEATHER_CACHE.set(key, { emoji, at: Date.now() });
     return emoji;
   } catch (e) {
@@ -511,13 +564,14 @@ export async function resolveWeatherForSite(site, dateStr) {
 const AUTO_REFRESH_COOLDOWN = new Map();
 
 /**
- * 자동(weatherSource=auto) + 오늘/미래 일정만, 실제 날씨가 바뀌었으면 DB 갱신.
- * 수동(manual)·지난 날짜는 건드리지 않음.
+ * 자동(weatherSource=auto) + 내일 이후만, 실제 예보가 바뀌었으면 DB 갱신.
+ * 수동(manual)·오늘·지난 날짜는 건드리지 않음.
  * @returns {Promise<boolean>} 갱신 여부
  */
 export async function syncScheduleAutoWeather(schedule, site, updateFn) {
   if (!schedule?.id || typeof updateFn !== 'function') return false;
   if (schedule.weatherSource === 'manual') return false;
+  if (schedule.weather === '없음') return false;
   // auto 이거나, 예전 데이터(weatherSource 없음)+siteId 있으면 갱신 시도
   const canSync =
     schedule.weatherSource === 'auto' ||
@@ -525,7 +579,7 @@ export async function syncScheduleAutoWeather(schedule, site, updateFn) {
   if (!canSync) return false;
 
   const dateStr = normalizeDateStr(schedule.date);
-  if (!dateStr || isPastScheduleDate(dateStr)) return false;
+  if (!dateStr || !isFutureScheduleDate(dateStr)) return false;
 
   const last = AUTO_REFRESH_COOLDOWN.get(schedule.id) || 0;
   if (Date.now() - last < CACHE_TTL_MS) return false;
@@ -541,6 +595,200 @@ export async function syncScheduleAutoWeather(schedule, site, updateFn) {
     weatherFetchedAt: info.weatherFetchedAt,
   });
   return true;
+}
+
+/** 아젠다(목록형) 달력용 날씨 아이콘 */
+export function wmoCodeToAgendaIcon(code) {
+  const c = Number(code);
+  if (!Number.isFinite(c)) return '☀️';
+  if (c === 0 || c === 1) return '☀️';
+  if (c === 2) return '⛅';
+  if (c === 3 || c === 45 || c === 48) return '☁️';
+  if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return '🌧️';
+  if ((c >= 71 && c <= 77) || (c >= 85 && c <= 86)) return '🌨️';
+  if (c >= 95 && c <= 99) return '⛈️';
+  return '☀️';
+}
+
+const MONTH_WEATHER_CACHE = new Map();
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function parseDailyWeatherPayload(data) {
+  const times = data?.daily?.time || [];
+  const codes = data?.daily?.weather_code || data?.daily?.weathercode || [];
+  const tmax = data?.daily?.temperature_2m_max || [];
+  const tmin = data?.daily?.temperature_2m_min || [];
+  const precip = data?.daily?.precipitation_sum || [];
+  const prob = data?.daily?.precipitation_probability_max || [];
+  const snow = data?.daily?.snowfall_sum || [];
+  const map = {};
+  times.forEach((day, i) => {
+    const emoji = dailyWeatherToEmoji({
+      code: codes[i],
+      precipSum: precip[i],
+      precipProb: prob[i],
+      snowfall: snow[i],
+    });
+    let icon = wmoCodeToAgendaIcon(codes[i]);
+    if (emoji === '☔') icon = '🌧️';
+    else if (emoji === '⛄') icon = '🌨️';
+    else if (emoji === '🌀') icon = '⛈️';
+    map[day] = {
+      icon,
+      emoji,
+      tmax: tmax[i] != null && Number.isFinite(Number(tmax[i])) ? Math.round(Number(tmax[i])) : null,
+      tmin: tmin[i] != null && Number.isFinite(Number(tmin[i])) ? Math.round(Number(tmin[i])) : null,
+    };
+  });
+  return map;
+}
+
+const RANGE_DAILY_VARS_FORECAST =
+  'weather_code,weathercode,precipitation_sum,precipitation_probability_max,snowfall_sum,temperature_2m_max,temperature_2m_min';
+const RANGE_DAILY_VARS_ARCHIVE =
+  'weather_code,weathercode,precipitation_sum,snowfall_sum,temperature_2m_max,temperature_2m_min';
+
+async function fetchDailyWeatherRange(lat, lon, start, end, useArchive) {
+  const base = useArchive
+    ? 'https://archive-api.open-meteo.com/v1/archive'
+    : 'https://api.open-meteo.com/v1/forecast';
+  const daily = useArchive ? RANGE_DAILY_VARS_ARCHIVE : RANGE_DAILY_VARS_FORECAST;
+  const url = `${base}?latitude=${lat}&longitude=${lon}&daily=${daily}&timezone=Asia%2FSeoul&start_date=${start}&end_date=${end}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`weather http ${res.status}`);
+  return parseDailyWeatherPayload(await res.json());
+}
+
+async function fetchForecastEmojiByDate(lat, lon, start, end) {
+  const tomorrow = addDaysSeoul(todayStrSeoul(), 1);
+  const maxDay = maxForecastDateStr();
+  const from = start > tomorrow ? start : tomorrow;
+  const to = end > maxDay ? maxDay : end;
+  if (from > to) return {};
+  const range = await fetchDailyWeatherRange(lat, lon, from, to, false);
+  const map = {};
+  Object.entries(range).forEach(([day, row]) => {
+    if (row?.emoji) map[day] = row.emoji;
+  });
+  return map;
+}
+
+const SEOUL_COORDS = { lat: 37.5665, lon: 126.978 };
+
+/**
+ * 내일 이후 일정 항목 id → 예보 이모지.
+ * 좌표를 못 구하면 서울 예보로 표시만 하고, persistable=false.
+ */
+export async function buildFutureItemForecastMap(calendarItems, sites) {
+  const today = todayStrSeoul();
+  const groups = new Map();
+  const persistableIds = new Set();
+
+  for (const [dateStr, items] of Object.entries(calendarItems || {})) {
+    const day = normalizeDateStr(dateStr);
+    if (!day || day <= today) continue;
+    if (day > maxForecastDateStr()) continue;
+    for (const item of items || []) {
+      if (!item?.id || item.isEstimate) continue;
+      if (String(item.id).startsWith('estimate_') || String(item.id).startsWith('bid_')) continue;
+      if (item.weatherSource === 'manual' || item.weather === '없음') continue;
+      if (!itemShowsWeather(item)) continue;
+
+      const site = findSiteByIdOrName(sites, {
+        siteId: item.siteId,
+        siteName: item.siteName || item.text,
+      });
+      let coords = null;
+      if (site) {
+        coords = await resolveSiteCoordsAsync(site);
+        if (coords) persistableIds.add(item.id);
+      }
+      if (!coords) coords = SEOUL_COORDS;
+      const locKey = `${coords.lat.toFixed(3)}_${coords.lon.toFixed(3)}`;
+      if (!groups.has(locKey)) groups.set(locKey, { lat: coords.lat, lon: coords.lon, items: [] });
+      groups.get(locKey).items.push({ id: item.id, date: day });
+    }
+  }
+
+  const byItemId = {};
+  for (const group of groups.values()) {
+    const dates = group.items.map((it) => it.date).sort();
+    if (dates.length === 0) continue;
+    try {
+      const dayMap = await fetchForecastEmojiByDate(group.lat, group.lon, dates[0], dates[dates.length - 1]);
+      for (const it of group.items) {
+        if (dayMap[it.date]) byItemId[it.id] = dayMap[it.date];
+      }
+    } catch (e) {
+      console.warn('예보 구간 조회 실패:', e);
+    }
+  }
+
+  return { byItemId, persistableIds };
+}
+
+/** 달력 표시용: 내일 이후만 예보 이모지로 덮어쓴다. 오늘·이전은 그대로. */
+export function mergeLiveForecastWeather(calendarItems, forecastByItemId) {
+  if (!forecastByItemId || Object.keys(forecastByItemId).length === 0) return calendarItems;
+  const today = todayStrSeoul();
+  const next = {};
+  for (const [dateStr, items] of Object.entries(calendarItems || {})) {
+    if (!Array.isArray(items) || dateStr <= today) {
+      next[dateStr] = items;
+      continue;
+    }
+    next[dateStr] = items.map((item) => {
+      if (!item?.id) return item;
+      if (item.weatherSource === 'manual' || item.weather === '없음') return item;
+      const live = forecastByItemId[item.id];
+      if (!live || live === item.weather) return item;
+      return { ...item, weather: live };
+    });
+  }
+  return next;
+}
+
+/**
+ * 한 달치 날짜별 날씨 아이콘 + 최고/최저 기온 (서울 기본).
+ * @returns {Promise<Record<string, { icon: string, tmax: number|null, tmin: number|null }>>}
+ */
+export async function fetchMonthDailyWeather(year, month, coords) {
+  const lat = coords?.lat ?? 37.5665;
+  const lon = coords?.lon ?? 126.978;
+  const start = `${year}-${pad2(month + 1)}-01`;
+  const last = new Date(year, month + 1, 0).getDate();
+  const end = `${year}-${pad2(month + 1)}-${pad2(last)}`;
+  const key = `v2_${start}_${end}_${lat.toFixed(3)}_${lon.toFixed(3)}`;
+  const cached = MONTH_WEATHER_CACHE.get(key);
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.map;
+
+  const today = todayStrSeoul();
+  let map = {};
+  try {
+    if (end < today) {
+      map = await fetchDailyWeatherRange(lat, lon, start, end, true);
+    } else if (start >= today) {
+      map = await fetchDailyWeatherRange(lat, lon, start, end, false);
+    } else {
+      const y = new Date(`${today}T12:00:00`);
+      y.setDate(y.getDate() - 1);
+      const yesterday = y.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+      const pastEnd = yesterday < start ? null : (yesterday > end ? end : yesterday);
+      const futureStart = today < start ? start : today;
+      const [past, future] = await Promise.all([
+        pastEnd ? fetchDailyWeatherRange(lat, lon, start, pastEnd, true).catch(() => ({})) : Promise.resolve({}),
+        fetchDailyWeatherRange(lat, lon, futureStart, end, false).catch(() => ({})),
+      ]);
+      map = { ...past, ...future };
+    }
+    MONTH_WEATHER_CACHE.set(key, { map, at: Date.now() });
+  } catch (e) {
+    console.warn('월간 날씨 조회 실패:', e);
+  }
+  return map;
 }
 
 export function findSiteByIdOrName(sites, { siteId, siteName, text } = {}) {
