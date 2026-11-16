@@ -277,7 +277,6 @@ html, body, #root {
   background-color: #23242a !important;
   /* transform scale 제거 */
   transform: none !important;
-  scale: 1 !important;
   zoom: 1 !important;
   /* 스크롤 바운스 방지 */
   overscroll-behavior: none !important;
@@ -299,10 +298,9 @@ body {
   height: 100vh;
   line-height: 1.5;
   /* 상태바 영역 고려 */
-  padding-top: var(--status-bar-height);
+  padding-top: 0; /* status-bar는 Layout AppBar에서 처리 */
   /* transform scale 제거 */
   transform: none !important;
-  scale: 1 !important;
   zoom: 1 !important;
   /* 스크롤 바운스 방지 */
   overscroll-behavior: none !important;
@@ -332,7 +330,6 @@ code {
   background-color: #23242a !important;
   /* transform scale 제거 */
   transform: none !important;
-  scale: 1 !important;
   zoom: 1 !important;
   /* 스크롤 바운스 방지 */
   overscroll-behavior: none !important;
@@ -342,11 +339,10 @@ code {
 /* 모바일에서 상태바 고려한 올바른 레이아웃 */
 @media (max-width: 600px) {
   body {
-    padding-top: calc(env(safe-area-inset-top, 0px) + 2px) !important;
+    padding-top: 0 !important;
     margin-top: 0 !important;
     /* transform scale 제거 */
     transform: none !important;
-    scale: 1 !important;
     zoom: 1 !important;
     /* 모바일 최적화 */
     -webkit-overflow-scrolling: touch !important;
@@ -358,7 +354,6 @@ code {
     padding-top: 0 !important;
     /* transform scale 제거 */
     transform: none !important;
-    scale: 1 !important;
     zoom: 1 !important;
     /* 모바일 최적화 */
     -webkit-overflow-scrolling: touch !important;
@@ -371,7 +366,6 @@ code {
     padding-top: 0 !important;
     /* transform scale 제거 */
     transform: none !important;
-    scale: 1 !important;
     zoom: 1 !important;
     /* 모바일 최적화 */
     -webkit-overflow-scrolling: touch !important;
@@ -441,7 +435,6 @@ code {
     padding-top: 0 !important;
     /* transform scale 제거 */
     transform: none !important;
-    scale: 1 !important;
     zoom: 1 !important;
   }
   
@@ -451,7 +444,6 @@ code {
     height: 100vh;
     /* transform scale 제거 */
     transform: none !important;
-    scale: 1 !important;
     zoom: 1 !important;
   }
   
@@ -474,7 +466,6 @@ code {
     padding-top: 0 !important;
     /* transform scale 제거 */
     transform: none !important;
-    scale: 1 !important;
     zoom: 1 !important;
   }
   
@@ -485,7 +476,6 @@ code {
     padding-top: 0 !important;
     /* transform scale 제거 */
     transform: none !important;
-    scale: 1 !important;
     zoom: 1 !important;
   }
   
@@ -508,7 +498,6 @@ code {
     scroll-behavior: smooth !important;
     /* transform scale 제거 */
     transform: none !important;
-    scale: 1 !important;
     zoom: 1 !important;
   }
   
@@ -525,7 +514,6 @@ code {
     overflow-y: auto !important;
     /* transform scale 제거 */
     transform: none !important;
-    scale: 1 !important;
     zoom: 1 !important;
   }
   
@@ -536,7 +524,6 @@ code {
     overflow-y: auto !important;
     /* transform scale 제거 */
     transform: none !important;
-    scale: 1 !important;
     zoom: 1 !important;
   }
   
@@ -553,7 +540,6 @@ code {
     overflow-y: visible !important;
     /* transform scale 제거 */
     transform: none !important;
-    scale: 1 !important;
     zoom: 1 !important;
   }
   
@@ -1404,27 +1390,16 @@ body.popup-open {
 
 /* PWA 환경에서 상태바 영역 고려 */
 @media (display-mode: standalone) {
-  body {
-    padding-top: var(--status-bar-height);
-  }
-  
+  /* body padding 누적 금지 — AppBar/Layout만 safe-area 처리 */
   .header {
-    top: var(--status-bar-height);
-  }
-  
-  .main-content {
-    padding-top: calc(var(--status-bar-height) + 60px);
+    top: env(safe-area-inset-top, 0px);
   }
 }
 
 /* iOS Safari 상태바 영역 */
 @supports (padding: max(0px)) {
-  body {
-    padding-top: max(var(--status-bar-height), env(safe-area-inset-top));
-  }
-  
   .header {
-    top: max(var(--status-bar-height), env(safe-area-inset-top));
+    top: env(safe-area-inset-top, 0px);
   }
 }
 

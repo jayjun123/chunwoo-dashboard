@@ -423,19 +423,24 @@ const App = React.memo(() => {
     }
   }, []);
 
-  // 윈도우 위치 및 크기 관리 초기화 (PWA 모드에서만)
+  // 잘못 저장된 창 크기 정리 + 뷰포트 scale 고정 (자동 resizeTo 금지)
   useEffect(() => {
-    if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
-      try {
-        const cleanup = initializeWindow();
-        console.log('윈도우 관리자 초기화 완료');
-        
-        // 컴포넌트 언마운트 시 클린업
-        return cleanup;
-      } catch (error) {
-        console.error('윈도우 관리자 초기화 오류:', error);
-        // 오류가 발생해도 앱은 계속 실행
+    try {
+      initializeWindow(); // localStorage 창크기 잔재만 삭제, resize 안 함
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute(
+          'content',
+          'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover'
+        );
       }
+      // 브라우저/OS 줌이 남아 있으면 CSS로 강제 리셋
+      document.documentElement.style.zoom = '1';
+      document.body.style.zoom = '1';
+      document.documentElement.style.transform = 'none';
+      document.body.style.transform = 'none';
+    } catch (error) {
+      console.error('뷰포트/창크기 초기화 오류:', error);
     }
   }, []);
 
@@ -484,7 +489,7 @@ const App = React.memo(() => {
     try {
       configureIME({
         enableLogging: import.meta.env.DEV,
-        enableViewportAdjustment: true,
+        enableViewportAdjustment: false,
         enableCursorFix: true,
         keyboardDetectionThreshold: 150
       });

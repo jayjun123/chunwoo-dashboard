@@ -1,6 +1,6 @@
-// 윈도우 위치 및 크기 관리 유틸리티
-// 주의: resizeTo()는 outer(창틀 포함) 기준. 저장도 outer로 맞춰야
-// 새로고침마다 창이 커지는 피드백 루프가 생기지 않는다.
+// 윈도우 위치/크기 유틸
+// 주의: 예전에는 새로고침마다 resizeTo + inner/outer 혼용으로 창이 계속 커졌다.
+// 지금은 로드 시 자동 리사이즈를 하지 않는다. (설정 화면에서만 수동 조작)
 
 const WINDOW_POSITION_KEY = 'app_window_position';
 const WINDOW_SIZE_KEY = 'app_window_size';
@@ -19,6 +19,16 @@ const canControlWindow = () =>
   typeof window.resizeTo === 'function' &&
   (window.navigator.standalone ||
     window.matchMedia('(display-mode: standalone)').matches);
+
+/** 과거에 잘못 저장된 크기 값을 제거 (커짐 루프 잔재) */
+export const clearCorruptWindowSize = () => {
+  try {
+    localStorage.removeItem(WINDOW_SIZE_KEY);
+    localStorage.removeItem(WINDOW_POSITION_KEY);
+  } catch (error) {
+    console.warn('윈도우 설정 삭제 실패:', error);
+  }
+};
 
 export const saveWindowPosition = (x, y) => {
   try {
@@ -80,16 +90,11 @@ export const setWindowPosition = (x, y) => {
   }
 };
 
+/** 설정 화면 등에서만 수동 호출. 자동 로드 경로에서는 사용하지 않음. */
 export const setWindowSize = (width, height) => {
   if (!canControlWindow()) return;
   try {
     const next = clampSize(width, height);
-    const curW = window.outerWidth || window.innerWidth;
-    const curH = window.outerHeight || window.innerHeight;
-    // 1~2px 차이는 OS 창틀 오차 — 불필요한 resize로 루프 방지
-    if (Math.abs(curW - next.width) <= 2 && Math.abs(curH - next.height) <= 2) {
-      return;
-    }
     window.resizeTo(next.width, next.height);
     saveWindowSize(next.width, next.height);
   } catch (error) {
@@ -98,18 +103,18 @@ export const setWindowSize = (width, height) => {
 };
 
 export const centerWindow = () => {
+  if (!canControlWindow()) return;
   const screenWidth = window.screen.availWidth;
   const screenHeight = window.screen.availHeight;
-  const windowSize = loadWindowSize();
-  const x = Math.max(0, (screenWidth - windowSize.width) / 2);
-  const y = Math.max(0, (screenHeight - windowSize.height) / 2);
+  const w = window.outerWidth || DEFAULT_WINDOW_CONFIG.width;
+  const h = window.outerHeight || DEFAULT_WINDOW_CONFIG.height;
+  const x = Math.max(0, (screenWidth - w) / 2);
+  const y = Math.max(0, (screenHeight - h) / 2);
   setWindowPosition(x, y);
 };
 
 export const setWindowToMonitor = (monitorIndex = 0) => {
-  const x = monitorIndex * 100;
-  const y = 100;
-  setWindowPosition(x, y);
+  setWindowPosition(monitorIndex * 100, 100);
 };
 
 export const setAlwaysOnTop = (enabled = false) => {
@@ -118,73 +123,24 @@ export const setAlwaysOnTop = (enabled = false) => {
   }
 };
 
-export const setupWindowResizeListener = () => {
-  if (!canControlWindow()) return () => {};
-
-  let resizeTimeout;
-  const handleResize = () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-      // resizeTo 복원과 동일한 outer 기준으로 저장해야 새로고침 시 창이 커지지 않음
-      const w = window.outerWidth || window.innerWidth;
-      const h = window.outerHeight || window.innerHeight;
-      saveWindowSize(w, h);
-    }, 500);
-  };
-
-  window.addEventListener('resize', handleResize);
-  return () => {
-    window.removeEventListener('resize', handleResize);
-    clearTimeout(resizeTimeout);
-  };
-};
-
-export const setupWindowMoveListener = () => {
-  if (!canControlWindow()) return () => {};
-
-  let moveTimeout;
-  const interval = setInterval(() => {
-    clearTimeout(moveTimeout);
-    moveTimeout = setTimeout(() => {
-      const currentX = window.screenX;
-      const currentY = window.screenY;
-      const saved = loadWindowPosition();
-      if (currentX !== saved.x || currentY !== saved.y) {
-        saveWindowPosition(currentX, currentY);
-      }
-    }, 200);
-  }, 1000);
-
-  return () => {
-    clearInterval(interval);
-    clearTimeout(moveTimeout);
-  };
-};
-
+/**
+ * 앱 시작 시 호출.
+ * 자동 resizeTo 는 하지 않는다 — 새로고침마다 창이 커지는 원인이었음.
+ * 잘못된 저장값만 정리한다.
+ */
 export const initializeWindow = () => {
-  if (!canControlWindow()) {
-    return () => {};
+  try {
+    // 커짐 루프를 만든 저장값 제거
+    clearCorruptWindowSize();
+  } catch (error) {
+    console.warn('윈도우 초기화 실패:', error);
   }
-
-  const position = loadWindowPosition();
-  const size = loadWindowSize();
-
-  setWindowPosition(position.x, position.y);
-  setWindowSize(size.width, size.height);
-
-  const cleanupResize = setupWindowResizeListener();
-  const cleanupMove = setupWindowMoveListener();
-
-  return () => {
-    cleanupResize();
-    cleanupMove();
-  };
+  return () => {};
 };
 
 export const resetWindowSettings = () => {
   try {
-    localStorage.removeItem(WINDOW_POSITION_KEY);
-    localStorage.removeItem(WINDOW_SIZE_KEY);
+    clearCorruptWindowSize();
     if (canControlWindow()) centerWindow();
   } catch (error) {
     console.warn('윈도우 설정 초기화 실패:', error);

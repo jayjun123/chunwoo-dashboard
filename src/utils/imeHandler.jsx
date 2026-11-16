@@ -427,11 +427,11 @@ export const usePWAKeyboardOptimization = () => {
         // 키보드가 열렸을 때 뷰포트 조정
         const isKeyboardOpen = window.innerHeight < window.outerHeight * 0.8;
         
-        if (isKeyboardOpen) {
-          viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover');
-        } else {
-          viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover');
-        }
+        // scale 고정 — user-scalable 토글/동적 scale 은 확대 누적 원인
+        viewport.setAttribute(
+          'content',
+          'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover'
+        );
       }
     };
 
