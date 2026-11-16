@@ -14,20 +14,18 @@ const KeyboardManager = () => {
         const visualViewport = window.visualViewport;
         if (visualViewport) {
           const height = visualViewport.height;
-          const scale = visualViewport.scale;
-          
+
           // 키보드가 올라왔는지 감지
           const isKeyboardVisible = height < window.innerHeight * 0.8;
           
+          // visualViewport.scale 을 meta에 넣으면 새로고침마다 확대가 누적됨
           if (isKeyboardVisible) {
-            // 키보드가 올라왔을 때 뷰포트 조정
-            viewport.setAttribute('content', 
-              `width=device-width, initial-scale=${scale}, maximum-scale=${scale}, minimum-scale=${scale}, user-scalable=no, viewport-fit=cover, height=${height}px`
+            viewport.setAttribute('content',
+              `width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, height=${Math.round(height)}px`
             );
           } else {
-            // 키보드가 내려갔을 때 원래 뷰포트로 복원
-            viewport.setAttribute('content', 
-              'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover'
+            viewport.setAttribute('content',
+              'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover'
             );
           }
         }
@@ -58,8 +56,8 @@ const KeyboardManager = () => {
       // 입력 필드에서 포커스가 나갔을 때 뷰포트 복원
       const viewport = document.querySelector('meta[name="viewport"]');
       if (viewport) {
-        viewport.setAttribute('content', 
-          'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover'
+        viewport.setAttribute('content',
+          'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover'
         );
       }
     };

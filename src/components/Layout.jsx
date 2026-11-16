@@ -28,6 +28,7 @@ import SwipeableContainer from './common/SwipeableContainer.jsx';
 
 import {
   Menu as MenuIcon,
+  ArrowBackIosNew as ArrowBackIosNewIcon,
   Dashboard as DashboardIcon,
   Construction as ConstructionIcon,
   CalendarToday as CalendarIcon,
@@ -52,7 +53,6 @@ import {
   Assignment as AssignmentIcon,
   Payments as PaymentsIcon,
   Architecture as ArchitectureIcon,
-  Newspaper as NewspaperIcon,
   Timeline as TimelineIcon,
   Star as StarIcon,
   Gavel as GavelIcon,
@@ -88,7 +88,6 @@ import BottomBar from './dashboard/BottomBar';
 import IdeaPad from './NotepadApp';
 
 const menuItems = [
-  { text: '건설뉴스', icon: <NewspaperIcon />, path: '/news' },
   { text: '일정관리', icon: <EventIcon />, path: '/schedule', iconColor: '#9C27B0' },
   { text: '현장일정', icon: <TimelineIcon />, path: '/gantt' },
   { text: '주요현장', icon: <StarIcon />, path: '/importantSite', iconColor: '#FFD700' },
@@ -281,25 +280,50 @@ const Layout = React.memo(({ children }) => {
           color: 'white',
           boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           zIndex: (theme) => theme.zIndex.drawer + 1,
-          height: isMobile ? '45px' : '58px',
+          top: 0,
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          height: isMobile
+            ? 'calc(48px + env(safe-area-inset-top, 0px))'
+            : 'calc(58px + env(safe-area-inset-top, 0px))',
           borderBottom: '1px solid #333',
-          display: isMobile ? 'none' : 'block',
         }}
       >
         <Toolbar sx={{ 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          minHeight: isMobile ? '45px' : '58px',
-          height: isMobile ? '45px' : '58px'
+          minHeight: isMobile ? '48px' : '58px',
+          height: isMobile ? '48px' : '58px',
+          px: isMobile ? 0.5 : 2,
         }}>
+          {isMobile && (
+            location.pathname.startsWith('/sites') && location.state?.siteDetail ? (
+            <IconButton
+              color="inherit"
+              onClick={() => navigate('/sites', { replace: true })}
+              aria-label="뒤로"
+              sx={{ mr: 0.5 }}
+            >
+              <ArrowBackIosNewIcon />
+            </IconButton>
+            ) : (
+            <IconButton
+              color="inherit"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="메뉴"
+              sx={{ mr: 0.5 }}
+            >
+              <MenuIcon />
+            </IconButton>
+            )
+          )}
           {/* 왼쪽: 로고 */}
-          <Box sx={{ minWidth: 70, px: 1, display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ minWidth: isMobile ? 40 : 70, px: isMobile ? 0 : 1, display: 'flex', alignItems: 'center' }}>
             <img 
               src="/chunwoo.png?v=2" 
               alt="천우 건설현장관리시스템 로고" 
               width="120"
               height="40"
-              style={{ height: 40, width: 'auto', cursor: 'pointer' }}
+              style={{ height: isMobile ? 28 : 40, width: 'auto', cursor: 'pointer' }}
               onError={(e) => {
                 // 캐시로 인한 로고 깨짐 방지: 실패 시 동일 파일로 재시도
                 if (!e.currentTarget.dataset.retried) {
@@ -397,11 +421,13 @@ const Layout = React.memo(({ children }) => {
           <Box sx={{ 
             display: 'flex', 
             alignItems: 'center', 
-            gap: 2,
-            minWidth: 200,
+            gap: isMobile ? 0.5 : 2,
+            minWidth: isMobile ? 0 : 200,
+            flexShrink: 0,
             justifyContent: 'flex-end'
           }}>
-            {/* 그림판 버튼 */}
+            {/* 그림판 버튼 — 모바일 헤더는 로고/등급만 유지 */}
+            {!isMobile && (
             <IconButton
               size="small"
               color="inherit"
@@ -409,20 +435,22 @@ const Layout = React.memo(({ children }) => {
               onClick={() => setPaintAppOpen(true)}
               sx={{
                 backgroundColor: 'rgba(255,255,255,0.1)',
+                p: 1,
                 '&:hover': {
                   backgroundColor: 'rgba(255,255,255,0.2)',
                 }
               }}
             >
-              <EditNoteIcon />
+              <EditNoteIcon sx={{ fontSize: 24 }} />
             </IconButton>
+            )}
 
             {/* 회원 등급 표시 */}
             <div 
               style={{ 
                 fontWeight: 600, 
-                fontSize: 13,
-                padding: '4px 12px',
+                fontSize: isMobile ? 11 : 13,
+                padding: isMobile ? '2px 8px' : '4px 12px',
                 borderRadius: 20,
                 backgroundColor: currentUser?.role === 'team' ? '#4caf50' : 
                                currentUser?.role === 'admin' ? '#ffeb3b' :
@@ -444,10 +472,11 @@ const Layout = React.memo(({ children }) => {
 
             {/* 프로필 메뉴 */}
             <IconButton
-              size="large"
+              size={isMobile ? 'small' : 'large'}
               color="inherit"
               onClick={handleProfileMenuOpen}
               aria-label="사용자 메뉴"
+              sx={{ p: isMobile ? 0.5 : 1 }}
             >
               <AccountCircleIcon />
             </IconButton>
@@ -476,7 +505,13 @@ const Layout = React.memo(({ children }) => {
           </Typography>
         </Box>
         <Box sx={{ p: 1 }}>
-          {filteredMenuItems.map((item) => (
+          {filteredMenuItems.filter((item) => ![
+            '건설뉴스',
+            '현장세부내용',
+            '견적요청',
+            '입찰현황',
+            '거래처관리',
+          ].includes(item.text)).map((item) => (
             <Box
               key={item.text}
               sx={{
@@ -537,12 +572,18 @@ const Layout = React.memo(({ children }) => {
           '&::-webkit-scrollbar': { display: 'none' },
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
-          ...(isMobile && { marginTop: '5px' }),
+          ...(isMobile && {
+            marginTop: 'calc(48px + env(safe-area-inset-top, 0px))',
+            height: 'calc(100dvh - 66px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))',
+            maxHeight: 'calc(100dvh - 66px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))',
+            overflow: 'hidden',
+          }),
           // 일정관리 페이지일 때만 고정 높이 적용
           ...(location.pathname === '/schedule' && !isMobile && {
-            marginTop: '60px',
-            height: 'calc(90vh - 160px)',
-            maxHeight: 'calc(90vh - 160px)'
+            marginTop: '58px',
+            height: 'calc(100vh - 58px - 56px)',
+            maxHeight: 'calc(100vh - 58px - 56px)',
+            overflow: 'hidden',
           }),
           // 시공팀/현장관리 페이지: 하단바 바로 위까지 높이 채우고 내부 스크롤
           ...((location.pathname === '/daema-team' || location.pathname === '/company-distribution' || location.pathname.startsWith('/inventory')) && {

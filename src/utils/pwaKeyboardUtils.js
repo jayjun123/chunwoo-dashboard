@@ -182,23 +182,22 @@ class KeyboardManager {
     this.restoreScrollPosition();
   }
 
-  // 뷰포트 메타 태그 조정
+  // 뷰포트는 항상 scale=1 고정. user-scalable 토글/동적 scale은
+  // 새로고침·키보드 개폐 시 화면이 점점 커지는 원인이 된다.
+  static VIEWPORT_CONTENT =
+    'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover';
+
   adjustViewportMeta() {
     const viewport = document.querySelector('meta[name="viewport"]');
     if (viewport) {
-      viewport.setAttribute('content', 
-        'width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover'
-      );
+      viewport.setAttribute('content', KeyboardManager.VIEWPORT_CONTENT);
     }
   }
 
-  // 뷰포트 메타 태그 복원
   restoreViewportMeta() {
     const viewport = document.querySelector('meta[name="viewport"]');
     if (viewport) {
-      viewport.setAttribute('content', 
-        'width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover'
-      );
+      viewport.setAttribute('content', KeyboardManager.VIEWPORT_CONTENT);
     }
   }
 
@@ -206,17 +205,9 @@ class KeyboardManager {
   optimizeInputFields() {
     const inputs = document.querySelectorAll('input, textarea, select');
     inputs.forEach(input => {
-      // 폰트 크기 조정 (iOS 줌 방지)
       input.style.fontSize = '16px';
-      
-      // 하드웨어 가속
-      input.style.transform = 'translateZ(0)';
-      
-      // 자동 완성 방지
-      input.setAttribute('autocomplete', 'off');
-      input.setAttribute('autocorrect', 'off');
-      input.setAttribute('autocapitalize', 'off');
-      input.setAttribute('spellcheck', 'false');
+      input.style.webkitUserSelect = 'text';
+      input.style.userSelect = 'text';
     });
   }
 

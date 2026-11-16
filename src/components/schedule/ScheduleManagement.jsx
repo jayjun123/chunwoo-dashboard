@@ -2486,17 +2486,17 @@ const ScheduleManagement = ({
   return (
     <Box sx={{ 
       p: 0, 
-      height: isMobile ? '100%' : 'calc(100vh - 4px)',
+      height: isMobile ? '100%' : undefined,
       width: '100%',
       mx: 0,
       px: 0,
       margin: 0,
       padding: 0,
       position: isMobile ? 'relative' : 'fixed',
-      top: isMobile ? 0 : '60px',
+      top: isMobile ? 0 : '58px',
       left: 0,
       right: 0,
-      bottom: isMobile ? 0 : '160px',
+      bottom: isMobile ? 0 : '56px',
       overflow: 'hidden',
       bgcolor: '#23242a',
       zIndex: 1
@@ -2566,10 +2566,10 @@ const ScheduleManagement = ({
             borderRadius: 2, 
             display: { xs: 'none', md: 'flex' },
             flexDirection: 'column', 
-            height: 'calc(100vh - 120px)',
-            maxHeight: 'calc(100vh - 120px)',
-            mt: '15px',
-            overflow: 'visible',
+            height: '100%',
+            maxHeight: '100%',
+            mt: 0,
+            overflow: 'hidden',
             bgcolor: '#23242a'
           }}>
             <Box sx={{ 
