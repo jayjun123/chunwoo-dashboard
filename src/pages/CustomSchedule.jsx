@@ -249,67 +249,85 @@ const CustomSchedule = () => {
         (Array.isArray(sites) ? sites.find((s) => s.id === draggableId) : null) ||
         filteredSites[source.index];
       if (!site) return;
-      let weatherFields = {};
-      try {
-        const info = await resolveWeatherForSite(site, destination.droppableId);
-        if (info) {
-          weatherFields = info;
-        } else {
-          console.warn('날씨 자동채움 실패(주소/좌표 확인):', site.name, getSiteAddress(site));
-        }
-      } catch (e) {
-        console.warn('드래그 일정 날씨 조회 실패:', e);
+
+      const dateStr = destination.droppableId;
+      const itemsOnDate = calendarItems[dateStr] || [];
+      const isDuplicate = itemsOnDate.some((item) => item.text === site.name && item.siteId === site.id);
+      if (isDuplicate) {
+        alert('같은 날짜에 같은 현장명과 제목으로 이미 등록된 일정이 있습니다.');
+        return;
       }
+
+      const now = new Date();
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const newItem = {
         text: site.name,
         type: '현장',
-        desc: '', // 설명을 빈 문자열로 설정 (자동 생성 방지)
+        desc: '',
         siteId: site.id,
         siteName: site.name,
-        date: new Date(destination.droppableId + 'T12:00:00'),
+        date: new Date(`${dateStr}T12:00:00`),
         userId: user.uid,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        ...weatherFields,
+        createdAt: now,
+        updatedAt: now,
       };
+
+      setCalendarItems((prev) => ({
+        ...prev,
+        [dateStr]: [...(prev[dateStr] || []), { ...newItem, id: tempId }],
+      }));
+
       try {
-        await addDoc(collection(db, 'schedules'), newItem);
+        const docRef = await addDoc(collection(db, 'schedules'), newItem);
+        resolveWeatherForSite(site, dateStr)
+          .then((info) => {
+            if (!info) return;
+            return updateDoc(doc(db, 'schedules', docRef.id), {
+              ...info,
+              updatedAt: new Date(),
+            });
+          })
+          .catch((e) => console.warn('드래그 일정 날씨 백그라운드 갱신 실패:', e));
       } catch (error) {
+        setCalendarItems((prev) => ({
+          ...prev,
+          [dateStr]: (prev[dateStr] || []).filter((item) => item.id !== tempId),
+        }));
         alert('일정 추가에 실패했습니다.');
       }
     } else if (source.droppableId !== destination.droppableId) {
       // Optimistic-UI: 즉시 상태 변경
       const sourceItems = Array.from(calendarItems[source.droppableId] || []);
       const [movedItem] = sourceItems.splice(source.index, 1);
-      
+      if (!movedItem) return;
+
       const newMovedItem = { ...movedItem, date: destination.droppableId };
-      
+
       const destItems = Array.from(calendarItems[destination.droppableId] || []);
       destItems.splice(destination.index, 0, newMovedItem);
-      
+
       const newCalendarItems = { ...calendarItems };
       newCalendarItems[source.droppableId] = sourceItems;
       newCalendarItems[destination.droppableId] = destItems;
+      const prevSnapshot = calendarItems;
       setCalendarItems(newCalendarItems);
 
       try {
         const itemId = draggableId.split('-').pop();
-        
+
         // 견적 일정인지 확인
         if (isEstimateItem(itemId)) {
-          // 견적 일정이면 estimates 컬렉션 업데이트
           const docRef = doc(db, 'estimates', itemId.replace('estimate_', ''));
           await updateDoc(docRef, {
             submissionDeadline: destination.droppableId,
             updatedAt: new Date()
           });
         } else {
-          // 일반 일정이면 schedules 컬렉션 업데이트
           const docRef = doc(db, 'schedules', itemId);
-          const updatePayload = {
-            date: destination.droppableId,
+          await updateDoc(docRef, {
+            date: new Date(`${destination.droppableId}T12:00:00`),
             updatedAt: new Date(),
-          };
+          });
           if (
             movedItem?.weatherSource !== 'manual' &&
             !(isPastScheduleDate(source.droppableId) && movedItem?.weather)
@@ -318,14 +336,17 @@ const CustomSchedule = () => {
               siteId: movedItem?.siteId,
               siteName: movedItem?.siteName || movedItem?.text,
             });
-            const info = await resolveWeatherForSite(linkedSite, destination.droppableId);
-            if (info) Object.assign(updatePayload, info);
+            resolveWeatherForSite(linkedSite, destination.droppableId)
+              .then((info) => {
+                if (!info) return;
+                return updateDoc(docRef, { ...info, updatedAt: new Date() });
+              })
+              .catch((e) => console.warn('이동 일정 날씨 백그라운드 갱신 실패:', e));
           }
-          await updateDoc(docRef, updatePayload);
         }
       } catch (error) {
         console.error('Failed to update schedule date', error);
-        // 에러 발생 시 원래 상태로 복구 (UI 복잡성으로 인해 생략, 필요시 추가)
+        setCalendarItems(prevSnapshot);
         alert('일정 이동에 실패했습니다.');
       }
     } else {

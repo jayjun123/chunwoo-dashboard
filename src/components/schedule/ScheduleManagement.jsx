@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, startTransition } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Box, Typography, Button, TextField, IconButton, Paper, MenuItem, Checkbox, FormControlLabel, Autocomplete, Tabs, Tab, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -67,6 +67,21 @@ function formatKoreanDate(dateStr) {
   const week = ['일', '월', '화', '수', '목', '금', '토'];
   const dayOfWeek = week[date.getDay()];
   return `${month}월 ${day}일(${dayOfWeek}) 일정`;
+}
+
+/** Firestore Timestamp/Date/문자열 → 서울 기준 YYYY-MM-DD (UTC toISOString 사용 금지) */
+function toSeoulDateStr(value) {
+  if (!value) return null;
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    return value.slice(0, 10);
+  }
+  try {
+    const d = value?.toDate ? value.toDate() : value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+  } catch {
+    return null;
+  }
 }
 
 // 견적 데이터를 일정으로 변환하는 함수
@@ -719,20 +734,10 @@ const ScheduleManagement = ({
               console.log('날짜가 없는 일정:', schedule);
               return;
             }
-            
-            let dateStr;
-            if (schedule.date.toDate) {
-              // Firestore Timestamp인 경우
-              const date = schedule.date.toDate();
-              dateStr = date.toISOString().slice(0, 10);
-            } else if (schedule.date instanceof Date) {
-              // JavaScript Date인 경우
-              dateStr = schedule.date.toISOString().slice(0, 10);
-            } else {
-              // 문자열인 경우
-              dateStr = schedule.date;
-            }
-            
+
+            const dateStr = toSeoulDateStr(schedule.date);
+            if (!dateStr) return;
+
             // 입찰 항목 변환
             if (schedule.type === '입찰') {
               const bidSchedule = convertBidToSchedule(schedule);
@@ -757,19 +762,9 @@ const ScheduleManagement = ({
             const schedule = convertEstimateToSchedule(estimate);
             if (schedule) {
               console.log('🔍 변환된 일정:', schedule);
-              let dateStr;
-              if (schedule.date.toDate) {
-                // Firestore Timestamp인 경우
-                const date = schedule.date.toDate();
-                dateStr = date.toISOString().slice(0, 10);
-              } else if (schedule.date instanceof Date) {
-                // JavaScript Date인 경우
-                dateStr = schedule.date.toISOString().slice(0, 10);
-              } else {
-                // 문자열인 경우
-                dateStr = schedule.date;
-              }
-              
+              const dateStr = toSeoulDateStr(schedule.date);
+              if (!dateStr) return;
+
               console.log('🔍 견적 일정 날짜:', dateStr);
               if (!newCalendarItems[dateStr]) {
                 newCalendarItems[dateStr] = [];
@@ -1031,18 +1026,16 @@ const ScheduleManagement = ({
   const onDragEnd = async (result) => {
     if (!result.destination) return;
     const { source, destination, draggableId } = result;
-    
-    // startTransition으로 감싸서 동기 입력 처리 개선
-    startTransition(async () => {
-      const user = authUser.currentUser;
-      if (!user) {
-        alert('로그인이 필요합니다.');
-        return;
-      }
+
+    const user = authUser.currentUser;
+    if (!user) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
 
     // 날짜셀 간 드래그앤드롭: 모바일에서는 비활성화, 웹에서는 활성화
     const isDateToDate = source.droppableId.startsWith('20') && destination.droppableId.startsWith('20');
-    
+
     if (isDateToDate && isMobile) {
       // 모바일에서는 날짜셀 간 드래그앤드롭 불가 (터치, 스크롤 등 다른 기능은 정상 작동)
       return;
@@ -1051,10 +1044,10 @@ const ScheduleManagement = ({
     if (source.droppableId === 'siteList' && destination.droppableId.startsWith('20')) {
       // 권한 체크
       if (!canAdd) {
-        const userInfo = authUser.currentUser ? 
-          `현재 사용자: ${authUser.currentUser.email || '이메일 없음'}` : 
-          '로그인되지 않음';
-        
+        const userInfo = authUser.currentUser
+          ? `현재 사용자: ${authUser.currentUser.email || '이메일 없음'}`
+          : '로그인되지 않음';
+
         let permissionInfo = '';
         if (permissionsLoaded) {
           if (userPermissions) {
@@ -1065,58 +1058,76 @@ const ScheduleManagement = ({
         } else {
           permissionInfo = '\n권한 정보 로딩 중...';
         }
-        
+
         alert(`일정 추가 권한이 없습니다.\n${userInfo}${permissionInfo}\n\n해결 방법:\n1. 회원관리에서 사용자를 등록하세요\n2. 권한관리에서 일정관리 권한을 부여하세요\n3. 관리자에게 문의하세요`);
         return;
       }
-      
+
       const site =
         filteredSites.find((s) => s.id === draggableId) ||
         (Array.isArray(sites) ? sites.find((s) => s.id === draggableId) : null) ||
         filteredSites[source.index];
       if (!site) return;
-      const itemsOnDate = calendarItems[destination.droppableId] || [];
-      const isDuplicate = itemsOnDate.some(item => item.text === site.name && item.siteId === site.id);
+
+      const dateStr = destination.droppableId;
+      const itemsOnDate = calendarItems[dateStr] || [];
+      const isDuplicate = itemsOnDate.some((item) => item.text === site.name && item.siteId === site.id);
       if (isDuplicate) {
         alert('같은 날짜에 같은 현장명과 제목으로 이미 등록된 일정이 있습니다.');
         return;
       }
-      // 실패 시 가짜 ☀️를 넣지 않음 (자동채움 실패와 맑음 구분을 위해)
-      let weatherFields = {};
-      try {
-        const info = await resolveWeatherForSite(site, destination.droppableId);
-        if (info) {
-          weatherFields = info;
-        } else {
-          console.warn('날씨 자동채움 실패(주소/좌표 확인):', site.name, getSiteAddress(site));
-        }
-      } catch (e) {
-        console.warn('드래그 일정 날씨 조회 실패:', e);
-      }
+
+      // 날씨 API를 기다리지 않음 — 먼저 저장·즉시 표시, 날씨는 백그라운드
+      const now = new Date();
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const newItem = {
         text: site.name,
-        type: '현장', // 무조건 현장으로 설정
-        desc: '', // 설명을 빈 문자열로 설정 (자동 생성 방지)
+        type: '현장',
+        desc: '',
         siteId: site.id,
-        date: new Date(destination.droppableId + 'T12:00:00'), // Date 객체로 변환
+        date: new Date(`${dateStr}T12:00:00`),
         userId: user.uid,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: now,
+        updatedAt: now,
         siteName: site.name,
-        ...weatherFields,
       };
+
+      // Optimistic UI: 드롭 즉시 날짜셀에 표시
+      setCalendarItems((prev) => ({
+        ...prev,
+        [dateStr]: [...(prev[dateStr] || []), { ...newItem, id: tempId }],
+      }));
+
       try {
+        let docRefId = null;
         if (onAddSchedule) {
-          // 부모 컴포넌트에서 전달받은 함수 사용
-          await onAddSchedule(newItem);
+          const added = await onAddSchedule(newItem);
+          docRefId = added?.id || null;
         } else {
-          // 기존 로직 사용
-          await addDoc(collection(db, 'schedules'), newItem);
+          const docRef = await addDoc(collection(db, 'schedules'), newItem);
+          docRefId = docRef.id;
+        }
+
+        // 날씨는 저장 후 비동기 갱신 (드롭 지연 원인 제거)
+        if (docRefId) {
+          resolveWeatherForSite(site, dateStr)
+            .then((info) => {
+              if (!info) return;
+              return updateDoc(doc(db, 'schedules', docRefId), {
+                ...info,
+                updatedAt: new Date(),
+              });
+            })
+            .catch((e) => console.warn('드래그 일정 날씨 백그라운드 갱신 실패:', e));
         }
       } catch (error) {
         console.error('일정 추가 실패:', error);
-        
-        // Firestore 오류 처리
+        // optimistic 롤백
+        setCalendarItems((prev) => ({
+          ...prev,
+          [dateStr]: (prev[dateStr] || []).filter((item) => item.id !== tempId),
+        }));
+
         if (error.code === 'permission-denied') {
           alert('일정 추가 권한이 없습니다. 관리자에게 문의하세요.');
         } else if (error.code === 'unavailable') {
@@ -1128,22 +1139,47 @@ const ScheduleManagement = ({
     } else if (source.droppableId !== destination.droppableId) {
       // 드래그앤드롭으로 날짜 이동 시 중복 체크
       const movedItem = (calendarItems[source.droppableId] || [])[source.index];
+      if (!movedItem) return;
       const itemsOnDate = calendarItems[destination.droppableId] || [];
-      const isDuplicate = itemsOnDate.some(item => item.text === movedItem.text && item.siteId === movedItem.siteId);
+      const isDuplicate = itemsOnDate.some(
+        (item) => item.text === movedItem.text && item.siteId === movedItem.siteId
+      );
       if (isDuplicate) {
         alert('같은 날짜에 같은 현장명과 제목으로 이미 등록된 일정이 있습니다.');
         return;
       }
-      // 실시간 구독으로 인해 Optimistic-UI 제거 - Firestore 업데이트만 수행
+
+      // Optimistic UI: 즉시 이동 반영
+      const prevSnapshot = calendarItems;
+      setCalendarItems((prev) => {
+        const sourceItems = [...(prev[source.droppableId] || [])];
+        const idx = sourceItems.findIndex((it) => it.id === movedItem.id);
+        const [removed] =
+          idx >= 0 ? sourceItems.splice(idx, 1) : sourceItems.splice(source.index, 1);
+        if (!removed) return prev;
+        const destItems = [...(prev[destination.droppableId] || [])];
+        destItems.splice(destination.index, 0, {
+          ...removed,
+          date: new Date(`${destination.droppableId}T12:00:00`),
+        });
+        return {
+          ...prev,
+          [source.droppableId]: sourceItems,
+          [destination.droppableId]: destItems,
+        };
+      });
 
       try {
-        const itemId = draggableId.split('-').pop();
+        const itemId = String(draggableId).includes('-')
+          ? draggableId.split('-').pop()
+          : movedItem.id || draggableId;
         const docRef = doc(db, 'schedules', itemId);
-        const updatePayload = {
-          date: new Date(destination.droppableId + 'T12:00:00'),
+        await updateDoc(docRef, {
+          date: new Date(`${destination.droppableId}T12:00:00`),
           updatedAt: new Date(),
-        };
-        // 지난 날짜에 이미 저장된 날씨는 고정. 미래 일정 이동·수동이 아닐 때만 재조회.
+        });
+
+        // 날씨 재조회는 백그라운드 (이동 반영을 막지 않음)
         const shouldRefreshWeather =
           movedItem?.weatherSource !== 'manual' &&
           !(isPastScheduleDate(source.droppableId) && movedItem?.weather);
@@ -1152,20 +1188,28 @@ const ScheduleManagement = ({
             siteId: movedItem?.siteId,
             siteName: movedItem?.siteName || movedItem?.text,
           });
-          const info = await resolveWeatherForSite(linkedSite, destination.droppableId);
-          if (info) Object.assign(updatePayload, info);
+          resolveWeatherForSite(linkedSite, destination.droppableId)
+            .then((info) => {
+              if (!info) return;
+              return updateDoc(docRef, { ...info, updatedAt: new Date() });
+            })
+            .catch((e) => console.warn('이동 일정 날씨 백그라운드 갱신 실패:', e));
         }
-        await updateDoc(docRef, updatePayload);
       } catch (error) {
         console.error('Failed to update schedule date', error);
-        // 에러 발생 시 원래 상태로 복구 (UI 복잡성으로 인해 생략, 필요시 추가)
+        setCalendarItems(prevSnapshot);
         alert('일정 이동에 실패했습니다.');
       }
     } else {
-      // 같은 날짜 내에서 순서 변경 - Firestore에서는 순서를 관리하지 않으므로 DB 업데이트 불필요
-      // 실시간 구독으로 인해 UI 업데이트도 제거
+      // 같은 날짜 내 순서 — 로컬만 즉시 반영
+      setCalendarItems((prev) => {
+        const items = [...(prev[source.droppableId] || [])];
+        const [reordered] = items.splice(source.index, 1);
+        if (!reordered) return prev;
+        items.splice(destination.index, 0, reordered);
+        return { ...prev, [source.droppableId]: items };
+      });
     }
-    }); // startTransition 닫기
   };
 
   const handleOpenPopup = (dateStr) => {
