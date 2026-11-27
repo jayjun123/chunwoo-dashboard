@@ -253,6 +253,56 @@ const downloadTemplateFromUrls = async (templateKey) => {
   }
 };
 
+/**
+ * 공유수식(shared formula)을 일반 수식으로 풀어준다.
+ * ExcelJS는 쓰기 시 clone 셀의 master(위/왼쪽)가 수식이 아니면
+ * "Shared Formula master must exist above and or left of clone" 오류를 던진다.
+ * 데이터 입력으로 master가 값으로 덮어써지면 L28 같은 clone 셀에서 발생하므로
+ * 로드 직후와 저장 직전에 모두 일반 수식/결과값으로 치환한다.
+ */
+export const flattenSharedFormulas = (workbook) => {
+  let flattened = 0;
+  let dropped = 0;
+  workbook.worksheets.forEach((sheet) => {
+    sheet.eachRow({ includeEmpty: false }, (row) => {
+      row.eachCell({ includeEmpty: false }, (cell) => {
+        try {
+          if (cell.type === ExcelJS.ValueType.Merge) return;
+          const v = cell.value;
+          if (!v || typeof v !== 'object') return;
+          const isShared = v.sharedFormula || v.shareType === 'shared';
+          if (!isShared) return;
+
+          let formula = v.formula;
+          if (!formula && v.sharedFormula) {
+            try {
+              formula = cell.formula; // master 기준으로 이동 변환된 수식
+            } catch (_) {
+              formula = undefined;
+            }
+          }
+
+          if (formula && typeof formula === 'string') {
+            cell.value = { formula, result: v.result };
+            flattened += 1;
+          } else {
+            // master가 없거나 수식이 아니면 계산된 결과값만 남긴다
+            cell.value = v.result !== undefined ? v.result : null;
+            dropped += 1;
+          }
+        } catch (e) {
+          try {
+            cell.value = null;
+            dropped += 1;
+          } catch (_) { /* ignore */ }
+        }
+      });
+    });
+  });
+  console.log(`🔧 공유수식 해제: 일반수식 ${flattened}개, 값으로 대체 ${dropped}개`);
+  return { flattened, dropped };
+};
+
 // 기성금청구서 템플릿 기반 생성
 export const generateTemplateBasedGisungExcel = async (siteData, gisungData, siteItems = [], currentSequence = 1, previousGisungData = null) => {
   try {
@@ -469,6 +519,9 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
     });
     
     console.log('✅ 템플릿 로드 완료');
+
+    // 데이터 입력 전에 공유수식을 모두 일반 수식으로 풀어 master 소실 오류 방지
+    flattenSharedFormulas(workbook);
     
     // 갑지 시트 가져오기
     const gapjiSheet = workbook.getWorksheet('갑지');
@@ -569,6 +622,9 @@ export const generateTemplateBasedGisungExcel = async (siteData, gisungData, sit
       console.log(`🖨️ 내역서 printArea = A1:M${printEndRow}, 열맞춤·2페이지, 49행 제거`);
     }
     
+    // 저장 직전 한 번 더: 입력 중 덮어써진 master 때문에 생긴 clone 오류 제거
+    flattenSharedFormulas(workbook);
+
     console.log('✅ 기성금청구서 템플릿 기반 생성 완료');
     return { 
       workbook, 
